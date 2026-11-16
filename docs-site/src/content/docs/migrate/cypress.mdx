@@ -35,7 +35,7 @@ Install e2e and configure a model with the [web guide](/get-started/web/). The e
 | `baseUrl`, `start-server-and-test` | `app.url` with `app.command` on the target, see [Web](/get-started/web/) |
 | `data-cy` selectors | `WebEngineOptions.TestIdAttribute = "data-cy"`, then `Screen.GetByTestId` |
 | `viewportWidth`, `viewportHeight`, `cy.visit(url, { auth, headers })` | `WebEngineOptions.Viewport`, `BasicAuth`, `Headers` |
-| `retries: { runMode: 2, openMode: 0 }` | NUnit `[Retry(2)]`; xUnit v3 has no retry attribute |
+| `retries: { runMode: 2, openMode: 0 }` | NUnit `[Retry(3)]`, which counts attempts; xUnit v3 has no retry attribute |
 | `env`, `Cypress.env()`, `cypress.env.json` | `Environment.GetEnvironmentVariable`; sign-in values go in `credentials` and `secrets`, see [Authentication](/features/signing-in/) |
 | `cypress run --browser firefox` | A target with `WebEngineOptions.BrowserName = BrowserName.Firefox` |
 

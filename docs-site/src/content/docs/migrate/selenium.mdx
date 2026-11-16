@@ -87,7 +87,7 @@ For xUnit v3, use `E2E.XUnit.V3` and `[Fact]`. The body is the same. Locator act
 | `.Click()`, `.Clear()`, `Actions.MoveToElement`, `Actions.DragAndDrop` | `.TapAsync()` (or `.ClickAsync()`), `.ClearAsync()`, `.HoverAsync()`, `.DragToAsync(target)` |
 | `.SendKeys("text")` | `.FillAsync("text")` replaces the content, `.PressSequentiallyAsync("text")` appends |
 | `.SendKeys(Keys.Enter)`, `Actions.KeyDown(Keys.Control).SendKeys("a")` | `.PressAsync("Enter")`, `.PressAsync("ControlOrMeta+a")` |
-| `.SendKeys(path)` on a file input, `new SelectElement(el).SelectByText` | `.SetInputFilesAsync(path)`, `.SelectOptionAsync("label")` |
+| `.SendKeys(path)` on a file input, `new SelectElement(el).SelectByText` | `.SetInputFilesAsync(path)`, `.SelectOptionAsync(new SelectOption { Label = "label" })` |
 | `.Text`, `.Displayed`, `.GetDomAttribute(name)` | `.TextContentAsync()`, `.IsVisibleAsync()`, `.GetAttributeAsync(name)` |
 | `.GetAttribute("value")`, `.GetAttribute("checked")` | `.InputValueAsync()`, `.IsCheckedAsync()`. e2e's `.GetAttributeAsync()` reads the DOM attribute, not the property |
 | `wait.Until(ElementIsVisible(...))`, `d => el.Text == "x"`, `UrlContains(...)` | `Expect.That(locator).ToBeVisibleAsync()`, `.ToHaveTextAsync("x")`, `Expect.That(Browser).ToHaveURLAsync(new Regex("..."))` |
@@ -107,7 +107,7 @@ Planned means on the roadmap, and Not yet means no date. Not planned means e2e l
 | `ExecuteScript(script, element)`, `GetDomProperty`, `GetCssValue` | A locator action such as `.TapAsync()` or `.ScrollIntoViewAsync()`, or `Browser.EvaluateAsync<T>` with a CSS selector |
 | `element.FindElement(By.CssSelector)` | One `Browser.Locator("a >> b")` selector, or chained `GetBy*` queries |
 | `ChromeOptions.AddArguments`, `BinaryLocation`, `Proxy`, `AcceptInsecureCerts` | Start Chrome or Edge with the flags, then attach with `WebEngineOptions.Connect` |
-| `[OneTimeSetUp]` and `[OneTimeTearDown]` for the whole run, xUnit collection fixtures | Once for the run: the script `app.command` starts, or a wrapper around `dotnet test`. Once for a class: `[OneTimeSetUp]` or `IAsyncLifetime`. Sign-in: an `[E2ESetup]` that saves a session |
+| `[OneTimeSetUp]` and `[OneTimeTearDown]` for the whole run, xUnit collection fixtures | Once for the run: the script `app.command` starts, or a wrapper around `dotnet test`. Once for a class: `[OneTimeSetUp]` (NUnit), or `IClassFixture<T>` with `IAsyncLifetime` on the fixture (xUnit). Sign-in: an `[E2ESetup]` that saves a session |
 | BrowserStack or Sauce Labs for web | Your own [browser provider](/features/browser/#hosted-browsers), if the vendor has a CDP endpoint |
 | `Manage().Logs`, request listeners, geolocation | Patch the page in `Browser.AddInitScriptAsync`, record requests in `Browser.RouteAsync` |
 | `NetworkConditions` | For offline, abort requests in `Browser.RouteAsync`. No throttling or latency, keep those tests in Selenium |

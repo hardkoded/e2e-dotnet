@@ -307,7 +307,7 @@ Planned is on the roadmap. Not yet has no date. Not planned is left out on purpo
 | --- | --- |
 | `Locator.Locator("css")`, `Locator.And(other)` | One `Browser.Locator` selector, such as `"css >> css"`, or a `Screen` query inside the scope: `cell.GetByRole("textbox")` for `cell.Locator("input")` |
 | `EvaluateAsync(fn)`, `EvaluateAllAsync(fn)` on a locator, `DispatchEventAsync()`, `BlurAsync()`, `SelectTextAsync()`, `ToHaveCSSAsync()`, `ToHaveIdAsync()`, `ToHaveJSPropertyAsync()`, `ToContainClassAsync()`, `ToHaveValuesAsync()` | `Browser.EvaluateAsync<T>(expression, selector)` with a CSS selector in the argument and a value assert; `Expect.That(Browser).ToHaveClassAsync(locator, cls)` |
-| `SetInputFilesAsync(new FilePayload { ... })`, `SelectOptionAsync(new[] { "a", "b" })`, `ClickAsync(new() { ClickCount })`, `HoverAsync(new() { Position })` | A temp file path (an empty list throws, so there is no clear); `Browser.EvaluateAsync` for a multi-select; `Browser.Mouse` with `BoundingBoxAsync()` |
+| `SetInputFilesAsync(new FilePayload { ... })`, `SelectOptionAsync(new[] { "a", "b" })`, `ClickAsync(new() { ClickCount })`, `HoverAsync(new() { Position })` | A temp file path; `SetInputFilesAsync([])` to clear the input; `Browser.EvaluateAsync` for a multi-select; `Browser.Mouse` with `BoundingBoxAsync()` |
 | `Expect(async () => { ... }).ToPassAsync()` with custom intervals | `Expect.Poll(read).ToBeAsync(...)`; it takes one `Interval` |
 | `ToBeEmptyAsync()`, `ToBeEditableAsync()`, `IsEditableAsync()`, `ToBeInViewportAsync()`, `ToHaveRoleAsync()`, `ToHaveAccessibleDescriptionAsync()`, `ToBeCheckedAsync(new() { Indeterminate })`, `UseInnerText` | `ToHaveValueAsync("")` on a form control, `ToHaveTextAsync("")` on other elements; `ToBeEnabledAsync()`; `Expect.Poll` over `BoundingBoxAsync()`; a `GetByRole` query |
 | `Locator.ScreenshotAsync()`, `ToHaveScreenshotAsync(new() { FullPage, Clip, Animations, Caret, Scale, StylePath })` | The viewport or one locator in `ToHaveScreenshotAsync`; `App.ScreenshotAsync(label)` captures the viewport |
@@ -379,7 +379,7 @@ Planned is on the roadmap. Not yet has no date. Not planned is left out on purpo
 ## Defaults that differ
 
 | Setting | Playwright .NET | e2e |
-| --- | --- |
+| --- | --- | --- |
 | Test timeout | the framework's (NUnit has none) | 120 s, `timeout` |
 | Action timeout | 30 s | 30 s, `actionTimeout` |
 | Expect timeout | 5 s | 5 s, `assertionTimeout` |

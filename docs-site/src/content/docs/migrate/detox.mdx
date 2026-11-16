@@ -155,7 +155,7 @@ Planned is on the roadmap, and Not yet has no date. Not planned is left out on p
 | `.setDatePickerDate()`, `.setColumnToValue()`, `.adjustSliderToPosition()` | An `Agent.ActAsync` goal, or a drag with `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` on a slider, the points taken from `.BoundingBoxAsync()` |
 | `.getAttributes()` | One call per field: `.TextContentAsync()`, `.InputValueAsync()`, `.IsEnabledAsync()`, `.IsVisibleAsync()`, `.IsCheckedAsync()`, `.BoundingBoxAsync()`, `.GetAttributeAsync("placeholder")` |
 | `permissions` for names and values beyond `PermissionState.Grant`, `Deny`, `Reset` | Tap the prompt's button, or `Device.AlertAsync(AlertAction.Accept)` |
-| `device.sendUserNotification()`, `device.uninstallApp()`, `.pinch()` | `Device.UnstableRaw.Client.CallAsync(...)`, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
+| `device.sendUserNotification()`, `device.uninstallApp()` | `Device.UnstableRaw.Client.CallAsync(...)`, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
 | `launchApp({ languageAndLocale })` | On iOS, `app.launchArguments` of `["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]`, see [Run the app in another language](/get-started/mobile/#run-the-app-in-another-language) |
 | Jest `globalSetup`, `globalTeardown` | Start dependencies before the run, or in a framework-level one-time setup |
 | `device.reverseTcpPort()` | Run `adb reverse` in a CI step |
@@ -167,6 +167,7 @@ Planned is on the roadmap, and Not yet has no date. Not planned is left out on p
 
 | Detox | Use today |
 | --- | --- |
+| `.pinch()` | The raw client has no pinch. Keep the test in Detox |
 | `.toBeVisible(50)`, and the 75% default | `.ToBeVisibleAsync()` checks the platform's flag, not the area. Compare `.BoundingBoxAsync()` |
 | `web.element(by.web.cssSelector('x'))` | The WebView's accessibility text and labels, or an `Agent.ActAsync` goal |
 | `device.resetContentAndSettings()` | `App.ClearStateAsync()`, plus `Device.ClearKeychainAsync()` on iOS, which clears the simulator keychain for every app |
@@ -181,7 +182,7 @@ Planned is on the roadmap, and Not yet has no date. Not planned is left out on p
 | `device.reloadReactNative()` | `App.RestartAsync()`. A reload needs the Detox framework in the app |
 | `device.disableSynchronization()`, `enableSynchronization()` | Delete the calls. There is no synchronization to switch off |
 | `device.setURLBlacklist()` | Delete the call. Network activity never blocks an action |
-| `behavior.init.reinstallApp`, `--reuse` | `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` in `[SetUp]` |
+| `behavior.init.reinstallApp`, `--reuse` | `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` in `[SetUp]`, then `App.OpenAsync()` in the test |
 | `apps.<name>.build`, `detox build` | Your normal build, before `dotnet test` |
 | `.scroll()` by an exact offset | `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` |
 | `by.type('RCTImageView')` | `Device.Locator("role=image")`, or a `testID` |
