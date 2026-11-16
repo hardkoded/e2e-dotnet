@@ -85,7 +85,7 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
     public const string EngineVersion = "0.11.0";
 
     /// <summary>The fixtures of a session on this engine: its <c>Device</c>. A session no device engine started is a <c>WORKER_PROTOCOL</c> failure.</summary>
-    public MobileFixtures CreateFixtures(IEngineSession session) =>
+    public MobileFixtures CreateFixtures(IEngineSession session, Session controls) =>
         session is DeviceSession device
             ? new MobileFixtures(device.Device)
             : throw new EngineException("WORKER_PROTOCOL", "a mobile engine builds its fixtures from the device session it started");

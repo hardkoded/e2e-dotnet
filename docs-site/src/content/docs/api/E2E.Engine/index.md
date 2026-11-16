@@ -121,10 +121,12 @@ Public types in the `E2E.Engine` namespace.
 | [VideoFile](/api/E2E.Engine/VideoFile/) | A video file in the attempt artifact directory. |
 | [VideoLink](/api/E2E.Engine/VideoLink/) | A recording a hosted service keeps, by URL: the report links to it and the runner never downloads it. |
 | [VideoSegment](/api/E2E.Engine/VideoSegment/) | One recorded video of an attempt: a file the engine wrote into the attempt artifact directory (VideoFile), or a recording a hosted service keeps and links to (VideoLink). |
+| [WebApp](/api/E2E.Engine/WebApp/) | App on a web target. A WebEngine target always declares app.url, so BaseUrl is always set. Upstream's WebApp (web/fixtures.ts). |
 | [WebBasicAuth](/api/E2E.Engine/WebBasicAuth/) | HTTP basic authentication the browser answers a 401 challenge with. |
 | [WebConnectOptions](/api/E2E.Engine/WebConnectOptions/) | Attach to a remote Chromium over CDP instead of launching one. Supplying ReconnectEndpoint opts into a persistent context instead. |
 | [WebEngine](/api/E2E.Engine/WebEngine/) | Browser engine for the web target. It drives Chromium, Firefox, or WebKit through Playwright, reads a semantic tree (role, name, text, test id, state), and performs the same node actions the document engine does. Install browsers once with playwright.ps1 install chromium (or firefox, webkit) from this project's build output. |
 | [WebEngineOptions](/api/E2E.Engine/WebEngineOptions/) | Options of the browser engine: how it drives the app. |
+| [WebFixtures](/api/E2E.Engine/WebFixtures/) | What a session on a WebEngine holds beside Screen: the Browser fixture, and App with its BaseUrl always set. Read it from Fixtures. Upstream's WebFixtures (web/fixtures.ts). |
 | [WebInitScript](/api/E2E.Engine/WebInitScript/) | A script every document runs before the page's own, in every tab and frame: JavaScript source, a file of it, or a function source the page calls. A string converts to source. |
 | [WebMedia](/api/E2E.Engine/WebMedia/) | User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left null keeps the browser's own value, or the one an earlier call set. |
 | [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/) | The request a route intercepted. |

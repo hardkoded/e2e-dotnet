@@ -15,7 +15,7 @@ Namespace: [E2E](/api/E2E/)
 
 
 ```csharp
-public sealed class App
+public class App
 ```
 
 
@@ -23,6 +23,8 @@ Opens and resets the app under test. A relative URL is resolved against
 [BaseUrl](#E2E_App_BaseUrl); no URL opens the base URL.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
+
+**Derived:** [WebApp](/api/E2E.Engine/WebApp/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs)
 
