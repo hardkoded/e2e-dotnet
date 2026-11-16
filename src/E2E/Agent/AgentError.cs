@@ -39,6 +39,9 @@ internal static class AgentError
         ["REPLAY_STALE"] = "configuration",
     };
 
+    /// <summary>The codes that mean no model answered (upstream's <c>MODEL_UNREACHABLE_CODES</c>, derived from <c>AGENT_CODE_TABLE</c>).</summary>
+    public static IReadOnlySet<string> ModelUnreachableCodes { get; } = new HashSet<string>(StringComparer.Ordinal) { "MODEL_UNAVAILABLE", "MODEL_PROVIDER_FAILED" };
+
     /// <summary>
     /// Upstream's <c>toAgentError</c>: a failure on the closed agent code set. An agent error stays as it is. A runner or engine code the
     /// agent knows keeps it, <c>UNSUPPORTED_CAPABILITY</c> and <c>INVALID_CONFIG</c> are <c>POLICY_DENIED</c>, any other infrastructure

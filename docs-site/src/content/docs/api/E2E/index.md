@@ -20,6 +20,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ActResult](/api/E2E/ActResult/) |  |
 | [Agent](/api/E2E/Agent/) | One goal (ActAsync) or a check against the current screen. |
 | [AgentAttribute](/api/E2E/AgentAttribute/) | Pins the agent that the calls of a test, or of every test in a class, use when they name none. Upstream's agent option of test and describe. The closest pin wins: a call's Agent, then the method, then the class, then an enclosing or base class, then the E2E_AGENT environment variable. Base and enclosing classes count although the attribute is not inherited: TestAgentOptions reads each layer itself. An unknown name fails the test with INVALID_ARGUMENT. |
+| [AgentCacheOptions](/api/E2E/AgentCacheOptions/) | Where ActAsync keeps the flows it recorded, and whether it may write new ones. Upstream's AgentCacheOptions (core/agent.ts). |
 | [AgentConfig](/api/E2E/AgentConfig/) | One entry of agents. Upstream model and judge are AI SDK instances; here they are model ids for Provider, which share BaseUrl and ApiKeyEnv. Each entry starts from the defaults; none inherits another's values. |
 | [AgentContextAttribute](/api/E2E/AgentContextAttribute/) | Appends facts only this test knows to the context of every agent, after the agent's own context. Upstream's agentContext option of test and describe. Layers join outer to inner, one per line. Keep instructions out of it: it reaches the judges too. |
 | [AgentException](/api/E2E/AgentException/) | An agent step failed, was blocked, or could not talk to its model. |
@@ -47,9 +48,13 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [CacheEntry](/api/E2E/CacheEntry/) | A recording of one verified act. Its file name is the hash of a trace cache key (TraceCacheKeyHash): the cache schema, the replay policy version, the project, the test, the target, the engine's name and contract version, the app's identity, the instruction's and params' digests, the agent's name, a digest of the agent's redacted context, and which repeat of that same call in the attempt it is. The model id and the engine's package version are not part of the key. |
 | [CacheInfo](/api/E2E/CacheInfo/) |  |
 | [CacheLookup](/api/E2E/CacheLookup/) |  |
+| [CachingActOptions](/api/E2E/CachingActOptions/) | ActOptions for ActAsync: each call names the recording it replays and records, or runs live. Upstream's CachingActOptions (core/agent.ts), which TypeScript types as a union; C# holds both members, and the agent refuses the one that does not fit it at runtime. Agent is INVALID_ARGUMENT: create another agent for another configuration. |
 | [ClickOptions](/api/E2E/ClickOptions/) | Options for TapAsync, DoubleTapAsync, and SecondaryTapAsync. Upstream's ClickOptions. |
 | [CommandConfig](/api/E2E/CommandConfig/) | The command a target's app.command starts the app with (upstream's CommandConfig). It is a program and its arguments, never a shell line: the executable is started directly and each argument is passed as it is. |
 | [ConfigurationException](/api/E2E/ConfigurationException/) | e2e.config.json is invalid. The code is INVALID_CONFIG. |
+| [CoreAgent](/api/E2E/CoreAgent/) | An agent over one session, configured in code: ActAsync, AssertAsync, WaitForAsync, and ExtractAsync behave as they do in a test. With a cache, ActAsync replays recorded flows, each keyed by the CacheKey the call names. Upstream's CachingAgent, CoreAgent, and UncheckedAgent (core/agent.ts), which TypeScript tells apart by the options createAgent was called with: C# has one type, and refuses at runtime the ActAsync call that does not fit the agent. |
+| [CoreAgents](/api/E2E/CoreAgents/) | createAgent from @e2e-dev/core/agent: the agent over one session, configured in code. Upstream's core/agent.ts. |
+| [CreateAgentOptions](/api/E2E/CreateAgentOptions/) | The agent's model, budgets, and context, as an agents entry of a config takes them (AgentOptions), plus what only a program sets. Upstream's CreateAgentOptions (core/agent.ts). |
 | [Credentials](/api/E2E/Credentials/) | The accounts of the config's credentials (upstream's credentials, secrets.ts): E2E_USER_{NAME}_USERNAME and E2E_USER_{NAME}_PASSWORD replace the config's values. While a session runs, only a configured name resolves. |
 | [DefaultAgent](/api/E2E/DefaultAgent/) | Upstream's createBuiltInAgent (agent/default-agent.ts): the tool loop with the built-in rules, tools, and opening prompt. |
 | [DragAtActionEvent](/api/E2E/DragAtActionEvent/) | A dragAt the step dispatched. Mobile engines have no dragAt. |
@@ -119,6 +124,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ModelTool](/api/E2E/ModelTool/) |  |
 | [ModelToolCall](/api/E2E/ModelToolCall/) |  |
 | [ModelToolChoice](/api/E2E/ModelToolChoice/) | The AI SDK's ToolChoice: auto lets the model answer in prose or call any offered tool, required makes it call some tool, and a named tool makes it call that one. Each provider sends its own form of it (Anthropic's any, Bedrock's any, OpenAI's required, Gemini's ANY). |
+| [ModelUsage](/api/E2E/ModelUsage/) |  |
 | [ModelWarning](/api/E2E/ModelWarning/) | One of upstream's call warnings (CallWarning): the provider changed the request instead of failing it. A provider that sends auto in place of the forced tool choice it was asked for says so with Type unsupported and Feature toolChoice. |
 | [NewSessionOptions](/api/E2E/NewSessionOptions/) | What NewSessionAsync is given. Upstream's NewSessionOptions (core/launch.ts). |
 | [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/) | Chat-completions client for OpenAI and any server that speaks the same tool-call JSON. Set BaseUrl to a local server such as http://127.0.0.1:11434/v1. The API key is optional for servers that do not check one. ModelProviders has presets for OpenRouter, the Vercel AI Gateway, SpaceXAI, and Ollama. |

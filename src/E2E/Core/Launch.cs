@@ -91,8 +91,9 @@ public sealed class Session : IAsyncDisposable
     private readonly Action _onClosed;
     private readonly Lazy<Task> _closing;
 
-    internal Session(StandaloneAttempt attempt, StateIdentity identity, Action onClosed)
+    internal Session(StandaloneAttempt attempt, StateIdentity identity, SessionInternals internals, Action onClosed)
     {
+        Internals = internals;
         _attempt = attempt;
         _session = attempt.Session;
         _identity = identity;
@@ -113,6 +114,9 @@ public sealed class Session : IAsyncDisposable
     public string Platform => _session.Context.Platform;
 
     internal E2ESession E2E => _session;
+
+    /// <summary>What <see cref="CoreAgents.CreateAgent"/> reads off the session; see <see cref="SessionInternals"/>.</summary>
+    internal SessionInternals Internals { get; }
 
     /// <summary>Captures the session's state (cookies, storage, app data) in memory. Persist it only with <see cref="SessionState.ExportAsync"/>. Upstream's <c>saveState</c>.</summary>
     public Task<SessionState> SaveStateAsync(CancellationToken cancellationToken = default) =>
@@ -144,10 +148,23 @@ public sealed class Session : IAsyncDisposable
 
     private async Task CloseOnceAsync()
     {
-        IReadOnlyList<Exception> errors;
+        // The closers run in order, before the attempt ends: an agent settles its replay cache here.
+        var errors = new List<Exception>();
+        foreach (var closer in Internals.Closers)
+        {
+            try
+            {
+                await closer().ConfigureAwait(false);
+            }
+            catch (Exception cause) when (cause is not OperationCanceledException)
+            {
+                errors.Add(cause);
+            }
+        }
+
         try
         {
-            errors = await _attempt.CloseAsync().ConfigureAwait(false);
+            errors.AddRange(await _attempt.CloseAsync().ConfigureAwait(false));
         }
         finally
         {
@@ -219,10 +236,12 @@ public sealed class Host : IAsyncDisposable
             }
 
             var restored = options?.State is { } state ? SessionState.RestoredStateFor(state, _identity) : null;
-            var attempt = await _host.OpenAttemptAsync(SessionOptions(restored), cancellationToken, hosted: true).ConfigureAwait(false);
+            var failures = new FailureWatch();
+            var attempt = await _host.OpenAttemptAsync(SessionOptions(restored, failures), cancellationToken, hosted: true).ConfigureAwait(false);
             try
             {
-                var session = new Session(attempt, _identity, () => Release(attempt));
+                failures.Watch(attempt.Session.Recorder);
+                var session = new Session(attempt, _identity, new SessionInternals(attempt, _projectRoot, failures), () => Release(attempt));
                 if (_timeout is { } timeout)
                 {
                     session.SetDefaultTimeout(timeout);
@@ -315,7 +334,7 @@ public sealed class Host : IAsyncDisposable
         Launch.ThrowClosingErrors(errors, "closing the host");
     }
 
-    private E2ESessionOptions SessionOptions(SavedSession? restored) => new()
+    private E2ESessionOptions SessionOptions(SavedSession? restored, FailureWatch failures) => new()
     {
         Engine = _engine,
         TargetName = _target,
@@ -343,6 +362,7 @@ public sealed class Host : IAsyncDisposable
         // No report stands between an operation's error and the program, so the error itself is classified and redacted.
         RedactThrown = true,
         RetainSteps = Launch.RetainedSteps,
+        OnProgress = failures.OnProgress,
         State = restored,
     };
 

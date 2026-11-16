@@ -25,7 +25,7 @@ public sealed partial class Agent
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
         CheckInstruction(instruction);
         ActParams.Validate(options?.Params, "agent.act");
-        var agent = _scope.Select(options?.Agent);
+        var agent = Select(options?.Agent);
         return StepAsync(
             "agent.act",
             instruction,
@@ -188,20 +188,20 @@ public sealed partial class Agent
         try
         {
             // An act is cacheable unless its executor opted out. An assert must not change the app, so its recording would be empty.
-            if (spec.Kind == ExecutorStepKind.Act && executor.Cache != ExecutorCache.Off && _scope.CacheEnabled && _scope.Cache is { } cache)
+            if (spec.Kind == ExecutorStepKind.Act && executor.Cache != ExecutorCache.Off && (_binding is null ? _scope.ActCache() : _binding.Cache) is { } cache)
             {
-                var key = _scope.ClaimKey(instruction, spec.Params, agent, out var callIndex, out var keyContext);
+                var claimed = cache.ClaimKey(instruction, spec.Params, _scope.IdentityOf(agent));
                 session = new StepTraceSession(
                     new ActReplayHost(_scope, feed, budget, dispatcher, token),
                     new StepCacheOptions
                     {
-                        Cache = cache,
+                        Cache = cache.Store,
                         Replaying = active => budget.Replaying(active),
-                        Write = _scope.CacheWrite,
-                        Strict = _scope.CacheStrict,
-                        StrictAdvice = _scope.CacheStrict ? _scope.StrictAdvice : "",
-                        ReplayEligible = _scope.ReplayEligible,
-                        Claim = new ClaimedKey(key, Provenance(instruction, spec.Params, callIndex, agent.Name, keyContext)),
+                        Write = cache.Mode == CacheMode.ReadWrite,
+                        Strict = cache.Strict is not null,
+                        StrictAdvice = cache.Strict?.Advice ?? "",
+                        ReplayEligible = cache.ReplayEligible,
+                        Claim = new ClaimedKey(claimed.Key, Provenance(cache.TestId, instruction, spec.Params, claimed.CallIndex, agent.Name, claimed.Context)),
                         StepIndex = _scope.Steps.CurrentStepIndex,
                         Instruction = instruction,
                         Params = spec.Params,
@@ -209,6 +209,7 @@ public sealed partial class Agent
                         AppOrigin = _scope.AppOrigin,
                     });
                 _scope.Acts.Add(session.Pending);
+                cache.Staged?.Add(session.Pending);
             }
 
             // The baseline a recording's delta is read from, the screen a replay starts on, and the built-in agent's first look:
@@ -520,12 +521,12 @@ public sealed partial class Agent
     /// The step an entry is recorded for, as the entry stores it. None of it is replay input, so a
     /// secret value in the test title, instruction, or agent name is masked like any other recorded string.
     /// </summary>
-    private CacheEntry Provenance(string instruction, IReadOnlyDictionary<string, object?>? parameters, int callIndex, string agent, TraceKeyContext keyContext)
+    private CacheEntry Provenance(string testId, string instruction, IReadOnlyDictionary<string, object?>? parameters, int callIndex, string agent, TraceKeyContext keyContext)
     {
         return new CacheEntry
         {
             Schema = FileStepCache.SchemaVersion,
-            Test = TextRules.Bound(_scope.Redactor.Redact(_scope.TestTitle), Trace.MaxTraceDescriptorChars),
+            Test = TextRules.Bound(_scope.Redactor.Redact(testId), Trace.MaxTraceDescriptorChars),
             TargetId = TextRules.Bound(_scope.Redactor.Redact(_scope.TargetName), Trace.MaxTraceDescriptorChars),
             Instruction = _scope.Redactor.Redact(instruction.Trim()),
             Engine = _scope.EnginePlatform,

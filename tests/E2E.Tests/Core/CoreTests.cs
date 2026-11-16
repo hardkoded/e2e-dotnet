@@ -5,12 +5,13 @@
 using System.Text;
 using System.Text.Json.Nodes;
 using E2E.Engine;
+using E2E.Tests.AgentAct;
 
 namespace E2E.Tests.Core;
 
 /// <summary>
 /// Upstream's <c>describe('e2e/core')</c> (<c>tests/integration/core.test.ts</c>): hosts, sessions, saved state, secrets, timeouts, link bases, and the
-/// agent's cache. The <c>it</c> that need a feature the port has not ported (<c>createAgent</c>) are not here, or are partial.
+/// agent's cache. The <c>it</c> that need a feature the port has not ported are not here, or are partial; the <c>it</c> of <c>describe('createAgent')</c> are in <c>CreateAgentTests</c>.
 /// </summary>
 public sealed class CoreTests : IAsyncLifetime
 {
@@ -222,9 +223,8 @@ public sealed class CoreTests : IAsyncLifetime
         await session.CloseAsync();
     }
 
-    // Partial: upstream also runs an agent step (createAgent, #1676) and checks that its observations take the new default; the port has no createAgent yet.
     [Fact]
-    public async Task Partial_Bounds_each_operation_by_its_default_timeout_which_setDefaultTimeout_moves_with_no_session_deadline()
+    public async Task Bounds_each_operation_by_its_default_timeout_which_setDefaultTimeout_moves_with_no_session_deadline()
     {
         var fake = new CoreFakeEngine();
         var opened = await HostOf(fake, new LaunchOptions { App = FakeApp, Timeout = TimeSpan.FromSeconds(10) });
@@ -238,6 +238,26 @@ public sealed class CoreTests : IAsyncLifetime
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(5));
         Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => session.SetDefaultTimeout(TimeSpan.Zero)).Code);
+
+        // The agent's engine operations take the same default.
+        session.SetDefaultTimeout(TimeSpan.FromMilliseconds(1_234));
+        var before = fake.Operations.Count;
+        var observer = new TestExecutor("observer", async (context, _) =>
+        {
+            await context.ObserveAsync();
+            return ExecutorKit.Passed("looked");
+        })
+        {
+            Version = "1",
+        };
+        await CoreAgents.CreateAgent(session, new CreateAgentOptions { Executor = observer }).ActAsync("look at the page");
+        var observes = fake.Operations.Skip(before).Where(operation => operation.Method == "observe").ToList();
+        Assert.NotEmpty(observes);
+        foreach (var operation in observes)
+        {
+            Assert.True(operation.Timeout <= TimeSpan.FromMilliseconds(1_234));
+        }
+
         await session.CloseAsync();
     }
 

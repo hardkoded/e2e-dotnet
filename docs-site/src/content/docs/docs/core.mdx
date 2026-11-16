@@ -40,8 +40,66 @@ foreach (var sku in new[] { "A-1001", "B-2040" })
 | Closing | `CloseAsync` is idempotent and throws an `AggregateException` of the failures closing found. |
 
 <Aside type="note">
-Not ported yet: closing the host on SIGINT, SIGTERM, and SIGHUP, and `createAgent`. Issues [#1676](https://github.com/hardkoded/e2e-dotnet/issues/1676) and [#1677](https://github.com/hardkoded/e2e-dotnet/issues/1677) track them.
+Not ported yet: closing the host on SIGINT, SIGTERM, and SIGHUP. Issue [#1677](https://github.com/hardkoded/e2e-dotnet/issues/1677) tracks it.
 </Aside>
+
+## Let the agent act
+
+`CoreAgents.CreateAgent(session, options)` puts an agent over one session. Its `ActAsync`, `AssertAsync`, `WaitForAsync`, and `ExtractAsync` work as they do in a [test](/reference/agent).
+
+```csharp
+await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions { App = new LaunchApp { Url = "https://shop.example.com" } });
+await using var session = await shop.NewSessionAsync();
+await session.App.OpenAsync("/products/A-1001");
+
+var agent = CoreAgents.CreateAgent(session, new CreateAgentOptions
+{
+    Model = model,
+    Cache = new AgentCacheOptions { Dir = ".shop-bot/cache" },
+});
+
+await agent.ActAsync("Add the item to the cart and apply the coupon with the largest discount", new CachingActOptions { CacheKey = "cart-best-coupon" });
+// A check after the step lets the cache keep its recording.
+await session.Screen.GetByRole("button", "Pay now").WaitForAsync();
+
+var order = await agent.ExtractAsync<Order>("the order total");
+if (order.Total <= 39_000)
+{
+    try
+    {
+        await session.Screen.GetByRole("button", "Pay now").TapAsync();
+    }
+    catch (E2EException)
+    {
+        // A failed tap may still have reached the server: check the order list, never retry the payment.
+        Console.Error.WriteLine("check /my/orders");
+        throw;
+    }
+}
+else
+{
+    Console.WriteLine($"the total, {order.Total}, is over the limit: the order stays unpaid");
+}
+
+record Order(int Total);
+```
+
+`CreateAgentOptions` takes the options of an [`agents` entry](/reference/config#agents) (`AgentOptions`), such as `Model`, `Judge`, `MaxSteps`, and `Context`, plus `Cache`. There is no default model: an agent without one fails its first call with `MODEL_UNAVAILABLE`. An `ActAsync` step has its own timeout, 120000 ms: set it per call with `Timeout`. A call takes no `Agent` option: it is `INVALID_ARGUMENT`, so create another agent for another configuration. A session that did not come from `Host.NewSessionAsync` is `INVALID_ARGUMENT` too.
+
+### Replay recorded steps
+
+With `Cache`, `ActAsync` records each flow and replays it on the next run with no model call. Every `ActAsync` then names its recording with `CachingActOptions.CacheKey`, or runs live with `Cache = false`. An `ActAsync` without one fails with `INVALID_ARGUMENT`, and so does a `CacheKey` on an agent created without `Cache`. C# has one `CoreAgent` type where TypeScript types the agent by the options it was created with, so the refusal is at runtime.
+
+A recording is keyed by the `CacheKey`, the instruction, its params, the app, and how many times the session made the same call. Pass a value that changes between runs as a param: a value the agent reads off the screen is decided by the model again on each run.
+
+A recording is saved when the session closes, or its host does, and only when a check passed after the step, such as `Locator.WaitForAsync()`, `AssertAsync`, or `WaitForAsync`. When an agent step fails, the recordings not yet confirmed at that moment are dropped. A failure of your own code's locator call, such as a `WaitForAsync` that ran out, drops nothing. A step that fails only because no model answered (`MODEL_UNAVAILABLE`, `MODEL_PROVIDER_FAILED`) leaves the recordings as they are. Read [Replay cache](/cache) for how a replay checks the screen and hands off to the model.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `Dir` | `.e2e/cache` | The directory, from the `Cwd` the host was launched with. |
+| `Mode` | `ReadWrite` | `ReadOnly` replays and never writes. `Off` is `INVALID_ARGUMENT`: leave `Cache` unset. |
+| `Strict` | `false` | A recording that no longer replays fails with `REPLAY_STALE`. |
+| `Store` | - | A custom `IStepCache` in place of the files. |
 
 ## Keep a signed-in state
 
