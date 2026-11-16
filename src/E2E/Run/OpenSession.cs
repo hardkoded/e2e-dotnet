@@ -254,6 +254,7 @@ public sealed class E2EHost : IAsyncDisposable
             Permissions = _target.App.Permissions,
             BundleId = _target.App.BundleId,
             AppPath = _target.App.AppPath,
+            LinkBase = _target.App.LinkBase,
             LaunchArguments = _target.App.LaunchArguments,
             ProjectRoot = _config.ProjectRoot,
             ResultsDirectory = OutputLayout.Of(_config.Output).Results,

@@ -25,6 +25,13 @@ public sealed record EngineSessionSpec
 {
     public Func<string, OperationContext, Task>? Open { get; init; }
 
+    /// <summary>
+    /// Opens a link in the app under test, as a deep link or a universal link would: <c>App.OpenAsync(path)</c> on a target that declares
+    /// <c>app.linkBase</c> lands here with the link joined and its scheme checked. A device engine's hook; a target whose engine lacks it
+    /// cannot declare <c>linkBase</c>. Upstream's <c>session.openLink</c>.
+    /// </summary>
+    public Func<string, OperationContext, Task>? OpenLink { get; init; }
+
     public Func<OperationContext, Task>? Back { get; init; }
 
     public Func<ViewportSize, OperationContext, Task>? Resize { get; init; }

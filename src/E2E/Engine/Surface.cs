@@ -97,6 +97,9 @@ public interface ISessionApp
     /// <summary>Navigates back once.</summary>
     Task BackAsync(OperationContext operation);
 
+    /// <summary>Opens one checked link in the app under test.</summary>
+    Task OpenLinkAsync(string url, OperationContext operation);
+
     /// <summary>Sets the viewport size in CSS pixels.</summary>
     Task ResizeAsync(ViewportSize size, OperationContext operation);
 

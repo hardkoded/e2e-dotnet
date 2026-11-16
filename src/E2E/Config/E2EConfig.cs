@@ -67,13 +67,13 @@ public sealed class E2EConfig
 
     private static readonly string[] CredentialKeys = ["username", "password"];
 
-    private static readonly string[] AppKeys = ["url", "command", "readyUrl", "identity", "environment", "permissions"];
+    private static readonly string[] AppKeys = ["url", "linkBase", "command", "readyUrl", "identity", "environment", "permissions"];
 
     private static readonly string[] MobileAppKeys =
-        ["bundleId", "appPath", "command", "readyUrl", "identity", "environment", "launchArguments", "permissions"];
+        ["bundleId", "appPath", "linkBase", "command", "readyUrl", "identity", "environment", "launchArguments", "permissions"];
 
     private static readonly string[] WindowsAppKeys =
-        ["bundleId", "appPath", "command", "readyUrl", "identity", "environment", "launchArguments"];
+        ["bundleId", "appPath", "linkBase", "command", "readyUrl", "identity", "environment", "launchArguments"];
 
     // A Windows app has no permissions to grant.
     private static readonly string[] UnsupportedAppKeys = ["permissions"];
@@ -680,6 +680,7 @@ public sealed class E2EConfig
                 Url = OptionalString(rawApp, "url", at + ".app.url") is { } url ? Urls.NormalizeBaseUrl(url).Href : null,
                 BundleId = OptionalString(rawApp, "bundleId", at + ".app.bundleId"),
                 AppPath = OptionalString(rawApp, "appPath", at + ".app.appPath"),
+                LinkBase = OptionalString(rawApp, "linkBase", at + ".app.linkBase"),
                 Command = Property(rawApp, "command") is { } command ? Command.Normalize(command, "target \"" + name + "\" app.command") : null,
                 ReadyUrl = OptionalString(rawApp, "readyUrl", at + ".app.readyUrl"),
                 Identity = OptionalString(rawApp, "identity", at + ".app.identity"),
@@ -1562,6 +1563,13 @@ public sealed class AppConfig
     public string? AppPath { get; init; }
 
     /// <summary>
+    /// The base <c>App.OpenAsync(path)</c> joins a path to on a device target (upstream's <c>app.linkBase</c>): an absolute URL such as
+    /// <c>https://shop.example.com</c>, or a bare scheme such as <c>shopapp://</c>, with no query or fragment. The joined link opens in the pinned
+    /// app; an absolute link opens as given. Needs an engine that opens links, such as the device engine.
+    /// </summary>
+    public string? LinkBase { get; init; }
+
+    /// <summary>
     /// The command that starts the app (upstream's <c>app.command</c>), started before the first test and stopped when the process ends.
     /// <c>{port}</c> in <see cref="CommandConfig.Args"/> and <see cref="CommandConfig.Env"/> is the port the app is served on. A
     /// <see cref="Url"/> with port 0 asks for a free one, and needs this.
@@ -1601,6 +1609,7 @@ public sealed class AppConfig
         Url = url,
         BundleId = BundleId,
         AppPath = AppPath,
+        LinkBase = LinkBase,
         Identity = Identity,
         Environment = Environment,
         LaunchArguments = LaunchArguments,

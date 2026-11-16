@@ -335,6 +335,17 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         return Options.Provider is { AttachesToRunningApp: true } ? AttachAsync(cancellationToken) : RestartAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// <c>App.OpenAsync(path)</c> on a target with <c>app.linkBase</c>: the link, joined and checked by the harness, opens in the pinned app as
+    /// <see cref="OpenLinkAsync(Uri, string?, CancellationToken)"/> would. Upstream's <c>session.openLink</c> in <c>mobile/src/engine.ts</c>.
+    /// </summary>
+    public async Task OpenLinkAsync(string url, OperationContext context, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var target = DeviceLinks.LinkTarget(url);
+        await OpenLinkAsync(target, null, cancellationToken, InputBudget("open link", context.Timeout ?? ActionTimeout, cancellationToken)).ConfigureAwait(false);
+    }
+
     private async Task AttachAsync(CancellationToken cancellationToken)
     {
         var app = PinnedApp ?? throw DeviceSupport.Unsupported($"launching the app needs the target's `app.bundleId`, or {UninstalledBuild}");

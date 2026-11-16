@@ -413,6 +413,21 @@ How long the engine may take to start. Upstream `launchTimeout`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
+<a id="E2E_E2ESessionOptions_LinkBase_"></a>
+<a id="E2E_E2ESessionOptions_LinkBase"></a>
+
+### LinkBase
+
+
+```csharp
+public string? LinkBase { get; init; }
+```
+
+
+The target's `app.linkBase`, which `App.OpenAsync(path)` joins a path to on a device.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_E2ESessionOptions_MaxInputTokens_"></a>
 <a id="E2E_E2ESessionOptions_MaxInputTokens"></a>
 

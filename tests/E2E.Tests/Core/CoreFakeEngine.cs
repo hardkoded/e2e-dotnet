@@ -10,7 +10,8 @@ namespace E2E.Tests.Core;
 /// <summary>
 /// An in-memory engine for the core tests: a scene of nodes, a saved state of <c>{ "ok": true }</c>, and hooks for the calls a test fails. Upstream's
 /// <c>createFakeEngine</c> (<c>tests/helpers/fake-engine.ts</c>), with the <c>scene</c>, <c>state</c>, <c>onNavigate</c>, and <c>onCapture</c> options and
-/// the <c>restoredStates</c>, <c>inits</c>, <c>attemptsStarted</c> and <c>disposes</c> counts the core tests read.
+/// the <c>restoredStates</c>, <c>inits</c>, <c>attemptsStarted</c> and <c>disposes</c> counts the core tests read, and the <c>device</c> and <c>links</c> options:
+/// a device engine pins an app and relaunches it, and one with links opens them, as <c>session.openLink</c> does.
 /// </summary>
 internal sealed class CoreFakeEngine : IEngine
 {
@@ -19,10 +20,28 @@ internal sealed class CoreFakeEngine : IEngine
     private int _starts;
     private int _disposes;
 
-    public CoreFakeEngine(IReadOnlyList<SemanticNode>? scene = null, bool state = false)
+    private readonly List<string> _openedLinks = [];
+
+    public CoreFakeEngine(IReadOnlyList<SemanticNode>? scene = null, bool state = false, bool device = false, bool links = false)
     {
         Scene = scene ?? [new SemanticNode { Ref = "submit", Role = "button", Name = "Submit" }];
-        Capabilities = EngineCapabilities.Observation | EngineCapabilities.Actions | (state ? EngineCapabilities.State : 0);
+        Capabilities = EngineCapabilities.Observation
+            | EngineCapabilities.Actions
+            | (state ? EngineCapabilities.State : 0)
+            | (device ? EngineCapabilities.PinnedApp : 0)
+            | (links ? EngineCapabilities.OpenLink : 0);
+    }
+
+    /// <summary>The links the sessions opened through <c>OpenLinkAsync</c>, in order.</summary>
+    public IReadOnlyList<string> OpenedLinks
+    {
+        get
+        {
+            lock (_openedLinks)
+            {
+                return [.. _openedLinks];
+            }
+        }
     }
 
     /// <summary>Throws when a session opens this URL's path; the message is the engine's own.</summary>
@@ -61,6 +80,18 @@ internal sealed class CoreFakeEngine : IEngine
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) =>
             owner.OnNavigate?.Invoke(url) is { } failure ? Task.FromException(failure) : Task.CompletedTask;
+
+        public Task RestartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task OpenLinkAsync(string url, OperationContext context, CancellationToken cancellationToken)
+        {
+            lock (owner._openedLinks)
+            {
+                owner._openedLinks.Add(url);
+            }
+
+            return Task.CompletedTask;
+        }
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => Task.FromResult(new Observation { Route = "/", Roots = owner.Scene });
 

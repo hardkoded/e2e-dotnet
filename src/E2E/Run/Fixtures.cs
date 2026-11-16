@@ -51,9 +51,11 @@ public sealed class App
     private readonly StepRecorder? _steps;
     private readonly bool _pinnedApp;
     private readonly string _target;
+    private readonly string? _linkBase;
 
-    internal App(IEngineSession session, string? baseUrl, Func<CancellationToken> token, StepRecorder? steps, bool pinnedApp, string target)
+    internal App(IEngineSession session, string? baseUrl, Func<CancellationToken> token, StepRecorder? steps, bool pinnedApp, string target, string? linkBase = null)
     {
+        _linkBase = linkBase;
         _session = session;
         _pinnedApp = pinnedApp;
         _target = target;
@@ -89,18 +91,30 @@ public sealed class App
 
     /// <summary>
     /// <c>app.open()</c> on a target with no URL whose engine pins an app, a device: it launches the pinned app fresh, and is what a test
-    /// calls before it looks at the screen. A path has nowhere to go there; a link goes through the device fixture's <c>OpenLinkAsync</c>.
-    /// Upstream's <c>launchPinnedApp</c> in <c>run/fixtures.ts</c>.
+    /// calls before it looks at the screen. A path opens as a link in the app when the target declares <c>app.linkBase</c>, and is <c>APP_URL_REQUIRED</c>
+    /// without it; a link then goes through the device fixture's <c>OpenLinkAsync</c>. A refused link scheme is <c>POLICY_DENIED</c>. Upstream's <c>launchPinnedApp</c> in <c>run/fixtures.ts</c>.
     /// </summary>
     private Task LaunchPinnedAppAsync(string? url, CancellationToken cancellationToken)
     {
-        return RunStepAsync("app.open", "", async () =>
+        return RunStepAsync("app.open", url ?? "", async () =>
         {
+            if (url is not null && _linkBase is not null)
+            {
+                var link = TargetApps.JoinLink(_linkBase, url);
+                if (TargetApps.RefusesLink(link))
+                {
+                    throw new ConfigurationException("POLICY_DENIED", "app.open() refuses the link's scheme on target \"" + _target + "\"");
+                }
+
+                await _session.OpenLinkAsync(link, Operation("app.open", OperationContext.Test), Token(cancellationToken)).ConfigureAwait(false);
+                return;
+            }
+
             if (url is not null)
             {
                 throw new ConfigurationException(
                     "APP_URL_REQUIRED",
-                    "app.open(\"" + url + "\") needs an app URL and target \"" + _target + "\" has none: on a device app.open() launches the pinned app, and a link goes through device.openLink");
+                    "app.open(\"" + url + "\") needs an app URL and target \"" + _target + "\" has none: on a device app.open() launches the pinned app; declare app.linkBase to open a path as a link in it, or open one through device.openLink");
             }
 
             await _session.RestartAsync(Operation("app.open", OperationContext.Test), Token(cancellationToken)).ConfigureAwait(false);
