@@ -36,11 +36,12 @@ foreach (var sku in new[] { "A-1001", "B-2040" })
 | Cancellation | The token passed to `LaunchAsync` and `NewSessionAsync` stops what is running. |
 | Ctrl-C | The host closes on SIGINT, SIGTERM, and SIGHUP, so its browser or device session does not stay behind. Then the program ends by the signal, unless it listens for the signal itself (`PosixSignalRegistration`), which then sees it again and decides. Turn it off with `LaunchOptions.HandleSignals = false`. A close that fails is said on stderr first. |
 | App links | On a device, `LaunchApp.LinkBase` (an absolute URL or a scheme such as `shopapp://`, with no query or fragment) makes `session.App.OpenAsync("/orders/42")` open `shopapp://orders/42` in the pinned app. An absolute link opens as given; a `file:`, `data:`, `javascript:`, `view-source:`, `blob:`, or `filesystem:` link is `POLICY_DENIED`. An engine with no link hook, such as `WebEngine`, refuses a link base with `INVALID_CONFIG`. |
+| Window | `LaunchOptions.Headed` shows the browser window; the default is hidden. A device ignores it. |
 | Files | Screenshots and downloads go to a temp directory that is deleted when the host closes. Set `ArtifactsDir` to keep them; a relative path resolves from `Cwd`. |
 | Closing | `CloseAsync` is idempotent and throws an `AggregateException` of the failures closing found. |
 
 <Aside type="note">
-Not ported yet: `createAgent`, and the marking of an engine's own signal listeners (upstream's `engineListeners`). A web engine shows its window through its own options, not a `Headed` launch option. Issues [#1676](https://github.com/hardkoded/e2e-dotnet/issues/1676), [#1678](https://github.com/hardkoded/e2e-dotnet/issues/1678), and [#1693](https://github.com/hardkoded/e2e-dotnet/issues/1693) track them.
+Not ported yet: `createAgent` and the marking of an engine's own signal listeners (upstream's `engineListeners`). Issues [#1676](https://github.com/hardkoded/e2e-dotnet/issues/1676) and [#1693](https://github.com/hardkoded/e2e-dotnet/issues/1693) track them.
 </Aside>
 
 ## Keep a signed-in state
@@ -87,6 +88,7 @@ Every failure is an `E2EException` with a `Code`. A step that fails in a session
 | Code | When |
 | --- | --- |
 | `LOCATOR_NOT_FOUND` | Nothing matched before the timeout. |
+| `CANCELLED` | A token aborted the operation, or the session is closed: an action, a read, or an app call on a closed session fails with the message `the session is closed`. |
 | `WORKER_PROTOCOL` | A second session on a host, a second host on one engine instance, or a closed host. |
 | `SESSION_MISMATCH` | A state restored on another engine, platform, or app. |
 | `SESSION_INVALID` | A state document that is not `session-state-1`, or that failed authentication. |

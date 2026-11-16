@@ -36,7 +36,17 @@ internal static class Signals
         lock (Gate)
         {
             Closers.Add(close);
-            Install();
+            try
+            {
+                Install();
+            }
+            catch
+            {
+                // A registration that could not be made leaves nothing behind: no closer for a host never returned, no half-installed set.
+                Closers.Remove(close);
+                Uninstall();
+                throw;
+            }
         }
 
         return () =>
@@ -73,20 +83,35 @@ internal static class Signals
 
         _ = Task.Run(async () =>
         {
-            // The process ends right after, so a close that failed is said on stderr or nowhere; its message is already redacted.
-            var pending = closers.Select(async close =>
+            try
             {
-                try
+                // The process ends right after, so a close that failed is said on stderr or nowhere; its message is already redacted.
+                var pending = closers.Select(async close =>
                 {
-                    await close().ConfigureAwait(false);
-                }
-                catch (Exception cause)
-                {
-                    await Console.Error.WriteAsync($"E2E: closing a host on {signal} failed: {cause.Message}\n").ConfigureAwait(false);
-                }
-            });
-            await Task.WhenAll(pending).ConfigureAwait(false);
-            Raise(signal);
+                    try
+                    {
+                        await close().ConfigureAwait(false);
+                    }
+                    catch (Exception cause)
+                    {
+                        try
+                        {
+                            await Console.Error.WriteAsync($"E2E: closing a host on {signal} failed: {cause.Message}\n").ConfigureAwait(false);
+                        }
+                        catch (Exception write) when (write is IOException or ObjectDisposedException)
+                        {
+                            // Stderr is gone: nowhere is left to say it.
+                        }
+                    }
+                });
+                await Task.WhenAll(pending).ConfigureAwait(false);
+                Raise(signal);
+            }
+            catch
+            {
+                // The signal was cancelled and our registrations are gone: whatever went wrong, the process must still end by it.
+                Environment.Exit(128 + Number(signal));
+            }
         });
     }
 

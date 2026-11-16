@@ -105,6 +105,21 @@ Closes the host on SIGINT, SIGTERM, and SIGHUP, so the browsers and devices it l
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_LaunchOptions_Headed_"></a>
+<a id="E2E_LaunchOptions_Headed"></a>
+
+### Headed
+
+
+```csharp
+public bool Headed { get; init; }
+```
+
+
+Shows the browser window; default false. Devices ignore it. Upstream's `headed`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_LaunchOptions_OnNotice_"></a>
 <a id="E2E_LaunchOptions_OnNotice"></a>
 

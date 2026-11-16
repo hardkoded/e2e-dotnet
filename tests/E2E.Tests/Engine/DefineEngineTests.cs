@@ -159,6 +159,20 @@ public sealed class DefineEngineTests
         Assert.Contains("state.restore must be a function", restore.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Refuses_a_fixture_named_like_a_method_of_an_e2e_dev_core_session()
+    {
+        foreach (var fixture in new[] { "close", "saveState", "setDefaultTimeout" })
+        {
+            var refused = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with
+            {
+                Fixtures = new Dictionary<string, Delegate> { [fixture] = new Func<object>(() => new object()) },
+            }));
+            Assert.Equal("INVALID_CONFIG", refused.Code);
+            Assert.Contains("is a method of every @e2e-dev/core session", refused.Message, StringComparison.Ordinal);
+        }
+    }
+
     /// <summary>
     /// Partial: upstream calls each hook with the spec as its <c>this</c> and checks that a class instance's methods are found. C# delegates
     /// close over the spec, so the binding is the closure, and the call is checked to run.

@@ -46,6 +46,9 @@ public sealed record LaunchOptions
     /// </summary>
     public IReadOnlyDictionary<string, string>? Secrets { get; init; }
 
+    /// <summary>Shows the browser window; default false. Devices ignore it. Upstream's <c>headed</c>.</summary>
+    public bool Headed { get; init; }
+
     /// <summary>
     /// Default timeout of one operation: an action, a wait, a read, and <c>App.OpenAsync</c> or <c>App.RestartAsync</c>. Without it an action, a wait,
     /// or a read gets 30 seconds, and an app open or restart 120 seconds. A session changes it with <see cref="Session.SetDefaultTimeout"/>. An agent
@@ -119,7 +122,7 @@ public sealed class Session : IAsyncDisposable
 
     /// <summary>Captures the session's state (cookies, storage, app data) in memory. Persist it only with <see cref="SessionState.ExportAsync"/>. Upstream's <c>saveState</c>.</summary>
     public Task<SessionState> SaveStateAsync(CancellationToken cancellationToken = default) =>
-        OpenSession.RedactOpening(async () =>
+        OpeningRedaction.RedactOpening(async () =>
         {
             var saved = await _session.CaptureStateAsync(cancellationToken).ConfigureAwait(false);
             return SessionState.Captured(_identity, saved.State, saved.Secrets);
@@ -174,13 +177,15 @@ public sealed class Host : IAsyncDisposable
     private readonly StateIdentity _identity;
     private readonly TimeSpan? _timeout;
     private readonly LaunchApp? _app;
+    private readonly bool _headed;
     private readonly Lock _gate = new();
     private readonly Lazy<Task> _closing;
     private Action _unregister = () => { };
     private Session? _open;
 
-    internal Host(StandaloneHost host, IEngine engine, string target, string projectRoot, string output, bool ownsArtifacts, IReadOnlyDictionary<string, string> secrets, StateIdentity identity, TimeSpan? timeout, LaunchApp? app)
+    internal Host(StandaloneHost host, IEngine engine, string target, string projectRoot, string output, bool ownsArtifacts, IReadOnlyDictionary<string, string> secrets, StateIdentity identity, TimeSpan? timeout, LaunchApp? app, bool headed)
     {
+        _headed = headed;
         _app = app;
         _host = host;
         _engine = engine;
@@ -215,7 +220,7 @@ public sealed class Host : IAsyncDisposable
 
     /// <summary>Opens a session. One at a time: the previous one must be closed.</summary>
     public Task<Session> NewSessionAsync(NewSessionOptions? options = null, CancellationToken cancellationToken = default) =>
-        OpenSession.RedactOpening(async () =>
+        OpeningRedaction.RedactOpening(async () =>
         {
             if (_closing.IsValueCreated)
             {
@@ -343,6 +348,8 @@ public sealed class Host : IAsyncDisposable
         TestTimeout = System.Threading.Timeout.InfiniteTimeSpan,
         ActionTimeout = _timeout ?? E2EDefaults.ActionTimeout,
         AssertionTimeout = _timeout ?? E2EDefaults.AssertionTimeout,
+        Headed = _headed,
+        Closed = () => new EngineException(EngineErrorCodes.Cancelled, "the session is closed"),
         // No report stands between an operation's error and the program, so the error itself is classified and redacted.
         RedactThrown = true,
         RetainSteps = Launch.RetainedSteps,
@@ -391,7 +398,7 @@ public static class Launch
         Host? host = null;
         try
         {
-            return host = await OpenSession.RedactOpening(async () =>
+            return host = await OpeningRedaction.RedactOpening(async () =>
             {
                 Claim(engine);
                 try
@@ -416,12 +423,21 @@ public static class Launch
                         ProjectRoot = projectRoot,
                         Env = options.Env,
                         CancellationToken = cancellationToken,
+                        Headed = options.Headed,
                         Notice = options.OnNotice is { } notice ? (_, message) => OpenSession.Notify(notice, message) : null,
                     }).ConfigureAwait(false);
-                    var opened = new Host(worker, engine, target, projectRoot, output, ownsArtifacts, secrets, identity, options.Timeout, app);
+                    var opened = new Host(worker, engine, target, projectRoot, output, ownsArtifacts, secrets, identity, options.Timeout, app, options.Headed);
                     if (options.HandleSignals)
                     {
-                        opened.CloseOnSignals();
+                        try
+                        {
+                            opened.CloseOnSignals();
+                        }
+                        catch
+                        {
+                            await opened.CloseAsync().ConfigureAwait(false);
+                            throw;
+                        }
                     }
 
                     return opened;

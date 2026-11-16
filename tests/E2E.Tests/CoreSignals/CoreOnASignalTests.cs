@@ -43,40 +43,52 @@ public sealed class CoreOnASignalTests
             }
 
             using var child = Process.Start(info)!;
-            var stderr = new StringBuilder();
-            child.ErrorDataReceived += (_, line) =>
-            {
-                lock (stderr)
-                {
-                    stderr.AppendLine(line.Data);
-                }
-            };
-            child.BeginErrorReadLine();
-            using var ready = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            while (await child.StandardOutput.ReadLineAsync(ready.Token) is { } line && !line.Contains("READY", StringComparison.Ordinal))
-            {
-            }
-
-            Assert.False(child.HasExited, $"the program exited before it was ready:\n{stderr}");
-            Assert.Equal(0, OperatingSystem.IsLinux() ? KillLinux(child.Id, signal) : Kill(child.Id, signal));
-
-            // A program that listens for the signal itself decides when it ends: here it never does.
-            using var stays = new CancellationTokenSource(TimeSpan.FromSeconds(listens ? 3 : 30));
             try
             {
-                await child.WaitForExitAsync(stays.Token);
-            }
-            catch (OperationCanceledException) when (listens)
-            {
-                child.Kill();
-                await child.WaitForExitAsync();
-            }
+                var stderr = new StringBuilder();
+                child.ErrorDataReceived += (_, line) =>
+                {
+                    lock (stderr)
+                    {
+                        stderr.AppendLine(line.Data);
+                    }
+                };
+                child.BeginErrorReadLine();
+                using var ready = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                while (await child.StandardOutput.ReadLineAsync(ready.Token) is { } line && !line.Contains("READY", StringComparison.Ordinal))
+                {
+                }
 
-            child.WaitForExit();
-            var killed = child.ExitCode == 128 + 9;
-            lock (stderr)
+                Assert.False(child.HasExited, $"the program exited before it was ready:\n{stderr}");
+                Assert.Equal(0, OperatingSystem.IsLinux() ? KillLinux(child.Id, signal) : Kill(child.Id, signal));
+
+                // A program that listens for the signal itself decides when it ends: here it never does.
+                using var stays = new CancellationTokenSource(TimeSpan.FromSeconds(listens ? 3 : 30));
+                try
+                {
+                    await child.WaitForExitAsync(stays.Token);
+                }
+                catch (OperationCanceledException) when (listens)
+                {
+                    child.Kill();
+                    await child.WaitForExitAsync();
+                }
+
+                child.WaitForExit();
+                var killed = child.ExitCode == 128 + 9;
+                lock (stderr)
+                {
+                    return (killed ? 9 : child.ExitCode > 128 ? child.ExitCode - 128 : null, child.ExitCode, stderr.ToString(), File.Exists(Path.Combine(dir, "disposed")));
+                }
+            }
+            finally
             {
-                return (killed ? 9 : child.ExitCode > 128 ? child.ExitCode - 128 : null, child.ExitCode, stderr.ToString(), File.Exists(Path.Combine(dir, "disposed")));
+                // A wait that failed must not leave the program running.
+                if (!child.HasExited)
+                {
+                    child.Kill(entireProcessTree: true);
+                    child.WaitForExit(TimeSpan.FromSeconds(10));
+                }
             }
         }
         finally
@@ -99,7 +111,7 @@ public sealed class CoreOnASignalTests
     }
 
     [Fact]
-    public async Task EndsBySighupThoughTheEngineListensForItAndLeavesAProgramThatListensItselfToDecide()
+    public async Task Partial_EndsBySighupThoughTheEngineListensForItAndLeavesAProgramThatListensItselfToDecide()
     {
         if (OperatingSystem.IsWindows())
         {

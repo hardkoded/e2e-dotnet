@@ -36,11 +36,11 @@ public sealed class OpenHostTests
         const string value = "s3cr3t-token-value";
         global::E2E.OpenSession.RegisterStaticSecrets([Secret.Create("api", value)]);
         var failure = await Assert.ThrowsAsync<EngineException>(() =>
-            global::E2E.OpenSession.RedactOpening<int>(() => throw new EngineException("ENGINE_FAILURE", "device said " + value, new InvalidOperationException(value))));
+            global::E2E.OpeningRedaction.RedactOpening<int>(() => throw new EngineException("ENGINE_FAILURE", "device said " + value, new InvalidOperationException(value))));
         Assert.DoesNotContain(value, failure.Message, StringComparison.Ordinal);
         Assert.Null(failure.InnerException);
         Assert.Equal("ENGINE_FAILURE", failure.Code);
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => global::E2E.OpenSession.RedactOpening<int>(() => throw new OperationCanceledException()));
+        await Assert.ThrowsAsync<OperationCanceledException>(() => global::E2E.OpeningRedaction.RedactOpening<int>(() => throw new OperationCanceledException()));
     }
 }
