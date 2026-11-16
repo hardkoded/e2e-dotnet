@@ -14,13 +14,40 @@ namespace E2E.Tests.TraceReplay;
 /// </summary>
 public sealed class ReplayTraceBarePointTapsTests
 {
-    private static RecordedAction Pin => new() { Kind = "tapAt", Point = new Point(300, 60), Viewport = Viewport };
+    private static RecordedAction Pin =>
+        new()
+        {
+            Kind = "tapAt",
+            Point = new Point(300, 60),
+            Viewport = Viewport,
+        };
 
     private static RecordedPointPlace Within(string role, string? name, double fx, double fy) =>
-        new() { Target = new RecordedTarget { Role = role, Name = name }, Fx = fx, Fy = fy };
+        new()
+        {
+            Target = new RecordedTarget { Role = role, Name = name },
+            Fx = fx,
+            Fy = fy,
+        };
 
-    private static SemanticNode Box(string reference, string role, string? name, double x, double y, double width, double height, bool hidden = false) =>
-        new() { Ref = reference, Role = role, Name = name, Rect = new BoundingBox(x, y, width, height), States = new NodeStates { Hidden = hidden } };
+    private static SemanticNode Box(
+        string reference,
+        string role,
+        string? name,
+        double x,
+        double y,
+        double width,
+        double height,
+        bool hidden = false
+    ) =>
+        new()
+        {
+            Ref = reference,
+            Role = role,
+            Name = name,
+            Rect = new BoundingBox(x, y, width, height),
+            States = new NodeStates { Hidden = hidden },
+        };
 
     private static void CollectPoints(List<object?> points, string name, object? detail)
     {
@@ -86,7 +113,14 @@ public sealed class ReplayTraceBarePointTapsTests
         Assert.Equal(0, outcome.Executed);
         Assert.Equal(ReplayHandOffReason.TargetNotFound, outcome.StopReason);
         Assert.Empty(host.Calls);
-        var flat = MakeHost([new SemanticNode { Ref = "m", Role = "img", Name = "Map" }]);
+        var flat = MakeHost([
+            new SemanticNode
+            {
+                Ref = "m",
+                Role = "img",
+                Name = "Map",
+            },
+        ]);
         var boxless = await Replay.ReplayTrace(flat, [action]);
         Assert.False(boxless.Completed);
         Assert.Equal(ReplayHandOffReason.TargetNotFound, boxless.StopReason);
@@ -97,7 +131,10 @@ public sealed class ReplayTraceBarePointTapsTests
     public async Task Lets_the_recorded_point_pick_among_look_alikes_when_it_lies_inside_exactly_one_of_them()
     {
         var points = new List<object?>();
-        var host = MakeHost([Box("a", "img", "Map", 0, 0, 200, 200), Box("b", "img", "Map", 200, 0, 200, 200)], (name, detail) => CollectPoints(points, name, detail));
+        var host = MakeHost(
+            [Box("a", "img", "Map", 0, 0, 200, 200), Box("b", "img", "Map", 200, 0, 200, 200)],
+            (name, detail) => CollectPoints(points, name, detail)
+        );
         var action = Pin;
         action.Under = Within("img", "Map", 0.5, 0.5);
 
@@ -113,7 +150,10 @@ public sealed class ReplayTraceBarePointTapsTests
     public async Task Ignores_a_hidden_look_alike_that_keeps_its_box_as_the_hit_test_that_recorded_the_point_did()
     {
         var points = new List<object?>();
-        var host = MakeHost([Box("a", "img", "Map", 200, 0, 200, 200), Box("h", "img", "Map", 200, 0, 200, 200, hidden: true)], (name, detail) => CollectPoints(points, name, detail));
+        var host = MakeHost(
+            [Box("a", "img", "Map", 200, 0, 200, 200), Box("h", "img", "Map", 200, 0, 200, 200, hidden: true)],
+            (name, detail) => CollectPoints(points, name, detail)
+        );
         var action = Pin;
         action.Under = Within("img", "Map", 0.5, 0.5);
 
@@ -128,7 +168,10 @@ public sealed class ReplayTraceBarePointTapsTests
     public async Task Taps_the_recorded_point_when_several_nested_look_alikes_hold_it_as_a_host_view_and_the_view_inside_it_do()
     {
         var points = new List<object?>();
-        var nested = MakeHost([Box("h", "group", "Form", 0, 0, 400, 200), Box("i", "group", "Form", 10, 10, 380, 180)], (name, detail) => CollectPoints(points, name, detail));
+        var nested = MakeHost(
+            [Box("h", "group", "Form", 0, 0, 400, 200), Box("i", "group", "Form", 10, 10, 380, 180)],
+            (name, detail) => CollectPoints(points, name, detail)
+        );
         var action = Pin;
         action.Under = Within("group", "Form", 0.75, 0.3);
 
@@ -138,10 +181,18 @@ public sealed class ReplayTraceBarePointTapsTests
         Assert.Equal(1, outcome.Executed);
         Assert.Equal(new object?[] { (300.0, 60.0) }, points);
         // An anonymous container among its kind, the merged tree of a screen built for pixels, is the same case.
-        var groups = new[] { Box("a", "group", null, 0, 0, 400, 400), Box("b", "group", null, 0, 0, 400, 100), Box("c", "group", null, 0, 300, 400, 100) };
+        var groups = new[]
+        {
+            Box("a", "group", null, 0, 0, 400, 400),
+            Box("b", "group", null, 0, 0, 400, 100),
+            Box("c", "group", null, 0, 300, 400, 100),
+        };
         var anonymousAction = Pin;
         anonymousAction.Under = Within("group", null, 0.75, 0.6);
-        var anonymous = await Replay.ReplayTrace(MakeHost(groups, (name, detail) => CollectPoints(points, name, detail)), [anonymousAction]);
+        var anonymous = await Replay.ReplayTrace(
+            MakeHost(groups, (name, detail) => CollectPoints(points, name, detail)),
+            [anonymousAction]
+        );
         Assert.True(anonymous.Completed);
         Assert.Equal(1, anonymous.Executed);
         Assert.Equal(new object?[] { (300.0, 60.0), (300.0, 60.0) }, points);
@@ -186,7 +237,13 @@ public sealed class ReplayTraceBarePointTapsTests
     public async Task Pages_to_a_text_on_the_viewport_on_the_re_found_list_on_the_viewport_for_a_lost_list_that_filled_the_screen_and_hands_off_for_a_lost_small_one()
     {
         var calls = new List<object?>();
-        var list = new SemanticNode { Ref = "l", Role = "list", Name = "Ledger", Rect = new BoundingBox(0, 0, 1280, 200) };
+        var list = new SemanticNode
+        {
+            Ref = "l",
+            Role = "list",
+            Name = "Ledger",
+            Rect = new BoundingBox(0, 0, 1280, 200),
+        };
         var host = MakeHost([list], (name, detail) =>
         {
             if (name == "scrollUntil")
@@ -195,18 +252,70 @@ public sealed class ReplayTraceBarePointTapsTests
             }
         });
 
-        var viewport = await Replay.ReplayTrace(host, [new RecordedAction { Kind = "scrollUntil", Text = "Row 333", Direction = "down" }]);
+        var viewport = await Replay.ReplayTrace(
+            host,
+            [
+                new RecordedAction
+                {
+                    Kind = "scrollUntil",
+                    Text = "Row 333",
+                    Direction = "down",
+                },
+            ]
+        );
         Assert.True(viewport.Completed);
         Assert.Equal(1, viewport.Executed);
-        var onList = await Replay.ReplayTrace(host, [new RecordedAction { Kind = "scrollUntil", Text = "Row 333", Direction = "down", Role = "list", Name = "Ledger", Spans = 0.3 }]);
+        var onList = await Replay.ReplayTrace(
+            host,
+            [
+                new RecordedAction
+                {
+                    Kind = "scrollUntil",
+                    Text = "Row 333",
+                    Direction = "down",
+                    Role = "list",
+                    Name = "Ledger",
+                    Spans = 0.3,
+                },
+            ]
+        );
         Assert.True(onList.Completed);
         Assert.Equal(1, onList.Executed);
-        Assert.Equal(new object?[] { ("Row 333", ScrollDirection.Down, (string?)null), ("Row 333", ScrollDirection.Down, "l") }, calls);
+        Assert.Equal(
+            new object?[] { ("Row 333", ScrollDirection.Down, (string?)null), ("Row 333", ScrollDirection.Down, "l") },
+            calls
+        );
 
-        var lostFull = await Replay.ReplayTrace(MakeHost([]), [new RecordedAction { Kind = "scrollUntil", Text = "Row 333", Direction = "down", Role = "list", Name = "Ledger", Spans = 0.9 }]);
+        var lostFull = await Replay.ReplayTrace(
+            MakeHost([]),
+            [
+                new RecordedAction
+                {
+                    Kind = "scrollUntil",
+                    Text = "Row 333",
+                    Direction = "down",
+                    Role = "list",
+                    Name = "Ledger",
+                    Spans = 0.9,
+                },
+            ]
+        );
         Assert.True(lostFull.Completed);
         Assert.Equal(1, lostFull.Executed);
-        var lostSmall = await Replay.ReplayTrace(MakeHost([]), [new RecordedAction { Kind = "scrollUntil", Text = "Row 333", Direction = "down", Role = "list", Name = "Ledger", Spans = 0.3 }]);
+        var lostSmall = await Replay.ReplayTrace(
+            MakeHost([]),
+            [
+                new RecordedAction
+                {
+                    Kind = "scrollUntil",
+                    Text = "Row 333",
+                    Direction = "down",
+                    Role = "list",
+                    Name = "Ledger",
+                    Spans = 0.3,
+                },
+            ]
+        );
         Assert.False(lostSmall.Completed);
         Assert.Equal(0, lostSmall.Executed);
         Assert.Equal(ReplayHandOffReason.TargetNotFound, lostSmall.StopReason);
@@ -244,7 +353,10 @@ public sealed class ReplayTraceBarePointTapsTests
 
         Assert.True(outcome.Completed);
         Assert.Equal(1, outcome.Executed);
-        Assert.Equal(new object?[] { (ScrollDirection.Down, (string?)null), (ScrollDirection.Down, (string?)null) }, targets);
+        Assert.Equal(
+            new object?[] { (ScrollDirection.Down, (string?)null), (ScrollDirection.Down, (string?)null) },
+            targets
+        );
     }
 
     /// <summary>
@@ -274,13 +386,25 @@ public sealed class ReplayTraceBarePointTapsTests
         Assert.Equal(Enumerable.Repeat<object?>((ScrollDirection.Down, (string?)null), 4), targets);
         // One relocation wait (the first look and a raw one each 20 ms until the replay timeout), then one settled look before each later repeat.
         Assert.Equal(host.ReplayTimeout, host.Time.GetUtcNow() - started);
-        Assert.Equal([SettleMode.HeldStill, .. Enumerable.Repeat(SettleMode.Raw, 5), .. Enumerable.Repeat(SettleMode.HeldStill, 3)], host.Looks);
+        Assert.Equal(
+            [
+                SettleMode.HeldStill,
+                .. Enumerable.Repeat(SettleMode.Raw, 5),
+                .. Enumerable.Repeat(SettleMode.HeldStill, 3),
+            ],
+            host.Looks
+        );
     }
 
     [Fact]
     public async Task Counts_the_repeats_of_a_folded_scroll_that_ran_before_a_later_one_lost_the_list()
     {
-        var list = new SemanticNode { Ref = "g1", Role = "group", Name = "Rows 1 to 12" };
+        var list = new SemanticNode
+        {
+            Ref = "g1",
+            Role = "group",
+            Name = "Rows 1 to 12",
+        };
         var host = MakeHost([list, Email]);
         host.Capture = () =>
         {

@@ -46,23 +46,30 @@ public sealed class LoginForm : Component
 
         if (loggedIn)
         {
-            return VStack(16,
-                Success("Logged in successfully"),
-                Button("Log out", () =>
-                {
-                    setLoggedIn(false);
-                    setEmail("");
-                    setPassword("");
-                }).AutomationId("logout-button"))
+            return VStack(
+                    16,
+                    Success("Logged in successfully"),
+                    Button("Log out", () =>
+                        {
+                            setLoggedIn(false);
+                            setEmail("");
+                            setPassword("");
+                        })
+                        .AutomationId("logout-button")
+                )
                 .Padding(24);
         }
 
-        return VStack(12,
-            Hint($"Use {ValidEmail} / {ValidPassword}"),
-            TextBox(email, setEmail, placeholderText: "Email").AutomationName("Email").AutomationId("email-input"),
-            PasswordBox(password, setPassword, placeholderText: "Password").AutomationName("Password").AutomationId("password-input"),
-            When(error is not null, () => Body(error!).Foreground("#b00020").AutomationId("error-message")),
-            Button("Log in", Submit).AutomationId("login-button"))
+        return VStack(
+                12,
+                Hint($"Use {ValidEmail} / {ValidPassword}"),
+                TextBox(email, setEmail, placeholderText: "Email").AutomationName("Email").AutomationId("email-input"),
+                PasswordBox(password, setPassword, placeholderText: "Password")
+                    .AutomationName("Password")
+                    .AutomationId("password-input"),
+                When(error is not null, () => Body(error!).Foreground("#b00020").AutomationId("error-message")),
+                Button("Log in", Submit).AutomationId("login-button")
+            )
             .Padding(24);
     }
 }

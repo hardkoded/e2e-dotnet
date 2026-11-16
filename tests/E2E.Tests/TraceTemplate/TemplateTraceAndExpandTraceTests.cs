@@ -21,43 +21,95 @@ public sealed class TemplateTraceAndExpandTraceTests
 
     private static Dictionary<string, object?> NameParams(string value) => new() { ["name"] = Values.Unique(value) };
 
-    private static Dictionary<string, string> Filled(IEnumerable<ParamTemplate> templates) => templates.ToDictionary(template => template.Pointer, template => template.Value);
+    private static Dictionary<string, string> Filled(IEnumerable<ParamTemplate> templates) =>
+        templates.ToDictionary(template => template.Pointer, template => template.Value);
 
     /// <summary>The entry as JSON, so two entries compare by what they hold.</summary>
     private static string Json(CacheEntry? entry) => JsonSerializer.Serialize(entry, Web);
 
     /// <summary>Upstream's <c>trace(name)</c> of <c>trace-template.test.ts</c>, as the port records it.</summary>
-    private static CacheEntry Recording(string name) => new()
-    {
-        Actions =
-        [
-            new RecordedAction { Kind = "navigate", Summary = "navigate to \"/companies/create\"", Url = "/companies/create" },
-            new RecordedAction { Kind = "fill", Summary = $"type \"{name}\" into textbox \"Name\"", Role = "textbox", Name = "Name", Value = name },
-            new RecordedAction { Kind = "fill", Summary = "fill secret \"admin\" into textbox \"Password\"", Role = "textbox", Name = "Password", Value = "<secret:admin>" },
-            new RecordedAction { Kind = "tap", Summary = $"tap option \"{name}\" in row \"{name}\"", Role = "option", Name = name, Within = name },
-            new RecordedAction { Kind = "press", Summary = "press \"Enter\" on textbox \"Name\"", Role = "textbox", Name = "Name", Key = "Enter" },
-        ],
-        Summary = $"created {name}",
-        Route = "/companies",
-        EndRoute = "/companies/123",
-        Appeared = [new RecordedTarget { Role = "heading", Name = name }],
-    };
+    private static CacheEntry Recording(string name) =>
+        new()
+        {
+            Actions =
+            [
+                new RecordedAction
+                {
+                    Kind = "navigate",
+                    Summary = "navigate to \"/companies/create\"",
+                    Url = "/companies/create",
+                },
+                new RecordedAction
+                {
+                    Kind = "fill",
+                    Summary = $"type \"{name}\" into textbox \"Name\"",
+                    Role = "textbox",
+                    Name = "Name",
+                    Value = name,
+                },
+                new RecordedAction
+                {
+                    Kind = "fill",
+                    Summary = "fill secret \"admin\" into textbox \"Password\"",
+                    Role = "textbox",
+                    Name = "Password",
+                    Value = "<secret:admin>",
+                },
+                new RecordedAction
+                {
+                    Kind = "tap",
+                    Summary = $"tap option \"{name}\" in row \"{name}\"",
+                    Role = "option",
+                    Name = name,
+                    Within = name,
+                },
+                new RecordedAction
+                {
+                    Kind = "press",
+                    Summary = "press \"Enter\" on textbox \"Name\"",
+                    Role = "textbox",
+                    Name = "Name",
+                    Key = "Enter",
+                },
+            ],
+            Summary = $"created {name}",
+            Route = "/companies",
+            EndRoute = "/companies/123",
+            Appeared = [new RecordedTarget { Role = "heading", Name = name }],
+        };
 
     [Fact]
     public void Templates_upload_paths_so_a_file_named_through_unique_is_re_resolved_from_each_runs_value()
     {
-        static CacheEntry Upload(string file) => new()
-        {
-            Actions = [new RecordedAction { Kind = "upload", Summary = $"upload \"{file}\", \"fixtures/static.txt\" to button \"Attachment\"", Role = "button", Name = "Attachment", Paths = [file, "fixtures/static.txt"] }],
-            Route = "/",
-        };
+        static CacheEntry Upload(string file) =>
+            new()
+            {
+                Actions =
+                [
+                    new RecordedAction
+                    {
+                        Kind = "upload",
+                        Summary = $"upload \"{file}\", \"fixtures/static.txt\" to button \"Attachment\"",
+                        Role = "button",
+                        Name = "Attachment",
+                        Paths = [file, "fixtures/static.txt"],
+                    },
+                ],
+                Route = "/",
+            };
         static List<ParamTemplate> Paths(string value) => [new("/file", value)];
 
         var recorded = CacheKeys.TemplateTrace(Upload("fixtures/run-1.json"), Paths("fixtures/run-1.json"))!;
 
         Assert.Equal(["{{param:/file}}", "fixtures/static.txt"], recorded.Actions[0].Paths);
-        Assert.Equal("upload \"{{param:/file}}\", \"fixtures/static.txt\" to button \"Attachment\"", recorded.Actions[0].Summary);
-        Assert.Equal(Json(Upload("fixtures/run-2.json")), Json(CacheKeys.ExpandTrace(recorded, Paths("fixtures/run-2.json"))));
+        Assert.Equal(
+            "upload \"{{param:/file}}\", \"fixtures/static.txt\" to button \"Attachment\"",
+            recorded.Actions[0].Summary
+        );
+        Assert.Equal(
+            Json(Upload("fixtures/run-2.json")),
+            Json(CacheKeys.ExpandTrace(recorded, Paths("fixtures/run-2.json")))
+        );
         Assert.Null(CacheKeys.ExpandTrace(recorded, []));
     }
 
@@ -140,7 +192,10 @@ public sealed class TemplateTraceAndExpandTraceTests
     }
 
     private static bool Collide(string json, params (string Pointer, string Value)[] templates) =>
-        CacheKeys.TemplatesCollide(JsonNode.Parse(json)!.AsObject(), [.. templates.Select(template => new ParamTemplate(template.Pointer, template.Value))]);
+        CacheKeys.TemplatesCollide(
+            JsonNode.Parse(json)!.AsObject(),
+            [.. templates.Select(template => new ParamTemplate(template.Pointer, template.Value))]
+        );
 
     [Fact]
     public void Reports_a_unique_value_that_another_param_spells_in_any_of_its_spellings_as_a_collision()
@@ -178,7 +233,10 @@ public sealed class TemplateTraceAndExpandTraceTests
     [Fact]
     public void Spells_the_form_encoding_as_a_form_submission_does_and_skips_the_encodings_of_a_value_that_has_none()
     {
-        Assert.Equal("?q={{param:/q|form}}", CacheKeys.TemplateText("?q=Ada%27s+%28new%29+shop%7E%21", [new("/q", "Ada's (new) shop~!")]));
+        Assert.Equal(
+            "?q={{param:/q|form}}",
+            CacheKeys.TemplateText("?q=Ada%27s+%28new%29+shop%7E%21", [new("/q", "Ada's (new) shop~!")])
+        );
 
         // An unpaired surrogate cannot be percent-encoded; the value itself still templates and staging does not throw.
         var odd = "bad \ud800 value";
@@ -194,11 +252,20 @@ public sealed class TemplateTraceAndExpandTraceTests
 
         var recorded = CacheKeys.TemplateTrace(moved, Name("Acme & Co"))!;
 
-        Assert.Equal("/companies/{{param:/name|uri}}?search={{param:/name|form}}&name={{param:/name}}", recorded.EndRoute);
-        Assert.Equal("/companies/Globex%20Inc?search=Globex+Inc&name=Globex Inc", CacheKeys.ExpandTrace(recorded, Name("Globex Inc"))?.EndRoute);
+        Assert.Equal(
+            "/companies/{{param:/name|uri}}?search={{param:/name|form}}&name={{param:/name}}",
+            recorded.EndRoute
+        );
+        Assert.Equal(
+            "/companies/Globex%20Inc?search=Globex+Inc&name=Globex Inc",
+            CacheKeys.ExpandTrace(recorded, Name("Globex Inc"))?.EndRoute
+        );
 
         // A value no encoding changes has one spelling and one placeholder.
-        Assert.Equal("/tags/{{param:/tag}}?q={{param:/tag}}", CacheKeys.TemplateText("/tags/vip?q=vip", [new("/tag", "vip")]));
+        Assert.Equal(
+            "/tags/{{param:/tag}}?q={{param:/tag}}",
+            CacheKeys.TemplateText("/tags/vip?q=vip", [new("/tag", "vip")])
+        );
     }
 
     [Fact]
@@ -206,8 +273,14 @@ public sealed class TemplateTraceAndExpandTraceTests
     {
         List<ParamTemplate> templates = [new("/name", "E2E abc Company")];
 
-        Assert.Equal("/companies/{{param:/name|slug}}?q={{param:/name|uri}}", CacheKeys.TemplateText("/companies/e2e-abc-company?q=E2E%20abc%20Company", templates));
-        Assert.Equal("/companies/ada-s-shop-co", CacheKeys.ExpandText("/companies/{{param:/name|slug}}", Filled([new("/name", "Ada's Shop & Co")])));
+        Assert.Equal(
+            "/companies/{{param:/name|slug}}?q={{param:/name|uri}}",
+            CacheKeys.TemplateText("/companies/e2e-abc-company?q=E2E%20abc%20Company", templates)
+        );
+        Assert.Equal(
+            "/companies/ada-s-shop-co",
+            CacheKeys.ExpandText("/companies/{{param:/name|slug}}", Filled([new("/name", "Ada's Shop & Co")]))
+        );
 
         // A value whose slug is empty has no slug spelling.
         Assert.Equal("x {{param:/v}} y", CacheKeys.TemplateText("x -- y", [new("/v", "--")]));
@@ -218,16 +291,27 @@ public sealed class TemplateTraceAndExpandTraceTests
     {
         List<ParamTemplate> templates = [new("/address", "Ada Lovelace\n12 Example Street\nE2E 1")];
 
-        Assert.Equal("Saved: {{param:/address|flat}}", CacheKeys.TemplateText("Saved: Ada Lovelace 12 Example Street E2E 1", templates));
+        Assert.Equal(
+            "Saved: {{param:/address|flat}}",
+            CacheKeys.TemplateText("Saved: Ada Lovelace 12 Example Street E2E 1", templates)
+        );
         Assert.Equal("{{param:/address}}", CacheKeys.TemplateText("Ada Lovelace\n12 Example Street\nE2E 1", templates));
 
         // A textarea keeps `\r\n` as `\n`, so a value joined with `\r\n` shows on one line too.
         Assert.Equal(
             "Saved: {{param:/address|flat}}",
-            CacheKeys.TemplateText("Saved: Ada Lovelace 12 Example Street E2E 1", [new("/address", "Ada Lovelace\r\n12 Example Street\r\nE2E 1")]));
+            CacheKeys.TemplateText(
+                "Saved: Ada Lovelace 12 Example Street E2E 1",
+                [new("/address", "Ada Lovelace\r\n12 Example Street\r\nE2E 1")]
+            )
+        );
         Assert.Equal(
             "Saved: Grace Hopper 7 Navy Way E2E 2",
-            CacheKeys.ExpandText("Saved: {{param:/address|flat}}", Filled([new("/address", " Grace Hopper\n\n 7 Navy Way\tE2E 2 ")])));
+            CacheKeys.ExpandText(
+                "Saved: {{param:/address|flat}}",
+                Filled([new("/address", " Grace Hopper\n\n 7 Navy Way\tE2E 2 ")])
+            )
+        );
     }
 
     [Fact]
@@ -245,38 +329,46 @@ public sealed class TemplateTraceAndExpandTraceTests
     public async Task Records_a_step_with_the_slots_and_replays_it_with_another_runs_value()
     {
         var typed = new List<string>();
-        static string Url(string name) => "/companies/create?name=" + Uri.EscapeDataString(name).Replace("%20", "+", StringComparison.Ordinal);
-        DocumentWorld World(string current) => new DocumentWorld()
-            .Map("/home", page => page.Heading("Home"))
-            .Map("/companies/create", page =>
-            {
-                page.Status("Company form");
-                DocumentElement? box = null;
-                box = new DocumentElement
+        static string Url(string name) =>
+            "/companies/create?name=" + Uri.EscapeDataString(name).Replace("%20", "+", StringComparison.Ordinal);
+        DocumentWorld World(string current) =>
+            new DocumentWorld()
+                .Map("/home", page => page.Heading("Home"))
+                .Map("/companies/create", page =>
                 {
-                    Role = "textbox",
-                    Name = "Name",
-                    Value = "",
-                    OnFill = value =>
+                    page.Status("Company form");
+                    DocumentElement? box = null;
+                    box = new DocumentElement
                     {
-                        typed.Add(value);
-                        box!.Value = value;
-                    },
-                };
-                page.Roots.Add(box);
-                page.Roots.Add(new DocumentElement { Role = "option", Name = current });
-            });
+                        Role = "textbox",
+                        Name = "Name",
+                        Value = "",
+                        OnFill = value =>
+                        {
+                            typed.Add(value);
+                            box!.Value = value;
+                        },
+                    };
+                    page.Roots.Add(box);
+                    page.Roots.Add(new DocumentElement { Role = "option", Name = current });
+                });
         const string first = "E2E abc Company";
         const string second = "E2E xyz Company";
-        static Task Form(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
+        static Task Form(TestContext ctx) =>
+            Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
         var directory = CoreTests.TempCache();
         var recorded = await StepAsync(
             World(first),
             new FileStepCache(directory),
             "/home",
             Form,
-            Script(ModelResponses.Call("navigate", new { url = Url(first) }), ModelResponses.Fill("textbox", "Name", first), ModelResponses.Tap("option", first)),
-            NameParams(first));
+            Script(
+                ModelResponses.Call("navigate", new { url = Url(first) }),
+                ModelResponses.Fill("textbox", "Name", first),
+                ModelResponses.Tap("option", first)
+            ),
+            NameParams(first)
+        );
         Assert.Null(recorded.Error);
 
         var file = Assert.Single(Directory.GetFiles(directory, "*.json"));
@@ -289,7 +381,14 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.DoesNotContain("E2E", File.ReadAllText(file), StringComparison.Ordinal);
 
         typed.Clear();
-        var replay = await StepAsync(World(second), new FileStepCache(directory), "/home", Form, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), NameParams(second));
+        var replay = await StepAsync(
+            World(second),
+            new FileStepCache(directory),
+            "/home",
+            Form,
+            new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+            NameParams(second)
+        );
         Assert.Null(replay.Error);
         Assert.Equal(1, replay.Replayed);
         Assert.Equal(["E2E xyz Company"], typed);
@@ -302,7 +401,8 @@ public sealed class TemplateTraceAndExpandTraceTests
     [Fact]
     public async Task Writes_no_recording_for_a_step_whose_page_spells_a_placeholder()
     {
-        static Task Form(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
+        static Task Form(TestContext ctx) =>
+            Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
         var spelling = new DocumentWorld()
             .Map("/home", page => page.Heading("Home"))
             .Map("/companies/create", page =>
@@ -312,7 +412,14 @@ public sealed class TemplateTraceAndExpandTraceTests
             });
         var anchored = CoreTests.TempCache();
 
-        var shown = await StepAsync(spelling, new FileStepCache(anchored), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), null);
+        var shown = await StepAsync(
+            spelling,
+            new FileStepCache(anchored),
+            "/home",
+            Form,
+            Script(ModelResponses.Call("navigate", new { url = "/companies/create" })),
+            null
+        );
 
         Assert.Null(shown.Error);
         Assert.Empty(Directory.Exists(anchored) ? Directory.GetFiles(anchored, "*.json") : []);
@@ -325,16 +432,31 @@ public sealed class TemplateTraceAndExpandTraceTests
         var world = new DocumentWorld()
             .Map("/home", page => page.Heading("Home"))
             .Map("/companies/create", page => page.Status("Company form"));
-        static Task Form(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
+        static Task Form(TestContext ctx) =>
+            Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
         var directory = CoreTests.TempCache();
-        var recorded = await StepAsync(world, new FileStepCache(directory), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), NameParams("Acme"));
+        var recorded = await StepAsync(
+            world,
+            new FileStepCache(directory),
+            "/home",
+            Form,
+            Script(ModelResponses.Call("navigate", new { url = "/companies/create" })),
+            NameParams("Acme")
+        );
         Assert.Null(recorded.Error);
         var file = Assert.Single(Directory.GetFiles(directory, "*.json"));
         var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(file))!.AsObject();
         json["appeared"] = new System.Text.Json.Nodes.JsonArray((System.Text.Json.Nodes.JsonNode?)null);
         File.WriteAllText(file, json.ToJsonString());
 
-        var replay = await StepAsync(world, new FileStepCache(directory), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), NameParams("Acme"));
+        var replay = await StepAsync(
+            world,
+            new FileStepCache(directory),
+            "/home",
+            Form,
+            Script(ModelResponses.Call("navigate", new { url = "/companies/create" })),
+            NameParams("Acme")
+        );
 
         Assert.Null(replay.Error);
         Assert.Equal(("missed", "invalid-entry"), (replay.Cache?.Mode, replay.Cache?.Reason));

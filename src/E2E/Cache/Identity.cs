@@ -26,35 +26,43 @@ internal sealed record TraceCacheKey(
     string AppIdentity,
     string Agent,
     string AgentContextDigest,
-    string PolicyVersion)
+    string PolicyVersion
+)
 {
     /// <summary>The key as the JSON object that is hashed.</summary>
-    internal JsonObject ToJson() => new()
-    {
-        ["specVersion"] = SpecVersion,
-        ["cacheSchema"] = CacheSchema,
-        ["project"] = Project,
-        ["testId"] = TestId,
-        ["targetId"] = TargetId,
-        ["platform"] = Platform,
-        ["engineName"] = EngineName,
-        ["engineSpiVersion"] = EngineSpiVersion,
-        ["kind"] = Kind,
-        ["callIndex"] = CallIndex,
-        ["instructionDigest"] = InstructionDigest,
-        ["paramsDigest"] = ParamsDigest,
-        ["appIdentity"] = AppIdentity,
-        ["agent"] = Agent,
-        ["agentContextDigest"] = AgentContextDigest,
-        ["policyVersion"] = PolicyVersion,
-    };
+    internal JsonObject ToJson() =>
+        new()
+        {
+            ["specVersion"] = SpecVersion,
+            ["cacheSchema"] = CacheSchema,
+            ["project"] = Project,
+            ["testId"] = TestId,
+            ["targetId"] = TargetId,
+            ["platform"] = Platform,
+            ["engineName"] = EngineName,
+            ["engineSpiVersion"] = EngineSpiVersion,
+            ["kind"] = Kind,
+            ["callIndex"] = CallIndex,
+            ["instructionDigest"] = InstructionDigest,
+            ["paramsDigest"] = ParamsDigest,
+            ["appIdentity"] = AppIdentity,
+            ["agent"] = Agent,
+            ["agentContextDigest"] = AgentContextDigest,
+            ["policyVersion"] = PolicyVersion,
+        };
 }
 
 /// <summary>Upstream's <c>CacheAgentIdentity</c>: the agent a step runs with, as the key sees it. The context is already redacted.</summary>
 internal sealed record CacheAgentIdentity(string Name, string? Context);
 
 /// <summary>Upstream's <c>CacheTargetIdentity</c>: identity of the target, engine, and app a trace was recorded against.</summary>
-internal sealed record CacheTargetIdentity(string TargetId, string Platform, string EngineName, int SpiVersion, string AppIdentity);
+internal sealed record CacheTargetIdentity(
+    string TargetId,
+    string Platform,
+    string EngineName,
+    int SpiVersion,
+    string AppIdentity
+);
 
 /// <summary>Upstream's <c>TraceCallSignature</c>: what a step asks for, independent of where it sits in the test.</summary>
 internal sealed record TraceCallSignature(string Kind, string InstructionDigest, string ParamsDigest);
@@ -67,7 +75,8 @@ internal sealed record TraceCacheKeyParts(
     TraceCallSignature Signature,
     int CallIndex,
     CacheAgentIdentity Agent,
-    string PolicyVersion);
+    string PolicyVersion
+);
 
 /// <summary>
 /// Upstream's <c>cache/identity.ts</c>: trace cache key identity. A key names the exact context a trace was recorded in, so a
@@ -84,7 +93,10 @@ internal static class Identity
     /// </summary>
     public static string NormalizeInstruction(string instruction)
     {
-        var text = instruction.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Normalize(NormalizationForm.FormC);
+        var text = instruction
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Normalize(NormalizationForm.FormC);
         var start = 0;
         var end = text.Length;
         while (start < end && IsWhiteSpace(text[start]))
@@ -148,7 +160,8 @@ internal static class Identity
             parts.Target.AppIdentity,
             parts.Agent.Name,
             Ids.Sha256Hex(parts.Agent.Context ?? ""),
-            parts.PolicyVersion);
+            parts.PolicyVersion
+        );
 
     /// <summary>SHA-256/JCS of one key, used as both the entry digest and its file name.</summary>
     public static string TraceCacheKeyHash(TraceCacheKey key) => Ids.CanonicalDigest(key.ToJson());
@@ -158,7 +171,16 @@ internal static class Identity
     /// the key and picks <c>KEY_CONTEXT_FIELDS</c> from it.
     /// </summary>
     public static TraceKeyContext KeyContext(TraceCacheKey key) =>
-        new(key.CacheSchema, key.PolicyVersion, key.Project, key.Platform, key.EngineName, key.EngineSpiVersion, key.AppIdentity, key.AgentContextDigest);
+        new(
+            key.CacheSchema,
+            key.PolicyVersion,
+            key.Project,
+            key.Platform,
+            key.EngineName,
+            key.EngineSpiVersion,
+            key.AppIdentity,
+            key.AgentContextDigest
+        );
 
     // How each part of a key's context reads in a sentence, and whether its value means anything to a reader.
     private static readonly Dictionary<string, (string Name, bool Shown)> KeyContextWords = new(StringComparer.Ordinal)
@@ -203,5 +225,20 @@ internal static class Identity
 
     // JavaScript's String.prototype.trim: the WhiteSpace and LineTerminator productions, which differ from char.IsWhiteSpace.
     private static bool IsWhiteSpace(char c) =>
-        c is '\t' or '\n' or '\v' or '\f' or '\r' or ' ' or '\x00A0' or '\x1680' or (>= '\x2000' and <= '\x200A') or '\x2028' or '\x2029' or '\x202F' or '\x205F' or '\x3000' or '\xFEFF';
+        c
+            is '\t'
+                or '\n'
+                or '\v'
+                or '\f'
+                or '\r'
+                or ' '
+                or '\x00A0'
+                or '\x1680'
+                or (>= '\x2000' and <= '\x200A')
+                or '\x2028'
+                or '\x2029'
+                or '\x202F'
+                or '\x205F'
+                or '\x3000'
+                or '\xFEFF';
 }

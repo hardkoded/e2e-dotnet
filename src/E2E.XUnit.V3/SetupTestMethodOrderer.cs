@@ -15,12 +15,18 @@ namespace E2E.XUnit.V3;
 public sealed class SetupTestMethodOrderer : ITestMethodOrderer
 {
     /// <inheritdoc />
-    public IReadOnlyCollection<TTestMethod?> OrderTestMethods<TTestMethod>(IReadOnlyCollection<TTestMethod?> testMethods)
+    public IReadOnlyCollection<TTestMethod?> OrderTestMethods<TTestMethod>(
+        IReadOnlyCollection<TTestMethod?> testMethods
+    )
         where TTestMethod : ITestMethod
     {
         ArgumentNullException.ThrowIfNull(testMethods);
-        var setup = DefaultTestMethodOrderer.Instance.OrderTestMethods(testMethods.Where(method => IsSetup(method)).ToList()).ToList();
-        setup.AddRange(DefaultTestMethodOrderer.Instance.OrderTestMethods(testMethods.Where(method => !IsSetup(method)).ToList()));
+        var setup = DefaultTestMethodOrderer
+            .Instance.OrderTestMethods(testMethods.Where(method => IsSetup(method)).ToList())
+            .ToList();
+        setup.AddRange(
+            DefaultTestMethodOrderer.Instance.OrderTestMethods(testMethods.Where(method => !IsSetup(method)).ToList())
+        );
         return setup;
     }
 

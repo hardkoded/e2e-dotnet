@@ -35,10 +35,7 @@ public sealed class ScrollToATextOnAPageThatAnimatesItsScrollTests
         return screen.Text.Contains(Row, StringComparison.Ordinal)
             ? Passed("reached " + Row)
             : Failed(Row + " is not on the screen", "STEP_NO_CONCLUSION");
-    })
-    {
-        Cache = ExecutorCache.Off,
-    };
+    }) { Cache = ExecutorCache.Off };
 
     [Theory]
     [InlineData("none", 450)]
@@ -48,16 +45,18 @@ public sealed class ScrollToATextOnAPageThatAnimatesItsScrollTests
     public async Task Reaches_the_row_with_smooth_mode_over_ms(string mode, int ms)
     {
         using var site = await FixtureApp.StartAsync();
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            AgentExecutor = Executor,
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            TestTitle = "reaches the row",
-            StepTimeout = TimeSpan.FromSeconds(100),
-            TestTimeout = TimeSpan.FromSeconds(120),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                AgentExecutor = Executor,
+                BaseUrl = site.Url,
+                CacheEnabled = false,
+                TestTitle = "reaches the row",
+                StepTimeout = TimeSpan.FromSeconds(100),
+                TestTimeout = TimeSpan.FromSeconds(120),
+            }
+        );
         Exception? error = null;
         try
         {
@@ -73,7 +72,12 @@ public sealed class ScrollToATextOnAPageThatAnimatesItsScrollTests
         if (error is not null)
         {
             var step = session.StepRecords.LastOrDefault(candidate => candidate.Api == "agent.act");
-            var detail = step is null ? null : string.Join("; ", step.Events.Where(item => item.Kind == StepEventKind.Engine).Select(item => item.Detail));
+            var detail = step is null
+                ? null
+                : string.Join(
+                    "; ",
+                    step.Events.Where(item => item.Kind == StepEventKind.Engine).Select(item => item.Detail)
+                );
             Assert.Fail((detail ?? "") + " \"" + error.Message + "\"");
         }
     }

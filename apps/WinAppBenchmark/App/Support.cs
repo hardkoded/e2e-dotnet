@@ -10,7 +10,8 @@ namespace WinAppBenchmark.App;
 public static class Support
 {
     /// <summary>The terminal element of a scenario whose tree is intact, AutomationId "success-message".</summary>
-    public static Element Success(string text) => TextBlock(text).SemiBold().FontSize(20).TextWrapping().AutomationId("success-message");
+    public static Element Success(string text) =>
+        TextBlock(text).SemiBold().FontSize(20).TextWrapping().AutomationId("success-message");
 
     /// <summary>The on-screen instruction of a scenario.</summary>
     public static Element Hint(string text) => Body(text).TextWrapping().Foreground("#555555");
@@ -22,23 +23,25 @@ public static class Support
     public static void After(int milliseconds, CancellationToken token, Action action)
     {
         var queue = DispatcherQueue.GetForCurrentThread();
-        _ = Task.Delay(milliseconds, token).ContinueWith(
-            delay =>
-            {
-                if (delay.Status == TaskStatus.RanToCompletion)
+        _ = Task.Delay(milliseconds, token)
+            .ContinueWith(
+                delay =>
                 {
-                    queue.TryEnqueue(() =>
+                    if (delay.Status == TaskStatus.RanToCompletion)
                     {
-                        if (!token.IsCancellationRequested)
+                        queue.TryEnqueue(() =>
                         {
-                            action();
-                        }
-                    });
-                }
-            },
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
+                            if (!token.IsCancellationRequested)
+                            {
+                                action();
+                            }
+                        });
+                    }
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default
+            );
     }
 
     /// <summary>A solid brush from a six or eight digit hex color.</summary>
@@ -47,6 +50,8 @@ public static class Support
         var digits = hex.TrimStart('#');
         var value = Convert.ToUInt32(digits, 16);
         var alpha = digits.Length == 8 ? (byte)(value >> 24) : (byte)0xFF;
-        return new SolidColorBrush(Windows.UI.Color.FromArgb(alpha, (byte)(value >> 16), (byte)(value >> 8), (byte)value));
+        return new SolidColorBrush(
+            Windows.UI.Color.FromArgb(alpha, (byte)(value >> 16), (byte)(value >> 8), (byte)value)
+        );
     }
 }

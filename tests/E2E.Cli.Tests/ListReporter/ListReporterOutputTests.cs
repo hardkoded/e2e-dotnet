@@ -28,11 +28,25 @@ public sealed class ListReporterOutputTests
             Cleanup = AttemptCleanup.Failed,
             SecondaryErrors = [new ReportError("ENGINE_FAILURE", "attempt end failed: close exploded", "cleanup")],
         };
-        reporter.Handle(Finished(Result(ResultStatus.Passed, file: "tests/close-fail.e2e.ts", title: ["taps a node"], attempts: [closeFailed])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Passed,
+                    file: "tests/close-fail.e2e.ts",
+                    title: ["taps a node"],
+                    attempts: [closeFailed]
+                )
+            )
+        );
         reporter.Handle(RunFinished(ReportRunStatus.Failed, 3, ".e2e/report.json"));
 
-        Assert.Contains(output.Lines, line => line.Contains("✓ |chromium| tests/close-fail.e2e.ts > taps a node", StringComparison.Ordinal));
+        Assert.Contains(output.Lines, line =>
+            line.Contains("✓ |chromium| tests/close-fail.e2e.ts > taps a node", StringComparison.Ordinal)
+        );
         Assert.Contains("     → cleanup failed: ENGINE_FAILURE: attempt end failed: close exploded", output.Lines);
-        Assert.Contains("    Cleanup  1 cleanup failure: ENGINE_FAILURE: attempt end failed: close exploded", output.Lines);
+        Assert.Contains(
+            "    Cleanup  1 cleanup failure: ENGINE_FAILURE: attempt end failed: close exploded",
+            output.Lines
+        );
     }
 }

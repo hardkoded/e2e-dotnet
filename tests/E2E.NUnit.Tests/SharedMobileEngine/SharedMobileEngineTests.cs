@@ -30,13 +30,16 @@ public sealed class SharedMobileEngineTests
         try
         {
             // A host that prepares the engine waits for the agent here, up to the connect timeout, so the wait is bounded.
-            await Task.Run(() => MobileAppHost.ShareEngine(hosted => new MobileOptions
-            {
-                Platform = MobilePlatform.Ios,
-                Provider = hosted,
-                TargetName = "mobileapp",
-                App = new MobileApp { BundleId = "dev.example.app" },
-            })).WaitAsync(TimeSpan.FromSeconds(10));
+            await Task.Run(() =>
+                    MobileAppHost.ShareEngine(hosted => new MobileOptions
+                    {
+                        Platform = MobilePlatform.Ios,
+                        Provider = hosted,
+                        TargetName = "mobileapp",
+                        App = new MobileApp { BundleId = "dev.example.app" },
+                    })
+                )
+                .WaitAsync(TimeSpan.FromSeconds(10));
 
             Assert.That(MobileAppHost.Engine, Is.Not.Null);
             Assert.That(MobileAppHost.AttachesToRunningApp, Is.True);

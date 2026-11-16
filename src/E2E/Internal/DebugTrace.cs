@@ -43,7 +43,12 @@ internal sealed class DebugTrace(bool enabled)
             }
             else
             {
-                _entries[label] = new Entry { TotalMs = durationMs, Count = 1, MaxMs = durationMs };
+                _entries[label] = new Entry
+                {
+                    TotalMs = durationMs,
+                    Count = 1,
+                    MaxMs = durationMs,
+                };
             }
         }
     }
@@ -73,10 +78,11 @@ internal sealed class DebugTrace(bool enabled)
     {
         ArgumentNullException.ThrowIfNull(work);
         await Time(label, async () =>
-        {
-            await work().ConfigureAwait(false);
-            return true;
-        }).ConfigureAwait(false);
+            {
+                await work().ConfigureAwait(false);
+                return true;
+            })
+            .ConfigureAwait(false);
     }
 
     /// <summary>Formats aggregated timings as one aligned table, phases sorted by total time.</summary>
@@ -85,38 +91,66 @@ internal sealed class DebugTrace(bool enabled)
         List<string[]> rows;
         lock (_gate)
         {
-            rows = [.. _entries
-                .OrderByDescending(pair => pair.Value.TotalMs)
-                .Select(pair => new[]
-                {
-                    pair.Key,
-                    pair.Value.Count.ToString(CultureInfo.InvariantCulture),
-                    FormatMs(pair.Value.TotalMs),
-                    FormatMs(pair.Value.TotalMs / pair.Value.Count),
-                    FormatMs(pair.Value.MaxMs),
-                })];
+            rows =
+            [
+                .. _entries
+                    .OrderByDescending(pair => pair.Value.TotalMs)
+                    .Select(pair =>
+                        new[]
+                        {
+                            pair.Key,
+                            pair.Value.Count.ToString(CultureInfo.InvariantCulture),
+                            FormatMs(pair.Value.TotalMs),
+                            FormatMs(pair.Value.TotalMs / pair.Value.Count),
+                            FormatMs(pair.Value.MaxMs),
+                        }
+                    ),
+            ];
         }
 
         return Table(
             "[e2e debug] phase timings (wall " + FormatMs(Stopwatch.GetElapsedTime(_started).TotalMilliseconds) + ")",
             ["phase", "count", "total", "avg", "max"],
             rows,
-            "(no phases recorded)");
+            "(no phases recorded)"
+        );
     }
 
     /// <summary>
     /// Renders one aligned table. The first column is left-aligned and the rest are right-aligned, which suits numbers;
     /// <paramref name="leftAligned"/> names any further columns that hold prose and would be unreadable pushed to the right.
     /// </summary>
-    public static string Table(string title, IReadOnlyList<string> header, IReadOnlyList<string[]> rows, string empty, ISet<int>? leftAligned = null)
+    public static string Table(
+        string title,
+        IReadOnlyList<string> header,
+        IReadOnlyList<string[]> rows,
+        string empty,
+        ISet<int>? leftAligned = null
+    )
     {
         ArgumentNullException.ThrowIfNull(header);
         ArgumentNullException.ThrowIfNull(rows);
-        var widths = header.Select((label, column) => Math.Max(label.Length, rows.Select(row => column < row.Length ? row[column].Length : 0).DefaultIfEmpty(0).Max())).ToArray();
+        var widths = header
+            .Select(
+                (label, column) =>
+                    Math.Max(
+                        label.Length,
+                        rows.Select(row => column < row.Length ? row[column].Length : 0).DefaultIfEmpty(0).Max()
+                    )
+            )
+            .ToArray();
         string Line(IReadOnlyList<string> row) =>
-            "  " + string.Join(
-                "  ",
-                row.Select((cell, column) => column == 0 || leftAligned?.Contains(column) == true ? cell.PadRight(widths[column]) : cell.PadLeft(widths[column]))).TrimEnd();
+            "  "
+            + string.Join(
+                    "  ",
+                    row.Select(
+                        (cell, column) =>
+                            column == 0 || leftAligned?.Contains(column) == true
+                                ? cell.PadRight(widths[column])
+                                : cell.PadLeft(widths[column])
+                    )
+                )
+                .TrimEnd();
 
         var text = new StringBuilder().Append(title).Append('\n').Append(Line(header)).Append('\n');
         if (rows.Count == 0)

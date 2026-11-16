@@ -26,5 +26,10 @@ internal sealed class RerunTree : IDisposable
 
     /// <summary>Every file under the root, as report paths, sorted.</summary>
     public string[] Files() =>
-        [.. Directory.EnumerateFiles(Root, "*", SearchOption.AllDirectories).Select(file => Path.GetRelativePath(Root, file).Replace(Path.DirectorySeparatorChar, '/')).Order(StringComparer.Ordinal)];
+        [
+            .. Directory
+                .EnumerateFiles(Root, "*", SearchOption.AllDirectories)
+                .Select(file => Path.GetRelativePath(Root, file).Replace(Path.DirectorySeparatorChar, '/'))
+                .Order(StringComparer.Ordinal),
+        ];
 }

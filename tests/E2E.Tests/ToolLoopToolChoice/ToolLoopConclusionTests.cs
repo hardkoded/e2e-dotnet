@@ -16,13 +16,15 @@ public sealed class ToolLoopConclusionTests
         var passed = ModelResponses.Done("passed", "All done.").ToolCalls[0];
         var model = new ScriptedModel(_ => new ModelResponse { ToolCalls = [failed, passed] });
 
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(new DocumentWorld().Map("/start", page => page.Button("Peek"))),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            TestTitle = "billing > case",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(new DocumentWorld().Map("/start", page => page.Button("Peek"))),
+                Model = model,
+                BaseUrl = "https://billing.test",
+                TestTitle = "billing > case",
+            }
+        );
         await session.App.OpenAsync("/start");
 
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("check the total"));

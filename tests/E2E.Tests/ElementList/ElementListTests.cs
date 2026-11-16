@@ -67,7 +67,11 @@ public sealed class ElementListTests
     [Fact]
     public async Task Reports_a_read_that_lost_its_document_to_a_navigation_as_stale()
     {
-        var scripted = new ScriptedList(firstFailure: new PlaywrightException("Execution context was destroyed, most likely because of a navigation"));
+        var scripted = new ScriptedList(
+            firstFailure: new PlaywrightException(
+                "Execution context was destroyed, most likely because of a navigation"
+            )
+        );
         var list = new EngineElementList(scripted.Handle);
         var stale = await Assert.ThrowsAsync<EngineException>(() => list.AtAsync(0));
         Assert.Equal(EngineErrorCodes.NodeStale, stale.Code);

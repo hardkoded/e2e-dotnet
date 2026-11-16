@@ -30,7 +30,9 @@ public sealed class DatePickerTests : BenchmarkTest
         await Expect.That(dateInput).ToHaveValueAsync("2026-09-17");
 
         await Screen.GetByRole("button", "Confirm booking").TapAsync();
-        await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Appointment booked for September 17, 2026");
+        await Expect
+            .That(Screen.GetByTestId("success-message"))
+            .ToHaveTextAsync("Appointment booked for September 17, 2026");
     }
 
     [Test]

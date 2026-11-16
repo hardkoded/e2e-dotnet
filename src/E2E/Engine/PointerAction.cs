@@ -21,9 +21,7 @@ public readonly record struct Point(double X, double Y);
 /// </summary>
 public abstract record PointerAction
 {
-    private PointerAction()
-    {
-    }
+    private PointerAction() { }
 
     public sealed record Tap : PointerAction;
 
@@ -54,11 +52,28 @@ public static class EngineActionKinds
 {
     /// <summary>Every kind of <see cref="LocatorAction"/>.</summary>
     public static IReadOnlyList<string> Locator { get; } =
-        ["tap", "doubleTap", "secondaryTap", "longPress", "fill", "clear", "press", "check", "uncheck", "focus", "hover", "scrollIntoView", "selectOption", "setInputFiles", "dragTo", "swipe"];
+    [
+        "tap",
+        "doubleTap",
+        "secondaryTap",
+        "longPress",
+        "fill",
+        "clear",
+        "press",
+        "check",
+        "uncheck",
+        "focus",
+        "hover",
+        "scrollIntoView",
+        "selectOption",
+        "setInputFiles",
+        "dragTo",
+        "swipe",
+    ];
 
     /// <summary>Every kind of <see cref="PointerAction"/>.</summary>
     public static IReadOnlyList<string> Pointer { get; } =
-        ["tap", "doubleTap", "secondaryTap", "longPress", "hover", "dragTo", "swipe", "swipeTo"];
+    ["tap", "doubleTap", "secondaryTap", "longPress", "hover", "dragTo", "swipe", "swipeTo"];
 
     /// <summary>The upstream name of a locator action's kind.</summary>
     public static string Of(LocatorAction action)

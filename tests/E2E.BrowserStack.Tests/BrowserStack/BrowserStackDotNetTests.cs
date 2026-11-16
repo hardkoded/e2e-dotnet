@@ -11,10 +11,21 @@ public sealed class BrowserStackDotNetTests
     public void Refuses_a_plain_http_build_with_INVALID_CONFIG()
     {
         var error = Assert.Throws<ConfigurationException>(() =>
-            new BrowserStackDevices(new BrowserStackDevicesOptions { Device = "Google Pixel 9", OsVersion = "16.0", App = "http://example.com/app.apk" }));
+            new BrowserStackDevices(
+                new BrowserStackDevicesOptions
+                {
+                    Device = "Google Pixel 9",
+                    OsVersion = "16.0",
+                    App = "http://example.com/app.apk",
+                }
+            )
+        );
 
         Assert.Equal("INVALID_CONFIG", error.Code);
-        Assert.Equal("BrowserStackDevices: `App` must be an https URL, a `bs://` id, or a local path, not a plain http URL", error.Message);
+        Assert.Equal(
+            "BrowserStackDevices: `App` must be an https URL, a `bs://` id, or a local path, not a plain http URL",
+            error.Message
+        );
     }
 
     [Fact]

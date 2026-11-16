@@ -27,14 +27,32 @@ public sealed class StepRecorderLastVerifiedStepIndexTests
     {
         var steps = new StepRecorder("attempt");
         await steps.RunAsync(StepKind.Agent, "agent.act", "add an expense", Pass);
-        await steps.RunAsync(StepKind.Assertion, "expect.toBeVisible", "the new row", Pass, new StepRunOptions { Verifies = true });
+        await steps.RunAsync(
+            StepKind.Assertion,
+            "expect.toBeVisible",
+            "the new row",
+            Pass,
+            new StepRunOptions { Verifies = true }
+        );
         Assert.Equal(1, steps.LastVerifiedStepIndex);
 
         await steps.RunAsync(StepKind.Agent, "agent.act", "approve it", Pass);
-        await steps.RunAsync(StepKind.Agent, "agent.assert", "the row reads approved", Pass, new StepRunOptions { Verifies = true });
+        await steps.RunAsync(
+            StepKind.Agent,
+            "agent.assert",
+            "the row reads approved",
+            Pass,
+            new StepRunOptions { Verifies = true }
+        );
         Assert.Equal(3, steps.LastVerifiedStepIndex);
 
-        await steps.RunAsync(StepKind.Locator, "locator.waitFor", "toast → visible", Pass, new StepRunOptions { Verifies = true });
+        await steps.RunAsync(
+            StepKind.Locator,
+            "locator.waitFor",
+            "toast → visible",
+            Pass,
+            new StepRunOptions { Verifies = true }
+        );
         Assert.Equal(4, steps.LastVerifiedStepIndex);
     }
 
@@ -47,7 +65,13 @@ public sealed class StepRecorderLastVerifiedStepIndexTests
             await steps.RunAsync(StepKind.Locator, "locator.textContent", "row " + index, Pass);
         }
 
-        await steps.RunAsync(StepKind.Locator, "locator.waitFor", "toast → visible", Pass, new StepRunOptions { Verifies = true });
+        await steps.RunAsync(
+            StepKind.Locator,
+            "locator.waitFor",
+            "toast → visible",
+            Pass,
+            new StepRunOptions { Verifies = true }
+        );
 
         Assert.Equal([4, 5], steps.All().Select(step => step.Index));
         Assert.Equal(5, steps.LastVerifiedStepIndex);
@@ -59,18 +83,29 @@ public sealed class StepRecorderLastVerifiedStepIndexTests
     public async Task Throws_a_failed_steps_error_classified_and_redacted_when_asked_to()
     {
         static string Redact(string text) => text.Replace("hunter2", "[SECRET]", StringComparison.Ordinal);
-        var thrown = new InvalidOperationException("the page printed hunter2", new InvalidOperationException("driver saw hunter2"));
+        var thrown = new InvalidOperationException(
+            "the page printed hunter2",
+            new InvalidOperationException("driver saw hunter2")
+        );
         var steps = new StepRecorder("attempt", new StepRecorderOptions { Redact = Redact, RedactThrown = true });
 
-        var caught = await Assert.ThrowsAsync<TestException>(() => steps.RunAsync(StepKind.App, "app.open", "/", () => Task.FromException(thrown)));
+        var caught = await Assert.ThrowsAsync<TestException>(() =>
+            steps.RunAsync(StepKind.App, "app.open", "/", () => Task.FromException(thrown))
+        );
 
         Assert.Equal("ERROR", caught.Code);
         Assert.DoesNotContain("hunter2", caught.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("hunter2", caught.InnerException!.Message, StringComparison.Ordinal);
 
         var kept = new InvalidOperationException("the page printed hunter2");
-        var left = await Assert.ThrowsAsync<InvalidOperationException>(() => new StepRecorder("attempt", new StepRecorderOptions { Redact = Redact })
-            .RunAsync(StepKind.App, "app.open", "/", () => Task.FromException(kept)));
+        var left = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new StepRecorder("attempt", new StepRecorderOptions { Redact = Redact }).RunAsync(
+                StepKind.App,
+                "app.open",
+                "/",
+                () => Task.FromException(kept)
+            )
+        );
         Assert.Contains("hunter2", left.Message, StringComparison.Ordinal);
     }
 
@@ -78,14 +113,23 @@ public sealed class StepRecorderLastVerifiedStepIndexTests
     public async Task Does_not_advance_on_a_verification_step_that_failed()
     {
         var steps = new StepRecorder("attempt");
-        await steps.RunAsync(StepKind.Assertion, "expect.toBeVisible", "the row", Pass, new StepRunOptions { Verifies = true });
-
-        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => steps.RunAsync(
+        await steps.RunAsync(
             StepKind.Assertion,
-            "expect.toHaveText",
+            "expect.toBeVisible",
             "the row",
-            () => throw new InvalidOperationException("mismatch"),
-            new StepRunOptions { Verifies = true }));
+            Pass,
+            new StepRunOptions { Verifies = true }
+        );
+
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            steps.RunAsync(
+                StepKind.Assertion,
+                "expect.toHaveText",
+                "the row",
+                () => throw new InvalidOperationException("mismatch"),
+                new StepRunOptions { Verifies = true }
+            )
+        );
 
         Assert.Equal("mismatch", thrown.Message);
         Assert.Equal(0, steps.LastVerifiedStepIndex);

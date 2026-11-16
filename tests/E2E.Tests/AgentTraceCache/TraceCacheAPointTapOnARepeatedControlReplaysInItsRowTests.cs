@@ -24,32 +24,40 @@ public sealed class TraceCacheAPointTapOnARepeatedControlReplaysInItsRowTests
             var nodes = observation.Tree!.SelectMany(Flatten).ToList();
             var row = nodes.FindIndex(node => node.Text == "Offer A" || node.Name == "Offer A");
             var rect = nodes.Skip(row + 1).First(node => node.Role == "button" && node.Name == "Reserve now").Rect!;
-            var tapped = await context.Actions.TapAtAsync(new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2), token);
+            var tapped = await context.Actions.TapAtAsync(
+                new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2),
+                token
+            );
             results.Add(tapped);
             return Passed(tapped.Summary);
-        })
-        {
-            Version = "test",
-        };
+        }) { Version = "test" };
 
-    private static IEnumerable<ExecutorNode> Flatten(ExecutorNode node) => [node, .. (node.Children ?? []).SelectMany(Flatten)];
+    private static IEnumerable<ExecutorNode> Flatten(ExecutorNode node) =>
+        [node, .. (node.Children ?? []).SelectMany(Flatten)];
 
-    private static async Task<(ActResult Result, IReadOnlyList<StepRecord> Steps)> RunAsync(string directory, string appUrl, Action onRun, List<PointTapResult> results)
+    private static async Task<(ActResult Result, IReadOnlyList<StepRecord> Steps)> RunAsync(
+        string directory,
+        string appUrl,
+        Action onRun,
+        List<PointTapResult> results
+    )
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            AgentExecutor = OfferPointExecutor(onRun, results),
-            BaseUrl = appUrl,
-            AppIdentity = "fixture-app",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "reserves offer A at a point",
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(30),
-            TestTimeout = TimeSpan.FromSeconds(60),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                AgentExecutor = OfferPointExecutor(onRun, results),
+                BaseUrl = appUrl,
+                AppIdentity = "fixture-app",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "reserves offer A at a point",
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(30),
+                TestTimeout = TimeSpan.FromSeconds(60),
+            }
+        );
         await session.App.OpenAsync("/repeats?still=1");
         var result = await session.Agent.ActAsync("reserve offer A");
         await Expect.That(session.Screen.GetByRole("status", "Picked")).ToHaveTextAsync("A");

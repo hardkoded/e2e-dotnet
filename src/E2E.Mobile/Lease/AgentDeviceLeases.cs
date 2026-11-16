@@ -123,7 +123,11 @@ public sealed record AgentDeviceLeaseRequest
 /// </summary>
 public interface IAgentDeviceLeases
 {
-    Task<DeviceLease> AcquireAsync(DeviceRequest request, AgentDeviceLeaseRequest lease, CancellationToken cancellationToken);
+    Task<DeviceLease> AcquireAsync(
+        DeviceRequest request,
+        AgentDeviceLeaseRequest lease,
+        CancellationToken cancellationToken
+    );
 
     /// <summary>
     /// Stops the lease's daemon, and throws unless agent-device confirms it ended the lease's session. <paramref name="context"/> is the
@@ -146,9 +150,7 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
     private readonly ConcurrentDictionary<string, Held> _held = new(StringComparer.Ordinal);
 
     public AgentDeviceLeases(AgentDeviceLeaseOptions options)
-        : this(options, LeaseDaemon.Instance)
-    {
-    }
+        : this(options, LeaseDaemon.Instance) { }
 
     internal AgentDeviceLeases(AgentDeviceLeaseOptions options, ILeaseHost host)
     {
@@ -173,7 +175,11 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
         public bool Ended { get; set; }
     }
 
-    public async Task<DeviceLease> AcquireAsync(DeviceRequest request, AgentDeviceLeaseRequest lease, CancellationToken cancellationToken)
+    public async Task<DeviceLease> AcquireAsync(
+        DeviceRequest request,
+        AgentDeviceLeaseRequest lease,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(lease);
@@ -181,13 +187,17 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
         // The daemon the provider starts is the pinned release, and a client that speaks another would read it wrongly.
         if (request.AgentDeviceVersion != AgentDeviceVersion.Pinned)
         {
-            throw new InvalidOperationException($"The {_options.Label} provider starts agent-device {AgentDeviceVersion.Pinned}, but the engine asked for {request.AgentDeviceVersion}.");
+            throw new InvalidOperationException(
+                $"The {_options.Label} provider starts agent-device {AgentDeviceVersion.Pinned}, but the engine asked for {request.AgentDeviceVersion}."
+            );
         }
 
         cancellationToken.ThrowIfCancellationRequested();
         var directory = Directory.CreateTempSubdirectory($"e2e-{_options.Provider}-").FullName;
         var home = Path.Combine(directory, "home");
-        var stateDirectory = _options.StateDir is { } shared ? Path.Combine(shared, request.RunId) : Path.Combine(directory, "state");
+        var stateDirectory = _options.StateDir is { } shared
+            ? Path.Combine(shared, request.RunId)
+            : Path.Combine(directory, "state");
         var resource = new Held(directory, stateDirectory, DaemonEnvironment(request.Env, lease.Env, home));
         var leaseBackend = request.Platform == MobilePlatform.Ios ? "ios-instance" : "android-instance";
         var allocated = new JsonObject { ["platform"] = request.Platform.WireName(), ["target"] = "mobile" };
@@ -223,13 +233,22 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
                 allocate[key] = value?.DeepClone();
             }
 
-            var grant = await _host.StartDriverAsync(new DriverRequest(resource.StateDirectory, allocate), resource.Environment, _options.Label, cancellationToken).ConfigureAwait(false);
+            var grant = await _host
+                .StartDriverAsync(
+                    new DriverRequest(resource.StateDirectory, allocate),
+                    resource.Environment,
+                    _options.Label,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             id = grant.LeaseId;
             _held[id] = resource;
             cancellationToken.ThrowIfCancellationRequested();
             if (!grant.RetainOnClose)
             {
-                throw new InvalidOperationException($"agent-device did not acknowledge retainOnClose. Closing the engine session could end the {_options.Label} lease before run-end release");
+                throw new InvalidOperationException(
+                    $"agent-device did not acknowledge retainOnClose. Closing the engine session could end the {_options.Label} lease before run-end release"
+                );
             }
 
             var scope = new JsonObject
@@ -248,7 +267,9 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
                 heartbeatScope[key] = value?.DeepClone();
             }
 
-            resource.StopHeartbeat = await _host.StartHeartbeatAsync(heartbeatScope, request.Log, cancellationToken).ConfigureAwait(false);
+            resource.StopHeartbeat = await _host
+                .StartHeartbeatAsync(heartbeatScope, request.Log, cancellationToken)
+                .ConfigureAwait(false);
             request.Log($"lease {id}: {lease.Summary}");
 
             // The worker's client is created with these fields: the scope picks the lease. The selectors join it only when the lease named
@@ -279,7 +300,11 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
             }
             catch (Exception cleanupCause)
             {
-                throw new AggregateException($"{_options.Label} lease failed: {cause.Message}; cleanup also failed: {cleanupCause.Message}", cause, cleanupCause);
+                throw new AggregateException(
+                    $"{_options.Label} lease failed: {cause.Message}; cleanup also failed: {cleanupCause.Message}",
+                    cause,
+                    cleanupCause
+                );
             }
 
             throw;
@@ -301,7 +326,10 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
         Task releasing;
         lock (resource)
         {
-            releasing = resource.Releasing ??= Task.Run(() => StopAsync(id, resource, cancellationToken), CancellationToken.None);
+            releasing = resource.Releasing ??= Task.Run(
+                () => StopAsync(id, resource, cancellationToken),
+                CancellationToken.None
+            );
         }
 
         try
@@ -331,7 +359,9 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
 
         if (!resource.Ended)
         {
-            await _host.StopDriverAsync(resource.StateDirectory, resource.Environment, id, _options.Label, cancellationToken).ConfigureAwait(false);
+            await _host
+                .StopDriverAsync(resource.StateDirectory, resource.Environment, id, _options.Label, cancellationToken)
+                .ConfigureAwait(false);
             resource.Ended = true;
         }
 
@@ -352,7 +382,11 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
     /// setting of the user's that would select a different daemon, home, or connection profile. The user's daemon policy stays, as
     /// it applies to the daemon and its clients alike.
     /// </summary>
-    private static Dictionary<string, string?> DaemonEnvironment(IReadOnlyDictionary<string, string?> run, IReadOnlyDictionary<string, string> service, string home)
+    private static Dictionary<string, string?> DaemonEnvironment(
+        IReadOnlyDictionary<string, string?> run,
+        IReadOnlyDictionary<string, string> service,
+        string home
+    )
     {
         var result = new Dictionary<string, string?>(run, StringComparer.Ordinal);
         foreach (var (key, value) in service)

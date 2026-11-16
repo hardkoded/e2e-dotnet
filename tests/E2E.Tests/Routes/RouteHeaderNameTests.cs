@@ -16,7 +16,10 @@ public sealed class RouteHeaderNameTests
     [InlineData("")]
     public void Rejects_a_header_name_outside_the_token_grammar(string name)
     {
-        Assert.Equal("has an invalid header name: \"" + name + "\"", E2E.Internal.RouteOptions.HeaderProblem(name, "b"));
+        Assert.Equal(
+            "has an invalid header name: \"" + name + "\"",
+            E2E.Internal.RouteOptions.HeaderProblem(name, "b")
+        );
     }
 
     [Fact]

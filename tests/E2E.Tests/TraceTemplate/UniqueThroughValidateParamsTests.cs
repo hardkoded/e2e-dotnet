@@ -15,18 +15,30 @@ public sealed class UniqueThroughValidateParamsTests
     [Fact]
     public void Projects_the_value_for_the_model_and_lists_the_pointer_for_the_cache_at_any_depth()
     {
-        var (projected, templates) = ActParams.ValidateParams(new Dictionary<string, object?>
-        {
-            ["name"] = Values.Unique("E2E abc Company"),
-            ["plan"] = "pro",
-            ["qty"] = 2,
-            ["owner"] = new Dictionary<string, object?> { ["email"] = Values.Unique("a@b.test"), ["tags"] = new object[] { "vip", Values.Unique("new-customer") } },
-            ["a/b"] = Values.Unique("slash"),
-        }, "agent.act");
+        var (projected, templates) = ActParams.ValidateParams(
+            new Dictionary<string, object?>
+            {
+                ["name"] = Values.Unique("E2E abc Company"),
+                ["plan"] = "pro",
+                ["qty"] = 2,
+                ["owner"] = new Dictionary<string, object?>
+                {
+                    ["email"] = Values.Unique("a@b.test"),
+                    ["tags"] = new object[] { "vip", Values.Unique("new-customer") },
+                },
+                ["a/b"] = Values.Unique("slash"),
+            },
+            "agent.act"
+        );
 
-        Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse("{\"name\":\"E2E abc Company\",\"plan\":\"pro\",\"qty\":2,\"owner\":{\"email\":\"a@b.test\",\"tags\":[\"vip\",\"new-customer\"]},\"a/b\":\"slash\"}"),
-            projected));
+        Assert.True(
+            JsonNode.DeepEquals(
+                JsonNode.Parse(
+                    "{\"name\":\"E2E abc Company\",\"plan\":\"pro\",\"qty\":2,\"owner\":{\"email\":\"a@b.test\",\"tags\":[\"vip\",\"new-customer\"]},\"a/b\":\"slash\"}"
+                ),
+                projected
+            )
+        );
         Assert.Equal(
             [
                 new ParamTemplate("/name", "E2E abc Company"),
@@ -34,16 +46,29 @@ public sealed class UniqueThroughValidateParamsTests
                 new ParamTemplate("/owner/tags/1", "new-customer"),
                 new ParamTemplate("/a~1b", "slash"),
             ],
-            templates);
+            templates
+        );
     }
 
     /// <summary>Partial port: a value that is not a string cannot be built in C#, so only the blank and placeholder cases remain.</summary>
     [Fact]
     public void Partial_Refuses_a_blank_value_and_one_that_spells_a_placeholder()
     {
-        Assert.Contains("non-empty string", Assert.Throws<TestException>(() => Values.Unique("")).Message, StringComparison.Ordinal);
-        Assert.Contains("non-empty string", Assert.Throws<TestException>(() => Values.Unique("  ")).Message, StringComparison.Ordinal);
-        Assert.Contains("placeholder", Assert.Throws<TestException>(() => Values.Unique("x {{param:/y}}")).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "non-empty string",
+            Assert.Throws<TestException>(() => Values.Unique("")).Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "non-empty string",
+            Assert.Throws<TestException>(() => Values.Unique("  ")).Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "placeholder",
+            Assert.Throws<TestException>(() => Values.Unique("x {{param:/y}}")).Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -61,6 +86,9 @@ public sealed class UniqueThroughValidateParamsTests
         var templated = CacheKeys.TemplateText("tap \"Acme Corp\"", templates);
 
         Assert.Equal("tap \"{{param:/a}b}}\"", templated);
-        Assert.Equal("tap \"Globex\"", CacheKeys.ExpandText(templated, new Dictionary<string, string> { ["/a}b"] = "Globex" }));
+        Assert.Equal(
+            "tap \"Globex\"",
+            CacheKeys.ExpandText(templated, new Dictionary<string, string> { ["/a}b"] = "Globex" })
+        );
     }
 }

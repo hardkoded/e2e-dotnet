@@ -35,20 +35,24 @@ public sealed class ValueExpectation<T>
     public ValueExpectation<T> Not => new(_actual, !_negated, _message);
 
     /// <summary>Compares with JavaScript's <c>Object.is</c>: a number equals itself (<c>NaN</c> included), <c>0</c> is not <c>-0</c>, and an object must be the same instance.</summary>
-    public void ToBe(T expected) => Check(
-        ValueEquality.ObjectIs(_actual, expected),
-        () => $"expected {ValueFormat.Of(_actual)} to be {ValueFormat.Of(expected)}",
-        () => $"expected {ValueFormat.Of(_actual)} not to be {ValueFormat.Of(expected)}");
+    public void ToBe(T expected) =>
+        Check(
+            ValueEquality.ObjectIs(_actual, expected),
+            () => $"expected {ValueFormat.Of(_actual)} to be {ValueFormat.Of(expected)}",
+            () => $"expected {ValueFormat.Of(_actual)} not to be {ValueFormat.Of(expected)}"
+        );
 
     /// <summary>
     /// Performs recursive structural equality. A class is not compared: a record equals a dictionary of its property names, and a map
     /// (<see cref="IDictionary"/>), a set (<c>ISet&lt;T&gt;</c>), and an array each match by its own rule. Takes <see cref="Expect.Any(Type)"/> and the
     /// other asymmetric matchers anywhere in <paramref name="expected"/>.
     /// </summary>
-    public void ToEqual(object? expected) => Check(
-        ValueEquality.Equal(_actual, expected),
-        () => $"expected {ValueFormat.Of(_actual)} to equal {ValueFormat.Of(expected)}",
-        () => $"expected {ValueFormat.Of(_actual)} not to equal {ValueFormat.Of(expected)}");
+    public void ToEqual(object? expected) =>
+        Check(
+            ValueEquality.Equal(_actual, expected),
+            () => $"expected {ValueFormat.Of(_actual)} to equal {ValueFormat.Of(expected)}",
+            () => $"expected {ValueFormat.Of(_actual)} not to equal {ValueFormat.Of(expected)}"
+        );
 
     /// <summary>Requires every property of <paramref name="expected"/> to match recursively; extra properties on the value are fine, arrays must match element-wise with equal length.</summary>
     public void ToMatchObject(object expected)
@@ -67,48 +71,61 @@ public sealed class ValueExpectation<T>
         Check(
             ValueEquality.Subset(actual, expected),
             () => $"expected {ValueFormat.Of(actual)} to match object {ValueFormat.Of(expected)}",
-            () => $"expected {ValueFormat.Of(actual)} not to match object {ValueFormat.Of(expected)}");
+            () => $"expected {ValueFormat.Of(actual)} not to match object {ValueFormat.Of(expected)}"
+        );
     }
 
     /// <summary>Requires a truthy value: not <c>null</c>, <see cref="Expect.Undefined"/>, <c>false</c>, <c>0</c>, <c>NaN</c>, or an empty string.</summary>
-    public void ToBeTruthy() => Check(
-        IsTruthy(_actual),
-        () => $"expected {ValueFormat.Of(_actual)} to be truthy",
-        () => $"expected {ValueFormat.Of(_actual)} not to be truthy");
+    public void ToBeTruthy() =>
+        Check(
+            IsTruthy(_actual),
+            () => $"expected {ValueFormat.Of(_actual)} to be truthy",
+            () => $"expected {ValueFormat.Of(_actual)} not to be truthy"
+        );
 
     /// <summary>Requires a falsy value.</summary>
-    public void ToBeFalsy() => Check(
-        !IsTruthy(_actual),
-        () => $"expected {ValueFormat.Of(_actual)} to be falsy",
-        () => $"expected {ValueFormat.Of(_actual)} not to be falsy");
+    public void ToBeFalsy() =>
+        Check(
+            !IsTruthy(_actual),
+            () => $"expected {ValueFormat.Of(_actual)} to be falsy",
+            () => $"expected {ValueFormat.Of(_actual)} not to be falsy"
+        );
 
     /// <summary>Requires <c>null</c>.</summary>
-    public void ToBeNull() => Check(
-        _actual is null,
-        () => $"expected {ValueFormat.Of(_actual)} to be null",
-        () => "expected value not to be null");
+    public void ToBeNull() =>
+        Check(
+            _actual is null,
+            () => $"expected {ValueFormat.Of(_actual)} to be null",
+            () => "expected value not to be null"
+        );
 
     /// <summary>Requires <see cref="Expect.Undefined"/>: <c>null</c> is not <c>undefined</c>.</summary>
-    public void ToBeUndefined() => Check(
-        _actual is UndefinedValue,
-        () => $"expected {ValueFormat.Of(_actual)} to be undefined",
-        () => "expected value not to be undefined");
+    public void ToBeUndefined() =>
+        Check(
+            _actual is UndefinedValue,
+            () => $"expected {ValueFormat.Of(_actual)} to be undefined",
+            () => "expected value not to be undefined"
+        );
 
     /// <summary>Requires any value but <see cref="Expect.Undefined"/>: <c>null</c> is defined.</summary>
-    public void ToBeDefined() => Check(
-        _actual is not UndefinedValue,
-        () => $"expected {ValueFormat.Of(_actual)} to be defined",
-        () => $"expected {ValueFormat.Of(_actual)} not to be defined");
+    public void ToBeDefined() =>
+        Check(
+            _actual is not UndefinedValue,
+            () => $"expected {ValueFormat.Of(_actual)} to be defined",
+            () => $"expected {ValueFormat.Of(_actual)} not to be defined"
+        );
 
     /// <summary>Requires a <c>length</c> equal to <paramref name="expected"/>: a string, an array, a collection, or anything with a numeric <c>Length</c> or <c>Count</c>.</summary>
     public void ToHaveLength(int expected)
     {
         object? actual = _actual;
-        var length = LengthOf(actual) ?? throw Failure($"toHaveLength requires a value with a numeric length, got {ValueFormat.Of(actual)}");
+        var length = LengthOf(actual)
+            ?? throw Failure($"toHaveLength requires a value with a numeric length, got {ValueFormat.Of(actual)}");
         Check(
             length == expected,
             () => $"expected {ValueFormat.Of(actual)} to have length {expected}, got {length}",
-            () => $"expected {ValueFormat.Of(actual)} not to have length {expected}");
+            () => $"expected {ValueFormat.Of(actual)} not to have length {expected}"
+        );
     }
 
     /// <summary>Requires the property at the dotted <paramref name="path"/> to exist. A key that holds a dot needs the list form.</summary>
@@ -121,7 +138,8 @@ public sealed class ValueExpectation<T>
     public void ToHaveProperty(IReadOnlyList<object> path) => HaveProperty(KeysOf(path), path, expected: null);
 
     /// <summary>Requires the property at <paramref name="path"/>, one key per element, to equal <paramref name="expected"/> by <see cref="ToEqual(object?)"/> rules.</summary>
-    public void ToHaveProperty(IReadOnlyList<object> path, object? expected) => HaveProperty(KeysOf(path), path, [expected]);
+    public void ToHaveProperty(IReadOnlyList<object> path, object? expected) =>
+        HaveProperty(KeysOf(path), path, [expected]);
 
     /// <summary>Requires string or collection containment. A collection is searched with <see cref="ToEqual(object?)"/> rules.</summary>
     public void ToContain(object? expected)
@@ -149,7 +167,8 @@ public sealed class ValueExpectation<T>
         Check(
             contains,
             () => $"expected {ValueFormat.Of(actual)} to contain {ValueFormat.Of(expected)}",
-            () => $"expected {ValueFormat.Of(actual)} not to contain {ValueFormat.Of(expected)}");
+            () => $"expected {ValueFormat.Of(actual)} not to contain {ValueFormat.Of(expected)}"
+        );
     }
 
     /// <summary>Requires the string to contain <paramref name="expected"/>.</summary>
@@ -160,7 +179,8 @@ public sealed class ValueExpectation<T>
         Check(
             actual.Contains(expected, StringComparison.Ordinal),
             () => $"expected {ValueFormat.Of(actual)} to match {ValueFormat.Of(expected)}",
-            () => $"expected {ValueFormat.Of(actual)} not to match {ValueFormat.Of(expected)}");
+            () => $"expected {ValueFormat.Of(actual)} not to match {ValueFormat.Of(expected)}"
+        );
     }
 
     /// <summary>Requires the string to match <paramref name="expected"/>.</summary>
@@ -171,20 +191,25 @@ public sealed class ValueExpectation<T>
         Check(
             expected.IsMatch(actual),
             () => $"expected {ValueFormat.Of(actual)} to match {ValueFormat.Of(expected)}",
-            () => $"expected {ValueFormat.Of(actual)} not to match {ValueFormat.Of(expected)}");
+            () => $"expected {ValueFormat.Of(actual)} not to match {ValueFormat.Of(expected)}"
+        );
     }
 
     /// <summary>Requires a numeric lower bound.</summary>
-    public void ToBeGreaterThan(double expected) => Compare("toBeGreaterThan", expected, actual => actual > expected, "greater than");
+    public void ToBeGreaterThan(double expected) =>
+        Compare("toBeGreaterThan", expected, actual => actual > expected, "greater than");
 
     /// <summary>Requires a numeric lower bound, inclusive.</summary>
-    public void ToBeGreaterThanOrEqual(double expected) => Compare("toBeGreaterThanOrEqual", expected, actual => actual >= expected, "greater than or equal to");
+    public void ToBeGreaterThanOrEqual(double expected) =>
+        Compare("toBeGreaterThanOrEqual", expected, actual => actual >= expected, "greater than or equal to");
 
     /// <summary>Requires a numeric upper bound.</summary>
-    public void ToBeLessThan(double expected) => Compare("toBeLessThan", expected, actual => actual < expected, "less than");
+    public void ToBeLessThan(double expected) =>
+        Compare("toBeLessThan", expected, actual => actual < expected, "less than");
 
     /// <summary>Requires a numeric upper bound, inclusive.</summary>
-    public void ToBeLessThanOrEqual(double expected) => Compare("toBeLessThanOrEqual", expected, actual => actual <= expected, "less than or equal to");
+    public void ToBeLessThanOrEqual(double expected) =>
+        Compare("toBeLessThanOrEqual", expected, actual => actual <= expected, "less than or equal to");
 
     /// <summary>
     /// Jest's rule: the difference must be under half a unit of the last kept digit, <c>10 ** -digits / 2</c>, so <c>ToBeCloseTo(60)</c>
@@ -195,15 +220,23 @@ public sealed class ValueExpectation<T>
         var actual = NumberOf("toBeCloseTo");
         if (digits < 0)
         {
-            throw Failure($"toBeCloseTo digits must be a non-negative integer, got {digits.ToString(CultureInfo.InvariantCulture)}");
+            throw Failure(
+                $"toBeCloseTo digits must be a non-negative integer, got {digits.ToString(CultureInfo.InvariantCulture)}"
+            );
         }
 
-        var close = actual == expected
-            || double.IsFinite(actual) && double.IsFinite(expected) && Math.Abs(actual - expected) < Math.Pow(10, -digits) / 2;
+        var close =
+            actual == expected
+            || double.IsFinite(actual)
+                && double.IsFinite(expected)
+                && Math.Abs(actual - expected) < Math.Pow(10, -digits) / 2;
         Check(
             close,
-            () => $"expected {ValueFormat.Number(actual)} to be close to {ValueFormat.Number(expected)} ({digits} digits)",
-            () => $"expected {ValueFormat.Number(actual)} not to be close to {ValueFormat.Number(expected)} ({digits} digits)");
+            () =>
+                $"expected {ValueFormat.Number(actual)} to be close to {ValueFormat.Number(expected)} ({digits} digits)",
+            () =>
+                $"expected {ValueFormat.Number(actual)} not to be close to {ValueFormat.Number(expected)} ({digits} digits)"
+        );
     }
 
     /// <summary>
@@ -222,8 +255,11 @@ public sealed class ValueExpectation<T>
         var issues = result.Issues ?? [];
         Check(
             result.Issues is null,
-            () => $"expected {ValueFormat.Of(_actual)} to match the schema:\n" + string.Join('\n', issues.Select(issue => "- " + StandardSchema.DescribeIssue(issue))),
-            () => $"expected {ValueFormat.Of(_actual)} not to match the schema");
+            () =>
+                $"expected {ValueFormat.Of(_actual)} to match the schema:\n"
+                + string.Join('\n', issues.Select(issue => "- " + StandardSchema.DescribeIssue(issue))),
+            () => $"expected {ValueFormat.Of(_actual)} not to match the schema"
+        );
         return _negated || result.Issues is not null ? default : result.Value;
     }
 
@@ -252,17 +288,20 @@ public sealed class ValueExpectation<T>
             Check(
                 present,
                 () => $"expected {ValueFormat.Of(actual)} to have property \"{label}\"",
-                () => $"expected {ValueFormat.Of(actual)} not to have property \"{label}\"");
+                () => $"expected {ValueFormat.Of(actual)} not to have property \"{label}\""
+            );
             return;
         }
 
         var value = expected[0];
         Check(
             present && ValueEquality.Equal(found, value),
-            () => present
-                ? $"expected property \"{label}\" of {ValueFormat.Of(actual)} to equal {ValueFormat.Of(value)}, got {ValueFormat.Of(found)}"
-                : $"expected {ValueFormat.Of(actual)} to have property \"{label}\" equal to {ValueFormat.Of(value)}",
-            () => $"expected property \"{label}\" of {ValueFormat.Of(actual)} not to equal {ValueFormat.Of(value)}");
+            () =>
+                present
+                    ? $"expected property \"{label}\" of {ValueFormat.Of(actual)} to equal {ValueFormat.Of(value)}, got {ValueFormat.Of(found)}"
+                    : $"expected {ValueFormat.Of(actual)} to have property \"{label}\" equal to {ValueFormat.Of(value)}",
+            () => $"expected property \"{label}\" of {ValueFormat.Of(actual)} not to equal {ValueFormat.Of(value)}"
+        );
     }
 
     /// <summary>The one body of the four ordering matchers: a number on the left, a phrase for the message.</summary>
@@ -272,7 +311,8 @@ public sealed class ValueExpectation<T>
         Check(
             holds(actual),
             () => $"expected {ValueFormat.Number(actual)} to be {phrase} {ValueFormat.Number(expected)}",
-            () => $"expected {ValueFormat.Number(actual)} not to be {phrase} {ValueFormat.Number(expected)}");
+            () => $"expected {ValueFormat.Number(actual)} not to be {phrase} {ValueFormat.Number(expected)}"
+        );
     }
 
     private double NumberOf(string name)
@@ -308,17 +348,21 @@ public sealed class ValueExpectation<T>
         }
     }
 
-    private TestException Failure(string detail) => new("ASSERTION_FAILED", _message is null ? detail : _message + ": " + detail);
+    private TestException Failure(string detail) =>
+        new("ASSERTION_FAILED", _message is null ? detail : _message + ": " + detail);
 
-    private static bool IsTruthy(object? value) => value switch
-    {
-        null or UndefinedValue => false,
-        bool flag => flag,
-        string text => text.Length > 0,
-        char character => character != '\0',
-        _ when ValueEquality.IsNumber(value) => Convert.ToDouble(value, CultureInfo.InvariantCulture) is var number && number != 0 && !double.IsNaN(number),
-        _ => true,
-    };
+    private static bool IsTruthy(object? value) =>
+        value switch
+        {
+            null or UndefinedValue => false,
+            bool flag => flag,
+            string text => text.Length > 0,
+            char character => character != '\0',
+            _ when ValueEquality.IsNumber(value) => Convert.ToDouble(value, CultureInfo.InvariantCulture) is var number
+                && number != 0
+                && !double.IsNaN(number),
+            _ => true,
+        };
 
     private static int? LengthOf(object? value)
     {
@@ -353,7 +397,8 @@ public sealed class ValueExpectation<T>
         return path.Split('.');
     }
 
-    private static string[] KeysOf(IReadOnlyList<object> path) => [.. path.Select(key => Convert.ToString(key, CultureInfo.InvariantCulture) ?? string.Empty)];
+    private static string[] KeysOf(IReadOnlyList<object> path) =>
+        [.. path.Select(key => Convert.ToString(key, CultureInfo.InvariantCulture) ?? string.Empty)];
 }
 
 /// <summary>
@@ -374,7 +419,8 @@ public sealed record StandardSchemaV1Result<TOutput>(TOutput? Value, IReadOnlyLi
     public static StandardSchemaV1Result<TOutput> Success(TOutput value) => new(value, null);
 
     /// <summary>A mismatch, with every issue found.</summary>
-    public static StandardSchemaV1Result<TOutput> Failure(IReadOnlyList<StandardSchemaV1Issue> issues) => new(default, issues);
+    public static StandardSchemaV1Result<TOutput> Failure(IReadOnlyList<StandardSchemaV1Issue> issues) =>
+        new(default, issues);
 }
 
 /// <summary>
@@ -390,9 +436,7 @@ internal sealed class UndefinedValue
 {
     public static UndefinedValue Instance { get; } = new();
 
-    private UndefinedValue()
-    {
-    }
+    private UndefinedValue() { }
 
     public override string ToString() => "undefined";
 }
@@ -454,16 +498,31 @@ internal static class ValueFormat
         {
             if (value is IDictionary dictionary)
             {
-                var entries = ValueEquality.Pairs(dictionary).Where(entry => entry.Value is not UndefinedValue).Select(entry => JsonQuote.Of(Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty) + ":" + Of(entry.Value, seen));
+                var entries = ValueEquality
+                    .Pairs(dictionary)
+                    .Where(entry => entry.Value is not UndefinedValue)
+                    .Select(entry =>
+                        JsonQuote.Of(Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty)
+                        + ":"
+                        + Of(entry.Value, seen)
+                    );
                 return "{" + string.Join(',', entries) + "}";
             }
 
             if (value is IEnumerable items)
             {
-                return "[" + string.Join(',', items.Cast<object?>().Select(item => item is UndefinedValue ? "null" : Of(item, seen))) + "]";
+                return "["
+                    + string.Join(
+                        ',',
+                        items.Cast<object?>().Select(item => item is UndefinedValue ? "null" : Of(item, seen))
+                    )
+                    + "]";
             }
 
-            var members = ValueEquality.Members(value).Where(member => member.Value is not UndefinedValue).Select(member => JsonQuote.Of(member.Key) + ":" + Of(member.Value, seen));
+            var members = ValueEquality
+                .Members(value)
+                .Where(member => member.Value is not UndefinedValue)
+                .Select(member => JsonQuote.Of(member.Key) + ":" + Of(member.Value, seen));
             return "{" + string.Join(',', members) + "}";
         }
         finally

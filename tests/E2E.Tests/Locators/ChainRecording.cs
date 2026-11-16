@@ -42,11 +42,20 @@ public class ChainRecording : DispatchProxy
             case "FrameLocator":
                 return Make<IFrameLocator>([.. _chain, $"frameLocator({args[0]})"]);
             case "GetByLabel":
-                return Make<ILocator>([.. _chain, $"label({Text(args[0])}{(Exact(args[1]) ? ",exact" : string.Empty)})"]);
+                return Make<ILocator>([
+                    .. _chain,
+                    $"label({Text(args[0])}{(Exact(args[1]) ? ",exact" : string.Empty)})",
+                ]);
             case "GetByText":
-                return Make<ILocator>([.. _chain, $"text({Text(args[0])}{(Exact(args[1]) ? ",exact" : string.Empty)})"]);
+                return Make<ILocator>([
+                    .. _chain,
+                    $"text({Text(args[0])}{(Exact(args[1]) ? ",exact" : string.Empty)})",
+                ]);
             case "GetByPlaceholder":
-                return Make<ILocator>([.. _chain, $"placeholder({Text(args[0])}{(Exact(args[1]) ? ",exact" : string.Empty)})"]);
+                return Make<ILocator>([
+                    .. _chain,
+                    $"placeholder({Text(args[0])}{(Exact(args[1]) ? ",exact" : string.Empty)})",
+                ]);
             case "Filter":
                 return Make<ILocator>([.. _chain, Filter((LocatorFilterOptions?)args[0])]);
             case "get_First":
@@ -70,13 +79,14 @@ public class ChainRecording : DispatchProxy
         + ((regex.Options & RegexOptions.Multiline) != 0 ? "m" : string.Empty)
         + ((regex.Options & RegexOptions.Singleline) != 0 ? "s" : string.Empty);
 
-    private static bool Exact(object? options) => options switch
-    {
-        LocatorGetByTextOptions { Exact: true } => true,
-        LocatorGetByLabelOptions { Exact: true } => true,
-        LocatorGetByPlaceholderOptions { Exact: true } => true,
-        _ => false,
-    };
+    private static bool Exact(object? options) =>
+        options switch
+        {
+            LocatorGetByTextOptions { Exact: true } => true,
+            LocatorGetByLabelOptions { Exact: true } => true,
+            LocatorGetByPlaceholderOptions { Exact: true } => true,
+            _ => false,
+        };
 
     private static string Filter(LocatorFilterOptions? options)
     {

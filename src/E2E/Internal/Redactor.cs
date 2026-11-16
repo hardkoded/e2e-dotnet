@@ -33,7 +33,11 @@ internal sealed class Redactor
     private static readonly Regex MarkerName = new(@"\A[A-Za-z0-9_.-]*\z", RegexOptions.CultureInvariant, MatchTimeout);
 
     /// <summary>A base64 or base64url run long enough to encode a fragment, padding included.</summary>
-    private static readonly Regex EncodedRun = new(@"[A-Za-z0-9+/_-]{8,}={0,2}", RegexOptions.CultureInvariant, MatchTimeout);
+    private static readonly Regex EncodedRun = new(
+        @"[A-Za-z0-9+/_-]{8,}={0,2}",
+        RegexOptions.CultureInvariant,
+        MatchTimeout
+    );
 
     private readonly Regex? _pattern;
     private readonly Lazy<Regex>? _fragmentPattern;
@@ -63,11 +67,20 @@ internal sealed class Redactor
         var source = string.Join('|', patterns.Select(pattern => "(" + pattern.Source + ")"));
         MaxFormLength = patterns.Max(pattern => pattern.MaxLength);
         _maxMarkerLength = _markers.Max(marker => marker.Length);
-        _spansLines = entries.Any(entry => entry.Value.Contains('\n') || Regex.IsMatch(entry.Value.Trim(), @"\s", RegexOptions.None, MatchTimeout));
+        _spansLines = entries.Any(entry =>
+            entry.Value.Contains('\n') || Regex.IsMatch(entry.Value.Trim(), @"\s", RegexOptions.None, MatchTimeout)
+        );
         _pattern = new Regex(source, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, MatchTimeout);
-        _fragmentPattern = new(() => new Regex(
-            string.Join('|', entries.Select(entry => "(" + ValuePattern(entry.Value, unicodeEscapes: true).Source + ")")),
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, MatchTimeout));
+        _fragmentPattern = new(() =>
+            new Regex(
+                string.Join(
+                    '|',
+                    entries.Select(entry => "(" + ValuePattern(entry.Value, unicodeEscapes: true).Source + ")")
+                ),
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+                MatchTimeout
+            )
+        );
         _leadingForms = new string[entries.Count][];
         for (var index = 0; index < entries.Count; index++)
         {
@@ -257,7 +270,10 @@ internal sealed class Redactor
             return cut;
         }
 
-        var name = cut > open + markerOpen.Length ? text.Substring(open + markerOpen.Length, cut - (open + markerOpen.Length)) : "";
+        var name =
+            cut > open + markerOpen.Length
+                ? text.Substring(open + markerOpen.Length, cut - (open + markerOpen.Length))
+                : "";
         return MarkerName.IsMatch(name) ? open : cut;
     }
 
@@ -288,36 +304,53 @@ internal sealed class Redactor
     {
         var trimmable = new StringInfo(value.Trim()).LengthInTextElements >= Secret.MinLength;
         var pieces = Regex.Split(value, @"(\s+)", RegexOptions.None, MatchTimeout);
-        return Concat(pieces.Select((piece, index) =>
-        {
-            var run = index % 2 == 1;
-            if (run && pieces[index - 1].Length > 0 && pieces[index + 1].Length > 0)
-            {
-                return WhitespaceRun(piece);
-            }
+        return Concat(
+            pieces.Select(
+                (piece, index) =>
+                {
+                    var run = index % 2 == 1;
+                    if (run && pieces[index - 1].Length > 0 && pieces[index + 1].Length > 0)
+                    {
+                        return WhitespaceRun(piece);
+                    }
 
-            var written = Concat(piece.EnumerateRunes().Select(rune => Character(rune.ToString(), unicodeEscapes)));
-            return run && trimmable ? new Pattern("(?:" + written.Source + ")?", written.MaxLength) : written;
-        }));
+                    var written = Concat(
+                        piece.EnumerateRunes().Select(rune => Character(rune.ToString(), unicodeEscapes))
+                    );
+                    return run && trimmable ? new Pattern("(?:" + written.Source + ")?", written.MaxLength) : written;
+                }
+            )
+        );
     }
 
     private static Pattern WhitespaceRun(string run)
     {
-        var spelled = new[] { " " }.Concat(run.Select(ch => ch.ToString()))
+        var spelled = new[] { " " }
+            .Concat(run.Select(ch => ch.ToString()))
             .Distinct(StringComparer.Ordinal)
             .SelectMany(Spellings)
             .Where(spelling => !(spelling.Length == 1 && char.IsWhiteSpace(spelling[0])));
         var one = Alternation(new[] { new Pattern(@"\s", 1) }.Concat(Distinct(spelled).Select(Exact)));
-        return new Pattern(one.Source + "{1," + run.Length.ToString(CultureInfo.InvariantCulture) + "}", one.MaxLength * run.Length);
+        return new Pattern(
+            one.Source + "{1," + run.Length.ToString(CultureInfo.InvariantCulture) + "}",
+            one.MaxLength * run.Length
+        );
     }
 
     private static Pattern Character(string ch, bool unicodeEscapes)
     {
         var forms = CaseForms(ch);
-        var single = forms.Where(form => form.EnumerateRunes().Count() == 1).SelectMany(form => Spellings(form, unicodeEscapes));
+        var single = forms
+            .Where(form => form.EnumerateRunes().Count() == 1)
+            .SelectMany(form => Spellings(form, unicodeEscapes));
         var expanded = forms
             .Where(form => form.EnumerateRunes().Count() > 1)
-            .Select(form => Concat(form.EnumerateRunes().Select(part => Alternation(Distinct(Spellings(part.ToString(), unicodeEscapes)).Select(Exact)))));
+            .Select(form =>
+                Concat(
+                    form.EnumerateRunes()
+                        .Select(part => Alternation(Distinct(Spellings(part.ToString(), unicodeEscapes)).Select(Exact)))
+                )
+            );
         return Alternation(Distinct(single).Select(Exact).Concat(expanded));
     }
 
@@ -429,7 +462,9 @@ internal sealed class Redactor
         spellings.Add("&#" + decimalText + ";");
         spellings.Add("&#" + decimalText.PadLeft(3, '0') + ";");
         spellings.Add("&#x" + codePoint.ToString("x", CultureInfo.InvariantCulture) + ";");
-        spellings.Add(string.Concat(Encoding.UTF8.GetBytes(ch).Select(b => "%" + b.ToString("x2", CultureInfo.InvariantCulture))));
+        spellings.Add(
+            string.Concat(Encoding.UTF8.GetBytes(ch).Select(b => "%" + b.ToString("x2", CultureInfo.InvariantCulture)))
+        );
         return spellings.Distinct(StringComparer.Ordinal).ToList();
     }
 
@@ -438,18 +473,20 @@ internal sealed class Redactor
         var builder = new StringBuilder();
         foreach (var ch in text)
         {
-            builder.Append(ch switch
-            {
-                '"' => "\\\"",
-                '\\' => "\\\\",
-                '\n' => "\\n",
-                '\r' => "\\r",
-                '\t' => "\\t",
-                '\b' => "\\b",
-                '\f' => "\\f",
-                < ' ' => "\\u" + ((int)ch).ToString("x4", CultureInfo.InvariantCulture),
-                _ => ch.ToString(),
-            });
+            builder.Append(
+                ch switch
+                {
+                    '"' => "\\\"",
+                    '\\' => "\\\\",
+                    '\n' => "\\n",
+                    '\r' => "\\r",
+                    '\t' => "\\t",
+                    '\b' => "\\b",
+                    '\f' => "\\f",
+                    < ' ' => "\\u" + ((int)ch).ToString("x4", CultureInfo.InvariantCulture),
+                    _ => ch.ToString(),
+                }
+            );
         }
 
         return builder.ToString();
@@ -510,8 +547,18 @@ internal sealed class Redactor
     /// <summary>Whether a UTF-16 unit is whitespace a reader collapses.</summary>
     private static bool IsWhitespace(char unit)
     {
-        return unit is ' ' or (>= '\t' and <= '\r') or '\u00a0' or '\u1680' or (>= '\u2000' and <= '\u200a')
-            or '\u2028' or '\u2029' or '\u202f' or '\u205f' or '\u3000' or '\ufeff';
+        return unit
+            is ' '
+                or (>= '\t' and <= '\r')
+                or '\u00a0'
+                or '\u1680'
+                or (>= '\u2000' and <= '\u200a')
+                or '\u2028'
+                or '\u2029'
+                or '\u202f'
+                or '\u205f'
+                or '\u3000'
+                or '\ufeff';
     }
 
     private string MapPieces(string text, Func<string, string> rewrite)
@@ -642,7 +689,8 @@ internal sealed class Redactor
         public int At(int index)
         {
             // The last stretch starting at or before the index; before the first run the key and the text agree.
-            int low = -1, high = Breaks.Length / 2 - 1;
+            int low = -1,
+                high = Breaks.Length / 2 - 1;
             while (low < high)
             {
                 var middle = (low + high + 1) >> 1;
@@ -672,15 +720,11 @@ internal sealed class StreamRedactor(Func<Redactor> current)
 {
     /// <summary>A redactor over one fixed ledger.</summary>
     public StreamRedactor(Redactor ledger)
-        : this(() => ledger)
-    {
-    }
+        : this(() => ledger) { }
 
     /// <summary>A redactor over a ledger that learns values while the stream is open (upstream passes its <c>SecretLedger</c>).</summary>
     public StreamRedactor(SecretLedger ledger)
-        : this(() => ledger.Current)
-    {
-    }
+        : this(() => ledger.Current) { }
 
     private readonly Decoder _decoder = Encoding.UTF8.GetDecoder();
     private string _held = "";

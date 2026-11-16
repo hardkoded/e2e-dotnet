@@ -11,11 +11,23 @@ public sealed class ProviderFinishReasonTests
 {
     [Theory]
     [InlineData("anthropic", """{ "content": [], "stop_reason": "refusal" }""", "refusal")]
-    [InlineData("responses", """{ "output": [], "incomplete_details": { "reason": "content_filter" } }""", "content_filter")]
-    [InlineData("compatible", """{ "choices": [{ "message": { "content": null }, "finish_reason": "content_filter" }] }""", "content_filter")]
+    [InlineData(
+        "responses",
+        """{ "output": [], "incomplete_details": { "reason": "content_filter" } }""",
+        "content_filter"
+    )]
+    [InlineData(
+        "compatible",
+        """{ "choices": [{ "message": { "content": null }, "finish_reason": "content_filter" }] }""",
+        "content_filter"
+    )]
     [InlineData("google", """{ "candidates": [{ "finishReason": "SAFETY" }] }""", "SAFETY")]
     [InlineData("google", """{ "promptFeedback": { "blockReason": "PROHIBITED_CONTENT" } }""", "PROHIBITED_CONTENT")]
-    [InlineData("bedrock", """{ "output": { "message": { "content": [] } }, "stopReason": "guardrail_intervened" }""", "guardrail_intervened")]
+    [InlineData(
+        "bedrock",
+        """{ "output": { "message": { "content": [] } }, "stopReason": "guardrail_intervened" }""",
+        "guardrail_intervened"
+    )]
     public async Task Reads_the_providers_refusal_as_a_content_filter_finish(string provider, string body, string raw)
     {
         var response = await CompleteAsync(provider, body);
@@ -48,7 +60,10 @@ public sealed class ProviderFinishReasonTests
         Assert.Equal("MODEL_REFUSED", error.Code);
         Assert.DoesNotContain("s3cret-value", error.Message, StringComparison.Ordinal);
         Assert.True(error.Message.Length < 200);
-        Assert.Equal("the model m refused the request (content-filter)", ModelHttp.ModelRefusalError("m", null, redactor).Message);
+        Assert.Equal(
+            "the model m refused the request (content-filter)",
+            ModelHttp.ModelRefusalError("m", null, redactor).Message
+        );
     }
 
     private static async Task<ModelResponse> CompleteAsync(string provider, string body)
@@ -57,10 +72,24 @@ public sealed class ProviderFinishReasonTests
         IAgentModel model = provider switch
         {
             "anthropic" => new AnthropicModel(new AnthropicModelOptions { Model = "m", ApiKey = "k" }, http),
-            "responses" => new OpenAiResponsesModel(new OpenAiResponsesModelOptions { Model = "m", ApiKey = "k" }, http),
-            "compatible" => new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "m", ApiKey = "k" }, http),
+            "responses" => new OpenAiResponsesModel(
+                new OpenAiResponsesModelOptions { Model = "m", ApiKey = "k" },
+                http
+            ),
+            "compatible" => new OpenAiCompatibleModel(
+                new OpenAiCompatibleModelOptions { Model = "m", ApiKey = "k" },
+                http
+            ),
             "google" => new GoogleModel(new GoogleModelOptions { Model = "m", ApiKey = "k" }, http),
-            _ => new BedrockModel(new BedrockModelOptions { Model = "m", Region = "eu-west-1", ApiKey = "k" }, http),
+            _ => new BedrockModel(
+                new BedrockModelOptions
+                {
+                    Model = "m",
+                    Region = "eu-west-1",
+                    ApiKey = "k",
+                },
+                http
+            ),
         };
         using var disposable = (IDisposable)model;
         return await model.CompleteAsync(ModelProviderTests.Conversation(), CancellationToken.None);

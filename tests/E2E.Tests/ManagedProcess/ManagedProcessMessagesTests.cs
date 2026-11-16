@@ -13,15 +13,27 @@ public sealed class ManagedProcessMessagesTests
     public async Task Shows_the_readiness_URL_without_userinfo_query_or_fragment()
     {
         await using var running = TestServer.Answering();
-        var secret = new UriBuilder(running.Url) { UserName = "user", Password = "hunter2", Query = "token=abc123", Fragment = "frag" }.Uri.AbsoluteUri;
+        var secret = new UriBuilder(running.Url)
+        {
+            UserName = "user",
+            Password = "hunter2",
+            Query = "token=abc123",
+            Fragment = "frag",
+        }
+            .Uri
+            .AbsoluteUri;
         var app = new ManagedProcessUnderTest(
             "app.command",
             AppProgram.Command(["idle"], TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
             Path.GetTempPath(),
-            new Readiness(secret));
+            new Readiness(secret)
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Equal("APP_ALREADY_RUNNING", failure.Code);
-        Assert.Equal($"{running.Url} already answered before app.command started; stop that process or set reuseExisting: true", failure.Message);
+        Assert.Equal(
+            $"{running.Url} already answered before app.command started; stop that process or set reuseExisting: true",
+            failure.Message
+        );
         foreach (var hidden in new[] { "hunter2", "abc123", "frag" })
         {
             Assert.DoesNotContain(hidden, failure.Message, StringComparison.Ordinal);

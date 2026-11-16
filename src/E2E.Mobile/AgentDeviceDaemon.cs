@@ -22,7 +22,9 @@ public static partial class AgentDeviceDaemon
     /// <summary>The environment variable that names a local <c>agent-device.mjs</c> to run in place of <c>npx agent-device</c>.</summary>
     public const string BinaryVariable = "E2E_AGENT_DEVICE_BIN";
 
-    private static readonly ConcurrentDictionary<string, Lazy<Task<DaemonEndpoint>>> Local = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, Lazy<Task<DaemonEndpoint>>> Local = new(
+        StringComparer.Ordinal
+    );
 
     /// <summary>The most stderr text an error message keeps.</summary>
     private const int MaxExcerpt = 2000;
@@ -47,10 +49,16 @@ public static partial class AgentDeviceDaemon
     /// process. A provider's own daemon is started with the <paramref name="environment"/> it needs and nothing else
     /// from this process (its credentials and its device's address); a daemon already running keeps the one it started with.
     /// </summary>
-    public static async Task<DaemonEndpoint> LocalAsync(string? stateDirectory, CancellationToken cancellationToken, IReadOnlyDictionary<string, string?>? environment = null)
+    public static async Task<DaemonEndpoint> LocalAsync(
+        string? stateDirectory,
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string?>? environment = null
+    )
     {
         var directory = stateDirectory ?? DefaultStateDirectory;
-        var starting = Local.GetOrAdd(directory, key => new Lazy<Task<DaemonEndpoint>>(() => StartAsync(key, environment)));
+        var starting = Local.GetOrAdd(directory, key => new Lazy<Task<DaemonEndpoint>>(() =>
+            StartAsync(key, environment)
+        ));
         try
         {
             return await starting.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -67,26 +75,42 @@ public static partial class AgentDeviceDaemon
     /// Asks a daemon who it is and checks it is the version and protocol this client speaks. Throws a
     /// <see cref="ConfigurationException"/> naming the mismatch.
     /// </summary>
-    public static async Task CheckHealthAsync(DaemonEndpoint endpoint, HttpClient http, CancellationToken cancellationToken)
+    public static async Task CheckHealthAsync(
+        DaemonEndpoint endpoint,
+        HttpClient http,
+        CancellationToken cancellationToken
+    )
     {
         JsonNode? health;
         try
         {
-            using var reply = await http.GetAsync(new Uri(endpoint.BaseUrl.AbsoluteUri.TrimEnd('/') + "/health"), cancellationToken).ConfigureAwait(false);
+            using var reply = await http.GetAsync(
+                    new Uri(endpoint.BaseUrl.AbsoluteUri.TrimEnd('/') + "/health"),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             health = JsonNode.Parse(await reply.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         }
         catch (Exception cause) when (cause is HttpRequestException or JsonException)
         {
-            throw new ConfigurationException("INVALID_CONFIG", $"The agent-device daemon at {endpoint.BaseUrl} did not answer GET /health: {cause.Message}", cause);
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"The agent-device daemon at {endpoint.BaseUrl} did not answer GET /health: {cause.Message}",
+                cause
+            );
         }
 
-        var protocol = health?["rpcProtocolVersion"] is JsonValue value && value.TryGetValue<int>(out var number) ? number : (int?)null;
+        var protocol =
+            health?["rpcProtocolVersion"] is JsonValue value && value.TryGetValue<int>(out var number)
+                ? number
+                : (int?)null;
         var ok = health?["ok"] is JsonValue flag && flag.TryGetValue<bool>(out var healthy) && healthy;
         if (!ok || protocol != AgentDeviceVersion.RpcProtocol)
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"The agent-device daemon at {endpoint.BaseUrl} speaks RPC protocol {protocol?.ToString(CultureInfo.InvariantCulture) ?? "none"}, but this client speaks {AgentDeviceVersion.RpcProtocol}. Use agent-device {AgentDeviceVersion.Pinned}.");
+                $"The agent-device daemon at {endpoint.BaseUrl} speaks RPC protocol {protocol?.ToString(CultureInfo.InvariantCulture) ?? "none"}, but this client speaks {AgentDeviceVersion.RpcProtocol}. Use agent-device {AgentDeviceVersion.Pinned}."
+            );
         }
     }
 
@@ -94,7 +118,12 @@ public static partial class AgentDeviceDaemon
     /// <see cref="CheckHealthAsync"/> within <paramref name="bound"/>. A daemon that does not answer in time is a
     /// <see cref="ConfigurationException"/>; a cancelled <paramref name="cancellationToken"/> stays a cancellation.
     /// </summary>
-    public static async Task CheckHealthWithinAsync(DaemonEndpoint endpoint, HttpClient http, TimeSpan bound, CancellationToken cancellationToken)
+    public static async Task CheckHealthWithinAsync(
+        DaemonEndpoint endpoint,
+        HttpClient http,
+        TimeSpan bound,
+        CancellationToken cancellationToken
+    )
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(bound);
@@ -104,7 +133,11 @@ public static partial class AgentDeviceDaemon
         }
         catch (OperationCanceledException cause) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new ConfigurationException("INVALID_CONFIG", $"The agent-device daemon at {endpoint.BaseUrl} did not answer GET /health within {bound.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s", cause);
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"The agent-device daemon at {endpoint.BaseUrl} did not answer GET /health within {bound.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s",
+                cause
+            );
         }
     }
 
@@ -112,22 +145,41 @@ public static partial class AgentDeviceDaemon
     public static Version? ParseNodeVersion(string output)
     {
         var match = NodeVersion().Match(output.Trim());
-        return match.Success ? new Version(int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture), int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)) : null;
+        return match.Success
+            ? new Version(
+                int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture),
+                int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)
+            )
+            : null;
     }
 
     /// <summary>
     /// Stops the daemon of a state directory and removes the directory, as <c>agent-device daemon stop --clean</c> does,
     /// and forgets it. Throws when the command fails, so a caller can report a daemon left running.
     /// </summary>
-    public static async Task StopAsync(string stateDirectory, IReadOnlyDictionary<string, string?>? environment, CancellationToken cancellationToken) =>
-        await StopReportAsync(stateDirectory, environment, cancellationToken).ConfigureAwait(false);
+    public static async Task StopAsync(
+        string stateDirectory,
+        IReadOnlyDictionary<string, string?>? environment,
+        CancellationToken cancellationToken
+    ) => await StopReportAsync(stateDirectory, environment, cancellationToken).ConfigureAwait(false);
 
     /// <summary><see cref="StopAsync"/>, answering the JSON shutdown report <c>daemon stop --json</c> printed, for a caller that must see whether the provider sessions ended.</summary>
-    internal static async Task<string> StopReportAsync(string stateDirectory, IReadOnlyDictionary<string, string?>? environment, CancellationToken cancellationToken)
+    internal static async Task<string> StopReportAsync(
+        string stateDirectory,
+        IReadOnlyDictionary<string, string?>? environment,
+        CancellationToken cancellationToken
+    )
     {
         var (program, arguments) = Launcher();
-        var start = new ProcessStartInfo(program) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
-        foreach (var argument in arguments.Concat(["daemon", "stop", "--state-dir", stateDirectory, "--clean", "--json"]))
+        var start = new ProcessStartInfo(program)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (
+            var argument in arguments.Concat(["daemon", "stop", "--state-dir", stateDirectory, "--clean", "--json"])
+        )
         {
             start.ArgumentList.Add(argument);
         }
@@ -137,10 +189,13 @@ public static partial class AgentDeviceDaemon
             Isolate(start, environment);
         }
 
-        var (exitCode, output, error) = await RunAsync(start, TimeSpan.FromSeconds(60), cancellationToken).ConfigureAwait(false);
+        var (exitCode, output, error) = await RunAsync(start, TimeSpan.FromSeconds(60), cancellationToken)
+            .ConfigureAwait(false);
         if (exitCode != 0)
         {
-            throw new InvalidOperationException($"`agent-device daemon stop` for {stateDirectory} exited with code {exitCode}: {Excerpt(FailureOutput(output, error), environment)}");
+            throw new InvalidOperationException(
+                $"`agent-device daemon stop` for {stateDirectory} exited with code {exitCode}: {Excerpt(FailureOutput(output, error), environment)}"
+            );
         }
 
         Local.TryRemove(stateDirectory, out _);
@@ -160,7 +215,10 @@ public static partial class AgentDeviceDaemon
         }
     }
 
-    private static async Task<DaemonEndpoint> StartAsync(string stateDirectory, IReadOnlyDictionary<string, string?>? environment)
+    private static async Task<DaemonEndpoint> StartAsync(
+        string stateDirectory,
+        IReadOnlyDictionary<string, string?>? environment
+    )
     {
         Directory.CreateDirectory(stateDirectory);
         if (ReadEndpoint(stateDirectory) is { } running && await IsHealthyAsync(running).ConfigureAwait(false))
@@ -172,7 +230,12 @@ public static partial class AgentDeviceDaemon
 
         await CheckNodeAsync().ConfigureAwait(false);
         var (program, arguments) = Launcher();
-        var start = new ProcessStartInfo(program) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+        var start = new ProcessStartInfo(program)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
         foreach (var argument in arguments)
         {
             start.ArgumentList.Add(argument);
@@ -196,12 +259,17 @@ public static partial class AgentDeviceDaemon
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"Could not start the agent-device daemon ({Path.GetFileName(program)} {string.Join(' ', arguments)}) with exit code {exitCode}: {Excerpt(FailureOutput(output, error), environment)}. agent-device {AgentDeviceVersion.Pinned} needs Node {AgentDeviceVersion.MinimumNode} or newer; install it with `npm install --global agent-device@{AgentDeviceVersion.Pinned}` or let npx fetch it.");
+                $"Could not start the agent-device daemon ({Path.GetFileName(program)} {string.Join(' ', arguments)}) with exit code {exitCode}: {Excerpt(FailureOutput(output, error), environment)}. agent-device {AgentDeviceVersion.Pinned} needs Node {AgentDeviceVersion.MinimumNode} or newer; install it with `npm install --global agent-device@{AgentDeviceVersion.Pinned}` or let npx fetch it."
+            );
         }
 
         var endpoint = ReadEndpoint(stateDirectory)
-            ?? throw new ConfigurationException("INVALID_CONFIG", $"The agent-device daemon in {stateDirectory} does not serve HTTP. Stop it with `npx agent-device daemon stop --state-dir {stateDirectory}` and run again.");
-        await CheckHealthWithinAsync(endpoint, Http, TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
+            ?? throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"The agent-device daemon in {stateDirectory} does not serve HTTP. Stop it with `npx agent-device daemon stop --state-dir {stateDirectory}` and run again."
+            );
+        await CheckHealthWithinAsync(endpoint, Http, TimeSpan.FromSeconds(5), CancellationToken.None)
+            .ConfigureAwait(false);
         CheckVersion(stateDirectory);
         return endpoint;
     }
@@ -212,7 +280,10 @@ public static partial class AgentDeviceDaemon
         var info = ReadInfo(stateDirectory);
         if (info?["httpPort"] is JsonValue port && port.TryGetValue<int>(out var number))
         {
-            return new DaemonEndpoint(new Uri($"http://127.0.0.1:{number.ToString(CultureInfo.InvariantCulture)}/"), Text(info["token"]));
+            return new DaemonEndpoint(
+                new Uri($"http://127.0.0.1:{number.ToString(CultureInfo.InvariantCulture)}/"),
+                Text(info["token"])
+            );
         }
 
         return null;
@@ -237,7 +308,8 @@ public static partial class AgentDeviceDaemon
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"The agent-device daemon in {stateDirectory} is version {version ?? "unknown"}, but this client was written for {AgentDeviceVersion.Pinned}. Stop it with `npx agent-device daemon stop --state-dir {stateDirectory}` and run again.");
+                $"The agent-device daemon in {stateDirectory} is version {version ?? "unknown"}, but this client was written for {AgentDeviceVersion.Pinned}. Stop it with `npx agent-device daemon stop --state-dir {stateDirectory}` and run again."
+            );
         }
     }
 
@@ -260,11 +332,24 @@ public static partial class AgentDeviceDaemon
         (int ExitCode, string Output, string Error) result;
         try
         {
-            result = await RunAsync(new ProcessStartInfo("node", "--version") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false }, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+            result = await RunAsync(
+                    new ProcessStartInfo("node", "--version")
+                    {
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                    },
+                    TimeSpan.FromSeconds(30)
+                )
+                .ConfigureAwait(false);
         }
         catch (System.ComponentModel.Win32Exception cause)
         {
-            throw new ConfigurationException("INVALID_CONFIG", $"Node {AgentDeviceVersion.MinimumNode} or newer is required to run agent-device, and `node` is not on the path. Install it from https://nodejs.org.", cause);
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"Node {AgentDeviceVersion.MinimumNode} or newer is required to run agent-device, and `node` is not on the path. Install it from https://nodejs.org.",
+                cause
+            );
         }
 
         var version = result.ExitCode == 0 ? ParseNodeVersion(result.Output) : null;
@@ -272,7 +357,8 @@ public static partial class AgentDeviceDaemon
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"agent-device needs Node {AgentDeviceVersion.MinimumNode} or newer, and `node --version` reported {FirstLine(result.Output)}. Install a newer Node from https://nodejs.org.");
+                $"agent-device needs Node {AgentDeviceVersion.MinimumNode} or newer, and `node --version` reported {FirstLine(result.Output)}. Install a newer Node from https://nodejs.org."
+            );
         }
     }
 
@@ -280,7 +366,10 @@ public static partial class AgentDeviceDaemon
     private static (string Program, string[] Arguments) Launcher() =>
         Environment.GetEnvironmentVariable(BinaryVariable) is { Length: > 0 } binary
             ? (ResolveProgram(OperatingSystem.IsWindows() ? "node.exe" : "node"), [binary])
-            : (ResolveProgram(OperatingSystem.IsWindows() ? "npx.cmd" : "npx"), ["--yes", $"agent-device@{AgentDeviceVersion.Pinned}"]);
+            : (
+                ResolveProgram(OperatingSystem.IsWindows() ? "npx.cmd" : "npx"),
+                ["--yes", $"agent-device@{AgentDeviceVersion.Pinned}"]
+            );
 
     /// <summary>
     /// The full path of a program, found on the absolute entries of <c>PATH</c>. Starting a bare name made
@@ -289,7 +378,12 @@ public static partial class AgentDeviceDaemon
     /// </summary>
     private static string ResolveProgram(string name)
     {
-        foreach (var entry in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        foreach (
+            var entry in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(
+                Path.PathSeparator,
+                StringSplitOptions.RemoveEmptyEntries
+            )
+        )
         {
             var directory = entry.Trim('"');
             if (!Path.IsPathFullyQualified(directory))
@@ -307,7 +401,11 @@ public static partial class AgentDeviceDaemon
         return name;
     }
 
-    private static async Task<(int ExitCode, string Output, string Error)> RunAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken cancellationToken = default)
+    private static async Task<(int ExitCode, string Output, string Error)> RunAsync(
+        ProcessStartInfo start,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default
+    )
     {
         using var process = new Process { StartInfo = start };
         try
@@ -316,7 +414,11 @@ public static partial class AgentDeviceDaemon
         }
         catch (System.ComponentModel.Win32Exception cause)
         {
-            throw new ConfigurationException("INVALID_CONFIG", $"Could not run `{start.FileName}`: {cause.Message}. agent-device needs Node {AgentDeviceVersion.MinimumNode} or newer, and npx comes with it.", cause);
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"Could not run `{start.FileName}`: {cause.Message}. agent-device needs Node {AgentDeviceVersion.MinimumNode} or newer, and npx comes with it.",
+                cause
+            );
         }
 
         using var expiry = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -332,14 +434,19 @@ public static partial class AgentDeviceDaemon
         {
             process.Kill(entireProcessTree: true);
             cancellationToken.ThrowIfCancellationRequested();
-            throw new ConfigurationException("INVALID_CONFIG", $"`{start.FileName}` did not finish within {timeout.TotalSeconds:0} seconds.");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"`{start.FileName}` did not finish within {timeout.TotalSeconds:0} seconds."
+            );
         }
     }
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     /// <summary>The stream that carries the failure: stderr when it has text, else stdout.</summary>
-    private static string FailureOutput(string output, string error) => string.IsNullOrWhiteSpace(error) ? output : error;
+    private static string FailureOutput(string output, string error) =>
+        string.IsNullOrWhiteSpace(error) ? output : error;
 
     /// <summary>
     /// The start of a process's output, trimmed, with the values of the child's environment blanked (a provider's
@@ -375,7 +482,8 @@ public static partial class AgentDeviceDaemon
     }
 
     private static string FirstLine(string text) =>
-        text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "no output";
+        text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault()
+        ?? "no output";
 
     [GeneratedRegex(@"^v?(\d+)\.(\d+)")]
     private static partial Regex NodeVersion();
@@ -419,10 +527,20 @@ public sealed record DeviceClientConfig
     {
         if (!string.IsNullOrEmpty(DaemonBaseUrl))
         {
-            var remote = new DaemonEndpoint(new Uri(DaemonBaseUrl), string.IsNullOrEmpty(DaemonAuthToken) ? null : DaemonAuthToken);
+            var remote = new DaemonEndpoint(
+                new Uri(DaemonBaseUrl),
+                string.IsNullOrEmpty(DaemonAuthToken) ? null : DaemonAuthToken
+            );
             async Task<DaemonEndpoint> CheckAsync()
             {
-                await AgentDeviceDaemon.CheckHealthWithinAsync(remote, AgentDeviceDaemon.SharedHttp, TimeSpan.FromSeconds(30), CancellationToken.None).ConfigureAwait(false);
+                await AgentDeviceDaemon
+                    .CheckHealthWithinAsync(
+                        remote,
+                        AgentDeviceDaemon.SharedHttp,
+                        TimeSpan.FromSeconds(30),
+                        CancellationToken.None
+                    )
+                    .ConfigureAwait(false);
                 return remote;
             }
 
@@ -442,10 +560,20 @@ public sealed record DeviceClientConfig
                 }
             }
 
-            return new AgentDeviceRpcClient(Session, Settings, token => CheckedOnce().WaitAsync(token), AgentDeviceDaemon.SharedHttp);
+            return new AgentDeviceRpcClient(
+                Session,
+                Settings,
+                token => CheckedOnce().WaitAsync(token),
+                AgentDeviceDaemon.SharedHttp
+            );
         }
 
         var stateDirectory = Settings["stateDir"]?.GetValue<string>();
-        return new AgentDeviceRpcClient(Session, Settings, token => AgentDeviceDaemon.LocalAsync(stateDirectory, token), AgentDeviceDaemon.SharedHttp);
+        return new AgentDeviceRpcClient(
+            Session,
+            Settings,
+            token => AgentDeviceDaemon.LocalAsync(stateDirectory, token),
+            AgentDeviceDaemon.SharedHttp
+        );
     }
 }

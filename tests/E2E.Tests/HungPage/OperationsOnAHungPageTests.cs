@@ -24,9 +24,21 @@ public sealed class OperationsOnAHungPageTests
         using var site = await TinySite.StartAsync(BusyPage);
         await using var session = await StartAsync();
         await FreezeAsync(session, site);
-        var browser = new Browser(session, "web", site.Url, Directory.GetCurrentDirectory(), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(1), () => CancellationToken.None, () => { }, new SoftFailures());
+        var browser = new Browser(
+            session,
+            "web",
+            site.Url,
+            Directory.GetCurrentDirectory(),
+            TimeSpan.FromSeconds(30),
+            TimeSpan.FromSeconds(1),
+            () => CancellationToken.None,
+            () => { },
+            new SoftFailures()
+        );
 
-        var title = await BoundedAsync(() => new BrowserExpect(browser, negated: false).ToHaveTitleAsync("Other", timeout: TimeSpan.FromSeconds(1)));
+        var title = await BoundedAsync(() =>
+            new BrowserExpect(browser, negated: false).ToHaveTitleAsync("Other", timeout: TimeSpan.FromSeconds(1))
+        );
 
         Assert.Equal("OPERATION_TIMEOUT", title.Code);
     }
@@ -52,7 +64,9 @@ public sealed class OperationsOnAHungPageTests
         // The port locates through an observation.
         var locate = await BoundedAsync(() => session.ObserveAsync(CancellationToken.None));
         Assert.Equal("OPERATION_TIMEOUT", locate.Code);
-        var tap = await BoundedAsync(() => session.PerformAtAsync(new Point(10, 10), new PointerAction.Tap(), CancellationToken.None));
+        var tap = await BoundedAsync(() =>
+            session.PerformAtAsync(new Point(10, 10), new PointerAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", tap.Code);
     }
 

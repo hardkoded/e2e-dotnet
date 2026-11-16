@@ -34,12 +34,15 @@ internal static class ToolFixtures
               "required": ["target"],
               "additionalProperties": false
             }
-            """),
+            """
+        ),
         Execute = (input, _) => Task.FromResult<object?>("Tapped #" + input.GetProperty("target").GetString() + "."),
     };
 
     /// <summary>The schema of a tool without arguments: <c>z.object({})</c>.</summary>
-    public static readonly JsonElement NoArguments = Json("""{ "type": "object", "properties": {}, "additionalProperties": false }""");
+    public static readonly JsonElement NoArguments = Json(
+        """{ "type": "object", "properties": {}, "additionalProperties": false }"""
+    );
 
     public static JsonElement Json(string json)
     {
@@ -50,11 +53,15 @@ internal static class ToolFixtures
     /// <summary>Each content part as its kind and value: <c>("text", text)</c>, or <c>("image:&lt;type&gt;", base64)</c>.</summary>
     public static (string Kind, string Value)[] Parts(CallToolResult result)
     {
-        return result.Content.Select(part => part switch
-        {
-            TextContentBlock text => ("text", text.Text),
-            ImageContentBlock image => ("image:" + image.MimeType, Encoding.UTF8.GetString(image.Data.Span)),
-            _ => (part.Type, ""),
-        }).ToArray();
+        return result
+            .Content.Select(part =>
+                part switch
+                {
+                    TextContentBlock text => ("text", text.Text),
+                    ImageContentBlock image => ("image:" + image.MimeType, Encoding.UTF8.GetString(image.Data.Span)),
+                    _ => (part.Type, ""),
+                }
+            )
+            .ToArray();
     }
 }

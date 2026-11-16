@@ -12,17 +12,25 @@ public sealed class ReportConfigDigestTests
 {
     private static readonly string Digest = new('a', 64);
 
-    private static ResolvedConfig Config(string digest) => new() { ProjectRoot = "/repo/app", Targets = [], ConfigDigest = digest };
+    private static ResolvedConfig Config(string digest) =>
+        new()
+        {
+            ProjectRoot = "/repo/app",
+            Targets = [],
+            ConfigDigest = digest,
+        };
 
     private static Report1Document Build(ResolvedConfig? config) =>
-        BuildReport.Build(new BuildReportOptions
-        {
-            RunId = "run-1",
-            StartedAt = DateTimeOffset.UnixEpoch,
-            Status = ReportRunStatus.Passed,
-            ExitCode = 0,
-            Config = config,
-        });
+        BuildReport.Build(
+            new BuildReportOptions
+            {
+                RunId = "run-1",
+                StartedAt = DateTimeOffset.UnixEpoch,
+                Status = ReportRunStatus.Passed,
+                ExitCode = 0,
+                Config = config,
+            }
+        );
 
     [Fact]
     public void Reports_the_digest_of_the_resolved_config()
@@ -30,7 +38,10 @@ public sealed class ReportConfigDigestTests
         var document = Build(Config(Digest));
 
         Assert.Equal(Digest, document.Run.Project.ConfigDigest);
-        Assert.Equal(Digest, ReportWire.Document(document, "results")["run"]!["project"]!["configDigest"]!.GetValue<string>());
+        Assert.Equal(
+            Digest,
+            ReportWire.Document(document, "results")["run"]!["project"]!["configDigest"]!.GetValue<string>()
+        );
     }
 
     [Fact]

@@ -82,13 +82,20 @@ internal sealed class RawServer : IDisposable
     /// <summary>Performs the handshake: initialize, then the initialized notification.</summary>
     public async Task InitializeAsync()
     {
-        await SendAsync(new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "initialize",
-            @params = new { protocolVersion = "2025-06-18", capabilities = new { }, clientInfo = new { name = "raw", version = "0.0.0" } },
-        });
+        await SendAsync(
+            new
+            {
+                jsonrpc = "2.0",
+                id = 1,
+                method = "initialize",
+                @params = new
+                {
+                    protocolVersion = "2025-06-18",
+                    capabilities = new { },
+                    clientInfo = new { name = "raw", version = "0.0.0" },
+                },
+            }
+        );
         await ResponseAsync(1);
         await SendAsync(new { jsonrpc = "2.0", method = "notifications/initialized" });
     }
@@ -98,7 +105,14 @@ internal sealed class RawServer : IDisposable
 
     /// <summary>The text of a tool's result in a response.</summary>
     public static string ResultText(JsonElement response) =>
-        string.Join('\n', response.GetProperty("result").GetProperty("content").EnumerateArray().Select(part => part.GetProperty("text").GetString()));
+        string.Join(
+            '\n',
+            response
+                .GetProperty("result")
+                .GetProperty("content")
+                .EnumerateArray()
+                .Select(part => part.GetProperty("text").GetString())
+        );
 
     /// <summary>Closes the client's end of stdin, as a client that goes away does.</summary>
     public void CloseStdin() => _process.StandardInput.Close();
@@ -134,15 +148,16 @@ internal sealed class RawServer : IDisposable
         {
             while (answered < count && await _process.StandardOutput.ReadLineAsync(cancel.Token) is { } line)
             {
-                if (line.Contains("\"result\"", StringComparison.Ordinal) && line.Contains("\"contents\"", StringComparison.Ordinal))
+                if (
+                    line.Contains("\"result\"", StringComparison.Ordinal)
+                    && line.Contains("\"contents\"", StringComparison.Ordinal)
+                )
                 {
                     answered++;
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
 
         return answered;
     }
@@ -159,7 +174,9 @@ internal sealed class RawServer : IDisposable
     }
 
     private TaskCompletionSource<JsonElement> Pending(int id) =>
-        _responses.GetOrAdd(id, _ => new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously));
+        _responses.GetOrAdd(id, _ => new TaskCompletionSource<JsonElement>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        ));
 
     private async Task ReadResponsesAsync()
     {

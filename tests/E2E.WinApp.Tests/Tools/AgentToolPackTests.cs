@@ -38,10 +38,12 @@ public sealed class AgentToolPackTests
         var session = await harness.OpenAsync();
         harness.Driver.Attachable["Calculator"] = new LaunchedApp(900, 0x2000, "Calculator", Owned: false);
         var tools = WinAppTools.Create(harness.Engine);
-        var result = await tools["open_app"].ExecuteAsync(new JsonObject { ["app"] = "Calculator" }, CancellationToken.None);
+        var result = await tools["open_app"]
+            .ExecuteAsync(new JsonObject { ["app"] = "Calculator" }, CancellationToken.None);
         Assert.Equal("Opened Calculator.", result);
         Assert.Contains("attach Calculator", harness.Driver.Calls);
-        var relaunched = await tools["open_app"].ExecuteAsync(new JsonObject { ["app"] = "Desk", ["relaunch"] = true }, CancellationToken.None);
+        var relaunched = await tools["open_app"]
+            .ExecuteAsync(new JsonObject { ["app"] = "Desk", ["relaunch"] = true }, CancellationToken.None);
         Assert.Equal("Opened Desk.", relaunched);
         Assert.Single(harness.Driver.Closed);
         Assert.Same(session, Assert.Single(harness.Engine.ActiveSessions));
@@ -51,12 +53,22 @@ public sealed class AgentToolPackTests
     public async Task Alert_answers_the_open_dialog()
     {
         await using var harness = new Harness();
-        var session = await harness.OpenAsync(RawElements.Window("W", RawElements.Dialog("dlg", "Confirm", RawElements.Button("btn-ok", "OK", "PrimaryButton"))));
+        var session = await harness.OpenAsync(
+            RawElements.Window(
+                "W",
+                RawElements.Dialog("dlg", "Confirm", RawElements.Button("btn-ok", "OK", "PrimaryButton"))
+            )
+        );
         await session.ObserveAsync(CancellationToken.None);
         var tools = WinAppTools.Create(harness.Engine);
-        Assert.Equal("Alert accepted.", await tools["alert"].ExecuteAsync(new JsonObject { ["action"] = "accept" }, CancellationToken.None));
+        Assert.Equal(
+            "Alert accepted.",
+            await tools["alert"].ExecuteAsync(new JsonObject { ["action"] = "accept" }, CancellationToken.None)
+        );
         Assert.Contains("invoke btn-ok Invoke", harness.Driver.Calls);
-        var error = await Assert.ThrowsAsync<TestException>(() => tools["alert"].ExecuteAsync(new JsonObject { ["action"] = "ignore" }, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            tools["alert"].ExecuteAsync(new JsonObject { ["action"] = "ignore" }, CancellationToken.None)
+        );
         Assert.Equal("INVALID_ARGUMENT", error.Code);
     }
 
@@ -65,7 +77,9 @@ public sealed class AgentToolPackTests
     {
         await using var harness = new Harness();
         var tools = WinAppTools.Create(harness.Engine);
-        var error = await Assert.ThrowsAsync<EngineException>(() => tools["open_app"].ExecuteAsync(new JsonObject { ["app"] = "Desk" }, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            tools["open_app"].ExecuteAsync(new JsonObject { ["app"] = "Desk" }, CancellationToken.None)
+        );
         Assert.Equal(EngineErrorCodes.InvalidState, error.Code);
         Assert.Contains("no Windows app attempt is running", error.Message, StringComparison.Ordinal);
     }
@@ -76,7 +90,9 @@ public sealed class AgentToolPackTests
         await using var harness = new Harness();
         await harness.OpenAsync();
         var tools = WinAppTools.Create(harness.Engine);
-        var error = await Assert.ThrowsAsync<TestException>(() => tools["open_app"].ExecuteAsync(new JsonObject(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            tools["open_app"].ExecuteAsync(new JsonObject(), CancellationToken.None)
+        );
         Assert.Equal("INVALID_ARGUMENT", error.Code);
     }
 }

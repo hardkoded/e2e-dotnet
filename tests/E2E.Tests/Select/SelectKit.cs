@@ -56,7 +56,11 @@ internal static class SelectKit
 
     /// <summary>Several files collected together (upstream's <c>{ ...a, files: [...], tests: [...] }</c>).</summary>
     public static Collection Merge(params Collection[] collections) =>
-        new() { Files = [.. collections.SelectMany(entry => entry.Files)], Tests = [.. collections.SelectMany(entry => entry.Tests)] };
+        new()
+        {
+            Files = [.. collections.SelectMany(entry => entry.Files)],
+            Tests = [.. collections.SelectMany(entry => entry.Tests)],
+        };
 
     private static CollectedTest Collected(string file, Decl decl, int index)
     {
@@ -75,13 +79,26 @@ internal static class SelectKit
             Id = setup ? IdHelpers.SetupTestId(file, titlePath) : id,
             SerialId = decl.Serial is null ? null : file + "::serial::" + IdHelpers.EncodeTitle(decl.Serial),
             SerialRoot = decl.Serial is null ? null : new GroupNode(decl.Serial),
-            Mode = decl.Only ? TestMode.Only : decl.Skip ? TestMode.Skip : TestMode.Normal,
-            Options = new ResolvedTestOptions(decl.Platforms, decl.Requires, decl.Session, decl.Agents, decl.Skip ? "skipped" : null, decl.Serial is not null),
+            Mode =
+                decl.Only ? TestMode.Only
+                : decl.Skip ? TestMode.Skip
+                : TestMode.Normal,
+            Options = new ResolvedTestOptions(
+                decl.Platforms,
+                decl.Requires,
+                decl.Session,
+                decl.Agents,
+                decl.Skip ? "skipped" : null,
+                decl.Serial is not null
+            ),
         };
     }
 
     /// <summary>A config on web targets (upstream's <c>config()</c>); every target takes the engine given, if any.</summary>
-    public static ResolvedConfig ConfigOf(IReadOnlyList<ITestFilter>? filters = null, params ResolvedTarget[] targets) =>
+    public static ResolvedConfig ConfigOf(
+        IReadOnlyList<ITestFilter>? filters = null,
+        params ResolvedTarget[] targets
+    ) =>
         new()
         {
             ProjectRoot = Root,
@@ -97,6 +114,12 @@ internal static class SelectKit
         [.. selection.Pairs.Where(pair => pair.Disposition == Disposition.Run).Select(pair => pair.Test.Title)];
 
     /// <summary><c>excluded</c> as <c>applyTestFilters</c> hands it on: each test title left out by <c>filter</c> with <c>reason</c> (upstream's <c>leftOut</c>).</summary>
-    public static Dictionary<string, TestExclusion> LeftOut(Collection collection, params (string Title, string Filter, string Reason)[] entries) =>
-        entries.ToDictionary(entry => collection.Tests.First(test => test.Title == entry.Title).Id, entry => new TestExclusion(entry.Filter, entry.Reason));
+    public static Dictionary<string, TestExclusion> LeftOut(
+        Collection collection,
+        params (string Title, string Filter, string Reason)[] entries
+    ) =>
+        entries.ToDictionary(
+            entry => collection.Tests.First(test => test.Title == entry.Title).Id,
+            entry => new TestExclusion(entry.Filter, entry.Reason)
+        );
 }

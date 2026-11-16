@@ -17,8 +17,14 @@ public sealed class SetupDependenciesTests
     {
         var (results, output) = await NestedSessionRun.RunAsync(typeof(ConsumerFixture));
 
-        Assert.True(results["Consumes_the_dependency_session"].Result == "Pass", results["Consumes_the_dependency_session"].Message);
-        Assert.True(results["Consumes_the_dependency_session_again"].Result == "Pass", results["Consumes_the_dependency_session_again"].Message);
+        Assert.True(
+            results["Consumes_the_dependency_session"].Result == "Pass",
+            results["Consumes_the_dependency_session"].Message
+        );
+        Assert.True(
+            results["Consumes_the_dependency_session_again"].Result == "Pass",
+            results["Consumes_the_dependency_session_again"].Message
+        );
         Assert.Equal(1, output.Split("setup-ran").Length - 1);
     }
 

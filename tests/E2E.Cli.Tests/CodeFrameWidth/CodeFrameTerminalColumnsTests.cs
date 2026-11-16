@@ -14,7 +14,10 @@ public sealed class CodeFrameTerminalColumnsTests : IDisposable
 {
     private static readonly Colors Plain = new(false);
 
-    private readonly string _file = Path.Combine(Path.GetTempPath(), "e2e-code-frame-width-" + Guid.NewGuid().ToString("N") + ".cs");
+    private readonly string _file = Path.Combine(
+        Path.GetTempPath(),
+        "e2e-code-frame-width-" + Guid.NewGuid().ToString("N") + ".cs"
+    );
 
     public void Dispose() => File.Delete(_file);
 

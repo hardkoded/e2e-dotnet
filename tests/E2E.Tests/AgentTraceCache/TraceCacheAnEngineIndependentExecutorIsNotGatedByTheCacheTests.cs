@@ -12,19 +12,22 @@ public sealed class TraceCacheAnEngineIndependentExecutorIsNotGatedByTheCacheTes
 {
     private const string Instruction = "do the work with your own tools";
 
-    private static string NewDirectory() => Path.Combine(Path.GetTempPath(), "e2e-engine-independent", Guid.NewGuid().ToString("n"));
+    private static string NewDirectory() =>
+        Path.Combine(Path.GetTempPath(), "e2e-engine-independent", Guid.NewGuid().ToString("n"));
 
     private static Task<E2ESession> StartAsync(IEngine engine, IStepExecutor executor, string directory) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            AgentExecutor = executor,
-            BaseUrl = "https://counter.test",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "tools-only step",
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                AgentExecutor = executor,
+                BaseUrl = "https://counter.test",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "tools-only step",
+            }
+        );
 
     [Fact]
     public async Task Skips_the_end_state_observation_when_the_executor_recorded_no_actions()
@@ -69,10 +72,7 @@ public sealed class TraceCacheAnEngineIndependentExecutorIsNotGatedByTheCacheTes
             calls++;
             prefixes.Add(context.ReplayedPrefix);
             return Task.FromResult(Passed("done without the screen"));
-        })
-        {
-            Version = "test",
-        };
+        }) { Version = "test" };
         await using var session = await StartAsync(new DocumentEngine(CounterPage.World()), executor, directory);
 
         await session.Agent.ActAsync(Instruction);
@@ -105,7 +105,8 @@ public sealed class TraceCacheAnEngineIndependentExecutorIsNotGatedByTheCacheTes
         {
             public string Route => inner.Route;
 
-            public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+            public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+                inner.OpenAsync(url, cancellationToken);
 
             public Task<Observation> ObserveAsync(CancellationToken cancellationToken)
             {
@@ -114,11 +115,14 @@ public sealed class TraceCacheAnEngineIndependentExecutorIsNotGatedByTheCacheTes
                 return inner.ObserveAsync(cancellationToken);
             }
 
-            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => inner.PerformAsync(node, action, cancellationToken);
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+                inner.PerformAsync(node, action, cancellationToken);
 
-            public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+            public Task PressAsync(string key, CancellationToken cancellationToken) =>
+                inner.PressAsync(key, cancellationToken);
 
-            public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => inner.SwipeAsync(direction, cancellationToken);
+            public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
+                inner.SwipeAsync(direction, cancellationToken);
 
             public ValueTask DisposeAsync() => inner.DisposeAsync();
         }

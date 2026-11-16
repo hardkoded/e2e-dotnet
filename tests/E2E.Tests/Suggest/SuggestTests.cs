@@ -8,7 +8,17 @@ namespace E2E.Tests.Suggest;
 
 public sealed class SuggestTests
 {
-    private static readonly string[] Keys = ["targets", "tests", "timeout", "retries", "workers", "reporters", "agent", "cache"];
+    private static readonly string[] Keys =
+    [
+        "targets",
+        "tests",
+        "timeout",
+        "retries",
+        "workers",
+        "reporters",
+        "agent",
+        "cache",
+    ];
 
     [Fact]
     public void Finds_the_candidate_one_typo_away()
@@ -25,7 +35,8 @@ public sealed class SuggestTests
         Assert.Equal("reporters", Suggestions.Suggest("reprters", Keys));
         Assert.Equal(
             "tests/example.e2e.ts",
-            Suggestions.Suggest("tests/exmple.e2e.ts", ["tests/example.e2e.ts", "tests/other.e2e.ts"]));
+            Suggestions.Suggest("tests/exmple.e2e.ts", ["tests/example.e2e.ts", "tests/other.e2e.ts"])
+        );
         Assert.Null(Suggestions.Suggest("xyz", Keys));
         Assert.Null(Suggestions.Suggest("completelydifferent", Keys));
     }

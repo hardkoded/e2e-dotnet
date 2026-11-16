@@ -9,9 +9,16 @@ public sealed class ExamplePresetsTests
 {
     private static string RepoRoot()
     {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        for (
+            var directory = new DirectoryInfo(AppContext.BaseDirectory);
+            directory is not null;
+            directory = directory.Parent
+        )
         {
-            if (Directory.Exists(Path.Combine(directory.FullName, "samples")) && File.Exists(Path.Combine(directory.FullName, "E2E.slnx")))
+            if (
+                Directory.Exists(Path.Combine(directory.FullName, "samples"))
+                && File.Exists(Path.Combine(directory.FullName, "E2E.slnx"))
+            )
             {
                 return directory.FullName;
             }

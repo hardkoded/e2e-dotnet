@@ -29,7 +29,8 @@ internal static class Pixels
     private static readonly byte[] PngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
     /// <summary>Sizes a captured screenshot for the model; the input is returned as is when it already fits.</summary>
-    public static EngineScreenshot SizeForModel(EngineScreenshot pixels) => DownscalePixels(pixels, MaxScreenshotLongSide);
+    public static EngineScreenshot SizeForModel(EngineScreenshot pixels) =>
+        DownscalePixels(pixels, MaxScreenshotLongSide);
 
     /// <summary>
     /// Resamples the image so its longer side is at most <paramref name="maxLongSide"/>, with a box filter over the
@@ -55,7 +56,11 @@ internal static class Pixels
         try
         {
             var resampled = ImageOps.ResampleImage(ImageOps.DecodePng(pixels.Png), width, height);
-            return pixels with { Png = ImageOps.EncodePng(resampled), Scale = pixels.Scale * ((double)width / size.Width) };
+            return pixels with
+            {
+                Png = ImageOps.EncodePng(resampled),
+                Scale = pixels.Scale * ((double)width / size.Width),
+            };
         }
         catch (Exception cause) when (cause is InvalidDataException or InvalidOperationException)
         {

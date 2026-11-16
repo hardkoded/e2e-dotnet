@@ -14,7 +14,9 @@ namespace E2E.Tests;
 /// </summary>
 public sealed class JsonSchemaCheck
 {
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, JsonSchemaCheck> Files = new(StringComparer.Ordinal);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, JsonSchemaCheck> Files = new(
+        StringComparer.Ordinal
+    );
 
     private readonly JsonSchema _schema;
 
@@ -29,5 +31,10 @@ public sealed class JsonSchemaCheck
 
     /// <summary>True when the value satisfies the schema. Format is asserted, as upstream's Ajv does with ajv-formats.</summary>
     public bool IsValid(JsonNode? value) =>
-        _schema.Evaluate(System.Text.Json.JsonSerializer.SerializeToElement(value), new EvaluationOptions { OutputFormat = OutputFormat.List, RequireFormatValidation = true }).IsValid;
+        _schema
+            .Evaluate(
+                System.Text.Json.JsonSerializer.SerializeToElement(value),
+                new EvaluationOptions { OutputFormat = OutputFormat.List, RequireFormatValidation = true }
+            )
+            .IsValid;
 }

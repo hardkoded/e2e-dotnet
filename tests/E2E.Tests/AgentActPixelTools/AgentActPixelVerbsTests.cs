@@ -15,21 +15,26 @@ namespace E2E.Tests.AgentActPixelTools;
 public sealed partial class AgentActPixelVerbsTests
 {
     private static DocumentWorld Page() => new DocumentWorld().Map("/", page =>
-    {
-        var clicks = 0;
-        var count = page.Status("Clicked 0 times");
-        page.Button("Save", () => count.Name = count.Text = $"Clicked {++clicks} times");
-    });
+        {
+            var clicks = 0;
+            var count = page.Status("Clicked 0 times");
+            page.Button("Save", () => count.Name = count.Text = $"Clicked {++clicks} times");
+        });
 
     private static DocumentWorld Canvas() => new DocumentWorld().Map("/", page => page.Status("Chart"));
 
     /// <summary>What one model request carried. The loop grows one list across turns, so the requests are copied as they arrive.</summary>
-    private sealed record Sent(IReadOnlyList<ModelMessage> Messages, IReadOnlyList<ModelTool> Tools, string System = "");
+    private sealed record Sent(
+        IReadOnlyList<ModelMessage> Messages,
+        IReadOnlyList<ModelTool> Tools,
+        string System = ""
+    );
 
     private static async Task<(List<Sent> Requests, PixelsEngine Engine, StepRecord Record, Exception? Error)> ActAsync(
         DocumentWorld world,
         Func<int, ModelResponse> script,
-        Action<PixelsEngine>? setup = null)
+        Action<PixelsEngine>? setup = null
+    )
     {
         PixelsEngine? engine = null;
         var turn = 0;
@@ -39,16 +44,18 @@ public sealed partial class AgentActPixelVerbsTests
             requests.Add(new Sent([.. request.Messages], [.. request.Tools]));
             return script(turn++);
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine = new PixelsEngine(new DocumentEngine(world)),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            TestTitle = "pixels",
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine = new PixelsEngine(new DocumentEngine(world)),
+                Model = model,
+                BaseUrl = "https://billing.test",
+                TestTitle = "pixels",
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         setup?.Invoke(engine);
         Exception? error = null;
         try
@@ -65,7 +72,8 @@ public sealed partial class AgentActPixelVerbsTests
         return (requests, engine, session.StepRecords.Single(step => step.Api == "agent.act"), error);
     }
 
-    private static IEnumerable<ModelMessage> Tools(Sent request) => request.Messages.Where(message => message.Role == "tool");
+    private static IEnumerable<ModelMessage> Tools(Sent request) =>
+        request.Messages.Where(message => message.Role == "tool");
 
     [Fact]
     public async Task Partial_opens_tree_first_with_the_screenshot_tool_on_offer()
@@ -84,15 +92,19 @@ public sealed partial class AgentActPixelVerbsTests
     public async Task Partial_returns_the_screenshot_as_an_image_and_a_fresh_one_after_each_later_action()
     {
         var (requests, engine, record, error) = await ActAsync(Page(), turn => turn switch
-        {
-            0 => ModelResponses.Call("screenshot", new { }),
-            1 => ModelResponses.Tap("button", "Save"),
-            _ => ModelResponses.Done("passed", "Done."),
-        });
+            {
+                0 => ModelResponses.Call("screenshot", new { }),
+                1 => ModelResponses.Tap("button", "Save"),
+                _ => ModelResponses.Done("passed", "Done."),
+            });
         Assert.Null(error);
         // The screenshot answers the first call: a note in the result, the image on the user turn that follows.
         var first = requests[1];
-        Assert.Contains("Screenshot attached: 768 by 432 pixels (0.6 per CSS pixel).", Tools(first).Last().Content, StringComparison.Ordinal);
+        Assert.Contains(
+            "Screenshot attached: 768 by 432 pixels (0.6 per CSS pixel).",
+            Tools(first).Last().Content,
+            StringComparison.Ordinal
+        );
         Assert.Equal(1, first.Messages[^1].Images?.Count);
         Assert.Equal("user", first.Messages[^1].Role);
         // The tap in pixel mode answers with the screen and a fresh screenshot.
@@ -122,7 +134,8 @@ public sealed partial class AgentActPixelVerbsTests
         var (requests, _, _, error) = await ActAsync(
             Page(),
             turn => turn == 0 ? ModelResponses.Tap("button", "Save") : ModelResponses.Done("passed", "Done."),
-            engine => engine.TreeUnavailable = true);
+            engine => engine.TreeUnavailable = true
+        );
         Assert.Null(error);
         var opening = requests[0].Messages[0];
         Assert.Contains("[semantic capture unavailable", opening.Content, StringComparison.Ordinal);
@@ -133,11 +146,15 @@ public sealed partial class AgentActPixelVerbsTests
     [Fact]
     public async Task Partial_ends_the_step_blocked_when_the_tree_cannot_be_read_and_no_proven_masked_screenshot_replaces_it()
     {
-        var (_, _, _, error) = await ActAsync(Page(), _ => ModelResponses.Done("passed", "Done."), engine =>
-        {
-            engine.TreeUnavailable = true;
-            engine.WithholdPixels = true;
-        });
+        var (_, _, _, error) = await ActAsync(
+            Page(),
+            _ => ModelResponses.Done("passed", "Done."),
+            engine =>
+            {
+                engine.TreeUnavailable = true;
+                engine.WithholdPixels = true;
+            }
+        );
         var failure = Assert.IsType<AgentException>(error);
         // The step ends blocked: the agent maps an UNSUPPORTED_CAPABILITY raised inside a step to POLICY_DENIED.
         Assert.Equal("POLICY_DENIED", failure.Code);
@@ -160,7 +177,8 @@ public sealed partial class AgentActPixelVerbsTests
 
                 return ModelResponses.Done("passed", "Done.");
             },
-            engine => held = engine);
+            engine => held = engine
+        );
         Assert.Null(error);
         var result = Tools(requests[1]).Single().Content;
         Assert.Contains("Screenshot attached:", result, StringComparison.Ordinal);

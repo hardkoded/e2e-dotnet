@@ -35,7 +35,11 @@ public sealed class OutputTests : IDisposable
     {
         var dir = Directory.CreateTempSubdirectory("e2e-output-").FullName;
         _dirs.Add(dir);
-        return E2EConfig.Parse("{\"output\":\"" + output + "\"}", Directory.ResolveLinkTarget(dir, true)?.FullName ?? dir, _ => null);
+        return E2EConfig.Parse(
+            "{\"output\":\"" + output + "\"}",
+            Directory.ResolveLinkTarget(dir, true)?.FullName ?? dir,
+            _ => null
+        );
     }
 
     private static string Results(E2EConfig config) => Path.Combine(config.Output, "results");
@@ -47,7 +51,10 @@ public sealed class OutputTests : IDisposable
     {
         var attempt = Result(("artifacts", new JsonArray(Result(("path", artifact)))));
         Directory.CreateDirectory(config.Output);
-        File.WriteAllText(Path.Combine(config.Output, "report.json"), ReportText([Result(("id", "fails"), ("status", "failed"), ("attempts", new JsonArray(attempt)))]));
+        File.WriteAllText(
+            Path.Combine(config.Output, "report.json"),
+            ReportText([Result(("id", "fails"), ("status", "failed"), ("attempts", new JsonArray(attempt)))])
+        );
     }
 
     private static void Plant(E2EConfig config, string reportPath, string content)
@@ -57,9 +64,11 @@ public sealed class OutputTests : IDisposable
         File.WriteAllText(file, content);
     }
 
-    private static string Read(E2EConfig config, string reportPath) => File.ReadAllText(Path.Combine(Results(config), Path.Combine(reportPath.Split('/'))));
+    private static string Read(E2EConfig config, string reportPath) =>
+        File.ReadAllText(Path.Combine(Results(config), Path.Combine(reportPath.Split('/'))));
 
-    private static bool Exists(E2EConfig config, string reportPath) => File.Exists(Path.Combine(Results(config), Path.Combine(reportPath.Split('/'))));
+    private static bool Exists(E2EConfig config, string reportPath) =>
+        File.Exists(Path.Combine(Results(config), Path.Combine(reportPath.Split('/'))));
 
     private static Task<HostSelection> RerunAsync(E2EConfig config) =>
         HostTestFilters.ExcludeAsync(config, [], null, [], _ => { }, CancellationToken.None, lastFailed: true);
@@ -106,7 +115,11 @@ public sealed class OutputTests : IDisposable
         await FailAsync(config, rerun.RerunDir);
         Assert.True(Exists(config, inRerun(1)));
         Assert.Equal("the first run's screenshot", Read(config, first));
-        Assert.Contains(inRerun(1), File.ReadAllText(Path.Combine(config.Output, "report.json")), StringComparison.Ordinal);
+        Assert.Contains(
+            inRerun(1),
+            File.ReadAllText(Path.Combine(config.Output, "report.json")),
+            StringComparison.Ordinal
+        );
 
         // The next rerun keeps what the report it reruns names, the first run's evidence no more.
         var again = await RerunAsync(config);
@@ -117,22 +130,26 @@ public sealed class OutputTests : IDisposable
 
     private static async Task FailAsync(E2EConfig config, string? rerunDir)
     {
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new EvidenceEngine("Submit"),
-            TestTitle = Title,
-            BaseUrl = "http://127.0.0.1:4599",
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ProjectRoot = config.ProjectRoot,
-            ResultsDirectory = Results(config),
-            RerunDir = rerunDir,
-            CacheEnabled = false,
-            Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
-        });
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new EvidenceEngine("Submit"),
+                TestTitle = Title,
+                BaseUrl = "http://127.0.0.1:4599",
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                ProjectRoot = config.ProjectRoot,
+                ResultsDirectory = Results(config),
+                RerunDir = rerunDir,
+                CacheEnabled = false,
+                Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+            }
+        );
         try
         {
             await session.App.OpenAsync("/");
-            var error = await Assert.ThrowsAnyAsync<E2EException>(() => session.Screen.GetByRole("button", "Submit now").TapAsync());
+            var error = await Assert.ThrowsAnyAsync<E2EException>(() =>
+                session.Screen.GetByRole("button", "Submit now").TapAsync()
+            );
             session.Complete(error);
         }
         finally

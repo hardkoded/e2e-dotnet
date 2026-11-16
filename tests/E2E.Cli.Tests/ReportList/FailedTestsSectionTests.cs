@@ -21,11 +21,27 @@ public sealed class FailedTestsSectionTests
         reporter.Handle(Plan(("tests/a.e2e.ts", 1)));
         var failed = FailedAttempt("original failure") with
         {
-            Failure = new FailureEvidence { Url = "https://app.test/checkout", Candidates = ["button \"Pay later\""], Screen = "attempt-1:artifact:0" },
+            Failure = new FailureEvidence
+            {
+                Url = "https://app.test/checkout",
+                Candidates = ["button \"Pay later\""],
+                Screen = "attempt-1:artifact:0",
+            },
             Artifacts = [new ReportArtifact("attempt-1:artifact:0", "log", "chromium/a/attempt-0/screen.txt")],
         };
         var skipped = Attempt(status: AttemptStatus.Skipped) with { Id = "attempt-2" };
-        reporter.Handle(Finished(Result(ResultStatus.Skipped, id: "a", file: "tests/a.e2e.ts", title: ["first"], attempts: [failed, skipped], skipReason: "feature disabled")));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Skipped,
+                    id: "a",
+                    file: "tests/a.e2e.ts",
+                    title: ["first"],
+                    attempts: [failed, skipped],
+                    skipReason: "feature disabled"
+                )
+            )
+        );
         reporter.Handle(RunFinished(reportPath: "/project/.e2e/report.json"));
         Assert.Contains(" Skipped After Failure 1 ", string.Join('\n', output.Lines));
         Assert.Contains(" SKIP  |chromium| tests/a.e2e.ts > first", output.Lines);
@@ -48,8 +64,20 @@ public sealed class FailedTestsSectionTests
             [
                 new AppLogRecord(AppLogSource.Console, AppLogLevel.Error, "late fallout", At(4), 0),
                 new AppLogRecord(AppLogSource.Console, AppLogLevel.Warning, "each child needs a key", At(0), 0),
-                new AppLogRecord(AppLogSource.Network, AppLogLevel.Error, "GET http://127.0.0.1:4271/api/me 500", At(3), 0),
-                new AppLogRecord(AppLogSource.Console, AppLogLevel.Error, "Error occurred prerendering page \"/profile\"", At(1), 0),
+                new AppLogRecord(
+                    AppLogSource.Network,
+                    AppLogLevel.Error,
+                    "GET http://127.0.0.1:4271/api/me 500",
+                    At(3),
+                    0
+                ),
+                new AppLogRecord(
+                    AppLogSource.Console,
+                    AppLogLevel.Error,
+                    "Error occurred prerendering page \"/profile\"",
+                    At(1),
+                    0
+                ),
                 new AppLogRecord(AppLogSource.Error, AppLogLevel.Error, "TypeError: x is undefined", At(2), 0),
                 new AppLogRecord(AppLogSource.Console, AppLogLevel.Info, "ready", At(5), 0),
             ],
@@ -65,7 +93,8 @@ public sealed class FailedTestsSectionTests
                 "   × network error: GET /api/me 500",
                 "   1 more app error logged",
             ],
-            output.Lines.Skip(app + 1).Take(4));
+            output.Lines.Skip(app + 1).Take(4)
+        );
     }
 
     [Fact]

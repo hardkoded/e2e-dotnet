@@ -130,8 +130,14 @@ internal static partial class Tools
     public static string CatalogLine(string name, CatalogTool tool, bool readOnly)
     {
         var schema = ToolJsonSchema(tool);
-        var required = (schema["required"] as JsonArray)?.Select(key => key?.GetValue<string>()).ToHashSet(StringComparer.Ordinal) ?? [];
-        var args = (schema["properties"] as JsonObject)?.Select(property => required.Contains(property.Key) ? property.Key : property.Key + "?").ToList() ?? [];
+        var required = (schema["required"] as JsonArray)
+            ?.Select(key => key?.GetValue<string>())
+            .ToHashSet(StringComparer.Ordinal)
+            ?? [];
+        var args = (schema["properties"] as JsonObject)
+            ?.Select(property => required.Contains(property.Key) ? property.Key : property.Key + "?")
+            .ToList()
+            ?? [];
         var signature = args.Count == 0 ? name : name + " {" + string.Join(", ", args) + "}";
         return "- " + signature + ": " + FirstSentence(ToolDescription(name, tool)) + (readOnly ? " [read-only]" : "");
     }
@@ -145,7 +151,8 @@ internal static partial class Tools
             ToolDescription(name, tool),
             "",
             "Arguments (JSON Schema):",
-            ToolJsonSchema(tool).ToJsonString(Json));
+            ToolJsonSchema(tool).ToJsonString(Json)
+        );
     }
 
     /// <summary>The first sentence of <paramref name="text"/>, cut at a word near 160 characters.</summary>
@@ -177,12 +184,20 @@ internal static partial class Tools
     /// Validates the arguments against the tool's own schema and runs it. The server's <c>call</c> tool takes
     /// any object, so this is where a wrong argument is caught, before the tool runs.
     /// </summary>
-    public static async Task<CallToolResult> InvokeToolAsync(string name, CatalogTool tool, JsonElement args, CancellationToken cancellationToken)
+    public static async Task<CallToolResult> InvokeToolAsync(
+        string name,
+        CatalogTool tool,
+        JsonElement args,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(tool);
         if (tool.Execute is null)
         {
-            throw new ConfigurationException(EngineErrorCodes.UnsupportedCapability, "tool \"" + name + "\" has no execute function");
+            throw new ConfigurationException(
+                EngineErrorCodes.UnsupportedCapability,
+                "tool \"" + name + "\" has no execute function"
+            );
         }
 
         var issues = ArgumentSchema.Validate(tool.InputSchema, args);
@@ -190,7 +205,14 @@ internal static partial class Tools
         {
             throw new ConfigurationException(
                 "INVALID_ARGUMENT",
-                "call " + name + ": " + string.Join("; ", issues.Select(issue => issue.ToString())) + "; tools {tool: " + JsonSerializer.Serialize(name, Json) + "} shows its arguments");
+                "call "
+                    + name
+                    + ": "
+                    + string.Join("; ", issues.Select(issue => issue.ToString()))
+                    + "; tools {tool: "
+                    + JsonSerializer.Serialize(name, Json)
+                    + "} shows its arguments"
+            );
         }
 
         if (cancellationToken.IsCancellationRequested)
@@ -198,7 +220,13 @@ internal static partial class Tools
             throw new E2EException(EngineErrorCodes.Cancelled, "the tool call was cancelled");
         }
 
-        return await ResultFromOutputAsync(tool, await tool.Execute(args, cancellationToken).ConfigureAwait(false), args, cancellationToken).ConfigureAwait(false);
+        return await ResultFromOutputAsync(
+                tool,
+                await tool.Execute(args, cancellationToken).ConfigureAwait(false),
+                args,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -206,7 +234,12 @@ internal static partial class Tools
     /// <see cref="CatalogTool.ToModelOutput"/> that yields file parts as images. Anything else is JSON, so a
     /// structured output is never lost.
     /// </summary>
-    public static async Task<CallToolResult> ResultFromOutputAsync(CatalogTool tool, object? output, JsonElement? input = null, CancellationToken cancellationToken = default)
+    public static async Task<CallToolResult> ResultFromOutputAsync(
+        CatalogTool tool,
+        object? output,
+        JsonElement? input = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(tool);
         if (tool.ToModelOutput is not null)
@@ -215,7 +248,15 @@ internal static partial class Tools
             var content = ContentFromModelOutput(rendered);
             if (content is not null)
             {
-                return new CallToolResult { Content = content, IsError = rendered is ToolModelOutput.Text { IsError: true } or ToolModelOutput.Json { IsError: true } ? true : null };
+                return new CallToolResult
+                {
+                    Content = content,
+                    IsError = rendered
+                        is ToolModelOutput.Text { IsError: true }
+                            or ToolModelOutput.Json { IsError: true }
+                        ? true
+                        : null,
+                };
             }
         }
 
@@ -239,12 +280,18 @@ internal static partial class Tools
                 var parts = new List<ContentBlock>();
                 foreach (var part in content.Parts)
                 {
-                    parts.Add(part switch
-                    {
-                        ToolOutputPart.Text text => new TextContentBlock { Text = text.Value },
-                        ToolOutputPart.File file => new ImageContentBlock { Data = Encoding.UTF8.GetBytes(file.Data), MimeType = file.MediaType },
-                        _ => throw new ArgumentOutOfRangeException(nameof(output), part, "unknown output part"),
-                    });
+                    parts.Add(
+                        part switch
+                        {
+                            ToolOutputPart.Text text => new TextContentBlock { Text = text.Value },
+                            ToolOutputPart.File file => new ImageContentBlock
+                            {
+                                Data = Encoding.UTF8.GetBytes(file.Data),
+                                MimeType = file.MediaType,
+                            },
+                            _ => throw new ArgumentOutOfRangeException(nameof(output), part, "unknown output part"),
+                        }
+                    );
                 }
 
                 return parts.Count == 0 ? null : parts;
@@ -305,10 +352,20 @@ internal static class ArgumentSchema
 
         if (schema.TryGetProperty("enum", out var options) && options.ValueKind == JsonValueKind.Array)
         {
-            if (value is not { } candidate || !options.EnumerateArray().Any(option => JsonElement.DeepEquals(option, candidate)))
+            if (
+                value is not { } candidate
+                || !options.EnumerateArray().Any(option => JsonElement.DeepEquals(option, candidate))
+            )
             {
                 var values = options.EnumerateArray().Select(Stringify).ToList();
-                issues.Add(new SchemaIssue([.. path], values.Count == 1 ? "Invalid input: expected " + values[0] : "Invalid option: expected one of " + string.Join('|', values)));
+                issues.Add(
+                    new SchemaIssue(
+                        [.. path],
+                        values.Count == 1
+                            ? "Invalid input: expected " + values[0]
+                            : "Invalid option: expected one of " + string.Join('|', values)
+                    )
+                );
             }
 
             return;
@@ -344,7 +401,10 @@ internal static class ArgumentSchema
             return;
         }
 
-        var type = schema.TryGetProperty("type", out var declared) && declared.ValueKind == JsonValueKind.String ? declared.GetString() : null;
+        var type =
+            schema.TryGetProperty("type", out var declared) && declared.ValueKind == JsonValueKind.String
+                ? declared.GetString()
+                : null;
         switch (type)
         {
             case "object":
@@ -377,7 +437,9 @@ internal static class ArgumentSchema
             case "boolean":
                 if (value is not { ValueKind: JsonValueKind.True or JsonValueKind.False })
                 {
-                    issues.Add(new SchemaIssue([.. path], "Invalid input: expected boolean, received " + Received(value)));
+                    issues.Add(
+                        new SchemaIssue([.. path], "Invalid input: expected boolean, received " + Received(value))
+                    );
                 }
 
                 break;
@@ -390,19 +452,27 @@ internal static class ArgumentSchema
     /// <summary>The branches of an <c>anyOf</c> or <c>oneOf</c>, or one schema per entry of a <c>type</c> list; null for a plain schema.</summary>
     private static List<JsonElement>? Branches(JsonElement schema)
     {
-        if ((schema.TryGetProperty("anyOf", out var union) || schema.TryGetProperty("oneOf", out union)) && union.ValueKind == JsonValueKind.Array)
+        if (
+            (schema.TryGetProperty("anyOf", out var union) || schema.TryGetProperty("oneOf", out union))
+            && union.ValueKind == JsonValueKind.Array
+        )
         {
             return [.. union.EnumerateArray()];
         }
 
         if (schema.TryGetProperty("type", out var types) && types.ValueKind == JsonValueKind.Array)
         {
-            return [.. types.EnumerateArray().Select(type =>
-            {
-                var branch = JsonNode.Parse(schema.GetRawText())!.AsObject();
-                branch["type"] = JsonNode.Parse(type.GetRawText());
-                return JsonSerializer.SerializeToElement(branch);
-            })];
+            return
+            [
+                .. types
+                    .EnumerateArray()
+                    .Select(type =>
+                    {
+                        var branch = JsonNode.Parse(schema.GetRawText())!.AsObject();
+                        branch["type"] = JsonNode.Parse(type.GetRawText());
+                        return JsonSerializer.SerializeToElement(branch);
+                    }),
+            ];
         }
 
         return null;
@@ -416,7 +486,9 @@ internal static class ArgumentSchema
 
     private static bool IsNull(JsonElement schema)
     {
-        return schema.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String && type.GetString() == "null";
+        return schema.TryGetProperty("type", out var type)
+            && type.ValueKind == JsonValueKind.String
+            && type.GetString() == "null";
     }
 
     private static bool Fits(JsonElement schema, JsonElement? value)
@@ -428,7 +500,10 @@ internal static class ArgumentSchema
 
     private static void CheckObject(JsonElement schema, JsonElement? value, List<string> path, List<SchemaIssue> issues)
     {
-        var properties = schema.TryGetProperty("properties", out var declared) && declared.ValueKind == JsonValueKind.Object ? declared : (JsonElement?)null;
+        var properties =
+            schema.TryGetProperty("properties", out var declared) && declared.ValueKind == JsonValueKind.Object
+                ? declared
+                : (JsonElement?)null;
         var extra = schema.TryGetProperty("additionalProperties", out var additional) ? additional : (JsonElement?)null;
         var record = properties is null && extra is { ValueKind: JsonValueKind.Object };
         if (!Expect(value, JsonValueKind.Object, record ? "record" : "object", path, issues))
@@ -436,9 +511,10 @@ internal static class ArgumentSchema
             return;
         }
 
-        var required = schema.TryGetProperty("required", out var names) && names.ValueKind == JsonValueKind.Array
-            ? names.EnumerateArray().Select(name => name.GetString()).ToHashSet(StringComparer.Ordinal)
-            : [];
+        var required =
+            schema.TryGetProperty("required", out var names) && names.ValueKind == JsonValueKind.Array
+                ? names.EnumerateArray().Select(name => name.GetString()).ToHashSet(StringComparer.Ordinal)
+                : [];
         var known = new HashSet<string>(StringComparer.Ordinal);
         if (properties is { } shape)
         {
@@ -458,7 +534,15 @@ internal static class ArgumentSchema
         {
             if (unknown.Count > 0)
             {
-                issues.Add(new SchemaIssue([.. path], "Unrecognized key" + (unknown.Count > 1 ? "s" : "") + ": " + string.Join(", ", unknown.Select(property => Quote(property.Name)))));
+                issues.Add(
+                    new SchemaIssue(
+                        [.. path],
+                        "Unrecognized key"
+                            + (unknown.Count > 1 ? "s" : "")
+                            + ": "
+                            + string.Join(", ", unknown.Select(property => Quote(property.Name)))
+                    )
+                );
             }
         }
         else if (extra is { ValueKind: JsonValueKind.Object } valueSchema)
@@ -491,16 +575,33 @@ internal static class ArgumentSchema
     }
 
     /// <summary>A length bound: <c>minLength</c> and <c>maxLength</c>, or <c>minItems</c> and <c>maxItems</c>.</summary>
-    private static void CheckSize(JsonElement schema, int size, string origin, string unit, List<string> path, List<SchemaIssue> issues)
+    private static void CheckSize(
+        JsonElement schema,
+        int size,
+        string origin,
+        string unit,
+        List<string> path,
+        List<SchemaIssue> issues
+    )
     {
         var (min, max) = origin == "array" ? ("minItems", "maxItems") : ("minLength", "maxLength");
         if (schema.TryGetProperty(min, out var floor) && size < Number(floor))
         {
-            issues.Add(new SchemaIssue([.. path], "Too small: expected " + origin + " to have >=" + floor.GetRawText() + " " + unit));
+            issues.Add(
+                new SchemaIssue(
+                    [.. path],
+                    "Too small: expected " + origin + " to have >=" + floor.GetRawText() + " " + unit
+                )
+            );
         }
         else if (schema.TryGetProperty(max, out var ceiling) && size > Number(ceiling))
         {
-            issues.Add(new SchemaIssue([.. path], "Too big: expected " + origin + " to have <=" + ceiling.GetRawText() + " " + unit));
+            issues.Add(
+                new SchemaIssue(
+                    [.. path],
+                    "Too big: expected " + origin + " to have <=" + ceiling.GetRawText() + " " + unit
+                )
+            );
         }
     }
 
@@ -510,7 +611,11 @@ internal static class ArgumentSchema
         {
             issues.Add(new SchemaIssue([.. path], "Too small: expected number to be >=" + floor.GetRawText()));
         }
-        else if (schema.TryGetProperty("exclusiveMinimum", out var above) && above.ValueKind == JsonValueKind.Number && number <= Number(above))
+        else if (
+            schema.TryGetProperty("exclusiveMinimum", out var above)
+            && above.ValueKind == JsonValueKind.Number
+            && number <= Number(above)
+        )
         {
             issues.Add(new SchemaIssue([.. path], "Too small: expected number to be >" + above.GetRawText()));
         }
@@ -518,14 +623,24 @@ internal static class ArgumentSchema
         {
             issues.Add(new SchemaIssue([.. path], "Too big: expected number to be <=" + ceiling.GetRawText()));
         }
-        else if (schema.TryGetProperty("exclusiveMaximum", out var below) && below.ValueKind == JsonValueKind.Number && number >= Number(below))
+        else if (
+            schema.TryGetProperty("exclusiveMaximum", out var below)
+            && below.ValueKind == JsonValueKind.Number
+            && number >= Number(below)
+        )
         {
             issues.Add(new SchemaIssue([.. path], "Too big: expected number to be <" + below.GetRawText()));
         }
     }
 
     /// <summary>Records zod's type issue when <paramref name="value"/> is missing or of another kind.</summary>
-    private static bool Expect(JsonElement? value, JsonValueKind kind, string expected, List<string> path, List<SchemaIssue> issues)
+    private static bool Expect(
+        JsonElement? value,
+        JsonValueKind kind,
+        string expected,
+        List<string> path,
+        List<SchemaIssue> issues
+    )
     {
         if (value?.ValueKind == kind)
         {

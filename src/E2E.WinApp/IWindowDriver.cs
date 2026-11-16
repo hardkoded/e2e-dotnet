@@ -55,7 +55,8 @@ public enum DriverFault
 }
 
 /// <summary>A driver failure with its classification. The message is the library's own text.</summary>
-public sealed class WindowDriverException(DriverFault fault, string message, Exception? cause = null) : Exception(message, cause)
+public sealed class WindowDriverException(DriverFault fault, string message, Exception? cause = null)
+    : Exception(message, cause)
 {
     public DriverFault Fault { get; } = fault;
 }
@@ -73,7 +74,14 @@ public interface IWindowDriver : IAsyncDisposable
     /// What the process writes to its output goes to <paramref name="log"/>. A process that exits first, or shows no window in time, is
     /// ended and fails with <see cref="DriverFault.Launch"/>.
     /// </summary>
-    Task<LaunchedApp> LaunchAsync(string executable, IReadOnlyList<string> arguments, string workingDirectory, TimeSpan timeout, Action<AppLogEntry>? log, CancellationToken cancellationToken);
+    Task<LaunchedApp> LaunchAsync(
+        string executable,
+        IReadOnlyList<string> arguments,
+        string workingDirectory,
+        TimeSpan timeout,
+        Action<AppLogEntry>? log,
+        CancellationToken cancellationToken
+    );
 
     /// <summary>Finds a running app by process name, process id, or window title. <see cref="DriverFault.AppNotFound"/> when none matches.</summary>
     Task<LaunchedApp> AttachAsync(string app, CancellationToken cancellationToken);

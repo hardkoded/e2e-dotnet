@@ -20,7 +20,10 @@ public sealed class DoctorTests : IDisposable
     /// <summary>A project whose one target's engine checks until aborted, then finishes its teardown 200 ms later, marking <c>closed</c>.</summary>
     private DoctorOptions Slow(TimeSpan? timeout = null, TaskCompletionSource? entered = null)
     {
-        File.WriteAllText(Path.Combine(_dir, "e2e.config.json"), """{ "targets": [{ "name": "slow", "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }] }""");
+        File.WriteAllText(
+            Path.Combine(_dir, "e2e.config.json"),
+            """{ "targets": [{ "name": "slow", "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }] }"""
+        );
         return new DoctorOptions
         {
             Version = "0.0.0",
@@ -29,21 +32,21 @@ public sealed class DoctorTests : IDisposable
             Notice = (_, _) => { },
             EngineTimeout = timeout,
             CreateEngine = (_, _) => new DoctorEngine("slow", async (_, token) =>
-            {
-                try
                 {
-                    entered?.TrySetResult();
-                    await Task.Delay(Timeout.Infinite, token);
-                }
-                catch (OperationCanceledException)
-                {
-                    await Task.Delay(200, CancellationToken.None);
-                    File.WriteAllText(Path.Combine(_dir, "closed"), "");
-                    throw;
-                }
+                    try
+                    {
+                        entered?.TrySetResult();
+                        await Task.Delay(Timeout.Infinite, token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        await Task.Delay(200, CancellationToken.None);
+                        File.WriteAllText(Path.Combine(_dir, "closed"), "");
+                        throw;
+                    }
 
-                return [];
-            }),
+                    return [];
+                }),
         };
     }
 
@@ -52,7 +55,10 @@ public sealed class DoctorTests : IDisposable
     {
         using var interrupt = new CancellationTokenSource();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _ = entered.Task.ContinueWith(_ => interrupt.CancelAfter(TimeSpan.FromMilliseconds(200)), TaskScheduler.Default);
+        _ = entered.Task.ContinueWith(
+            _ => interrupt.CancelAfter(TimeSpan.FromMilliseconds(200)),
+            TaskScheduler.Default
+        );
         var report = await Doctor.RunAsync(Slow(entered: entered), interrupt.Token);
         Assert.True(File.Exists(Path.Combine(_dir, "closed")));
         var check = report.Checks.First(check => check.Target == "slow");
@@ -65,6 +71,9 @@ public sealed class DoctorTests : IDisposable
         var report = await Doctor.RunAsync(Slow(TimeSpan.FromMilliseconds(100)), CancellationToken.None);
         Assert.True(File.Exists(Path.Combine(_dir, "closed")));
         var check = report.Checks.First(check => check.Target == "slow");
-        Assert.Equal(("engine", DoctorStatus.Fail, "ENGINE_FAILURE", "engine \"slow\" did not finish its checks within 100ms"), (check.Id, check.Status, check.Code, check.Message));
+        Assert.Equal(
+            ("engine", DoctorStatus.Fail, "ENGINE_FAILURE", "engine \"slow\" did not finish its checks within 100ms"),
+            (check.Id, check.Status, check.Code, check.Message)
+        );
     }
 }

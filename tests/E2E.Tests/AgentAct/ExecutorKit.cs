@@ -11,7 +11,8 @@ namespace E2E.Tests.AgentAct;
 /// A hand-rolled step executor for the tests, the C# shape of the object literals upstream's tests write:
 /// <c>{ name, version, cache, model, judge, runStep }</c>.
 /// </summary>
-internal sealed class TestExecutor(string name, Func<StepExecutorContext, CancellationToken, Task<StepVerdict>> run) : IStepExecutor
+internal sealed class TestExecutor(string name, Func<StepExecutorContext, CancellationToken, Task<StepVerdict>> run)
+    : IStepExecutor
 {
     public string Name => name;
 
@@ -25,7 +26,8 @@ internal sealed class TestExecutor(string name, Func<StepExecutorContext, Cancel
 
     public bool Vision { get; init; }
 
-    public Task<StepVerdict> RunStepAsync(StepExecutorContext context, CancellationToken cancellationToken) => run(context, cancellationToken);
+    public Task<StepVerdict> RunStepAsync(StepExecutorContext context, CancellationToken cancellationToken) =>
+        run(context, cancellationToken);
 }
 
 internal static class ExecutorKit
@@ -41,23 +43,28 @@ internal static class ExecutorKit
             var count = 0;
             var counter = page.Status("Counter");
             counter.Text = "0";
-            page.Button("Increment", () => counter.Text = (++count).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            page.Button("Increment", () =>
+                counter.Text = (++count).ToString(System.Globalization.CultureInfo.InvariantCulture)
+            );
             page.Textbox("Email");
             page.Textbox("Focus target");
-            page.Roots.Add(new DocumentElement
-            {
-                Role = "textbox",
-                Name = "Password",
-                Secure = true,
-                InputPurpose = "password",
-                OnFill = typed,
-            });
+            page.Roots.Add(
+                new DocumentElement
+                {
+                    Role = "textbox",
+                    Name = "Password",
+                    Secure = true,
+                    InputPurpose = "password",
+                    OnFill = typed,
+                }
+            );
         });
     }
 
     public static StepVerdict Passed(string summary) => new(StepVerdictStatus.Passed, summary);
 
-    public static StepVerdict Failed(string summary, string? code = null) => new(StepVerdictStatus.Failed, summary, code);
+    public static StepVerdict Failed(string summary, string? code = null) =>
+        new(StepVerdictStatus.Failed, summary, code);
 
     public static StepVerdict Blocked(string summary, string code) => new(StepVerdictStatus.Blocked, summary, code);
 

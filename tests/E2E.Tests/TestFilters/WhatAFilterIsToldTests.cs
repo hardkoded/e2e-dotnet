@@ -23,20 +23,33 @@ public sealed class WhatAFilterIsToldTests : IDisposable
     {
         var root = Paths.OnDiskPath(_dir);
         Directory.CreateDirectory(Path.Combine(root, "apps", "web"));
-        foreach (var file in new[] { "e2e.config.json", "e2e.ci.config.json", Path.Combine("apps", "web", "e2e.ci.config.json") })
+        foreach (
+            var file in new[]
+            {
+                "e2e.config.json",
+                "e2e.ci.config.json",
+                Path.Combine("apps", "web", "e2e.ci.config.json"),
+            }
+        )
         {
             File.WriteAllText(Path.Combine(root, file), "{}\n");
         }
 
         Assert.Equal("e2e.config.json", Filters.RepoConfigFile(Path.Combine(root, "e2e.config.json"), root));
         Assert.Equal("e2e.ci.config.json", Filters.RepoConfigFile(Path.Combine(root, "e2e.ci.config.json"), root));
-        Assert.Equal("apps/web/e2e.ci.config.json", Filters.RepoConfigFile(Path.Combine(root, "apps", "web", "e2e.ci.config.json"), root));
+        Assert.Equal(
+            "apps/web/e2e.ci.config.json",
+            Filters.RepoConfigFile(Path.Combine(root, "apps", "web", "e2e.ci.config.json"), root)
+        );
 
         // Git lists a symlinked config under the link's own path.
         try
         {
             File.CreateSymbolicLink(Path.Combine(root, "e2e.link.config.json"), "e2e.ci.config.json");
-            Assert.Equal("e2e.link.config.json", Filters.RepoConfigFile(Path.Combine(root, "e2e.link.config.json"), root));
+            Assert.Equal(
+                "e2e.link.config.json",
+                Filters.RepoConfigFile(Path.Combine(root, "e2e.link.config.json"), root)
+            );
         }
         catch (Exception error) when (error is UnauthorizedAccessException or IOException)
         {

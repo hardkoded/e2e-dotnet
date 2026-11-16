@@ -11,7 +11,8 @@ public sealed class LoopGuardsTests
 {
     private static (string Name, string Input) Call(string name, string input = "{}") => (name, input);
 
-    private static (bool Stop, string? Reason) Check(IReadOnlyList<(string Name, string Input)> calls) => E2E.LoopGuards.CheckLoopGuards(calls);
+    private static (bool Stop, string? Reason) Check(IReadOnlyList<(string Name, string Input)> calls) =>
+        E2E.LoopGuards.CheckLoopGuards(calls);
 
     private static List<(string Name, string Input)> Repeated(int count) =>
         [.. Enumerable.Range(0, count).Select(_ => Call("tap", """{"target":"n1"}"""))];

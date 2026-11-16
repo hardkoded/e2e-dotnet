@@ -27,9 +27,18 @@ internal sealed class CallbackServer : IDisposable
     private readonly string _path;
     private readonly string _state;
     private readonly string _product;
-    private readonly TaskCompletionSource<(string? Code, string? Error)> _answer = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<(string? Code, string? Error)> _answer = new(
+        TaskCreationOptions.RunContinuationsAsynchronously
+    );
 
-    private CallbackServer(TcpListener listener, int port, string path, string state, string product, TimeSpan requestTimeout)
+    private CallbackServer(
+        TcpListener listener,
+        int port,
+        string path,
+        string state,
+        string product,
+        TimeSpan requestTimeout
+    )
     {
         _requestTimeout = requestTimeout;
         _listener = listener;
@@ -43,7 +52,13 @@ internal sealed class CallbackServer : IDisposable
     public string RedirectUri { get; }
 
     /// <summary>Port 0 binds a port the OS picks; <see cref="RedirectUri"/> names the port that was bound.</summary>
-    public static CallbackServer? TryStart(int port, string path, string state, string product, TimeSpan? requestTimeout = null)
+    public static CallbackServer? TryStart(
+        int port,
+        string path,
+        string state,
+        string product,
+        TimeSpan? requestTimeout = null
+    )
     {
         var listener = new TcpListener(IPAddress.Loopback, port);
         if (OperatingSystem.IsWindows())
@@ -62,7 +77,14 @@ internal sealed class CallbackServer : IDisposable
             return null;
         }
 
-        var server = new CallbackServer(listener, ((IPEndPoint)listener.LocalEndpoint).Port, path, state, product, requestTimeout ?? TimeSpan.FromSeconds(10));
+        var server = new CallbackServer(
+            listener,
+            ((IPEndPoint)listener.LocalEndpoint).Port,
+            path,
+            state,
+            product,
+            requestTimeout ?? TimeSpan.FromSeconds(10)
+        );
         _ = server.ServeAsync();
         return server;
     }
@@ -100,11 +122,13 @@ internal sealed class CallbackServer : IDisposable
             {
                 client = await _listener.AcceptTcpClientAsync(token).ConfigureAwait(false);
             }
-            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or InvalidOperationException)
+            catch (Exception ex)
+                when (ex is OperationCanceledException or ObjectDisposedException or InvalidOperationException)
             {
                 return;
             }
-            catch (SocketException ex) when (ex.SocketErrorCode is SocketError.ConnectionReset or SocketError.ConnectionAborted)
+            catch (SocketException ex)
+                when (ex.SocketErrorCode is SocketError.ConnectionReset or SocketError.ConnectionAborted)
             {
                 // A connection reset before accept; the next one may be fine.
                 continue;
@@ -134,7 +158,14 @@ internal sealed class CallbackServer : IDisposable
                 }
             }
         }
-        catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException or InvalidOperationException or OperationCanceledException)
+        catch (Exception ex)
+            when (ex
+                    is IOException
+                        or SocketException
+                        or ObjectDisposedException
+                        or InvalidOperationException
+                        or OperationCanceledException
+            )
         {
             // The browser went away or the server stopped; an answer already set still counts.
         }
@@ -164,8 +195,11 @@ internal sealed class CallbackServer : IDisposable
 
         var head = Encoding.ASCII.GetString(buffer, 0, length);
         var lineEnd = head.IndexOf("\r\n", StringComparison.Ordinal);
-        return lineEnd > 0 && head[..lineEnd].Split(' ') is ["GET", var target, var version]
-            && version.StartsWith("HTTP/", StringComparison.Ordinal) && target.StartsWith('/')
+        return
+            lineEnd > 0
+            && head[..lineEnd].Split(' ') is ["GET", var target, var version]
+            && version.StartsWith("HTTP/", StringComparison.Ordinal)
+            && target.StartsWith('/')
             ? target
             : null;
     }
@@ -174,21 +208,30 @@ internal sealed class CallbackServer : IDisposable
     {
         if (!Uri.TryCreate("http://localhost" + target, UriKind.Absolute, out var url))
         {
-            await ReplyAsync(stream, 400, "Login failed", "The request is not valid.", cancellationToken).ConfigureAwait(false);
+            await ReplyAsync(stream, 400, "Login failed", "The request is not valid.", cancellationToken)
+                .ConfigureAwait(false);
             return;
         }
 
         var query = System.Web.HttpUtility.ParseQueryString(url.Query);
         if (url.AbsolutePath != _path)
         {
-            await ReplyAsync(stream, 404, "Not found", "This address is not part of the login.", cancellationToken).ConfigureAwait(false);
+            await ReplyAsync(stream, 404, "Not found", "This address is not part of the login.", cancellationToken)
+                .ConfigureAwait(false);
             return;
         }
 
         // The state binds the answer to this attempt; anything else on the port is ignored.
         if (query["state"] != _state)
         {
-            await ReplyAsync(stream, 400, "Login failed", "The state does not match this login attempt.", cancellationToken).ConfigureAwait(false);
+            await ReplyAsync(
+                    stream,
+                    400,
+                    "Login failed",
+                    "The state does not match this login attempt.",
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             return;
         }
 
@@ -197,7 +240,8 @@ internal sealed class CallbackServer : IDisposable
             // Reply first: the flow disposes this server as soon as it has the answer, which would cut the page.
             try
             {
-                await ReplyAsync(stream, 400, "Login failed", query["error_description"] ?? error, cancellationToken).ConfigureAwait(false);
+                await ReplyAsync(stream, 400, "Login failed", query["error_description"] ?? error, cancellationToken)
+                    .ConfigureAwait(false);
             }
             finally
             {
@@ -211,7 +255,14 @@ internal sealed class CallbackServer : IDisposable
         {
             try
             {
-                await ReplyAsync(stream, 400, "Login failed", "The redirect carried no authorization code.", cancellationToken).ConfigureAwait(false);
+                await ReplyAsync(
+                        stream,
+                        400,
+                        "Login failed",
+                        "The redirect carried no authorization code.",
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
             }
             finally
             {
@@ -225,7 +276,14 @@ internal sealed class CallbackServer : IDisposable
         // caller ignores that failure and the answer is set either way.
         try
         {
-            await ReplyAsync(stream, 200, "Signed in", "You can close this window and return to the terminal.", cancellationToken).ConfigureAwait(false);
+            await ReplyAsync(
+                    stream,
+                    200,
+                    "Signed in",
+                    "You can close this window and return to the terminal.",
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
         finally
         {
@@ -233,19 +291,44 @@ internal sealed class CallbackServer : IDisposable
         }
     }
 
-    private async Task ReplyAsync(NetworkStream stream, int status, string heading, string message, CancellationToken cancellationToken)
+    private async Task ReplyAsync(
+        NetworkStream stream,
+        int status,
+        string heading,
+        string message,
+        CancellationToken cancellationToken
+    )
     {
-        var html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />"
-            + "<title>" + WebUtility.HtmlEncode(_product + ": " + heading) + "</title>"
+        var html =
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />"
+            + "<title>"
+            + WebUtility.HtmlEncode(_product + ": " + heading)
+            + "</title>"
             + "<style>html{color-scheme:light dark}body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:ui-sans-serif,system-ui,sans-serif}"
             + "main{max-width:32rem;padding:2rem;text-align:center}h1{font-size:1.5rem;margin:0 0 .5rem}p{margin:0;opacity:.75}</style></head>"
-            + "<body><main><h1>" + WebUtility.HtmlEncode(heading) + "</h1><p>" + WebUtility.HtmlEncode(message) + "</p></main></body></html>";
+            + "<body><main><h1>"
+            + WebUtility.HtmlEncode(heading)
+            + "</h1><p>"
+            + WebUtility.HtmlEncode(message)
+            + "</p></main></body></html>";
         var bytes = Encoding.UTF8.GetBytes(html);
-        var reason = status switch { 200 => "OK", 404 => "Not Found", _ => "Bad Request" };
+        var reason = status switch
+        {
+            200 => "OK",
+            404 => "Not Found",
+            _ => "Bad Request",
+        };
         var head = Encoding.ASCII.GetBytes(
-            "HTTP/1.1 " + status.ToString(CultureInfo.InvariantCulture) + " " + reason + "\r\n"
-            + "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\n"
-            + "Content-Length: " + bytes.Length.ToString(CultureInfo.InvariantCulture) + "\r\n\r\n");
+            "HTTP/1.1 "
+                + status.ToString(CultureInfo.InvariantCulture)
+                + " "
+                + reason
+                + "\r\n"
+                + "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\n"
+                + "Content-Length: "
+                + bytes.Length.ToString(CultureInfo.InvariantCulture)
+                + "\r\n\r\n"
+        );
         await stream.WriteAsync(head, cancellationToken).ConfigureAwait(false);
         await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
         await stream.FlushAsync(cancellationToken).ConfigureAwait(false);

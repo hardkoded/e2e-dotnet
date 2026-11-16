@@ -15,12 +15,34 @@ internal static class Keyboard
     /// </summary>
     private static readonly HashSet<string> ControlRoles =
     [
-        "button", "link", "textbox", "searchbox", "combobox", "checkbox", "radio", "switch", "tab", "menuitem", "option",
-        "slider", "spinbutton", "listitem", "navigation", "toolbar", "tablist",
+        "button",
+        "link",
+        "textbox",
+        "searchbox",
+        "combobox",
+        "checkbox",
+        "radio",
+        "switch",
+        "tab",
+        "menuitem",
+        "option",
+        "slider",
+        "spinbutton",
+        "listitem",
+        "navigation",
+        "toolbar",
+        "tablist",
     ];
 
     /// <summary>Platform kinds that scroll, so a short drag on them reads as the touch that sends the keyboard away.</summary>
-    private static readonly HashSet<string> ScrollKinds = ["scroll-view", "table", "collection-view", "recycler-view", "list-view"];
+    private static readonly HashSet<string> ScrollKinds =
+    [
+        "scroll-view",
+        "table",
+        "collection-view",
+        "recycler-view",
+        "list-view",
+    ];
 
     /// <summary>Roles a touch does nothing to: a leaf with one of these is content, not a control.</summary>
     private static readonly HashSet<string> StaticRoles = ["text", "image", "heading", "status", "progressbar"];
@@ -70,8 +92,14 @@ internal static class Keyboard
             {
                 scrollViews.Add(rect);
             }
-            else if ((node.Role is not null && ControlRoles.Contains(node.Role))
-                || (node.Children.Count == 0 && !StaticRoles.Contains(node.Role ?? "") && rect.Width * rect.Height <= merged))
+            else if (
+                (node.Role is not null && ControlRoles.Contains(node.Role))
+                || (
+                    node.Children.Count == 0
+                    && !StaticRoles.Contains(node.Role ?? "")
+                    && rect.Width * rect.Height <= merged
+                )
+            )
             {
                 controls.Add(Grow(rect, ControlClearance));
             }

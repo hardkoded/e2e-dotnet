@@ -17,15 +17,25 @@ public sealed class StepCachePipelineTests
     {
         // A slug the runner cannot recognize, or a link that now lands on a lookalike page: another screen either way.
         // A query literal that differs is another screen too.
-        foreach (var (start, recorded, replayed) in new[] { ("/products", "/products/summer-sneaker", "/products/winter-boot"), ("/nav", "/settings-page", "/profile"), ("/start", "/task?mode=safe", "/task?mode=unsafe") })
+        foreach (
+            var (start, recorded, replayed) in new[]
+            {
+                ("/products", "/products/summer-sneaker", "/products/winter-boot"),
+                ("/nav", "/settings-page", "/profile"),
+                ("/start", "/task?mode=safe", "/task?mode=unsafe"),
+            }
+        )
         {
             var directory = CoreTests.TempCache();
-            DocumentWorld World(string target) => new DocumentWorld()
-                .Map(start, page => page.Link("Open", target))
-                .Map(recorded, page => page.Status("Marker saved"))
-                .Map(replayed, page => page.Status("Marker saved"));
+            DocumentWorld World(string target) =>
+                new DocumentWorld()
+                    .Map(start, page => page.Link("Open", target))
+                    .Map(recorded, page => page.Status("Marker saved"))
+                    .Map(replayed, page => page.Status("Marker saved"));
 
-            Assert.Null((await RunAsync(World(recorded), directory, start, Saved, ModelResponses.Tap("link", "Open"))).Error);
+            Assert.Null(
+                (await RunAsync(World(recorded), directory, start, Saved, ModelResponses.Tap("link", "Open"))).Error
+            );
 
             var replay = await RunAsync(World(replayed), directory, start, null, ModelResponses.Tap("link", "Open"));
             Assert.Equal(0, replay.Replayed);
@@ -37,22 +47,23 @@ public sealed class StepCachePipelineTests
     public async Task Hands_off_when_the_recorded_delta_did_not_happen_during_the_replay_through_the_pipeline()
     {
         // The submit gives the draft way to the saved marker, or does nothing.
-        static DocumentWorld World(string initial, bool submits, bool removes = false) => new DocumentWorld().Map("/form", page =>
-        {
-            var status = page.Status(initial);
-            page.Button("Submit", () =>
+        static DocumentWorld World(string initial, bool submits, bool removes = false) =>
+            new DocumentWorld().Map("/form", page =>
             {
-                if (submits)
+                var status = page.Status(initial);
+                page.Button("Submit", () =>
                 {
-                    status.Name = status.Text = "Marker saved";
-                }
+                    if (submits)
+                    {
+                        status.Name = status.Text = "Marker saved";
+                    }
 
-                if (removes)
-                {
-                    status.Hidden = true;
-                }
+                    if (removes)
+                    {
+                        status.Hidden = true;
+                    }
+                });
             });
-        });
         var tap = ModelResponses.Tap("button", "Submit");
 
         // The effect happened: the draft gave way to the saved marker.
@@ -68,7 +79,17 @@ public sealed class StepCachePipelineTests
 
         // A removal that did not happen: the vanished node is still there.
         directory = CoreTests.TempCache();
-        Assert.Null((await RunAsync(World("Marker draft", submits: false, removes: true), directory, "/form", ctx => Expect.That(ctx.Screen.GetByRole("status")).ToBeHiddenAsync(), tap)).Error);
+        Assert.Null(
+            (
+                await RunAsync(
+                    World("Marker draft", submits: false, removes: true),
+                    directory,
+                    "/form",
+                    ctx => Expect.That(ctx.Screen.GetByRole("status")).ToBeHiddenAsync(),
+                    tap
+                )
+            ).Error
+        );
         var kept = await RunAsync(World("Marker draft", submits: false), directory, "/form", null, tap);
         Assert.Equal("end-mismatch", kept.Cache?.Reason);
 
@@ -87,16 +108,28 @@ public sealed class StepCachePipelineTests
     [Fact]
     public async Task Measures_the_evidence_from_the_page_a_recorded_navigate_opened_not_from_the_screen_the_replay_began_on_through_the_pipeline()
     {
-        static DocumentWorld World(bool alreadyOn) => new DocumentWorld()
-            .Map("/home", page => page.Heading("Home"))
-            .Map("/settings", page =>
-            {
-                DocumentElement? toggle = null;
-                toggle = new DocumentElement { Role = "switch", Name = "Email alerts", Checked = alreadyOn, OnTap = () => toggle!.Checked = true };
-                page.Roots.Add(toggle);
-            });
-        var steps = new[] { ModelResponses.Call("navigate", new { url = "/settings" }), ModelResponses.Call("tap", new { role = "switch", name = "Email alerts" }) };
-        static Task On(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("switch", "Email alerts")).ToBeCheckedAsync();
+        static DocumentWorld World(bool alreadyOn) =>
+            new DocumentWorld()
+                .Map("/home", page => page.Heading("Home"))
+                .Map("/settings", page =>
+                {
+                    DocumentElement? toggle = null;
+                    toggle = new DocumentElement
+                    {
+                        Role = "switch",
+                        Name = "Email alerts",
+                        Checked = alreadyOn,
+                        OnTap = () => toggle!.Checked = true,
+                    };
+                    page.Roots.Add(toggle);
+                });
+        var steps = new[]
+        {
+            ModelResponses.Call("navigate", new { url = "/settings" }),
+            ModelResponses.Call("tap", new { role = "switch", name = "Email alerts" }),
+        };
+        static Task On(TestContext ctx) =>
+            Expect.That(ctx.Screen.GetByRole("switch", "Email alerts")).ToBeCheckedAsync();
 
         var directory = CoreTests.TempCache();
         Assert.Null((await RunAsync(World(alreadyOn: false), directory, "/home", On, steps)).Error);
@@ -116,16 +149,18 @@ public sealed class StepCachePipelineTests
         var directory = CoreTests.TempCache();
         var submitted = false;
         DocumentWorld World() => new DocumentWorld().Map("/form", page =>
-        {
-            var status = page.Status(submitted ? "Submitted" : "Draft");
-            page.Button("Submit", () => status.Name = status.Text = "Submitted");
-        });
+            {
+                var status = page.Status(submitted ? "Submitted" : "Draft");
+                page.Button("Submit", () => status.Name = status.Text = "Submitted");
+            });
         var modelCalls = 0;
         var model = new ScriptedModel(request =>
         {
             modelCalls++;
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("Tapped", StringComparison.Ordinal) || text.Contains("end-mismatch", StringComparison.Ordinal)
+            return
+                text.Contains("Tapped", StringComparison.Ordinal)
+                || text.Contains("end-mismatch", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Submitted.")
                 : ModelResponses.Tap("button", "Submit");
         });
@@ -168,12 +203,17 @@ public sealed class StepCachePipelineTests
                 : ModelResponses.Tap("button", "Copy link");
         });
 
-        var result = await CoreTests.RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/share");
-            await ctx.Agent.ActAsync("copy the share link");
-            await Expect.That(ctx.Screen.GetByRole("heading", "Share")).ToBeVisibleAsync();
-        }, world, model, directory);
+        var result = await CoreTests.RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/share");
+                await ctx.Agent.ActAsync("copy the share link");
+                await Expect.That(ctx.Screen.GetByRole("heading", "Share")).ToBeVisibleAsync();
+            },
+            world,
+            model,
+            directory
+        );
 
         Assert.Null(result.Error);
         Assert.False(Directory.Exists(directory) && Directory.GetFiles(directory, "*.json").Length > 0);
@@ -184,11 +224,11 @@ public sealed class StepCachePipelineTests
     {
         var directory = CoreTests.TempCache();
         static DocumentWorld World() => new DocumentWorld().Map("/items", page =>
-        {
-            var item = new DocumentElement { Role = "listitem", Name = "Item A" };
-            page.Roots.Add(item);
-            page.Button("Delete", () => item.Hidden = true);
-        });
+            {
+                var item = new DocumentElement { Role = "listitem", Name = "Item A" };
+                page.Roots.Add(item);
+                page.Button("Delete", () => item.Hidden = true);
+            });
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
@@ -206,12 +246,20 @@ public sealed class StepCachePipelineTests
 
         var first = await CoreTests.RunAsync(Body, World(), model, directory);
         Assert.Null(first.Error);
-        var entry = JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(Assert.Single(Directory.GetFiles(directory, "*.json"))), EntryJson)!;
+        var entry = JsonSerializer.Deserialize<CacheEntry>(
+            File.ReadAllText(Assert.Single(Directory.GetFiles(directory, "*.json"))),
+            EntryJson
+        )!;
         Assert.Empty(entry.Appeared);
         var gone = Assert.Single(entry.Gone);
         Assert.Equal(("listitem", "Item A"), (gone.Role, gone.Name));
 
-        var second = await CoreTests.RunAsync(Body, World(), new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), directory);
+        var second = await CoreTests.RunAsync(
+            Body,
+            World(),
+            new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+            directory
+        );
         Assert.Null(second.Error);
         Assert.Equal(1, second.Replayed);
     }
@@ -252,7 +300,15 @@ public sealed class StepCachePipelineTests
             return AgentAct.ExecutorKit.Passed("done without looking");
         });
 
-        var step = await StepAsync(CustomersWorld(), new FileStepCache(directory), "/pricing", null, null, executor: executor, wrap: engine => new LosingEngine(engine, () => lost, () => lost = false));
+        var step = await StepAsync(
+            CustomersWorld(),
+            new FileStepCache(directory),
+            "/pricing",
+            null,
+            null,
+            executor: executor,
+            wrap: engine => new LosingEngine(engine, () => lost, () => lost = false)
+        );
 
         Assert.Null(step.Error);
         Assert.False(lost, "the failing look was never taken");
@@ -276,7 +332,14 @@ public sealed class StepCachePipelineTests
             return ModelResponses.Tap("button", "Save marker");
         });
 
-        var step = await StepAsync(StorageWorld(), new FileStepCache(directory), "/storage", Saved, model, wrap: engine => new LosingEngine(engine, () => lost, () => lost = false));
+        var step = await StepAsync(
+            StorageWorld(),
+            new FileStepCache(directory),
+            "/storage",
+            Saved,
+            model,
+            wrap: engine => new LosingEngine(engine, () => lost, () => lost = false)
+        );
 
         Assert.Null(step.Error);
         Assert.False(lost, "the failing look was never taken");
@@ -289,7 +352,19 @@ public sealed class StepCachePipelineTests
         var lost = true;
         var model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected"));
 
-        var step = await StepAsync(StorageWorld(), new FileStepCache(CoreTests.TempCache()), "/storage", null, model, wrap: engine => new LosingEngine(engine, () => lost, () => lost = false, () => new AgentException("STEP_TIMEOUT", "out of time")));
+        var step = await StepAsync(
+            StorageWorld(),
+            new FileStepCache(CoreTests.TempCache()),
+            "/storage",
+            null,
+            model,
+            wrap: engine => new LosingEngine(
+                engine,
+                () => lost,
+                () => lost = false,
+                () => new AgentException("STEP_TIMEOUT", "out of time")
+            )
+        );
 
         Assert.Equal("STEP_TIMEOUT", Assert.IsType<AgentException>(step.Error).Code);
         Assert.Equal(0, model.CallCount);
@@ -311,7 +386,19 @@ public sealed class StepCachePipelineTests
             return ModelResponses.Tap("button", "Save marker");
         });
 
-        var step = await StepAsync(StorageWorld(), new FileStepCache(directory), "/storage", null, model, wrap: engine => new LosingEngine(engine, () => lost, () => lost = false, () => new AgentException("STEP_TIMEOUT", "out of time")));
+        var step = await StepAsync(
+            StorageWorld(),
+            new FileStepCache(directory),
+            "/storage",
+            null,
+            model,
+            wrap: engine => new LosingEngine(
+                engine,
+                () => lost,
+                () => lost = false,
+                () => new AgentException("STEP_TIMEOUT", "out of time")
+            )
+        );
 
         Assert.Equal("STEP_TIMEOUT", Assert.IsType<AgentException>(step.Error).Code);
         Assert.False(Directory.Exists(directory) && Directory.GetFiles(directory, "*.json").Length > 0);
@@ -325,14 +412,35 @@ public sealed class StepCachePipelineTests
     public async Task Misses_for_a_call_that_did_not_mark_the_param_the_recording_keyed_on_through_the_pipeline()
     {
         var directory = CoreTests.TempCache();
-        var recorded = await StepAsync(StorageWorld(), new FileStepCache(directory), "/storage", Saved, Script(ModelResponses.Tap("button", "Save marker")), new Dictionary<string, object?> { ["name"] = Values.Unique("E2E-abc"), ["plan"] = "pro" });
+        var recorded = await StepAsync(
+            StorageWorld(),
+            new FileStepCache(directory),
+            "/storage",
+            Saved,
+            Script(ModelResponses.Tap("button", "Save marker")),
+            new Dictionary<string, object?> { ["name"] = Values.Unique("E2E-abc"), ["plan"] = "pro" }
+        );
         Assert.Null(recorded.Error);
 
-        var marked = await StepAsync(StorageWorld(), new FileStepCache(directory), "/storage", null, Script(), new Dictionary<string, object?> { ["name"] = Values.Unique("E2E-xyz"), ["plan"] = "pro" });
+        var marked = await StepAsync(
+            StorageWorld(),
+            new FileStepCache(directory),
+            "/storage",
+            null,
+            Script(),
+            new Dictionary<string, object?> { ["name"] = Values.Unique("E2E-xyz"), ["plan"] = "pro" }
+        );
         Assert.Equal(1, marked.Replayed);
 
         // A call that did not mark the param cannot fill the slot: a miss, never a literal placeholder on screen.
-        var unmarked = await StepAsync(StorageWorld(), new FileStepCache(directory), "/storage", null, Script(), new Dictionary<string, object?> { ["name"] = "E2E-xyz", ["plan"] = "pro" });
+        var unmarked = await StepAsync(
+            StorageWorld(),
+            new FileStepCache(directory),
+            "/storage",
+            null,
+            Script(),
+            new Dictionary<string, object?> { ["name"] = "E2E-xyz", ["plan"] = "pro" }
+        );
         Assert.Equal(("missed", "no-entry"), (unmarked.Cache?.Mode, unmarked.Cache?.Reason));
     }
 
@@ -344,33 +452,75 @@ public sealed class StepCachePipelineTests
     public async Task Partial_Records_an_end_anchor_that_names_a_unique_value_as_its_slot_and_fills_it_from_the_next_call_through_the_pipeline()
     {
         static DocumentWorld World(string name) => new DocumentWorld().Map("/storage", page =>
-        {
-            var saved = new DocumentElement { Role = "status", Name = "Saved " + name, Hidden = true };
-            page.Roots.Add(saved);
-            page.Button("Save marker", () => saved.Hidden = false);
-        });
+            {
+                var saved = new DocumentElement
+                {
+                    Role = "status",
+                    Name = "Saved " + name,
+                    Hidden = true,
+                };
+                page.Roots.Add(saved);
+                page.Button("Save marker", () => saved.Hidden = false);
+            });
         static Dictionary<string, object?> Params(string name) => new() { ["name"] = Values.Unique(name) };
 
         var directory = CoreTests.TempCache();
-        var recorded = await StepAsync(World("E2E-abc"), new FileStepCache(directory), "/storage", ctx => Expect.That(ctx.Screen.GetByRole("status", "Saved E2E-abc")).ToBeVisibleAsync(), Script(ModelResponses.Tap("button", "Save marker")), Params("E2E-abc"));
+        var recorded = await StepAsync(
+            World("E2E-abc"),
+            new FileStepCache(directory),
+            "/storage",
+            ctx => Expect.That(ctx.Screen.GetByRole("status", "Saved E2E-abc")).ToBeVisibleAsync(),
+            Script(ModelResponses.Tap("button", "Save marker")),
+            Params("E2E-abc")
+        );
         Assert.Null(recorded.Error);
-        Assert.Equal([("status", "Saved {{param:/name}}")], Entry(directory).Appeared.Select(anchor => (anchor.Role, anchor.Name)));
+        Assert.Equal(
+            [("status", "Saved {{param:/name}}")],
+            Entry(directory).Appeared.Select(anchor => (anchor.Role, anchor.Name))
+        );
 
-        var replayed = await StepAsync(World("E2E-xyz"), new FileStepCache(directory), "/storage", null, Script(), Params("E2E-xyz"));
+        var replayed = await StepAsync(
+            World("E2E-xyz"),
+            new FileStepCache(directory),
+            "/storage",
+            null,
+            Script(),
+            Params("E2E-xyz")
+        );
         Assert.Equal(1, replayed.Replayed);
         Assert.Equal("self-finalized", replayed.Cache?.Mode);
 
         // The slot is filled with this run's value, so a page that shows another name does not hold the end state.
         directory = CoreTests.TempCache();
-        await StepAsync(World("E2E-abc"), new FileStepCache(directory), "/storage", ctx => Expect.That(ctx.Screen.GetByRole("status", "Saved E2E-abc")).ToBeVisibleAsync(), Script(ModelResponses.Tap("button", "Save marker")), Params("E2E-abc"));
-        var drifted = await StepAsync(World("E2E-other"), new FileStepCache(directory), "/storage", null, Script(), Params("E2E-xyz"));
+        await StepAsync(
+            World("E2E-abc"),
+            new FileStepCache(directory),
+            "/storage",
+            ctx => Expect.That(ctx.Screen.GetByRole("status", "Saved E2E-abc")).ToBeVisibleAsync(),
+            Script(ModelResponses.Tap("button", "Save marker")),
+            Params("E2E-abc")
+        );
+        var drifted = await StepAsync(
+            World("E2E-other"),
+            new FileStepCache(directory),
+            "/storage",
+            null,
+            Script(),
+            Params("E2E-xyz")
+        );
         Assert.Equal(("agent-concluded", "end-mismatch"), (drifted.Cache?.Mode, drifted.Cache?.Reason));
     }
 
     [Fact]
     public async Task Degrades_a_hit_that_is_not_a_trace_1_entry_to_a_miss_whichever_store_returned_it_through_the_pipeline()
     {
-        var step = await StepAsync(StorageWorld(), new MalformedCache(), "/storage", null, Script(ModelResponses.Tap("button", "Save marker")));
+        var step = await StepAsync(
+            StorageWorld(),
+            new MalformedCache(),
+            "/storage",
+            null,
+            Script(ModelResponses.Tap("button", "Save marker"))
+        );
 
         Assert.Equal(("missed", "invalid-entry", 0, 0), Info(step));
     }
@@ -382,16 +532,31 @@ public sealed class StepCachePipelineTests
         var world = new DocumentWorld().Map("/storage", page =>
         {
             page.Status("Code token-2718-value");
-            var saved = new DocumentElement { Role = "status", Name = "Marker saved", Hidden = true };
+            var saved = new DocumentElement
+            {
+                Role = "status",
+                Name = "Marker saved",
+                Hidden = true,
+            };
             page.Roots.Add(saved);
             page.Button("Save marker", () => saved.Hidden = false);
         });
         var parameters = new Dictionary<string, object?> { ["token"] = Secret.Create("token", "token-2718-value") };
 
-        var step = await StepAsync(world, new FileStepCache(directory), "/storage", Saved, Script(ModelResponses.Tap("button", "Save marker")), parameters);
+        var step = await StepAsync(
+            world,
+            new FileStepCache(directory),
+            "/storage",
+            Saved,
+            Script(ModelResponses.Tap("button", "Save marker")),
+            parameters
+        );
 
         Assert.Null(step.Error);
-        Assert.Equal([("status", "Marker saved")], Entry(directory).Appeared.Select(anchor => (anchor.Role, anchor.Name)));
+        Assert.Equal(
+            [("status", "Marker saved")],
+            Entry(directory).Appeared.Select(anchor => (anchor.Role, anchor.Name))
+        );
     }
 
     [Fact]
@@ -399,7 +564,13 @@ public sealed class StepCachePipelineTests
     {
         var directory = CoreTests.TempCache();
 
-        var step = await StepAsync(StorageWorld(), new FileStepCache(directory), "/storage", Saved, Script(ModelResponses.Tap("button", "Save marker")));
+        var step = await StepAsync(
+            StorageWorld(),
+            new FileStepCache(directory),
+            "/storage",
+            Saved,
+            Script(ModelResponses.Tap("button", "Save marker"))
+        );
 
         Assert.Null(step.Error);
         var entry = Entry(directory);
@@ -410,10 +581,12 @@ public sealed class StepCachePipelineTests
     [Fact]
     public async Task Records_nothing_when_a_unique_value_is_spelled_by_another_param_and_says_so_in_the_step_detail_through_the_pipeline()
     {
-        static DocumentWorld World() => new DocumentWorld()
-            .Map("/reminders", page => page.Heading("Reminders"))
-            .Map("/reminders/new", page => page.Status("Reminder created"));
-        static Task Created(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Reminder created")).ToBeVisibleAsync();
+        static DocumentWorld World() =>
+            new DocumentWorld()
+                .Map("/reminders", page => page.Heading("Reminders"))
+                .Map("/reminders/new", page => page.Status("Reminder created"));
+        static Task Created(TestContext ctx) =>
+            Expect.That(ctx.Screen.GetByRole("status", "Reminder created")).ToBeVisibleAsync();
 
         var directory = CoreTests.TempCache();
         var collides = await StepAsync(
@@ -422,7 +595,8 @@ public sealed class StepCachePipelineTests
             "/reminders",
             Created,
             Script(ModelResponses.Call("navigate", new { url = "/reminders/new?title=Daily&frequency=Daily" })),
-            new Dictionary<string, object?> { ["title"] = Values.Unique("Daily"), ["frequency"] = "Daily" });
+            new Dictionary<string, object?> { ["title"] = Values.Unique("Daily"), ["frequency"] = "Daily" }
+        );
         Assert.False(Directory.Exists(directory) && Directory.GetFiles(directory, "*.json").Length > 0);
         Assert.Equal(("missed", "param-collision"), (collides.Cache?.Mode, collides.Cache?.NotRecorded));
 
@@ -434,7 +608,8 @@ public sealed class StepCachePipelineTests
             "/reminders",
             Created,
             Script(ModelResponses.Call("navigate", new { url = "/reminders/new?title=Water+plants&frequency=Daily" })),
-            new Dictionary<string, object?> { ["title"] = Values.Unique("Water plants"), ["frequency"] = "Daily" });
+            new Dictionary<string, object?> { ["title"] = Values.Unique("Water plants"), ["frequency"] = "Daily" }
+        );
         var url = Entry(directory).Actions[0].Url!;
         Assert.DoesNotContain("Water+plants", url, StringComparison.Ordinal);
         Assert.EndsWith("&frequency=Daily", url, StringComparison.Ordinal);
@@ -446,7 +621,13 @@ public sealed class StepCachePipelineTests
     {
         var directory = CoreTests.TempCache();
 
-        var step = await StepAsync(CustomersWorld(), new FileStepCache(directory), "/pricing", Saved, Script(ModelResponses.Call("navigate", new { url = "/customers?ref=nav" })));
+        var step = await StepAsync(
+            CustomersWorld(),
+            new FileStepCache(directory),
+            "/pricing",
+            Saved,
+            Script(ModelResponses.Call("navigate", new { url = "/customers?ref=nav" }))
+        );
 
         Assert.Null(step.Error);
         var entry = Entry(directory);
@@ -458,9 +639,21 @@ public sealed class StepCachePipelineTests
     public async Task Self_finalizes_on_a_created_records_page_whose_minted_id_differs_from_the_recording_through_the_pipeline()
     {
         var directory = CoreTests.TempCache();
-        await StepAsync(ProjectWorld("/projects/95488a620f65"), new FileStepCache(directory), "/pricing", Saved, Script(ModelResponses.Tap("link", "Create project")));
+        await StepAsync(
+            ProjectWorld("/projects/95488a620f65"),
+            new FileStepCache(directory),
+            "/pricing",
+            Saved,
+            Script(ModelResponses.Tap("link", "Create project"))
+        );
 
-        var step = await StepAsync(ProjectWorld("/projects/0c1d2e3f4a5b"), new FileStepCache(directory), "/pricing", null, Script());
+        var step = await StepAsync(
+            ProjectWorld("/projects/0c1d2e3f4a5b"),
+            new FileStepCache(directory),
+            "/pricing",
+            null,
+            Script()
+        );
 
         Assert.Equal(1, step.Replayed);
         Assert.Equal("self-finalized", step.Cache?.Mode);
@@ -470,9 +663,21 @@ public sealed class StepCachePipelineTests
     public async Task Still_refuses_a_different_page_even_when_the_anchors_happen_to_be_on_it_through_the_pipeline()
     {
         var directory = CoreTests.TempCache();
-        await StepAsync(ProjectWorld("/projects/95488a620f65"), new FileStepCache(directory), "/pricing", Saved, Script(ModelResponses.Tap("link", "Create project")));
+        await StepAsync(
+            ProjectWorld("/projects/95488a620f65"),
+            new FileStepCache(directory),
+            "/pricing",
+            Saved,
+            Script(ModelResponses.Tap("link", "Create project"))
+        );
 
-        var step = await StepAsync(ProjectWorld("/customers"), new FileStepCache(directory), "/pricing", null, Script());
+        var step = await StepAsync(
+            ProjectWorld("/customers"),
+            new FileStepCache(directory),
+            "/pricing",
+            null,
+            Script()
+        );
 
         Assert.Equal(0, step.Replayed);
         Assert.Equal("end-mismatch", step.Cache?.Reason);
@@ -488,9 +693,16 @@ public sealed class StepCachePipelineTests
         var step = await StepAsync(CustomersWorld(saved: false), new FileStepCache(directory), "/pricing", null, model);
 
         var opening = Text(model.Requests[0]);
-        Assert.Contains("1. navigate to \"/customers\"\nReplay stopped (end-mismatch) after 1 of 1 recorded actions.\nEvery recorded action ran, but the screen does not show the recorded end state.", opening, StringComparison.Ordinal);
+        Assert.Contains(
+            "1. navigate to \"/customers\"\nReplay stopped (end-mismatch) after 1 of 1 recorded actions.\nEvery recorded action ran, but the screen does not show the recorded end state.",
+            opening,
+            StringComparison.Ordinal
+        );
         Assert.Equal(("agent-concluded", "end-mismatch", 1, 1), Info(step));
-        Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers: missing status \"Marker saved\"", step.Cache?.Detail);
+        Assert.Equal(
+            "every recorded action ran, but the recorded end state did not show on /customers: missing status \"Marker saved\"",
+            step.Cache?.Detail
+        );
     }
 
     [Fact]
@@ -498,11 +710,13 @@ public sealed class StepCachePipelineTests
     {
         const string Prefix = "every recorded action ran, but the recorded end state did not show on /customers: ";
         var saved = new RecordedTarget { Role = "status", Name = "Marker saved" };
-        static DocumentWorld Customers(params DocumentElement[] extra) => CustomersWorld().Map("/customers", page =>
-        {
-            page.Status("Marker saved");
-            page.Roots.AddRange(extra);
-        });
+        static DocumentWorld Customers(params DocumentElement[] extra) =>
+            CustomersWorld()
+                .Map("/customers", page =>
+                {
+                    page.Status("Marker saved");
+                    page.Roots.AddRange(extra);
+                });
 
         var quiet = CoreTests.TempCache();
         await RecordCustomersAsync(quiet);
@@ -514,7 +728,13 @@ public sealed class StepCachePipelineTests
         var raised = CoreTests.TempCache();
         await RecordCustomersAsync(raised);
         Rewrite(raised, entry => entry.Appeared = [saved]);
-        var declined = await StepAsync(Customers(new DocumentElement { Role = "alert", Name = "Card declined" }), new FileStepCache(raised), "/pricing", null, Script());
+        var declined = await StepAsync(
+            Customers(new DocumentElement { Role = "alert", Name = "Card declined" }),
+            new FileStepCache(raised),
+            "/pricing",
+            null,
+            Script()
+        );
         Assert.Equal(("agent-concluded", "end-mismatch"), (declined.Cache?.Mode, declined.Cache?.Reason));
         Assert.Equal(Prefix + "unrecorded alert \"Card declined\"", declined.Cache?.Detail);
 
@@ -522,11 +742,16 @@ public sealed class StepCachePipelineTests
         await RecordCustomersAsync(kept);
         Rewrite(kept, entry =>
         {
-            entry.Appeared = new[] { "Alpha", "Beta", "Gamma" }.Select(name => new RecordedTarget { Role = "link", Name = name }).ToList();
+            entry.Appeared = new[] { "Alpha", "Beta", "Gamma" }
+                .Select(name => new RecordedTarget { Role = "link", Name = name })
+                .ToList();
             entry.Gone = [saved];
         });
         var stuck = await StepAsync(Customers(), new FileStepCache(kept), "/pricing", null, Script());
-        Assert.Equal(Prefix + "missing link \"Alpha\" and link \"Beta\" (+1 more), still showing status \"Marker saved\"", stuck.Cache?.Detail);
+        Assert.Equal(
+            Prefix + "missing link \"Alpha\" and link \"Beta\" (+1 more), still showing status \"Marker saved\"",
+            stuck.Cache?.Detail
+        );
     }
 
     [Fact]
@@ -539,7 +764,10 @@ public sealed class StepCachePipelineTests
         var step = await StepAsync(CustomersWorld(), new FileStepCache(directory), "/customers", null, Script());
 
         Assert.Equal(("agent-concluded", "end-mismatch"), (step.Cache?.Mode, step.Cache?.Reason));
-        Assert.Equal("every recorded action ran, but the recorded outcome already showed on /customers before the replay acted there, so nothing proves the replay produced it", step.Cache?.Detail);
+        Assert.Equal(
+            "every recorded action ran, but the recorded outcome already showed on /customers before the replay acted there, so nothing proves the replay produced it",
+            step.Cache?.Detail
+        );
     }
 
     [Fact]
@@ -556,7 +784,10 @@ public sealed class StepCachePipelineTests
         var step = await StepAsync(CustomersWorld(), new FileStepCache(directory), "/customers", null, Script());
 
         Assert.Equal(("agent-concluded", "end-mismatch"), (step.Cache?.Mode, step.Cache?.Reason));
-        Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers", step.Cache?.Detail);
+        Assert.Equal(
+            "every recorded action ran, but the recorded end state did not show on /customers",
+            step.Cache?.Detail
+        );
     }
 
     [Fact]
@@ -566,7 +797,13 @@ public sealed class StepCachePipelineTests
         await RecordCustomersAsync(directory);
 
         // The executor looked, agreed the step was done, and recorded nothing more.
-        var step = await StepAsync(CustomersWorld(marker: "Marker stored"), new FileStepCache(directory), "/pricing", Stored, Script());
+        var step = await StepAsync(
+            CustomersWorld(marker: "Marker stored"),
+            new FileStepCache(directory),
+            "/pricing",
+            Stored,
+            Script()
+        );
 
         Assert.Equal("end-mismatch", step.Cache?.Reason);
         Assert.Equal(["navigate"], Entry(directory).Actions.Select(action => action.Kind));
@@ -581,13 +818,24 @@ public sealed class StepCachePipelineTests
             .Map("/pricing", page => page.Heading("Pricing"))
             .Map("/customers", page =>
             {
-                var saved = new DocumentElement { Role = "status", Name = "Marker saved", Hidden = true };
+                var saved = new DocumentElement
+                {
+                    Role = "status",
+                    Name = "Marker saved",
+                    Hidden = true,
+                };
                 page.Roots.Add(saved);
                 page.Button("Save", () => saved.Hidden = false);
             });
 
         // The replayed flow did not produce its effect; the executor acted further.
-        var step = await StepAsync(world, new FileStepCache(directory), "/pricing", Saved, Script(ModelResponses.Tap("button", "Save")));
+        var step = await StepAsync(
+            world,
+            new FileStepCache(directory),
+            "/pricing",
+            Saved,
+            Script(ModelResponses.Tap("button", "Save"))
+        );
 
         Assert.Equal("end-mismatch", step.Cache?.Reason);
         Assert.Empty(Directory.GetFiles(directory, "*.json"));
@@ -596,7 +844,13 @@ public sealed class StepCachePipelineTests
     [Fact]
     public async Task Evicts_a_consumed_entry_when_the_step_then_fails_and_never_when_nothing_judged_the_app_through_the_pipeline()
     {
-        foreach (var (model, expected) in new[] { (Script(ModelResponses.Done("failed", "The customers are missing.")), 1), ((ScriptedModel?)null, 0) })
+        foreach (
+            var (model, expected) in new[]
+            {
+                (Script(ModelResponses.Done("failed", "The customers are missing.")), 1),
+                ((ScriptedModel?)null, 0),
+            }
+        )
         {
             var directory = CoreTests.TempCache();
             await RecordCustomersAsync(directory);
@@ -615,7 +869,13 @@ public sealed class StepCachePipelineTests
     {
         var cache = new CountingCache(CoreTests.TempCache());
 
-        var step = await StepAsync(StorageWorld(), cache, "/storage", null, Script(ModelResponses.Done("failed", "No marker.")));
+        var step = await StepAsync(
+            StorageWorld(),
+            cache,
+            "/storage",
+            null,
+            Script(ModelResponses.Done("failed", "No marker."))
+        );
 
         Assert.NotNull(step.Error);
         Assert.Equal(0, cache.Deletes);
@@ -628,7 +888,14 @@ public sealed class StepCachePipelineTests
         await RecordCustomersAsync(directory);
         var cache = new CountingCache(directory);
 
-        var step = await StepAsync(CustomersWorld(saved: false), cache, "/pricing", null, Script(ModelResponses.Done("failed", "No marker.")), mode: CacheMode.ReadOnly);
+        var step = await StepAsync(
+            CustomersWorld(saved: false),
+            cache,
+            "/pricing",
+            null,
+            Script(ModelResponses.Done("failed", "No marker.")),
+            mode: CacheMode.ReadOnly
+        );
 
         Assert.NotNull(step.Error);
         Assert.Equal(0, cache.Deletes);
@@ -651,9 +918,21 @@ public sealed class StepCachePipelineTests
     public async Task Refuses_to_self_finalize_when_the_recorded_end_path_no_longer_matches_through_the_pipeline()
     {
         var directory = CoreTests.TempCache();
-        await StepAsync(ProjectWorld("/customers"), new FileStepCache(directory), "/pricing", Saved, Script(ModelResponses.Tap("link", "Create project")));
+        await StepAsync(
+            ProjectWorld("/customers"),
+            new FileStepCache(directory),
+            "/pricing",
+            Saved,
+            Script(ModelResponses.Tap("link", "Create project"))
+        );
 
-        var step = await StepAsync(ProjectWorld("/moved-away"), new FileStepCache(directory), "/pricing", null, Script());
+        var step = await StepAsync(
+            ProjectWorld("/moved-away"),
+            new FileStepCache(directory),
+            "/pricing",
+            null,
+            Script()
+        );
 
         Assert.Equal("end-mismatch", step.Cache?.Reason);
         Assert.Equal("agent-concluded", step.Cache?.Mode);
@@ -664,10 +943,10 @@ public sealed class StepCachePipelineTests
     {
         var directory = CoreTests.TempCache();
         static DocumentWorld World() => new DocumentWorld().Map("/pricing", page =>
-        {
-            var status = page.Status("Marker draft");
-            page.Button("Upgrade", () => status.Name = status.Text = "Marker saved");
-        });
+            {
+                var status = page.Status("Marker draft");
+                page.Button("Upgrade", () => status.Name = status.Text = "Marker saved");
+            });
         var tap = ModelResponses.Tap("button", "Upgrade");
         Assert.Null((await RunAsync(World(), directory, "/pricing", Saved, tap)).Error);
 
@@ -682,67 +961,107 @@ public sealed class StepCachePipelineTests
     {
         var directory = CoreTests.TempCache();
         string File() => Assert.Single(Directory.GetFiles(directory, "*.json"));
-        (string Bytes, DateTime Written) Snapshot() => (System.IO.File.ReadAllText(File()), System.IO.File.GetLastWriteTimeUtc(File()));
+        (string Bytes, DateTime Written) Snapshot() =>
+            (System.IO.File.ReadAllText(File()), System.IO.File.GetLastWriteTimeUtc(File()));
 
         // The recording run: a miss, then the flow and its effect are written.
         var recorded = await RecordCustomersAsync(directory);
         Assert.Equal("missed", recorded.Cache?.Mode);
         var written = Snapshot();
-        Assert.Equal([("status", "Marker saved")], Entry(directory).Appeared.Select(anchor => (anchor.Role, anchor.Name)));
+        Assert.Equal(
+            [("status", "Marker saved")],
+            Entry(directory).Appeared.Select(anchor => (anchor.Role, anchor.Name))
+        );
 
         // Two replays in a row: the file's bytes and write time never move.
         await Task.Delay(20);
-        Assert.Equal("self-finalized", (await StepAsync(CustomersWorld(), new FileStepCache(directory), "/pricing", Saved, Script())).Cache?.Mode);
+        Assert.Equal(
+            "self-finalized",
+            (await StepAsync(CustomersWorld(), new FileStepCache(directory), "/pricing", Saved, Script())).Cache?.Mode
+        );
         Assert.Equal(written, Snapshot());
-        Assert.Equal("self-finalized", (await StepAsync(CustomersWorld(), new FileStepCache(directory), "/pricing", Saved, Script())).Cache?.Mode);
+        Assert.Equal(
+            "self-finalized",
+            (await StepAsync(CustomersWorld(), new FileStepCache(directory), "/pricing", Saved, Script())).Cache?.Mode
+        );
         Assert.Equal(written, Snapshot());
 
         // A hand-off the executor settled without acting re-records with the live anchors.
-        var healed = await StepAsync(CustomersWorld(marker: "Marker stored"), new FileStepCache(directory), "/pricing", Stored, Script());
+        var healed = await StepAsync(
+            CustomersWorld(marker: "Marker stored"),
+            new FileStepCache(directory),
+            "/pricing",
+            Stored,
+            Script()
+        );
         Assert.Equal("end-mismatch", healed.Cache?.Reason);
         Assert.NotEqual(written.Bytes, Snapshot().Bytes);
-        Assert.Equal([("status", "Marker stored")], Entry(directory).Appeared.Select(anchor => (anchor.Role, anchor.Name)));
+        Assert.Equal(
+            [("status", "Marker stored")],
+            Entry(directory).Appeared.Select(anchor => (anchor.Role, anchor.Name))
+        );
 
         // A replay nothing verified afterwards is implicated like a recording would be: evicted.
-        var unconfirmed = await StepAsync(CustomersWorld(marker: "Marker stored"), new FileStepCache(directory), "/pricing", null, Script());
+        var unconfirmed = await StepAsync(
+            CustomersWorld(marker: "Marker stored"),
+            new FileStepCache(directory),
+            "/pricing",
+            null,
+            Script()
+        );
         Assert.Equal("self-finalized", unconfirmed.Cache?.Mode);
         Assert.Empty(Directory.GetFiles(directory, "*.json"));
     }
 
     // A passing check verifies the act, so it records.
-    internal static Task Saved(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Marker saved")).ToBeVisibleAsync();
+    internal static Task Saved(TestContext ctx) =>
+        Expect.That(ctx.Screen.GetByRole("status", "Marker saved")).ToBeVisibleAsync();
 
-    private static Task Stored(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Marker stored")).ToBeVisibleAsync();
+    private static Task Stored(TestContext ctx) =>
+        Expect.That(ctx.Screen.GetByRole("status", "Marker stored")).ToBeVisibleAsync();
 
     // A storage page whose save shows the saved marker.
     internal static DocumentWorld StorageWorld() => new DocumentWorld().Map("/storage", page =>
-    {
-        page.Heading("Storage");
-        var saved = new DocumentElement { Role = "status", Name = "Marker saved", Hidden = true };
-        page.Roots.Add(saved);
-        page.Button("Save marker", () => saved.Hidden = false);
-    });
-
-    // A pricing page, and a customers page that shows the marker.
-    internal static DocumentWorld CustomersWorld(bool saved = true, string marker = "Marker saved") => new DocumentWorld()
-        .Map("/pricing", page => page.Heading("Pricing"))
-        .Map("/customers", page =>
         {
-            if (saved)
+            page.Heading("Storage");
+            var saved = new DocumentElement
             {
-                page.Status(marker);
-            }
+                Role = "status",
+                Name = "Marker saved",
+                Hidden = true,
+            };
+            page.Roots.Add(saved);
+            page.Button("Save marker", () => saved.Hidden = false);
         });
 
+    // A pricing page, and a customers page that shows the marker.
+    internal static DocumentWorld CustomersWorld(bool saved = true, string marker = "Marker saved") =>
+        new DocumentWorld()
+            .Map("/pricing", page => page.Heading("Pricing"))
+            .Map("/customers", page =>
+            {
+                if (saved)
+                {
+                    page.Status(marker);
+                }
+            });
+
     // A pricing page whose link opens the project page at `target`, which shows the saved marker.
-    internal static DocumentWorld ProjectWorld(string target) => new DocumentWorld()
-        .Map("/pricing", page => page.Link("Create project", target))
-        .Map(target, page => page.Status("Marker saved"));
+    internal static DocumentWorld ProjectWorld(string target) =>
+        new DocumentWorld()
+            .Map("/pricing", page => page.Link("Create project", target))
+            .Map(target, page => page.Status("Marker saved"));
 
     // Records a navigate from the pricing page to the customers page.
     internal static Task<Step> RecordCustomersAsync(string directory)
     {
-        return StepAsync(CustomersWorld(), new FileStepCache(directory), "/pricing", Saved, Script(ModelResponses.Call("navigate", new { url = "/customers" })));
+        return StepAsync(
+            CustomersWorld(),
+            new FileStepCache(directory),
+            "/pricing",
+            Saved,
+            Script(ModelResponses.Call("navigate", new { url = "/customers" }))
+        );
     }
 
     // A model that takes the steps in order, then concludes that the step passed.
@@ -752,33 +1071,49 @@ public sealed class StepCachePipelineTests
         return new ScriptedModel(_ => next < steps.Length ? steps[next++] : ModelResponses.Done("passed", "Done."));
     }
 
-    private static string Text(ModelRequest request) => string.Join('\n', request.Messages.Select(message => message.Content));
+    private static string Text(ModelRequest request) =>
+        string.Join('\n', request.Messages.Select(message => message.Content));
 
-    internal static (string?, string?, int?, int?) Info(Step step) => (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions, step.Cache?.TotalActions);
+    internal static (string?, string?, int?, int?) Info(Step step) =>
+        (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions, step.Cache?.TotalActions);
 
     // Changes the one recording in the directory, as if it had been recorded with other anchors.
     private static void Rewrite(string directory, Action<CacheEntry> change)
     {
         var entry = Entry(directory);
         change(entry);
-        File.WriteAllText(Assert.Single(Directory.GetFiles(directory, "*.json")), JsonSerializer.Serialize(entry, EntryJson));
+        File.WriteAllText(
+            Assert.Single(Directory.GetFiles(directory, "*.json")),
+            JsonSerializer.Serialize(entry, EntryJson)
+        );
     }
 
     private static CacheEntry Entry(string directory)
     {
-        return JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(Assert.Single(Directory.GetFiles(directory, "*.json"))), EntryJson)!;
+        return JsonSerializer.Deserialize<CacheEntry>(
+            File.ReadAllText(Assert.Single(Directory.GetFiles(directory, "*.json"))),
+            EntryJson
+        )!;
     }
 
     /// <summary>
     /// One test run with the old shape: open <paramref name="route"/>, then act with a model that takes
     /// <paramref name="steps"/> in order and concludes at once after a hand-off.
     /// </summary>
-    private static Task<Step> RunAsync(DocumentWorld world, string directory, string route, Func<TestContext, Task>? check, params ModelResponse[] steps)
+    private static Task<Step> RunAsync(
+        DocumentWorld world,
+        string directory,
+        string route,
+        Func<TestContext, Task>? check,
+        params ModelResponse[] steps
+    )
     {
         var next = 0;
-        var model = new ScriptedModel(request => next < steps.Length && !Text(request).Contains("end-mismatch", StringComparison.Ordinal)
-            ? steps[next++]
-            : ModelResponses.Done("passed", "Done."));
+        var model = new ScriptedModel(request =>
+            next < steps.Length && !Text(request).Contains("end-mismatch", StringComparison.Ordinal)
+                ? steps[next++]
+                : ModelResponses.Done("passed", "Done.")
+        );
         return StepAsync(world, new FileStepCache(directory), route, check, model);
     }
 
@@ -799,25 +1134,28 @@ public sealed class StepCachePipelineTests
         CacheMode mode = CacheMode.ReadWrite,
         bool strict = false,
         Func<IEngine, IEngine>? wrap = null,
-        IStepExecutor? executor = null)
+        IStepExecutor? executor = null
+    )
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = wrap is null ? new DocumentEngine(world) : wrap(new DocumentEngine(world)),
-            Model = model,
-            AgentExecutor = executor,
-            BaseUrl = "https://billing.test",
-            Cache = cache,
-            CacheMode = mode,
-            CacheStrict = strict,
-            Attempt = attempt,
-            TestTitle = "billing > case",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ReplayTimeout = TimeSpan.FromMilliseconds(300),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = wrap is null ? new DocumentEngine(world) : wrap(new DocumentEngine(world)),
+                Model = model,
+                AgentExecutor = executor,
+                BaseUrl = "https://billing.test",
+                Cache = cache,
+                CacheMode = mode,
+                CacheStrict = strict,
+                Attempt = attempt,
+                TestTitle = "billing > case",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                ReplayTimeout = TimeSpan.FromMilliseconds(300),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         CacheInfo? info = null;
         Exception? error = null;
         try
@@ -847,9 +1185,7 @@ public sealed class StepCachePipelineTests
 
         public int? Write(string key, CacheEntry entry) => 0;
 
-        public void Delete(string key)
-        {
-        }
+        public void Delete(string key) { }
     }
 
     /// <summary>A store that hits with an entry whose actions are not a list.</summary>
@@ -857,13 +1193,12 @@ public sealed class StepCachePipelineTests
     {
         public bool Writable => true;
 
-        public CacheLookup Read(string key) => new() { Entry = JsonSerializer.Deserialize<CacheEntry>("""{ "schema": 1, "actions": null }""", EntryJson) };
+        public CacheLookup Read(string key) =>
+            new() { Entry = JsonSerializer.Deserialize<CacheEntry>("""{ "schema": 1, "actions": null }""", EntryJson) };
 
         public int? Write(string key, CacheEntry entry) => 0;
 
-        public void Delete(string key)
-        {
-        }
+        public void Delete(string key) { }
     }
 
     /// <summary>A file store that counts its reads, writes, and deletes.</summary>
@@ -899,7 +1234,8 @@ public sealed class StepCachePipelineTests
     }
 
     /// <summary>An engine whose next look fails once <paramref name="lost"/> says so, as a surface that went away can.</summary>
-    internal sealed class LosingEngine(IEngine inner, Func<bool> lost, Action recover, Func<Exception>? failure = null) : IEngine
+    internal sealed class LosingEngine(IEngine inner, Func<bool> lost, Action recover, Func<Exception>? failure = null)
+        : IEngine
     {
         public string Platform => inner.Platform;
 
@@ -908,13 +1244,20 @@ public sealed class StepCachePipelineTests
         public EngineCapabilities Capabilities => inner.Capabilities;
 
         public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
-            new Session(await inner.StartAsync(options, cancellationToken).ConfigureAwait(false), lost, recover, failure);
+            new Session(
+                await inner.StartAsync(options, cancellationToken).ConfigureAwait(false),
+                lost,
+                recover,
+                failure
+            );
 
-        private sealed class Session(IEngineSession inner, Func<bool> lost, Action recover, Func<Exception>? failure) : IEngineSession
+        private sealed class Session(IEngineSession inner, Func<bool> lost, Action recover, Func<Exception>? failure)
+            : IEngineSession
         {
             public string Route => inner.Route;
 
-            public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+            public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+                inner.OpenAsync(url, cancellationToken);
 
             public Task<Observation> ObserveAsync(CancellationToken cancellationToken)
             {
@@ -927,9 +1270,11 @@ public sealed class StepCachePipelineTests
                 return inner.ObserveAsync(cancellationToken);
             }
 
-            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => inner.PerformAsync(node, action, cancellationToken);
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+                inner.PerformAsync(node, action, cancellationToken);
 
-            public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+            public Task PressAsync(string key, CancellationToken cancellationToken) =>
+                inner.PressAsync(key, cancellationToken);
 
             public ValueTask DisposeAsync() => inner.DisposeAsync();
         }

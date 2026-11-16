@@ -27,17 +27,34 @@ public sealed class E2EMcpRedactsWhatUserCodePrintsTests
     public async Task Partial_Keeps_the_protocol_working_and_redacts_the_config_and_a_project_tool_on_stdout_and_stderr()
     {
         using var app = FixtureApp.Start();
-        var tool = JsonSerializer.Serialize(new Dictionary<string, object>
-        {
-            ["description"] = "Print the token every way a command can.",
-            ["mutates"] = false,
-            ["command"] = new[] { "dotnet", Path.Combine(AppContext.BaseDirectory, "E2E.Tests.App.dll"), "leak", ServedToken },
-        });
-        using var project = new FixtureProject(new Dictionary<string, string>
-        {
-            ["e2e.config.json"] = "{ \"targets\": [{ \"name\": \"web\", \"platform\": \"web\", \"app\": { \"url\": \"" + app.Url + "\" } }], \"secrets\": { \"apiToken\": \"" + ServedToken + "\" }, "
-                + "\"agents\": { \"default\": { \"tools\": { \"leak\": " + tool + " } } } }",
-        });
+        var tool = JsonSerializer.Serialize(
+            new Dictionary<string, object>
+            {
+                ["description"] = "Print the token every way a command can.",
+                ["mutates"] = false,
+                ["command"] = new[]
+                {
+                    "dotnet",
+                    Path.Combine(AppContext.BaseDirectory, "E2E.Tests.App.dll"),
+                    "leak",
+                    ServedToken,
+                },
+            }
+        );
+        using var project = new FixtureProject(
+            new Dictionary<string, string>
+            {
+                ["e2e.config.json"] =
+                    "{ \"targets\": [{ \"name\": \"web\", \"platform\": \"web\", \"app\": { \"url\": \""
+                    + app.Url
+                    + "\" } }], \"secrets\": { \"apiToken\": \""
+                    + ServedToken
+                    + "\" }, "
+                    + "\"agents\": { \"default\": { \"tools\": { \"leak\": "
+                    + tool
+                    + " } } } }",
+            }
+        );
         string stderr;
         await using (var served = await ServedCli.StartAsync(project.Directory, "--headless"))
         {
@@ -49,23 +66,31 @@ public sealed class E2EMcpRedactsWhatUserCodePrintsTests
 
             // The line printed without a newline is released when its call ends.
             var deadline = DateTime.UtcNow.AddSeconds(30);
-            while (!served.Stderr.Contains("tool stderr no newline: <secret:apiToken>", StringComparison.Ordinal) && DateTime.UtcNow < deadline)
+            while (
+                !served.Stderr.Contains("tool stderr no newline: <secret:apiToken>", StringComparison.Ordinal)
+                && DateTime.UtcNow < deadline
+            )
             {
                 await Task.Delay(50);
             }
 
             stderr = served.Stderr;
-            Assert.True(stderr.Contains("tool stderr no newline: <secret:apiToken>", StringComparison.Ordinal), "the line printed without a newline was never released; stderr was: " + stderr);
+            Assert.True(
+                stderr.Contains("tool stderr no newline: <secret:apiToken>", StringComparison.Ordinal),
+                "the line printed without a newline was never released; stderr was: " + stderr
+            );
         }
 
         Assert.DoesNotContain(ServedToken, stderr, StringComparison.Ordinal);
         var lines = stderr.Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
-        foreach (var line in new[]
-        {
-            "tool stderr: <secret:apiToken>",
-            "tool stderr split: <secret:apiToken>",
-            "tool stderr no newline: <secret:apiToken>",
-        })
+        foreach (
+            var line in new[]
+            {
+                "tool stderr: <secret:apiToken>",
+                "tool stderr split: <secret:apiToken>",
+                "tool stderr no newline: <secret:apiToken>",
+            }
+        )
         {
             Assert.Contains(line, lines);
         }
@@ -85,11 +110,13 @@ public sealed class E2EMcpRedactsWhatUserCodePrintsTests
         var (output, _, text) = Create();
         var stdout = new McpOutputWriter(output, OutputStream.Stdout);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => output.WithholdDuringAsync<int>(() =>
-        {
-            stdout.WriteLine("config says " + Token);
-            throw new InvalidOperationException("config failed");
-        }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            output.WithholdDuringAsync<int>(() =>
+            {
+                stdout.WriteLine("config says " + Token);
+                throw new InvalidOperationException("config failed");
+            })
+        );
 
         Assert.DoesNotContain(Token, text());
         Assert.Contains("e2e mcp: [warning] withheld", text());

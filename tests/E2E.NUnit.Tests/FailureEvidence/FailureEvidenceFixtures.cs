@@ -16,12 +16,14 @@ public sealed class TeardownFixture : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     private static readonly TimeSpan Short = TimeSpan.FromMilliseconds(300);
 
     /// <summary>Where the fixture's attempts write their evidence; the run's report.json goes beside it.</summary>
-    public static string Results { get; } = Path.Combine(Path.GetTempPath(), "e2e-failure-evidence-" + Guid.NewGuid().ToString("N"), "results");
+    public static string Results { get; } =
+        Path.Combine(Path.GetTempPath(), "e2e-failure-evidence-" + Guid.NewGuid().ToString("N"), "results");
 
     protected override E2EConfig Config => FixtureConfig;
 

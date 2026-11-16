@@ -28,12 +28,16 @@ public sealed class ToBeAttachedTests
     public async Task Negated_passes_on_zero_matches_and_fails_on_a_hidden_node()
     {
         await Expect.That(ScreenFixture.Create().GetByText("Gone")).Not.ToBeAttachedAsync();
-        await FailsWith("ASSERTION_FAILED", () => Expect.That(ScreenFixture.Create(Hidden).GetByText("Hidden")).Not.ToBeAttachedAsync());
+        await FailsWith("ASSERTION_FAILED", () =>
+            Expect.That(ScreenFixture.Create(Hidden).GetByText("Hidden")).Not.ToBeAttachedAsync()
+        );
     }
 
     [Fact]
     public async Task Is_LOCATOR_AMBIGUOUS_on_several_matches_like_every_positive_matcher()
     {
-        await FailsWith("LOCATOR_AMBIGUOUS", () => Expect.That(ScreenFixture.Create(List).GetByRole("listitem")).ToBeAttachedAsync());
+        await FailsWith("LOCATOR_AMBIGUOUS", () =>
+            Expect.That(ScreenFixture.Create(List).GetByRole("listitem")).ToBeAttachedAsync()
+        );
     }
 }

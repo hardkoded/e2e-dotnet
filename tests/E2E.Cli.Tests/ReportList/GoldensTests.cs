@@ -26,15 +26,40 @@ public sealed partial class GoldensTests
     private static StepProgressEvent StepOf(string testId, StepProgress progress) => Step(testId, progress);
 
     private static StepProgressEvent EventOf(string testId, StepEvent stepEvent) =>
-        StepOf(testId, new StepProgress { Phase = StepProgressPhase.Event, Api = "agent.act", Event = stepEvent });
+        StepOf(
+            testId,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Event,
+                Api = "agent.act",
+                Event = stepEvent,
+            }
+        );
 
     private static StepProgressEvent ActivityOf(string testId, StepActivity activity) =>
-        StepOf(testId, new StepProgress { Phase = StepProgressPhase.Activity, Api = "agent.act", Activity = activity });
+        StepOf(
+            testId,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Activity,
+                Api = "agent.act",
+                Activity = activity,
+            }
+        );
 
     private static StepProgressEvent ReplayOf(string testId, bool active) =>
-        StepOf(testId, new StepProgress { Phase = StepProgressPhase.Replay, Api = "agent.act", Active = active });
+        StepOf(
+            testId,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Replay,
+                Api = "agent.act",
+                Active = active,
+            }
+        );
 
-    private static SetupEvent Service(string label, SetupState state, long durationMs = 0) => new(new ServiceSetupStep(label), state, durationMs);
+    private static SetupEvent Service(string label, SetupState state, long durationMs = 0) =>
+        new(new ServiceSetupStep(label), state, durationMs);
 
     [Fact]
     public void Prints_a_passing_run_header_with_agents_model_and_CI_a_ready_service_file_blocks_usage_cache_and_the_summary()
@@ -43,7 +68,14 @@ public sealed partial class GoldensTests
         var time = new FakeTime(FrozenNow);
         var output = new Capture();
         var reporter = PlainReporter(output, time);
-        reporter.Handle(RunStarted(targets: ["chromium", "firefox"], ci: true, model: "openai/gpt-5.6-luna-fast", agents: ["buyer", "admin"]));
+        reporter.Handle(
+            RunStarted(
+                targets: ["chromium", "firefox"],
+                ci: true,
+                model: "openai/gpt-5.6-luna-fast",
+                agents: ["buyer", "admin"]
+            )
+        );
         reporter.Handle(Service("service \"compose\"", SetupState.Started));
         reporter.Handle(Service("service \"compose\"", SetupState.Finished, 43_000));
         reporter.Handle(Plan(("tests/checkout.e2e.ts", 2), ("tests/home.e2e.ts", 1)));
@@ -53,12 +85,51 @@ public sealed partial class GoldensTests
         time.Advance(TimeSpan.FromMilliseconds(119_500));
         var paid = AgentStepRecord(
             "pay for the cart",
-            new CacheInfo { Mode = "missed", Reason = "no-entry", ReplayedActions = 0, TotalActions = 0 },
-            model: new StepModelInfo { Provider = "openai", Model = "gpt-5.6-luna-fast", Calls = 3, InputTokens = 12_000, OutputTokens = 400, EstimatedCostUsd = 0.0123 });
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "pays", file: "tests/checkout.e2e.ts", title: ["checkout", "pays"], attempts: [Attempt([paid], durationMs: 4_300)])));
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "refunds", file: "tests/checkout.e2e.ts", title: ["checkout", "refunds"], declarationIndex: 1)));
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "home", file: "tests/home.e2e.ts", title: ["renders"])));
-        reporter.Handle(RunFinished(reportPath: "/project/.e2e/report.json", aiTracePath: "/project/.e2e/ai-trace.json"));
+            new CacheInfo
+            {
+                Mode = "missed",
+                Reason = "no-entry",
+                ReplayedActions = 0,
+                TotalActions = 0,
+            },
+            model: new StepModelInfo
+            {
+                Provider = "openai",
+                Model = "gpt-5.6-luna-fast",
+                Calls = 3,
+                InputTokens = 12_000,
+                OutputTokens = 400,
+                EstimatedCostUsd = 0.0123,
+            }
+        );
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Passed,
+                    id: "pays",
+                    file: "tests/checkout.e2e.ts",
+                    title: ["checkout", "pays"],
+                    attempts: [Attempt([paid], durationMs: 4_300)]
+                )
+            )
+        );
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Passed,
+                    id: "refunds",
+                    file: "tests/checkout.e2e.ts",
+                    title: ["checkout", "refunds"],
+                    declarationIndex: 1
+                )
+            )
+        );
+        reporter.Handle(
+            Finished(Result(ResultStatus.Passed, id: "home", file: "tests/home.e2e.ts", title: ["renders"]))
+        );
+        reporter.Handle(
+            RunFinished(reportPath: "/project/.e2e/report.json", aiTracePath: "/project/.e2e/ai-trace.json")
+        );
         ExpectGolden("list-pass.txt", Stable(string.Join('\n', output.Lines)));
     }
 
@@ -71,30 +142,135 @@ public sealed partial class GoldensTests
         {
             var source = Path.Combine(root, "tests", "login.e2e.ts");
             Directory.CreateDirectory(Path.GetDirectoryName(source)!);
-            File.WriteAllText(source, string.Join('\n', "import { test } from '@e2e-dev/web';", "", "await app.open();", "await expect(status).toContainText(\"Welcome\");", "await done();", "", "export {};"));
+            File.WriteAllText(
+                source,
+                string.Join(
+                    '\n',
+                    "import { test } from '@e2e-dev/web';",
+                    "",
+                    "await app.open();",
+                    "await expect(status).toContainText(\"Welcome\");",
+                    "await done();",
+                    "",
+                    "export {};"
+                )
+            );
             var output = new Capture();
             var reporter = PlainReporter(output, new FakeTime(FrozenNow));
             reporter.Handle(RunStarted(projectRoot: root));
             reporter.Handle(Plan(("tests/login.e2e.ts", 5), ("tests/later.e2e.ts", 1), ("tests/retry.e2e.ts", 1)));
-            var failed = FailedAttempt("expect.toContainText failed\nexpected \"Welcome\", got \"Sign in\"", new SourceLocation("tests/login.e2e.ts", 4, 22)) with
+            var failed = FailedAttempt(
+                "expect.toContainText failed\nexpected \"Welcome\", got \"Sign in\"",
+                new SourceLocation("tests/login.e2e.ts", 4, 22)
+            ) with
             {
-                Failure = new FailureEvidence { Url = "https://app.test/login", Candidates = ["heading \"Sign in\""], Screen = "attempt-1:artifact:2" },
+                Failure = new FailureEvidence
+                {
+                    Url = "https://app.test/login",
+                    Candidates = ["heading \"Sign in\""],
+                    Screen = "attempt-1:artifact:2",
+                },
                 Artifacts =
                 [
                     new ReportArtifact("attempt-1:artifact:0", "video", "chromium/login/attempt-0/video/video.webm"),
-                    new ReportArtifact("attempt-1:artifact:1", "download", "chromium/login/attempt-0/downloads/export.csv"),
+                    new ReportArtifact(
+                        "attempt-1:artifact:1",
+                        "download",
+                        "chromium/login/attempt-0/downloads/export.csv"
+                    ),
                     new ReportArtifact("attempt-1:artifact:2", "log", "chromium/login/attempt-0/screen.txt"),
                 ],
             };
-            reporter.Handle(Finished(Result(ResultStatus.Passed, id: "opens", file: "tests/login.e2e.ts", title: ["login", "opens"])));
-            reporter.Handle(Finished(Result(ResultStatus.Failed, id: "welcomes", file: "tests/login.e2e.ts", title: ["login", "welcomes"], declarationIndex: 1, attempts: [failed])));
-            reporter.Handle(Finished(Result(ResultStatus.TimedOut, id: "slow", file: "tests/login.e2e.ts", title: ["login", "slow"], declarationIndex: 2, attempts: [Attempt(status: AttemptStatus.TimedOut, durationMs: 30_000)])));
-            reporter.Handle(Finished(Result(ResultStatus.Interrupted, id: "cut", file: "tests/login.e2e.ts", title: ["login", "cut"], declarationIndex: 3, attempts: [Attempt(status: AttemptStatus.Interrupted)])));
-            reporter.Handle(Finished(Result(ResultStatus.Skipped, id: "sso", file: "tests/login.e2e.ts", title: ["login", "signs in with SSO"], declarationIndex: 4, skipReason: "no SSO in test")));
-            reporter.Handle(Finished(Result(ResultStatus.Skipped, id: "later", file: "tests/later.e2e.ts", title: ["later"], skipReason: "wip feature", attempts: [])));
-            var judged = AgentStepRecord("check the cart", model: new StepModelInfo { Provider = "typesafe-ai", Model = "jev", Calls = 2, InputTokens = 900, OutputTokens = 100 });
-            reporter.Handle(Finished(Result(ResultStatus.Flaky, id: "retry", file: "tests/retry.e2e.ts", title: ["retries"], attempts: [FailedAttempt("first try"), Attempt([judged], id: "attempt-2", durationMs: 50)])));
-            reporter.Handle(RunFinished(ReportRunStatus.Failed, 1, reportPath: Path.Combine(root, ".e2e", "report.json")));
+            reporter.Handle(
+                Finished(
+                    Result(ResultStatus.Passed, id: "opens", file: "tests/login.e2e.ts", title: ["login", "opens"])
+                )
+            );
+            reporter.Handle(
+                Finished(
+                    Result(
+                        ResultStatus.Failed,
+                        id: "welcomes",
+                        file: "tests/login.e2e.ts",
+                        title: ["login", "welcomes"],
+                        declarationIndex: 1,
+                        attempts: [failed]
+                    )
+                )
+            );
+            reporter.Handle(
+                Finished(
+                    Result(
+                        ResultStatus.TimedOut,
+                        id: "slow",
+                        file: "tests/login.e2e.ts",
+                        title: ["login", "slow"],
+                        declarationIndex: 2,
+                        attempts: [Attempt(status: AttemptStatus.TimedOut, durationMs: 30_000)]
+                    )
+                )
+            );
+            reporter.Handle(
+                Finished(
+                    Result(
+                        ResultStatus.Interrupted,
+                        id: "cut",
+                        file: "tests/login.e2e.ts",
+                        title: ["login", "cut"],
+                        declarationIndex: 3,
+                        attempts: [Attempt(status: AttemptStatus.Interrupted)]
+                    )
+                )
+            );
+            reporter.Handle(
+                Finished(
+                    Result(
+                        ResultStatus.Skipped,
+                        id: "sso",
+                        file: "tests/login.e2e.ts",
+                        title: ["login", "signs in with SSO"],
+                        declarationIndex: 4,
+                        skipReason: "no SSO in test"
+                    )
+                )
+            );
+            reporter.Handle(
+                Finished(
+                    Result(
+                        ResultStatus.Skipped,
+                        id: "later",
+                        file: "tests/later.e2e.ts",
+                        title: ["later"],
+                        skipReason: "wip feature",
+                        attempts: []
+                    )
+                )
+            );
+            var judged = AgentStepRecord(
+                "check the cart",
+                model: new StepModelInfo
+                {
+                    Provider = "typesafe-ai",
+                    Model = "jev",
+                    Calls = 2,
+                    InputTokens = 900,
+                    OutputTokens = 100,
+                }
+            );
+            reporter.Handle(
+                Finished(
+                    Result(
+                        ResultStatus.Flaky,
+                        id: "retry",
+                        file: "tests/retry.e2e.ts",
+                        title: ["retries"],
+                        attempts: [FailedAttempt("first try"), Attempt([judged], id: "attempt-2", durationMs: 50)]
+                    )
+                )
+            );
+            reporter.Handle(
+                RunFinished(ReportRunStatus.Failed, 1, reportPath: Path.Combine(root, ".e2e", "report.json"))
+            );
             reporter.Rows([("JUnit", ".e2e/junit.xml")]);
             ExpectGolden("list-fail.txt", Stable(string.Join('\n', output.Lines), root));
         }
@@ -110,7 +286,18 @@ public sealed partial class GoldensTests
         using var terminal = GoldenTerminal();
         var output = new Capture();
         var reporter = PlainReporter(output, new FakeTime(FrozenNow));
-        reporter.Handle(new RunErrorEvent(new Reports.ReportError { Category = ErrorCategory.Configuration, Code = "INVALID_CONFIG", Message = "unknown config key \"nope\"", Retryable = false, Phase = ErrorPhase.Config }));
+        reporter.Handle(
+            new RunErrorEvent(
+                new Reports.ReportError
+                {
+                    Category = ErrorCategory.Configuration,
+                    Code = "INVALID_CONFIG",
+                    Message = "unknown config key \"nope\"",
+                    Retryable = false,
+                    Phase = ErrorPhase.Config,
+                }
+            )
+        );
         reporter.Handle(RunFinished(ReportRunStatus.Error, 2));
         ExpectGolden("list-error.txt", Stable(string.Join('\n', output.Lines)));
     }
@@ -141,14 +328,18 @@ public sealed partial class GoldensTests
         var reporter = PlainReporter(output, time, live: true);
         void Snap(string moment)
         {
-            var frame = Regex.Replace(Regex.Replace(frames[^1], "\n+$", string.Empty), "\n{3,}", run => $"\n⋮ {run.Length - 1} blank rows\n");
+            var frame = Regex.Replace(Regex.Replace(frames[^1], "\n+$", string.Empty), "\n{3,}", run =>
+                $"\n⋮ {run.Length - 1} blank rows\n"
+            );
             transcript.Add($"┄┄┄ frame: {moment} ┄┄┄");
             transcript.AddRange(frame.Split('\n'));
             transcript.Add("┄┄┄");
         }
 
         reporter.Handle(RunStarted());
-        reporter.Handle(new NoticeEvent("chromium", "Downloading missing Playwright browsers (first run): chromium..."));
+        reporter.Handle(
+            new NoticeEvent("chromium", "Downloading missing Playwright browsers (first run): chromium...")
+        );
         Snap("before the plan, no clock");
         reporter.Handle(Service("service \"compose\"", SetupState.Started));
         time.Advance(TimeSpan.FromMilliseconds(900));
@@ -160,15 +351,62 @@ public sealed partial class GoldensTests
         reporter.Handle(TestStarted("refunds", "refunds", "chromium", "tests/checkout.e2e.ts"));
         reporter.Handle(StepOf("pays", AgentStep(StepProgressPhase.Start, "add to cart")));
         reporter.Handle(StepOf("pays", AgentStep(StepProgressPhase.End, "add to cart")));
-        reporter.Handle(StepOf("pays", new StepProgress { Phase = StepProgressPhase.Start, Kind = StepKind.Agent, Api = "agent.act", Label = "pay" }));
+        reporter.Handle(
+            StepOf(
+                "pays",
+                new StepProgress
+                {
+                    Phase = StepProgressPhase.Start,
+                    Kind = StepKind.Agent,
+                    Api = "agent.act",
+                    Label = "pay",
+                }
+            )
+        );
         reporter.Handle(ActivityOf("pays", StepActivity.Action));
         time.Advance(TimeSpan.FromMilliseconds(1_000));
         Snap("a finished step, then the current one acting");
-        reporter.Handle(EventOf("pays", new StepEvent { Kind = StepEventKind.Engine, Name = "tool:tap", Detail = "tap button \"Pay\"", StartedAt = FrozenNow, DurationMs = 27, Status = StepEventStatus.Passed }));
+        reporter.Handle(
+            EventOf(
+                "pays",
+                new StepEvent
+                {
+                    Kind = StepEventKind.Engine,
+                    Name = "tool:tap",
+                    Detail = "tap button \"Pay\"",
+                    StartedAt = FrozenNow,
+                    DurationMs = 27,
+                    Status = StepEventStatus.Passed,
+                }
+            )
+        );
         reporter.Handle(ActivityOf("pays", StepActivity.Observe));
         Snap("observing after an action");
-        reporter.Handle(EventOf("pays", new StepEvent { Kind = StepEventKind.Observation, StartedAt = FrozenNow, DurationMs = 16_000, Status = StepEventStatus.Passed }));
-        reporter.Handle(EventOf("pays", new StepEvent { Kind = StepEventKind.Model, StartedAt = FrozenNow, DurationMs = 1_200, Status = StepEventStatus.Passed, Count = 1_100 }));
+        reporter.Handle(
+            EventOf(
+                "pays",
+                new StepEvent
+                {
+                    Kind = StepEventKind.Observation,
+                    StartedAt = FrozenNow,
+                    DurationMs = 16_000,
+                    Status = StepEventStatus.Passed,
+                }
+            )
+        );
+        reporter.Handle(
+            EventOf(
+                "pays",
+                new StepEvent
+                {
+                    Kind = StepEventKind.Model,
+                    StartedAt = FrozenNow,
+                    DurationMs = 1_200,
+                    Status = StepEventStatus.Passed,
+                    Count = 1_100,
+                }
+            )
+        );
         Snap("the screen read done, a model turn by token count, and the model thinking again");
 
         // The reasoning is only on the public event: the port's own step event keeps none.
@@ -182,20 +420,95 @@ public sealed partial class GoldensTests
             OutputTokens = 127,
             Reasoning = "The modal blocks checkout.\nClosing it first.",
         };
-        reporter.Handle(new StepProgressEvent("pays", "default", 0, "chromium", new Reports.StepProgress { Phase = Reports.StepProgressPhase.Event, Api = "agent.act", Event = thinking }));
+        reporter.Handle(
+            new StepProgressEvent(
+                "pays",
+                "default",
+                0,
+                "chromium",
+                new Reports.StepProgress
+                {
+                    Phase = Reports.StepProgressPhase.Event,
+                    Api = "agent.act",
+                    Event = thinking,
+                }
+            )
+        );
         Snap("a model turn with its reasoning, then thinking again");
         reporter.Handle(ReplayOf("pays", true));
-        reporter.Handle(EventOf("pays", new StepEvent { Kind = StepEventKind.Engine, Name = "tap", Detail = "tap button \"Confirm\"", StartedAt = FrozenNow, DurationMs = 31, Status = StepEventStatus.Passed }));
+        reporter.Handle(
+            EventOf(
+                "pays",
+                new StepEvent
+                {
+                    Kind = StepEventKind.Engine,
+                    Name = "tap",
+                    Detail = "tap button \"Confirm\"",
+                    StartedAt = FrozenNow,
+                    DurationMs = 31,
+                    Status = StepEventStatus.Passed,
+                }
+            )
+        );
         Snap("the trace cache replaying");
         reporter.Handle(ReplayOf("pays", false));
         Snap("the cache handing off to the model");
-        reporter.Handle(StepOf("pays", new StepProgress { Phase = StepProgressPhase.End, Kind = StepKind.Agent, Api = "agent.act", Label = "pay", Status = StepStatus.Passed, DurationMs = 30_000, ModelCalls = 2 }));
-        reporter.Handle(StepOf("refunds", new StepProgress { Phase = StepProgressPhase.Start, Kind = StepKind.Locator, Api = "locator.tap", Label = "Refund" }));
+        reporter.Handle(
+            StepOf(
+                "pays",
+                new StepProgress
+                {
+                    Phase = StepProgressPhase.End,
+                    Kind = StepKind.Agent,
+                    Api = "agent.act",
+                    Label = "pay",
+                    Status = StepStatus.Passed,
+                    DurationMs = 30_000,
+                    ModelCalls = 2,
+                }
+            )
+        );
+        reporter.Handle(
+            StepOf(
+                "refunds",
+                new StepProgress
+                {
+                    Phase = StepProgressPhase.Start,
+                    Kind = StepKind.Locator,
+                    Api = "locator.tap",
+                    Label = "Refund",
+                }
+            )
+        );
         Snap("a deterministic step, with no wait row");
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "pays", file: "tests/checkout.e2e.ts", title: ["pays"])));
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "refunds", file: "tests/checkout.e2e.ts", title: ["refunds"], declarationIndex: 1)));
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "home", file: "tests/home.e2e.ts", title: ["renders"])));
-        reporter.Handle(Finished(Result(ResultStatus.Failed, id: "admin", file: "tests/admin.e2e.ts", title: ["bans"], attempts: [FailedAttempt("ban button missing")])));
+        reporter.Handle(
+            Finished(Result(ResultStatus.Passed, id: "pays", file: "tests/checkout.e2e.ts", title: ["pays"]))
+        );
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Passed,
+                    id: "refunds",
+                    file: "tests/checkout.e2e.ts",
+                    title: ["refunds"],
+                    declarationIndex: 1
+                )
+            )
+        );
+        reporter.Handle(
+            Finished(Result(ResultStatus.Passed, id: "home", file: "tests/home.e2e.ts", title: ["renders"]))
+        );
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Failed,
+                    id: "admin",
+                    file: "tests/admin.e2e.ts",
+                    title: ["bans"],
+                    attempts: [FailedAttempt("ban button missing")]
+                )
+            )
+        );
         Snap("counters after the results");
         reporter.Handle(RunFinished(ReportRunStatus.Failed, 1, reportPath: "/project/.e2e/report.json"));
         ExpectGolden("list-live-frames.txt", Stable(string.Join('\n', transcript)));

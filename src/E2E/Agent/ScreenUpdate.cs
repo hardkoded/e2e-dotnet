@@ -87,7 +87,14 @@ internal sealed partial class ScreenPresenter
     private bool _pixelsDenied;
 
     /// <summary>The screen as the agent last received it, indexed for comparison.</summary>
-    private sealed record ShownScreen(string Revision, List<string> Order, Dictionary<string, string> ById, bool Truncated, bool Keyboard, ExecutorTabs? Tabs);
+    private sealed record ShownScreen(
+        string Revision,
+        List<string> Order,
+        Dictionary<string, string> ById,
+        bool Truncated,
+        bool Keyboard,
+        ExecutorTabs? Tabs
+    );
 
     /// <summary>
     /// What an exploring assertion's looks show (<see cref="AssertOptions.Vision"/>): <see cref="VisionMode.On"/> asks every look for pixels beside the tree,
@@ -111,10 +118,19 @@ internal sealed partial class ScreenPresenter
 
         if (observation.Pixels is null)
         {
-            throw new AgentException("POLICY_DENIED", "agent.assert vision: 'only' requires available pixel evidence", blocked: true);
+            throw new AgentException(
+                "POLICY_DENIED",
+                "agent.assert vision: 'only' requires available pixel evidence",
+                blocked: true
+            );
         }
 
-        return observation with { Text = "Judge from the screenshots only.", Tree = null, TreeUnavailable = true };
+        return observation with
+        {
+            Text = "Judge from the screenshots only.",
+            Tree = null,
+            TreeUnavailable = true,
+        };
     }
 
     /// <summary>True once a screenshot went to the model in this step.</summary>
@@ -132,7 +148,8 @@ internal sealed partial class ScreenPresenter
     }
 
     /// <summary>A later screen, as the difference from the one the agent holds: nothing, the changed lines, or the whole screen when most of it changed.</summary>
-    public string Update(ExecutorObservation observation, ScreenUpdateOptions? options = null) => Render(observation, options ?? new ScreenUpdateOptions(), PixelEvidence.None);
+    public string Update(ExecutorObservation observation, ScreenUpdateOptions? options = null) =>
+        Render(observation, options ?? new ScreenUpdateOptions(), PixelEvidence.None);
 
     // The update, told what the screenshot going out with it says against the one the model held.
     private string Render(ExecutorObservation observation, ScreenUpdateOptions options, PixelEvidence pixels)
@@ -179,14 +196,30 @@ internal sealed partial class ScreenPresenter
 
         if (changes >= MaxDiffLines || changes > MaxDiffShare * next.Order.Count)
         {
-            return lead + "The screen changed substantially since revision " + previous.Revision + ". " + RenderFull(observation, next) + closed;
+            return lead
+                + "The screen changed substantially since revision "
+                + previous.Revision
+                + ". "
+                + RenderFull(observation, next)
+                + closed;
         }
 
         var assurance = observation.Truncated
             ? "The screen listing is truncated: nodes past the cut are not listed and none is reported removed; every listed node keeps the id you have."
             : "Every node not listed as removed is still on screen under the id you have.";
-        var head = lead + "Screen changes since revision " + previous.Revision + " (now revision " + observation.Revision + DescribeLocation(observation) + ", "
-            + next.ById.Count.ToString(CultureInfo.InvariantCulture) + " nodes): " + DescribeCounts(diff) + ". " + assurance;
+        var head =
+            lead
+            + "Screen changes since revision "
+            + previous.Revision
+            + " (now revision "
+            + observation.Revision
+            + DescribeLocation(observation)
+            + ", "
+            + next.ById.Count.ToString(CultureInfo.InvariantCulture)
+            + " nodes): "
+            + DescribeCounts(diff)
+            + ". "
+            + assurance;
         return string.Join('\n', [head, .. diff]) + closed;
     }
 
@@ -215,7 +248,17 @@ internal sealed partial class ScreenPresenter
         options ??= new ScreenUpdateOptions();
         var compared = Attach(observation);
         var pixels = compared == PixelEvidence.None && _pixelsDenied ? PixelEvidence.Unavailable : compared;
-        var text = Render(observation, options with { ExpectChange = ShowingPixels && AgentObservation.InteractiveNodeCount(observation.Text) == 0 ? false : options.ExpectChange }, pixels);
+        var text = Render(
+            observation,
+            options with
+            {
+                ExpectChange =
+                    ShowingPixels && AgentObservation.InteractiveNodeCount(observation.Text) == 0
+                        ? false
+                        : options.ExpectChange,
+            },
+            pixels
+        );
         return WithScreenshot(observation, text);
     }
 
@@ -231,7 +274,9 @@ internal sealed partial class ScreenPresenter
         var previous = _screenshotDigest;
         _screenshot = new ShownScreenshot(pixels, viewport);
         _screenshotDigest = digest;
-        return previous is null ? PixelEvidence.None : previous == digest ? PixelEvidence.Unchanged : PixelEvidence.Changed;
+        return previous is null ? PixelEvidence.None
+            : previous == digest ? PixelEvidence.Unchanged
+            : PixelEvidence.Changed;
     }
 
     // Masking can be proven again on the next screen; an engine without capture never captures.
@@ -254,27 +299,38 @@ internal sealed partial class ScreenPresenter
             return new ScreenOutput(text + "\n\n" + ScreenshotNote(pixels), pixels);
         }
 
-        return observation.PixelsWithheld is { } withheld ? new ScreenOutput(text + "\n\nNo screenshot: " + WithheldAdvice(withheld)) : new ScreenOutput(text);
+        return observation.PixelsWithheld is { } withheld
+            ? new ScreenOutput(text + "\n\nNo screenshot: " + WithheldAdvice(withheld))
+            : new ScreenOutput(text);
     }
 
     /// <summary>The line under a screenshot: its pixel size, its scale to the viewport's CSS pixels, and the coordinate space the point tools read (upstream's <c>screenshotNote</c>).</summary>
     internal static string ScreenshotNote(ExecutorPixels pixels) =>
-        "Screenshot attached: " + pixels.Width.ToString(CultureInfo.InvariantCulture) + " by " + pixels.Height.ToString(CultureInfo.InvariantCulture) + " pixels"
+        "Screenshot attached: "
+        + pixels.Width.ToString(CultureInfo.InvariantCulture)
+        + " by "
+        + pixels.Height.ToString(CultureInfo.InvariantCulture)
+        + " pixels"
         + (pixels.Scale == 1 ? "" : " (" + pixels.Scale.ToString("R", CultureInfo.InvariantCulture) + " per CSS pixel)")
         + ". Point coordinates (tap_at and the other _at verbs) are pixels of this image: x from the left edge, y from the top edge.";
 
     /// <summary>Why pixels did not reach the model, and what to do instead (upstream's <c>withheldAdvice</c>).</summary>
-    internal static string WithheldAdvice(VisionDegradation code) => code switch
-    {
-        VisionDegradation.MaskingUnproven => "the engine could not prove every secure field on screen masked (MASKING_UNPROVEN). Work from the tree and tap listed nodes by id.",
-        _ => "this engine captures no pixels (UNSUPPORTED_CAPABILITY). Work from the tree and tap listed nodes by id.",
-    };
+    internal static string WithheldAdvice(VisionDegradation code) =>
+        code switch
+        {
+            VisionDegradation.MaskingUnproven =>
+                "the engine could not prove every secure field on screen masked (MASKING_UNPROVEN). Work from the tree and tap listed nodes by id.",
+            _ =>
+                "this engine captures no pixels (UNSUPPORTED_CAPABILITY). Work from the tree and tap listed nodes by id.",
+        };
 
     // `2 added, 1 changed, 5 removed`, omitting the kinds that did not happen.
     private static string DescribeCounts(List<string> diff)
     {
         var counts = new[] { "added", "changed", "removed" }
-            .Select(kind => (Count: diff.Count(line => line.StartsWith(kind + " ", StringComparison.Ordinal)), Kind: kind))
+            .Select(kind =>
+                (Count: diff.Count(line => line.StartsWith(kind + " ", StringComparison.Ordinal)), Kind: kind)
+            )
             .Where(entry => entry.Count > 0)
             .Select(entry => entry.Count.ToString(CultureInfo.InvariantCulture) + " " + entry.Kind);
         var joined = string.Join(", ", counts);
@@ -286,11 +342,20 @@ internal sealed partial class ScreenPresenter
     {
         if (observation.TreeUnavailable)
         {
-            return "Current screen (revision " + observation.Revision + DescribeLocation(observation) + ", semantic capture unavailable):\n" + observation.Text;
+            return "Current screen (revision "
+                + observation.Revision
+                + DescribeLocation(observation)
+                + ", semantic capture unavailable):\n"
+                + observation.Text;
         }
 
-        return "Current screen (revision " + observation.Revision + DescribeLocation(observation) + ", " + shown!.ById.Count.ToString(CultureInfo.InvariantCulture)
-            + " nodes):\n" + observation.Text;
+        return "Current screen (revision "
+            + observation.Revision
+            + DescribeLocation(observation)
+            + ", "
+            + shown!.ById.Count.ToString(CultureInfo.InvariantCulture)
+            + " nodes):\n"
+            + observation.Text;
     }
 
     /// <summary>
@@ -299,12 +364,21 @@ internal sealed partial class ScreenPresenter
     /// it just did. For the same reason the control is blamed only when an identical screenshot backs the tree: the tree alone cannot tell a
     /// drawn effect (a filled dot, a color) from none.
     /// </summary>
-    internal static string RenderUnchanged(string since, ExecutorObservation observation, bool expectedChange, PixelEvidence pixels)
+    internal static string RenderUnchanged(
+        string since,
+        ExecutorObservation observation,
+        bool expectedChange,
+        PixelEvidence pixels
+    )
     {
         var looked = "re-observed as revision " + observation.Revision + DescribeLocation(observation);
         if (pixels == PixelEvidence.Changed)
         {
-            return "Since revision " + since + " (" + looked + "): listed nodes unchanged; the screenshot changed. Read the effect off the image (a focus ring alone is no effect); the ids you have stay valid.";
+            return "Since revision "
+                + since
+                + " ("
+                + looked
+                + "): listed nodes unchanged; the screenshot changed. Read the effect off the image (a focus ring alone is no effect); the ids you have stay valid.";
         }
 
         if (!expectedChange)
@@ -314,9 +388,15 @@ internal sealed partial class ScreenPresenter
 
         return pixels switch
         {
-            PixelEvidence.Unchanged => "The screen did not change within the wait after this action (" + looked + "); the ids you have stay valid. If a change was expected, the control had no visible effect here: look for another way rather than repeating it.",
-            PixelEvidence.Unavailable => "No listed node changed within the wait after this action (" + looked + "); the ids you have stay valid. No screenshot can be taken in this step, so the listing is the only evidence: if a change was expected, look for another way rather than repeating it.",
-            _ => "No listed node changed within the wait after this action (" + looked + "); the ids you have stay valid. The listing shows only what the tree describes: a drawn change needs a screenshot to see.",
+            PixelEvidence.Unchanged => "The screen did not change within the wait after this action ("
+                + looked
+                + "); the ids you have stay valid. If a change was expected, the control had no visible effect here: look for another way rather than repeating it.",
+            PixelEvidence.Unavailable => "No listed node changed within the wait after this action ("
+                + looked
+                + "); the ids you have stay valid. No screenshot can be taken in this step, so the listing is the only evidence: if a change was expected, look for another way rather than repeating it.",
+            _ => "No listed node changed within the wait after this action ("
+                + looked
+                + "); the ids you have stay valid. The listing shows only what the tree describes: a drawn change needs a screenshot to see.",
         };
     }
 
@@ -327,7 +407,12 @@ internal sealed partial class ScreenPresenter
     private static string DescribeLocation(ExecutorObservation observation)
     {
         var path = observation.Path is null ? "" : ", path " + observation.Path;
-        var tabs = observation.Tabs is null ? "" : ", tab " + observation.Tabs.Active.ToString(CultureInfo.InvariantCulture) + " of " + observation.Tabs.Count.ToString(CultureInfo.InvariantCulture);
+        var tabs = observation.Tabs is null
+            ? ""
+            : ", tab "
+                + observation.Tabs.Active.ToString(CultureInfo.InvariantCulture)
+                + " of "
+                + observation.Tabs.Count.ToString(CultureInfo.InvariantCulture);
         return path + tabs;
     }
 
@@ -352,30 +437,60 @@ internal sealed partial class ScreenPresenter
         {
             var added = after.Count - before.Count;
             var total = after.Count.ToString(CultureInfo.InvariantCulture);
-            var opened = added == 1
-                ? "a new tab (tab " + total + " of " + total + ")"
-                : added.ToString(CultureInfo.InvariantCulture) + " new tabs (tabs " + (before.Count + 1).ToString(CultureInfo.InvariantCulture) + " to " + total + " of " + total + ")";
-            return new TabChange("The app opened " + opened + ". The screen still shows tab " + after.Active.ToString(CultureInfo.InvariantCulture) + "; use switch_tab to see " + (added == 1 ? "it" : "one") + ".", false);
+            var opened =
+                added == 1
+                    ? "a new tab (tab " + total + " of " + total + ")"
+                    : added.ToString(CultureInfo.InvariantCulture)
+                        + " new tabs (tabs "
+                        + (before.Count + 1).ToString(CultureInfo.InvariantCulture)
+                        + " to "
+                        + total
+                        + " of "
+                        + total
+                        + ")";
+            return new TabChange(
+                "The app opened "
+                    + opened
+                    + ". The screen still shows tab "
+                    + after.Active.ToString(CultureInfo.InvariantCulture)
+                    + "; use switch_tab to see "
+                    + (added == 1 ? "it" : "one")
+                    + ".",
+                false
+            );
         }
 
         if (next is null)
         {
-            return new TabChange("The other tab" + (before.Count > 2 ? "s" : "") + " closed; the screen shows the one tab still open.", true);
+            return new TabChange(
+                "The other tab" + (before.Count > 2 ? "s" : "") + " closed; the screen shows the one tab still open.",
+                true
+            );
         }
 
-        return new TabChange("The screen shows tab " + after.Active.ToString(CultureInfo.InvariantCulture) + " of " + after.Count.ToString(CultureInfo.InvariantCulture) + " now.", true);
+        return new TabChange(
+            "The screen shows tab "
+                + after.Active.ToString(CultureInfo.InvariantCulture)
+                + " of "
+                + after.Count.ToString(CultureInfo.InvariantCulture)
+                + " now.",
+            true
+        );
     }
 
     // Node id at the head of one rendered line, or null for a marker line.
-    private static string? LineId(string line) => LeadingId().Match(line) is { Success: true } match ? match.Groups[1].Value : null;
+    private static string? LineId(string line) =>
+        LeadingId().Match(line) is { Success: true } match ? match.Groups[1].Value : null;
 
     // The line without its focus state. Focus moves with every action and on its own, so a diff that reported it would drown the
     // changes that matter and make a control that did nothing look like it did something. The full screen keeps focus.
-    private static string WithoutFocus(string line) => TrailingStates().Replace(line, match =>
-    {
-        var kept = match.Groups[1].Value.Split(' ').Where(state => state != "focused").ToList();
-        return kept.Count == 0 ? "" : " [" + string.Join(' ', kept) + "]";
-    });
+    private static string WithoutFocus(string line) =>
+        TrailingStates()
+            .Replace(line, match =>
+            {
+                var kept = match.Groups[1].Value.Split(' ').Where(state => state != "focused").ToList();
+                return kept.Count == 0 ? "" : " [" + string.Join(' ', kept) + "]";
+            });
 
     private static ShownScreen Index(ExecutorObservation observation)
     {
@@ -395,7 +510,14 @@ internal sealed partial class ScreenPresenter
             byId[id] = line;
         }
 
-        return new ShownScreen(observation.Revision ?? "", order, byId, observation.Truncated, order.Any(line => KeyboardLine().IsMatch(line)), observation.Tabs);
+        return new ShownScreen(
+            observation.Revision ?? "",
+            order,
+            byId,
+            observation.Truncated,
+            order.Any(line => KeyboardLine().IsMatch(line)),
+            observation.Tabs
+        );
     }
 
     // The lines that differ between two screens, keyed by node id: additions and changes in the new screen's document order, then

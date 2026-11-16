@@ -31,7 +31,10 @@ public sealed partial class PageSelectOptionTests : PlaywrightTest
         "() => { const option = document.createElement('option'); option.value = 'scarlet'; option.textContent = 'Scarlet'; document.querySelector('select').appendChild(option); }";
 
     private async Task ExpectResultAsync(string name, string expected) =>
-        Assert.That(await Browser.EvaluateAsync<string[]>($"() => window.result.{name}"), Is.EqualTo(new[] { expected }));
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>($"() => window.result.{name}"),
+            Is.EqualTo(new[] { expected })
+        );
 
     [Test]
     public async Task Should_select_single_option_by_value()
@@ -82,10 +85,13 @@ public sealed partial class PageSelectOptionTests : PlaywrightTest
     public async Task Should_not_throw_when_select_causes_navigation()
     {
         await Browser.GotoAsync("/input/select.html");
-        await Browser.EvaluateAsync<object>("() => document.querySelector('select').addEventListener('input', () => window.location.href = '/empty.html')");
+        await Browser.EvaluateAsync<object>(
+            "() => document.querySelector('select').addEventListener('input', () => window.location.href = '/empty.html')"
+        );
         await Task.WhenAll(
             Browser.Locator("select").SelectOptionAsync(new Option { Value = "blue" }),
-            Browser.WaitForURLAsync(EmptyHtml()));
+            Browser.WaitForURLAsync(EmptyHtml())
+        );
         Assert.That(await Browser.UrlAsync(), Does.Contain("empty.html"));
     }
 
@@ -123,7 +129,12 @@ public sealed partial class PageSelectOptionTests : PlaywrightTest
         var didSelect = false;
         var selectPromise = Task.Run(async () =>
         {
-            await Browser.Locator("select").SelectOptionAsync(new Option { Value = "scarlet" }, new ActionOptions { Timeout = TimeSpan.FromSeconds(10) });
+            await Browser
+                .Locator("select")
+                .SelectOptionAsync(
+                    new Option { Value = "scarlet" },
+                    new ActionOptions { Timeout = TimeSpan.FromSeconds(10) }
+                );
             didSelect = true;
         });
         await Browser.EvaluateAsync<object>(GiveItAChanceToResolve);
@@ -141,7 +152,12 @@ public sealed partial class PageSelectOptionTests : PlaywrightTest
         var didSelect = false;
         var selectPromise = Task.Run(async () =>
         {
-            await Browser.Locator("select").SelectOptionAsync(new Option { Index = len }, new ActionOptions { Timeout = TimeSpan.FromSeconds(10) });
+            await Browser
+                .Locator("select")
+                .SelectOptionAsync(
+                    new Option { Index = len },
+                    new ActionOptions { Timeout = TimeSpan.FromSeconds(10) }
+                );
             didSelect = true;
         });
         await Browser.EvaluateAsync<object>(GiveItAChanceToResolve);
@@ -155,56 +171,71 @@ public sealed partial class PageSelectOptionTests : PlaywrightTest
     public async Task Input_event_composed_should_be_true_and_cross_shadow_dom_boundary()
     {
         await Browser.GotoAsync("/empty.html");
-        await Browser.GotoAsync(Content("""
-            <body><script>
-              const div = document.createElement('div');
-              const shadowRoot = div.attachShadow({mode: 'open'});
-              shadowRoot.innerHTML = `<select>
-                <option value="black">Black</option>
-                <option value="blue">Blue</option>
-              </select>`;
-              document.body.appendChild(div);
-            </script></body>
-            """));
-        await Browser.EvaluateAsync<object>("""
+        await Browser.GotoAsync(
+            Content(
+                """
+                <body><script>
+                  const div = document.createElement('div');
+                  const shadowRoot = div.attachShadow({mode: 'open'});
+                  shadowRoot.innerHTML = `<select>
+                    <option value="black">Black</option>
+                    <option value="blue">Blue</option>
+                  </select>`;
+                  document.body.appendChild(div);
+                </script></body>
+                """
+            )
+        );
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               window.firedBodyEvents = [];
               for (const event of ['input', 'change'])
                 document.body.addEventListener(event, (e) => window.firedBodyEvents.push(e.type + ':' + e.composed), false);
             }
-            """);
-        await Browser.EvaluateAsync<object>("""
+            """
+        );
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               window.firedEvents = [];
               const select = document.querySelector('div').shadowRoot.querySelector('select');
               for (const event of ['input', 'change'])
                 select.addEventListener(event, (e) => window.firedEvents.push(e.type + ':' + e.composed), false);
             }
-            """);
+            """
+        );
         await Browser.Locator("select").SelectOptionAsync(new Option { Value = "blue" });
-        Assert.That(await Browser.EvaluateAsync<string[]>("firedEvents"), Is.EqualTo(new[] { "input:true", "change:false" }));
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>("firedEvents"),
+            Is.EqualTo(new[] { "input:true", "change:false" })
+        );
         Assert.That(await Browser.EvaluateAsync<string[]>("firedBodyEvents"), Is.EqualTo(new[] { "input:true" }));
     }
 
     [Test]
     public async Task Should_wait_for_select_to_be_enabled()
     {
-        await Browser.GotoAsync(Content("""
-            <select disabled>
-              <option>one</option>
-              <option>two</option>
-            </select>
+        await Browser.GotoAsync(
+            Content(
+                """
+                <select disabled>
+                  <option>one</option>
+                  <option>two</option>
+                </select>
 
-            <script>
-            function hydrate() {
-              const select = document.querySelector('select');
-              select.removeAttribute('disabled');
-              select.addEventListener('change', () => {
-                window['result'] = select.value;
-              });
-            }
-            </script>
-            """));
+                <script>
+                function hydrate() {
+                  const select = document.querySelector('select');
+                  select.removeAttribute('disabled');
+                  select.addEventListener('change', () => {
+                    window['result'] = select.value;
+                  });
+                }
+                </script>
+                """
+            )
+        );
         var selectPromise = Browser.Locator("select").SelectOptionAsync("two");
         await Task.Delay(1000);
         await Browser.EvaluateAsync<object>("() => window.hydrate()");
@@ -216,24 +247,30 @@ public sealed partial class PageSelectOptionTests : PlaywrightTest
     [Test]
     public async Task Should_wait_for_option_to_be_enabled()
     {
-        await Browser.GotoAsync(Content("""
-            <select>
-              <option>one</option>
-              <option disabled id=myoption>two</option>
-            </select>
+        await Browser.GotoAsync(
+            Content(
+                """
+                <select>
+                  <option>one</option>
+                  <option disabled id=myoption>two</option>
+                </select>
 
-            <script>
-            function hydrate() {
-              const option = document.querySelector('#myoption');
-              option.removeAttribute('disabled');
-              const select = document.querySelector('select');
-              select.addEventListener('change', () => {
-                window['result'] = select.value;
-              });
-            }
-            </script>
-            """));
-        var error = await Assert.CatchAsync(() => Browser.Locator("select").SelectOptionAsync("two", new ActionOptions { Timeout = TimeSpan.FromSeconds(1) }));
+                <script>
+                function hydrate() {
+                  const option = document.querySelector('#myoption');
+                  option.removeAttribute('disabled');
+                  const select = document.querySelector('select');
+                  select.addEventListener('change', () => {
+                    window['result'] = select.value;
+                  });
+                }
+                </script>
+                """
+            )
+        );
+        var error = await Assert.CatchAsync(() =>
+            Browser.Locator("select").SelectOptionAsync("two", new ActionOptions { Timeout = TimeSpan.FromSeconds(1) })
+        );
         Assert.That(error!.Message, Does.Contain("option being selected is not enabled"));
 
         var selectPromise = Browser.Locator("select").SelectOptionAsync("two");
@@ -247,26 +284,32 @@ public sealed partial class PageSelectOptionTests : PlaywrightTest
     [Test]
     public async Task Should_wait_for_optgroup_to_be_enabled()
     {
-        await Browser.GotoAsync(Content("""
-            <select>
-              <option>one</option>
-              <optgroup label="Group" disabled id=mygroup>
-                <option>two</option>
-              </optgroup>
-            </select>
+        await Browser.GotoAsync(
+            Content(
+                """
+                <select>
+                  <option>one</option>
+                  <optgroup label="Group" disabled id=mygroup>
+                    <option>two</option>
+                  </optgroup>
+                </select>
 
-            <script>
-            function hydrate() {
-              const group = document.querySelector('#mygroup');
-              group.removeAttribute('disabled');
-              const select = document.querySelector('select');
-              select.addEventListener('change', () => {
-                window['result'] = select.value;
-              });
-            }
-            </script>
-            """));
-        var error = await Assert.CatchAsync(() => Browser.Locator("select").SelectOptionAsync("two", new ActionOptions { Timeout = TimeSpan.FromSeconds(1) }));
+                <script>
+                function hydrate() {
+                  const group = document.querySelector('#mygroup');
+                  group.removeAttribute('disabled');
+                  const select = document.querySelector('select');
+                  select.addEventListener('change', () => {
+                    window['result'] = select.value;
+                  });
+                }
+                </script>
+                """
+            )
+        );
+        var error = await Assert.CatchAsync(() =>
+            Browser.Locator("select").SelectOptionAsync("two", new ActionOptions { Timeout = TimeSpan.FromSeconds(1) })
+        );
         Assert.That(error!.Message, Does.Contain("option being selected is not enabled"));
 
         var selectPromise = Browser.Locator("select").SelectOptionAsync("two");
@@ -280,33 +323,37 @@ public sealed partial class PageSelectOptionTests : PlaywrightTest
     [Test]
     public async Task Should_wait_for_select_to_be_swapped()
     {
-        await Browser.GotoAsync(Content("""
-            <select disabled>
-              <option>one</option>
-              <option>two</option>
-            </select>
+        await Browser.GotoAsync(
+            Content(
+                """
+                <select disabled>
+                  <option>one</option>
+                  <option>two</option>
+                </select>
 
-            <script>
-            function hydrate() {
-              const select = document.querySelector('select');
-              select.remove();
+                <script>
+                function hydrate() {
+                  const select = document.querySelector('select');
+                  select.remove();
 
-              const newSelect = document.createElement('select');
-              const option1 = document.createElement('option');
-              option1.textContent = 'one';
-              newSelect.appendChild(option1);
-              const option2 = document.createElement('option');
-              option2.textContent = 'two';
-              newSelect.appendChild(option2);
+                  const newSelect = document.createElement('select');
+                  const option1 = document.createElement('option');
+                  option1.textContent = 'one';
+                  newSelect.appendChild(option1);
+                  const option2 = document.createElement('option');
+                  option2.textContent = 'two';
+                  newSelect.appendChild(option2);
 
-              document.body.appendChild(newSelect);
+                  document.body.appendChild(newSelect);
 
-              newSelect.addEventListener('change', () => {
-                window['result'] = newSelect.value;
-              });
-            }
-            </script>
-            """));
+                  newSelect.addEventListener('change', () => {
+                    window['result'] = newSelect.value;
+                  });
+                }
+                </script>
+                """
+            )
+        );
         var selectPromise = Browser.Locator("select").SelectOptionAsync("two");
         await Task.Delay(1000);
         await Browser.EvaluateAsync<object>("() => window.hydrate()");

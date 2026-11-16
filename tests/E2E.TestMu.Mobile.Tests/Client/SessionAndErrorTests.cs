@@ -24,7 +24,9 @@ public sealed class SessionAndErrorTests
     public async Task Boot_on_a_session_the_hub_dropped_is_session_not_found()
     {
         var (client, hub, _) = Appium.Over();
-        hub.Script("GET", "window/rect", _ => FakeAppium.Failure(HttpStatusCode.NotFound, "invalid session id", "session expired"));
+        hub.Script("GET", "window/rect", _ =>
+            FakeAppium.Failure(HttpStatusCode.NotFound, "invalid session id", "session expired")
+        );
 
         var error = await client.FailureAsync(DeviceMethods.DevicesBoot);
 
@@ -70,7 +72,10 @@ public sealed class SessionAndErrorTests
     [InlineData(DeviceMethods.CommandAppState, "{}")]
     [InlineData(DeviceMethods.LeasesAllocate, "{}")]
     [InlineData("nonsense.method", "{}")]
-    public async Task Refuses_what_it_does_not_do_as_an_unsupported_capability_without_touching_the_device(string method, string options)
+    public async Task Refuses_what_it_does_not_do_as_an_unsupported_capability_without_touching_the_device(
+        string method,
+        string options
+    )
     {
         var (client, hub, _) = await Appium.ReadAsync();
 
@@ -113,7 +118,10 @@ public sealed class SessionAndErrorTests
     public async Task Rejected_credentials_say_so()
     {
         var (client, hub, _) = Appium.Over();
-        hub.Script("GET", "window/rect", _ => new HttpResponseMessage(HttpStatusCode.Unauthorized) { Content = new StringContent("Unauthorized") });
+        hub.Script("GET", "window/rect", _ => new HttpResponseMessage(HttpStatusCode.Unauthorized)
+        {
+            Content = new StringContent("Unauthorized"),
+        });
 
         var error = await client.FailureAsync(DeviceMethods.DevicesBoot);
 
@@ -126,7 +134,9 @@ public sealed class SessionAndErrorTests
     public async Task Any_other_failure_is_a_command_failure_that_keeps_the_hubs_words()
     {
         var (client, hub, _) = Appium.Over();
-        hub.Script("POST", "actions", _ => FakeAppium.Failure(HttpStatusCode.InternalServerError, "unknown error", "the device is busy"));
+        hub.Script("POST", "actions", _ =>
+            FakeAppium.Failure(HttpStatusCode.InternalServerError, "unknown error", "the device is busy")
+        );
 
         var error = await client.FailureAsync(DeviceMethods.InteractionsPress, """{"x":1,"y":2}""");
 
@@ -148,7 +158,9 @@ public sealed class SessionAndErrorTests
 
     private sealed class Down : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            throw new HttpRequestException("connection refused");
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        ) => throw new HttpRequestException("connection refused");
     }
 }

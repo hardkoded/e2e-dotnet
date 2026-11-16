@@ -17,7 +17,10 @@ namespace E2E.Acp.Tests.Presets;
 [Collection(WorkingDirectoryCollection.Name)]
 public sealed class AgentPresetsTests : IDisposable
 {
-    private static readonly object[] Pass = [new { call = "complete_step", args = new { status = "passed", summary = "added" } }];
+    private static readonly object[] Pass =
+    [
+        new { call = "complete_step", args = new { status = "passed", summary = "added" } },
+    ];
 
     private readonly List<string> _directories = [];
 
@@ -45,7 +48,11 @@ public sealed class AgentPresetsTests : IDisposable
         var codex = Assert.Throws<ConfigurationException>(() => InProject(directory, () => AcpExecutor.Codex()));
 
         Assert.Equal("INVALID_CONFIG", claude.Code);
-        Assert.Contains("npm install -D @agentclientprotocol/claude-agent-acp", claude.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "npm install -D @agentclientprotocol/claude-agent-acp",
+            claude.Message,
+            StringComparison.Ordinal
+        );
         Assert.Contains("npm install -D @agentclientprotocol/codex-acp", codex.Message, StringComparison.Ordinal);
     }
 
@@ -54,15 +61,22 @@ public sealed class AgentPresetsTests : IDisposable
     {
         var directory = Project("@agentclientprotocol/claude-agent-acp");
         var log = Path.Combine(directory, "agent.jsonl");
-        var executor = InProject(directory, () => AcpExecutor.ClaudeCode(new AcpAgentOptions { Model = "slow", Env = Script(log) }));
+        var executor = InProject(directory, () =>
+            AcpExecutor.ClaudeCode(new AcpAgentOptions { Model = "slow", Env = Script(log) })
+        );
         Assert.Equal("claude-code", executor.Name);
 
         var entries = await RunStepAsync(executor, new ScriptedAgent(executor, log));
 
         var session = Assert.Single(entries, entry => entry.ContainsKey("session"))["session"]!;
-        Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse("""{"claudeCode":{"options":{"tools":[],"settingSources":[],"strictMcpConfig":true,"persistSession":false,"allowDangerouslySkipPermissions":false}}}"""),
-            session["meta"]));
+        Assert.True(
+            JsonNode.DeepEquals(
+                JsonNode.Parse(
+                    """{"claudeCode":{"options":{"tools":[],"settingSources":[],"strictMcpConfig":true,"persistSession":false,"allowDangerouslySkipPermissions":false}}}"""
+                ),
+                session["meta"]
+            )
+        );
         Assert.Contains(entries, entry => entry["config"]?["model"]?.GetValue<string>() == "slow");
     }
 
@@ -73,15 +87,23 @@ public sealed class AgentPresetsTests : IDisposable
         var log = Path.Combine(directory, "agent.jsonl");
 
         // Stands in for the Codex the adapter runs, which lists the user's MCP servers, and none when it gets a secret.
-        var codexBin = OperatingSystem.IsWindows() ? Path.Combine(directory, "codex.cmd") : Path.Combine(directory, "codex");
+        var codexBin = OperatingSystem.IsWindows()
+            ? Path.Combine(directory, "codex.cmd")
+            : Path.Combine(directory, "codex");
         const string servers = """[{"name":"playwright"},{"name":"executor"}]""";
         if (OperatingSystem.IsWindows())
         {
-            File.WriteAllText(codexBin, $"@echo off\r\nif \"%1 %2 %3\"==\"mcp list --json\" if \"%E2E_SECRET_KEY%\"==\"\" echo {servers}\r\n");
+            File.WriteAllText(
+                codexBin,
+                $"@echo off\r\nif \"%1 %2 %3\"==\"mcp list --json\" if \"%E2E_SECRET_KEY%\"==\"\" echo {servers}\r\n"
+            );
         }
         else
         {
-            File.WriteAllText(codexBin, $"#!/bin/sh\n[ \"$1 $2 $3\" = \"mcp list --json\" ] && [ -z \"$E2E_SECRET_KEY\" ] && echo '{servers}'\n");
+            File.WriteAllText(
+                codexBin,
+                $"#!/bin/sh\n[ \"$1 $2 $3\" = \"mcp list --json\" ] && [ -z \"$E2E_SECRET_KEY\" ] && echo '{servers}'\n"
+            );
             File.SetUnixFileMode(codexBin, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
 
@@ -93,7 +115,9 @@ public sealed class AgentPresetsTests : IDisposable
         var entries = await RunStepAsync(executor, new ScriptedAgent(executor, log));
 
         Assert.Contains(entries, entry => entry["mode"]?.GetValue<string>() == "read-only");
-        var config = JsonNode.Parse(Assert.Single(entries, entry => entry.ContainsKey("codexConfig"))["codexConfig"]!.GetValue<string>())!;
+        var config = JsonNode.Parse(
+            Assert.Single(entries, entry => entry.ContainsKey("codexConfig"))["codexConfig"]!.GetValue<string>()
+        )!;
         Assert.Equal("disabled", config["web_search"]!.GetValue<string>());
         foreach (var feature in new[] { "shell_tool", "multi_agent", "plugins", "apps", "browser_use" })
         {
@@ -106,7 +130,8 @@ public sealed class AgentPresetsTests : IDisposable
     }
 
     /// <summary>The scripted agent's environment: one passing turn, logged to <paramref name="log"/>.</summary>
-    private static Dictionary<string, string> Script(string log) => new() { ["ACP_SCRIPT"] = JsonSerializer.Serialize(new[] { Pass }), ["ACP_LOG"] = log };
+    private static Dictionary<string, string> Script(string log) =>
+        new() { ["ACP_SCRIPT"] = JsonSerializer.Serialize(new[] { Pass }), ["ACP_LOG"] = log };
 
     /// <summary>A project with the scripted agent installed under an adapter's package name.</summary>
     private string Project(params string[] adapters)
@@ -118,10 +143,14 @@ public sealed class AgentPresetsTests : IDisposable
             var package = Path.Combine(directory, "node_modules", name);
             Directory.CreateDirectory(Path.Combine(package, "dist"));
             var bin = name.Split('/')[^1];
-            File.WriteAllText(Path.Combine(package, "package.json"), JsonSerializer.Serialize(new { name, bin = new Dictionary<string, string> { [bin] = "dist/index.js" } }));
+            File.WriteAllText(
+                Path.Combine(package, "package.json"),
+                JsonSerializer.Serialize(new { name, bin = new Dictionary<string, string> { [bin] = "dist/index.js" } })
+            );
             File.WriteAllText(
                 Path.Combine(package, "dist", "index.js"),
-                $"const {{ spawn }} = require('node:child_process');\nspawn({JsonSerializer.Serialize(AgentExecutable)}, [], {{ stdio: 'inherit' }}).on('exit', (code) => process.exit(code ?? 1));\n");
+                $"const {{ spawn }} = require('node:child_process');\nspawn({JsonSerializer.Serialize(AgentExecutable)}, [], {{ stdio: 'inherit' }}).on('exit', (code) => process.exit(code ?? 1));\n"
+            );
         }
 
         return directory;

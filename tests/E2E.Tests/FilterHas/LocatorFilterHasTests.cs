@@ -13,10 +13,32 @@ namespace E2E.Tests.FilterHas;
 /// </summary>
 public sealed class LocatorFilterHasTests
 {
-    private static readonly SemanticNode Remove = new() { Ref = "remove", Role = "button", Name = "Remove" };
-    private static readonly SemanticNode Note = new() { Ref = "note", Role = "text", Text = "Read only" };
-    private static readonly SemanticNode Alpha = new() { Ref = "alpha", Role = "listitem", Text = "Alpha", Children = [Remove] };
-    private static readonly SemanticNode Beta = new() { Ref = "beta", Role = "listitem", Text = "Beta", Children = [Note] };
+    private static readonly SemanticNode Remove = new()
+    {
+        Ref = "remove",
+        Role = "button",
+        Name = "Remove",
+    };
+    private static readonly SemanticNode Note = new()
+    {
+        Ref = "note",
+        Role = "text",
+        Text = "Read only",
+    };
+    private static readonly SemanticNode Alpha = new()
+    {
+        Ref = "alpha",
+        Role = "listitem",
+        Text = "Alpha",
+        Children = [Remove],
+    };
+    private static readonly SemanticNode Beta = new()
+    {
+        Ref = "beta",
+        Role = "listitem",
+        Text = "Beta",
+        Children = [Note],
+    };
 
     /// <summary>Partial: there is no engine call to hand the expression to, so the test reads the query the locator builds and the count the screen resolves from it.</summary>
     [Fact]
@@ -57,7 +79,12 @@ public sealed class LocatorFilterHasTests
         var items = screen.GetByRole("listitem");
 
         Assert.Equal(["Beta"], await items.Filter(hasNot: screen.GetByRole("button", "Remove")).AllTextContentsAsync());
-        Assert.Equal(1, await items.Filter(has: screen.GetByRole("button", "Remove"), hasNot: screen.GetByText("Read only")).CountAsync());
+        Assert.Equal(
+            1,
+            await items
+                .Filter(has: screen.GetByRole("button", "Remove"), hasNot: screen.GetByText("Read only"))
+                .CountAsync()
+        );
     }
 
     [Fact]
@@ -65,11 +92,19 @@ public sealed class LocatorFilterHasTests
     {
         var screen = ScreenFixture.Create(Alpha, Beta);
 
-        var error = await Assert.ThrowsAsync<TestException>(
-            () => screen.GetByRole("listitem").Filter(has: screen.GetByRole("link"), hasNot: screen.GetByRole("button")).TextContentAsync());
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            screen
+                .GetByRole("listitem")
+                .Filter(has: screen.GetByRole("link"), hasNot: screen.GetByRole("button"))
+                .TextContentAsync()
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
-        Assert.Contains("getByRole(\"listitem\").filter(has: getByRole(\"link\"), hasNot: getByRole(\"button\"))", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "getByRole(\"listitem\").filter(has: getByRole(\"link\"), hasNot: getByRole(\"button\"))",
+            error.Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -77,9 +112,15 @@ public sealed class LocatorFilterHasTests
     {
         var screen = ScreenFixture.Create(Alpha, Beta);
 
-        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("listitem").Filter(screen.GetByRole("link")).TextContentAsync());
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            screen.GetByRole("listitem").Filter(screen.GetByRole("link")).TextContentAsync()
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
-        Assert.Contains("getByRole(\"listitem\").filter(has: getByRole(\"link\"))", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "getByRole(\"listitem\").filter(has: getByRole(\"link\"))",
+            error.Message,
+            StringComparison.Ordinal
+        );
     }
 }

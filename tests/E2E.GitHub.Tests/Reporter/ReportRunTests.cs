@@ -15,7 +15,8 @@ namespace E2E.GitHub.Tests.Reporter;
 /// </summary>
 public sealed class ReportRunTests
 {
-    private static readonly Func<HttpResponseMessage> Posted = () => Json(201, new { id = 5, html_url = "https://github.com/octo/app/pull/41#issuecomment-5" });
+    private static readonly Func<HttpResponseMessage> Posted = () =>
+        Json(201, new { id = 5, html_url = "https://github.com/octo/app/pull/41#issuecomment-5" });
 
     private static readonly Dictionary<string, Func<Call, HttpResponseMessage>> Script = new()
     {
@@ -23,16 +24,27 @@ public sealed class ReportRunTests
         ["POST *"] = _ => Posted(),
     };
 
-    private static readonly FinishedRun FailedRun = Finished(ReportOf(
-        ReportRunStatus.Failed,
-        [
-            Result(
-                "checkout",
-                ResultStatus.Failed,
-                file: "tests/shop flows/cart.e2e.ts",
-                line: 9,
-                attempts: [Attempt(AttemptStatus.Failed, error: Error("ASSERTION_FAILED", "no cart"), artifacts: [ArtifactKind.Screenshot])]),
-        ]));
+    private static readonly FinishedRun FailedRun = Finished(
+        ReportOf(
+            ReportRunStatus.Failed,
+            [
+                Result(
+                    "checkout",
+                    ResultStatus.Failed,
+                    file: "tests/shop flows/cart.e2e.ts",
+                    line: 9,
+                    attempts:
+                    [
+                        Attempt(
+                            AttemptStatus.Failed,
+                            error: Error("ASSERTION_FAILED", "no cart"),
+                            artifacts: [ArtifactKind.Screenshot]
+                        ),
+                    ]
+                ),
+            ]
+        )
+    );
 
     /// <summary>Fakes for the reporter; <c>gitDirs</c> are the <c>.git</c> entries that exist, so the checkout root is where the test puts it.</summary>
     private sealed class Harness
@@ -54,7 +66,8 @@ public sealed class ReportRunTests
                     Written[file] = Written.GetValueOrDefault(file, "") + text;
                     return Task.CompletedTask;
                 },
-                file => (gitDirs ?? ["/work/.git"]).Contains(file));
+                file => (gitDirs ?? ["/work/.git"]).Contains(file)
+            );
         }
 
         public FakeGitHub Fake { get; }
@@ -82,7 +95,8 @@ public sealed class ReportRunTests
         return env;
     }
 
-    private static Dictionary<string, string> Authorized(params (string Name, string Value)[] extra) => Env([("GITHUB_TOKEN", "ghs"), .. extra]);
+    private static Dictionary<string, string> Authorized(params (string Name, string Value)[] extra) =>
+        Env([("GITHUB_TOKEN", "ghs"), .. extra]);
 
     private static void AssertRows(IReadOnlyList<ReporterSummaryRow> actual, params string[] texts) =>
         Assert.Equal(texts.Select(text => new ReporterSummaryRow("GitHub", text)), actual);
@@ -108,12 +122,29 @@ public sealed class ReportRunTests
         Assert.DoesNotContain("<!-- e2e-github", summary, StringComparison.Ordinal);
         Assert.Equal(
             ["GET /user", "GET /repos/octo/app/issues/41/comments", "POST /repos/octo/app/issues/41/comments"],
-            d.Calls.Select(call => call.Route));
+            d.Calls.Select(call => call.Route)
+        );
         var body = d.PostedBody;
-        Assert.StartsWith("<!-- e2e-github project=dev.example.shop workflow=e2e job=test -->\n", body, StringComparison.Ordinal);
-        Assert.Contains("[tests/shop flows/cart.e2e.ts:9](https://github.com/octo/app/blob/head-sha/tests/shop%20flows/cart.e2e.ts#L9)", body, StringComparison.Ordinal);
-        Assert.Contains("Evidence: [screenshot](https://github.com/octo/app/actions/runs/99#artifacts)", body, StringComparison.Ordinal);
-        Assert.Contains("[run artifacts](https://github.com/octo/app/actions/runs/99#artifacts)", body, StringComparison.Ordinal);
+        Assert.StartsWith(
+            "<!-- e2e-github project=dev.example.shop workflow=e2e job=test -->\n",
+            body,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "[tests/shop flows/cart.e2e.ts:9](https://github.com/octo/app/blob/head-sha/tests/shop%20flows/cart.e2e.ts#L9)",
+            body,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Evidence: [screenshot](https://github.com/octo/app/actions/runs/99#artifacts)",
+            body,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "[run artifacts](https://github.com/octo/app/actions/runs/99#artifacts)",
+            body,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -158,12 +189,23 @@ public sealed class ReportRunTests
         var failedAttempt = Attempt(AttemptStatus.Failed, error: Error("ASSERTION_FAILED", "no cart"));
         var firstPass = ReportOf(
             ReportRunStatus.Failed,
-            [Result("steady", ResultStatus.Passed, attempts: [Attempt()]), Result("recovers", ResultStatus.Failed, attempts: [failedAttempt])]);
-        var rerun = ReportOf(results:
-        [
-            Result("steady", ResultStatus.Skipped, selected: false, skip: new SkipInfo { Cause = SkipCause.Filtered, Reason = "did not fail in the last run" }),
-            Result("recovers", ResultStatus.Passed, attempts: [Attempt()]),
-        ]);
+            [
+                Result("steady", ResultStatus.Passed, attempts: [Attempt()]),
+                Result("recovers", ResultStatus.Failed, attempts: [failedAttempt]),
+            ]
+        );
+        var rerun = ReportOf(
+            results:
+            [
+                Result(
+                    "steady",
+                    ResultStatus.Skipped,
+                    selected: false,
+                    skip: new SkipInfo { Cause = SkipCause.Filtered, Reason = "did not fail in the last run" }
+                ),
+                Result("recovers", ResultStatus.Passed, attempts: [Attempt()]),
+            ]
+        );
 
         await d.Report(Finished(rerun, firstPass));
 
@@ -173,29 +215,51 @@ public sealed class ReportRunTests
     [Fact]
     public async Task Keeps_a_test_run_and_an_exploration_in_one_job_as_two_comments_each_updated_in_place()
     {
-        var explored = ReportOf(explore: new ReportExplore("Explore checkout", new ExploreBudgets(8, TimeSpan.FromMinutes(10)), ReportExploreEnded.Finished, [], []));
+        var explored = ReportOf(
+            explore: new ReportExplore(
+                "Explore checkout",
+                new ExploreBudgets(8, TimeSpan.FromMinutes(10)),
+                ReportExploreEnded.Finished,
+                [],
+                []
+            )
+        );
 
         // One pull request whose comments persist across the job's runs.
         List<(int Id, string Body)> comments = [];
         string CommentUrl(int id) => $"https://github.com/octo/app/pull/41#issuecomment-{id}";
-        var fake = new FakeGitHub(new Dictionary<string, Func<Call, HttpResponseMessage>>
-        {
-            ["GET /repos/octo/app/issues/41/comments"] = _ => Json(
-                200,
-                comments.Select(comment => new { id = comment.Id, body = comment.Body, user = new { login = "github-actions[bot]", type = "Bot" } }).ToList()),
-            ["POST /repos/octo/app/issues/41/comments"] = call =>
+        var fake = new FakeGitHub(
+            new Dictionary<string, Func<Call, HttpResponseMessage>>
             {
-                var id = comments.Count + 1;
-                comments.Add((id, call.BodyText));
-                return Json(201, new { id, html_url = CommentUrl(id) });
-            },
-            ["PATCH *"] = call =>
-            {
-                var id = int.Parse(call.Path[(call.Path.LastIndexOf('/') + 1)..], System.Globalization.CultureInfo.InvariantCulture);
-                comments[comments.FindIndex(comment => comment.Id == id)] = (id, call.BodyText);
-                return Json(200, new { id, html_url = CommentUrl(id) });
-            },
-        });
+                ["GET /repos/octo/app/issues/41/comments"] = _ =>
+                    Json(
+                        200,
+                        comments
+                            .Select(comment => new
+                            {
+                                id = comment.Id,
+                                body = comment.Body,
+                                user = new { login = "github-actions[bot]", type = "Bot" },
+                            })
+                            .ToList()
+                    ),
+                ["POST /repos/octo/app/issues/41/comments"] = call =>
+                {
+                    var id = comments.Count + 1;
+                    comments.Add((id, call.BodyText));
+                    return Json(201, new { id, html_url = CommentUrl(id) });
+                },
+                ["PATCH *"] = call =>
+                {
+                    var id = int.Parse(
+                        call.Path[(call.Path.LastIndexOf('/') + 1)..],
+                        System.Globalization.CultureInfo.InvariantCulture
+                    );
+                    comments[comments.FindIndex(comment => comment.Id == id)] = (id, call.BodyText);
+                    return Json(200, new { id, html_url = CommentUrl(id) });
+                },
+            }
+        );
         var shared = new Harness(Authorized(), fake);
 
         foreach (var pass in new[] { 1, 2 })
@@ -205,11 +269,20 @@ public sealed class ReportRunTests
             Assert.True(comments.Count == 2, $"pass {pass}");
         }
 
-        Assert.StartsWith("<!-- e2e-github project=dev.example.shop workflow=e2e job=test -->\n### 🔴 e2e: 1 failed", comments[0].Body, StringComparison.Ordinal);
-        Assert.StartsWith("<!-- e2e-github project=dev.example.shop workflow=e2e job=test kind=explore -->\n### 🟢 e2e explore: ", comments[1].Body, StringComparison.Ordinal);
+        Assert.StartsWith(
+            "<!-- e2e-github project=dev.example.shop workflow=e2e job=test -->\n### 🔴 e2e: 1 failed",
+            comments[0].Body,
+            StringComparison.Ordinal
+        );
+        Assert.StartsWith(
+            "<!-- e2e-github project=dev.example.shop workflow=e2e job=test kind=explore -->\n### 🟢 e2e explore: ",
+            comments[1].Body,
+            StringComparison.Ordinal
+        );
         Assert.Equal(
             ["/repos/octo/app/issues/41/comments", "/repos/octo/app/issues/41/comments"],
-            fake.Calls.Where(call => call.Method == "POST").Select(call => call.Path));
+            fake.Calls.Where(call => call.Method == "POST").Select(call => call.Path)
+        );
     }
 
     [Fact]
@@ -232,10 +305,19 @@ public sealed class ReportRunTests
         // A long key keeps a prefix and a digest of the whole key, the same every run, so the marker stays bounded and findable.
         var longKey = new Harness(Authorized());
         await longKey.Report(FailedRun, new GitHubOptions { Key = new string('k', 5_000) });
-        Assert.StartsWith($"{Prefix} key={new string('k', 183)}#622b8b1d5094d382 -->\n", longKey.PostedBody, StringComparison.Ordinal);
+        Assert.StartsWith(
+            $"{Prefix} key={new string('k', 183)}#622b8b1d5094d382 -->\n",
+            longKey.PostedBody,
+            StringComparison.Ordinal
+        );
 
         // The cut is on the encoded form and never inside a percent escape, so emoji cannot outgrow the marker.
-        var emoji = new Harness(Authorized(("GITHUB_WORKFLOW", string.Concat(Enumerable.Repeat("💥", 300))), ("GITHUB_JOB", new string('ü', 300))));
+        var emoji = new Harness(
+            Authorized(
+                ("GITHUB_WORKFLOW", string.Concat(Enumerable.Repeat("💥", 300))),
+                ("GITHUB_JOB", new string('ü', 300))
+            )
+        );
         await emoji.Report(FailedRun, new GitHubOptions { Key = string.Concat(Enumerable.Repeat("💥", 300)) });
         var marker = Regex.Match(emoji.PostedBody, @"^<!-- e2e-github [^\n]* -->").Value;
         Assert.NotEmpty(marker);
@@ -258,8 +340,22 @@ public sealed class ReportRunTests
         Assert.NotEqual(markers[0], markers[1]);
 
         // B does not take over the comment A posted; it posts its own.
-        var comments = new[] { new { id = 1, user = new { login = "github-actions[bot]", type = "Bot" }, body = $"{markers[0]}\n### e2e android A" } };
-        var fake = new FakeGitHub(new Dictionary<string, Func<Call, HttpResponseMessage>> { ["GET *"] = _ => Json(200, comments), ["POST *"] = _ => Posted() });
+        var comments = new[]
+        {
+            new
+            {
+                id = 1,
+                user = new { login = "github-actions[bot]", type = "Bot" },
+                body = $"{markers[0]}\n### e2e android A",
+            },
+        };
+        var fake = new FakeGitHub(
+            new Dictionary<string, Func<Call, HttpResponseMessage>>
+            {
+                ["GET *"] = _ => Json(200, comments),
+                ["POST *"] = _ => Posted(),
+            }
+        );
         var other = new Harness(Authorized(), fake);
         await other.Report(FailedRun, new GitHubOptions { Key = $"android-{new string('x', 200)}-B" });
         Assert.Equal(["GET", "GET", "POST"], fake.Calls.Select(call => call.Method));
@@ -267,8 +363,20 @@ public sealed class ReportRunTests
 
     [Theory]
     [InlineData("a push", "push", "/event/push.json", "refs/heads/main", "push is not a pull request")]
-    [InlineData("an issue_comment on a plain issue", "issue_comment", "/event/issue.json", null, "issue_comment is not a pull request")]
-    public async Task On_a_non_pull_request_event_it_writes_the_summary_only_and_says_so(string name, string eventName, string eventPath, string? reference, string reason)
+    [InlineData(
+        "an issue_comment on a plain issue",
+        "issue_comment",
+        "/event/issue.json",
+        null,
+        "issue_comment is not a pull request"
+    )]
+    public async Task On_a_non_pull_request_event_it_writes_the_summary_only_and_says_so(
+        string name,
+        string eventName,
+        string eventPath,
+        string? reference,
+        string reason
+    )
     {
         Assert.NotEmpty(name);
         var env = Authorized(("GITHUB_EVENT_NAME", eventName), ("GITHUB_EVENT_PATH", eventPath));
@@ -288,12 +396,18 @@ public sealed class ReportRunTests
     public async Task Without_a_token_it_names_the_line_to_add_to_the_step_and_drops_the_summary_clause_when_there_is_no_summary_file()
     {
         var d = new Harness(Env());
-        AssertRows(await d.Report(FailedRun), "not posted: set GITHUB_TOKEN in the step's env (GITHUB_TOKEN: ${{ github.token }}); written to the job summary");
+        AssertRows(
+            await d.Report(FailedRun),
+            "not posted: set GITHUB_TOKEN in the step's env (GITHUB_TOKEN: ${{ github.token }}); written to the job summary"
+        );
 
         var noSummary = Env();
         noSummary.Remove("GITHUB_STEP_SUMMARY");
         var bare = new Harness(noSummary);
-        AssertRows(await bare.Report(FailedRun), "not posted: set GITHUB_TOKEN in the step's env (GITHUB_TOKEN: ${{ github.token }})");
+        AssertRows(
+            await bare.Report(FailedRun),
+            "not posted: set GITHUB_TOKEN in the step's env (GITHUB_TOKEN: ${{ github.token }})"
+        );
         Assert.Empty(bare.Written);
     }
 
@@ -302,13 +416,19 @@ public sealed class ReportRunTests
     {
         var d = new Harness(Authorized(("GITHUB_STEP_SUMMARY", "/readonly.md")));
 
-        AssertRows(await d.Report(FailedRun), "https://github.com/octo/app/pull/41#issuecomment-5", "job summary not written: EACCES: permission denied");
+        AssertRows(
+            await d.Report(FailedRun),
+            "https://github.com/octo/app/pull/41#issuecomment-5",
+            "job summary not written: EACCES: permission denied"
+        );
     }
 
     [Fact]
     public async Task Lets_a_GitHub_failure_surface_as_the_one_error_the_runner_prints_after_the_summary_is_written()
     {
-        var forbidden = new FakeGitHub(new Dictionary<string, Func<Call, HttpResponseMessage>> { ["GET *"] = _ => Json(403, new { }) });
+        var forbidden = new FakeGitHub(
+            new Dictionary<string, Func<Call, HttpResponseMessage>> { ["GET *"] = _ => Json(403, new { }) }
+        );
         var d = new Harness(Authorized(), forbidden);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => d.Report(FailedRun));

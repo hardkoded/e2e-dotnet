@@ -13,7 +13,16 @@ namespace E2E.NUnit.Tests.Check;
 /// </summary>
 public sealed class PageCheckTests : PlaywrightTest
 {
-    private static readonly string[] AriaRoles = ["checkbox", "menuitemcheckbox", "option", "radio", "switch", "menuitemradio", "treeitem"];
+    private static readonly string[] AriaRoles =
+    [
+        "checkbox",
+        "menuitemcheckbox",
+        "option",
+        "radio",
+        "switch",
+        "menuitemradio",
+        "treeitem",
+    ];
 
     [Test]
     public async Task Should_check_the_box()
@@ -50,11 +59,15 @@ public sealed class PageCheckTests : PlaywrightTest
     [Test]
     public async Task Should_check_radio()
     {
-        await Browser.GotoAsync(Content("""
-            <input type='radio'>one</input>
-            <input id='two' type='radio'>two</input>
-            <input type='radio'>three</input>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <input type='radio'>one</input>
+                <input id='two' type='radio'>two</input>
+                <input type='radio'>three</input>
+                """
+            )
+        );
         await Browser.Locator("#two").CheckAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("() => window.two.checked"), Is.True);
     }
@@ -62,25 +75,36 @@ public sealed class PageCheckTests : PlaywrightTest
     [Test]
     public async Task Should_check_radio_by_aria_role()
     {
-        await Browser.GotoAsync(Content("""
-            <div role='radio' id='checkbox'>CHECKBOX</div>
-            <script>
-              checkbox.addEventListener('click', () => checkbox.setAttribute('aria-checked', 'true'));
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <div role='radio' id='checkbox'>CHECKBOX</div>
+                <script>
+                  checkbox.addEventListener('click', () => checkbox.setAttribute('aria-checked', 'true'));
+                </script>
+                """
+            )
+        );
         await Browser.Locator("div").CheckAsync();
-        Assert.That(await Browser.EvaluateAsync<string>("() => window.checkbox.getAttribute('aria-checked')"), Is.EqualTo("true"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => window.checkbox.getAttribute('aria-checked')"),
+            Is.EqualTo("true")
+        );
     }
 
     [Test]
     public async Task Should_uncheck_radio_by_aria_role()
     {
-        await Browser.GotoAsync(Content("""
-            <div role='radio' id='checkbox' aria-checked="true">CHECKBOX</div>
-            <script>
-              checkbox.addEventListener('click', () => checkbox.setAttribute('aria-checked', 'false'));
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <div role='radio' id='checkbox' aria-checked="true">CHECKBOX</div>
+                <script>
+                  checkbox.addEventListener('click', () => checkbox.setAttribute('aria-checked', 'false'));
+                </script>
+                """
+            )
+        );
         await Browser.Locator("div").UncheckAsync();
         Equal("false", await Browser.EvaluateAsync<string>("() => window.checkbox.getAttribute('aria-checked')"));
     }
@@ -90,14 +114,21 @@ public sealed class PageCheckTests : PlaywrightTest
     {
         foreach (var role in AriaRoles)
         {
-            await Browser.GotoAsync(Content($$"""
-                <div role='{{role}}' id='checkbox'>CHECKBOX</div>
-                <script>
-                  checkbox.addEventListener('click', () => checkbox.setAttribute('aria-checked', 'true'));
-                </script>
-                """));
+            await Browser.GotoAsync(
+                Content(
+                    $$"""
+                    <div role='{{role}}' id='checkbox'>CHECKBOX</div>
+                    <script>
+                      checkbox.addEventListener('click', () => checkbox.setAttribute('aria-checked', 'true'));
+                    </script>
+                    """
+                )
+            );
             await Browser.Locator("div").CheckAsync();
-            Assert.That(await Browser.EvaluateAsync<string>("() => window.checkbox.getAttribute('aria-checked')"), Is.EqualTo("true"));
+            Assert.That(
+                await Browser.EvaluateAsync<string>("() => window.checkbox.getAttribute('aria-checked')"),
+                Is.EqualTo("true")
+            );
         }
     }
 
@@ -106,12 +137,16 @@ public sealed class PageCheckTests : PlaywrightTest
     {
         foreach (var role in AriaRoles)
         {
-            await Browser.GotoAsync(Content($$"""
-                <div role='{{role}}' id='checkbox' aria-checked="true">CHECKBOX</div>
-                <script>
-                  checkbox.addEventListener('click', () => checkbox.setAttribute('aria-checked', 'false'));
-                </script>
-                """));
+            await Browser.GotoAsync(
+                Content(
+                    $$"""
+                    <div role='{{role}}' id='checkbox' aria-checked="true">CHECKBOX</div>
+                    <script>
+                      checkbox.addEventListener('click', () => checkbox.setAttribute('aria-checked', 'false'));
+                    </script>
+                    """
+                )
+            );
             await Browser.Locator("div").UncheckAsync();
             Equal("false", await Browser.EvaluateAsync<string>("() => window.checkbox.getAttribute('aria-checked')"));
         }

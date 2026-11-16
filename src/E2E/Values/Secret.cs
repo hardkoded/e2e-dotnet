@@ -76,7 +76,12 @@ public sealed class Secret
         {
             throw new ConfigurationException(
                 UnavailableCode,
-                "secret \"" + Name + "\" provider did not return a string of at least " + MinLength.ToString(CultureInfo.InvariantCulture) + " characters (code points)");
+                "secret \""
+                    + Name
+                    + "\" provider did not return a string of at least "
+                    + MinLength.ToString(CultureInfo.InvariantCulture)
+                    + " characters (code points)"
+            );
         }
 
         return new Secret(Name, plaintext, Purpose);
@@ -104,8 +109,11 @@ public sealed class Secret
         var length = ConfigSecrets.SecretLength(value);
         return length >= MinLength
             ? null
-            : "must be at least " + MinLength.ToString(CultureInfo.InvariantCulture) + " characters (code points), not " +
-                length.ToString(CultureInfo.InvariantCulture) + "; a shorter value cannot be redacted without rewriting unrelated text";
+            : "must be at least "
+                + MinLength.ToString(CultureInfo.InvariantCulture)
+                + " characters (code points), not "
+                + length.ToString(CultureInfo.InvariantCulture)
+                + "; a shorter value cannot be redacted without rewriting unrelated text";
     }
 
     public override string ToString() => "<secret:" + Name + ">";
@@ -128,7 +136,10 @@ public sealed class UniqueValue
         // The replay cache records a unique value as a {{param:<pointer>}} placeholder; a value that spells one could not be told from it.
         if (value.Contains(CacheKeys.PlaceholderPrefix, StringComparison.Ordinal))
         {
-            throw new TestException("INVALID_ARGUMENT", "A Values.Unique value cannot spell a placeholder (" + CacheKeys.PlaceholderPrefix + ").");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "A Values.Unique value cannot spell a placeholder (" + CacheKeys.PlaceholderPrefix + ")."
+            );
         }
 
         Value = value;
@@ -189,7 +200,8 @@ public static class Credentials
         {
             throw new TestException(
                 "AUTH_CREDENTIAL_UNAVAILABLE",
-                "Credential '" + name + "' is not configured. Set " + prefix + "_USERNAME and " + prefix + "_PASSWORD.");
+                "Credential '" + name + "' is not configured. Set " + prefix + "_USERNAME and " + prefix + "_PASSWORD."
+            );
         }
 
         if (Secret.Problem(password) is { } problem)
@@ -197,7 +209,10 @@ public static class Credentials
             throw new TestException("INVALID_CONFIG", prefix + "_PASSWORD " + problem + ".");
         }
 
-        return new UserCredential(username, Secret.Create(ConfigSecrets.CredentialSecretName(name), password, "password"));
+        return new UserCredential(
+            username,
+            Secret.Create(ConfigSecrets.CredentialSecretName(name), password, "password")
+        );
     }
 }
 
@@ -211,13 +226,20 @@ public sealed class Secrets
     private readonly IReadOnlyDictionary<string, Secret> _values;
     private readonly IReadOnlyDictionary<string, ResolvedCredential> _credentials;
 
-    internal Secrets(IReadOnlyDictionary<string, Secret> values, IReadOnlyDictionary<string, ResolvedCredential> credentials)
+    internal Secrets(
+        IReadOnlyDictionary<string, Secret> values,
+        IReadOnlyDictionary<string, ResolvedCredential> credentials
+    )
     {
         _values = values;
         _credentials = credentials;
     }
 
-    public static Secrets Empty { get; } = new(new Dictionary<string, Secret>(StringComparer.Ordinal), new Dictionary<string, ResolvedCredential>(StringComparer.Ordinal));
+    public static Secrets Empty { get; } =
+        new(
+            new Dictionary<string, Secret>(StringComparer.Ordinal),
+            new Dictionary<string, ResolvedCredential>(StringComparer.Ordinal)
+        );
 
     public IEnumerable<string> Names => _values.Keys;
 
@@ -243,7 +265,20 @@ public sealed class Secrets
         }
 
         var credential = ConfigSecrets.CredentialNamed(name, _credentials);
-        var hint = credential is null ? "" : "; credential \"" + credential.Name + "\"'s password is credentials.user(\"" + credential.Name + "\").password";
-        throw new TestException("SECRET_UNAVAILABLE", "secret \"" + name + "\" is not configured; add it to config.secrets or set " + ConfigSecrets.EnvName("E2E_SECRET", name) + hint);
+        var hint = credential is null
+            ? ""
+            : "; credential \""
+                + credential.Name
+                + "\"'s password is credentials.user(\""
+                + credential.Name
+                + "\").password";
+        throw new TestException(
+            "SECRET_UNAVAILABLE",
+            "secret \""
+                + name
+                + "\" is not configured; add it to config.secrets or set "
+                + ConfigSecrets.EnvName("E2E_SECRET", name)
+                + hint
+        );
     }
 }

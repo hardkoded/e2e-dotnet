@@ -32,16 +32,27 @@ public sealed class AFilterPastTheDeadlineTests
             {
                 recorded.Add(name);
                 var call = await work();
-                ended.Add($"{name}: {(call.Outcome is null ? "answered" : call.Outcome == FilterOutcome.TimedOut ? "timed-out" : "failed")}");
+                ended.Add(
+                    $"{name}: {(call.Outcome is null ? "answered" : call.Outcome == FilterOutcome.TimedOut ? "timed-out" : "failed")}"
+                );
                 return call;
-            });
+            }
+        );
         var applied = await Filters.ApplyTestFilters([slow, later], candidates, scope);
         Assert.True(seen[0].Signal.IsCancellationRequested);
         Assert.Equal(candidates, laterGot);
         Assert.Equal(["slow", "later"], steps);
         Assert.Equal(["slow: timed-out", "later: answered"], ended);
         Assert.Equal([$"warning: slow did not finish within {Deadline}ms, so it leaves nothing out"], notices);
-        Assert.Equal(new FilterDecision("slow", 2, $"did not finish within {Deadline}ms, so it leaves nothing out", FilterOutcome.TimedOut), applied.Decisions[0]);
+        Assert.Equal(
+            new FilterDecision(
+                "slow",
+                2,
+                $"did not finish within {Deadline}ms, so it leaves nothing out",
+                FilterOutcome.TimedOut
+            ),
+            applied.Decisions[0]
+        );
         Assert.Equal([IdOf(candidates, "a")], applied.Excluded.Keys);
     }
 
@@ -56,7 +67,17 @@ public sealed class AFilterPastTheDeadlineTests
         });
         var (scope, notices, _) = Scope(timeout: TimeSpan.FromMilliseconds(20));
         var applied = await Filters.ApplyTestFilters([obedient], candidates, scope);
-        Assert.Equal([new FilterDecision("jev", 1, "did not finish within 20ms, so it leaves nothing out", FilterOutcome.TimedOut)], applied.Decisions);
+        Assert.Equal(
+            [
+                new FilterDecision(
+                    "jev",
+                    1,
+                    "did not finish within 20ms, so it leaves nothing out",
+                    FilterOutcome.TimedOut
+                ),
+            ],
+            applied.Decisions
+        );
         Assert.Equal(["warning: jev did not finish within 20ms, so it leaves nothing out"], notices);
     }
 

@@ -22,9 +22,21 @@ public sealed class KernelRestApiTests
         var provider = Provider(fake);
 
         await provider.AcquireAsync(Request(), CancellationToken.None);
-        await provider.AcquireAsync(Request(env: new Dictionary<string, string?> { ["KERNEL_API_KEY"] = "k", ["KERNEL_BASE_URL"] = "https://kernel.example/" }), CancellationToken.None);
+        await provider.AcquireAsync(
+            Request(
+                env: new Dictionary<string, string?>
+                {
+                    ["KERNEL_API_KEY"] = "k",
+                    ["KERNEL_BASE_URL"] = "https://kernel.example/",
+                }
+            ),
+            CancellationToken.None
+        );
 
-        Assert.Equal(["https://api.onkernel.com/browsers", "https://kernel.example/browsers"], fake.Of("create").Select(call => call.Uri.GetLeftPart(UriPartial.Path)));
+        Assert.Equal(
+            ["https://api.onkernel.com/browsers", "https://kernel.example/browsers"],
+            fake.Of("create").Select(call => call.Uri.GetLeftPart(UriPartial.Path))
+        );
     }
 
     [Fact]
@@ -33,7 +45,18 @@ public sealed class KernelRestApiTests
         var fake = new FakeKernel();
 
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            Provider(fake).AcquireAsync(Request(env: new Dictionary<string, string?> { ["KERNEL_API_KEY"] = "k", ["KERNEL_BASE_URL"] = "ftp://kernel.example" }), CancellationToken.None));
+            Provider(fake)
+                .AcquireAsync(
+                    Request(
+                        env: new Dictionary<string, string?>
+                        {
+                            ["KERNEL_API_KEY"] = "k",
+                            ["KERNEL_BASE_URL"] = "ftp://kernel.example",
+                        }
+                    ),
+                    CancellationToken.None
+                )
+        );
 
         Assert.Equal("KERNEL_BASE_URL is not an http(s) URL", failure.Message);
         Assert.Empty(fake.Calls);
@@ -49,9 +72,19 @@ public sealed class KernelRestApiTests
             Gpu = true,
             ProxyId = "proxy-1",
             Profile = new KernelBrowserProfile { Name = "qa", SaveChanges = true },
-            Viewport = new KernelBrowserViewport { Width = 1920, Height = 1080, RefreshRate = 60 },
+            Viewport = new KernelBrowserViewport
+            {
+                Width = 1920,
+                Height = 1080,
+                RefreshRate = 60,
+            },
             TimeoutSeconds = 30,
-            Extra = new JsonObject { ["region"] = "eu-west", ["timeout_seconds"] = 45, ["tags"] = new JsonObject { ["x"] = "y" } },
+            Extra = new JsonObject
+            {
+                ["region"] = "eu-west",
+                ["timeout_seconds"] = 45,
+                ["tags"] = new JsonObject { ["x"] = "y" },
+            },
         };
 
         await Provider(fake, options).AcquireAsync(Request(), CancellationToken.None);
@@ -65,19 +98,36 @@ public sealed class KernelRestApiTests
                 ["timeout_seconds"] = 30,
                 ["proxy_id"] = "proxy-1",
                 ["profile"] = new JsonObject { ["name"] = "qa", ["save_changes"] = true },
-                ["viewport"] = new JsonObject { ["width"] = 1920, ["height"] = 1080, ["refresh_rate"] = 60 },
-                ["tags"] = new JsonObject { ["e2e_run"] = "run-1", ["e2e_target"] = "web", ["e2e_slot"] = "0" },
+                ["viewport"] = new JsonObject
+                {
+                    ["width"] = 1920,
+                    ["height"] = 1080,
+                    ["refresh_rate"] = 60,
+                },
+                ["tags"] = new JsonObject
+                {
+                    ["e2e_run"] = "run-1",
+                    ["e2e_target"] = "web",
+                    ["e2e_slot"] = "0",
+                },
                 ["region"] = "eu-west",
             },
-            body);
+            body
+        );
     }
 
     [Fact]
     public async Task Reads_the_message_of_a_JSON_error_body()
     {
-        var fake = new FakeKernel { Create = () => FakeKernel.Json(new JsonObject { ["message"] = "quota exceeded" }, HttpStatusCode.TooManyRequests) };
+        var fake = new FakeKernel
+        {
+            Create = () =>
+                FakeKernel.Json(new JsonObject { ["message"] = "quota exceeded" }, HttpStatusCode.TooManyRequests),
+        };
 
-        var failure = await Assert.ThrowsAsync<KernelApiException>(() => Provider(fake).AcquireAsync(Request(), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<KernelApiException>(() =>
+            Provider(fake).AcquireAsync(Request(), CancellationToken.None)
+        );
 
         Assert.Equal("429 quota exceeded", failure.Message);
     }
@@ -96,7 +146,10 @@ public sealed class KernelRestApiTests
         };
         var client = new KernelClient(fake.Client, "k", new Uri("https://api.onkernel.com/"));
 
-        var ids = await client.ListActiveAsync(new Dictionary<string, string> { ["e2e_run"] = "run-1" }, CancellationToken.None);
+        var ids = await client.ListActiveAsync(
+            new Dictionary<string, string> { ["e2e_run"] = "run-1" },
+            CancellationToken.None
+        );
 
         Assert.Equal(["b1", "b2", "b3"], ids);
         Assert.Contains("offset=2", fake.Of("list").Last().Uri.Query, StringComparison.Ordinal);
@@ -114,7 +167,9 @@ public sealed class KernelRestApiTests
         };
         var client = new KernelClient(fake.Client, "k", new Uri("https://api.onkernel.com/"));
 
-        await Assert.ThrowsAsync<KernelApiException>(() => client.ListActiveAsync(new Dictionary<string, string>(), CancellationToken.None));
+        await Assert.ThrowsAsync<KernelApiException>(() =>
+            client.ListActiveAsync(new Dictionary<string, string>(), CancellationToken.None)
+        );
     }
 
     private static JsonNode Item(string id) => new JsonObject { ["session_id"] = id };

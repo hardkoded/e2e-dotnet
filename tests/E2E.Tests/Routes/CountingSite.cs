@@ -100,7 +100,8 @@ internal sealed class CountingSite : IDisposable
             if (path == "/stream-download")
             {
                 // The head promises 4096 bytes and 1024 arrive; the body never finishes.
-                var head = "HTTP/1.1 200 OK\r\ncontent-type: application/octet-stream\r\ncontent-disposition: attachment; filename=\"stream.bin\"\r\ncontent-length: 4096\r\n\r\n";
+                var head =
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/octet-stream\r\ncontent-disposition: attachment; filename=\"stream.bin\"\r\ncontent-length: 4096\r\n\r\n";
                 await stream.WriteAsync(Encoding.ASCII.GetBytes(head));
                 await stream.WriteAsync(Encoding.ASCII.GetBytes(new string('x', 1024)));
                 await stream.FlushAsync();
@@ -109,7 +110,11 @@ internal sealed class CountingSite : IDisposable
 
             if (path == "/redirect")
             {
-                await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 302 Found\r\nlocation: /echo\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"));
+                await stream.WriteAsync(
+                    Encoding.ASCII.GetBytes(
+                        "HTTP/1.1 302 Found\r\nlocation: /echo\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
+                    )
+                );
                 await stream.FlushAsync();
                 client.Close();
                 return;
@@ -117,13 +122,15 @@ internal sealed class CountingSite : IDisposable
 
             if (path == "/echo")
             {
-                var echo = JsonSerializer.Serialize(new Dictionary<string, object>
-                {
-                    ["path"] = path,
-                    ["method"] = method,
-                    ["headers"] = headers,
-                    ["body"] = body,
-                });
+                var echo = JsonSerializer.Serialize(
+                    new Dictionary<string, object>
+                    {
+                        ["path"] = path,
+                        ["method"] = method,
+                        ["headers"] = headers,
+                        ["body"] = body,
+                    }
+                );
                 await EndAsync(client, "application/json", echo);
                 return;
             }
@@ -148,7 +155,12 @@ internal sealed class CountingSite : IDisposable
         }
     }
 
-    private static async Task<(string Method, string Target, Dictionary<string, string> Headers, string Body)> ReadRequestAsync(NetworkStream stream)
+    private static async Task<(
+        string Method,
+        string Target,
+        Dictionary<string, string> Headers,
+        string Body
+    )> ReadRequestAsync(NetworkStream stream)
     {
         var received = new List<byte>();
         var buffer = new byte[4096];
@@ -173,7 +185,9 @@ internal sealed class CountingSite : IDisposable
             headers[line[..colon].Trim().ToLowerInvariant()] = line[(colon + 1)..].Trim();
         }
 
-        var length = headers.TryGetValue("content-length", out var declared) ? int.Parse(declared, System.Globalization.CultureInfo.InvariantCulture) : 0;
+        var length = headers.TryGetValue("content-length", out var declared)
+            ? int.Parse(declared, System.Globalization.CultureInfo.InvariantCulture)
+            : 0;
         var content = received.Skip(end + 4).ToList();
         while (content.Count < length)
         {
@@ -202,12 +216,17 @@ internal sealed class CountingSite : IDisposable
         return -1;
     }
 
-    private static Task EndAsync(TcpClient client, string contentType, string body) => EndAsync(client, contentType, Encoding.UTF8.GetBytes(body));
+    private static Task EndAsync(TcpClient client, string contentType, string body) =>
+        EndAsync(client, contentType, Encoding.UTF8.GetBytes(body));
 
     private static async Task EndAsync(TcpClient client, string contentType, byte[] bytes)
     {
-        var head = "HTTP/1.1 200 OK\r\ncontent-type: " + contentType + "\r\ncontent-length: "
-            + bytes.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\r\nconnection: close\r\n\r\n";
+        var head =
+            "HTTP/1.1 200 OK\r\ncontent-type: "
+            + contentType
+            + "\r\ncontent-length: "
+            + bytes.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            + "\r\nconnection: close\r\n\r\n";
         var stream = client.GetStream();
         await stream.WriteAsync(Encoding.ASCII.GetBytes(head));
         await stream.WriteAsync(bytes);

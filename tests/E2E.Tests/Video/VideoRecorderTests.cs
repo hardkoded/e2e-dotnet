@@ -69,7 +69,9 @@ public sealed class VideoRecorderTests : IDisposable
         Assert.Equal(["video/video.webm", "video/video-part2.webm"], segments.Select(segment => segment.Path));
         foreach (var segment in segments)
         {
-            Assert.True(DateTimeOffset.TryParse(segment.StartedAt, System.Globalization.CultureInfo.InvariantCulture, out _));
+            Assert.True(
+                DateTimeOffset.TryParse(segment.StartedAt, System.Globalization.CultureInfo.InvariantCulture, out _)
+            );
         }
 
         Assert.False(video.IsArmed);
@@ -84,7 +86,8 @@ public sealed class VideoRecorderTests : IDisposable
         Assert.Equal(Viewport, plain.Sizes[0]);
         Assert.Null(plain.Qualities[0]);
         var tuned = new ScriptedPage();
-        await Recorder(new WebScreencastOptions { Size = new WebViewport(640, 400), Quality = 70 }).ArmAsync(tuned.Page);
+        await Recorder(new WebScreencastOptions { Size = new WebViewport(640, 400), Quality = 70 })
+            .ArmAsync(tuned.Page);
         Assert.Equal((640, 400), tuned.Sizes[0]);
         Assert.Equal(70, tuned.Qualities[0]);
     }
@@ -112,7 +115,10 @@ public sealed class VideoRecorderTests : IDisposable
         Assert.Empty(other.Started);
         await video.ArmAsync(page.Page);
         Assert.Equal(["video/video-part2.webm"], (await video.StopAsync()).Select(segment => segment.Path));
-        Assert.Equal([Path.Combine(_dir, "video", "video.webm"), Path.Combine(_dir, "video", "video-part2.webm")], page.Started);
+        Assert.Equal(
+            [Path.Combine(_dir, "video", "video.webm"), Path.Combine(_dir, "video", "video-part2.webm")],
+            page.Started
+        );
         Assert.Equal(2, page.StoppedCount);
     }
 
@@ -120,7 +126,10 @@ public sealed class VideoRecorderTests : IDisposable
     public async Task Reports_a_segment_whose_stop_failed_and_left_no_file_once()
     {
         var video = Recorder();
-        var broken = new ScriptedPage(writes: false, stopError: new InvalidOperationException("screencast stop failed"));
+        var broken = new ScriptedPage(
+            writes: false,
+            stopError: new InvalidOperationException("screencast stop failed")
+        );
         await video.ArmAsync(broken.Page);
         var caught = await Assert.ThrowsAsync<EngineException>(() => video.StopAsync());
         Assert.Contains("video/video.webm", caught.Message, StringComparison.Ordinal);
@@ -137,7 +146,10 @@ public sealed class VideoRecorderTests : IDisposable
     {
         var video = Recorder();
         var kept = new ScriptedPage();
-        var broken = new ScriptedPage(writes: false, stopError: new InvalidOperationException("screencast stop failed"));
+        var broken = new ScriptedPage(
+            writes: false,
+            stopError: new InvalidOperationException("screencast stop failed")
+        );
         await video.ArmAsync(kept.Page);
         await video.PageClosingAsync();
         await video.PageOpenedAsync(broken.Page);
@@ -197,13 +209,23 @@ public sealed class VideoRecorderTests : IDisposable
     /// </summary>
     private sealed class ScriptedPage
     {
-        public ScriptedPage(bool writes = true, Exception? stopError = null, Exception? startError = null, (int Width, int Height)? viewport = null, int? firstFrameMs = 0)
+        public ScriptedPage(
+            bool writes = true,
+            Exception? stopError = null,
+            Exception? startError = null,
+            (int Width, int Height)? viewport = null,
+            int? firstFrameMs = 0
+        )
         {
             var (page, pageFake) = Fake<IPage>.New();
             var (screencast, screencastFake) = Fake<IScreencast>.New();
             Page = page;
             var size = viewport ?? Viewport;
-            pageFake.Members["get_ViewportSize"] = _ => new PageViewportSizeResult { Width = size.Width, Height = size.Height };
+            pageFake.Members["get_ViewportSize"] = _ => new PageViewportSizeResult
+            {
+                Width = size.Width,
+                Height = size.Height,
+            };
             pageFake.Members["get_Screencast"] = _ => screencast;
             screencastFake.Members["StartAsync"] = args =>
             {
@@ -223,13 +245,15 @@ public sealed class VideoRecorderTests : IDisposable
 
                 if (firstFrameMs is { } delay)
                 {
-                    _ = Task.Delay(delay).ContinueWith(
-                        _ =>
-                        {
-                            Events.Enqueue("frame");
-                            start.OnFrame?.Invoke(new ScreencastFrame());
-                        },
-                        TaskScheduler.Default);
+                    _ = Task.Delay(delay)
+                        .ContinueWith(
+                            _ =>
+                            {
+                                Events.Enqueue("frame");
+                                start.OnFrame?.Invoke(new ScreencastFrame());
+                            },
+                            TaskScheduler.Default
+                        );
                 }
 
                 return Task.FromResult(FakeRemote.Registration);

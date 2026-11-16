@@ -13,13 +13,34 @@ public sealed class ALocatorMadeByAnotherTargetsScreenTests
     private const string Foreign = "the one given belongs to another target's screen or another attempt";
 
     private static (ScrollScreen Web, ScrollScreen Mobile) Targets() =>
-        (new ScrollScreen(new ScrollScript { Screens = [[ScrollScreen.Target]] }), new ScrollScreen(new ScrollScript { Screens = [[ScrollScreen.Target]] }));
+        (
+            new ScrollScreen(
+                new ScrollScript
+                {
+                    Screens =
+                    [
+                        [ScrollScreen.Target],
+                    ],
+                }
+            ),
+            new ScrollScreen(
+                new ScrollScript
+                {
+                    Screens =
+                    [
+                        [ScrollScreen.Target],
+                    ],
+                }
+            )
+        );
 
     [Fact]
     public async Task Is_refused_by_scrollUntilVisible_before_any_step_on_either_target()
     {
         var (web, mobile) = Targets();
-        var failure = await Assert.ThrowsAsync<TestException>(() => web.Screen.ScrollUntilVisibleAsync(mobile.Screen.GetByText("Accept")));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            web.Screen.ScrollUntilVisibleAsync(mobile.Screen.GetByText("Accept"))
+        );
         Assert.Equal("INVALID_LOCATOR", failure.Code);
         Assert.Equal("scrollUntilVisible requires a locator made by this screen; " + Foreign, failure.Message);
         Assert.Empty(web.Steps.All());
@@ -31,7 +52,9 @@ public sealed class ALocatorMadeByAnotherTargetsScreenTests
     public void Is_refused_by_filter_has()
     {
         var (web, mobile) = Targets();
-        var failure = Assert.Throws<TestException>(() => web.Screen.GetByRole("list").Filter(mobile.Screen.GetByText("Accept")));
+        var failure = Assert.Throws<TestException>(() =>
+            web.Screen.GetByRole("list").Filter(mobile.Screen.GetByText("Accept"))
+        );
         Assert.Equal("INVALID_LOCATOR", failure.Code);
         Assert.Equal("filter({ has }) requires a locator made by this screen; " + Foreign, failure.Message);
     }

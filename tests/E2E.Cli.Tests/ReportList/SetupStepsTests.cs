@@ -25,13 +25,19 @@ public sealed class SetupStepsTests
         reporter.Handle(RunFinished(reportPath: "r.json"));
         Assert.Contains(" ✓ service \"compose\" ready 41.20s", output.Lines);
         Assert.Contains(" ✓ target \"chromium\" command at http://127.0.0.1:4310/ reused 1.80s", output.Lines);
-        Assert.Matches(@"^   Duration  \S+ \(startup 43\.00s\)\z", output.Lines.Single(line => line.Contains("Duration", StringComparison.Ordinal)));
+        Assert.Matches(
+            @"^   Duration  \S+ \(startup 43\.00s\)\z",
+            output.Lines.Single(line => line.Contains("Duration", StringComparison.Ordinal))
+        );
     }
 
     [Theory]
     [InlineData(true, "timed out")]
     [InlineData(false, "failed")]
-    public void Prints_a_filter_step_once_it_narrated_never_checks_off_one_that_failed_and_names_the_one_an_interrupt_cuts(bool timedOut, string word)
+    public void Prints_a_filter_step_once_it_narrated_never_checks_off_one_that_failed_and_names_the_one_an_interrupt_cuts(
+        bool timedOut,
+        string word
+    )
     {
         var outcome = timedOut ? SetupOutcome.TimedOut : SetupOutcome.Failed;
         var output = new Capture();
@@ -59,7 +65,8 @@ public sealed class SetupStepsTests
                 $" × filter \"areas\" {word} 302ms",
                 "interrupted while running filter \"slow\": tearing down (interrupt again to force)",
             ],
-            output.Lines.Where(line => System.Text.RegularExpressions.Regex.IsMatch(line, "jev|areas|silent|slow")));
+            output.Lines.Where(line => System.Text.RegularExpressions.Regex.IsMatch(line, "jev|areas|silent|slow"))
+        );
 
         var chunks = new Raw();
         var colored = new global::E2E.Cli.Report.ListReporter(chunks, new ListReporterOptions { Colors = true });
@@ -86,10 +93,17 @@ public sealed class SetupStepsTests
         reporter.Handle(new SetupEvent(prepare, SetupState.Finished, 13_200));
         reporter.Handle(RunFinished(reportPath: "r.json"));
         Assert.DoesNotContain(output.Lines, line => line.Contains("collected", StringComparison.Ordinal));
-        Assert.Equal([" ✓ playwright engine for target \"web\" prepared 13.20s"], output.Lines.Where(line => line.Contains("prepared", StringComparison.Ordinal)));
+        Assert.Equal(
+            [" ✓ playwright engine for target \"web\" prepared 13.20s"],
+            output.Lines.Where(line => line.Contains("prepared", StringComparison.Ordinal))
+        );
 
         // Provisioning is off the clock: no startup split for it.
-        Assert.DoesNotContain("startup", output.Lines.Single(line => line.Contains("Duration", StringComparison.Ordinal)), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "startup",
+            output.Lines.Single(line => line.Contains("Duration", StringComparison.Ordinal)),
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>Upstream's raw <c>chunks</c> sink: the lines a reporter wrote, colors kept.</summary>

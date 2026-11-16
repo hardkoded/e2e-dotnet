@@ -11,7 +11,8 @@ internal sealed partial class DevFlowDeviceClient
     /// <summary><c>capture.snapshot</c>: the visual tree, converted to the snapshot the engine reads.</summary>
     private async Task<JsonNode?> SnapshotAsync(JsonObject options, CancellationToken cancellationToken)
     {
-        var interactiveOnly = options["interactiveOnly"] is JsonValue flag && flag.TryGetValue<bool>(out var wanted) && wanted;
+        var interactiveOnly =
+            options["interactiveOnly"] is JsonValue flag && flag.TryGetValue<bool>(out var wanted) && wanted;
         var screen = await ReadScreenAsync(interactiveOnly, cancellationToken).ConfigureAwait(false);
         return screen.Snapshot;
     }
@@ -45,7 +46,10 @@ internal sealed partial class DevFlowDeviceClient
             {
                 return await agent.GetAsync(path, cancellationToken).ConfigureAwait(false);
             }
-            catch (DevFlowAgentException failure) when (failure.Status == System.Net.HttpStatusCode.Conflict && failure.Code == "capture-changed-during-read")
+            catch (DevFlowAgentException failure)
+                when (failure.Status == System.Net.HttpStatusCode.Conflict
+                    && failure.Code == "capture-changed-during-read"
+                )
             {
                 await Delay(TimeSpan.FromMilliseconds(100 * attempt), cancellationToken).ConfigureAwait(false);
             }
@@ -67,14 +71,21 @@ internal sealed partial class DevFlowDeviceClient
             await ReadScreenAsync(interactiveOnly: false, cancellationToken).ConfigureAwait(false);
         }
 
-        var (png, _) = await agent.GetPngAsync(Api + "ui/screenshot?scale=native", cancellationToken).ConfigureAwait(false);
+        var (png, _) = await agent
+            .GetPngAsync(Api + "ui/screenshot?scale=native", cancellationToken)
+            .ConfigureAwait(false);
         if (DeviceSupport.ReadPngSize(png) is not { } size)
         {
             throw DevFlowErrors.Failed("the agent returned a screenshot that is not a PNG");
         }
 
         await WriteAsync(path, png, cancellationToken).ConfigureAwait(false);
-        var result = new JsonObject { ["path"] = path, ["width"] = size.Width, ["height"] = size.Height };
+        var result = new JsonObject
+        {
+            ["path"] = path,
+            ["width"] = size.Width,
+            ["height"] = size.Height,
+        };
         if (_screen.Viewport is { } viewport && viewport.Width > 0)
         {
             result["logicalWidth"] = viewport.Width;

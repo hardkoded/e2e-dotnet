@@ -27,16 +27,18 @@ public sealed class AnExecutorThatOptsOutOfTheTraceCacheTests
     {
         var directory = Path.Combine(Path.GetTempPath(), "e2e-executor-cache", Guid.NewGuid().ToString("n"));
         var passing = new TestExecutor("passer", (_, _) => Task.FromResult(Passed("nothing to do"))) { Cache = cache };
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(CounterPage.World()),
-            AgentExecutor = passing,
-            BaseUrl = "https://counter.test",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "one act step",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                AgentExecutor = passing,
+                BaseUrl = "https://counter.test",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "one act step",
+            }
+        );
         await session.App.OpenAsync("/");
         var result = await session.Agent.ActAsync("look at the screen");
         session.Complete();

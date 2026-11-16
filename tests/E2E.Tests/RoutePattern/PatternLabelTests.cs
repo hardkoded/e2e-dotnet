@@ -18,6 +18,9 @@ public sealed class PatternLabelTests
     {
         Assert.Equal("\"foo.css\"", E2E.Internal.Routes.PatternLabel("foo.css"));
         Assert.Equal("\"**/a \\\"b\\\"\"", E2E.Internal.Routes.PatternLabel("**/a \"b\""));
-        Assert.Equal("/api\\/\\w+$/i", E2E.Internal.Routes.PatternLabel(new Regex(@"api\/\w+$", RegexOptions.IgnoreCase)));
+        Assert.Equal(
+            "/api\\/\\w+$/i",
+            E2E.Internal.Routes.PatternLabel(new Regex(@"api\/\w+$", RegexOptions.IgnoreCase))
+        );
     }
 }

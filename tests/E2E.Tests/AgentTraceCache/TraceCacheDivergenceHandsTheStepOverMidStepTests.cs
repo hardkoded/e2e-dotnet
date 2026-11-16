@@ -21,10 +21,17 @@ public sealed class TraceCacheDivergenceHandsTheStepOverMidStepTests
             session.Complete();
         }
 
-        Assert.Equal(("agent-concluded", "target-not-found", 1, 2), (result.Cache?.Mode, result.Cache?.Reason, result.Cache?.ReplayedActions, result.Cache?.TotalActions));
+        Assert.Equal(
+            ("agent-concluded", "target-not-found", 1, 2),
+            (result.Cache?.Mode, result.Cache?.Reason, result.Cache?.ReplayedActions, result.Cache?.TotalActions)
+        );
         Assert.Matches("^at action 2 of 2, ", result.Cache?.Detail);
         var notice = model.Requests[0].Messages[0].Content!;
-        Assert.Contains("Cached replay already performed these recorded actions for this step:\n1. tap", notice, StringComparison.Ordinal);
+        Assert.Contains(
+            "Cached replay already performed these recorded actions for this step:\n1. tap",
+            notice,
+            StringComparison.Ordinal
+        );
         Assert.Equal(1, TwoTapCounter.Replayed(notice));
         Assert.Equal(2, model.CallCount);
     }

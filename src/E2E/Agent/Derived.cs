@@ -54,7 +54,12 @@ internal static partial class Derived
     /// Upstream's <c>derivedReason</c>: the rule that makes a typed value this run's data, or null for a value that replays: one the
     /// instruction or the params spell out, or one the model composed itself.
     /// </summary>
-    public static DerivedReason? DerivedReason(string value, string instruction, JsonObject? parameters, StepEvidence? evidence = null)
+    public static DerivedReason? DerivedReason(
+        string value,
+        string instruction,
+        JsonObject? parameters,
+        StepEvidence? evidence = null
+    )
     {
         evidence ??= new StepEvidence();
         var needle = Normalize(value);
@@ -94,7 +99,8 @@ internal static partial class Derived
 
     // Whether the instruction or a param spells the value out: the step's literal input, which replays verbatim.
     private static bool IsLiteral(string needle, string instruction, JsonObject? parameters) =>
-        Normalize(instruction).Contains(needle, StringComparison.Ordinal) || ParamStrings(parameters).Any(text => Normalize(text).Contains(needle, StringComparison.Ordinal));
+        Normalize(instruction).Contains(needle, StringComparison.Ordinal)
+        || ParamStrings(parameters).Any(text => Normalize(text).Contains(needle, StringComparison.Ordinal));
 
     // Whether a value looks like data rather than words: one token, no whitespace, with a digit in it. `TK-4972`, `123`, `n20123`
     // qualify; `Jane` and `one` do not, so those count as read off the screen only when a node says exactly that and nothing more.
@@ -133,8 +139,10 @@ internal static partial class Derived
             @"\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b",
             Dates.ClockTime,
             Dates.MonthDayDate,
-            Dates.DayMonthDate),
-        RegexOptions.IgnoreCase | RegexOptions.ECMAScript);
+            Dates.DayMonthDate
+        ),
+        RegexOptions.IgnoreCase | RegexOptions.ECMAScript
+    );
 
     [GeneratedRegex(@"[\p{L}\p{N}]")]
     private static partial Regex WordChar();
@@ -181,11 +189,13 @@ internal static partial class Derived
             case JsonValue leaf when leaf.GetValueKind() == JsonValueKind.String:
                 output.Add(leaf.GetValue<string>());
                 break;
-            case JsonValue leaf when leaf.GetValueKind() is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False:
+            case JsonValue leaf
+                when leaf.GetValueKind() is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False:
                 output.Add(leaf.ToJsonString());
                 break;
         }
     }
 
-    private static string Normalize(string text) => Spaces().Replace(text.ToLower(CultureInfo.InvariantCulture), " ").Trim();
+    private static string Normalize(string text) =>
+        Spaces().Replace(text.ToLower(CultureInfo.InvariantCulture), " ").Trim();
 }

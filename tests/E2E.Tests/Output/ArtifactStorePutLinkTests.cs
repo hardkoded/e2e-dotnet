@@ -19,7 +19,10 @@ public sealed class ArtifactStorePutLinkTests : IDisposable
 {
     private const string Hosted = "https://recordings.example/r.mp4";
 
-    private readonly string _results = Path.Combine(Directory.CreateTempSubdirectory("e2e-put-link-").FullName, "results");
+    private readonly string _results = Path.Combine(
+        Directory.CreateTempSubdirectory("e2e-put-link-").FullName,
+        "results"
+    );
 
     public void Dispose() => Directory.Delete(Path.GetDirectoryName(_results)!, recursive: true);
 
@@ -46,12 +49,17 @@ public sealed class ArtifactStorePutLinkTests : IDisposable
                 AttemptId = attempt.Id,
                 StartedAt = hosted.StartedAt!.Value,
             },
-            link);
+            link
+        );
         Assert.Equal(ArtifactKind.Video, link.Kind);
         Assert.Equal(ArtifactRedaction.Incomplete, link.Redaction);
 
         // The file segment still goes to put, and the link never does.
-        Assert.EndsWith("video/fake.webm", Assert.Single(capture.Puts, artifact => artifact.Kind == ArtifactKind.Video).Path, StringComparison.Ordinal);
+        Assert.EndsWith(
+            "video/fake.webm",
+            Assert.Single(capture.Puts, artifact => artifact.Kind == ArtifactKind.Video).Path,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -74,16 +82,18 @@ public sealed class ArtifactStorePutLinkTests : IDisposable
     }
 
     private Task<E2ESession> StartAsync(IArtifactStore store, ResolvedRecording video) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new FakeVideoEngine(),
-            TestTitle = "taps a node",
-            Video = video,
-            Attempt = 1,
-            ArtifactStore = store,
-            ResultsDirectory = _results,
-            ProjectRoot = _results,
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new FakeVideoEngine(),
+                TestTitle = "taps a node",
+                Video = video,
+                Attempt = 1,
+                ArtifactStore = store,
+                ResultsDirectory = _results,
+                ProjectRoot = _results,
+            }
+        );
 
     private sealed class CapturingStore : IArtifactStore
     {
@@ -105,7 +115,9 @@ public sealed class ArtifactStorePutLinkTests : IDisposable
         public Task<string?> PutLinkAsync(StoredArtifactLink link, CancellationToken cancellationToken = default)
         {
             _links.Enqueue(link);
-            return FailLinks ? throw new InvalidOperationException("the bucket is down") : Task.FromResult<string?>("store://link/" + _links.Count);
+            return FailLinks
+                ? throw new InvalidOperationException("the bucket is down")
+                : Task.FromResult<string?>("store://link/" + _links.Count);
         }
     }
 
@@ -140,7 +152,12 @@ public sealed class ArtifactStorePutLinkTests : IDisposable
                     File.WriteAllText(Path.Combine(ArtifactsDir, "video", "fake.webm"), "fake-vid");
                     IReadOnlyList<VideoSegment> segments =
                     [
-                        new VideoLink { Url = Hosted, MediaType = "video/mp4", StartedAt = "2026-09-28T10:00:00.000Z" },
+                        new VideoLink
+                        {
+                            Url = Hosted,
+                            MediaType = "video/mp4",
+                            StartedAt = "2026-09-28T10:00:00.000Z",
+                        },
                         new VideoFile { Path = "video/fake.webm", StartedAt = "2026-09-28T10:00:00.000Z" },
                     ];
                     return Task.FromResult(segments);

@@ -18,14 +18,18 @@ public sealed class SecretsGetTests
     private static readonly E2EConfig Config = E2EConfig.Parse(
         """{ "credentials": { "admin": { "username": "admin@example.com", "password": "super-secret-password" } }, "secrets": { "api-key": "sk_live_1_value" } }""",
         Path.GetTempPath(),
-        _ => null);
+        _ => null
+    );
 
     [Fact]
     public void Throws_SECRET_UNAVAILABLE_for_a_name_the_running_config_does_not_declare()
     {
         var error = Assert.Throws<TestException>(() => Config.Secrets.Get("missing"));
         Assert.Equal("SECRET_UNAVAILABLE", error.Code);
-        Assert.Equal("secret \"missing\" is not configured; add it to config.secrets or set E2E_SECRET_MISSING", error.Message);
+        Assert.Equal(
+            "secret \"missing\" is not configured; add it to config.secrets or set E2E_SECRET_MISSING",
+            error.Message
+        );
     }
 
     [Fact]
@@ -46,7 +50,11 @@ public sealed class SecretsGetTests
         {
             var error = Assert.Throws<TestException>(() => Config.Secrets.Get(name));
             Assert.Equal("SECRET_UNAVAILABLE", error.Code);
-            Assert.Contains("credential \"admin\"'s password is credentials.user(\"admin\").password", error.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "credential \"admin\"'s password is credentials.user(\"admin\").password",
+                error.Message,
+                StringComparison.Ordinal
+            );
             Assert.DoesNotContain(AdminPassword, error.Message, StringComparison.Ordinal);
         }
     }
@@ -57,7 +65,8 @@ public sealed class SecretsGetTests
         var config = E2EConfig.Parse(
             """{ "credentials": { "admin": { "username": "admin@example.com", "password": "super-secret-password" } }, "secrets": { "admin": "admin-api-key" } }""",
             Path.GetTempPath(),
-            _ => null);
+            _ => null
+        );
 
         var secret = config.Secrets.Get("admin");
         Assert.Equal("admin", secret.Name);

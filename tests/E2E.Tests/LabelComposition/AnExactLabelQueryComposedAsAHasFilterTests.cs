@@ -37,8 +37,14 @@ public sealed class AnExactLabelQueryComposedAsAHasFilterTests
         await WithRowsAsync(async screen =>
         {
             Assert.Equal(["Name", "Name"], await NamesAsync(screen.GetByLabel("Name")));
-            Assert.Equal(["row-name", "row-name-hidden"], await TestIdsAsync(RowsWith(screen, screen.GetByLabel("Name"))));
-            Assert.Equal(["row-last-name", "row-name", "row-name-hidden"], await TestIdsAsync(RowsWith(screen, screen.GetByLabel("Name", exact: false))));
+            Assert.Equal(
+                ["row-name", "row-name-hidden"],
+                await TestIdsAsync(RowsWith(screen, screen.GetByLabel("Name")))
+            );
+            Assert.Equal(
+                ["row-last-name", "row-name", "row-name-hidden"],
+                await TestIdsAsync(RowsWith(screen, screen.GetByLabel("Name", exact: false)))
+            );
             Assert.Equal(["row-last-name"], await TestIdsAsync(RowsWith(screen, screen.GetByLabel("Last Name"))));
             Assert.Empty(await TestIdsAsync(RowsWith(screen, screen.GetByLabel("Nowhere"))));
         });
@@ -64,7 +70,12 @@ public sealed class AnExactLabelQueryComposedAsAHasFilterTests
             Assert.Equal(1, await exactVisible.CountAsync());
             Assert.False(await exactVisible.IsHiddenAsync());
             Assert.Equal(["row-name"], await TestIdsAsync(RowsWith(screen, exactVisible)));
-            Assert.Equal(["row-last-name", "row-name"], await TestIdsAsync(RowsWith(screen, screen.GetByLabel("Name", new TextMatchOptions { Exact = false, Visible = true }))));
+            Assert.Equal(
+                ["row-last-name", "row-name"],
+                await TestIdsAsync(
+                    RowsWith(screen, screen.GetByLabel("Name", new TextMatchOptions { Exact = false, Visible = true }))
+                )
+            );
         });
     }
 
@@ -90,7 +101,10 @@ public sealed class AnExactLabelQueryComposedAsAHasFilterTests
             var remove = RowsWith(screen, screen.GetByLabel("Name")).First().GetByRole("button", "Remove");
             Assert.Equal(1, await remove.CountAsync());
             await remove.TapAsync();
-            Assert.Equal(["row-last-name", "row-quoted", "row-name-hidden"], await TestIdsAsync(screen.GetByRole("listitem")));
+            Assert.Equal(
+                ["row-last-name", "row-quoted", "row-name-hidden"],
+                await TestIdsAsync(screen.GetByRole("listitem"))
+            );
             Assert.Equal(1, await screen.GetByLabel("Last Name").CountAsync());
         });
     }

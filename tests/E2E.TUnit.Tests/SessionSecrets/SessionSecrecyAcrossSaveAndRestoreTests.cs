@@ -51,9 +51,18 @@ public abstract class StoredSecretFixture : SessionFixtureBase
     protected async Task StoreAsync(Secret secret)
     {
         await App.OpenAsync("/browser");
-        await Browser.EvaluateAsync<string?>("() => { document.body.innerHTML = '<input type=text aria-label=Token>'; return null; }");
+        await Browser.EvaluateAsync<string?>(
+            "() => { document.body.innerHTML = '<input type=text aria-label=Token>'; return null; }"
+        );
         await Screen.GetByLabel("Token").FillAsync(secret);
-        await Browser.SetCookiesAsync([new BrowserCookie { Name = "stored", Value = SessionSecrecyAcrossSaveAndRestoreTests.Sentinel, Url = await Browser.UrlAsync() }]);
+        await Browser.SetCookiesAsync([
+            new BrowserCookie
+            {
+                Name = "stored",
+                Value = SessionSecrecyAcrossSaveAndRestoreTests.Sentinel,
+                Url = await Browser.UrlAsync(),
+            },
+        ]);
         await SaveSessionAsync("acct");
     }
 
@@ -61,8 +70,13 @@ public abstract class StoredSecretFixture : SessionFixtureBase
     {
         await App.OpenAsync("/browser");
         var stored = (await Browser.CookiesAsync()).First(cookie => cookie.Name == "stored").Value;
-        await Browser.EvaluateAsync<string?>("v => { document.body.innerHTML = '<p aria-label=Echo></p>'; document.querySelector('p').textContent = v; return null; }", stored);
-        await Expect.That(Screen.GetByLabel("Echo")).ToHaveTextAsync("nothing stored", timeout: TimeSpan.FromMilliseconds(200));
+        await Browser.EvaluateAsync<string?>(
+            "v => { document.body.innerHTML = '<p aria-label=Echo></p>'; document.querySelector('p').textContent = v; return null; }",
+            stored
+        );
+        await Expect
+            .That(Screen.GetByLabel("Echo"))
+            .ToHaveTextAsync("nothing stored", timeout: TimeSpan.FromMilliseconds(200));
     }
 }
 
@@ -81,7 +95,8 @@ public sealed class ConfigSecretFixture : StoredSecretFixture
     private static readonly E2EConfig WithSecret = E2EConfig.Parse(
         $$"""{ "cache": { "mode": "off" }, "secrets": { "token": "{{SessionSecrecyAcrossSaveAndRestoreTests.Sentinel}}" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => WithSecret;
 

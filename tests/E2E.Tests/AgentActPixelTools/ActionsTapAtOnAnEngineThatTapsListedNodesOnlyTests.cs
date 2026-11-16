@@ -30,28 +30,51 @@ public sealed class ActionsTapAtOnAnEngineThatTapsListedNodesOnlyTests
                     Rect = Rect(0, 0, 1280, 720),
                     Children =
                     [
-                        new SemanticNode { Ref = "dismiss", Role = "button", Name = "Dismiss popover", Rect = Rect(0, 0, 1280, 720) },
+                        new SemanticNode
+                        {
+                            Ref = "dismiss",
+                            Role = "button",
+                            Name = "Dismiss popover",
+                            Rect = Rect(0, 0, 1280, 720),
+                        },
                         new SemanticNode
                         {
                             Ref = "dialog",
                             Role = "dialog",
                             Name = "Calendar",
                             Rect = Rect(540, 260, 200, 200),
-                            Children = [new SemanticNode { Ref = "day", Role = "button", Name = "15", Rect = Rect(540, 260, 200, 200) }],
+                            Children =
+                            [
+                                new SemanticNode
+                                {
+                                    Ref = "day",
+                                    Role = "button",
+                                    Name = "15",
+                                    Rect = Rect(540, 260, 200, 200),
+                                },
+                            ],
                         },
                     ],
                 },
-            ]);
+            ]
+        );
         string? summary = null;
-        var executor = new TestExecutor(
-            "outside-tapper",
-            async (context, token) =>
+        var executor = new TestExecutor("outside-tapper", async (context, token) =>
+        {
+            await context.ObserveAsync(cancellationToken: token);
+            summary = (await context.Actions.TapAtAsync(new Point(100, 100), token)).Summary;
+            return Passed(summary);
+        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
             {
-                await context.ObserveAsync(cancellationToken: token);
-                summary = (await context.Actions.TapAtAsync(new Point(100, 100), token)).Summary;
-                return Passed(summary);
-            });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = engine, AgentExecutor = executor, BaseUrl = "https://fixture.test", CacheEnabled = false, TestTitle = "taps outside the popover" });
+                Engine = engine,
+                AgentExecutor = executor,
+                BaseUrl = "https://fixture.test",
+                CacheEnabled = false,
+                TestTitle = "taps outside the popover",
+            }
+        );
         await session.App.OpenAsync("/");
         await session.Agent.ActAsync(
             "dismiss the calendar popover",
@@ -62,10 +85,18 @@ public sealed class ActionsTapAtOnAnEngineThatTapsListedNodesOnlyTests
                     Assert.IsNotType<TapAtActionEvent>(e);
                     return Task.CompletedTask;
                 },
-            });
+            }
+        );
         session.Complete();
 
         Assert.Equal(["dismiss"], engine.Performed);
-        Assert.Matches(new Regex(@"^Tapped \S* ?button ""Dismiss popover""\S*, the control at \(100, 100\)\.$", RegexOptions.None, TimeSpan.FromSeconds(2)), summary);
+        Assert.Matches(
+            new Regex(
+                @"^Tapped \S* ?button ""Dismiss popover""\S*, the control at \(100, 100\)\.$",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(2)
+            ),
+            summary
+        );
     }
 }

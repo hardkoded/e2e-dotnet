@@ -23,10 +23,16 @@ public sealed class TheReplayCacheTests
         var name = typeof(ReplayCacheFixture).FullName + "." + nameof(ReplayCacheFixture.Increments_the_counter);
         var model = new ScriptedModel(request =>
         {
-            var tapped = request.Messages.Count(message => message.Role == "tool" && message.Content!.Contains("Tapped", StringComparison.Ordinal));
-            return tapped >= 2 ? ModelResponses.Done("passed", "The counter shows 2.") : ModelResponses.Tap("button", "Increment");
+            var tapped = request.Messages.Count(message =>
+                message.Role == "tool" && message.Content!.Contains("Tapped", StringComparison.Ordinal)
+            );
+            return tapped >= 2
+                ? ModelResponses.Done("passed", "The counter shows 2.")
+                : ModelResponses.Tap("button", "Increment");
         });
-        var host = E2EConfig.Parse("""{ "cache": { "mode": "read-write", "dir": ".e2e/cache" } }""", directory, _ => null).WithModel(model);
+        var host = E2EConfig
+            .Parse("""{ "cache": { "mode": "read-write", "dir": ".e2e/cache" } }""", directory, _ => null)
+            .WithModel(model);
         Directory.CreateDirectory(directory);
         try
         {
@@ -43,23 +49,32 @@ public sealed class TheReplayCacheTests
             Assert.That(model.CallCount, Is.EqualTo(modelCalls));
 
             // And so does e2e run: the key is the run's.
-            var run = await Runner.RunAsync(new RunOptions
-            {
-                Cwd = directory,
-                RawConfig = $$"""{ "cache": { "mode": "read-write", "dir": ".e2e/cache" }, "targets": [{ "name": "web", "app": { "url": "{{E2E.Playground.Testbed.Url}}" } }] }""",
-                Tests = new InMemoryTests("tests/replay-cache.e2e", [new InMemoryTest(name, async session =>
+            var run = await Runner.RunAsync(
+                new RunOptions
                 {
-                    await session.App.OpenAsync("/speed");
-                    await session.Agent.ActAsync(Instruction);
-                    await Expect.That(session.Screen.GetByLabel("Count")).ToHaveTextAsync("2");
-                })]),
-                Env = new Dictionary<string, string?> { ["CI"] = "" },
-                Agents = new Dictionary<string, AgentOptions> { [host.AgentNames[0]] = host.Agent.CreateOptions() },
-            });
+                    Cwd = directory,
+                    RawConfig =
+                        $$"""{ "cache": { "mode": "read-write", "dir": ".e2e/cache" }, "targets": [{ "name": "web", "app": { "url": "{{E2E.Playground.Testbed.Url}}" } }] }""",
+                    Tests = new InMemoryTests("tests/replay-cache.e2e", [new InMemoryTest(name, async session =>
+                            {
+                                await session.App.OpenAsync("/speed");
+                                await session.Agent.ActAsync(Instruction);
+                                await Expect.That(session.Screen.GetByLabel("Count")).ToHaveTextAsync("2");
+                            })]),
+                    Env = new Dictionary<string, string?> { ["CI"] = "" },
+                    Agents = new Dictionary<string, AgentOptions> { [host.AgentNames[0]] = host.Agent.CreateOptions() },
+                }
+            );
             Assert.That(run.ExitCode, Is.EqualTo(0));
-            var act = run.Report.Run.Results.Single(result => result.TitlePath.SequenceEqual([name])).Attempts[^1].Steps.Single(step => step.Api == "agent.act");
+            var act = run
+                .Report.Run.Results.Single(result => result.TitlePath.SequenceEqual([name]))
+                .Attempts[^1]
+                .Steps.Single(step => step.Api == "agent.act");
             Assert.That(act.Status, Is.EqualTo(E2E.Reports.StepStatus.Passed));
-            Assert.That((act.Cache?.Mode, act.Cache?.ReplayedActions, act.Cache?.TotalActions), Is.EqualTo((E2E.Reports.CacheMode.SelfFinalized, 2, 2)));
+            Assert.That(
+                (act.Cache?.Mode, act.Cache?.ReplayedActions, act.Cache?.TotalActions),
+                Is.EqualTo((E2E.Reports.CacheMode.SelfFinalized, 2, 2))
+            );
             Assert.That(act.Metrics?.ModelCalls, Is.EqualTo(0));
             Assert.That(model.CallCount, Is.EqualTo(modelCalls));
         }
@@ -75,7 +90,12 @@ public sealed class TheReplayCacheTests
     /// <summary>Runs the named test as a session on the host's config and closes it as <c>e2e mcp</c>'s <c>close_session</c> does.</summary>
     private static async Task RunAndCloseAsync(string name, E2EConfig host)
     {
-        var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(ReplayCacheFixture).Assembly, name, CancellationToken.None, host);
+        var outcome = await new NUnitSessionTestRunner().RunAsync(
+            typeof(ReplayCacheFixture).Assembly,
+            name,
+            CancellationToken.None,
+            host
+        );
 
         Assert.That(outcome, Is.Not.Null);
         await using var closing = outcome!;
@@ -88,7 +108,11 @@ public sealed class TheReplayCacheTests
     [Explicit("Run by TheReplayCacheTests")]
     public sealed class ReplayCacheFixture : E2ETest
     {
-        private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", Path.GetTempPath(), _ => null);
+        private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+            """{ "cache": { "mode": "off" } }""",
+            Path.GetTempPath(),
+            _ => null
+        );
 
         protected override E2EConfig Config => FixtureConfig;
 

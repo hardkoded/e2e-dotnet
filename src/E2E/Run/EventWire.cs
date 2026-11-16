@@ -18,13 +18,19 @@ internal static class EventWire
     /// The <c>test-finished</c> result of <paramref name="result"/>, redacted by <paramref name="redact"/>. <paramref name="identity"/> says who the test is;
     /// <paramref name="resultsRoot"/> is the directory the attempts' artifact paths start at.
     /// </summary>
-    public static RunEventResult Result(ReportResult result, TestIdentity identity, string resultsRoot, Func<string, string> redact)
+    public static RunEventResult Result(
+        ReportResult result,
+        TestIdentity identity,
+        string resultsRoot,
+        Func<string, string> redact
+    )
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(identity);
         var node = ReportWire.Result(result, result.Platform, resultsRoot);
         ReportWire.Redact(node, redact);
-        var wire = node.Deserialize<Reports.ReportResult>(ReportSerializer.Options) ?? throw new InvalidOperationException("The report result is empty.");
+        var wire = node.Deserialize<Reports.ReportResult>(ReportSerializer.Options)
+            ?? throw new InvalidOperationException("The report result is empty.");
         return new RunEventResult
         {
             Test = identity,
@@ -44,7 +50,8 @@ internal static class EventWire
     public static Reports.ReportError Error(ReportError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return ReportWire.Error(error).Deserialize<Reports.ReportError>(ReportSerializer.Options) ?? throw new InvalidOperationException("The report error is empty.");
+        return ReportWire.Error(error).Deserialize<Reports.ReportError>(ReportSerializer.Options)
+            ?? throw new InvalidOperationException("The report error is empty.");
     }
 
     /// <summary>The error of a failure that ended the run, serialized without a stack and redacted by <paramref name="redact"/>.</summary>

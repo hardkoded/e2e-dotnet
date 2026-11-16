@@ -17,19 +17,31 @@ namespace E2E.Tests.Explore;
 /// </summary>
 public sealed class ExploreCleanupTests
 {
-    private sealed class FinishFailing(Exception failure) : ScreenshotEngine(CounterPage.World(), _ => ScreenshotEngine.Png()), IPreparableEngine
+    private sealed class FinishFailing(Exception failure)
+        : ScreenshotEngine(CounterPage.World(), _ => ScreenshotEngine.Png()),
+            IPreparableEngine
     {
-        public Task<EnginePrepareResult> PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken) => Task.FromResult(new EnginePrepareResult());
+        public Task<EnginePrepareResult> PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken) =>
+            Task.FromResult(new EnginePrepareResult());
 
-        public Task FinishAsync(EngineFinishInfo info, CancellationToken cancellationToken) => Task.FromException(failure);
+        public Task FinishAsync(EngineFinishInfo info, CancellationToken cancellationToken) =>
+            Task.FromException(failure);
     }
 
-    private static ExploreModel Finishing() => new(_ => ExploreModel.Finish("Looked."), _ => ExploreModel.Done("passed", "unused"));
+    private static ExploreModel Finishing() =>
+        new(_ => ExploreModel.Finish("Looked."), _ => ExploreModel.Done("passed", "unused"));
 
     [Fact]
     public async Task Returns_the_outcome_with_a_failed_finish_as_an_infrastructure_error()
     {
-        var outcome = await Explorer.ExploreAsync(Options(TempRoot(), Finishing().Model, [], engine: new FinishFailing(new InvalidOperationException("lease release refused"))));
+        var outcome = await Explorer.ExploreAsync(
+            Options(
+                TempRoot(),
+                Finishing().Model,
+                [],
+                engine: new FinishFailing(new InvalidOperationException("lease release refused"))
+            )
+        );
 
         Assert.Equal(3, outcome.ExitCode);
         Assert.Equal(RunStatus.Failed, outcome.Status);
@@ -43,9 +55,21 @@ public sealed class ExploreCleanupTests
     {
         var plans = 0;
         var model = new ExploreModel(
-            _ => ++plans == 1 ? ExploreModel.Step("Counter", "Look at the counter") : ExploreModel.Finish("One defect."),
-            call => call.Turn == 1 ? ExploreModel.ReportFinding(ExploreModel.CounterFinding()) : ExploreModel.Done("passed", "Looked"));
-        var outcome = await Explorer.ExploreAsync(Options(TempRoot(), model.Model, [], engine: new FinishFailing(new InvalidOperationException("lease release refused"))));
+            _ =>
+                ++plans == 1 ? ExploreModel.Step("Counter", "Look at the counter") : ExploreModel.Finish("One defect."),
+            call =>
+                call.Turn == 1
+                    ? ExploreModel.ReportFinding(ExploreModel.CounterFinding())
+                    : ExploreModel.Done("passed", "Looked")
+        );
+        var outcome = await Explorer.ExploreAsync(
+            Options(
+                TempRoot(),
+                model.Model,
+                [],
+                engine: new FinishFailing(new InvalidOperationException("lease release refused"))
+            )
+        );
 
         Assert.Single(outcome.Explore.Findings);
         Assert.NotNull(outcome.Error);
@@ -55,9 +79,14 @@ public sealed class ExploreCleanupTests
     [Fact]
     public async Task Redacts_the_secrets_in_an_e2e_error_a_failed_finish_throws()
     {
-        var credentials = new Dictionary<string, UserCredential> { ["ada"] = new("ada@example.test", Secret.Create("password", "bookworm")) };
+        var credentials = new Dictionary<string, UserCredential>
+        {
+            ["ada"] = new("ada@example.test", Secret.Create("password", "bookworm")),
+        };
         var failure = new EngineException("CLEANUP_TIMEOUT", "release refused for bookworm");
-        var outcome = await Explorer.ExploreAsync(Options(TempRoot(), Finishing().Model, [], engine: new FinishFailing(failure), credentials: credentials));
+        var outcome = await Explorer.ExploreAsync(
+            Options(TempRoot(), Finishing().Model, [], engine: new FinishFailing(failure), credentials: credentials)
+        );
 
         var error = Assert.IsType<EngineException>(outcome.Error);
         Assert.Equal("CLEANUP_TIMEOUT", error.Code);

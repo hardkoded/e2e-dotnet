@@ -61,9 +61,19 @@ public sealed class WebEngineTests
     public async Task Chromium_holds_the_modifiers_of_a_tap_the_agent_sends()
     {
         using var site = await TinySite.StartAsync(SelectionPage);
-        var model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
-            ? ModelResponses.Done("passed", "clicked")
-            : ModelResponses.Call("tap", new { role = "button", name = "Row", modifiers = new[] { "Shift", "Alt" } }));
+        var model = new ScriptedModel(request =>
+            request.Messages.Any(message => message.Role == "tool")
+                ? ModelResponses.Done("passed", "clicked")
+                : ModelResponses.Call(
+                    "tap",
+                    new
+                    {
+                        role = "button",
+                        name = "Row",
+                        modifiers = new[] { "Shift", "Alt" },
+                    }
+                )
+        );
         var session = await StartAsync(site, model, cache: null);
         await RunAsync(session, async () =>
         {
@@ -130,13 +140,18 @@ public sealed class WebEngineTests
             </body></html>
             """;
         using var site = await TinySite.StartAsync(page);
-        var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { BaseUrl = site.Url }, CancellationToken.None);
+        var session = await new WebEngine(headless: true).StartAsync(
+            new EngineStartOptions { BaseUrl = site.Url },
+            CancellationToken.None
+        );
 
         await using (session)
         {
             await session.OpenAsync(site.Url, CancellationToken.None);
             var observation = await session.ObserveAsync(CancellationToken.None);
-            var nodes = Flatten(observation.Roots).Where(node => node.TestId is not null).ToDictionary(node => node.TestId!);
+            var nodes = Flatten(observation.Roots)
+                .Where(node => node.TestId is not null)
+                .ToDictionary(node => node.TestId!);
 
             Assert.Equal("Net worth", nodes["label"].Text);
             Assert.Equal("Save draft", nodes["save"].Name);
@@ -148,14 +163,20 @@ public sealed class WebEngineTests
     public async Task Chromium_observation_reports_the_viewport_it_was_taken_in()
     {
         using var site = await TinySite.StartAsync(BillingPage);
-        var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { BaseUrl = site.Url }, CancellationToken.None);
+        var session = await new WebEngine(headless: true).StartAsync(
+            new EngineStartOptions { BaseUrl = site.Url },
+            CancellationToken.None
+        );
 
         await using (session)
         {
             await session.OpenAsync(site.Url, CancellationToken.None);
             var observation = await session.ObserveAsync(CancellationToken.None);
 
-            Assert.Equal(new TraceViewport(WebViewport.Default.Width, WebViewport.Default.Height), observation.Viewport);
+            Assert.Equal(
+                new TraceViewport(WebViewport.Default.Width, WebViewport.Default.Height),
+                observation.Viewport
+            );
         }
     }
 
@@ -191,14 +212,18 @@ public sealed class WebEngineTests
             await browser.WaitForURLAsync(new Regex("/second$"));
             await session.App.BackAsync();
             await browser.WaitForURLAsync("/first");
-            var missed = await Assert.ThrowsAsync<TestException>(() => browser.WaitForURLAsync("/never", TimeSpan.FromMilliseconds(200)));
+            var missed = await Assert.ThrowsAsync<TestException>(() =>
+                browser.WaitForURLAsync("/never", TimeSpan.FromMilliseconds(200))
+            );
             Assert.Equal("ASSERTION_FAILED", missed.Code);
 
             await browser.EvaluateAsync<object>("() => { window.marker = 1; return null; }");
             await browser.ReloadAsync();
             Assert.Equal(0, await browser.EvaluateAsync<int>("() => window.marker ?? 0"));
             Assert.Equal(42, await browser.EvaluateAsync<int>("x => x * 2", 21));
-            var thrown = await Assert.ThrowsAsync<TestException>(() => browser.EvaluateAsync<int>("() => { throw new Error('boom'); }"));
+            var thrown = await Assert.ThrowsAsync<TestException>(() =>
+                browser.EvaluateAsync<int>("() => { throw new Error('boom'); }")
+            );
             Assert.Equal("EVALUATE_FAILED", thrown.Code);
 
             await browser.SetViewportAsync(800, 600);
@@ -223,8 +248,17 @@ public sealed class WebEngineTests
             var browser = session.Browser;
             Assert.Equal(site.Url.TrimEnd('/'), session.App.BaseUrl);
             await session.App.OpenAsync("/");
-            await browser.SetCookiesAsync([new BrowserCookie { Name = "plan", Value = "pro", Url = site.Url }]);
-            var denied = await Assert.ThrowsAsync<TestException>(() => browser.SetCookiesAsync([new BrowserCookie { Name = "x", Value = "y" }]));
+            await browser.SetCookiesAsync([
+                new BrowserCookie
+                {
+                    Name = "plan",
+                    Value = "pro",
+                    Url = site.Url,
+                },
+            ]);
+            var denied = await Assert.ThrowsAsync<TestException>(() =>
+                browser.SetCookiesAsync([new BrowserCookie { Name = "x", Value = "y" }])
+            );
             Assert.Equal("INVALID_ARGUMENT", denied.Code);
             await browser.SetViewportAsync(700, 500);
 
@@ -281,7 +315,9 @@ public sealed class WebEngineTests
             await screen.GetByRole("combobox", "Plan").SelectOptionAsync("pro");
             await screen.GetByRole("button", "Far").ScrollIntoViewAsync();
             await screen.GetByRole("button", "Far").FocusAsync();
-            await Expect.That(screen.GetByRole("status")).ToContainTextAsync("click;click;click;double;key a;key b;pw 7;plan pro;focus;");
+            await Expect
+                .That(screen.GetByRole("status"))
+                .ToContainTextAsync("click;click;click;double;key a;key b;pw 7;plan pro;focus;");
             Assert.Equal("ab", await screen.GetByRole("textbox", "Search").InputValueAsync());
         });
     }
@@ -324,16 +360,28 @@ public sealed class WebEngineTests
             </body></html>
             """;
         using var site = await TinySite.StartAsync(page);
-        var session = await StartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "none")), cache: null);
+        var session = await StartAsync(
+            site,
+            new ScriptedModel(_ => ModelResponses.Done("passed", "none")),
+            cache: null
+        );
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
-            await Expect.That(session.Screen.GetByRole("tab", new RoleOptions { Selected = true })).ToHaveTextAsync("One");
-            await Expect.That(session.Screen.GetByRole("button", new RoleOptions { Expanded = true })).ToHaveTextAsync("Menu");
-            await Expect.That(session.Screen.GetByRole("button", new RoleOptions { Pressed = true })).ToHaveTextAsync("Bold");
+            await Expect
+                .That(session.Screen.GetByRole("tab", new RoleOptions { Selected = true }))
+                .ToHaveTextAsync("One");
+            await Expect
+                .That(session.Screen.GetByRole("button", new RoleOptions { Expanded = true }))
+                .ToHaveTextAsync("Menu");
+            await Expect
+                .That(session.Screen.GetByRole("button", new RoleOptions { Pressed = true }))
+                .ToHaveTextAsync("Bold");
             await Expect.That(session.Screen.GetByRole("img", "Logo")).ToBeVisibleAsync();
             await Expect.That(session.Screen.GetByText("Saved")).ToHaveCountAsync(2);
-            await Expect.That(session.Screen.GetByText("Saved", new TextMatchOptions { Visible = true })).ToBeVisibleAsync();
+            await Expect
+                .That(session.Screen.GetByText("Saved", new TextMatchOptions { Visible = true }))
+                .ToBeVisibleAsync();
         });
     }
 
@@ -355,7 +403,8 @@ public sealed class WebEngineTests
     [Fact]
     public async Task Chromium_reports_selected_expanded_focused_and_attributes()
     {
-        using var site = await TinySite.StartAsync("""
+        using var site = await TinySite.StartAsync(
+            """
             <!DOCTYPE html>
             <html><body>
             <div role="tab" aria-selected="true">Overview</div>
@@ -364,8 +413,13 @@ public sealed class WebEngineTests
             <input aria-label="Email" autofocus>
             <script>document.querySelector("input").focus();</script>
             </body></html>
-            """);
-        var session = await StartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "unused")), cache: null);
+            """
+        );
+        var session = await StartAsync(
+            site,
+            new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+            cache: null
+        );
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -378,19 +432,21 @@ public sealed class WebEngineTests
 
     internal static async Task<E2ESession> StartAsync(TinySite site, ScriptedModel model, FileStepCache? cache)
     {
-        return await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = model,
-            BaseUrl = site.Url,
-            Cache = cache,
-            CacheEnabled = cache is not null,
-            TestTitle = "web > step",
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(20),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        return await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = model,
+                BaseUrl = site.Url,
+                Cache = cache,
+                CacheEnabled = cache is not null,
+                TestTitle = "web > step",
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(20),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
     }
 
     internal static async Task RunAsync(E2ESession session, Func<Task> body)

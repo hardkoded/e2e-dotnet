@@ -16,18 +16,20 @@ internal static class JsonQuote
         var quoted = new StringBuilder("\"");
         foreach (var character in text)
         {
-            quoted.Append(character switch
-            {
-                '"' => "\\\"",
-                '\\' => "\\\\",
-                '\n' => "\\n",
-                '\r' => "\\r",
-                '\t' => "\\t",
-                '\b' => "\\b",
-                '\f' => "\\f",
-                < ' ' => "\\u" + ((int)character).ToString("x4", CultureInfo.InvariantCulture),
-                _ => character.ToString(),
-            });
+            quoted.Append(
+                character switch
+                {
+                    '"' => "\\\"",
+                    '\\' => "\\\\",
+                    '\n' => "\\n",
+                    '\r' => "\\r",
+                    '\t' => "\\t",
+                    '\b' => "\\b",
+                    '\f' => "\\f",
+                    < ' ' => "\\u" + ((int)character).ToString("x4", CultureInfo.InvariantCulture),
+                    _ => character.ToString(),
+                }
+            );
         }
 
         return quoted.Append('"').ToString();

@@ -11,19 +11,23 @@ namespace E2E.Tests.RunEvents;
 [Collection(nameof(ConsoleCollection))]
 public sealed class HostRunTests
 {
-    private static DiscoveredTest Found(string typeName, string title, string? skip = null, string @namespace = "App.Tests") =>
-        new($"{@namespace}.{typeName}.{title}", @namespace, typeName, title, [], skip);
+    private static DiscoveredTest Found(
+        string typeName,
+        string title,
+        string? skip = null,
+        string @namespace = "App.Tests"
+    ) => new($"{@namespace}.{typeName}.{title}", @namespace, typeName, title, [], skip);
 
     private static List<RunEventFact> Listen(out IDisposable listening)
     {
         var facts = new List<RunEventFact>();
         listening = E2E.RunEvents.Subscribe(new RunEventSubscriber("test", runEvent =>
-        {
-            lock (facts)
             {
-                facts.Add(runEvent.Fact);
-            }
-        }));
+                lock (facts)
+                {
+                    facts.Add(runEvent.Fact);
+                }
+            }));
         return facts;
     }
 
@@ -43,14 +47,20 @@ public sealed class HostRunTests
                     Found("LoginTests", "Signs_in"),
                     Found("Outer+Inner", "Nests", @namespace: "App.Tests"),
                 ],
-                new Dictionary<string, string> { ["App.Tests.CartTests.Is_left_out"] = "did not change" });
+                new Dictionary<string, string> { ["App.Tests.CartTests.Is_left_out"] = "did not change" }
+            );
         }
 
         var plan = Assert.IsType<PlanEvent>(Assert.Single(facts));
         Assert.Equal(4, plan.Total);
         Assert.Equal(
-            [("App.Tests.CartTests", "web", 2), ("App.Tests.LoginTests", "web", 1), ("App.Tests.Outer+Inner", "web", 1)],
-            plan.Files);
+            [
+                ("App.Tests.CartTests", "web", 2),
+                ("App.Tests.LoginTests", "web", 1),
+                ("App.Tests.Outer+Inner", "web", 1),
+            ],
+            plan.Files
+        );
     }
 
     [Fact]
@@ -65,7 +75,10 @@ public sealed class HostRunTests
         Assert.Equal(2, facts.Count);
         Assert.Equal(new SetupEvent(new CollectSetupStep(), SetupState.Started), facts[0]);
         var finished = Assert.IsType<SetupEvent>(facts[1]);
-        Assert.Equal((new CollectSetupStep(), SetupState.Finished, null), (finished.Step, finished.State, finished.Outcome));
+        Assert.Equal(
+            (new CollectSetupStep(), SetupState.Finished, null),
+            (finished.Step, finished.State, finished.Outcome)
+        );
     }
 
     [Fact]
@@ -101,7 +114,10 @@ public sealed class HostRunTests
         {
             using (listening)
             {
-                HostRun.Failed(E2EConfig.Default(root), new ConfigurationException("INVALID_CONFIG", "the filter is wrong"));
+                HostRun.Failed(
+                    E2EConfig.Default(root),
+                    new ConfigurationException("INVALID_CONFIG", "the filter is wrong")
+                );
             }
         }
         finally
@@ -110,6 +126,9 @@ public sealed class HostRunTests
         }
 
         var error = Assert.IsType<RunErrorEvent>(Assert.Single(facts)).Error;
-        Assert.Equal(("INVALID_CONFIG", "the filter is wrong", ErrorCategory.Configuration), (error.Code, error.Message, error.Category));
+        Assert.Equal(
+            ("INVALID_CONFIG", "the filter is wrong", ErrorCategory.Configuration),
+            (error.Code, error.Message, error.Category)
+        );
     }
 }

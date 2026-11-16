@@ -9,7 +9,11 @@ namespace E2E.Tests.AgentTraceCache;
 /// <summary>Upstream: packages/e2e/tests/integration/agent-trace-cache.test.ts, describe('trace cache: --strict-cache never writes the cache').</summary>
 public sealed class TraceCacheStrictCacheNeverWritesTheCacheTests
 {
-    private static RunProjectOptions Options(TwoTapCounter.ExecutorRecord record, bool strictCache, IReadOnlyList<InMemoryTest>? tests = null) =>
+    private static RunProjectOptions Options(
+        TwoTapCounter.ExecutorRecord record,
+        bool strictCache,
+        IReadOnlyList<InMemoryTest>? tests = null
+    ) =>
         TwoTapCounter.RunOptions(record) with
         {
             Config = """{ "cache": { "mode": "read-write" }, "retries": 1 }""",
@@ -25,9 +29,7 @@ public sealed class TraceCacheStrictCacheNeverWritesTheCacheTests
         var failOnce = Path.Combine(project.Dir, "fail-once");
 
         // The suite fails its first attempt, after the step, when the marker file exists.
-        IReadOnlyList<InMemoryTest> suite =
-        [
-            new InMemoryTest(TwoTapCounter.Title, async session =>
+        IReadOnlyList<InMemoryTest> suite = [new InMemoryTest(TwoTapCounter.Title, async session =>
             {
                 await session.App.OpenAsync("/");
                 await session.Agent.ActAsync(TwoTapCounter.Instruction);
@@ -38,11 +40,13 @@ public sealed class TraceCacheStrictCacheNeverWritesTheCacheTests
                 }
 
                 await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("2");
-            }),
-        ];
+            })];
         try
         {
-            var recording = await RunProject.RunExistingAsync(project, Options(new TwoTapCounter.ExecutorRecord(), false, suite));
+            var recording = await RunProject.RunExistingAsync(
+                project,
+                Options(new TwoTapCounter.ExecutorRecord(), false, suite)
+            );
             Assert.Equal(0, recording.ExitCode);
             var recorded = TwoTapCounter.FileState(cacheDirectory);
             var entry = Path.GetFileNameWithoutExtension(Directory.GetFiles(cacheDirectory).Single());
@@ -57,7 +61,10 @@ public sealed class TraceCacheStrictCacheNeverWritesTheCacheTests
             foreach (var attempt in attempts)
             {
                 var cached = Assert.Single(attempt.Steps, step => step.Api == "agent.act").Cache!;
-                Assert.Equal((E2E.Reports.CacheMode.SelfFinalized, 2, 2, entry), (cached.Mode, cached.ReplayedActions, cached.TotalActions, cached.Entry));
+                Assert.Equal(
+                    (E2E.Reports.CacheMode.SelfFinalized, 2, 2, entry),
+                    (cached.Mode, cached.ReplayedActions, cached.TotalActions, cached.Entry)
+                );
             }
 
             Assert.Equal(recorded, TwoTapCounter.FileState(cacheDirectory));

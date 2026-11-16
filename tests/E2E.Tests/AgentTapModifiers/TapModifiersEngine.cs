@@ -28,9 +28,11 @@ internal sealed class TapModifiersEngine(IEngine inner) : IEngine
     {
         public string Route => session.Route;
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => session.OpenAsync(url, cancellationToken);
+        public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+            session.OpenAsync(url, cancellationToken);
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => session.ObserveAsync(cancellationToken);
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            session.ObserveAsync(cancellationToken);
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {
@@ -39,12 +41,18 @@ internal sealed class TapModifiersEngine(IEngine inner) : IEngine
                 engine.Clicks.Add(action);
             }
 
-            return session.PerformAsync(node, action is LocatorAction.SecondaryTap secondary ? new LocatorAction.Tap(secondary.Modifiers) : action, cancellationToken);
+            return session.PerformAsync(
+                node,
+                action is LocatorAction.SecondaryTap secondary ? new LocatorAction.Tap(secondary.Modifiers) : action,
+                cancellationToken
+            );
         }
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => session.PressAsync(key, cancellationToken);
+        public Task PressAsync(string key, CancellationToken cancellationToken) =>
+            session.PressAsync(key, cancellationToken);
 
-        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => session.SwipeAsync(direction, cancellationToken);
+        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
+            session.SwipeAsync(direction, cancellationToken);
 
         public Task BackAsync(CancellationToken cancellationToken) => session.BackAsync(cancellationToken);
 

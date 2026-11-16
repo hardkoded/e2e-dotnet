@@ -22,7 +22,8 @@ public sealed class ScreenshotMessageTests
             RedactionSite.Know(session);
 
             var failure = await Assert.ThrowsAsync<TestException>(() =>
-                Expect.That(session.Screen.GetByText(RedactionSite.Token, exact: false)).ToHaveScreenshotAsync("token"));
+                Expect.That(session.Screen.GetByText(RedactionSite.Token, exact: false)).ToHaveScreenshotAsync("token")
+            );
 
             Assert.Equal("ASSERTION_FAILED", failure.Code);
             Assert.Contains("<secret:token>", failure.Message, StringComparison.Ordinal);

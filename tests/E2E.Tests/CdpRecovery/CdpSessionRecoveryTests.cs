@@ -22,24 +22,37 @@ public sealed class CdpSessionRecoveryTests
         await using var remote = await RemoteChrome.LaunchAsync();
         var provisioned = 0;
         var reconnected = 0;
-        var session = await StartAsync(app, new WebConnectOptions
-        {
-            CdpEndpoint = _ => { provisioned++; return Task.FromResult<CdpTarget>(remote.Endpoint); },
-            ReconnectEndpoint = _ => { reconnected++; return Task.FromResult<CdpTarget>(remote.Endpoint); },
-        });
+        var session = await StartAsync(
+            app,
+            new WebConnectOptions
+            {
+                CdpEndpoint = _ =>
+                {
+                    provisioned++;
+                    return Task.FromResult<CdpTarget>(remote.Endpoint);
+                },
+                ReconnectEndpoint = _ =>
+                {
+                    reconnected++;
+                    return Task.FromResult<CdpTarget>(remote.Endpoint);
+                },
+            }
+        );
         var live = WebEngine.SurfaceOf(session)!;
         try
         {
             var original = live.Page();
             await original.SetViewportSizeAsync(800, 600);
-            await original.EvaluateAsync("""
+            await original.EvaluateAsync(
+                """
                 () => {
                   sessionStorage.setItem('attempt', 'kept');
                   localStorage.setItem('login', 'kept');
                   document.cookie = 'session=kept';
                   document.querySelector('input[name=user]').value = 'unsaved';
                 }
-                """);
+                """
+            );
             var stale = Find(await session.ObserveAsync(None), node => node.Role == "heading");
 
             // Another tab at the same URL makes URL-based selection ambiguous.
@@ -50,25 +63,60 @@ public sealed class CdpSessionRecoveryTests
             await ((IBrowserSession)session).RouteAsync(
                 global::E2E.Internal.Routes.Matcher("**/kept-route"),
                 route => route.FulfillAsync(new RouteFulfillResponse { Status = 200, Body = "route kept" }),
-                None);
+                None
+            );
             await ((IBrowserSession)session).OnDialogAsync(DialogHandler.Accept, None);
             await original.Context.Browser!.CloseAsync();
 
-            Assert.Equal("Login", await EvaluateAsync<string>(session, "() => document.querySelector('h1').textContent"));
+            Assert.Equal(
+                "Login",
+                await EvaluateAsync<string>(session, "() => document.querySelector('h1').textContent")
+            );
             var recovered = live.Page();
             Assert.NotSame(original, recovered);
             Assert.Equal("unsaved", await recovered.Locator("input[name=user]").InputValueAsync());
-            Assert.Equal(["kept", "kept", "session=kept"], await recovered.EvaluateAsync<string[]>("() => [sessionStorage.getItem('attempt'), localStorage.getItem('login'), document.cookie]"));
+            Assert.Equal(
+                ["kept", "kept", "session=kept"],
+                await recovered.EvaluateAsync<string[]>(
+                    "() => [sessionStorage.getItem('attempt'), localStorage.getItem('login'), document.cookie]"
+                )
+            );
             Assert.Equal(800, recovered.ViewportSize!.Width);
             Assert.Equal(600, recovered.ViewportSize!.Height);
-            Assert.Equal("route kept", await recovered.EvaluateAsync<string>("async () => (await fetch('/kept-route')).text()"));
+            Assert.Equal(
+                "route kept",
+                await recovered.EvaluateAsync<string>("async () => (await fetch('/kept-route')).text()")
+            );
             Assert.True(await recovered.EvaluateAsync<bool>("() => confirm('Handler survived?')"));
-            Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(stale, new LocatorAction.Tap(), None))).Code);
-            Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.SwipeAsync(ScrollDirection.Down, None))).Code);
-            Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(1, 1), new PointerAction.Tap(), None))).Code);
+            Assert.Equal(
+                "NODE_STALE",
+                (
+                    await Assert.ThrowsAsync<EngineException>(() =>
+                        session.PerformAsync(stale, new LocatorAction.Tap(), None)
+                    )
+                ).Code
+            );
+            Assert.Equal(
+                "NODE_STALE",
+                (await Assert.ThrowsAsync<EngineException>(() => session.SwipeAsync(ScrollDirection.Down, None))).Code
+            );
+            Assert.Equal(
+                "NODE_STALE",
+                (
+                    await Assert.ThrowsAsync<EngineException>(() =>
+                        session.PerformAtAsync(new Point(1, 1), new PointerAction.Tap(), None)
+                    )
+                ).Code
+            );
             // A locate after the recovery stores a ref the page answers now, so an action on it needs no observation (upstream's perform
             // requires one only for the pointer and keyboard paths).
-            var fresh = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("heading", "Login", new RoleOptions()), TimeSpan.FromSeconds(10), None));
+            var fresh = Assert.Single(
+                await session.LocateAsync(
+                    LocatorExpression.ForRole("heading", "Login", new RoleOptions()),
+                    TimeSpan.FromSeconds(10),
+                    None
+                )
+            );
             await session.PerformAsync(fresh, new LocatorAction.Hover(), None);
             await session.ObserveAsync(None);
             await session.PerformAtAsync(new Point(1, 1), new PointerAction.Tap(), None);
@@ -89,12 +137,23 @@ public sealed class CdpSessionRecoveryTests
     {
         using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
-        await using var session = await StartAsync(app, new WebEngine(new WebEngineOptions { Connect = Fixed(remote), ColorScheme = WebColorScheme.Dark }));
-        Task<string?> Media() => EvaluateAsync<string>(session, "() => `${matchMedia('(prefers-color-scheme: dark)').matches} ${matchMedia('(prefers-reduced-motion: reduce)').matches}`");
-        await ((IBrowserSession)session).EmulateMediaAsync(new WebMedia { ReducedMotion = WebReducedMotion.Reduce }, None);
+        await using var session = await StartAsync(
+            app,
+            new WebEngine(new WebEngineOptions { Connect = Fixed(remote), ColorScheme = WebColorScheme.Dark })
+        );
+        Task<string?> Media() =>
+            EvaluateAsync<string>(
+                session,
+                "() => `${matchMedia('(prefers-color-scheme: dark)').matches} ${matchMedia('(prefers-reduced-motion: reduce)').matches}`"
+            );
+        await ((IBrowserSession)session).EmulateMediaAsync(
+            new WebMedia { ReducedMotion = WebReducedMotion.Reduce },
+            None
+        );
         Assert.Equal("true true", await Media());
         var live = WebEngine.SurfaceOf(session)!;
-        var popup = await live.Context().RunAndWaitForPageAsync(() => live.Page().EvaluateAsync("() => { window.open('/'); }"));
+        var popup = await live.Context()
+            .RunAndWaitForPageAsync(() => live.Page().EvaluateAsync("() => { window.open('/'); }"));
         await popup.WaitForLoadStateAsync();
         Assert.True(await popup.EvaluateAsync<bool>("() => matchMedia('(prefers-reduced-motion: reduce)').matches"));
         await live.Context().Browser!.CloseAsync();
@@ -102,7 +161,10 @@ public sealed class CdpSessionRecoveryTests
         Assert.Equal("true true", await Media());
 
         // The app's own tab outlives the transport, and the new one emulates on it again.
-        var reopened = WebEngine.SurfaceOf(session)!.Context().Pages.Single(page => page.Url.EndsWith('/') && page != WebEngine.SurfaceOf(session)!.Page());
+        var reopened = WebEngine
+            .SurfaceOf(session)!
+            .Context()
+            .Pages.Single(page => page.Url.EndsWith('/') && page != WebEngine.SurfaceOf(session)!.Page());
         Assert.True(await reopened.EvaluateAsync<bool>("() => matchMedia('(prefers-reduced-motion: reduce)').matches"));
     }
 
@@ -111,15 +173,26 @@ public sealed class CdpSessionRecoveryTests
     {
         using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
-        await using var session = await StartAsync(app, new WebEngine(new WebEngineOptions
-        {
-            Connect = Fixed(remote),
-            InitScripts = ["(window.trail ??= []).push('config');"],
-        }));
+        await using var session = await StartAsync(
+            app,
+            new WebEngine(
+                new WebEngineOptions
+                {
+                    Connect = Fixed(remote),
+                    InitScripts = ["(window.trail ??= []).push('config');"],
+                }
+            )
+        );
         Task<string[]?> Trail() => EvaluateAsync<string[]>(session, "() => window.trail ?? null");
         Assert.Equal<string[]>(["config"], await Trail());
-        var test = await WebInitScript.FromFunction("() => { (window.trail ??= []).push('test'); }")
-            .ReadAsync(null, Directory.GetCurrentDirectory(), (message, cause) => new InvalidOperationException(message, cause), None);
+        var test = await WebInitScript
+            .FromFunction("() => { (window.trail ??= []).push('test'); }")
+            .ReadAsync(
+                null,
+                Directory.GetCurrentDirectory(),
+                (message, cause) => new InvalidOperationException(message, cause),
+                None
+            );
         await ((IBrowserSession)session).AddInitScriptAsync(test, None);
         await session.OpenAsync(app.Url + "login", None);
         Assert.Equal<string[]>(["config", "test"], await Trail());
@@ -135,13 +208,21 @@ public sealed class CdpSessionRecoveryTests
         using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
         var reconnected = 0;
-        await using var session = await StartAsync(app, new WebConnectOptions
-        {
-            CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
-            ReconnectEndpoint = _ => { reconnected++; return Task.FromResult<CdpTarget>(remote.Endpoint); },
-        });
+        await using var session = await StartAsync(
+            app,
+            new WebConnectOptions
+            {
+                CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
+                ReconnectEndpoint = _ =>
+                {
+                    reconnected++;
+                    return Task.FromResult<CdpTarget>(remote.Endpoint);
+                },
+            }
+        );
         var page = WebEngine.SurfaceOf(session)!.Page();
-        await page.EvaluateAsync("""
+        await page.EvaluateAsync(
+            """
             () => {
               sessionStorage.setItem('clicks', '0');
               const button = document.createElement('button');
@@ -153,16 +234,22 @@ public sealed class CdpSessionRecoveryTests
               });
               document.body.append(button);
             }
-            """);
+            """
+        );
         var debuggerSession = await page.Context.NewCDPSessionAsync(page);
         await debuggerSession.SendAsync("Debugger.enable");
         debuggerSession.Event("Debugger.paused").OnEvent += (_, _) => _ = page.Context.Browser!.CloseAsync();
         var button = Find(await session.ObserveAsync(None), node => node.Role == "button" && node.Name == "Purchase");
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(button, new LocatorAction.Tap(), None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(button, new LocatorAction.Tap(), None)
+        );
         Assert.False(error.Retryable);
         Assert.Equal(0, reconnected);
         await session.ObserveAsync(None);
-        Assert.Equal("1", await WebEngine.SurfaceOf(session)!.Page().EvaluateAsync<string>("() => sessionStorage.getItem('clicks')"));
+        Assert.Equal(
+            "1",
+            await WebEngine.SurfaceOf(session)!.Page().EvaluateAsync<string>("() => sessionStorage.getItem('clicks')")
+        );
         Assert.Equal(1, reconnected);
     }
 
@@ -173,14 +260,29 @@ public sealed class CdpSessionRecoveryTests
         await using var remote = await RemoteChrome.LaunchAsync();
         await using var replacement = await RemoteChrome.LaunchAsync();
         var provisioned = 0;
-        await using var session = await StartAsync(app, new WebConnectOptions
-        {
-            CdpEndpoint = _ => { provisioned++; return Task.FromResult<CdpTarget>(remote.Endpoint); },
-            ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(replacement.Endpoint),
-        });
+        await using var session = await StartAsync(
+            app,
+            new WebConnectOptions
+            {
+                CdpEndpoint = _ =>
+                {
+                    provisioned++;
+                    return Task.FromResult<CdpTarget>(remote.Endpoint);
+                },
+                ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(replacement.Endpoint),
+            }
+        );
         await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
-        Assert.Contains("different browser", (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Message, StringComparison.Ordinal);
-        Assert.Contains("different browser", (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "different browser",
+            (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "different browser",
+            (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Message,
+            StringComparison.Ordinal
+        );
         Assert.Equal(1, provisioned);
         Assert.True(replacement.Running);
     }
@@ -196,7 +298,11 @@ public sealed class CdpSessionRecoveryTests
         await other.GotoAsync(page.Url);
         await page.CloseAsync();
         await page.Context.Browser!.CloseAsync();
-        Assert.Contains("original page no longer exists", (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "original page no longer exists",
+            (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -205,9 +311,27 @@ public sealed class CdpSessionRecoveryTests
         using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
         await using var session = await StartAsync(app, Fixed(remote));
-        var browser = new Browser(session, "web", app.Url, Directory.GetCurrentDirectory(), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(1), () => None, () => { }, new SoftFailures());
-        await browser.EvaluateAsync<object>($"void window.open({JsonSerializer.Serialize(app.Url + "login")}, '_blank')");
-        await PollAsync(() => Task.FromResult<string?>(browser.Tabs().Count.ToString(System.Globalization.CultureInfo.InvariantCulture)), "2");
+        var browser = new Browser(
+            session,
+            "web",
+            app.Url,
+            Directory.GetCurrentDirectory(),
+            TimeSpan.FromSeconds(30),
+            TimeSpan.FromSeconds(1),
+            () => None,
+            () => { },
+            new SoftFailures()
+        );
+        await browser.EvaluateAsync<object>(
+            $"void window.open({JsonSerializer.Serialize(app.Url + "login")}, '_blank')"
+        );
+        await PollAsync(
+            () =>
+                Task.FromResult<string?>(
+                    browser.Tabs().Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                ),
+            "2"
+        );
         var tabs = browser.Tabs();
         var (own, background) = (tabs[0], tabs[1]);
         await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
@@ -229,11 +353,19 @@ public sealed class CdpSessionRecoveryTests
             new WebConnectOptions
             {
                 CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
-                ReconnectEndpoint = abort => { signal = abort; return new TaskCompletionSource<CdpTarget>().Task; },
+                ReconnectEndpoint = abort =>
+                {
+                    signal = abort;
+                    return new TaskCompletionSource<CdpTarget>().Task;
+                },
             },
-            TimeSpan.FromSeconds(2));
+            TimeSpan.FromSeconds(2)
+        );
         await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
-        Assert.Equal("OPERATION_TIMEOUT", (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Code);
+        Assert.Equal(
+            "OPERATION_TIMEOUT",
+            (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Code
+        );
         Assert.True(signal?.IsCancellationRequested);
     }
 
@@ -244,23 +376,25 @@ public sealed class CdpSessionRecoveryTests
         var hosts = new List<RemoteChrome>();
         var provisioned = 0;
         var reuse = false;
-        var engine = new WebEngine(new WebEngineOptions
-        {
-            Connect = new WebConnectOptions
+        var engine = new WebEngine(
+            new WebEngineOptions
             {
-                CdpEndpoint = async _ =>
+                Connect = new WebConnectOptions
                 {
-                    provisioned++;
-                    if (!reuse)
+                    CdpEndpoint = async _ =>
                     {
-                        hosts.Add(await RemoteChrome.LaunchAsync());
-                    }
+                        provisioned++;
+                        if (!reuse)
+                        {
+                            hosts.Add(await RemoteChrome.LaunchAsync());
+                        }
 
-                    return hosts[^1].Endpoint;
+                        return hosts[^1].Endpoint;
+                    },
+                    ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(hosts[^1].Endpoint),
                 },
-                ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(hosts[^1].Endpoint),
-            },
-        });
+            }
+        );
         try
         {
             await using (var first = await StartAsync(app, engine))
@@ -295,16 +429,19 @@ public sealed class CdpSessionRecoveryTests
         var endpoint = new TaskCompletionSource<CdpTarget>(TaskCreationOptions.RunContinuationsAsynchronously);
         var requested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var reconnected = 0;
-        await using var session = await StartAsync(app, new WebConnectOptions
-        {
-            CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
-            ReconnectEndpoint = _ =>
+        await using var session = await StartAsync(
+            app,
+            new WebConnectOptions
             {
-                reconnected++;
-                requested.TrySetResult();
-                return endpoint.Task;
-            },
-        });
+                CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
+                ReconnectEndpoint = _ =>
+                {
+                    reconnected++;
+                    requested.TrySetResult();
+                    return endpoint.Task;
+                },
+            }
+        );
         await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
         var first = EvaluateAsync<string>(session, "() => document.querySelector('h1').textContent");
         await requested.Task;
@@ -335,15 +472,25 @@ public sealed class CdpSessionRecoveryTests
             },
         };
         // The page is about:blank: the test measures the budget, and a page served over the network is a navigation a loaded runner can abort.
-        await using var session = await StartAsync("about:blank", "about:blank", new WebEngine(new WebEngineOptions { Connect = connect }) { Clock = clock }, TimeSpan.FromSeconds(1));
+        await using var session = await StartAsync(
+            "about:blank",
+            "about:blank",
+            new WebEngine(new WebEngineOptions { Connect = connect }) { Clock = clock },
+            TimeSpan.FromSeconds(1)
+        );
         var live = WebEngine.SurfaceOf(session)!;
         await live.Context().Browser!.CloseAsync();
-        var evaluating = Assert.ThrowsAsync<EngineException>(() => EvaluateAsync<string>(session, """
-            () => {
-              document.body.dataset['started'] = 'true';
-              return new Promise(() => { });
-            }
-            """));
+        var evaluating = Assert.ThrowsAsync<EngineException>(() =>
+            EvaluateAsync<string>(
+                session,
+                """
+                () => {
+                  document.body.dataset['started'] = 'true';
+                  return new Promise(() => { });
+                }
+                """
+            )
+        );
         using var give = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         while (!evaluating.IsCompleted && await StartedAsync(live) != "true")
         {
@@ -378,21 +525,32 @@ public sealed class CdpSessionRecoveryTests
         try
         {
             var engine = new WebEngine(new WebEngineOptions { Connect = Fixed(remote) });
-            var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url, ArtifactsDir = artifactsDir, ActionTimeout = TimeSpan.FromSeconds(10) }, None);
+            var session = await engine.StartAsync(
+                new EngineStartOptions
+                {
+                    BaseUrl = app.Url,
+                    ArtifactsDir = artifactsDir,
+                    ActionTimeout = TimeSpan.FromSeconds(10),
+                },
+                None
+            );
             try
             {
                 await session.OpenAsync(app.Url + "login", None);
                 var live = WebEngine.SurfaceOf(session)!;
-                await live.Page().EvaluateAsync("""
-                    () => {
-                      const link = document.createElement('a');
-                      link.href = URL.createObjectURL(new Blob(['download kept']));
-                      link.download = 'kept.txt';
-                      link.id = 'download';
-                      link.textContent = 'Download';
-                      document.body.append(link);
-                    }
-                    """);
+                await live.Page()
+                    .EvaluateAsync(
+                        """
+                        () => {
+                          const link = document.createElement('a');
+                          link.href = URL.createObjectURL(new Blob(['download kept']));
+                          link.download = 'kept.txt';
+                          link.id = 'download';
+                          link.textContent = 'Download';
+                          document.body.append(link);
+                        }
+                        """
+                    );
                 await live.Context().Browser!.CloseAsync();
                 var triggered = 0;
                 var download = await ((IBrowserSession)session).WaitForDownloadAsync(
@@ -402,11 +560,14 @@ public sealed class CdpSessionRecoveryTests
                         await live.Page().Locator("#download").ClickAsync();
                     },
                     TimeSpan.FromSeconds(10),
-                    None);
+                    None
+                );
                 Assert.Equal(1, triggered);
                 Assert.Equal("download kept", await File.ReadAllTextAsync(Path.Combine(artifactsDir, download.Path)));
                 var failure = new InvalidOperationException("test trigger failed");
-                var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => ((IBrowserSession)session).WaitForDownloadAsync(() => throw failure, TimeSpan.FromSeconds(10), None));
+                var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    ((IBrowserSession)session).WaitForDownloadAsync(() => throw failure, TimeSpan.FromSeconds(10), None)
+                );
                 Assert.Same(failure, thrown);
             }
             finally
@@ -426,14 +587,22 @@ public sealed class CdpSessionRecoveryTests
         using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
         var reconnected = 0;
-        await using var session = await StartAsync(app, new WebConnectOptions
-        {
-            CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
-            ReconnectEndpoint = _ => { reconnected++; return Task.FromResult<CdpTarget>(remote.Endpoint); },
-        });
+        await using var session = await StartAsync(
+            app,
+            new WebConnectOptions
+            {
+                CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
+                ReconnectEndpoint = _ =>
+                {
+                    reconnected++;
+                    return Task.FromResult<CdpTarget>(remote.Endpoint);
+                },
+            }
+        );
         var browser = (IBrowserSession)session;
         var original = WebEngine.SurfaceOf(session)!.Page();
-        await original.EvaluateAsync("""
+        await original.EvaluateAsync(
+            """
             () => {
               const button = document.createElement('button');
               button.id = 'pointer-target';
@@ -448,17 +617,23 @@ public sealed class CdpSessionRecoveryTests
               }, { passive: false });
               document.body.append(button);
             }
-            """);
+            """
+        );
         await session.ObserveAsync(None);
         await original.Locator("#pointer-target").EvaluateAsync("button => { button.style.left = '260px'; }");
         await original.Context.Browser!.CloseAsync();
 
-        var point = (await EvaluateAsync<JsonElement>(session, """
-            () => {
-              const bounds = document.querySelector('#pointer-target').getBoundingClientRect();
-              return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
-            }
-            """))!;
+        var point = (
+            await EvaluateAsync<JsonElement>(
+                session,
+                """
+                () => {
+                  const bounds = document.querySelector('#pointer-target').getBoundingClientRect();
+                  return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
+                }
+                """
+            )
+        )!;
         var x = point.GetProperty("x").GetSingle();
         var y = point.GetProperty("y").GetSingle();
         Assert.Equal(320, x);
@@ -467,11 +642,21 @@ public sealed class CdpSessionRecoveryTests
         await browser.MouseDownAsync(None);
         await browser.MouseUpAsync(None);
         await browser.MouseWheelAsync(0, 25, None);
-        var wheel = await PollAsync(() => EvaluateAsync<string?>(session, "() => document.body.dataset['wheel'] ?? null"), "25");
+        var wheel = await PollAsync(
+            () => EvaluateAsync<string?>(session, "() => document.body.dataset['wheel'] ?? null"),
+            "25"
+        );
         Assert.Equal("25", wheel);
         Assert.Equal("1", await EvaluateAsync<string?>(session, "() => document.body.dataset['clicks'] ?? null"));
 
-        Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(x, y), new PointerAction.Tap(), None))).Code);
+        Assert.Equal(
+            "NODE_STALE",
+            (
+                await Assert.ThrowsAsync<EngineException>(() =>
+                    session.PerformAtAsync(new Point(x, y), new PointerAction.Tap(), None)
+                )
+            ).Code
+        );
         await session.ObserveAsync(None);
         await session.PerformAtAsync(new Point(x, y), new PointerAction.Tap(), None);
         Assert.Equal("2", await EvaluateAsync<string?>(session, "() => document.body.dataset['clicks'] ?? null"));
@@ -485,7 +670,8 @@ public sealed class CdpSessionRecoveryTests
         await using var session = await StartAsync(app, Fixed(remote));
         var browser = (IBrowserSession)session;
         var page = WebEngine.SurfaceOf(session)!.Page();
-        await page.EvaluateAsync("""
+        await page.EvaluateAsync(
+            """
             () => {
               const field = document.createElement('input');
               field.id = 'keyboard-target';
@@ -497,11 +683,16 @@ public sealed class CdpSessionRecoveryTests
               field.focus();
               field.setSelectionRange(field.value.length, field.value.length);
             }
-            """);
+            """
+        );
         await session.ObserveAsync(None);
         await page.Context.Browser!.CloseAsync();
-        Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PressAsync("Enter", None))).Code);
-        Task<string?> Value() => EvaluateAsync<string?>(session, "() => document.querySelector('#keyboard-target').value");
+        Assert.Equal(
+            "NODE_STALE",
+            (await Assert.ThrowsAsync<EngineException>(() => session.PressAsync("Enter", None))).Code
+        );
+        Task<string?> Value() =>
+            EvaluateAsync<string?>(session, "() => document.querySelector('#keyboard-target').value");
         Task<string?> Enters() => EvaluateAsync<string?>(session, "() => document.body.dataset['enters'] ?? '0'");
         Assert.Equal("original", await Value());
         Assert.Equal("0", await Enters());
@@ -509,7 +700,10 @@ public sealed class CdpSessionRecoveryTests
         await browser.KeyboardPressAsync("Enter", None);
         Assert.Equal("original direct", await Value());
         Assert.Equal("1", await Enters());
-        Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PressAsync("Enter", None))).Code);
+        Assert.Equal(
+            "NODE_STALE",
+            (await Assert.ThrowsAsync<EngineException>(() => session.PressAsync("Enter", None))).Code
+        );
         await session.ObserveAsync(None);
         await session.PressAsync("Enter", None);
         Assert.Equal("2", await Enters());
@@ -527,9 +721,12 @@ public sealed class CdpSessionRecoveryTests
             var hostControl = await playwright.Chromium.ConnectOverCDPAsync(remote.Endpoint);
             try
             {
-                var page = hostControl.Contexts[0].Pages.First(candidate => candidate.Url.EndsWith("/login", StringComparison.Ordinal));
+                var page = hostControl
+                    .Contexts[0]
+                    .Pages.First(candidate => candidate.Url.EndsWith("/login", StringComparison.Ordinal));
                 await page.GotoAsync(app.Url + "form");
-                var tracked = await page.EvaluateAsync<bool>("""
+                var tracked = await page.EvaluateAsync<bool>(
+                    """
                     () => {
                       const shadowHost = document.createElement('div');
                       document.body.append(shadowHost);
@@ -537,7 +734,8 @@ public sealed class CdpSessionRecoveryTests
                       root.innerHTML = '<input type="password" value="private">';
                       return Object.prototype.hasOwnProperty.call(globalThis, Symbol.for('e2e.closedShadowRoots'));
                     }
-                    """);
+                    """
+                );
                 Assert.False(tracked);
                 Assert.Equal(1, await page.Locator("body").CountAsync());
             }
@@ -547,7 +745,10 @@ public sealed class CdpSessionRecoveryTests
             }
         }
 
-        Assert.Equal("ENGINE_FAILURE", (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Code);
+        Assert.Equal(
+            "ENGINE_FAILURE",
+            (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Code
+        );
     }
 
     [Fact]
@@ -556,25 +757,30 @@ public sealed class CdpSessionRecoveryTests
         using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
         await using var session = await StartAsync(app, Fixed(remote));
-        await WebEngine.SurfaceOf(session)!.Page().EvaluateAsync("""
-            () => {
-              // A polyfill that replaces the global must not hide the record the init script made.
-              Reflect.set(globalThis, 'WeakMap', Map);
-              document.body.innerHTML = '';
-              document.body.style.background = 'blue';
-              const field = document.createElement('input');
-              field.type = 'password';
-              field.value = 'private';
-              field.style.cssText = 'position:fixed;left:20px;top:20px;width:180px;height:40px';
-              document.body.append(field);
-              const shadowHost = document.createElement('div');
-              document.body.append(shadowHost);
-              const root = shadowHost.attachShadow({ mode: 'closed' });
-              const hiddenField = field.cloneNode(true);
-              hiddenField.style.top = '80px';
-              root.append(hiddenField);
-            }
-            """);
+        await WebEngine
+            .SurfaceOf(session)!
+            .Page()
+            .EvaluateAsync(
+                """
+                () => {
+                  // A polyfill that replaces the global must not hide the record the init script made.
+                  Reflect.set(globalThis, 'WeakMap', Map);
+                  document.body.innerHTML = '';
+                  document.body.style.background = 'blue';
+                  const field = document.createElement('input');
+                  field.type = 'password';
+                  field.value = 'private';
+                  field.style.cssText = 'position:fixed;left:20px;top:20px;width:180px;height:40px';
+                  document.body.append(field);
+                  const shadowHost = document.createElement('div');
+                  document.body.append(shadowHost);
+                  const root = shadowHost.attachShadow({ mode: 'closed' });
+                  const hiddenField = field.cloneNode(true);
+                  hiddenField.style.top = '80px';
+                  root.append(hiddenField);
+                }
+                """
+            );
         foreach (var reconnect in new[] { false, true })
         {
             if (reconnect)
@@ -597,14 +803,19 @@ public sealed class CdpSessionRecoveryTests
         return image.Data[at..(at + 4)];
     }
 
-    private static WebConnectOptions Fixed(RemoteChrome remote) => new()
-    {
-        CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
-        ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
-    };
+    private static WebConnectOptions Fixed(RemoteChrome remote) =>
+        new()
+        {
+            CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
+            ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
+        };
 
     /// <summary>Starts the engine's attempt against a host-provisioned browser and opens <c>/login</c>.</summary>
-    private static Task<IEngineSession> StartAsync(TinySite app, WebConnectOptions connect, TimeSpan? actionTimeout = null)
+    private static Task<IEngineSession> StartAsync(
+        TinySite app,
+        WebConnectOptions connect,
+        TimeSpan? actionTimeout = null
+    )
     {
         return StartAsync(app, new WebEngine(new WebEngineOptions { Connect = connect }), actionTimeout);
     }
@@ -613,9 +824,17 @@ public sealed class CdpSessionRecoveryTests
         StartAsync(app.Url, app.Url + "login", engine, actionTimeout);
 
     /// <summary>Starts the engine's attempt at <paramref name="baseUrl"/> and opens <paramref name="loginUrl"/>; a page that is not served over the network cannot be aborted by a loaded runner.</summary>
-    private static async Task<IEngineSession> StartAsync(string baseUrl, string loginUrl, WebEngine engine, TimeSpan? actionTimeout = null)
+    private static async Task<IEngineSession> StartAsync(
+        string baseUrl,
+        string loginUrl,
+        WebEngine engine,
+        TimeSpan? actionTimeout = null
+    )
     {
-        var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = baseUrl, ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(10) }, None);
+        var session = await engine.StartAsync(
+            new EngineStartOptions { BaseUrl = baseUrl, ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(10) },
+            None
+        );
         try
         {
             // Upstream opens /login under its own 10 s operation and gives only the operation under test the short budget. The session here
@@ -628,9 +847,8 @@ public sealed class CdpSessionRecoveryTests
                     await session.OpenAsync(loginUrl, None);
                     break;
                 }
-                catch (EngineException failure) when (actionTimeout is not null && failure.Code == "OPERATION_TIMEOUT" && attempt < 3)
-                {
-                }
+                catch (EngineException failure)
+                    when (actionTimeout is not null && failure.Code == "OPERATION_TIMEOUT" && attempt < 3) { }
             }
 
             return session;

@@ -10,9 +10,7 @@ namespace E2E.XUnit.V3.Tests.RunSelection;
 public sealed class LeftOutMobileFixture : MobileAppTest
 {
     [Fact(Skip = "only found by reflection")]
-    public void Mobile_test_is_left_out()
-    {
-    }
+    public void Mobile_test_is_left_out() { }
 }
 
 /// <summary>
@@ -39,7 +37,12 @@ public sealed class MobileAppTestTests
     public async Task Skips_a_mobile_test_the_filters_left_out_before_it_leases_a_device()
     {
         var method = Xunit.TestContext.Current.Test!.TestCase.TestMethodName!;
-        E2E.XUnit.V3.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutMobileFixture).FullName}.{method}"] = "login.cs did not change" });
+        E2E.XUnit.V3.RunSelection.Set(
+            new Dictionary<string, string>
+            {
+                [$"{typeof(LeftOutMobileFixture).FullName}.{method}"] = "login.cs did not change",
+            }
+        );
         var provider = Environment.GetEnvironmentVariable("E2E_MOBILE_PROVIDER");
         // A provider the lease rejects: a test that reached the lease would fail with that error, not with the skip.
         Environment.SetEnvironmentVariable("E2E_MOBILE_PROVIDER", "not-a-provider");
@@ -57,7 +60,10 @@ public sealed class MobileAppTestTests
     [Fact]
     public void Finds_the_tests_of_a_mobile_fixture()
     {
-        var found = E2E.XUnit.V3.RunSelection.Discover([typeof(LeftOutMobileFixture)], typeof(LeftOutMobileFixture).Assembly);
+        var found = E2E.XUnit.V3.RunSelection.Discover(
+            [typeof(LeftOutMobileFixture)],
+            typeof(LeftOutMobileFixture).Assembly
+        );
 
         Assert.Equal([nameof(LeftOutMobileFixture.Mobile_test_is_left_out)], found.Select(test => test.Title));
     }

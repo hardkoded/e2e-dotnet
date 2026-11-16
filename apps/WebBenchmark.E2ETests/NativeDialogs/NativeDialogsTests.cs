@@ -33,7 +33,10 @@ public sealed class NativeDialogsTests : BenchmarkTest
         {
             await Screen.GetByRole("button", "Place order").TapAsync();
             await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Order placed with code GIFT-7");
-            Assert.That(seen, Is.EqualTo(new[] { "Place this order?", "Enter your gift code", "Order placed. Thank you!" }));
+            Assert.That(
+                seen,
+                Is.EqualTo(new[] { "Place this order?", "Enter your gift code", "Order placed. Thank you!" })
+            );
         }
         finally
         {

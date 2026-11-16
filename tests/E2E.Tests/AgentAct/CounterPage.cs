@@ -29,7 +29,11 @@ internal static class CounterPage
     /// <summary>The text of every tool result the model has been sent so far.</summary>
     public static IReadOnlyList<string> ToolResults(ScriptedModel model)
     {
-        return model.Requests[^1].Messages.Where(message => message.Role == "tool").Select(message => message.Content ?? "").ToList();
+        return model
+            .Requests[^1]
+            .Messages.Where(message => message.Role == "tool")
+            .Select(message => message.Content ?? "")
+            .ToList();
     }
 
     /// <summary>The system prompt and every message the model has been sent, as one text.</summary>
@@ -44,12 +48,17 @@ internal static class CounterPage
     {
         return new ModelResponse
         {
-            ToolCalls = calls.Select((call, index) => new ModelToolCall
-            {
-                Id = "call_" + index.ToString(CultureInfo.InvariantCulture),
-                Name = call.ToolCalls[0].Name,
-                Arguments = call.ToolCalls[0].Arguments,
-            }).ToList(),
+            ToolCalls = calls
+                .Select(
+                    (call, index) =>
+                        new ModelToolCall
+                        {
+                            Id = "call_" + index.ToString(CultureInfo.InvariantCulture),
+                            Name = call.ToolCalls[0].Name,
+                            Arguments = call.ToolCalls[0].Arguments,
+                        }
+                )
+                .ToList(),
         };
     }
 }

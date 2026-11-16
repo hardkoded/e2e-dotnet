@@ -34,7 +34,10 @@ public sealed class VirtualizedTableTests : BenchmarkTest
         await Expect.That(claim).ToBeHiddenAsync();
 
         // The table is its own scroll container, so the table pages, not the page.
-        await viewport.ScrollUntilVisibleAsync(claim, new ScrollUntilVisibleOptions { Timeout = TimeSpan.FromMilliseconds(ScrollTimeoutMs) });
+        await viewport.ScrollUntilVisibleAsync(
+            claim,
+            new ScrollUntilVisibleOptions { Timeout = TimeSpan.FromMilliseconds(ScrollTimeoutMs) }
+        );
 
         await Expect.That(rows.Filter(hasText: "Golden Row")).ToHaveTextAsync(GoldenRowText);
         await Expect.That(rows.Filter(hasText: "Row 1")).ToHaveCountAsync(0);

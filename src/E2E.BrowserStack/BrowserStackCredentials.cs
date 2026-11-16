@@ -23,9 +23,16 @@ internal sealed record BrowserStackCredentials(string Username, string AccessKey
         var accessKey = EnvValue(env, AccessKeyVariable);
         if (username is null || accessKey is null)
         {
-            var missing = new[] { username is null ? UsernameVariable : null, accessKey is null ? AccessKeyVariable : null }.OfType<string>().ToArray();
+            var missing = new[]
+            {
+                username is null ? UsernameVariable : null,
+                accessKey is null ? AccessKeyVariable : null,
+            }
+                .OfType<string>()
+                .ToArray();
             throw new InvalidOperationException(
-                $"{string.Join(" and ", missing)} {(missing.Length == 1 ? "is" : "are")} not set; set {UsernameVariable} and {AccessKeyVariable} to your BrowserStack username and access key in the environment the tests start in");
+                $"{string.Join(" and ", missing)} {(missing.Length == 1 ? "is" : "are")} not set; set {UsernameVariable} and {AccessKeyVariable} to your BrowserStack username and access key in the environment the tests start in"
+            );
         }
 
         return new BrowserStackCredentials(username, accessKey);

@@ -10,20 +10,58 @@ namespace E2E.Tests.AgentObservation;
 public sealed class DisambiguatingAttributesTests
 {
     private static SemanticNode Link(string name, string href) =>
-        new() { Ref = "n", Role = "link", Name = name, Attributes = new Dictionary<string, string> { ["href"] = href } };
+        new()
+        {
+            Ref = "n",
+            Role = "link",
+            Name = name,
+            Attributes = new Dictionary<string, string> { ["href"] = href },
+        };
 
-    private static string[] Lines(IEnumerable<SemanticNode> nodes, string? appOrigin = null, Redactor? redactor = null) =>
-        SnapshotText.Render(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "n1", Children = nodes.ToList() }] }, redactor ?? Redactor.None, appOrigin).Split('\n');
+    private static string[] Lines(
+        IEnumerable<SemanticNode> nodes,
+        string? appOrigin = null,
+        Redactor? redactor = null
+    ) =>
+        SnapshotText
+            .Render(
+                new Observation { Route = "/", Roots = [new SemanticNode { Ref = "n1", Children = nodes.ToList() }] },
+                redactor ?? Redactor.None,
+                appOrigin
+            )
+            .Split('\n');
 
     [Fact]
     public void Renders_test_IDs_hrefs_and_unnamed_placeholders_for_the_model()
     {
-        var lines = Lines(
-        [
-            new SemanticNode { Ref = "n2", Role = "link", Name = "About", Attributes = new Dictionary<string, string> { ["href"] = "https://app.test/about" } },
-            new SemanticNode { Ref = "n3", Role = "listitem", Text = "Alpha", TestId = "item" },
-            new SemanticNode { Ref = "n4", Role = "textbox", Placeholder = "you@example.test" },
-            new SemanticNode { Ref = "n5", Role = "textbox", Name = "Email", Placeholder = "ignored" },
+        var lines = Lines([
+            new SemanticNode
+            {
+                Ref = "n2",
+                Role = "link",
+                Name = "About",
+                Attributes = new Dictionary<string, string> { ["href"] = "https://app.test/about" },
+            },
+            new SemanticNode
+            {
+                Ref = "n3",
+                Role = "listitem",
+                Text = "Alpha",
+                TestId = "item",
+            },
+            new SemanticNode
+            {
+                Ref = "n4",
+                Role = "textbox",
+                Placeholder = "you@example.test",
+            },
+            new SemanticNode
+            {
+                Ref = "n5",
+                Role = "textbox",
+                Name = "Email",
+                Placeholder = "ignored",
+            },
         ]);
 
         Assert.Equal(" #n2 link \"About\" href=\"https://app.test/about\"", lines[1]);
@@ -35,13 +73,24 @@ public sealed class DisambiguatingAttributesTests
     [Fact]
     public void Renders_a_link_target_on_the_screen_origin_as_its_whole_path_and_cuts_only_past_the_bound_with_a_trailing_ellipsis()
     {
-        const string project = "http://127.0.0.1:3100/dashboard/e2e-dc3cf837/projects/404b2532-9fab-44dc-b3d0-f0a1b2c3d4e5";
+        const string project =
+            "http://127.0.0.1:3100/dashboard/e2e-dc3cf837/projects/404b2532-9fab-44dc-b3d0-f0a1b2c3d4e5";
         var longHref = "https://cdn.example.test/" + new string('a', 300);
         var lines = Lines(
-            [Link("Project", project), Link("Docs", "https://docs.example.test/guides/setup"), Link("Search", "http://127.0.0.1:3100/search?…#…"), Link("Asset", longHref), Link("Lookalike", "http://127.0.0.1:31000/x")],
-            "http://127.0.0.1:3100");
+            [
+                Link("Project", project),
+                Link("Docs", "https://docs.example.test/guides/setup"),
+                Link("Search", "http://127.0.0.1:3100/search?…#…"),
+                Link("Asset", longHref),
+                Link("Lookalike", "http://127.0.0.1:31000/x"),
+            ],
+            "http://127.0.0.1:3100"
+        );
 
-        Assert.Equal(" #n link \"Project\" href=\"/dashboard/e2e-dc3cf837/projects/404b2532-9fab-44dc-b3d0-f0a1b2c3d4e5\"", lines[1]);
+        Assert.Equal(
+            " #n link \"Project\" href=\"/dashboard/e2e-dc3cf837/projects/404b2532-9fab-44dc-b3d0-f0a1b2c3d4e5\"",
+            lines[1]
+        );
         Assert.Equal(" #n link \"Docs\" href=\"https://docs.example.test/guides/setup\"", lines[2]);
         Assert.Equal(" #n link \"Search\" href=\"/search?…#…\"", lines[3]);
         Assert.Equal($" #n link \"Asset\" href=\"{longHref[..256]}…\"", lines[4]);
@@ -51,7 +100,11 @@ public sealed class DisambiguatingAttributesTests
     [Fact]
     public void Keeps_whole_URLs_on_a_page_off_the_app_origin_since_navigation_resolves_a_path_against_the_app()
     {
-        var nodes = new[] { Link("Authorize", "https://github.com/login/oauth/authorize?…"), Link("Back to app", "https://app.test/settings") };
+        var nodes = new[]
+        {
+            Link("Authorize", "https://github.com/login/oauth/authorize?…"),
+            Link("Back to app", "https://app.test/settings"),
+        };
 
         var lines = Lines(nodes, "https://app.test");
         Assert.Equal(" #n link \"Authorize\" href=\"https://github.com/login/oauth/authorize?…\"", lines[1]);
@@ -59,8 +112,11 @@ public sealed class DisambiguatingAttributesTests
         Assert.Contains("href=\"https://app.test/settings\"", Lines(nodes)[2], StringComparison.Ordinal);
     }
 
-    private static IReadOnlyList<ExecutorNode> Tree(IEnumerable<SemanticNode> nodes, string? appOrigin = null, Redactor? redactor = null) =>
-        global::E2E.AgentObservation.ProjectTree(nodes.ToList(), redactor ?? Redactor.None, appOrigin);
+    private static IReadOnlyList<ExecutorNode> Tree(
+        IEnumerable<SemanticNode> nodes,
+        string? appOrigin = null,
+        Redactor? redactor = null
+    ) => global::E2E.AgentObservation.ProjectTree(nodes.ToList(), redactor ?? Redactor.None, appOrigin);
 
     [Fact]
     public void Never_splits_a_surrogate_pair_at_the_cut_and_bounds_the_target_an_executor_tree_carries_the_same_way()
@@ -78,7 +134,11 @@ public sealed class DisambiguatingAttributesTests
         var path = "/" + new string('p', 240);
         var @long = "/" + new string('q', 300);
 
-        var hrefs = Tree([Link("Fits", "https://app.test" + path), Link("Long", "https://app.test" + @long)], "https://app.test").Select(node => node.Attributes!["href"]);
+        var hrefs = Tree(
+                [Link("Fits", "https://app.test" + path), Link("Long", "https://app.test" + @long)],
+                "https://app.test"
+            )
+            .Select(node => node.Attributes!["href"]);
 
         Assert.Equal(["https://app.test" + path, "https://app.test" + @long[..256] + "…"], hrefs);
     }
@@ -105,14 +165,30 @@ public sealed class DisambiguatingAttributesTests
         Assert.DoesNotContain("tok-", line, StringComparison.Ordinal);
     }
 
-    private static SemanticNode Field(string refId, string? name = null, string? value = null, string? text = null, string? selection = null, bool focused = false, bool secure = false) =>
-        new() { Ref = refId, Role = "textbox", Name = name, Value = value, Text = text, Selection = selection, States = new NodeStates { Focused = focused, Secure = secure } };
+    private static SemanticNode Field(
+        string refId,
+        string? name = null,
+        string? value = null,
+        string? text = null,
+        string? selection = null,
+        bool focused = false,
+        bool secure = false
+    ) =>
+        new()
+        {
+            Ref = refId,
+            Role = "textbox",
+            Name = name,
+            Value = value,
+            Text = text,
+            Selection = selection,
+            States = new NodeStates { Focused = focused, Secure = secure },
+        };
 
     [Fact]
     public void Renders_the_selected_text_of_a_focused_field_verbatim_after_its_value_a_lone_space_included_never_for_a_secure_one()
     {
-        var lines = Lines(
-        [
+        var lines = Lines([
             Field("n2", value: "release approved", selection: "approved", focused: true),
             Field("n3", value: "two\nlines", selection: "two\nli", focused: true),
             Field("n4", name: "Password", value: "hunter2", selection: "hunter2", focused: true, secure: true),
@@ -150,7 +226,8 @@ public sealed class DisambiguatingAttributesTests
                 Field("n3", name: "Note", value: "release approved", selection: "approved"),
                 Field("n4", name: "Rich", text: $"key {secret}", selection: fragment),
             ],
-            redactor: redactor);
+            redactor: redactor
+        );
 
         Assert.Equal(
             [
@@ -158,15 +235,23 @@ public sealed class DisambiguatingAttributesTests
                 " #n3 textbox \"Note\" value=\"release approved\" selection=\"approved\"",
                 " #n4 textbox \"Rich\" text=\"key <secret:member>\"",
             ],
-            lines.Skip(1));
+            lines.Skip(1)
+        );
         Assert.DoesNotContain(lines, line => line.Contains(fragment, StringComparison.Ordinal));
-        Assert.DoesNotContain(fragment, System.Text.Json.JsonSerializer.Serialize(Tree(
-            [
-                Field("n2", name: "Token", value: secret, selection: fragment, focused: true),
-                Field("n3", name: "Note", value: "release approved", selection: "approved"),
-                Field("n4", name: "Rich", text: $"key {secret}", selection: fragment),
-            ],
-            redactor: redactor)), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            fragment,
+            System.Text.Json.JsonSerializer.Serialize(
+                Tree(
+                    [
+                        Field("n2", name: "Token", value: secret, selection: fragment, focused: true),
+                        Field("n3", name: "Note", value: "release approved", selection: "approved"),
+                        Field("n4", name: "Rich", text: $"key {secret}", selection: fragment),
+                    ],
+                    redactor: redactor
+                )
+            ),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -177,13 +262,17 @@ public sealed class DisambiguatingAttributesTests
         string Cut(string tail) => filler[..(ObservationLimits.Text - tail.Length)] + tail;
         var redactor = Redactor.For([Secret.Create("member", secret)]);
 
-        var text = string.Join('\n', Lines(
-            [
-                Field("n2", value: Cut(secret[..30]), selection: secret[5..25]),
-                Field("n3", value: Cut(""), selection: secret[5..45]),
-                Field("n4", value: Cut(""), selection: "ipsum"),
-            ],
-            redactor: redactor));
+        var text = string.Join(
+            '\n',
+            Lines(
+                [
+                    Field("n2", value: Cut(secret[..30]), selection: secret[5..25]),
+                    Field("n3", value: Cut(""), selection: secret[5..45]),
+                    Field("n4", value: Cut(""), selection: "ipsum"),
+                ],
+                redactor: redactor
+            )
+        );
 
         // The value ends in the start of the secret, cut short there.
         Assert.DoesNotContain("selection=\"" + secret[5..25], text, StringComparison.Ordinal);

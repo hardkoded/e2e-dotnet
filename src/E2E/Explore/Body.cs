@@ -50,7 +50,8 @@ internal sealed record ExploreBodyOptions(
     string? Agent = null,
     TimeProvider? Time = null,
     string? Session = null,
-    PlanChange? Change = null);
+    PlanChange? Change = null
+);
 
 /// <summary>
 /// The exploration body: the test <see cref="Explore"/> runs. A loop of ordinary <c>ActAsync</c> steps, one per charter the planner
@@ -81,17 +82,22 @@ internal static class ExploreBody
     private static readonly TimeSpan MinPlanTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>Planner failures that are the model's, not the run's: no plan in the grammar, or a plan the model said it could not find.</summary>
-    private static readonly HashSet<string> PlannerShortcomings = new(["MODEL_OUTPUT_INVALID", "ASSERTION_INCONCLUSIVE"], StringComparer.Ordinal);
+    private static readonly HashSet<string> PlannerShortcomings = new(
+        ["MODEL_OUTPUT_INVALID", "ASSERTION_INCONCLUSIVE"],
+        StringComparer.Ordinal
+    );
 
     /// <summary>The first charter when the planner could not write one: look around.</summary>
     private static readonly PlanDecision.Step SurveyStep = new(
         "Survey the app",
-        "Survey the app: visit each top-level page or screen the navigation offers once, note what each one is for and which controls it has, and try one obvious action on each. Report any defect you see on the way.");
+        "Survey the app: visit each top-level page or screen the navigation offers once, note what each one is for and which controls it has, and try one obvious action on each. Report any defect you see on the way."
+    );
 
     /// <summary>A later charter when the planner could not write one: carry on with what the goal names and no step covered.</summary>
     private static readonly PlanDecision.Step ContinueStep = new(
         "Continue exploring",
-        "Continue the exploration: from the goal on the Test: line and the previously completed steps, pick the flow or screen the goal names that no step has covered yet, exercise it end to end with realistic inputs, and report any defect you see on the way.");
+        "Continue the exploration: from the goal on the Test: line and the previously completed steps, pick the flow or screen the goal names that no step has covered yet, exercise it end to end with realistic inputs, and report any defect you see on the way."
+    );
 
     /// <summary>Builds the test body for one exploration.</summary>
     public static Func<ExploreFixtures, CancellationToken, Task> Create(ExploreBodyOptions options)
@@ -118,7 +124,8 @@ internal static class ExploreBody
                 options.Session,
                 options.Change,
                 options.StepTimeout,
-                () => deadline - time.GetUtcNow());
+                () => deadline - time.GetUtcNow()
+            );
             var ending = await RunStepsAsync(loop, cancellationToken).ConfigureAwait(false);
             state.End(ending.Ended, ending.Summary);
             Conclude(state);
@@ -138,7 +145,8 @@ internal static class ExploreBody
         string? Session,
         PlanChange? Change,
         TimeSpan StepTimeout,
-        Func<TimeSpan> Remaining);
+        Func<TimeSpan> Remaining
+    );
 
     /// <summary>
     /// Plan, act, repeat, until something ends the run, and returns why. A cancelled step or a failing provider throws out
@@ -162,19 +170,25 @@ internal static class ExploreBody
             state.Planning(stop is not null);
             try
             {
-                plan = await ExplorePlan.PlanNextAsync(
-                    loop.Agent,
-                    state,
-                    new PlanRequest(
-                        stop is not null,
-                        loop.Remaining(),
-                        Max(MinPlanTimeout, Min(PlanTimeout, loop.Remaining())),
-                        loop.Accounts,
-                        stop?.Reason,
-                        loop.AgentName,
-                        loop.Session,
-                        loop.Change is null ? null : new PlanChange(loop.Change.Skippable && state.Steps.Count == 0 && stop is null)),
-                    cancellationToken).ConfigureAwait(false);
+                plan = await ExplorePlan
+                    .PlanNextAsync(
+                        loop.Agent,
+                        state,
+                        new PlanRequest(
+                            stop is not null,
+                            loop.Remaining(),
+                            Max(MinPlanTimeout, Min(PlanTimeout, loop.Remaining())),
+                            loop.Accounts,
+                            stop?.Reason,
+                            loop.AgentName,
+                            loop.Session,
+                            loop.Change is null
+                                ? null
+                                : new PlanChange(loop.Change.Skippable && state.Steps.Count == 0 && stop is null)
+                        ),
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
                 plannerFailures = 0;
             }
             catch (AgentException cause) when (PlannerShortcomings.Contains(cause.Code))
@@ -225,10 +239,18 @@ internal static class ExploreBody
             var step = state.BeginStep(charter.Title, charter.Instruction);
             try
             {
-                var result = await loop.Agent.ActAsync(
-                    step.Instruction,
-                    new ActOptions { Timeout = Min(loop.StepTimeout, room), Params = StepParams(state, loop.Credentials), Agent = loop.AgentName },
-                    cancellationToken).ConfigureAwait(false);
+                var result = await loop
+                    .Agent.ActAsync(
+                        step.Instruction,
+                        new ActOptions
+                        {
+                            Timeout = Min(loop.StepTimeout, room),
+                            Params = StepParams(state, loop.Credentials),
+                            Agent = loop.AgentName,
+                        },
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
                 state.EndStep(ReportExploreStepStatus.Passed, result.Summary);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -259,13 +281,20 @@ internal static class ExploreBody
     {
         if (state.Steps.Count >= state.Budgets.MaxSteps)
         {
-            return new StopReason(ReportExploreEnded.StepLimit, "the step limit of " + state.Budgets.MaxSteps.ToString(CultureInfo.InvariantCulture) + " is reached");
+            return new StopReason(
+                ReportExploreEnded.StepLimit,
+                "the step limit of " + state.Budgets.MaxSteps.ToString(CultureInfo.InvariantCulture) + " is reached"
+            );
         }
 
         var streak = state.ConsecutiveFailures();
         if (streak >= ConsecutiveFailureLimit)
         {
-            return new StopReason(ReportExploreEnded.Stuck, streak.ToString(CultureInfo.InvariantCulture) + " steps failed in a row without a finding; exploration is stuck");
+            return new StopReason(
+                ReportExploreEnded.Stuck,
+                streak.ToString(CultureInfo.InvariantCulture)
+                    + " steps failed in a row without a finding; exploration is stuck"
+            );
         }
 
         if (remaining < FinishReserve + MinStep)
@@ -282,7 +311,10 @@ internal static class ExploreBody
     /// The step parameters a charter carries: the findings so far, so the agent neither reports one twice nor spends the step
     /// re-confirming it, and the configured accounts as secrets it can fill by name. Null when there is nothing to carry.
     /// </summary>
-    private static Dictionary<string, object?>? StepParams(ExploreState state, IReadOnlyDictionary<string, UserCredential> credentials)
+    private static Dictionary<string, object?>? StepParams(
+        ExploreState state,
+        IReadOnlyDictionary<string, UserCredential> credentials
+    )
     {
         var parameters = new Dictionary<string, object?>(StringComparer.Ordinal);
         var reported = state.Findings.Select(finding => finding.Title).TakeLast(MaxReportedFindings).ToList();
@@ -295,8 +327,15 @@ internal static class ExploreBody
         {
             parameters["credentials"] = credentials.ToDictionary(
                 pair => pair.Key,
-                pair => (object?)new Dictionary<string, object?> { ["username"] = pair.Value.Username, ["password"] = pair.Value.Password },
-                StringComparer.Ordinal);
+                pair =>
+                    (object?)
+                        new Dictionary<string, object?>
+                        {
+                            ["username"] = pair.Value.Username,
+                            ["password"] = pair.Value.Password,
+                        },
+                StringComparer.Ordinal
+            );
         }
 
         return parameters.Count == 0 ? null : parameters;
@@ -310,7 +349,9 @@ internal static class ExploreBody
             return ReportExploreStepStatus.Exhausted;
         }
 
-        return cause.Code == "CANCELLED" || cause.Blocked ? ReportExploreStepStatus.Blocked : ReportExploreStepStatus.Failed;
+        return cause.Code == "CANCELLED" || cause.Blocked
+            ? ReportExploreStepStatus.Blocked
+            : ReportExploreStepStatus.Failed;
     }
 
     /// <summary>Turns the record into the run's verdict: a skipped change passes.</summary>
@@ -324,21 +365,40 @@ internal static class ExploreBody
         var steps = state.Steps;
         if (steps.Count == 0 && state.Findings.Count == 0)
         {
-            throw new AgentException("AUTOMATION_UNSUPPORTED", "exploration concluded nothing: no step ran and no finding was recorded", blocked: true);
+            throw new AgentException(
+                "AUTOMATION_UNSUPPORTED",
+                "exploration concluded nothing: no step ran and no finding was recorded",
+                blocked: true
+            );
         }
 
         var issues = state.Issues;
         if (issues.Count > 0)
         {
-            var titles = string.Join("; ", issues.Select(finding => "[severity " + finding.Severity.ToString(CultureInfo.InvariantCulture) + "] " + finding.Title));
-            throw new AgentException("ASSERTION_FAILED", "exploration found " + issues.Count.ToString(CultureInfo.InvariantCulture) + " issue(s): " + titles);
+            var titles = string.Join(
+                "; ",
+                issues.Select(finding =>
+                    "[severity " + finding.Severity.ToString(CultureInfo.InvariantCulture) + "] " + finding.Title
+                )
+            );
+            throw new AgentException(
+                "ASSERTION_FAILED",
+                "exploration found " + issues.Count.ToString(CultureInfo.InvariantCulture) + " issue(s): " + titles
+            );
         }
 
         if (steps.Count > 0 && steps.All(step => step.Status == ReportExploreStepStatus.Blocked))
         {
             var first = steps[0];
-            var code = first.ErrorCode is not null && StepExecutors.BlockableCodes.Contains(first.ErrorCode) ? first.ErrorCode : "AUTOMATION_UNSUPPORTED";
-            throw new AgentException(code, "exploration could not complete a charter: " + (first.Summary ?? first.Title), blocked: true);
+            var code =
+                first.ErrorCode is not null && StepExecutors.BlockableCodes.Contains(first.ErrorCode)
+                    ? first.ErrorCode
+                    : "AUTOMATION_UNSUPPORTED";
+            throw new AgentException(
+                code,
+                "exploration could not complete a charter: " + (first.Summary ?? first.Title),
+                blocked: true
+            );
         }
     }
 

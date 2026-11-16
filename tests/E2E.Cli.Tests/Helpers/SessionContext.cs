@@ -18,13 +18,15 @@ internal sealed class SessionContext : ISessionContext, IAsyncDisposable
 
     public static async Task<SessionContext> StartAsync(FakeEngine engine)
     {
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            TestTitle = "session context",
-            CacheEnabled = false,
-            CacheMode = CacheMode.Off,
-        });
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                TestTitle = "session context",
+                CacheEnabled = false,
+                CacheMode = CacheMode.Off,
+            }
+        );
         return new SessionContext(session);
     }
 

@@ -30,7 +30,8 @@ public sealed class ManagedProcessTests
             "app.command",
             AppProgram.Command(["idle"], TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1)),
             Directory.GetCurrentDirectory(),
-            new Readiness(server.Url));
+            new Readiness(server.Url)
+        );
         using var cancel = new CancellationTokenSource();
         var pending = app.StartAsync(cancel.Token);
         try
@@ -57,7 +58,8 @@ public sealed class ManagedProcessTests
             "app.command",
             AppProgram.Command(["idle"], TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2)),
             Directory.GetCurrentDirectory(),
-            new Readiness("http://127.0.0.1:1/"));
+            new Readiness("http://127.0.0.1:1/")
+        );
         using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
         var startedAt = DateTime.UtcNow;
 

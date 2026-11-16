@@ -19,30 +19,58 @@ public sealed class IsForcedToolChoiceRejectedTests
         Assert.True(ToolChoice.IsForcedToolChoiceRejected(Rejection));
         Assert.True(ToolChoice.IsForcedToolChoiceRejected(new InvalidOperationException("wrapped", Rejection)));
         Assert.True(ToolChoice.IsForcedToolChoiceRejected(new RetryError("retries spent", [Rejection])));
-        Assert.True(ToolChoice.IsForcedToolChoiceRejected(Http400("""{"error":{"message":"tool_choice is not supported"}}""")));
+        Assert.True(
+            ToolChoice.IsForcedToolChoiceRejected(Http400("""{"error":{"message":"tool_choice is not supported"}}"""))
+        );
     }
 
     [Fact]
     public void Reads_DeepSeeks_refusal_in_thinking_mode_its_default()
     {
-        Assert.True(ToolChoice.IsForcedToolChoiceRejected(Http400(
-            """{"error":{"message":"Thinking mode does not support this tool_choice (request_id: 73b8c958)","type":"invalid_request_error","param":null,"code":"invalid_request_error"}}""")));
+        Assert.True(
+            ToolChoice.IsForcedToolChoiceRejected(
+                Http400(
+                    """{"error":{"message":"Thinking mode does not support this tool_choice (request_id: 73b8c958)","type":"invalid_request_error","param":null,"code":"invalid_request_error"}}"""
+                )
+            )
+        );
     }
 
     [Fact]
     public void Reads_Meta_Muse_Sparks_auto_only_refusal_as_the_gateway_and_OpenCode_Console_forward_it()
     {
-        const string Message = "only `\"auto\"` is supported for `tool_choice`. `\"none\"`, `\"required\"`, and named function choices are not currently supported";
+        const string Message =
+            "only `\"auto\"` is supported for `tool_choice`. `\"none\"`, `\"required\"`, and named function choices are not currently supported";
         Assert.True(ToolChoice.IsForcedToolChoiceRejected(Http400(Message)));
-        Assert.True(ToolChoice.IsForcedToolChoiceRejected(Http400("{\"error\":{\"message\":" + System.Text.Json.JsonSerializer.Serialize(Message, new System.Text.Json.JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }) + "}}")));
+        Assert.True(
+            ToolChoice.IsForcedToolChoiceRejected(
+                Http400(
+                    "{\"error\":{\"message\":"
+                        + System.Text.Json.JsonSerializer.Serialize(
+                            Message,
+                            new System.Text.Json.JsonSerializerOptions
+                            {
+                                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                            }
+                        )
+                        + "}}"
+                )
+            )
+        );
         Assert.True(ToolChoice.IsForcedToolChoiceRejected(Http400("only auto is supported for tool_choice")));
     }
 
     [Fact]
     public void Ignores_server_failures_and_unrelated_messages_that_mention_tools()
     {
-        Assert.False(ToolChoice.IsForcedToolChoiceRejected(new AgentException("MODEL_PROVIDER_FAILED", "tool_choice is not supported") { ProviderStatus = 502 }));
-        Assert.False(ToolChoice.IsForcedToolChoiceRejected(new InvalidOperationException("tool_choice must name a defined tool")));
+        Assert.False(
+            ToolChoice.IsForcedToolChoiceRejected(
+                new AgentException("MODEL_PROVIDER_FAILED", "tool_choice is not supported") { ProviderStatus = 502 }
+            )
+        );
+        Assert.False(
+            ToolChoice.IsForcedToolChoiceRejected(new InvalidOperationException("tool_choice must name a defined tool"))
+        );
         Assert.False(ToolChoice.IsForcedToolChoiceRejected(new InvalidOperationException("Rate limit reached")));
         Assert.False(ToolChoice.IsForcedToolChoiceRejected(null));
     }

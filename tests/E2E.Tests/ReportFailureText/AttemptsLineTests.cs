@@ -24,17 +24,33 @@ public sealed class AttemptsLineTests
     {
         var early = Failed(steps: [Step(0, status: StepStatus.Failed, error: ReportBuilders.Error())]);
         var drifted = Result(attempts: [early, Failed(), Failed(), Failed()]);
-        Assert.Equal("Failed on all 4 attempts: **ASSERTION_FAILED** at step 1, then at step 2 (3 times).", Line(drifted));
+        Assert.Equal(
+            "Failed on all 4 attempts: **ASSERTION_FAILED** at step 1, then at step 2 (3 times).",
+            Line(drifted)
+        );
 
-        var mixed = Result(attempts: [Failed(ReportBuilders.Error("LOCATOR_NOT_FOUND")), Failed(ReportBuilders.Error("LOCATOR_NOT_FOUND")), Failed()]);
-        Assert.Equal("Failed on all 3 attempts: **LOCATOR_NOT_FOUND** at step 2 (2 times), then **ASSERTION_FAILED** at step 2.", Line(mixed));
+        var mixed = Result(
+            attempts:
+            [
+                Failed(ReportBuilders.Error("LOCATOR_NOT_FOUND")),
+                Failed(ReportBuilders.Error("LOCATOR_NOT_FOUND")),
+                Failed(),
+            ]
+        );
+        Assert.Equal(
+            "Failed on all 3 attempts: **LOCATOR_NOT_FOUND** at step 2 (2 times), then **ASSERTION_FAILED** at step 2.",
+            Line(mixed)
+        );
     }
 
     [Fact]
     public void Tells_a_flaky_test_its_failures_agreed_and_ignores_an_attempt_that_never_reached_the_test()
     {
         var flaky = Result(ResultStatus.Flaky, [Failed(), Failed(), ReportBuilders.Attempt(AttemptStatus.Passed)]);
-        Assert.Equal("Failed the same way on 2 attempts: **ASSERTION_FAILED** at step 2. The retry that passed is the exception.", Line(flaky));
+        Assert.Equal(
+            "Failed the same way on 2 attempts: **ASSERTION_FAILED** at step 2. The retry that passed is the exception.",
+            Line(flaky)
+        );
 
         var launchFailed = Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Failed), Failed()]);
         Assert.Null(Line(launchFailed));

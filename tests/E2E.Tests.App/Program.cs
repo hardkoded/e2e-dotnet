@@ -31,7 +31,10 @@ if (args.Length == 0)
 switch (args[0])
 {
     case "serve":
-        return await Serve(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), args.Length > 2 && args[2] == "ignore-sigterm");
+        return await Serve(
+            int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture),
+            args.Length > 2 && args[2] == "ignore-sigterm"
+        );
     case "serve-for":
         var port = int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture);
         var stop = Task.Delay(int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture));
@@ -51,7 +54,11 @@ switch (args[0])
     case "serve-hold":
         return await ServeHold(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
     case "serve-receipt":
-        return await ServeReceipt(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), args[2], args[3]);
+        return await ServeReceipt(
+            int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture),
+            args[2],
+            args[3]
+        );
     case "wrap":
         return await Wrap(args[1], args.Skip(2).ToArray());
     case "idle":
@@ -138,7 +145,9 @@ static async Task<int> Serve(int port, bool ignoreSigterm)
                     seen.Append(Encoding.ASCII.GetString(buffer, 0, read));
                 }
 
-                await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"));
+                await stream.WriteAsync(
+                    Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+                );
             }
         });
     }

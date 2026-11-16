@@ -57,11 +57,16 @@ public sealed class PollExpectation<T>
             "toBe",
             value => EqualityComparer<T>.Default.Equals(value, expected),
             value => "received " + Format(value) + ", expected " + (_negated ? "not " : "") + Format(expected),
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     /// <summary>Passes when <paramref name="predicate"/> returns true for the read value. <paramref name="description"/> names the condition in the error.</summary>
-    public Task ToSatisfyAsync(Func<T, bool> predicate, string? description = null, CancellationToken cancellationToken = default)
+    public Task ToSatisfyAsync(
+        Func<T, bool> predicate,
+        string? description = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(predicate);
         var condition = string.IsNullOrWhiteSpace(description) ? "the predicate" : description;
@@ -69,10 +74,16 @@ public sealed class PollExpectation<T>
             "toSatisfy",
             predicate,
             value => "received " + Format(value) + ", which does " + (_negated ? "" : "not ") + "satisfy " + condition,
-            cancellationToken);
+            cancellationToken
+        );
     }
 
-    private async Task PollAsync(string matcher, Func<T, bool> check, Func<T, string> describe, CancellationToken cancellationToken)
+    private async Task PollAsync(
+        string matcher,
+        Func<T, bool> check,
+        Func<T, string> describe,
+        CancellationToken cancellationToken
+    )
     {
         var timeout = _options.Timeout ?? DefaultTimeout;
         var interval = _options.Interval ?? DefaultInterval;
@@ -92,7 +103,9 @@ public sealed class PollExpectation<T>
             T value;
             try
             {
-                value = await _read(cancellationToken).WaitAsync(remaining > Time.Unbounded ? Time.Unbounded : remaining, clock, cancellationToken).ConfigureAwait(false);
+                value = await _read(cancellationToken)
+                    .WaitAsync(remaining > Time.Unbounded ? Time.Unbounded : remaining, clock, cancellationToken)
+                    .ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -134,8 +147,12 @@ public sealed class PollExpectation<T>
 
         var lines = new List<string>
         {
-            "expect.poll(...)." + (_negated ? "not." : "") + matcher + "(...) timed out after "
-                + ((long)timeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture) + " ms",
+            "expect.poll(...)."
+                + (_negated ? "not." : "")
+                + matcher
+                + "(...) timed out after "
+                + ((long)timeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture)
+                + " ms",
         };
         if (_options.Message is not null)
         {
@@ -151,7 +168,11 @@ public sealed class PollExpectation<T>
     /// phase is the caller's <paramref name="cancellationToken"/>: it needs one that can end, or nothing would bound the poll
     /// (upstream's <c>INVALID_CONFIG</c> outside a test).
     /// </summary>
-    private static DateTimeOffset PollDeadline(TimeSpan timeout, DateTimeOffset started, CancellationToken cancellationToken)
+    private static DateTimeOffset PollDeadline(
+        TimeSpan timeout,
+        DateTimeOffset started,
+        CancellationToken cancellationToken
+    )
     {
         if (timeout != TimeSpan.Zero)
         {
@@ -160,13 +181,21 @@ public sealed class PollExpectation<T>
 
         if (!cancellationToken.CanBeCanceled)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "expect.poll timeout 0 waits for the test deadline, so it needs a cancellation token that ends with the test; pass a positive timeout or the test's token");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "expect.poll timeout 0 waits for the test deadline, so it needs a cancellation token that ends with the test; pass a positive timeout or the test's token"
+            );
         }
 
         return Time.Never;
     }
 
-    private static Task PauseAsync(DateTimeOffset deadline, TimeSpan interval, TimeProvider clock, CancellationToken cancellationToken)
+    private static Task PauseAsync(
+        DateTimeOffset deadline,
+        TimeSpan interval,
+        TimeProvider clock,
+        CancellationToken cancellationToken
+    )
     {
         var remaining = deadline - clock.GetUtcNow();
         if (remaining <= TimeSpan.Zero)
@@ -175,7 +204,11 @@ public sealed class PollExpectation<T>
         }
 
         // Rounded up to a whole millisecond: a delay under one completes at once, and the loop would spin to the deadline.
-        return Task.Delay(remaining < interval ? TimeSpan.FromMilliseconds(Math.Ceiling(remaining.TotalMilliseconds)) : interval, clock, cancellationToken);
+        return Task.Delay(
+            remaining < interval ? TimeSpan.FromMilliseconds(Math.Ceiling(remaining.TotalMilliseconds)) : interval,
+            clock,
+            cancellationToken
+        );
     }
 
     private static string Format(T value)
@@ -196,14 +229,16 @@ public sealed class PollExpectation<T>
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                "expect.poll timeout must be a finite number of milliseconds, 0 or more; got " + Milliseconds(timeout));
+                "expect.poll timeout must be a finite number of milliseconds, 0 or more; got " + Milliseconds(timeout)
+            );
         }
 
         if (options.Interval is { } interval && interval <= TimeSpan.Zero)
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                "expect.poll interval must be a finite number of milliseconds above 0; got " + Milliseconds(interval));
+                "expect.poll interval must be a finite number of milliseconds above 0; got " + Milliseconds(interval)
+            );
         }
     }
 

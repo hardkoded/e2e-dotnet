@@ -20,7 +20,8 @@ namespace E2E.Mobile.DevFlow;
 /// <c>settle</c> options are not honored: the engine's own observe loop waits for the screen to settle.
 /// </para>
 /// </summary>
-internal sealed partial class DevFlowDeviceClient(DevFlowAgentClient agent, MobilePlatform? platform = null) : ICancellableDeviceClient
+internal sealed partial class DevFlowDeviceClient(DevFlowAgentClient agent, MobilePlatform? platform = null)
+    : ICancellableDeviceClient
 {
     private const string Api = "api/v1/";
 
@@ -28,7 +29,8 @@ internal sealed partial class DevFlowDeviceClient(DevFlowAgentClient agent, Mobi
     private const int ReadAttempts = 4;
 
     /// <summary>The wait between read attempts; a seam for the tests.</summary>
-    internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = static (span, token) => Task.Delay(span, token);
+    internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } =
+        static (span, token) => Task.Delay(span, token);
 
     /// <summary>The platform the target declares: given up front, else read off the <c>devices.boot</c> the engine sends first.</summary>
     private MobilePlatform? _platform = platform;
@@ -90,17 +92,25 @@ internal sealed partial class DevFlowDeviceClient(DevFlowAgentClient agent, Mobi
             case DeviceMethods.SettingsUpdate:
                 return SettingAsync(options, cancellationToken);
             case DeviceMethods.AppsClose:
-                throw DevFlowErrors.Unsupported("the DevFlow agent runs inside the app, so it cannot terminate it; close the app yourself");
+                throw DevFlowErrors.Unsupported(
+                    "the DevFlow agent runs inside the app, so it cannot terminate it; close the app yourself"
+                );
             case DeviceMethods.AppsInstall or DeviceMethods.AppsReinstall:
-                throw DevFlowErrors.Unsupported("installing a build is not supported with DevFlow yet: build and launch the app yourself, and the client attaches to its agent");
+                throw DevFlowErrors.Unsupported(
+                    "installing a build is not supported with DevFlow yet: build and launch the app yourself, and the client attaches to its agent"
+                );
             case DeviceMethods.InteractionsDrag:
                 throw DevFlowErrors.Unsupported("a drag between two nodes is not supported by the DevFlow agent");
             case DeviceMethods.InteractionsHover:
                 throw DevFlowErrors.Unsupported("a touch screen has no hover");
             case DeviceMethods.CommandAlert:
-                throw DevFlowErrors.Unsupported("system alerts are not supported with DevFlow yet; tap the alert's button instead");
+                throw DevFlowErrors.Unsupported(
+                    "system alerts are not supported with DevFlow yet; tap the alert's button instead"
+                );
             case DeviceMethods.CommandHome:
-                throw DevFlowErrors.Unsupported("the home screen is not supported with DevFlow yet: the agent runs inside the app");
+                throw DevFlowErrors.Unsupported(
+                    "the home screen is not supported with DevFlow yet: the agent runs inside the app"
+                );
             case DeviceMethods.CommandOrientation:
                 throw DevFlowErrors.Unsupported("rotating the device is not supported with DevFlow");
             case DeviceMethods.CommandFold:
@@ -136,9 +146,15 @@ internal sealed partial class DevFlowDeviceClient(DevFlowAgentClient agent, Mobi
     {
         var status = await agent.GetAsync(Api + "agent/status", cancellationToken).ConfigureAwait(false);
         var reported = PlatformOf(status);
-        if (reported is not null && _platform is { } expected && !string.Equals(reported, expected.WireName(), StringComparison.OrdinalIgnoreCase))
+        if (
+            reported is not null
+            && _platform is { } expected
+            && !string.Equals(reported, expected.WireName(), StringComparison.OrdinalIgnoreCase)
+        )
         {
-            throw DevFlowErrors.Failed($"the DevFlow agent runs a {reported} app, but the target's platform is {expected.WireName()}; point the provider at the right app or fix MobileOptions.Platform");
+            throw DevFlowErrors.Failed(
+                $"the DevFlow agent runs a {reported} app, but the target's platform is {expected.WireName()}; point the provider at the right app or fix MobileOptions.Platform"
+            );
         }
 
         _app = (Text(status?["app"]?["name"]), Text(status?["app"]?["packageId"]));
@@ -158,7 +174,9 @@ internal sealed partial class DevFlowDeviceClient(DevFlowAgentClient agent, Mobi
         var setting = Text(options, "setting");
         if (setting != "appearance")
         {
-            throw DevFlowErrors.Unsupported($"the {setting ?? "settings"} setting is not supported with DevFlow: the agent runs inside the app and cannot change the device");
+            throw DevFlowErrors.Unsupported(
+                $"the {setting ?? "settings"} setting is not supported with DevFlow: the agent runs inside the app and cannot change the device"
+            );
         }
 
         var theme = Text(options, "state") switch
@@ -167,21 +185,28 @@ internal sealed partial class DevFlowDeviceClient(DevFlowAgentClient agent, Mobi
             "light" => "light",
             var other => throw DevFlowErrors.InvalidArgument($"appearance takes dark or light, not {other ?? "none"}"),
         };
-        await agent.PutAsync(Api + "device/app/theme", new JsonObject { ["theme"] = theme }, cancellationToken).ConfigureAwait(false);
+        await agent
+            .PutAsync(Api + "device/app/theme", new JsonObject { ["theme"] = theme }, cancellationToken)
+            .ConfigureAwait(false);
         return null;
     }
 
-    private static JsonObject AppIdentity(string bundleId, string? name) => new() { ["appBundleId"] = bundleId, ["appName"] = name ?? bundleId };
+    private static JsonObject AppIdentity(string bundleId, string? name) =>
+        new() { ["appBundleId"] = bundleId, ["appName"] = name ?? bundleId };
 
     /// <summary>The platform a status names: under <c>device</c>, where the agent writes it, else at the top, where its spec draws it.</summary>
-    internal static string? PlatformOf(JsonNode? status) => Text(status?["device"]?["platform"]) ?? Text(status?["platform"]);
+    internal static string? PlatformOf(JsonNode? status) =>
+        Text(status?["device"]?["platform"]) ?? Text(status?["platform"]);
 
     private static string? Text(JsonObject options, string name) =>
         options[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     /// <summary>A JSON number, whatever type backs it: one parsed from text and one built in code differ.</summary>
     private static double? Number(JsonNode? node) =>
-        node is JsonValue && JsonSerializer.SerializeToElement(node) is { ValueKind: JsonValueKind.Number } element ? element.GetDouble() : null;
+        node is JsonValue && JsonSerializer.SerializeToElement(node) is { ValueKind: JsonValueKind.Number } element
+            ? element.GetDouble()
+            : null;
 }

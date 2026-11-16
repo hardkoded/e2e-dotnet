@@ -33,7 +33,12 @@ public sealed class PreparableEngineTests
         {
             var number = Interlocked.Increment(ref _acquired);
             await Task.Yield();
-            return new DeviceLease { Id = $"lease-{number}", Daemon = new DeviceDaemon($"https://{number}.example", $"token-{number}"), Device = $"sim-{number}" };
+            return new DeviceLease
+            {
+                Id = $"lease-{number}",
+                Daemon = new DeviceDaemon($"https://{number}.example", $"token-{number}"),
+                Device = $"sim-{number}",
+            };
         }
 
         public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken)
@@ -45,24 +50,26 @@ public sealed class PreparableEngineTests
 
     private static Harness Over(CountingCloud cloud) => Harness.Create(options => options with { Provider = cloud });
 
-    private static EnginePrepareInfo PrepareInfo(string targetName) => new()
-    {
-        RunId = "run",
-        TargetName = targetName,
-        Slots = 1,
-        Env = new Dictionary<string, string?>(),
-        ProjectRoot = Harness.ProjectRoot,
-        Log = _ => { },
-    };
+    private static EnginePrepareInfo PrepareInfo(string targetName) =>
+        new()
+        {
+            RunId = "run",
+            TargetName = targetName,
+            Slots = 1,
+            Env = new Dictionary<string, string?>(),
+            ProjectRoot = Harness.ProjectRoot,
+            Log = _ => { },
+        };
 
-    private static EngineFinishInfo FinishInfo(string targetName) => new()
-    {
-        RunId = "run",
-        TargetName = targetName,
-        Env = new Dictionary<string, string?>(),
-        Log = _ => { },
-        CleanupTimeout = TimeSpan.FromSeconds(5),
-    };
+    private static EngineFinishInfo FinishInfo(string targetName) =>
+        new()
+        {
+            RunId = "run",
+            TargetName = targetName,
+            Env = new Dictionary<string, string?>(),
+            Log = _ => { },
+            CleanupTimeout = TimeSpan.FromSeconds(5),
+        };
 
     [Fact]
     public async Task Leases_in_prepare_and_releases_in_finish_and_never_when_the_engine_starts()
@@ -78,7 +85,14 @@ public sealed class PreparableEngineTests
         Assert.Equal(1, prepared.Workers);
 
         // The attempt rides the device prepare bound, and its end gives nothing back.
-        var session = await h.Engine.StartAsync(new EngineStartOptions { ProjectRoot = Harness.ProjectRoot, Env = prepared.Env.ToDictionary(pair => pair.Key, pair => (string?)pair.Value) }, CancellationToken.None);
+        var session = await h.Engine.StartAsync(
+            new EngineStartOptions
+            {
+                ProjectRoot = Harness.ProjectRoot,
+                Env = prepared.Env.ToDictionary(pair => pair.Key, pair => (string?)pair.Value),
+            },
+            CancellationToken.None
+        );
         Assert.Equal(new DeviceDaemon("https://1.example", "token-1"), h.Connections[^1]?.Daemon);
         await session.DisposeAsync();
         Assert.Equal((1, 0), (cloud.Acquired, cloud.Released));
@@ -92,7 +106,9 @@ public sealed class PreparableEngineTests
     {
         var cloud = new CountingCloud();
         var h = Over(cloud);
-        var refused = await Assert.ThrowsAsync<ConfigurationException>(() => h.Engine.StartAsync(new EngineStartOptions { BaseUrl = "https://example.com" }, CancellationToken.None));
+        var refused = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            h.Engine.StartAsync(new EngineStartOptions { BaseUrl = "https://example.com" }, CancellationToken.None)
+        );
         Assert.Contains("app.url", refused.Message, StringComparison.Ordinal);
         Assert.Equal(0, cloud.Acquired);
     }
@@ -103,14 +119,24 @@ public sealed class PreparableEngineTests
         var h = Harness.Create(options => options);
         var leasing = new TaskCompletionSource();
         var go = new TaskCompletionSource();
-        h.Fake.RespondAsync(
-            DeviceMethods.DevicesList,
-            async (_, _) =>
+        h.Fake.RespondAsync(DeviceMethods.DevicesList, async (_, _) =>
+        {
+            leasing.TrySetResult();
+            await go.Task;
+            return new JsonObject
             {
-                leasing.TrySetResult();
-                await go.Task;
-                return new JsonObject { ["devices"] = new JsonArray(new JsonObject { ["id"] = "sim-1", ["name"] = "sim", ["platform"] = "ios", ["kind"] = "simulator", ["booted"] = true }) };
-            });
+                ["devices"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["id"] = "sim-1",
+                        ["name"] = "sim",
+                        ["platform"] = "ios",
+                        ["kind"] = "simulator",
+                        ["booted"] = true,
+                    }
+                ),
+            };
+        });
         h.Fake.Respond(DeviceMethods.DevicesBoot, _ => throw new InvalidOperationException("no simulator"));
         var info = h.PrepareInfo(1, targetName: h.Engine.Options.TargetName);
         var preparing = h.Engine.PrepareAsync(info, CancellationToken.None);
@@ -127,7 +153,12 @@ public sealed class PreparableEngineTests
     [Fact]
     public async Task Attaches_to_the_running_app_instead_of_relaunching_it_when_the_provider_cannot_relaunch()
     {
-        var h = Harness.Create(options => options with { Provider = new CountingCloud { AttachesToRunningApp = true } });
+        var h = Harness.Create(options =>
+            options with
+            {
+                Provider = new CountingCloud { AttachesToRunningApp = true },
+            }
+        );
         var session = await StartPrepared(h);
         h.Fake.Calls.Clear();
         await session.OpenAsync("", CancellationToken.None);
@@ -150,7 +181,13 @@ public sealed class PreparableEngineTests
 
     private static async Task<IEngineSession> StartPrepared(Harness h)
     {
-        var prepared = await h.Engine.PrepareAsync(h.PrepareInfo(1, targetName: h.Engine.Options.TargetName), CancellationToken.None);
-        return await h.Engine.StartAsync(new EngineStartOptions { ProjectRoot = Harness.ProjectRoot, Env = Harness.WorkerEnv(prepared) }, CancellationToken.None);
+        var prepared = await h.Engine.PrepareAsync(
+            h.PrepareInfo(1, targetName: h.Engine.Options.TargetName),
+            CancellationToken.None
+        );
+        return await h.Engine.StartAsync(
+            new EngineStartOptions { ProjectRoot = Harness.ProjectRoot, Env = Harness.WorkerEnv(prepared) },
+            CancellationToken.None
+        );
     }
 }

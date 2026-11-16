@@ -26,7 +26,15 @@ public sealed class MediaEmulationTests
     public async Task Loads_every_page_with_the_configured_media_after_a_restart_and_a_context_reset_too()
     {
         using var app = await FixtureApp.StartAsync();
-        await using var session = await StartAsync(app, new WebEngineOptions { Headless = true, ColorScheme = WebColorScheme.Dark, ReducedMotion = WebReducedMotion.Reduce });
+        await using var session = await StartAsync(
+            app,
+            new WebEngineOptions
+            {
+                Headless = true,
+                ColorScheme = WebColorScheme.Dark,
+                ReducedMotion = WebReducedMotion.Reduce,
+            }
+        );
         var expected = LoadedWith(dark: true, reduce: true);
         Assert.Equal(expected, await OpenMediaAsync(session, app));
         await session.RestartAsync(None);
@@ -47,20 +55,31 @@ public sealed class MediaEmulationTests
     public async Task Emulates_media_set_before_the_first_navigation_from_first_paint_and_holds_a_change_for_the_rest_of_the_attempt()
     {
         using var app = await FixtureApp.StartAsync();
-        await using var session = await StartAsync(app, new WebEngineOptions { Headless = true, ColorScheme = WebColorScheme.Dark });
+        await using var session = await StartAsync(
+            app,
+            new WebEngineOptions { Headless = true, ColorScheme = WebColorScheme.Dark }
+        );
         var browser = BrowserOf(session, app);
         await browser.EmulateMediaAsync(new WebMedia { ReducedMotion = WebReducedMotion.Reduce });
         Assert.Equal(LoadedWith(dark: true, reduce: true), await OpenMediaAsync(session, app));
 
         // A change applies to the open page at once; a feature left out keeps its value.
         await browser.EmulateMediaAsync(new WebMedia { ColorScheme = WebColorScheme.Light });
-        Assert.Equal(LoadedWith(dark: false, reduce: true) with { AtLoad = new MediaFeatures(Dark: true, Reduce: true) }, await ReadAsync(session));
+        Assert.Equal(
+            LoadedWith(dark: false, reduce: true) with
+            {
+                AtLoad = new MediaFeatures(Dark: true, Reduce: true),
+            },
+            await ReadAsync(session)
+        );
         var expected = LoadedWith(dark: false, reduce: true);
         await session.RestartAsync(None);
         Assert.Equal(expected, await OpenMediaAsync(session, app));
         await session.ClearStateAsync(None);
         Assert.Equal(expected, await OpenMediaAsync(session, app));
-        await browser.EmulateMediaAsync(new WebMedia { ColorScheme = WebColorScheme.NoPreference, ReducedMotion = WebReducedMotion.NoPreference });
+        await browser.EmulateMediaAsync(
+            new WebMedia { ColorScheme = WebColorScheme.NoPreference, ReducedMotion = WebReducedMotion.NoPreference }
+        );
         var now = await ReadAsync(session);
         Assert.Equal((Light, "0.3s", false, false), (now.Color, now.Transition, now.Dark, now.Reduce));
     }
@@ -69,19 +88,31 @@ public sealed class MediaEmulationTests
     public async Task Gives_a_tab_the_app_opens_itself_a_tests_change_as_it_appears_and_later()
     {
         using var app = await FixtureApp.StartAsync();
-        await using var session = await StartAsync(app, new WebEngineOptions { Headless = true, ColorScheme = WebColorScheme.Dark });
+        await using var session = await StartAsync(
+            app,
+            new WebEngineOptions { Headless = true, ColorScheme = WebColorScheme.Dark }
+        );
         var browser = BrowserOf(session, app);
         await browser.EmulateMediaAsync(new WebMedia { ColorScheme = WebColorScheme.Light });
         Assert.Equal(LoadedWith(dark: false, reduce: false), await OpenMediaAsync(session, app));
         var live = WebEngine.SurfaceOf(session)!;
-        var popup = await live.Context().RunAndWaitForPageAsync(() => live.Page().EvaluateAsync("() => { window.open('/media'); }"));
+        var popup = await live.Context()
+            .RunAndWaitForPageAsync(() => live.Page().EvaluateAsync("() => { window.open('/media'); }"));
         await popup.WaitForLoadStateAsync();
-        Task<MediaFeatures> Now() => EvaluateAsync<MediaFeatures>(popup, "() => ({ dark: matchMedia('(prefers-color-scheme: dark)').matches, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches })");
+        Task<MediaFeatures> Now() =>
+            EvaluateAsync<MediaFeatures>(
+                popup,
+                "() => ({ dark: matchMedia('(prefers-color-scheme: dark)').matches, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches })"
+            );
 
         // A test's change reaches a tab the app opens once the page exists, as no context-wide emulation exists, so the tab
         // reads the context's media first and the change lands on the page event. Wait for it instead of reading at load.
         var applied = new MediaFeatures(Dark: false, Reduce: false);
-        await popup.WaitForFunctionAsync("() => !matchMedia('(prefers-color-scheme: dark)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches", null, new PageWaitForFunctionOptions { Timeout = 10_000 });
+        await popup.WaitForFunctionAsync(
+            "() => !matchMedia('(prefers-color-scheme: dark)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches",
+            null,
+            new PageWaitForFunctionOptions { Timeout = 10_000 }
+        );
         Assert.Equal(applied, await Now());
         await browser.EmulateMediaAsync(new WebMedia { ReducedMotion = WebReducedMotion.Reduce });
         Assert.Equal(new MediaFeatures(Dark: false, Reduce: true), await Now());
@@ -97,22 +128,45 @@ public sealed class MediaEmulationTests
     public async Task Partial_Refuses_a_feature_it_does_not_emulate_and_a_value_outside_the_ones_it_takes_changing_nothing()
     {
         using var app = await FixtureApp.StartAsync();
-        await using var session = await StartAsync(app, new WebEngineOptions { Headless = true, ColorScheme = WebColorScheme.Dark });
+        await using var session = await StartAsync(
+            app,
+            new WebEngineOptions { Headless = true, ColorScheme = WebColorScheme.Dark }
+        );
         var browser = BrowserOf(session, app);
-        var scheme = await Assert.ThrowsAsync<TestException>(() => browser.EmulateMediaAsync(new WebMedia { ColorScheme = (WebColorScheme)42 }));
+        var scheme = await Assert.ThrowsAsync<TestException>(() =>
+            browser.EmulateMediaAsync(new WebMedia { ColorScheme = (WebColorScheme)42 })
+        );
         Assert.Equal("INVALID_ARGUMENT", scheme.Code);
-        Assert.Equal("browser.emulateMedia({ ColorScheme }) must be Light, Dark, or NoPreference, got 42", scheme.Message);
-        var motion = await Assert.ThrowsAsync<TestException>(() => browser.EmulateMediaAsync(new WebMedia { ReducedMotion = (WebReducedMotion)42 }));
+        Assert.Equal(
+            "browser.emulateMedia({ ColorScheme }) must be Light, Dark, or NoPreference, got 42",
+            scheme.Message
+        );
+        var motion = await Assert.ThrowsAsync<TestException>(() =>
+            browser.EmulateMediaAsync(new WebMedia { ReducedMotion = (WebReducedMotion)42 })
+        );
         Assert.Equal("browser.emulateMedia({ ReducedMotion }) must be Reduce or NoPreference, got 42", motion.Message);
         await Assert.ThrowsAsync<ArgumentNullException>(() => browser.EmulateMediaAsync(null!));
         Assert.Equal(LoadedWith(dark: true, reduce: false), await OpenMediaAsync(session, app));
     }
 
     private static Browser BrowserOf(IEngineSession session, TinySite app) =>
-        new(session, "web", app.Url, Directory.GetCurrentDirectory(), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(1), () => CancellationToken.None, () => { }, new SoftFailures());
+        new(
+            session,
+            "web",
+            app.Url,
+            Directory.GetCurrentDirectory(),
+            TimeSpan.FromSeconds(30),
+            TimeSpan.FromSeconds(1),
+            () => CancellationToken.None,
+            () => { },
+            new SoftFailures()
+        );
 
     private static Task<IEngineSession> StartAsync(TinySite app, WebEngineOptions options) =>
-        new WebEngine(options).StartAsync(new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(10) }, None);
+        new WebEngine(options).StartAsync(
+            new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(10) },
+            None
+        );
 
     private static async Task<MediaReading> OpenMediaAsync(IEngineSession session, TinySite app)
     {
@@ -122,7 +176,9 @@ public sealed class MediaEmulationTests
 
     // What the media page shows: its paragraph's computed style, what matchMedia reports now, and what its head script read before first paint.
     private static Task<MediaReading> ReadAsync(IEngineSession session) =>
-        EvaluateAsync<MediaReading>(WebEngine.SurfaceOf(session)!.Page(), """
+        EvaluateAsync<MediaReading>(
+            WebEngine.SurfaceOf(session)!.Page(),
+            """
             () => {
               const style = getComputedStyle(document.querySelector('p'));
               return {
@@ -133,11 +189,14 @@ public sealed class MediaEmulationTests
                 atLoad: window.atLoad,
               };
             }
-            """);
+            """
+        );
 
     // Playwright cannot build a positional record, so the page's object comes back as JSON.
     private static async Task<T> EvaluateAsync<T>(IPage page, string expression) =>
-        (await page.EvaluateAsync<JsonElement>(expression)).Deserialize<T>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        (await page.EvaluateAsync<JsonElement>(expression)).Deserialize<T>(
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        )!;
 
     // The reading of a page that loaded with the media in force.
     private static MediaReading LoadedWith(bool dark, bool reduce) =>

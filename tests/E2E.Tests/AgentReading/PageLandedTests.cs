@@ -14,7 +14,14 @@ namespace E2E.Tests.AgentReading;
 public sealed class PageLandedTests
 {
     private static PageReading Rows(params string[] texts) =>
-        Reading.ReadPage(IndexOf([.. texts.Select((text, at) => Node("r" + at, role: "listitem", text: text, rect: new BoundingBox(0, at * 40, 300, 40)))]));
+        Reading.ReadPage(
+            IndexOf([
+                .. texts.Select(
+                    (text, at) =>
+                        Node("r" + at, role: "listitem", text: text, rect: new BoundingBox(0, at * 40, 300, 40))
+                ),
+            ])
+        );
 
     [Fact]
     public void Accepts_a_page_that_reads_differently_and_is_no_sparser()

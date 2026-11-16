@@ -8,7 +8,8 @@ namespace E2E.TestMu.Mobile.Tests.Client;
 
 public sealed class AppsTests
 {
-    private static string[] Scripts(FakeAppium hub) => [.. hub.Scripts().Select(call => $"{call.Script} {call.Arguments?.ToJsonString()}".Trim())];
+    private static string[] Scripts(FakeAppium hub) =>
+        [.. hub.Scripts().Select(call => $"{call.Script} {call.Arguments?.ToJsonString()}".Trim())];
 
     [Fact]
     public async Task Brings_an_app_to_the_foreground_and_names_it_as_the_engine_did()
@@ -26,11 +27,18 @@ public sealed class AppsTests
     {
         var (client, hub, _) = Appium.Over();
 
-        await client.CallAsync(DeviceMethods.AppsOpen, """{"app":"com.example.app","relaunch":true,"launchArgs":["-reset","1"]}""");
+        await client.CallAsync(
+            DeviceMethods.AppsOpen,
+            """{"app":"com.example.app","relaunch":true,"launchArgs":["-reset","1"]}"""
+        );
 
         Assert.Equal(
-            ["mobile: terminateApp {\"bundleId\":\"com.example.app\"}", "mobile: launchApp {\"bundleId\":\"com.example.app\",\"arguments\":[\"-reset\",\"1\"]}"],
-            Scripts(hub));
+            [
+                "mobile: terminateApp {\"bundleId\":\"com.example.app\"}",
+                "mobile: launchApp {\"bundleId\":\"com.example.app\",\"arguments\":[\"-reset\",\"1\"]}",
+            ],
+            Scripts(hub)
+        );
     }
 
     [Fact]
@@ -40,7 +48,13 @@ public sealed class AppsTests
 
         await client.CallAsync(DeviceMethods.AppsOpen, """{"app":"com.example.app","relaunch":true}""");
 
-        Assert.Equal(["mobile: terminateApp {\"appId\":\"com.example.app\"}", "mobile: activateApp {\"appId\":\"com.example.app\"}"], Scripts(hub));
+        Assert.Equal(
+            [
+                "mobile: terminateApp {\"appId\":\"com.example.app\"}",
+                "mobile: activateApp {\"appId\":\"com.example.app\"}",
+            ],
+            Scripts(hub)
+        );
     }
 
     [Fact]
@@ -48,7 +62,10 @@ public sealed class AppsTests
     {
         var (client, hub, _) = Appium.Over(MobilePlatform.Android);
 
-        var error = await client.FailureAsync(DeviceMethods.AppsOpen, """{"app":"com.example.app","relaunch":true,"launchArgs":["--es","k","v"]}""");
+        var error = await client.FailureAsync(
+            DeviceMethods.AppsOpen,
+            """{"app":"com.example.app","relaunch":true,"launchArgs":["--es","k","v"]}"""
+        );
 
         Assert.Equal("UNSUPPORTED_OPERATION", error.Code);
         Assert.Empty(hub.Calls);
@@ -61,7 +78,10 @@ public sealed class AppsTests
     {
         var (client, hub, _) = Appium.Over(platform);
 
-        var result = await client.CallAsync(DeviceMethods.AppsOpen, """{"app":"com.example.app","url":"myapp://orders/42"}""");
+        var result = await client.CallAsync(
+            DeviceMethods.AppsOpen,
+            """{"app":"com.example.app","url":"myapp://orders/42"}"""
+        );
 
         var call = Assert.Single(hub.Scripts());
         Assert.Equal("mobile: deepLink", call.Script);
@@ -107,7 +127,10 @@ public sealed class AppsTests
     {
         var (client, hub, _) = Appium.Over();
 
-        var error = await client.FailureAsync(DeviceMethods.AppsOpen, """{"app":"com.example.app","launchArgs":["-reset"]}""");
+        var error = await client.FailureAsync(
+            DeviceMethods.AppsOpen,
+            """{"app":"com.example.app","launchArgs":["-reset"]}"""
+        );
 
         Assert.Equal("UNSUPPORTED_OPERATION", error.Code);
         Assert.Empty(hub.Calls);
@@ -118,7 +141,10 @@ public sealed class AppsTests
     {
         var (client, hub, _) = Appium.Over();
 
-        var error = await client.FailureAsync(DeviceMethods.AppsOpen, """{"app":"com.example.app","relaunch":true,"launchArgs":[1]}""");
+        var error = await client.FailureAsync(
+            DeviceMethods.AppsOpen,
+            """{"app":"com.example.app","relaunch":true,"launchArgs":[1]}"""
+        );
 
         Assert.Equal("INVALID_ARGS", error.Code);
         Assert.Empty(hub.Calls);

@@ -24,9 +24,12 @@ public sealed class IgnoreCaseOnTextMatchersTests
     {
         await FailsAssertion(
             () => At("banner").Not.ToContainTextAsync("error", ignoreCase: true, timeout: Soon),
-            "expected: not text containing \"error\" (ignoring case)");
+            "expected: not text containing \"error\" (ignoring case)"
+        );
         await FailsAssertion(() => At("banner").Not.ToHaveTextAsync("SAVE ERROR", ignoreCase: true, timeout: Soon));
-        await FailsAssertion(() => At("banner").Not.ToHaveAttributeAsync("data-kind", "ERROR", ignoreCase: true, timeout: Soon));
+        await FailsAssertion(() =>
+            At("banner").Not.ToHaveAttributeAsync("data-kind", "ERROR", ignoreCase: true, timeout: Soon)
+        );
     }
 
     [Fact]
@@ -40,7 +43,8 @@ public sealed class IgnoreCaseOnTextMatchersTests
     public async Task Adds_or_strips_the_i_flag_of_a_RegExp()
     {
         await At("banner").ToHaveTextAsync(new Regex("^save error$"), ignoreCase: true);
-        await At("banner").Not.ToHaveTextAsync(new Regex("^save error$", RegexOptions.IgnoreCase), ignoreCase: false, timeout: Soon);
+        await At("banner")
+            .Not.ToHaveTextAsync(new Regex("^save error$", RegexOptions.IgnoreCase), ignoreCase: false, timeout: Soon);
         await At("banner").ToHaveTextAsync(new Regex("^save error$", RegexOptions.IgnoreCase));
     }
 

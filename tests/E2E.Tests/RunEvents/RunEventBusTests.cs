@@ -36,16 +36,25 @@ public sealed class RunEventBusTests : IDisposable
 
         // Delivery holds one lock, so the sinks see the same events in the same order, numbered without a gap.
         Assert.Equal(first.Select(runEvent => runEvent.Seq), second.Select(runEvent => runEvent.Seq));
-        Assert.Equal(Enumerable.Range(0, first.Count).Select(offset => first[0].Seq + offset), first.Select(runEvent => runEvent.Seq));
+        Assert.Equal(
+            Enumerable.Range(0, first.Count).Select(offset => first[0].Seq + offset),
+            first.Select(runEvent => runEvent.Seq)
+        );
         foreach (var title in titles)
         {
             var started = first.FindIndex(runEvent => runEvent.Fact is TestStartedEvent test && test.Title == title);
-            var finished = first.FindIndex(runEvent => runEvent.Fact is TestFinishedEvent { Result.Test.TitlePath: [var each] } && each == title);
+            var finished = first.FindIndex(runEvent =>
+                runEvent.Fact is TestFinishedEvent { Result.Test.TitlePath: [var each] } && each == title
+            );
             Assert.InRange(started, 0, finished - 1);
 
             // The steps of a test come between its start and its end.
             var testId = ((TestStartedEvent)first[started].Fact).TestId;
-            var steps = first.Select((runEvent, index) => (runEvent.Fact, index)).Where(entry => entry.Fact is StepProgressEvent step && step.TestId == testId).Select(entry => entry.index).ToList();
+            var steps = first
+                .Select((runEvent, index) => (runEvent.Fact, index))
+                .Where(entry => entry.Fact is StepProgressEvent step && step.TestId == testId)
+                .Select(entry => entry.index)
+                .ToList();
             Assert.NotEmpty(steps);
             Assert.All(steps, index => Assert.InRange(index, started + 1, finished - 1));
         }
@@ -58,16 +67,16 @@ public sealed class RunEventBusTests : IDisposable
         var healthy = new List<RunEvent>();
         var calls = new Dictionary<string, int> { ["loud"] = 0, ["louder"] = 0 };
         emitter.Subscribe(new RunEventSubscriber("loud", _ =>
-        {
-            calls["loud"]++;
-            throw new InvalidOperationException("one");
-        }));
+            {
+                calls["loud"]++;
+                throw new InvalidOperationException("one");
+            }));
         emitter.Subscribe(new RunEventSubscriber("healthy", healthy.Add));
         emitter.Subscribe(new RunEventSubscriber("louder", _ =>
-        {
-            calls["louder"]++;
-            throw new InvalidOperationException("two");
-        }));
+            {
+                calls["louder"]++;
+                throw new InvalidOperationException("two");
+            }));
         var previous = Console.Error;
         using var stderr = new StringWriter();
         Console.SetError(stderr);
@@ -89,7 +98,8 @@ public sealed class RunEventBusTests : IDisposable
                 "e2e: reporter \"loud\" threw on notice: one; ignoring it for the rest of the run",
                 "e2e: reporter \"louder\" threw on notice: two; ignoring it for the rest of the run",
             ],
-            stderr.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries));
+            stderr.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
+        );
     }
 
     [Fact]

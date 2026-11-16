@@ -22,7 +22,17 @@ public sealed class SessionDebugTests
         }
 
         var text = output.ToString();
-        foreach (var phase in new[] { "session.launch", "test.body", "session.close", "agent.observe", "agent.model", "agent.action" })
+        foreach (
+            var phase in new[]
+            {
+                "session.launch",
+                "test.body",
+                "session.close",
+                "agent.observe",
+                "agent.model",
+                "agent.action",
+            }
+        )
         {
             Assert.Contains(phase, text, StringComparison.Ordinal);
         }
@@ -43,7 +53,11 @@ public sealed class SessionDebugTests
 
         var text = output.ToString();
         var table = text[text.IndexOf("[e2e debug] agent steps", StringComparison.Ordinal)..];
-        Assert.StartsWith("[e2e debug] agent steps (execution order, model scripted)\n", table, StringComparison.Ordinal);
+        Assert.StartsWith(
+            "[e2e debug] agent steps (execution order, model scripted)\n",
+            table,
+            StringComparison.Ordinal
+        );
         Assert.Contains("agent.act \"increment the counter once\"", table, StringComparison.Ordinal);
         Assert.Contains("tokens in/out", table, StringComparison.Ordinal);
     }
@@ -63,16 +77,20 @@ public sealed class SessionDebugTests
     }
 
     private static Task<E2ESession> StartAsync(bool debug, TextWriter output) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(CounterPage.World()),
-            Model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
-                ? ModelResponses.Done("passed", "tapped Increment")
-                : ModelResponses.Tap("button", "Increment")),
-            BaseUrl = "https://counter.test",
-            TestTitle = "debug",
-            Debug = debug,
-            DebugOutput = output,
-            CacheEnabled = false,
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                Model = new ScriptedModel(request =>
+                    request.Messages.Any(message => message.Role == "tool")
+                        ? ModelResponses.Done("passed", "tapped Increment")
+                        : ModelResponses.Tap("button", "Increment")
+                ),
+                BaseUrl = "https://counter.test",
+                TestTitle = "debug",
+                Debug = debug,
+                DebugOutput = output,
+                CacheEnabled = false,
+            }
+        );
 }

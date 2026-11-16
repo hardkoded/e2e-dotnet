@@ -28,7 +28,8 @@ public sealed class ProviderModelRefusalMemoryTests
                     await ctx.Agent.ActAsync("first");
                 },
                 new DocumentWorld().Map("/start", page => page.Button("Peek")),
-                model);
+                model
+            );
             Assert.Null(attempt.Error);
         }
 
@@ -47,8 +48,6 @@ public sealed class ProviderModelRefusalMemoryTests
                 : Task.FromResult(ModelResponses.Done("passed", "done"));
         }
 
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
     }
 }

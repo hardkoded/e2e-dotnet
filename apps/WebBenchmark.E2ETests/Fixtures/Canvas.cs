@@ -21,7 +21,8 @@ public static class Canvas
     /// <summary>Maps a point in canvas pixels to the viewport through the canvas's current box.</summary>
     public static async Task<Point> OnCanvas(Browser browser, Size size, Point point)
     {
-        var box = await browser.Locator("canvas").BoundingBoxAsync() ?? throw new InvalidOperationException("the canvas has no box");
+        var box = await browser.Locator("canvas").BoundingBoxAsync()
+            ?? throw new InvalidOperationException("the canvas has no box");
         return new Point(box.X + point.X * box.Width / size.Width, box.Y + point.Y * box.Height / size.Height);
     }
 
@@ -35,7 +36,8 @@ public static class Canvas
               return Array.from(context.getImageData(at.x, at.y, 1, 1).data.slice(0, 3));
             }
             """;
-        return await browser.EvaluateAsync<int[]>(script, new { x = point.X, y = point.Y }) ?? throw new InvalidOperationException("no pixel");
+        return await browser.EvaluateAsync<int[]>(script, new { x = point.X, y = point.Y })
+            ?? throw new InvalidOperationException("no pixel");
     }
 
     /// <summary>Counts the canvas pixels painted exactly <paramref name="color"/> inside a canvas-space band.</summary>
@@ -55,6 +57,19 @@ public static class Canvas
               return count;
             }
             """;
-        return await browser.EvaluateAsync<int>(script, new { band = new { x = band.X, y = band.Y, width = band.Width, height = band.Height }, color });
+        return await browser.EvaluateAsync<int>(
+            script,
+            new
+            {
+                band = new
+                {
+                    x = band.X,
+                    y = band.Y,
+                    width = band.Width,
+                    height = band.Height,
+                },
+                color,
+            }
+        );
     }
 }

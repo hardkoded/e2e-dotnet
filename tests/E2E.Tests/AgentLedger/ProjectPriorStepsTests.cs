@@ -12,10 +12,17 @@ public sealed class ProjectPriorStepsTests
     [Fact]
     public void Strips_control_characters_from_untrusted_labels_and_handoffs()
     {
-        var projected = Assert.Single(Ledger.ProjectPriorSteps(
-        [
-            Step("agent.assert", "a\u0007b", status: StepStatus.Failed, explanation: "ignore\u0000policy", cache: new CacheInfo { Mode = "missed" }),
-        ]));
+        var projected = Assert.Single(
+            Ledger.ProjectPriorSteps([
+                Step(
+                    "agent.assert",
+                    "a\u0007b",
+                    status: StepStatus.Failed,
+                    explanation: "ignore\u0000policy",
+                    cache: new CacheInfo { Mode = "missed" }
+                ),
+            ])
+        );
 
         Assert.Equal(new PriorStep("agent.assert", "a�b", StepStatus.Failed, "ignore�policy", false), projected);
 

@@ -16,7 +16,8 @@ internal sealed partial class DevFlowDeviceClient
     private const int SwipeMilliseconds = 200;
 
     /// <summary>The element a <c>ref</c> option names in the newest tree. Null when the call names a point instead.</summary>
-    private ScreenElement? ElementOf(JsonObject options) => Text(options, "ref") is { } reference ? _screen.ElementOf(reference) : null;
+    private ScreenElement? ElementOf(JsonObject options) =>
+        Text(options, "ref") is { } reference ? _screen.ElementOf(reference) : null;
 
     /// <summary>The body every action on an element carries: its id and the epoch of the capture it came from, so the agent refuses a stale target.</summary>
     private JsonObject Target(ScreenElement element, params (string Key, JsonNode? Value)[] more)
@@ -42,7 +43,12 @@ internal sealed partial class DevFlowDeviceClient
         agent.PostAsync(Api + "ui/actions/" + action, body, cancellationToken);
 
     /// <summary>A gesture on an element, or on the current page when <paramref name="element"/> is null.</summary>
-    private Task<JsonNode?> GestureAsync(string type, ScreenElement? element, CancellationToken cancellationToken, params (string Key, JsonNode? Value)[] more)
+    private Task<JsonNode?> GestureAsync(
+        string type,
+        ScreenElement? element,
+        CancellationToken cancellationToken,
+        params (string Key, JsonNode? Value)[] more
+    )
     {
         var body = element is null ? new JsonObject() : Target(element);
         body["type"] = type;
@@ -93,10 +99,17 @@ internal sealed partial class DevFlowDeviceClient
         var (x, y) = PointOf(options);
         if (count == 2)
         {
-            throw DevFlowErrors.Unsupported("a double tap at a bare point is not supported by the DevFlow agent; double tap a node");
+            throw DevFlowErrors.Unsupported(
+                "a double tap at a bare point is not supported by the DevFlow agent; double tap a node"
+            );
         }
 
-        var hit = await ReadScreenPartAsync(Api + $"ui/hit-test?x={x.ToString(CultureInfo.InvariantCulture)}&y={y.ToString(CultureInfo.InvariantCulture)}", cancellationToken).ConfigureAwait(false);
+        var hit = await ReadScreenPartAsync(
+                Api
+                    + $"ui/hit-test?x={x.ToString(CultureInfo.InvariantCulture)}&y={y.ToString(CultureInfo.InvariantCulture)}",
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         var topmost = (hit?["elements"] as JsonArray)?.OfType<JsonObject>().FirstOrDefault();
         var id = Text(topmost?["id"]) ?? throw DevFlowErrors.Failed($"nothing on the screen takes a tap at ({x}, {y})");
         var body = new JsonObject { ["elementId"] = id };
@@ -111,8 +124,17 @@ internal sealed partial class DevFlowDeviceClient
 
     private async Task<JsonNode?> LongPressAsync(JsonObject options, CancellationToken cancellationToken)
     {
-        var element = ElementOf(options) ?? throw DevFlowErrors.Unsupported("a long press at a bare point is not supported by the DevFlow agent; long press a node");
-        await GestureAsync("longpress", element, cancellationToken, ("durationMs", JsonValue.Create((int)(Number(options["durationMs"]) ?? 1000)))).ConfigureAwait(false);
+        var element = ElementOf(options)
+            ?? throw DevFlowErrors.Unsupported(
+                "a long press at a bare point is not supported by the DevFlow agent; long press a node"
+            );
+        await GestureAsync(
+                "longpress",
+                element,
+                cancellationToken,
+                ("durationMs", JsonValue.Create((int)(Number(options["durationMs"]) ?? 1000)))
+            )
+            .ConfigureAwait(false);
         return null;
     }
 
@@ -127,7 +149,8 @@ internal sealed partial class DevFlowDeviceClient
         }
         else
         {
-            await ActionAsync("fill", Target(element, ("text", JsonValue.Create(text))), cancellationToken).ConfigureAwait(false);
+            await ActionAsync("fill", Target(element, ("text", JsonValue.Create(text))), cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return null;
@@ -145,14 +168,22 @@ internal sealed partial class DevFlowDeviceClient
         }
 
         var focused = await FocusedInputAsync(cancellationToken).ConfigureAwait(false);
-        await ActionAsync("key", Target(focused, ("key", JsonValue.Create(TextKey)), ("text", JsonValue.Create(text))), cancellationToken).ConfigureAwait(false);
+        await ActionAsync(
+                "key",
+                Target(focused, ("key", JsonValue.Create(TextKey)), ("text", JsonValue.Create(text))),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         return null;
     }
 
     private async Task<ScreenElement> FocusedInputAsync(CancellationToken cancellationToken)
     {
         var screen = await ReadScreenAsync(interactiveOnly: false, cancellationToken).ConfigureAwait(false);
-        return screen.FocusedInput() ?? throw DevFlowErrors.Unsupported("no field has the focus, so the DevFlow agent has nowhere to type; fill the field by id or tap it first");
+        return screen.FocusedInput()
+            ?? throw DevFlowErrors.Unsupported(
+                "no field has the focus, so the DevFlow agent has nowhere to type; fill the field by id or tap it first"
+            );
     }
 
     /// <summary>A swipe from one point to another: the agent takes a direction and a distance, on the current page.</summary>
@@ -168,7 +199,15 @@ internal sealed partial class DevFlowDeviceClient
             throw DevFlowErrors.InvalidArgument("a swipe needs two different points");
         }
 
-        await GestureAsync("swipe", null, cancellationToken, ("direction", JsonValue.Create(direction)), ("distance", JsonValue.Create(distance)), ("durationMs", JsonValue.Create(SwipeMilliseconds))).ConfigureAwait(false);
+        await GestureAsync(
+                "swipe",
+                null,
+                cancellationToken,
+                ("direction", JsonValue.Create(direction)),
+                ("distance", JsonValue.Create(distance)),
+                ("durationMs", JsonValue.Create(SwipeMilliseconds))
+            )
+            .ConfigureAwait(false);
         return null;
     }
 
@@ -185,7 +224,9 @@ internal sealed partial class DevFlowDeviceClient
             "up" => "down",
             "right" => "left",
             "left" => "right",
-            var other => throw DevFlowErrors.InvalidArgument($"scroll needs a direction of up, down, left, or right, not {other ?? "none"}"),
+            var other => throw DevFlowErrors.InvalidArgument(
+                $"scroll needs a direction of up, down, left, or right, not {other ?? "none"}"
+            ),
         };
         var amount = Math.Clamp(Number(options["amount"]) ?? DefaultScrollAmount, 0.05, 0.95);
         if (_screen.Viewport is null)
@@ -193,25 +234,39 @@ internal sealed partial class DevFlowDeviceClient
             await ReadScreenAsync(interactiveOnly: false, cancellationToken).ConfigureAwait(false);
         }
 
-        var extent = element?.Rect is { } box
-            ? (finger is "up" or "down" ? box.Height : box.Width)
-            : _screen.Viewport is { } viewport ? (finger is "up" or "down" ? viewport.Height : viewport.Width) : 0;
+        var extent =
+            element?.Rect is { } box ? (finger is "up" or "down" ? box.Height : box.Width)
+            : _screen.Viewport is { } viewport ? (finger is "up" or "down" ? viewport.Height : viewport.Width)
+            : 0;
         var distance = extent > 0 ? extent * amount : (double?)null;
-        await GestureAsync("swipe", element, cancellationToken, ("direction", JsonValue.Create(finger)), ("distance", distance is null ? null : JsonValue.Create(distance.Value)), ("durationMs", JsonValue.Create(SwipeMilliseconds))).ConfigureAwait(false);
+        await GestureAsync(
+                "swipe",
+                element,
+                cancellationToken,
+                ("direction", JsonValue.Create(finger)),
+                ("distance", distance is null ? null : JsonValue.Create(distance.Value)),
+                ("durationMs", JsonValue.Create(SwipeMilliseconds))
+            )
+            .ConfigureAwait(false);
         return null;
     }
 
     /// <summary>A pan from a node by a delta. The agent pans an element, not a bare point.</summary>
     private async Task<JsonNode?> PanAsync(JsonObject options, CancellationToken cancellationToken)
     {
-        var element = ElementOf(options) ?? throw DevFlowErrors.Unsupported("a pan from a bare point is not supported by the DevFlow agent; pan from a node");
+        var element = ElementOf(options)
+            ?? throw DevFlowErrors.Unsupported(
+                "a pan from a bare point is not supported by the DevFlow agent; pan from a node"
+            );
         await GestureAsync(
-            "pan",
-            element,
-            cancellationToken,
-            ("deltaX", JsonValue.Create(Number(options["dx"]) ?? 0)),
-            ("deltaY", JsonValue.Create(Number(options["dy"]) ?? 0)),
-            ("durationMs", JsonValue.Create((int)(Number(options["durationMs"]) ?? SwipeMilliseconds)))).ConfigureAwait(false);
+                "pan",
+                element,
+                cancellationToken,
+                ("deltaX", JsonValue.Create(Number(options["dx"]) ?? 0)),
+                ("deltaY", JsonValue.Create(Number(options["dy"]) ?? 0)),
+                ("durationMs", JsonValue.Create((int)(Number(options["durationMs"]) ?? SwipeMilliseconds)))
+            )
+            .ConfigureAwait(false);
         return null;
     }
 
@@ -222,12 +277,15 @@ internal sealed partial class DevFlowDeviceClient
         {
             case "enter":
                 var focused = await FocusedInputAsync(cancellationToken).ConfigureAwait(false);
-                await ActionAsync("key", Target(focused, ("key", JsonValue.Create("Enter"))), cancellationToken).ConfigureAwait(false);
+                await ActionAsync("key", Target(focused, ("key", JsonValue.Create("Enter"))), cancellationToken)
+                    .ConfigureAwait(false);
                 return null;
             case "dismiss":
                 throw DevFlowErrors.Unsupported("dismissing the keyboard is not supported by the DevFlow agent");
             case var other:
-                throw DevFlowErrors.InvalidArgument($"keyboard needs an action of enter or dismiss, not {other ?? "none"}");
+                throw DevFlowErrors.InvalidArgument(
+                    $"keyboard needs an action of enter or dismiss, not {other ?? "none"}"
+                );
         }
     }
 
@@ -239,8 +297,12 @@ internal sealed partial class DevFlowDeviceClient
     }
 
     private static (double X, double Y) PointOf(JsonObject options) =>
-        Number(options["x"]) is { } x && Number(options["y"]) is { } y ? (x, y) : throw DevFlowErrors.InvalidArgument("an interaction needs a ref or an x and y");
+        Number(options["x"]) is { } x && Number(options["y"]) is { } y
+            ? (x, y)
+            : throw DevFlowErrors.InvalidArgument("an interaction needs a ref or an x and y");
 
     private static (double X, double Y) PointAt(JsonNode? node) =>
-        Number(node?["x"]) is { } x && Number(node?["y"]) is { } y ? (x, y) : throw DevFlowErrors.InvalidArgument("a gesture needs points with an x and y");
+        Number(node?["x"]) is { } x && Number(node?["y"]) is { } y
+            ? (x, y)
+            : throw DevFlowErrors.InvalidArgument("a gesture needs points with an x and y");
 }

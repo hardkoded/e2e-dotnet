@@ -21,7 +21,13 @@ public sealed class DescribePositionForATargetOnlyAMintedTestIdIdentifiesTests
     internal const string C = "rf__node-0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e";
 
     internal static SemanticNode CanvasNode(string id, string testId, string role = "box", string? name = null) =>
-        new() { Ref = id, Role = role, TestId = testId, Name = name };
+        new()
+        {
+            Ref = id,
+            Role = role,
+            TestId = testId,
+            Name = name,
+        };
 
     [Fact]
     public void Counts_the_target_among_the_nodes_of_its_shape_even_alone()

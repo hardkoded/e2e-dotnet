@@ -29,17 +29,52 @@ public sealed class IsTransitionalObservationTests
     [Fact]
     public void Treats_an_empty_root_that_carries_pixels_or_has_no_tree_as_a_screen()
     {
-        var empty = new SemanticNode { Ref = "e1", Role = "screen", States = new NodeStates(), Children = [] };
-        var canvas = new Observation { Route = "/", Roots = [empty], Pixels = new EngineScreenshot([1], 1, 0) };
+        var empty = new SemanticNode
+        {
+            Ref = "e1",
+            Role = "screen",
+            States = new NodeStates(),
+            Children = [],
+        };
+        var canvas = new Observation
+        {
+            Route = "/",
+            Roots = [empty],
+            Pixels = new EngineScreenshot([1], 1, 0),
+        };
         Assert.False(global::E2E.AgentObservation.IsTransitional(canvas));
-        Assert.False(global::E2E.AgentObservation.IsTransitional(new Observation { Route = "/", Roots = [], TreeUnavailable = true }));
+        Assert.False(
+            global::E2E.AgentObservation.IsTransitional(
+                new Observation
+                {
+                    Route = "/",
+                    Roots = [],
+                    TreeUnavailable = true,
+                }
+            )
+        );
         Assert.True(global::E2E.AgentObservation.IsTransitional(new Observation { Route = "/", Roots = [empty] }));
     }
 
-    private static bool Transitional(SemanticNode root) => global::E2E.AgentObservation.IsTransitional(new Observation { Route = "/", Roots = [root] });
+    private static bool Transitional(SemanticNode root) =>
+        global::E2E.AgentObservation.IsTransitional(new Observation { Route = "/", Roots = [root] });
 
-    private static SemanticNode Node(string role, string? name = null, string? text = null, NodeStates? states = null, List<SemanticNode>? children = null)
+    private static SemanticNode Node(
+        string role,
+        string? name = null,
+        string? text = null,
+        NodeStates? states = null,
+        List<SemanticNode>? children = null
+    )
     {
-        return new SemanticNode { Ref = "e1", Role = role, Name = name, Text = text, States = states ?? new NodeStates(), Children = children ?? [] };
+        return new SemanticNode
+        {
+            Ref = "e1",
+            Role = role,
+            Name = name,
+            Text = text,
+            States = states ?? new NodeStates(),
+            Children = children ?? [],
+        };
     }
 }

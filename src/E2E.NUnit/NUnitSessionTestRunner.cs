@@ -65,17 +65,33 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
     // A saved session comes from a setup test that ran earlier in the same run, which a run of one test does not have (upstream refuses it too).
     private static string? UnsupportedReason(ITest test) =>
         test.TypeInfo?.Type is { } type && SessionAttributes.Restore(type, test.Method?.MethodInfo) is { } saved
-            ? "test \"" + test.FullName + "\" starts from session \"" + saved + "\", which a setup test saves first; a session does not run setup tests yet, so run it with dotnet test"
+            ? "test \""
+                + test.FullName
+                + "\" starts from session \""
+                + saved
+                + "\", which a setup test saves first; a session does not run setup tests yet, so run it with dotnet test"
             : null;
 
-    public async Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken, E2EConfig? host = null)
+    public async Task<SessionTestOutcome?> RunAsync(
+        Assembly tests,
+        string name,
+        CancellationToken cancellationToken,
+        E2EConfig? host = null
+    )
     {
         ArgumentNullException.ThrowIfNull(tests);
         // Tests take turns per process (upstream's takeTurn): a call waits for the tests queued before it, and a cancel while it waits runs none of it.
-        return await SessionHandover.TakeTurnAsync(() => RunTurnAsync(tests, name, host, cancellationToken), cancellationToken).ConfigureAwait(false);
+        return await SessionHandover
+            .TakeTurnAsync(() => RunTurnAsync(tests, name, host, cancellationToken), cancellationToken)
+            .ConfigureAwait(false);
     }
 
-    private static async Task<SessionTestOutcome?> RunTurnAsync(Assembly tests, string name, E2EConfig? host, CancellationToken cancellationToken)
+    private static async Task<SessionTestOutcome?> RunTurnAsync(
+        Assembly tests,
+        string name,
+        E2EConfig? host,
+        CancellationToken cancellationToken
+    )
     {
         using var request = SessionHandover.Begin(name, host);
 
@@ -88,17 +104,20 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
             {
                 // NUnitLite's console is stdout, which carries the MCP protocol, so the assembly runs under the framework's own runner: no report.
                 // The turn holds until the run has ended, so a test still running is never overlapped by the next one.
-                result = await Task.Run(
-                    () =>
+                result = await Task.Run(() =>
                     {
                         var runner = new NUnitTestAssemblyRunner(new DefaultTestAssemblyBuilder());
                         runner.Load(tests, new Dictionary<string, object>());
-                        var ran = runner.Run(TestListener.NULL, TestFilter.FromXml("<filter><test>" + SecurityElement.Escape(name) + "</test></filter>"));
+                        var ran = runner.Run(
+                            TestListener.NULL,
+                            TestFilter.FromXml("<filter><test>" + SecurityElement.Escape(name) + "</test></filter>")
+                        );
 
                         // A task the body left faulted reports when it is collected; the turn is still the test's.
                         StrayRejections.Collect();
                         return ran;
-                    }).ConfigureAwait(false);
+                    })
+                    .ConfigureAwait(false);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -120,7 +139,12 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
     /// The outcome of the run: the session the fixture handed over, failed by what a task left rejected during its turn when the test passed; else
     /// (the test never started a session) the <c>beforeAll</c> that failed, which NUnit reports on the test as a <c>OneTimeSetUp</c> failure.
     /// </summary>
-    private static SessionTestOutcome? Outcome(SessionHandover.Request request, string name, ITestResult result, List<Exception> stray)
+    private static SessionTestOutcome? Outcome(
+        SessionHandover.Request request,
+        string name,
+        ITestResult result,
+        List<Exception> stray
+    )
     {
         var expected = ExpectedFailure(result, name);
         if (request.Outcome is { } handed)
@@ -131,11 +155,23 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
             {
                 if (result.ResultState.Status == TestStatus.Passed)
                 {
-                    handed = handed with { Failure = new TestException("UNEXPECTED_PASS", "test is marked test.fail (\"" + expected + "\") but passed") };
+                    handed = handed with
+                    {
+                        Failure = new TestException(
+                            "UNEXPECTED_PASS",
+                            "test is marked test.fail (\"" + expected + "\") but passed"
+                        ),
+                    };
                 }
                 else
                 {
-                    handed = handed with { Failure = new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(result.Message) ? "The test failed." : result.Message) };
+                    handed = handed with
+                    {
+                        Failure = new TestException(
+                            "TEST_FAILED",
+                            string.IsNullOrWhiteSpace(result.Message) ? "The test failed." : result.Message
+                        ),
+                    };
                     expected = null;
                 }
             }
@@ -148,11 +184,23 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
 
             // The first failure stands; the rest land beside it.
             var first = handed.Failure is null ? stray[0] : null;
-            return handed with { Failure = handed.Failure ?? first, Secondary = [.. stray.Where(cause => !ReferenceEquals(cause, first))] };
+            return handed with
+            {
+                Failure = handed.Failure ?? first,
+                Secondary = [.. stray.Where(cause => !ReferenceEquals(cause, first))],
+            };
         }
 
         return HookFailure(result, name) is { } message
-            ? new SessionTestOutcome(name, null, null, new TestException("HOOK_FAILED", "beforeAll failed: " + message), RunPhase.BeforeAll, [.. stray], ExpectedFailure: expected)
+            ? new SessionTestOutcome(
+                name,
+                null,
+                null,
+                new TestException("HOOK_FAILED", "beforeAll failed: " + message),
+                RunPhase.BeforeAll,
+                [.. stray],
+                ExpectedFailure: expected
+            )
             : null;
     }
 
@@ -167,9 +215,10 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
     /// <summary>The NUnit property a test sets to be marked as expected to fail (see <see cref="ExpectedFailure"/>).</summary>
     public const string ExpectedFailureProperty = "E2E.Fail";
 
-    private static ITestResult? FindResult(ITestResult each, string name) => !each.Test.IsSuite && string.Equals(each.Test.FullName, name, StringComparison.Ordinal)
-        ? each
-        : each.Children.Select(child => FindResult(child, name)).FirstOrDefault(found => found is not null);
+    private static ITestResult? FindResult(ITestResult each, string name) =>
+        !each.Test.IsSuite && string.Equals(each.Test.FullName, name, StringComparison.Ordinal)
+            ? each
+            : each.Children.Select(child => FindResult(child, name)).FirstOrDefault(found => found is not null);
 
     /// <summary>The message of the <c>OneTimeSetUp</c> that failed the test <paramref name="name"/>, or null when its result says no such thing.</summary>
     private static string? HookFailure(ITestResult root, string name)

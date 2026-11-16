@@ -17,7 +17,10 @@ public sealed class AgentPinTests
         var method = typeof(Buyer).GetMethod(nameof(Buyer.AsTheAdmin))!;
 
         Assert.Equal("admin", E2E.TestAgentOptions.Agent(typeof(Buyer), method));
-        Assert.Equal("buyer", E2E.TestAgentOptions.Agent(typeof(Buyer), typeof(Buyer).GetMethod(nameof(Buyer.AsTheBuyer))));
+        Assert.Equal(
+            "buyer",
+            E2E.TestAgentOptions.Agent(typeof(Buyer), typeof(Buyer).GetMethod(nameof(Buyer.AsTheBuyer)))
+        );
         Assert.Null(E2E.TestAgentOptions.Agent(typeof(Unpinned), null));
     }
 
@@ -33,7 +36,10 @@ public sealed class AgentPinTests
     {
         var leaf = typeof(Outer.Inner).GetMethod(nameof(Outer.Inner.Leaf))!;
 
-        Assert.Equal("outer ctx\nleaf ctx", E2E.TestAgentOptions.AgentContext(typeof(Outer), typeof(Outer).GetMethod(nameof(Outer.Leaf))));
+        Assert.Equal(
+            "outer ctx\nleaf ctx",
+            E2E.TestAgentOptions.AgentContext(typeof(Outer), typeof(Outer).GetMethod(nameof(Outer.Leaf)))
+        );
         Assert.Equal("outer ctx\ninner ctx\nleaf ctx", E2E.TestAgentOptions.AgentContext(typeof(Outer.Inner), leaf));
         Assert.Null(E2E.TestAgentOptions.AgentContext(typeof(Unpinned), null));
     }
@@ -63,7 +69,11 @@ public sealed class AgentPinTests
         var error = await Assert.ThrowsAsync<TestException>(() => StartAsync(model, agent: "buyr"));
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
-        Assert.Contains("unknown agent \"buyr\"; configured: default, buyer, admin; did you mean \"buyer\"?", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "unknown agent \"buyr\"; configured: default, buyer, admin; did you mean \"buyer\"?",
+            error.Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -74,26 +84,41 @@ public sealed class AgentPinTests
 
         await session.Agent.ActAsync("open billing");
 
-        Assert.Contains("Project context:\nPlans are tiers.\nThe workspace is Acme Trial.", model.Requests[0].System, StringComparison.Ordinal);
+        Assert.Contains(
+            "Project context:\nPlans are tiers.\nThe workspace is Acme Trial.",
+            model.Requests[0].System,
+            StringComparison.Ordinal
+        );
         session.Complete();
     }
 
-    private static async Task<E2ESession> StartAsync(ScriptedModel model, string? agent = null, string? testContext = null)
+    private static async Task<E2ESession> StartAsync(
+        ScriptedModel model,
+        string? agent = null,
+        string? testContext = null
+    )
     {
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(BillingWorld.Create()),
-            Model = model,
-            Agents = new Dictionary<string, AgentOptions>
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
             {
-                ["buyer"] = new() { Model = model, System = "You are a buyer.", Context = "Plans are tiers." },
-                ["admin"] = new() { Model = model, System = "You are an admin." },
-            },
-            Agent = agent,
-            TestAgentContext = testContext,
-            BaseUrl = "https://billing.test",
-            TestTitle = "agent pin",
-        });
+                Engine = new DocumentEngine(BillingWorld.Create()),
+                Model = model,
+                Agents = new Dictionary<string, AgentOptions>
+                {
+                    ["buyer"] = new()
+                    {
+                        Model = model,
+                        System = "You are a buyer.",
+                        Context = "Plans are tiers.",
+                    },
+                    ["admin"] = new() { Model = model, System = "You are an admin." },
+                },
+                Agent = agent,
+                TestAgentContext = testContext,
+                BaseUrl = "https://billing.test",
+                TestTitle = "agent pin",
+            }
+        );
         await session.App.OpenAsync("/settings/billing");
         return session;
     }
@@ -102,43 +127,29 @@ public sealed class AgentPinTests
     private class Buyer
     {
         [Agent("admin")]
-        public void AsTheAdmin()
-        {
-        }
+        public void AsTheAdmin() { }
 
-        public void AsTheBuyer()
-        {
-        }
+        public void AsTheBuyer() { }
 
-        public class Plain
-        {
-        }
+        public class Plain { }
 
         [Agent("admin")]
-        public class Refunds
-        {
-        }
+        public class Refunds { }
     }
 
-    private class Unpinned
-    {
-    }
+    private class Unpinned { }
 
     [AgentContext("outer ctx")]
     private class Outer
     {
         [AgentContext("leaf ctx")]
-        public void Leaf()
-        {
-        }
+        public void Leaf() { }
 
         [AgentContext("inner ctx")]
         public class Inner
         {
             [AgentContext("leaf ctx")]
-            public void Leaf()
-            {
-            }
+            public void Leaf() { }
         }
     }
 }

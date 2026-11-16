@@ -11,7 +11,12 @@ namespace E2E.Cli.Tests.HostedProviderChoice;
 /// <summary>.NET-only: upstream's config holds the provider itself, so it has no code that makes one from an environment variable.</summary>
 public sealed class DeviceTargetsTests
 {
-    private static readonly TargetConfig Target = new() { Name = "shop", Platform = "ios", App = new AppConfig { BundleId = "com.example.shop" } };
+    private static readonly TargetConfig Target = new()
+    {
+        Name = "shop",
+        Platform = "ios",
+        App = new AppConfig { BundleId = "com.example.shop" },
+    };
 
     private static Func<string, string?> Environment(params (string Name, string Value)[] variables) =>
         name => variables.Where(variable => variable.Name == name).Select(variable => variable.Value).FirstOrDefault();
@@ -37,15 +42,27 @@ public sealed class DeviceTargetsTests
     [Fact]
     public void Tells_a_devflow_provider_to_attach_and_a_limrun_one_to_relaunch()
     {
-        Assert.True(Targets.Create(Target, Environment(("E2E_MOBILE_PROVIDER", "devflow"))).Options.Provider!.AttachesToRunningApp);
-        Assert.False(Targets.Create(Target, Environment(("E2E_MOBILE_PROVIDER", "limrun"))).Options.Provider!.AttachesToRunningApp);
-        Assert.IsType<DevFlowAgents>(Targets.Create(Target, Environment(("E2E_MOBILE_PROVIDER", "devflow"))).Options.Provider);
+        Assert.True(
+            Targets
+                .Create(Target, Environment(("E2E_MOBILE_PROVIDER", "devflow")))
+                .Options.Provider!.AttachesToRunningApp
+        );
+        Assert.False(
+            Targets
+                .Create(Target, Environment(("E2E_MOBILE_PROVIDER", "limrun")))
+                .Options.Provider!.AttachesToRunningApp
+        );
+        Assert.IsType<DevFlowAgents>(
+            Targets.Create(Target, Environment(("E2E_MOBILE_PROVIDER", "devflow"))).Options.Provider
+        );
     }
 
     [Fact]
     public void Refuses_a_provider_it_does_not_ship_and_names_the_ones_it_does()
     {
-        var error = Assert.Throws<ConfigurationException>(() => Targets.Create(Target, Environment(("E2E_MOBILE_PROVIDER", "eas"))));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            Targets.Create(Target, Environment(("E2E_MOBILE_PROVIDER", "eas")))
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Equal("E2E_MOBILE_PROVIDER must be local, limrun or devflow, not eas", error.Message);
     }
@@ -53,7 +70,9 @@ public sealed class DeviceTargetsTests
     [Fact]
     public void Refuses_a_devflow_port_that_is_not_a_port_as_a_config_error()
     {
-        var error = Assert.Throws<ConfigurationException>(() => Targets.Create(Target, Environment(("E2E_MOBILE_PROVIDER", "devflow"), ("E2E_DEVFLOW_PORT", "99999"))));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            Targets.Create(Target, Environment(("E2E_MOBILE_PROVIDER", "devflow"), ("E2E_DEVFLOW_PORT", "99999")))
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("E2E_DEVFLOW_PORT must be a port number", error.Message, StringComparison.Ordinal);
     }

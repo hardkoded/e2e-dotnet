@@ -37,11 +37,14 @@ public static partial class DeviceSupport
 
     public static EngineException Cancelled(string text) => new(EngineErrorCodes.Cancelled, text, retryable: false);
 
-    public static EngineException InvalidState(string text) => new(EngineErrorCodes.InvalidState, text, retryable: false);
+    public static EngineException InvalidState(string text) =>
+        new(EngineErrorCodes.InvalidState, text, retryable: false);
 
-    public static EngineException NotActionable(string text) => new(EngineErrorCodes.NotActionable, text, retryable: false);
+    public static EngineException NotActionable(string text) =>
+        new(EngineErrorCodes.NotActionable, text, retryable: false);
 
-    public static EngineException Unsupported(string text) => new(EngineErrorCodes.UnsupportedCapability, text, retryable: false);
+    public static EngineException Unsupported(string text) =>
+        new(EngineErrorCodes.UnsupportedCapability, text, retryable: false);
 
     /// <summary>Constrains a caller-supplied artifact label to a safe filename.</summary>
     public static string SanitizeFilename(string name)
@@ -118,9 +121,9 @@ public static partial class DeviceSupport
         ViewportSize? logical =
             result.LogicalWidth is { } logicalWidth && result.LogicalHeight is { } logicalHeight
                 ? new ViewportSize(logicalWidth, logicalHeight)
-                : result is { Width: { } width, Height: { } height, PixelDensity: > 0 and var density }
-                    ? new ViewportSize(width / density, height / density)
-                    : null;
+            : result is { Width: { } width, Height: { } height, PixelDensity: > 0 and var density }
+                ? new ViewportSize(width / density, height / density)
+            : null;
         return logical is { Width: > 0, Height: > 0 } ? logical : null;
     }
 
@@ -147,7 +150,13 @@ public static partial class DeviceSupport
 /// takes it is cancelled when the operation is, and when its wait for an answer expires.
 /// Its <paramref name="time"/> is the .NET stand-in for the fake timers upstream's tests install (<c>vi.useFakeTimers()</c>): the budget and the wait for an answer both run on it, so a test drives them without real time.
 /// </remarks>
-internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> track, TimeProvider? time = null, CancellationToken signal = default)
+internal sealed class InputBudget(
+    string label,
+    TimeSpan timeout,
+    Action<Task> track,
+    TimeProvider? time = null,
+    CancellationToken signal = default
+)
 {
     /// <summary>The least time an input gets to answer once sent, however little budget was left: a tap that lands is then not reported as cut off.</summary>
     private static readonly TimeSpan MinAnswer = TimeSpan.FromMilliseconds(250);
@@ -163,7 +172,10 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
     public Task<JsonNode?> PressAsync(IDeviceClient client, JsonObject? options)
     {
         ArgumentNullException.ThrowIfNull(client);
-        return SendAsync(token => client.CallAsync(DeviceMethods.InteractionsPress, options, token), CancellationToken.None);
+        return SendAsync(
+            token => client.CallAsync(DeviceMethods.InteractionsPress, options, token),
+            CancellationToken.None
+        );
     }
 
     /// <summary>
@@ -173,7 +185,11 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
     /// unsent. An input that does not answer in time may have landed, so it is <c>ACTION_MAY_HAVE_COMMITTED</c> and the
     /// runner never repeats it.
     /// </summary>
-    public async Task<T> SendAsync<T>(Func<CancellationToken, Task<T>> dispatch, CancellationToken cancellationToken, TimeSpan? hold = null)
+    public async Task<T> SendAsync<T>(
+        Func<CancellationToken, Task<T>> dispatch,
+        CancellationToken cancellationToken,
+        TimeSpan? hold = null
+    )
     {
         ArgumentNullException.ThrowIfNull(dispatch);
         var remaining = Remaining;
@@ -187,7 +203,8 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
             throw new EngineException(
                 EngineErrorCodes.NotActionable,
                 $"{label} holds for {(long)held.TotalMilliseconds} ms, but only {(long)remaining.TotalMilliseconds} ms of its timeout are left; raise the timeout or shorten the hold",
-                retryable: false);
+                retryable: false
+            );
         }
 
         using var caller = CancellationTokenSource.CreateLinkedTokenSource(signal, cancellationToken);
@@ -200,12 +217,19 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
         _sent = true;
         try
         {
-            return await pending.WaitAsync(Bound(remaining > MinAnswer ? remaining : MinAnswer), _time, caller.Token).ConfigureAwait(false);
+            return await pending
+                .WaitAsync(Bound(remaining > MinAnswer ? remaining : MinAnswer), _time, caller.Token)
+                .ConfigureAwait(false);
         }
         catch (Exception ex) when (!pending.IsCompleted && ex is TimeoutException or OperationCanceledException)
         {
             // The abandoned command may still fail later; nothing is left to read it.
-            _ = pending.ContinueWith(static abandoned => abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            _ = pending.ContinueWith(
+                static abandoned => abandoned.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default
+            );
 
             // The request is cancelled before it is let go of: the wait's own registration on the caller's token can run first, and
             // leaving disposes the linked source, so the request would never see the cancel.
@@ -220,10 +244,12 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
     }
 
     /// <summary>The budget left, zero or less once it is spent. Upstream's <c>remainingMs</c>.</summary>
-    public TimeSpan Remaining => timeout == Timeout.InfiniteTimeSpan ? TimeSpan.MaxValue : timeout - _time.GetElapsedTime(_startedAt);
+    public TimeSpan Remaining =>
+        timeout == Timeout.InfiniteTimeSpan ? TimeSpan.MaxValue : timeout - _time.GetElapsedTime(_startedAt);
 
     /// <summary>What a wait is bounded by: the budget left, or nothing for an infinite timeout (.NET-only: upstream's budgets are numbers of milliseconds).</summary>
-    private TimeSpan Bound(TimeSpan remaining) => timeout == Timeout.InfiniteTimeSpan ? Timeout.InfiniteTimeSpan : remaining;
+    private TimeSpan Bound(TimeSpan remaining) =>
+        timeout == Timeout.InfiniteTimeSpan ? Timeout.InfiniteTimeSpan : remaining;
 
     /// <summary>
     /// Runs one device read with what is left of the budget. With none left it reads nothing. A read that does not answer in time is
@@ -248,10 +274,21 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
         catch (Exception ex) when (!pending.IsCompleted && ex is TimeoutException or OperationCanceledException)
         {
             // The abandoned command may still fail later; nothing is left to read it.
-            _ = pending.ContinueWith(static abandoned => abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            _ = pending.ContinueWith(
+                static abandoned => abandoned.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default
+            );
             if (ex is TimeoutException)
             {
-                throw _sent ? MaybeCommitted() : new EngineException(EngineErrorCodes.OperationTimeout, $"{label} timed out before the device answered", retryable: false);
+                throw _sent
+                    ? MaybeCommitted()
+                    : new EngineException(
+                        EngineErrorCodes.OperationTimeout,
+                        $"{label} timed out before the device answered",
+                        retryable: false
+                    );
             }
 
             // A read the caller cancelled is a cancel, as the command itself reports it.
@@ -261,8 +298,18 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
 
     /// <summary>The failure of a command the spent budget did not send.</summary>
     private EngineException Spent() =>
-        _sent ? MaybeCommitted() : new EngineException(EngineErrorCodes.OperationTimeout, $"{label} timed out before it was sent", retryable: false);
+        _sent
+            ? MaybeCommitted()
+            : new EngineException(
+                EngineErrorCodes.OperationTimeout,
+                $"{label} timed out before it was sent",
+                retryable: false
+            );
 
     private EngineException MaybeCommitted() =>
-        new(EngineErrorCodes.ActionMayHaveCommitted, $"{label} timed out before the device answered; its input may have been dispatched", retryable: false);
+        new(
+            EngineErrorCodes.ActionMayHaveCommitted,
+            $"{label} timed out before the device answered; its input may have been dispatched",
+            retryable: false
+        );
 }

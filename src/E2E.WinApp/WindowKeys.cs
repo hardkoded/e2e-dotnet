@@ -55,7 +55,9 @@ public static class WindowKeys
     {
         ArgumentNullException.ThrowIfNull(key);
         var parsed = KeyGrammar.ParseKey(key)
-            ?? throw WinAppSupport.Unsupported($"\"{key}\" is not a key: press takes one key in the form [Modifier+]...Key, a named key ({string.Join(", ", KeyGrammar.KeyNames)}) or one character");
+            ?? throw WinAppSupport.Unsupported(
+                $"\"{key}\" is not a key: press takes one key in the form [Modifier+]...Key, a named key ({string.Join(", ", KeyGrammar.KeyNames)}) or one character"
+            );
         if (parsed.Modifiers.Count == 0 && parsed.Character is { } typed)
         {
             return new WinAppKeys(typed, Verbatim: true);
@@ -69,6 +71,9 @@ public static class WindowKeys
             { Character: " " } => "space",
             _ => parsed.Character!,
         };
-        return new WinAppKeys(string.Join('+', parsed.Modifiers.Select(modifier => ModifierNames[modifier]).Append(last)), Verbatim: false);
+        return new WinAppKeys(
+            string.Join('+', parsed.Modifiers.Select(modifier => ModifierNames[modifier]).Append(last)),
+            Verbatim: false
+        );
     }
 }

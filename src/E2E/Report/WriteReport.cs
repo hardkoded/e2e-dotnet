@@ -19,7 +19,11 @@ internal static class WriteReport
     };
 
     /// <summary>Atomically writes one text document, creating the parent directory when it is missing (upstream's <c>writeTextReport</c>).</summary>
-    public static async Task WriteTextReportAsync(string filePath, string content, CancellationToken cancellationToken = default)
+    public static async Task WriteTextReportAsync(
+        string filePath,
+        string content,
+        CancellationToken cancellationToken = default
+    )
     {
         if (Path.GetDirectoryName(filePath) is { Length: > 0 } directory)
         {
@@ -33,8 +37,11 @@ internal static class WriteReport
     /// Atomically writes a wire JSON document with two-space indent and a trailing newline (upstream's <c>writeJsonReport</c>). It writes the
     /// document as it is: the caller redacts the text in it.
     /// </summary>
-    public static Task WriteJsonReportAsync(string filePath, object? document, CancellationToken cancellationToken = default) =>
-        WriteTextReportAsync(filePath, JsonSerializer.Serialize(document, WireOptions) + "\n", cancellationToken);
+    public static Task WriteJsonReportAsync(
+        string filePath,
+        object? document,
+        CancellationToken cancellationToken = default
+    ) => WriteTextReportAsync(filePath, JsonSerializer.Serialize(document, WireOptions) + "\n", cancellationToken);
 
     /// <summary>A path as the report keeps them: POSIX separators whatever the host (upstream's <c>toPosixPath</c>).</summary>
     public static string ToPosixPath(string relative) => relative.Replace(Path.DirectorySeparatorChar, '/');

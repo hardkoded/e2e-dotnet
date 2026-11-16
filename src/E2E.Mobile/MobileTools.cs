@@ -36,63 +36,111 @@ public static class MobileTools
 
         var tools = new (string Name, AgentTool Tool)[]
         {
-            ("open_app", new AgentTool(
-                "Bring an app to the foreground. Omit app to return to the app under test, e.g. after a system sheet or another app took over the screen; pass a bundle id, package, or display name (e.g. \"Settings\") only for another app. Set relaunch to restart it fresh. Takes an app, not a URL: a link is refused.",
-                Schema(new JsonObject { ["app"] = Primitive("string", minLength: 1), ["relaunch"] = Primitive("boolean") }),
-                true,
-                async (input, token) =>
-                {
-                    var app = OptionalString(input, "app");
-                    var session = Active();
-                    var target = app ?? AppUnderTest(session);
-                    try
+            (
+                "open_app",
+                new AgentTool(
+                    "Bring an app to the foreground. Omit app to return to the app under test, e.g. after a system sheet or another app took over the screen; pass a bundle id, package, or display name (e.g. \"Settings\") only for another app. Set relaunch to restart it fresh. Takes an app, not a URL: a link is refused.",
+                    Schema(
+                        new JsonObject
+                        {
+                            ["app"] = Primitive("string", minLength: 1),
+                            ["relaunch"] = Primitive("boolean"),
+                        }
+                    ),
+                    true,
+                    async (input, token) =>
                     {
-                        await session.OpenAppAsync(target, new OpenAppOptions { Relaunch = OptionalBoolean(input, "relaunch") }, token).ConfigureAwait(false);
-                    }
-                    catch (EngineException error) when (app is not null && DeviceErrors.IsAppNotInstalled(error))
-                    {
-                        throw new TestException(
-                            "INVALID_ARGUMENT",
-                            $"open {target} failed: no installed app matches that name. Omit app to return to the app under test, or pass an installed app's exact bundle id or package.",
-                            error);
-                    }
+                        var app = OptionalString(input, "app");
+                        var session = Active();
+                        var target = app ?? AppUnderTest(session);
+                        try
+                        {
+                            await session
+                                .OpenAppAsync(
+                                    target,
+                                    new OpenAppOptions { Relaunch = OptionalBoolean(input, "relaunch") },
+                                    token
+                                )
+                                .ConfigureAwait(false);
+                        }
+                        catch (EngineException error) when (app is not null && DeviceErrors.IsAppNotInstalled(error))
+                        {
+                            throw new TestException(
+                                "INVALID_ARGUMENT",
+                                $"open {target} failed: no installed app matches that name. Omit app to return to the app under test, or pass an installed app's exact bundle id or package.",
+                                error
+                            );
+                        }
 
-                    return app is null ? $"Opened the app under test ({target})." : $"Opened {app}.";
-                },
-                platforms)),
-            ("swipe", new AgentTool(
-                "Swipe from one screen point to another in logical pixels, e.g. to reveal a row action (swipe the row far left) or to dismiss a sheet.",
-                Schema(new JsonObject { ["from"] = PointSchema(), ["to"] = PointSchema() }, "from", "to"),
-                true,
-                async (input, token) =>
-                {
-                    var from = RequirePoint(input, "from");
-                    var to = RequirePoint(input, "to");
-                    await Active().CommandAsync(
-                        "swipe",
-                        DeviceMethods.InteractionsSwipe,
-                        DeviceArgs.Of(("from", DeviceSession.PointNode(from)), ("to", DeviceSession.PointNode(to))),
-                        token).ConfigureAwait(false);
-                    return $"Swiped from ({DeviceSession.Invariant(from.X)}, {DeviceSession.Invariant(from.Y)}) to ({DeviceSession.Invariant(to.X)}, {DeviceSession.Invariant(to.Y)}).";
-                },
-                platforms)),
-            ("alert", new AgentTool(
-                "Accept or dismiss a visible system alert or permission prompt. Use it when the alert's buttons are not listed on screen; a listed button tapped by id is the same tap and replays from the trace cache, this tool does not.",
-                Schema(new JsonObject { ["action"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("accept", "dismiss") } }, "action"),
-                true,
-                async (input, token) =>
-                {
-                    var action = RequireString(input, "action");
-                    if (action is not ("accept" or "dismiss"))
+                        return app is null ? $"Opened the app under test ({target})." : $"Opened {app}.";
+                    },
+                    platforms
+                )
+            ),
+            (
+                "swipe",
+                new AgentTool(
+                    "Swipe from one screen point to another in logical pixels, e.g. to reveal a row action (swipe the row far left) or to dismiss a sheet.",
+                    Schema(new JsonObject { ["from"] = PointSchema(), ["to"] = PointSchema() }, "from", "to"),
+                    true,
+                    async (input, token) =>
                     {
-                        throw new TestException("INVALID_ARGUMENT", "alert takes an action of accept or dismiss");
-                    }
+                        var from = RequirePoint(input, "from");
+                        var to = RequirePoint(input, "to");
+                        await Active()
+                            .CommandAsync(
+                                "swipe",
+                                DeviceMethods.InteractionsSwipe,
+                                DeviceArgs.Of(
+                                    ("from", DeviceSession.PointNode(from)),
+                                    ("to", DeviceSession.PointNode(to))
+                                ),
+                                token
+                            )
+                            .ConfigureAwait(false);
+                        return $"Swiped from ({DeviceSession.Invariant(from.X)}, {DeviceSession.Invariant(from.Y)}) to ({DeviceSession.Invariant(to.X)}, {DeviceSession.Invariant(to.Y)}).";
+                    },
+                    platforms
+                )
+            ),
+            (
+                "alert",
+                new AgentTool(
+                    "Accept or dismiss a visible system alert or permission prompt. Use it when the alert's buttons are not listed on screen; a listed button tapped by id is the same tap and replays from the trace cache, this tool does not.",
+                    Schema(
+                        new JsonObject
+                        {
+                            ["action"] = new JsonObject
+                            {
+                                ["type"] = "string",
+                                ["enum"] = new JsonArray("accept", "dismiss"),
+                            },
+                        },
+                        "action"
+                    ),
+                    true,
+                    async (input, token) =>
+                    {
+                        var action = RequireString(input, "action");
+                        if (action is not ("accept" or "dismiss"))
+                        {
+                            throw new TestException("INVALID_ARGUMENT", "alert takes an action of accept or dismiss");
+                        }
 
-                    var session = Active();
-                    await session.CommandAsync("alert", DeviceMethods.CommandAlert, session.Selection.ToArgs(("action", JsonValue.Create(action))), token).ConfigureAwait(false);
-                    return $"Alert {action}ed.";
-                },
-                platforms)),
+                        var session = Active();
+                        await session
+                            .CommandAsync(
+                                "alert",
+                                DeviceMethods.CommandAlert,
+                                session.Selection.ToArgs(("action", JsonValue.Create(action))),
+                                token
+                            )
+                            .ConfigureAwait(false);
+                        return $"Alert {action}ed.";
+                    },
+                    platforms
+                )
+            ),
         };
         return tools.ToDictionary(pair => pair.Name, pair => pair.Tool);
     }
@@ -100,10 +148,11 @@ public static class MobileTools
     /// <summary>The app the target pins for <c>app.open()</c>, which <c>open_app</c> returns to when the model names none.</summary>
     private static string AppUnderTest(DeviceSession session) =>
         session.PinnedApp
-            ?? throw new EngineException(
-                EngineErrorCodes.InvalidState,
-                "this target pins no app under test (no app.bundleId or app.appPath), so open_app needs the app's bundle id, package, or display name",
-                retryable: false);
+        ?? throw new EngineException(
+            EngineErrorCodes.InvalidState,
+            "this target pins no app under test (no app.bundleId or app.appPath), so open_app needs the app's bundle id, package, or display name",
+            retryable: false
+        );
 
     /// <summary>
     /// The running attempt's raw driver session, for a custom tool that needs capabilities e2e does not wrap yet: the object a test reads from
@@ -133,16 +182,18 @@ public static class MobileTools
                 running.Count == 0
                     ? "no mobile attempt is running; device tools act inside a test attempt only"
                     : "several mobile attempts are running in one worker; tools cannot pick a device",
-                retryable: false);
+                retryable: false
+            );
     }
 
-    private static JsonObject Schema(JsonObject properties, params string[] required) => new()
-    {
-        ["type"] = "object",
-        ["properties"] = properties,
-        ["required"] = new JsonArray([.. required.Select(name => (JsonNode?)JsonValue.Create(name))]),
-        ["additionalProperties"] = false,
-    };
+    private static JsonObject Schema(JsonObject properties, params string[] required) =>
+        new()
+        {
+            ["type"] = "object",
+            ["properties"] = properties,
+            ["required"] = new JsonArray([.. required.Select(name => (JsonNode?)JsonValue.Create(name))]),
+            ["additionalProperties"] = false,
+        };
 
     private static JsonObject Primitive(string type, int? minLength = null)
     {
@@ -155,7 +206,8 @@ public static class MobileTools
         return schema;
     }
 
-    private static JsonObject PointSchema() => Schema(new JsonObject { ["x"] = Primitive("number"), ["y"] = Primitive("number") }, "x", "y");
+    private static JsonObject PointSchema() =>
+        Schema(new JsonObject { ["x"] = Primitive("number"), ["y"] = Primitive("number") }, "x", "y");
 
     private static string RequireString(JsonObject input, string name) =>
         input[name] is JsonValue value && value.TryGetValue<string>(out var text) && text.Length > 0

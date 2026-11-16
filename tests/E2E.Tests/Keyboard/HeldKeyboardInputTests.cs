@@ -48,26 +48,30 @@ public sealed class HeldKeyboardInputTests
             await session.Browser.Keyboard.UpAsync("a");
             Assert.Equal(
                 "keydown|a|false|false;keydown|a|false|true;keyup|a|false|false;keydown|a|false|false;keyup|a|false|false;",
-                await EventsAsync(session));
+                await EventsAsync(session)
+            );
         });
     }
 
     private static async Task<string> EventsAsync(E2ESession session) =>
-        await session.Browser.EvaluateAsync<string>("() => document.querySelector('#events')?.textContent ?? ''") ?? string.Empty;
+        await session.Browser.EvaluateAsync<string>("() => document.querySelector('#events')?.textContent ?? ''")
+        ?? string.Empty;
 
     private static async Task AttemptAsync(Func<E2ESession, Task> body)
     {
         using var site = await TinySite.StartAsync(Page);
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(new WebEngineOptions { Headless = true }),
-            BaseUrl = site.Url,
-            TestTitle = "web > held keyboard input",
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(20),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(new WebEngineOptions { Headless = true }),
+                BaseUrl = site.Url,
+                TestTitle = "web > held keyboard input",
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(20),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         await using (session)
         {
             Exception? error = null;

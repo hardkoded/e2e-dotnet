@@ -33,9 +33,13 @@ internal static class NestedSessionRun
         start.Environment[ExitFileVariable] = exitFile;
         string[] arguments =
         [
-            "--treenode-filter", $"/*/{fixture.Namespace}/{fixture.Name}/*",
-            "--results-directory", directory,
-            "--report-trx", "--report-trx-filename", "nested.trx",
+            "--treenode-filter",
+            $"/*/{fixture.Namespace}/{fixture.Name}/*",
+            "--results-directory",
+            directory,
+            "--report-trx",
+            "--report-trx-filename",
+            "nested.trx",
         ];
         foreach (var argument in arguments)
         {
@@ -53,24 +57,37 @@ internal static class NestedSessionRun
             var trx = Directory.EnumerateFiles(directory, "nested.trx", SearchOption.AllDirectories).FirstOrDefault();
             if (trx is null)
             {
-                throw new InvalidOperationException($"The nested run of {fixture.Name} wrote no result (exit code {process.ExitCode}): {text}");
+                throw new InvalidOperationException(
+                    $"The nested run of {fixture.Name} wrote no result (exit code {process.ExitCode}): {text}"
+                );
             }
 
             XNamespace ns = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010";
             var document = XDocument.Load(trx);
-            var methods = document.Descendants(ns + "UnitTest").ToDictionary(
-                test => (string)test.Attribute("id")!,
-                test => (string)test.Element(ns + "TestMethod")!.Attribute("name")!,
-                StringComparer.Ordinal);
+            var methods = document
+                .Descendants(ns + "UnitTest")
+                .ToDictionary(
+                    test => (string)test.Attribute("id")!,
+                    test => (string)test.Element(ns + "TestMethod")!.Attribute("name")!,
+                    StringComparer.Ordinal
+                );
             var results = new Dictionary<string, NestedResult>(StringComparer.Ordinal);
             // What the tests wrote is in the report (a failed test's output is also on the console, so the console is not added), and what the process wrote when it exited is in the file it was given.
-            var stdout = new System.Text.StringBuilder(File.Exists(exitFile) ? File.ReadAllText(exitFile) : string.Empty);
+            var stdout = new System.Text.StringBuilder(
+                File.Exists(exitFile) ? File.ReadAllText(exitFile) : string.Empty
+            );
             foreach (var result in document.Descendants(ns + "UnitTestResult"))
             {
                 var outcome = (string)result.Attribute("outcome")!;
                 // The stack trace names the exception types a hook failure wraps.
-                var message = ((string?)result.Descendants(ns + "Message").FirstOrDefault() ?? string.Empty) + Environment.NewLine + (string?)result.Descendants(ns + "StackTrace").FirstOrDefault();
-                results[methods[(string)result.Attribute("testId")!]] = new NestedResult(outcome == "NotExecuted" ? "Skipped" : outcome, message);
+                var message =
+                    ((string?)result.Descendants(ns + "Message").FirstOrDefault() ?? string.Empty)
+                    + Environment.NewLine
+                    + (string?)result.Descendants(ns + "StackTrace").FirstOrDefault();
+                results[methods[(string)result.Attribute("testId")!]] = new NestedResult(
+                    outcome == "NotExecuted" ? "Skipped" : outcome,
+                    message
+                );
                 stdout.Append((string?)result.Descendants(ns + "StdOut").FirstOrDefault());
             }
 
@@ -89,7 +106,13 @@ internal static class NestedSessionRun
 
                 Directory.Delete(directory, true);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
+            catch (Exception ex)
+                when (ex
+                        is IOException
+                            or UnauthorizedAccessException
+                            or InvalidOperationException
+                            or System.ComponentModel.Win32Exception
+                )
             {
                 Console.Error.WriteLine("e2e: could not remove " + directory + ": " + ex.Message);
             }
@@ -104,7 +127,8 @@ public abstract class SessionFixtureBase : E2E.TUnit.E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -117,7 +141,14 @@ public abstract class SessionFixtureBase : E2E.TUnit.E2ETest
     protected async Task SignInAsync(string value)
     {
         await App.OpenAsync("/browser");
-        await Browser.SetCookiesAsync([new BrowserCookie { Name = "account", Value = value, Url = await Browser.UrlAsync() }]);
+        await Browser.SetCookiesAsync([
+            new BrowserCookie
+            {
+                Name = "account",
+                Value = value,
+                Url = await Browser.UrlAsync(),
+            },
+        ]);
     }
 
     protected async Task<string?> SignedInAsync()
@@ -196,7 +227,10 @@ public sealed class FailingRestoreFixture : SessionFixtureBase
         {
             if (Environment.GetEnvironmentVariable(NestedSessionRun.ExitFileVariable) is { Length: > 0 } file)
             {
-                File.AppendAllText(file, $"engine-sessions started={engine.Started} ended={engine.Ended}{Environment.NewLine}");
+                File.AppendAllText(
+                    file,
+                    $"engine-sessions started={engine.Started} ended={engine.Ended}{Environment.NewLine}"
+                );
             }
         };
         return engine;

@@ -33,24 +33,23 @@ public sealed class AgentActOnActionTests
             }
 
             return Passed("tapped Increment twice");
-        })
-        {
-            Version = "test",
-        };
+        }) { Version = "test" };
 
     private static Task<E2ESession> StartAsync(string directory, IStepExecutor executor, DocumentWorld? world = null) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(world ?? CounterPage.World()),
-            AgentExecutor = executor,
-            BaseUrl = "https://counter.test",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = Title,
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ReplayTimeout = TimeSpan.FromMilliseconds(300),
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(world ?? CounterPage.World()),
+                AgentExecutor = executor,
+                BaseUrl = "https://counter.test",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = Title,
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                ReplayTimeout = TimeSpan.FromMilliseconds(300),
+            }
+        );
 
     private static async Task RunAsync(E2ESession session, ActionHook onAction)
     {
@@ -65,7 +64,8 @@ public sealed class AgentActOnActionTests
         return Format(e);
     }
 
-    private static string Format(ActionEvent e) => $"{e.Index} {e.Source.ToString().ToLowerInvariant()} {e.Action}: {e.Summary}";
+    private static string Format(ActionEvent e) =>
+        $"{e.Index} {e.Source.ToString().ToLowerInvariant()} {e.Action}: {e.Summary}";
 
     [Fact]
     public async Task Calls_the_hook_for_each_model_action_then_for_each_replayed_one_with_its_source()
@@ -74,7 +74,9 @@ public sealed class AgentActOnActionTests
         var recorded = new List<string>();
         await using (var session = await StartAsync(directory, TwoTapExecutor()))
         {
-            await RunAsync(session, async e => recorded.Add(Line(e) + " | " + await session.Screen.GetByRole("status").TextContentAsync()));
+            await RunAsync(session, async e =>
+                recorded.Add(Line(e) + " | " + await session.Screen.GetByRole("status").TextContentAsync())
+            );
             await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("2");
             session.Complete();
         }
@@ -118,36 +120,38 @@ public sealed class AgentActOnActionTests
             await context.Actions.TapAtAsync(new Point(300.4, 60.4), token);
             await context.Actions.DragAtAsync(new Point(300.4, 60.4), new Point(200.4, 100.4), token);
             return Passed("hovered, tapped, and dragged the pin");
-        })
-        {
-            Version = "test",
-        };
+        }) { Version = "test" };
 
         async Task<List<ActionEvent>> RunPointsAsync()
         {
             var events = new List<ActionEvent>();
-            await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-            {
-                Engine = new WebEngine(headless: true),
-                AgentExecutor = executor,
-                BaseUrl = site.Url,
-                Cache = new FileStepCache(directory),
-                CacheEnabled = true,
-                CacheMode = CacheMode.ReadWrite,
-                TestTitle = "captures point geometry",
-                ActionTimeout = TimeSpan.FromSeconds(10),
-                StepTimeout = TimeSpan.FromSeconds(30),
-                TestTimeout = TimeSpan.FromSeconds(60),
-            });
-            await session.App.OpenAsync("/canvas");
-            await session.Agent.ActAsync("hover, tap the red pin, and drag it to the middle", new ActOptions
-            {
-                OnAction = e =>
+            await using var session = await E2ESession.StartAsync(
+                new E2ESessionOptions
                 {
-                    events.Add(e);
-                    return Task.CompletedTask;
-                },
-            });
+                    Engine = new WebEngine(headless: true),
+                    AgentExecutor = executor,
+                    BaseUrl = site.Url,
+                    Cache = new FileStepCache(directory),
+                    CacheEnabled = true,
+                    CacheMode = CacheMode.ReadWrite,
+                    TestTitle = "captures point geometry",
+                    ActionTimeout = TimeSpan.FromSeconds(10),
+                    StepTimeout = TimeSpan.FromSeconds(30),
+                    TestTimeout = TimeSpan.FromSeconds(60),
+                }
+            );
+            await session.App.OpenAsync("/canvas");
+            await session.Agent.ActAsync(
+                "hover, tap the red pin, and drag it to the middle",
+                new ActOptions
+                {
+                    OnAction = e =>
+                    {
+                        events.Add(e);
+                        return Task.CompletedTask;
+                    },
+                }
+            );
             await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("moved red to 200,100");
             session.Complete();
             return events;
@@ -180,7 +184,11 @@ public sealed class AgentActOnActionTests
         for (var run = 0; run < 2; run++)
         {
             await using var session = await StartAsync(directory, TwoTapExecutor(() => calls++));
-            await RunAsync(session, e => Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync(e.Index.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            await RunAsync(session, e =>
+                Expect
+                    .That(session.Screen.GetByRole("status"))
+                    .ToHaveTextAsync(e.Index.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            );
             session.Complete();
         }
 
@@ -213,19 +221,23 @@ public sealed class AgentActOnActionTests
         await using (var session = await StartAsync(directory, TwoTapExecutor()))
         {
             var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(session, e =>
-            {
-                if (e.Source == ActionSource.Replay)
                 {
-                    replayed = true;
-                }
-                else if (replayed)
-                {
-                    throw new InvalidOperationException("hook broke after the hand-off");
-                }
+                    if (e.Source == ActionSource.Replay)
+                    {
+                        replayed = true;
+                    }
+                    else if (replayed)
+                    {
+                        throw new InvalidOperationException("hook broke after the hand-off");
+                    }
 
-                return Task.CompletedTask;
-            }));
-            Assert.Contains("agent.act onAction failed: hook broke after the hand-off", error.Message, StringComparison.Ordinal);
+                    return Task.CompletedTask;
+                }));
+            Assert.Contains(
+                "agent.act onAction failed: hook broke after the hand-off",
+                error.Message,
+                StringComparison.Ordinal
+            );
             session.Complete(error);
         }
 
@@ -241,10 +253,10 @@ public sealed class AgentActOnActionTests
             var second = page.Heading("Second view");
             second.Hidden = true;
             page.Button("Continue", () => _ = Task.Run(async () =>
-            {
-                await Task.Delay(300);
-                second.Hidden = false;
-            }));
+                {
+                    await Task.Delay(300);
+                    second.Hidden = false;
+                }));
         });
         var executor = new TestExecutor("continue-executor", async (context, token) =>
         {
@@ -255,10 +267,18 @@ public sealed class AgentActOnActionTests
         var seen = new ConcurrentQueue<string>();
         await using var session = await StartAsync(TwoTapCounter.NewDirectory(), executor, world);
         await session.App.OpenAsync("/");
-        await session.Agent.ActAsync("continue to the second view", new ActOptions
-        {
-            OnAction = async _ => seen.Enqueue(await session.Screen.GetByRole("heading", "Second view").IsVisibleAsync() ? "arrived" : "not yet"),
-        });
+        await session.Agent.ActAsync(
+            "continue to the second view",
+            new ActOptions
+            {
+                OnAction = async _ =>
+                    seen.Enqueue(
+                        await session.Screen.GetByRole("heading", "Second view").IsVisibleAsync()
+                            ? "arrived"
+                            : "not yet"
+                    ),
+            }
+        );
         session.Complete();
 
         Assert.Equal(["arrived"], seen);
@@ -275,16 +295,19 @@ public sealed class AgentActOnActionTests
         var seen = new List<string>();
         await using var session = await StartAsync(TwoTapCounter.NewDirectory(), executor);
         await session.App.OpenAsync("/");
-        await session.Agent.ActAsync("seed the data", new ActOptions
-        {
-            OnAction = e =>
+        await session.Agent.ActAsync(
+            "seed the data",
+            new ActOptions
             {
-                seen.Add($"{e.Index} {e.Action}: {e.Summary}");
-                Assert.Equal(ActionName.Tool, e.ActionName);
-                Assert.Equal("seed", e.ToolName);
-                return Task.CompletedTask;
-            },
-        });
+                OnAction = e =>
+                {
+                    seen.Add($"{e.Index} {e.Action}: {e.Summary}");
+                    Assert.Equal(ActionName.Tool, e.ActionName);
+                    Assert.Equal("seed", e.ToolName);
+                    return Task.CompletedTask;
+                },
+            }
+        );
         session.Complete();
 
         Assert.Equal(["1 tool:seed: ran seed"], seen);
@@ -304,9 +327,16 @@ public sealed class AgentActOnActionTests
         await using (var session = await StartAsync(directory, TwoTapExecutor()))
         {
             await session.App.OpenAsync("/");
-            var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync(
-                TwoTapCounter.Instruction,
-                new ActOptions { Timeout = TimeSpan.FromMilliseconds(700), OnAction = _ => new TaskCompletionSource().Task }));
+            var error = await Assert.ThrowsAsync<AgentException>(() =>
+                session.Agent.ActAsync(
+                    TwoTapCounter.Instruction,
+                    new ActOptions
+                    {
+                        Timeout = TimeSpan.FromMilliseconds(700),
+                        OnAction = _ => new TaskCompletionSource().Task,
+                    }
+                )
+            );
             Assert.Equal("STEP_TIMEOUT", error.Code);
             session.Complete(error);
         }
@@ -316,7 +346,9 @@ public sealed class AgentActOnActionTests
     public async Task Fails_the_step_with_the_hook_error_after_the_first_action()
     {
         await using var session = await StartAsync(TwoTapCounter.NewDirectory(), TwoTapExecutor());
-        var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(session, _ => throw new InvalidOperationException("hook broke")));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            RunAsync(session, _ => throw new InvalidOperationException("hook broke"))
+        );
         session.Complete(error);
 
         Assert.Equal("ACTION_FAILED", error.Code);

@@ -14,7 +14,10 @@ public sealed class ExplicitScreenshotSecrecyTests : IDisposable
 {
     private const string Sentinel = "synthetic-screenshot-secret-2718";
 
-    private readonly string _results = Path.Combine(Path.GetTempPath(), "e2e-screenshot-secrecy-" + Guid.NewGuid().ToString("N"));
+    private readonly string _results = Path.Combine(
+        Path.GetTempPath(),
+        "e2e-screenshot-secrecy-" + Guid.NewGuid().ToString("N")
+    );
 
     public void Dispose()
     {
@@ -32,10 +35,15 @@ public sealed class ExplicitScreenshotSecrecyTests : IDisposable
     [Theory]
     [InlineData("static")]
     [InlineData("provider")]
-    public async Task Partial_Captures_before_and_after_a_source_secret_fill_with_the_secret_kept_out_of_the_steps(string source)
+    public async Task Partial_Captures_before_and_after_a_source_secret_fill_with_the_secret_kept_out_of_the_steps(
+        string source
+    )
     {
         var engine = new ScreenshotArtifactEngine("screenshots/evidence.png");
-        var session = await StartAsync(engine, MemberConfig(source == "static" ? Sentinel : null, _ => Task.FromResult(Sentinel)));
+        var session = await StartAsync(
+            engine,
+            MemberConfig(source == "static" ? Sentinel : null, _ => Task.FromResult(Sentinel))
+        );
         try
         {
             var expected = Path.Combine(AttemptDir(), "screenshots", "evidence.png");
@@ -52,7 +60,19 @@ public sealed class ExplicitScreenshotSecrecyTests : IDisposable
             var last = session.StepRecords[^1];
             Assert.Equal("app.screenshot", last.Api);
             Assert.Equal(StepStatus.Passed, last.Status);
-            Assert.DoesNotContain(Sentinel, JsonSerializer.Serialize(session.StepRecords.Select(step => new { step.Api, step.Label, step.Explanation, step.Error })), StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                Sentinel,
+                JsonSerializer.Serialize(
+                    session.StepRecords.Select(step => new
+                    {
+                        step.Api,
+                        step.Label,
+                        step.Explanation,
+                        step.Error,
+                    })
+                ),
+                StringComparison.Ordinal
+            );
 
             session.Complete();
             await session.DisposeAsync();
@@ -61,7 +81,11 @@ public sealed class ExplicitScreenshotSecrecyTests : IDisposable
             Assert.All(artifacts, artifact =>
             {
                 Assert.Equal(E2E.Reports.ArtifactKind.Screenshot, artifact.Kind);
-                Assert.EndsWith("screenshots/evidence.png", artifact.Path!.Replace('\\', '/'), StringComparison.Ordinal);
+                Assert.EndsWith(
+                    "screenshots/evidence.png",
+                    artifact.Path!.Replace('\\', '/'),
+                    StringComparison.Ordinal
+                );
             });
         }
         finally
@@ -77,7 +101,9 @@ public sealed class ExplicitScreenshotSecrecyTests : IDisposable
         var session = await StartAsync(engine, MemberConfig(null, _ => Task.FromResult(string.Empty)));
         try
         {
-            var error = await Assert.ThrowsAsync<ConfigurationException>(() => session.Screen.GetByRole("textbox").FillAsync(E2E.Credentials.User("member").Password));
+            var error = await Assert.ThrowsAsync<ConfigurationException>(() =>
+                session.Screen.GetByRole("textbox").FillAsync(E2E.Credentials.User("member").Password)
+            );
             Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
             Assert.Null(engine.Filled);
 
@@ -101,7 +127,9 @@ public sealed class ExplicitScreenshotSecrecyTests : IDisposable
         var session = await StartAsync(engine, MemberConfig(null, _ => Task.FromResult(value)));
         try
         {
-            var error = await Assert.ThrowsAsync<ConfigurationException>(() => session.Screen.GetByRole("textbox").FillAsync(E2E.Credentials.User("member").Password));
+            var error = await Assert.ThrowsAsync<ConfigurationException>(() =>
+                session.Screen.GetByRole("textbox").FillAsync(E2E.Credentials.User("member").Password)
+            );
             Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
             Assert.Contains("at least 6 characters (code points)", error.Message, StringComparison.Ordinal);
             Assert.DoesNotContain(value, error.Message, StringComparison.Ordinal);
@@ -144,7 +172,8 @@ public sealed class ExplicitScreenshotSecrecyTests : IDisposable
         }
     }
 
-    private string AttemptDir() => Path.Combine(_results, AttemptReport.ResultSegmentOf(null, "explicit screenshot"), "attempt-1");
+    private string AttemptDir() =>
+        Path.Combine(_results, AttemptReport.ResultSegmentOf(null, "explicit screenshot"), "attempt-1");
 
     /// <summary>A config whose account <c>member</c> has a static <paramref name="password"/>, or, with none, the password <paramref name="provider"/> computes.</summary>
     private static E2EConfig MemberConfig(string? password, SecretProvider provider)
@@ -152,16 +181,22 @@ public sealed class ExplicitScreenshotSecrecyTests : IDisposable
         var config = E2EConfig.Parse("{}", Path.GetTempPath(), _ => null);
         return password is null
             ? config.WithCredential("member", "ada", provider)
-            : E2EConfig.Parse($$"""{ "credentials": { "member": { "username": "ada", "password": "{{password}}" } } }""", Path.GetTempPath(), _ => null);
+            : E2EConfig.Parse(
+                $$"""{ "credentials": { "member": { "username": "ada", "password": "{{password}}" } } }""",
+                Path.GetTempPath(),
+                _ => null
+            );
     }
 
     private Task<E2ESession> StartAsync(ScreenshotArtifactEngine engine, E2EConfig? config = null) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Credentials = config?.Credentials,
-            Engine = engine,
-            TestTitle = "explicit screenshot",
-            ResultsDirectory = _results,
-            CacheEnabled = false,
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Credentials = config?.Credentials,
+                Engine = engine,
+                TestTitle = "explicit screenshot",
+                ResultsDirectory = _results,
+                CacheEnabled = false,
+            }
+        );
 }

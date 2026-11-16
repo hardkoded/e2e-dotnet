@@ -81,7 +81,11 @@ internal sealed class ToyEngine(ToyPrepare prepare = ToyPrepare.Ok) : IPreparabl
         }
 
         // What prepare provisioned reaches the worker through the result's env; the run's own variables are never overwritten.
-        return new EnginePrepareResult { Workers = 1, Env = new Dictionary<string, string> { ["TOY_POOL"] = "sim-a,sim-b", ["TOY_CACHE"] = "/overwritten" } };
+        return new EnginePrepareResult
+        {
+            Workers = 1,
+            Env = new Dictionary<string, string> { ["TOY_POOL"] = "sim-a,sim-b", ["TOY_CACHE"] = "/overwritten" },
+        };
     }
 
     public async Task FinishAsync(EngineFinishInfo info, CancellationToken cancellationToken)
@@ -127,15 +131,28 @@ internal sealed class ToyEngine(ToyPrepare prepare = ToyPrepare.Ok) : IPreparabl
         public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(new Observation
-            {
-                Route = "/",
-                Roots =
-                [
-                    new SemanticNode { Ref = "counter", Role = "status", Name = "count", Text = engine.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) },
-                    new SemanticNode { Ref = "increment", Role = "button", Name = "Increment" },
-                ],
-            });
+            Task.FromResult(
+                new Observation
+                {
+                    Route = "/",
+                    Roots =
+                    [
+                        new SemanticNode
+                        {
+                            Ref = "counter",
+                            Role = "status",
+                            Name = "count",
+                            Text = engine.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        },
+                        new SemanticNode
+                        {
+                            Ref = "increment",
+                            Role = "button",
+                            Name = "Increment",
+                        },
+                    ],
+                }
+            );
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {
@@ -148,7 +165,8 @@ internal sealed class ToyEngine(ToyPrepare prepare = ToyPrepare.Ok) : IPreparabl
             return Task.CompletedTask;
         }
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => throw new EngineException("UNSUPPORTED_CAPABILITY", "the toy has no keyboard");
+        public Task PressAsync(string key, CancellationToken cancellationToken) =>
+            throw new EngineException("UNSUPPORTED_CAPABILITY", "the toy has no keyboard");
 
         public ValueTask DisposeAsync()
         {

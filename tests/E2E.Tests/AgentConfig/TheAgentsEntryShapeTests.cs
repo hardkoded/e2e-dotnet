@@ -30,7 +30,8 @@ public sealed class TheAgentsEntryShapeTests
             { "agents": { "default": { "model": "gpt-4.1-mini", "judge": "o4-mini", "system": "Be careful.", "context": "Plans are tiers.", "maxSteps": 5, "judgmentTimeout": 90000, "maxInputTokens": 10000 }, "ux": {} } }
             """,
             Root,
-            _ => null);
+            _ => null
+        );
 
         var ux = config.Agents["ux"];
         Assert.Null(ux.Model);

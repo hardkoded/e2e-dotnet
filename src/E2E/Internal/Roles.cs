@@ -10,16 +10,25 @@ namespace E2E.Internal;
 internal static class Roles
 {
     /// <summary>Roles that take typed text: what a secret may fill.</summary>
-    private static readonly HashSet<string> EditableRoles = new(["textbox", "searchbox", "combobox"], StringComparer.Ordinal);
+    private static readonly HashSet<string> EditableRoles = new(
+        ["textbox", "searchbox", "combobox"],
+        StringComparer.Ordinal
+    );
 
     /// <summary>
     /// Roles whose node carries a value: the editable roles plus the controls a platform reports a value for without taking typed text
     /// (a range input, a number stepper, a multiple select and its options).
     /// </summary>
-    private static readonly HashSet<string> ValueRoles = new([.. EditableRoles, "spinbutton", "slider", "listbox", "option"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ValueRoles = new(
+        [.. EditableRoles, "spinbutton", "slider", "listbox", "option"],
+        StringComparer.Ordinal
+    );
 
     /// <summary>Roles with a checked state, the ARIA roles that take <c>aria-checked</c>, as Playwright lists them.</summary>
-    private static readonly HashSet<string> CheckedRoles = new(["checkbox", "menuitemcheckbox", "option", "radio", "switch", "menuitemradio", "treeitem"], StringComparer.Ordinal);
+    private static readonly HashSet<string> CheckedRoles = new(
+        ["checkbox", "menuitemcheckbox", "option", "radio", "switch", "menuitemradio", "treeitem"],
+        StringComparer.Ordinal
+    );
 
     /// <summary>True for a node of an editable role.</summary>
     public static bool IsEditable(SemanticNode node) => EditableRoles.Contains(node.Role ?? "");
@@ -35,5 +44,6 @@ internal static class Roles
     /// that role with no state reported is unchecked. A button or a heading has none. A state the platform
     /// reported is <c>CheckedReported</c> (.NET-only; upstream reads <c>states.checked !== undefined</c>).
     /// </summary>
-    public static bool IsCheckable(SemanticNode node) => node.States.CheckedReported || node.States.Mixed || CheckedRoles.Contains(node.Role ?? "");
+    public static bool IsCheckable(SemanticNode node) =>
+        node.States.CheckedReported || node.States.Mixed || CheckedRoles.Contains(node.Role ?? "");
 }

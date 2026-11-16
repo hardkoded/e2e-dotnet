@@ -74,25 +74,40 @@ internal static class Server
     {
         ArgumentNullException.ThrowIfNull(options);
         McpServer? server = null;
-        using var host = new SessionHost(new SessionHostOptions
-        {
-            LocateConfig = configPath => Config.LocateProjectConfig(options.Cwd, configPath ?? options.ConfigPath),
-            Headed = options.Headed,
-            DefaultTarget = options.Target,
-            MaxSessions = options.MaxSessions,
-            Secrets = options.Secrets,
-            WithholdOutput = options.Output is { } output ? load => output.WithholdDuringAsync(load) : static load => load(),
-            Log = (level, message) => Log(server, options, ParseLevel(level), message),
-        });
+        using var host = new SessionHost(
+            new SessionHostOptions
+            {
+                LocateConfig = configPath => Config.LocateProjectConfig(options.Cwd, configPath ?? options.ConfigPath),
+                Headed = options.Headed,
+                DefaultTarget = options.Target,
+                MaxSessions = options.MaxSessions,
+                Secrets = options.Secrets,
+                WithholdOutput = options.Output is { } output
+                    ? load => output.WithholdDuringAsync(load)
+                    : static load => load(),
+                Log = (level, message) => Log(server, options, ParseLevel(level), message),
+            }
+        );
         var specs = host.ToolSpecs();
         var serverOptions = new McpServerOptions
         {
-            ServerInfo = new Implementation { Name = "e2e", Title = "e2e", Version = options.Version },
+            ServerInfo = new Implementation
+            {
+                Name = "e2e",
+                Title = "e2e",
+                Version = options.Version,
+            },
             ServerInstructions = Instructions,
-            Capabilities = new ServerCapabilities { Tools = new(), Resources = new(), Logging = new() },
+            Capabilities = new ServerCapabilities
+            {
+                Tools = new(),
+                Resources = new(),
+                Logging = new(),
+            },
             Handlers = new McpServerHandlers
             {
-                ListToolsHandler = (_, _) => ValueTask.FromResult(new ListToolsResult { Tools = [.. specs.Select(ToTool)] }),
+                ListToolsHandler = (_, _) =>
+                    ValueTask.FromResult(new ListToolsResult { Tools = [.. specs.Select(ToTool)] }),
                 CallToolHandler = (request, cancel) => CallAsync(specs, request.Params, options.Output, cancel),
                 ListResourcesHandler = (_, _) => ValueTask.FromResult(ListGuide()),
                 ListResourceTemplatesHandler = (_, _) => ValueTask.FromResult(ListGuideTemplates()),
@@ -133,7 +148,8 @@ internal static class Server
             }
 
             // Disposing waits for the stdin read too; a client that keeps stdin open must not hold the exit.
-            await Task.WhenAny(DisposeAsync(server, transport), Task.Delay(CloseGrace, CancellationToken.None)).ConfigureAwait(false);
+            await Task.WhenAny(DisposeAsync(server, transport), Task.Delay(CloseGrace, CancellationToken.None))
+                .ConfigureAwait(false);
         }
 
         return 0;
@@ -154,20 +170,29 @@ internal static class Server
             return;
         }
 
-        var notification = new LoggingMessageNotificationParams { Level = level, Logger = "e2e", Data = JsonSerializer.SerializeToElement(message) };
-        _ = server.SendNotificationAsync(NotificationMethods.LoggingMessageNotification, notification).ContinueWith(
-            static task => _ = task.Exception,
-            CancellationToken.None,
-            TaskContinuationOptions.OnlyOnFaulted,
-            TaskScheduler.Default);
+        var notification = new LoggingMessageNotificationParams
+        {
+            Level = level,
+            Logger = "e2e",
+            Data = JsonSerializer.SerializeToElement(message),
+        };
+        _ = server
+            .SendNotificationAsync(NotificationMethods.LoggingMessageNotification, notification)
+            .ContinueWith(
+                static task => _ = task.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default
+            );
     }
 
-    private static LoggingLevel ParseLevel(string level) => level switch
-    {
-        "error" => LoggingLevel.Error,
-        "warning" => LoggingLevel.Warning,
-        _ => LoggingLevel.Info,
-    };
+    private static LoggingLevel ParseLevel(string level) =>
+        level switch
+        {
+            "error" => LoggingLevel.Error,
+            "warning" => LoggingLevel.Warning,
+            _ => LoggingLevel.Info,
+        };
 
     private static Tool ToTool(McpToolSpec spec)
     {
@@ -184,7 +209,12 @@ internal static class Server
     /// Checks the arguments against the tool's closed schema, then runs it. A refusal or a failure is an error
     /// result the agent can react to. Only a tool the server does not have is a protocol error, as upstream.
     /// </summary>
-    private static async ValueTask<CallToolResult> CallAsync(IReadOnlyList<McpToolSpec> specs, CallToolRequestParams? request, McpOutput? output, CancellationToken cancellationToken)
+    private static async ValueTask<CallToolResult> CallAsync(
+        IReadOnlyList<McpToolSpec> specs,
+        CallToolRequestParams? request,
+        McpOutput? output,
+        CancellationToken cancellationToken
+    )
     {
         var name = request?.Name ?? "";
         var spec = specs.FirstOrDefault(candidate => candidate.Name == name)
@@ -193,7 +223,11 @@ internal static class Server
         var issues = ArgumentSchema.Validate(spec.InputSchema, args);
         if (issues.Count > 0)
         {
-            var text = "Input validation error: Invalid arguments for tool " + name + ": " + string.Join(", ", issues.Select(issue => issue.ToString()));
+            var text =
+                "Input validation error: Invalid arguments for tool "
+                + name
+                + ": "
+                + string.Join(", ", issues.Select(issue => issue.ToString()));
             return new CallToolResult { Content = [new TextContentBlock { Text = text }], IsError = true };
         }
 
@@ -224,7 +258,18 @@ internal static class Server
         };
         return new ListResourcesResult
         {
-            Resources = [guide, .. Skill.Topics().Select(topic => new Resource { Uri = GuideUri + "/" + topic, Name = topic, MimeType = Markdown })],
+            Resources =
+            [
+                guide,
+                .. Skill
+                    .Topics()
+                    .Select(topic => new Resource
+                    {
+                        Uri = GuideUri + "/" + topic,
+                        Name = topic,
+                        MimeType = Markdown,
+                    }),
+            ],
         };
     }
 
@@ -248,18 +293,35 @@ internal static class Server
         {
             text = Skill.ReadGuide(null) ?? "The skill is not part of this installation.";
         }
-        else if (uri is not null && uri.StartsWith(GuideUri + "/", StringComparison.Ordinal) && !uri[(GuideUri.Length + 1)..].Contains('/', StringComparison.Ordinal))
+        else if (
+            uri is not null
+            && uri.StartsWith(GuideUri + "/", StringComparison.Ordinal)
+            && !uri[(GuideUri.Length + 1)..].Contains('/', StringComparison.Ordinal)
+        )
         {
             var topic = Uri.UnescapeDataString(uri[(GuideUri.Length + 1)..]);
-            text = Skill.ReadGuide(topic) ?? throw new McpProtocolException(
-                "UNKNOWN_TOPIC: unknown topic \"" + topic + "\"; topics: " + string.Join(", ", Skill.Topics()),
-                McpErrorCode.ResourceNotFound);
+            text = Skill.ReadGuide(topic)
+                ?? throw new McpProtocolException(
+                    "UNKNOWN_TOPIC: unknown topic \"" + topic + "\"; topics: " + string.Join(", ", Skill.Topics()),
+                    McpErrorCode.ResourceNotFound
+                );
         }
         else
         {
             throw new McpProtocolException("Resource " + uri + " not found", McpErrorCode.ResourceNotFound);
         }
 
-        return new ReadResourceResult { Contents = [new TextResourceContents { Uri = uri, MimeType = Markdown, Text = text }] };
+        return new ReadResourceResult
+        {
+            Contents =
+            [
+                new TextResourceContents
+                {
+                    Uri = uri,
+                    MimeType = Markdown,
+                    Text = text,
+                },
+            ],
+        };
     }
 }

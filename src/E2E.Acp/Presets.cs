@@ -74,7 +74,8 @@ internal static class Presets
                     },
                 },
             },
-            SignIn: "run `claude` and log in, or set ANTHROPIC_API_KEY");
+            SignIn: "run `claude` and log in, or set ANTHROPIC_API_KEY"
+        );
         return _ => Task.FromResult(launch);
     }
 
@@ -132,25 +133,47 @@ internal static class Presets
             mcpServers[name] = new JsonObject { ["enabled"] = false };
         }
 
-        return new JsonObject { ["web_search"] = "disabled", ["features"] = features, ["mcp_servers"] = mcpServers };
+        return new JsonObject
+        {
+            ["web_search"] = "disabled",
+            ["features"] = features,
+            ["mcp_servers"] = mcpServers,
+        };
     }
 
     /// <summary>The MCP servers the user's Codex config declares, from the Codex the adapter runs. Upstream's <c>codexServers</c>.</summary>
-    private static async Task<IReadOnlyList<string>> CodexServersAsync(string adapter, IReadOnlyDictionary<string, string>? env, CancellationToken token)
+    private static async Task<IReadOnlyList<string>> CodexServersAsync(
+        string adapter,
+        IReadOnlyDictionary<string, string>? env,
+        CancellationToken token
+    )
     {
         try
         {
-            var codexPath = env is not null && env.TryGetValue("CODEX_PATH", out var configured) ? configured : Environment.GetEnvironmentVariable("CODEX_PATH");
+            var codexPath =
+                env is not null && env.TryGetValue("CODEX_PATH", out var configured)
+                    ? configured
+                    : Environment.GetEnvironmentVariable("CODEX_PATH");
             var command = codexPath ?? "node";
             List<string> args = codexPath is null ? [ResolveCodexBin(adapter)] : [];
             args.AddRange(["mcp", "list", "--json"]);
             var stdout = await RunAsync(command, args, env, CodexListTimeout, token).ConfigureAwait(false);
             using var list = JsonDocument.Parse(stdout);
-            return [.. list.RootElement.EnumerateArray().Select(server => server.GetProperty("name").GetString() ?? throw new JsonException("a server has no name"))];
+            return
+            [
+                .. list
+                    .RootElement.EnumerateArray()
+                    .Select(server =>
+                        server.GetProperty("name").GetString() ?? throw new JsonException("a server has no name")
+                    ),
+            ];
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
-            throw new InvalidOperationException($"could not list your Codex MCP servers to turn them off: {error.Message}", error);
+            throw new InvalidOperationException(
+                $"could not list your Codex MCP servers to turn them off: {error.Message}",
+                error
+            );
         }
     }
 
@@ -158,7 +181,13 @@ internal static class Presets
     /// Runs a command to the end and returns its stdout, without a shell. Stdout and stderr are read together, the wait is bounded, and the
     /// process tree is killed on a timeout or a cancel. Upstream's <c>execFileAsync</c> with <c>timeout</c>.
     /// </summary>
-    private static async Task<string> RunAsync(string command, IReadOnlyList<string> args, IReadOnlyDictionary<string, string>? env, TimeSpan timeout, CancellationToken token)
+    private static async Task<string> RunAsync(
+        string command,
+        IReadOnlyList<string> args,
+        IReadOnlyDictionary<string, string>? env,
+        TimeSpan timeout,
+        CancellationToken token
+    )
     {
         var start = new ProcessStartInfo(command)
         {
@@ -188,7 +217,9 @@ internal static class Presets
             var errors = (await stderr.ConfigureAwait(false)).Trim();
             return process.ExitCode == 0
                 ? output
-                : throw new InvalidOperationException($"{Path.GetFileName(command)} exited with code {process.ExitCode}{(errors.Length > 0 ? $": {errors}" : "")}");
+                : throw new InvalidOperationException(
+                    $"{Path.GetFileName(command)} exited with code {process.ExitCode}{(errors.Length > 0 ? $": {errors}" : "")}"
+                );
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested)
         {
@@ -203,13 +234,21 @@ internal static class Presets
                     process.Kill(entireProcessTree: true);
                 }
             }
-            catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException or AggregateException)
+            catch (Exception error)
+                when (error
+                        is InvalidOperationException
+                            or System.ComponentModel.Win32Exception
+                            or NotSupportedException
+                            or AggregateException
+                )
             {
                 // Already exited, or part of the tree could not be killed.
             }
 
             // The reads end with the process or the limit; observe them so a failed one is not left unobserved.
-            await Task.WhenAll(stdout, stderr).ContinueWith(static _ => { }, TaskScheduler.Default).ConfigureAwait(false);
+            await Task.WhenAll(stdout, stderr)
+                .ContinueWith(static _ => { }, TaskScheduler.Default)
+                .ConfigureAwait(false);
         }
     }
 
@@ -234,7 +273,11 @@ internal static class Presets
     /// </summary>
     private static string AdapterPackage(string name)
     {
-        for (var directory = Directory.GetCurrentDirectory(); directory is not null; directory = Path.GetDirectoryName(directory))
+        for (
+            var directory = Directory.GetCurrentDirectory();
+            directory is not null;
+            directory = Path.GetDirectoryName(directory)
+        )
         {
             var candidate = Path.Combine(directory, "node_modules", name);
             if (File.Exists(Path.Combine(candidate, "package.json")))
@@ -245,7 +288,8 @@ internal static class Presets
 
         throw new ConfigurationException(
             "INVALID_CONFIG",
-            $"{name} is not installed in {Directory.GetCurrentDirectory()} or a directory above it: npm install -D {name}, and run e2e from that project");
+            $"{name} is not installed in {Directory.GetCurrentDirectory()} or a directory above it: npm install -D {name}, and run e2e from that project"
+        );
     }
 
     private static string AdapterBin(string name, string bin) => BinOf(AdapterPackage(name), bin);
@@ -262,13 +306,19 @@ internal static class Presets
                 {
                     path = declared.GetString();
                 }
-                else if (declared.ValueKind == JsonValueKind.Object && declared.TryGetProperty(bin, out var named) && named.ValueKind == JsonValueKind.String)
+                else if (
+                    declared.ValueKind == JsonValueKind.Object
+                    && declared.TryGetProperty(bin, out var named)
+                    && named.ValueKind == JsonValueKind.String
+                )
                 {
                     path = named.GetString();
                 }
             }
         }
 
-        return path is null ? throw new ConfigurationException("INVALID_CONFIG", $"{package} has no {bin} command") : Path.Combine(package, path);
+        return path is null
+            ? throw new ConfigurationException("INVALID_CONFIG", $"{package} has no {bin} command")
+            : Path.Combine(package, path);
     }
 }

@@ -24,7 +24,10 @@ public sealed class BrowserProviderTests
         var engine = dialer.Engine(cloud);
         var session = await engine.StartAsync(Alone("a1"), None);
         var request = Assert.Single(cloud.Acquired);
-        Assert.Equal((0, 1, (string?)null, "t"), (request.Slot, request.Slots, request.AttemptId, request.Env["BROWSER_TOKEN"]));
+        Assert.Equal(
+            (0, 1, (string?)null, "t"),
+            (request.Slot, request.Slots, request.AttemptId, request.Env["BROWSER_TOKEN"])
+        );
         Assert.Equal(["wss://0.example"], dialer.Endpoints);
         Assert.Empty(cloud.Released);
         await session.DisposeAsync();
@@ -93,9 +96,13 @@ public sealed class BrowserProviderTests
             await File.WriteAllTextAsync(Path.Combine(with, "setup.js"), "window.ready = true;", None);
 
             // The script is not under the first root, so the start fails before it asks for the endpoint.
-            await Assert.ThrowsAsync<EngineException>(() => worker.StartAsync(new EngineStartOptions { AttemptId = "a1", ProjectRoot = without }, None));
+            await Assert.ThrowsAsync<EngineException>(() =>
+                worker.StartAsync(new EngineStartOptions { AttemptId = "a1", ProjectRoot = without }, None)
+            );
             Assert.Empty(dialer.Endpoints);
-            await (await worker.StartAsync(new EngineStartOptions { AttemptId = "a2", ProjectRoot = with }, None)).DisposeAsync();
+            await (
+                await worker.StartAsync(new EngineStartOptions { AttemptId = "a2", ProjectRoot = with }, None)
+            ).DisposeAsync();
 
             // Still the lease prepare made: a failed start that never attached did not call it dropped.
             Assert.Equal(["wss://0.example"], dialer.Endpoints);
@@ -150,12 +157,24 @@ public sealed class BrowserProviderTests
             },
         };
         var downloads = (await WorkerAsync(cloud)).Downloads()!;
-        var failed = await Assert.ThrowsAsync<EngineException>(() => downloads.ReadAsync("/tmp/e2e-downloads/guid", None));
+        var failed = await Assert.ThrowsAsync<EngineException>(() =>
+            downloads.ReadAsync("/tmp/e2e-downloads/guid", None)
+        );
         Assert.Equal("ENGINE_FAILURE", failed.Code);
-        Assert.Equal("browser provider \"toy-cloud\" could not read download /tmp/e2e-downloads/guid from browser lease-0: file API down", failed.Message);
+        Assert.Equal(
+            "browser provider \"toy-cloud\" could not read download /tmp/e2e-downloads/guid from browser lease-0: file API down",
+            failed.Message
+        );
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
-        Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => downloads.ReadAsync("/tmp/e2e-downloads/guid", cancelled.Token))).Code);
+        Assert.Equal(
+            "CANCELLED",
+            (
+                await Assert.ThrowsAsync<EngineException>(() =>
+                    downloads.ReadAsync("/tmp/e2e-downloads/guid", cancelled.Token)
+                )
+            ).Code
+        );
     }
 
     [Fact]
@@ -163,10 +182,16 @@ public sealed class BrowserProviderTests
     {
         var cloud = new ToyCloud(BrowserProviderScope.Attempt)
         {
-            Downloads = new BrowserProviderDownloads { Dir = "/tmp/e2e-downloads", ReadAsync = (lease, file, context, token) => Task.FromResult<byte[]>([]) },
+            Downloads = new BrowserProviderDownloads
+            {
+                Dir = "/tmp/e2e-downloads",
+                ReadAsync = (lease, file, context, token) => Task.FromResult<byte[]>([]),
+            },
         };
         var downloads = (await WorkerAsync(cloud)).Downloads()!;
-        var error = await Assert.ThrowsAsync<EngineException>(() => downloads.ReadAsync("/tmp/e2e-downloads/guid", None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            downloads.ReadAsync("/tmp/e2e-downloads/guid", None)
+        );
         Assert.Equal("INVALID_STATE", error.Code);
     }
 
@@ -177,11 +202,18 @@ public sealed class BrowserProviderTests
     {
         var cloud = new ToyCloud(scope)
         {
-            OnCdpHeaders = (_, context) => Task.FromResult<IReadOnlyDictionary<string, string>?>(new Dictionary<string, string> { ["Authorization"] = context.Env["WORKER_TOKEN"]! }),
+            OnCdpHeaders = (_, context) =>
+                Task.FromResult<IReadOnlyDictionary<string, string>?>(
+                    new Dictionary<string, string> { ["Authorization"] = context.Env["WORKER_TOKEN"]! }
+                ),
         };
         var (runner, env) = await Runner.PreparedAsync(cloud, 1);
         Assert.Empty(cloud.CdpHeadersCalls);
-        Assert.DoesNotContain("worker-secret", System.Text.Json.JsonSerializer.Serialize(env), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "worker-secret",
+            System.Text.Json.JsonSerializer.Serialize(env),
+            StringComparison.Ordinal
+        );
         var dialer = new Dialer();
         var worker = dialer.Engine(cloud);
         worker.Init(Runner.InitInfo(0, new Dictionary<string, string?>(env) { ["WORKER_TOKEN"] = "worker-secret" }));
@@ -199,9 +231,15 @@ public sealed class BrowserProviderTests
     [Fact]
     public async Task Accepts_endpoint_and_handshake_headers_together_from_a_connect_resolver()
     {
-        var target = new CdpTarget { Endpoint = "wss://authenticated.example", Headers = new Dictionary<string, string> { ["Authorization"] = "synthetic-token" } };
+        var target = new CdpTarget
+        {
+            Endpoint = "wss://authenticated.example",
+            Headers = new Dictionary<string, string> { ["Authorization"] = "synthetic-token" },
+        };
         var dialed = new List<CdpTarget>();
-        var worker = new WebEngine(new WebEngineOptions { Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult(target) } })
+        var worker = new WebEngine(
+            new WebEngineOptions { Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult(target) } }
+        )
         {
             CreatePlaywright = AttemptSession.FakeRemote.Playwright,
             ConnectCdp = (_, connection, _, _) =>
@@ -247,7 +285,13 @@ public sealed class BrowserProviderTests
     }
 
     private static EngineStartOptions Alone(string attemptId) =>
-        new() { AttemptId = attemptId, BaseUrl = "http://app.test/", ActionTimeout = TimeSpan.FromSeconds(1), Env = Runner.Token };
+        new()
+        {
+            AttemptId = attemptId,
+            BaseUrl = "http://app.test/",
+            ActionTimeout = TimeSpan.FromSeconds(1),
+            Env = Runner.Token,
+        };
 
     private static async Task<LeasedBrowsers> WorkerAsync(ToyCloud cloud)
     {

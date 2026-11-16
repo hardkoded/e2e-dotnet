@@ -21,7 +21,10 @@ public sealed class StepHooksTests
         await Step(steps);
         await lifecycle.DisposeAsync();
 
-        Assert.Equal([StepPhase.BeforeEach, null, StepPhase.AfterEach, StepPhase.AfterEach], steps.All().Select(step => step.Phase));
+        Assert.Equal(
+            [StepPhase.BeforeEach, null, StepPhase.AfterEach, StepPhase.AfterEach],
+            steps.All().Select(step => step.Phase)
+        );
     }
 
     [Fact]
@@ -46,7 +49,8 @@ public sealed class StepHooksTests
         Assert.Equal([StepPhase.BeforeEach, null], steps.All().Select(step => step.Phase));
     }
 
-    private static Task Step(StepRecorder steps) => steps.RunAsync(StepKind.App, "app.open", "/", () => Task.CompletedTask);
+    private static Task Step(StepRecorder steps) =>
+        steps.RunAsync(StepKind.App, "app.open", "/", () => Task.CompletedTask);
 
     private sealed class Lifecycle(StepRecorder steps) : E2EFixture
     {

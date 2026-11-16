@@ -9,25 +9,31 @@ namespace E2E.Mobile.Tests.Errors;
 
 public sealed class AutomationRunnerFailuresThroughTheEngineTests
 {
-    private static AgentDeviceError RunnerBusy() => new(
-        "COMMAND_FAILED",
-        "The iOS runner is still finishing a previous command that exceeded its execution watchdog (usually an accessibility capture on a heavy or animating screen).",
-        new Dictionary<string, object?>
-        {
-            ["runnerErrorCode"] = "RUNNER_BUSY",
-            ["retriable"] = true,
-            ["hint"] = "Wait a few seconds and retry. If snapshots keep failing on this screen, use screenshot as visual truth and interact by coordinates, or navigate to another screen.",
-        });
+    private static AgentDeviceError RunnerBusy() =>
+        new(
+            "COMMAND_FAILED",
+            "The iOS runner is still finishing a previous command that exceeded its execution watchdog (usually an accessibility capture on a heavy or animating screen).",
+            new Dictionary<string, object?>
+            {
+                ["runnerErrorCode"] = "RUNNER_BUSY",
+                ["retriable"] = true,
+                ["hint"] =
+                    "Wait a few seconds and retry. If snapshots keep failing on this screen, use screenshot as visual truth and interact by coordinates, or navigate to another screen.",
+            }
+        );
 
-    private static AgentDeviceError InvalidViewport() => new(
-        "COMMAND_FAILED",
-        "regular iOS snapshot presentation requires a valid viewport",
-        new Dictionary<string, object?>
-        {
-            ["reason"] = "invalid-viewport",
-            ["field"] = "viewport",
-            ["hint"] = "Use snapshot --raw to inspect the acquired iOS tree; regular presentation requires valid viewport evidence.",
-        });
+    private static AgentDeviceError InvalidViewport() =>
+        new(
+            "COMMAND_FAILED",
+            "regular iOS snapshot presentation requires a valid viewport",
+            new Dictionary<string, object?>
+            {
+                ["reason"] = "invalid-viewport",
+                ["field"] = "viewport",
+                ["hint"] =
+                    "Use snapshot --raw to inspect the acquired iOS tree; regular presentation requires valid viewport evidence.",
+            }
+        );
 
     private sealed class ToyCloud : IDeviceProvider
     {
@@ -36,7 +42,14 @@ public sealed class AutomationRunnerFailuresThroughTheEngineTests
         public List<string> Released { get; } = [];
 
         public Task<DeviceLease> AcquireAsync(DeviceRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new DeviceLease { Id = $"lease-{request.Slot}", Daemon = new DeviceDaemon($"https://{request.Slot}.example"), Device = $"sim-{request.Slot}" });
+            Task.FromResult(
+                new DeviceLease
+                {
+                    Id = $"lease-{request.Slot}",
+                    Daemon = new DeviceDaemon($"https://{request.Slot}.example"),
+                    Device = $"sim-{request.Slot}",
+                }
+            );
 
         public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken)
         {
@@ -51,13 +64,18 @@ public sealed class AutomationRunnerFailuresThroughTheEngineTests
         var h = Harness.Create(options => options with { Device = "iPhone 17 Pro" });
         h.Fake.Respond(DeviceMethods.AppsOpen, _ => throw RunnerBusy());
         var lines = new List<string>();
-        var busy = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(log: lines.Add), CancellationToken.None));
+        var busy = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(log: lines.Add), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", busy.Code);
         Assert.Contains(
             "open Settings failed: the iOS automation runner is still finishing a command that overran its watchdog (session e2e-ios-0 on iPhone 17 Pro)",
             busy.Message,
-            StringComparison.Ordinal);
-        var again = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(log: lines.Add), CancellationToken.None));
+            StringComparison.Ordinal
+        );
+        var again = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(log: lines.Add), CancellationToken.None)
+        );
         Assert.Contains("npx agent-device daemon stop", again.Message, StringComparison.Ordinal);
         // A failed open is timed too: the step times are logged as the error propagates.
         const string stepTimes = @"^iPhone 17 Pro: boot \d+\.\ds, iOS runner \d+\.\ds, open Settings \d+\.\ds$";
@@ -77,10 +95,14 @@ public sealed class AutomationRunnerFailuresThroughTheEngineTests
     {
         var cloud = new ToyCloud();
         var h = Harness.Create(options => options with { Provider = cloud });
-        h.Fake.Respond(DeviceMethods.AppsOpen, args => args?["device"]?.GetValue<string>() == "sim-1" ? throw RunnerBusy() : new JsonObject());
+        h.Fake.Respond(DeviceMethods.AppsOpen, args =>
+            args?["device"]?.GetValue<string>() == "sim-1" ? throw RunnerBusy() : new JsonObject()
+        );
         int Closes() => h.Fake.Methods().Count(method => method == "sessions.close");
         var info = h.PrepareInfo(2);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(info, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(info, CancellationToken.None)
+        );
         Assert.Contains("(session e2e-ios-1 on sim-1)", failure.Message, StringComparison.Ordinal);
         Assert.Equal(["e2e-ios-0", "e2e-ios-1"], h.Sessions);
         Assert.Equal(0, Closes());
@@ -100,8 +122,14 @@ public sealed class AutomationRunnerFailuresThroughTheEngineTests
     public async Task Closes_the_sessions_a_local_pool_warmed_too_a_boot_that_failed_included()
     {
         var h = Harness.Create(options => options with { Devices = ["iPhone 17", "iPhone 17 Pro"] });
-        h.Fake.Respond(DeviceMethods.DevicesBoot, args => args?["device"]?.GetValue<string>() == "iPhone 17 Pro" ? throw new AgentDeviceError("DEVICE_NOT_FOUND", "no such device") : new JsonObject());
-        var failure = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(2), CancellationToken.None));
+        h.Fake.Respond(DeviceMethods.DevicesBoot, args =>
+            args?["device"]?.GetValue<string>() == "iPhone 17 Pro"
+                ? throw new AgentDeviceError("DEVICE_NOT_FOUND", "no such device")
+                : new JsonObject()
+        );
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(2), CancellationToken.None)
+        );
         Assert.Equal("boot failed: no such device", failure.Message);
         await h.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);
         Assert.Equal(2, h.Fake.Methods().Count(method => method == "sessions.close"));
@@ -111,8 +139,15 @@ public sealed class AutomationRunnerFailuresThroughTheEngineTests
     public async Task Fails_prepare_when_the_runner_is_wedged_at_warm_up()
     {
         var h = Harness.Create(options => options with { Device = "iPhone 17 Pro" });
-        h.Fake.Respond(DeviceMethods.AppsOpen, _ => throw new AgentDeviceError("RUNNER_WEDGED", "The iOS runner main thread has been stuck in abandoned work for 120 seconds and cannot recover on its own."));
-        var wedged = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(), CancellationToken.None));
+        h.Fake.Respond(DeviceMethods.AppsOpen, _ =>
+            throw new AgentDeviceError(
+                "RUNNER_WEDGED",
+                "The iOS runner main thread has been stuck in abandoned work for 120 seconds and cannot recover on its own."
+            )
+        );
+        var wedged = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", wedged.Code);
         Assert.Contains("the iOS automation runner is wedged", wedged.Message, StringComparison.Ordinal);
     }
@@ -122,7 +157,9 @@ public sealed class AutomationRunnerFailuresThroughTheEngineTests
     {
         var h = Harness.Create(options => options with { Device = "iPhone 17 Pro" });
         var failures = 1;
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => failures-- > 0 ? throw InvalidViewport() : FakeDeviceClient.SettingsSnapshot());
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            failures-- > 0 ? throw InvalidViewport() : FakeDeviceClient.SettingsSnapshot()
+        );
         var session = await h.Boot();
         var snapshot = await session.ObserveAsync(CancellationToken.None);
         Assert.NotEmpty(snapshot.Roots[0].Children);
@@ -134,7 +171,8 @@ public sealed class AutomationRunnerFailuresThroughTheEngineTests
         Assert.Contains(
             "snapshot failed: the iOS automation runner could not present the accessibility snapshot (session e2e-ios-simulator-0 on iPhone 17 Pro)",
             second.Message,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         Assert.Equal(4, h.Fake.Methods().Count(method => method == "capture.snapshot"));
     }
 
@@ -146,20 +184,26 @@ public sealed class AutomationRunnerFailuresThroughTheEngineTests
         var screen = (await session.ObserveAsync(CancellationToken.None)).Roots[0];
         var about = Screens.Named(screen, "About");
         h.Fake.Respond(DeviceMethods.InteractionsPress, _ => throw RunnerBusy());
-        var tap = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None));
+        var tap = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", tap.Code);
         Assert.False(tap.Retryable);
         Assert.Contains(
             "perform tap failed: the iOS automation runner is still finishing a command that overran its watchdog (session e2e-ios-simulator-0 on iPhone 17 Pro)",
             tap.Message,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         h.Fake.Respond(DeviceMethods.InteractionsScroll, _ => throw RunnerBusy());
-        var scroll = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(screen, new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None));
+        var scroll = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(screen, new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", scroll.Code);
         Assert.Contains(
             "swipe failed: the iOS automation runner is still finishing a command that overran its watchdog (session e2e-ios-simulator-0 on iPhone 17 Pro)",
             scroll.Message,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -170,7 +214,11 @@ public sealed class AutomationRunnerFailuresThroughTheEngineTests
         var session = await h.Boot();
         var busy = await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(CancellationToken.None));
         Assert.Equal("ENGINE_FAILURE", busy.Code);
-        Assert.Contains("the iOS automation runner is still finishing a command that overran its watchdog (session e2e-ios-simulator-0)", busy.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "the iOS automation runner is still finishing a command that overran its watchdog (session e2e-ios-simulator-0)",
+            busy.Message,
+            StringComparison.Ordinal
+        );
         Assert.Single(h.Fake.Methods(), method => method == "capture.snapshot");
     }
 }

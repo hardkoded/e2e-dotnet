@@ -16,7 +16,10 @@ public sealed class TheBundledAgentSkillTests
         var skill = files[0];
         Assert.Equal("SKILL.md", skill.Relative);
         Assert.Matches(new Regex("^---\r?\nname: e2e-dotnet\r?\ndescription: .+\r?\n---\r?\n"), skill.Content);
-        Assert.Equal(BundledSkill.Topics().Select(topic => "references/" + topic + ".md"), files.Skip(1).Select(file => file.Relative));
+        Assert.Equal(
+            BundledSkill.Topics().Select(topic => "references/" + topic + ".md"),
+            files.Skip(1).Select(file => file.Relative)
+        );
         var description = Regex.Match(skill.Content, "^description: (.+?)\r?$", RegexOptions.Multiline).Groups[1].Value;
         Assert.InRange(description.Length, 1, 1024);
         Assert.DoesNotContain(": ", description, StringComparison.Ordinal);
@@ -27,9 +30,30 @@ public sealed class TheBundledAgentSkillTests
     public void Offers_one_topic_per_reference_file_and_lists_every_topic_in_SKILL_md()
     {
         var topics = BundledSkill.Topics();
-        Assert.Equal(["agent", "bug-bash", "debugging", "explore", "host", "mcp", "mobile", "running", "setup", "windows", "writing-tests", "writing-tests-nunit", "writing-tests-tunit", "writing-tests-xunit"], topics);
+        Assert.Equal(
+            [
+                "agent",
+                "bug-bash",
+                "debugging",
+                "explore",
+                "host",
+                "mcp",
+                "mobile",
+                "running",
+                "setup",
+                "windows",
+                "writing-tests",
+                "writing-tests-nunit",
+                "writing-tests-tunit",
+                "writing-tests-xunit",
+            ],
+            topics
+        );
         var overview = BundledSkill.ReadGuide(null) ?? "";
-        var linked = Regex.Matches(overview, @"\[references/([a-z-]+)\.md\]\(references/\1\.md\)").Select(match => match.Groups[1].Value).Order(StringComparer.Ordinal);
+        var linked = Regex
+            .Matches(overview, @"\[references/([a-z-]+)\.md\]\(references/\1\.md\)")
+            .Select(match => match.Groups[1].Value)
+            .Order(StringComparer.Ordinal);
         Assert.Equal(topics, linked);
         foreach (var topic in topics)
         {
@@ -41,7 +65,11 @@ public sealed class TheBundledAgentSkillTests
     public void Opens_every_reference_longer_than_100_lines_with_a_Contents_list_of_its_sections()
     {
         // Agents sometimes read only the head of a long file; the list shows them what the rest holds.
-        foreach (var file in BundledSkill.ReadFiles().Where(skillFile => skillFile.Relative.StartsWith("references/", StringComparison.Ordinal)))
+        foreach (
+            var file in BundledSkill
+                .ReadFiles()
+                .Where(skillFile => skillFile.Relative.StartsWith("references/", StringComparison.Ordinal))
+        )
         {
             if (file.Content.Split('\n').Length <= 100)
             {
@@ -52,8 +80,13 @@ public sealed class TheBundledAgentSkillTests
             Assert.True(sections.Count > 0 && sections[0] == "Contents", file.Relative);
             var listed = Regex.Match(file.Content, @"\n## Contents\r?\n\r?\n((?:- .*\r?\n)+)").Groups[1].Value;
             Assert.True(
-                listed.TrimEnd().Split('\n').Select(line => line.TrimEnd('\r')["- ".Length..]).SequenceEqual(sections.Skip(1)),
-                file.Relative);
+                listed
+                    .TrimEnd()
+                    .Split('\n')
+                    .Select(line => line.TrimEnd('\r')["- ".Length..])
+                    .SequenceEqual(sections.Skip(1)),
+                file.Relative
+            );
         }
     }
 
@@ -69,7 +102,10 @@ public sealed class TheBundledAgentSkillTests
         {
             var text = BundledSkill.ReadGuide(topic) ?? "";
             Assert.StartsWith("# ", text, StringComparison.Ordinal);
-            Assert.Equal(BundledSkill.ReadFiles().Single(file => file.Relative == "references/" + topic + ".md").Content, text);
+            Assert.Equal(
+                BundledSkill.ReadFiles().Single(file => file.Relative == "references/" + topic + ".md").Content,
+                text
+            );
         }
 
         Assert.Null(BundledSkill.ReadGuide("nope"));

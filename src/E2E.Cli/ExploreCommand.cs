@@ -67,23 +67,50 @@ internal static partial class ExploreCommand
         """;
 
     /// <summary>The flags that take a value.</summary>
-    private static readonly HashSet<string> ValueFlags = new(["--config", "--target", "--agent", "--changed-since", "--max-steps", "--timeout", "--output"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ValueFlags = new(
+        ["--config", "--target", "--agent", "--changed-since", "--max-steps", "--timeout", "--output"],
+        StringComparer.Ordinal
+    );
 
     /// <summary>Upstream flags the port has no feature for, and that change what the run means: they are refused.</summary>
     private static readonly HashSet<string> RefusedFlags = new(["--session", "--reporter"], StringComparer.Ordinal);
 
     /// <summary>The flags that take no value.</summary>
-    private static readonly HashSet<string> SwitchFlags = new(["--headed", "--debug", "--ai-trace"], StringComparer.Ordinal);
+    private static readonly HashSet<string> SwitchFlags = new(
+        ["--headed", "--debug", "--ai-trace"],
+        StringComparer.Ordinal
+    );
 
     /// <summary>The flags that take a recording mode if the next argument is not an option: a bare flag is <c>on</c>.</summary>
     private static readonly HashSet<string> ModeFlags = new(["--trace", "--video"], StringComparer.Ordinal);
 
-    public static string UsageText() => Usage
-        .Replace("{MODES}", RecordingModes.List, StringComparison.Ordinal)
-        .Replace("{STEPS_DEFAULT}", Explore.StepBounds.Default.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-        .Replace("{STEPS}", Explore.StepBounds.Min.ToString(CultureInfo.InvariantCulture) + " through " + Explore.StepBounds.Max.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-        .Replace("{TIMEOUT_DEFAULT}", Milliseconds(Explore.TimeoutBounds.Default).ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-        .Replace("{TIMEOUT}", Milliseconds(Explore.TimeoutBounds.Min).ToString(CultureInfo.InvariantCulture) + " through " + Milliseconds(Explore.TimeoutBounds.Max).ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+    public static string UsageText() =>
+        Usage
+            .Replace("{MODES}", RecordingModes.List, StringComparison.Ordinal)
+            .Replace(
+                "{STEPS_DEFAULT}",
+                Explore.StepBounds.Default.ToString(CultureInfo.InvariantCulture),
+                StringComparison.Ordinal
+            )
+            .Replace(
+                "{STEPS}",
+                Explore.StepBounds.Min.ToString(CultureInfo.InvariantCulture)
+                    + " through "
+                    + Explore.StepBounds.Max.ToString(CultureInfo.InvariantCulture),
+                StringComparison.Ordinal
+            )
+            .Replace(
+                "{TIMEOUT_DEFAULT}",
+                Milliseconds(Explore.TimeoutBounds.Default).ToString(CultureInfo.InvariantCulture),
+                StringComparison.Ordinal
+            )
+            .Replace(
+                "{TIMEOUT}",
+                Milliseconds(Explore.TimeoutBounds.Min).ToString(CultureInfo.InvariantCulture)
+                    + " through "
+                    + Milliseconds(Explore.TimeoutBounds.Max).ToString(CultureInfo.InvariantCulture),
+                StringComparison.Ordinal
+            );
 
     /// <summary>
     /// Runs one exploration. <paramref name="explore"/> is <see cref="Explore.ExploreAsync"/>; a test passes its own. <paramref name="cwd"/> is the working directory (upstream's <c>process.cwd()</c>), the process's by default.
@@ -96,7 +123,8 @@ internal static partial class ExploreCommand
         bool interactive,
         Func<ExploreOptions, CancellationToken, Task<ExploreOutcome>> explore,
         CancellationToken cancellationToken,
-        string? cwd = null)
+        string? cwd = null
+    )
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
@@ -134,20 +162,28 @@ internal static partial class ExploreCommand
         // The record is the model's and the app's text, redacted where the run writes it to its events, as upstream's emitter does. The
         // errors this command prints itself are redacted here, for the config's secrets and the accounts' passwords.
         var redactor = Redactor.For(
-            (config?.AllSecrets ?? []).Concat(accounts.Select(account => account.Credential.Password)).Concat(DeviceTargets.Credentials()));
+            (config?.AllSecrets ?? [])
+                .Concat(accounts.Select(account => account.Credential.Password))
+                .Concat(DeviceTargets.Credentials())
+        );
 
         // The list reporter renders the run's events: the header, each finding and step as they happen, the record, and the summary.
         var reporter = new ListReporter(
             new StdoutOutput(stdout),
-            new ListReporterOptions { Live = false, Colors = interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")) });
+            new ListReporterOptions
+            {
+                Live = false,
+                Colors = interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")),
+            }
+        );
         // The config's reporters run for the exploration as they do for a test run (upstream passes `reporters` to the run it builds), so the GitHub reporter posts its comment.
         using var run = config is null ? HostRun.Begin([]) : HostRun.Begin(() => config);
         var started = false;
         using var listening = RunEvents.Subscribe(new RunEventSubscriber("list", runEvent =>
-        {
-            started |= runEvent.Fact is RunStartedEvent;
-            reporter.Handle(runEvent.Fact);
-        }));
+            {
+                started |= runEvent.Fact is RunStartedEvent;
+                reporter.Handle(runEvent.Fact);
+            }));
 
         var options = new ExploreOptions
         {
@@ -167,7 +203,11 @@ internal static partial class ExploreCommand
             AiTrace = parsed.AiTrace,
             Trace = parsed.Trace,
             Video = parsed.Video,
-            Credentials = accounts.ToDictionary(account => account.Name, account => account.Credential, StringComparer.Ordinal),
+            Credentials = accounts.ToDictionary(
+                account => account.Name,
+                account => account.Credential,
+                StringComparer.Ordinal
+            ),
             Notice = message => stderr.WriteLine(Notice(message)),
         };
 
@@ -176,14 +216,17 @@ internal static partial class ExploreCommand
         {
             outcome = await explore(options, cancellationToken).ConfigureAwait(false);
         }
-        catch (E2EException ex) when (ex.Code == EngineErrorCodes.Cancelled && cancellationToken.IsCancellationRequested)
+        catch (E2EException ex)
+            when (ex.Code == EngineErrorCodes.Cancelled && cancellationToken.IsCancellationRequested)
         {
             // Opening the host reports an interrupt as CANCELLED, not as OperationCanceledException.
             return 130;
         }
         catch (E2EException ex)
         {
-            await stderr.WriteLineAsync("error " + ex.Code + ": " + Format.Bounded(redactor.Redact(ex.Message))).ConfigureAwait(false);
+            await stderr
+                .WriteLineAsync("error " + ex.Code + ": " + Format.Bounded(redactor.Redact(ex.Message)))
+                .ConfigureAwait(false);
             var exitCode = Runner.ExitCodeOf(ex);
             if (started)
             {
@@ -216,11 +259,16 @@ internal static partial class ExploreCommand
     /// lower case, read with <see cref="Credentials.User"/> so a missing or short password is its error and not a silent skip. A name
     /// that maps to the variables of a configured credential is that credential, which the config already carries.
     /// </summary>
-    internal static List<(string Name, UserCredential Credential)> ScanCredentials(IEnumerable<string>? configured = null)
+    internal static List<(string Name, UserCredential Credential)> ScanCredentials(
+        IEnumerable<string>? configured = null
+    )
     {
-        var covered = (configured ?? []).Select(name => ConfigSecrets.EnvName("E2E_USER", name)).ToHashSet(StringComparer.Ordinal);
-        var names = Environment.GetEnvironmentVariables().Keys
-            .Cast<string>()
+        var covered = (configured ?? [])
+            .Select(name => ConfigSecrets.EnvName("E2E_USER", name))
+            .ToHashSet(StringComparer.Ordinal);
+        var names = Environment
+            .GetEnvironmentVariables()
+            .Keys.Cast<string>()
             .Select(key => UsernameVariable().Match(key))
             .Where(match => match.Success)
             .Select(match => match.Groups[1].Value.ToLowerInvariant())
@@ -247,7 +295,8 @@ internal static partial class ExploreCommand
             var path = args.Config is null ? E2EConfig.Find(cwd) : Path.GetFullPath(args.Config, cwd);
             return path is not null && File.Exists(path) ? E2EConfig.Load(path) : null;
         }
-        catch (Exception ex) when (ex is E2EException or IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception ex)
+            when (ex is E2EException or IOException or UnauthorizedAccessException or ArgumentException)
         {
             failed = true;
             return null;
@@ -348,7 +397,10 @@ internal static partial class ExploreCommand
                 }
                 else
                 {
-                    return new ExploreArgs { Error = "option '" + name + " " + ValueLabel(name) + "' argument missing" };
+                    return new ExploreArgs
+                    {
+                        Error = "option '" + name + " " + ValueLabel(name) + "' argument missing",
+                    };
                 }
 
                 if (Apply(result, name, value) is { } problem)
@@ -371,7 +423,10 @@ internal static partial class ExploreCommand
         {
             return new ExploreArgs
             {
-                Error = "too many arguments for 'explore'. Expected 1 argument but got " + positional.Count.ToString(CultureInfo.InvariantCulture) + ".",
+                Error =
+                    "too many arguments for 'explore'. Expected 1 argument but got "
+                    + positional.Count.ToString(CultureInfo.InvariantCulture)
+                    + ".",
             };
         }
 
@@ -399,9 +454,28 @@ internal static partial class ExploreCommand
         }
 
         var invalid = "option '" + flag + " [mode]' argument '" + value + "' is invalid. ";
-        return flag == "--trace" && RecordingModes.TryLegacyTraceSpelling(value, block: false, out var was, out var meant) && was is not null
-            ? invalid + "\"" + value + "\" is the old spelling of " + flag + " " + RecordingModes.Name(meant) + "; the modes are " + RecordingModes.List
-            : invalid + "expected a mode (" + RecordingModes.List + "), got \"" + value + "\"; write " + flag + "=<mode>, or put test files before " + flag;
+        return
+            flag == "--trace"
+            && RecordingModes.TryLegacyTraceSpelling(value, block: false, out var was, out var meant)
+            && was is not null
+            ? invalid
+                + "\""
+                + value
+                + "\" is the old spelling of "
+                + flag
+                + " "
+                + RecordingModes.Name(meant)
+                + "; the modes are "
+                + RecordingModes.List
+            : invalid
+                + "expected a mode ("
+                + RecordingModes.List
+                + "), got \""
+                + value
+                + "\"; write "
+                + flag
+                + "=<mode>, or put test files before "
+                + flag;
     }
 
     private static string? Apply(ExploreArgs result, string name, string value)
@@ -425,7 +499,11 @@ internal static partial class ExploreCommand
                 return null;
             case "--max-steps":
                 var bounds = Explore.StepBounds;
-                if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var steps) || steps < bounds.Min || steps > bounds.Max)
+                if (
+                    !int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var steps)
+                    || steps < bounds.Min
+                    || steps > bounds.Max
+                )
                 {
                     return Invalid(name, value, bounds.Min, bounds.Max);
                 }
@@ -434,7 +512,11 @@ internal static partial class ExploreCommand
                 return null;
             default:
                 var time = Explore.TimeoutBounds;
-                if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var ms) || ms < Milliseconds(time.Min) || ms > Milliseconds(time.Max))
+                if (
+                    !int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var ms)
+                    || ms < Milliseconds(time.Min)
+                    || ms > Milliseconds(time.Max)
+                )
                 {
                     return Invalid(name, value, Milliseconds(time.Min), Milliseconds(time.Max));
                 }
@@ -445,19 +527,28 @@ internal static partial class ExploreCommand
     }
 
     private static string Invalid(string name, string value, int min, int max) =>
-        "option '" + name + " " + ValueLabel(name) + "' argument '" + value + "' is invalid. must be an integer from "
-        + min.ToString(CultureInfo.InvariantCulture) + " through " + max.ToString(CultureInfo.InvariantCulture);
+        "option '"
+        + name
+        + " "
+        + ValueLabel(name)
+        + "' argument '"
+        + value
+        + "' is invalid. must be an integer from "
+        + min.ToString(CultureInfo.InvariantCulture)
+        + " through "
+        + max.ToString(CultureInfo.InvariantCulture);
 
-    private static string ValueLabel(string name) => name switch
-    {
-        "--config" => "<path>",
-        "--target" => "<id>",
-        "--agent" => "<name>",
-        "--changed-since" => "<ref>",
-        "--max-steps" => "<n>",
-        "--timeout" => "<ms>",
-        _ => "<dir>",
-    };
+    private static string ValueLabel(string name) =>
+        name switch
+        {
+            "--config" => "<path>",
+            "--target" => "<id>",
+            "--agent" => "<name>",
+            "--changed-since" => "<ref>",
+            "--max-steps" => "<n>",
+            "--timeout" => "<ms>",
+            _ => "<dir>",
+        };
 
     private sealed class ExploreArgs
     {

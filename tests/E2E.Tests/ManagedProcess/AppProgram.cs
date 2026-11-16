@@ -16,12 +16,22 @@ namespace E2E.Tests.ManagedProcess;
 internal static class AppProgram
 {
     /// <summary>The executable of <c>E2E.Tests.App</c>, which stands where upstream's tests use <c>process.execPath</c>.</summary>
-    public static string Executable { get; } = Path.Combine(AppContext.BaseDirectory, "E2E.Tests.App" + (OperatingSystem.IsWindows() ? ".exe" : ""));
+    public static string Executable { get; } =
+        Path.Combine(AppContext.BaseDirectory, "E2E.Tests.App" + (OperatingSystem.IsWindows() ? ".exe" : ""));
 
     private static readonly HttpClient Client = new() { Timeout = TimeSpan.FromSeconds(2) };
 
-    public static CommandConfig Command(string[] args, TimeSpan? startupTimeout = null, TimeSpan? shutdownTimeout = null, string? log = null, bool? reuseExisting = null, string? cwd = null,
-        IReadOnlyDictionary<string, string>? env = null, IReadOnlyList<string>? inheritEnv = null) => new()
+    public static CommandConfig Command(
+        string[] args,
+        TimeSpan? startupTimeout = null,
+        TimeSpan? shutdownTimeout = null,
+        string? log = null,
+        bool? reuseExisting = null,
+        string? cwd = null,
+        IReadOnlyDictionary<string, string>? env = null,
+        IReadOnlyList<string>? inheritEnv = null
+    ) =>
+        new()
         {
             Executable = Executable,
             Args = args,
@@ -35,7 +45,10 @@ internal static class AppProgram
             InheritEnv = [.. inheritEnv ?? [], "DOTNET_ROOT"],
         };
 
-    public static string[] Serve(int port, string? extra = null) => extra is null ? ["serve", port.ToString(System.Globalization.CultureInfo.InvariantCulture)] : ["serve", port.ToString(System.Globalization.CultureInfo.InvariantCulture), extra];
+    public static string[] Serve(int port, string? extra = null) =>
+        extra is null
+            ? ["serve", port.ToString(System.Globalization.CultureInfo.InvariantCulture)]
+            : ["serve", port.ToString(System.Globalization.CultureInfo.InvariantCulture), extra];
 
     /// <summary>A port nothing listens on at the moment.</summary>
     public static int FreePort()
@@ -77,7 +90,12 @@ internal static class AppProgram
         {
             try
             {
-                using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var stream = new FileStream(
+                    file,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete
+                );
                 using var reader = new StreamReader(stream);
                 if ((await reader.ReadToEndAsync()).Contains(text, StringComparison.Ordinal))
                 {
@@ -116,7 +134,10 @@ internal sealed class TestServer : IAsyncDisposable
     {
         _respond = respond;
         _listener.Start();
-        Url = "http://127.0.0.1:" + ((IPEndPoint)_listener.LocalEndpoint).Port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/";
+        Url =
+            "http://127.0.0.1:"
+            + ((IPEndPoint)_listener.LocalEndpoint).Port.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            + "/";
         _accepting = Task.Run(AcceptAsync);
     }
 
@@ -175,14 +196,22 @@ internal sealed class TestServer : IAsyncDisposable
             var status = await _respond(Interlocked.Increment(ref _requests));
             if (status is { } code)
             {
-                await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 " + code.ToString(System.Globalization.CultureInfo.InvariantCulture) + " X\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"), _stop.Token);
+                await stream.WriteAsync(
+                    Encoding.ASCII.GetBytes(
+                        "HTTP/1.1 "
+                            + code.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                            + " X\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
+                    ),
+                    _stop.Token
+                );
             }
             else
             {
                 await Task.Delay(Timeout.Infinite, _stop.Token);
             }
         }
-        catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException or SocketException)
+        catch (Exception ex)
+            when (ex is OperationCanceledException or IOException or ObjectDisposedException or SocketException)
         {
             // the client or the server went away
         }

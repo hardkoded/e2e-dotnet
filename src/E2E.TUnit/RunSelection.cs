@@ -14,7 +14,9 @@ namespace E2E.TUnit;
 /// </summary>
 internal static class RunSelection
 {
-    private static IReadOnlyDictionary<string, string> _excluded = new Dictionary<string, string>(StringComparer.Ordinal);
+    private static IReadOnlyDictionary<string, string> _excluded = new Dictionary<string, string>(
+        StringComparer.Ordinal
+    );
 
     private static readonly Lock Gate = new();
 
@@ -25,7 +27,10 @@ internal static class RunSelection
     {
         lock (Gate)
         {
-            _excluded = new Dictionary<string, string>(_excluded, StringComparer.Ordinal).Concat(excluded).GroupBy(pair => pair.Key, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().Value, StringComparer.Ordinal);
+            _excluded = new Dictionary<string, string>(_excluded, StringComparer.Ordinal)
+                .Concat(excluded)
+                .GroupBy(pair => pair.Key, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First().Value, StringComparer.Ordinal);
         }
     }
 
@@ -49,7 +54,9 @@ internal static class RunSelection
 
     /// <summary>Why the filters left the test out; null when it runs.</summary>
     internal static string? ReasonFor(Type fixture, string? method) =>
-        method is not null && Volatile.Read(ref _excluded).TryGetValue(KeyOf(fixture, method), out var reason) ? reason : null;
+        method is not null && Volatile.Read(ref _excluded).TryGetValue(KeyOf(fixture, method), out var reason)
+            ? reason
+            : null;
 
     private static string KeyOf(Type fixture, string method) => fixture.FullName + "." + method;
 
@@ -61,19 +68,35 @@ internal static class RunSelection
     internal static IReadOnlyList<DiscoveredTest> Discover(IEnumerable<Type> types, Assembly assembly)
     {
         var found = new List<DiscoveredTest>();
-        foreach (var type in types.Where(type => type is { IsAbstract: false, IsClass: true } && typeof(E2ETest).IsAssignableFrom(type) && !IsExplicit(type)).OrderBy(type => type.FullName, StringComparer.Ordinal))
+        foreach (
+            var type in types
+                .Where(type =>
+                    type is { IsAbstract: false, IsClass: true }
+                    && typeof(E2ETest).IsAssignableFrom(type)
+                    && !IsExplicit(type)
+                )
+                .OrderBy(type => type.FullName, StringComparer.Ordinal)
+        )
         {
             var typeTags = TagsOf(type, assembly).ToList();
-            foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance).Where(IsTest).Where(method => !IsExplicit(method)).OrderBy(method => method.MetadataToken))
+            foreach (
+                var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(IsTest)
+                    .Where(method => !IsExplicit(method))
+                    .OrderBy(method => method.MetadataToken)
+            )
             {
-                found.Add(new DiscoveredTest(
-                    KeyOf(type, method.Name),
-                    type.Namespace ?? "",
-                    TypeNameOf(type),
-                    method.Name,
-                    [.. typeTags, .. CategoriesOf(method)],
-                    // A skip with a condition (a derived SkipAttribute) is decided when the test runs, so it is not an outright skip.
-                    OutrightSkip(method) ?? OutrightSkip(type)));
+                found.Add(
+                    new DiscoveredTest(
+                        KeyOf(type, method.Name),
+                        type.Namespace ?? "",
+                        TypeNameOf(type),
+                        method.Name,
+                        [.. typeTags, .. CategoriesOf(method)],
+                        // A skip with a condition (a derived SkipAttribute) is decided when the test runs, so it is not an outright skip.
+                        OutrightSkip(method) ?? OutrightSkip(type)
+                    )
+                );
             }
         }
 
@@ -98,10 +121,14 @@ internal static class RunSelection
     private static bool IsExplicit(MemberInfo member) => member.IsDefined(typeof(ExplicitAttribute), true);
 
     private static string? OutrightSkip(MemberInfo member) =>
-        member.GetCustomAttributes<SkipAttribute>(true).FirstOrDefault(skip => skip.GetType() == typeof(SkipAttribute))?.Reason;
+        member
+            .GetCustomAttributes<SkipAttribute>(true)
+            .FirstOrDefault(skip => skip.GetType() == typeof(SkipAttribute))
+            ?.Reason;
 
     // A nested class is named with its enclosing classes, so two nested classes with one name stay apart.
-    private static string TypeNameOf(Type type) => type.DeclaringType is { } outer ? TypeNameOf(outer) + "+" + type.Name : type.Name;
+    private static string TypeNameOf(Type type) =>
+        type.DeclaringType is { } outer ? TypeNameOf(outer) + "+" + type.Name : type.Name;
 
     private static IEnumerable<string> CategoriesOf(MemberInfo member) =>
         member.GetCustomAttributes<CategoryAttribute>(true).Select(category => category.Category);

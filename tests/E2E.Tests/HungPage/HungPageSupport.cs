@@ -33,7 +33,10 @@ internal static class HungPageSupport
 
     public static Task<IEngineSession> StartAsync()
     {
-        return new WebEngine(headless: true).StartAsync(new EngineStartOptions { ActionTimeout = Budget }, CancellationToken.None);
+        return new WebEngine(headless: true).StartAsync(
+            new EngineStartOptions { ActionTimeout = Budget },
+            CancellationToken.None
+        );
     }
 
     /// <summary>Opens the busy page, observes it, and taps the button that starts the endless script.</summary>
@@ -41,7 +44,9 @@ internal static class HungPageSupport
     {
         await session.OpenAsync(site.Url, CancellationToken.None);
         var freeze = Button(await session.ObserveAsync(CancellationToken.None), "Freeze");
-        var tap = await BoundedAsync(() => session.PerformAsync(freeze, new LocatorAction.Tap(), CancellationToken.None));
+        var tap = await BoundedAsync(() =>
+            session.PerformAsync(freeze, new LocatorAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", tap.Code);
     }
 
@@ -56,8 +61,14 @@ internal static class HungPageSupport
         var started = Stopwatch.StartNew();
         var running = call();
         var settled = await Task.WhenAny(running, Task.Delay(Budget + Slack));
-        Assert.True(settled == running, $"still pending {(Budget + Slack).TotalMilliseconds}ms into a {Budget.TotalMilliseconds}ms budget");
-        Assert.True(started.Elapsed >= Budget - Early, $"failed after {started.ElapsedMilliseconds}ms of a {Budget.TotalMilliseconds}ms budget");
+        Assert.True(
+            settled == running,
+            $"still pending {(Budget + Slack).TotalMilliseconds}ms into a {Budget.TotalMilliseconds}ms budget"
+        );
+        Assert.True(
+            started.Elapsed >= Budget - Early,
+            $"failed after {started.ElapsedMilliseconds}ms of a {Budget.TotalMilliseconds}ms budget"
+        );
         return await Assert.ThrowsAsync<EngineException>(() => running);
     }
 

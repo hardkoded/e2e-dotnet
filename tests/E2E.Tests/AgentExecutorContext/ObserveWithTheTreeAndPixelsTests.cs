@@ -27,13 +27,15 @@ public sealed class ObserveWithTheTreeAndPixelsTests : IAsyncLifetime
             _seen = await context.ObserveAsync(new ExecutorObserveOptions { Tree = true, Pixels = true });
             return Passed("looked");
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new ScreenshotEngine(CounterPage.World(), _ => ScreenshotEngine.Png()),
-            AgentExecutor = looking,
-            BaseUrl = "https://counter.test",
-            TestTitle = "one act step",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new ScreenshotEngine(CounterPage.World(), _ => ScreenshotEngine.Png()),
+                AgentExecutor = looking,
+                BaseUrl = "https://counter.test",
+                TestTitle = "one act step",
+            }
+        );
         try
         {
             await session.App.OpenAsync("/");

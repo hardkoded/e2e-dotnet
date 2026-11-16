@@ -50,7 +50,8 @@ internal class ScreenshotEngine(DocumentWorld world, Func<int, byte[]>? shot = n
 
         public string Route => inner.Route;
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+        public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+            inner.OpenAsync(url, cancellationToken);
 
         public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
         {
@@ -59,9 +60,11 @@ internal class ScreenshotEngine(DocumentWorld world, Func<int, byte[]>? shot = n
             return observation;
         }
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => inner.PerformAsync(node, action, cancellationToken);
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+            inner.PerformAsync(node, action, cancellationToken);
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+        public Task PressAsync(string key, CancellationToken cancellationToken) =>
+            inner.PressAsync(key, cancellationToken);
 
         public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken)
         {
@@ -70,7 +73,9 @@ internal class ScreenshotEngine(DocumentWorld world, Func<int, byte[]>? shot = n
                 return inner.ScreenshotAsync(cancellationToken);
             }
 
-            return Task.FromResult(new EngineScreenshot(engine._shot(Interlocked.Increment(ref engine._screenshots)), 1, _secure));
+            return Task.FromResult(
+                new EngineScreenshot(engine._shot(Interlocked.Increment(ref engine._screenshots)), 1, _secure)
+            );
         }
 
         public ValueTask DisposeAsync() => inner.DisposeAsync();

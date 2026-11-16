@@ -103,7 +103,8 @@ public sealed class StreamRedactorTests
         var stream = new StreamRedactor(Ledger.Of());
         Assert.Equal(
             "�X�",
-            stream.Push(new byte[] { 0xc3 }) + stream.Push("X") + stream.Push(new byte[] { 0xa9 }) + stream.Flush());
+            stream.Push(new byte[] { 0xc3 }) + stream.Push("X") + stream.Push(new byte[] { 0xa9 }) + stream.Flush()
+        );
     }
 
     [Fact]
@@ -112,6 +113,7 @@ public sealed class StreamRedactorTests
         var stream = new StreamRedactor(Ledger.Of());
         Assert.Equal(
             "é",
-            stream.Push(new byte[] { 0xc3 }) + stream.Push("") + stream.Push(new byte[] { 0xa9 }) + stream.Flush());
+            stream.Push(new byte[] { 0xc3 }) + stream.Push("") + stream.Push(new byte[] { 0xa9 }) + stream.Flush()
+        );
     }
 }

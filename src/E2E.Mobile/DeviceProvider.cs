@@ -130,8 +130,11 @@ public interface IDeviceProvider
     /// to record nothing; the port's default answers null, as <see cref="IBrowserProvider.RecordAsync"/> does. Upstream's context carries the
     /// attempt's <c>signal</c>; the port passes it as <paramref name="cancellationToken"/>.
     /// </summary>
-    Task<ProviderRecording?> RecordAsync(DeviceLease lease, ProviderRecordContext context, CancellationToken cancellationToken) =>
-        Task.FromResult<ProviderRecording?>(null);
+    Task<ProviderRecording?> RecordAsync(
+        DeviceLease lease,
+        ProviderRecordContext context,
+        CancellationToken cancellationToken
+    ) => Task.FromResult<ProviderRecording?>(null);
 }
 
 /// <summary>
@@ -162,7 +165,12 @@ internal static class DeviceProviders
     /// met once the token was cancelled is a cancellation. Null when the provider records nothing. Upstream's <c>recordLease</c>. Upstream
     /// also refuses a recording without a <c>startedAt</c> and a <c>stop()</c>; <see cref="ProviderRecording"/> has both by type.
     /// </summary>
-    public static async Task<ProviderRecording?> RecordLeaseAsync(IDeviceProvider provider, DeviceLease lease, ProviderRecordContext context, CancellationToken cancellationToken)
+    public static async Task<ProviderRecording?> RecordLeaseAsync(
+        IDeviceProvider provider,
+        DeviceLease lease,
+        ProviderRecordContext context,
+        CancellationToken cancellationToken
+    )
     {
         if (cancellationToken.IsCancellationRequested)
         {
@@ -184,7 +192,8 @@ internal static class DeviceProviders
                 EngineErrorCodes.EngineFailure,
                 $"device provider \"{provider.Name}\" could not start recording: {DeviceErrors.Message(cause)} for lease {lease.Id}",
                 retryable: false,
-                cause);
+                cause
+            );
         }
     }
 }
@@ -196,7 +205,8 @@ internal static class DeviceProviders
 /// </summary>
 internal sealed class LeasedDevices(IDeviceProvider provider, MobilePlatform platform) : IDeviceSource
 {
-    private const string RejectedLease = "returned a lease without an id and a daemon baseUrl or JSON client configuration (no `session` or daemon keys)";
+    private const string RejectedLease =
+        "returned a lease without an id and a daemon baseUrl or JSON client configuration (no `session` or daemon keys)";
 
     /// <summary>Leases granted so far, per target and slot, filled as each acquire settles. A lease the engine then rejects is among them.</summary>
     private readonly Dictionary<string, Held> _held = [];
@@ -229,76 +239,101 @@ internal sealed class LeasedDevices(IDeviceProvider provider, MobilePlatform pla
 
         info.Log($"leasing {info.Slots} {platform.WireName()} device(s) from {provider.Name}");
         var leases = await AllOrFirstFailureAsync(
-            Enumerable.Range(0, info.Slots).Select<int, Func<Task<DeviceLease>>>(slot => async () =>
-            {
-                var lease = await provider.AcquireAsync(
-                    new DeviceRequest
-                    {
-                        Platform = platform,
-                        RunId = info.RunId,
-                        TargetName = info.TargetName,
-                        Slot = slot,
-                        Slots = info.Slots,
-                        AgentDeviceVersion = AgentDeviceVersion.Pinned,
-                        App = app,
-                        AppPath = appPath,
-                        ProjectRoot = info.ProjectRoot,
-                        Env = info.Env,
-                        Log = line => info.Log($"{provider.Name} ({slot + 1} of {info.Slots}): {line}"),
-                    },
-                    cancellationToken).ConfigureAwait(false);
-                if (lease is null || lease.Id.Length == 0)
-                {
-                    throw new InvalidOperationException(RejectedLease);
-                }
+                Enumerable
+                    .Range(0, info.Slots)
+                    .Select<int, Func<Task<DeviceLease>>>(slot =>
+                        async () =>
+                        {
+                            var lease = await provider
+                                .AcquireAsync(
+                                    new DeviceRequest
+                                    {
+                                        Platform = platform,
+                                        RunId = info.RunId,
+                                        TargetName = info.TargetName,
+                                        Slot = slot,
+                                        Slots = info.Slots,
+                                        AgentDeviceVersion = AgentDeviceVersion.Pinned,
+                                        App = app,
+                                        AppPath = appPath,
+                                        ProjectRoot = info.ProjectRoot,
+                                        Env = info.Env,
+                                        Log = line => info.Log($"{provider.Name} ({slot + 1} of {info.Slots}): {line}"),
+                                    },
+                                    cancellationToken
+                                )
+                                .ConfigureAwait(false);
+                            if (lease is null || lease.Id.Length == 0)
+                            {
+                                throw new InvalidOperationException(RejectedLease);
+                            }
 
-                // Held before it is checked: the provider bills for what it granted, and release is owed this same object however the check goes.
-                bool abandoned;
-                lock (_held)
-                {
-                    abandoned = state.Finished;
-                    if (!abandoned)
-                    {
-                        held[slot] = lease;
-                    }
-                }
+                            // Held before it is checked: the provider bills for what it granted, and release is owed this same object however the check goes.
+                            bool abandoned;
+                            lock (_held)
+                            {
+                                abandoned = state.Finished;
+                                if (!abandoned)
+                                {
+                                    held[slot] = lease;
+                                }
+                            }
 
-                if (abandoned)
-                {
-                    // Finish ran while the provider was still leasing, as it does for a caller that stopped waiting: no one else will release this one.
-                    try
-                    {
-                        using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
-                        await provider.ReleaseAsync(lease, ReleaseContext(info.RunId, info.TargetName, info.Env, info.Log), budget.Token).ConfigureAwait(false);
-                    }
-                    catch (Exception release)
-                    {
-                        info.Log($"releasing the late lease {slot + 1} of {info.Slots} failed: {release.Message}");
-                    }
+                            if (abandoned)
+                            {
+                                // Finish ran while the provider was still leasing, as it does for a caller that stopped waiting: no one else will release this one.
+                                try
+                                {
+                                    using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
+                                    await provider
+                                        .ReleaseAsync(
+                                            lease,
+                                            ReleaseContext(info.RunId, info.TargetName, info.Env, info.Log),
+                                            budget.Token
+                                        )
+                                        .ConfigureAwait(false);
+                                }
+                                catch (Exception release)
+                                {
+                                    info.Log(
+                                        $"releasing the late lease {slot + 1} of {info.Slots} failed: {release.Message}"
+                                    );
+                                }
 
-                    throw new OperationCanceledException($"the lease {slot + 1} of {info.Slots} landed after the run ended and was released");
-                }
+                                throw new OperationCanceledException(
+                                    $"the lease {slot + 1} of {info.Slots} landed after the run ended and was released"
+                                );
+                            }
 
-                if (!IsDeviceLease(lease))
-                {
-                    throw new InvalidOperationException(RejectedLease);
-                }
+                            if (!IsDeviceLease(lease))
+                            {
+                                throw new InvalidOperationException(RejectedLease);
+                            }
 
-                if (lease.InstalledApp is not null && appPath is null)
-                {
-                    throw new InvalidOperationException("reported an installed app for a request without `appPath`");
-                }
+                            if (lease.InstalledApp is not null && appPath is null)
+                            {
+                                throw new InvalidOperationException(
+                                    "reported an installed app for a request without `appPath`"
+                                );
+                            }
 
-                // The pool opens this on the device in prepare. agent-device would open a link as a URL.
-                if (lease.InstalledApp is not null && DeviceLinks.IsLink(lease.InstalledApp))
-                {
-                    throw new InvalidOperationException("reported an installed app that is a link, not a bundle id or package");
-                }
+                            // The pool opens this on the device in prepare. agent-device would open a link as a URL.
+                            if (lease.InstalledApp is not null && DeviceLinks.IsLink(lease.InstalledApp))
+                            {
+                                throw new InvalidOperationException(
+                                    "reported an installed app that is a link, not a bundle id or package"
+                                );
+                            }
 
-                info.Log($"{provider.Name}: leased {lease.Id}{(lease.Device is null ? "" : $" ({lease.Device})")}");
-                return lease;
-            }),
-            $"device provider \"{provider.Name}\" could not lease a device").ConfigureAwait(false);
+                            info.Log(
+                                $"{provider.Name}: leased {lease.Id}{(lease.Device is null ? "" : $" ({lease.Device})")}"
+                            );
+                            return lease;
+                        }
+                    ),
+                $"device provider \"{provider.Name}\" could not lease a device"
+            )
+            .ConfigureAwait(false);
         return
         [
             .. leases.Select(lease => new SlotBinding
@@ -333,22 +368,32 @@ internal sealed class LeasedDevices(IDeviceProvider provider, MobilePlatform pla
 
         var context = ReleaseContext(info.RunId, info.TargetName, info.Env, info.Log);
         await AllOrFirstFailureAsync(
-            leases.Select<DeviceLease, Func<Task<object?>>>(lease => async () =>
-            {
-                await provider.ReleaseAsync(lease, context, cancellationToken).ConfigureAwait(false);
-                return null;
-            }),
-            $"device provider \"{provider.Name}\" could not release a device").ConfigureAwait(false);
+                leases.Select<DeviceLease, Func<Task<object?>>>(lease =>
+                    async () =>
+                    {
+                        await provider.ReleaseAsync(lease, context, cancellationToken).ConfigureAwait(false);
+                        return null;
+                    }
+                ),
+                $"device provider \"{provider.Name}\" could not release a device"
+            )
+            .ConfigureAwait(false);
         info.Log($"{provider.Name}: released {leases.Count} device(s)");
     }
 
-    private DeviceReleaseContext ReleaseContext(string runId, string targetName, IReadOnlyDictionary<string, string?> env, Action<string> log) => new()
-    {
-        RunId = runId,
-        TargetName = targetName,
-        Env = env,
-        Log = line => log($"{provider.Name}: {line}"),
-    };
+    private DeviceReleaseContext ReleaseContext(
+        string runId,
+        string targetName,
+        IReadOnlyDictionary<string, string?> env,
+        Action<string> log
+    ) =>
+        new()
+        {
+            RunId = runId,
+            TargetName = targetName,
+            Env = env,
+            Log = line => log($"{provider.Name}: {line}"),
+        };
 
     /// <summary>A granted lease checked field by field: the engine trusts nothing it did not write.</summary>
     private static bool IsDeviceLease(DeviceLease lease) =>
@@ -372,7 +417,12 @@ internal sealed class LeasedDevices(IDeviceProvider provider, MobilePlatform pla
         if (running.Find(task => task.IsFaulted || task.IsCanceled) is { } failed)
         {
             var cause = failed.Exception?.GetBaseException() ?? new OperationCanceledException();
-            throw new EngineException(EngineErrorCodes.EngineFailure, $"{describe}: {DeviceErrors.Message(cause)}", retryable: false, cause);
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"{describe}: {DeviceErrors.Message(cause)}",
+                retryable: false,
+                cause
+            );
         }
 
         return [.. running.Select(task => task.Result)];

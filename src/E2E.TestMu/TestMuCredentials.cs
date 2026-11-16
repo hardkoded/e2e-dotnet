@@ -20,9 +20,12 @@ internal static class TestMuCredentials
         var accessKey = EnvValue(env, LtAccessKey, "TESTMU_ACCESS_KEY");
         if (username is null || accessKey is null)
         {
-            var missing = new[] { username is null ? LtUsername : null, accessKey is null ? LtAccessKey : null }.OfType<string>().ToArray();
+            var missing = new[] { username is null ? LtUsername : null, accessKey is null ? LtAccessKey : null }
+                .OfType<string>()
+                .ToArray();
             throw new InvalidOperationException(
-                $"{string.Join(" and ", missing)} {(missing.Length == 1 ? "is" : "are")} not set; set {LtUsername} and {LtAccessKey} (or TESTMU_USERNAME and TESTMU_ACCESS_KEY) to your TestMu AI username and access key in the environment the tests start in. Both are in the TestMu automation dashboard, under Access Key.");
+                $"{string.Join(" and ", missing)} {(missing.Length == 1 ? "is" : "are")} not set; set {LtUsername} and {LtAccessKey} (or TESTMU_USERNAME and TESTMU_ACCESS_KEY) to your TestMu AI username and access key in the environment the tests start in. Both are in the TestMu automation dashboard, under Access Key."
+            );
         }
 
         return (username, accessKey);

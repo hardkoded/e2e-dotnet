@@ -17,7 +17,14 @@ namespace E2E;
 /// <param name="Retryable">Whether the caller may observe again and repeat the operation.</param>
 /// <param name="Source">The line in the test file the failure unwound through, when the stack named one.</param>
 /// <param name="Details">The structured facts of the failure, redacted, sanitized, and bounded; null when there are none.</param>
-internal sealed record SerializedError(string Category, string Code, string Message, bool Retryable, SourceLocation? Source, ErrorDetails? Details = null);
+internal sealed record SerializedError(
+    string Category,
+    string Code,
+    string Message,
+    bool Retryable,
+    SourceLocation? Source,
+    ErrorDetails? Details = null
+);
 
 /// <summary>
 /// Upstream's <c>classifyError</c> and <c>serializeError</c> (<c>internal/errors.ts</c>): what a thrown value is, in the
@@ -40,7 +47,12 @@ internal static class ErrorSerializer
     {
         return cause switch
         {
-            AgentException agent => (AgentError.CategoryByCode.GetValueOrDefault(agent.Code, "test"), agent.Code, agent.Message, false),
+            AgentException agent => (
+                AgentError.CategoryByCode.GetValueOrDefault(agent.Code, "test"),
+                agent.Code,
+                agent.Message,
+                false
+            ),
             TestException test => ("test", test.Code, test.Message, false),
             ConfigurationException configuration => ("configuration", configuration.Code, configuration.Message, false),
             EngineException { Mapped: false } engine when IsEngineErrorCode(engine.Code) => ClassifyEngineError(engine),
@@ -54,12 +66,22 @@ internal static class ErrorSerializer
     // Upstream's classifyError runs translateEngineError for any EngineError, so the canonical mapping applies from any surface.
     // The translated error carries no retry claim. Like upstream's asEngineError, only the closed engine code set counts: any other
     // code (APP_UNREACHABLE, WORKER_PROTOCOL) is a runner InfrastructureError upstream, and a Mapped error is one the runner already named.
-    private static bool IsEngineErrorCode(string code) => code is EngineErrorCodes.NodeStale or EngineErrorCodes.FrameNotFound
-        or EngineErrorCodes.FrameAmbiguous or EngineErrorCodes.NotActionable or EngineErrorCodes.ActionMayHaveCommitted
-        or EngineErrorCodes.OperationTimeout or EngineErrorCodes.Cancelled or EngineErrorCodes.UnsupportedCapability
-        or EngineErrorCodes.InvalidState or EngineErrorCodes.EngineFailure;
+    private static bool IsEngineErrorCode(string code) =>
+        code
+            is EngineErrorCodes.NodeStale
+                or EngineErrorCodes.FrameNotFound
+                or EngineErrorCodes.FrameAmbiguous
+                or EngineErrorCodes.NotActionable
+                or EngineErrorCodes.ActionMayHaveCommitted
+                or EngineErrorCodes.OperationTimeout
+                or EngineErrorCodes.Cancelled
+                or EngineErrorCodes.UnsupportedCapability
+                or EngineErrorCodes.InvalidState
+                or EngineErrorCodes.EngineFailure;
 
-    private static (string Category, string Code, string Message, bool Retryable) ClassifyEngineError(EngineException engine)
+    private static (string Category, string Code, string Message, bool Retryable) ClassifyEngineError(
+        EngineException engine
+    )
     {
         var translated = TranslateEngineError(engine);
         return translated is EngineException infrastructure
@@ -80,7 +102,12 @@ internal static class ErrorSerializer
     public static Exception TranslateEngineError(Exception cause, string suffix = "")
     {
         // A caller's cancel must surface as cancellation, not as an engine failure (.NET-only).
-        if (cause is OperationCanceledException or (E2EException and not EngineException) or EngineException { Mapped: true })
+        if (
+            cause
+            is OperationCanceledException
+                or (E2EException and not EngineException)
+                or EngineException { Mapped: true }
+        )
         {
             return cause;
         }
@@ -95,24 +122,41 @@ internal static class ErrorSerializer
             EngineErrorCodes.NodeStale => new TestException("LOCATOR_NOT_FOUND", "node became stale" + suffix, engine),
             EngineErrorCodes.FrameNotFound => new TestException("LOCATOR_NOT_FOUND", engine.Message + suffix, engine),
             EngineErrorCodes.FrameAmbiguous => new TestException("LOCATOR_AMBIGUOUS", engine.Message + suffix, engine),
-            EngineErrorCodes.NotActionable or EngineErrorCodes.ActionMayHaveCommitted => new TestException("ACTION_FAILED", engine.Message + suffix, engine),
-            EngineErrorCodes.OperationTimeout => new TestException("ACTION_FAILED", "operation timed out" + suffix, engine),
-            EngineErrorCodes.Cancelled => new EngineException(EngineErrorCodes.Cancelled, "operation cancelled", engine),
-            EngineErrorCodes.UnsupportedCapability => new ConfigurationException(EngineErrorCodes.UnsupportedCapability, engine.Message, engine),
+            EngineErrorCodes.NotActionable or EngineErrorCodes.ActionMayHaveCommitted => new TestException(
+                "ACTION_FAILED",
+                engine.Message + suffix,
+                engine
+            ),
+            EngineErrorCodes.OperationTimeout => new TestException(
+                "ACTION_FAILED",
+                "operation timed out" + suffix,
+                engine
+            ),
+            EngineErrorCodes.Cancelled => new EngineException(
+                EngineErrorCodes.Cancelled,
+                "operation cancelled",
+                engine
+            ),
+            EngineErrorCodes.UnsupportedCapability => new ConfigurationException(
+                EngineErrorCodes.UnsupportedCapability,
+                engine.Message,
+                engine
+            ),
             EngineErrorCodes.InvalidState => new TestException("APP_NOT_OPEN", engine.Message, engine),
             _ => new EngineException(EngineErrorCodes.EngineFailure, engine.Message, engine),
         };
     }
 
     /// <summary>Maps a category to its process exit code (upstream's <c>exitCodeForCategory</c>).</summary>
-    public static int ExitCodeForCategory(string category) => category switch
-    {
-        "configuration" => 2,
-        "infrastructure" => 3,
-        "internal" => 4,
-        "interrupted" => 130,
-        _ => 1,
-    };
+    public static int ExitCodeForCategory(string category) =>
+        category switch
+        {
+            "configuration" => 2,
+            "infrastructure" => 3,
+            "internal" => 4,
+            "interrupted" => 130,
+            _ => 1,
+        };
 
     /// <summary>Combines exit codes for mixed outcomes using precedence 130, 4, 3, 2, 1, 0 (upstream's <c>combineExitCodes</c>).</summary>
     public static int CombineExitCodes(IEnumerable<int> codes)
@@ -126,7 +170,12 @@ internal static class ErrorSerializer
     /// redactor without one), sanitized, and bounded: an assertion that observed a secret on screen, or a message that quoted one,
     /// must not carry it into the report. <paramref name="source"/> names the line when the caller knows it better than the stack does.
     /// </summary>
-    public static SerializedError Serialize(Exception cause, string? projectRoot = null, Func<string, string>? redact = null, SourceLocation? source = null)
+    public static SerializedError Serialize(
+        Exception cause,
+        string? projectRoot = null,
+        Func<string, string>? redact = null,
+        SourceLocation? source = null
+    )
     {
         var (category, code, message, retryable) = Classify(cause);
         redact ??= ErrorRedaction.Redact;
@@ -136,13 +185,17 @@ internal static class ErrorSerializer
             TextRules.TruncateUtf8(TextRules.SanitizeText(redact(message)), MaxMessageBytes),
             retryable,
             source ?? LocateIn(cause, projectRoot),
-            cause is E2EException { Details: { } details } ? BoundedDetails(details, redact) : null);
+            cause is E2EException { Details: { } details } ? BoundedDetails(details, redact) : null
+        );
     }
 
     // Details as the report carries them: text redacted, sanitized, and bounded, empty text dropped, nothing when nothing is left.
     private static ErrorDetails? BoundedDetails(ErrorDetails details, Func<string, string> redact)
     {
-        string? Text(string? text) => string.IsNullOrEmpty(text) ? null : TextRules.TruncateUtf8(TextRules.SanitizeText(redact(text)), MaxDetailBytes);
+        string? Text(string? text) =>
+            string.IsNullOrEmpty(text)
+                ? null
+                : TextRules.TruncateUtf8(TextRules.SanitizeText(redact(text)), MaxDetailBytes);
         var bounded = new ErrorDetails
         {
             Locator = Text(details.Locator),
@@ -178,7 +231,11 @@ internal static class ErrorSerializer
     /// (<c>internal/errors.ts</c>). The engine-code split is the one <see cref="Classify"/> uses: an error the runner already named
     /// (<see cref="EngineException.Mapped"/>, or a code outside the closed set) stays as it is.
     /// </summary>
-    internal static Exception TranslateProvisioningError(Exception cause, string suffix, CancellationToken cancellationToken)
+    internal static Exception TranslateProvisioningError(
+        Exception cause,
+        string suffix,
+        CancellationToken cancellationToken
+    )
     {
         if (cause is EngineException { Mapped: false, Code: EngineErrorCodes.Cancelled })
         {
@@ -235,7 +292,11 @@ internal static class ErrorSerializer
     {
         if (cause is AggregateException aggregate)
         {
-            var members = aggregate.InnerExceptions.Select(DescribeCause).Where(text => text.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+            var members = aggregate
+                .InnerExceptions.Select(DescribeCause)
+                .Where(text => text.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
             if (members.Count > 0)
             {
                 return string.Join("; ", members);

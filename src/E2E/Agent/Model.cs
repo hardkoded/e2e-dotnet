@@ -223,9 +223,18 @@ public static class ModelResponses
 {
     public static ModelResponse Done(string status, string summary, string? errorCode = null)
     {
-        return Call(VerdictTool.Name, errorCode is null
-            ? new { status, summary }
-            : (object)new { status, summary, errorCode });
+        return Call(
+            VerdictTool.Name,
+            errorCode is null
+                ? new { status, summary }
+                : (object)
+                    new
+                    {
+                        status,
+                        summary,
+                        errorCode,
+                    }
+        );
     }
 
     /// <summary>
@@ -236,7 +245,15 @@ public static class ModelResponses
     {
         return new ModelResponse
         {
-            Content = JsonSerializer.Serialize(new { protocolVersion = "agent-judgment-2", explanation, verdict }, JsonDefaults.Options),
+            Content = JsonSerializer.Serialize(
+                new
+                {
+                    protocolVersion = "agent-judgment-2",
+                    explanation,
+                    verdict,
+                },
+                JsonDefaults.Options
+            ),
         };
     }
 
@@ -247,7 +264,15 @@ public static class ModelResponses
 
     public static ModelResponse Fill(string role, string name, string value)
     {
-        return Call("type", new { role, name, value });
+        return Call(
+            "type",
+            new
+            {
+                role,
+                name,
+                value,
+            }
+        );
     }
 
     public static ModelResponse Call(string name, object arguments)
@@ -305,19 +330,46 @@ public sealed partial class ScriptedModel : IAgentModel
     // call is rewritten to the id the screens in this request list for it. A node no screen lists becomes an id that matches nothing.
     private static ModelResponse Targeted(ModelRequest request, ModelResponse response)
     {
-        if (response.ToolCalls.Count == 0 || !response.ToolCalls.Any(call => call.Arguments.ValueKind == JsonValueKind.Object && NamesNode(call.Arguments)))
+        if (
+            response.ToolCalls.Count == 0
+            || !response.ToolCalls.Any(call =>
+                call.Arguments.ValueKind == JsonValueKind.Object && NamesNode(call.Arguments)
+            )
+        )
         {
             return response;
         }
 
-        var calls = response.ToolCalls.Select(call => call.Arguments.ValueKind == JsonValueKind.Object && NamesNode(call.Arguments)
-            ? new ModelToolCall { Id = call.Id, Name = call.Name, Arguments = Retarget(request, call.Arguments), ProviderMetadata = call.ProviderMetadata }
-            : call).ToList();
-        return new ModelResponse { Content = response.Content, ToolCalls = calls, Usage = response.Usage, ReasoningText = response.ReasoningText, ProviderMetadata = response.ProviderMetadata };
+        var calls = response
+            .ToolCalls.Select(call =>
+                call.Arguments.ValueKind == JsonValueKind.Object && NamesNode(call.Arguments)
+                    ? new ModelToolCall
+                    {
+                        Id = call.Id,
+                        Name = call.Name,
+                        Arguments = Retarget(request, call.Arguments),
+                        ProviderMetadata = call.ProviderMetadata,
+                    }
+                    : call
+            )
+            .ToList();
+        return new ModelResponse
+        {
+            Content = response.Content,
+            ToolCalls = calls,
+            Usage = response.Usage,
+            ReasoningText = response.ReasoningText,
+            ProviderMetadata = response.ProviderMetadata,
+        };
     }
 
     private static bool NamesNode(JsonElement arguments) =>
-        !arguments.TryGetProperty("target", out _) && (arguments.TryGetProperty("role", out _) || arguments.TryGetProperty("name", out _) || arguments.TryGetProperty("testId", out _));
+        !arguments.TryGetProperty("target", out _)
+        && (
+            arguments.TryGetProperty("role", out _)
+            || arguments.TryGetProperty("name", out _)
+            || arguments.TryGetProperty("testId", out _)
+        );
 
     private static JsonElement Retarget(ModelRequest request, JsonElement arguments)
     {
@@ -325,7 +377,11 @@ public sealed partial class ScriptedModel : IAgentModel
         var name = Args.String(arguments, "name");
         var testId = Args.String(arguments, "testId");
         var id = "missing";
-        foreach (var line in request.Messages.Where(message => message.Content is not null).SelectMany(message => message.Content!.Split('\n')))
+        foreach (
+            var line in request
+                .Messages.Where(message => message.Content is not null)
+                .SelectMany(message => message.Content!.Split('\n'))
+        )
         {
             var match = ListedNode().Match(line);
             if (!match.Success)
@@ -333,14 +389,23 @@ public sealed partial class ScriptedModel : IAgentModel
                 continue;
             }
 
-            if (testId is not null ? match.Groups["testid"].Value == testId : (role is null || match.Groups["role"].Value == role) && (name is null || match.Groups["name"].Value == name))
+            if (
+                testId is not null
+                    ? match.Groups["testid"].Value == testId
+                    : (role is null || match.Groups["role"].Value == role)
+                        && (name is null || match.Groups["name"].Value == name)
+            )
             {
                 id = match.Groups["id"].Value;
             }
         }
 
         var rewritten = new System.Text.Json.Nodes.JsonObject { ["target"] = id };
-        foreach (var property in arguments.EnumerateObject().Where(property => property.Name is not ("role" or "name" or "testId")))
+        foreach (
+            var property in arguments
+                .EnumerateObject()
+                .Where(property => property.Name is not ("role" or "name" or "testId"))
+        )
         {
             rewritten[property.Name] = System.Text.Json.Nodes.JsonNode.Parse(property.Value.GetRawText());
         }
@@ -348,12 +413,17 @@ public sealed partial class ScriptedModel : IAgentModel
         return JsonSerializer.SerializeToElement(rewritten);
     }
 
-    [GeneratedRegex(@"^\s*(?:added |changed )?#(?<id>[A-Za-z0-9_-]+) (?<role>[^\s""]+)(?: ""(?<name>[^""]*)"")?(?:.*? testid=""(?<testid>[^""]*)"")?", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(
+        @"^\s*(?:added |changed )?#(?<id>[A-Za-z0-9_-]+) (?<role>[^\s""]+)(?: ""(?<name>[^""]*)"")?(?:.*? testid=""(?<testid>[^""]*)"")?",
+        RegexOptions.CultureInvariant
+    )]
     private static partial Regex ListedNode();
 
     private static ModelResponse AsJudgment(ModelResponse response)
     {
-        var done = response.ToolCalls.FirstOrDefault(call => string.Equals(call.Name, VerdictTool.Name, StringComparison.Ordinal));
+        var done = response.ToolCalls.FirstOrDefault(call =>
+            string.Equals(call.Name, VerdictTool.Name, StringComparison.Ordinal)
+        );
         if (done is null || response.Content is not null)
         {
             return response;
@@ -367,7 +437,13 @@ public sealed partial class ScriptedModel : IAgentModel
             "failed" when code != "ASSERTION_INCONCLUSIVE" => "fails",
             _ => "inconclusive",
         };
-        return new ModelResponse { Content = ModelResponses.Judgment(verdict, Args.String(done.Arguments, "summary") ?? "").Content, Usage = response.Usage, ReasoningText = response.ReasoningText, ProviderMetadata = response.ProviderMetadata };
+        return new ModelResponse
+        {
+            Content = ModelResponses.Judgment(verdict, Args.String(done.Arguments, "summary") ?? "").Content,
+            Usage = response.Usage,
+            ReasoningText = response.ReasoningText,
+            ProviderMetadata = response.ProviderMetadata,
+        };
     }
 }
 
@@ -389,5 +465,6 @@ internal static class ModelAdapter
     /// patches covering the image bounds every such encoder from above.
     /// </summary>
     public static int ImageTokenUpperBound(int width, int height) =>
-        (int)Math.Ceiling(Math.Max(1, width) / (double)ImageTilePx) * (int)Math.Ceiling(Math.Max(1, height) / (double)ImageTilePx);
+        (int)Math.Ceiling(Math.Max(1, width) / (double)ImageTilePx)
+        * (int)Math.Ceiling(Math.Max(1, height) / (double)ImageTilePx);
 }

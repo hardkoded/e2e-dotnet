@@ -24,7 +24,9 @@ public sealed partial class WebEngine : IAsyncDisposable
     public Task<EnginePrepareResult> PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(info);
-        return _leases is null ? Task.FromResult(new EnginePrepareResult()) : _leases.PrepareAsync(info, cancellationToken);
+        return _leases is null
+            ? Task.FromResult(new EnginePrepareResult())
+            : _leases.PrepareAsync(info, cancellationToken);
     }
 
     /// <summary>
@@ -95,7 +97,11 @@ public sealed partial class WebEngine : IAsyncDisposable
     }
 
     /// <summary>Prepares and starts the one worker of a run that has only this attempt; returns what finishing that run needs.</summary>
-    private static async Task<EngineFinishInfo> PrepareAloneAsync(LeasedBrowsers leases, EngineStartOptions options, CancellationToken cancellationToken)
+    private static async Task<EngineFinishInfo> PrepareAloneAsync(
+        LeasedBrowsers leases,
+        EngineStartOptions options,
+        CancellationToken cancellationToken
+    )
     {
         const string target = "web";
         var runId = Guid.NewGuid().ToString("n");
@@ -105,17 +111,46 @@ public sealed partial class WebEngine : IAsyncDisposable
             // A run without a reporter has nowhere to put a progress line.
         }
 
-        var finish = new EngineFinishInfo { RunId = runId, TargetName = target, Env = env, Log = Log };
+        var finish = new EngineFinishInfo
+        {
+            RunId = runId,
+            TargetName = target,
+            Env = env,
+            Log = Log,
+        };
         try
         {
-            var prepared = await leases.PrepareAsync(new EnginePrepareInfo { RunId = runId, TargetName = target, Slots = 1, Env = env, Headed = options.Headed, Log = Log }, cancellationToken).ConfigureAwait(false);
+            var prepared = await leases
+                .PrepareAsync(
+                    new EnginePrepareInfo
+                    {
+                        RunId = runId,
+                        TargetName = target,
+                        Slots = 1,
+                        Env = env,
+                        Headed = options.Headed,
+                        Log = Log,
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             var workerEnv = new Dictionary<string, string?>(env);
             foreach (var (name, value) in prepared.Env)
             {
                 workerEnv[name] = value;
             }
 
-            leases.Init(new EngineInitInfo { RunId = runId, TargetName = target, WorkerSlot = 0, Env = workerEnv, Headed = options.Headed, Log = Log });
+            leases.Init(
+                new EngineInitInfo
+                {
+                    RunId = runId,
+                    TargetName = target,
+                    WorkerSlot = 0,
+                    Env = workerEnv,
+                    Headed = options.Headed,
+                    Log = Log,
+                }
+            );
         }
         catch
         {
@@ -180,9 +215,10 @@ public sealed partial class WebEngine : IAsyncDisposable
                 CdpEndpoint = async cancellationToken =>
                 {
                     var lease = await leases.EndpointAsync(cancellationToken).ConfigureAwait(false);
-                    CdpTarget target = lease.Protocol == BrowserProtocol.Cdp
-                        ? await leases.CdpTargetAsync(lease, cancellationToken).ConfigureAwait(false)
-                        : lease.CdpEndpoint;
+                    CdpTarget target =
+                        lease.Protocol == BrowserProtocol.Cdp
+                            ? await leases.CdpTargetAsync(lease, cancellationToken).ConfigureAwait(false)
+                            : lease.CdpEndpoint;
                     _attached = true;
                     _protocol = lease.Protocol;
                     return target;
@@ -196,13 +232,18 @@ public sealed partial class WebEngine : IAsyncDisposable
         {
             if (lease.Protocol != BrowserProtocol.Cdp)
             {
-                throw new EngineException(EngineErrorCodes.EngineFailure, $"browser lease {lease.Id} speaks the {lease.Protocol} protocol, which cannot be reattached after a drop; lease it in Worker scope", retryable: false);
+                throw new EngineException(
+                    EngineErrorCodes.EngineFailure,
+                    $"browser lease {lease.Id} speaks the {lease.Protocol} protocol, which cannot be reattached after a drop; lease it in Worker scope",
+                    retryable: false
+                );
             }
 
             Connect = new WebConnectOptions
             {
                 CdpEndpoint = cancellationToken => leases.CdpTargetAsync(lease, cancellationToken),
-                ReconnectEndpoint = cancellationToken => leases.CdpTargetAsync(lease, cancellationToken, lease.ReconnectEndpoint ?? lease.CdpEndpoint),
+                ReconnectEndpoint = cancellationToken =>
+                    leases.CdpTargetAsync(lease, cancellationToken, lease.ReconnectEndpoint ?? lease.CdpEndpoint),
             };
             return this;
         }

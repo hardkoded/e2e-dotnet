@@ -17,9 +17,38 @@ internal static class TraceRead
 {
     /// <summary>The action kinds this runner records and replays. Upstream's <c>readAction</c> makes any other name a miss.</summary>
     private static readonly HashSet<string> KnownKinds = new(
-        ["tap", "doubleTap", "secondaryTap", "longPress", "hover", "scrollTo", "fill", "clear", "press", "select", "check", "uncheck", "upload", "drag",
-            "navigate", "scroll", "scrollUntil", "tapAt", "hoverAt", "dragAt", "back", "resize", "switchTab", "closeTab", "typeText", "pressKey", "dismissKeyboard", "tool"],
-        StringComparer.Ordinal);
+        [
+            "tap",
+            "doubleTap",
+            "secondaryTap",
+            "longPress",
+            "hover",
+            "scrollTo",
+            "fill",
+            "clear",
+            "press",
+            "select",
+            "check",
+            "uncheck",
+            "upload",
+            "drag",
+            "navigate",
+            "scroll",
+            "scrollUntil",
+            "tapAt",
+            "hoverAt",
+            "dragAt",
+            "back",
+            "resize",
+            "switchTab",
+            "closeTab",
+            "typeText",
+            "pressKey",
+            "dismissKeyboard",
+            "tool",
+        ],
+        StringComparer.Ordinal
+    );
 
     /// <summary>Upstream's <c>readTraceEntry</c> over a parsed document: the entry it reads as, or null for a document it cannot read.</summary>
     internal static CacheEntry? ReadTraceEntry(JsonNode? document)
@@ -46,7 +75,8 @@ internal static class TraceRead
     /// </summary>
     internal static CacheEntry? ReadTraceEntry(CacheEntry? entry)
     {
-        if (entry is null
+        if (
+            entry is null
             || entry.Schema != FileStepCache.SchemaVersion
             || entry.Actions is not { Count: > 0 }
             || entry.Appeared is null
@@ -57,7 +87,8 @@ internal static class TraceRead
             || !entry.HasValidEndWait()
             || !entry.HasValidCaps()
             || !entry.HasValidProvenance()
-            || !entry.Actions.All(IsValidAction))
+            || !entry.Actions.All(IsValidAction)
+        )
         {
             return null;
         }
@@ -87,5 +118,6 @@ internal static class TraceRead
         && action.HasValidSize()
         && action.HasValidTab();
 
-    private static bool HasNull<T>(List<T> items) where T : class => items.Any(item => item is null);
+    private static bool HasNull<T>(List<T> items)
+        where T : class => items.Any(item => item is null);
 }

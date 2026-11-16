@@ -17,8 +17,14 @@ public sealed class SetupDependenciesTests
     {
         var (results, output) = await NestedSessionRun.RunAsync(typeof(ConsumerFixture));
 
-        await Assert.That(results["Consumes_the_dependency_session"].Result).IsEqualTo("Passed").Because(results["Consumes_the_dependency_session"].Message);
-        await Assert.That(results["Consumes_the_dependency_session_again"].Result).IsEqualTo("Passed").Because(results["Consumes_the_dependency_session_again"].Message);
+        await Assert
+            .That(results["Consumes_the_dependency_session"].Result)
+            .IsEqualTo("Passed")
+            .Because(results["Consumes_the_dependency_session"].Message);
+        await Assert
+            .That(results["Consumes_the_dependency_session_again"].Result)
+            .IsEqualTo("Passed")
+            .Because(results["Consumes_the_dependency_session_again"].Message);
         await Assert.That(output.Split("setup-ran").Length - 1).IsEqualTo(1);
     }
 
@@ -29,7 +35,9 @@ public sealed class SetupDependenciesTests
 
         await Assert.That(results["Consumes_the_broken_session"].Result).IsEqualTo("Failed");
         await Assert.That(results["Consumes_the_broken_session_again"].Result).IsEqualTo("Failed");
-        await Assert.That(results["Consumes_the_broken_session"].Message).Contains("session \"broken\" was not produced");
+        await Assert
+            .That(results["Consumes_the_broken_session"].Message)
+            .Contains("session \"broken\" was not produced");
         await Assert.That(output.Split("broken-setup-ran").Length - 1).IsEqualTo(1);
     }
 }

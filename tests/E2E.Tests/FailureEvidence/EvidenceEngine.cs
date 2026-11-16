@@ -21,7 +21,10 @@ internal sealed class EvidenceEngine(params string[] buttons) : IEngine
     public string Version => "0";
 
     public EngineCapabilities Capabilities =>
-        EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | (CapturesPixels ? EngineCapabilities.Screenshot : 0);
+        EngineCapabilities.Observation
+        | EngineCapabilities.Actions
+        | EngineCapabilities.Location
+        | (CapturesPixels ? EngineCapabilities.Screenshot : 0);
 
     /// <summary>Whether the engine declares screenshots; upstream's fake engine does with <c>artifacts: true</c>.</summary>
     public bool CapturesPixels { get; init; } = true;
@@ -43,7 +46,8 @@ internal sealed class EvidenceEngine(params string[] buttons) : IEngine
 
     public int Count(string operation) => Operations.Count(candidate => candidate == operation);
 
-    public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) => Task.FromResult<IEngineSession>(new Session(this));
+    public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+        Task.FromResult<IEngineSession>(new Session(this));
 
     private void Note(string operation)
     {
@@ -76,20 +80,38 @@ internal sealed class EvidenceEngine(params string[] buttons) : IEngine
                     {
                         Ref = "root",
                         Role = "document",
-                        Children = [.. engine._buttons.Select((name, index) => new SemanticNode { Ref = "b" + index, Role = "button", Name = name })],
+                        Children =
+                        [
+                            .. engine._buttons.Select(
+                                (name, index) =>
+                                    new SemanticNode
+                                    {
+                                        Ref = "b" + index,
+                                        Role = "button",
+                                        Name = name,
+                                    }
+                            ),
+                        ],
                     },
                 ],
             };
         }
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
 
         public Task PressAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken)
         {
             engine.Note("screenshot");
-            return Task.FromResult(new EngineScreenshot(ImageOps.EncodePng(new RgbaImage(80, 40, new byte[80 * 40 * 4])), 2, MaskedRegionCount: 0));
+            return Task.FromResult(
+                new EngineScreenshot(
+                    ImageOps.EncodePng(new RgbaImage(80, 40, new byte[80 * 40 * 4])),
+                    2,
+                    MaskedRegionCount: 0
+                )
+            );
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

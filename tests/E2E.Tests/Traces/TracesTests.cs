@@ -39,24 +39,38 @@ public sealed class TracesTests : IDisposable
             await session.App.OpenAsync("/");
             session.Phase = null;
             await session.Screen.GetByRole("button", new() { Name = "Submit" }).TapAsync();
-            var failure = await Assert.ThrowsAnyAsync<E2EException>(() => Expect.That(session.Screen.GetByRole("button")).ToHaveCountAsync(2, TimeSpan.FromMilliseconds(300)));
+            var failure = await Assert.ThrowsAnyAsync<E2EException>(() =>
+                Expect.That(session.Screen.GetByRole("button")).ToHaveCountAsync(2, TimeSpan.FromMilliseconds(300))
+            );
 
             var (open, tap, count) = (session.StepRecords[0], session.StepRecords[1], session.StepRecords[2]);
             Assert.Equal(("app.open", StepPhase.BeforeEach), (open.Api, open.Phase));
             Assert.Empty(open.Events);
             Assert.Null(tap.Phase);
             var acted = Assert.Single(tap.Events);
-            Assert.Equal((StepEventKind.Engine, "tap", StepEventStatus.Passed, "tap button \"Submit\""), (acted.Kind, acted.Name, acted.Status, acted.Detail));
+            Assert.Equal(
+                (StepEventKind.Engine, "tap", StepEventStatus.Passed, "tap button \"Submit\""),
+                (acted.Kind, acted.Name, acted.Status, acted.Detail)
+            );
 
             // Launched before any step, the warning belongs to none; the failed request to the tap that sent it.
             Assert.Equal(
                 [
                     (AppLogSource.Console, AppLogLevel.Warning, "booting", (int?)null),
-                    (AppLogSource.Network, AppLogLevel.Error, "POST http://127.0.0.1:4100/api/save 500 Internal Server Error", tap.Index),
+                    (
+                        AppLogSource.Network,
+                        AppLogLevel.Error,
+                        "POST http://127.0.0.1:4100/api/save 500 Internal Server Error",
+                        tap.Index
+                    ),
                 ],
-                session.AppLog.Select(entry => (entry.Source, entry.Level, entry.Text, entry.Step)));
+                session.AppLog.Select(entry => (entry.Source, entry.Level, entry.Text, entry.Step))
+            );
             var polled = Assert.Single(count.Events);
-            Assert.Equal((StepEventKind.Poll, "expect", StepEventStatus.Failed), (polled.Kind, polled.Name, polled.Status));
+            Assert.Equal(
+                (StepEventKind.Poll, "expect", StepEventStatus.Failed),
+                (polled.Kind, polled.Name, polled.Status)
+            );
             Assert.Matches(@"^count 1 \(1 match\) x\d+$", polled.Detail!);
             Assert.True(polled.Count > 1);
             session.Complete(failure);
@@ -65,7 +79,11 @@ public sealed class TracesTests : IDisposable
         var page = ReadTrace(results, title)!;
         Assert.Contains("1. ✓ `app.open` `/` (", page, StringComparison.Ordinal);
         Assert.Contains("in beforeEach)", page, StringComparison.Ordinal);
-        Assert.Contains("   - ✗ network error: `POST /api/save 500 Internal Server Error`", page, StringComparison.Ordinal);
+        Assert.Contains(
+            "   - ✗ network error: `POST /api/save 500 Internal Server Error`",
+            page,
+            StringComparison.Ordinal
+        );
         Assert.Contains("- before step 1 · ⚠ console warning: `booting`", page, StringComparison.Ordinal);
         Assert.Contains("   - tap button \"Submit\" (", page, StringComparison.Ordinal);
         Assert.Matches(@" {3}- expect gave up after \d+ reads in [\d.]+m?s: count 1 \(1 match\) x\d+", page);
@@ -74,7 +92,11 @@ public sealed class TracesTests : IDisposable
         Assert.Contains("3. ✗ `expect.toHaveCount` ", page, StringComparison.Ordinal);
         Assert.Contains("**ASSERTION_FAILED**", page, StringComparison.Ordinal);
         Assert.Contains("The screen as the agent reads it", page, StringComparison.Ordinal);
-        Assert.Contains("button \"Submit\"", page[page.IndexOf("```text\n#", StringComparison.Ordinal)..], StringComparison.Ordinal);
+        Assert.Contains(
+            "button \"Submit\"",
+            page[page.IndexOf("```text\n#", StringComparison.Ordinal)..],
+            StringComparison.Ordinal
+        );
         Assert.Contains("- [screen](attempt-1/screen-at-failure.txt) `", page, StringComparison.Ordinal);
     }
 
@@ -89,7 +111,10 @@ public sealed class TracesTests : IDisposable
             await session.Screen.GetByRole("button", new() { Name = "Submit" }).TapAsync();
             await session.Screen.GetByRole("button", new() { Name = "Submit" }).TapAsync();
 
-            Assert.Equal(new Dictionary<string, string> { ["device"] = "Pixel 9", ["os"] = "Android 16" }, session.Environment);
+            Assert.Equal(
+                new Dictionary<string, string> { ["device"] = "Pixel 9", ["os"] = "Android 16" },
+                session.Environment
+            );
             var steps = session.StepRecords;
             var first = steps[1].Screen!;
             var second = steps[2].Screen!;
@@ -102,11 +127,20 @@ public sealed class TracesTests : IDisposable
 
         var page = ReadTrace(results, title)!;
         Assert.Contains("Ran on: device `Pixel 9` · os `Android 16`", page, StringComparison.Ordinal);
-        Assert.Contains("   - screen: 1 change since step 2 at `/`, 3 nodes\n     - `added button \"Undo\"`", page, StringComparison.Ordinal);
+        Assert.Contains(
+            "   - screen: 1 change since step 2 at `/`, 3 nodes\n     - `added button \"Undo\"`",
+            page,
+            StringComparison.Ordinal
+        );
 
         // An attempt that keeps no trace asks the engine for no screens, and takes none from what the test observes.
         var untraced = new ReportingEngine();
-        await using var off = await StartAsync(results, "traces > saves, untraced", RecordingMode.Off, engine: untraced);
+        await using var off = await StartAsync(
+            results,
+            "traces > saves, untraced",
+            RecordingMode.Off,
+            engine: untraced
+        );
         await off.App.OpenAsync("/");
         await off.Screen.GetByRole("button", new() { Name = "Submit" }).TapAsync();
 
@@ -129,7 +163,9 @@ public sealed class TracesTests : IDisposable
             await session.App.OpenAsync("/");
             try
             {
-                await session.Screen.GetByRole("button", new() { Name = "Banner" }).WaitForAsync(new() { Timeout = TimeSpan.FromMilliseconds(100) });
+                await session
+                    .Screen.GetByRole("button", new() { Name = "Banner" })
+                    .WaitForAsync(new() { Timeout = TimeSpan.FromMilliseconds(100) });
             }
             catch (E2EException)
             {
@@ -137,11 +173,19 @@ public sealed class TracesTests : IDisposable
             }
 
             await session.Screen.GetByRole("button", new() { Name = "Submit" }).TapAsync();
-            ended = await Assert.ThrowsAnyAsync<E2EException>(() => Expect.That(session.Screen.GetByRole("button")).ToHaveCountAsync(2, TimeSpan.FromMilliseconds(300)));
+            ended = await Assert.ThrowsAnyAsync<E2EException>(() =>
+                Expect.That(session.Screen.GetByRole("button")).ToHaveCountAsync(2, TimeSpan.FromMilliseconds(300))
+            );
             Assert.Equal("ASSERTION_FAILED", ended.Code);
             Assert.Equal(
-                [("app.open", StepStatus.Passed), ("locator.waitFor", StepStatus.Failed), ("locator.tap", StepStatus.Passed), ("expect.toHaveCount", StepStatus.Failed)],
-                session.StepRecords.Select(step => (step.Api, step.Status)));
+                [
+                    ("app.open", StepStatus.Passed),
+                    ("locator.waitFor", StepStatus.Failed),
+                    ("locator.tap", StepStatus.Passed),
+                    ("expect.toHaveCount", StepStatus.Failed),
+                ],
+                session.StepRecords.Select(step => (step.Api, step.Status))
+            );
             waitFor = session.StepRecords[1];
             count = session.StepRecords[3];
             session.Complete(ended);
@@ -162,8 +206,11 @@ public sealed class TracesTests : IDisposable
         var results = Results();
         await using var session = await StartAsync(results, "split > split call");
         await session.App.OpenAsync("/");
-        var failure = await Assert.ThrowsAnyAsync<E2EException>(() => Expect.That(session.Screen.GetByRole("button", new() { Name = "Submit" }))
-            .ToHaveCountAsync(2, TimeSpan.FromMilliseconds(300)));
+        var failure = await Assert.ThrowsAnyAsync<E2EException>(() =>
+            Expect
+                .That(session.Screen.GetByRole("button", new() { Name = "Submit" }))
+                .ToHaveCountAsync(2, TimeSpan.FromMilliseconds(300))
+        );
 
         var count = session.StepRecords[1];
         var error = ErrorSerializer.Serialize(failure, ProjectRoot());
@@ -257,7 +304,11 @@ public sealed class TracesTests : IDisposable
             session.Complete(new TestException("TEST_FAILED", "nope"));
         }
 
-        Assert.Contains("Failed the same way on both attempts: **TEST_FAILED**", ReadTrace(results, "twice > test"), StringComparison.Ordinal);
+        Assert.Contains(
+            "Failed the same way on both attempts: **TEST_FAILED**",
+            ReadTrace(results, "twice > test"),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -304,7 +355,12 @@ public sealed class TracesTests : IDisposable
             }
         }
 
-        return [.. new[] { "passes", "fails" }.Where(title => ReadTrace(results, title) is not null).Order(StringComparer.Ordinal)];
+        return
+        [
+            .. new[] { "passes", "fails" }
+                .Where(title => ReadTrace(results, title) is not null)
+                .Order(StringComparer.Ordinal),
+        ];
     }
 
     private string Results()
@@ -317,21 +373,30 @@ public sealed class TracesTests : IDisposable
         return results;
     }
 
-    private static string ProjectRoot([CallerFilePath] string testFile = "") => Path.GetDirectoryName(Path.GetDirectoryName(testFile))!;
+    private static string ProjectRoot([CallerFilePath] string testFile = "") =>
+        Path.GetDirectoryName(Path.GetDirectoryName(testFile))!;
 
-    private static Task<E2ESession> StartAsync(string results, string title, RecordingMode mode = RecordingMode.RetainOnFailure, int attempt = 1, ReportingEngine? engine = null) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine ?? new ReportingEngine(),
-            TestTitle = title,
-            BaseUrl = "http://127.0.0.1:4100",
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ProjectRoot = ProjectRoot(),
-            ResultsDirectory = results,
-            CacheEnabled = false,
-            Trace = new ResolvedRecording(mode, RecordingSource.Target),
-            Attempt = attempt,
-        });
+    private static Task<E2ESession> StartAsync(
+        string results,
+        string title,
+        RecordingMode mode = RecordingMode.RetainOnFailure,
+        int attempt = 1,
+        ReportingEngine? engine = null
+    ) =>
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine ?? new ReportingEngine(),
+                TestTitle = title,
+                BaseUrl = "http://127.0.0.1:4100",
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                ProjectRoot = ProjectRoot(),
+                ResultsDirectory = results,
+                CacheEnabled = false,
+                Trace = new ResolvedRecording(mode, RecordingSource.Target),
+                Attempt = attempt,
+            }
+        );
 
     /// <summary>The trace page of the test titled <paramref name="title"/>, <c>trace.md</c> in its directory under <paramref name="results"/>, if one was written.</summary>
     private static string? ReadTrace(string results, string title)
@@ -348,12 +413,15 @@ public sealed class TracesTests : IDisposable
 
         public string Version => "test";
 
-        public EngineCapabilities Capabilities => EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location;
+        public EngineCapabilities Capabilities =>
+            EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location;
 
         public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
         {
             AskedForScreens = options.Screen is not null;
-            options.Environment?.Invoke(new Dictionary<string, string> { ["device"] = "Pixel 9", ["os"] = "Android 16" });
+            options.Environment?.Invoke(
+                new Dictionary<string, string> { ["device"] = "Pixel 9", ["os"] = "Android 16" }
+            );
             if (logs)
             {
                 options.AppLog?.Invoke(new AppLogEntry(AppLogSource.Console, AppLogLevel.Warning, "booting"));
@@ -371,14 +439,21 @@ public sealed class TracesTests : IDisposable
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => Task.FromResult(Screen(_taps >= 2 ? ["Submit", "Undo"] : ["Submit"], "observe"));
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(Screen(_taps >= 2 ? ["Submit", "Undo"] : ["Submit"], "observe"));
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {
             _taps++;
             if (logs)
             {
-                options.AppLog?.Invoke(new AppLogEntry(AppLogSource.Network, AppLogLevel.Error, "POST http://127.0.0.1:4100/api/save 500 Internal Server Error"));
+                options.AppLog?.Invoke(
+                    new AppLogEntry(
+                        AppLogSource.Network,
+                        AppLogLevel.Error,
+                        "POST http://127.0.0.1:4100/api/save 500 Internal Server Error"
+                    )
+                );
             }
 
             options.Screen?.Invoke(Screen(_taps == 1 ? ["Submit"] : ["Submit", "Undo"], $"t{_taps}"));
@@ -389,10 +464,30 @@ public sealed class TracesTests : IDisposable
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
-        private static Observation Screen(string[] names, string mint) => new()
-        {
-            Route = "/",
-            Roots = [new SemanticNode { Ref = "root", Role = "document", Children = [.. names.Select((name, index) => new SemanticNode { Ref = $"{(name == "Submit" ? "submit" : mint + "-" + index)}", Role = "button", Name = name })] }],
-        };
+        private static Observation Screen(string[] names, string mint) =>
+            new()
+            {
+                Route = "/",
+                Roots =
+                [
+                    new SemanticNode
+                    {
+                        Ref = "root",
+                        Role = "document",
+                        Children =
+                        [
+                            .. names.Select(
+                                (name, index) =>
+                                    new SemanticNode
+                                    {
+                                        Ref = $"{(name == "Submit" ? "submit" : mint + "-" + index)}",
+                                        Role = "button",
+                                        Name = name,
+                                    }
+                            ),
+                        ],
+                    },
+                ],
+            };
     }
 }

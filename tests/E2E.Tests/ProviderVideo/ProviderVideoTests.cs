@@ -44,14 +44,22 @@ public sealed class ProviderVideoTests : IDisposable
         landing.SetResult(Recording("first", stopped));
         Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => first)).Code);
         Assert.Equal(["first"], stopped);
-        Assert.Equal(["video/second.mp4"], (await video.StopAsync(CancellationToken.None)).Select(segment => segment is VideoFile file ? file.Path : ((VideoLink)segment).Url));
+        Assert.Equal(
+            ["video/second.mp4"],
+            (await video.StopAsync(CancellationToken.None)).Select(segment =>
+                segment is VideoFile file ? file.Path : ((VideoLink)segment).Url
+            )
+        );
     }
 
     [Fact]
     public async Task Keeps_the_handle_of_a_recording_whose_stop_failed_on_abandon_so_a_later_stop_still_ends_it()
     {
         var stopped = new List<string>();
-        var video = new E2E.Engine.ProviderVideo(_ => Task.FromResult<LeaseRecording?>(Recording("clip", stopped, failures: 1)), ArtifactsDir());
+        var video = new E2E.Engine.ProviderVideo(
+            _ => Task.FromResult<LeaseRecording?>(Recording("clip", stopped, failures: 1)),
+            ArtifactsDir()
+        );
         await video.ArmAsync(Page, CancellationToken.None);
         await video.AbandonAsync(CancellationToken.None);
         Assert.Equal(["clip"], stopped);
@@ -81,6 +89,11 @@ public sealed class ProviderVideoTests : IDisposable
             await File.WriteAllTextAsync(Path.Combine(dir, name + ".mp4"), "mp4", CancellationToken.None);
             return new ProviderRecordingResult { File = name + ".mp4" };
         });
-        return new LeaseRecording { Recording = provided, Provider = "browser provider \"cloud\"", LeaseId = "lease-0" };
+        return new LeaseRecording
+        {
+            Recording = provided,
+            Provider = "browser provider \"cloud\"",
+            LeaseId = "lease-0",
+        };
     }
 }

@@ -47,7 +47,11 @@ public sealed class ToHaveScreenshotTests
 
         var first = await project.RunAsync("home", "home", Home);
         Assert.Equal("ASSERTION_FAILED", first?.Code);
-        Assert.Contains("no stored screenshot at tests/home.e2e.ts-snapshots/home" + Suffix + ".png", first!.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "no stored screenshot at tests/home.e2e.ts-snapshots/home" + Suffix + ".png",
+            first!.Message,
+            StringComparison.Ordinal
+        );
         Assert.True(File.Exists(stored));
         Assert.True(engine.Captures > 0);
 
@@ -57,18 +61,32 @@ public sealed class ToHaveScreenshotTests
         var third = await project.RunAsync("home", "home", Home);
         Assert.Equal("ASSERTION_FAILED", third?.Code);
         Assert.Contains(ButtonPixels + " pixels", third!.Message, StringComparison.Ordinal);
-        Assert.Contains("differ from tests/home.e2e.ts-snapshots/home" + Suffix + ".png", third.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "differ from tests/home.e2e.ts-snapshots/home" + Suffix + ".png",
+            third.Message,
+            StringComparison.Ordinal
+        );
         Assert.Equal("tests/home.e2e.ts-snapshots/home" + Suffix + ".png", third.Details?.Expected);
         var results = project.ResultsOf("home");
         foreach (var label in new[] { "diff", "actual", "expected" })
         {
             var file = Path.Combine(results, "screenshots", "home-" + label + ".png");
             Assert.True(File.Exists(file));
-            Assert.Contains("\n" + label + ": " + Path.GetRelativePath(project.Directory, file).Replace(Path.DirectorySeparatorChar, '/'), third.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "\n"
+                    + label
+                    + ": "
+                    + Path.GetRelativePath(project.Directory, file).Replace(Path.DirectorySeparatorChar, '/'),
+                third.Message,
+                StringComparison.Ordinal
+            );
         }
 
         Assert.Null(await project.RunAsync("home", "home", Home, update: true));
-        Assert.Equal(ScreenEngine.Red, PixelAt(ReadPng(stored), (int)ScreenEngine.Button.X, (int)ScreenEngine.Button.Y));
+        Assert.Equal(
+            ScreenEngine.Red,
+            PixelAt(ReadPng(stored), (int)ScreenEngine.Button.X, (int)ScreenEngine.Button.Y)
+        );
         Assert.Null(await project.RunAsync("home", "home", Home));
     }
 
@@ -80,7 +98,12 @@ public sealed class ToHaveScreenshotTests
 
         async Task Body(Screen screen)
         {
-            await Expect.That(screen).ToHaveScreenshotAsync("full", new ScreenshotOptions { Mask = [screen.GetByTestId("clock")], MaskColor = "#00ff00" });
+            await Expect
+                .That(screen)
+                .ToHaveScreenshotAsync(
+                    "full",
+                    new ScreenshotOptions { Mask = [screen.GetByTestId("clock")], MaskColor = "#00ff00" }
+                );
             await Expect.That(screen.GetByRole("button")).ToHaveScreenshotAsync();
             await Expect.That(screen.GetByRole("button")).ToHaveScreenshotAsync();
         }
@@ -96,7 +119,10 @@ public sealed class ToHaveScreenshotTests
         foreach (var name in new[] { "crops-and-masks-1" + Suffix + ".png", "crops-and-masks-2" + Suffix + ".png" })
         {
             var button = ReadPng(Path.Combine(directory, name));
-            Assert.Equal(((int)ScreenEngine.Button.Width, (int)ScreenEngine.Button.Height), (button.Width, button.Height));
+            Assert.Equal(
+                ((int)ScreenEngine.Button.Width, (int)ScreenEngine.Button.Height),
+                (button.Width, button.Height)
+            );
             Assert.Equal(ScreenEngine.Blue, PixelAt(button, 0, 0));
         }
 
@@ -110,8 +136,15 @@ public sealed class ToHaveScreenshotTests
         using var project = new ScreenProject(engine);
         static async Task Body(Screen screen)
         {
-            await Expect.That(screen).ToHaveScreenshotAsync("home", new ScreenshotOptions { MaxDiffPixels = 800, Timeout = TimeSpan.Zero });
-            await Expect.That(screen).ToHaveScreenshotAsync("home", new ScreenshotOptions { MaxDiffPixelRatio = 0.001, Timeout = OneSecond });
+            await Expect
+                .That(screen)
+                .ToHaveScreenshotAsync("home", new ScreenshotOptions { MaxDiffPixels = 800, Timeout = TimeSpan.Zero });
+            await Expect
+                .That(screen)
+                .ToHaveScreenshotAsync(
+                    "home",
+                    new ScreenshotOptions { MaxDiffPixelRatio = 0.001, Timeout = OneSecond }
+                );
             await Expect.That(screen).Not.ToHaveScreenshotAsync("home", Quick);
         }
 
@@ -124,7 +157,11 @@ public sealed class ToHaveScreenshotTests
     public async Task Fails_on_a_screen_that_never_holds_still_with_the_last_two_screenshots_and_their_diff_attached()
     {
         var frame = 0;
-        var engine = new ScreenEngine { Current = () => ScreenEngine.Shot(ScreenEngine.White, ++frame % 2 == 0 ? ScreenEngine.Blue : ScreenEngine.Red) };
+        var engine = new ScreenEngine
+        {
+            Current = () =>
+                ScreenEngine.Shot(ScreenEngine.White, ++frame % 2 == 0 ? ScreenEngine.Blue : ScreenEngine.Red),
+        };
         using var project = new ScreenProject(engine);
         var error = await project.RunAsync("home", "home", Home);
         Assert.Equal("ASSERTION_FAILED", error?.Code);
@@ -162,7 +199,11 @@ public sealed class ToHaveScreenshotTests
             await Expect.That(screen).ToHaveScreenshotAsync("home");
         });
         Assert.Equal("ASSERTION_FAILED", afterFill?.Code);
-        Assert.Contains("no stored screenshot at tests/fill.e2e.ts-snapshots/home" + Suffix + ".png", afterFill!.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "no stored screenshot at tests/fill.e2e.ts-snapshots/home" + Suffix + ".png",
+            afterFill!.Message,
+            StringComparison.Ordinal
+        );
         Assert.True(File.Exists(Path.Combine(filled.Snapshots("fill"), "home" + Suffix + ".png")));
     }
 
@@ -188,8 +229,18 @@ public sealed class ToHaveScreenshotTests
         var second = await ci.RunAsync("home", "home", Home, ci: true, attempt: 2, newRun: false);
         Assert.False(Directory.Exists(ci.Snapshots("home")));
         Assert.Contains("CI writes none", second!.Message, StringComparison.Ordinal);
-        var kept = Path.Combine(ci.ResultsOf("home", 2), "snapshots", "tests", "home.e2e.ts-snapshots", "home" + Suffix + ".png");
-        Assert.Contains("\nactual: " + Path.GetRelativePath(ci.Directory, kept).Replace(Path.DirectorySeparatorChar, '/'), second.Message, StringComparison.Ordinal);
+        var kept = Path.Combine(
+            ci.ResultsOf("home", 2),
+            "snapshots",
+            "tests",
+            "home.e2e.ts-snapshots",
+            "home" + Suffix + ".png"
+        );
+        Assert.Contains(
+            "\nactual: " + Path.GetRelativePath(ci.Directory, kept).Replace(Path.DirectorySeparatorChar, '/'),
+            second.Message,
+            StringComparison.Ordinal
+        );
         Assert.Equal(ScreenEngine.Width, ReadPng(kept).Width);
     }
 
@@ -198,7 +249,13 @@ public sealed class ToHaveScreenshotTests
     {
         using var project = new ScreenProject(new ScreenEngine());
         await project.RunAsync("mask", "masked button", screen =>
-            Expect.That(screen.GetByRole("button")).ToHaveScreenshotAsync("button", new ScreenshotOptions { Mask = [screen.GetByRole("button")], MaskColor = "#00ff00" }));
+            Expect
+                .That(screen.GetByRole("button"))
+                .ToHaveScreenshotAsync(
+                    "button",
+                    new ScreenshotOptions { Mask = [screen.GetByRole("button")], MaskColor = "#00ff00" }
+                )
+        );
         var button = ReadPng(Path.Combine(project.Snapshots("mask"), "button" + Suffix + ".png"));
         Assert.Equal(((int)ScreenEngine.Button.Width, (int)ScreenEngine.Button.Height), (button.Width, button.Height));
         Assert.Equal((0, 255, 0), PixelAt(button, 0, 0));
@@ -215,7 +272,12 @@ public sealed class ToHaveScreenshotTests
         async Task Threshold(Screen screen)
         {
             await Expect.That(screen).ToHaveScreenshotAsync("home", half);
-            await Expect.That(screen).ToHaveScreenshotAsync("home", new ScreenshotOptions { Threshold = 0, Timeout = TimeSpan.FromMilliseconds(500) });
+            await Expect
+                .That(screen)
+                .ToHaveScreenshotAsync(
+                    "home",
+                    new ScreenshotOptions { Threshold = 0, Timeout = TimeSpan.FromMilliseconds(500) }
+                );
         }
 
         // The first run writes every screenshot; the small one is then replaced by one of another size.
@@ -223,11 +285,24 @@ public sealed class ToHaveScreenshotTests
         await project.RunAsync("edges", "negated", Negated);
         await project.RunAsync("edges", "threshold", Threshold);
         var small = new RgbaImage(10, 10, Enumerable.Repeat((byte)255, 400).ToArray());
-        File.WriteAllBytes(Path.Combine(project.Snapshots("edges"), "small" + Suffix + ".png"), ImageOps.EncodePng(small));
+        File.WriteAllBytes(
+            Path.Combine(project.Snapshots("edges"), "small" + Suffix + ".png"),
+            ImageOps.EncodePng(small)
+        );
 
         engine.Current = () => ScreenEngine.Shot(ScreenEngine.White, (0, 0, 250));
         var size = await project.RunAsync("edges", "size", Size);
-        Assert.Contains("a " + ScreenEngine.Width + "x" + ScreenEngine.Height + " screenshot where tests/edges.e2e.ts-snapshots/small" + Suffix + ".png is 10x10", size!.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "a "
+                + ScreenEngine.Width
+                + "x"
+                + ScreenEngine.Height
+                + " screenshot where tests/edges.e2e.ts-snapshots/small"
+                + Suffix
+                + ".png is 10x10",
+            size!.Message,
+            StringComparison.Ordinal
+        );
         var negated = await project.RunAsync("edges", "negated", Negated, newRun: false);
         Assert.Contains("the screen still matches", negated!.Message, StringComparison.Ordinal);
         // The default threshold lets the first call pass; the second, exact, finds every pixel of the button.
@@ -343,29 +418,51 @@ public sealed class ToHaveScreenshotTests
 
     [Fact]
     public Task Refuses_a_threshold_above_1_before_it_reads_the_screen() =>
-        RefusesBeforeItReadsTheScreen("home", new ScreenshotOptions { Threshold = 2 }, "threshold must be a number from 0 to 1");
+        RefusesBeforeItReadsTheScreen(
+            "home",
+            new ScreenshotOptions { Threshold = 2 },
+            "threshold must be a number from 0 to 1"
+        );
 
     [Fact]
     public Task Refuses_a_negative_timeout_before_it_reads_the_screen() =>
-        RefusesBeforeItReadsTheScreen("home", new ScreenshotOptions { Timeout = TimeSpan.FromMilliseconds(-1) }, "timeout must be a finite number of milliseconds, 0 or more");
+        RefusesBeforeItReadsTheScreen(
+            "home",
+            new ScreenshotOptions { Timeout = TimeSpan.FromMilliseconds(-1) },
+            "timeout must be a finite number of milliseconds, 0 or more"
+        );
 
     [Fact]
     public Task Refuses_a_mask_that_is_not_a_locator_before_it_reads_the_screen() =>
-        RefusesBeforeItReadsTheScreen("home", new ScreenshotOptions { Mask = [null!] }, "mask must be an array of locators");
+        RefusesBeforeItReadsTheScreen(
+            "home",
+            new ScreenshotOptions { Mask = [null!] },
+            "mask must be an array of locators"
+        );
 
     [Fact]
     public Task Refuses_a_mask_color_that_is_not_rrggbb_before_it_reads_the_screen() =>
-        RefusesBeforeItReadsTheScreen("home", new ScreenshotOptions { MaskColor = "red" }, "maskColor must be a color written #rrggbb");
+        RefusesBeforeItReadsTheScreen(
+            "home",
+            new ScreenshotOptions { MaskColor = "red" },
+            "maskColor must be a color written #rrggbb"
+        );
 
     [Fact]
     public Task Refuses_a_name_too_long_for_a_file_name_before_it_reads_the_screen() =>
-        RefusesBeforeItReadsTheScreen(string.Concat(Enumerable.Repeat("あ", 60)), new ScreenshotOptions(), "at most 150 bytes");
+        RefusesBeforeItReadsTheScreen(
+            string.Concat(Enumerable.Repeat("あ", 60)),
+            new ScreenshotOptions(),
+            "at most 150 bytes"
+        );
 
     private static async Task RefusesBeforeItReadsTheScreen(string name, ScreenshotOptions options, string message)
     {
         var engine = new ScreenEngine();
         using var project = new ScreenProject(engine);
-        var error = await project.RunAsync("invalid", "invalid", screen => Expect.That(screen).ToHaveScreenshotAsync(name, options));
+        var error = await project.RunAsync("invalid", "invalid", screen =>
+            Expect.That(screen).ToHaveScreenshotAsync(name, options)
+        );
         Assert.Equal("INVALID_ARGUMENT", error?.Code);
         Assert.Contains(message, error!.Message, StringComparison.Ordinal);
         Assert.Equal(0, engine.Captures);
@@ -375,7 +472,9 @@ public sealed class ToHaveScreenshotTests
     public async Task Refuses_a_not_with_nothing_stored_to_differ_from()
     {
         using var project = new ScreenProject(new ScreenEngine());
-        var error = await project.RunAsync("negated", "negated", screen => Expect.That(screen).Not.ToHaveScreenshotAsync("home"));
+        var error = await project.RunAsync("negated", "negated", screen =>
+            Expect.That(screen).Not.ToHaveScreenshotAsync("home")
+        );
         Assert.Equal("ASSERTION_FAILED", error?.Code);
         Assert.Contains("no stored screenshot", error!.Message, StringComparison.Ordinal);
     }

@@ -25,17 +25,23 @@ internal sealed partial class AppiumDeviceClient
             return _refs.CentreOf(reference);
         }
 
-        return Number(options["x"]) is { } x && Number(options["y"]) is { } y ? (x, y) : throw AppiumErrors.InvalidArgument("an interaction needs a ref or an x and y");
+        return Number(options["x"]) is { } x && Number(options["y"]) is { } y
+            ? (x, y)
+            : throw AppiumErrors.InvalidArgument("an interaction needs a ref or an x and y");
     }
 
     private static (double X, double Y) PointAt(JsonNode? node) =>
-        Number(node?["x"]) is { } x && Number(node?["y"]) is { } y ? (x, y) : throw AppiumErrors.InvalidArgument("a gesture needs points with an x and y");
+        Number(node?["x"]) is { } x && Number(node?["y"]) is { } y
+            ? (x, y)
+            : throw AppiumErrors.InvalidArgument("a gesture needs points with an x and y");
 
     private Task<JsonNode?> PressAsync(JsonObject options, CancellationToken cancellationToken)
     {
         var (x, y) = PointOf(options);
         var count = Number(options["count"]) ?? 1;
-        return count is 1 or 2 ? ActAsync(PointerActions.Tap(x, y, (int)count), cancellationToken) : throw AppiumErrors.InvalidArgument("a press takes a count of 1 or 2");
+        return count is 1 or 2
+            ? ActAsync(PointerActions.Tap(x, y, (int)count), cancellationToken)
+            : throw AppiumErrors.InvalidArgument("a press takes a count of 1 or 2");
     }
 
     private Task<JsonNode?> LongPressAsync(JsonObject options, CancellationToken cancellationToken)
@@ -54,14 +60,27 @@ internal sealed partial class AppiumDeviceClient
     private Task<JsonNode?> PanAsync(JsonObject options, CancellationToken cancellationToken)
     {
         var (x, y) = PointOf(options);
-        return ActAsync(PointerActions.Drag(x, y, x + (Number(options["dx"]) ?? 0), y + (Number(options["dy"]) ?? 0), Number(options["durationMs"]) ?? SwipeMilliseconds), cancellationToken);
+        return ActAsync(
+            PointerActions.Drag(
+                x,
+                y,
+                x + (Number(options["dx"]) ?? 0),
+                y + (Number(options["dy"]) ?? 0),
+                Number(options["durationMs"]) ?? SwipeMilliseconds
+            ),
+            cancellationToken
+        );
     }
 
     /// <summary>Press on the source, hold, and move to the destination: a long press first, so a list takes it as a drag.</summary>
     private Task<JsonNode?> DragAsync(JsonObject options, CancellationToken cancellationToken)
     {
-        var (fromX, fromY) = _refs.CentreOf(Text(options, "source") ?? throw AppiumErrors.InvalidArgument("a drag needs a source"));
-        var (toX, toY) = _refs.CentreOf(Text(options, "destination") ?? throw AppiumErrors.InvalidArgument("a drag needs a destination"));
+        var (fromX, fromY) = _refs.CentreOf(
+            Text(options, "source") ?? throw AppiumErrors.InvalidArgument("a drag needs a source")
+        );
+        var (toX, toY) = _refs.CentreOf(
+            Text(options, "destination") ?? throw AppiumErrors.InvalidArgument("a drag needs a destination")
+        );
         return ActAsync(PointerActions.Drag(fromX, fromY, toX, toY, 500, holdMilliseconds: 500), cancellationToken);
     }
 
@@ -81,9 +100,15 @@ internal sealed partial class AppiumDeviceClient
             "up" => ((centreX, centreY - dy), (centreX, centreY + dy)),
             "right" => ((centreX + dx, centreY), (centreX - dx, centreY)),
             "left" => ((centreX - dx, centreY), (centreX + dx, centreY)),
-            var other => throw AppiumErrors.InvalidArgument($"scroll needs a direction of up, down, left, or right, not {other ?? "none"}"),
+            var other => throw AppiumErrors.InvalidArgument(
+                $"scroll needs a direction of up, down, left, or right, not {other ?? "none"}"
+            ),
         };
-        return await ActAsync(PointerActions.Drag(from.Item1, from.Item2, to.Item1, to.Item2, SwipeMilliseconds), cancellationToken).ConfigureAwait(false);
+        return await ActAsync(
+                PointerActions.Drag(from.Item1, from.Item2, to.Item1, to.Item2, SwipeMilliseconds),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -95,8 +120,13 @@ internal sealed partial class AppiumDeviceClient
         var (x, y) = PointOf(options);
         await ActAsync(PointerActions.Tap(x, y), cancellationToken).ConfigureAwait(false);
         var element = await ActiveElementAsync(cancellationToken).ConfigureAwait(false)
-            ?? throw new AgentDeviceError("COMMAND_FAILED", "no field has the focus after the tap, so there is nothing to fill");
-        await driver.PostAsync($"element/{Uri.EscapeDataString(element)}/clear", null, cancellationToken).ConfigureAwait(false);
+            ?? throw new AgentDeviceError(
+                "COMMAND_FAILED",
+                "no field has the focus after the tap, so there is nothing to fill"
+            );
+        await driver
+            .PostAsync($"element/{Uri.EscapeDataString(element)}/clear", null, cancellationToken)
+            .ConfigureAwait(false);
         if (Text(options, "text") is { Length: > 0 } text)
         {
             await SendValueAsync(element, text, cancellationToken).ConfigureAwait(false);
@@ -132,16 +162,26 @@ internal sealed partial class AppiumDeviceClient
     private Task SendValueAsync(string element, string text, CancellationToken cancellationToken) =>
         driver.PostAsync(
             $"element/{Uri.EscapeDataString(element)}/value",
-            new JsonObject { ["text"] = text, ["value"] = new JsonArray([.. text.Select(character => (JsonNode?)JsonValue.Create(character.ToString()))]) },
-            cancellationToken);
+            new JsonObject
+            {
+                ["text"] = text,
+                ["value"] = new JsonArray([
+                    .. text.Select(character => (JsonNode?)JsonValue.Create(character.ToString())),
+                ]),
+            },
+            cancellationToken
+        );
 
     /// <summary>The focused element's id, or null when nothing has the focus.</summary>
     private async Task<string?> ActiveElementAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var element = await driver.GetAsync("element/active", cancellationToken).ConfigureAwait(false) as JsonObject;
-            return (element?[ElementKey] ?? element?["ELEMENT"]) is JsonValue id && id.TryGetValue<string>(out var text) ? text : null;
+            var element =
+                await driver.GetAsync("element/active", cancellationToken).ConfigureAwait(false) as JsonObject;
+            return (element?[ElementKey] ?? element?["ELEMENT"]) is JsonValue id && id.TryGetValue<string>(out var text)
+                ? text
+                : null;
         }
         catch (WebDriverException failure) when (failure.Error == "no such element")
         {
@@ -154,12 +194,15 @@ internal sealed partial class AppiumDeviceClient
         switch (Text(options, "action"))
         {
             case "enter":
-                return await ActAsync(PointerActions.Keys(PointerActions.Enter), cancellationToken).ConfigureAwait(false);
+                return await ActAsync(PointerActions.Keys(PointerActions.Enter), cancellationToken)
+                    .ConfigureAwait(false);
             case "dismiss":
                 await ExecuteAsync("mobile: hideKeyboard", cancellationToken).ConfigureAwait(false);
                 return null;
             case var other:
-                throw AppiumErrors.InvalidArgument($"keyboard needs an action of enter or dismiss, not {other ?? "none"}");
+                throw AppiumErrors.InvalidArgument(
+                    $"keyboard needs an action of enter or dismiss, not {other ?? "none"}"
+                );
         }
     }
 
@@ -188,7 +231,8 @@ internal sealed partial class AppiumDeviceClient
         else
         {
             // KEYCODE_HOME.
-            await ExecuteAsync("mobile: pressKey", cancellationToken, ("keycode", JsonValue.Create(3))).ConfigureAwait(false);
+            await ExecuteAsync("mobile: pressKey", cancellationToken, ("keycode", JsonValue.Create(3)))
+                .ConfigureAwait(false);
         }
 
         return null;
@@ -207,7 +251,8 @@ internal sealed partial class AppiumDeviceClient
         }
 
         await ReadScreenAsync(cancellationToken).ConfigureAwait(false);
-        var (x, y) = _refs.NavigationBarBackButton() ?? throw AppiumErrors.Unsupported("there is no back button in the navigation bar of this screen");
+        var (x, y) = _refs.NavigationBarBackButton()
+            ?? throw AppiumErrors.Unsupported("there is no back button in the navigation bar of this screen");
         return await ActAsync(PointerActions.Tap(x, y), cancellationToken).ConfigureAwait(false);
     }
 
@@ -218,9 +263,13 @@ internal sealed partial class AppiumDeviceClient
         {
             "portrait" => "PORTRAIT",
             "landscape-left" or "landscape-right" => "LANDSCAPE",
-            var other => throw AppiumErrors.Unsupported($"the {other ?? "none"} orientation is not supported on TestMu devices"),
+            var other => throw AppiumErrors.Unsupported(
+                $"the {other ?? "none"} orientation is not supported on TestMu devices"
+            ),
         };
-        await driver.PostAsync("orientation", new JsonObject { ["orientation"] = orientation }, cancellationToken).ConfigureAwait(false);
+        await driver
+            .PostAsync("orientation", new JsonObject { ["orientation"] = orientation }, cancellationToken)
+            .ConfigureAwait(false);
         return null;
     }
 }

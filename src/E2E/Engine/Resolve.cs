@@ -27,7 +27,11 @@ public static class ExpressionResolution
     /// (an observation root's children, or the root itself); every node under them is a candidate.
     /// <c>frame</c> is <c>FRAME_NOT_FOUND</c>: a semantic tree has no nested documents.
     /// </summary>
-    public static IReadOnlyList<SemanticNode> ResolveExpression(LocatorExpression expression, IReadOnlyList<SemanticNode> nodes, ResolveExpressionOptions? options = null)
+    public static IReadOnlyList<SemanticNode> ResolveExpression(
+        LocatorExpression expression,
+        IReadOnlyList<SemanticNode> nodes,
+        ResolveExpressionOptions? options = null
+    )
     {
         ArgumentNullException.ThrowIfNull(expression);
         ArgumentNullException.ThrowIfNull(nodes);

@@ -25,16 +25,30 @@ public sealed class OpencodeConsoleTests
         var api = OpencodeConsoleWorkspace.Serve();
         var store = new MemoryCredentialStore(new() { ["opencode-console"] = OpencodeConsoleWorkspace.Login });
         var provider = new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl);
-        using var model = new OpenCodeConsoleModel("claude-sonnet-5", provider, Subscriptions.Client(provider, store, inner: api));
+        using var model = new OpenCodeConsoleModel(
+            "claude-sonnet-5",
+            provider,
+            Subscriptions.Client(provider, store, inner: api)
+        );
 
-        var result = await model.CompleteAsync(new ModelRequest { System = "", Tools = [], Messages = [new ModelMessage { Role = "user", Content = "hi" }] }, CancellationToken.None);
+        var result = await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "",
+                Tools = [],
+                Messages = [new ModelMessage { Role = "user", Content = "hi" }],
+            },
+            CancellationToken.None
+        );
 
         Assert.Equal("hello", result.Content);
         var config = api.Requests.First();
         Assert.Equal("/console/api/config", config.Uri.AbsolutePath);
         Assert.Equal(("Bearer st_tok", "org_1"), (config.Header("authorization"), config.Header("x-org-id")));
         Assert.Null(config.Header("x-opencode-session"));
-        var call = Assert.Single(api.Requests, request => request.Uri.AbsolutePath.StartsWith("/inference/", StringComparison.Ordinal));
+        var call = Assert.Single(api.Requests, request =>
+            request.Uri.AbsolutePath.StartsWith("/inference/", StringComparison.Ordinal)
+        );
         Assert.Equal("/inference/anthropic/v1/messages", call.Uri.AbsolutePath);
         Assert.Equal("Bearer st_tok", call.Header("authorization"));
         Assert.Equal("org_1", call.Header("x-opencode-org-id"));
@@ -51,18 +65,44 @@ public sealed class OpencodeConsoleTests
         var api = OpencodeConsoleWorkspace.Serve();
         var store = Login();
         var provider = new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl);
-        using var model = new OpenCodeConsoleModel("go/deepseek-v4.1-flash", provider, Subscriptions.Client(provider, store, inner: api));
-        var options = new Dictionary<string, JsonElement> { ["opencode"] = JsonSerializer.SerializeToElement(new { reasoningEffort = "low" }) };
-        await model.CompleteAsync(new ModelRequest { System = "", Tools = [], Messages = [new ModelMessage { Role = "user", Content = "hi" }], ProviderOptions = options }, CancellationToken.None);
+        using var model = new OpenCodeConsoleModel(
+            "go/deepseek-v4.1-flash",
+            provider,
+            Subscriptions.Client(provider, store, inner: api)
+        );
+        var options = new Dictionary<string, JsonElement>
+        {
+            ["opencode"] = JsonSerializer.SerializeToElement(new { reasoningEffort = "low" }),
+        };
+        await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "",
+                Tools = [],
+                Messages = [new ModelMessage { Role = "user", Content = "hi" }],
+                ProviderOptions = options,
+            },
+            CancellationToken.None
+        );
         await model.CompleteAsync(OpencodeConsoleWorkspace.Prompt("again"), CancellationToken.None);
-        using var other = new OpenCodeConsoleModel("go/deepseek-v4.1-flash", provider, Subscriptions.Client(provider, store, inner: api));
+        using var other = new OpenCodeConsoleModel(
+            "go/deepseek-v4.1-flash",
+            provider,
+            Subscriptions.Client(provider, store, inner: api)
+        );
         await other.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi"), CancellationToken.None);
 
         const string Go = "/inference/go/openai/v1/chat/completions";
-        Assert.Equal(["/console/api/config", Go, Go, "/console/api/config", Go], api.Requests.Select(request => request.Uri.AbsolutePath));
+        Assert.Equal(
+            ["/console/api/config", Go, Go, "/console/api/config", Go],
+            api.Requests.Select(request => request.Uri.AbsolutePath)
+        );
         var calls = OpencodeConsoleWorkspace.Inference(api);
         var body = JsonNode.Parse(calls[0].Body)!;
-        Assert.Equal(("deepseek-v4.1-flash", "low"), (body["model"]?.GetValue<string>(), body["reasoning_effort"]?.GetValue<string>()));
+        Assert.Equal(
+            ("deepseek-v4.1-flash", "low"),
+            (body["model"]?.GetValue<string>(), body["reasoning_effort"]?.GetValue<string>())
+        );
         var sessions = calls.Select(call => call.Header("x-opencode-session")).ToList();
         Assert.Equal(sessions[0], sessions[1]);
         Assert.NotEqual(sessions[0], sessions[2]);
@@ -74,17 +114,38 @@ public sealed class OpencodeConsoleTests
         var api = OpencodeConsoleWorkspace.Serve();
         var store = Login();
         var provider = new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl);
-        using (var nano = new OpenCodeConsoleModel("gpt-5-nano", provider, Subscriptions.Client(provider, store, inner: api)))
+        using (
+            var nano = new OpenCodeConsoleModel(
+                "gpt-5-nano",
+                provider,
+                Subscriptions.Client(provider, store, inner: api)
+            )
+        )
         {
-            await nano.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi", "You test web apps."), CancellationToken.None);
+            await nano.CompleteAsync(
+                OpencodeConsoleWorkspace.Prompt("hi", "You test web apps."),
+                CancellationToken.None
+            );
         }
 
-        using (var bareNano = new OpenCodeConsoleModel("gpt-5-nano", provider, Subscriptions.Client(provider, store, inner: api)))
+        using (
+            var bareNano = new OpenCodeConsoleModel(
+                "gpt-5-nano",
+                provider,
+                Subscriptions.Client(provider, store, inner: api)
+            )
+        )
         {
             await bareNano.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi"), CancellationToken.None);
         }
 
-        using (var gemini = new OpenCodeConsoleModel("gemini-3.1-pro", provider, Subscriptions.Client(provider, store, inner: api)))
+        using (
+            var gemini = new OpenCodeConsoleModel(
+                "gemini-3.1-pro",
+                provider,
+                Subscriptions.Client(provider, store, inner: api)
+            )
+        )
         {
             await gemini.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi"), CancellationToken.None);
         }
@@ -95,8 +156,14 @@ public sealed class OpencodeConsoleTests
         var body = JsonNode.Parse(responses.Body)!;
         Assert.Equal("gpt-5-nano", body["model"]?.GetValue<string>());
         Assert.False(body["store"]!.GetValue<bool>());
-        Assert.Equal(E2E.Internal.ModelHttp.PromptCacheKey("You test web apps."), body["prompt_cache_key"]?.GetValue<string>());
-        Assert.Equal(bare.Header("x-opencode-session"), JsonNode.Parse(bare.Body)!["prompt_cache_key"]?.GetValue<string>());
+        Assert.Equal(
+            E2E.Internal.ModelHttp.PromptCacheKey("You test web apps."),
+            body["prompt_cache_key"]?.GetValue<string>()
+        );
+        Assert.Equal(
+            bare.Header("x-opencode-session"),
+            JsonNode.Parse(bare.Body)!["prompt_cache_key"]?.GetValue<string>()
+        );
         Assert.Equal("/inference/google/v1beta/models/gemini-3.1-pro:generateContent", google.Uri.AbsolutePath);
         Assert.Equal("Bearer st_tok", google.Header("authorization"));
         Assert.Null(google.Header("x-goog-api-key"));
@@ -110,12 +177,18 @@ public sealed class OpencodeConsoleTests
     {
         var api = OpencodeConsoleWorkspace.Serve();
         var provider = new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl);
-        using var model = new OpenCodeConsoleModel("claude-sonnet-5", provider, Subscriptions.Client(provider, Login(), inner: api));
+        using var model = new OpenCodeConsoleModel(
+            "claude-sonnet-5",
+            provider,
+            Subscriptions.Client(provider, Login(), inner: api)
+        );
         var click = new ModelTool
         {
             Name = "click",
             Description = "click",
-            Parameters = JsonSerializer.SerializeToElement(new { type = "object", properties = new { id = new { type = "string" } } }),
+            Parameters = JsonSerializer.SerializeToElement(
+                new { type = "object", properties = new { id = new { type = "string" } } }
+            ),
         };
 
         await model.CompleteAsync(
@@ -131,8 +204,12 @@ public sealed class OpencodeConsoleTests
                     new ModelMessage { Role = "user", Content = "newest" },
                 ],
             },
-            CancellationToken.None);
-        await model.CompleteAsync(OpencodeConsoleWorkspace.Prompt("Is the cart empty?", "You judge screens."), CancellationToken.None);
+            CancellationToken.None
+        );
+        await model.CompleteAsync(
+            OpencodeConsoleWorkspace.Prompt("Is the cart empty?", "You judge screens."),
+            CancellationToken.None
+        );
 
         var calls = OpencodeConsoleWorkspace.Inference(api);
         var loop = JsonNode.Parse(calls[0].Body)!;
@@ -145,7 +222,11 @@ public sealed class OpencodeConsoleTests
 
     /// <summary>The texts of the message parts an Anthropic request marks as cache breakpoints.</summary>
     private static IEnumerable<string?> MarkedTexts(JsonNode body) =>
-        body["messages"]!.AsArray().SelectMany(message => message!["content"]!.AsArray()).Where(part => part!["cache_control"] is not null).Select(part => part!["text"]?.GetValue<string>());
+        body["messages"]!
+            .AsArray()
+            .SelectMany(message => message!["content"]!.AsArray())
+            .Where(part => part!["cache_control"] is not null)
+            .Select(part => part!["text"]?.GetValue<string>());
 
     /// <summary>
     /// Partial: the port's model takes no per-call output cap, so the model always asks for its own 8192 and the half of the
@@ -156,7 +237,11 @@ public sealed class OpencodeConsoleTests
     {
         var api = OpencodeConsoleWorkspace.Serve();
         var provider = new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl);
-        using var model = new OpenCodeConsoleModel("claude-sonnet-5", provider, Subscriptions.Client(provider, Login(), inner: api));
+        using var model = new OpenCodeConsoleModel(
+            "claude-sonnet-5",
+            provider,
+            Subscriptions.Client(provider, Login(), inner: api)
+        );
 
         await model.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi"), CancellationToken.None);
 
@@ -170,18 +255,33 @@ public sealed class OpencodeConsoleTests
         var api = OpencodeConsoleWorkspace.Serve(OpencodeConsoleWorkspace.ZenOnlyConfig);
         var store = Login();
         var provider = new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl);
-        using var go = new OpenCodeConsoleModel("go/deepseek-v4.1-flash", provider, Subscriptions.Client(provider, store, inner: api));
-        var noGo = await Assert.ThrowsAnyAsync<Exception>(() => go.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi"), CancellationToken.None));
+        using var go = new OpenCodeConsoleModel(
+            "go/deepseek-v4.1-flash",
+            provider,
+            Subscriptions.Client(provider, store, inner: api)
+        );
+        var noGo = await Assert.ThrowsAnyAsync<Exception>(() =>
+            go.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi"), CancellationToken.None)
+        );
         var noGoLogin = Assert.IsType<OAuthException>(noGo as OAuthException ?? noGo.InnerException);
         Assert.Equal(OAuthException.Misconfigured, noGoLogin.Code);
         Assert.Contains("OpenCode Go is not available to this login", noGoLogin.Message, StringComparison.Ordinal);
 
-        using var disabled = new OpenCodeConsoleModel("glm-5.1", provider, Subscriptions.Client(provider, store, inner: api));
-        var unserved = await Assert.ThrowsAnyAsync<Exception>(() => disabled.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi"), CancellationToken.None));
+        using var disabled = new OpenCodeConsoleModel(
+            "glm-5.1",
+            provider,
+            Subscriptions.Client(provider, store, inner: api)
+        );
+        var unserved = await Assert.ThrowsAnyAsync<Exception>(() =>
+            disabled.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi"), CancellationToken.None)
+        );
         var unservedLogin = Assert.IsType<OAuthException>(unserved as OAuthException ?? unserved.InnerException);
         Assert.Equal(OAuthException.Misconfigured, unservedLogin.Code);
         // The port names its own CLI command.
-        Assert.Equal("the OpenCode Console workspace does not serve glm-5.1; `e2e models opencode-console` lists the ids", unservedLogin.Message);
+        Assert.Equal(
+            "the OpenCode Console workspace does not serve glm-5.1; `e2e models opencode-console` lists the ids",
+            unservedLogin.Message
+        );
         Assert.Empty(OpencodeConsoleWorkspace.Inference(api));
     }
 
@@ -195,7 +295,9 @@ public sealed class OpencodeConsoleTests
             if (path == "/console/api/config")
             {
                 configs++;
-                return configs == 1 ? (HttpStatusCode.ServiceUnavailable, """{ "error": "down" }""") : OpencodeConsoleWorkspace.Serve().Respond(request);
+                return configs == 1
+                    ? (HttpStatusCode.ServiceUnavailable, """{ "error": "down" }""")
+                    : OpencodeConsoleWorkspace.Serve().Respond(request);
             }
 
             return path.EndsWith("/chat/completions", StringComparison.Ordinal)
@@ -203,14 +305,24 @@ public sealed class OpencodeConsoleTests
                 : (HttpStatusCode.OK, OpencodeConsoleWorkspace.AnthropicMessage);
         });
         var provider = new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl);
-        using var model = new OpenCodeConsoleModel("claude-sonnet-5", provider, Subscriptions.Client(provider, Login(), inner: api));
+        using var model = new OpenCodeConsoleModel(
+            "claude-sonnet-5",
+            provider,
+            Subscriptions.Client(provider, Login(), inner: api)
+        );
 
         await model.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi"), CancellationToken.None);
         await model.CompleteAsync(OpencodeConsoleWorkspace.Prompt("again"), CancellationToken.None);
 
         Assert.Equal(
-            ["/console/api/config", "/inference/openai/v1/chat/completions", "/console/api/config", "/inference/anthropic/v1/messages"],
-            api.Requests.Select(request => request.Uri.AbsolutePath));
+            [
+                "/console/api/config",
+                "/inference/openai/v1/chat/completions",
+                "/console/api/config",
+                "/inference/anthropic/v1/messages",
+            ],
+            api.Requests.Select(request => request.Uri.AbsolutePath)
+        );
         var calls = OpencodeConsoleWorkspace.Inference(api);
         Assert.Equal(calls[0].Header("x-opencode-session"), calls[1].Header("x-opencode-session"));
     }
@@ -221,7 +333,12 @@ public sealed class OpencodeConsoleTests
         var api = OpencodeConsoleWorkspace.Serve();
         using (ProcessEnvironment.Set("OPENCODE_API_KEY", " oc_sk_env "))
         {
-            using var model = Subscriptions.OpenCodeConsole("glm-5.3", Login(), new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl), api);
+            using var model = Subscriptions.OpenCodeConsole(
+                "glm-5.3",
+                Login(),
+                new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl),
+                api
+            );
             await model.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi"), CancellationToken.None);
         }
 
@@ -234,5 +351,6 @@ public sealed class OpencodeConsoleTests
         }
     }
 
-    private static MemoryCredentialStore Login() => new(new() { ["opencode-console"] = OpencodeConsoleWorkspace.Login });
+    private static MemoryCredentialStore Login() =>
+        new(new() { ["opencode-console"] = OpencodeConsoleWorkspace.Login });
 }

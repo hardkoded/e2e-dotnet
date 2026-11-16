@@ -12,9 +12,21 @@ public sealed class LifecycleTests
     private static readonly string[] BootRunnerOpen = ["devices.boot", "command.prepare", "apps.open"];
 
     private static JsonArray Inventory(params (string Platform, string Id, string Name, bool Booted)[] devices) =>
-        [.. devices.Select(device => (JsonNode?)new JsonObject { ["platform"] = device.Platform, ["id"] = device.Id, ["name"] = device.Name, ["booted"] = device.Booted })];
+        [
+            .. devices.Select(device =>
+                (JsonNode?)
+                    new JsonObject
+                    {
+                        ["platform"] = device.Platform,
+                        ["id"] = device.Id,
+                        ["name"] = device.Name,
+                        ["booted"] = device.Booted,
+                    }
+            ),
+        ];
 
-    private static List<string> Methods(Harness harness, string method) => [.. harness.Fake.Methods().Where(name => name == method)];
+    private static List<string> Methods(Harness harness, string method) =>
+        [.. harness.Fake.Methods().Where(name => name == method)];
 
     [Fact]
     public async Task Boots_under_a_session_named_after_the_target_and_worker_slot_launches_the_app_only_when_asked_and_closes_on_dispose()
@@ -56,7 +68,10 @@ public sealed class LifecycleTests
         Assert.Equal(["e2e-ios-0"], first.Sessions);
         JsonAssert.Args("""{"platform":"ios","device":"iPhone 17"}""", first.Fake.LastArgs("devices.boot"));
         await firstSession.RestartAsync(CancellationToken.None);
-        JsonAssert.Args("""{"app":"Settings","platform":"ios","device":"iPhone 17","relaunch":true}""", first.Fake.LastArgs("apps.open"));
+        JsonAssert.Args(
+            """{"app":"Settings","platform":"ios","device":"iPhone 17","relaunch":true}""",
+            first.Fake.LastArgs("apps.open")
+        );
 
         var second = Harness.Create(options => options with { Devices = pool, Session = "qa" });
         await second.Boot("ios", 1);
@@ -79,7 +94,10 @@ public sealed class LifecycleTests
         var lines = new List<string>();
         await h.Engine.PrepareAsync(h.PrepareInfo(2, log: lines.Add), CancellationToken.None);
         Assert.Equal(["e2e-ios-0", "e2e-ios-1"], h.Sessions);
-        Assert.Equal(["devices.boot", "command.prepare", "apps.open", "devices.boot", "command.prepare", "apps.open"], h.Fake.Methods());
+        Assert.Equal(
+            ["devices.boot", "command.prepare", "apps.open", "devices.boot", "command.prepare", "apps.open"],
+            h.Fake.Methods()
+        );
         JsonAssert.Args("""{"platform":"ios","device":"iPhone 17"}""", h.Fake.Calls[0].Args);
         JsonAssert.Args("""{"action":"ios-runner","platform":"ios","device":"iPhone 17"}""", h.Fake.Calls[1].Args);
         JsonAssert.Args("""{"app":"Settings","platform":"ios","device":"iPhone 17"}""", h.Fake.Calls[2].Args);
@@ -98,10 +116,17 @@ public sealed class LifecycleTests
         var bare = Harness.Create(options => options with { Device = "iPhone 16e" }, pinned: false);
         await bare.Engine.PrepareAsync(bare.PrepareInfo(1), CancellationToken.None);
         Assert.Equal(["devices.boot", "command.prepare"], bare.Fake.Methods());
-        var build = Harness.Create(options => options with { Device = "iPhone 16e" }, pinned: false, app: app => app with { AppPath = "build/App.app" });
+        var build = Harness.Create(
+            options => options with { Device = "iPhone 16e" },
+            pinned: false,
+            app: app => app with { AppPath = "build/App.app" }
+        );
         await build.Engine.PrepareAsync(build.PrepareInfo(1), CancellationToken.None);
         Assert.Equal(["devices.boot", "command.prepare"], build.Fake.Methods());
-        var pinnedBuild = Harness.Create(options => options with { Device = "iPhone 16e" }, app: app => app with { AppPath = "build/App.app" });
+        var pinnedBuild = Harness.Create(
+            options => options with { Device = "iPhone 16e" },
+            app: app => app with { AppPath = "build/App.app" }
+        );
         var pinnedLines = new List<string>();
         await pinnedBuild.Engine.PrepareAsync(pinnedBuild.PrepareInfo(1, log: pinnedLines.Add), CancellationToken.None);
         Assert.Equal(["devices.boot", "command.prepare"], pinnedBuild.Fake.Methods());
@@ -120,11 +145,16 @@ public sealed class LifecycleTests
     {
         var h = Harness.Create(
             options => options with { Device = "iPhone 16e" },
-            app: app => app with
-            {
-                LaunchArguments = ["-e2e", "YES"],
-                Permissions = new Dictionary<DevicePermission, PermissionState> { [DevicePermission.Camera] = PermissionState.Grant },
-            });
+            app: app =>
+                app with
+                {
+                    LaunchArguments = ["-e2e", "YES"],
+                    Permissions = new Dictionary<DevicePermission, PermissionState>
+                    {
+                        [DevicePermission.Camera] = PermissionState.Grant,
+                    },
+                }
+        );
         var result = await h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None);
         Assert.Equal(BootRunnerOpen, h.Fake.Methods());
         JsonAssert.Args("""{"app":"Settings","platform":"ios","device":"iPhone 16e"}""", h.Fake.LastArgs("apps.open"));
@@ -136,8 +166,14 @@ public sealed class LifecycleTests
         await session.RestartAsync(CancellationToken.None);
         var after = h.Fake.Calls.Skip(before).ToList();
         Assert.Equal(["settings.update", "apps.open"], after.Select(call => call.Method));
-        JsonAssert.Args("""{"setting":"permission","permission":"camera","state":"grant","platform":"ios","device":"iPhone 16e","app":"Settings"}""", after[0].Args);
-        JsonAssert.Args("""{"app":"Settings","platform":"ios","device":"iPhone 16e","relaunch":true,"launchArgs":["-e2e","YES"]}""", after[1].Args);
+        JsonAssert.Args(
+            """{"setting":"permission","permission":"camera","state":"grant","platform":"ios","device":"iPhone 16e","app":"Settings"}""",
+            after[0].Args
+        );
+        JsonAssert.Args(
+            """{"app":"Settings","platform":"ios","device":"iPhone 16e","relaunch":true,"launchArgs":["-e2e","YES"]}""",
+            after[1].Args
+        );
     }
 
     [Fact]
@@ -165,14 +201,27 @@ public sealed class LifecycleTests
         // The warm-up open would start the runner again under open's shorter budget, so the slot is left unopened.
         Assert.Equal(["devices.boot", "command.prepare"], h.Fake.Methods());
 
-        h.Fake.Respond(DeviceMethods.CommandPrepare, _ => throw new AgentDeviceError("RUNNER_BUSY", "the runner is still finishing a command"));
-        var busy = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(1, log: lines.Add), CancellationToken.None));
+        h.Fake.Respond(DeviceMethods.CommandPrepare, _ =>
+            throw new AgentDeviceError("RUNNER_BUSY", "the runner is still finishing a command")
+        );
+        var busy = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(1, log: lines.Add), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", busy.Code);
 
         // Android has no XCTest runner to start.
-        var android = Harness.Create(options => options with { Device = "emulator-5556", Platform = MobilePlatform.Android });
+        var android = Harness.Create(options =>
+            options with
+            {
+                Device = "emulator-5556",
+                Platform = MobilePlatform.Android,
+            }
+        );
         var androidLines = new List<string>();
-        await android.Engine.PrepareAsync(android.PrepareInfo(1, targetName: "android", log: androidLines.Add), CancellationToken.None);
+        await android.Engine.PrepareAsync(
+            android.PrepareInfo(1, targetName: "android", log: androidLines.Add),
+            CancellationToken.None
+        );
         Assert.DoesNotContain("command.prepare", android.Fake.Methods());
         Assert.Matches(@"^emulator-5556: boot \d+\.\ds, open Settings \d+\.\ds$", androidLines[1]);
     }
@@ -183,10 +232,17 @@ public sealed class LifecycleTests
         // A cloud device runs its own automation, so agent-device refuses to prepare a runner on it. Upstream's prepareRunner
         // treats that like any failure that is not a busy or wedged runner: logged, the slot left to the first attempt.
         var h = Harness.Create(options => options with { Device = "iPhone 16e" });
-        h.Fake.Respond(DeviceMethods.CommandPrepare, _ => throw new AgentDeviceError(
-            "UNSUPPORTED_OPERATION",
-            "prepare is not supported on this device",
-            new Dictionary<string, object?> { ["reason"] = "unsupported-provider-mode", ["hint"] = "Apple runner preparation is unavailable for Limrun-owned devices." }));
+        h.Fake.Respond(DeviceMethods.CommandPrepare, _ =>
+            throw new AgentDeviceError(
+                "UNSUPPORTED_OPERATION",
+                "prepare is not supported on this device",
+                new Dictionary<string, object?>
+                {
+                    ["reason"] = "unsupported-provider-mode",
+                    ["hint"] = "Apple runner preparation is unavailable for Limrun-owned devices.",
+                }
+            )
+        );
         var lines = new List<string>();
         await h.Engine.PrepareAsync(h.PrepareInfo(1, log: lines.Add), CancellationToken.None);
         Assert.Matches(@"runner not prepared.*prepare is not supported on this device", lines[1]);
@@ -200,7 +256,8 @@ public sealed class LifecycleTests
             ("android", "Pixel_9", "Pixel 9", true),
             ("ios", "2BBF3F07-AF66-4F95-82AB-BF442506FC89", "iPhone 16e", true),
             ("ios", "8A2DC8D6-7B20-44FA-ADBB-47D3EAE6E8F3", "iPhone 17", true),
-            ("ios", "CAB49ABB-4A25-48B3-99C9-949153F95902", "iPhone 17 Pro Max", false));
+            ("ios", "CAB49ABB-4A25-48B3-99C9-949153F95902", "iPhone 17 Pro Max", false)
+        );
         var h = Harness.Create();
         h.Fake.Respond(DeviceMethods.DevicesList, _ => inventory);
         Assert.Null(h.Engine.Pool.Size);
@@ -221,11 +278,15 @@ public sealed class LifecycleTests
         var variable = Harness.PoolVariableIn(result.Env, "IOS");
         Assert.Equal(
             """[{"deviceId":"2BBF3F07-AF66-4F95-82AB-BF442506FC89"},{"deviceId":"8A2DC8D6-7B20-44FA-ADBB-47D3EAE6E8F3"}]""",
-            result.Env[variable]);
+            result.Env[variable]
+        );
         var worker = Harness.Create();
         await worker.Boot("ios", 1, new Dictionary<string, string?> { [variable] = result.Env[variable] });
         Assert.Equal(["devices.boot"], worker.Fake.Methods());
-        JsonAssert.Args("""{"platform":"ios","udid":"8A2DC8D6-7B20-44FA-ADBB-47D3EAE6E8F3"}""", worker.Fake.LastArgs("devices.boot"));
+        JsonAssert.Args(
+            """{"platform":"ios","udid":"8A2DC8D6-7B20-44FA-ADBB-47D3EAE6E8F3"}""",
+            worker.Fake.LastArgs("devices.boot")
+        );
         Assert.Equal(["e2e-ios-1"], worker.Sessions);
     }
 
@@ -263,7 +324,14 @@ public sealed class LifecycleTests
     }
 
     private static JsonObject Claimed(string id, string session, string workspace) =>
-        new() { ["platform"] = "ios", ["id"] = id, ["name"] = id, ["booted"] = true, ["claimedBy"] = new JsonObject { ["session"] = session, ["workspace"] = workspace } };
+        new()
+        {
+            ["platform"] = "ios",
+            ["id"] = id,
+            ["name"] = id,
+            ["booted"] = true,
+            ["claimedBy"] = new JsonObject { ["session"] = session, ["workspace"] = workspace },
+        };
 
     [Fact]
     public async Task Skips_a_booted_device_another_agent_device_session_holds_keeps_one_its_own_slot_session_holds_and_fails_when_every_booted_one_is_held()
@@ -271,11 +339,21 @@ public sealed class LifecycleTests
         var h = Harness.Create();
         h.Fake.Respond(DeviceMethods.DevicesList, _ => new JsonArray(
             Claimed("A", "t3-holder", "/elsewhere"),
-            new JsonObject { ["platform"] = "ios", ["id"] = "B", ["name"] = "B", ["booted"] = true },
+            new JsonObject
+            {
+                ["platform"] = "ios",
+                ["id"] = "B",
+                ["name"] = "B",
+                ["booted"] = true,
+            },
             Claimed("C", "e2e-ios-1", "/project"),
-            Claimed("D", "e2e-ios-2", "/project")));
+            Claimed("D", "e2e-ios-2", "/project")
+        ));
         var lines = new List<string>();
-        var result = await h.Engine.PrepareAsync(h.PrepareInfo(2, targetName: "ios", log: lines.Add), CancellationToken.None);
+        var result = await h.Engine.PrepareAsync(
+            h.PrepareInfo(2, targetName: "ios", log: lines.Add),
+            CancellationToken.None
+        );
 
         // e2e-ios-2 is no slot of a two-slot run, so its device is as foreign as another tool's.
         Assert.Equal(2, result.Workers);
@@ -285,14 +363,20 @@ public sealed class LifecycleTests
         JsonAssert.Args("""{"platform":"ios","udid":"C"}""", boots[1].Args);
         Assert.Equal(
             "4 booted ios device(s), skipping 2 held by another agent-device session (A by session \"t3-holder\", D by session \"e2e-ios-2\"); driving 2: B, C",
-            lines[0]);
+            lines[0]
+        );
 
         var held = Harness.Create();
         held.Fake.Respond(DeviceMethods.DevicesList, _ => new JsonArray(Claimed("A", "t3-holder", "/elsewhere")));
-        var failure = await Assert.ThrowsAsync<EngineException>(() => held.Engine.PrepareAsync(held.PrepareInfo(1, targetName: "ios"), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            held.Engine.PrepareAsync(held.PrepareInfo(1, targetName: "ios"), CancellationToken.None)
+        );
         Assert.Equal(EngineErrorCodes.EngineFailure, failure.Code);
         Assert.False(failure.Retryable);
-        Assert.Matches(@"every booted ios device is held by another agent-device session \(A by session ""t3-holder""\)", failure.Message);
+        Assert.Matches(
+            @"every booted ios device is held by another agent-device session \(A by session ""t3-holder""\)",
+            failure.Message
+        );
         Assert.DoesNotContain("devices.boot", held.Fake.Methods());
     }
 
@@ -302,7 +386,10 @@ public sealed class LifecycleTests
         var h = Harness.Create(options => options with { Platform = MobilePlatform.Android });
         h.Fake.Respond(DeviceMethods.DevicesList, _ => Inventory(("android", "emulator-5554", "test", true)));
         var lines = new List<string>();
-        var result = await h.Engine.PrepareAsync(h.PrepareInfo(1, targetName: "android", log: lines.Add), CancellationToken.None);
+        var result = await h.Engine.PrepareAsync(
+            h.PrepareInfo(1, targetName: "android", log: lines.Add),
+            CancellationToken.None
+        );
 
         // The inventory names the device. The boot selects it by the id agent-device lists it under, an adb serial.
         Assert.Matches(@"1 booted android device\(s\); driving 1: test", lines[0]);
@@ -313,7 +400,13 @@ public sealed class LifecycleTests
         await worker.Boot("android", 0, Harness.WorkerEnv(result));
         JsonAssert.Args("""{"platform":"android","serial":"emulator-5554"}""", worker.Fake.LastArgs("devices.boot"));
 
-        var bySerial = Harness.Create(options => options with { Device = "emulator-5556", Platform = MobilePlatform.Android });
+        var bySerial = Harness.Create(options =>
+            options with
+            {
+                Device = "emulator-5556",
+                Platform = MobilePlatform.Android,
+            }
+        );
         await bySerial.Boot("android");
         JsonAssert.Args("""{"platform":"android","serial":"emulator-5556"}""", bySerial.Fake.LastArgs("devices.boot"));
         var byName = Harness.Create(options => options with { Device = "Pixel_9", Platform = MobilePlatform.Android });
@@ -321,7 +414,10 @@ public sealed class LifecycleTests
         JsonAssert.Args("""{"platform":"android","device":"Pixel_9"}""", byName.Fake.LastArgs("devices.boot"));
         var byUdid = Harness.Create(options => options with { Device = "2BBF3F07-AF66-4F95-82AB-BF442506FC89" });
         await byUdid.Boot();
-        JsonAssert.Args("""{"platform":"ios","udid":"2BBF3F07-AF66-4F95-82AB-BF442506FC89"}""", byUdid.Fake.LastArgs("devices.boot"));
+        JsonAssert.Args(
+            """{"platform":"ios","udid":"2BBF3F07-AF66-4F95-82AB-BF442506FC89"}""",
+            byUdid.Fake.LastArgs("devices.boot")
+        );
     }
 
     [Fact]
@@ -335,34 +431,80 @@ public sealed class LifecycleTests
         await (await none.Boot()).BackAsync(CancellationToken.None);
         JsonAssert.Args("{}", none.Fake.LastArgs("command.back"));
 
-        Assert.Contains("non-negative integer", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { SettleMilliseconds = -1 })).Message, StringComparison.Ordinal);
-        Assert.Contains("non-negative integer", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { TransitionMilliseconds = -5 })).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "non-negative integer",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    Harness.Create(options => options with { SettleMilliseconds = -1 })
+                )
+                .Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "non-negative integer",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    Harness.Create(options => options with { TransitionMilliseconds = -5 })
+                )
+                .Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public void Rejects_a_blank_device_name_at_config_time()
     {
-        Assert.Contains("must not be blank", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { Device = "" })).Message, StringComparison.Ordinal);
-        Assert.Contains("must not be blank", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { Devices = ["iPhone 17", " "] })).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "must not be blank",
+            Assert
+                .Throws<ConfigurationException>(() => Harness.Create(options => options with { Device = "" }))
+                .Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "must not be blank",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    Harness.Create(options => options with { Devices = ["iPhone 17", " "] })
+                )
+                .Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public void Rejects_an_empty_pool_at_config_time()
     {
-        Assert.Matches("empty pool", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { Devices = [] })).Message);
+        Assert.Matches(
+            "empty pool",
+            Assert
+                .Throws<ConfigurationException>(() => Harness.Create(options => options with { Devices = [] }))
+                .Message
+        );
     }
 
     [Fact]
     public void Rejects_a_link_as_the_bundle_id_at_config_time_before_prepare_could_open_it_on_a_device()
     {
-        foreach (var link in new[] { "file:///etc/passwd", "https://example.com/verify?token=s3cret", "myapp://orders/42" })
+        foreach (
+            var link in new[] { "file:///etc/passwd", "https://example.com/verify?token=s3cret", "myapp://orders/42" }
+        )
         {
-            var error = Assert.Throws<ConfigurationException>(() => MobileEngine.ValidateApp(new MobileApp { BundleId = link }, null, "ios", MobilePlatform.Ios));
+            var error = Assert.Throws<ConfigurationException>(() =>
+                MobileEngine.ValidateApp(new MobileApp { BundleId = link }, null, "ios", MobilePlatform.Ios)
+            );
             Assert.Equal("INVALID_CONFIG", error.Code);
             Assert.Contains("device.openLink", error.Message, StringComparison.Ordinal);
         }
 
-        var secret = Assert.Throws<ConfigurationException>(() => MobileEngine.ValidateApp(new MobileApp { BundleId = "https://example.com/verify?token=s3cret" }, null, "ios", MobilePlatform.Ios));
+        var secret = Assert.Throws<ConfigurationException>(() =>
+            MobileEngine.ValidateApp(
+                new MobileApp { BundleId = "https://example.com/verify?token=s3cret" },
+                null,
+                "ios",
+                MobilePlatform.Ios
+            )
+        );
         Assert.DoesNotContain("s3cret", secret.Message, StringComparison.Ordinal);
         MobileEngine.ValidateApp(new MobileApp { BundleId = "Notes: Pro" }, null, "ios", MobilePlatform.Ios);
     }
@@ -371,7 +513,13 @@ public sealed class LifecycleTests
     public async Task Installs_nothing_on_its_own_device_installApp_with_no_path_installs_the_engine_build_and_pins_what_it_installed()
     {
         var h = Harness.Create(pinned: false, app: app => app with { AppPath = "./build/App.app" });
-        h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject { ["app"] = "./build/App.app", ["appPath"] = "/project/build/App.app", ["platform"] = "ios", ["bundleId"] = "com.example.app" });
+        h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject
+        {
+            ["app"] = "./build/App.app",
+            ["appPath"] = "/project/build/App.app",
+            ["platform"] = "ios",
+            ["bundleId"] = "com.example.app",
+        });
         var session = await h.Boot();
         Assert.Equal(["devices.boot"], h.Fake.Methods());
 
@@ -382,7 +530,10 @@ public sealed class LifecycleTests
         await session.RestartAsync(CancellationToken.None);
         JsonAssert.Args("""{"app":"com.example.app","platform":"ios","relaunch":true}""", h.Fake.LastArgs("apps.open"));
         await session.ClearStateAsync(CancellationToken.None);
-        JsonAssert.Args("""{"platform":"ios","setting":"clear-app-state","state":"clear","app":"com.example.app"}""", h.Fake.LastArgs("settings.update"));
+        JsonAssert.Args(
+            """{"platform":"ios","setting":"clear-app-state","state":"clear","app":"com.example.app"}""",
+            h.Fake.LastArgs("settings.update")
+        );
         Assert.Single(Methods(h, "apps.install"));
 
         // A build named by path that is the engine's own counts the same. Another path pins nothing.
@@ -396,28 +547,56 @@ public sealed class LifecycleTests
     [Fact]
     public async Task Pins_the_package_an_Android_install_reports_and_refuses_the_build_path_as_an_app_id()
     {
-        var h = Harness.Create(options => options with { Platform = MobilePlatform.Android }, pinned: false, app: app => app with { AppPath = "./build/app.apk" });
-        h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject { ["app"] = "/project/build/app.apk", ["appPath"] = "/project/build/app.apk", ["platform"] = "android", ["appId"] = "dev.example.app", ["package"] = "dev.example.app" });
+        var h = Harness.Create(
+            options => options with { Platform = MobilePlatform.Android },
+            pinned: false,
+            app: app => app with { AppPath = "./build/app.apk" }
+        );
+        h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject
+        {
+            ["app"] = "/project/build/app.apk",
+            ["appPath"] = "/project/build/app.apk",
+            ["platform"] = "android",
+            ["appId"] = "dev.example.app",
+            ["package"] = "dev.example.app",
+        });
         var session = await h.Boot();
         Assert.Equal(new InstalledApp("dev.example.app", "dev.example.app"), await session.InstallAppAsync());
         await session.RestartAsync(CancellationToken.None);
-        JsonAssert.Args("""{"app":"dev.example.app","platform":"android","relaunch":true}""", h.Fake.LastArgs("apps.open"));
+        JsonAssert.Args(
+            """{"app":"dev.example.app","platform":"android","relaunch":true}""",
+            h.Fake.LastArgs("apps.open")
+        );
 
         // agent-device 0.21.18 echoes the path as `app` when it cannot read the package. That path is not something `open` can launch.
-        var unnamed = Harness.Create(options => options with { Platform = MobilePlatform.Android }, pinned: false, app: app => app with { AppPath = "./build/app.apk" });
-        unnamed.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject { ["app"] = "/project/build/app.apk", ["appPath"] = "/project/build/app.apk", ["platform"] = "android" });
+        var unnamed = Harness.Create(
+            options => options with { Platform = MobilePlatform.Android },
+            pinned: false,
+            app: app => app with { AppPath = "./build/app.apk" }
+        );
+        unnamed.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject
+        {
+            ["app"] = "/project/build/app.apk",
+            ["appPath"] = "/project/build/app.apk",
+            ["platform"] = "android",
+        });
         var unnamedSession = await unnamed.Boot();
         var reported = await Assert.ThrowsAsync<EngineException>(() => unnamedSession.InstallAppAsync());
         Assert.Equal("ENGINE_FAILURE", reported.Code);
         Assert.Contains("reported no bundle id or package", reported.Message, StringComparison.Ordinal);
         Assert.Null(unnamedSession.PinnedApp);
-        var refused = await Assert.ThrowsAsync<EngineException>(() => unnamedSession.RestartAsync(CancellationToken.None));
+        var refused = await Assert.ThrowsAsync<EngineException>(() =>
+            unnamedSession.RestartAsync(CancellationToken.None)
+        );
         Assert.Equal("UNSUPPORTED_CAPABILITY", refused.Code);
         Assert.Contains("device.installApp()", refused.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("apps.open", unnamed.Fake.Methods());
 
         // An `app` passed in is what the build opens by, reported or not.
-        Assert.Equal(new InstalledApp("dev.example.app"), await unnamedSession.InstallAppAsync(null, new InstallAppOptions { App = "dev.example.app" }));
+        Assert.Equal(
+            new InstalledApp("dev.example.app"),
+            await unnamedSession.InstallAppAsync(null, new InstallAppOptions { App = "dev.example.app" })
+        );
         Assert.Equal("dev.example.app", unnamedSession.PinnedApp);
     }
 
@@ -426,14 +605,26 @@ public sealed class LifecycleTests
     {
         var h = Harness.Create(
             options => options with { Platform = MobilePlatform.Android, Device = "Pixel 8" },
-            app: app => app with { BundleId = "com.example.app", AppPath = "/builds/app.apk" });
-        h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject { ["app"] = "com.example.app", ["appPath"] = "/builds/app.apk", ["platform"] = "android" });
+            app: app => app with { BundleId = "com.example.app", AppPath = "/builds/app.apk" }
+        );
+        h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject
+        {
+            ["app"] = "com.example.app",
+            ["appPath"] = "/builds/app.apk",
+            ["platform"] = "android",
+        });
         var session = await h.Boot();
         await session.RestartAsync(CancellationToken.None);
         Assert.Equal(["devices.boot", "apps.open"], h.Fake.Methods());
         await session.InstallAppAsync();
-        JsonAssert.Args("""{"platform":"android","device":"Pixel 8","app":"com.example.app","appPath":"/builds/app.apk"}""", h.Fake.LastArgs("apps.install"));
-        JsonAssert.Args("""{"app":"com.example.app","platform":"android","device":"Pixel 8","relaunch":true}""", h.Fake.LastArgs("apps.open"));
+        JsonAssert.Args(
+            """{"platform":"android","device":"Pixel 8","app":"com.example.app","appPath":"/builds/app.apk"}""",
+            h.Fake.LastArgs("apps.install")
+        );
+        JsonAssert.Args(
+            """{"app":"com.example.app","platform":"android","device":"Pixel 8","relaunch":true}""",
+            h.Fake.LastArgs("apps.open")
+        );
     }
 
     [Fact]
@@ -445,7 +636,9 @@ public sealed class LifecycleTests
         Assert.Equal("INVALID_STATE", missing.Code);
 
         var h = Harness.Create(pinned: false, app: app => app with { AppPath = "./missing.app" });
-        h.Fake.Respond(DeviceMethods.AppsInstall, _ => throw new InvalidOperationException("no such file: missing.app"));
+        h.Fake.Respond(DeviceMethods.AppsInstall, _ =>
+            throw new InvalidOperationException("no such file: missing.app")
+        );
         var session = await h.Boot();
         var failed = await Assert.ThrowsAsync<EngineException>(() => session.InstallAppAsync());
         Assert.Equal("ENGINE_FAILURE", failed.Code);

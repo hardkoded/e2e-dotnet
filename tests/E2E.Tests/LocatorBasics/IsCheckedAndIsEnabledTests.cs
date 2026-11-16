@@ -13,31 +13,63 @@ public sealed class IsCheckedAndIsEnabledTests
     [Fact]
     public async Task IsChecked_reads_the_checked_state_and_a_checkable_role_with_no_state_as_unchecked()
     {
-        Assert.True(await ScreenFixture.Create(Item("on", "On", new NodeStates { Checked = true })).GetByRole("listitem").IsCheckedAsync());
-        Assert.False(await ScreenFixture.Create(Item("off", "Off", new NodeStates { Checked = false })).GetByRole("listitem").IsCheckedAsync());
-        var toggle = new SemanticNode { Ref = "toggle", Role = "switch", Name = "Wi-Fi" };
+        Assert.True(
+            await ScreenFixture
+                .Create(Item("on", "On", new NodeStates { Checked = true }))
+                .GetByRole("listitem")
+                .IsCheckedAsync()
+        );
+        Assert.False(
+            await ScreenFixture
+                .Create(Item("off", "Off", new NodeStates { Checked = false }))
+                .GetByRole("listitem")
+                .IsCheckedAsync()
+        );
+        var toggle = new SemanticNode
+        {
+            Ref = "toggle",
+            Role = "switch",
+            Name = "Wi-Fi",
+        };
         Assert.False(await ScreenFixture.Create(toggle).GetByRole("switch").IsCheckedAsync());
     }
 
     [Fact]
     public async Task IsChecked_fails_on_a_node_with_no_checked_state_as_Playwright_does()
     {
-        var error = await FailsWith("ACTION_FAILED", () => ScreenFixture.Create(Shown).GetByRole("listitem").IsCheckedAsync());
+        var error = await FailsWith("ACTION_FAILED", () =>
+            ScreenFixture.Create(Shown).GetByRole("listitem").IsCheckedAsync()
+        );
         Assert.Contains("Not a checkbox or radio button", error.Message);
     }
 
     [Fact]
     public async Task IsChecked_reads_a_secure_field_since_a_state_is_not_a_value()
     {
-        Assert.True(await ScreenFixture.Create(Item("pw", "", new NodeStates { Secure = true, Checked = true })).GetByRole("listitem").IsCheckedAsync());
+        Assert.True(
+            await ScreenFixture
+                .Create(Item("pw", "", new NodeStates { Secure = true, Checked = true }))
+                .GetByRole("listitem")
+                .IsCheckedAsync()
+        );
     }
 
     [Fact]
     public async Task IsEnabled_is_true_with_no_states_and_with_disabled_false_false_once_disabled()
     {
         Assert.True(await ScreenFixture.Create(Shown).GetByRole("listitem").IsEnabledAsync());
-        Assert.True(await ScreenFixture.Create(Item("x", "x", new NodeStates { Disabled = false })).GetByRole("listitem").IsEnabledAsync());
-        Assert.False(await ScreenFixture.Create(Item("x", "x", new NodeStates { Disabled = true })).GetByRole("listitem").IsEnabledAsync());
+        Assert.True(
+            await ScreenFixture
+                .Create(Item("x", "x", new NodeStates { Disabled = false }))
+                .GetByRole("listitem")
+                .IsEnabledAsync()
+        );
+        Assert.False(
+            await ScreenFixture
+                .Create(Item("x", "x", new NodeStates { Disabled = true }))
+                .GetByRole("listitem")
+                .IsEnabledAsync()
+        );
     }
 
     [Fact]
@@ -49,7 +81,10 @@ public sealed class IsCheckedAndIsEnabledTests
         Assert.True(watch.Elapsed < ScreenFixture.Timeout, "answered after " + watch.Elapsed);
         await FailsWith("LOCATOR_NOT_FOUND", () => none.IsCheckedAsync());
         await FailsWith("LOCATOR_NOT_FOUND", () => none.IsEnabledAsync());
-        Assert.True(watch.Elapsed >= ScreenFixture.Timeout * 2 - TimeSpan.FromMilliseconds(50), "answered after " + watch.Elapsed);
+        Assert.True(
+            watch.Elapsed >= ScreenFixture.Timeout * 2 - TimeSpan.FromMilliseconds(50),
+            "answered after " + watch.Elapsed
+        );
     }
 
     [Fact]

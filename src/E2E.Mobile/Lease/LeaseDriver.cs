@@ -20,16 +20,27 @@ internal sealed record DriverGrant(string LeaseId, string TenantId, string RunId
 /// </summary>
 internal static class LeaseDriver
 {
-    public static async Task<DriverGrant> AllocateAsync(DriverRequest request, DeviceClientFactory connect, CancellationToken cancellationToken)
+    public static async Task<DriverGrant> AllocateAsync(
+        DriverRequest request,
+        DeviceClientFactory connect,
+        CancellationToken cancellationToken
+    )
     {
-        var client = connect(LeaseSessions.LeaseSession(request.StateDirectory), new DeviceConnection { Client = new JsonObject { ["stateDir"] = request.StateDirectory } });
-        var lease = await client.CallAsync(DeviceMethods.LeasesAllocate, (JsonObject)request.Allocate.DeepClone(), cancellationToken).ConfigureAwait(false) as JsonObject
+        var client = connect(
+            LeaseSessions.LeaseSession(request.StateDirectory),
+            new DeviceConnection { Client = new JsonObject { ["stateDir"] = request.StateDirectory } }
+        );
+        var lease =
+            await client
+                .CallAsync(DeviceMethods.LeasesAllocate, (JsonObject)request.Allocate.DeepClone(), cancellationToken)
+                .ConfigureAwait(false) as JsonObject
             ?? throw new InvalidOperationException("agent-device returned no lease");
         return new DriverGrant(
             Required(lease, "leaseId"),
             Required(lease, "tenantId"),
             Required(lease, "runId"),
-            lease["retainOnClose"] is JsonValue retained && retained.TryGetValue<bool>(out var keep) && keep);
+            lease["retainOnClose"] is JsonValue retained && retained.TryGetValue<bool>(out var keep) && keep
+        );
     }
 
     private static string Required(JsonObject lease, string name) =>

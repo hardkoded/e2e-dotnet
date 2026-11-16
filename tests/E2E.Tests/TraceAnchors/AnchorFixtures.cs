@@ -25,7 +25,8 @@ internal static class AnchorFixtures
         NodeStates? states = null,
         string? testId = null,
         IReadOnlyList<SemanticNode>? children = null,
-        string? selector = null)
+        string? selector = null
+    )
     {
         return new SemanticNode
         {
@@ -41,24 +42,57 @@ internal static class AnchorFixtures
         };
     }
 
-    internal static RecordedTarget Anchor(string? role = null, string? name = null, string? text = null, string? value = null, List<string>? states = null, string? testId = null)
+    internal static RecordedTarget Anchor(
+        string? role = null,
+        string? name = null,
+        string? text = null,
+        string? value = null,
+        List<string>? states = null,
+        string? testId = null
+    )
     {
-        return new RecordedTarget { Role = role, Name = name, Text = text, Value = value, States = states, TestId = testId };
+        return new RecordedTarget
+        {
+            Role = role,
+            Name = name,
+            Text = text,
+            Value = value,
+            States = states,
+            TestId = testId,
+        };
     }
 
     internal static List<AnchorNode> Project(IEnumerable<SemanticNode> nodes, Func<string, string>? record = null)
     {
-        return Anchors.Project(LocatorResolver.Walk(nodes.ToList()).ToDictionary(node => node.Ref, StringComparer.Ordinal), record ?? (value => value), value => value);
+        return Anchors.Project(
+            LocatorResolver.Walk(nodes.ToList()).ToDictionary(node => node.Ref, StringComparer.Ordinal),
+            record ?? (value => value),
+            value => value
+        );
     }
 
-    internal static (List<RecordedTarget> Appeared, List<RecordedTarget> Gone) Describe(IEnumerable<SemanticNode> start, IEnumerable<SemanticNode> end, bool routeMoved = false)
+    internal static (List<RecordedTarget> Appeared, List<RecordedTarget> Gone) Describe(
+        IEnumerable<SemanticNode> start,
+        IEnumerable<SemanticNode> end,
+        bool routeMoved = false
+    )
     {
         return Anchors.Describe(Project(start), Project(end), routeMoved);
     }
 
-    internal static bool Holds(List<RecordedTarget> appeared, IEnumerable<SemanticNode> live, IEnumerable<SemanticNode>? before = null, List<RecordedTarget>? gone = null)
+    internal static bool Holds(
+        List<RecordedTarget> appeared,
+        IEnumerable<SemanticNode> live,
+        IEnumerable<SemanticNode>? before = null,
+        List<RecordedTarget>? gone = null
+    )
     {
-        return Anchors.Mismatch(new CacheEntry { Appeared = appeared, Gone = gone ?? [] }, Project(live), Project(before ?? [])) is null;
+        return Anchors.Mismatch(
+            new CacheEntry { Appeared = appeared, Gone = gone ?? [] },
+            Project(live),
+            Project(before ?? [])
+        )
+            is null;
     }
 
     /// <summary>An anchor as one line: <c>role|name</c>, then <c>~text</c>, <c>#testId</c>, <c>=value</c>, and <c>|states</c> when present.</summary>

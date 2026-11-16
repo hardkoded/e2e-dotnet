@@ -26,9 +26,12 @@ public sealed class KeyboardShadowFocusTests
                   await loaded;
                   frame.contentDocument.getElementById('stop').focus();
                 }
-                """);
+                """
+            );
 
-            var error = await Assert.ThrowsAsync<EngineException>(() => session.TypeTextAsync("lost", replace: false, CancellationToken.None));
+            var error = await Assert.ThrowsAsync<EngineException>(() =>
+                session.TypeTextAsync("lost", replace: false, CancellationToken.None)
+            );
 
             Assert.Equal("NOT_ACTIONABLE", error.Code);
         }

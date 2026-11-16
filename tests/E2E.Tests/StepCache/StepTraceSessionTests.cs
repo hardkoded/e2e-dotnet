@@ -88,7 +88,11 @@ public sealed class StepTraceSessionTests
     [Fact]
     public async Task Misses_a_truncated_entry_without_replaying_any_of_its_actions_so_the_executor_runs_from_the_top()
     {
-        var context = EntryContext(actions: [.. Enumerable.Range(0, 50).Select(index => Navigate("/page" + index))], startPath: "/pricing", truncated: true);
+        var context = EntryContext(
+            actions: [.. Enumerable.Range(0, 50).Select(index => Navigate("/page" + index))],
+            startPath: "/pricing",
+            truncated: true
+        );
         var visited = new List<string>();
         var host = MakeHost(["/pricing"]);
         host.OnNavigate = visited.Add;
@@ -105,7 +109,10 @@ public sealed class StepTraceSessionTests
     [Fact]
     public async Task Turns_a_rejecting_store_read_into_a_miss_instead_of_failing_the_step()
     {
-        var session = MakeSession(FakeContext(() => throw new InvalidOperationException("redis connection refused")), MakeHost(["/"]));
+        var session = MakeSession(
+            FakeContext(() => throw new InvalidOperationException("redis connection refused")),
+            MakeHost(["/"])
+        );
 
         Assert.Null(await session.BeginAsync());
 
@@ -147,13 +154,28 @@ public sealed class StepTraceSessionTests
     [InlineData(null, 1.5, "scroll")]
     [InlineData(null, -0.1, "scrollUntil")]
     [InlineData(null, 0.5, "tap")]
-    public async Task Degrades_a_hit_with_a_malformed_end_wait_or_scroll_coverage_to_a_miss(int? endWaitMs, double? spans, string kind)
+    public async Task Degrades_a_hit_with_a_malformed_end_wait_or_scroll_coverage_to_a_miss(
+        int? endWaitMs,
+        double? spans,
+        string kind
+    )
     {
         var entry = new CacheEntry
         {
             Schema = FileStepCache.SchemaVersion,
             EndWaitMs = endWaitMs,
-            Actions = [new RecordedAction { Kind = kind, Direction = "down", Text = "Row", Role = "list", Name = "Ledger", Spans = spans }],
+            Actions =
+            [
+                new RecordedAction
+                {
+                    Kind = kind,
+                    Direction = "down",
+                    Text = "Row",
+                    Role = "list",
+                    Name = "Ledger",
+                    Spans = spans,
+                },
+            ],
         };
         var session = MakeSession(FakeContext(() => new CacheLookup { Entry = entry }), MakeHost(["/"]));
 
@@ -185,7 +207,14 @@ public sealed class StepTraceSessionTests
     {
         var heading = Node("h", "heading", "Storage");
         var button = Node("b", "button", "Save marker");
-        var session = MakeSession(NoEntry(), MakeHost(["/storage"], [heading, button], [Node("h2", "heading", "Storage"), Node("b2", "button", "Save marker"), SavedMarker]));
+        var session = MakeSession(
+            NoEntry(),
+            MakeHost(
+                ["/storage"],
+                [heading, button],
+                [Node("h2", "heading", "Storage"), Node("b2", "button", "Save marker"), SavedMarker]
+            )
+        );
         await session.BeginAsync();
 
         session.Record(Tap("button", "Save marker"));
@@ -201,7 +230,11 @@ public sealed class StepTraceSessionTests
     public async Task Records_nothing_and_says_so_when_a_unique_value_is_spelled_by_another_param()
     {
         var spelled = NoEntry();
-        var session = MakeSession(spelled, MakeHost(["/reminders", "/reminders/7"]), new Dictionary<string, object?> { ["title"] = Values.Unique("Daily"), ["frequency"] = "Daily" });
+        var session = MakeSession(
+            spelled,
+            MakeHost(["/reminders", "/reminders/7"]),
+            new Dictionary<string, object?> { ["title"] = Values.Unique("Daily"), ["frequency"] = "Daily" }
+        );
         await session.BeginAsync();
         session.Record(Navigate("/reminders/new?title=Daily&frequency=Daily"));
         await session.ConcludeAsync(StepOutcome.Passed);
@@ -212,7 +245,11 @@ public sealed class StepTraceSessionTests
 
         // The same call with a title of its own records, and the detail carries no such note.
         var clean = NoEntry();
-        var other = MakeSession(clean, MakeHost(["/reminders", "/reminders/8"]), new Dictionary<string, object?> { ["title"] = Values.Unique("Water plants"), ["frequency"] = "Daily" });
+        var other = MakeSession(
+            clean,
+            MakeHost(["/reminders", "/reminders/8"]),
+            new Dictionary<string, object?> { ["title"] = Values.Unique("Water plants"), ["frequency"] = "Daily" }
+        );
         await other.BeginAsync();
         other.Record(Navigate("/reminders/new?title=Water+plants&frequency=Daily"));
         await other.ConcludeAsync(StepOutcome.Passed);
@@ -269,8 +306,14 @@ public sealed class StepTraceSessionTests
         Assert.Equal(ReplayHandOffReason.EndMismatch, session.ReplayedPrefix?.StopReason);
         Assert.Equal(["navigate to \"/customers\""], session.ReplayedPrefix?.ReplayedActions);
         var info = session.CacheInfo!;
-        Assert.Equal(("agent-concluded", "end-mismatch", 1, 1), (info.Mode, info.Reason, info.ReplayedActions, info.TotalActions));
-        Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers: missing status \"Marker\" text=\"saved\"", info.Detail);
+        Assert.Equal(
+            ("agent-concluded", "end-mismatch", 1, 1),
+            (info.Mode, info.Reason, info.ReplayedActions, info.TotalActions)
+        );
+        Assert.Equal(
+            "every recorded action ran, but the recorded end state did not show on /customers: missing status \"Marker\" text=\"saved\"",
+            info.Detail
+        );
     }
 
     [Fact]
@@ -278,43 +321,74 @@ public sealed class StepTraceSessionTests
     {
         var announcer = new RecordedTarget { Role = "alert", Name = "Acme Notes" };
         var declined = Node("d1", "alert", "Card declined");
-        var quiet = MakeSession(EntryContext(endPath: "/customers", endAnchors: [announcer, SavedAnchor]), MakeHost(["/pricing", "/customers"], [], [SavedMarker]));
+        var quiet = MakeSession(
+            EntryContext(endPath: "/customers", endAnchors: [announcer, SavedAnchor]),
+            MakeHost(["/pricing", "/customers"], [], [SavedMarker])
+        );
         Assert.Null(await quiet.BeginAsync());
         Assert.Equal("end-mismatch", quiet.CacheInfo?.Reason);
-        Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers: missing alert \"Acme Notes\"", quiet.CacheInfo?.Detail);
+        Assert.Equal(
+            "every recorded action ran, but the recorded end state did not show on /customers: missing alert \"Acme Notes\"",
+            quiet.CacheInfo?.Detail
+        );
 
-        var raised = MakeSession(EntryContext(endPath: "/customers", endAnchors: [SavedAnchor]), MakeHost(["/pricing", "/customers"], [], [SavedMarker, declined]));
+        var raised = MakeSession(
+            EntryContext(endPath: "/customers", endAnchors: [SavedAnchor]),
+            MakeHost(["/pricing", "/customers"], [], [SavedMarker, declined])
+        );
         Assert.Null(await raised.BeginAsync());
-        Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers: unrecorded alert \"Card declined\"", raised.CacheInfo?.Detail);
+        Assert.Equal(
+            "every recorded action ran, but the recorded end state did not show on /customers: unrecorded alert \"Card declined\"",
+            raised.CacheInfo?.Detail
+        );
 
-        RecordedTarget[] links = [.. new[] { "Alpha", "Beta", "Gamma" }.Select(name => new RecordedTarget { Role = "link", Name = name })];
-        var kept = MakeSession(EntryContext(endPath: "/customers", endAnchors: links, goneAnchors: [SavedAnchor]), MakeHost(["/pricing", "/customers"], [], [SavedMarker]));
+        RecordedTarget[] links =
+        [
+            .. new[] { "Alpha", "Beta", "Gamma" }.Select(name => new RecordedTarget { Role = "link", Name = name }),
+        ];
+        var kept = MakeSession(
+            EntryContext(endPath: "/customers", endAnchors: links, goneAnchors: [SavedAnchor]),
+            MakeHost(["/pricing", "/customers"], [], [SavedMarker])
+        );
         Assert.Null(await kept.BeginAsync());
         Assert.Equal(
             "every recorded action ran, but the recorded end state did not show on /customers: missing link \"Alpha\" and link \"Beta\" (+1 more), still showing status \"Marker\" text=\"saved\"",
-            kept.CacheInfo?.Detail);
+            kept.CacheInfo?.Detail
+        );
     }
 
     [Fact]
     public async Task Says_the_outcome_already_showed_when_the_replay_cannot_have_produced_it_rather_than_that_it_did_not_show()
     {
-        var session = MakeSession(EntryContext(endPath: "/customers", endAnchors: [SavedAnchor]), MakeHost(["/customers", "/customers"], [SavedMarker]));
+        var session = MakeSession(
+            EntryContext(endPath: "/customers", endAnchors: [SavedAnchor]),
+            MakeHost(["/customers", "/customers"], [SavedMarker])
+        );
 
         Assert.Null(await session.BeginAsync());
 
         Assert.Equal("end-mismatch", session.CacheInfo?.Reason);
-        Assert.Equal("every recorded action ran, but the recorded outcome already showed on /customers before the replay acted there, so nothing proves the replay produced it", session.CacheInfo?.Detail);
+        Assert.Equal(
+            "every recorded action ran, but the recorded outcome already showed on /customers before the replay acted there, so nothing proves the replay produced it",
+            session.CacheInfo?.Detail
+        );
     }
 
     [Fact]
     public async Task Does_not_say_the_outcome_already_showed_when_the_recording_has_no_delta_to_show()
     {
-        var session = MakeSession(EntryContext(endPath: "/customers"), MakeHost(["/customers", "/customers"], [SavedMarker]));
+        var session = MakeSession(
+            EntryContext(endPath: "/customers"),
+            MakeHost(["/customers", "/customers"], [SavedMarker])
+        );
 
         Assert.Null(await session.BeginAsync());
 
         Assert.Equal("end-mismatch", session.CacheInfo?.Reason);
-        Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers", session.CacheInfo?.Detail);
+        Assert.Equal(
+            "every recorded action ran, but the recorded end state did not show on /customers",
+            session.CacheInfo?.Detail
+        );
     }
 
     [Fact]
@@ -350,7 +424,9 @@ public sealed class StepTraceSessionTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task Evicts_a_consumed_entry_when_the_step_then_fails_and_never_when_nothing_judged_the_app(bool failed)
+    public async Task Evicts_a_consumed_entry_when_the_step_then_fails_and_never_when_nothing_judged_the_app(
+        bool failed
+    )
     {
         var outcome = failed ? StepOutcome.Failed : StepOutcome.NoVerdict;
         var context = EntryContext(endPath: "/customers", endAnchors: [SavedAnchor]);
@@ -359,7 +435,14 @@ public sealed class StepTraceSessionTests
         Assert.Equal(ReplayHandOffReason.EndMismatch, session.ReplayedPrefix?.StopReason);
 
         await session.ConcludeAsync(outcome);
-        Settle(context, session, verified: false, preserve: AttemptScope.KeepsCache(outcome == StepOutcome.NoVerdict ? new AgentException("MODEL_UNAVAILABLE", "x") : null));
+        Settle(
+            context,
+            session,
+            verified: false,
+            preserve: AttemptScope.KeepsCache(
+                outcome == StepOutcome.NoVerdict ? new AgentException("MODEL_UNAVAILABLE", "x") : null
+            )
+        );
 
         Assert.Equal(failed ? [Key] : [], context.Deleted);
         Assert.Null(session.Pending.Entry);
@@ -426,7 +509,10 @@ public sealed class StepTraceSessionTests
     {
         var host = MakeHost(["/", "/billing"]);
         var looks = 0;
-        host.Capture = _ => ++looks > 1 ? throw new EngineException("ENGINE_FAILURE", "surface went away") : new Observation { Route = "/", Roots = [] };
+        host.Capture = _ =>
+            ++looks > 1
+                ? throw new EngineException("ENGINE_FAILURE", "surface went away")
+                : new Observation { Route = "/", Roots = [] };
         var session = MakeSession(FakeContext(() => new CacheLookup { Reason = "no-entry" }), host);
         await session.BeginAsync();
 
@@ -437,26 +523,37 @@ public sealed class StepTraceSessionTests
     }
 
     [Fact]
-    public Task Propagates_a_runtime_hard_stop_raised_while_capturing_the_baseline() => PropagatesHardStopAsync("baseline");
+    public Task Propagates_a_runtime_hard_stop_raised_while_capturing_the_baseline() =>
+        PropagatesHardStopAsync("baseline");
 
     [Fact]
-    public Task Propagates_a_runtime_hard_stop_raised_while_capturing_the_passing_screen() => PropagatesHardStopAsync("passing screen");
+    public Task Propagates_a_runtime_hard_stop_raised_while_capturing_the_passing_screen() =>
+        PropagatesHardStopAsync("passing screen");
 
     private static async Task PropagatesHardStopAsync(string when)
     {
         var host = MakeHost(["/", "/billing"]);
         var looks = 0;
-        host.Capture = _ => when == "baseline" || ++looks > 1 ? throw new EngineException(EngineErrorCodes.Cancelled, "the attempt was cancelled") : new Observation { Route = "/", Roots = [] };
+        host.Capture = _ =>
+            when == "baseline" || ++looks > 1
+                ? throw new EngineException(EngineErrorCodes.Cancelled, "the attempt was cancelled")
+                : new Observation { Route = "/", Roots = [] };
         var session = MakeSession(FakeContext(() => new CacheLookup { Reason = "no-entry" }), host);
         if (when == "baseline")
         {
-            Assert.Equal(EngineErrorCodes.Cancelled, (await Assert.ThrowsAsync<EngineException>(session.BeginAsync)).Code);
+            Assert.Equal(
+                EngineErrorCodes.Cancelled,
+                (await Assert.ThrowsAsync<EngineException>(session.BeginAsync)).Code
+            );
             return;
         }
 
         await session.BeginAsync();
         session.Record(Navigate("/billing"));
-        Assert.Equal(EngineErrorCodes.Cancelled, (await Assert.ThrowsAsync<EngineException>(() => session.ConcludeAsync(StepOutcome.Passed))).Code);
+        Assert.Equal(
+            EngineErrorCodes.Cancelled,
+            (await Assert.ThrowsAsync<EngineException>(() => session.ConcludeAsync(StepOutcome.Passed))).Code
+        );
     }
 
     [Fact]
@@ -487,9 +584,19 @@ public sealed class StepTraceSessionTests
     public async Task Hands_off_on_an_end_route_with_any_literal_that_differs_the_recorded_anchors_on_screen_or_not()
     {
         // A slug the runner cannot recognize, or a link that now lands on a lookalike page: another screen either way.
-        foreach (var (start, recorded, replayed) in new[] { ("/products", "/products/summer-sneaker", "/products/winter-boot"), ("/nav", "/settings-page", "/profile"), ("/nav", "/task?mode=safe", "/task?mode=unsafe") })
+        foreach (
+            var (start, recorded, replayed) in new[]
+            {
+                ("/products", "/products/summer-sneaker", "/products/winter-boot"),
+                ("/nav", "/settings-page", "/profile"),
+                ("/nav", "/task?mode=safe", "/task?mode=unsafe"),
+            }
+        )
         {
-            var session = MakeSession(EntryContext(endPath: recorded, endAnchors: [SavedAnchor]), MakeHost([start, replayed], [], [SavedMarker]));
+            var session = MakeSession(
+                EntryContext(endPath: recorded, endAnchors: [SavedAnchor]),
+                MakeHost([start, replayed], [], [SavedMarker])
+            );
             Assert.Null(await session.BeginAsync());
             Assert.Equal(ReplayHandOffReason.EndMismatch, session.ReplayedPrefix?.StopReason);
         }
@@ -499,10 +606,28 @@ public sealed class StepTraceSessionTests
     public async Task Hands_off_when_the_recorded_delta_did_not_happen_during_the_replay()
     {
         var draft = Node("d", "status", "Marker", "draft");
-        var draftAnchor = new RecordedTarget { Role = "status", Name = "Marker", Text = "draft" };
+        var draftAnchor = new RecordedTarget
+        {
+            Role = "status",
+            Name = "Marker",
+            Text = "draft",
+        };
         var submit = Node("s", "button", "Submit");
-        StepTraceSession Replay(RecordedTarget[]? endAnchors, RecordedTarget[]? goneAnchors, params SemanticNode[][] screens) =>
-            MakeSession(EntryContext(startPath: "/form", endPath: "/form", endAnchors: endAnchors, goneAnchors: goneAnchors, actions: [Tap("button", "Submit")]), MakeHost(["/form", "/form"], screens));
+        StepTraceSession Replay(
+            RecordedTarget[]? endAnchors,
+            RecordedTarget[]? goneAnchors,
+            params SemanticNode[][] screens
+        ) =>
+            MakeSession(
+                EntryContext(
+                    startPath: "/form",
+                    endPath: "/form",
+                    endAnchors: endAnchors,
+                    goneAnchors: goneAnchors,
+                    actions: [Tap("button", "Submit")]
+                ),
+                MakeHost(["/form", "/form"], screens)
+            );
 
         // The effect happened: the draft gave way to the saved marker.
         var good = Replay([SavedAnchor], [draftAnchor], [submit, draft], [submit, SavedMarker]);
@@ -530,15 +655,31 @@ public sealed class StepTraceSessionTests
     {
         var home = Node("h", "heading", "Home");
         var off = Node("s", "switch", "Email alerts");
-        var on = new SemanticNode { Ref = "s", Role = "switch", Name = "Email alerts", States = new NodeStates { Checked = true } };
+        var on = new SemanticNode
+        {
+            Ref = "s",
+            Role = "switch",
+            Name = "Email alerts",
+            States = new NodeStates { Checked = true },
+        };
         StepTraceSession Replay(params SemanticNode[][] screens) =>
             MakeSession(
                 EntryContext(
                     endPath: "/settings",
-                    endAnchors: [new RecordedTarget { Role = "switch", Name = "Email alerts", States = ["checked"] }],
+                    endAnchors:
+                    [
+                        new RecordedTarget
+                        {
+                            Role = "switch",
+                            Name = "Email alerts",
+                            States = ["checked"],
+                        },
+                    ],
                     goneAnchors: [new RecordedTarget { Role = "heading", Name = "Home" }],
-                    actions: [Navigate("/settings"), Tap("switch", "Email alerts")]),
-                MakeHost(["/home", "/settings"], screens));
+                    actions: [Navigate("/settings"), Tap("switch", "Email alerts")]
+                ),
+                MakeHost(["/home", "/settings"], screens)
+            );
 
         // The switch was off on the settings page and on after the tap: the replay turned it on.
         Assert.Equal(StepVerdictStatus.Passed, (await Replay([home], [off], [on]).BeginAsync())?.Status);
@@ -554,17 +695,37 @@ public sealed class StepTraceSessionTests
     {
         var home = Node("h", "heading", "Home");
         var field = Node("f", "textbox", "Email");
-        var subscribed = new SemanticNode { Ref = "ok", Role = "status", Text = "You're subscribed" };
+        var subscribed = new SemanticNode
+        {
+            Ref = "ok",
+            Role = "status",
+            Text = "You're subscribed",
+        };
         StepTraceSession Replay(params SemanticNode[][] screens) =>
             MakeSession(
                 EntryContext(
                     endPath: "/newsletter",
                     endAnchors: [new RecordedTarget { Role = "status", Text = "You're subscribed" }],
                     goneAnchors: [new RecordedTarget { Role = "heading", Name = "Home" }],
-                    actions: [Navigate("/newsletter"), new RecordedAction { Kind = "typeText", Value = "a@b.c", Replace = false }, new RecordedAction { Kind = "pressKey", Key = "Enter" }]),
-                MakeHost(["/home", "/newsletter"], screens));
+                    actions:
+                    [
+                        Navigate("/newsletter"),
+                        new RecordedAction
+                        {
+                            Kind = "typeText",
+                            Value = "a@b.c",
+                            Replace = false,
+                        },
+                        new RecordedAction { Kind = "pressKey", Key = "Enter" },
+                    ]
+                ),
+                MakeHost(["/home", "/newsletter"], screens)
+            );
 
-        Assert.Equal(StepVerdictStatus.Passed, (await Replay([home], [field], [field, subscribed]).BeginAsync())?.Status);
+        Assert.Equal(
+            StepVerdictStatus.Passed,
+            (await Replay([home], [field], [field, subscribed]).BeginAsync())?.Status
+        );
 
         var already = Replay([home], [field, subscribed]);
         Assert.Null(await already.BeginAsync());
@@ -636,9 +797,7 @@ public sealed class StepTraceSessionTests
     public async Task Keeps_app_settling_time_after_an_executor_action_following_an_action_failed_hand_off()
     {
         var clock = new AutoAdvanceClock();
-        var context = EntryContext(
-            startPath: "/start",
-            actions: [Navigate("/first"), Navigate("/second")]);
+        var context = EntryContext(startPath: "/start", actions: [Navigate("/first"), Navigate("/second")]);
         var replayed = 0;
         var host = MakeHost(clock, ["/start"], [], [SavedMarker]);
         host.Remaining = 600_000;
@@ -731,7 +890,12 @@ public sealed class StepTraceSessionTests
     public async Task Reads_the_start_capture_for_the_first_relocation_instead_of_capturing_the_same_screen_again()
     {
         var upgrade = Node("u", "button", "Upgrade");
-        var context = EntryContext(startPath: "/pricing", endPath: "/pricing", endAnchors: [SavedAnchor], actions: [Tap("button", "Upgrade")]);
+        var context = EntryContext(
+            startPath: "/pricing",
+            endPath: "/pricing",
+            endAnchors: [SavedAnchor],
+            actions: [Tap("button", "Upgrade")]
+        );
         var host = MakeHost(["/pricing", "/pricing"], [upgrade], [upgrade, SavedMarker]);
         var session = MakeSession(context, host);
 
@@ -748,7 +912,8 @@ public sealed class StepTraceSessionTests
         var directory = CoreTests.TempCache();
         var cache = new FileStepCache(directory);
         string File() => Assert.Single(Directory.GetFiles(directory, "*.json"));
-        (string Bytes, DateTime Written) Snapshot() => (System.IO.File.ReadAllText(File()), System.IO.File.GetLastWriteTimeUtc(File()));
+        (string Bytes, DateTime Written) Snapshot() =>
+            (System.IO.File.ReadAllText(File()), System.IO.File.GetLastWriteTimeUtc(File()));
 
         async Task<StepTraceSession> Run(string[] paths, SemanticNode[][] screens, bool verified = true)
         {
@@ -769,31 +934,70 @@ public sealed class StepTraceSessionTests
         }
 
         // The recording run: a miss, then the flow and its effect are written.
-        var recorded = await Run(["/pricing", "/customers"], [[], [SavedMarker]]);
+        var recorded = await Run(
+            ["/pricing", "/customers"],
+            [
+                [],
+                [SavedMarker],
+            ]
+        );
         Assert.Equal("missed", recorded.CacheInfo?.Mode);
         var written = Snapshot();
         Assert.Equal([Anchor(SavedAnchor)], cache.Read(Key).Entry!.Appeared.Select(Anchor));
 
         // Two replays in a row: the file's bytes and write time never move.
         await Task.Delay(20);
-        Assert.Equal("self-finalized", (await Run(["/pricing", "/customers"], [[SavedMarker]])).CacheInfo?.Mode);
+        Assert.Equal("self-finalized", (
+                await Run(
+                    ["/pricing", "/customers"],
+                    [
+                        [SavedMarker],
+                    ]
+                )
+            ).CacheInfo?.Mode);
         Assert.Equal(written, Snapshot());
-        Assert.Equal("self-finalized", (await Run(["/pricing", "/customers"], [[SavedMarker]])).CacheInfo?.Mode);
+        Assert.Equal("self-finalized", (
+                await Run(
+                    ["/pricing", "/customers"],
+                    [
+                        [SavedMarker],
+                    ]
+                )
+            ).CacheInfo?.Mode);
         Assert.Equal(written, Snapshot());
 
         // A hand-off the executor settled without acting re-records with the live anchors.
         var renamed = Node("m1", "status", "Marker", "stored");
-        var healed = await Run(["/pricing", "/customers", "/customers"], [[], [], [renamed]]);
+        var healed = await Run(
+            ["/pricing", "/customers", "/customers"],
+            [
+                [],
+                [],
+                [renamed],
+            ]
+        );
         Assert.Equal(ReplayHandOffReason.EndMismatch, healed.ReplayedPrefix?.StopReason);
         Assert.NotEqual(written.Bytes, Snapshot().Bytes);
         Assert.Equal([("status", "Marker", "stored")], cache.Read(Key).Entry!.Appeared.Select(Anchor));
 
         // A replay nothing verified afterwards is implicated like a recording would be: evicted.
-        var unconfirmed = await Run(["/pricing", "/customers"], [[], [renamed]], verified: false);
+        var unconfirmed = await Run(
+            ["/pricing", "/customers"],
+            [
+                [],
+                [renamed],
+            ],
+            verified: false
+        );
         Assert.Equal("self-finalized", unconfirmed.CacheInfo?.Mode);
         Assert.Empty(Directory.GetFiles(directory, "*.json"));
     }
 
     private static (string?, string?, int?, int?) Info(StepTraceSession session) =>
-        (session.CacheInfo?.Mode, session.CacheInfo?.Reason, session.CacheInfo?.ReplayedActions, session.CacheInfo?.TotalActions);
+        (
+            session.CacheInfo?.Mode,
+            session.CacheInfo?.Reason,
+            session.CacheInfo?.ReplayedActions,
+            session.CacheInfo?.TotalActions
+        );
 }

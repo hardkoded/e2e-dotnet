@@ -100,7 +100,11 @@ public sealed class AuthorizeUploadPathsTests : IDisposable
     {
         var host = new RecordingHost();
 
-        var authorized = E2E.UploadPaths.AuthorizeUploadPaths(host, ["sample:photo.png", "sample:document.pdf", "sample:empty.txt"], _root);
+        var authorized = E2E.UploadPaths.AuthorizeUploadPaths(
+            host,
+            ["sample:photo.png", "sample:document.pdf", "sample:empty.txt"],
+            _root
+        );
 
         Assert.Equal(["sample:photo.png", "sample:document.pdf", "sample:empty.txt"], authorized.Given);
         var png = File.ReadAllBytes(authorized.Resolved[0]);
@@ -116,11 +120,19 @@ public sealed class AuthorizeUploadPathsTests : IDisposable
     [Fact]
     public void Names_the_samples_for_an_unknown_sample_never_for_a_missing_project_file_a_step_may_have_named()
     {
-        var sampleError = Assert.ThrowsAny<E2EException>(() => E2E.UploadPaths.AuthorizeUploadPaths(new RecordingHost(), ["sample:video.mp4"], _root));
+        var sampleError = Assert.ThrowsAny<E2EException>(() =>
+            E2E.UploadPaths.AuthorizeUploadPaths(new RecordingHost(), ["sample:video.mp4"], _root)
+        );
         Assert.Equal("INVALID_ARGUMENT", sampleError.Code);
-        Assert.Contains("sample:photo.png, sample:photo.jpg, sample:document.pdf", sampleError.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "sample:photo.png, sample:photo.jpg, sample:document.pdf",
+            sampleError.Message,
+            StringComparison.Ordinal
+        );
 
-        var missingError = Assert.ThrowsAny<E2EException>(() => E2E.UploadPaths.AuthorizeUploadPaths(new RecordingHost(), ["fixtures/invoice.pdf"], _root));
+        var missingError = Assert.ThrowsAny<E2EException>(() =>
+            E2E.UploadPaths.AuthorizeUploadPaths(new RecordingHost(), ["fixtures/invoice.pdf"], _root)
+        );
         Assert.Equal("INVALID_ARGUMENT", missingError.Code);
         Assert.Equal("no file at \"fixtures/invoice.pdf\" under the project root", missingError.Message);
     }
@@ -154,6 +166,11 @@ public sealed class AuthorizeUploadPathsTests : IDisposable
         public List<string> Recorded { get; } = [];
 
         public void RecordPolicy(string name, PolicyDecision decision, string? code = null) =>
-            Recorded.Add(string.Join(' ', new[] { name, decision.ToString().ToLowerInvariant(), code }.Where(part => part is not null)));
+            Recorded.Add(
+                string.Join(
+                    ' ',
+                    new[] { name, decision.ToString().ToLowerInvariant(), code }.Where(part => part is not null)
+                )
+            );
     }
 }

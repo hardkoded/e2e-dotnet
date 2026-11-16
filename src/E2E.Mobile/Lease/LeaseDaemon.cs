@@ -14,10 +14,21 @@ namespace E2E.Mobile.Lease;
 internal interface ILeaseHost
 {
     /// <summary>Starts the daemon of <paramref name="request"/> with <paramref name="environment"/> and allocates a lease from it.</summary>
-    Task<DriverGrant> StartDriverAsync(DriverRequest request, IReadOnlyDictionary<string, string?> environment, string label, CancellationToken cancellationToken);
+    Task<DriverGrant> StartDriverAsync(
+        DriverRequest request,
+        IReadOnlyDictionary<string, string?> environment,
+        string label,
+        CancellationToken cancellationToken
+    );
 
     /// <summary>Stops the daemon, which ends its leases' sessions, and throws unless it confirms they ended.</summary>
-    Task StopDriverAsync(string stateDirectory, IReadOnlyDictionary<string, string?> environment, string? leaseId, string label, CancellationToken cancellationToken);
+    Task StopDriverAsync(
+        string stateDirectory,
+        IReadOnlyDictionary<string, string?> environment,
+        string? leaseId,
+        string label,
+        CancellationToken cancellationToken
+    );
 
     /// <summary>Starts renewing the lease; the function it returns stops that and waits for it.</summary>
     Task<Func<Task>> StartHeartbeatAsync(JsonObject scope, Action<string> log, CancellationToken cancellationToken);
@@ -31,7 +42,8 @@ internal sealed class LeaseDaemon : ILeaseHost
     /// <summary>The longest an allocation may take. The daemon bounds it too; this keeps a daemon that never answers from holding the run.</summary>
     private static readonly TimeSpan AllocateTimeout = TimeSpan.FromMinutes(15);
 
-    private static readonly DeviceClientFactory Connect = static (session, connection) => DeviceClientConfig.For(session, connection).Connect();
+    private static readonly DeviceClientFactory Connect = static (session, connection) =>
+        DeviceClientConfig.For(session, connection).Connect();
 
     public static LeaseDaemon Instance { get; } = new();
 
@@ -39,9 +51,16 @@ internal sealed class LeaseDaemon : ILeaseHost
     /// Allocates a lease from a fresh daemon, which gets its own credentials and home without changing the runner's environment.
     /// Not cancellable once the allocation starts: an interrupted allocation can still grant a lease, which the caller then releases.
     /// </summary>
-    public async Task<DriverGrant> StartDriverAsync(DriverRequest request, IReadOnlyDictionary<string, string?> environment, string label, CancellationToken cancellationToken)
+    public async Task<DriverGrant> StartDriverAsync(
+        DriverRequest request,
+        IReadOnlyDictionary<string, string?> environment,
+        string label,
+        CancellationToken cancellationToken
+    )
     {
-        await AgentDeviceDaemon.LocalAsync(request.StateDirectory, cancellationToken, environment).ConfigureAwait(false);
+        await AgentDeviceDaemon
+            .LocalAsync(request.StateDirectory, cancellationToken, environment)
+            .ConfigureAwait(false);
         using var bound = new CancellationTokenSource(AllocateTimeout);
         try
         {
@@ -49,7 +68,10 @@ internal sealed class LeaseDaemon : ILeaseHost
         }
         catch (OperationCanceledException cause) when (bound.IsCancellationRequested)
         {
-            throw new TimeoutException($"{label} driver did not finish allocating within {AllocateTimeout.TotalMinutes:0} minutes", cause);
+            throw new TimeoutException(
+                $"{label} driver did not finish allocating within {AllocateTimeout.TotalMinutes:0} minutes",
+                cause
+            );
         }
     }
 
@@ -57,14 +79,32 @@ internal sealed class LeaseDaemon : ILeaseHost
     /// Stops the daemon, which releases its leases and so ends their sessions at the service, and throws unless it confirms they
     /// ended. <paramref name="leaseId"/> is the lease the daemon granted, when it granted one.
     /// </summary>
-    public async Task StopDriverAsync(string stateDirectory, IReadOnlyDictionary<string, string?> environment, string? leaseId, string label, CancellationToken cancellationToken)
+    public async Task StopDriverAsync(
+        string stateDirectory,
+        IReadOnlyDictionary<string, string?> environment,
+        string? leaseId,
+        string label,
+        CancellationToken cancellationToken
+    )
     {
-        var report = await AgentDeviceDaemon.StopReportAsync(stateDirectory, environment, cancellationToken).ConfigureAwait(false);
+        var report = await AgentDeviceDaemon
+            .StopReportAsync(stateDirectory, environment, cancellationToken)
+            .ConfigureAwait(false);
         AssertSessionsEnded(report, leaseId, label);
     }
 
-    public Task<Func<Task>> StartHeartbeatAsync(JsonObject scope, Action<string> log, CancellationToken cancellationToken) =>
-        LeaseHeartbeat.StartAsync(scope, Connect, log, static (delay, token) => Task.Delay(delay, token), cancellationToken);
+    public Task<Func<Task>> StartHeartbeatAsync(
+        JsonObject scope,
+        Action<string> log,
+        CancellationToken cancellationToken
+    ) =>
+        LeaseHeartbeat.StartAsync(
+            scope,
+            Connect,
+            log,
+            static (delay, token) => Task.Delay(delay, token),
+            cancellationToken
+        );
 
     public void DeleteDirectory(string directory) => Directory.Delete(directory, recursive: true);
 
@@ -86,7 +126,9 @@ internal sealed class LeaseDaemon : ILeaseHost
         }
         catch (JsonException)
         {
-            throw new InvalidOperationException($"agent-device stopped without a readable shutdown report; {label} sessions may still be running");
+            throw new InvalidOperationException(
+                $"agent-device stopped without a readable shutdown report; {label} sessions may still be running"
+            );
         }
 
         var data = Field(report, "data");
@@ -94,13 +136,19 @@ internal sealed class LeaseDaemon : ILeaseHost
         var pending = Field(releases, "pending") as JsonArray;
         if (pending is { Count: > 0 })
         {
-            throw new InvalidOperationException($"agent-device stopped without ending {pending.Count} {label} session(s)");
+            throw new InvalidOperationException(
+                $"agent-device stopped without ending {pending.Count} {label} session(s)"
+            );
         }
 
         if (Text(Field(releases, "status")) != "completed" || pending is null)
         {
-            var warnings = Field(data, "warnings") is JsonArray list ? string.Join(' ', list.Select(Text).OfType<string>()) : "";
-            throw new InvalidOperationException($"agent-device could not confirm its {label} sessions ended{(warnings.Length == 0 ? "" : ": " + warnings)}");
+            var warnings = Field(data, "warnings") is JsonArray list
+                ? string.Join(' ', list.Select(Text).OfType<string>())
+                : "";
+            throw new InvalidOperationException(
+                $"agent-device could not confirm its {label} sessions ended{(warnings.Length == 0 ? "" : ": " + warnings)}"
+            );
         }
 
         if (leaseId is null)
@@ -108,17 +156,24 @@ internal sealed class LeaseDaemon : ILeaseHost
             return;
         }
 
-        if (Field(releases, "released") is JsonArray released && released.Any(entry => Text(Field(entry, "leaseId")) == leaseId))
+        if (
+            Field(releases, "released") is JsonArray released
+            && released.Any(entry => Text(Field(entry, "leaseId")) == leaseId)
+        )
         {
             return;
         }
 
-        var what = Text(Field(data, "mode")) == "not-running" ? $"found no daemon running for lease {leaseId}" : $"stopped without listing lease {leaseId} as released";
+        var what =
+            Text(Field(data, "mode")) == "not-running"
+                ? $"found no daemon running for lease {leaseId}"
+                : $"stopped without listing lease {leaseId} as released";
         throw new InvalidOperationException($"agent-device {what}, so nothing confirms its {label} session ended");
     }
 
     /// <summary>A property of a parsed JSON value, or null when the value is not an object.</summary>
     private static JsonNode? Field(JsonNode? node, string key) => (node as JsonObject)?[key];
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 }

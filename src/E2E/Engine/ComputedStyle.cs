@@ -15,19 +15,19 @@ public static class ComputedStyles
     /// Upstream's <c>COMPUTED_STYLE_PROPERTIES</c>: the CSS properties whose computed values contain presentation data rather than URLs or
     /// generated content, in kebab case.
     /// </summary>
-    public static IReadOnlyList<string> ComputedStyleProperties { get; } = Array.AsReadOnly(
-    [
-        "color",
-        "background-color",
-        "font-size",
-        "font-weight",
-        "font-style",
-        "text-align",
-        "text-decoration-line",
-        "display",
-        "visibility",
-        "opacity",
-    ]);
+    public static IReadOnlyList<string> ComputedStyleProperties { get; } =
+        Array.AsReadOnly([
+            "color",
+            "background-color",
+            "font-size",
+            "font-weight",
+            "font-style",
+            "text-align",
+            "text-decoration-line",
+            "display",
+            "visibility",
+            "opacity",
+        ]);
 
     /// <summary>
     /// Upstream's <c>validateComputedStyleProperties</c>: checks, deduplicates, and copies the requested properties before any engine or page
@@ -58,5 +58,6 @@ public static class ComputedStyles
         return requested;
     }
 
-    private static TestException Refused() => new("INVALID_ARGUMENT", "style must list at least one of " + string.Join(", ", ComputedStyleProperties));
+    private static TestException Refused() =>
+        new("INVALID_ARGUMENT", "style must list at least one of " + string.Join(", ", ComputedStyleProperties));
 }

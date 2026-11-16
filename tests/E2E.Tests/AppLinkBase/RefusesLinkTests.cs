@@ -10,7 +10,18 @@ public sealed class RefusesLinkTests
     [Fact]
     public void Refuses_the_schemes_that_read_local_content_or_inline_a_document_and_what_does_not_parse()
     {
-        foreach (var link in new[] { "file:///etc/passwd", "data:text/html,hi", "javascript:alert(1)", "view-source:file:///etc", "blob:x", "filesystem:x", "not a link" })
+        foreach (
+            var link in new[]
+            {
+                "file:///etc/passwd",
+                "data:text/html,hi",
+                "javascript:alert(1)",
+                "view-source:file:///etc",
+                "blob:x",
+                "filesystem:x",
+                "not a link",
+            }
+        )
         {
             Assert.True(TargetApps.RefusesLink(link), link);
         }

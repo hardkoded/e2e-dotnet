@@ -34,7 +34,11 @@ internal sealed class EnvironmentFacts
             {
                 // Held whole, however long: a cut before redaction could leave a secret's head behind.
                 var name = key.Trim();
-                if (name.Length == 0 || string.IsNullOrWhiteSpace(value) || (!_facts.ContainsKey(name) && _facts.Count >= MaxFacts))
+                if (
+                    name.Length == 0
+                    || string.IsNullOrWhiteSpace(value)
+                    || (!_facts.ContainsKey(name) && _facts.Count >= MaxFacts)
+                )
                 {
                     continue;
                 }

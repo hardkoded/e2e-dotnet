@@ -14,7 +14,12 @@ internal static class OAuthHttp
     public static readonly HttpClient Shared = new() { Timeout = TimeSpan.FromSeconds(60) };
 
     /// <summary>Sends <paramref name="request"/>; an unreachable host is <see cref="OAuthException.FlowFailed"/> naming the vendor.</summary>
-    public static async Task<HttpResponseMessage> SendAsync(HttpClient http, HttpRequestMessage request, string vendor, CancellationToken cancellationToken)
+    public static async Task<HttpResponseMessage> SendAsync(
+        HttpClient http,
+        HttpRequestMessage request,
+        string vendor,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -31,24 +36,40 @@ internal static class OAuthHttp
     }
 
     /// <summary>A JSON object from a GET, or <see cref="OAuthException.FlowFailed"/> naming the vendor.</summary>
-    public static async Task<JsonObject> GetJsonAsync(HttpClient http, string url, string vendor, CancellationToken cancellationToken)
+    public static async Task<JsonObject> GetJsonAsync(
+        HttpClient http,
+        string url,
+        string vendor,
+        CancellationToken cancellationToken
+    )
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         using var response = await SendAsync(http, request, vendor, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            throw new OAuthException(OAuthException.FlowFailed, vendor + " did not list its models: " + await TokenEndpoint.DescribeAsync(response, cancellationToken).ConfigureAwait(false));
+            throw new OAuthException(
+                OAuthException.FlowFailed,
+                vendor
+                    + " did not list its models: "
+                    + await TokenEndpoint.DescribeAsync(response, cancellationToken).ConfigureAwait(false)
+            );
         }
 
         return await ReadJsonAsync(response, vendor, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>The JSON object in a response body, or <see cref="OAuthException.FlowFailed"/> naming the vendor when the body is not JSON.</summary>
-    public static async Task<JsonObject> ReadJsonAsync(HttpResponseMessage response, string vendor, CancellationToken cancellationToken)
+    public static async Task<JsonObject> ReadJsonAsync(
+        HttpResponseMessage response,
+        string vendor,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            return JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)) as JsonObject ?? [];
+            return JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false))
+                    as JsonObject
+                ?? [];
         }
         catch (JsonException ex)
         {

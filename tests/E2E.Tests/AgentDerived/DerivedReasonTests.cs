@@ -12,8 +12,12 @@ namespace E2E.Tests.AgentDerived;
 /// </summary>
 public sealed class DerivedReasonTests
 {
-    private static DerivedReason? Reason(string value, string instruction, JsonObject? parameters = null, StepEvidence? evidence = null) =>
-        Derived.DerivedReason(value, instruction, parameters, evidence);
+    private static DerivedReason? Reason(
+        string value,
+        string instruction,
+        JsonObject? parameters = null,
+        StepEvidence? evidence = null
+    ) => Derived.DerivedReason(value, instruction, parameters, evidence);
 
     private static StepEvidence Shown(params string[] shown) => new(shown);
 
@@ -22,7 +26,13 @@ public sealed class DerivedReasonTests
     {
         Assert.Null(Reason("Nimbus Paper Co", "Add a supplier named \"Nimbus Paper Co\"."));
         Assert.Null(Reason("4.25", "unit price 4.25, unit Ream"));
-        Assert.Null(Reason("Helios Robotics", "Complete the wizard with the given details", new JsonObject { ["company"] = "Helios Robotics", ["seats"] = 25 }));
+        Assert.Null(
+            Reason(
+                "Helios Robotics",
+                "Complete the wizard with the given details",
+                new JsonObject { ["company"] = "Helios Robotics", ["seats"] = 25 }
+            )
+        );
         Assert.Null(Reason("25", "fill the form", new JsonObject { ["seats"] = 25 }));
         Assert.Null(Reason("  nimbus paper co ", "Add \"Nimbus Paper Co\""));
     }
@@ -31,24 +41,44 @@ public sealed class DerivedReasonTests
     public void Names_the_token_rule_for_a_reference_read_off_a_screen_the_step_saw_and_the_node_rule_when_a_node_says_exactly_that()
     {
         string[] shown = ["Your ticket", "Reference TK-4972"];
-        Assert.Equal(DerivedReason.MintedToken, Reason("TK-4972", "Enter the details of the ticket you were issued earlier.", null, Shown(shown)));
-        Assert.Equal(DerivedReason.MintedToken, Reason("TK-4972", "Enter the ticket reference.", null, new StepEvidence(new HashSet<string>(shown))));
-        Assert.Equal(DerivedReason.WholeNode, Reason("TK-4972", "Enter the ticket reference.", null, Shown("Reference", "TK-4972")));
+        Assert.Equal(
+            DerivedReason.MintedToken,
+            Reason("TK-4972", "Enter the details of the ticket you were issued earlier.", null, Shown(shown))
+        );
+        Assert.Equal(
+            DerivedReason.MintedToken,
+            Reason("TK-4972", "Enter the ticket reference.", null, new StepEvidence(new HashSet<string>(shown)))
+        );
+        Assert.Equal(
+            DerivedReason.WholeNode,
+            Reason("TK-4972", "Enter the ticket reference.", null, Shown("Reference", "TK-4972"))
+        );
     }
 
     [Fact]
     public void Names_pixels_for_any_non_literal_value_once_the_model_was_shown_a_screenshot_which_may_carry_text_the_tree_does_not()
     {
-        Assert.Equal(DerivedReason.Pixels, Reason("TK-4972", "enter the code drawn on the canvas", null, new StepEvidence(["Code"], true)));
-        Assert.Equal(DerivedReason.Pixels, Reason("Jane Merchant", "fill in the form with plausible details", null, new StepEvidence(Pixels: true)));
+        Assert.Equal(
+            DerivedReason.Pixels,
+            Reason("TK-4972", "enter the code drawn on the canvas", null, new StepEvidence(["Code"], true))
+        );
+        Assert.Equal(
+            DerivedReason.Pixels,
+            Reason("Jane Merchant", "fill in the form with plausible details", null, new StepEvidence(Pixels: true))
+        );
         Assert.Null(Reason("Nimbus Paper Co", "Add \"Nimbus Paper Co\"", null, new StepEvidence(Pixels: true)));
-        Assert.Null(Reason("Jane Merchant", "fill in the form with plausible details", null, new StepEvidence(Pixels: false)));
+        Assert.Null(
+            Reason("Jane Merchant", "fill in the form with plausible details", null, new StepEvidence(Pixels: false))
+        );
     }
 
     [Fact]
     public void Names_the_date_rule_for_a_date_or_time_the_model_reckoned()
     {
-        Assert.Equal(DerivedReason.Date, Reason("2026-09-03", "Set the date to today", new JsonObject { ["note"] = "Q3" }));
+        Assert.Equal(
+            DerivedReason.Date,
+            Reason("2026-09-03", "Set the date to today", new JsonObject { ["note"] = "Q3" })
+        );
         Assert.Equal(DerivedReason.Date, Reason("12/31/2026", "pick the last day"));
         Assert.Equal(DerivedReason.Date, Reason("19-09-2026", "pick tomorrow"));
         Assert.Equal(DerivedReason.Date, Reason("09:30", "book the morning slot"));
@@ -89,8 +119,14 @@ public sealed class DerivedReasonTests
         Assert.Null(Reason("123", "pay with any CVC", null, Shown("CVC", "Pay 10,99 US$", "n20123")));
         Assert.Null(Reason("Jane", "fill the form", null, Shown("Janet Leigh")));
         Assert.Equal(DerivedReason.MintedToken, Reason("123", "enter the code", null, Shown("Your code is 123")));
-        Assert.Equal(DerivedReason.MintedToken, Reason("TK-4972", "enter the reference", null, Shown("Reference: TK-4972.")));
-        Assert.Equal(DerivedReason.MintedToken, Reason("A1B2", "enter the code", null, Shown("Code A1B2 expires soon")));
+        Assert.Equal(
+            DerivedReason.MintedToken,
+            Reason("TK-4972", "enter the reference", null, Shown("Reference: TK-4972."))
+        );
+        Assert.Equal(
+            DerivedReason.MintedToken,
+            Reason("A1B2", "enter the code", null, Shown("Code A1B2 expires soon"))
+        );
     }
 
     [Fact]

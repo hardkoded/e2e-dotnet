@@ -12,12 +12,23 @@ using System.Text.Json.Nodes;
 namespace E2E.OAuth;
 
 /// <summary>A token endpoint's answer. <see cref="Raw"/> keeps the vendor's fields and drops an optional token of the wrong type; <see cref="ExpiresIn"/> stays raw for <see cref="TokenEndpoint.ExpiryFrom"/>.</summary>
-internal sealed record TokenResponse(string AccessToken, string? RefreshToken, string? IdToken, JsonNode? ExpiresIn, JsonObject Raw);
+internal sealed record TokenResponse(
+    string AccessToken,
+    string? RefreshToken,
+    string? IdToken,
+    JsonNode? ExpiresIn,
+    JsonObject Raw
+);
 
 /// <summary>The HTTP an OAuth flow is made of: form POSTs to a token endpoint, and the vendor's error text.</summary>
 internal static class TokenEndpoint
 {
-    public static async Task<HttpResponseMessage> PostFormAsync(HttpClient http, string url, IReadOnlyDictionary<string, string> form, CancellationToken cancellationToken)
+    public static async Task<HttpResponseMessage> PostFormAsync(
+        HttpClient http,
+        string url,
+        IReadOnlyDictionary<string, string> form,
+        CancellationToken cancellationToken
+    )
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = new FormUrlEncodedContent(form) };
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
@@ -29,16 +40,38 @@ internal static class TokenEndpoint
     /// Posts a grant and returns the tokens. A 400 or 401 means the grant itself was rejected and maps to
     /// <paramref name="rejected"/>; anything else not OK is <see cref="OAuthException.FlowFailed"/>.
     /// </summary>
-    public static async Task<TokenResponse> RequestAsync(HttpClient http, string vendor, string url, IReadOnlyDictionary<string, string> form, string rejected, CancellationToken cancellationToken)
+    public static async Task<TokenResponse> RequestAsync(
+        HttpClient http,
+        string vendor,
+        string url,
+        IReadOnlyDictionary<string, string> form,
+        string rejected,
+        CancellationToken cancellationToken
+    )
     {
         using var response = await PostFormAsync(http, url, form, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            var code = response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized ? rejected : OAuthException.FlowFailed;
-            throw new OAuthException(code, vendor + " token request failed (" + await DescribeAsync(response, cancellationToken).ConfigureAwait(false) + ")");
+            var code = response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized
+                ? rejected
+                : OAuthException.FlowFailed;
+            throw new OAuthException(
+                code,
+                vendor
+                    + " token request failed ("
+                    + await DescribeAsync(response, cancellationToken).ConfigureAwait(false)
+                    + ")"
+            );
         }
 
-        return await ReadJsonBodyAsync(response.Content, ParseTokens, "the " + vendor + " token response", "is missing access_token", cancellationToken).ConfigureAwait(false);
+        return await ReadJsonBodyAsync(
+                response.Content,
+                ParseTokens,
+                "the " + vendor + " token response",
+                "is missing access_token",
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>The tokens in a token endpoint's JSON body, or null when it carries no access token.</summary>
@@ -70,7 +103,13 @@ internal static class TokenEndpoint
     /// wrong shape; <see cref="OAuthException.FlowFailed"/> as "<paramref name="subject"/> is not JSON" or
     /// "<paramref name="subject"/> <paramref name="invalid"/>" otherwise.
     /// </summary>
-    public static async Task<T> ReadJsonBodyAsync<T>(HttpContent source, Func<JsonNode?, T?> schema, string subject, string invalid = "is malformed", CancellationToken cancellationToken = default)
+    public static async Task<T> ReadJsonBodyAsync<T>(
+        HttpContent source,
+        Func<JsonNode?, T?> schema,
+        string subject,
+        string invalid = "is malformed",
+        CancellationToken cancellationToken = default
+    )
         where T : class
     {
         JsonNode? value;
@@ -108,7 +147,11 @@ internal static class TokenEndpoint
             return number;
         }
 
-        return value.TryGetValue<string>(out var text) && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+        return
+            value.TryGetValue<string>(out var text)
+            && double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
     }
 
     /// <summary>When a token expires in epoch milliseconds, from <c>expires_in</c>; one hour when the server names nothing usable.</summary>
@@ -202,7 +245,14 @@ internal static class Pkce
 }
 
 /// <summary>A device authorization: the code the user enters, where, and how often to poll.</summary>
-internal sealed record DeviceAuthorization(string DeviceCode, string UserCode, string VerificationUri, string? VerificationUriComplete, double ExpiresIn, double Interval);
+internal sealed record DeviceAuthorization(
+    string DeviceCode,
+    string UserCode,
+    string VerificationUri,
+    string? VerificationUriComplete,
+    double ExpiresIn,
+    double Interval
+);
 
 /// <summary>One poll of a device flow.</summary>
 internal enum DevicePollStatus
@@ -231,7 +281,8 @@ internal static class DeviceFlow
         Func<DeviceAuthorization, CancellationToken, Task<DevicePoll<T>>> poll,
         OAuthLoginCallbacks callbacks,
         Func<DeviceAuthorization, string>? instructions,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         ThrowIfCancelled(cancellationToken);
         DeviceAuthorization authorization;
@@ -245,10 +296,18 @@ internal static class DeviceFlow
         }
 
         ThrowIfCancelled(cancellationToken);
-        callbacks.OnAuth(new OAuthAuthInfo(
-            authorization.VerificationUriComplete ?? authorization.VerificationUri,
-            instructions?.Invoke(authorization) ?? "Open " + authorization.VerificationUri + " on any device and enter the code " + authorization.UserCode + ".",
-            authorization.UserCode));
+        callbacks.OnAuth(
+            new OAuthAuthInfo(
+                authorization.VerificationUriComplete ?? authorization.VerificationUri,
+                instructions?.Invoke(authorization)
+                    ?? "Open "
+                        + authorization.VerificationUri
+                        + " on any device and enter the code "
+                        + authorization.UserCode
+                        + ".",
+                authorization.UserCode
+            )
+        );
 
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(Positive(authorization.ExpiresIn, 15 * 60));
         var interval = TimeSpan.FromSeconds(Math.Max(Positive(authorization.Interval, 5), 1));
@@ -282,16 +341,24 @@ internal static class DeviceFlow
                 case DevicePollStatus.Granted:
                     return result.Value!;
                 case DevicePollStatus.SlowDown:
-                    interval = result.IntervalSeconds is > 0 ? TimeSpan.FromSeconds(result.IntervalSeconds.Value) : interval + TimeSpan.FromSeconds(5);
+                    interval = result.IntervalSeconds is > 0
+                        ? TimeSpan.FromSeconds(result.IntervalSeconds.Value)
+                        : interval + TimeSpan.FromSeconds(5);
                     break;
                 case DevicePollStatus.Denied:
                     throw new OAuthException(OAuthException.Cancelled, "the authorization was denied");
                 case DevicePollStatus.Expired:
-                    throw new OAuthException(OAuthException.Timeout, "the device code expired before the login finished; run the login again");
+                    throw new OAuthException(
+                        OAuthException.Timeout,
+                        "the device code expired before the login finished; run the login again"
+                    );
             }
         }
 
-        throw new OAuthException(OAuthException.Timeout, "the device code expired before the login finished; run the login again");
+        throw new OAuthException(
+            OAuthException.Timeout,
+            "the device code expired before the login finished; run the login again"
+        );
     }
 
     /// <summary>Keeps interrupted device requests and late grants under the login cancellation code.</summary>
@@ -313,16 +380,24 @@ internal static class DeviceFlow
         IReadOnlyDictionary<string, string> request,
         OAuthLoginCallbacks callbacks,
         CancellationToken cancellationToken,
-        Func<DeviceAuthorization, string>? instructions = null)
+        Func<DeviceAuthorization, string>? instructions = null
+    )
     {
         return RunAsync<TokenResponse>(
             async token =>
             {
                 var form = new Dictionary<string, string>(request, StringComparer.Ordinal) { ["client_id"] = clientId };
-                using var response = await TokenEndpoint.PostFormAsync(http, deviceCodeUrl, form, token).ConfigureAwait(false);
+                using var response = await TokenEndpoint
+                    .PostFormAsync(http, deviceCodeUrl, form, token)
+                    .ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new OAuthException(OAuthException.FlowFailed, vendor + " device login could not start: " + await TokenEndpoint.DescribeAsync(response, token).ConfigureAwait(false));
+                    throw new OAuthException(
+                        OAuthException.FlowFailed,
+                        vendor
+                            + " device login could not start: "
+                            + await TokenEndpoint.DescribeAsync(response, token).ConfigureAwait(false)
+                    );
                 }
 
                 var json = await OAuthHttp.ReadJsonAsync(response, vendor, token).ConfigureAwait(false);
@@ -331,7 +406,10 @@ internal static class DeviceFlow
                 var verification = TokenEndpoint.Text(json, "verification_uri");
                 if (deviceCode is null || userCode is null || verification is null)
                 {
-                    throw new OAuthException(OAuthException.FlowFailed, "the " + vendor + " device code response is missing fields");
+                    throw new OAuthException(
+                        OAuthException.FlowFailed,
+                        "the " + vendor + " device code response is missing fields"
+                    );
                 }
 
                 return new DeviceAuthorization(
@@ -340,7 +418,8 @@ internal static class DeviceFlow
                     verification,
                     TokenEndpoint.Text(json, "verification_uri_complete"),
                     TokenEndpoint.Number(json, "expires_in") ?? 0,
-                    TokenEndpoint.Number(json, "interval") ?? 0);
+                    TokenEndpoint.Number(json, "interval") ?? 0
+                );
             },
             async (authorization, token) =>
             {
@@ -350,7 +429,9 @@ internal static class DeviceFlow
                     ["client_id"] = clientId,
                     ["device_code"] = authorization.DeviceCode,
                 };
-                using var response = await TokenEndpoint.PostFormAsync(http, tokenUrl, form, token).ConfigureAwait(false);
+                using var response = await TokenEndpoint
+                    .PostFormAsync(http, tokenUrl, form, token)
+                    .ConfigureAwait(false);
                 var body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
                 JsonObject json;
                 try
@@ -371,17 +452,28 @@ internal static class DeviceFlow
                 return TokenEndpoint.Text(json, "error") switch
                 {
                     "authorization_pending" => new DevicePoll<TokenResponse>(DevicePollStatus.Pending),
-                    "slow_down" => new DevicePoll<TokenResponse>(DevicePollStatus.SlowDown, IntervalSeconds: TokenEndpoint.Number(json, "interval")),
+                    "slow_down" => new DevicePoll<TokenResponse>(
+                        DevicePollStatus.SlowDown,
+                        IntervalSeconds: TokenEndpoint.Number(json, "interval")
+                    ),
                     "access_denied" or "authorization_denied" => new DevicePoll<TokenResponse>(DevicePollStatus.Denied),
                     "expired_token" => new DevicePoll<TokenResponse>(DevicePollStatus.Expired),
                     _ => throw new OAuthException(
                         OAuthException.FlowFailed,
-                        vendor + " device login failed: " + (TokenEndpoint.Text(json, "error_description") ?? TokenEndpoint.Text(json, "error") ?? ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture))),
+                        vendor
+                            + " device login failed: "
+                            + (
+                                TokenEndpoint.Text(json, "error_description")
+                                ?? TokenEndpoint.Text(json, "error")
+                                ?? ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture)
+                            )
+                    ),
                 };
             },
             callbacks,
             instructions,
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     private static double Positive(double value, double fallback)

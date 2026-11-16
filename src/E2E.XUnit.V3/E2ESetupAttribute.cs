@@ -26,10 +26,16 @@ namespace E2E.XUnit.V3;
 public sealed class E2ESetupAttribute : FactAttribute, ISessionSetup
 {
     /// <summary>Creates a setup test named <paramref name="title"/>.</summary>
-    public E2ESetupAttribute(string title, [CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
+    public E2ESetupAttribute(
+        string title,
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1
+    )
         : base(sourceFilePath, sourceLineNumber)
     {
-        Title = string.IsNullOrWhiteSpace(title) ? throw new ArgumentException("a setup test needs a title", nameof(title)) : title;
+        Title = string.IsNullOrWhiteSpace(title)
+            ? throw new ArgumentException("a setup test needs a title", nameof(title))
+            : title;
         DisplayName = title;
     }
 

@@ -13,8 +13,18 @@ public sealed class RoutePatternsEqualTests
     public void Compares_string_and_regexp_forms_structurally()
     {
         Assert.True(E2E.Internal.Routes.PatternsEqual("**/a", "**/a"));
-        Assert.True(E2E.Internal.Routes.PatternsEqual(new Regex("a", RegexOptions.IgnoreCase), new Regex("a", RegexOptions.IgnoreCase)));
-        Assert.False(E2E.Internal.Routes.PatternsEqual(new Regex("a", RegexOptions.IgnoreCase), new Regex("a", RegexOptions.Multiline)));
+        Assert.True(
+            E2E.Internal.Routes.PatternsEqual(
+                new Regex("a", RegexOptions.IgnoreCase),
+                new Regex("a", RegexOptions.IgnoreCase)
+            )
+        );
+        Assert.False(
+            E2E.Internal.Routes.PatternsEqual(
+                new Regex("a", RegexOptions.IgnoreCase),
+                new Regex("a", RegexOptions.Multiline)
+            )
+        );
         Assert.False(E2E.Internal.Routes.PatternsEqual("a", new Regex("a")));
     }
 }

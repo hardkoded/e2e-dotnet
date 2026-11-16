@@ -120,11 +120,13 @@ public sealed class AttemptSessionTests
         browserFake.Members["NewContextAsync"] = _ => Task.FromResult(context);
         browserFake.Members["CloseAsync"] = _ => Task.CompletedTask;
         _connections.Add(browser);
-        var engine = new WebEngine(new WebEngineOptions
-        {
-            Viewport = new WebViewport(320, 200),
-            Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("provisioned") },
-        })
+        var engine = new WebEngine(
+            new WebEngineOptions
+            {
+                Viewport = new WebViewport(320, 200),
+                Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("provisioned") },
+            }
+        )
         {
             CreatePlaywright = FakeRemote.Playwright,
             ConnectCdp = ConnectAsync,
@@ -148,7 +150,9 @@ public sealed class AttemptSessionTests
         var browser = (IBrowserSession)owner;
 
         // Not ported: 390.5x600. A fractional pixel cannot be passed as an int.
-        var refused = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => browser.SetViewportAsync(390, -1, None));
+        var refused = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            browser.SetViewportAsync(390, -1, None)
+        );
         Assert.Contains("whole, non-negative pixels, got 390x-1", refused.Message, StringComparison.Ordinal);
         Assert.Empty(active.ViewportCalls);
         await browser.SetViewportAsync(390, 600, None);
@@ -193,7 +197,10 @@ public sealed class AttemptSessionTests
         var popup = FakeTarget.Create("popup");
         current.Popup(popup.Page);
         Assert.Equal([(ColorScheme.Dark, null)], popup.Emulated);
-        await ((IBrowserSession)owner).EmulateMediaAsync(new WebMedia { ReducedMotion = WebReducedMotion.Reduce }, None);
+        await ((IBrowserSession)owner).EmulateMediaAsync(
+            new WebMedia { ReducedMotion = WebReducedMotion.Reduce },
+            None
+        );
         Assert.Equal((ColorScheme.Dark, ReducedMotion.Reduce), initial.Emulated[^1]);
         Assert.Equal((ColorScheme.Dark, ReducedMotion.Reduce), popup.Emulated[^1]);
     }
@@ -219,7 +226,9 @@ public sealed class AttemptSessionTests
         var broken = FakeTarget.Create("broken");
         broken.PageFake.Members["EmulateMediaAsync"] = _ => throw new PlaywrightException("Protocol error");
         current.Pages.Add(broken.Page);
-        var error = await Assert.ThrowsAsync<EngineException>(() => browser.EmulateMediaAsync(new WebMedia { ColorScheme = WebColorScheme.Light }, None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            browser.EmulateMediaAsync(new WebMedia { ColorScheme = WebColorScheme.Light }, None)
+        );
         Assert.Contains("Protocol error", error.Message, StringComparison.Ordinal);
     }
 
@@ -237,7 +246,10 @@ public sealed class AttemptSessionTests
         {
             var options = (PageEmulateMediaOptions)args[0]!;
             return ++calls == 1
-                ? firstResponse.Task.ContinueWith(_ => applied.Add((options.ColorScheme, options.ReducedMotion)), TaskScheduler.Default)
+                ? firstResponse.Task.ContinueWith(
+                    _ => applied.Add((options.ColorScheme, options.ReducedMotion)),
+                    TaskScheduler.Default
+                )
                 : Task.Run(() => applied.Add((options.ColorScheme, options.ReducedMotion)));
         };
         current.Pages.Add(active.Page);
@@ -276,10 +288,11 @@ public sealed class AttemptSessionTests
         var provisioned = 0;
         using var cancel = new CancellationTokenSource();
         var starting = Engine(provision: _ =>
-        {
-            provisioned++;
-            return endpoint.Task;
-        }).StartAsync(Start(), cancel.Token);
+            {
+                provisioned++;
+                return endpoint.Task;
+            })
+            .StartAsync(Start(), cancel.Token);
         await PollAsync(() => provisioned == 1);
         await cancel.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => starting);
@@ -315,7 +328,8 @@ public sealed class AttemptSessionTests
     {
         var configure = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var browser = Remote("current");
-        browser.ContextFake.Members["AddInitScriptAsync"] = _ => configure.Task.ContinueWith(_ => FakeRemote.Registration, TaskScheduler.Default);
+        browser.ContextFake.Members["AddInitScriptAsync"] = _ =>
+            configure.Task.ContinueWith(_ => FakeRemote.Registration, TaskScheduler.Default);
         _connections.Add(browser.Browser);
         var starting = Engine().StartAsync(Start(), None);
         await PollAsync(() => browser.SendCalls == 1);
@@ -343,7 +357,10 @@ public sealed class AttemptSessionTests
             requested.TrySetResult();
             return new TaskCompletionSource<CdpTarget>().Task;
         });
-        await using var first = await engine.StartAsync(Start(TimeSpan.FromMilliseconds(reason == "timeout" ? 30 : 1_000)), None);
+        await using var first = await engine.StartAsync(
+            Start(TimeSpan.FromMilliseconds(reason == "timeout" ? 30 : 1_000)),
+            None
+        );
         browser.Disconnect();
         using var caller = new CancellationTokenSource();
         var code = reason == "timeout" ? "OPERATION_TIMEOUT" : "CANCELLED";
@@ -388,10 +405,11 @@ public sealed class AttemptSessionTests
         _connections.Add(browser.Browser);
         var requested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var first = await Engine(reconnect: _ =>
-        {
-            requested.TrySetResult();
-            return new TaskCompletionSource<CdpTarget>().Task;
-        }).StartAsync(Start(), None);
+            {
+                requested.TrySetResult();
+                return new TaskCompletionSource<CdpTarget>().Task;
+            })
+            .StartAsync(Start(), None);
         browser.Disconnect();
         using var controller = new CancellationTokenSource();
         var owner = first.OpenAsync(Url, controller.Token);
@@ -413,10 +431,11 @@ public sealed class AttemptSessionTests
         _connections.AddRange([original.Browser, recovered.Browser]);
         var clock = new FakeTimeProvider();
         await using var first = await Engine(clock: clock, reconnect: _ =>
-        {
-            clock.Advance(TimeSpan.FromMilliseconds(40));
-            return Task.FromResult<CdpTarget>("existing");
-        }).StartAsync(Start(TimeSpan.FromMilliseconds(200)), None);
+            {
+                clock.Advance(TimeSpan.FromMilliseconds(40));
+                return Task.FromResult<CdpTarget>("existing");
+            })
+            .StartAsync(Start(TimeSpan.FromMilliseconds(200)), None);
         original.Disconnect();
         await first.OpenAsync(Url, None);
         Assert.Equal(160, _dialTimeouts[1].TotalMilliseconds);
@@ -425,7 +444,8 @@ public sealed class AttemptSessionTests
         Assert.Equal(80, page.Gotos.Single(navigation => navigation.Url == Url).Timeout);
     }
 
-    private FakeRemote Remote(string identity, Task<JsonElement?>? response = null) => FakeRemote.Create(identity + "-" + _run, response);
+    private FakeRemote Remote(string identity, Task<JsonElement?>? response = null) =>
+        FakeRemote.Create(identity + "-" + _run, response);
 
     private static EngineStartOptions Start(TimeSpan? actionTimeout = null) =>
         new() { BaseUrl = Url, ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(1) };
@@ -449,18 +469,21 @@ public sealed class AttemptSessionTests
         WebColorScheme? colorScheme = null,
         Func<CancellationToken, Task<CdpTarget>>? provision = null,
         Func<CancellationToken, Task<CdpTarget>>? reconnect = null,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null
+    )
     {
-        return new WebEngine(new WebEngineOptions
-        {
-            Viewport = followWindow ? null : new WebViewport(320, 200),
-            ColorScheme = colorScheme,
-            Connect = new WebConnectOptions
+        return new WebEngine(
+            new WebEngineOptions
             {
-                CdpEndpoint = provision ?? (_ => Task.FromResult<CdpTarget>("provisioned")),
-                ReconnectEndpoint = reconnect ?? (_ => Task.FromResult<CdpTarget>("existing")),
-            },
-        })
+                Viewport = followWindow ? null : new WebViewport(320, 200),
+                ColorScheme = colorScheme,
+                Connect = new WebConnectOptions
+                {
+                    CdpEndpoint = provision ?? (_ => Task.FromResult<CdpTarget>("provisioned")),
+                    ReconnectEndpoint = reconnect ?? (_ => Task.FromResult<CdpTarget>("existing")),
+                },
+            }
+        )
         {
             CreatePlaywright = FakeRemote.Playwright,
             ConnectCdp = ConnectAsync,
@@ -470,7 +493,12 @@ public sealed class AttemptSessionTests
     }
 
     /// <summary>Hands out the queued remote browsers in order, the last one to every later dial.</summary>
-    private Task<IBrowser> ConnectAsync(IPlaywright playwright, CdpTarget target, TimeSpan timeout, CancellationToken cancellationToken)
+    private Task<IBrowser> ConnectAsync(
+        IPlaywright playwright,
+        CdpTarget target,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    )
     {
         lock (_connections)
         {

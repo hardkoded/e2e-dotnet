@@ -50,7 +50,8 @@ internal sealed class SessionHostOptions
     public SecretLedger? Secrets { get; init; }
 
     /// <summary>Creates the engine of one session: the target's, and whether the session shows its UI. The platform of the target picks the engine.</summary>
-    public Func<TargetConfig, bool, IEngine> CreateEngine { get; init; } = (target, headed) => TargetEngines.Create(target, !headed, DeviceTargets.Create, WindowsTargets.Create);
+    public Func<TargetConfig, bool, IEngine> CreateEngine { get; init; } =
+        (target, headed) => TargetEngines.Create(target, !headed, DeviceTargets.Create, WindowsTargets.Create);
 
     /// <summary>The credentials of the hosted device services the session may lease from, redacted wherever the server returns or logs text.</summary>
     public Func<IReadOnlyList<Secret>> Credentials { get; init; } = DeviceTargets.Credentials;
@@ -87,7 +88,8 @@ internal sealed class SessionHostOptions
 internal sealed class SessionHost : IDisposable
 {
     /// <summary>Where an agent reads how to write a test, said in the server's instructions and every session's opening.</summary>
-    public const string ReadWritingGuide = "Before you write or edit a test, read the writing-tests guide: the resource e2e://guide/writing-tests, or e2e guide writing-tests in a shell.";
+    public const string ReadWritingGuide =
+        "Before you write or edit a test, read the writing-tests guide: the resource e2e://guide/writing-tests, or e2e guide writing-tests in a shell.";
 
     /// <summary>How many sessions <c>e2e mcp --max-sessions</c> allows at once, each a browser or a device.</summary>
     public static readonly (int Min, int Max, int Default) SessionBounds = (1, 16, 4);
@@ -113,7 +115,8 @@ internal sealed class SessionHost : IDisposable
           },
           "additionalProperties": false
         }
-        """);
+        """
+    );
 
     private static readonly JsonElement CatalogSchema = Parse(
         """
@@ -125,7 +128,8 @@ internal sealed class SessionHost : IDisposable
           },
           "additionalProperties": false
         }
-        """);
+        """
+    );
 
     private static readonly JsonElement CallSchema = Parse(
         """
@@ -139,7 +143,8 @@ internal sealed class SessionHost : IDisposable
           "required": ["tool"],
           "additionalProperties": false
         }
-        """);
+        """
+    );
 
     private static readonly JsonElement CloseSchema = Parse(
         """
@@ -150,7 +155,8 @@ internal sealed class SessionHost : IDisposable
           },
           "additionalProperties": false
         }
-        """);
+        """
+    );
 
     private readonly SessionHostOptions _options;
     private readonly SessionRegistry<LiveSession> _sessions;
@@ -202,7 +208,9 @@ internal sealed class SessionHost : IDisposable
     public async Task<string?> CloseAllAsync(string reason)
     {
         await _shutdown.CancelAsync().ConfigureAwait(false);
-        var summaries = await _sessions.CloseAllAsync(reason, live => TeardownAsync(live, reason)).ConfigureAwait(false);
+        var summaries = await _sessions
+            .CloseAllAsync(reason, live => TeardownAsync(live, reason))
+            .ConfigureAwait(false);
         return summaries.Count == 0 ? null : string.Join('\n', summaries);
     }
 
@@ -215,10 +223,16 @@ internal sealed class SessionHost : IDisposable
             return string.Join(
                 '\n',
                 [
-                    "Session " + live.Id + " on target \"" + live.TargetName + "\": " + live.Catalog.Entries.Count.ToString(CultureInfo.InvariantCulture)
+                    "Session "
+                        + live.Id
+                        + " on target \""
+                        + live.TargetName
+                        + "\": "
+                        + live.Catalog.Entries.Count.ToString(CultureInfo.InvariantCulture)
                         + " tools. Run one with call {tool, args}; tools {tool} shows a tool's arguments.",
                     .. CatalogLines(live),
-                ]);
+                ]
+            );
         }
 
         var found = live.Catalog.Find(tool) ?? throw UnknownTool(live, tool);
@@ -226,7 +240,12 @@ internal sealed class SessionHost : IDisposable
     }
 
     /// <summary>Runs one catalog tool in the live session; what comes back, a result or a failure, passes the attempt's secret ledger.</summary>
-    public async Task<CallToolResult> CallAsync(string? session, string name, JsonElement? args, CancellationToken cancellationToken)
+    public async Task<CallToolResult> CallAsync(
+        string? session,
+        string name,
+        JsonElement? args,
+        CancellationToken cancellationToken
+    )
     {
         var live = _sessions.Resolve(session);
         var tool = live.Catalog.Find(name) ?? throw UnknownTool(live, name);
@@ -267,14 +286,21 @@ internal sealed class SessionHost : IDisposable
     {
         return new CallToolResult
         {
-            Content = [.. result.Content.Select(block => block is TextContentBlock text ? new TextContentBlock { Text = redact(text.Text) } : block)],
+            Content =
+            [
+                .. result.Content.Select(block =>
+                    block is TextContentBlock text ? new TextContentBlock { Text = redact(text.Text) } : block
+                ),
+            ],
             IsError = result.IsError,
         };
     }
 
     private static string? String(JsonElement args, string name)
     {
-        return args.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        return args.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
     }
 
     private static JsonElement Parse(string json)
@@ -289,12 +315,21 @@ internal sealed class SessionHost : IDisposable
         {
             return new ConfigurationException(
                 "UNSUPPORTED_CAPABILITY",
-                "tool \"" + name + "\" is not available in this session: the engine of target \"" + live.TargetName + "\" declares no such action, or the config declares no secret; tools lists what it can do");
+                "tool \""
+                    + name
+                    + "\" is not available in this session: the engine of target \""
+                    + live.TargetName
+                    + "\" declares no such action, or the config declares no secret; tools lists what it can do"
+            );
         }
 
         return new ConfigurationException(
             "UNKNOWN_TOOL",
-            "tool \"" + name + "\" is not available in this session; tools: " + string.Join(", ", live.Catalog.Entries.Select(pair => pair.Key)));
+            "tool \""
+                + name
+                + "\" is not available in this session; tools: "
+                + string.Join(", ", live.Catalog.Entries.Select(pair => pair.Key))
+        );
     }
 
     private static string DescribeEngine(IEngine engine) => engine.Platform + " " + engine.Version;
@@ -302,24 +337,34 @@ internal sealed class SessionHost : IDisposable
     /// <summary>Logs a line for the operator and the client, redacted with every secret value the process knows.</summary>
     private void Log(string level, string message) => _options.Log(level, _secrets.Redact(message));
 
-    private async Task<string> OpenSessionAsync(string id, OpenSessionOptions options, bool headed, CancellationToken request)
+    private async Task<string> OpenSessionAsync(
+        string id,
+        OpenSessionOptions options,
+        bool headed,
+        CancellationToken request
+    )
     {
         // The config is claimed before it is read: a session on another config is refused while one is open.
         if (options.Test is not null && (options.Target is not null || options.Headed is not null))
         {
-            throw new ConfigurationException("INVALID_ARGUMENT", "target and headed do not apply with test: the test's own fixture picks its target and whether it shows its UI");
+            throw new ConfigurationException(
+                "INVALID_ARGUMENT",
+                "target and headed do not apply with test: the test's own fixture picks its target and whether it shows its UI"
+            );
         }
 
         var configPath = _options.LocateConfig(options.Config);
         _sessions.ClaimConfig(id, configPath);
         // Known to the process before anything can fail with one, so an open failure is redacted like any other text, and before what the load printed is released.
-        var config = await _options.WithholdOutput(async () =>
-        {
-            var loaded = await _options.LoadConfig(configPath).ConfigureAwait(false);
-            _secrets.Add(loaded.AllSecrets);
-            _secrets.Add(_options.Credentials());
-            return loaded;
-        }).ConfigureAwait(false);
+        var config = await _options
+            .WithholdOutput(async () =>
+            {
+                var loaded = await _options.LoadConfig(configPath).ConfigureAwait(false);
+                _secrets.Add(loaded.AllSecrets);
+                _secrets.Add(_options.Credentials());
+                return loaded;
+            })
+            .ConfigureAwait(false);
         var secrets = config.AllSecrets;
         var target = ResolveTarget(config, options.Target);
         var abort = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token, request);
@@ -337,14 +382,24 @@ internal sealed class SessionHost : IDisposable
             {
                 // The test runs in this process, on the engine and session its own fixture builds; its session is handed over instead of disposed.
                 var assembly = config.TestAssembly
-                    ?? throw new ConfigurationException("INVALID_CONFIG", "open_session {test} needs \"testAssembly\" (the built test assembly) in " + configPath);
+                    ?? throw new ConfigurationException(
+                        "INVALID_CONFIG",
+                        "open_session {test} needs \"testAssembly\" (the built test assembly) in " + configPath
+                    );
                 // Collected again each open: a test rebuilt since the last open runs as it is now. Unloaded once the session closes.
                 loadedTests = SessionTests.Load(assembly);
                 var (tests, runner) = loadedTests;
                 testName = SessionTests.SelectOne(runner, tests, testName, assembly);
                 var started = Stopwatch.StartNew();
                 ran = await runner.RunAsync(tests, testName, abort.Token, config).ConfigureAwait(false)
-                    ?? throw new ConfigurationException("NO_TESTS", "no test named \"" + testName + "\" in " + assembly + " ran with an E2E session (a test whose set-up failed before the session started has none); use the full name, Namespace.Class.Method");
+                    ?? throw new ConfigurationException(
+                        "NO_TESTS",
+                        "no test named \""
+                            + testName
+                            + "\" in "
+                            + assembly
+                            + " ran with an E2E session (a test whose set-up failed before the session started has none); use the full name, Namespace.Class.Method"
+                    );
                 elapsed = started.Elapsed;
                 if (ran.Session is { } ranSession && ran.Engine is { } ranEngine)
                 {
@@ -352,7 +407,9 @@ internal sealed class SessionHost : IDisposable
                     apps = HeldApps.Instance;
                     var liveRun = ran.Run;
                     var unload = loadedTests;
-                    attempt = new StandaloneAttempt(ranSession, async () => await CloseRanAsync(ranSession, liveRun, unload).ConfigureAwait(false));
+                    attempt = new StandaloneAttempt(ranSession, async () =>
+                        await CloseRanAsync(ranSession, liveRun, unload).ConfigureAwait(false)
+                    );
                     if (engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp))
                     {
                         _sessions.ClaimEngine(id, target.Name);
@@ -377,30 +434,33 @@ internal sealed class SessionHost : IDisposable
 
                 // The target's app command starts before the session opens, and the URL is on the port it was started on.
                 (target, apps) = await RunApps.AcquireAsync(config, target, null, abort.Token).ConfigureAwait(false);
-                attempt = await Standalone.OpenAttemptAsync(
-                    new E2ESessionOptions
-                    {
-                        Engine = engine,
-                        Credentials = config.Credentials,
-                        Config = HostTestFilters.Resolve(config, [], target: target),
-                        BaseUrl = target.App.Url,
-                        Permissions = target.App.Permissions,
-                        ProjectRoot = config.ProjectRoot,
-                        TargetName = target.Name,
-                        Cache = null,
-                        CacheEnabled = false,
-                        CacheMode = CacheMode.Off,
-                        TestTitle = "e2e mcp session " + id,
-                        TestTimeout = _options.Ttl + CloseGrace,
-                        LaunchTimeout = config.LaunchTimeout,
-                        CleanupTimeout = config.CleanupTimeout,
-                        ActionTimeout = config.ActionTimeout,
-                        AssertionTimeout = config.AssertionTimeout,
+                attempt = await Standalone
+                    .OpenAttemptAsync(
+                        new E2ESessionOptions
+                        {
+                            Engine = engine,
+                            Credentials = config.Credentials,
+                            Config = HostTestFilters.Resolve(config, [], target: target),
+                            BaseUrl = target.App.Url,
+                            Permissions = target.App.Permissions,
+                            ProjectRoot = config.ProjectRoot,
+                            TargetName = target.Name,
+                            Cache = null,
+                            CacheEnabled = false,
+                            CacheMode = CacheMode.Off,
+                            TestTitle = "e2e mcp session " + id,
+                            TestTimeout = _options.Ttl + CloseGrace,
+                            LaunchTimeout = config.LaunchTimeout,
+                            CleanupTimeout = config.CleanupTimeout,
+                            ActionTimeout = config.ActionTimeout,
+                            AssertionTimeout = config.AssertionTimeout,
 
-                        // An MCP session writes no trace page: the agent that drives it reads each answer as it comes.
-                        Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
-                    },
-                    abort.Token).ConfigureAwait(false);
+                            // An MCP session writes no trace page: the agent that drives it reads each answer as it comes.
+                            Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
+                        },
+                        abort.Token
+                    )
+                    .ConfigureAwait(false);
             }
 
             var session = attempt.Session;
@@ -417,8 +477,21 @@ internal sealed class SessionHost : IDisposable
             }
 
             var attemptDir = session.App.ArtifactsDir ?? config.ProjectRoot;
-            var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps!) { TestFailure = ran?.Failure, CleanupTimeout = config.CleanupTimeout };
-            live.Recorder = !engine.Capabilities.HasFlag(EngineCapabilities.Video) ? null : new SessionRecorder(session.Engine.StartVideoAsync, session.Engine.StopVideoAsync, attemptDir, OutputLayout.Of(config.Output).Videos(id), config.CleanupTimeout, () => live.SecretFilled);
+            var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps!)
+            {
+                TestFailure = ran?.Failure,
+                CleanupTimeout = config.CleanupTimeout,
+            };
+            live.Recorder = !engine.Capabilities.HasFlag(EngineCapabilities.Video)
+                ? null
+                : new SessionRecorder(
+                    session.Engine.StartVideoAsync,
+                    session.Engine.StopVideoAsync,
+                    attemptDir,
+                    OutputLayout.Of(config.Output).Videos(id),
+                    config.CleanupTimeout,
+                    () => live.SecretFilled
+                );
             live.Catalog = SessionCatalog.Create(
                 live,
                 engine.Capabilities,
@@ -428,26 +501,72 @@ internal sealed class SessionHost : IDisposable
                 Uri.TryCreate(target.App.Url, UriKind.Absolute, out var appBase) ? appBase : null,
                 live.Recorder,
                 ran?.TestName,
-                new TestLineFills([.. config.Credentials.Values.Select(credential => new TestLineCredential(credential.Name, credential.Username, credential.Password.Name))], [.. config.Secrets.Names]),
+                new TestLineFills(
+                    [
+                        .. config.Credentials.Values.Select(credential => new TestLineCredential(
+                            credential.Name,
+                            credential.Username,
+                            credential.Password.Name
+                        )),
+                    ],
+                    [.. config.Secrets.Names]
+                ),
                 session.Engine.ActionKinds,
                 session.Engine.PointerActionKinds,
                 session.Engine.CanDismissKeyboard,
                 config.Agent.Tools,
                 target.Platform,
                 message => Log("warning", message),
-                [.. secrets.Select(secret => new ExecutorSecret(secret.Name, secret.Purpose))]);
+                [.. secrets.Select(secret => new ExecutorSecret(secret.Name, secret.Purpose))]
+            );
 
             // The app as the session resolved it: the declared URL on the port its command was started on.
-            var app = TargetApps.ResolveTargetApp(target.Name, declared.App, config.ProjectRoot, Uri.TryCreate(target.App.Url, UriKind.Absolute, out var served) ? served.Port : null);
-            var text = OpeningText(live, target, app, config, await FirstScreenAsync(live, target, ran is not null, abort.Token).ConfigureAwait(false));
+            var app = TargetApps.ResolveTargetApp(
+                target.Name,
+                declared.App,
+                config.ProjectRoot,
+                Uri.TryCreate(target.App.Url, UriKind.Absolute, out var served) ? served.Port : null
+            );
+            var text = OpeningText(
+                live,
+                target,
+                app,
+                config,
+                await FirstScreenAsync(live, target, ran is not null, abort.Token).ConfigureAwait(false)
+            );
             if (ran is not null)
             {
-                text = TestOutcome.Describe(ran.TestName, ran.Failure, elapsed, session.StepRecords, session.Evidence, session.Redactor.Redact, config.ProjectRoot, ran.Phase, ran.Secondary, ran.ExpectedFailure) + "\n" + text;
+                text =
+                    TestOutcome.Describe(
+                        ran.TestName,
+                        ran.Failure,
+                        elapsed,
+                        session.StepRecords,
+                        session.Evidence,
+                        session.Redactor.Redact,
+                        config.ProjectRoot,
+                        ran.Phase,
+                        ran.Secondary,
+                        ran.ExpectedFailure
+                    )
+                    + "\n"
+                    + text;
             }
 
             // A first screen that came back despite the cancel must not become a live session nobody asked for.
             abort.Token.ThrowIfCancellationRequested();
-            live.Lifetime = new Timer(_ => EndOnItsOwn(live, "the session reached its time limit of " + Math.Round(_options.Ttl.TotalMinutes).ToString(CultureInfo.InvariantCulture) + " minutes"), null, _options.Ttl, Timeout.InfiniteTimeSpan);
+            live.Lifetime = new Timer(
+                _ =>
+                    EndOnItsOwn(
+                        live,
+                        "the session reached its time limit of "
+                            + Math.Round(_options.Ttl.TotalMinutes).ToString(CultureInfo.InvariantCulture)
+                            + " minutes"
+                    ),
+                null,
+                _options.Ttl,
+                Timeout.InfiniteTimeSpan
+            );
             _sessions.Activate(live);
             Touch(live);
             return text;
@@ -459,17 +578,32 @@ internal sealed class SessionHost : IDisposable
                 // A test the caller cancelled may still be running in this assembly: it unloads once the turns queued so far have settled.
                 if (loadedTests is { } unloaded)
                 {
-                    _ = SessionHandover.Drained.ContinueWith(_ => unloaded.Dispose(), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+                    _ = SessionHandover.Drained.ContinueWith(
+                        _ => unloaded.Dispose(),
+                        CancellationToken.None,
+                        TaskContinuationOptions.None,
+                        TaskScheduler.Default
+                    );
                 }
             }
             else
             {
-                await DisposeQuietlyAsync(attempt, failure => Log("warning", "closing the session that failed to open also failed: " + failure)).ConfigureAwait(false);
+                await DisposeQuietlyAsync(attempt, failure =>
+                        Log("warning", "closing the session that failed to open also failed: " + failure)
+                    )
+                    .ConfigureAwait(false);
             }
 
             if (apps is not null)
             {
-                await apps.StopAsync(failure => Log("warning", "stopping the app command of the session that failed to open also failed: " + failure.Message)).ConfigureAwait(false);
+                await apps.StopAsync(failure =>
+                        Log(
+                            "warning",
+                            "stopping the app command of the session that failed to open also failed: "
+                                + failure.Message
+                        )
+                    )
+                    .ConfigureAwait(false);
             }
 
             var cancelled = abort.IsCancellationRequested;
@@ -484,7 +618,11 @@ internal sealed class SessionHost : IDisposable
     }
 
     /// <summary>Disposes the session a test left open; the failures come back as a list, as a standalone attempt's close does.</summary>
-    private static async Task<IReadOnlyList<Exception>> CloseRanAsync(E2ESession session, LiveRun? run, SessionTests.TestAssembly? tests)
+    private static async Task<IReadOnlyList<Exception>> CloseRanAsync(
+        E2ESession session,
+        LiveRun? run,
+        SessionTests.TestAssembly? tests
+    )
     {
         // What the test left rejected lands now; it is reported once, with the close's own failures.
         List<Exception> failures = [];
@@ -517,7 +655,16 @@ internal sealed class SessionHost : IDisposable
         // Cancels the call in flight, if any, so it does not hold the engine the dispose is about to close.
         await live.Abort.CancelAsync().ConfigureAwait(false);
         live.StopTimers();
-        var lines = new List<string> { "Session " + live.Id + " closed (" + reason + "); " + live.Calls.ToString(CultureInfo.InvariantCulture) + " tool calls ran." };
+        var lines = new List<string>
+        {
+            "Session "
+                + live.Id
+                + " closed ("
+                + reason
+                + "); "
+                + live.Calls.ToString(CultureInfo.InvariantCulture)
+                + " tool calls ran.",
+        };
 
         // A recording still running is saved before the engine goes, and the close says where it went or why it was lost.
         if (live.Recorder is { } recorder)
@@ -551,7 +698,9 @@ internal sealed class SessionHost : IDisposable
         }
 
         // The app command stops with the last session that holds it, after the engine is done with it.
-        await live.Apps.StopAsync(failure => lines.Add("Cleanup: " + Tools.CodedMessage(failure))).ConfigureAwait(false);
+        await live
+            .Apps.StopAsync(failure => lines.Add("Cleanup: " + Tools.CodedMessage(failure)))
+            .ConfigureAwait(false);
         live.Abort.Dispose();
         live.Recorder?.Dispose();
 
@@ -583,11 +732,20 @@ internal sealed class SessionHost : IDisposable
         }
 
         Log("warning", "session " + live.Id + " ended: " + why);
-        _ = CloseAsync(why, live.Id).ContinueWith(
-            task => Log("error", "closing session " + live.Id + " failed: " + Tools.CodedMessage(task.Exception!.GetBaseException())),
-            CancellationToken.None,
-            TaskContinuationOptions.OnlyOnFaulted,
-            TaskScheduler.Default);
+        _ = CloseAsync(why, live.Id)
+            .ContinueWith(
+                task =>
+                    Log(
+                        "error",
+                        "closing session "
+                            + live.Id
+                            + " failed: "
+                            + Tools.CodedMessage(task.Exception!.GetBaseException())
+                    ),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default
+            );
     }
 
     private void Touch(LiveSession live)
@@ -599,14 +757,30 @@ internal sealed class SessionHost : IDisposable
         }
 
         live.Idle?.Dispose();
-        live.Idle = new Timer(_ => EndOnItsOwn(live, "idle for " + Math.Round(_options.Idle.TotalMinutes).ToString(CultureInfo.InvariantCulture) + " minutes"), null, _options.Idle, Timeout.InfiniteTimeSpan);
+        live.Idle = new Timer(
+            _ =>
+                EndOnItsOwn(
+                    live,
+                    "idle for "
+                        + Math.Round(_options.Idle.TotalMinutes).ToString(CultureInfo.InvariantCulture)
+                        + " minutes"
+                ),
+            null,
+            _options.Idle,
+            Timeout.InfiniteTimeSpan
+        );
     }
 
     /// <summary>
     /// Opens the app URL when the target declares one, then observes; a device's pinned app was launched before. Either opening
     /// is the test's <c>App.OpenAsync()</c>, the session's first test line.
     /// </summary>
-    private static async Task<string> FirstScreenAsync(LiveSession live, TargetConfig target, bool testRan, CancellationToken token)
+    private static async Task<string> FirstScreenAsync(
+        LiveSession live,
+        TargetConfig target,
+        bool testRan,
+        CancellationToken token
+    )
     {
         var agent = live.Session.Agent;
         var opening = "";
@@ -616,10 +790,22 @@ internal sealed class SessionHost : IDisposable
         {
             try
             {
-                var navigated = await agent.RunToolAsync("navigate", Parse(JsonSerializer.Serialize(new { url = target.App.Url })), token, live.Catalog.Screen).ConfigureAwait(false);
+                var navigated = await agent
+                    .RunToolAsync(
+                        "navigate",
+                        Parse(JsonSerializer.Serialize(new { url = target.App.Url })),
+                        token,
+                        live.Catalog.Screen
+                    )
+                    .ConfigureAwait(false);
                 if (!navigated.Succeeded)
                 {
-                    opening = "Opening " + target.App.Url + " failed: " + (navigated.Error is null ? navigated.Content : navigated.Code + ": " + navigated.Error) + "\nUse navigate once the app is reachable.\n";
+                    opening =
+                        "Opening "
+                        + target.App.Url
+                        + " failed: "
+                        + (navigated.Error is null ? navigated.Content : navigated.Code + ": " + navigated.Error)
+                        + "\nUse navigate once the app is reachable.\n";
                 }
                 else
                 {
@@ -628,10 +814,14 @@ internal sealed class SessionHost : IDisposable
             }
             catch (E2EException cause)
             {
-                opening = "Opening " + target.App.Url + " failed: " + Tools.CodedMessage(cause) + "\nUse navigate once the app is reachable.\n";
+                opening =
+                    "Opening "
+                    + target.App.Url
+                    + " failed: "
+                    + Tools.CodedMessage(cause)
+                    + "\nUse navigate once the app is reachable.\n";
             }
         }
-
         else if (!testRan && TargetEngines.LaunchesPinnedApp(target, live.Engine))
         {
             live.Catalog.Lines.Opened();
@@ -642,7 +832,9 @@ internal sealed class SessionHost : IDisposable
         {
             try
             {
-                var left = await agent.RunToolAsync("observe", Parse("{}"), token, live.Catalog.Screen).ConfigureAwait(false);
+                var left = await agent
+                    .RunToolAsync("observe", Parse("{}"), token, live.Catalog.Screen)
+                    .ConfigureAwait(false);
                 return left.Succeeded ? Screen(left.Content) : "No screen to show: " + (left.Error ?? left.Content);
             }
             catch (E2EException cause)
@@ -656,47 +848,94 @@ internal sealed class SessionHost : IDisposable
             }
         }
 
-        var observed = await agent.RunToolAsync("observe", Parse("{}"), token, live.Catalog.Screen).ConfigureAwait(false);
-        return opening + (observed.Content.StartsWith("Observed.\n", StringComparison.Ordinal) ? observed.Content["Observed.\n".Length..] : observed.Content);
+        var observed = await agent
+            .RunToolAsync("observe", Parse("{}"), token, live.Catalog.Screen)
+            .ConfigureAwait(false);
+        return opening
+            + (
+                observed.Content.StartsWith("Observed.\n", StringComparison.Ordinal)
+                    ? observed.Content["Observed.\n".Length..]
+                    : observed.Content
+            );
     }
 
-    private static string Screen(string content) => content.StartsWith("Observed.\n", StringComparison.Ordinal) ? content["Observed.\n".Length..] : content;
+    private static string Screen(string content) =>
+        content.StartsWith("Observed.\n", StringComparison.Ordinal) ? content["Observed.\n".Length..] : content;
 
     private string OpeningText(LiveSession live, TargetConfig target, ResolvedApp app, E2EConfig config, string screen)
     {
         var lines = new List<string>
         {
-            "Session " + live.Id + " open on target \"" + target.Name + "\" (platform " + target.Platform + ", engine " + DescribeEngine(live.Engine) + "), "
-                + (live.Headed ? "headed" : "headless") + "; config " + live.ConfigPath + ", read with the e2e mcp server's environment, not your shell's.",
+            "Session "
+                + live.Id
+                + " open on target \""
+                + target.Name
+                + "\" (platform "
+                + target.Platform
+                + ", engine "
+                + DescribeEngine(live.Engine)
+                + "), "
+                + (live.Headed ? "headed" : "headless")
+                + "; config "
+                + live.ConfigPath
+                + ", read with the e2e mcp server's environment, not your shell's.",
         };
         lines.AddRange(AppLines.For(app, TargetEngines.LaunchesPinnedApp(target, live.Engine)));
 
         if (config.Credentials.Count > 0)
         {
-            var described = config.Credentials.Values.Select(credential => "\"" + credential.Name + "\" (username " + JsonSerializer.Serialize(credential.Username) + ", password secret \"" + credential.Password.Name + "\")");
-            lines.Add("Credentials: " + string.Join(", ", described) + ". Type the username with type; fill the password with type_secret and its password secret's name.");
+            var described = config.Credentials.Values.Select(credential =>
+                "\""
+                + credential.Name
+                + "\" (username "
+                + JsonSerializer.Serialize(credential.Username)
+                + ", password secret \""
+                + credential.Password.Name
+                + "\")"
+            );
+            lines.Add(
+                "Credentials: "
+                    + string.Join(", ", described)
+                    + ". Type the username with type; fill the password with type_secret and its password secret's name."
+            );
         }
 
         var names = config.Secrets.Names.ToList();
         if (names.Count > 0)
         {
-            lines.Add("Secrets: " + string.Join(", ", names.Select(name => "\"" + name + "\"")) + ". Fill one into any input with type_secret and its name; you never see the value.");
+            lines.Add(
+                "Secrets: "
+                    + string.Join(", ", names.Select(name => "\"" + name + "\""))
+                    + ". Fill one into any input with type_secret and its name; you never see the value."
+            );
         }
 
-        lines.Add("Pass session \"" + live.Id + "\" to every tools, call, and close_session; with several sessions open, a call without it fails.");
+        lines.Add(
+            "Pass session \""
+                + live.Id
+                + "\" to every tools, call, and close_session; with several sessions open, a call without it fails."
+        );
         lines.Add("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):");
         lines.AddRange(CatalogLines(live));
-        lines.Add("Node ids (#id in observe) are valid only for the newest observation; every action reports what changed on screen and the test line that repeats it (test_lines returns them all), and observe shows the whole screen. Call close_session when you are done.");
+        lines.Add(
+            "Node ids (#id in observe) are valid only for the newest observation; every action reports what changed on screen and the test line that repeats it (test_lines returns them all), and observe shows the whole screen. Call close_session when you are done."
+        );
         lines.Add(ReadWritingGuide);
         return string.Join('\n', lines) + "\n\n" + screen;
     }
 
     private static IEnumerable<string> CatalogLines(LiveSession live) =>
-        live.Catalog.Entries.Select(pair => Tools.CatalogLine(pair.Key, pair.Value, live.Catalog.ReadOnly.Contains(pair.Key)));
+        live.Catalog.Entries.Select(pair =>
+            Tools.CatalogLine(pair.Key, pair.Value, live.Catalog.ReadOnly.Contains(pair.Key))
+        );
 
     private TargetConfig ResolveTarget(E2EConfig config, string? requested)
     {
-        return SelectTarget.Select(config.Targets, requested ?? _options.DefaultTarget, "pass target to open_session, or start e2e mcp --target <name>");
+        return SelectTarget.Select(
+            config.Targets,
+            requested ?? _options.DefaultTarget,
+            "pass target to open_session, or start e2e mcp --target <name>"
+        );
     }
 
     private McpToolSpec Redacting(McpToolSpec spec)
@@ -733,18 +972,24 @@ internal sealed class SessionHost : IDisposable
         return new McpToolSpec
         {
             Name = "open_session",
-            Description = "Open a live session on one target of an e2e project: loads the config, boots the engine (a browser, a simulator), opens the app (its URL, or the pinned app on a device), and returns the session id, the catalog of tools it can run, and the first observation. Several sessions can be open at once, one per agent, each with its own engine: pass the returned session id to every later call. Then act with call and look with call {tool: \"observe\"}.",
+            Description =
+                "Open a live session on one target of an e2e project: loads the config, boots the engine (a browser, a simulator), opens the app (its URL, or the pinned app on a device), and returns the session id, the catalog of tools it can run, and the first observation. Several sessions can be open at once, one per agent, each with its own engine: pass the returned session id to every later call. Then act with call and look with call {tool: \"observe\"}.",
             InputSchema = OpenSchema,
             ReadOnly = false,
-            Call = async (args, token) => Tools.TextResult(await OpenAsync(
-                new OpenSessionOptions
-                {
-                    Target = String(args, "target"),
-                    Config = String(args, "config"),
-                    Headed = args.TryGetProperty("headed", out var headed) ? headed.GetBoolean() : null,
-                    Test = String(args, "test"),
-                },
-                token).ConfigureAwait(false)),
+            Call = async (args, token) =>
+                Tools.TextResult(
+                    await OpenAsync(
+                            new OpenSessionOptions
+                            {
+                                Target = String(args, "target"),
+                                Config = String(args, "config"),
+                                Headed = args.TryGetProperty("headed", out var headed) ? headed.GetBoolean() : null,
+                                Test = String(args, "test"),
+                            },
+                            token
+                        )
+                        .ConfigureAwait(false)
+                ),
         };
     }
 
@@ -753,10 +998,12 @@ internal sealed class SessionHost : IDisposable
         return new McpToolSpec
         {
             Name = "tools",
-            Description = "List the tools a session can run through call: observe, the grammar its engine honors (one tool per action the engine declares, type_secret when a secret is configured, and screenshot), locate, and test_lines (the test line each action printed, as a draft test body). With tool, shows that tool's full description and the JSON Schema of its arguments.",
+            Description =
+                "List the tools a session can run through call: observe, the grammar its engine honors (one tool per action the engine declares, type_secret when a secret is configured, and screenshot), locate, and test_lines (the test line each action printed, as a draft test body). With tool, shows that tool's full description and the JSON Schema of its arguments.",
             InputSchema = CatalogSchema,
             ReadOnly = true,
-            Call = (args, _) => Task.FromResult(Tools.TextResult(Catalog(String(args, "session"), String(args, "tool")))),
+            Call = (args, _) =>
+                Task.FromResult(Tools.TextResult(Catalog(String(args, "session"), String(args, "tool")))),
         };
     }
 
@@ -765,10 +1012,17 @@ internal sealed class SessionHost : IDisposable
         return new McpToolSpec
         {
             Name = "call",
-            Description = "Run one tool of a session by name, with its arguments as an object: call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}. The session's catalog (from open_session or tools) names the tools and their arguments. Actions report what changed on screen and the test line that repeats them; node ids are valid only for the newest observation.",
+            Description =
+                "Run one tool of a session by name, with its arguments as an object: call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}. The session's catalog (from open_session or tools) names the tools and their arguments. Actions report what changed on screen and the test line that repeats them; node ids are valid only for the newest observation.",
             InputSchema = CallSchema,
             ReadOnly = false,
-            Call = (args, token) => CallAsync(String(args, "session"), String(args, "tool")!, args.TryGetProperty("args", out var given) ? given : null, token),
+            Call = (args, token) =>
+                CallAsync(
+                    String(args, "session"),
+                    String(args, "tool")!,
+                    args.TryGetProperty("args", out var given) ? given : null,
+                    token
+                ),
         };
     }
 
@@ -777,10 +1031,14 @@ internal sealed class SessionHost : IDisposable
         return new McpToolSpec
         {
             Name = "close_session",
-            Description = "Close a live session: end the attempt, dispose the engine, and stop the browser the session started.",
+            Description =
+                "Close a live session: end the attempt, dispose the engine, and stop the browser the session started.",
             InputSchema = CloseSchema,
             ReadOnly = false,
-            Call = async (args, _) => Tools.TextResult(await CloseAsync("closed by the agent", String(args, "session")).ConfigureAwait(false)),
+            Call = async (args, _) =>
+                Tools.TextResult(
+                    await CloseAsync("closed by the agent", String(args, "session")).ConfigureAwait(false)
+                ),
         };
     }
 
@@ -795,8 +1053,16 @@ internal sealed class SessionHost : IDisposable
     }
 
     /// <summary>One open session: its attempt, its catalog, and the timers that end it.</summary>
-    private sealed class LiveSession(string id, string targetName, string configPath, bool headed, IEngine engine, StandaloneAttempt attempt, CancellationTokenSource abort, IAppProcesses apps)
-        : INamedSession, ISessionContext
+    private sealed class LiveSession(
+        string id,
+        string targetName,
+        string configPath,
+        bool headed,
+        IEngine engine,
+        StandaloneAttempt attempt,
+        CancellationTokenSource abort,
+        IAppProcesses apps
+    ) : INamedSession, ISessionContext
     {
         public string Id { get; } = id;
 

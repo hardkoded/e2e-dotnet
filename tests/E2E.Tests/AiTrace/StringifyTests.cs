@@ -13,8 +13,12 @@ public sealed class StringifyTests
     [Fact]
     public void Replaces_binary_payloads_with_a_size_note()
     {
-        var text = Internal.AiTrace.Stringify(O(("data", new byte[3]), ("nested", A(new byte[8])), ("n", new BigInteger(1))));
+        var text = Internal.AiTrace.Stringify(
+            O(("data", new byte[3]), ("nested", A(new byte[8])), ("n", new BigInteger(1)))
+        );
 
-        Assert.True(Same(O(("data", "[binary 3 bytes omitted]"), ("nested", A("[binary 8 bytes omitted]")), ("n", "1")), text));
+        Assert.True(
+            Same(O(("data", "[binary 3 bytes omitted]"), ("nested", A("[binary 8 bytes omitted]")), ("n", "1")), text)
+        );
     }
 }

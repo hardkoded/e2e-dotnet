@@ -18,10 +18,28 @@ public sealed class RenderTracePageTests
 {
     private static string Page(IReadOnlyList<ReportAttempt> attempts, Func<string, string?>? readArtifact = null)
     {
-        var failing = ReportBuilders.Result(id: "r1", titlePath: ["todos", "archives a todo"], file: "tests/todos.e2e.ts", status: ResultStatus.Failed, attempts: attempts);
-        var document = new Report1Document(new ReportRun("run-1", "0.0.0", [new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null))], [failing]));
+        var failing = ReportBuilders.Result(
+            id: "r1",
+            titlePath: ["todos", "archives a todo"],
+            file: "tests/todos.e2e.ts",
+            status: ResultStatus.Failed,
+            attempts: attempts
+        );
+        var document = new Report1Document(
+            new ReportRun(
+                "run-1",
+                "0.0.0",
+                [new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null))],
+                [failing]
+            )
+        );
         var told = ReportBuilders.Public(document);
-        return FailureText.RenderTracePage(told, told.Run.Results[0], Outcome.Of(told.Run.Results[0]), new TracePageOptions { ArtifactsDir = ".e2e/artifacts", ReadArtifact = readArtifact });
+        return FailureText.RenderTracePage(
+            told,
+            told.Run.Results[0],
+            Outcome.Of(told.Run.Results[0]),
+            new TracePageOptions { ArtifactsDir = ".e2e/artifacts", ReadArtifact = readArtifact }
+        );
     }
 
     [Fact]
@@ -35,7 +53,21 @@ public sealed class RenderTracePageTests
             new("a:3", "log", "t/console.txt"),
         ];
 
-        var body = Page([Failed(steps: [Step(0), Step(1, api: "expect.toHaveScreenshot", status: StepStatus.Failed, artifacts: ["a:0", "a:1", "a:2", "a:3"])], artifacts: artifacts)]);
+        var body = Page([
+            Failed(
+                steps:
+                [
+                    Step(0),
+                    Step(
+                        1,
+                        api: "expect.toHaveScreenshot",
+                        status: StepStatus.Failed,
+                        artifacts: ["a:0", "a:1", "a:2", "a:3"]
+                    ),
+                ],
+                artifacts: artifacts
+            ),
+        ]);
 
         var lines = body.Split('\n');
         var at = Array.FindIndex(lines, line => line.Contains("`expect.toHaveScreenshot`", StringComparison.Ordinal));
@@ -45,7 +77,8 @@ public sealed class RenderTracePageTests
                 "   - screenshot `.e2e/artifacts/t/screenshots/home-actual.png`",
                 "   - screenshot `.e2e/artifacts/t/screenshots/home-diff.png`",
             ],
-            lines[(at + 1)..(at + 4)]);
+            lines[(at + 1)..(at + 4)]
+        );
         Assert.DoesNotContain("console.txt", lines[at + 4], StringComparison.Ordinal);
     }
 
@@ -57,34 +90,88 @@ public sealed class RenderTracePageTests
             new(id, "video", "t/" + file, StartedAt: startedAt, Producer: producer);
         // The report names the step that made an artifact by the artifacts the step lists, so a stopped recording is listed by its stop step.
         List<string> Offsets(IReadOnlyList<ReportArtifact> artifacts, params string[] madeByStopStep) =>
-        [
-            .. Page(
-                [
-                    Failed(
-                        steps:
-                        [
-                            Step(0, api: "app.open", startedAt: At(0), durationMs: 500),
-                            Step(1, api: "locator.tap", startedAt: At(5), durationMs: 500),
-                            Step(2, api: "app.stopRecording", startedAt: At(8), durationMs: 1000, artifacts: madeByStopStep),
-                            Step(3, api: "locator.tap", status: StepStatus.Failed, error: ReportBuilders.Error(), startedAt: At(12), durationMs: 500),
-                        ],
-                        artifacts: artifacts),
-                ])
-                .Split('\n')
-                .Where(line => System.Text.RegularExpressions.Regex.IsMatch(line, @"^\d\. "))
-                .Select(line => System.Text.RegularExpressions.Regex.Match(line, @"\((?:[^,)]*)(?:, ([^)]*))?\)").Groups[1].Value),
-        ];
+            [
+                .. Page([
+                        Failed(
+                            steps:
+                            [
+                                Step(0, api: "app.open", startedAt: At(0), durationMs: 500),
+                                Step(1, api: "locator.tap", startedAt: At(5), durationMs: 500),
+                                Step(
+                                    2,
+                                    api: "app.stopRecording",
+                                    startedAt: At(8),
+                                    durationMs: 1000,
+                                    artifacts: madeByStopStep
+                                ),
+                                Step(
+                                    3,
+                                    api: "locator.tap",
+                                    status: StepStatus.Failed,
+                                    error: ReportBuilders.Error(),
+                                    startedAt: At(12),
+                                    durationMs: 500
+                                ),
+                            ],
+                            artifacts: artifacts
+                        ),
+                    ])
+                    .Split('\n')
+                    .Where(line => System.Text.RegularExpressions.Regex.IsMatch(line, @"^\d\. "))
+                    .Select(line =>
+                        System
+                            .Text.RegularExpressions.Regex.Match(line, @"\((?:[^,)]*)(?:, ([^)]*))?\)")
+                            .Groups[1]
+                            .Value
+                    ),
+            ];
 
-        Assert.Equal(["", "video 0:01", "video 0:04", ""], Offsets([Video("a:0", "recordings/001-span.webm", At(4), new ArtifactProducer { Kind = ArtifactProducerKind.Step, StepId = "s2" })], "a:0"));
-        Assert.Equal(["video 0:00", "video 0:04", "video 0:07", "video 0:11"], Offsets([Video("a:0", "video/video.webm", At(1), new ArtifactProducer { Kind = ArtifactProducerKind.Attempt })]));
+        Assert.Equal(
+            ["", "video 0:01", "video 0:04", ""],
+            Offsets(
+                [
+                    Video(
+                        "a:0",
+                        "recordings/001-span.webm",
+                        At(4),
+                        new ArtifactProducer { Kind = ArtifactProducerKind.Step, StepId = "s2" }
+                    ),
+                ],
+                "a:0"
+            )
+        );
+        Assert.Equal(
+            ["video 0:00", "video 0:04", "video 0:07", "video 0:11"],
+            Offsets([
+                Video("a:0", "video/video.webm", At(1), new ArtifactProducer { Kind = ArtifactProducerKind.Attempt }),
+            ])
+        );
     }
 
     [Fact]
     public void Quotes_a_step_explanation_that_starts_like_a_heading_as_prose_with_its_linkable_tokens_as_code_through_the_shared_cell()
     {
-        var body = Page([Failed(steps: [Step(0, StepKind.Agent, "agent.act", StepStatus.Failed, label: "pay", explanation: "# Blocked\nsee @octocat at https://evil.example/p")])]);
+        var body = Page([
+            Failed(
+                steps:
+                [
+                    Step(
+                        0,
+                        StepKind.Agent,
+                        "agent.act",
+                        StepStatus.Failed,
+                        label: "pay",
+                        explanation: "# Blocked\nsee @octocat at https://evil.example/p"
+                    ),
+                ]
+            ),
+        ]);
 
-        Assert.Contains("   > \\# Blocked see `@octocat` at `https://evil.example/p`\n", body, StringComparison.Ordinal);
+        Assert.Contains(
+            "   > \\# Blocked see `@octocat` at `https://evil.example/p`\n",
+            body,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotMatch(@"\n# Blocked", body);
         Assert.DoesNotMatch(@"[^`]@octocat", body);
     }
@@ -100,7 +187,14 @@ public sealed class RenderTracePageTests
                 Failed(
                     ReportBuilders.Error("ASSERTION_FAILED", "agent.act failed: no Archive button", source: source),
                     [
-                        Step(0, StepKind.App, "app.open", label: "/todos", durationMs: 40, source: new("tests/todos.e2e.ts", 4, 9)),
+                        Step(
+                            0,
+                            StepKind.App,
+                            "app.open",
+                            label: "/todos",
+                            durationMs: 40,
+                            source: new("tests/todos.e2e.ts", 4, 9)
+                        ),
                         Step(
                             1,
                             StepKind.Agent,
@@ -109,19 +203,40 @@ public sealed class RenderTracePageTests
                             ReportBuilders.Error("ASSERTION_FAILED", "no Archive button", source: source),
                             source,
                             durationMs: 16_100,
-                            metrics: new StepMetrics { ModelCalls = 6, ActionSteps = 4, ContextBytes = 1, LedgerBytes = 1 },
+                            metrics: new StepMetrics
+                            {
+                                ModelCalls = 6,
+                                ActionSteps = 4,
+                                ContextBytes = 1,
+                                LedgerBytes = 1,
+                            },
                             label: "Archive the todo",
                             explanation: "no Archive button",
                             turns:
                             [
-                                new StepTurn(1, ["tap({\"target\":\"n19\"})"], "Tapped #n19.\n\nScreen changes: 4 added."),
+                                new StepTurn(
+                                    1,
+                                    ["tap({\"target\":\"n19\"})"],
+                                    "Tapped #n19.\n\nScreen changes: 4 added."
+                                ),
                                 new StepTurn(2, ["complete_step({\"status\":\"failed\"})"], "Step concluded."),
-                            ]),
+                            ]
+                        ),
                     ],
                     [screen, shot],
-                    new E2E.FailureEvidence { Url = "http://app.test/todos", Viewport = new StepViewport(1280, 720, 1), Nodes = 2, Screen = "a:0", Screenshot = "a:1" }),
+                    new E2E.FailureEvidence
+                    {
+                        Url = "http://app.test/todos",
+                        Viewport = new StepViewport(1280, 720, 1),
+                        Nodes = 2,
+                        Screen = "a:0",
+                        Screenshot = "a:1",
+                    }
+                ),
             ],
-            reportPath => reportPath == "t/screen-at-failure.txt" ? "#n1 document \"Todos\"\n #n19 button \"Add\"\n" : null);
+            reportPath =>
+                reportPath == "t/screen-at-failure.txt" ? "#n1 document \"Todos\"\n #n19 button \"Add\"\n" : null
+        );
 
         Assert.Equal(
             string.Join(
@@ -173,8 +288,10 @@ public sealed class RenderTracePageTests
                 "- screen `.e2e/artifacts/t/screen-at-failure.txt`",
                 "",
                 "<sub>e2e 0.0.0 · run `run-1` · the whole run is in `report.json`</sub>",
-                ""),
-            body);
+                ""
+            ),
+            body
+        );
     }
 
     [Fact]
@@ -182,17 +299,33 @@ public sealed class RenderTracePageTests
     {
         var screen = new ReportArtifact("a:0", "log", "t/screen-at-failure.txt");
 
-        var unread = Page([Failed(artifacts: [screen], failure: new E2E.FailureEvidence { Screen = "a:0", Candidates = ["#n2 button \"Add\""] })]);
-        Assert.Contains("Closest to what the locator asked for:  \n- `#n2 button \"Add\"`\nscreen `.e2e/artifacts/t/screen-at-failure.txt`  ", unread, StringComparison.Ordinal);
+        var unread = Page([
+            Failed(
+                artifacts: [screen],
+                failure: new E2E.FailureEvidence { Screen = "a:0", Candidates = ["#n2 button \"Add\""] }
+            ),
+        ]);
+        Assert.Contains(
+            "Closest to what the locator asked for:  \n- `#n2 button \"Add\"`\nscreen `.e2e/artifacts/t/screen-at-failure.txt`  ",
+            unread,
+            StringComparison.Ordinal
+        );
 
-        var huge = Page([Failed(artifacts: [screen], failure: new E2E.FailureEvidence { Screen = "a:0" })], _ => new string('x', 30_000));
+        var huge = Page(
+            [Failed(artifacts: [screen], failure: new E2E.FailureEvidence { Screen = "a:0" })],
+            _ => new string('x', 30_000)
+        );
         Assert.Contains("…[cut at 24000 characters; the file has the rest]", huge, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Says_when_no_error_was_recorded_names_a_hook_phase_and_keeps_a_fence_in_a_message_from_closing_the_block()
     {
-        Assert.Contains("_failed: no error was recorded._", Page([ReportBuilders.Attempt(AttemptStatus.Failed)]), StringComparison.Ordinal);
+        Assert.Contains(
+            "_failed: no error was recorded._",
+            Page([ReportBuilders.Attempt(AttemptStatus.Failed)]),
+            StringComparison.Ordinal
+        );
 
         var hook = Page([Failed(ReportBuilders.Error(phase: "afterEach", message: "cleanup ```broke```"))]);
         Assert.Contains("**ASSERTION_FAILED** in afterEach", hook, StringComparison.Ordinal);
@@ -202,7 +335,11 @@ public sealed class RenderTracePageTests
     [Fact]
     public void Names_the_skip_a_failed_attempt_took_before_its_soft_failures_were_settled()
     {
-        Assert.Contains("Also skipped: flag \\| off  ", Page([Failed(skip: new ReportSkip("explicit", "flag | off"))]), StringComparison.Ordinal);
+        Assert.Contains(
+            "Also skipped: flag \\| off  ",
+            Page([Failed(skip: new ReportSkip("explicit", "flag | off"))]),
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("Also skipped", Page([Failed()]), StringComparison.Ordinal);
     }
 }

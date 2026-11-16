@@ -25,7 +25,13 @@ public sealed class MobileAppTestTests
     [Test]
     public void Skips_a_mobile_test_the_filters_left_out_before_the_app_is_installed()
     {
-        E2E.NUnit.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutMobileFixture).FullName}.{nameof(LeftOutMobileFixture.Mobile_test_is_left_out)}"] = "login.cs did not change" });
+        E2E.NUnit.RunSelection.Set(
+            new Dictionary<string, string>
+            {
+                [$"{typeof(LeftOutMobileFixture).FullName}.{nameof(LeftOutMobileFixture.Mobile_test_is_left_out)}"] =
+                    "login.cs did not change",
+            }
+        );
         try
         {
             var result = NestedRun.Run(nameof(LeftOutMobileFixture.Mobile_test_is_left_out));
@@ -42,8 +48,14 @@ public sealed class MobileAppTestTests
     [Test]
     public void Finds_the_tests_of_a_mobile_fixture()
     {
-        var found = E2E.NUnit.RunSelection.Discover([typeof(LeftOutMobileFixture)], typeof(LeftOutMobileFixture).Assembly);
+        var found = E2E.NUnit.RunSelection.Discover(
+            [typeof(LeftOutMobileFixture)],
+            typeof(LeftOutMobileFixture).Assembly
+        );
 
-        Assert.That(found.Select(test => test.Title), Is.EqualTo(new[] { nameof(LeftOutMobileFixture.Mobile_test_is_left_out) }));
+        Assert.That(
+            found.Select(test => test.Title),
+            Is.EqualTo(new[] { nameof(LeftOutMobileFixture.Mobile_test_is_left_out) })
+        );
     }
 }

@@ -19,7 +19,9 @@ public sealed class RouteIdentityTests
         Assert.True(Alike("/projects/a77c12665e90/tests", "/projects/0c1d2e3f4a5b/tests"));
         Assert.True(Alike("/orders/42", "/orders/7"));
         Assert.True(Alike("/blog/2024/09/18/launch-day", "/blog/2025/01/02/launch-day"));
-        Assert.True(Alike("/dashboard/e2e-45961c4c/projects/0c1d2e3f4a5b", "/dashboard/e2e-12345678/projects/a77c12665e90"));
+        Assert.True(
+            Alike("/dashboard/e2e-45961c4c/projects/0c1d2e3f4a5b", "/dashboard/e2e-12345678/projects/a77c12665e90")
+        );
         Assert.True(Alike("/keys/omk_7Qx9Lm2Pz4Rt8Wv1", "/keys/omk_1Ab2Cd3Ef4Gh5Ij"));
         Assert.True(Alike("/projects/PROJ-016", "/projects/PROJ-017"));
         Assert.True(Alike("/invoices/INV-2041", "/invoices/INV-87"));
@@ -36,7 +38,10 @@ public sealed class RouteIdentityTests
     [InlineData("/shop/%E9%9E%8B", "/shop/x")]
     [InlineData("/projects/new", "/projects/a77c12665e90")]
     [InlineData("/projects", "/projects/a77c12665e90")]
-    public void Keeps_the_words_a_router_owns_versions_locales_capitalized_and_dashed_slugs(string location, string other)
+    public void Keeps_the_words_a_router_owns_versions_locales_capitalized_and_dashed_slugs(
+        string location,
+        string other
+    )
     {
         Assert.True(Alike(location, location));
         Assert.False(Alike(location, other));
@@ -63,9 +68,12 @@ public sealed class RouteIdentityTests
         Assert.False(Alike("/companies", "/companies?tab=notes"));
 
         // Ids, cache busters, signed tokens, timestamps, and dates are the run's, not the screen's.
-        Assert.True(Alike(
-            "/list?id=42&_=1727780000&token=eyJhbGciOiJIUzI1NiJ9.x1.y2&at=2026-10-01T10:00:00Z",
-            "/list?id=7&_=1727780999&token=eyJhbGciOiJIUzI1NiJ9.a9.b8&at=2026-10-02T11:30:00Z"));
+        Assert.True(
+            Alike(
+                "/list?id=42&_=1727780000&token=eyJhbGciOiJIUzI1NiJ9.x1.y2&at=2026-10-01T10:00:00Z",
+                "/list?id=7&_=1727780999&token=eyJhbGciOiJIUzI1NiJ9.a9.b8&at=2026-10-02T11:30:00Z"
+            )
+        );
         Assert.True(Alike("/r?8f14e45fceea167a", "/r?c9f0f895fb98ab91"));
         Assert.True(Alike("/tickets?open=INV-2041", "/tickets?open=INV-87"));
         Assert.True(Alike("/reports?from=2026-10-01&view=week", "/reports?from=2026-10-02&view=week"));
@@ -99,7 +107,9 @@ public sealed class RouteIdentityTests
     [InlineData("General > About")]
     [InlineData("about:blank")]
     [InlineData("chrome-error://chromewebdata/")]
-    public void Keeps_a_location_that_is_not_a_web_address_as_itself_a_device_screen_title_a_browser_page(string location)
+    public void Keeps_a_location_that_is_not_a_web_address_as_itself_a_device_screen_title_a_browser_page(
+        string location
+    )
     {
         Assert.True(Alike(location, location));
         Assert.False(Alike("Settings", "General"));
@@ -107,5 +117,6 @@ public sealed class RouteIdentityTests
     }
 
     /// <summary>Whether every location names the same screen as the first.</summary>
-    private static bool Alike(string first, params string[] others) => others.All(other => CacheRoute.Same(first, other));
+    private static bool Alike(string first, params string[] others) =>
+        others.All(other => CacheRoute.Same(first, other));
 }

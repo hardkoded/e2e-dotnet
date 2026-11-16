@@ -32,11 +32,19 @@ internal static partial class MarkdownText
     /// A token GitHub turns into a link on its own: a mention or an email address (<c>@</c> before a letter or digit), an issue
     /// reference (<c>#</c> or <c>GH-</c> before a digit), a URL with a scheme, or a <c>www.</c> host. A code span stops them.
     /// </summary>
-    [GeneratedRegex(@"@[A-Za-z0-9]|#\d|\bGH-\d|:\/\/|\bwww\.", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
+    [GeneratedRegex(
+        @"@[A-Za-z0-9]|#\d|\bGH-\d|:\/\/|\bwww\.",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 2000
+    )]
     private static partial Regex LinkableToken();
 
     /// <summary>What opens a block construct at the start of a line: an ordered list marker, or the first character of a heading, a list item, a thematic break, or a setext underline.</summary>
-    [GeneratedRegex(@"^(\d{1,9})([.)])(?=\s|\z)|^[#+=_-]", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
+    [GeneratedRegex(
+        @"^(\d{1,9})([.)])(?=\s|\z)|^[#+=_-]",
+        RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 2000
+    )]
     private static partial Regex BlockOpener();
 
     [GeneratedRegex(@"[\\`*\[\]~|]", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
@@ -59,19 +67,32 @@ internal static partial class MarkdownText
     {
         var line = string.Join(
             ' ',
-            ReportFormat.Ellipsize(Collapse(text), max).Split(' ').Select(token => LinkableToken().IsMatch(token) ? CodeSpan(token) : EscapeInline(token)));
-        return BlockOpener().Replace(
-            line,
-            match => match.Groups[1].Success ? match.Groups[1].Value + "\\" + match.Groups[2].Value : "\\" + match.Value,
-            1);
+            ReportFormat
+                .Ellipsize(Collapse(text), max)
+                .Split(' ')
+                .Select(token => LinkableToken().IsMatch(token) ? CodeSpan(token) : EscapeInline(token))
+        );
+        return BlockOpener()
+            .Replace(
+                line,
+                match =>
+                    match.Groups[1].Success ? match.Groups[1].Value + "\\" + match.Groups[2].Value : "\\" + match.Value,
+                1
+            );
     }
 
     /// <summary>A path or label inside backticks: only the cell separator is escaped; a backtick inside lengthens the delimiter.</summary>
-    public static string Code(string text, int max = MaxCellChars) => CodeSpan(ReportFormat.Ellipsize(Collapse(text), max));
+    public static string Code(string text, int max = MaxCellChars) =>
+        CodeSpan(ReportFormat.Ellipsize(Collapse(text), max));
 
     /// <summary>A markdown link. A character in the URL that closes the destination or breaks it is percent-encoded.</summary>
     public static string Link(string text, string url) =>
-        "[" + text + "](" + DestinationBreak().Replace(Collapse(url), match => "%" + ((int)match.Value[0]).ToString("X2", CultureInfo.InvariantCulture)) + ")";
+        "["
+        + text
+        + "]("
+        + DestinationBreak()
+            .Replace(Collapse(url), match => "%" + ((int)match.Value[0]).ToString("X2", CultureInfo.InvariantCulture))
+        + ")";
 
     /// <summary>A duration the way a page tells it: milliseconds under a second, seconds under a minute, then minutes.</summary>
     public static string FormatDuration(double ms)
@@ -81,18 +102,24 @@ internal static partial class MarkdownText
             return Math.Round(ms, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture) + "ms";
         }
 
-        return ms < 60_000 ? (ms / 1_000).ToString("0.0", CultureInfo.InvariantCulture) + "s" : ReportFormat.FormatMinutes(ms);
+        return ms < 60_000
+            ? (ms / 1_000).ToString("0.0", CultureInfo.InvariantCulture) + "s"
+            : ReportFormat.FormatMinutes(ms);
     }
 
     /// <summary><c>1 turn</c>, <c>2 turns</c>.</summary>
-    public static string Plural(long count, string noun) => count.ToString(CultureInfo.InvariantCulture) + " " + noun + (count == 1 ? "" : "s");
+    public static string Plural(long count, string noun) =>
+        count.ToString(CultureInfo.InvariantCulture) + " " + noun + (count == 1 ? "" : "s");
 
     // Upstream's collapseText: ANSI sequences and control characters gone, whitespace collapsed.
     private static string Collapse(string text) => TextRules.Collapse(TextRules.SanitizeText(text));
 
     // Inline markdown a token could open, escaped; angle brackets become entities.
     private static string EscapeInline(string text) =>
-        InlineMarkup().Replace(text, match => "\\" + match.Value).Replace("<", "&lt;", StringComparison.Ordinal).Replace(">", "&gt;", StringComparison.Ordinal);
+        InlineMarkup()
+            .Replace(text, match => "\\" + match.Value)
+            .Replace("<", "&lt;", StringComparison.Ordinal)
+            .Replace(">", "&gt;", StringComparison.Ordinal);
 
     // A code span around text that may hold backticks: the delimiter is one backtick longer than the longest run inside and, when
     // longer than one, padded with a space GFM strips, so no character of the text is lost. The cell separator is escaped.
@@ -122,7 +149,12 @@ internal static class ReportFormat
 
         return excluded == candidates
             ? "left out all " + tests
-            : "kept " + (candidates - excluded).ToString(CultureInfo.InvariantCulture) + " of " + tests + ", left out " + excluded.ToString(CultureInfo.InvariantCulture);
+            : "kept "
+                + (candidates - excluded).ToString(CultureInfo.InvariantCulture)
+                + " of "
+                + tests
+                + ", left out "
+                + excluded.ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>Clips to <paramref name="max"/> code points with an ellipsis; untouched when it fits.</summary>
@@ -147,19 +179,21 @@ internal static class ReportFormat
     public static string FormatMinutes(double ms)
     {
         var total = (long)Math.Round(ms / 1_000, MidpointRounding.AwayFromZero);
-        return (total / 60).ToString(CultureInfo.InvariantCulture) + "m " + (total % 60).ToString(CultureInfo.InvariantCulture) + "s";
+        return (total / 60).ToString(CultureInfo.InvariantCulture)
+            + "m "
+            + (total % 60).ToString(CultureInfo.InvariantCulture)
+            + "s";
     }
 
     /// <summary>Compact token count: plain under a thousand, <c>12.4k</c>, then <c>4.2M</c> (upstream's <c>formatTokens</c>).</summary>
     public static string FormatTokens(long count) =>
-        count < 1_000
-            ? count.ToString(CultureInfo.InvariantCulture)
-            : count < 1_000_000
-                ? (count / 1_000.0).ToString("F1", CultureInfo.InvariantCulture) + "k"
-                : (count / 1_000_000.0).ToString("F1", CultureInfo.InvariantCulture) + "M";
+        count < 1_000 ? count.ToString(CultureInfo.InvariantCulture)
+        : count < 1_000_000 ? (count / 1_000.0).ToString("F1", CultureInfo.InvariantCulture) + "k"
+        : (count / 1_000_000.0).ToString("F1", CultureInfo.InvariantCulture) + "M";
 
     /// <summary>USD with enough precision for sub-cent model calls (upstream's <c>formatCost</c>).</summary>
-    public static string FormatCost(double costUsd) => "$" + costUsd.ToString(costUsd < 0.1 ? "F4" : "F2", CultureInfo.InvariantCulture);
+    public static string FormatCost(double costUsd) =>
+        "$" + costUsd.ToString(costUsd < 0.1 ? "F4" : "F2", CultureInfo.InvariantCulture);
 
     /// <summary>A commit as the notices and the markdown page name it: its first seven characters (upstream's <c>shortCommit</c>).</summary>
     public static string ShortCommit(string commit) => commit.Length <= 7 ? commit : commit[..7];
@@ -188,7 +222,8 @@ internal static class ReportFormat
     }
 
     /// <summary>The title suffix of a repeated run past the first: <c> (repeat #2)</c>; empty for the first.</summary>
-    public static string RepeatSuffix(int repeat) => repeat == 0 ? "" : " (repeat #" + repeat.ToString(CultureInfo.InvariantCulture) + ")";
+    public static string RepeatSuffix(int repeat) =>
+        repeat == 0 ? "" : " (repeat #" + repeat.ToString(CultureInfo.InvariantCulture) + ")";
 
     /// <summary>
     /// <c>provider/model</c>; null when the record lacks the model, so a step an executor reported without provenance never prints as

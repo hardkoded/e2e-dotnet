@@ -20,12 +20,18 @@ public sealed class ConcurrentObserveTests
     [Fact]
     public async Task Partial_Captures_both_of_two_concurrent_observations_and_the_refs_of_the_last_stay_actionable()
     {
-        await using var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions(), CancellationToken.None);
+        await using var session = await new WebEngine(headless: true).StartAsync(
+            new EngineStartOptions(),
+            CancellationToken.None
+        );
         await session.OpenAsync("about:blank", CancellationToken.None);
         var page = WebEngine.SurfaceOf(session)!.Page();
         await page.SetContentAsync("<button onclick=\"document.body.dataset.clicked = 'yes'\">Press</button>");
 
-        var observed = await Task.WhenAll(session.ObserveAsync(CancellationToken.None), session.ObserveAsync(CancellationToken.None));
+        var observed = await Task.WhenAll(
+            session.ObserveAsync(CancellationToken.None),
+            session.ObserveAsync(CancellationToken.None)
+        );
 
         Assert.All(observed, observation => Assert.Contains(Flatten(observation.Roots), node => node.Role == "button"));
         var button = Flatten(observed[1].Roots).First(node => node.Role == "button");
@@ -33,5 +39,6 @@ public sealed class ConcurrentObserveTests
         Assert.Equal("yes", await page.EvaluateAsync<string>("() => document.body.dataset.clicked"));
     }
 
-    private static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes) => nodes.SelectMany(node => (IEnumerable<SemanticNode>)[node, .. Flatten(node.Children)]);
+    private static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes) =>
+        nodes.SelectMany(node => (IEnumerable<SemanticNode>)[node, .. Flatten(node.Children)]);
 }

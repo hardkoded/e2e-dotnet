@@ -19,11 +19,23 @@ namespace E2E.Tests.RelocateAnonymous;
 /// </summary>
 public sealed class AnAnonymousTargetTests
 {
-    private static SemanticNode Textbox(string id, string? name = null) => new() { Ref = id, Role = "textbox", Name = name };
+    private static SemanticNode Textbox(string id, string? name = null) =>
+        new()
+        {
+            Ref = id,
+            Role = "textbox",
+            Name = name,
+        };
 
-    private static RecordedTarget Recorded(int index, int of) => new() { Role = "textbox", Position = new TracePosition { Index = index, Of = of } };
+    private static RecordedTarget Recorded(int index, int of) =>
+        new()
+        {
+            Role = "textbox",
+            Position = new TracePosition { Index = index, Of = of },
+        };
 
-    private static void AssertNotFound(RelocationResult result) => Assert.Equal(new RelocationResult.Failed(RelocationFailure.TargetNotFound), result);
+    private static void AssertNotFound(RelocationResult result) =>
+        Assert.Equal(new RelocationResult.Failed(RelocationFailure.TargetNotFound), result);
 
     [Fact]
     public void Records_its_place_among_the_unnamed_controls_of_its_kind_named_ones_aside()
@@ -56,7 +68,11 @@ public sealed class AnAnonymousTargetTests
     [Fact]
     public void Relocates_the_only_unnamed_control_of_its_role_never_to_a_named_control_of_the_same_role()
     {
-        var result = Relocate.RelocateDescriptor(Recorded(0, 1), Screen(Textbox("a", "Email"), Textbox("b")), Redactor.None);
+        var result = Relocate.RelocateDescriptor(
+            Recorded(0, 1),
+            Screen(Textbox("a", "Email"), Textbox("b")),
+            Redactor.None
+        );
 
         Assert.Equal(new RelocationResult.Found("b"), result);
     }
@@ -64,7 +80,11 @@ public sealed class AnAnonymousTargetTests
     [Fact]
     public void Hands_off_a_place_counted_among_unnamed_twins_with_no_container_to_tell_them_apart_since_rows_reorder()
     {
-        var result = Relocate.RelocateDescriptor(Recorded(1, 2), Screen(Textbox("a", "Email"), Textbox("b"), Textbox("c")), Redactor.None);
+        var result = Relocate.RelocateDescriptor(
+            Recorded(1, 2),
+            Screen(Textbox("a", "Email"), Textbox("b"), Textbox("c")),
+            Redactor.None
+        );
 
         AssertNotFound(result);
     }
@@ -74,17 +94,28 @@ public sealed class AnAnonymousTargetTests
     {
         var recorded = Recorded(0, 1);
 
-        AssertAmbiguous(Relocate.RelocateDescriptor(recorded, Screen(Textbox("a"), Textbox("b")), Redactor.None), "a", "b");
+        AssertAmbiguous(
+            Relocate.RelocateDescriptor(recorded, Screen(Textbox("a"), Textbox("b")), Redactor.None),
+            "a",
+            "b"
+        );
         AssertNotFound(Relocate.RelocateDescriptor(recorded, Screen(Textbox("a", "Email")), Redactor.None));
         // Counted among two with no container, even one survivor is never taken for it.
-        AssertNotFound(Relocate.RelocateDescriptor(Recorded(1, 2), Screen(Textbox("a", "Email"), Textbox("b")), Redactor.None));
+        AssertNotFound(
+            Relocate.RelocateDescriptor(Recorded(1, 2), Screen(Textbox("a", "Email"), Textbox("b")), Redactor.None)
+        );
     }
 
     [Fact]
     public void Never_lets_a_churned_test_id_fall_back_to_an_anonymous_position()
     {
         // Recorded among test-id twins; when the id churns, the position says nothing about unnamed textboxes.
-        var recorded = new RecordedTarget { Role = "textbox", TestId = "field-zz9", Position = new TracePosition { Index = 0, Of = 2 } };
+        var recorded = new RecordedTarget
+        {
+            Role = "textbox",
+            TestId = "field-zz9",
+            Position = new TracePosition { Index = 0, Of = 2 },
+        };
 
         AssertNotFound(Relocate.RelocateDescriptor(recorded, Screen(Textbox("a"), Textbox("b")), Redactor.None));
     }
@@ -94,7 +125,15 @@ public sealed class AnAnonymousTargetTests
     {
         var store = new FileStepCache(CoreTests.TempCache());
         var recorder = new Recorder(() => Redactor.None);
-        recorder.Record(new RecordedAction { Kind = "type", Role = "textbox", Value = "x", Position = new TracePosition { Index = 0, Of = 1 } });
+        recorder.Record(
+            new RecordedAction
+            {
+                Kind = "type",
+                Role = "textbox",
+                Value = "x",
+                Position = new TracePosition { Index = 0, Of = 1 },
+            }
+        );
         store.Write(StepCacheHarness.Key, recorder.Finalize(StepCacheHarness.ExampleStep, "/form", "/form", [], [])!);
 
         var action = Assert.IsType<CacheEntry>(store.Read(StepCacheHarness.Key).Entry).Actions[0];
@@ -105,6 +144,8 @@ public sealed class AnAnonymousTargetTests
     [Fact]
     public void Stays_unrelocatable_without_a_recorded_position_as_before()
     {
-        AssertNotFound(Relocate.RelocateDescriptor(new RecordedTarget { Role = "textbox" }, Screen(Textbox("a")), Redactor.None));
+        AssertNotFound(
+            Relocate.RelocateDescriptor(new RecordedTarget { Role = "textbox" }, Screen(Textbox("a")), Redactor.None)
+        );
     }
 }

@@ -30,7 +30,9 @@ public interface IBrowserSession : IEngineSession
     /// that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     Task GotoAsync(string url, GotoWaitUntil waitUntil, TimeSpan timeout, CancellationToken cancellationToken) =>
-        Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "browser.goto is not supported by this engine."));
+        Task.FromException(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.goto is not supported by this engine.")
+        );
 
     Task ReloadAsync(CancellationToken cancellationToken);
 
@@ -49,8 +51,14 @@ public interface IBrowserSession : IEngineSession
     /// response is known and goes on in <see cref="BrowserResponse.Body"/>. A session
     /// that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
-    Task<BrowserResponse> WaitForResponseAsync(Func<string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken) =>
-        Task.FromException<BrowserResponse>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForResponse is not supported by this engine."));
+    Task<BrowserResponse> WaitForResponseAsync(
+        Func<string, bool> matches,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    ) =>
+        Task.FromException<BrowserResponse>(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForResponse is not supported by this engine.")
+        );
 
     /// <summary>
     /// Adds a network route for the rest of the attempt, every context it opens
@@ -59,27 +67,43 @@ public interface IBrowserSession : IEngineSession
     /// aborts the request if the handler took no decision. A session that does not
     /// override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
-    Task RouteAsync(Func<string, bool> matches, Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) =>
-        Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "browser.route is not supported by this engine."));
+    Task RouteAsync(
+        Func<string, bool> matches,
+        Func<IBrowserRoute, Task> handler,
+        CancellationToken cancellationToken
+    ) =>
+        Task.FromException(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.route is not supported by this engine.")
+        );
 
     /// <summary>Removes the route <see cref="RouteAsync"/> added with <paramref name="handler"/>. A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.</summary>
     Task UnrouteAsync(Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) =>
-        Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "browser.unroute is not supported by this engine."));
+        Task.FromException(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.unroute is not supported by this engine.")
+        );
 
     /// <summary>
     /// Registers a handler for native dialogs (the newest wins) and returns its unsubscribe, which is idempotent. A dialog with no
     /// handler fails the next step, and is dismissed. A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     Task<Action> OnDialogAsync(DialogHandler handler, CancellationToken cancellationToken) =>
-        Task.FromException<Action>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.onDialog is not supported by this engine."));
+        Task.FromException<Action>(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.onDialog is not supported by this engine.")
+        );
 
     /// <summary>
     /// Runs <paramref name="trigger"/> and waits up to <paramref name="timeout"/> for the download it starts, saved under the attempt's
     /// <c>downloads</c> artifact folder. A trigger that throws fails the call with its own error. A session that does not override it
     /// fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
-    Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken) =>
-        Task.FromException<BrowserDownload>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForDownload is not supported by this engine."));
+    Task<BrowserDownload> WaitForDownloadAsync(
+        Func<Task> trigger,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    ) =>
+        Task.FromException<BrowserDownload>(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForDownload is not supported by this engine.")
+        );
 
     /// <summary>
     /// Runs <paramref name="trigger"/> once and waits up to <paramref name="timeout"/> for the first <paramref name="count"/> downloads it
@@ -87,8 +111,15 @@ public interface IBrowserSession : IEngineSession
     /// save of every file. A trigger that throws fails the call with its own error. A session that does not override it fails with
     /// <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
-    Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(Func<Task> trigger, int count, TimeSpan timeout, CancellationToken cancellationToken) =>
-        Task.FromException<IReadOnlyList<BrowserDownload>>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForDownloads is not supported by this engine."));
+    Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(
+        Func<Task> trigger,
+        int count,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    ) =>
+        Task.FromException<IReadOnlyList<BrowserDownload>>(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForDownloads is not supported by this engine.")
+        );
 
     /// <summary>The open tabs, in the order they opened (upstream's <c>tabs</c>). A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.</summary>
     IReadOnlyList<IAttemptTab> Tabs() =>
@@ -99,15 +130,21 @@ public interface IBrowserSession : IEngineSession
 
     /// <summary>The URL of a tab (<c>BrowserTab.UrlAsync</c>).</summary>
     Task<string> TabUrlAsync(IAttemptTab tab, CancellationToken cancellationToken) =>
-        Task.FromException<string>(new EngineException("UNSUPPORTED_CAPABILITY", "tab.url is not supported by this engine."));
+        Task.FromException<string>(
+            new EngineException("UNSUPPORTED_CAPABILITY", "tab.url is not supported by this engine.")
+        );
 
     /// <summary>The title of a tab (<c>BrowserTab.TitleAsync</c>).</summary>
     Task<string> TabTitleAsync(IAttemptTab tab, CancellationToken cancellationToken) =>
-        Task.FromException<string>(new EngineException("UNSUPPORTED_CAPABILITY", "tab.title is not supported by this engine."));
+        Task.FromException<string>(
+            new EngineException("UNSUPPORTED_CAPABILITY", "tab.title is not supported by this engine.")
+        );
 
     /// <summary>Makes <paramref name="tab"/> the tab the session shows (<c>BrowserTab.ActivateAsync</c>). A closed tab fails with <c>ACTION_FAILED</c>.</summary>
     Task ActivateTabAsync(IAttemptTab tab, CancellationToken cancellationToken) =>
-        Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "tab.activate is not supported by this engine."));
+        Task.FromException(
+            new EngineException("UNSUPPORTED_CAPABILITY", "tab.activate is not supported by this engine.")
+        );
 
     /// <summary>
     /// Closes <paramref name="tab"/> (<c>BrowserTab.CloseAsync</c>). When it was the tab shown, the tab that opened it is shown, else the open tab
@@ -118,7 +155,9 @@ public interface IBrowserSession : IEngineSession
 
     /// <summary>Opens a blank tab in the same browser context, sharing its cookies and storage, and shows it (<c>browser.newTab</c>).</summary>
     Task<IAttemptTab> NewTabAsync(CancellationToken cancellationToken) =>
-        Task.FromException<IAttemptTab>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.newTab is not supported by this engine."));
+        Task.FromException<IAttemptTab>(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.newTab is not supported by this engine.")
+        );
 
     /// <summary>
     /// Runs <paramref name="trigger"/> and waits up to <paramref name="timeout"/> for the tab the app opens, which is shown when this resolves.
@@ -126,7 +165,9 @@ public interface IBrowserSession : IEngineSession
     /// <c>ACTION_FAILED</c>. A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     Task<IAttemptTab> WaitForPopupAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken) =>
-        Task.FromException<IAttemptTab>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForPopup is not supported by this engine."));
+        Task.FromException<IAttemptTab>(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForPopup is not supported by this engine.")
+        );
 
     Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken);
 
@@ -144,7 +185,9 @@ public interface IBrowserSession : IEngineSession
     /// override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     Task AddInitScriptAsync(string source, CancellationToken cancellationToken) =>
-        Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "browser.addInitScript is not supported by this engine."));
+        Task.FromException(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.addInitScript is not supported by this engine.")
+        );
 
     /// <summary>
     /// Emulates media features on every open tab and every tab opened after them, for the rest of the attempt;
@@ -152,7 +195,9 @@ public interface IBrowserSession : IEngineSession
     /// with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     Task EmulateMediaAsync(WebMedia media, CancellationToken cancellationToken) =>
-        Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "browser.emulateMedia is not supported by this engine."));
+        Task.FromException(
+            new EngineException("UNSUPPORTED_CAPABILITY", "browser.emulateMedia is not supported by this engine.")
+        );
 
     Task KeyboardTypeAsync(string text, CancellationToken cancellationToken);
 

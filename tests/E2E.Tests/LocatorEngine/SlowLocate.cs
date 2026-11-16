@@ -14,7 +14,11 @@ namespace E2E.Tests.LocatorEngine;
 internal static class SlowLocate
 {
     /// <summary>A locate that answers <paramref name="nodes"/> after <paramref name="after"/>, ended at <paramref name="budget"/>.</summary>
-    public static async Task<IReadOnlyList<SemanticNode>> AnswerAsync(TimeSpan after, IReadOnlyList<SemanticNode> nodes, TimeSpan budget)
+    public static async Task<IReadOnlyList<SemanticNode>> AnswerAsync(
+        TimeSpan after,
+        IReadOnlyList<SemanticNode> nodes,
+        TimeSpan budget
+    )
     {
         try
         {
@@ -32,12 +36,19 @@ internal static class SlowLocate
     /// <see cref="AnswerAsync(TimeSpan, IReadOnlyList{SemanticNode}, TimeSpan)"/> on a fake clock: the call takes <paramref name="after"/> by moving
     /// <paramref name="clock"/> that far, or the budget's worth when it cannot finish, so the test waits for nothing.
     /// </summary>
-    public static Task<IReadOnlyList<SemanticNode>> AnswerAsync(FakeTimeProvider clock, TimeSpan after, IReadOnlyList<SemanticNode> nodes, TimeSpan budget)
+    public static Task<IReadOnlyList<SemanticNode>> AnswerAsync(
+        FakeTimeProvider clock,
+        TimeSpan after,
+        IReadOnlyList<SemanticNode> nodes,
+        TimeSpan budget
+    )
     {
         if (after > budget)
         {
             clock.Advance(budget);
-            return Task.FromException<IReadOnlyList<SemanticNode>>(new EngineException(EngineErrorCodes.OperationTimeout, "operation timed out", retryable: false));
+            return Task.FromException<IReadOnlyList<SemanticNode>>(
+                new EngineException(EngineErrorCodes.OperationTimeout, "operation timed out", retryable: false)
+            );
         }
 
         clock.Advance(after);
@@ -48,7 +59,9 @@ internal static class SlowLocate
     public static Task<IReadOnlyList<SemanticNode>> HangAsync(FakeTimeProvider clock, TimeSpan budget)
     {
         clock.Advance(budget);
-        return Task.FromException<IReadOnlyList<SemanticNode>>(new EngineException(EngineErrorCodes.OperationTimeout, "operation timed out", retryable: false));
+        return Task.FromException<IReadOnlyList<SemanticNode>>(
+            new EngineException(EngineErrorCodes.OperationTimeout, "operation timed out", retryable: false)
+        );
     }
 
     /// <summary>A locate that never answers on its own, ended at <paramref name="budget"/>.</summary>

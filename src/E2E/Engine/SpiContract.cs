@@ -27,7 +27,13 @@ public sealed record EngineNodeStates(bool? Secure = null, bool? Hidden = null);
 /// Upstream's <c>SemanticNode</c> (<c>engine/contract.ts</c>): one node of an engine's tree. Named <c>EngineNode</c> because the port's IEngine
 /// already has a <see cref="SemanticNode"/>, which carries the port's own observation fields.
 /// </summary>
-public sealed record EngineNode(NodeRef Ref, string? Role = null, string? Name = null, IReadOnlyList<EngineNode>? Children = null, EngineNodeStates? States = null);
+public sealed record EngineNode(
+    NodeRef Ref,
+    string? Role = null,
+    string? Name = null,
+    IReadOnlyList<EngineNode>? Children = null,
+    EngineNodeStates? States = null
+);
 
 /// <summary>
 /// Upstream's <c>EngineTabs</c> (<c>engine/index.ts</c>): the tabs a surface has open, as a snapshot reports them.

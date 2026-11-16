@@ -123,7 +123,13 @@ public sealed record BrowserProviderDownloads
     public required string Dir { get; init; }
 
     /// <summary>The bytes of one finished download, <c>file</c> an absolute path under <see cref="Dir"/>, read off the leased browser's disk.</summary>
-    public required Func<BrowserLease, string, BrowserDownloadContext, CancellationToken, Task<byte[]>> ReadAsync { get; init; }
+    public required Func<
+        BrowserLease,
+        string,
+        BrowserDownloadContext,
+        CancellationToken,
+        Task<byte[]>
+    > ReadAsync { get; init; }
 }
 
 /// <summary>
@@ -158,8 +164,11 @@ public interface IBrowserProvider
     /// Resolves CDP handshake headers in the worker from its own environment; never serialized with the lease. Null,
     /// the default, sends none.
     /// </summary>
-    Task<IReadOnlyDictionary<string, string>?> CdpHeadersAsync(BrowserLease lease, BrowserRequest context, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyDictionary<string, string>?>(null);
+    Task<IReadOnlyDictionary<string, string>?> CdpHeadersAsync(
+        BrowserLease lease,
+        BrowserRequest context,
+        CancellationToken cancellationToken
+    ) => Task.FromResult<IReadOnlyDictionary<string, string>?>(null);
 
     /// <summary>
     /// Records the leased browser for an attempt that records video, in place of the engine's screencast of the page: the
@@ -167,8 +176,11 @@ public interface IBrowserProvider
     /// cannot record its browsers (a headless session the service cannot replay) returns null, and the engine records the
     /// screencast.
     /// </summary>
-    Task<ProviderRecording?> RecordAsync(BrowserLease lease, ProviderRecordContext context, CancellationToken cancellationToken) =>
-        Task.FromResult<ProviderRecording?>(null);
+    Task<ProviderRecording?> RecordAsync(
+        BrowserLease lease,
+        ProviderRecordContext context,
+        CancellationToken cancellationToken
+    ) => Task.FromResult<ProviderRecording?>(null);
 
     /// <summary>
     /// Releases every lease of the run and target the provider still holds open, and resolves to their ids. Called once
@@ -286,33 +298,44 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
                 _workersRan.Add(info.TargetName);
             }
 
-            return new EnginePrepareResult { Env = new Dictionary<string, string> { [variable] = EncodeHandoff(info.Slots, []) } };
+            return new EnginePrepareResult
+            {
+                Env = new Dictionary<string, string> { [variable] = EncodeHandoff(info.Slots, []) },
+            };
         }
 
         info.Log($"leasing {info.Slots} browser(s) from {Name}");
         var leases = await AllOrFirstFailureAsync(
-            Enumerable.Range(0, info.Slots).Select<int, Func<Task<BrowserLease>>>(slot => async () =>
-            {
-                var lease = await AcquireLeaseAsync(
-                    new BrowserRequest
-                    {
-                        RunId = info.RunId,
-                        TargetName = info.TargetName,
-                        Slot = slot,
-                        Slots = info.Slots,
-                        Env = info.Env,
-                        Log = line => info.Log($"{Name} ({slot + 1} of {info.Slots}): {line}"),
-                    },
-                    cancellationToken).ConfigureAwait(false);
-                lock (held)
-                {
-                    held.Add(lease);
-                }
+                Enumerable
+                    .Range(0, info.Slots)
+                    .Select<int, Func<Task<BrowserLease>>>(slot =>
+                        async () =>
+                        {
+                            var lease = await AcquireLeaseAsync(
+                                    new BrowserRequest
+                                    {
+                                        RunId = info.RunId,
+                                        TargetName = info.TargetName,
+                                        Slot = slot,
+                                        Slots = info.Slots,
+                                        Env = info.Env,
+                                        Log = line => info.Log($"{Name} ({slot + 1} of {info.Slots}): {line}"),
+                                    },
+                                    cancellationToken
+                                )
+                                .ConfigureAwait(false);
+                            lock (held)
+                            {
+                                held.Add(lease);
+                            }
 
-                info.Log($"{Name}: leased {lease.Id}");
-                return lease;
-            }),
-            $"browser provider \"{Name}\" could not lease a browser").ConfigureAwait(false);
+                            info.Log($"{Name}: leased {lease.Id}");
+                            return lease;
+                        }
+                    ),
+                $"browser provider \"{Name}\" could not lease a browser"
+            )
+            .ConfigureAwait(false);
         var env = new Dictionary<string, string> { [variable] = EncodeHandoff(leases.Count, leases) };
         lock (_held)
         {
@@ -357,12 +380,16 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
             }
 
             await AllOrFirstFailureAsync(
-                leases.Select<BrowserLease, Func<Task<object?>>>(lease => async () =>
-                {
-                    await provider.ReleaseAsync(lease, context, cancellationToken).ConfigureAwait(false);
-                    return null;
-                }),
-                $"browser provider \"{Name}\" could not release a browser").ConfigureAwait(false);
+                    leases.Select<BrowserLease, Func<Task<object?>>>(lease =>
+                        async () =>
+                        {
+                            await provider.ReleaseAsync(lease, context, cancellationToken).ConfigureAwait(false);
+                            return null;
+                        }
+                    ),
+                    $"browser provider \"{Name}\" could not release a browser"
+                )
+                .ConfigureAwait(false);
             info.Log($"{Name}: released {leases.Count} browser(s)");
         }
         finally
@@ -383,7 +410,13 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         IReadOnlyList<string>? released;
         try
         {
-            released = await Timing.RaceAbortAsync(() => provider.SweepAsync(context, cancellationToken), cancellationToken, $"sweeping browsers of \"{Name}\"").ConfigureAwait(false);
+            released = await Timing
+                .RaceAbortAsync(
+                    () => provider.SweepAsync(context, cancellationToken),
+                    cancellationToken,
+                    $"sweeping browsers of \"{Name}\""
+                )
+                .ConfigureAwait(false);
         }
         catch (Exception cause)
         {
@@ -414,8 +447,11 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
             ?? throw new EngineException(
                 EngineErrorCodes.EngineFailure,
                 $"browser provider \"{Name}\" prepared nothing for target \"{info.TargetName}\"; the runner must prepare the target before a worker starts",
-                retryable: false);
-        _run = new WorkerRun(info.RunId, info.TargetName, info.Env, info.WorkerSlot, handoff.Slots, line => info.Log($"{Name}: {line}"));
+                retryable: false
+            );
+        _run = new WorkerRun(info.RunId, info.TargetName, info.Env, info.WorkerSlot, handoff.Slots, line =>
+            info.Log($"{Name}: {line}")
+        );
         if (Scope == BrowserProviderScope.Attempt)
         {
             return;
@@ -426,7 +462,8 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
             throw new EngineException(
                 EngineErrorCodes.EngineFailure,
                 $"worker slot {info.WorkerSlot} is outside the {handoff.Leases.Count} browser(s) \"{Name}\" leased; the runner must cap the target at the engine's reported workers",
-                retryable: false);
+                retryable: false
+            );
         }
 
         _current = new WorkerLease(handoff.Leases[info.WorkerSlot], Owned: false);
@@ -453,7 +490,11 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         if (cancellationToken.IsCancellationRequested || !ReferenceEquals(_tenure, tenure))
         {
             await GiveBackAsync(lease, run).ConfigureAwait(false);
-            throw new EngineException(EngineErrorCodes.Cancelled, $"browser lease from \"{Name}\" arrived after the worker gave up; released", retryable: false);
+            throw new EngineException(
+                EngineErrorCodes.Cancelled,
+                $"browser lease from \"{Name}\" arrived after the worker gave up; released",
+                retryable: false
+            );
         }
 
         _current = new WorkerLease(lease, Owned: true);
@@ -467,10 +508,16 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
     }
 
     /// <summary>Resolves connection credentials inside the worker, separately from the lease handoff (upstream <c>cdpTarget</c>).</summary>
-    public async Task<CdpTarget> CdpTargetAsync(BrowserLease lease, CancellationToken cancellationToken, string? endpoint = null)
+    public async Task<CdpTarget> CdpTargetAsync(
+        BrowserLease lease,
+        CancellationToken cancellationToken,
+        string? endpoint = null
+    )
     {
         var run = RequireRun();
-        var headers = await provider.CdpHeadersAsync(lease, NewRequest(run, attemptId: null), cancellationToken).ConfigureAwait(false);
+        var headers = await provider
+            .CdpHeadersAsync(lease, NewRequest(run, attemptId: null), cancellationToken)
+            .ConfigureAwait(false);
         return new CdpTarget { Endpoint = endpoint ?? lease.CdpEndpoint, Headers = headers };
     }
 
@@ -501,7 +548,11 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         if (cancellationToken.IsCancellationRequested || !ReferenceEquals(_opened, opened))
         {
             await GiveBackAsync(lease, run).ConfigureAwait(false);
-            throw new EngineException(EngineErrorCodes.Cancelled, $"browser lease from \"{Name}\" arrived after the attempt ended; released", retryable: false);
+            throw new EngineException(
+                EngineErrorCodes.Cancelled,
+                $"browser lease from \"{Name}\" arrived after the attempt ended; released",
+                retryable: false
+            );
         }
 
         _attempt = lease;
@@ -553,16 +604,28 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
             var lease = CurrentLease();
             if (lease is null)
             {
-                throw new EngineException(EngineErrorCodes.InvalidState, $"{label} was asked to record before the attempt had a browser");
+                throw new EngineException(
+                    EngineErrorCodes.InvalidState,
+                    $"{label} was asked to record before the attempt had a browser"
+                );
             }
 
             ProviderRecording? recording;
             try
             {
-                recording = await provider.RecordAsync(
-                    lease,
-                    new ProviderRecordContext { RunId = run.RunId, TargetName = run.TargetName, AttemptId = attemptId, Env = run.Env },
-                    cancellationToken).ConfigureAwait(false);
+                recording = await provider
+                    .RecordAsync(
+                        lease,
+                        new ProviderRecordContext
+                        {
+                            RunId = run.RunId,
+                            TargetName = run.TargetName,
+                            AttemptId = attemptId,
+                            Env = run.Env,
+                        },
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
             }
             catch (Exception cause)
             {
@@ -571,10 +634,22 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
                     throw ConnectionAbort($"recording from \"{Name}\"");
                 }
 
-                throw new EngineException(EngineErrorCodes.EngineFailure, $"{label} could not start recording browser {lease.Id}: {cause.Message}", retryable: false, cause);
+                throw new EngineException(
+                    EngineErrorCodes.EngineFailure,
+                    $"{label} could not start recording browser {lease.Id}: {cause.Message}",
+                    retryable: false,
+                    cause
+                );
             }
 
-            return recording is null ? null : new LeaseRecording { Recording = recording, Provider = label, LeaseId = lease.Id };
+            return recording is null
+                ? null
+                : new LeaseRecording
+                {
+                    Recording = recording,
+                    Provider = label,
+                    LeaseId = lease.Id,
+                };
         };
     }
 
@@ -601,12 +676,27 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
                 var lease = CurrentLease();
                 if (lease is null)
                 {
-                    throw new EngineException(EngineErrorCodes.InvalidState, $"{label} was asked for a download before the attempt had a browser");
+                    throw new EngineException(
+                        EngineErrorCodes.InvalidState,
+                        $"{label} was asked for a download before the attempt had a browser"
+                    );
                 }
 
                 try
                 {
-                    return await served.ReadAsync(lease, file, new BrowserDownloadContext { RunId = run.RunId, TargetName = run.TargetName, Env = run.Env }, cancellationToken).ConfigureAwait(false);
+                    return await served
+                        .ReadAsync(
+                            lease,
+                            file,
+                            new BrowserDownloadContext
+                            {
+                                RunId = run.RunId,
+                                TargetName = run.TargetName,
+                                Env = run.Env,
+                            },
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
                 }
                 catch (Exception cause)
                 {
@@ -615,7 +705,12 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
                         throw ConnectionAbort($"download from \"{Name}\"");
                     }
 
-                    throw new EngineException(EngineErrorCodes.EngineFailure, $"{label} could not read download {file} from browser {lease.Id}: {cause.Message}", retryable: false, cause);
+                    throw new EngineException(
+                        EngineErrorCodes.EngineFailure,
+                        $"{label} could not read download {file} from browser {lease.Id}: {cause.Message}",
+                        retryable: false,
+                        cause
+                    );
                 }
             },
         };
@@ -624,13 +719,28 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
     /// <summary>The browser the attempt rides: the attempt's lease in attempt scope, the worker's current one in worker scope.</summary>
     private BrowserLease? CurrentLease() => Scope == BrowserProviderScope.Attempt ? _attempt : _current?.Lease;
 
-    private static EngineException ConnectionAbort(string label) => new(EngineErrorCodes.Cancelled, label + " cancelled", retryable: false);
+    private static EngineException ConnectionAbort(string label) =>
+        new(EngineErrorCodes.Cancelled, label + " cancelled", retryable: false);
 
     private WorkerRun RequireRun() =>
-        _run ?? throw new EngineException(EngineErrorCodes.EngineFailure, $"browser provider \"{Name}\" was asked for a browser before init", retryable: false);
+        _run
+        ?? throw new EngineException(
+            EngineErrorCodes.EngineFailure,
+            $"browser provider \"{Name}\" was asked for a browser before init",
+            retryable: false
+        );
 
     private BrowserRequest NewRequest(WorkerRun run, string? attemptId) =>
-        new() { RunId = run.RunId, TargetName = run.TargetName, Slot = run.Slot, Slots = run.Slots, AttemptId = attemptId, Env = run.Env, Log = run.Log };
+        new()
+        {
+            RunId = run.RunId,
+            TargetName = run.TargetName,
+            Slot = run.Slot,
+            Slots = run.Slots,
+            AttemptId = attemptId,
+            Env = run.Env,
+            Log = run.Log,
+        };
 
     /// <summary>One acquire, its result checked field by field; a failure is named after the provider.</summary>
     private async Task<BrowserLease> AcquireLeaseAsync(BrowserRequest request, CancellationToken cancellationToken)
@@ -644,15 +754,29 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         {
             if (cancellationToken.IsCancellationRequested)
             {
-                throw new EngineException(EngineErrorCodes.Cancelled, $"browser lease from \"{Name}\" cancelled", retryable: false, cause);
+                throw new EngineException(
+                    EngineErrorCodes.Cancelled,
+                    $"browser lease from \"{Name}\" cancelled",
+                    retryable: false,
+                    cause
+                );
             }
 
-            throw new EngineException(EngineErrorCodes.EngineFailure, $"browser provider \"{Name}\" could not lease a browser: {cause.Message}", retryable: false, cause);
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"browser provider \"{Name}\" could not lease a browser: {cause.Message}",
+                retryable: false,
+                cause
+            );
         }
 
         return IsBrowserLease(lease)
             ? lease
-            : throw new EngineException(EngineErrorCodes.EngineFailure, $"browser provider \"{Name}\" returned a lease without an id and a cdpEndpoint", retryable: false);
+            : throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"browser provider \"{Name}\" returned a lease without an id and a cdpEndpoint",
+                retryable: false
+            );
     }
 
     /// <summary>One release from the worker, bounded by the cleanup budget; a failure is a cleanup error named after the provider.</summary>
@@ -661,11 +785,22 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         var run = RequireRun();
         try
         {
-            await Timing.RaceAbortAsync(() => provider.ReleaseAsync(lease, ReleaseContext(run), cleanup), cleanup, $"releasing browser {lease.Id}").ConfigureAwait(false);
+            await Timing
+                .RaceAbortAsync(
+                    () => provider.ReleaseAsync(lease, ReleaseContext(run), cleanup),
+                    cleanup,
+                    $"releasing browser {lease.Id}"
+                )
+                .ConfigureAwait(false);
         }
         catch (Exception cause) when (cause is not EngineException)
         {
-            throw new EngineException(EngineErrorCodes.EngineFailure, $"browser provider \"{Name}\" could not release browser {lease.Id}: {cause.Message}", retryable: false, cause);
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"browser provider \"{Name}\" could not release browser {lease.Id}: {cause.Message}",
+                retryable: false,
+                cause
+            );
         }
     }
 
@@ -687,7 +822,13 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
     }
 
     private static BrowserReleaseContext ReleaseContext(WorkerRun run) =>
-        new() { RunId = run.RunId, TargetName = run.TargetName, Env = run.Env, Log = run.Log };
+        new()
+        {
+            RunId = run.RunId,
+            TargetName = run.TargetName,
+            Env = run.Env,
+            Log = run.Log,
+        };
 
     /// <summary>Runs every task, then reports the first failure: nothing is skipped because a sibling failed.</summary>
     private static async Task<List<T>> AllOrFirstFailureAsync<T>(IEnumerable<Func<Task<T>>> tasks, string describe)
@@ -706,7 +847,13 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         if (running.Find(task => task.IsFaulted || task.IsCanceled) is { } failed)
         {
             var cause = failed.Exception?.GetBaseException() ?? new OperationCanceledException();
-            throw cause as EngineException ?? new EngineException(EngineErrorCodes.EngineFailure, $"{describe}: {cause.Message}", retryable: false, cause);
+            throw cause as EngineException
+                ?? new EngineException(
+                    EngineErrorCodes.EngineFailure,
+                    $"{describe}: {cause.Message}",
+                    retryable: false,
+                    cause
+                );
         }
 
         return [.. running.Select(task => task.Result)];
@@ -736,14 +883,26 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
     private static string EncodeHandoff(int slots, IReadOnlyList<BrowserLease> leases)
     {
         var encoded = JsonSerializer.Serialize(
-            new HandoffWire(slots, [.. leases.Select(lease => new LeaseWire(lease.Id, lease.CdpEndpoint, lease.ReconnectEndpoint, lease.Protocol == BrowserProtocol.Playwright ? PlaywrightProtocol : null))]),
-            HandoffJson);
+            new HandoffWire(
+                slots,
+                [
+                    .. leases.Select(lease => new LeaseWire(
+                        lease.Id,
+                        lease.CdpEndpoint,
+                        lease.ReconnectEndpoint,
+                        lease.Protocol == BrowserProtocol.Playwright ? PlaywrightProtocol : null
+                    )),
+                ]
+            ),
+            HandoffJson
+        );
         var bytes = Encoding.UTF8.GetByteCount(encoded);
         return bytes > MaxHandoffEnvBytes
             ? throw new EngineException(
                 EngineErrorCodes.EngineFailure,
                 $"the browser leases take {bytes} bytes; the worker environment carries at most {MaxHandoffEnvBytes}",
-                retryable: false)
+                retryable: false
+            )
             : encoded;
     }
 
@@ -759,13 +918,15 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         {
             using var document = JsonDocument.Parse(raw);
             var root = document.RootElement;
-            if (root.ValueKind != JsonValueKind.Object
+            if (
+                root.ValueKind != JsonValueKind.Object
                 || !root.TryGetProperty("slots", out var slots)
                 || slots.ValueKind != JsonValueKind.Number
                 || !slots.TryGetInt32(out var count)
                 || count < 0
                 || !root.TryGetProperty("leases", out var leases)
-                || leases.ValueKind != JsonValueKind.Array)
+                || leases.ValueKind != JsonValueKind.Array
+            )
             {
                 return null;
             }
@@ -773,10 +934,25 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
             List<BrowserLease> decoded = [];
             foreach (var entry in leases.EnumerateArray())
             {
-                var lease = entry.ValueKind == JsonValueKind.Object
-                    ? new BrowserLease { Id = ReadString(entry, "id") ?? "", CdpEndpoint = ReadString(entry, "cdpEndpoint") ?? "", ReconnectEndpoint = ReadString(entry, "reconnectEndpoint"), Protocol = ReadString(entry, "protocol") == PlaywrightProtocol ? BrowserProtocol.Playwright : BrowserProtocol.Cdp }
-                    : null;
-                if (!IsBrowserLease(lease) || HasNonString(entry, "reconnectEndpoint") || HasNonString(entry, "protocol") || ReadString(entry, "protocol") is not (null or PlaywrightProtocol))
+                var lease =
+                    entry.ValueKind == JsonValueKind.Object
+                        ? new BrowserLease
+                        {
+                            Id = ReadString(entry, "id") ?? "",
+                            CdpEndpoint = ReadString(entry, "cdpEndpoint") ?? "",
+                            ReconnectEndpoint = ReadString(entry, "reconnectEndpoint"),
+                            Protocol =
+                                ReadString(entry, "protocol") == PlaywrightProtocol
+                                    ? BrowserProtocol.Playwright
+                                    : BrowserProtocol.Cdp,
+                        }
+                        : null;
+                if (
+                    !IsBrowserLease(lease)
+                    || HasNonString(entry, "reconnectEndpoint")
+                    || HasNonString(entry, "protocol")
+                    || ReadString(entry, "protocol") is not (null or PlaywrightProtocol)
+                )
                 {
                     return null;
                 }
@@ -798,7 +974,8 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
 
     /// <summary>Whether a field that must be a string, when present, is something else.</summary>
     private static bool HasNonString(JsonElement entry, string name) =>
-        entry.TryGetProperty(name, out var value) && value.ValueKind is not (JsonValueKind.String or JsonValueKind.Null);
+        entry.TryGetProperty(name, out var value)
+        && value.ValueKind is not (JsonValueKind.String or JsonValueKind.Null);
 
     [GeneratedRegex("[^A-Za-z0-9]")]
     private static partial Regex NotAlphanumeric();
@@ -811,7 +988,14 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
     private sealed record LeaseWire(string Id, string CdpEndpoint, string? ReconnectEndpoint, string? Protocol);
 
     /// <summary>The run a worker serves, as init reported it: what every request and release from the worker names.</summary>
-    private sealed record WorkerRun(string RunId, string TargetName, IReadOnlyDictionary<string, string?> Env, int Slot, int Slots, Action<string> Log);
+    private sealed record WorkerRun(
+        string RunId,
+        string TargetName,
+        IReadOnlyDictionary<string, string?> Env,
+        int Slot,
+        int Slots,
+        Action<string> Log
+    );
 
     /// <summary>A lease a worker attaches to, and whether the worker (not the runner's prepare) acquired it.</summary>
     private sealed record WorkerLease(BrowserLease Lease, bool Owned);

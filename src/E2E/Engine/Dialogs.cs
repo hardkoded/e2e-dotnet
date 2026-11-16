@@ -88,9 +88,7 @@ internal sealed class DialogRouter(ErrorLatch latch)
 {
     /// <summary>A router with a latch of its own (upstream's default <c>new ErrorLatch()</c>).</summary>
     public DialogRouter()
-        : this(new ErrorLatch())
-    {
-    }
+        : this(new ErrorLatch()) { }
 
     private readonly Lock _gate = new();
     private List<object> _registrations = [];
@@ -140,7 +138,13 @@ internal sealed class DialogRouter(ErrorLatch latch)
 
         if (handler is null)
         {
-            latch.Latch(new EngineException(EngineErrorCodes.InvalidState, $"unhandled {dialog.Type} dialog: {dialog.Message}", retryable: false));
+            latch.Latch(
+                new EngineException(
+                    EngineErrorCodes.InvalidState,
+                    $"unhandled {dialog.Type} dialog: {dialog.Message}",
+                    retryable: false
+                )
+            );
             await DismissQuietlyAsync(dialog).ConfigureAwait(false);
             return;
         }
@@ -161,7 +165,8 @@ internal sealed class DialogRouter(ErrorLatch latch)
                 decided = true;
                 await dialog.DismissAsync().ConfigureAwait(false);
                 answered = true;
-            });
+            }
+        );
         try
         {
             if (handler.AcceptsAll is true)
@@ -181,19 +186,29 @@ internal sealed class DialogRouter(ErrorLatch latch)
                 if (!decided)
                 {
                     await DismissQuietlyAsync(dialog).ConfigureAwait(false);
-                    latch.Latch(new EngineException(
-                        EngineErrorCodes.InvalidState,
-                        $"dialog handler returned without calling accept or dismiss for {dialog.Type} dialog: {dialog.Message}",
-                        retryable: false));
+                    latch.Latch(
+                        new EngineException(
+                            EngineErrorCodes.InvalidState,
+                            $"dialog handler returned without calling accept or dismiss for {dialog.Type} dialog: {dialog.Message}",
+                            retryable: false
+                        )
+                    );
                 }
             }
         }
         catch (Exception cause)
         {
             // A failed assertion or a policy refusal keeps its code; only an unclassified throw is the engine's to name.
-            latch.Latch(cause is E2EException
-                ? cause
-                : new EngineException(EngineErrorCodes.EngineFailure, "dialog handler failed: " + WebErrors.Message(cause), retryable: false, cause));
+            latch.Latch(
+                cause is E2EException
+                    ? cause
+                    : new EngineException(
+                        EngineErrorCodes.EngineFailure,
+                        "dialog handler failed: " + WebErrors.Message(cause),
+                        retryable: false,
+                        cause
+                    )
+            );
             if (!answered)
             {
                 await DismissQuietlyAsync(dialog).ConfigureAwait(false);
@@ -201,13 +216,14 @@ internal sealed class DialogRouter(ErrorLatch latch)
         }
     }
 
-    private static DialogType TypeOf(string type) => type switch
-    {
-        "alert" => DialogType.Alert,
-        "confirm" => DialogType.Confirm,
-        "prompt" => DialogType.Prompt,
-        _ => DialogType.BeforeUnload,
-    };
+    private static DialogType TypeOf(string type) =>
+        type switch
+        {
+            "alert" => DialogType.Alert,
+            "confirm" => DialogType.Confirm,
+            "prompt" => DialogType.Prompt,
+            _ => DialogType.BeforeUnload,
+        };
 
     private static async Task DismissQuietlyAsync(IDialog dialog)
     {

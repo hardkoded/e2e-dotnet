@@ -84,7 +84,8 @@ internal static class StepNames
 {
     public static string Of(StepKind kind) => kind.ToString().ToLowerInvariant();
 
-    public static string Of(StepStatus status) => status == StepStatus.TimedOut ? "timed-out" : status.ToString().ToLowerInvariant();
+    public static string Of(StepStatus status) =>
+        status == StepStatus.TimedOut ? "timed-out" : status.ToString().ToLowerInvariant();
 }
 
 /// <summary>
@@ -202,7 +203,13 @@ public enum AppLogLevel
 }
 
 /// <summary>One line the app logged during an attempt, redacted and bounded, with the index of the step that was running (upstream's <c>AppLogRecord</c>).</summary>
-internal sealed record AppLogRecord(AppLogSource Source, AppLogLevel Level, string Text, DateTimeOffset At, int? Step = null);
+internal sealed record AppLogRecord(
+    AppLogSource Source,
+    AppLogLevel Level,
+    string Text,
+    DateTimeOffset At,
+    int? Step = null
+);
 
 /// <summary>What became of a step's recording once the attempt settled (upstream's <c>CacheWrite</c>).</summary>
 internal enum CacheWrite
@@ -460,7 +467,8 @@ internal sealed class StepEvents : IReadOnlyList<StepEvent>
         }
     }
 
-    public IEnumerator<StepEvent> GetEnumerator() => ((IEnumerable<StepEvent>)Volatile.Read(ref _items)).GetEnumerator();
+    public IEnumerator<StepEvent> GetEnumerator() =>
+        ((IEnumerable<StepEvent>)Volatile.Read(ref _items)).GetEnumerator();
 
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 }

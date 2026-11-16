@@ -32,7 +32,8 @@ internal enum SkippablePlanKind
     Skip,
 }
 
-internal sealed class SkippablePlanKindConverter() : JsonStringEnumConverter<SkippablePlanKind>(JsonNamingPolicy.CamelCase);
+internal sealed class SkippablePlanKindConverter()
+    : JsonStringEnumConverter<SkippablePlanKind>(JsonNamingPolicy.CamelCase);
 
 /// <summary>
 /// What the planner answers. A flat object with every field required rather than a union: OpenAI's strict structured output
@@ -42,11 +43,8 @@ internal sealed class SkippablePlanKindConverter() : JsonStringEnumConverter<Ski
 /// field rather than spending the repair round on it. The schema <c>ExtractAsync</c> sends carries no field descriptions, so
 /// <see cref="ExplorePlan.PlanInstruction"/> says what each field holds. Upstream's <c>PLAN_SCHEMA</c>.
 /// </summary>
-internal sealed record PlanAnswer(
-    PlanKind Decision,
-    string Title,
-    string Instruction,
-    string Summary) : IJsonOnDeserialized
+internal sealed record PlanAnswer(PlanKind Decision, string Title, string Instruction, string Summary)
+    : IJsonOnDeserialized
 {
     /// <summary>The answer is read from the model, so the rules the schema cannot state are checked as it is read: a failure gets the repair round.</summary>
     void IJsonOnDeserialized.OnDeserialized()
@@ -64,11 +62,8 @@ internal sealed record PlanAnswer(
 /// one time the planner may answer it. A type of its own, so the schema the model is sent lists <c>skip</c> only when it is offered, and
 /// an answer cannot skip anywhere else (upstream's <c>planSchema({ skip: true })</c>).
 /// </summary>
-internal sealed record SkippablePlanAnswer(
-    SkippablePlanKind Decision,
-    string Title,
-    string Instruction,
-    string Summary) : IJsonOnDeserialized
+internal sealed record SkippablePlanAnswer(SkippablePlanKind Decision, string Title, string Instruction, string Summary)
+    : IJsonOnDeserialized
 {
     void IJsonOnDeserialized.OnDeserialized()
     {
@@ -122,7 +117,12 @@ internal static class PlanSchema
         {
             if (text.Length > MaxFieldChars)
             {
-                issues.Add(new PlanIssue(path, "at most " + MaxFieldChars.ToString(CultureInfo.InvariantCulture) + " characters"));
+                issues.Add(
+                    new PlanIssue(
+                        path,
+                        "at most " + MaxFieldChars.ToString(CultureInfo.InvariantCulture) + " characters"
+                    )
+                );
             }
         }
 
@@ -150,7 +150,8 @@ internal static class PlanSchema
     public static PlanParse<PlanAnswer> SafeParse(string json) => SafeParse<PlanAnswer>(json);
 
     /// <summary>Reads an answer of the grammar that offers <c>skip</c> as <c>ExtractAsync</c> does and reports the rules it breaks instead of throwing.</summary>
-    public static PlanParse<SkippablePlanAnswer> SafeParseSkippable(string json) => SafeParse<SkippablePlanAnswer>(json);
+    public static PlanParse<SkippablePlanAnswer> SafeParseSkippable(string json) =>
+        SafeParse<SkippablePlanAnswer>(json);
 
     private static PlanParse<T> SafeParse<T>(string json)
         where T : class
@@ -173,9 +174,7 @@ internal static class PlanSchema
 /// <summary>The planner's decision, after <see cref="ExplorePlan.RepairPlan(PlanAnswer)"/>.</summary>
 internal abstract record PlanDecision
 {
-    private PlanDecision()
-    {
-    }
+    private PlanDecision() { }
 
     /// <summary>The next charter.</summary>
     public sealed record Step(string Title, string Instruction) : PlanDecision;
@@ -212,7 +211,8 @@ internal sealed record PlanRequest(
     string? Reason = null,
     string? Agent = null,
     string? Session = null,
-    PlanChange? Change = null);
+    PlanChange? Change = null
+);
 
 /// <summary>The code change a run plans from (upstream's inline <c>{ skippable }</c>).</summary>
 /// <param name="Skippable">Whether the planner may answer <c>skip</c>.</param>
@@ -280,20 +280,36 @@ internal static class ExplorePlan
     /// in again or signs the rest of the run out. Upstream's <c>signedInContext</c>.
     /// </summary>
     public static string SignedInContext(string session) =>
-        "The app starts signed in: the run restored the session \"" + session + "\" a setup test saved. Do not sign in again, and do not sign out, unless the goal asks for it.";
+        "The app starts signed in: the run restored the session \""
+        + session
+        + "\" a setup test saved. Do not sign in again, and do not sign out, unless the goal asks for it.";
 
     /// <summary>Asks the model for the next charter or the closing assessment.</summary>
-    public static async Task<PlanDecision> PlanNextAsync(IExploreAgent agent, ExploreState state, PlanRequest request, CancellationToken cancellationToken = default)
+    public static async Task<PlanDecision> PlanNextAsync(
+        IExploreAgent agent,
+        ExploreState state,
+        PlanRequest request,
+        CancellationToken cancellationToken = default
+    )
     {
         var instruction = PlanInstruction(state, request);
         var options = new ExtractOptions { Timeout = request.Timeout, Agent = request.Agent };
         var decision = request.Change is { Skippable: true }
-            ? RepairPlan(await agent.ExtractAsync<SkippablePlanAnswer>(instruction, options, cancellationToken).ConfigureAwait(false))
-            : RepairPlan(await agent.ExtractAsync<PlanAnswer>(instruction, options, cancellationToken).ConfigureAwait(false));
+            ? RepairPlan(
+                await agent
+                    .ExtractAsync<SkippablePlanAnswer>(instruction, options, cancellationToken)
+                    .ConfigureAwait(false)
+            )
+            : RepairPlan(
+                await agent.ExtractAsync<PlanAnswer>(instruction, options, cancellationToken).ConfigureAwait(false)
+            );
 
         // An answer that was only padding has no charter left: it counts as an answer outside the grammar.
         return decision is PlanDecision.Step { Instruction.Length: 0 }
-            ? throw new AgentException("MODEL_OUTPUT_INVALID", "the planner's step has no instruction once padding is removed")
+            ? throw new AgentException(
+                "MODEL_OUTPUT_INVALID",
+                "the planner's step has no instruction once padding is removed"
+            )
             : decision;
     }
 
@@ -309,15 +325,18 @@ internal static class ExplorePlan
     /// Length is not repaired here: the grammar accepts long fields, and the state clips them to the report's ceilings when the step opens.
     /// </summary>
     public static PlanDecision RepairPlan(PlanAnswer answer) =>
-        answer.Decision == PlanKind.Finish ? new PlanDecision.Finish(Unpad(answer.Summary)) : RepairStep(answer.Title, answer.Instruction);
+        answer.Decision == PlanKind.Finish
+            ? new PlanDecision.Finish(Unpad(answer.Summary))
+            : RepairStep(answer.Title, answer.Instruction);
 
     /// <summary><see cref="RepairPlan(PlanAnswer)"/> for an answer of the grammar that offers <c>skip</c>.</summary>
-    public static PlanDecision RepairPlan(SkippablePlanAnswer answer) => answer.Decision switch
-    {
-        SkippablePlanKind.Finish => new PlanDecision.Finish(Unpad(answer.Summary)),
-        SkippablePlanKind.Skip => new PlanDecision.Skip(Unpad(answer.Summary)),
-        _ => RepairStep(answer.Title, answer.Instruction),
-    };
+    public static PlanDecision RepairPlan(SkippablePlanAnswer answer) =>
+        answer.Decision switch
+        {
+            SkippablePlanKind.Finish => new PlanDecision.Finish(Unpad(answer.Summary)),
+            SkippablePlanKind.Skip => new PlanDecision.Skip(Unpad(answer.Summary)),
+            _ => RepairStep(answer.Title, answer.Instruction),
+        };
 
     private static PlanDecision RepairStep(string rawTitle, string rawInstruction)
     {
@@ -337,14 +356,39 @@ internal static class ExplorePlan
         var steps = state.Steps;
         var findings = state.Findings;
         var minutesLeft = Math.Max(0, Math.Round(request.Remaining.TotalMinutes, MidpointRounding.AwayFromZero));
-        var stepLines = steps.Count == 0
-            ? "(none yet: this is the first step)"
-            : string.Join('\n', steps.Select((step, position) =>
-                step.Index.ToString(CultureInfo.InvariantCulture) + ". [" + StatusMark(step.Status) + "] " + step.Title
-                + (step.Summary is null || position < steps.Count - SummarizedSteps ? "" : " — " + step.Summary)));
-        var findingLines = findings.Count == 0
-            ? "(none yet)"
-            : string.Join('\n', findings.Select(finding => "- [" + KindName(finding.Kind) + ", severity " + finding.Severity.ToString(CultureInfo.InvariantCulture) + "] " + finding.Title));
+        var stepLines =
+            steps.Count == 0
+                ? "(none yet: this is the first step)"
+                : string.Join(
+                    '\n',
+                    steps.Select(
+                        (step, position) =>
+                            step.Index.ToString(CultureInfo.InvariantCulture)
+                            + ". ["
+                            + StatusMark(step.Status)
+                            + "] "
+                            + step.Title
+                            + (
+                                step.Summary is null || position < steps.Count - SummarizedSteps
+                                    ? ""
+                                    : " — " + step.Summary
+                            )
+                    )
+                );
+        var findingLines =
+            findings.Count == 0
+                ? "(none yet)"
+                : string.Join(
+                    '\n',
+                    findings.Select(finding =>
+                        "- ["
+                        + KindName(finding.Kind)
+                        + ", severity "
+                        + finding.Severity.ToString(CultureInfo.InvariantCulture)
+                        + "] "
+                        + finding.Title
+                    )
+                );
         var header = new List<string>
         {
             request.MustFinish
@@ -352,8 +396,13 @@ internal static class ExplorePlan
                 : "Plan the next step of an exploratory test run, or finish it.",
             "",
             "Goal: " + state.Goal,
-            "Budget: " + steps.Count.ToString(CultureInfo.InvariantCulture) + " of " + state.Budgets.MaxSteps.ToString(CultureInfo.InvariantCulture)
-                + " steps used, about " + minutesLeft.ToString(CultureInfo.InvariantCulture) + " minute(s) left.",
+            "Budget: "
+                + steps.Count.ToString(CultureInfo.InvariantCulture)
+                + " of "
+                + state.Budgets.MaxSteps.ToString(CultureInfo.InvariantCulture)
+                + " steps used, about "
+                + minutesLeft.ToString(CultureInfo.InvariantCulture)
+                + " minute(s) left.",
             "",
             "Steps so far:",
             stepLines,
@@ -384,7 +433,9 @@ internal static class ExplorePlan
         if (request.MustFinish)
         {
             header.Add("The run must end now: " + (request.Reason ?? "its budget is spent") + ".");
-            header.Add("Respond with {\"decision\": \"finish\", \"title\": \"\", \"instruction\": \"\", \"summary\": \"...\"}: the closing assessment.");
+            header.Add(
+                "Respond with {\"decision\": \"finish\", \"title\": \"\", \"instruction\": \"\", \"summary\": \"...\"}: the closing assessment."
+            );
             header.AddRange(AssessmentRules);
             return string.Join('\n', header);
         }
@@ -392,15 +443,18 @@ internal static class ExplorePlan
         var signIn = request.Session is null
             ? "sign in with the accounts listed above (or made-up credentials when none are configured)"
             : "work as the signed-in user rather than signing in again";
-        var lenses = string.Join("; ",
-        [
-            "edge-case inputs",
-            "filters, sorting, and search combined",
-            "state after reload or across screens that show the same data",
-            .. request.Session is null && request.Accounts is { Count: > 1 } ? ["another account or role"] : Array.Empty<string>(),
-        ]);
-        header.AddRange(
-        [
+        var lenses = string.Join(
+            "; ",
+            [
+                "edge-case inputs",
+                "filters, sorting, and search combined",
+                "state after reload or across screens that show the same data",
+                .. request.Session is null && request.Accounts is { Count: > 1 }
+                    ? ["another account or role"]
+                    : Array.Empty<string>(),
+            ]
+        );
+        header.AddRange([
             "Decide from the goal, the steps so far, and the current screen:",
             "- \"step\": the next exploration charter. \"title\" names the area or flow, and the lens once one applies, in a few",
             "  words. \"instruction\" is a concrete, self-contained charter for an agent that sees only the screen and that text:",
@@ -425,8 +479,15 @@ internal static class ExplorePlan
             header.AddRange(SkipRules);
         }
 
-        header.Add("Respond with every field present: {\"decision\": \"step\", \"title\": \"...\", \"instruction\": \"...\", \"summary\": \"\"} or {\"decision\": \"finish\", \"title\": \"\", \"instruction\": \"\", \"summary\": \"...\"}"
-            + (skippable ? " or {\"decision\": \"skip\", \"title\": \"\", \"instruction\": \"\", \"summary\": \"...\"}" : "") + ".");
+        header.Add(
+            "Respond with every field present: {\"decision\": \"step\", \"title\": \"...\", \"instruction\": \"...\", \"summary\": \"\"} or {\"decision\": \"finish\", \"title\": \"\", \"instruction\": \"\", \"summary\": \"...\"}"
+                + (
+                    skippable
+                        ? " or {\"decision\": \"skip\", \"title\": \"\", \"instruction\": \"\", \"summary\": \"...\"}"
+                        : ""
+                )
+                + "."
+        );
         return string.Join('\n', header);
     }
 
@@ -440,13 +501,15 @@ internal static class ExplorePlan
         return shortClause.Length <= DerivedTitleChars ? shortClause : shortClause[..(DerivedTitleChars - 1)] + "…";
     }
 
-    private static string StatusMark(ReportExploreStepStatus status) => status switch
-    {
-        ReportExploreStepStatus.Passed => "passed",
-        ReportExploreStepStatus.Failed => "FAILED",
-        ReportExploreStepStatus.Blocked => "blocked",
-        _ => "ended at its limit",
-    };
+    private static string StatusMark(ReportExploreStepStatus status) =>
+        status switch
+        {
+            ReportExploreStepStatus.Passed => "passed",
+            ReportExploreStepStatus.Failed => "FAILED",
+            ReportExploreStepStatus.Blocked => "blocked",
+            _ => "ended at its limit",
+        };
 
-    private static string KindName(ReportExploreFindingKind kind) => kind == ReportExploreFindingKind.Issue ? "issue" : "warning";
+    private static string KindName(ReportExploreFindingKind kind) =>
+        kind == ReportExploreFindingKind.Issue ? "issue" : "warning";
 }

@@ -19,7 +19,11 @@ public sealed record ResolvedCredential(string Name, string Username, Secret Pas
 /// The engine of a resolved target as selection reads it: its name, the capabilities it declares, and the secrets its options hold (the slice of
 /// upstream's <c>Engine</c> that <c>select</c> and <c>checkEngineSecrets</c> use). .NET-only name.
 /// </summary>
-internal sealed record ResolvedEngine(string Name, IReadOnlySet<string> Capabilities, IReadOnlyList<Secret>? Secrets = null);
+internal sealed record ResolvedEngine(
+    string Name,
+    IReadOnlySet<string> Capabilities,
+    IReadOnlyList<Secret>? Secrets = null
+);
 
 /// <summary>A target as selection reads it (upstream's <c>ResolvedTarget</c>, <c>config/resolve.ts</c>); null <see cref="Engine"/> grades no capability.</summary>
 internal sealed record ResolvedTarget(string Name, string Platform, AppConfig App, ResolvedEngine? Engine = null);
@@ -60,7 +64,19 @@ internal sealed record ResolvedConfig
     // (a target's own enter nowhere, since a target digests by name, platform, and app).
     private static readonly HashSet<string> DigestedApart = new(StringComparer.Ordinal)
     {
-        "failOnSkippedFailure", "maxDuration", "filters", "artifacts", "output", "trace", "video", "targets", "credentials", "secrets", "agents", "cache", "reporters",
+        "failOnSkippedFailure",
+        "maxDuration",
+        "filters",
+        "artifacts",
+        "output",
+        "trace",
+        "video",
+        "targets",
+        "credentials",
+        "secrets",
+        "agents",
+        "cache",
+        "reporters",
     };
 
     /// <summary>
@@ -72,7 +88,10 @@ internal sealed record ResolvedConfig
     /// <paramref name="agents"/> are the agents' options in code (the fixture's), else the <c>agents</c> the file declares; the port has no
     /// <c>projectId</c> or engine on a target, so neither enters.
     /// </summary>
-    internal static string ComputeConfigDigest(E2EConfig config, IReadOnlyDictionary<string, AgentOptions>? agents = null)
+    internal static string ComputeConfigDigest(
+        E2EConfig config,
+        IReadOnlyDictionary<string, AgentOptions>? agents = null
+    )
     {
         ArgumentNullException.ThrowIfNull(config);
         var raw = config.RawConfig;
@@ -117,7 +136,12 @@ internal sealed record ResolvedConfig
         // A reporter object changes nothing about what a run records, so only a type name enters: the built-in ids digest as they always have.
         if (reporters.ValueKind == JsonValueKind.Array)
         {
-            sanitized["reporters"] = new JsonArray([.. reporters.EnumerateArray().Where(reporter => reporter.ValueKind == JsonValueKind.String).Select(reporter => (JsonNode?)JsonValue.Create(reporter.GetString()))]);
+            sanitized["reporters"] = new JsonArray([
+                .. reporters
+                    .EnumerateArray()
+                    .Where(reporter => reporter.ValueKind == JsonValueKind.String)
+                    .Select(reporter => (JsonNode?)JsonValue.Create(reporter.GetString())),
+            ]);
         }
 
         if (agents is not null)
@@ -166,7 +190,10 @@ internal sealed record ResolvedConfig
     private static JsonObject DigestCredential(JsonProperty credential)
     {
         var digest = new JsonObject();
-        if (credential.Value.ValueKind == JsonValueKind.Object && credential.Value.TryGetProperty("username", out var username))
+        if (
+            credential.Value.ValueKind == JsonValueKind.Object
+            && credential.Value.TryGetProperty("username", out var username)
+        )
         {
             digest["username"] = JsonNode.Parse(username.GetRawText());
         }
@@ -186,35 +213,41 @@ internal sealed record ResolvedConfig
     /// <c>workers</c>; a target's platform is always its own, since the port requires one.
     /// </summary>
     internal static JsonArray DigestTargets(IReadOnlyList<TargetConfig> targets) =>
-        new([.. targets.Select(target =>
-        {
-            var digest = new JsonObject
+        new([
+            .. targets.Select(target =>
             {
-                ["name"] = target.Name,
-                ["platform"] = target.Platform,
-                ["app"] = TargetApps.DigestTargetApp(target.App),
-            };
-            if (target.Engine is { } engine)
-            {
-                // Upstream leaves out a version or platform the engine does not declare.
-                var declaration = new JsonObject { ["name"] = engine.Name };
-                if (!string.IsNullOrEmpty(engine.Version))
+                var digest = new JsonObject
                 {
-                    declaration["version"] = engine.Version;
+                    ["name"] = target.Name,
+                    ["platform"] = target.Platform,
+                    ["app"] = TargetApps.DigestTargetApp(target.App),
+                };
+                if (target.Engine is { } engine)
+                {
+                    // Upstream leaves out a version or platform the engine does not declare.
+                    var declaration = new JsonObject { ["name"] = engine.Name };
+                    if (!string.IsNullOrEmpty(engine.Version))
+                    {
+                        declaration["version"] = engine.Version;
+                    }
+
+                    declaration["spiVersion"] = BuildReport.EngineSpiVersion;
+                    if (!string.IsNullOrEmpty(engine.Platform))
+                    {
+                        declaration["platform"] = engine.Platform;
+                    }
+
+                    declaration["capabilities"] = new JsonArray([
+                        .. CapabilityNames(engine.Capabilities)
+                            .Order(StringComparer.Ordinal)
+                            .Select(name => (JsonNode?)JsonValue.Create(name)),
+                    ]);
+                    digest["engine"] = declaration;
                 }
 
-                declaration["spiVersion"] = BuildReport.EngineSpiVersion;
-                if (!string.IsNullOrEmpty(engine.Platform))
-                {
-                    declaration["platform"] = engine.Platform;
-                }
-
-                declaration["capabilities"] = new JsonArray([.. CapabilityNames(engine.Capabilities).Order(StringComparer.Ordinal).Select(name => (JsonNode?)JsonValue.Create(name))]);
-                digest["engine"] = declaration;
-            }
-
-            return (JsonNode?)digest;
-        })]);
+                return (JsonNode?)digest;
+            }),
+        ]);
 
     /// <summary>
     /// The agents as the digest records them (upstream's <c>digestAgents</c>): the plain options, the tools named, and the executor reduced
@@ -268,7 +301,8 @@ internal sealed record ResolvedConfig
                 var providerOptions = new JsonObject();
                 foreach (var (provider, value) in entry.ProviderOptions)
                 {
-                    providerOptions[provider] = value.ValueKind == JsonValueKind.Undefined ? null : JsonNode.Parse(value.GetRawText());
+                    providerOptions[provider] =
+                        value.ValueKind == JsonValueKind.Undefined ? null : JsonNode.Parse(value.GetRawText());
                 }
 
                 options["providerOptions"] = providerOptions;
@@ -276,7 +310,9 @@ internal sealed record ResolvedConfig
 
             if (entry.Tools is not null)
             {
-                options["tools"] = new JsonArray([.. entry.Tools.Keys.Order(StringComparer.Ordinal).Select(tool => (JsonNode?)JsonValue.Create(tool))]);
+                options["tools"] = new JsonArray([
+                    .. entry.Tools.Keys.Order(StringComparer.Ordinal).Select(tool => (JsonNode?)JsonValue.Create(tool)),
+                ]);
             }
 
             if (entry.Executor is { } executor)
@@ -312,7 +348,8 @@ internal sealed record ResolvedConfig
     /// </summary>
     internal static JsonObject DigestCache(JsonElement declared, CacheConfig cache)
     {
-        var digest = declared.ValueKind == JsonValueKind.Object ? (JsonObject)JsonNode.Parse(declared.GetRawText())! : [];
+        var digest =
+            declared.ValueKind == JsonValueKind.Object ? (JsonObject)JsonNode.Parse(declared.GetRawText())! : [];
         if (cache.Store is not null)
         {
             digest["store"] = new JsonObject { ["writable"] = cache.Store.Writable };
@@ -357,21 +394,37 @@ internal sealed record ResolvedConfig
     }
 
     /// <summary>The resolved form of one target: its engine, when it holds one, reduced to what selection and the secret check read.</summary>
-    internal static ResolvedTarget ResolveTarget(TargetConfig target) => new(
-        target.Name,
-        target.Platform,
-        target.App,
-        target.Engine is { } held ? new ResolvedEngine(held.Name, CapabilityNames(held.Capabilities), held.Secrets) : null);
+    internal static ResolvedTarget ResolveTarget(TargetConfig target) =>
+        new(
+            target.Name,
+            target.Platform,
+            target.App,
+            target.Engine is { } held
+                ? new ResolvedEngine(held.Name, CapabilityNames(held.Capabilities), held.Secrets)
+                : null
+        );
 
     private static HashSet<string> CapabilityNames(EngineCapabilities capabilities) =>
-        [.. Enum.GetValues<EngineCapabilities>().Where(flag => flag != EngineCapabilities.None && capabilities.HasFlag(flag)).Select(flag => flag == EngineCapabilities.ComputedStyle ? "computed-style" : char.ToLowerInvariant(flag.ToString()[0]) + flag.ToString()[1..])];
+        [
+            .. Enum.GetValues<EngineCapabilities>()
+                .Where(flag => flag != EngineCapabilities.None && capabilities.HasFlag(flag))
+                .Select(flag =>
+                    flag == EngineCapabilities.ComputedStyle
+                        ? "computed-style"
+                        : char.ToLowerInvariant(flag.ToString()[0]) + flag.ToString()[1..]
+                ),
+        ];
 
     /// <summary>
     /// Every secret an engine's options hold (a <c>Secrets.Get</c> the config evaluated before any run existed) names a configured secret, so a
     /// typo fails at load with the nearest name, not mid-run (upstream's <c>checkEngineSecrets</c>, <c>config/resolve.ts</c>). A credential's
     /// password is not one: an engine option takes a <c>secrets</c> entry. <see cref="Resolve"/> calls it, as upstream's <c>resolve</c> does.
     /// </summary>
-    internal static void CheckEngineSecrets(IReadOnlyList<ResolvedTarget> targets, Secrets secrets, IReadOnlyDictionary<string, ResolvedCredential> credentials)
+    internal static void CheckEngineSecrets(
+        IReadOnlyList<ResolvedTarget> targets,
+        Secrets secrets,
+        IReadOnlyDictionary<string, ResolvedCredential> credentials
+    )
     {
         foreach (var target in targets)
         {
@@ -385,10 +438,20 @@ internal sealed record ResolvedConfig
                 var credential = ConfigSecrets.CredentialNamed(secret.Name, credentials);
                 var hint = credential is null
                     ? Suggestions.DidYouMean(secret.Name, [.. secrets.Names])
-                    : "; credential " + LocatorExpect.Quote(credential.Name) + " is not a secrets entry, and an engine option takes one: declare the value under config.secrets";
+                    : "; credential "
+                        + LocatorExpect.Quote(credential.Name)
+                        + " is not a secrets entry, and an engine option takes one: declare the value under config.secrets";
                 throw new ConfigurationException(
                     "INVALID_CONFIG",
-                    "target " + LocatorExpect.Quote(target.Name) + " engine " + target.Engine!.Name + " uses secrets.get(" + LocatorExpect.Quote(secret.Name) + "), which is not configured; add it to config.secrets" + hint);
+                    "target "
+                        + LocatorExpect.Quote(target.Name)
+                        + " engine "
+                        + target.Engine!.Name
+                        + " uses secrets.get("
+                        + LocatorExpect.Quote(secret.Name)
+                        + "), which is not configured; add it to config.secrets"
+                        + hint
+                );
             }
         }
     }
@@ -413,24 +476,34 @@ internal sealed record ResolvedConfig
         {
             if (raw[index] is not { Name: { } name } value)
             {
-                throw new ConfigurationException("INVALID_CONFIG", $"filters[{index}] must be a TestFilter: {{ name, filter(tests, context) }}");
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"filters[{index}] must be a TestFilter: {{ name, filter(tests, context) }}"
+                );
             }
 
             if (!E2EConfig.ValidName(name))
             {
                 throw new ConfigurationException(
                     "INVALID_CONFIG",
-                    $"invalid filter name {LocatorExpect.Quote(name)}: names are ASCII letters, numbers, \"_\", \"-\", or \".\", and cannot be only dots");
+                    $"invalid filter name {LocatorExpect.Quote(name)}: names are ASCII letters, numbers, \"_\", \"-\", or \".\", and cannot be only dots"
+                );
             }
 
             if (name.Length > MaxFilterName)
             {
-                throw new ConfigurationException("INVALID_CONFIG", $"filter name {LocatorExpect.Quote(ReportFormat.Ellipsize(name, 32))} is longer than {MaxFilterName} characters");
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"filter name {LocatorExpect.Quote(ReportFormat.Ellipsize(name, 32))} is longer than {MaxFilterName} characters"
+                );
             }
 
             if (!names.Add(name))
             {
-                throw new ConfigurationException("INVALID_CONFIG", $"filters has two filters named {LocatorExpect.Quote(name)}; the report tells filters apart by name");
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"filters has two filters named {LocatorExpect.Quote(name)}; the report tells filters apart by name"
+                );
             }
 
             filters.Add(value);

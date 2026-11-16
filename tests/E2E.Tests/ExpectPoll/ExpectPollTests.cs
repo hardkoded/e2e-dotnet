@@ -30,7 +30,11 @@ public sealed class ExpectPollTests
         var count = new Settling<int>(0, 2, 2);
         // Upstream's async read has no await, so the task is complete when it returns. Do not add a hop (such as Task.Yield): its
         // continuation can wait on a busy thread pool, and the stepping clock would fire the read's timeout first.
-        await _time.RunAsync(Expect.Poll(() => Task.FromResult(count.Read()), Every(5)).ToSatisfyAsync(value => value > 1, "greater than 1"));
+        await _time.RunAsync(
+            Expect
+                .Poll(() => Task.FromResult(count.Read()), Every(5))
+                .ToSatisfyAsync(value => value > 1, "greater than 1")
+        );
         Assert.Equal(3, count.Reads);
     }
 
@@ -58,7 +62,13 @@ public sealed class ExpectPollTests
     [Fact]
     public async Task Places_the_message_option_between_the_matcher_line_and_the_last_sample()
     {
-        var options = new PollOptions { Timeout = TimeSpan.FromMilliseconds(60), Interval = TimeSpan.FromMilliseconds(10), Clock = _time, Message = "the batch never finished" };
+        var options = new PollOptions
+        {
+            Timeout = TimeSpan.FromMilliseconds(60),
+            Interval = TimeSpan.FromMilliseconds(10),
+            Clock = _time,
+            Message = "the batch never finished",
+        };
         var message = await FailsWith(() => Expect.Poll(() => "running", options).ToBeAsync("done"));
         Assert.Equal(
             [
@@ -66,14 +76,19 @@ public sealed class ExpectPollTests
                 "the batch never finished",
                 "last: received \"running\", expected \"done\"",
             ],
-            message.Split('\n'));
+            message.Split('\n')
+        );
     }
 
     [Fact]
     public async Task Keeps_polling_through_a_throwing_read_and_reports_its_error_at_the_deadline()
     {
         var reads = 0;
-        await _time.RunAsync(Expect.Poll(() => ++reads < 3 ? throw new InvalidOperationException("connection refused") : "done", Every(5)).ToBeAsync("done"));
+        await _time.RunAsync(
+            Expect
+                .Poll(() => ++reads < 3 ? throw new InvalidOperationException("connection refused") : "done", Every(5))
+                .ToBeAsync("done")
+        );
         Assert.Equal(3, reads);
 
         var failures = 0;
@@ -92,7 +107,14 @@ public sealed class ExpectPollTests
     [Fact]
     public async Task Bounds_a_hung_read_by_the_deadline()
     {
-        var message = await FailsWith(() => Expect.Poll(_ => new TaskCompletionSource<string>().Task, new PollOptions { Timeout = TimeSpan.FromMilliseconds(100), Clock = _time }).ToBeAsync("done"));
+        var message = await FailsWith(() =>
+            Expect
+                .Poll(
+                    _ => new TaskCompletionSource<string>().Task,
+                    new PollOptions { Timeout = TimeSpan.FromMilliseconds(100), Clock = _time }
+                )
+                .ToBeAsync("done")
+        );
         Assert.Contains("timed out after 100 ms", message, StringComparison.Ordinal);
         Assert.EndsWith("last: no read completed", message, StringComparison.Ordinal);
         Assert.Equal(TimeSpan.FromMilliseconds(100), _time.Elapsed);
@@ -102,7 +124,14 @@ public sealed class ExpectPollTests
     public async Task Keeps_the_last_completed_sample_when_a_later_read_hangs()
     {
         var reads = 0;
-        var message = await FailsWith(() => Expect.Poll(_ => ++reads == 1 ? Task.FromResult("running") : new TaskCompletionSource<string>().Task, Options(100, 5)).ToBeAsync("done"));
+        var message = await FailsWith(() =>
+            Expect
+                .Poll(
+                    _ => ++reads == 1 ? Task.FromResult("running") : new TaskCompletionSource<string>().Task,
+                    Options(100, 5)
+                )
+                .ToBeAsync("done")
+        );
         Assert.EndsWith("last: received \"running\", expected \"done\"", message, StringComparison.Ordinal);
         Assert.Equal(2, reads);
     }
@@ -111,11 +140,18 @@ public sealed class ExpectPollTests
     public async Task Honors_the_interval_between_samples()
     {
         var reads = 0;
-        await FailsWith(() => Expect.Poll(() =>
-        {
-            reads++;
-            return "running";
-        }, Options(200, 50)).ToBeAsync("done"));
+        await FailsWith(() =>
+            Expect
+                .Poll(
+                    () =>
+                    {
+                        reads++;
+                        return "running";
+                    },
+                    Options(200, 50)
+                )
+                .ToBeAsync("done")
+        );
         Assert.InRange(reads, 3, 6);
     }
 
@@ -134,16 +170,23 @@ public sealed class ExpectPollTests
     public async Task Partial_Refuses_timeout_0_outside_an_attempt_where_no_test_deadline_bounds_it()
     {
         var error = await Assert.ThrowsAsync<ConfigurationException>(() =>
-            Expect.Poll(() => "running", new PollOptions { Timeout = TimeSpan.Zero }).ToBeAsync("done"));
+            Expect.Poll(() => "running", new PollOptions { Timeout = TimeSpan.Zero }).ToBeAsync("done")
+        );
 
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("needs a cancellation token that ends with the test", error.Message, StringComparison.Ordinal);
     }
 
-    private PollOptions Every(int milliseconds) => new() { Interval = TimeSpan.FromMilliseconds(milliseconds), Clock = _time };
+    private PollOptions Every(int milliseconds) =>
+        new() { Interval = TimeSpan.FromMilliseconds(milliseconds), Clock = _time };
 
     private PollOptions Options(int timeout, int interval) =>
-        new() { Timeout = TimeSpan.FromMilliseconds(timeout), Interval = TimeSpan.FromMilliseconds(interval), Clock = _time };
+        new()
+        {
+            Timeout = TimeSpan.FromMilliseconds(timeout),
+            Interval = TimeSpan.FromMilliseconds(interval),
+            Clock = _time,
+        };
 
     private async Task<string> FailsWith(Func<Task> run)
     {

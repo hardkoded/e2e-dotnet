@@ -30,10 +30,12 @@ internal sealed partial class AppiumDeviceClient
         if (url is not null)
         {
             await ExecuteAsync(
-                "mobile: deepLink",
-                cancellationToken,
-                ("url", Json(url)),
-                (platform == MobilePlatform.Ios ? "bundleId" : "package", Json(app))).ConfigureAwait(false);
+                    "mobile: deepLink",
+                    cancellationToken,
+                    ("url", Json(url)),
+                    (platform == MobilePlatform.Ios ? "bundleId" : "package", Json(app))
+                )
+                .ConfigureAwait(false);
             return app is null ? null : AppIdentity(app);
         }
 
@@ -43,25 +45,41 @@ internal sealed partial class AppiumDeviceClient
         }
 
         var launchArguments = options["launchArgs"] is JsonArray array
-            ? array.Select(argument => argument is JsonValue value && value.TryGetValue<string>(out var text) ? text : throw AppiumErrors.InvalidArgument("launch arguments are strings")).ToList()
+            ? array
+                .Select(argument =>
+                    argument is JsonValue value && value.TryGetValue<string>(out var text)
+                        ? text
+                        : throw AppiumErrors.InvalidArgument("launch arguments are strings")
+                )
+                .ToList()
             : [];
         var fresh = options["relaunch"] is JsonValue relaunch && relaunch.TryGetValue<bool>(out var wanted) && wanted;
         if (launchArguments.Count > 0 && !(fresh && platform == MobilePlatform.Ios))
         {
-            throw AppiumErrors.Unsupported("launch arguments are only supported when an iOS app is relaunched on TestMu devices");
+            throw AppiumErrors.Unsupported(
+                "launch arguments are only supported when an iOS app is relaunched on TestMu devices"
+            );
         }
 
         if (fresh)
         {
-
             await ExecuteAsync("mobile: terminateApp", cancellationToken, (AppKey, Json(app))).ConfigureAwait(false);
             if (platform == MobilePlatform.Ios)
             {
                 await ExecuteAsync(
-                    "mobile: launchApp",
-                    cancellationToken,
-                    ("bundleId", Json(app)),
-                    ("arguments", launchArguments.Count == 0 ? null : new JsonArray([.. launchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument))]))).ConfigureAwait(false);
+                        "mobile: launchApp",
+                        cancellationToken,
+                        ("bundleId", Json(app)),
+                        (
+                            "arguments",
+                            launchArguments.Count == 0
+                                ? null
+                                : new JsonArray([
+                                    .. launchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument)),
+                                ])
+                        )
+                    )
+                    .ConfigureAwait(false);
                 return AppIdentity(app);
             }
         }
@@ -92,25 +110,37 @@ internal sealed partial class AppiumDeviceClient
         if (Text(options, "action") == "write")
         {
             await ExecuteAsync(
-                ios ? "mobile: setPasteboard" : "mobile: setClipboard",
-                cancellationToken,
-                ("content", Json(Convert.ToBase64String(Encoding.UTF8.GetBytes(Text(options, "text") ?? "")))),
-                ios ? ("encoding", Json("utf8")) : ("contentType", Json("plaintext"))).ConfigureAwait(false);
+                    ios ? "mobile: setPasteboard" : "mobile: setClipboard",
+                    cancellationToken,
+                    ("content", Json(Convert.ToBase64String(Encoding.UTF8.GetBytes(Text(options, "text") ?? "")))),
+                    ios ? ("encoding", Json("utf8")) : ("contentType", Json("plaintext"))
+                )
+                .ConfigureAwait(false);
             return null;
         }
 
         var content = await ExecuteAsync(
-            ios ? "mobile: getPasteboard" : "mobile: getClipboard",
-            cancellationToken,
-            ios ? ("encoding", Json("utf8")) : ("contentType", Json("plaintext"))).ConfigureAwait(false);
+                ios ? "mobile: getPasteboard" : "mobile: getClipboard",
+                cancellationToken,
+                ios ? ("encoding", Json("utf8")) : ("contentType", Json("plaintext"))
+            )
+            .ConfigureAwait(false);
         var encoded = content is JsonValue value && value.TryGetValue<string>(out var text) ? text : "";
         try
         {
-            return new JsonObject { ["action"] = "read", ["text"] = Encoding.UTF8.GetString(Convert.FromBase64String(encoded)) };
+            return new JsonObject
+            {
+                ["action"] = "read",
+                ["text"] = Encoding.UTF8.GetString(Convert.FromBase64String(encoded)),
+            };
         }
         catch (FormatException cause)
         {
-            throw new AgentDeviceError("COMMAND_FAILED", "the device returned a clipboard that is not base64", inner: cause);
+            throw new AgentDeviceError(
+                "COMMAND_FAILED",
+                "the device returned a clipboard that is not base64",
+                inner: cause
+            );
         }
     }
 }

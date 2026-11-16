@@ -13,7 +13,11 @@ public sealed class DescribeToolDetailAndToolJsonSchemaTests
     public void Renders_the_full_description_and_the_JSON_Schema_without_the_draft_marker()
     {
         var detail = Tools.DescribeToolDetail("tap", Tap, false);
-        Assert.Contains("Tap or click one node. The result waits for the effect and reports what changed.", detail, StringComparison.Ordinal);
+        Assert.Contains(
+            "Tap or click one node. The result waits for the effect and reports what changed.",
+            detail,
+            StringComparison.Ordinal
+        );
         Assert.Contains("Arguments (JSON Schema):", detail, StringComparison.Ordinal);
         Assert.DoesNotContain("$schema", detail, StringComparison.Ordinal);
         var schema = Tools.ToolJsonSchema(Tap);

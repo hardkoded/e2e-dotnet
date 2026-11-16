@@ -21,7 +21,12 @@ public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
         await Browser.SetViewportAsync(500, 500);
         await Browser.GotoAsync("/grid.html");
         await StoreMaskedReferenceAsync("mask-should-work", [new MaskTarget("div", 5)]);
-        await Expect.That(Screen).ToHaveScreenshotAsync("mask-should-work", new ScreenshotOptions { Mask = [Browser.Locator("div").Nth(5)] });
+        await Expect
+            .That(Screen)
+            .ToHaveScreenshotAsync(
+                "mask-should-work",
+                new ScreenshotOptions { Mask = [Browser.Locator("div").Nth(5)] }
+            );
     }
 
     [Test]
@@ -31,7 +36,12 @@ public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
         await Browser.GotoAsync("/grid.html");
         await StoreMaskedReferenceAsync("mask-should-work-with-locator", [new MaskTarget("div", 5)]);
         var bodyLocator = Browser.Locator("body");
-        await Expect.That(bodyLocator).ToHaveScreenshotAsync("mask-should-work-with-locator", new ScreenshotOptions { Mask = [Browser.Locator("div").Nth(5)] });
+        await Expect
+            .That(bodyLocator)
+            .ToHaveScreenshotAsync(
+                "mask-should-work-with-locator",
+                new ScreenshotOptions { Mask = [Browser.Locator("div").Nth(5)] }
+            );
     }
 
     [Test]
@@ -39,11 +49,16 @@ public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
     {
         await Browser.SetViewportAsync(500, 500);
         await Browser.GotoAsync("/grid.html");
-        await StoreMaskedReferenceAsync("should-mask-multiple-elements", [new MaskTarget("div", 5), new MaskTarget("div", 12)]);
-        await Expect.That(Screen).ToHaveScreenshotAsync("should-mask-multiple-elements", new ScreenshotOptions
-        {
-            Mask = [Browser.Locator("div").Nth(5), Browser.Locator("div").Nth(12)],
-        });
+        await StoreMaskedReferenceAsync(
+            "should-mask-multiple-elements",
+            [new MaskTarget("div", 5), new MaskTarget("div", 12)]
+        );
+        await Expect
+            .That(Screen)
+            .ToHaveScreenshotAsync(
+                "should-mask-multiple-elements",
+                new ScreenshotOptions { Mask = [Browser.Locator("div").Nth(5), Browser.Locator("div").Nth(12)] }
+            );
     }
 
     [Test]
@@ -53,11 +68,19 @@ public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
         await Browser.GotoAsync("/grid.html");
         await AttachFrameAsync("frame1", $"{PREFIX}/grid.html");
         await AddStyleTagAsync("iframe { border: none; }");
-        await StoreMaskedReferenceAsync("should-mask-inside-iframe", [new MaskTarget("div", 5), new MaskTarget("div", 12, Frame: "#frame1")]);
-        await Expect.That(Screen).ToHaveScreenshotAsync("should-mask-inside-iframe", new ScreenshotOptions
-        {
-            Mask = [Browser.Locator("div").Nth(5), Browser.FrameLocator("#frame1").Locator("div").Nth(12)],
-        });
+        await StoreMaskedReferenceAsync(
+            "should-mask-inside-iframe",
+            [new MaskTarget("div", 5), new MaskTarget("div", 12, Frame: "#frame1")]
+        );
+        await Expect
+            .That(Screen)
+            .ToHaveScreenshotAsync(
+                "should-mask-inside-iframe",
+                new ScreenshotOptions
+                {
+                    Mask = [Browser.Locator("div").Nth(5), Browser.FrameLocator("#frame1").Locator("div").Nth(12)],
+                }
+            );
     }
 
     [Test]
@@ -72,14 +95,22 @@ public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
         await StoreMaskedReferenceAsync("should-mask-in-parallel-2", [new MaskTarget("div", 3, Frame: "#frame2")]);
         var results = new[]
         {
-            Record(() => Expect.That(Screen).ToHaveScreenshotAsync("should-mask-in-parallel-1", new ScreenshotOptions
-            {
-                Mask = [Browser.FrameLocator("#frame1").Locator("div").Nth(1)],
-            })),
-            Record(() => Expect.That(Screen).ToHaveScreenshotAsync("should-mask-in-parallel-2", new ScreenshotOptions
-            {
-                Mask = [Browser.FrameLocator("#frame2").Locator("div").Nth(3)],
-            })),
+            Record(() =>
+                Expect
+                    .That(Screen)
+                    .ToHaveScreenshotAsync(
+                        "should-mask-in-parallel-1",
+                        new ScreenshotOptions { Mask = [Browser.FrameLocator("#frame1").Locator("div").Nth(1)] }
+                    )
+            ),
+            Record(() =>
+                Expect
+                    .That(Screen)
+                    .ToHaveScreenshotAsync(
+                        "should-mask-in-parallel-2",
+                        new ScreenshotOptions { Mask = [Browser.FrameLocator("#frame2").Locator("div").Nth(3)] }
+                    )
+            ),
         };
         foreach (var result in await Task.WhenAll(results))
         {
@@ -97,7 +128,12 @@ public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
         await Browser.GotoAsync("/grid.html");
         var screenshot1 = await File.ReadAllBytesAsync(await App.ScreenshotAsync());
         await StoreMaskedReferenceAsync("should-remove-mask-after-screenshot", [new MaskTarget("div", 1)]);
-        await Expect.That(Screen).ToHaveScreenshotAsync("should-remove-mask-after-screenshot", new ScreenshotOptions { Mask = [Browser.Locator("div").Nth(1)] });
+        await Expect
+            .That(Screen)
+            .ToHaveScreenshotAsync(
+                "should-remove-mask-after-screenshot",
+                new ScreenshotOptions { Mask = [Browser.Locator("div").Nth(1)] }
+            );
         var screenshot2 = await File.ReadAllBytesAsync(await App.ScreenshotAsync());
         Assert.That(screenshot1.AsSpan().SequenceEqual(screenshot2), Is.True);
     }
@@ -116,10 +152,18 @@ public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
 
         await Browser.GotoAsync(Content("<iframe></iframe>"));
         await StoreReferenceAsync("mask-stalled-subframe");
-        await Browser.GotoAsync(Content("<iframe src='/subframe.html'></iframe>"), new GotoOptions { WaitUntil = GotoWaitUntil.DomContentLoaded });
+        await Browser.GotoAsync(
+            Content("<iframe src='/subframe.html'></iframe>"),
+            new GotoOptions { WaitUntil = GotoWaitUntil.DomContentLoaded }
+        );
         await routed.Task;
 
-        await Expect.That(Screen).ToHaveScreenshotAsync("mask-stalled-subframe", new ScreenshotOptions { Mask = [Browser.Locator("non-existent")] });
+        await Expect
+            .That(Screen)
+            .ToHaveScreenshotAsync(
+                "mask-stalled-subframe",
+                new ScreenshotOptions { Mask = [Browser.Locator("non-existent")] }
+            );
         released.TrySetResult();
         await Expect.That(Browser.FrameLocator("iframe").Locator("body")).ToBeAttachedAsync();
     }
@@ -128,7 +172,8 @@ public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
     public async Task Should_work_when_subframe_used_document_open_after_a_weird_url()
     {
         await Browser.GotoAsync("/empty.html");
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               const iframe = document.createElement('iframe');
               iframe.src = 'javascript:hi';
@@ -137,9 +182,15 @@ public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
               iframe.contentDocument.write('Hello');
               iframe.contentDocument.close();
             }
-            """);
+            """
+        );
         await StoreReferenceAsync("mask-document-open");
-        await Expect.That(Screen).ToHaveScreenshotAsync("mask-document-open", new ScreenshotOptions { Mask = [Browser.Locator("non-existent")] });
+        await Expect
+            .That(Screen)
+            .ToHaveScreenshotAsync(
+                "mask-document-open",
+                new ScreenshotOptions { Mask = [Browser.Locator("non-existent")] }
+            );
     }
 
     [Test]
@@ -148,10 +199,11 @@ public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
         await Browser.SetViewportAsync(500, 500);
         await Browser.GotoAsync("/grid.html");
         await StoreMaskedReferenceAsync("mask-color-should-work", [new MaskTarget("div", 5)], "#00ff00");
-        await Expect.That(Screen).ToHaveScreenshotAsync("mask-color-should-work", new ScreenshotOptions
-        {
-            Mask = [Browser.Locator("div").Nth(5)],
-            MaskColor = "#00FF00",
-        });
+        await Expect
+            .That(Screen)
+            .ToHaveScreenshotAsync(
+                "mask-color-should-work",
+                new ScreenshotOptions { Mask = [Browser.Locator("div").Nth(5)], MaskColor = "#00FF00" }
+            );
     }
 }

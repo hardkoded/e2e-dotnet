@@ -65,28 +65,38 @@ public sealed class SecretsShownTransformedTests
     {
         using var site = await TinySite.StartAsync(EchoPage);
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "read"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = model,
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            TestTitle = "observes the echoes",
-            ActionTimeout = TimeSpan.FromSeconds(5),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = model,
+                BaseUrl = site.Url,
+                CacheEnabled = false,
+                TestTitle = "observes the echoes",
+                ActionTimeout = TimeSpan.FromSeconds(5),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         var token = Secret.Create("token", Token);
         var note = Secret.Create("note", Note);
         await session.App.OpenAsync("/");
         await session.Screen.GetByLabel("Token").FillAsync(token);
         await session.Screen.GetByLabel("Note").FillAsync(note);
-        await session.Agent.ActAsync("read the echoes", new ActOptions
-        {
-            Params = new Dictionary<string, object?> { ["token"] = token, ["note"] = note },
-        });
+        await session.Agent.ActAsync(
+            "read the echoes",
+            new ActOptions
+            {
+                Params = new Dictionary<string, object?> { ["token"] = token, ["note"] = note },
+            }
+        );
         session.Complete();
 
-        var text = string.Join('\n', model.Requests.SelectMany(request => request.Messages.Select(message => message.Content).Prepend(request.System)));
+        var text = string.Join(
+            '\n',
+            model.Requests.SelectMany(request =>
+                request.Messages.Select(message => message.Content).Prepend(request.System)
+            )
+        );
         Assert.Contains("<secret:token>", text, StringComparison.Ordinal);
         Assert.Contains("<secret:note>", text, StringComparison.Ordinal);
         foreach (var form in Forms)
@@ -99,15 +109,17 @@ public sealed class SecretsShownTransformedTests
     public async Task Fails_on_each_echo_with_the_received_text_redacted()
     {
         using var site = await TinySite.StartAsync(EchoPage);
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            TestTitle = "fails on each echo",
-            ActionTimeout = TimeSpan.FromSeconds(5),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                BaseUrl = site.Url,
+                CacheEnabled = false,
+                TestTitle = "fails on each echo",
+                ActionTimeout = TimeSpan.FromSeconds(5),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         await session.App.OpenAsync("/");
         await session.Screen.GetByLabel("Token").FillAsync(Secret.Create("token", Token));
         await session.Screen.GetByLabel("Note").FillAsync(Secret.Create("note", Note));
@@ -115,9 +127,16 @@ public sealed class SecretsShownTransformedTests
         foreach (var id in new[] { "plain", "upper", "lower", "note-echo" })
         {
             var failure = await Assert.ThrowsAsync<TestException>(() =>
-                Expect.That(session.Screen.GetByTestId(id)).ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(500)));
+                Expect
+                    .That(session.Screen.GetByTestId(id))
+                    .ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(500))
+            );
 
-            Assert.Contains(id == "note-echo" ? "<secret:note>" : "<secret:token>", failure.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                id == "note-echo" ? "<secret:note>" : "<secret:token>",
+                failure.Message,
+                StringComparison.Ordinal
+            );
             foreach (var form in Forms)
             {
                 Assert.DoesNotContain(form, failure.Message, StringComparison.Ordinal);
@@ -131,32 +150,42 @@ public sealed class SecretsShownTransformedTests
         using var report = new ReportDirectory();
         using var site = await TinySite.StartAsync(EchoPage);
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "read"));
-        await using (var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = model,
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            ResultsDirectory = report.Results,
-            TestTitle = "leaves no trace of the echoes",
-            ActionTimeout = TimeSpan.FromSeconds(5),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        }))
+        await using (
+            var session = await E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = new WebEngine(headless: true),
+                    Model = model,
+                    BaseUrl = site.Url,
+                    CacheEnabled = false,
+                    ResultsDirectory = report.Results,
+                    TestTitle = "leaves no trace of the echoes",
+                    ActionTimeout = TimeSpan.FromSeconds(5),
+                    TestTimeout = TimeSpan.FromSeconds(30),
+                }
+            )
+        )
         {
             var token = Secret.Create("token", Token);
             var note = Secret.Create("note", Note);
             await session.App.OpenAsync("/");
             await session.Screen.GetByLabel("Token").FillAsync(token);
             await session.Screen.GetByLabel("Note").FillAsync(note);
-            await session.Agent.ActAsync("read the echoes", new ActOptions
-            {
-                Params = new Dictionary<string, object?> { ["token"] = token, ["note"] = note },
-            });
+            await session.Agent.ActAsync(
+                "read the echoes",
+                new ActOptions
+                {
+                    Params = new Dictionary<string, object?> { ["token"] = token, ["note"] = note },
+                }
+            );
             Exception? last = null;
             foreach (var id in new[] { "plain", "upper", "lower", "note-echo" })
             {
                 last = await Assert.ThrowsAsync<TestException>(() =>
-                    Expect.That(session.Screen.GetByTestId(id)).ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(500)));
+                    Expect
+                        .That(session.Screen.GetByTestId(id))
+                        .ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(500))
+                );
             }
 
             session.Complete(last);
@@ -169,7 +198,10 @@ public sealed class SecretsShownTransformedTests
             Assert.DoesNotContain(form, document, StringComparison.Ordinal);
         }
 
-        var files = Directory.EnumerateFiles(report.Output, "*", SearchOption.AllDirectories).Where(file => Path.GetExtension(file) is not (".png" or ".webm" or ".mp4")).ToList();
+        var files = Directory
+            .EnumerateFiles(report.Output, "*", SearchOption.AllDirectories)
+            .Where(file => Path.GetExtension(file) is not (".png" or ".webm" or ".mp4"))
+            .ToList();
         Assert.Contains(files, file => file.EndsWith(".md", StringComparison.Ordinal));
         foreach (var file in files)
         {

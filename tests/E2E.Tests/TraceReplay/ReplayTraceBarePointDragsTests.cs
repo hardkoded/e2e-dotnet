@@ -47,15 +47,28 @@ public sealed class ReplayTraceBarePointDragsTests
     [Fact]
     public async Task Places_each_end_of_a_bare_point_drag_inside_the_live_box_of_the_node_it_sat_in_and_hands_off_when_one_is_gone()
     {
-        var board = new SemanticNode { Ref = "b", Role = "img", Name = "Board", Rect = new BoundingBox(100, 200, 400, 200) };
-        RecordedPointPlace Place(string name, double fx, double fy) => new() { Target = new RecordedTarget { Role = "img", Name = name }, Fx = fx, Fy = fy };
-        RecordedAction Moved(RecordedPointPlace to) => new()
+        var board = new SemanticNode
         {
-            Kind = "dragAt",
-            From = new RecordedPointEnd { Point = new Point(100, 50), Under = Place("Board", 0.25, 0.25) },
-            To = new RecordedPointEnd { Point = new Point(300, 150), Under = to },
-            Viewport = Viewport,
+            Ref = "b",
+            Role = "img",
+            Name = "Board",
+            Rect = new BoundingBox(100, 200, 400, 200),
         };
+        RecordedPointPlace Place(string name, double fx, double fy) =>
+            new()
+            {
+                Target = new RecordedTarget { Role = "img", Name = name },
+                Fx = fx,
+                Fy = fy,
+            };
+        RecordedAction Moved(RecordedPointPlace to) =>
+            new()
+            {
+                Kind = "dragAt",
+                From = new RecordedPointEnd { Point = new Point(100, 50), Under = Place("Board", 0.25, 0.25) },
+                To = new RecordedPointEnd { Point = new Point(300, 150), Under = to },
+                Viewport = Viewport,
+            };
         var drags = new List<object?>();
         var host = MakeHost([board, Email], (name, detail) => CollectDrags(drags, name, detail));
 

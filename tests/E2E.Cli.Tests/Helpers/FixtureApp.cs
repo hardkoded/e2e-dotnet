@@ -130,7 +130,9 @@ internal sealed class FixtureApp : IDisposable
             probe.Start();
             var port = ((IPEndPoint)probe.LocalEndpoint).Port;
             probe.Stop();
-            var app = new FixtureApp("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var app = new FixtureApp(
+                "http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            );
             app._listener.Prefixes.Add(app.Url + "/");
             try
             {

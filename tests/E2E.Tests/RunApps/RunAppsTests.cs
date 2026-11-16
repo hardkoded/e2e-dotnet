@@ -19,10 +19,13 @@ public sealed class RunAppsTests
         var config = E2EConfig.Parse(
             $$"""
             { "targets": [{ "app": { "url": "http://127.0.0.1:0",
-              "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve", "{port}"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
+              "command": { "executable": {{JsonSerializer.Serialize(
+                AppProgram.Executable
+            )}}, "args": ["serve", "{port}"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
             """,
             Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
-            _ => null);
+            _ => null
+        );
         var notices = new List<string>();
         var first = await E2E.RunApps.StartAsync(config, config.Target, notices.Add, CancellationToken.None);
         Assert.NotEqual("http://127.0.0.1:0/", first.App.Url);
@@ -40,10 +43,13 @@ public sealed class RunAppsTests
         var config = E2EConfig.Parse(
             $$"""
             { "targets": [{ "app": { "url": "http://127.0.0.1:0",
-              "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve-for", "{port}", "6000"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
+              "command": { "executable": {{JsonSerializer.Serialize(
+                AppProgram.Executable
+            )}}, "args": ["serve-for", "{port}", "6000"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
             """,
             Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
-            _ => null);
+            _ => null
+        );
         var first = await E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None);
         Assert.True(await AppProgram.IsReachable(first.App.Url!));
         while (await AppProgram.IsReachable(first.App.Url!))
@@ -68,7 +74,11 @@ public sealed class RunAppsTests
     [Fact]
     public async Task Leaves_a_target_without_a_command_as_it_is()
     {
-        var config = E2EConfig.Parse("""{ "targets": [{ "app": { "url": "http://127.0.0.1:3000" } }] }""", Path.GetTempPath(), _ => null);
+        var config = E2EConfig.Parse(
+            """{ "targets": [{ "app": { "url": "http://127.0.0.1:3000" } }] }""",
+            Path.GetTempPath(),
+            _ => null
+        );
         Assert.Same(config.Target, await E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None));
     }
 
@@ -78,15 +88,22 @@ public sealed class RunAppsTests
         var config = E2EConfig.Parse(
             $$"""
             { "targets": [{ "app": { "url": "http://127.0.0.1:0",
-              "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["exit", "3"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
+              "command": { "executable": {{JsonSerializer.Serialize(
+                AppProgram.Executable
+            )}}, "args": ["exit", "3"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
             """,
             Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
-            _ => null);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None));
+            _ => null
+        );
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None)
+        );
         Assert.Equal("APP_UNREACHABLE", failure.Code);
 
         // The failed start is not remembered: the next caller starts afresh and fails the same way.
-        await Assert.ThrowsAsync<EngineException>(() => E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None));
+        await Assert.ThrowsAsync<EngineException>(() =>
+            E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None)
+        );
     }
 
     [Fact]
@@ -114,11 +131,15 @@ public sealed class RunAppsTests
         Assert.False(await AppProgram.IsReachable(target.App.Url!));
     }
 
-    private static E2EConfig ServeConfig() => E2EConfig.Parse(
-        $$"""
-        { "targets": [{ "app": { "url": "http://127.0.0.1:0",
-          "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve", "{port}"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
-        """,
-        Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
-        _ => null);
+    private static E2EConfig ServeConfig() =>
+        E2EConfig.Parse(
+            $$"""
+            { "targets": [{ "app": { "url": "http://127.0.0.1:0",
+              "command": { "executable": {{JsonSerializer.Serialize(
+                AppProgram.Executable
+            )}}, "args": ["serve", "{port}"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
+            """,
+            Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
+            _ => null
+        );
 }

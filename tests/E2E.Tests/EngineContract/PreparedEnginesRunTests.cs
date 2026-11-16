@@ -65,7 +65,13 @@ public sealed class PreparedEnginesRunTests
     public async Task The_process_finishes_the_engines_its_fixtures_prepared_once_when_the_run_ends()
     {
         var engine = new PreparingEngine();
-        var scope = new PrepareScope { RunId = "run", ProjectRoot = Directory.GetCurrentDirectory(), Env = PreparedEngines.ProcessEnvironment(), Notice = (_, _) => { } };
+        var scope = new PrepareScope
+        {
+            RunId = "run",
+            ProjectRoot = Directory.GetCurrentDirectory(),
+            Env = PreparedEngines.ProcessEnvironment(),
+            Notice = (_, _) => { },
+        };
         await HostRun.Prepared.PrepareAsync(engine, "web", 1, scope, CancellationToken.None);
 
         await HostRun.FinishPreparedAsync();
@@ -80,7 +86,13 @@ public sealed class PreparedEnginesRunTests
     {
         var gate = new TaskCompletionSource();
         var engine = new PreparingEngine { Gate = gate.Task };
-        var scope = new PrepareScope { RunId = "run", ProjectRoot = Directory.GetCurrentDirectory(), Env = PreparedEngines.ProcessEnvironment(), Notice = (_, _) => { } };
+        var scope = new PrepareScope
+        {
+            RunId = "run",
+            ProjectRoot = Directory.GetCurrentDirectory(),
+            Env = PreparedEngines.ProcessEnvironment(),
+            Notice = (_, _) => { },
+        };
         var prepared = new PreparedEngines();
         using var starter = new CancellationTokenSource();
 
@@ -94,7 +106,16 @@ public sealed class PreparedEnginesRunTests
         Assert.False(engine.HookSawCancel);
         Assert.Equal(1, engine.Prepares);
 
-        await prepared.FinishAsync(new FinishScope { RunId = "run", Env = PreparedEngines.ProcessEnvironment(), CleanupTimeout = TimeSpan.FromSeconds(5), Notice = (_, _) => { }, OnFailure = _ => { } });
+        await prepared.FinishAsync(
+            new FinishScope
+            {
+                RunId = "run",
+                Env = PreparedEngines.ProcessEnvironment(),
+                CleanupTimeout = TimeSpan.FromSeconds(5),
+                Notice = (_, _) => { },
+                OnFailure = _ => { },
+            }
+        );
         Assert.Equal(1, engine.Finishes);
     }
 
@@ -102,11 +123,26 @@ public sealed class PreparedEnginesRunTests
     public async Task The_run_shuts_its_workers_down_with_no_reuse_grant_before_it_finishes_the_engine()
     {
         var engine = new PreparingEngine();
-        var scope = new PrepareScope { RunId = "run", ProjectRoot = Directory.GetCurrentDirectory(), Env = PreparedEngines.ProcessEnvironment(), Notice = (_, _) => { } };
+        var scope = new PrepareScope
+        {
+            RunId = "run",
+            ProjectRoot = Directory.GetCurrentDirectory(),
+            Env = PreparedEngines.ProcessEnvironment(),
+            Notice = (_, _) => { },
+        };
         var prepared = new PreparedEngines();
         await prepared.PrepareAsync(engine, "web", 1, scope, CancellationToken.None);
 
-        await prepared.FinishAsync(new FinishScope { RunId = "run", Env = PreparedEngines.ProcessEnvironment(), CleanupTimeout = TimeSpan.FromSeconds(5), Notice = (_, _) => { }, OnFailure = _ => { } });
+        await prepared.FinishAsync(
+            new FinishScope
+            {
+                RunId = "run",
+                Env = PreparedEngines.ProcessEnvironment(),
+                CleanupTimeout = TimeSpan.FromSeconds(5),
+                Notice = (_, _) => { },
+                OnFailure = _ => { },
+            }
+        );
 
         Assert.Equal(["prepare", "dispose", "finish"], engine.Order.ToArray());
         Assert.False(engine.DisposeGranted);
@@ -116,12 +152,27 @@ public sealed class PreparedEnginesRunTests
     public async Task A_dispose_that_fails_still_lets_the_engine_finish_and_release()
     {
         var engine = new PreparingEngine { DisposeFailure = new InvalidOperationException("close refused on purpose") };
-        var scope = new PrepareScope { RunId = "run", ProjectRoot = Directory.GetCurrentDirectory(), Env = PreparedEngines.ProcessEnvironment(), Notice = (_, _) => { } };
+        var scope = new PrepareScope
+        {
+            RunId = "run",
+            ProjectRoot = Directory.GetCurrentDirectory(),
+            Env = PreparedEngines.ProcessEnvironment(),
+            Notice = (_, _) => { },
+        };
         var prepared = new PreparedEngines();
         await prepared.PrepareAsync(engine, "web", 1, scope, CancellationToken.None);
         var failures = new List<Exception>();
 
-        await prepared.FinishAsync(new FinishScope { RunId = "run", Env = PreparedEngines.ProcessEnvironment(), CleanupTimeout = TimeSpan.FromSeconds(5), Notice = (_, _) => { }, OnFailure = failures.Add });
+        await prepared.FinishAsync(
+            new FinishScope
+            {
+                RunId = "run",
+                Env = PreparedEngines.ProcessEnvironment(),
+                CleanupTimeout = TimeSpan.FromSeconds(5),
+                Notice = (_, _) => { },
+                OnFailure = failures.Add,
+            }
+        );
 
         Assert.Equal(["prepare", "dispose", "finish"], engine.Order.ToArray());
         var failure = Assert.Single(failures);
@@ -132,12 +183,27 @@ public sealed class PreparedEnginesRunTests
     public async Task A_dispose_that_hangs_past_its_budget_is_reported_and_the_engine_still_finishes()
     {
         var engine = new PreparingEngine { DisposeHangs = true };
-        var scope = new PrepareScope { RunId = "run", ProjectRoot = Directory.GetCurrentDirectory(), Env = PreparedEngines.ProcessEnvironment(), Notice = (_, _) => { } };
+        var scope = new PrepareScope
+        {
+            RunId = "run",
+            ProjectRoot = Directory.GetCurrentDirectory(),
+            Env = PreparedEngines.ProcessEnvironment(),
+            Notice = (_, _) => { },
+        };
         var prepared = new PreparedEngines();
         await prepared.PrepareAsync(engine, "web", 1, scope, CancellationToken.None);
         var failures = new List<Exception>();
 
-        await prepared.FinishAsync(new FinishScope { RunId = "run", Env = PreparedEngines.ProcessEnvironment(), CleanupTimeout = TimeSpan.FromSeconds(2), Notice = (_, _) => { }, OnFailure = failures.Add });
+        await prepared.FinishAsync(
+            new FinishScope
+            {
+                RunId = "run",
+                Env = PreparedEngines.ProcessEnvironment(),
+                CleanupTimeout = TimeSpan.FromSeconds(2),
+                Notice = (_, _) => { },
+                OnFailure = failures.Add,
+            }
+        );
 
         Assert.Equal(["prepare", "dispose", "finish"], engine.Order.ToArray());
         var failure = Assert.IsType<EngineException>(Assert.Single(failures));
@@ -150,15 +216,23 @@ public sealed class PreparedEnginesRunTests
         Directory.CreateDirectory(project);
         try
         {
-            await Runner.RunAsync(new RunOptions
-            {
-                Cwd = project,
-                Tests = new InMemoryTests("tests/prepared.e2e", [new InMemoryTest("first", _ => Task.CompletedTask), new InMemoryTest("second", _ => Task.CompletedTask)]),
-                Engine = engine,
-                Env = env,
-                // A CI run retries a failed test by default; the counts here are for one attempt each.
-                RawConfig = """{ "retries": 0 }""",
-            });
+            await Runner.RunAsync(
+                new RunOptions
+                {
+                    Cwd = project,
+                    Tests = new InMemoryTests(
+                        "tests/prepared.e2e",
+                        [
+                            new InMemoryTest("first", _ => Task.CompletedTask),
+                            new InMemoryTest("second", _ => Task.CompletedTask),
+                        ]
+                    ),
+                    Engine = engine,
+                    Env = env,
+                    // A CI run retries a failed test by default; the counts here are for one attempt each.
+                    RawConfig = """{ "retries": 0 }""",
+                }
+            );
         }
         finally
         {

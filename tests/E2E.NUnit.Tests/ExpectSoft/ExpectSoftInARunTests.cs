@@ -27,7 +27,10 @@ public sealed class ExpectSoftInARunTests
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
         Assert.That(result.Message, Does.Contain("toHaveText failed").And.Contain("expected: text \"the count\""));
         Assert.That(result.Message, Does.Contain("toBeHidden failed"));
-        Assert.That(result.Message.IndexOf("toHaveText failed", StringComparison.Ordinal), Is.LessThan(result.Message.IndexOf("toBeHidden failed", StringComparison.Ordinal)));
+        Assert.That(
+            result.Message.IndexOf("toHaveText failed", StringComparison.Ordinal),
+            Is.LessThan(result.Message.IndexOf("toBeHidden failed", StringComparison.Ordinal))
+        );
         // The hard matcher after the failures ran and passed, so exactly the two soft failures are recorded.
         Assert.That(result.AssertionResults, Has.Count.EqualTo(2));
     }
@@ -49,7 +52,10 @@ public sealed class ExpectSoftInARunTests
         // Partial: NUnit reports the timeout as the CancelAfter message, not as a TEST_TIMEOUT code.
         // NUnit's timer also covers SetUp, which opens the page. The first session in a process also checks the Chromium install
         // (a static, once-per-process step in WebEngine), so run another body first. That check is then done when this test's timer starts.
-        Assert.That(NestedRun.Run(nameof(SoftSuiteFixture.A_body_error_stays_primary_over_the_soft_failures)).Message, Does.Contain("the body gave up"));
+        Assert.That(
+            NestedRun.Run(nameof(SoftSuiteFixture.A_body_error_stays_primary_over_the_soft_failures)).Message,
+            Does.Contain("the body gave up")
+        );
         var result = NestedRun.Run(nameof(SoftSuiteFixture.A_timed_out_body_still_settles_its_soft_failures));
 
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));

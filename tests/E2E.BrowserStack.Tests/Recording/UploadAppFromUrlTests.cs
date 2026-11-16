@@ -19,15 +19,30 @@ public sealed class UploadAppFromUrlTests
     {
         public List<(Uri Url, HttpMethod Method, string Body)> Seen { get; } = [];
 
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
         {
-            Seen.Add((request.RequestUri!, request.Method, request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken)));
+            Seen.Add(
+                (
+                    request.RequestUri!,
+                    request.Method,
+                    request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken)
+                )
+            );
             return answer(request);
         }
     }
 
     private static Task<string> Upload(Handler handler, string url) =>
-        BrowserStackSessions.UploadAppFromUrlAsync(new HttpClient(handler), Api, Credentials, url, CancellationToken.None);
+        BrowserStackSessions.UploadAppFromUrlAsync(
+            new HttpClient(handler),
+            Api,
+            Credentials,
+            url,
+            CancellationToken.None
+        );
 
     [Fact]
     public async Task Posts_the_URL_as_a_form_to_the_upload_endpoint_and_returns_the_bs_id()
@@ -47,11 +62,24 @@ public sealed class UploadAppFromUrlTests
     public async Task Reports_a_rejected_upload_with_its_message_and_an_answer_without_a_bs_id()
     {
         var rejected = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            Upload(new Handler(_ => FakeAppAutomate.Json(new JsonObject { ["error"] = "Invalid file format" }, HttpStatusCode.UnprocessableEntity)), "https://example.com/x"));
+            Upload(
+                new Handler(_ =>
+                    FakeAppAutomate.Json(
+                        new JsonObject { ["error"] = "Invalid file format" },
+                        HttpStatusCode.UnprocessableEntity
+                    )
+                ),
+                "https://example.com/x"
+            )
+        );
         Assert.Equal("BrowserStack app upload from a URL failed: HTTP 422 (Invalid file format)", rejected.Message);
 
         var noId = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            Upload(new Handler(_ => FakeAppAutomate.Json(new JsonObject { ["app_url"] = "https://nope" })), "https://example.com/x"));
+            Upload(
+                new Handler(_ => FakeAppAutomate.Json(new JsonObject { ["app_url"] = "https://nope" })),
+                "https://example.com/x"
+            )
+        );
         Assert.Equal("BrowserStack app upload from a URL failed: no bs:// app id in the response", noId.Message);
     }
 
@@ -62,9 +90,18 @@ public sealed class UploadAppFromUrlTests
         var echoed = $"Could not download {signed} ({Uri.EscapeDataString(signed)})";
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            Upload(new Handler(_ => FakeAppAutomate.Json(new JsonObject { ["error"] = echoed }, HttpStatusCode.UnprocessableEntity)), signed));
+            Upload(
+                new Handler(_ =>
+                    FakeAppAutomate.Json(new JsonObject { ["error"] = echoed }, HttpStatusCode.UnprocessableEntity)
+                ),
+                signed
+            )
+        );
 
-        Assert.Equal("BrowserStack app upload from a URL failed: HTTP 422 (Could not download <app URL> (<app URL>))", error.Message);
+        Assert.Equal(
+            "BrowserStack app upload from a URL failed: HTTP 422 (Could not download <app URL> (<app URL>))",
+            error.Message
+        );
         Assert.DoesNotContain("secret-signature", error.Message, StringComparison.Ordinal);
     }
 
@@ -74,7 +111,8 @@ public sealed class UploadAppFromUrlTests
         const string signed = "https://bucket.example.com/app.apk?X-Amz-Signature=secret-signature";
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            Upload(new Handler(_ => throw new HttpRequestException($"fetch failed for {signed}")), signed));
+            Upload(new Handler(_ => throw new HttpRequestException($"fetch failed for {signed}")), signed)
+        );
 
         Assert.Equal("BrowserStack app upload from a URL failed: fetch failed for <app URL>", error.Message);
         Assert.Equal("fetch failed for <app URL>", error.InnerException!.Message);

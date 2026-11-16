@@ -33,27 +33,37 @@ internal sealed class ScreenProject : IDisposable
     public string Snapshots(string file) => Path.Combine(Directory, "tests", file + ".e2e.ts-snapshots");
 
     /// <summary>Runs one test body and returns what it threw, or null when it passed. A new run, unless told otherwise, counts no screenshot as written.</summary>
-    public async Task<E2EException?> RunAsync(string file, string title, Func<Screen, Task> body, bool update = false, bool ci = false, int attempt = 1, bool newRun = true)
+    public async Task<E2EException?> RunAsync(
+        string file,
+        string title,
+        Func<Screen, Task> body,
+        bool update = false,
+        bool ci = false,
+        int attempt = 1,
+        bool newRun = true
+    )
     {
         if (newRun)
         {
             ScreenshotContext.ForgetWrittenUnder(Directory);
         }
 
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = Engine,
-            TestTitle = title,
-            ProjectRoot = Directory,
-            TargetName = "fake",
-            UpdateSnapshots = update,
-            Ci = ci,
-            Attempt = attempt,
-            // The tests count the captures the matcher takes; a failed run's own look at the screen is not one of them.
-            Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Target),
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-            SnapshotDirectoryOf = _ => Snapshots(file),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = Engine,
+                TestTitle = title,
+                ProjectRoot = Directory,
+                TargetName = "fake",
+                UpdateSnapshots = update,
+                Ci = ci,
+                Attempt = attempt,
+                // The tests count the captures the matcher takes; a failed run's own look at the screen is not one of them.
+                Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Target),
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                SnapshotDirectoryOf = _ => Snapshots(file),
+            }
+        );
         try
         {
             await body(session.Screen);
@@ -73,26 +83,30 @@ internal sealed class ScreenProject : IDisposable
     {
         ScreenshotContext.ForgetWrittenUnder(Directory);
         var session = await ((IEngine)Engine).StartAsync(new EngineStartOptions(), CancellationToken.None);
-        return new OpenScreen(session, new Screen(
-            _ => session.ObserveAsync(CancellationToken.None),
-            (node, action, token) => session.PerformAsync(node, action, token),
-            () => CancellationToken.None,
-            () => { },
-            TimeSpan.FromSeconds(5),
-            TimeSpan.FromSeconds(5),
-            clock: clock)
-        {
-            ProjectRoot = Directory,
-            Screenshots = new ScreenshotContext
+        return new OpenScreen(
+            session,
+            new Screen(
+                _ => session.ObserveAsync(CancellationToken.None),
+                (node, action, token) => session.PerformAsync(node, action, token),
+                () => CancellationToken.None,
+                () => { },
+                TimeSpan.FromSeconds(5),
+                TimeSpan.FromSeconds(5),
+                clock: clock
+            )
             {
                 ProjectRoot = Directory,
-                Suffix = Suffix,
-                Title = title,
-                ResultsDirectory = ResultsOf(title),
-                DirectoryOf = _ => Snapshots(file),
-                Capture = (budget, token) => session.ScreenshotAsync(budget, token),
-            },
-        });
+                Screenshots = new ScreenshotContext
+                {
+                    ProjectRoot = Directory,
+                    Suffix = Suffix,
+                    Title = title,
+                    ResultsDirectory = ResultsOf(title),
+                    DirectoryOf = _ => Snapshots(file),
+                    Capture = (budget, token) => session.ScreenshotAsync(budget, token),
+                },
+            }
+        );
     }
 
     /// <summary>A screen from <see cref="OpenScreenAsync"/> and the engine session behind it, which disposing ends.</summary>
@@ -109,9 +123,7 @@ internal sealed class ScreenProject : IDisposable
         {
             System.IO.Directory.Delete(Directory, recursive: true);
         }
-        catch (IOException)
-        {
-        }
+        catch (IOException) { }
     }
 
     private static string ScreenshotContextName() => ScreenshotContext.OperatingSystemName();

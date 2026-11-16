@@ -27,7 +27,10 @@ public sealed class WebAndTheTargetAppTests
                 _ => new AppConfig { Url = "http://localhost:3000", LaunchArguments = ["-x"] },
             };
             var error = Assert.Throws<ConfigurationException>(() => ValidateWeb(web, app, name));
-            Assert.Equal($"target \"chromium\" declares app.{key}, which describes an installed device app; a web() target opens app.url", error.Message);
+            Assert.Equal(
+                $"target \"chromium\" declares app.{key}, which describes an installed device app; a web() target opens app.url",
+                error.Message
+            );
         }
     }
 
@@ -36,7 +39,11 @@ public sealed class WebAndTheTargetAppTests
     {
         const string url = "http://localhost:3000";
         static AppConfig Of(string name, AppPermissionState state) =>
-            new() { Url = url, Permissions = new Dictionary<string, AppPermissionState> { [name] = state } };
+            new()
+            {
+                Url = url,
+                Permissions = new Dictionary<string, AppPermissionState> { [name] = state },
+            };
         static ConfigurationException Refused(WebEngine engine, AppConfig app)
         {
             var error = Assert.Throws<ConfigurationException>(() => ValidateWeb(engine, app, "web"));
@@ -44,7 +51,8 @@ public sealed class WebAndTheTargetAppTests
             return error;
         }
 
-        ValidateWeb(new WebEngine(),
+        ValidateWeb(
+            new WebEngine(),
             new AppConfig
             {
                 Url = url,
@@ -54,24 +62,38 @@ public sealed class WebAndTheTargetAppTests
                     ["clipboard-write"] = AppPermissionState.Grant,
                 },
             },
-            "web");
-        ValidateWeb(new WebEngine(new WebEngineOptions { BrowserName = BrowserName.Webkit }), Of("clipboard-read", AppPermissionState.Grant), "web");
+            "web"
+        );
+        ValidateWeb(
+            new WebEngine(new WebEngineOptions { BrowserName = BrowserName.Webkit }),
+            Of("clipboard-read", AppPermissionState.Grant),
+            "web"
+        );
         Assert.Contains(
             "target \"web\" app.permissions on firefox has unknown key \"clipboard-read\"",
-            Refused(new WebEngine(new WebEngineOptions { BrowserName = BrowserName.Firefox }), Of("clipboard-read", AppPermissionState.Grant)).Message,
-            StringComparison.Ordinal);
+            Refused(
+                new WebEngine(new WebEngineOptions { BrowserName = BrowserName.Firefox }),
+                Of("clipboard-read", AppPermissionState.Grant)
+            ).Message,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "did you mean \"clipboard-write\"",
             Refused(new WebEngine(), Of("clipboard-wirte", AppPermissionState.Grant)).Message,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         foreach (var state in new[] { AppPermissionState.Deny, AppPermissionState.Reset })
         {
             Assert.Equal(
                 $"target \"web\" app.permissions.camera is {state.ToString().ToLowerInvariant()}, but a web() target only grants; leave the permission out instead",
-                Refused(new WebEngine(), Of("camera", state)).Message);
+                Refused(new WebEngine(), Of("camera", state)).Message
+            );
         }
     }
 
     private static void ValidateWeb(WebEngine engine, AppConfig app, string targetName) =>
-        ((IEngine)engine).ValidateApp(TargetApps.EngineAppDeclarationOf(app), new EngineAppCheckInfo { TargetName = targetName });
+        ((IEngine)engine).ValidateApp(
+            TargetApps.EngineAppDeclarationOf(app),
+            new EngineAppCheckInfo { TargetName = targetName }
+        );
 }

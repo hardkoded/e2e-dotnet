@@ -36,11 +36,14 @@ public sealed class LimrunSimulators : IDeviceProvider
     private readonly ConcurrentDictionary<string, Held> _held = new(StringComparer.Ordinal);
 
     public LimrunSimulators(LimrunSimulatorsOptions? options = null)
-        : this(options, LimrunHost.Instance, SharedHttp, static (delay, token) => Task.Delay(delay, token))
-    {
-    }
+        : this(options, LimrunHost.Instance, SharedHttp, static (delay, token) => Task.Delay(delay, token)) { }
 
-    internal LimrunSimulators(LimrunSimulatorsOptions? options, ILimrunHost host, HttpClient http, Func<TimeSpan, CancellationToken, Task> delay)
+    internal LimrunSimulators(
+        LimrunSimulatorsOptions? options,
+        ILimrunHost host,
+        HttpClient http,
+        Func<TimeSpan, CancellationToken, Task> delay
+    )
     {
         _options = options ?? new LimrunSimulatorsOptions();
         _host = host;
@@ -51,7 +54,12 @@ public sealed class LimrunSimulators : IDeviceProvider
     public string Name => "limrun";
 
     /// <summary>What a device holds until release: its daemon's directory and environment, the API it was created with, and its heartbeat.</summary>
-    private sealed class Held(string stateDirectory, IReadOnlyDictionary<string, string?> environment, LimrunApi api, MobilePlatform platform)
+    private sealed class Held(
+        string stateDirectory,
+        IReadOnlyDictionary<string, string?> environment,
+        LimrunApi api,
+        MobilePlatform platform
+    )
     {
         public string StateDirectory { get; } = stateDirectory;
 
@@ -72,7 +80,9 @@ public sealed class LimrunSimulators : IDeviceProvider
         // The daemon the provider starts is the pinned release, and a client that speaks another would read it wrongly.
         if (request.AgentDeviceVersion != AgentDeviceVersion.Pinned)
         {
-            throw new InvalidOperationException($"LimrunSimulators starts agent-device {AgentDeviceVersion.Pinned}, but the engine asked for {request.AgentDeviceVersion}.");
+            throw new InvalidOperationException(
+                $"LimrunSimulators starts agent-device {AgentDeviceVersion.Pinned}, but the engine asked for {request.AgentDeviceVersion}."
+            );
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -82,7 +92,8 @@ public sealed class LimrunSimulators : IDeviceProvider
             await _host.AssertAndroidToolsAsync(request.Env, cancellationToken).ConfigureAwait(false);
         }
 
-        var created = await api.CreateAsync(request.Platform, CreateBody(request), CancellationToken.None).ConfigureAwait(false);
+        var created = await api.CreateAsync(request.Platform, CreateBody(request), CancellationToken.None)
+            .ConfigureAwait(false);
         // The id is known even when the run is interrupted during the create, so cleanup can delete it.
         var id = created.Id;
         Held? resource = null;
@@ -97,12 +108,30 @@ public sealed class LimrunSimulators : IDeviceProvider
             var instance = await ReadyAsync(api, request.Platform, created, budget.Token).ConfigureAwait(false);
             resource.DriverStarted = true;
             resource.Environment = DriverEnvironment(request.Env, instance, request.Platform);
-            var binding = await _host.StartDriverAsync(
-                new LimrunDriverRequest(stateDirectory, request.RunId, request.Slot, request.Platform, request.App, request.AppPath),
-                resource.Environment,
-                cancellationToken).ConfigureAwait(false);
-            resource.StopHeartbeat = await _host.StartHeartbeatAsync(binding, request.Log, cancellationToken).ConfigureAwait(false);
-            return new DeviceLease { Id = id, Client = binding.Client, DeviceId = binding.DeviceId, InstalledApp = binding.InstalledApp };
+            var binding = await _host
+                .StartDriverAsync(
+                    new LimrunDriverRequest(
+                        stateDirectory,
+                        request.RunId,
+                        request.Slot,
+                        request.Platform,
+                        request.App,
+                        request.AppPath
+                    ),
+                    resource.Environment,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            resource.StopHeartbeat = await _host
+                .StartHeartbeatAsync(binding, request.Log, cancellationToken)
+                .ConfigureAwait(false);
+            return new DeviceLease
+            {
+                Id = id,
+                Client = binding.Client,
+                DeviceId = binding.DeviceId,
+                InstalledApp = binding.InstalledApp,
+            };
         }
         catch (Exception cause)
         {
@@ -121,7 +150,11 @@ public sealed class LimrunSimulators : IDeviceProvider
             }
             catch (Exception cleanupCause)
             {
-                throw new AggregateException($"Limrun acquisition failed; cleanup also failed for {id}", cause, cleanupCause);
+                throw new AggregateException(
+                    $"Limrun acquisition failed; cleanup also failed for {id}",
+                    cause,
+                    cleanupCause
+                );
             }
 
             throw;
@@ -141,7 +174,10 @@ public sealed class LimrunSimulators : IDeviceProvider
         var apiKey = Variable(environment, "LIMRUN_API_KEY");
         if (apiKey is null)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "LimrunSimulators requires LIMRUN_API_KEY in the run environment");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "LimrunSimulators requires LIMRUN_API_KEY in the run environment"
+            );
         }
 
         return new LimrunApi(_http, apiKey, new Uri(Variable(environment, "LIMRUN_BASE_URL") ?? DefaultBaseUrl));
@@ -169,7 +205,9 @@ public sealed class LimrunSimulators : IDeviceProvider
                 spec["model"] = model == LimrunAndroidModel.Tablet ? "tablet" : "phone";
             }
 
-            spec["clues"] = new JsonArray(new JsonObject { ["kind"] = "OSVersion", ["osVersion"] = _options.Android?.OsVersion ?? "15" });
+            spec["clues"] = new JsonArray(
+                new JsonObject { ["kind"] = "OSVersion", ["osVersion"] = _options.Android?.OsVersion ?? "15" }
+            );
         }
 
         return new JsonObject
@@ -177,13 +215,24 @@ public sealed class LimrunSimulators : IDeviceProvider
             ["metadata"] = new JsonObject
             {
                 ["displayName"] = $"e2e {request.TargetName} worker {request.Slot + 1}",
-                ["labels"] = new JsonObject { ["source"] = "e2e", ["run"] = request.RunId, ["target"] = request.TargetName, ["slot"] = request.Slot.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+                ["labels"] = new JsonObject
+                {
+                    ["source"] = "e2e",
+                    ["run"] = request.RunId,
+                    ["target"] = request.TargetName,
+                    ["slot"] = request.Slot.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                },
             },
             ["spec"] = spec,
         };
     }
 
-    private async Task<LimrunInstance> ReadyAsync(LimrunApi api, MobilePlatform platform, LimrunInstance instance, CancellationToken cancellationToken)
+    private async Task<LimrunInstance> ReadyAsync(
+        LimrunApi api,
+        MobilePlatform platform,
+        LimrunInstance instance,
+        CancellationToken cancellationToken
+    )
     {
         var current = instance;
         while (true)
@@ -196,7 +245,9 @@ public sealed class LimrunSimulators : IDeviceProvider
 
             if (current.State == "terminated")
             {
-                throw new InvalidOperationException($"Limrun instance {instance.Id} terminated before readiness: {current.ErrorMessage ?? current.TerminationReason ?? "unknown"}");
+                throw new InvalidOperationException(
+                    $"Limrun instance {instance.Id} terminated before readiness: {current.ErrorMessage ?? current.TerminationReason ?? "unknown"}"
+                );
             }
 
             await _delay(ReadyPoll, cancellationToken).ConfigureAwait(false);
@@ -211,7 +262,12 @@ public sealed class LimrunSimulators : IDeviceProvider
         }
     }
 
-    private static async Task DeleteAsync(LimrunApi api, MobilePlatform platform, string id, CancellationToken cancellationToken)
+    private static async Task DeleteAsync(
+        LimrunApi api,
+        MobilePlatform platform,
+        string id,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -232,26 +288,32 @@ public sealed class LimrunSimulators : IDeviceProvider
         }
 
         var results = await Task.WhenAll(
-            Settle(async () =>
-            {
-                // A device that never became ready has no daemon to stop.
-                if (resource.DriverStarted)
+                Settle(async () =>
                 {
-                    await _host.StopDriverAsync(resource.StateDirectory, resource.Environment, cancellationToken).ConfigureAwait(false);
-                }
+                    // A device that never became ready has no daemon to stop.
+                    if (resource.DriverStarted)
+                    {
+                        await _host
+                            .StopDriverAsync(resource.StateDirectory, resource.Environment, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
 
-
-                // `daemon stop --clean` may have removed it already.
-                if (Directory.Exists(resource.StateDirectory))
-                {
-                    Directory.Delete(resource.StateDirectory, recursive: true);
-                }
-            }),
-            Settle(() => DeleteAsync(resource.Api, resource.Platform, id, cancellationToken))).ConfigureAwait(false);
+                    // `daemon stop --clean` may have removed it already.
+                    if (Directory.Exists(resource.StateDirectory))
+                    {
+                        Directory.Delete(resource.StateDirectory, recursive: true);
+                    }
+                }),
+                Settle(() => DeleteAsync(resource.Api, resource.Platform, id, cancellationToken))
+            )
+            .ConfigureAwait(false);
         var errors = results.OfType<Exception>().ToArray();
         if (errors.Length > 0)
         {
-            throw new AggregateException($"Could not fully release Limrun instance {id}: {string.Join("; ", errors.Select(error => error.Message))}", errors);
+            throw new AggregateException(
+                $"Could not fully release Limrun instance {id}: {string.Join("; ", errors.Select(error => error.Message))}",
+                errors
+            );
         }
 
         _held.TryRemove(id, out _);
@@ -275,7 +337,11 @@ public sealed class LimrunSimulators : IDeviceProvider
     /// user's that would select another device, plus this instance's address and token. The user's daemon policy stays,
     /// as the policy applies to the daemon and its clients alike.
     /// </summary>
-    private static Dictionary<string, string?> DriverEnvironment(IReadOnlyDictionary<string, string?> environment, LimrunInstance instance, MobilePlatform platform)
+    private static Dictionary<string, string?> DriverEnvironment(
+        IReadOnlyDictionary<string, string?> environment,
+        LimrunInstance instance,
+        MobilePlatform platform
+    )
     {
         var result = new Dictionary<string, string?>(environment, StringComparer.Ordinal);
         foreach (var key in result.Keys.ToArray())
@@ -285,7 +351,11 @@ public sealed class LimrunSimulators : IDeviceProvider
                 continue;
             }
 
-            if (key.StartsWith("LIM_IOS_INSTANCE_", StringComparison.Ordinal) || key.StartsWith("LIM_ANDROID_INSTANCE_", StringComparison.Ordinal) || key.StartsWith("AGENT_DEVICE_", StringComparison.Ordinal))
+            if (
+                key.StartsWith("LIM_IOS_INSTANCE_", StringComparison.Ordinal)
+                || key.StartsWith("LIM_ANDROID_INSTANCE_", StringComparison.Ordinal)
+                || key.StartsWith("AGENT_DEVICE_", StringComparison.Ordinal)
+            )
             {
                 result.Remove(key);
             }
@@ -293,7 +363,9 @@ public sealed class LimrunSimulators : IDeviceProvider
 
         if (instance.ApiUrl is not { Length: > 0 } apiUrl || instance.Token is not { Length: > 0 } token)
         {
-            throw new InvalidOperationException($"Limrun instance {instance.Id} has no control endpoint or token. Use an API key with full control.");
+            throw new InvalidOperationException(
+                $"Limrun instance {instance.Id} has no control endpoint or token. Use an API key with full control."
+            );
         }
 
         var prefix = platform == MobilePlatform.Ios ? "LIM_IOS_INSTANCE" : "LIM_ANDROID_INSTANCE";

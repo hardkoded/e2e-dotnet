@@ -54,11 +54,28 @@ internal sealed class WebDriverClient
     /// are per call, and the default 100 seconds would end a queued create early. The call blocks while TestMu queues the request for a free device, so <paramref name="timeout"/>
     /// must cover the queue wait. <paramref name="capabilities"/> is the whole <c>capabilities</c> object.
     /// </summary>
-    public static async Task<WebDriverClient> CreateSessionAsync(HttpClient http, Uri hub, HubCredentials credentials, JsonObject capabilities, TimeSpan timeout, CancellationToken cancellationToken)
+    public static async Task<WebDriverClient> CreateSessionAsync(
+        HttpClient http,
+        Uri hub,
+        HubCredentials credentials,
+        JsonObject capabilities,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    )
     {
         var url = new Uri(WithTrailingSlash(hub), "session");
-        var reply = await SendAsync(http, HttpMethod.Post, url, credentials, new JsonObject { ["capabilities"] = capabilities.DeepClone() }, timeout, cancellationToken).ConfigureAwait(false);
-        var id = Text(reply?["sessionId"]) ?? throw new WebDriverException(null, "session not created", "the hub answered without a session id");
+        var reply = await SendAsync(
+                http,
+                HttpMethod.Post,
+                url,
+                credentials,
+                new JsonObject { ["capabilities"] = capabilities.DeepClone() },
+                timeout,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        var id = Text(reply?["sessionId"])
+            ?? throw new WebDriverException(null, "session not created", "the hub answered without a session id");
         return new WebDriverClient(http, hub, id, credentials);
     }
 
@@ -66,11 +83,27 @@ internal sealed class WebDriverClient
         SendAsync(_http, HttpMethod.Get, Url(path), _credentials, null, CommandTimeout, cancellationToken);
 
     public Task<JsonNode?> PostAsync(string path, JsonNode? body, CancellationToken cancellationToken) =>
-        SendAsync(_http, HttpMethod.Post, Url(path), _credentials, body ?? new JsonObject(), CommandTimeout, cancellationToken);
+        SendAsync(
+            _http,
+            HttpMethod.Post,
+            Url(path),
+            _credentials,
+            body ?? new JsonObject(),
+            CommandTimeout,
+            cancellationToken
+        );
 
     /// <summary>Runs a script (<c>execute/sync</c>), which is how Appium takes its <c>mobile: ...</c> commands.</summary>
     public Task<JsonNode?> ExecuteAsync(string script, JsonObject? arguments, CancellationToken cancellationToken) =>
-        PostAsync("execute/sync", new JsonObject { ["script"] = script, ["args"] = arguments is null ? new JsonArray() : new JsonArray(arguments.DeepClone()) }, cancellationToken);
+        PostAsync(
+            "execute/sync",
+            new JsonObject
+            {
+                ["script"] = script,
+                ["args"] = arguments is null ? new JsonArray() : new JsonArray(arguments.DeepClone()),
+            },
+            cancellationToken
+        );
 
     /// <summary>
     /// Ends the session. A session the hub no longer knows (idle timeout, already deleted) is ended already, so that is
@@ -80,25 +113,45 @@ internal sealed class WebDriverClient
     {
         try
         {
-            await SendAsync(_http, HttpMethod.Delete, Url(""), _credentials, null, CommandTimeout, cancellationToken).ConfigureAwait(false);
+            await SendAsync(_http, HttpMethod.Delete, Url(""), _credentials, null, CommandTimeout, cancellationToken)
+                .ConfigureAwait(false);
         }
-        catch (WebDriverException failure) when (failure.Status == HttpStatusCode.NotFound || failure.Error == "invalid session id")
+        catch (WebDriverException failure)
+            when (failure.Status == HttpStatusCode.NotFound || failure.Error == "invalid session id")
         {
             // Gone already.
         }
     }
 
-    private Uri Url(string path) => new(_hub, path.Length == 0 ? $"session/{Uri.EscapeDataString(SessionId)}" : $"session/{Uri.EscapeDataString(SessionId)}/{path}");
+    private Uri Url(string path) =>
+        new(
+            _hub,
+            path.Length == 0
+                ? $"session/{Uri.EscapeDataString(SessionId)}"
+                : $"session/{Uri.EscapeDataString(SessionId)}/{path}"
+        );
 
-    private static Uri WithTrailingSlash(Uri hub) => hub.AbsoluteUri.EndsWith('/') ? hub : new Uri(hub.AbsoluteUri + "/");
+    private static Uri WithTrailingSlash(Uri hub) =>
+        hub.AbsoluteUri.EndsWith('/') ? hub : new Uri(hub.AbsoluteUri + "/");
 
-    private static async Task<JsonNode?> SendAsync(HttpClient http, HttpMethod method, Uri url, HubCredentials? credentials, JsonNode? body, TimeSpan timeout, CancellationToken cancellationToken)
+    private static async Task<JsonNode?> SendAsync(
+        HttpClient http,
+        HttpMethod method,
+        Uri url,
+        HubCredentials? credentials,
+        JsonNode? body,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    )
     {
         using var message = new HttpRequestMessage(method, url);
         message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if (credentials is not null)
         {
-            message.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{credentials.User}:{credentials.AccessKey}")));
+            message.Headers.Authorization = new AuthenticationHeaderValue(
+                "Basic",
+                Convert.ToBase64String(Encoding.UTF8.GetBytes($"{credentials.User}:{credentials.AccessKey}"))
+            );
         }
 
         if (body is not null)
@@ -118,11 +171,19 @@ internal sealed class WebDriverClient
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new WebDriverException(null, "timeout", $"the hub did not answer {method} {url.AbsolutePath} within {timeout.TotalSeconds:0} seconds");
+            throw new WebDriverException(
+                null,
+                "timeout",
+                $"the hub did not answer {method} {url.AbsolutePath} within {timeout.TotalSeconds:0} seconds"
+            );
         }
         catch (HttpRequestException cause)
         {
-            throw new WebDriverException(null, "unknown error", $"the hub could not be reached: {Redact(cause.Message, credentials)}");
+            throw new WebDriverException(
+                null,
+                "unknown error",
+                $"the hub could not be reached: {Redact(cause.Message, credentials)}"
+            );
         }
 
         var root = Parse(text);
@@ -130,13 +191,16 @@ internal sealed class WebDriverClient
         if ((int)status >= 400)
         {
             // A bare 404 on a session URL is a hub that no longer has the session, not an unknown command.
-            var code = Text(value?["error"]) ?? (status == HttpStatusCode.NotFound ? "invalid session id" : "unknown error");
+            var code = Text(value?["error"])
+                ?? (status == HttpStatusCode.NotFound ? "invalid session id" : "unknown error");
             var detail = Text(value?["message"]) ?? Text(root?["message"]) ?? Short(text);
             throw new WebDriverException(status, code, Redact($"HTTP {(int)status}: {detail}", credentials));
         }
 
         // W3C answers {"value": ...}; session creation {"value": {"sessionId": ...}}. The older protocol put sessionId beside a null value.
-        return value is null && root?["sessionId"] is { } legacy ? new JsonObject { ["sessionId"] = legacy.DeepClone() } : value;
+        return value is null && root?["sessionId"] is { } legacy
+            ? new JsonObject { ["sessionId"] = legacy.DeepClone() }
+            : value;
     }
 
     private static JsonNode? Parse(string text)
@@ -158,7 +222,10 @@ internal sealed class WebDriverClient
     }
 
     private static string Redact(string text, HubCredentials? credentials) =>
-        credentials is { AccessKey.Length: > 0 } ? text.Replace(credentials.AccessKey, "*****", StringComparison.Ordinal) : text;
+        credentials is { AccessKey.Length: > 0 }
+            ? text.Replace(credentials.AccessKey, "*****", StringComparison.Ordinal)
+            : text;
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 }

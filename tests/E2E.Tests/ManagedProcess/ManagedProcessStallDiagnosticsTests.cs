@@ -18,8 +18,21 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
     /// <summary>A budget of two seconds: the test lets the child print, then waits out the budget.</summary>
-    private static CommandConfig Stalled(string[] args, string? log = null, TimeSpan? startupTimeout = null, IReadOnlyDictionary<string, string>? env = null, IReadOnlyList<string>? inheritEnv = null) =>
-        AppProgram.Command(args, startupTimeout ?? TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), log, env: env, inheritEnv: inheritEnv);
+    private static CommandConfig Stalled(
+        string[] args,
+        string? log = null,
+        TimeSpan? startupTimeout = null,
+        IReadOnlyDictionary<string, string>? env = null,
+        IReadOnlyList<string>? inheritEnv = null
+    ) =>
+        AppProgram.Command(
+            args,
+            startupTimeout ?? TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(1),
+            log,
+            env: env,
+            inheritEnv: inheritEnv
+        );
 
     /// <summary>A server that answers every probe with a 503, where upstream's tests probe a port nothing listens on: a refused connection to a closed port takes seconds on Windows.</summary>
     private static TestServer NotReady() => new(_ => Task.FromResult<int?>(503));
@@ -47,11 +60,13 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
             "target \"web\" command",
             Stalled(["print", "stay", "booting", "\u001b[32mlistening soon\u001b[0m", ""], Log),
             _dir,
-            new Readiness(notReady.Url));
+            new Readiness(notReady.Url)
+        );
         var failure = await FailureOf(app, "listening soon");
         Assert.Equal(
             $"target \"web\" command was not reachable at {notReady.Url} within 2000 ms\noutput in {Log} since target \"web\" command started:\n  booting\n  listening soon",
-            failure.Message);
+            failure.Message
+        );
         await app.StopAsync();
     }
 
@@ -63,12 +78,14 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
             "target \"web\" command",
             Stalled(["print", "1", "migrations pending", "fatal: database \"app\" does not exist"], Log),
             _dir,
-            new Readiness(notReady.Url));
+            new Readiness(notReady.Url)
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Equal("APP_UNREACHABLE", failure.Code);
         Assert.Equal(
             $"target \"web\" command exited with code 1 before becoming ready\noutput in {Log} since target \"web\" command started:\n  migrations pending\n  fatal: database \"app\" does not exist",
-            failure.Message);
+            failure.Message
+        );
     }
 
     [Fact]
@@ -80,11 +97,13 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
             Stalled(["print", "stay", " Image postgres:16.4-alpine Pulling ", " Image redis:7-alpine Pulling "], Log),
             _dir,
             Readiness.WaitForExit,
-            new ManagedProcessHooks { Notice = notices.Add });
+            new ManagedProcessHooks { Notice = notices.Add }
+        );
         var failure = await FailureOf(app, "redis");
         Assert.Equal(
             $"service \"compose\" did not exit within 2000 ms\noutput in {Log} since service \"compose\" started:\n   Image postgres:16.4-alpine Pulling\n   Image redis:7-alpine Pulling",
-            failure.Message);
+            failure.Message
+        );
         Assert.Empty(notices);
     }
 
@@ -95,7 +114,12 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
     public async Task Quotes_every_line_the_command_appended_when_the_log_since_it_started_fits_both_windows()
     {
         var lines = Enumerable.Range(1, 25).Select(i => "line " + i).ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(Printed(lines), Log),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, "line 25");
         var quoted = failure.Message.Split('\n').Skip(2).ToArray();
         Assert.Equal(lines.Select(line => "  " + line), quoted);
@@ -105,7 +129,12 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
     public async Task Quotes_the_first_and_last_20_lines_and_only_those_of_a_log_longer_than_both_windows()
     {
         var lines = Enumerable.Range(1, 300).Select(i => $"line {i:D3} {new string('x', 40)}").ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(Printed(lines), Log),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, lines[^1]);
         var quoted = failure.Message.Split('\n').Skip(2).ToArray();
         Assert.Equal(41, quoted.Length);
@@ -119,7 +148,12 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
     {
         // Long lines come back as one long command line, so the child builds them.
         var lines = Enumerable.Range(1, 60).Select(i => $"line {i:D2} {new string('y', 280)}").ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(Printed(lines), Log),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, lines[^1]);
         var quoted = failure.Message.Split('\n').Skip(2).ToArray();
         var printed = quoted.Where(line => line != "  [startup output omitted]").Select(line => line[2..]).ToArray();
@@ -142,7 +176,12 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
         var lines = new[] { fatal, "            at Object.<anonymous> (/app/server.js:12:3)" }
             .Concat(Enumerable.Range(1, 200).Select(i => $"watcher: rebuilt module {i}"))
             .ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(Printed(lines), Log),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, lines[^1]);
         var quoted = failure.Message.Split('\n').Skip(2).ToArray();
         Assert.Equal("  " + fatal, quoted[0]);
@@ -155,7 +194,12 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
         var earlier = Enumerable.Range(1, 200).Select(i => $"earlier run: line {i}");
         await File.WriteAllTextAsync(Path.Combine(_dir, Log), string.Join('\n', earlier) + "\n");
         var lines = Enumerable.Range(1, 40).Select(i => $"added {i}").ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(Printed(lines), Log),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, "added 40");
         Assert.Equal(lines.Select(line => "  " + line), failure.Message.Split('\n').Skip(2));
     }
@@ -164,7 +208,12 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
     public async Task Quotes_the_first_and_last_20_lines_of_a_log_that_fits_the_byte_window_but_not_the_line_budget()
     {
         var lines = Enumerable.Range(1, 50).Select(i => $"line {i}").ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(Printed(lines), Log),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, "line 50");
         var quoted = failure.Message.Split('\n').Skip(2).ToArray();
         Assert.Equal(41, quoted.Length);
@@ -179,7 +228,12 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
         // Each line with its newline is 256 bytes, so the 4 KiB window edges fall on line boundaries at both ends, whatever the newline is.
         var pad = new string('z', 256 - "line 01 ".Length - Environment.NewLine.Length);
         var lines = Enumerable.Range(1, 60).Select(i => $"line {i:D2} {pad}").ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(Printed(lines), Log),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, lines[^1]);
         var quoted = failure.Message.Split('\n').Skip(2).ToArray();
         Assert.Equal(33, quoted.Length);
@@ -194,7 +248,12 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
         var lines = new[] { "fatal: " + new string('x', 5_000) }
             .Concat(Enumerable.Range(1, 400).Select(i => $"watcher: rebuilt module {i}"))
             .ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(Printed(lines), Log),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, "watcher: rebuilt module 400");
         var quoted = failure.Message.Split('\n').Skip(2).ToArray();
         Assert.Equal(21, quoted.Length);
@@ -206,7 +265,12 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
     public async Task Quotes_a_log_of_25_long_lines_whole_while_it_stays_inside_the_byte_window()
     {
         var lines = Enumerable.Range(1, 25).Select(i => $"line {i:D2} {new string('w', 241)}").ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(Printed(lines), Log),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, lines[^1]);
         Assert.Equal(lines.Select(line => "  " + line), failure.Message.Split('\n').Skip(2));
     }
@@ -214,12 +278,20 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
     [Fact]
     public async Task Quotes_whole_lines_around_the_marker_when_a_short_log_has_lines_longer_than_the_byte_window()
     {
-        var lines = Enumerable.Range(1, 10).Select(i =>
-        {
-            var prefix = $"line {i} ";
-            return prefix + new string('v', 1_024 - prefix.Length);
-        }).ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var lines = Enumerable
+            .Range(1, 10)
+            .Select(i =>
+            {
+                var prefix = $"line {i} ";
+                return prefix + new string('v', 1_024 - prefix.Length);
+            })
+            .ToArray();
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(Printed(lines), Log),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, lines[^1][..24]);
         var quoted = failure.Message.Split('\n').Skip(2).ToArray();
         Assert.Equal(7, quoted.Length);
@@ -233,8 +305,15 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(_dir, "out"));
         await File.WriteAllTextAsync(Path.Combine(_dir, Log), "from an earlier run that never finished its line");
-        var lines = new[] { "fatal: EADDRINUSE" }.Concat(Enumerable.Range(1, 400).Select(i => $"watcher: rebuilt module {i}")).ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var lines = new[] { "fatal: EADDRINUSE" }
+            .Concat(Enumerable.Range(1, 400).Select(i => $"watcher: rebuilt module {i}"))
+            .ToArray();
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(Printed(lines), Log),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, "watcher: rebuilt module 400");
         Assert.Equal("  fatal: EADDRINUSE", failure.Message.Split('\n').Skip(2).First());
     }
@@ -244,14 +323,24 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
     {
         var app = new ManagedProcessUnderTest(
             "service \"compose\"",
-            Stalled(["print-template", "token=${SECRET} port=${PORT}"], Log, env: new Dictionary<string, string> { ["SECRET"] = "hunter2-hunter2", ["PORT"] = "443" }),
+            Stalled(
+                ["print-template", "token=${SECRET} port=${PORT}"],
+                Log,
+                env: new Dictionary<string, string> { ["SECRET"] = "hunter2-hunter2", ["PORT"] = "443" }
+            ),
             _dir,
-            Readiness.WaitForExit);
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app, "token=");
         Assert.Equal(
             $"service \"compose\" did not exit within 2000 ms\noutput in {Log} since service \"compose\" started:\n  token=<secret:SECRET> port=443",
-            failure.Message);
-        Assert.Contains("token=hunter2-hunter2", await File.ReadAllTextAsync(Path.Combine(_dir, Log)), StringComparison.Ordinal);
+            failure.Message
+        );
+        Assert.Contains(
+            "token=hunter2-hunter2",
+            await File.ReadAllTextAsync(Path.Combine(_dir, Log)),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -262,9 +351,14 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
         {
             var app = new ManagedProcessUnderTest(
                 "service \"compose\"",
-                Stalled(["print-template", "token=${E2E_TEST_INHERITED_TOKEN}"], Log, inheritEnv: ["E2E_TEST_INHERITED_*"]),
+                Stalled(
+                    ["print-template", "token=${E2E_TEST_INHERITED_TOKEN}"],
+                    Log,
+                    inheritEnv: ["E2E_TEST_INHERITED_*"]
+                ),
                 _dir,
-                Readiness.WaitForExit);
+                Readiness.WaitForExit
+            );
             var failure = await FailureOf(app, "token=");
             Assert.Contains("  token=<secret:E2E_TEST_INHERITED_TOKEN>", failure.Message, StringComparison.Ordinal);
         }
@@ -277,9 +371,17 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
     [Fact]
     public async Task Points_at_log_when_the_command_has_none()
     {
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(["print", "stay", "lost without a log"]), _dir, Readiness.WaitForExit);
+        var app = new ManagedProcessUnderTest(
+            "service \"compose\"",
+            Stalled(["print", "stay", "lost without a log"]),
+            _dir,
+            Readiness.WaitForExit
+        );
         var failure = await FailureOf(app);
-        Assert.Equal("service \"compose\" did not exit within 2000 ms\nset log on this command to keep its output", failure.Message);
+        Assert.Equal(
+            "service \"compose\" did not exit within 2000 ms\nset log on this command to keep its output",
+            failure.Message
+        );
         Assert.False(Directory.Exists(Path.Combine(_dir, "out")));
     }
 
@@ -294,14 +396,27 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
             Stalled(["idle"], Log, TimeSpan.FromSeconds(10)),
             _dir,
             Readiness.WaitForExit,
-            new ManagedProcessHooks { Notice = message => { lock (notices) { notices.Add((message, clock.Elapsed)); } } });
+            new ManagedProcessHooks
+            {
+                Notice = message =>
+                {
+                    lock (notices)
+                    {
+                        notices.Add((message, clock.Elapsed));
+                    }
+                },
+            }
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Equal("APP_UNREACHABLE", failure.Code);
         Assert.Contains("did not exit within 10000 ms", failure.Message, StringComparison.Ordinal);
         lock (notices)
         {
             var notice = Assert.Single(notices);
-            Assert.Equal($"service \"compose\" still starting after 5s: waiting for it to exit; log: {Log}", notice.Message);
+            Assert.Equal(
+                $"service \"compose\" still starting after 5s: waiting for it to exit; log: {Log}",
+                notice.Message
+            );
 
             // At the half mark itself, not at the next 250 ms tick, and not before it.
             Assert.InRange(notice.At, TimeSpan.FromSeconds(4.95), TimeSpan.FromSeconds(7));
@@ -318,7 +433,17 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
             Stalled(["idle"], startupTimeout: TimeSpan.FromSeconds(10)),
             _dir,
             new Readiness(notReady.Url),
-            new ManagedProcessHooks { Notice = message => { lock (notices) { notices.Add(message); } } });
+            new ManagedProcessHooks
+            {
+                Notice = message =>
+                {
+                    lock (notices)
+                    {
+                        notices.Add(message);
+                    }
+                },
+            }
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Equal("APP_UNREACHABLE", failure.Code);
         lock (notices)

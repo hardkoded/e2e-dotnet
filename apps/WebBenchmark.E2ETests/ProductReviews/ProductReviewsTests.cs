@@ -16,7 +16,9 @@ public sealed class ProductReviewsTests : BenchmarkTest
         await App.OpenAsync("/e/product-reviews");
         await Expect.That(Screen.GetByRole("heading", "Peak Trail Running Shoes")).ToBeVisibleAsync();
         await Expect.That(Screen.GetByText("$139.00 - Sizes 6 to 13 - Ships in 2 days")).ToBeVisibleAsync();
-        await Expect.That(Screen.GetByRole("heading", new Regex("Customer reviews"))).ToContainTextAsync("4.7 out of 5");
+        await Expect
+            .That(Screen.GetByRole("heading", new Regex("Customer reviews")))
+            .ToContainTextAsync("4.7 out of 5");
 
         var reviews = Screen.GetByTestId("review-list").GetByRole("listitem");
         await Expect.That(reviews).ToHaveCountAsync(3);

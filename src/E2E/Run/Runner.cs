@@ -86,21 +86,23 @@ internal static class Runner
     /// The process exit code for an error: 0 for none, 1 for a test failure, 2 for a configuration or agent policy error, 3 for an
     /// engine, app, or model provider failure. The class of an agent code follows upstream's table.
     /// </summary>
-    public static int ExitCodeOf(E2EException? error) => error switch
-    {
-        null => 0,
-        AgentException agent => AgentCodeExit(agent.Code),
-        TestException => 1,
-        ConfigurationException => 2,
-        _ => 3,
-    };
+    public static int ExitCodeOf(E2EException? error) =>
+        error switch
+        {
+            null => 0,
+            AgentException agent => AgentCodeExit(agent.Code),
+            TestException => 1,
+            ConfigurationException => 2,
+            _ => 3,
+        };
 
-    public static RunStatus StatusOf(E2EException? error) => error switch
-    {
-        null => RunStatus.Passed,
-        AgentException { Blocked: true } => RunStatus.Blocked,
-        _ => RunStatus.Failed,
-    };
+    public static RunStatus StatusOf(E2EException? error) =>
+        error switch
+        {
+            null => RunStatus.Passed,
+            AgentException { Blocked: true } => RunStatus.Blocked,
+            _ => RunStatus.Failed,
+        };
 
     /// <summary>
     /// Runs the in-memory tests of <paramref name="options"/> one after another, each attempt in a session of its own, and returns the run's
@@ -116,7 +118,13 @@ internal static class Runner
             options.RawConfig ?? "{}",
             root,
             name => env is null ? Environment.GetEnvironmentVariable(name) : env.GetValueOrDefault(name),
-            new CliOverrides { NoCache = options.NoCache, CacheDir = options.CacheDir, CacheStrict = options.StrictCache });
+            new CliOverrides
+            {
+                NoCache = options.NoCache,
+                CacheDir = options.CacheDir,
+                CacheStrict = options.StrictCache,
+            }
+        );
         var results = new List<E2E.Reports.ReportResult>();
         Report? first = null;
         var exitCodes = new List<int>();
@@ -135,18 +143,31 @@ internal static class Runner
                 {
                     var fixture = new InMemoryFixture(config, options, options.Tests.File, prepared);
                     IReadOnlyList<Exception> cleanup;
-                    (report, error, cleanup) = await fixture.RunAsync(test, attempt, cancellationToken).ConfigureAwait(false);
+                    (report, error, cleanup) = await fixture
+                        .RunAsync(test, attempt, cancellationToken)
+                        .ConfigureAwait(false);
 
                     // A session's report holds its own attempt only; the test's result holds them all, as upstream's does.
                     attempts.AddRange(report?.Run.Results.SelectMany(result => result.Attempts) ?? []);
 
                     // A body that returned while the session failed (a soft failure, a teardown) still failed the attempt.
-                    if (error is null && report?.Run.Results.SelectMany(result => result.Attempts).LastOrDefault() is { Status: not (E2E.Reports.AttemptStatus.Passed or E2E.Reports.AttemptStatus.Skipped), Error: { } sessionError })
+                    if (
+                        error is null
+                        && report?.Run.Results.SelectMany(result => result.Attempts).LastOrDefault()
+                            is {
+                                Status: not (E2E.Reports.AttemptStatus.Passed or E2E.Reports.AttemptStatus.Skipped),
+                                Error: { } sessionError
+                            }
+                    )
                     {
                         error = new TestException(sessionError.Code, sessionError.Message);
                     }
 
-                    exitCodes.AddRange(cleanup.Select(failure => ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)));
+                    exitCodes.AddRange(
+                        cleanup.Select(failure =>
+                            ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)
+                        )
+                    );
                     if (error is null)
                     {
                         break;
@@ -155,7 +176,28 @@ internal static class Runner
 
                 if (report is { Run.Results: [var only] })
                 {
-                    report = report with { Run = report.Run with { Results = [only with { Attempts = attempts, Status = Enum.Parse<E2E.Reports.ResultStatus>(Retry.RetryVerdict([.. attempts.Select(each => new RetryAttempt(Enum.Parse<E2E.Internal.AttemptStatus>(each.Status.ToString())))]).ToString()) }] } };
+                    report = report with
+                    {
+                        Run = report.Run with
+                        {
+                            Results =
+                            [
+                                only with
+                                {
+                                    Attempts = attempts,
+                                    Status = Enum.Parse<E2E.Reports.ResultStatus>(
+                                        Retry
+                                            .RetryVerdict([
+                                                .. attempts.Select(each => new RetryAttempt(
+                                                    Enum.Parse<E2E.Internal.AttemptStatus>(each.Status.ToString())
+                                                )),
+                                            ])
+                                            .ToString()
+                                    ),
+                                },
+                            ],
+                        },
+                    };
                 }
 
                 first ??= report;
@@ -165,27 +207,66 @@ internal static class Runner
                     errors.Add(error);
                 }
 
-                exitCodes.Add(error is null ? 0 : error is E2EException known ? ExitCodeOf(known) : ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(error).Category));
+                exitCodes.Add(
+                    error is null ? 0
+                    : error is E2EException known ? ExitCodeOf(known)
+                    : ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(error).Category)
+                );
             }
-
         }
         finally
         {
             // The engines the run prepared are finished on every exit path, as upstream's run does: a failure is a cleanup failure of the run.
-            await prepared.FinishAsync(new FinishScope
-            {
-                RunId = AttemptReport.RunId,
-                Env = options.Env ?? PreparedEngines.ProcessEnvironment(),
-                CleanupTimeout = E2EDefaults.CleanupTimeout,
-                Notice = (target, line) => Console.Error.WriteLine($"e2e: {target}: {Redactor.For(config.AllSecrets).Redact(line)}"),
-                OnFailure = failure => exitCodes.Add(ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)),
-            }).ConfigureAwait(false);
+            await prepared
+                .FinishAsync(
+                    new FinishScope
+                    {
+                        RunId = AttemptReport.RunId,
+                        Env = options.Env ?? PreparedEngines.ProcessEnvironment(),
+                        CleanupTimeout = E2EDefaults.CleanupTimeout,
+                        Notice = (target, line) =>
+                            Console.Error.WriteLine($"e2e: {target}: {Redactor.For(config.AllSecrets).Redact(line)}"),
+                        OnFailure = failure =>
+                            exitCodes.Add(
+                                ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)
+                            ),
+                    }
+                )
+                .ConfigureAwait(false);
         }
 
         var cleanupFailed = exitCodes.Any(code => code != 0) && errors.Count == 0;
-        var status = cleanupFailed ? RunStatus.Failed : errors.Count == 0 ? RunStatus.Passed : errors.All(error => error is E2EException known && StatusOf(known) == RunStatus.Blocked) ? RunStatus.Blocked : RunStatus.Failed;
+        var status =
+            cleanupFailed ? RunStatus.Failed
+            : errors.Count == 0 ? RunStatus.Passed
+            : errors.All(error => error is E2EException known && StatusOf(known) == RunStatus.Blocked)
+                ? RunStatus.Blocked
+            : RunStatus.Failed;
         var exitCode = ErrorSerializer.CombineExitCodes(exitCodes);
-        var merged = first is null ? new Report { Run = new E2E.Reports.ReportRun { ExitCode = exitCode, Status = status == RunStatus.Blocked ? E2E.ReportRunStatus.Blocked : status == RunStatus.Passed ? E2E.ReportRunStatus.Passed : E2E.ReportRunStatus.Failed } } : first with { Run = first.Run with { Results = results, ExitCode = exitCode, Status = status == RunStatus.Passed ? E2E.ReportRunStatus.Passed : status == RunStatus.Blocked ? E2E.ReportRunStatus.Blocked : E2E.ReportRunStatus.Failed } };
+        var merged = first is null
+            ? new Report
+            {
+                Run = new E2E.Reports.ReportRun
+                {
+                    ExitCode = exitCode,
+                    Status =
+                        status == RunStatus.Blocked ? E2E.ReportRunStatus.Blocked
+                        : status == RunStatus.Passed ? E2E.ReportRunStatus.Passed
+                        : E2E.ReportRunStatus.Failed,
+                },
+            }
+            : first with
+            {
+                Run = first.Run with
+                {
+                    Results = results,
+                    ExitCode = exitCode,
+                    Status =
+                        status == RunStatus.Passed ? E2E.ReportRunStatus.Passed
+                        : status == RunStatus.Blocked ? E2E.ReportRunStatus.Blocked
+                        : E2E.ReportRunStatus.Failed,
+                },
+            };
         return new RunOutcome(exitCode, status, merged);
     }
 
@@ -193,24 +274,30 @@ internal static class Runner
     /// The fixture one in-memory test runs in (.NET-only: upstream's worker builds the test's fixtures from the resolved config; in the port a
     /// session is started by <see cref="E2EFixture"/>, whose settings this takes from the run's options).
     /// </summary>
-    private sealed class InMemoryFixture(E2EConfig config, RunOptions options, string file, PreparedEngines prepared) : E2EFixture
+    private sealed class InMemoryFixture(E2EConfig config, RunOptions options, string file, PreparedEngines prepared)
+        : E2EFixture
     {
         protected override E2EConfig Config => config;
 
         internal override PreparedEngines Prepared => prepared;
 
-        protected override IReadOnlyDictionary<string, string?> RunEnvironment => options.Env ?? PreparedEngines.ProcessEnvironment();
+        protected override IReadOnlyDictionary<string, string?> RunEnvironment =>
+            options.Env ?? PreparedEngines.ProcessEnvironment();
 
         internal override string? TestFile => file;
 
-        protected override IEngine CreateEngine() => options.Engine ?? TargetEngines.Create(Config.Target, null, null, null);
+        protected override IEngine CreateEngine() =>
+            options.Engine ?? TargetEngines.Create(Config.Target, null, null, null);
 
         protected override string? ResultsDirectory => OutputLayout.Of(Config.ResolveOutput(options.Output)).Results;
 
         // The fixture's own settings read the run's environment, not the process's, when the run is given one.
-        private string? FromEnv(string name) => options.Env is { } env ? env.GetValueOrDefault(name) : Environment.GetEnvironmentVariable(name);
+        private string? FromEnv(string name) =>
+            options.Env is { } env ? env.GetValueOrDefault(name) : Environment.GetEnvironmentVariable(name);
 
-        private bool EnvOn(string name) => FromEnv(name)?.Trim() is { } value && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
+        private bool EnvOn(string name) =>
+            FromEnv(name)?.Trim() is { } value
+            && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
 
         protected override string? RunAgent => FromEnv("E2E_AGENT")?.Trim() is { Length: > 0 } name ? name : null;
 
@@ -226,7 +313,8 @@ internal static class Runner
 
         protected override int MaxInputTokens => Default.MaxInputTokens;
 
-        protected override IReadOnlyDictionary<string, System.Text.Json.JsonElement>? ProviderOptions => Default.ProviderOptions;
+        protected override IReadOnlyDictionary<string, System.Text.Json.JsonElement>? ProviderOptions =>
+            Default.ProviderOptions;
 
         protected override int MaxModelCalls => Default.MaxModelCalls ?? E2EDefaults.MaxModelCalls;
 
@@ -248,8 +336,8 @@ internal static class Runner
 
         protected override IReadOnlyDictionary<string, AgentOptions> CreateAgents()
         {
-            var agents = Config.Agents
-                .Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal))
+            var agents = Config
+                .Agents.Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal))
                 .ToDictionary(pair => pair.Key, pair => pair.Value.CreateOptions(), StringComparer.Ordinal);
             foreach (var pair in options.Agents ?? new Dictionary<string, AgentOptions>())
             {
@@ -263,11 +351,16 @@ internal static class Runner
         }
 
         /// <summary>Runs the test as attempt <paramref name="attempt"/> and closes its session. What the body throws is the test's error; the session's close failures are the cleanup's.</summary>
-        public async Task<(Report? Report, Exception? Error, IReadOnlyList<Exception> Cleanup)> RunAsync(InMemoryTest test, int attempt, CancellationToken cancellationToken)
+        public async Task<(Report? Report, Exception? Error, IReadOnlyList<Exception> Cleanup)> RunAsync(
+            InMemoryTest test,
+            int attempt,
+            CancellationToken cancellationToken
+        )
         {
             try
             {
-                await StartSessionAsync(test.Title, attempt, null, () => false, cancellationToken).ConfigureAwait(false);
+                await StartSessionAsync(test.Title, attempt, null, () => false, cancellationToken)
+                    .ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -285,7 +378,8 @@ internal static class Runner
                     await test.Body(session).ConfigureAwait(false);
                     await session.SettleAttemptAsync(cancellationToken).ConfigureAwait(false);
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                catch (Exception ex)
+                    when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
                     // Whatever the body throws fails the test, as upstream's runner reads any error a test throws.
                     error = ex;
@@ -303,7 +397,8 @@ internal static class Runner
         }
     }
 
-    private static int AgentCodeExit(string code) => ErrorSerializer.ExitCodeForCategory(AgentError.CategoryByCode.GetValueOrDefault(code, "test"));
+    private static int AgentCodeExit(string code) =>
+        ErrorSerializer.ExitCodeForCategory(AgentError.CategoryByCode.GetValueOrDefault(code, "test"));
 
     /// <summary>How long a reporter's <c>OnRunFinishedAsync</c> may take before the run stops waiting for it (upstream's <c>REPORTER_TIMEOUT_MS</c>).</summary>
     public static readonly TimeSpan ReporterTimeout = TimeSpan.FromMinutes(1);
@@ -313,63 +408,85 @@ internal static class Runner
     /// stop of the run), and collects the rows they return. A reporter that throws, runs out of time, or returns a row without a label and text is one
     /// line on stderr; it can never change the run's outcome. Giving up on a reporter that is still running sets <see cref="AbandonedWork.LeftWorkBehind"/>.
     /// </summary>
-    internal static async Task<IReadOnlyList<ReporterSummaryRow>> RunReportersAsync(IReadOnlyList<Reporter> reporters, FinishedRun finished, TimeSpan timeout, CancellationToken force)
+    internal static async Task<IReadOnlyList<ReporterSummaryRow>> RunReportersAsync(
+        IReadOnlyList<Reporter> reporters,
+        FinishedRun finished,
+        TimeSpan timeout,
+        CancellationToken force
+    )
     {
         var budget = Time.BudgetText((long)timeout.TotalMilliseconds);
         const string forced = "abandoned: the run was forced to stop";
-        var outcomes = await Task.WhenAll(reporters.Select(async Task<IReadOnlyList<ReporterSummaryRow>> (reporter) =>
-        {
-            if (force.IsCancellationRequested)
-            {
-                Warn(reporter, forced);
-                return [];
-            }
+        var outcomes = await Task.WhenAll(
+                reporters.Select(
+                    async Task<IReadOnlyList<ReporterSummaryRow>> (reporter) =>
+                    {
+                        if (force.IsCancellationRequested)
+                        {
+                            Warn(reporter, forced);
+                            return [];
+                        }
 
-            using var abandon = CancellationTokenSource.CreateLinkedTokenSource(force);
-            abandon.CancelAfter(timeout);
-            try
-            {
-                // On the thread pool, so a reporter that blocks before it returns a task cannot hold the budget off (a JavaScript promise cannot block its own timer).
-                var running = Task.Run(() => reporter.OnRunFinishedAsync(finished, abandon.Token), CancellationToken.None);
+                        using var abandon = CancellationTokenSource.CreateLinkedTokenSource(force);
+                        abandon.CancelAfter(timeout);
+                        try
+                        {
+                            // On the thread pool, so a reporter that blocks before it returns a task cannot hold the budget off (a JavaScript promise cannot block its own timer).
+                            var running = Task.Run(
+                                () => reporter.OnRunFinishedAsync(finished, abandon.Token),
+                                CancellationToken.None
+                            );
 
-                // The reporter may ignore its token; the run stops waiting for it all the same.
-                var gone = new TaskCompletionSource();
-                using var registration = abandon.Token.Register(() => gone.TrySetResult());
-                if (await Task.WhenAny(running, gone.Task).ConfigureAwait(false) != running)
-                {
-                    _ = running.ContinueWith(static task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
-                    AbandonedWork.LeaveWorkBehind();
-                    Warn(reporter, force.IsCancellationRequested ? forced : $"did not finish within {budget}");
-                    return [];
-                }
+                            // The reporter may ignore its token; the run stops waiting for it all the same.
+                            var gone = new TaskCompletionSource();
+                            using var registration = abandon.Token.Register(() => gone.TrySetResult());
+                            if (await Task.WhenAny(running, gone.Task).ConfigureAwait(false) != running)
+                            {
+                                _ = running.ContinueWith(
+                                    static task => _ = task.Exception,
+                                    TaskContinuationOptions.OnlyOnFaulted
+                                );
+                                AbandonedWork.LeaveWorkBehind();
+                                Warn(
+                                    reporter,
+                                    force.IsCancellationRequested ? forced : $"did not finish within {budget}"
+                                );
+                                return [];
+                            }
 
-                var result = await running.ConfigureAwait(false);
-                if (result is null)
-                {
-                    return [];
-                }
+                            var result = await running.ConfigureAwait(false);
+                            if (result is null)
+                            {
+                                return [];
+                            }
 
-                var rows = result.Where(row => row is { Label.Length: > 0, Text.Length: > 0 }).ToList();
-                if (rows.Count < result.Count)
-                {
-                    Warn(reporter, $"returned {result.Count - rows.Count} row(s) without a label and text; dropped");
-                }
+                            var rows = result.Where(row => row is { Label.Length: > 0, Text.Length: > 0 }).ToList();
+                            if (rows.Count < result.Count)
+                            {
+                                Warn(
+                                    reporter,
+                                    $"returned {result.Count - rows.Count} row(s) without a label and text; dropped"
+                                );
+                            }
 
-                return rows;
-            }
-            catch (OperationCanceledException) when (abandon.IsCancellationRequested)
-            {
-                // A reporter that honors its token ends cancelled: that is the run giving up on it, not a failure of its own.
-                AbandonedWork.LeaveWorkBehind();
-                Warn(reporter, force.IsCancellationRequested ? forced : $"did not finish within {budget}");
-                return [];
-            }
-            catch (Exception ex)
-            {
-                Warn(reporter, $"failed: {ex.Message}");
-                return [];
-            }
-        })).ConfigureAwait(false);
+                            return rows;
+                        }
+                        catch (OperationCanceledException) when (abandon.IsCancellationRequested)
+                        {
+                            // A reporter that honors its token ends cancelled: that is the run giving up on it, not a failure of its own.
+                            AbandonedWork.LeaveWorkBehind();
+                            Warn(reporter, force.IsCancellationRequested ? forced : $"did not finish within {budget}");
+                            return [];
+                        }
+                        catch (Exception ex)
+                        {
+                            Warn(reporter, $"failed: {ex.Message}");
+                            return [];
+                        }
+                    }
+                )
+            )
+            .ConfigureAwait(false);
         return [.. outcomes.SelectMany(rows => rows)];
     }
 

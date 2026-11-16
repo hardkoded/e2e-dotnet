@@ -23,15 +23,38 @@ public sealed class EngineProtocolTests
     [Fact]
     public void Partial_Carries_a_read_request_and_computed_values_through_JSON_RPC()
     {
-        Func<NodeRef, IReadOnlyList<string>, OperationContext, Task<IReadOnlyDictionary<string, string>>> read =
-            (_, _, _) => Task.FromResult<IReadOnlyDictionary<string, string>>(new Dictionary<string, string> { ["color"] = "rgb(255, 0, 0)" });
-        var toy = new EngineSpec { Name = "toy", Version = "1", SpiVersion = 1, Observe = (_, _) => Task.FromResult<EngineSnapshot>(null!), ReadStyle = read };
+        Func<NodeRef, IReadOnlyList<string>, OperationContext, Task<IReadOnlyDictionary<string, string>>> read = (
+            _,
+            _,
+            _
+        ) =>
+            Task.FromResult<IReadOnlyDictionary<string, string>>(
+                new Dictionary<string, string> { ["color"] = "rgb(255, 0, 0)" }
+            );
+        var toy = new EngineSpec
+        {
+            Name = "toy",
+            Version = "1",
+            SpiVersion = 1,
+            Observe = (_, _) => Task.FromResult<EngineSnapshot>(null!),
+            ReadStyle = read,
+        };
 
         var handle = EngineManifest.DefineEngine(toy);
 
         Assert.Contains("computed-style", handle.Capabilities);
         Assert.Same(read, handle.ReadStyle);
-        var refused = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(new EngineSpec { Name = "bad", Version = "1", SpiVersion = 1, ReadStyle = read }));
+        var refused = Assert.Throws<ConfigurationException>(() =>
+            EngineManifest.DefineEngine(
+                new EngineSpec
+                {
+                    Name = "bad",
+                    Version = "1",
+                    SpiVersion = 1,
+                    ReadStyle = read,
+                }
+            )
+        );
         Assert.Contains("readStyle without observe", refused.Message, StringComparison.Ordinal);
     }
 
@@ -42,18 +65,20 @@ public sealed class EngineProtocolTests
     [Fact]
     public void Partial_Describes_an_engine_with_a_manifest_the_published_schema_accepts_and_the_schema_names_every_method_and_kind()
     {
-        foreach (var refused in new[]
-        {
-            """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe", "engine/teleport"] }""",
-            """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/readStyle"] }""",
-            """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "actions": ["tap"] }""",
-            """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "tapModifiers": true }""",
-            """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "pointerActions": ["tap"] }""",
-            """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/locate"] }""",
-            """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe", "keyboard/type"] }""",
-            """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["state/capture"] }""",
-            """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["artifacts/screenshot", "artifacts/startVideo"] }""",
-        })
+        foreach (
+            var refused in new[]
+            {
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe", "engine/teleport"] }""",
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/readStyle"] }""",
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "actions": ["tap"] }""",
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "tapModifiers": true }""",
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe"], "pointerActions": ["tap"] }""",
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/locate"] }""",
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe", "keyboard/type"] }""",
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["state/capture"] }""",
+                """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["artifacts/screenshot", "artifacts/startVideo"] }""",
+            }
+        )
         {
             Assert.False(Validate.IsValid(JsonNode.Parse(refused)!), refused);
         }

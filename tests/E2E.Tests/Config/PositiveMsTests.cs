@@ -15,9 +15,17 @@ public sealed class PositiveMsTests
     [Fact]
     public void Reads_a_millisecond_count_as_a_JS_number_does()
     {
-        Assert.Equal(TimeSpan.FromMilliseconds(1000), E2EConfig.Parse("""{ "maxDuration": 1e3 }""", Root, Env()).MaxDuration);
-        Assert.Equal(TimeSpan.FromMilliseconds(1000), E2EConfig.Parse("""{ "maxDuration": 1000.0 }""", Root, Env()).MaxDuration);
-        var unsafeInt = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "maxDuration": 9007199254740993 }""", Root, Env()));
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(1000),
+            E2EConfig.Parse("""{ "maxDuration": 1e3 }""", Root, Env()).MaxDuration
+        );
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(1000),
+            E2EConfig.Parse("""{ "maxDuration": 1000.0 }""", Root, Env()).MaxDuration
+        );
+        var unsafeInt = Assert.Throws<ConfigurationException>(() =>
+            E2EConfig.Parse("""{ "maxDuration": 9007199254740993 }""", Root, Env())
+        );
         Assert.Contains("must be a positive safe integer of milliseconds", unsafeInt.Message, StringComparison.Ordinal);
     }
 

@@ -14,25 +14,34 @@ public sealed class ToolLoopDowngradedToolChoiceTests
     private static readonly ModelWarning Downgrade = new(
         "unsupported",
         "toolChoice",
-        "toolChoice 'required' is not supported by this model because it rejects forced tool use. Using 'auto' instead.");
+        "toolChoice 'required' is not supported by this model because it rejects forced tool use. Using 'auto' instead."
+    );
 
     private static DocumentWorld Page() => new DocumentWorld().Map("/start", page => page.Button("Peek"));
 
     private static ModelResponse Done() => ModelResponses.Done("passed", "done");
 
     /// <summary>A provider that rewrites every forced choice to <c>auto</c> and says so only as a call warning.</summary>
-    private static Func<LoopCall, ModelResponse> DowngradingForcedChoice(Func<LoopCall, ModelResponse> respond) => call =>
-    {
-        var answer = respond(call);
-        return call.ToolChoice == "auto"
-            ? answer
-            : new ModelResponse { Content = answer.Content, ToolCalls = answer.ToolCalls, Warnings = [Downgrade] };
-    };
+    private static Func<LoopCall, ModelResponse> DowngradingForcedChoice(Func<LoopCall, ModelResponse> respond) =>
+        call =>
+        {
+            var answer = respond(call);
+            return call.ToolChoice == "auto"
+                ? answer
+                : new ModelResponse
+                {
+                    Content = answer.Content,
+                    ToolCalls = answer.ToolCalls,
+                    Warnings = [Downgrade],
+                };
+        };
 
     [Fact]
     public async Task Continues_the_step_with_auto_under_the_same_instructions_once_the_provider_reports_a_downgrade()
     {
-        var loop = new FakeLoopModel(DowngradingForcedChoice(call => call.Turn == 1 ? ModelResponses.Call("peek", new { }) : Done()));
+        var loop = new FakeLoopModel(
+            DowngradingForcedChoice(call => call.Turn == 1 ? ModelResponses.Call("peek", new { }) : Done())
+        );
         ActResult? result = null;
 
         var attempt = await RunAsync(
@@ -43,7 +52,8 @@ public sealed class ToolLoopDowngradedToolChoiceTests
             },
             Page(),
             loop.Model,
-            agentTools: ToolLoopForcedToolChoiceTests.Peek());
+            agentTools: ToolLoopForcedToolChoiceTests.Peek()
+        );
 
         Assert.Null(attempt.Error);
         // The downgraded turn succeeded, so nothing is sent again, and the next request keeps the system prompt its reasoning is bound to.
@@ -56,7 +66,11 @@ public sealed class ToolLoopDowngradedToolChoiceTests
     [Fact]
     public async Task Retries_with_auto_when_a_downgraded_turn_answers_in_prose()
     {
-        var loop = new FakeLoopModel(DowngradingForcedChoice(call => call.Turn == 1 ? new ModelResponse { Content = "Let me look around first." } : Done()));
+        var loop = new FakeLoopModel(
+            DowngradingForcedChoice(call =>
+                call.Turn == 1 ? new ModelResponse { Content = "Let me look around first." } : Done()
+            )
+        );
         ActResult? result = null;
 
         var attempt = await RunAsync(
@@ -66,7 +80,8 @@ public sealed class ToolLoopDowngradedToolChoiceTests
                 result = await ctx.Agent.ActAsync("look around");
             },
             Page(),
-            loop.Model);
+            loop.Model
+        );
 
         Assert.Null(attempt.Error);
         Assert.Equal(["required", "auto"], loop.Calls.Select(call => call.ToolChoice));
@@ -89,7 +104,8 @@ public sealed class ToolLoopDowngradedToolChoiceTests
                 await ctx.Agent.ActAsync("second");
             },
             Page(),
-            loop.Model);
+            loop.Model
+        );
 
         Assert.Null(attempt.Error);
         Assert.Equal(["required", "auto"], loop.Calls.Select(call => call.ToolChoice));
@@ -99,7 +115,11 @@ public sealed class ToolLoopDowngradedToolChoiceTests
     [Fact]
     public async Task Ignores_warnings_about_other_features()
     {
-        var loop = new FakeLoopModel(_ => new ModelResponse { ToolCalls = Done().ToolCalls, Warnings = [new ModelWarning("unsupported", "temperature")] });
+        var loop = new FakeLoopModel(_ => new ModelResponse
+        {
+            ToolCalls = Done().ToolCalls,
+            Warnings = [new ModelWarning("unsupported", "temperature")],
+        });
 
         var attempt = await RunAsync(
             async ctx =>
@@ -109,7 +129,8 @@ public sealed class ToolLoopDowngradedToolChoiceTests
                 await ctx.Agent.ActAsync("second");
             },
             Page(),
-            loop.Model);
+            loop.Model
+        );
 
         Assert.Null(attempt.Error);
         Assert.Equal(["required", "required"], loop.Calls.Select(call => call.ToolChoice));

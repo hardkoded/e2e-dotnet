@@ -35,39 +35,77 @@ public sealed class TapModifiersInTheGrammarToolsTests
         });
     }
 
-    private static JsonElement PropertiesOf(IReadOnlyList<ModelTool> tools, string name) => tools.Single(tool => tool.Name == name).Parameters.GetProperty("properties");
+    private static JsonElement PropertiesOf(IReadOnlyList<ModelTool> tools, string name) =>
+        tools.Single(tool => tool.Name == name).Parameters.GetProperty("properties");
 
     /// <summary>One act over <see cref="World"/> in which the model calls <paramref name="calls"/> in turn and then ends the step.</summary>
-    private static async Task<(IReadOnlyList<string> Results, TapModifiersEngine? Engine)> ActAsync(bool declared, params ModelResponse[] calls)
+    private static async Task<(IReadOnlyList<string> Results, TapModifiersEngine? Engine)> ActAsync(
+        bool declared,
+        params ModelResponse[] calls
+    )
     {
         TapModifiersEngine? engine = null;
         var next = 0;
-        var model = new ScriptedModel(_ => next < calls.Length ? calls[next++] : ModelResponses.Done("passed", "Done."));
-        var step = await StepCachePipelineTests.StepAsync(World(), new FileStepCache(CoreTests.TempCache()), "/", null, model, wrap: inner => declared ? engine = new TapModifiersEngine(inner) : inner);
+        var model = new ScriptedModel(_ =>
+            next < calls.Length ? calls[next++] : ModelResponses.Done("passed", "Done.")
+        );
+        var step = await StepCachePipelineTests.StepAsync(
+            World(),
+            new FileStepCache(CoreTests.TempCache()),
+            "/",
+            null,
+            model,
+            wrap: inner => declared ? engine = new TapModifiersEngine(inner) : inner
+        );
         Assert.Null(step.Error);
-        var results = model.Requests[^1].Messages.Where(message => message is { Role: "tool" } && message.Name != "complete_step").Select(message => message.Content ?? "").ToList();
+        var results = model
+            .Requests[^1]
+            .Messages.Where(message => message is { Role: "tool" } && message.Name != "complete_step")
+            .Select(message => message.Content ?? "")
+            .ToList();
         return (results, engine);
     }
 
     private static ModelResponse Call(string tool, string name, params string[]? modifiers) =>
-        ModelResponses.Call(tool, modifiers is null ? new { role = "button", name } : (object)new { role = "button", name, modifiers });
+        ModelResponses.Call(
+            tool,
+            modifiers is null
+                ? new { role = "button", name }
+                : (object)
+                    new
+                    {
+                        role = "button",
+                        name,
+                        modifiers,
+                    }
+        );
 
     /// <summary>Partial: upstream parses each tool's zod schema; the port reads the property its JSON schema declares, and checks the refusal by running the tool.</summary>
     [Fact]
     public async Task Partial_offers_modifiers_on_the_tap_family_only_when_the_engine_declares_tapModifiers()
     {
-        var holding = AgentTools.GrammarToolDefinitions(EngineCapabilities.TapModifiers, null, EngineActionKinds.Locator);
+        var holding = AgentTools.GrammarToolDefinitions(
+            EngineCapabilities.TapModifiers,
+            null,
+            EngineActionKinds.Locator
+        );
         foreach (var name in TapFamily)
         {
             var modifiers = PropertiesOf(holding, name).GetProperty("modifiers");
             Assert.Equal("array", modifiers.GetProperty("type").GetString());
-            Assert.Equal(["Shift", "Control", "Alt", "Meta", "ControlOrMeta"], modifiers.GetProperty("items").GetProperty("enum").EnumerateArray().Select(item => item.GetString()));
+            Assert.Equal(
+                ["Shift", "Control", "Alt", "Meta", "ControlOrMeta"],
+                modifiers.GetProperty("items").GetProperty("enum").EnumerateArray().Select(item => item.GetString())
+            );
         }
 
         // The rest of the grammar never takes modifiers, even on a holding engine.
         foreach (var tool in holding.Where(tool => !TapFamily.Contains(tool.Name)))
         {
-            Assert.False(tool.Parameters.GetProperty("properties").TryGetProperty("modifiers", out _), tool.Name + " refuses modifiers");
+            Assert.False(
+                tool.Parameters.GetProperty("properties").TryGetProperty("modifiers", out _),
+                tool.Name + " refuses modifiers"
+            );
         }
 
         // A modifier that is unknown, in another case, repeated, or not a list is refused before the engine is touched.
@@ -76,11 +114,22 @@ public sealed class TapModifiersInTheGrammarToolsTests
             Call("tap", "Save", "shift"),
             Call("tap", "Save", "Bogus"),
             Call("tap", "Save", "Shift", "Shift"),
-            ModelResponses.Call("tap", new { role = "button", name = "Save", modifiers = "Shift" }),
-            Call("right_click", "Save", "shift"));
+            ModelResponses.Call(
+                "tap",
+                new
+                {
+                    role = "button",
+                    name = "Save",
+                    modifiers = "Shift",
+                }
+            ),
+            Call("right_click", "Save", "shift")
+        );
         Assert.Empty(engine!.Clicks);
         Assert.Equal(5, results.Count);
-        Assert.All(results, result => Assert.Matches("^(tap|right_click) #e\\d+ failed: INVALID_ARGUMENT: .*modifier", result));
+        Assert.All(results, result =>
+            Assert.Matches("^(tap|right_click) #e\\d+ failed: INVALID_ARGUMENT: .*modifier", result)
+        );
     }
 
     /// <summary>Partial: upstream parses each tool's zod schema, so it covers right_click too; the port runs the tools through the loop, and the document engine offers no right_click, so only tap and double_tap are run.</summary>
@@ -116,7 +165,8 @@ public sealed class TapModifiersInTheGrammarToolsTests
             Call("double_tap", "Open", "Control"),
             Call("right_click", "Close"),
             Call("right_click", "Save", "Alt"),
-            Call("tap", "Close", "Alt", "Meta"));
+            Call("tap", "Close", "Alt", "Meta")
+        );
 
         Assert.Equal(
             [
@@ -126,21 +176,44 @@ public sealed class TapModifiersInTheGrammarToolsTests
                 (typeof(LocatorAction.SecondaryTap), [KeyModifier.Alt]),
                 (typeof(LocatorAction.Tap), [KeyModifier.Alt, KeyModifier.Meta]),
             ],
-            engine!.Clicks.Select(click => (click.GetType(), click switch
-            {
-                LocatorAction.Tap tap => tap.Modifiers?.ToArray(),
-                LocatorAction.DoubleTap doubleTap => doubleTap.Modifiers?.ToArray(),
-                _ => ((LocatorAction.SecondaryTap)click).Modifiers?.ToArray(),
-            })));
+            engine!.Clicks.Select(click =>
+                (
+                    click.GetType(),
+                    click switch
+                    {
+                        LocatorAction.Tap tap => tap.Modifiers?.ToArray(),
+                        LocatorAction.DoubleTap doubleTap => doubleTap.Modifiers?.ToArray(),
+                        _ => ((LocatorAction.SecondaryTap)click).Modifiers?.ToArray(),
+                    }
+                )
+            )
+        );
     }
 
     [Fact]
     public void Says_what_keys_a_tap_held_in_its_prose()
     {
-        var held = AgentActions.DescribeAction(new RecordedAction { Kind = "tap", Role = "button", Name = "Save", Modifiers = ["Shift", "Control"] }, Redactor.None);
+        var held = AgentActions.DescribeAction(
+            new RecordedAction
+            {
+                Kind = "tap",
+                Role = "button",
+                Name = "Save",
+                Modifiers = ["Shift", "Control"],
+            },
+            Redactor.None
+        );
         Assert.Contains("with Shift+Control held", held);
 
-        var plain = AgentActions.DescribeAction(new RecordedAction { Kind = "tap", Role = "button", Name = "Save" }, Redactor.None);
+        var plain = AgentActions.DescribeAction(
+            new RecordedAction
+            {
+                Kind = "tap",
+                Role = "button",
+                Name = "Save",
+            },
+            Redactor.None
+        );
         Assert.DoesNotContain("held", plain);
     }
 
@@ -148,8 +221,21 @@ public sealed class TapModifiersInTheGrammarToolsTests
     public void Keeps_modifiers_through_the_trace_round_trip()
     {
         var recorder = new Recorder(() => Redactor.None);
-        var save = new SemanticNode { Ref = "n1", Role = "button", Name = "Save" };
-        recorder.Record(new RecordedAction { Kind = "tap", Role = save.Role, Name = save.Name, Modifiers = ["Shift"] });
+        var save = new SemanticNode
+        {
+            Ref = "n1",
+            Role = "button",
+            Name = "Save",
+        };
+        recorder.Record(
+            new RecordedAction
+            {
+                Kind = "tap",
+                Role = save.Role,
+                Name = save.Name,
+                Modifiers = ["Shift"],
+            }
+        );
         recorder.Record("tap", save);
         var store = new FileStepCache(CoreTests.TempCache());
         store.Write(StepCacheHarness.Key, recorder.Finalize(StepCacheHarness.ExampleStep, "/", "/", [], [])!);
@@ -167,28 +253,98 @@ public sealed class TapModifiersInTheGrammarToolsTests
     {
         static async Task<string?> ReasonAsync(RecordedAction action)
         {
-            var entry = new CacheEntry { Schema = FileStepCache.SchemaVersion, Actions = [action], Appeared = [], Gone = [] };
-            var session = StepCacheHarness.MakeSession(StepCacheHarness.FakeContext(() => new CacheLookup { Entry = entry }), StepCacheHarness.MakeHost(["/"], [StepCacheHarness.Node("n1", "button", "Save")]));
+            var entry = new CacheEntry
+            {
+                Schema = FileStepCache.SchemaVersion,
+                Actions = [action],
+                Appeared = [],
+                Gone = [],
+            };
+            var session = StepCacheHarness.MakeSession(
+                StepCacheHarness.FakeContext(() => new CacheLookup { Entry = entry }),
+                StepCacheHarness.MakeHost(["/"], [StepCacheHarness.Node("n1", "button", "Save")])
+            );
             await session.BeginAsync();
             return session.CacheInfo?.Reason;
         }
 
-        Assert.NotEqual("invalid-entry", await ReasonAsync(new RecordedAction { Kind = "tap", Role = "button", Name = "Save", Modifiers = ["Shift"] }));
+        Assert.NotEqual(
+            "invalid-entry",
+            await ReasonAsync(
+                new RecordedAction
+                {
+                    Kind = "tap",
+                    Role = "button",
+                    Name = "Save",
+                    Modifiers = ["Shift"],
+                }
+            )
+        );
         foreach (var modifiers in new[] { Array.Empty<string>(), ["shift"], ["Shift", "Shift"] })
         {
-            Assert.Equal("invalid-entry", await ReasonAsync(new RecordedAction { Kind = "tap", Role = "button", Name = "Save", Modifiers = [.. modifiers] }));
+            Assert.Equal(
+                "invalid-entry",
+                await ReasonAsync(
+                    new RecordedAction
+                    {
+                        Kind = "tap",
+                        Role = "button",
+                        Name = "Save",
+                        Modifiers = [.. modifiers],
+                    }
+                )
+            );
         }
 
-        Assert.Equal("invalid-entry", await ReasonAsync(new RecordedAction { Kind = "scrollTo", Role = "button", Name = "Save", Modifiers = ["Shift"] }));
-        Assert.Equal("invalid-entry", await ReasonAsync(new RecordedAction { Kind = "hover", Role = "button", Name = "Save", Modifiers = ["Shift"] }));
-        Assert.NotEqual("invalid-entry", await ReasonAsync(new RecordedAction { Kind = "secondaryTap", Role = "button", Name = "Save", Modifiers = ["Shift"] }));
+        Assert.Equal(
+            "invalid-entry",
+            await ReasonAsync(
+                new RecordedAction
+                {
+                    Kind = "scrollTo",
+                    Role = "button",
+                    Name = "Save",
+                    Modifiers = ["Shift"],
+                }
+            )
+        );
+        Assert.Equal(
+            "invalid-entry",
+            await ReasonAsync(
+                new RecordedAction
+                {
+                    Kind = "hover",
+                    Role = "button",
+                    Name = "Save",
+                    Modifiers = ["Shift"],
+                }
+            )
+        );
+        Assert.NotEqual(
+            "invalid-entry",
+            await ReasonAsync(
+                new RecordedAction
+                {
+                    Kind = "secondaryTap",
+                    Role = "button",
+                    Name = "Save",
+                    Modifiers = ["Shift"],
+                }
+            )
+        );
     }
 
     [Fact]
     public async Task Replays_a_recorded_tap_with_the_keys_it_held()
     {
         var host = TestHost.MakeHost();
-        var action = new RecordedAction { Kind = "tap", Role = "button", Name = "Upgrade", Modifiers = ["Shift"] };
+        var action = new RecordedAction
+        {
+            Kind = "tap",
+            Role = "button",
+            Name = "Upgrade",
+            Modifiers = ["Shift"],
+        };
 
         var outcome = await Replay.ReplayTrace(host, [action]);
 

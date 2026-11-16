@@ -16,45 +16,54 @@ public sealed class ToolLoopContextOverflowTests
 {
     private const string Overflow = "prompt is too long: 300000 tokens > 200000 maximum";
 
-    private static AgentException Refusal() => new("CONTEXT_OVERFLOW", "The model request exceeded the context window: " + Overflow, blocked: true);
+    private static AgentException Refusal() =>
+        new("CONTEXT_OVERFLOW", "The model request exceeded the context window: " + Overflow, blocked: true);
 
     /// <summary>A screen whose text is far longer than the overflow clip, as a dense page is.</summary>
     private static DocumentWorld BigScreen() => new DocumentWorld().Map("/big", page =>
-    {
-        var rows = new List<DocumentElement>();
-        for (var i = 0; i < 600; i++)
         {
-            rows.Add(page.Paragraph("row " + i + " " + new string('x', 40)));
-        }
-
-        // Every line changes with each tap, so the screen after it goes out whole (the presenter sends changes otherwise).
-        var variant = 0;
-        page.Button("Flip", () =>
-        {
-            variant++;
-            for (var i = 0; i < rows.Count; i++)
+            var rows = new List<DocumentElement>();
+            for (var i = 0; i < 600; i++)
             {
-                rows[i].Text = "v" + variant + " row " + i + " " + new string('x', 40);
+                rows.Add(page.Paragraph("row " + i + " " + new string('x', 40)));
             }
+
+            // Every line changes with each tap, so the screen after it goes out whole (the presenter sends changes otherwise).
+            var variant = 0;
+            page.Button("Flip", () =>
+            {
+                variant++;
+                for (var i = 0; i < rows.Count; i++)
+                {
+                    rows[i].Text = "v" + variant + " row " + i + " " + new string('x', 40);
+                }
+            });
         });
-    });
 
     private static DocumentWorld EmptyScreen() => new DocumentWorld().Map("/empty", _ => { });
 
     /// <summary>An assertion loop of its own, which keeps the chassis's overflow recovery: the grammar's read-only tools and the screen as its prompt.</summary>
     private static IStepExecutor AssertionLoop(bool inconclusiveOnOverflow = false) =>
-        ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
-        {
-            Name = inconclusiveOnOverflow ? "evidence-keeping-loop" : "custom-loop",
-            InconclusiveOnOverflow = inconclusiveOnOverflow,
-            Tools = (context, _) => [.. AgentTools.CreateGrammarTools(context), Peek],
-            BuildPrompt = async context => (await context.ObserveAsync()).Text,
-        });
+        ToolLoop.CreateToolLoopExecutor(
+            new ToolLoopExecutorOptions
+            {
+                Name = inconclusiveOnOverflow ? "evidence-keeping-loop" : "custom-loop",
+                InconclusiveOnOverflow = inconclusiveOnOverflow,
+                Tools = (context, _) => [.. AgentTools.CreateGrammarTools(context), Peek],
+                BuildPrompt = async context => (await context.ObserveAsync()).Text,
+            }
+        );
 
     // Upstream's read-only `peek`: a short result for a turn to spend.
     private static readonly ToolLoopTool Peek = new(
-        new ModelTool { Name = "peek", Description = "Look at something small", Parameters = System.Text.Json.JsonDocument.Parse("""{ "type": "object", "properties": {} }""").RootElement },
-        (_, _) => Task.FromResult(new ToolLoopResult("looked")));
+        new ModelTool
+        {
+            Name = "peek",
+            Description = "Look at something small",
+            Parameters = System.Text.Json.JsonDocument.Parse("""{ "type": "object", "properties": {} }""").RootElement,
+        },
+        (_, _) => Task.FromResult(new ToolLoopResult("looked"))
+    );
 
     [Theory]
     [InlineData("act")]
@@ -87,7 +96,8 @@ public sealed class ToolLoopContextOverflowTests
             },
             BigScreen(),
             model,
-            executor: kind == "assert" ? AssertionLoop() : null);
+            executor: kind == "assert" ? AssertionLoop() : null
+        );
 
         Assert.Null(attempt.Error);
         Assert.Equal(3, model.CallCount);
@@ -95,7 +105,11 @@ public sealed class ToolLoopContextOverflowTests
         // request carries its head and a notice, and the tool result it follows is unchanged.
         Assert.True(requests[1][0]!.Length > 16_384);
         Assert.True(requests[2][0]!.Length < 16_384 + 200);
-        Assert.Contains("more characters cut: the request exceeded the model's context window", requests[2][0], StringComparison.Ordinal);
+        Assert.Contains(
+            "more characters cut: the request exceeded the model's context window",
+            requests[2][0],
+            StringComparison.Ordinal
+        );
         Assert.Equal(requests[1][^1], requests[2][^1]);
         // The refused request never answered, so it is not a model call the step paid for.
         Assert.Equal(2, attempt.ModelCalls);
@@ -128,7 +142,8 @@ public sealed class ToolLoopContextOverflowTests
                 result = await ctx.Agent.ActAsync("read the big output");
             },
             BigScreen(),
-            model);
+            model
+        );
 
         Assert.Null(attempt.Error);
         Assert.Equal(4, model.CallCount);
@@ -136,14 +151,20 @@ public sealed class ToolLoopContextOverflowTests
         Assert.Contains("[earlier screen elided", requests[3][0], StringComparison.Ordinal);
         Assert.Contains("[earlier screen elided", requests[3][2], StringComparison.Ordinal);
         // What was left to shrink is the newest screen, riding the second result.
-        Assert.Contains("more characters cut: the request exceeded the model's context window", requests[3][^1], StringComparison.Ordinal);
+        Assert.Contains(
+            "more characters cut: the request exceeded the model's context window",
+            requests[3][^1],
+            StringComparison.Ordinal
+        );
         Assert.Equal(3, result!.ModelCalls);
     }
 
     [Fact]
     public async Task Reports_CONTEXT_OVERFLOW_when_the_shrunk_request_is_refused_again()
     {
-        var model = new ScriptedModel(request => request.Messages.Count == 1 ? ModelResponses.Tap("button", "Peek") : throw Refusal());
+        var model = new ScriptedModel(request =>
+            request.Messages.Count == 1 ? ModelResponses.Tap("button", "Peek") : throw Refusal()
+        );
         var attempt = await RunAsync(
             async ctx =>
             {
@@ -151,7 +172,8 @@ public sealed class ToolLoopContextOverflowTests
                 await ctx.Agent.ActAsync("read the big output");
             },
             BigScreen(),
-            model);
+            model
+        );
 
         var error = Assert.IsType<AgentException>(attempt.Error);
         Assert.Equal("CONTEXT_OVERFLOW", error.Code);
@@ -170,7 +192,8 @@ public sealed class ToolLoopContextOverflowTests
                 await ctx.Agent.ActAsync("do the thing");
             },
             EmptyScreen(),
-            model);
+            model
+        );
 
         var error = Assert.IsType<AgentException>(attempt.Error);
         Assert.Equal("CONTEXT_OVERFLOW", error.Code);
@@ -182,9 +205,14 @@ public sealed class ToolLoopContextOverflowTests
     [Fact]
     public async Task Leaves_other_provider_failures_to_the_ordinary_error_translation()
     {
-        var model = new ScriptedModel(request => request.Messages.Count == 1
-            ? ModelResponses.Tap("button", "Peek")
-            : throw new AgentException("MODEL_PROVIDER_FAILED", "The model provider failed: Rate limit reached for requests"));
+        var model = new ScriptedModel(request =>
+            request.Messages.Count == 1
+                ? ModelResponses.Tap("button", "Peek")
+                : throw new AgentException(
+                    "MODEL_PROVIDER_FAILED",
+                    "The model provider failed: Rate limit reached for requests"
+                )
+        );
         var attempt = await RunAsync(
             async ctx =>
             {
@@ -192,7 +220,8 @@ public sealed class ToolLoopContextOverflowTests
                 await ctx.Agent.ActAsync("read the big output");
             },
             EmptyScreen(),
-            model);
+            model
+        );
 
         Assert.Equal("MODEL_PROVIDER_FAILED", Assert.IsType<AgentException>(attempt.Error).Code);
         Assert.Equal(2, model.CallCount);

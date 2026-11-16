@@ -24,7 +24,12 @@ public sealed class LiveWindowTests
     {
         using var terminal = Format.WithTerminalSize(rows: 40, columns: columns);
         List<string> payloads = [];
-        var window = new global::E2E.Cli.Report.LiveWindow(payloads.Add, _ => lines, new FakeTime(DateTimeOffset.UnixEpoch), new object());
+        var window = new global::E2E.Cli.Report.LiveWindow(
+            payloads.Add,
+            _ => lines,
+            new FakeTime(DateTimeOffset.UnixEpoch),
+            new object()
+        );
         window.Start();
         window.Stop();
         return payloads[0];
@@ -38,7 +43,12 @@ public sealed class LiveWindowTests
     {
         using var terminal = Format.WithTerminalSize(rows: 40, columns: 80);
         List<string> payloads = [];
-        var window = new global::E2E.Cli.Report.LiveWindow(payloads.Add, _ => ["first\nsecond"], new FakeTime(DateTimeOffset.UnixEpoch), new object());
+        var window = new global::E2E.Cli.Report.LiveWindow(
+            payloads.Add,
+            _ => ["first\nsecond"],
+            new FakeTime(DateTimeOffset.UnixEpoch),
+            new object()
+        );
         window.Start();
         window.Redraw();
         window.Stop();
@@ -62,7 +72,10 @@ public sealed class LiveWindowTests
         var payload = Paint(["abc\U0001F600def"], 6);
 
         // A lone surrogate is the one thing that does not encode.
-        Assert.Equal(payload, System.Text.Encoding.UTF8.GetString(new System.Text.UTF8Encoding(false, true).GetBytes(payload)));
+        Assert.Equal(
+            payload,
+            System.Text.Encoding.UTF8.GetString(new System.Text.UTF8Encoding(false, true).GetBytes(payload))
+        );
         Assert.Equal("abc…", Shown(payload));
     }
 
@@ -103,7 +116,8 @@ public sealed class LiveWindowTests
                 return [];
             },
             new FakeTime(DateTimeOffset.UnixEpoch),
-            new object());
+            new object()
+        );
         window.Start();
         window.Logged("日本語テスト");
         window.Redraw();

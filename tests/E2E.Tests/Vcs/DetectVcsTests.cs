@@ -16,7 +16,8 @@ public sealed class DetectVcsTests : IDisposable
 
     public void Dispose() => Directory.Delete(_outside, recursive: true);
 
-    private static Dictionary<string, string?> Env(params (string Key, string Value)[] pairs) => pairs.ToDictionary(pair => pair.Key, pair => (string?)pair.Value);
+    private static Dictionary<string, string?> Env(params (string Key, string Value)[] pairs) =>
+        pairs.ToDictionary(pair => pair.Key, pair => (string?)pair.Value);
 
     [Fact]
     public async Task Reads_the_commit_and_branch_of_a_git_checkout_over_CI_says_whether_it_is_dirty_and_names_no_branch_on_a_detached_HEAD()
@@ -26,7 +27,10 @@ public sealed class DetectVcsTests : IDisposable
         {
             var commit = GitRepo.InitRepo(repo);
             GitRepo.RunGit(repo, "switch", "--quiet", "-c", "feature");
-            Assert.Equal(new VcsInfo(commit, "feature", false), await Internal.Vcs.DetectAsync(repo, Env(("GITHUB_SHA", Sha), ("GITHUB_REF_NAME", "main"))));
+            Assert.Equal(
+                new VcsInfo(commit, "feature", false),
+                await Internal.Vcs.DetectAsync(repo, Env(("GITHUB_SHA", Sha), ("GITHUB_REF_NAME", "main")))
+            );
             File.WriteAllText(Path.Combine(repo, "file.txt"), "two\n");
             Assert.Equal(new VcsInfo(commit, "feature", true), await Internal.Vcs.DetectAsync(repo, Env()));
             GitRepo.RunGit(repo, "switch", "--quiet", "--detach");
@@ -41,10 +45,19 @@ public sealed class DetectVcsTests : IDisposable
     [Fact]
     public async Task Falls_back_to_the_CI_variables_outside_git()
     {
-        Assert.Equal(new VcsInfo(Sha, "main"), await Internal.Vcs.DetectAsync(_outside, Env(("GITHUB_SHA", Sha), ("GITHUB_REF_NAME", "main"))));
+        Assert.Equal(
+            new VcsInfo(Sha, "main"),
+            await Internal.Vcs.DetectAsync(_outside, Env(("GITHUB_SHA", Sha), ("GITHUB_REF_NAME", "main")))
+        );
 
         // A pull request run names the head branch, not the merge ref.
-        Assert.Equal(new VcsInfo(Sha, "feature"), await Internal.Vcs.DetectAsync(_outside, Env(("GITHUB_SHA", Sha), ("GITHUB_HEAD_REF", "feature"), ("GITHUB_REF_NAME", "12/merge"))));
+        Assert.Equal(
+            new VcsInfo(Sha, "feature"),
+            await Internal.Vcs.DetectAsync(
+                _outside,
+                Env(("GITHUB_SHA", Sha), ("GITHUB_HEAD_REF", "feature"), ("GITHUB_REF_NAME", "12/merge"))
+            )
+        );
     }
 
     [Fact]

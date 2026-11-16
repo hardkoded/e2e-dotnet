@@ -22,41 +22,49 @@ public sealed class ActionsTapAtFromACustomExecutorTests
     {
         using var site = await CanvasPages.StartAsync();
         PointTapResult? point = null;
-        var racer = new TestExecutor(
-            "racer",
-            async (context, token) =>
-            {
-                var observation = await context.ObserveAsync(cancellationToken: token);
-                var reset = Regex.Match(observation.Text, @"#(\S+) button ""Reset""", RegexOptions.None, TimeSpan.FromSeconds(2)).Groups[1].Value;
-                if (reset.Length == 0)
-                {
-                    return new StepVerdict(StepVerdictStatus.Failed, "no reset button on screen");
-                }
-
-                var tapAt = context.Actions.TapAtAsync(new Point(300, 60), token);
-                var tap = context.Actions.TapAsync(new ExecutorTarget(reset), null, token);
-                await Task.WhenAll(tapAt, tap);
-                point = await tapAt;
-                return point.Target is null ? Passed(point.Summary) : new StepVerdict(StepVerdictStatus.Failed, point.Summary);
-            });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        var racer = new TestExecutor("racer", async (context, token) =>
         {
-            Engine = new WebEngine(headless: true),
-            AgentExecutor = racer,
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            TestTitle = "a point tap issued alongside a node tap lands first",
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(30),
-            TestTimeout = TimeSpan.FromSeconds(60),
+            var observation = await context.ObserveAsync(cancellationToken: token);
+            var reset = Regex
+                .Match(observation.Text, @"#(\S+) button ""Reset""", RegexOptions.None, TimeSpan.FromSeconds(2))
+                .Groups[1]
+                .Value;
+            if (reset.Length == 0)
+            {
+                return new StepVerdict(StepVerdictStatus.Failed, "no reset button on screen");
+            }
+
+            var tapAt = context.Actions.TapAtAsync(new Point(300, 60), token);
+            var tap = context.Actions.TapAsync(new ExecutorTarget(reset), null, token);
+            await Task.WhenAll(tapAt, tap);
+            point = await tapAt;
+            return point.Target is null
+                ? Passed(point.Summary)
+                : new StepVerdict(StepVerdictStatus.Failed, point.Summary);
         });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                AgentExecutor = racer,
+                BaseUrl = site.Url,
+                CacheEnabled = false,
+                TestTitle = "a point tap issued alongside a node tap lands first",
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(30),
+                TestTimeout = TimeSpan.FromSeconds(60),
+            }
+        );
         await session.App.OpenAsync("/canvas");
         await session.Agent.ActAsync("pick the red pin, then reset");
         await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("reset");
         session.Complete();
 
         var step = session.StepRecords.Single(candidate => candidate.Api == "agent.act");
-        Assert.Equal(["tapAt", "tap"], step.Events.Where(item => item.Kind == StepEventKind.Engine).Select(item => item.Name));
+        Assert.Equal(
+            ["tapAt", "tap"],
+            step.Events.Where(item => item.Kind == StepEventKind.Engine).Select(item => item.Name)
+        );
         Assert.Equal(0, step.Metrics?.ModelCalls);
         Assert.Null(step.Model);
     }

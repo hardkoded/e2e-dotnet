@@ -10,7 +10,8 @@ namespace E2E.Mobile.Tests.Provider;
 public sealed class DeviceProviderTests
 {
     /// <summary>A scripted provider: leases <c>lease-n</c> against <c>https://n.example</c>, remembering every call.</summary>
-    private sealed class ToyCloud(int? failSlot = null, string? installedApp = null, bool failRelease = false) : IDeviceProvider
+    private sealed class ToyCloud(int? failSlot = null, string? installedApp = null, bool failRelease = false)
+        : IDeviceProvider
     {
         private readonly TaskCompletionSource _allStarted = new();
         private int _started;
@@ -38,13 +39,15 @@ public sealed class DeviceProviderTests
 
             request.Log("starting");
             await _allStarted.Task;
-            return (new DeviceLease
-            {
-                Id = $"lease-{request.Slot}",
-                Daemon = new DeviceDaemon($"https://{request.Slot}.example", $"token-{request.Slot}"),
-                Device = $"sim-{request.Slot}",
-                InstalledApp = installedApp,
-            });
+            return (
+                new DeviceLease
+                {
+                    Id = $"lease-{request.Slot}",
+                    Daemon = new DeviceDaemon($"https://{request.Slot}.example", $"token-{request.Slot}"),
+                    Device = $"sim-{request.Slot}",
+                    InstalledApp = installedApp,
+                }
+            );
         }
 
         public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken)
@@ -61,7 +64,8 @@ public sealed class DeviceProviderTests
 
         public List<DeviceLease> Released { get; } = [];
 
-        public Task<DeviceLease> AcquireAsync(DeviceRequest request, CancellationToken cancellationToken) => acquire(request);
+        public Task<DeviceLease> AcquireAsync(DeviceRequest request, CancellationToken cancellationToken) =>
+            acquire(request);
 
         public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken)
         {
@@ -78,7 +82,8 @@ public sealed class DeviceProviderTests
         public string Session { get; init; } = "";
     }
 
-    private const string RejectedLease = "returned a lease without an id and a daemon baseUrl or JSON client configuration";
+    private const string RejectedLease =
+        "returned a lease without an id and a daemon baseUrl or JSON client configuration";
 
     private static Harness Over(IDeviceProvider provider, Func<MobileApp, MobileApp>? app = null, bool pinned = true) =>
         Harness.Create(options => options with { Provider = provider }, pinned, app);
@@ -86,7 +91,9 @@ public sealed class DeviceProviderTests
     [Fact]
     public void Rejects_a_provider_without_a_name()
     {
-        var error = Assert.Throws<ConfigurationException>(() => Over(new ScriptedProvider("", _ => Task.FromResult(new DeviceLease()))));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            Over(new ScriptedProvider("", _ => Task.FromResult(new DeviceLease())))
+        );
         Assert.Contains("non-empty `name`", error.Message, StringComparison.Ordinal);
     }
 
@@ -104,16 +111,25 @@ public sealed class DeviceProviderTests
         Assert.Equal(2, result.Workers);
         Assert.Equal(
             [(0, 2, MobilePlatform.Ios, "Settings", (string?)null), (1, 2, MobilePlatform.Ios, "Settings", null)],
-            cloud.Acquired.Select(request => (request.Slot, request.Slots, request.Platform, request.App, request.AppPath)));
+            cloud.Acquired.Select(request =>
+                (request.Slot, request.Slots, request.Platform, request.App, request.AppPath)
+            )
+        );
         Assert.Equal("t", cloud.Acquired[0].Env["DEVICE_SERVICE_TOKEN"]);
         Assert.Equal(Harness.ProjectRoot, cloud.Acquired[0].ProjectRoot);
 
         // The agent-device the package pins, so a provider can start a daemon of the same version.
         Assert.Equal(AgentDeviceVersion.Pinned, cloud.Acquired[0].AgentDeviceVersion);
-        Assert.Equal(["leasing 2 ios device(s) from toy-cloud", "toy-cloud (1 of 2): starting", "toy-cloud (2 of 2): starting"], lines.Take(3));
+        Assert.Equal(
+            ["leasing 2 ios device(s) from toy-cloud", "toy-cloud (1 of 2): starting", "toy-cloud (2 of 2): starting"],
+            lines.Take(3)
+        );
 
         // The leases come back in whatever order the service answers.
-        Assert.Equal(["toy-cloud: leased lease-0 (sim-0)", "toy-cloud: leased lease-1 (sim-1)"], lines.Skip(3).Take(2).Order());
+        Assert.Equal(
+            ["toy-cloud: leased lease-0 (sim-0)", "toy-cloud: leased lease-1 (sim-1)"],
+            lines.Skip(3).Take(2).Order()
+        );
         var warm = lines.Skip(5).ToList();
         Assert.Equal(4, warm.Count);
         Assert.Equal("booting sim-0 (1 of 2)", warm[0]);
@@ -122,8 +138,14 @@ public sealed class DeviceProviderTests
         Assert.Matches(@"^sim-1: boot \d+\.\ds, iOS runner \d+\.\ds, open Settings \d+\.\ds$", warm[3]);
 
         // Warmed like a local device, through the leased daemon: a fresh hosted simulator is the coldest device there is.
-        Assert.Equal([new DeviceDaemon("https://0.example", "token-0"), new DeviceDaemon("https://1.example", "token-1")], h.Connections.Select(connection => connection?.Daemon));
-        Assert.Equal(["devices.boot", "command.prepare", "apps.open", "devices.boot", "command.prepare", "apps.open"], h.Fake.Methods());
+        Assert.Equal(
+            [new DeviceDaemon("https://0.example", "token-0"), new DeviceDaemon("https://1.example", "token-1")],
+            h.Connections.Select(connection => connection?.Daemon)
+        );
+        Assert.Equal(
+            ["devices.boot", "command.prepare", "apps.open", "devices.boot", "command.prepare", "apps.open"],
+            h.Fake.Methods()
+        );
         JsonAssert.Args("""{"app":"Settings","platform":"ios","device":"sim-0"}""", h.Fake.Calls[2].Args);
         var variable = Harness.PoolVariableIn(result.Env, "IOS");
         JsonAssert.Args(
@@ -133,12 +155,16 @@ public sealed class DeviceProviderTests
               {"leaseId":"lease-1","device":"sim-1","daemon":{"baseUrl":"https://1.example","authToken":"token-1"}}
             ]
             """,
-            JsonNode.Parse(result.Env[variable]));
+            JsonNode.Parse(result.Env[variable])
+        );
 
         // A child worker reads its binding from the environment and drives that daemon and device.
         var worker = Over(cloud);
         await worker.Boot("ios", 1, Harness.WorkerEnv(result));
-        Assert.Equal([new DeviceDaemon("https://1.example", "token-1")], worker.Connections.Select(connection => connection?.Daemon));
+        Assert.Equal(
+            [new DeviceDaemon("https://1.example", "token-1")],
+            worker.Connections.Select(connection => connection?.Daemon)
+        );
         Assert.Equal(["e2e-ios-1"], worker.Sessions);
         JsonAssert.Args("""{"platform":"ios","device":"sim-1"}""", worker.Fake.LastArgs("devices.boot"));
 
@@ -187,7 +213,10 @@ public sealed class DeviceProviderTests
 
         // Installed by the provider: warm-up opens it right away.
         Assert.Equal(["devices.boot", "command.prepare", "apps.open"], h.Fake.Methods());
-        JsonAssert.Args("""{"app":"com.example.app","platform":"ios","device":"sim-0"}""", h.Fake.LastArgs("apps.open"));
+        JsonAssert.Args(
+            """{"app":"com.example.app","platform":"ios","device":"sim-0"}""",
+            h.Fake.LastArgs("apps.open")
+        );
         var session = await h.Boot("ios", 0, Harness.WorkerEnv(result));
         Assert.DoesNotContain("apps.install", h.Fake.Methods());
         await session.RestartAsync(CancellationToken.None);
@@ -202,8 +231,14 @@ public sealed class DeviceProviderTests
     {
         var cloud = new ToyCloud(installedApp: "com.example.app");
         var h = Over(cloud);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None));
-        Assert.Contains("reported an installed app for a request without `appPath`", failure.Message, StringComparison.Ordinal);
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None)
+        );
+        Assert.Contains(
+            "reported an installed app for a request without `appPath`",
+            failure.Message,
+            StringComparison.Ordinal
+        );
 
         // The lease was granted, so it is still released.
         await h.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);
@@ -215,7 +250,9 @@ public sealed class DeviceProviderTests
     {
         var cloud = new ToyCloud(installedApp: "file:///etc/passwd");
         var h = Over(cloud, app => app with { AppPath = "build/App.app" }, pinned: false);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", failure.Code);
         Assert.Contains("reported an installed app that is a link", failure.Message, StringComparison.Ordinal);
         Assert.Empty(h.Fake.Methods());
@@ -240,18 +277,25 @@ public sealed class DeviceProviderTests
     public async Task Hands_the_workers_only_the_declared_lease_fields_and_gives_release_the_providers_own_object_back()
     {
         var granted = new List<DeviceLease>();
-        var bookkeeping = new ScriptedProvider(
-            "notes",
-            request =>
+        var bookkeeping = new ScriptedProvider("notes", request =>
+        {
+            // A provider may keep a `leaseId` of its own on the lease. The worker's comes from `Id`.
+            var lease = new BookkeepingLease
             {
-                // A provider may keep a `leaseId` of its own on the lease. The worker's comes from `Id`.
-                var lease = new BookkeepingLease { Id = $"l-{request.Slot}", LeaseId = 42, Daemon = new DeviceDaemon("https://d.example"), Session = new string('x', 100) };
-                granted.Add(lease);
-                return Task.FromResult<DeviceLease>(lease);
-            });
+                Id = $"l-{request.Slot}",
+                LeaseId = 42,
+                Daemon = new DeviceDaemon("https://d.example"),
+                Session = new string('x', 100),
+            };
+            granted.Add(lease);
+            return Task.FromResult<DeviceLease>(lease);
+        });
         var h = Over(bookkeeping);
         var result = await h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None);
-        JsonAssert.Args("""[{"leaseId":"l-0","daemon":{"baseUrl":"https://d.example"}}]""", JsonNode.Parse(result.Env[Harness.PoolVariableIn(result.Env, "IOS")]));
+        JsonAssert.Args(
+            """[{"leaseId":"l-0","daemon":{"baseUrl":"https://d.example"}}]""",
+            JsonNode.Parse(result.Env[Harness.PoolVariableIn(result.Env, "IOS")])
+        );
         await h.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);
         Assert.Equal(granted, bookkeeping.Released);
         Assert.Same(granted[0], bookkeeping.Released[0]);
@@ -269,12 +313,16 @@ public sealed class DeviceProviderTests
             ["leaseBackend"] = "ios-instance",
             ["leaseProvider"] = "cloud",
         };
-        var scoped = new ScriptedProvider(
-            "scoped",
-            request => Task.FromResult(
+        var scoped = new ScriptedProvider("scoped", request => Task.FromResult(
                 request.Slot == 0
                     ? new DeviceLease { Id = "l-0", Client = (JsonObject)scope.DeepClone() }
-                    : new DeviceLease { Id = "l-1", Daemon = new DeviceDaemon("https://1.example"), Client = new JsonObject { ["providerOsVersion"] = "18.0" } }));
+                    : new DeviceLease
+                    {
+                        Id = "l-1",
+                        Daemon = new DeviceDaemon("https://1.example"),
+                        Client = new JsonObject { ["providerOsVersion"] = "18.0" },
+                    }
+            ));
         var h = Over(scoped);
         var result = await h.Engine.PrepareAsync(h.PrepareInfo(2), CancellationToken.None);
 
@@ -297,18 +345,44 @@ public sealed class DeviceProviderTests
         var leases = new[]
         {
             new DeviceLease { Id = "bare" },
-            new DeviceLease { Id = "session", Client = new JsonObject { ["session"] = "mine", ["leaseId"] = "x" } },
-            new DeviceLease { Id = "daemon-keys", Client = new JsonObject { ["daemonBaseUrl"] = "https://d.example" } },
-            new DeviceLease { Id = "transport", Client = new JsonObject { ["leaseId"] = "x", ["daemonTransport"] = "http" } },
-            new DeviceLease { Id = "nan", Client = new JsonObject { ["leaseId"] = "x", ["leaseTtlMs"] = double.NaN } },
-            new DeviceLease { Id = "infinity", Client = new JsonObject { ["leaseId"] = "x", ["leaseTtlMs"] = double.PositiveInfinity } },
-            new DeviceLease { Id = "negative-infinity", Client = new JsonObject { ["leaseId"] = "x", ["leaseTtlMs"] = double.NegativeInfinity } },
+            new DeviceLease
+            {
+                Id = "session",
+                Client = new JsonObject { ["session"] = "mine", ["leaseId"] = "x" },
+            },
+            new DeviceLease
+            {
+                Id = "daemon-keys",
+                Client = new JsonObject { ["daemonBaseUrl"] = "https://d.example" },
+            },
+            new DeviceLease
+            {
+                Id = "transport",
+                Client = new JsonObject { ["leaseId"] = "x", ["daemonTransport"] = "http" },
+            },
+            new DeviceLease
+            {
+                Id = "nan",
+                Client = new JsonObject { ["leaseId"] = "x", ["leaseTtlMs"] = double.NaN },
+            },
+            new DeviceLease
+            {
+                Id = "infinity",
+                Client = new JsonObject { ["leaseId"] = "x", ["leaseTtlMs"] = double.PositiveInfinity },
+            },
+            new DeviceLease
+            {
+                Id = "negative-infinity",
+                Client = new JsonObject { ["leaseId"] = "x", ["leaseTtlMs"] = double.NegativeInfinity },
+            },
         };
         foreach (var lease in leases)
         {
             var odd = new ScriptedProvider("odd", _ => Task.FromResult(lease));
             var h = Over(odd);
-            var failure = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None));
+            var failure = await Assert.ThrowsAsync<EngineException>(() =>
+                h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None)
+            );
             Assert.Contains(RejectedLease, failure.Message, StringComparison.Ordinal);
 
             // The provider allocated a device for it, so it is billed until released: finish hands back the very object.
@@ -320,9 +394,13 @@ public sealed class DeviceProviderTests
     [Fact]
     public async Task Has_nothing_to_release_for_a_lease_without_an_id()
     {
-        var nameless = new ScriptedProvider("nameless", _ => Task.FromResult(new DeviceLease { Daemon = new DeviceDaemon("https://d.example") }));
+        var nameless = new ScriptedProvider("nameless", _ =>
+            Task.FromResult(new DeviceLease { Daemon = new DeviceDaemon("https://d.example") })
+        );
         var h = Over(nameless);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None)
+        );
         Assert.Contains(RejectedLease, failure.Message, StringComparison.Ordinal);
         await h.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);
         Assert.Empty(nameless.Released);
@@ -332,11 +410,20 @@ public sealed class DeviceProviderTests
     public async Task Releases_a_good_lease_and_a_rejected_one_from_the_same_prepare_and_warms_neither()
     {
         var bad = new DeviceLease { Id = "bad" };
-        var mixed = new ScriptedProvider(
-            "mixed",
-            request => Task.FromResult(request.Slot == 0 ? new DeviceLease { Id = "lease-0", Daemon = new DeviceDaemon("https://0.example"), Device = "sim-0" } : bad));
+        var mixed = new ScriptedProvider("mixed", request => Task.FromResult(
+                request.Slot == 0
+                    ? new DeviceLease
+                    {
+                        Id = "lease-0",
+                        Daemon = new DeviceDaemon("https://0.example"),
+                        Device = "sim-0",
+                    }
+                    : bad
+            ));
         var h = Over(mixed);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(2), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(2), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", failure.Code);
         Assert.Contains(RejectedLease, failure.Message, StringComparison.Ordinal);
 
@@ -352,11 +439,19 @@ public sealed class DeviceProviderTests
     public async Task Rejects_bindings_too_large_for_a_worker_environment_by_bytes()
     {
         // Multi-byte characters: the cap is on bytes, not string length.
-        var oversized = new ScriptedProvider(
-            "huge",
-            request => Task.FromResult(new DeviceLease { Id = $"l-{request.Slot}", Daemon = new DeviceDaemon("https://d.example", new string('ż', 9_000)) }));
+        var oversized = new ScriptedProvider("huge", request =>
+            Task.FromResult(
+                new DeviceLease
+                {
+                    Id = $"l-{request.Slot}",
+                    Daemon = new DeviceDaemon("https://d.example", new string('ż', 9_000)),
+                }
+            )
+        );
         var h = Over(oversized);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None)
+        );
         Assert.Contains("the worker environment carries at most 16384", failure.Message, StringComparison.Ordinal);
     }
 
@@ -365,9 +460,15 @@ public sealed class DeviceProviderTests
     {
         var cloud = new ToyCloud(failSlot: 1);
         var h = Over(cloud);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(2), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(2), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", failure.Code);
-        Assert.Contains("device provider \"toy-cloud\" could not lease a device: no capacity for slot 1", failure.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "device provider \"toy-cloud\" could not lease a device: no capacity for slot 1",
+            failure.Message,
+            StringComparison.Ordinal
+        );
         await h.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);
         Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
     }
@@ -375,13 +476,17 @@ public sealed class DeviceProviderTests
     [Fact]
     public async Task Treats_an_acquire_that_throws_before_its_first_await_like_any_other_failed_slot()
     {
-        var sync = new ScriptedProvider(
-            "sync",
-            request => request.Slot == 1
+        var sync = new ScriptedProvider("sync", request =>
+            request.Slot == 1
                 ? throw new InvalidOperationException("token missing")
-                : Task.FromResult(new DeviceLease { Id = $"l-{request.Slot}", Daemon = new DeviceDaemon("https://d.example") }));
+                : Task.FromResult(
+                    new DeviceLease { Id = $"l-{request.Slot}", Daemon = new DeviceDaemon("https://d.example") }
+                )
+        );
         var h = Over(sync);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(2), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.PrepareAsync(h.PrepareInfo(2), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", failure.Code);
         Assert.Contains("could not lease a device: token missing", failure.Message, StringComparison.Ordinal);
     }
@@ -392,7 +497,9 @@ public sealed class DeviceProviderTests
         var cloud = new ToyCloud(failRelease: true);
         var h = Over(cloud);
         await h.Engine.PrepareAsync(h.PrepareInfo(2), CancellationToken.None);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => h.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            h.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None)
+        );
         Assert.Contains("could not release a device: stop failed", failure.Message, StringComparison.Ordinal);
         Assert.Equal(["lease-0", "lease-1"], cloud.Released.Select(lease => lease.Id));
 
@@ -462,15 +569,24 @@ public sealed class DeviceProviderTests
         Assert.Equal(["e2e-ios-0"], retired.Sessions);
         Assert.Equal(["e2e-ios-0"], replacement.Sessions);
         var connection = Assert.IsType<SlotBinding>(Assert.Single(replacement.Connections));
-        Assert.Equal(("lease-0", "sim-0", new DeviceDaemon("https://0.example", "token-0")), (connection.LeaseId, connection.Device, connection.Daemon));
+        Assert.Equal(
+            ("lease-0", "sim-0", new DeviceDaemon("https://0.example", "token-0")),
+            (connection.LeaseId, connection.Device, connection.Daemon)
+        );
         Assert.Equal([DeviceMethods.DevicesBoot], replacement.Fake.Methods());
         await replacement.Engine.DisposeAsync(TimeSpan.FromSeconds(5), reuse.Token, CancellationToken.None);
         Assert.Equal([DeviceMethods.DevicesBoot], replacement.Fake.Methods());
 
         await runner.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);
         Assert.Equal(
-            [DeviceMethods.DevicesBoot, DeviceMethods.CommandPrepare, DeviceMethods.AppsOpen, DeviceMethods.SessionsClose],
-            runner.Fake.Methods());
+            [
+                DeviceMethods.DevicesBoot,
+                DeviceMethods.CommandPrepare,
+                DeviceMethods.AppsOpen,
+                DeviceMethods.SessionsClose,
+            ],
+            runner.Fake.Methods()
+        );
         Assert.Equal([0], cloud.Acquired.Select(request => request.Slot));
         Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
     }
@@ -511,18 +627,27 @@ public sealed class DeviceProviderTests
         var cloud = new ToyCloud();
         var runner = Over(cloud);
         var target = runner.Engine.Options.TargetName;
-        var host = await Standalone.OpenWorkerAsync(new StandaloneHostOptions
-        {
-            Engine = runner.Engine,
-            TargetName = target,
-            ProjectRoot = Directory.GetCurrentDirectory(),
-        });
+        var host = await Standalone.OpenWorkerAsync(
+            new StandaloneHostOptions
+            {
+                Engine = runner.Engine,
+                TargetName = target,
+                ProjectRoot = Directory.GetCurrentDirectory(),
+            }
+        );
 
         // Prepare warms the device (one boot) and the first attempt boots it under the session; the second attempt boots nothing.
         var boots = 0;
         for (var attempt = 1; attempt <= 2; attempt++)
         {
-            var opened = await host.OpenAttemptAsync(new E2ESessionOptions { Engine = runner.Engine, TargetName = target, TestTitle = $"attempt {attempt}" });
+            var opened = await host.OpenAttemptAsync(
+                new E2ESessionOptions
+                {
+                    Engine = runner.Engine,
+                    TargetName = target,
+                    TestTitle = $"attempt {attempt}",
+                }
+            );
             Assert.Empty(await opened.CloseAsync());
             if (attempt == 1)
             {
@@ -549,7 +674,10 @@ public sealed class DeviceProviderTests
         var cloud = new ToyCloud();
         var runner = Over(cloud);
 
-        var outcome = await MobileRun.RunAsync(runner.Engine, [new InMemoryTest("keeps the lease", _ => Task.CompletedTask)]);
+        var outcome = await MobileRun.RunAsync(
+            runner.Engine,
+            [new InMemoryTest("keeps the lease", _ => Task.CompletedTask)]
+        );
 
         Assert.Equal(RunStatus.Passed, outcome.Status);
         Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
@@ -566,25 +694,40 @@ public sealed class DeviceProviderTests
         var cloud = new ToyCloud();
         var runner = Over(cloud);
         var target = runner.Engine.Options.TargetName;
-        var host = await Standalone.OpenWorkerAsync(new StandaloneHostOptions
-        {
-            Engine = runner.Engine,
-            TargetName = target,
-            ProjectRoot = Directory.GetCurrentDirectory(),
-        });
-        var attempt = await host.OpenAttemptAsync(new E2ESessionOptions { Engine = runner.Engine, TargetName = target, TestTitle = "attempt" });
+        var host = await Standalone.OpenWorkerAsync(
+            new StandaloneHostOptions
+            {
+                Engine = runner.Engine,
+                TargetName = target,
+                ProjectRoot = Directory.GetCurrentDirectory(),
+            }
+        );
+        var attempt = await host.OpenAttemptAsync(
+            new E2ESessionOptions
+            {
+                Engine = runner.Engine,
+                TargetName = target,
+                TestTitle = "attempt",
+            }
+        );
         Assert.Empty(await attempt.CloseAsync());
         var disposable = (IDisposableEngine)runner.Engine;
         using var reuse = new CancellationTokenSource();
 
-        await disposable.DisposeAsync(new EngineDisposeContext { CleanupTimeout = TimeSpan.FromSeconds(5), ReuseSignal = reuse.Token }, CancellationToken.None);
+        await disposable.DisposeAsync(
+            new EngineDisposeContext { CleanupTimeout = TimeSpan.FromSeconds(5), ReuseSignal = reuse.Token },
+            CancellationToken.None
+        );
 
         Assert.DoesNotContain(DeviceMethods.SessionsClose, runner.Fake.Methods());
         Assert.Empty(cloud.Released);
 
         // The kept worker left the engine with its session, so a dispose without the permission has no worker of its own left to close.
         var calls = runner.Fake.Methods().Count;
-        await disposable.DisposeAsync(new EngineDisposeContext { CleanupTimeout = TimeSpan.FromSeconds(5) }, CancellationToken.None);
+        await disposable.DisposeAsync(
+            new EngineDisposeContext { CleanupTimeout = TimeSpan.FromSeconds(5) },
+            CancellationToken.None
+        );
 
         Assert.Equal(calls, runner.Fake.Methods().Count);
         Assert.Empty(await host.CloseAsync());

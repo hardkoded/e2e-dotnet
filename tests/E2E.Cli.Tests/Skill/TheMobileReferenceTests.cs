@@ -14,13 +14,19 @@ public sealed class TheMobileReferenceTests
     public void Quotes_the_mobile_sample_verbatim_in_each_excerpt()
     {
         var reference = BundledSkill.ReadGuide("mobile") ?? throw new InvalidOperationException("no mobile reference");
-        var excerpts = Regex.Matches(reference, @"excerpt of `(?<file>\w+\.cs)`[^\n]*\r?\n\r?\n```csharp\r?\n(?<code>.*?)```", RegexOptions.Singleline);
+        var excerpts = Regex.Matches(
+            reference,
+            @"excerpt of `(?<file>\w+\.cs)`[^\n]*\r?\n\r?\n```csharp\r?\n(?<code>.*?)```",
+            RegexOptions.Singleline
+        );
         Assert.Equal(2, excerpts.Count);
         foreach (Match excerpt in excerpts)
         {
             var file = excerpt.Groups["file"].Value;
             var sample = Lines(File.ReadAllText(Path.Combine(RepoRoot(), "samples", "MobileApp.E2ETests", file)));
-            foreach (var part in Regex.Split(excerpt.Groups["code"].Value, @"^\s*// \.\.\.\s*$", RegexOptions.Multiline))
+            foreach (
+                var part in Regex.Split(excerpt.Groups["code"].Value, @"^\s*// \.\.\.\s*$", RegexOptions.Multiline)
+            )
             {
                 var lines = Lines(part);
                 Assert.True(lines.Count == 0 || IndexOf(sample, lines) >= 0, file + ": " + string.Join("\n", lines));
@@ -29,7 +35,8 @@ public sealed class TheMobileReferenceTests
     }
 
     /// <summary>The non-blank lines of <paramref name="text"/>, trimmed, so indentation does not matter.</summary>
-    private static List<string> Lines(string text) => text.Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0).ToList();
+    private static List<string> Lines(string text) =>
+        text.Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0).ToList();
 
     /// <summary>The index in <paramref name="haystack"/> where <paramref name="needle"/> appears as consecutive lines, or -1.</summary>
     private static int IndexOf(List<string> haystack, List<string> needle)

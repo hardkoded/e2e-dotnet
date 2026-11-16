@@ -36,7 +36,8 @@ public sealed class ToolLoopPrefixOnOtherProvidersTests
                 }
             }
 
-            var answer = requests.Count <= 2 ? ModelResponses.Call("observe", new { }) : ModelResponses.Done("passed", "done");
+            var answer =
+                requests.Count <= 2 ? ModelResponses.Call("observe", new { }) : ModelResponses.Done("passed", "done");
             return new ModelResponse { ToolCalls = answer.ToolCalls, ReasoningItems = [reasoning] };
         });
         var big = new DocumentWorld().Map("/start", page =>
@@ -56,11 +57,15 @@ public sealed class ToolLoopPrefixOnOtherProvidersTests
                 await ctx.Agent.ActAsync("look around twice, then conclude");
             },
             big,
-            model);
+            model
+        );
 
         Assert.Null(attempt.Error);
         Assert.Equal(3, requests.Count);
         Assert.Contains("[earlier screen elided", requests[1][0].Content, StringComparison.Ordinal);
-        Assert.Equal([0, 1, 2], requests.Select(request => request.Count(message => message.ReasoningItems is { Count: > 0 })));
+        Assert.Equal(
+            [0, 1, 2],
+            requests.Select(request => request.Count(message => message.ReasoningItems is { Count: > 0 }))
+        );
     }
 }

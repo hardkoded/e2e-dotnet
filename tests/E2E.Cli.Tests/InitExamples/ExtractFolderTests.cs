@@ -21,8 +21,7 @@ public sealed class ExtractFolderTests : IDisposable
     public async Task Writes_the_folder_without_its_prefix_keeps_executables_executable_and_stops_past_the_folder()
     {
         var longName = "e2e-main/samples/X/" + string.Concat(Enumerable.Repeat("deep/", 30)) + "file.txt";
-        var archive = ExampleArchives.Tar(
-        [
+        var archive = ExampleArchives.Tar([
             new ArchiveEntry("e2e-main/samples/X/gradlew", "#!/bin/sh\n", (UnixFileMode)0b111_101_101),
             new ArchiveEntry(longName, "from pax"),
             new ArchiveEntry("e2e-main/samples/X/" + new string('g', 120) + ".txt", "from gnu", Gnu: true),
@@ -35,14 +34,25 @@ public sealed class ExtractFolderTests : IDisposable
         Assert.Equal("#!/bin/sh\n", await File.ReadAllTextAsync(Path.Combine(_dir, "gradlew")));
         if (!OperatingSystem.IsWindows())
         {
-            Assert.NotEqual(UnixFileMode.None, File.GetUnixFileMode(Path.Combine(_dir, "gradlew")) & UnixFileMode.UserExecute);
+            Assert.NotEqual(
+                UnixFileMode.None,
+                File.GetUnixFileMode(Path.Combine(_dir, "gradlew")) & UnixFileMode.UserExecute
+            );
         }
 
-        Assert.Equal("from pax", await File.ReadAllTextAsync(Path.Combine(_dir, Path.Combine(Enumerable.Repeat("deep", 30).ToArray()), "file.txt")));
+        Assert.Equal(
+            "from pax",
+            await File.ReadAllTextAsync(
+                Path.Combine(_dir, Path.Combine(Enumerable.Repeat("deep", 30).ToArray()), "file.txt")
+            )
+        );
         Assert.Equal("from gnu", await File.ReadAllTextAsync(Path.Combine(_dir, new string('g', 120) + ".txt")));
         Assert.False(File.Exists(Path.Combine(_dir, "link")));
         Assert.False(File.Exists(Path.Combine(_dir, "after.txt")));
-        Assert.Equal(new HashSet<string>(["gradlew", "deep", new string('g', 120) + ".txt", "link"]), new HashSet<string>(top));
+        Assert.Equal(
+            new HashSet<string>(["gradlew", "deep", new string('g', 120) + ".txt", "link"]),
+            new HashSet<string>(top)
+        );
     }
 
     [Fact]
@@ -50,7 +60,9 @@ public sealed class ExtractFolderTests : IDisposable
     {
         var archive = ExampleArchives.Tar([new ArchiveEntry("e2e-main/samples/X/../../escape.txt", "no")]);
         using var source = new ExampleArchives.ChunkedStream(archive);
-        var failure = await Assert.ThrowsAsync<ExampleDownloadError>(() => Examples.ExtractFolderAsync(source, "samples/X/", _dir, _ => { }));
+        var failure = await Assert.ThrowsAsync<ExampleDownloadError>(() =>
+            Examples.ExtractFolderAsync(source, "samples/X/", _dir, _ => { })
+        );
         Assert.Contains("unsafe path", failure.Message, StringComparison.Ordinal);
         Assert.False(File.Exists(Path.Combine(_dir, "..", "escape.txt")));
     }

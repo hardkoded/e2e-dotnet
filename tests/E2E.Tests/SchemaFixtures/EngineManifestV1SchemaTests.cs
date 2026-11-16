@@ -10,10 +10,12 @@ public sealed class EngineManifestV1SchemaTests
     private static readonly JsonSchemaCheck Validate = JsonSchemaCheck.FromFile("engine-manifest-v1.schema.json");
 
     [Fact]
-    public void Accepts_the_valid_fixture() => Assert.True(Validate.IsValid(ReportSchema.ReadJson("fixtures", "engine-manifest-v1.valid.json")));
+    public void Accepts_the_valid_fixture() =>
+        Assert.True(Validate.IsValid(ReportSchema.ReadJson("fixtures", "engine-manifest-v1.valid.json")));
 
     [Fact]
-    public void Rejects_the_invalid_fixture() => Assert.False(Validate.IsValid(ReportSchema.ReadJson("fixtures", "engine-manifest-v1.invalid.json")));
+    public void Rejects_the_invalid_fixture() =>
+        Assert.False(Validate.IsValid(ReportSchema.ReadJson("fixtures", "engine-manifest-v1.invalid.json")));
 
     [Fact]
     public void Rejects_a_method_listed_twice()

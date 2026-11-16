@@ -23,7 +23,8 @@ public sealed class AgentActCancellationAndMalformedToolCallsTests
                 await ctx.Agent.ActAsync("do something eventually", cancellationToken: cancel.Token);
             },
             CounterPage.World(),
-            new HangingModel());
+            new HangingModel()
+        );
 
         Assert.IsAssignableFrom<OperationCanceledException>(result.Error);
     }
@@ -34,7 +35,8 @@ public sealed class AgentActCancellationAndMalformedToolCallsTests
         var model = new ScriptedModel(request =>
             request.Messages.Any(message => message.Role == "tool")
                 ? ModelResponses.Done("passed", "clicked")
-                : ModelResponses.Tap("button", "Increment"));
+                : ModelResponses.Tap("button", "Increment")
+        );
         var result = await RunAsync(
             async ctx =>
             {
@@ -42,7 +44,8 @@ public sealed class AgentActCancellationAndMalformedToolCallsTests
                 await ctx.Agent.ActAsync("click once");
             },
             CounterPage.World(),
-            model);
+            model
+        );
 
         Assert.Null(result.Error);
         Assert.True(model.Requests.Count >= 2);
@@ -59,8 +62,17 @@ public sealed class AgentActCancellationAndMalformedToolCallsTests
                 ? ModelResponses.Done("passed", "recovered")
                 : new ModelResponse
                 {
-                    ToolCalls = [new ModelToolCall { Id = "call_1", Name = "navigate", Arguments = ModelHttp.Arguments(text) }],
-                });
+                    ToolCalls =
+                    [
+                        new ModelToolCall
+                        {
+                            Id = "call_1",
+                            Name = "navigate",
+                            Arguments = ModelHttp.Arguments(text),
+                        },
+                    ],
+                }
+        );
         var result = await RunAsync(
             async ctx =>
             {
@@ -68,10 +80,15 @@ public sealed class AgentActCancellationAndMalformedToolCallsTests
                 await ctx.Agent.ActAsync("go somewhere");
             },
             CounterPage.World(),
-            model);
+            model
+        );
 
         Assert.Null(result.Error);
-        Assert.Contains("navigate takes a JSON object of arguments.", CounterPage.ToolResults(model)[0], StringComparison.Ordinal);
+        Assert.Contains(
+            "navigate takes a JSON object of arguments.",
+            CounterPage.ToolResults(model)[0],
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -109,7 +126,15 @@ public sealed class AgentActCancellationAndMalformedToolCallsTests
     {
         var model = new ScriptedModel(_ => new ModelResponse
         {
-            ToolCalls = [new ModelToolCall { Id = "call_1", Name = "extract", Arguments = ModelHttp.Arguments("[]") }],
+            ToolCalls =
+            [
+                new ModelToolCall
+                {
+                    Id = "call_1",
+                    Name = "extract",
+                    Arguments = ModelHttp.Arguments("[]"),
+                },
+            ],
         });
         var result = await RunAsync(
             async ctx =>
@@ -118,7 +143,8 @@ public sealed class AgentActCancellationAndMalformedToolCallsTests
                 await ctx.Agent.ExtractAsync<Reading>("read the count");
             },
             CounterPage.World(),
-            model);
+            model
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("MODEL_OUTPUT_INVALID", error.Code);

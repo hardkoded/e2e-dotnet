@@ -123,7 +123,8 @@ internal sealed class VideoRecorder(string artifactsDir, WebScreencastOptions? o
                 EngineErrorCodes.EngineFailure,
                 $"video segment {segment.Relative} could not be finalized: {WebErrors.Message(segment.Cause)}",
                 retryable: false,
-                segment.Cause);
+                segment.Cause
+            );
         }
 
         var finished = _finished;
@@ -142,7 +143,8 @@ internal sealed class VideoRecorder(string artifactsDir, WebScreencastOptions? o
     {
         await EndAsync().ConfigureAwait(false);
         _count++;
-        var name = _count == 1 ? "video" : $"video-part{_count.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        var name =
+            _count == 1 ? "video" : $"video-part{_count.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
         var relative = $"video/{name}.webm";
         var absolute = Path.Combine(artifactsDir, "video", name + ".webm");
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
@@ -164,7 +166,13 @@ internal sealed class VideoRecorder(string artifactsDir, WebScreencastOptions? o
         }
 
         await page.Screencast.StartAsync(start).ConfigureAwait(false);
-        _current = new Segment(page, relative, absolute, DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture), framed.Task);
+        _current = new Segment(
+            page,
+            relative,
+            absolute,
+            DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture),
+            framed.Task
+        );
     }
 
     /// <summary>
@@ -222,7 +230,10 @@ internal sealed class VideoRecorder(string artifactsDir, WebScreencastOptions? o
             return new WebViewport(emulated.Width, emulated.Height);
         }
 
-        var measured = await page.EvaluateAsync<System.Text.Json.JsonElement>("() => ({ width: window.innerWidth, height: window.innerHeight })").ConfigureAwait(false);
+        var measured = await page.EvaluateAsync<System.Text.Json.JsonElement>(
+                "() => ({ width: window.innerWidth, height: window.innerHeight })"
+            )
+            .ConfigureAwait(false);
         return new WebViewport(measured.GetProperty("width").GetInt32(), measured.GetProperty("height").GetInt32());
     }
 

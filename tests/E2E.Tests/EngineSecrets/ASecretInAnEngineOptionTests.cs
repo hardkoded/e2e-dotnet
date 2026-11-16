@@ -21,7 +21,10 @@ public sealed class ASecretInAnEngineOptionTests
 {
     private const string Password = "basic-Pa55-7Qz";
 
-    private static readonly JsonSerializerOptions Unescaped = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions Unescaped = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     /// <summary>
     /// Partial: the port has no step record, so it cannot read <c>visionInput</c> and <c>visionDegraded</c>. It reads the image
@@ -41,26 +44,40 @@ public sealed class ASecretInAnEngineOptionTests
                 return;
             }
 
-            await TinySite.RespondAsync(context, $"<!doctype html><html><head><title>Echo</title></head><body><h1>Echo</h1><p>Authorization: {header}</p></body></html>");
+            await TinySite.RespondAsync(
+                context,
+                $"<!doctype html><html><head><title>Echo</title></head><body><h1>Echo</h1><p>Authorization: {header}</p></body></html>"
+            );
         });
         var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "it does"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(new WebEngineOptions
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
             {
-                Headless = true,
-                BasicAuth = new WebBasicAuth("ada", Secret.Create("stagingPassword", Password)),
-            }),
-            Judge = judge,
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            TestTitle = "judges the echo with vision on",
-            AssertionTimeout = TimeSpan.FromSeconds(4),
-            TestTimeout = TimeSpan.FromSeconds(30),
-            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-echo-" + Guid.NewGuid().ToString("N"), "results"),
-        });
+                Engine = new WebEngine(
+                    new WebEngineOptions
+                    {
+                        Headless = true,
+                        BasicAuth = new WebBasicAuth("ada", Secret.Create("stagingPassword", Password)),
+                    }
+                ),
+                Judge = judge,
+                BaseUrl = site.Url,
+                CacheEnabled = false,
+                TestTitle = "judges the echo with vision on",
+                AssertionTimeout = TimeSpan.FromSeconds(4),
+                TestTimeout = TimeSpan.FromSeconds(30),
+                ResultsDirectory = Path.Combine(
+                    Path.GetTempPath(),
+                    "e2e-echo-" + Guid.NewGuid().ToString("N"),
+                    "results"
+                ),
+            }
+        );
         await session.App.OpenAsync("/basic-auth");
-        await session.Agent.AssertAsync("the page shows a Basic credential", new AssertOptions { Vision = VisionMode.On });
+        await session.Agent.AssertAsync(
+            "the page shows a Basic credential",
+            new AssertOptions { Vision = VisionMode.On }
+        );
 
         var judged = judge.Requests[0].Messages[0];
         var credential = Convert.ToBase64String(Encoding.UTF8.GetBytes("ada:" + Password));
@@ -87,7 +104,9 @@ public sealed class ASecretInAnEngineOptionTests
         var failure = await RunAsync(site, "fails on the echoed Authorization header", async session =>
         {
             await session.App.OpenAsync("/basic-auth");
-            await Expect.That(session.Screen.GetByTestId("header")).ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(500));
+            await Expect
+                .That(session.Screen.GetByTestId("header"))
+                .ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(500));
         });
         var download = await RunAsync(site, "downloads the echoed headers", async session =>
         {
@@ -99,7 +118,10 @@ public sealed class ASecretInAnEngineOptionTests
         Assert.Equal(E2E.Reports.ResultStatus.Passed, shot.Report.Run.Results[0].Status);
         var failed = failure.Report.Run.Results[0].Attempts[0];
         Assert.Single(failed.Artifacts, artifact => artifact.Kind == ArtifactKind.Screenshot);
-        var downloaded = download.Report.Run.Results[0].Attempts[0].Artifacts.First(artifact => artifact.Kind == ArtifactKind.Download);
+        var downloaded = download
+            .Report.Run.Results[0]
+            .Attempts[0]
+            .Artifacts.First(artifact => artifact.Kind == ArtifactKind.Download);
         Assert.Equal(ArtifactRedaction.Complete, downloaded.Redaction);
     }
 
@@ -112,7 +134,9 @@ public sealed class ASecretInAnEngineOptionTests
         var run = await RunAsync(site, "fails on the echoed password", async session =>
         {
             await session.App.OpenAsync("/basic-auth");
-            await Expect.That(session.Screen.GetByTestId("echo")).ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(500));
+            await Expect
+                .That(session.Screen.GetByTestId("echo"))
+                .ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(500));
         });
 
         var error = run.Report.Run.Results[0].Attempts[0].Error!;
@@ -137,7 +161,9 @@ public sealed class ASecretInAnEngineOptionTests
         var run = await RunAsync(site, "fails on the echoed Authorization header", async session =>
         {
             await session.App.OpenAsync("/basic-auth");
-            await Expect.That(session.Screen.GetByTestId("header")).ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(500));
+            await Expect
+                .That(session.Screen.GetByTestId("header"))
+                .ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(500));
         });
         var downloaded = await RunAsync(site, "downloads the echoed headers", async session =>
         {
@@ -166,7 +192,10 @@ public sealed class ASecretInAnEngineOptionTests
     {
         var password = Secret.Create("stagingPassword", Password);
 
-        Assert.Same(password, Assert.Single(new WebEngine(new WebEngineOptions { BasicAuth = new WebBasicAuth("ada", password) }).Secrets));
+        Assert.Same(
+            password,
+            Assert.Single(new WebEngine(new WebEngineOptions { BasicAuth = new WebBasicAuth("ada", password) }).Secrets)
+        );
         Assert.Empty(new WebEngine(new WebEngineOptions { BasicAuth = new WebBasicAuth("ada", Password) }).Secrets);
         Assert.Empty(new WebEngine(new WebEngineOptions()).Secrets);
     }
@@ -187,78 +216,104 @@ public sealed class ASecretInAnEngineOptionTests
 
             var credential = Encoding.UTF8.GetString(Convert.FromBase64String(header["Basic ".Length..]));
             var user = credential[..credential.IndexOf(':', StringComparison.Ordinal)];
-            await TinySite.RespondAsync(context, $"<!doctype html><html><head><title>Basic auth</title></head><body><h1>Signed in as {user}</h1></body></html>");
+            await TinySite.RespondAsync(
+                context,
+                $"<!doctype html><html><head><title>Basic auth</title></head><body><h1>Signed in as {user}</h1></body></html>"
+            );
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(new WebEngineOptions
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
             {
-                Headless = true,
-                BasicAuth = new WebBasicAuth("ada", Secret.Create("stagingPassword", Password)),
-            }),
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            TestTitle = "signs in through basic auth",
-            AssertionTimeout = TimeSpan.FromSeconds(4),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+                Engine = new WebEngine(
+                    new WebEngineOptions
+                    {
+                        Headless = true,
+                        BasicAuth = new WebBasicAuth("ada", Secret.Create("stagingPassword", Password)),
+                    }
+                ),
+                BaseUrl = site.Url,
+                CacheEnabled = false,
+                TestTitle = "signs in through basic auth",
+                AssertionTimeout = TimeSpan.FromSeconds(4),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         await session.App.OpenAsync("/basic-auth");
         await Expect.That(session.Screen.GetByRole("heading", "Signed in as ada")).ToBeVisibleAsync();
     }
 
     /// <summary>The fixture page's <c>/basic-auth</c>: it echoes the password and the Authorization header, and serves the header as a text download.</summary>
-    private static Task<TinySite> EchoSiteAsync() => TinySite.StartAsync(async context =>
-    {
-        var header = context.Request.Headers["Authorization"];
-        if (header is null)
+    private static Task<TinySite> EchoSiteAsync() =>
+        TinySite.StartAsync(async context =>
         {
-            context.Response.StatusCode = 401;
-            context.Response.AddHeader("WWW-Authenticate", "Basic realm=\"staging\"");
-            context.Response.Close();
-            return;
-        }
+            var header = context.Request.Headers["Authorization"];
+            if (header is null)
+            {
+                context.Response.StatusCode = 401;
+                context.Response.AddHeader("WWW-Authenticate", "Basic realm=\"staging\"");
+                context.Response.Close();
+                return;
+            }
 
-        if (context.Request.Url!.AbsolutePath == "/headers.txt")
-        {
-            var bytes = Encoding.UTF8.GetBytes("authorization: " + header + "\n");
-            context.Response.ContentType = "text/plain; charset=utf-8";
-            context.Response.AddHeader("Content-Disposition", "attachment; filename=\"headers.txt\"");
-            context.Response.ContentLength64 = bytes.Length;
-            await context.Response.OutputStream.WriteAsync(bytes);
-            context.Response.Close();
-            return;
-        }
+            if (context.Request.Url!.AbsolutePath == "/headers.txt")
+            {
+                var bytes = Encoding.UTF8.GetBytes("authorization: " + header + "\n");
+                context.Response.ContentType = "text/plain; charset=utf-8";
+                context.Response.AddHeader("Content-Disposition", "attachment; filename=\"headers.txt\"");
+                context.Response.ContentLength64 = bytes.Length;
+                await context.Response.OutputStream.WriteAsync(bytes);
+                context.Response.Close();
+                return;
+            }
 
-        var password = Encoding.UTF8.GetString(Convert.FromBase64String(header["Basic ".Length..])).Split(':', 2)[1];
-        await TinySite.RespondAsync(
-            context,
-            $"<!doctype html><html><head><title>Basic auth</title></head><body><h1>Signed in as ada</h1><p data-testid=\"echo\">Password: {password}</p><p data-testid=\"header\">Authorization: {header}</p><a href=\"/headers.txt\" download>Download headers</a></body></html>");
-    });
+            var password = Encoding.UTF8.GetString(Convert.FromBase64String(header["Basic ".Length..])).Split(':', 2)[
+                1
+            ];
+            await TinySite.RespondAsync(
+                context,
+                $"<!doctype html><html><head><title>Basic auth</title></head><body><h1>Signed in as ada</h1><p data-testid=\"echo\">Password: {password}</p><p data-testid=\"header\">Authorization: {header}</p><a href=\"/headers.txt\" download>Download headers</a></body></html>"
+            );
+        });
 
     private static List<(string Name, string Text)> ContentsUnder(string directory) =>
         Directory.Exists(directory)
-            ? [.. Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
-                .Where(file => !file.EndsWith(".png", StringComparison.OrdinalIgnoreCase) && !file.EndsWith(".webm", StringComparison.OrdinalIgnoreCase))
-                .Select(file => (file.Replace('\\', '/'), File.ReadAllText(file)))]
+            ?
+            [
+                .. Directory
+                    .EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                    .Where(file =>
+                        !file.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                        && !file.EndsWith(".webm", StringComparison.OrdinalIgnoreCase)
+                    )
+                    .Select(file => (file.Replace('\\', '/'), File.ReadAllText(file))),
+            ]
             : [];
 
-    private static async Task<(Report Report, string? Failure, string ResultsDirectory)> RunAsync(TinySite site, string title, Func<E2ESession, Task> scenario)
+    private static async Task<(Report Report, string? Failure, string ResultsDirectory)> RunAsync(
+        TinySite site,
+        string title,
+        Func<E2ESession, Task> scenario
+    )
     {
         var results = Path.Combine(Path.GetTempPath(), "e2e-engine-secrets-" + Guid.NewGuid().ToString("N"), "results");
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(new WebEngineOptions
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
             {
-                Headless = true,
-                BasicAuth = new WebBasicAuth("ada", Secret.Create("stagingPassword", Password)),
-            }),
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            TestTitle = title,
-            AssertionTimeout = TimeSpan.FromSeconds(4),
-            TestTimeout = TimeSpan.FromSeconds(30),
-            ResultsDirectory = results,
-        });
+                Engine = new WebEngine(
+                    new WebEngineOptions
+                    {
+                        Headless = true,
+                        BasicAuth = new WebBasicAuth("ada", Secret.Create("stagingPassword", Password)),
+                    }
+                ),
+                BaseUrl = site.Url,
+                CacheEnabled = false,
+                TestTitle = title,
+                AssertionTimeout = TimeSpan.FromSeconds(4),
+                TestTimeout = TimeSpan.FromSeconds(30),
+                ResultsDirectory = results,
+            }
+        );
         string? failure = null;
         try
         {
@@ -272,6 +327,10 @@ public sealed class ASecretInAnEngineOptionTests
         }
 
         await session.DisposeAsync();
-        return (session.Report() ?? throw new InvalidOperationException("the session left no report: " + failure), failure, results);
+        return (
+            session.Report() ?? throw new InvalidOperationException("the session left no report: " + failure),
+            failure,
+            results
+        );
     }
 }

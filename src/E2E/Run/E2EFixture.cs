@@ -18,7 +18,10 @@ namespace E2E;
 /// </summary>
 public abstract class E2EFixture
 {
-    private static readonly Lazy<E2EConfig> DiscoveredConfig = new(() => E2EConfig.Discover(), LazyThreadSafetyMode.ExecutionAndPublication);
+    private static readonly Lazy<E2EConfig> DiscoveredConfig = new(
+        () => E2EConfig.Discover(),
+        LazyThreadSafetyMode.ExecutionAndPublication
+    );
 
     private E2ESession? _session;
     private IEngine? _engine;
@@ -66,8 +69,8 @@ public abstract class E2EFixture
     /// </summary>
     protected virtual IReadOnlyDictionary<string, AgentOptions> CreateAgents()
     {
-        return HostedConfig.Agents
-            .Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal))
+        return HostedConfig
+            .Agents.Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal))
             .ToDictionary(pair => pair.Key, pair => pair.Value.CreateOptions(), StringComparer.Ordinal);
     }
 
@@ -75,7 +78,11 @@ public abstract class E2EFixture
     /// The resolved config of the run, whose digest the reports carry. The digest takes the agents as the fixture builds them in code (the default
     /// agent from the members below, the others from <see cref="CreateAgents"/>, both as <c>StartAsync</c> built them), not the <c>agents</c> the file declares.
     /// </summary>
-    private ResolvedConfig ResolvedConfigOf(IAgentModel? model, IAgentModel? judge, IReadOnlyDictionary<string, AgentOptions> others)
+    private ResolvedConfig ResolvedConfigOf(
+        IAgentModel? model,
+        IAgentModel? judge,
+        IReadOnlyDictionary<string, AgentOptions> others
+    )
     {
         var agents = new Dictionary<string, AgentOptions>(others, StringComparer.Ordinal)
         {
@@ -133,10 +140,12 @@ public abstract class E2EFixture
     protected virtual int MaxInputTokens => HostedConfig.Agent.MaxInputTokens;
 
     /// <summary><c>agents.default.providerOptions</c>.</summary>
-    protected virtual IReadOnlyDictionary<string, System.Text.Json.JsonElement>? ProviderOptions => HostedConfig.Agent.ProviderOptions;
+    protected virtual IReadOnlyDictionary<string, System.Text.Json.JsonElement>? ProviderOptions =>
+        HostedConfig.Agent.ProviderOptions;
 
     /// <summary>The target this fixture runs on: <see cref="TargetName"/>, which needs overriding when the config declares several.</summary>
-    private TargetConfig DeclaredTarget => SelectTarget.Select(Config.Targets, TargetName, "override E2EFixture.TargetName");
+    private TargetConfig DeclaredTarget =>
+        SelectTarget.Select(Config.Targets, TargetName, "override E2EFixture.TargetName");
 
     /// <summary>The <c>app.url</c> of the target.</summary>
     protected virtual string? BaseUrl => DeclaredTarget.App.Url;
@@ -197,7 +206,9 @@ public abstract class E2EFixture
     protected virtual bool AiTrace => IsOn("E2E_AI_TRACE");
 
     /// <summary>Whether <paramref name="variable"/> is <c>1</c> or <c>true</c>.</summary>
-    internal static bool IsOn(string variable) => Environment.GetEnvironmentVariable(variable)?.Trim() is { } value && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
+    internal static bool IsOn(string variable) =>
+        Environment.GetEnvironmentVariable(variable)?.Trim() is { } value
+        && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
 
     protected virtual TimeSpan TestTimeout => Config.Timeout;
 
@@ -224,7 +235,8 @@ public abstract class E2EFixture
     /// <summary>The file the test is reported in: its class by default (.NET-only: a .NET test has no source file of its own, see <see cref="E2ESessionOptions.TestFile"/>).</summary>
     internal virtual string? TestFile => GetType().FullName;
 
-    private E2ESession Session => _session ?? throw new InvalidOperationException("The E2E session is available after setup, during the test.");
+    private E2ESession Session =>
+        _session ?? throw new InvalidOperationException("The E2E session is available after setup, during the test.");
 
     /// <summary>
     /// Starts the session for one test. <paramref name="title"/> is the cache identity,
@@ -233,7 +245,14 @@ public abstract class E2EFixture
     /// <paramref name="testFailed"/> says whether the framework already failed the test.
     /// <paramref name="testMethod"/> is the test's method, which carries its <see cref="AgentAttribute"/> and <see cref="AgentContextAttribute"/>.
     /// </summary>
-    protected async Task StartSessionAsync(string title, int attempt, Action<TestException>? onSoftFailure, Func<bool> testFailed, CancellationToken cancellationToken, System.Reflection.MethodBase? testMethod = null)
+    protected async Task StartSessionAsync(
+        string title,
+        int attempt,
+        Action<TestException>? onSoftFailure,
+        Func<bool> testFailed,
+        CancellationToken cancellationToken,
+        System.Reflection.MethodBase? testMethod = null
+    )
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -249,7 +268,9 @@ public abstract class E2EFixture
         if (declared.App.Command is not null && string.Equals(baseUrl, declared.App.Url, StringComparison.Ordinal))
         {
             // A fixture that points BaseUrl somewhere else does not use the declared app, so the command does not start for it.
-            baseUrl = (await RunApps.StartAsync(Config, declared, null, cancellationToken).ConfigureAwait(false)).App.Url;
+            baseUrl = (await RunApps.StartAsync(Config, declared, null, cancellationToken).ConfigureAwait(false))
+                .App
+                .Url;
         }
 
         // The replay cache keys on the declared app: its identity keeps a free port at :0, so entries survive the port changing every run.
@@ -258,22 +279,42 @@ public abstract class E2EFixture
         _engine = engine;
         var declaredApp = string.Equals(configuredUrl, declared.App.Url, StringComparison.Ordinal)
             ? declared.App
-            : new AppConfig { Url = configuredUrl, BundleId = declared.App.BundleId, AppPath = declared.App.AppPath, LinkBase = declared.App.LinkBase, Identity = declared.App.Identity, Environment = declared.App.Environment };
+            : new AppConfig
+            {
+                Url = configuredUrl,
+                BundleId = declared.App.BundleId,
+                AppPath = declared.App.AppPath,
+                LinkBase = declared.App.LinkBase,
+                Identity = declared.App.Identity,
+                Environment = declared.App.Environment,
+            };
         var sessionIdentity = Sessions.TargetIdentity(
-            TargetName, declared.Platform, engine, TargetApps.ResolveTargetApp(TargetName, declaredApp, ProjectRoot));
+            TargetName,
+            declared.Platform,
+            engine,
+            TargetApps.ResolveTargetApp(TargetName, declaredApp, ProjectRoot)
+        );
         var identity = sessionIdentity.AppIdentity;
 
         // A test that restores a session, or a setup test that saves some, works with the run's store.
         var restore = SessionAttributes.Restore(GetType(), testMethod);
         var saves = SessionAttributes.Saves(testMethod);
-        var sessions = restore is null && saves is null
-            ? null
-            : new SessionPlan(SessionRun.Store(ProjectRoot, Config.Output), sessionIdentity, restore, saves is null ? null : new SessionStaging(saves));
+        var sessions =
+            restore is null && saves is null
+                ? null
+                : new SessionPlan(
+                    SessionRun.Store(ProjectRoot, Config.Output),
+                    sessionIdentity,
+                    restore,
+                    saves is null ? null : new SessionStaging(saves)
+                );
 
         // A session nobody saved yet is saved by its setup test first, as upstream's runner schedules it.
         if (restore is not null && saves is null && sessions is not null)
         {
-            await SetupDependencies.EnsureAsync(sessions, restore, GetType(), RunSetupAsync, cancellationToken).ConfigureAwait(false);
+            await SetupDependencies
+                .EnsureAsync(sessions, restore, GetType(), RunSetupAsync, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         var defaultModel = CreateModel();
@@ -281,93 +322,123 @@ public abstract class E2EFixture
         var agents = CreateAgents();
         // Upstream's prepare runs once per run and target, before any worker starts: what it leaves is the worker's environment, under the run's own.
         HostRun.RedactEngineLinesWith(Config);
-        var prepared = await Prepared.PrepareAsync(
-            engine,
-            TargetName,
-            1,
-            new PrepareScope { RunId = AttemptReport.RunId, ProjectRoot = ProjectRoot, Env = RunEnvironment, Notice = PrepareNotice },
-            cancellationToken,
-            shared: true).ConfigureAwait(false);
+        var prepared = await Prepared
+            .PrepareAsync(
+                engine,
+                TargetName,
+                1,
+                new PrepareScope
+                {
+                    RunId = AttemptReport.RunId,
+                    ProjectRoot = ProjectRoot,
+                    Env = RunEnvironment,
+                    Notice = PrepareNotice,
+                },
+                cancellationToken,
+                shared: true
+            )
+            .ConfigureAwait(false);
         var workerEnv = prepared is null ? null : PreparedEngines.MergeWorkerEnv(RunEnvironment, prepared.Env);
-        _session = await E2ESession.LaunchAsync(
-            new E2ESessionOptions
-            {
-                Engine = engine,
-                Credentials = Config.Credentials,
-                Config = ResolvedConfigOf(defaultModel, defaultJudge, agents),
-                AppIdentity = identity,
-                Sessions = sessions,
-                Model = defaultModel,
-                Judge = defaultJudge,
-                AgentExecutor = AgentExecutor,
-                ArtifactStore = ArtifactStore,
-                AgentSystem = AgentSystem,
-                AgentTools = AgentTools,
-                AgentContext = AgentContext,
-                JudgmentTimeout = JudgmentTimeout,
-                MaxObservationBytes = MaxObservationBytes,
-                MaxInputTokens = MaxInputTokens,
-                ProviderOptions = ProviderOptions,
-                Agents = agents,
-                Agent = TestAgentOptions.Agent(GetType(), testMethod) ?? RunAgent,
-                TestAgentContext = TestAgentOptions.AgentContext(GetType(), testMethod),
-                BaseUrl = baseUrl,
-                Permissions = Permissions,
-                BundleId = DeclaredTarget.App.BundleId,
-                AppPath = DeclaredTarget.App.AppPath,
-                LinkBase = DeclaredTarget.App.LinkBase,
-                LaunchArguments = DeclaredTarget.App.LaunchArguments,
-                ProjectRoot = ProjectRoot,
-                TargetName = TargetName,
-                UpdateSnapshots = UpdateSnapshots,
-                ResultsDirectory = ResultsDirectory,
-                RerunDir = HostRun.RerunDir,
-                Cache = cacheMode == CacheMode.Off ? null : CacheStore ?? new FileStepCache(CacheDirectory),
-                CacheEnabled = cacheMode != CacheMode.Off,
-                CacheMode = cacheMode,
-                CacheStrict = CacheStrict,
-                CacheStrictSource = HostedConfig.Cache.StrictSource,
-                TestTitle = title,
-                TestFile = TestFile,
-                TestMethod = testMethod?.Name,
-                Debug = Debug,
-                AiTrace = AiTrace,
-                Trace = Trace,
-                Video = Video,
-                TestTimeout = TestTimeout,
-                LaunchTimeout = LaunchTimeout,
-                CleanupTimeout = CleanupTimeout,
-                ActionTimeout = ActionTimeout,
-                AssertionTimeout = AssertionTimeout,
-                StepTimeout = StepTimeout,
-                ReplayTimeout = ReplayTimeout,
-                MaxModelCalls = MaxModelCalls,
-                MaxSteps = MaxSteps,
-                Attempt = attempt,
-                OnSoftFailure = onSoftFailure,
-                TestFailed = testFailed,
-            },
-            workerEnv,
-            cancellationToken).ConfigureAwait(false);
+        _session = await E2ESession
+            .LaunchAsync(
+                new E2ESessionOptions
+                {
+                    Engine = engine,
+                    Credentials = Config.Credentials,
+                    Config = ResolvedConfigOf(defaultModel, defaultJudge, agents),
+                    AppIdentity = identity,
+                    Sessions = sessions,
+                    Model = defaultModel,
+                    Judge = defaultJudge,
+                    AgentExecutor = AgentExecutor,
+                    ArtifactStore = ArtifactStore,
+                    AgentSystem = AgentSystem,
+                    AgentTools = AgentTools,
+                    AgentContext = AgentContext,
+                    JudgmentTimeout = JudgmentTimeout,
+                    MaxObservationBytes = MaxObservationBytes,
+                    MaxInputTokens = MaxInputTokens,
+                    ProviderOptions = ProviderOptions,
+                    Agents = agents,
+                    Agent = TestAgentOptions.Agent(GetType(), testMethod) ?? RunAgent,
+                    TestAgentContext = TestAgentOptions.AgentContext(GetType(), testMethod),
+                    BaseUrl = baseUrl,
+                    Permissions = Permissions,
+                    BundleId = DeclaredTarget.App.BundleId,
+                    AppPath = DeclaredTarget.App.AppPath,
+                    LinkBase = DeclaredTarget.App.LinkBase,
+                    LaunchArguments = DeclaredTarget.App.LaunchArguments,
+                    ProjectRoot = ProjectRoot,
+                    TargetName = TargetName,
+                    UpdateSnapshots = UpdateSnapshots,
+                    ResultsDirectory = ResultsDirectory,
+                    RerunDir = HostRun.RerunDir,
+                    Cache = cacheMode == CacheMode.Off ? null : CacheStore ?? new FileStepCache(CacheDirectory),
+                    CacheEnabled = cacheMode != CacheMode.Off,
+                    CacheMode = cacheMode,
+                    CacheStrict = CacheStrict,
+                    CacheStrictSource = HostedConfig.Cache.StrictSource,
+                    TestTitle = title,
+                    TestFile = TestFile,
+                    TestMethod = testMethod?.Name,
+                    Debug = Debug,
+                    AiTrace = AiTrace,
+                    Trace = Trace,
+                    Video = Video,
+                    TestTimeout = TestTimeout,
+                    LaunchTimeout = LaunchTimeout,
+                    CleanupTimeout = CleanupTimeout,
+                    ActionTimeout = ActionTimeout,
+                    AssertionTimeout = AssertionTimeout,
+                    StepTimeout = StepTimeout,
+                    ReplayTimeout = ReplayTimeout,
+                    MaxModelCalls = MaxModelCalls,
+                    MaxSteps = MaxSteps,
+                    Attempt = attempt,
+                    OnSoftFailure = onSoftFailure,
+                    TestFailed = testFailed,
+                },
+                workerEnv,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
-    private void PrepareNotice(string targetName, string line) => Console.Error.WriteLine($"e2e: {targetName}: {E2E.Internal.Redactor.For(Config.AllSecrets).Redact(line)}");
+    private void PrepareNotice(string targetName, string line) =>
+        Console.Error.WriteLine($"e2e: {targetName}: {E2E.Internal.Redactor.For(Config.AllSecrets).Redact(line)}");
 
     /// <summary>
     /// Runs the setup test <paramref name="fixture"/> holds for a test that restores its session (see <see cref="SetupDependencies"/>): the
     /// fixture's own start, its setup method, the settle, and the commit that saves the sessions, in a session of its own.
     /// </summary>
-    private static async Task RunSetupAsync(E2EFixture fixture, System.Reflection.MethodInfo method, CancellationToken cancellationToken)
+    private static async Task RunSetupAsync(
+        E2EFixture fixture,
+        System.Reflection.MethodInfo method,
+        CancellationToken cancellationToken
+    )
     {
         var title = fixture.GetType().FullName + "." + method.Name;
         TestException? soft = null;
         var failed = false;
-        await fixture.StartSessionAsync(title, 1, failure => soft ??= failure, () => failed, cancellationToken, method).ConfigureAwait(false);
+        await fixture
+            .StartSessionAsync(title, 1, failure => soft ??= failure, () => failed, cancellationToken, method)
+            .ConfigureAwait(false);
         var session = fixture._session!;
         Exception? error = null;
         try
         {
-            var invoked = method.Invoke(fixture, method.GetParameters().Select(parameter => parameter.HasDefaultValue ? parameter.DefaultValue : parameter.ParameterType == typeof(CancellationToken) ? cancellationToken : parameter.ParameterType.IsValueType ? Activator.CreateInstance(parameter.ParameterType) : null).ToArray());
+            var invoked = method.Invoke(
+                fixture,
+                method
+                    .GetParameters()
+                    .Select(parameter =>
+                        parameter.HasDefaultValue ? parameter.DefaultValue
+                        : parameter.ParameterType == typeof(CancellationToken) ? cancellationToken
+                        : parameter.ParameterType.IsValueType ? Activator.CreateInstance(parameter.ParameterType)
+                        : null
+                    )
+                    .ToArray()
+            );
             switch (invoked)
             {
                 case Task task:
@@ -398,8 +469,7 @@ public abstract class E2EFixture
 #pragma warning disable CA1031 // The look is a courtesy: the setup's own failure is the one to report.
             catch (Exception)
 #pragma warning restore CA1031
-            {
-            }
+            { }
 
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw();
             throw;
@@ -424,21 +494,24 @@ public abstract class E2EFixture
     /// can call it, once for each name it declares. The session lasts one run. It holds what the app keeps in the browser (cookies, local
     /// storage, IndexedDB), not what the server keeps, and it checks nothing: assert that sign-in worked before you save.
     /// </summary>
-    protected Task SaveSessionAsync(string name, CancellationToken cancellationToken = default) => Session.SaveSessionAsync(name, cancellationToken);
+    protected Task SaveSessionAsync(string name, CancellationToken cancellationToken = default) =>
+        Session.SaveSessionAsync(name, cancellationToken);
 
     /// <summary>
     /// Looks at the app now, for an adapter to call when the test body has failed and before the test's own teardown runs,
     /// so a teardown that navigates away cannot replace the evidence. See <see cref="E2ESession.CaptureFailureEvidenceAsync"/>.
     /// Does nothing when setup never started a session.
     /// </summary>
-    protected Task CaptureFailureEvidenceAsync(Exception error) => _session?.CaptureFailureEvidenceAsync(error) ?? Task.CompletedTask;
+    protected Task CaptureFailureEvidenceAsync(Exception error) =>
+        _session?.CaptureFailureEvidenceAsync(error) ?? Task.CompletedTask;
 
     /// <summary>
     /// Collects the failure a route or dialog handler raised where no step awaited it, for an adapter to call when the test body has
     /// settled and again after the teardown, before the verdict. See <see cref="E2ESession.SettleAttemptAsync"/>. Does nothing when setup
     /// never started a session.
     /// </summary>
-    protected Task SettleAttemptAsync(CancellationToken cancellationToken = default) => _session?.SettleAttemptAsync(cancellationToken) ?? Task.CompletedTask;
+    protected Task SettleAttemptAsync(CancellationToken cancellationToken = default) =>
+        _session?.SettleAttemptAsync(cancellationToken) ?? Task.CompletedTask;
 
     /// <summary>Whether a session is running, for an adapter whose tests share one.</summary>
     internal bool HasSession => _session is not null;

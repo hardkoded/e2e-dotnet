@@ -15,7 +15,10 @@ public sealed class VideoTests
     [Fact]
     public void Defaults_and_a_target_inherits_the_config_mode_as_a_run_wide_one()
     {
-        Assert.Equal(new ResolvedRecording(RecordingMode.Off, RecordingSource.Default), E2EConfig.Parse("{}", Root).Target.Video);
+        Assert.Equal(
+            new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
+            E2EConfig.Parse("{}", Root).Target.Video
+        );
         var inherited = E2EConfig.Parse("""{ "video": "retain-on-failure" }""", Root);
         Assert.Equal(new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Run), inherited.Target.Video);
     }
@@ -26,7 +29,11 @@ public sealed class VideoTests
     {
         var own = E2EConfig.Parse("""{ "targets": [{ "video": "on-all-retries" }], "video": "on" }""", Root);
         Assert.Equal(new ResolvedRecording(RecordingMode.OnAllRetries, RecordingSource.Target), own.Target.Video);
-        var flagged = E2EConfig.Parse("""{ "targets": [{ "video": "off" }], "video": "off" }""", Root, Env(("E2E_VIDEO", "on")));
+        var flagged = E2EConfig.Parse(
+            """{ "targets": [{ "video": "off" }], "video": "off" }""",
+            Root,
+            Env(("E2E_VIDEO", "on"))
+        );
         Assert.Equal(new ResolvedRecording(RecordingMode.On, RecordingSource.Run), flagged.Target.Video);
         var off = E2EConfig.Parse("""{ "video": "on" }""", Root, Env(("E2E_VIDEO", "off")));
         Assert.Equal(new ResolvedRecording(RecordingMode.Off, RecordingSource.Run), off.Target.Video);
@@ -36,9 +43,20 @@ public sealed class VideoTests
     public void A_CliOverrides_mode_wins_over_a_target_the_config_and_the_variable()
     {
         var cli = new CliOverrides { Video = RecordingMode.On };
-        var flagged = E2EConfig.Parse("""{ "targets": [{ "video": "off" }], "video": "off" }""", Root, Env(("E2E_VIDEO", "off")), cli);
+        var flagged = E2EConfig.Parse(
+            """{ "targets": [{ "video": "off" }], "video": "off" }""",
+            Root,
+            Env(("E2E_VIDEO", "off")),
+            cli
+        );
         Assert.Equal(new ResolvedRecording(RecordingMode.On, RecordingSource.Run), flagged.Target.Video);
-        Assert.StartsWith("E2E_VIDEO must be one of", Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("{}", Root, Env(("E2E_VIDEO", "every")), cli)).Message, StringComparison.Ordinal);
+        Assert.StartsWith(
+            "E2E_VIDEO must be one of",
+            Assert
+                .Throws<ConfigurationException>(() => E2EConfig.Parse("{}", Root, Env(("E2E_VIDEO", "every")), cli))
+                .Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -46,7 +64,13 @@ public sealed class VideoTests
     {
         const string Plain = """{ "targets": [{ "name": "web", "platform": "web" }] }""";
         var plain = ResolveConfigTests.Digest(Plain, Env());
-        Assert.Equal(plain, ResolveConfigTests.Digest("""{ "targets": [{ "name": "web", "platform": "web", "video": "on" }], "video": "retain-on-failure" }""", Env()));
+        Assert.Equal(
+            plain,
+            ResolveConfigTests.Digest(
+                """{ "targets": [{ "name": "web", "platform": "web", "video": "on" }], "video": "retain-on-failure" }""",
+                Env()
+            )
+        );
         Assert.Equal(plain, ResolveConfigTests.Digest(Plain, Env(), new CliOverrides { Video = RecordingMode.On }));
         Assert.Equal(plain, ResolveConfigTests.Digest(Plain, Env(("E2E_VIDEO", "on"))));
     }
@@ -57,10 +81,21 @@ public sealed class VideoTests
     {
         const string Modes = "off, on, retain-on-failure, on-first-retry, on-all-retries";
         Assert.Equal($"video must be one of {Modes}, got true", Refusal("""{ "video": true }"""));
-        Assert.Equal($"targets[0].video must be one of {Modes}, got \"sometimes\"", Refusal("""{ "targets": [{ "video": "sometimes" }] }"""));
+        Assert.Equal(
+            $"targets[0].video must be one of {Modes}, got \"sometimes\"",
+            Refusal("""{ "targets": [{ "video": "sometimes" }] }""")
+        );
         // The variable wins over a target's mode, but never hides a mistake in it.
-        Assert.StartsWith("targets[0].video must be one of", Refusal("""{ "targets": [{ "video": "retain_on_failure" }] }""", Env(("E2E_VIDEO", "on"))), StringComparison.Ordinal);
-        Assert.StartsWith("E2E_VIDEO must be one of", Refusal("{}", Env(("E2E_VIDEO", "every"))), StringComparison.Ordinal);
+        Assert.StartsWith(
+            "targets[0].video must be one of",
+            Refusal("""{ "targets": [{ "video": "retain_on_failure" }] }""", Env(("E2E_VIDEO", "on"))),
+            StringComparison.Ordinal
+        );
+        Assert.StartsWith(
+            "E2E_VIDEO must be one of",
+            Refusal("{}", Env(("E2E_VIDEO", "every"))),
+            StringComparison.Ordinal
+        );
     }
 
     private static string Refusal(string json, Func<string, string?>? environment = null)

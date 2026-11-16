@@ -76,7 +76,12 @@ internal sealed class LooksBeforeTeardownAttribute : Attribute, IWrapTestMethod
         // A skip or a pass is no failure, unless an Expect.Soft failed before it: that fails the test, as the teardown reports.
         private static void Look(TestExecutionContext context, Exception? thrown)
         {
-            var failure = thrown is not null and not ResultStateException { ResultState.Status: TestStatus.Skipped or TestStatus.Inconclusive or TestStatus.Passed }
+            var failure = thrown
+                is not null
+                    and not ResultStateException
+                    {
+                        ResultState.Status: TestStatus.Skipped or TestStatus.Inconclusive or TestStatus.Passed
+                    }
                 ? thrown
                 : SoftFailureOf(context.CurrentResult);
             if (failure is null || context.TestObject is not E2ETest fixture)
@@ -96,7 +101,9 @@ internal sealed class LooksBeforeTeardownAttribute : Attribute, IWrapTestMethod
 
         private static TestException? SoftFailureOf(TestResult result)
         {
-            var failed = result.AssertionResults.FirstOrDefault(assertion => assertion.Status == AssertionStatus.Failed);
+            var failed = result.AssertionResults.FirstOrDefault(assertion =>
+                assertion.Status == AssertionStatus.Failed
+            );
             return failed is null ? null : new TestException("TEST_FAILED", failed.Message);
         }
     }

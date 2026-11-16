@@ -17,7 +17,12 @@ public sealed class ExploreFlagsTests
     private static readonly ExploreBudgets Budgets = new(4, TimeSpan.FromMinutes(5));
 
     private static ExploreOutcome Passed() =>
-        new(RunStatus.Passed, 0, null, new ReportExplore("Explore the app and find bugs", Budgets, ReportExploreEnded.Finished, [], []));
+        new(
+            RunStatus.Passed,
+            0,
+            null,
+            new ReportExplore("Explore the app and find bugs", Budgets, ReportExploreEnded.Finished, [], [])
+        );
 
     private static FakeExplore Fake(ExploreOutcome? outcome = null) => new([], outcome ?? Passed());
 
@@ -26,7 +31,19 @@ public sealed class ExploreFlagsTests
     {
         var fake = Fake();
         var (code, _, _) = await fake.InvokeAsync(
-            "Explore checkout", "--config", "cfg/e2e.config.json", "--target=web", "--agent", "ux", "--max-steps", "4", "--timeout=240000", "--headed", "--output", "out");
+            "Explore checkout",
+            "--config",
+            "cfg/e2e.config.json",
+            "--target=web",
+            "--agent",
+            "ux",
+            "--max-steps",
+            "4",
+            "--timeout=240000",
+            "--headed",
+            "--output",
+            "out"
+        );
 
         Assert.Equal(0, code);
         var options = Assert.IsType<ExploreOptions>(fake.Options);
@@ -55,11 +72,31 @@ public sealed class ExploreFlagsTests
     }
 
     [Theory]
-    [InlineData("--max-steps", "0", "option '--max-steps <n>' argument '0' is invalid. must be an integer from 1 through 100")]
-    [InlineData("--max-steps", "101", "option '--max-steps <n>' argument '101' is invalid. must be an integer from 1 through 100")]
-    [InlineData("--max-steps", "two", "option '--max-steps <n>' argument 'two' is invalid. must be an integer from 1 through 100")]
-    [InlineData("--timeout", "179999", "option '--timeout <ms>' argument '179999' is invalid. must be an integer from 180000 through 7200000")]
-    [InlineData("--timeout", "7200001", "option '--timeout <ms>' argument '7200001' is invalid. must be an integer from 180000 through 7200000")]
+    [InlineData(
+        "--max-steps",
+        "0",
+        "option '--max-steps <n>' argument '0' is invalid. must be an integer from 1 through 100"
+    )]
+    [InlineData(
+        "--max-steps",
+        "101",
+        "option '--max-steps <n>' argument '101' is invalid. must be an integer from 1 through 100"
+    )]
+    [InlineData(
+        "--max-steps",
+        "two",
+        "option '--max-steps <n>' argument 'two' is invalid. must be an integer from 1 through 100"
+    )]
+    [InlineData(
+        "--timeout",
+        "179999",
+        "option '--timeout <ms>' argument '179999' is invalid. must be an integer from 180000 through 7200000"
+    )]
+    [InlineData(
+        "--timeout",
+        "7200001",
+        "option '--timeout <ms>' argument '7200001' is invalid. must be an integer from 180000 through 7200000"
+    )]
     [InlineData("--target", null, "option '--target <id>' argument missing")]
     [InlineData("--headed=yes", null, "option '--headed' takes no argument")]
     [InlineData("--nope", null, "unknown option '--nope'")]
@@ -82,7 +119,11 @@ public sealed class ExploreFlagsTests
 
         Assert.Equal(2, code);
         Assert.Null(fake.Options);
-        Assert.Contains("too many arguments for 'explore'. Expected 1 argument but got 2.", stderr, StringComparison.Ordinal);
+        Assert.Contains(
+            "too many arguments for 'explore'. Expected 1 argument but got 2.",
+            stderr,
+            StringComparison.Ordinal
+        );
     }
 
     [Theory]
@@ -102,7 +143,13 @@ public sealed class ExploreFlagsTests
     public async Task Passes_the_debug_and_ai_trace_switches_and_the_trace_and_video_modes_to_the_exploration()
     {
         var fake = Fake();
-        var (code, _, stderr) = await fake.InvokeAsync("--debug", "--ai-trace", "--trace=on-all-retries", "--video", "retain-on-failure");
+        var (code, _, stderr) = await fake.InvokeAsync(
+            "--debug",
+            "--ai-trace",
+            "--trace=on-all-retries",
+            "--video",
+            "retain-on-failure"
+        );
 
         Assert.Equal(0, code);
         Assert.Equal("", stderr);
@@ -138,10 +185,22 @@ public sealed class ExploreFlagsTests
 
     [Theory]
     [InlineData("--trace", "Explore checkout", "write --trace=<mode>, or put test files before --trace")]
-    [InlineData("--video=sometimes", null, "expected a mode (off, on, retain-on-failure, on-first-retry, on-all-retries), got \"sometimes\"")]
-    [InlineData("--trace=all", null, "\"all\" is the old spelling of --trace on; the modes are off, on, retain-on-failure, on-first-retry, on-all-retries")]
+    [InlineData(
+        "--video=sometimes",
+        null,
+        "expected a mode (off, on, retain-on-failure, on-first-retry, on-all-retries), got \"sometimes\""
+    )]
+    [InlineData(
+        "--trace=all",
+        null,
+        "\"all\" is the old spelling of --trace on; the modes are off, on, retain-on-failure, on-first-retry, on-all-retries"
+    )]
     [InlineData("--trace=retries", null, "\"retries\" is the old spelling of --trace on-all-retries")]
-    public async Task Refuses_a_trace_or_video_value_that_is_not_a_mode_with_the_way_to_write_one(string flag, string? next, string message)
+    public async Task Refuses_a_trace_or_video_value_that_is_not_a_mode_with_the_way_to_write_one(
+        string flag,
+        string? next,
+        string message
+    )
     {
         var fake = Fake();
         var (code, _, stderr) = await fake.InvokeAsync(next is null ? [flag] : [flag, next]);
@@ -149,7 +208,11 @@ public sealed class ExploreFlagsTests
         Assert.Equal(2, code);
         Assert.Null(fake.Options);
         Assert.Contains(message, stderr, StringComparison.Ordinal);
-        Assert.StartsWith("error: option '" + flag.Split('=')[0] + " [mode]' argument '", stderr, StringComparison.Ordinal);
+        Assert.StartsWith(
+            "error: option '" + flag.Split('=')[0] + " [mode]' argument '",
+            stderr,
+            StringComparison.Ordinal
+        );
     }
 
     [Theory]
@@ -174,10 +237,22 @@ public sealed class ExploreFlagsTests
         Assert.Null(fake.Options);
         Assert.StartsWith("Usage: e2e explore [options] [goal]", stdout, StringComparison.Ordinal);
         Assert.Contains("exploration steps at most, 1 through 100 (default: 8)", stdout, StringComparison.Ordinal);
-        Assert.Contains("wall clock in milliseconds, 180000 through 7200000 (default: 600000)", stdout, StringComparison.Ordinal);
+        Assert.Contains(
+            "wall clock in milliseconds, 180000 through 7200000 (default: 600000)",
+            stdout,
+            StringComparison.Ordinal
+        );
         Assert.Contains("--trace [mode]", stdout, StringComparison.Ordinal);
-        Assert.Contains("Modes: off, on, retain-on-failure, on-first-retry, on-all-retries (also E2E_VIDEO)", stdout, StringComparison.Ordinal);
-        Assert.DoesNotContain("Not supported by the .NET port: --session, --reporter (it refuses these), and", stdout, StringComparison.Ordinal);
+        Assert.Contains(
+            "Modes: off, on, retain-on-failure, on-first-retry, on-all-retries (also E2E_VIDEO)",
+            stdout,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "Not supported by the .NET port: --session, --reporter (it refuses these), and",
+            stdout,
+            StringComparison.Ordinal
+        );
     }
 
     [Theory]
@@ -185,7 +260,12 @@ public sealed class ExploreFlagsTests
     [InlineData(3)]
     public async Task Exits_with_the_outcomes_code(int exitCode)
     {
-        var outcome = new ExploreOutcome(RunStatus.Failed, exitCode, new TestException("TEST_FAILED", "no"), Passed().Explore);
+        var outcome = new ExploreOutcome(
+            RunStatus.Failed,
+            exitCode,
+            new TestException("TEST_FAILED", "no"),
+            Passed().Explore
+        );
         var (code, _, _) = await Fake(outcome).InvokeAsync();
 
         Assert.Equal(exitCode, code);
@@ -202,7 +282,8 @@ public sealed class ExploreFlagsTests
             stderr,
             interactive: false,
             (_, _) => throw new ConfigurationException("INVALID_CONFIG", "unknown agent \"x\""),
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         Assert.Equal(2, code);
         Assert.Equal("error INVALID_CONFIG: unknown agent \"x\"", stderr.ToString().TrimEnd());
@@ -221,10 +302,20 @@ public sealed class ExploreFlagsTests
             interactive: false,
             (_, _) =>
             {
-                RunEvents.Emit(new RunStartedEvent { RunId = "run-1", ProjectId = "p", ProjectRoot = "/p", ArtifactsRoot = "/p/.e2e", Targets = ["web"] });
+                RunEvents.Emit(
+                    new RunStartedEvent
+                    {
+                        RunId = "run-1",
+                        ProjectId = "p",
+                        ProjectRoot = "/p",
+                        ArtifactsRoot = "/p/.e2e",
+                        Targets = ["web"],
+                    }
+                );
                 throw new EngineException("ENGINE_FAILURE", "the browser did not start");
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         Assert.Equal(3, code);
         Assert.Equal("error ENGINE_FAILURE: the browser did not start", stderr.ToString().TrimEnd());
@@ -243,7 +334,8 @@ public sealed class ExploreFlagsTests
             new StringWriter(),
             interactive: false,
             (_, token) => Task.FromCanceled<ExploreOutcome>(token),
-            cancel.Token);
+            cancel.Token
+        );
 
         Assert.Equal(130, code);
     }
@@ -259,8 +351,12 @@ public sealed class ExploreFlagsTests
             new StringWriter(),
             stderr,
             interactive: false,
-            (_, _) => Task.FromException<ExploreOutcome>(new EngineException(EngineErrorCodes.Cancelled, "opening a host was cancelled")),
-            cancel.Token);
+            (_, _) =>
+                Task.FromException<ExploreOutcome>(
+                    new EngineException(EngineErrorCodes.Cancelled, "opening a host was cancelled")
+                ),
+            cancel.Token
+        );
 
         Assert.Equal(130, code);
         Assert.Equal("", stderr.ToString());
@@ -274,15 +370,25 @@ public sealed class ExploreFlagsTests
         {
             File.WriteAllText(
                 Path.Combine(dir, "e2e.config.json"),
-                """{ "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }], "reporters": ["E2E.Cli.Tests.ExploreFlags.RecordingReporter"] }""");
+                """{ "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }], "reporters": ["E2E.Cli.Tests.ExploreFlags.RecordingReporter"] }"""
+            );
             RecordingReporter.Seen.Clear();
             var fake = new FakeExplore(
                 [new ExploreProgress.Started("Explore the app and find bugs", Budgets)],
-                Passed());
+                Passed()
+            );
             using var stdout = new StringWriter();
             using var stderr = new StringWriter();
 
-            var code = await ExploreCommand.RunAsync([], stdout, stderr, interactive: false, fake.RunAsync, CancellationToken.None, dir);
+            var code = await ExploreCommand.RunAsync(
+                [],
+                stdout,
+                stderr,
+                interactive: false,
+                fake.RunAsync,
+                CancellationToken.None,
+                dir
+            );
 
             Assert.Equal(0, code);
             Assert.Contains("RunStartedEvent", RecordingReporter.Seen);
@@ -304,7 +410,15 @@ public sealed class ExploreFlagsTests
             using var stdout = new StringWriter();
             using var stderr = new StringWriter();
 
-            var code = await Program.RunAsync(["explore"], stdout, stderr, TextReader.Null, interactive: false, CancellationToken.None, dir);
+            var code = await Program.RunAsync(
+                ["explore"],
+                stdout,
+                stderr,
+                TextReader.Null,
+                interactive: false,
+                CancellationToken.None,
+                dir
+            );
 
             Assert.Equal(2, code);
             Assert.Contains("CONFIG_NOT_FOUND", stderr.ToString(), StringComparison.Ordinal);
@@ -312,13 +426,28 @@ public sealed class ExploreFlagsTests
 
             var missing = "missing.config.json";
             using var stderrWithConfig = new StringWriter();
-            code = await Program.RunAsync(["explore", "--config", missing], stdout, stderrWithConfig, TextReader.Null, interactive: true, CancellationToken.None, dir);
+            code = await Program.RunAsync(
+                ["explore", "--config", missing],
+                stdout,
+                stderrWithConfig,
+                TextReader.Null,
+                interactive: true,
+                CancellationToken.None,
+                dir
+            );
 
             Assert.Equal(2, code);
             Assert.Contains(
-                "CONFIG_NOT_FOUND: config file not found: " + Path.GetFullPath(missing, dir) + " (" + missing + " resolved against the working directory " + dir + ")",
+                "CONFIG_NOT_FOUND: config file not found: "
+                    + Path.GetFullPath(missing, dir)
+                    + " ("
+                    + missing
+                    + " resolved against the working directory "
+                    + dir
+                    + ")",
                 stderrWithConfig.ToString(),
-                StringComparison.Ordinal);
+                StringComparison.Ordinal
+            );
         }
         finally
         {
@@ -343,10 +472,22 @@ public sealed class ExploreFlagsTests
     public async Task Bounds_a_very_long_field_before_it_reaches_the_terminal()
     {
         var title = new string('x', 100_000);
-        var finding = new ReportExploreFinding("f-1", 0, null, ReportExploreFindingKind.Warning, 1, title, "e", "a", [], DateTimeOffset.UnixEpoch);
+        var finding = new ReportExploreFinding(
+            "f-1",
+            0,
+            null,
+            ReportExploreFindingKind.Warning,
+            1,
+            title,
+            "e",
+            "a",
+            [],
+            DateTimeOffset.UnixEpoch
+        );
         var fake = new FakeExplore(
             [new ExploreProgress.Started("Explore", Budgets), new ExploreProgress.FindingReported(finding)],
-            new ExploreOutcome(RunStatus.Passed, 0, null, Passed().Explore));
+            new ExploreOutcome(RunStatus.Passed, 0, null, Passed().Explore)
+        );
 
         var (_, stdout, _) = await fake.InvokeAsync();
 
@@ -363,8 +504,18 @@ public sealed class ExploreFlagsTests
         using var ____ = Env("E2E_USER_EXPLORE_OTHER_PASSWORD", "other-secret-pw");
 
         string[] mine = ["explore_covered", "explore_other"];
-        Assert.Equal(mine, ExploreCommand.ScanCredentials().Select(account => account.Name).Where(mine.Contains).ToArray());
-        Assert.Equal(["explore_other"], ExploreCommand.ScanCredentials(["explore-covered"]).Select(account => account.Name).Where(mine.Contains).ToArray());
+        Assert.Equal(
+            mine,
+            ExploreCommand.ScanCredentials().Select(account => account.Name).Where(mine.Contains).ToArray()
+        );
+        Assert.Equal(
+            ["explore_other"],
+            ExploreCommand
+                .ScanCredentials(["explore-covered"])
+                .Select(account => account.Name)
+                .Where(mine.Contains)
+                .ToArray()
+        );
     }
 
     // .NET-only: a config that does not load is the run's error, not an account problem the environment scan finds first.
@@ -375,10 +526,21 @@ public sealed class ExploreFlagsTests
         var dir = Directory.CreateTempSubdirectory("e2e-explore-647-").FullName;
         try
         {
-            File.WriteAllText(Path.Combine(dir, "e2e.config.json"), """{ "credentials": { "ada": "not-an-object" } }""");
+            File.WriteAllText(
+                Path.Combine(dir, "e2e.config.json"),
+                """{ "credentials": { "ada": "not-an-object" } }"""
+            );
             var fake = Fake();
 
-            await ExploreCommand.RunAsync([], new StringWriter(), new StringWriter(), interactive: false, fake.RunAsync, CancellationToken.None, dir);
+            await ExploreCommand.RunAsync(
+                [],
+                new StringWriter(),
+                new StringWriter(),
+                interactive: false,
+                fake.RunAsync,
+                CancellationToken.None,
+                dir
+            );
 
             Assert.NotNull(fake.Options);
             Assert.Empty(fake.Options.Credentials!);
@@ -399,7 +561,11 @@ public sealed class ExploreFlagsTests
 
         Assert.Equal(2, code);
         Assert.Null(fake.Options);
-        Assert.Contains("error AUTH_CREDENTIAL_UNAVAILABLE: Credential 'explore_half' is not configured.", stderr, StringComparison.Ordinal);
+        Assert.Contains(
+            "error AUTH_CREDENTIAL_UNAVAILABLE: Credential 'explore_half' is not configured.",
+            stderr,
+            StringComparison.Ordinal
+        );
     }
 
     private static EnvScope Env(string name, string value) => new(name, value);

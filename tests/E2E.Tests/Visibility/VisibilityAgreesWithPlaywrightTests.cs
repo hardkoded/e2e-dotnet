@@ -48,7 +48,8 @@ public sealed class VisibilityAgreesWithPlaywrightTests(ChromiumPage chromium) :
     public Task A_shown_SVG() => AgreesAsync("svg-shown", false);
 
     [Fact]
-    public Task The_button_clipped_inside_a_zero_size_box_which_keeps_a_box_of_its_own() => AgreesAsync("zero-button", false);
+    public Task The_button_clipped_inside_a_zero_size_box_which_keeps_a_box_of_its_own() =>
+        AgreesAsync("zero-button", false);
 
     [Fact]
     public Task A_sized_box() => AgreesAsync("sized", false);
@@ -84,10 +85,12 @@ public sealed class VisibilityAgreesWithPlaywrightTests(ChromiumPage chromium) :
     public Task A_display_contents_element_with_bare_text() => AgreesAsync("contents-text", false);
 
     [Fact]
-    public Task A_hidden_display_contents_element_whose_child_inherits_it() => AgreesAsync("contents-hidden-element", true);
+    public Task A_hidden_display_contents_element_whose_child_inherits_it() =>
+        AgreesAsync("contents-hidden-element", true);
 
     [Fact]
-    public Task A_hidden_display_contents_element_whose_child_is_visible_again() => AgreesAsync("contents-shown-child", false);
+    public Task A_hidden_display_contents_element_whose_child_is_visible_again() =>
+        AgreesAsync("contents-shown-child", false);
 
     [Fact]
     public Task An_aria_hidden_spinner_that_paints() => AgreesAsync("spinner", false);

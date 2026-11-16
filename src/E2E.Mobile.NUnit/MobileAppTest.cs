@@ -37,17 +37,22 @@ public abstract class MobileAppTest : E2ETest
     protected static bool AttachesToRunningApp => MobileAppHost.AttachesToRunningApp;
 
     /// <summary>The device fixture of the test's session: appearance, home, foreground app, and the other device controls.</summary>
-    protected Device Device => (_engine ?? throw new InvalidOperationException("The engine starts with the test session.")).ActiveSessions.Single().Device;
+    protected Device Device =>
+        (_engine ?? throw new InvalidOperationException("The engine starts with the test session."))
+            .ActiveSessions.Single()
+            .Device;
 
     /// <summary>The options of the engine: the local device, or the provider's hosted device.</summary>
     protected virtual MobileOptions CreateMobileOptions(IDeviceProvider? provider) =>
         MobileAppHost.Options(Config, Platform, AppId, AppPath, MobileAppHost.DeviceName(), provider);
 
     /// <summary>The hosted device the run leased, or a <see cref="MobileEngine"/> for the local device.</summary>
-    protected override IEngine CreateEngine() => _engine = MobileAppHost.Engine ?? new MobileEngine(CreateMobileOptions(provider: null));
+    protected override IEngine CreateEngine() =>
+        _engine = MobileAppHost.Engine ?? new MobileEngine(CreateMobileOptions(provider: null));
 
     /// <summary>The agent can open another app, swipe from point to point, and answer a system alert.</summary>
-    protected override IReadOnlyDictionary<string, AgentTool>? AgentTools => MobileTools.Create(_engine ?? throw new InvalidOperationException("The engine starts with the test session."));
+    protected override IReadOnlyDictionary<string, AgentTool>? AgentTools =>
+        MobileTools.Create(_engine ?? throw new InvalidOperationException("The engine starts with the test session."));
 
     /// <summary>A device is slower than a browser: each action waits for the screen to settle, and the model sees a new snapshot after it.</summary>
     protected override TimeSpan StepTimeout => TimeSpan.FromSeconds(90);
@@ -61,5 +66,10 @@ public abstract class MobileAppTest : E2ETest
 
     [SetUp]
     public async Task InstallAndOpenAppAsync() =>
-        await MobileAppHost.InstallAndOpenAsync(Device, AppId, AppPath, global::NUnit.Framework.TestContext.CurrentContext.CancellationToken);
+        await MobileAppHost.InstallAndOpenAsync(
+            Device,
+            AppId,
+            AppPath,
+            global::NUnit.Framework.TestContext.CurrentContext.CancellationToken
+        );
 }

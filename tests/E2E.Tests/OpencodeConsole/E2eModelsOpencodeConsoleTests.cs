@@ -31,7 +31,8 @@ public sealed class E2eModelsOpencodeConsoleTests
                 ("glm-5.3", null, "Zen, $1.4 in, $4.4 out per 1M"),
                 ("go/deepseek-v4.1-flash", "DeepSeek V4.1 Flash", "Go, vision"),
             ],
-            models.Select(model => (model.Id, model.Name, model.Detail)));
+            models.Select(model => (model.Id, model.Name, model.Detail))
+        );
     }
 
     [Fact]
@@ -54,7 +55,10 @@ public sealed class E2eModelsOpencodeConsoleTests
         var api = OpencodeConsoleWorkspace.Serve();
         using var _ = ProcessEnvironment.Set("OPENCODE_API_KEY", "oc_sk_env");
 
-        await ListAsync(api, new MemoryCredentialStore(new() { ["opencode-console"] = OpencodeConsoleWorkspace.Login }));
+        await ListAsync(
+            api,
+            new MemoryCredentialStore(new() { ["opencode-console"] = OpencodeConsoleWorkspace.Login })
+        );
 
         Assert.Equal("Bearer oc_sk_env", api.Requests.First().Header("authorization"));
         Assert.Null(api.Requests.First().Header("x-org-id"));
@@ -77,10 +81,15 @@ public sealed class E2eModelsOpencodeConsoleTests
     {
         using var _ = ProcessEnvironment.Set("OPENCODE_API_KEY", null);
 
-        var error = await Assert.ThrowsAsync<OAuthException>(() => ListAsync(OpencodeConsoleWorkspace.Serve(), new MemoryCredentialStore()));
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            ListAsync(OpencodeConsoleWorkspace.Serve(), new MemoryCredentialStore())
+        );
 
         Assert.Equal(OAuthException.NotLoggedIn, error.Code);
-        Assert.Equal("no OpenCode Console login is stored; run `e2e login opencode-console` or set OPENCODE_API_KEY", error.Message);
+        Assert.Equal(
+            "no OpenCode Console login is stored; run `e2e login opencode-console` or set OPENCODE_API_KEY",
+            error.Message
+        );
     }
 
     [Fact]
@@ -89,7 +98,9 @@ public sealed class E2eModelsOpencodeConsoleTests
         var api = new FakeApi(_ => (HttpStatusCode.Unauthorized, """{ "error": "invalid key" }"""));
         using var _ = ProcessEnvironment.Set("OPENCODE_API_KEY", "oc_sk_env");
 
-        var error = await Assert.ThrowsAsync<OAuthException>(() => ListAsync(api, new MemoryCredentialStore(new() { ["opencode-console"] = OpencodeConsoleWorkspace.Login })));
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            ListAsync(api, new MemoryCredentialStore(new() { ["opencode-console"] = OpencodeConsoleWorkspace.Login }))
+        );
 
         Assert.Equal(OAuthException.LoginRequired, error.Code);
         Assert.EndsWith("; check OPENCODE_API_KEY", error.Message, StringComparison.Ordinal);
@@ -98,11 +109,26 @@ public sealed class E2eModelsOpencodeConsoleTests
     [Fact]
     public async Task Leaves_the_other_providers_on_their_stored_login()
     {
-        var api = new FakeApi(request => request.Uri.AbsolutePath.EndsWith("/models", StringComparison.Ordinal)
-            ? (HttpStatusCode.OK, """{ "models": [{ "slug": "gpt-6-astra", "display_name": "GPT-6 Astra", "visibility": "list", "priority": 0 }] }""")
-            : (HttpStatusCode.NotFound, """{ "error": "not found" }"""));
+        var api = new FakeApi(request =>
+            request.Uri.AbsolutePath.EndsWith("/models", StringComparison.Ordinal)
+                ? (
+                    HttpStatusCode.OK,
+                    """{ "models": [{ "slug": "gpt-6-astra", "display_name": "GPT-6 Astra", "visibility": "list", "priority": 0 }] }"""
+                )
+                : (HttpStatusCode.NotFound, """{ "error": "not found" }""")
+        );
         using var _ = ProcessEnvironment.Set("OPENCODE_API_KEY", "oc_sk_env");
-        var store = new MemoryCredentialStore(new() { ["openai"] = new OAuthCredentials { Access = "oai_tok", Refresh = "rt_2", Expires = 0 } });
+        var store = new MemoryCredentialStore(
+            new()
+            {
+                ["openai"] = new OAuthCredentials
+                {
+                    Access = "oai_tok",
+                    Refresh = "rt_2",
+                    Expires = 0,
+                },
+            }
+        );
 
         var models = await OAuthProviders.ListModelsAsync(new CodexProvider(), store, api, CancellationToken.None);
 
@@ -112,5 +138,10 @@ public sealed class E2eModelsOpencodeConsoleTests
     }
 
     private static Task<IReadOnlyList<SubscriptionModel>> ListAsync(HttpMessageHandler api, ICredentialStore? store) =>
-        OAuthProviders.ListModelsAsync(new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl), store, api, CancellationToken.None);
+        OAuthProviders.ListModelsAsync(
+            new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl),
+            store,
+            api,
+            CancellationToken.None
+        );
 }

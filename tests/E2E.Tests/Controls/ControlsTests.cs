@@ -190,271 +190,321 @@ public sealed class ControlsTests
         """;
 
     [Fact]
-    public Task A_secondary_tap_opens_the_context_menu() => RunAsync(async screen =>
-    {
-        var menu = screen.GetByRole("menu", "File actions");
-        var state = screen.GetByRole("status", "File state");
-        await Expect.That(menu).ToBeHiddenAsync();
+    public Task A_secondary_tap_opens_the_context_menu() =>
+        RunAsync(async screen =>
+        {
+            var menu = screen.GetByRole("menu", "File actions");
+            var state = screen.GetByRole("status", "File state");
+            await Expect.That(menu).ToBeHiddenAsync();
 
-        await screen.GetByText("report.pdf", exact: true).SecondaryTapAsync();
-        await Expect.That(menu).ToBeVisibleAsync();
-        await Expect.That(state).ToHaveTextAsync("menu open");
-        await Expect.That(menu.GetByRole("menuitem")).ToHaveCountAsync(2);
+            await screen.GetByText("report.pdf", exact: true).SecondaryTapAsync();
+            await Expect.That(menu).ToBeVisibleAsync();
+            await Expect.That(state).ToHaveTextAsync("menu open");
+            await Expect.That(menu.GetByRole("menuitem")).ToHaveCountAsync(2);
 
-        await menu.GetByRole("menuitem", "Rename").TapAsync();
-        await Expect.That(state).ToHaveTextAsync("renamed");
-        await Expect.That(menu).ToBeHiddenAsync();
-    });
-
-    [Fact]
-    public Task A_long_press_and_a_double_tap_are_told_apart_from_a_tap() => RunAsync(async screen =>
-    {
-        var gesture = screen.GetByRole("status", "Gesture state");
-        var hold = screen.GetByRole("button", "Hold me");
-
-        await hold.TapAsync();
-        await Expect.That(gesture).ToHaveTextAsync("tapped");
-        await hold.LongPressAsync(new LongPressOptions { Duration = TimeSpan.FromMilliseconds(700) });
-        await Expect.That(gesture).ToHaveTextAsync("long-pressed");
-        await screen.GetByRole("button", "Tap me twice").DoubleTapAsync();
-        await Expect.That(gesture).ToHaveTextAsync("double-tapped");
-    });
+            await menu.GetByRole("menuitem", "Rename").TapAsync();
+            await Expect.That(state).ToHaveTextAsync("renamed");
+            await Expect.That(menu).ToBeHiddenAsync();
+        });
 
     [Fact]
-    public Task Expanded_state_follows_the_disclosure_toggle() => RunAsync(async screen =>
-    {
-        var toggle = screen.GetByRole("button", "Details");
-        await Expect.That(toggle).Not.ToBeExpandedAsync();
-        await Expect.That(screen.GetByText("The fine print.")).ToBeHiddenAsync();
-        await Expect.That(screen.GetByRole("button", new RoleOptions { Name = "Details", Expanded = false })).ToHaveCountAsync(1);
+    public Task A_long_press_and_a_double_tap_are_told_apart_from_a_tap() =>
+        RunAsync(async screen =>
+        {
+            var gesture = screen.GetByRole("status", "Gesture state");
+            var hold = screen.GetByRole("button", "Hold me");
 
-        await toggle.TapAsync();
-        await Expect.That(toggle).ToBeExpandedAsync();
-        await Expect.That(screen.GetByText("The fine print.")).ToBeVisibleAsync();
-        await Expect.That(screen.GetByRole("button", new RoleOptions { Name = "Details", Expanded = true })).ToHaveCountAsync(1);
-    });
-
-    [Fact]
-    public Task Enabled_state_arrives_late_and_every_read_agrees() => RunAsync(async screen =>
-    {
-        var publish = screen.GetByRole("button", "Publish");
-        await Expect.That(publish).ToBeDisabledAsync();
-        Assert.True(await publish.IsDisabledAsync());
-        Assert.False(await publish.IsEnabledAsync());
-        await Expect.That(screen.GetByRole("button", new RoleOptions { Name = "Publish", Disabled = true })).ToHaveCountAsync(1);
-
-        await screen.GetByRole("button", "Prepare").TapAsync();
-        await Expect.That(publish).ToBeEnabledAsync();
-        await Expect.Poll(() => publish.IsEnabledAsync()).ToBeAsync(true);
-        Assert.False(await publish.IsDisabledAsync());
-        await Expect.That(screen.GetByRole("button", new RoleOptions { Name = "Publish", Disabled = false })).ToHaveCountAsync(1);
-    });
+            await hold.TapAsync();
+            await Expect.That(gesture).ToHaveTextAsync("tapped");
+            await hold.LongPressAsync(new LongPressOptions { Duration = TimeSpan.FromMilliseconds(700) });
+            await Expect.That(gesture).ToHaveTextAsync("long-pressed");
+            await screen.GetByRole("button", "Tap me twice").DoubleTapAsync();
+            await Expect.That(gesture).ToHaveTextAsync("double-tapped");
+        });
 
     [Fact]
-    public Task Check_and_uncheck_move_checked_state_and_one_radio_checks_at_a_time() => RunAsync(async screen =>
-    {
-        var agree = screen.GetByLabel("Agree to terms");
-        Assert.False(await agree.IsCheckedAsync());
-        await agree.CheckAsync();
-        await Expect.That(agree).ToBeCheckedAsync();
-        Assert.True(await agree.IsCheckedAsync());
-        await agree.UncheckAsync();
-        await Expect.That(agree).Not.ToBeCheckedAsync();
+    public Task Expanded_state_follows_the_disclosure_toggle() =>
+        RunAsync(async screen =>
+        {
+            var toggle = screen.GetByRole("button", "Details");
+            await Expect.That(toggle).Not.ToBeExpandedAsync();
+            await Expect.That(screen.GetByText("The fine print.")).ToBeHiddenAsync();
+            await Expect
+                .That(screen.GetByRole("button", new RoleOptions { Name = "Details", Expanded = false }))
+                .ToHaveCountAsync(1);
 
-        await Expect.That(screen.GetByRole("radio", new RoleOptions { Checked = true })).ToHaveCountAsync(0);
-        await screen.GetByRole("radio", "Medium").CheckAsync();
-        await Expect.That(screen.GetByRole("radio", "Medium")).ToBeCheckedAsync();
-        await Expect.That(screen.GetByRole("radio", "Small")).Not.ToBeCheckedAsync();
-        await Expect.That(screen.GetByRole("radio", new RoleOptions { Checked = true })).ToHaveCountAsync(1);
-        Assert.False(await screen.GetByRole("radio", "Large").IsCheckedAsync());
-    });
-
-    [Fact]
-    public Task Check_and_uncheck_wait_for_a_controlled_checkbox_and_switch_that_commit_late() => RunAsync(async screen =>
-    {
-        var newsletter = screen.GetByLabel("Subscribe to newsletter");
-        await newsletter.CheckAsync();
-        Assert.True(await newsletter.IsCheckedAsync());
-        await newsletter.UncheckAsync();
-        Assert.False(await newsletter.IsCheckedAsync());
-
-        var darkMode = screen.GetByRole("switch", "Dark mode");
-        await darkMode.CheckAsync();
-        Assert.True(await darkMode.IsCheckedAsync());
-        await darkMode.UncheckAsync();
-        Assert.False(await darkMode.IsCheckedAsync());
-    });
+            await toggle.TapAsync();
+            await Expect.That(toggle).ToBeExpandedAsync();
+            await Expect.That(screen.GetByText("The fine print.")).ToBeVisibleAsync();
+            await Expect
+                .That(screen.GetByRole("button", new RoleOptions { Name = "Details", Expanded = true }))
+                .ToHaveCountAsync(1);
+        });
 
     [Fact]
-    public Task Selecting_an_option_moves_selected_state_onto_it() => RunAsync(async screen =>
-    {
-        var color = screen.GetByLabel("Color");
-        await Expect.That(screen.GetByRole("option", "Green")).ToBeSelectedAsync();
-        await Expect.That(screen.GetByRole("option", "Blue")).Not.ToBeSelectedAsync();
+    public Task Enabled_state_arrives_late_and_every_read_agrees() =>
+        RunAsync(async screen =>
+        {
+            var publish = screen.GetByRole("button", "Publish");
+            await Expect.That(publish).ToBeDisabledAsync();
+            Assert.True(await publish.IsDisabledAsync());
+            Assert.False(await publish.IsEnabledAsync());
+            await Expect
+                .That(screen.GetByRole("button", new RoleOptions { Name = "Publish", Disabled = true }))
+                .ToHaveCountAsync(1);
 
-        await color.SelectOptionAsync("Blue");
-        await Expect.That(color).ToHaveValueAsync("blue");
-        await Expect.That(screen.GetByRole("option", "Blue")).ToBeSelectedAsync();
-        await Expect.That(screen.GetByRole("option", "Green")).Not.ToBeSelectedAsync();
-        await Expect.That(screen.GetByRole("option", new RoleOptions { Selected = true })).ToHaveTextAsync("Blue");
-    });
-
-    [Fact]
-    public Task Focus_moves_with_Tab_and_Shift_Tab() => RunAsync(async screen =>
-    {
-        var first = screen.GetByLabel("First");
-        var second = screen.GetByLabel("Second");
-
-        await first.FocusAsync();
-        await Expect.That(first).ToBeFocusedAsync();
-        await Expect.That(second).Not.ToBeFocusedAsync();
-
-        await first.PressAsync("Tab");
-        await Expect.That(second).ToBeFocusedAsync();
-        await Expect.That(first).Not.ToBeFocusedAsync();
-
-        await second.PressAsync("Shift+Tab");
-        await Expect.That(first).ToBeFocusedAsync();
-    });
+            await screen.GetByRole("button", "Prepare").TapAsync();
+            await Expect.That(publish).ToBeEnabledAsync();
+            await Expect.Poll(() => publish.IsEnabledAsync()).ToBeAsync(true);
+            Assert.False(await publish.IsDisabledAsync());
+            await Expect
+                .That(screen.GetByRole("button", new RoleOptions { Name = "Publish", Disabled = false }))
+                .ToHaveCountAsync(1);
+        });
 
     [Fact]
-    public Task Press_spells_modifiers_the_way_the_app_sees_them() => RunAsync(async screen =>
-    {
-        var keys = screen.GetByLabel("Key log input");
-        var log = screen.GetByLabel("Key log");
+    public Task Check_and_uncheck_move_checked_state_and_one_radio_checks_at_a_time() =>
+        RunAsync(async screen =>
+        {
+            var agree = screen.GetByLabel("Agree to terms");
+            Assert.False(await agree.IsCheckedAsync());
+            await agree.CheckAsync();
+            await Expect.That(agree).ToBeCheckedAsync();
+            Assert.True(await agree.IsCheckedAsync());
+            await agree.UncheckAsync();
+            await Expect.That(agree).Not.ToBeCheckedAsync();
 
-        await keys.PressAsync("Shift+ArrowLeft");
-        await Expect.That(log).ToHaveTextAsync("Shift+ArrowLeft");
-        await keys.PressAsync("Control+a");
-        await Expect.That(log).ToHaveTextAsync("Control+a");
-        await keys.PressAsync("Alt+Shift+Enter");
-        await Expect.That(log).ToHaveTextAsync("Alt+Shift+Enter");
-        // A lone character is pressed as itself: no modifier is held for it, whatever the layout needs.
-        await keys.PressAsync("$");
-        await Expect.That(log).ToHaveTextAsync("$");
-        await keys.PressAsync("Escape");
-        await Expect.That(log).ToHaveTextAsync("Escape");
-    });
-
-    [Fact]
-    public Task A_link_reads_back_its_attributes_accessible_name_classes_and_text() => RunAsync(async (screen, browser) =>
-    {
-        var docs = screen.GetByRole("link", "Documentation");
-        await Expect.That(docs).ToHaveAttributeAsync("data-kind", "external");
-        await Expect.That(docs).ToHaveAttributeAsync("href");
-        await Expect.That(docs).ToHaveAttributeAsync("href", new Regex("about$"));
-        await Expect.That(docs).Not.ToHaveAttributeAsync("hidden");
-        await Expect.That(docs).ToHaveAccessibleNameAsync("Documentation");
-        await Expect.That(docs).ToHaveTextAsync("Docs");
-        await Expect.That(browser).ToHaveClassAsync(docs, "link primary");
-        await Expect.That(browser).ToHaveClassAsync(docs, new Regex("primary"));
-        await Expect.That(browser).Not.ToHaveClassAsync(docs, new Regex("secondary"));
-
-        Assert.Equal("external", await docs.GetAttributeAsync("data-kind"));
-        Assert.Null(await docs.GetAttributeAsync("data-missing"));
-        Assert.Equal("Docs", await docs.TextContentAsync());
-    });
+            await Expect.That(screen.GetByRole("radio", new RoleOptions { Checked = true })).ToHaveCountAsync(0);
+            await screen.GetByRole("radio", "Medium").CheckAsync();
+            await Expect.That(screen.GetByRole("radio", "Medium")).ToBeCheckedAsync();
+            await Expect.That(screen.GetByRole("radio", "Small")).Not.ToBeCheckedAsync();
+            await Expect.That(screen.GetByRole("radio", new RoleOptions { Checked = true })).ToHaveCountAsync(1);
+            Assert.False(await screen.GetByRole("radio", "Large").IsCheckedAsync());
+        });
 
     [Fact]
-    public Task A_hidden_twin_is_skipped_by_a_visible_query_and_reached_by_index() => RunAsync(async screen =>
-    {
-        var banner = screen.GetByTestId("banner");
-        await Expect.That(banner).ToHaveCountAsync(2);
-        var error = await Assert.ThrowsAsync<TestException>(() => banner.TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) }));
-        Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
+    public Task Check_and_uncheck_wait_for_a_controlled_checkbox_and_switch_that_commit_late() =>
+        RunAsync(async screen =>
+        {
+            var newsletter = screen.GetByLabel("Subscribe to newsletter");
+            await newsletter.CheckAsync();
+            Assert.True(await newsletter.IsCheckedAsync());
+            await newsletter.UncheckAsync();
+            Assert.False(await newsletter.IsCheckedAsync());
 
-        await Expect.That(screen.GetByTestId("banner", new TextMatchOptions { Visible = true })).ToHaveCountAsync(1);
-        await Expect.That(screen.GetByTestId("banner", new TextMatchOptions { Visible = true })).ToBeVisibleAsync();
-        await Expect.That(screen.GetByText("Sale", new TextMatchOptions { Visible = true })).ToHaveTextAsync("Sale");
-
-        await Expect.That(banner.First()).ToBeHiddenAsync();
-        await Expect.That(banner.First()).ToBeAttachedAsync();
-        Assert.True(await banner.First().IsHiddenAsync());
-        await Expect.That(banner.Last()).ToBeVisibleAsync();
-        Assert.True(await banner.Last().IsVisibleAsync());
-    });
+            var darkMode = screen.GetByRole("switch", "Dark mode");
+            await darkMode.CheckAsync();
+            Assert.True(await darkMode.IsCheckedAsync());
+            await darkMode.UncheckAsync();
+            Assert.False(await darkMode.IsCheckedAsync());
+        });
 
     [Fact]
-    public Task A_text_match_inside_a_line_reads_its_own_attributes() => RunAsync(async screen =>
-    {
-        // The badge span is read in the item's line, so it has no node of its own; its match still answers for it.
-        Assert.Equal("badge", await screen.GetByText("urgent").First().GetAttributeAsync("class"));
-    });
+    public Task Selecting_an_option_moves_selected_state_onto_it() =>
+        RunAsync(async screen =>
+        {
+            var color = screen.GetByLabel("Color");
+            await Expect.That(screen.GetByRole("option", "Green")).ToBeSelectedAsync();
+            await Expect.That(screen.GetByRole("option", "Blue")).Not.ToBeSelectedAsync();
+
+            await color.SelectOptionAsync("Blue");
+            await Expect.That(color).ToHaveValueAsync("blue");
+            await Expect.That(screen.GetByRole("option", "Blue")).ToBeSelectedAsync();
+            await Expect.That(screen.GetByRole("option", "Green")).Not.ToBeSelectedAsync();
+            await Expect.That(screen.GetByRole("option", new RoleOptions { Selected = true })).ToHaveTextAsync("Blue");
+        });
 
     [Fact]
-    public Task Filters_narrow_a_list_by_text_or_a_nested_match_and_nth_picks_one_row() => RunAsync(async screen =>
-    {
-        var tickets = screen.GetByRole("list", "Tickets").GetByRole("listitem");
-        await Expect.That(tickets).ToHaveCountAsync(3);
-        await Expect.That(tickets.Filter(screen.GetByText("urgent"))).ToHaveCountAsync(2);
-        await Expect.That(tickets.Filter(screen.GetByRole("button"))).ToHaveCountAsync(2);
-        await Expect.That(tickets.Filter("Ticket B")).ToHaveCountAsync(1);
-        await Expect.That(tickets.Filter(screen.GetByText("urgent")).Filter(screen.GetByRole("button"))).ToContainTextAsync("Ticket A");
-        await Expect.That(tickets.Nth(1)).ToContainTextAsync("Ticket B");
-        await Expect.That(tickets.Nth(2).GetByRole("button")).ToHaveCountAsync(0);
-        Assert.Equal(3, (await tickets.AllTextContentsAsync()).Count);
-        Assert.Equal(3, (await tickets.AllAsync()).Count);
+    public Task Focus_moves_with_Tab_and_Shift_Tab() =>
+        RunAsync(async screen =>
+        {
+            var first = screen.GetByLabel("First");
+            var second = screen.GetByLabel("Second");
 
-        // Upstream's INVALID_LOCATOR for filter({}) and nth(-1) is the C# argument check.
-        Assert.Throws<ArgumentNullException>(() => tickets.Filter((TextMatch)null!));
-        Assert.Throws<ArgumentOutOfRangeException>(() => tickets.Nth(-1));
-    });
+            await first.FocusAsync();
+            await Expect.That(first).ToBeFocusedAsync();
+            await Expect.That(second).Not.ToBeFocusedAsync();
 
-    [Fact]
-    public Task Display_value_queries_follow_the_value() => RunAsync(async screen =>
-    {
-        await Expect.That(screen.GetByDisplayValue("SAVE10")).ToBeVisibleAsync();
-        await Expect.That(screen.GetByDisplayValue("SAVE10")).ToHaveValueAsync("SAVE10");
+            await first.PressAsync("Tab");
+            await Expect.That(second).ToBeFocusedAsync();
+            await Expect.That(first).Not.ToBeFocusedAsync();
 
-        await screen.GetByLabel("Coupon").FillAsync("FREESHIP");
-        await Expect.That(screen.GetByDisplayValue("SAVE10")).ToHaveCountAsync(0);
-        await Expect.That(screen.GetByDisplayValue("FREESHIP")).ToHaveValueAsync("FREESHIP");
-        Assert.Equal("FREESHIP", await screen.GetByLabel("Coupon").InputValueAsync());
-    });
+            await second.PressAsync("Shift+Tab");
+            await Expect.That(first).ToBeFocusedAsync();
+        });
 
     [Fact]
-    public Task Several_files_reach_a_multiple_file_input() => RunAsync(async screen =>
-    {
-        await screen.GetByLabel("Attachments").SetInputFilesAsync(["fixtures/attachment.txt", "fixtures/second.txt"]);
-        await Expect.That(screen.GetByLabel("Attachments state")).ToHaveTextAsync("attachment.txt, second.txt");
-    });
+    public Task Press_spells_modifiers_the_way_the_app_sees_them() =>
+        RunAsync(async screen =>
+        {
+            var keys = screen.GetByLabel("Key log input");
+            var log = screen.GetByLabel("Key log");
+
+            await keys.PressAsync("Shift+ArrowLeft");
+            await Expect.That(log).ToHaveTextAsync("Shift+ArrowLeft");
+            await keys.PressAsync("Control+a");
+            await Expect.That(log).ToHaveTextAsync("Control+a");
+            await keys.PressAsync("Alt+Shift+Enter");
+            await Expect.That(log).ToHaveTextAsync("Alt+Shift+Enter");
+            // A lone character is pressed as itself: no modifier is held for it, whatever the layout needs.
+            await keys.PressAsync("$");
+            await Expect.That(log).ToHaveTextAsync("$");
+            await keys.PressAsync("Escape");
+            await Expect.That(log).ToHaveTextAsync("Escape");
+        });
 
     [Fact]
-    public Task A_button_that_opens_a_hidden_file_input_takes_the_files() => RunAsync(async screen =>
-    {
-        await screen.GetByRole("button", "Choose avatar").SetInputFilesAsync("fixtures/attachment.txt");
-        await Expect.That(screen.GetByLabel("Avatar state")).ToHaveTextAsync("attachment.txt");
-    });
+    public Task A_link_reads_back_its_attributes_accessible_name_classes_and_text() =>
+        RunAsync(
+            async (screen, browser) =>
+            {
+                var docs = screen.GetByRole("link", "Documentation");
+                await Expect.That(docs).ToHaveAttributeAsync("data-kind", "external");
+                await Expect.That(docs).ToHaveAttributeAsync("href");
+                await Expect.That(docs).ToHaveAttributeAsync("href", new Regex("about$"));
+                await Expect.That(docs).Not.ToHaveAttributeAsync("hidden");
+                await Expect.That(docs).ToHaveAccessibleNameAsync("Documentation");
+                await Expect.That(docs).ToHaveTextAsync("Docs");
+                await Expect.That(browser).ToHaveClassAsync(docs, "link primary");
+                await Expect.That(browser).ToHaveClassAsync(docs, new Regex("primary"));
+                await Expect.That(browser).Not.ToHaveClassAsync(docs, new Regex("secondary"));
+
+                Assert.Equal("external", await docs.GetAttributeAsync("data-kind"));
+                Assert.Null(await docs.GetAttributeAsync("data-missing"));
+                Assert.Equal("Docs", await docs.TextContentAsync());
+            }
+        );
 
     [Fact]
-    public Task A_button_that_opens_no_file_chooser_fails_as_ACTION_FAILED() => RunAsync(async screen =>
-    {
-        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button", "Close A").SetInputFilesAsync("fixtures/attachment.txt", new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) }));
-        Assert.Equal("ACTION_FAILED", error.Code);
-        Assert.Contains("opened no file chooser", error.Message, StringComparison.Ordinal);
-    });
+    public Task A_hidden_twin_is_skipped_by_a_visible_query_and_reached_by_index() =>
+        RunAsync(async screen =>
+        {
+            var banner = screen.GetByTestId("banner");
+            await Expect.That(banner).ToHaveCountAsync(2);
+            var error = await Assert.ThrowsAsync<TestException>(() =>
+                banner.TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) })
+            );
+            Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
+
+            await Expect
+                .That(screen.GetByTestId("banner", new TextMatchOptions { Visible = true }))
+                .ToHaveCountAsync(1);
+            await Expect.That(screen.GetByTestId("banner", new TextMatchOptions { Visible = true })).ToBeVisibleAsync();
+            await Expect
+                .That(screen.GetByText("Sale", new TextMatchOptions { Visible = true }))
+                .ToHaveTextAsync("Sale");
+
+            await Expect.That(banner.First()).ToBeHiddenAsync();
+            await Expect.That(banner.First()).ToBeAttachedAsync();
+            Assert.True(await banner.First().IsHiddenAsync());
+            await Expect.That(banner.Last()).ToBeVisibleAsync();
+            Assert.True(await banner.Last().IsVisibleAsync());
+        });
 
     [Fact]
-    public Task ScrollIntoView_brings_a_node_far_below_into_the_viewport() => RunAsync(async screen =>
-    {
-        var footnote = screen.GetByText("Footnote", exact: true);
-        await Expect.That(screen.GetByLabel("Footnote state")).ToHaveTextAsync("out of view");
-
-        await footnote.ScrollIntoViewAsync();
-        await Expect.That(screen.GetByLabel("Footnote state")).ToHaveTextAsync("in view");
-        var box = await footnote.BoundingBoxAsync();
-        Assert.NotNull(box);
-        Assert.True(box.Y >= 0);
-    });
+    public Task A_text_match_inside_a_line_reads_its_own_attributes() =>
+        RunAsync(async screen =>
+        {
+            // The badge span is read in the item's line, so it has no node of its own; its match still answers for it.
+            Assert.Equal("badge", await screen.GetByText("urgent").First().GetAttributeAsync("class"));
+        });
 
     [Fact]
-    public Task A_missing_locator_fails_as_LOCATOR_NOT_FOUND_after_its_timeout() => RunAsync(async screen =>
-    {
-        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button", "Nope").TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) }));
-        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
-        await Expect.That(screen.GetByRole("button", "Nope")).ToHaveCountAsync(0);
-        Assert.Equal(0, await screen.GetByRole("button", "Nope").CountAsync());
-    });
+    public Task Filters_narrow_a_list_by_text_or_a_nested_match_and_nth_picks_one_row() =>
+        RunAsync(async screen =>
+        {
+            var tickets = screen.GetByRole("list", "Tickets").GetByRole("listitem");
+            await Expect.That(tickets).ToHaveCountAsync(3);
+            await Expect.That(tickets.Filter(screen.GetByText("urgent"))).ToHaveCountAsync(2);
+            await Expect.That(tickets.Filter(screen.GetByRole("button"))).ToHaveCountAsync(2);
+            await Expect.That(tickets.Filter("Ticket B")).ToHaveCountAsync(1);
+            await Expect
+                .That(tickets.Filter(screen.GetByText("urgent")).Filter(screen.GetByRole("button")))
+                .ToContainTextAsync("Ticket A");
+            await Expect.That(tickets.Nth(1)).ToContainTextAsync("Ticket B");
+            await Expect.That(tickets.Nth(2).GetByRole("button")).ToHaveCountAsync(0);
+            Assert.Equal(3, (await tickets.AllTextContentsAsync()).Count);
+            Assert.Equal(3, (await tickets.AllAsync()).Count);
+
+            // Upstream's INVALID_LOCATOR for filter({}) and nth(-1) is the C# argument check.
+            Assert.Throws<ArgumentNullException>(() => tickets.Filter((TextMatch)null!));
+            Assert.Throws<ArgumentOutOfRangeException>(() => tickets.Nth(-1));
+        });
+
+    [Fact]
+    public Task Display_value_queries_follow_the_value() =>
+        RunAsync(async screen =>
+        {
+            await Expect.That(screen.GetByDisplayValue("SAVE10")).ToBeVisibleAsync();
+            await Expect.That(screen.GetByDisplayValue("SAVE10")).ToHaveValueAsync("SAVE10");
+
+            await screen.GetByLabel("Coupon").FillAsync("FREESHIP");
+            await Expect.That(screen.GetByDisplayValue("SAVE10")).ToHaveCountAsync(0);
+            await Expect.That(screen.GetByDisplayValue("FREESHIP")).ToHaveValueAsync("FREESHIP");
+            Assert.Equal("FREESHIP", await screen.GetByLabel("Coupon").InputValueAsync());
+        });
+
+    [Fact]
+    public Task Several_files_reach_a_multiple_file_input() =>
+        RunAsync(async screen =>
+        {
+            await screen
+                .GetByLabel("Attachments")
+                .SetInputFilesAsync(["fixtures/attachment.txt", "fixtures/second.txt"]);
+            await Expect.That(screen.GetByLabel("Attachments state")).ToHaveTextAsync("attachment.txt, second.txt");
+        });
+
+    [Fact]
+    public Task A_button_that_opens_a_hidden_file_input_takes_the_files() =>
+        RunAsync(async screen =>
+        {
+            await screen.GetByRole("button", "Choose avatar").SetInputFilesAsync("fixtures/attachment.txt");
+            await Expect.That(screen.GetByLabel("Avatar state")).ToHaveTextAsync("attachment.txt");
+        });
+
+    [Fact]
+    public Task A_button_that_opens_no_file_chooser_fails_as_ACTION_FAILED() =>
+        RunAsync(async screen =>
+        {
+            var error = await Assert.ThrowsAsync<TestException>(() =>
+                screen
+                    .GetByRole("button", "Close A")
+                    .SetInputFilesAsync(
+                        "fixtures/attachment.txt",
+                        new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) }
+                    )
+            );
+            Assert.Equal("ACTION_FAILED", error.Code);
+            Assert.Contains("opened no file chooser", error.Message, StringComparison.Ordinal);
+        });
+
+    [Fact]
+    public Task ScrollIntoView_brings_a_node_far_below_into_the_viewport() =>
+        RunAsync(async screen =>
+        {
+            var footnote = screen.GetByText("Footnote", exact: true);
+            await Expect.That(screen.GetByLabel("Footnote state")).ToHaveTextAsync("out of view");
+
+            await footnote.ScrollIntoViewAsync();
+            await Expect.That(screen.GetByLabel("Footnote state")).ToHaveTextAsync("in view");
+            var box = await footnote.BoundingBoxAsync();
+            Assert.NotNull(box);
+            Assert.True(box.Y >= 0);
+        });
+
+    [Fact]
+    public Task A_missing_locator_fails_as_LOCATOR_NOT_FOUND_after_its_timeout() =>
+        RunAsync(async screen =>
+        {
+            var error = await Assert.ThrowsAsync<TestException>(() =>
+                screen
+                    .GetByRole("button", "Nope")
+                    .TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) })
+            );
+            Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
+            await Expect.That(screen.GetByRole("button", "Nope")).ToHaveCountAsync(0);
+            Assert.Equal(0, await screen.GetByRole("button", "Nope").CountAsync());
+        });
 
     // Upstream's testbed fixtures: attachment.txt and second.txt under the project root.
     private static readonly string ProjectRoot = CreateProjectRoot();
@@ -474,16 +524,18 @@ public sealed class ControlsTests
     private static async Task RunAsync(Func<Screen, Browser, Task> test)
     {
         using var site = await TinySite.StartAsync(ControlsPage);
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
-            BaseUrl = site.Url,
-            TestTitle = "controls",
-            ProjectRoot = ProjectRoot,
-            ActionTimeout = TimeSpan.FromSeconds(5),
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+                BaseUrl = site.Url,
+                TestTitle = "controls",
+                ProjectRoot = ProjectRoot,
+                ActionTimeout = TimeSpan.FromSeconds(5),
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         await session.App.OpenAsync("/controls");
         await test(session.Screen, session.Browser);
         session.Complete(null);

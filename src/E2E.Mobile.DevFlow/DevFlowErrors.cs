@@ -18,9 +18,21 @@ internal static class DevFlowErrors
     /// <summary>The <c>details.reason</c> the engine treats as a stale ref.</summary>
     public const string StaleRef = "ref_not_found";
 
-    private static readonly HashSet<string> StaleCodes = new(["stale-capture-epoch", "stale-element-reference", "element-not-found", "capture-changed", "capture-window-mismatch"], StringComparer.Ordinal);
+    private static readonly HashSet<string> StaleCodes = new(
+        [
+            "stale-capture-epoch",
+            "stale-element-reference",
+            "element-not-found",
+            "capture-changed",
+            "capture-window-mismatch",
+        ],
+        StringComparer.Ordinal
+    );
 
-    private static readonly HashSet<string> UnsupportedCodes = new(["unsupported-capability", "unknown-command", "not_supported"], StringComparer.Ordinal);
+    private static readonly HashSet<string> UnsupportedCodes = new(
+        ["unsupported-capability", "unknown-command", "not_supported"],
+        StringComparer.Ordinal
+    );
 
     public static AgentDeviceError Unsupported(string message) => new("UNSUPPORTED_OPERATION", message);
 
@@ -29,17 +41,30 @@ internal static class DevFlowErrors
     public static AgentDeviceError Failed(string message) => new("COMMAND_FAILED", message);
 
     public static AgentDeviceError StaleReference(string reference) =>
-        new("COMMAND_FAILED", $"{reference} is not on the newest screen read", new Dictionary<string, object?> { ["reason"] = StaleRef });
+        new(
+            "COMMAND_FAILED",
+            $"{reference} is not on the newest screen read",
+            new Dictionary<string, object?> { ["reason"] = StaleRef }
+        );
 
     /// <summary>The error for a failed agent call. <paramref name="method"/> is the client method it served.</summary>
     public static AgentDeviceError Translate(DevFlowAgentException failure, string method)
     {
-        var details = new Dictionary<string, object?> { ["devflowError"] = failure.Code, ["status"] = (int?)failure.Status };
+        var details = new Dictionary<string, object?>
+        {
+            ["devflowError"] = failure.Code,
+            ["status"] = (int?)failure.Status,
+        };
         if (failure.Status is null)
         {
             return failure.Code == "timeout"
                 ? new AgentDeviceError("COMMAND_FAILED", $"{method}: {failure.Message}", details, failure)
-                : new AgentDeviceError("SESSION_NOT_FOUND", $"the DevFlow agent is not available: {failure.Message}", details, failure);
+                : new AgentDeviceError(
+                    "SESSION_NOT_FOUND",
+                    $"the DevFlow agent is not available: {failure.Message}",
+                    details,
+                    failure
+                );
         }
 
         if (failure.Code is { } code && code.Contains("lease", StringComparison.OrdinalIgnoreCase))
@@ -54,18 +79,31 @@ internal static class DevFlowErrors
             return new AgentDeviceError("COMMAND_FAILED", $"{method}: {holder}. {failure.Message}", details, failure);
         }
 
-        var notFoundElement = failure.Message.Contains("element not found", StringComparison.OrdinalIgnoreCase)
+        var notFoundElement =
+            failure.Message.Contains("element not found", StringComparison.OrdinalIgnoreCase)
             || failure.Message.Contains("stale", StringComparison.OrdinalIgnoreCase);
-        if (failure.Status == HttpStatusCode.Conflict || (failure.Code is { } stale && StaleCodes.Contains(stale)) || notFoundElement)
+        if (
+            failure.Status == HttpStatusCode.Conflict
+            || (failure.Code is { } stale && StaleCodes.Contains(stale))
+            || notFoundElement
+        )
         {
             details["reason"] = StaleRef;
             return new AgentDeviceError("COMMAND_FAILED", $"{method}: {failure.Message}", details, failure);
         }
 
         // A 404 that names no element is a route this agent does not serve: an older agent, or a backend without the feature.
-        if (failure.Status is HttpStatusCode.NotImplemented or HttpStatusCode.NotFound || (failure.Code is { } unsupported && UnsupportedCodes.Contains(unsupported)))
+        if (
+            failure.Status is HttpStatusCode.NotImplemented or HttpStatusCode.NotFound
+            || (failure.Code is { } unsupported && UnsupportedCodes.Contains(unsupported))
+        )
         {
-            return new AgentDeviceError("UNSUPPORTED_OPERATION", $"{method} is not supported by this DevFlow agent: {failure.Message}", details, failure);
+            return new AgentDeviceError(
+                "UNSUPPORTED_OPERATION",
+                $"{method} is not supported by this DevFlow agent: {failure.Message}",
+                details,
+                failure
+            );
         }
 
         return new AgentDeviceError("COMMAND_FAILED", $"{method}: {failure.Message}", details, failure);

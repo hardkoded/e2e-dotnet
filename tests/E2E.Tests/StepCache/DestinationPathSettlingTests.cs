@@ -34,13 +34,21 @@ public sealed class DestinationPathSettlingTests
         {
             var started = clock.GetUtcNow();
             var host = MakeHost(clock, ["/pricing"]);
-            host.Capture = _ => new Observation { Route = clock.GetUtcNow() - started < arrives ? "/pricing" : "/customers", Roots = [] };
+            host.Capture = _ => new Observation
+            {
+                Route = clock.GetUtcNow() - started < arrives ? "/pricing" : "/customers",
+                Roots = [],
+            };
             host.ReplayTimeout = TimeSpan.FromSeconds(15);
             host.Remaining = 60_000;
             return host;
         }
 
-        var verdict = await MakeSession(EntryContext(endPath: "/customers"), Late(new AutoAdvanceClock(), TimeSpan.FromSeconds(8))).BeginAsync();
+        var verdict = await MakeSession(
+                EntryContext(endPath: "/customers"),
+                Late(new AutoAdvanceClock(), TimeSpan.FromSeconds(8))
+            )
+            .BeginAsync();
         Assert.Equal(StepVerdictStatus.Passed, verdict?.Status);
 
         var never = new AutoAdvanceClock();

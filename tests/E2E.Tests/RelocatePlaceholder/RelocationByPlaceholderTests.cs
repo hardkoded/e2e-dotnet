@@ -15,7 +15,14 @@ namespace E2E.Tests.RelocatePlaceholder;
 public sealed class RelocationByPlaceholderTests
 {
     private static SemanticNode Textbox(string id, string placeholder, string? name = null) =>
-        new() { Ref = id, Role = "textbox", Name = name, Placeholder = placeholder, Attributes = new Dictionary<string, string> { ["type"] = "search", ["placeholder"] = placeholder } };
+        new()
+        {
+            Ref = id,
+            Role = "textbox",
+            Name = name,
+            Placeholder = placeholder,
+            Attributes = new Dictionary<string, string> { ["type"] = "search", ["placeholder"] = placeholder },
+        };
 
     private static RecordedTarget Describe(SemanticNode node) => Recorder.DescribeTarget(node, Redactor.None);
 
@@ -24,7 +31,10 @@ public sealed class RelocationByPlaceholderTests
     {
         var descriptor = Describe(Textbox("n1", "Search products", "Search products"));
 
-        Assert.Equal(("textbox", "Search products", "Search products"), (descriptor.Role, descriptor.Name, descriptor.Placeholder));
+        Assert.Equal(
+            ("textbox", "Search products", "Search products"),
+            (descriptor.Role, descriptor.Name, descriptor.Placeholder)
+        );
         Assert.Null(descriptor.Text);
         Assert.Null(descriptor.TestId);
         Assert.Null(descriptor.InputPurpose);
@@ -50,7 +60,11 @@ public sealed class RelocationByPlaceholderTests
         var descriptor = Describe(Textbox("n1", "Search products"));
 
         var renamed = Relocate.RelocateDescriptor(descriptor, Screen(Textbox("m1", "Find products")), Redactor.None);
-        var twins = Relocate.RelocateDescriptor(descriptor, Screen(Textbox("m1", "Search products"), Textbox("m2", "Search products")), Redactor.None);
+        var twins = Relocate.RelocateDescriptor(
+            descriptor,
+            Screen(Textbox("m1", "Search products"), Textbox("m2", "Search products")),
+            Redactor.None
+        );
 
         Assert.Equal(new RelocationResult.Failed(RelocationFailure.TargetNotFound), renamed);
         AssertAmbiguous(twins, "m1", "m2");

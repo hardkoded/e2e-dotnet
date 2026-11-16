@@ -9,12 +9,19 @@ namespace E2E.Mobile.Tests.Engine;
 
 public sealed class AScreenAgentDeviceCannotReadYetTests
 {
-    private static readonly LocatorExpression About = LocatorExpression.For("text", TextMatch.FromString("About"), new TextMatchOptions(), "value");
+    private static readonly LocatorExpression About = LocatorExpression.For(
+        "text",
+        TextMatch.FromString("About"),
+        new TextMatchOptions(),
+        "value"
+    );
 
-    private static AgentDeviceError InsufficientContent() => new(
-        "COMMAND_FAILED",
-        "Android snapshot helper returned insufficient foreground app content",
-        new Dictionary<string, object?> { ["androidSnapshotHelperFailureReason"] = "content-poor-app-window" });
+    private static AgentDeviceError InsufficientContent() =>
+        new(
+            "COMMAND_FAILED",
+            "Android snapshot helper returned insufficient foreground app content",
+            new Dictionary<string, object?> { ["androidSnapshotHelperFailureReason"] = "content-poor-app-window" }
+        );
 
     [Fact]
     public async Task Locates_nothing_on_it_so_the_poll_waits_for_the_app_to_render()
@@ -31,7 +38,8 @@ public sealed class AScreenAgentDeviceCannotReadYetTests
             h.Fake.Calls,
             before,
             (DeviceMethods.CaptureSnapshot, """{"interactiveOnly":false}"""),
-            (DeviceMethods.CaptureSnapshot, """{"interactiveOnly":false}"""));
+            (DeviceMethods.CaptureSnapshot, """{"interactiveOnly":false}""")
+        );
     }
 
     [Fact]
@@ -45,7 +53,9 @@ public sealed class AScreenAgentDeviceCannotReadYetTests
             h.Clock.Advance(TimeSpan.FromSeconds(3));
             throw InsufficientContent();
         });
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.LocateAsync(About, TimeSpan.FromSeconds(1), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.LocateAsync(About, TimeSpan.FromSeconds(1), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", failure.Code);
         Assert.Contains("insufficient foreground app content", failure.Message, StringComparison.Ordinal);
     }
@@ -55,11 +65,14 @@ public sealed class AScreenAgentDeviceCannotReadYetTests
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
-        Task<IReadOnlyList<SemanticNode>> Locate() => session.LocateAsync(About, TimeSpan.FromSeconds(5), CancellationToken.None);
-        AgentDeviceError NotRunning() => new(
-            "COMMAND_FAILED",
-            "app 'com.foo' is not running",
-            new Dictionary<string, object?> { ["runnerErrorCode"] = "APP_NOT_RUNNING" });
+        Task<IReadOnlyList<SemanticNode>> Locate() =>
+            session.LocateAsync(About, TimeSpan.FromSeconds(5), CancellationToken.None);
+        AgentDeviceError NotRunning() =>
+            new(
+                "COMMAND_FAILED",
+                "app 'com.foo' is not running",
+                new Dictionary<string, object?> { ["runnerErrorCode"] = "APP_NOT_RUNNING" }
+            );
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => throw NotRunning());
         Assert.Empty(await Locate());
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
@@ -75,10 +88,13 @@ public sealed class AScreenAgentDeviceCannotReadYetTests
         var h = Harness.Create(options => options with { Platform = MobilePlatform.Android });
         var session = await h.Boot();
         await session.RestartAsync(CancellationToken.None);
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => throw new AgentDeviceError(
-            "COMMAND_FAILED",
-            "Android snapshot helper returned insufficient foreground app content",
-            new Dictionary<string, object?> { ["androidSnapshotHelperFailureReason"] = "content-poor-app-window" }));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            throw new AgentDeviceError(
+                "COMMAND_FAILED",
+                "Android snapshot helper returned insufficient foreground app content",
+                new Dictionary<string, object?> { ["androidSnapshotHelperFailureReason"] = "content-poor-app-window" }
+            )
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(CancellationToken.None));
         Assert.Equal("ENGINE_FAILURE", failure.Code);
         Assert.Contains("insufficient foreground app content", failure.Message, StringComparison.Ordinal);
@@ -90,8 +106,12 @@ public sealed class AScreenAgentDeviceCannotReadYetTests
         var h = Harness.Create(options => options with { Platform = MobilePlatform.Android });
         var session = await h.Boot();
         await session.RestartAsync(CancellationToken.None);
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => throw new AgentDeviceError("COMMAND_FAILED", "adb went away"));
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.LocateAsync(About, TimeSpan.FromSeconds(5), CancellationToken.None));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            throw new AgentDeviceError("COMMAND_FAILED", "adb went away")
+        );
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.LocateAsync(About, TimeSpan.FromSeconds(5), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", failure.Code);
     }
 }

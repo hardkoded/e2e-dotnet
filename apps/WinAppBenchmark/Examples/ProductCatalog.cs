@@ -17,7 +17,12 @@ public sealed class ProductCatalog : Component
 
     private sealed record Product(string Id, string Name, string Size, string Price);
 
-    private enum View { List, Detail, Cart }
+    private enum View
+    {
+        List,
+        Detail,
+        Cart,
+    }
 
     private static readonly Product[] Products =
     [
@@ -38,12 +43,15 @@ public sealed class ProductCatalog : Component
         var (favorites, setFavorites) = UseState<IReadOnlySet<string>>(new HashSet<string>());
 
         var cartCount = cart.Values.Sum();
-        var succeeded = cart.Count == 1 && cart.TryGetValue(TargetId, out var targetQuantity) && targetQuantity == TargetQuantity;
+        var succeeded =
+            cart.Count == 1 && cart.TryGetValue(TargetId, out var targetQuantity) && targetQuantity == TargetQuantity;
         var selected = Products.FirstOrDefault(product => product.Id == selectedId);
 
         // Toggles the favorite heart for a product; a decoy interaction that never contributes to the success state.
         void ToggleFavorite(string id) =>
-            setFavorites(favorites.Contains(id) ? favorites.Where(other => other != id).ToHashSet() : [.. favorites, id]);
+            setFavorites(
+                favorites.Contains(id) ? favorites.Where(other => other != id).ToHashSet() : [.. favorites, id]
+            );
 
         // Adds the currently selected product and quantity to the cart, then returns to the list view.
         void AddToCart()
@@ -61,47 +69,82 @@ public sealed class ProductCatalog : Component
 
         if (view == View.Detail && selected is not null)
         {
-            return VStack(12,
-                Button("‹ Back to catalog", () => setView(View.List)).TextLink().AutomationId("back-to-list"),
-                Subtitle($"{selected.Name} {selected.Size}"),
-                Body(selected.Price),
-                HStack(12,
-                    Button("−", () => setQuantity(Math.Max(1, quantity - 1))).AutomationName("Decrease quantity").AutomationId("quantity-decrease"),
-                    Body(quantity.ToString()).MinWidth(24).VAlign(VerticalAlignment.Center).AutomationId("quantity-value"),
-                    Button("+", () => setQuantity(quantity + 1)).AutomationName("Increase quantity").AutomationId("quantity-increase")),
-                Button("Add to cart", AddToCart).AutomationId("add-to-cart"))
+            return VStack(
+                    12,
+                    Button("‹ Back to catalog", () => setView(View.List)).TextLink().AutomationId("back-to-list"),
+                    Subtitle($"{selected.Name} {selected.Size}"),
+                    Body(selected.Price),
+                    HStack(
+                        12,
+                        Button("−", () => setQuantity(Math.Max(1, quantity - 1)))
+                            .AutomationName("Decrease quantity")
+                            .AutomationId("quantity-decrease"),
+                        Body(quantity.ToString())
+                            .MinWidth(24)
+                            .VAlign(VerticalAlignment.Center)
+                            .AutomationId("quantity-value"),
+                        Button("+", () => setQuantity(quantity + 1))
+                            .AutomationName("Increase quantity")
+                            .AutomationId("quantity-increase")
+                    ),
+                    Button("Add to cart", AddToCart).AutomationId("add-to-cart")
+                )
                 .Padding(24);
         }
 
         if (view == View.Cart)
         {
-            return VStack(12, [
-                Button("‹ Back to catalog", () => setView(View.List)).TextLink().AutomationId("back-to-list"),
-                Subtitle("Cart"),
-                When(cartCount == 0, () => Hint("The cart is empty")),
-                .. Products.Where(product => cart.ContainsKey(product.Id)).Select(product =>
-                    Body($"{cart[product.Id]} × {product.Name} {product.Size}").WithKey(product.Id)),
-                When(succeeded, () => Success("Order ready: 2 × Trail Mix 500 g")),
-            ]).Padding(24);
+            return VStack(
+                    12,
+                    [
+                        Button("‹ Back to catalog", () => setView(View.List)).TextLink().AutomationId("back-to-list"),
+                        Subtitle("Cart"),
+                        When(cartCount == 0, () => Hint("The cart is empty")),
+                        .. Products
+                            .Where(product => cart.ContainsKey(product.Id))
+                            .Select(product =>
+                                Body($"{cart[product.Id]} × {product.Name} {product.Size}").WithKey(product.Id)
+                            ),
+                        When(succeeded, () => Success("Order ready: 2 × Trail Mix 500 g")),
+                    ]
+                )
+                .Padding(24);
         }
 
-        return ScrollView(VStack(12, [
-            Hint($"Add exactly {TargetQuantity} × Trail Mix 500 g to the cart, then review the cart"),
-            Button($"Cart ({cartCount})", () => setView(View.Cart)).AutomationId("open-cart"),
-            .. Products.Select(product => HStack(8,
-                    Button(VStack(2, BodyStrong(product.Name), Caption($"{product.Size} · {product.Price}")), () =>
-                    {
-                        setSelectedId(product.Id);
-                        setQuantity(1);
-                        setView(View.Detail);
-                    })
-                    .AutomationName($"{product.Name} {product.Size} {product.Price}")
-                    .AutomationId($"product-{product.Id}")
-                    .Flex(grow: 1),
-                    Button(favorites.Contains(product.Id) ? "♥" : "♡", () => ToggleFavorite(product.Id))
-                        .AutomationName($"Favorite {product.Name} {product.Size}")
-                        .AutomationId($"favorite-{product.Id}"))
-                .WithKey(product.Id)),
-        ]).Padding(24));
+        return ScrollView(
+            VStack(
+                    12,
+                    [
+                        Hint($"Add exactly {TargetQuantity} × Trail Mix 500 g to the cart, then review the cart"),
+                        Button($"Cart ({cartCount})", () => setView(View.Cart)).AutomationId("open-cart"),
+                        .. Products.Select(product =>
+                            HStack(
+                                    8,
+                                    Button(
+                                            VStack(
+                                                2,
+                                                BodyStrong(product.Name),
+                                                Caption($"{product.Size} · {product.Price}")
+                                            ),
+                                            () =>
+                                            {
+                                                setSelectedId(product.Id);
+                                                setQuantity(1);
+                                                setView(View.Detail);
+                                            }
+                                        )
+                                        .AutomationName($"{product.Name} {product.Size} {product.Price}")
+                                        .AutomationId($"product-{product.Id}")
+                                        .Flex(grow: 1),
+                                    Button(favorites.Contains(product.Id) ? "♥" : "♡", () => ToggleFavorite(product.Id))
+                                        .AutomationName($"Favorite {product.Name} {product.Size}")
+                                        .AutomationId($"favorite-{product.Id}")
+                                )
+                                .WithKey(product.Id)
+                        ),
+                    ]
+                )
+                .Padding(24)
+        );
     }
 }

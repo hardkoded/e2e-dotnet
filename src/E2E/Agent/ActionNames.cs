@@ -8,7 +8,9 @@ namespace E2E;
 internal static class ActionNames
 {
     /// <summary>Assertion tool names and the dispatcher actions each may perform (upstream's <c>READ_ONLY_GRAMMAR</c>).</summary>
-    public static readonly IReadOnlyDictionary<string, string[]> ReadOnlyGrammar = new Dictionary<string, string[]>(StringComparer.Ordinal)
+    public static readonly IReadOnlyDictionary<string, string[]> ReadOnlyGrammar = new Dictionary<string, string[]>(
+        StringComparer.Ordinal
+    )
     {
         ["observe"] = [],
         ["screenshot"] = [],
@@ -23,9 +25,36 @@ internal static class ActionNames
     /// Every name the grammar may hand out (upstream's <c>GRAMMAR_TOOL_NAMES</c>). A project tool cannot take one.
     /// </summary>
     public static readonly HashSet<string> GrammarToolNames = new(
-    [
-        "observe", "tap", "double_tap", "long_press", "right_click", "hover", "type", "type_secret", "press", "select", "check", "scroll",
-        "scroll_to", "drag", "upload", "navigate", "back", "resize_viewport", "switch_tab", "close_tab", "screenshot", "tap_at", "hover_at", "drag_at", "type_at",
-        "press_at", "select_at", "dismiss_keyboard",
-    ], StringComparer.Ordinal);
+        [
+            "observe",
+            "tap",
+            "double_tap",
+            "long_press",
+            "right_click",
+            "hover",
+            "type",
+            "type_secret",
+            "press",
+            "select",
+            "check",
+            "scroll",
+            "scroll_to",
+            "drag",
+            "upload",
+            "navigate",
+            "back",
+            "resize_viewport",
+            "switch_tab",
+            "close_tab",
+            "screenshot",
+            "tap_at",
+            "hover_at",
+            "drag_at",
+            "type_at",
+            "press_at",
+            "select_at",
+            "dismiss_keyboard",
+        ],
+        StringComparer.Ordinal
+    );
 }

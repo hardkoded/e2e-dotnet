@@ -21,15 +21,31 @@ public sealed class ClientBindingTests
         };
         var created = new List<DeviceClientConfig>();
         var engine = new MobileEngine(
-            new MobileOptions { Platform = MobilePlatform.Ios, TargetName = "ios", Device = "leased-device" },
+            new MobileOptions
+            {
+                Platform = MobilePlatform.Ios,
+                TargetName = "ios",
+                Device = "leased-device",
+            },
             (session, connection) =>
             {
                 created.Add(DeviceClientConfig.For(session, connection));
                 return new FakeDeviceClient();
-            });
+            }
+        );
         await engine.StartAsync(
-            new MobileStartInfo { RunId = "run", TargetName = "ios", ProjectRoot = "/project", Env = new Dictionary<string, string?> { [DeviceBindings.Variable("ios")] = DeviceBindings.Encode([binding]) } },
-            CancellationToken.None);
+            new MobileStartInfo
+            {
+                RunId = "run",
+                TargetName = "ios",
+                ProjectRoot = "/project",
+                Env = new Dictionary<string, string?>
+                {
+                    [DeviceBindings.Variable("ios")] = DeviceBindings.Encode([binding]),
+                },
+            },
+            CancellationToken.None
+        );
 
         var config = Assert.Single(created);
         Assert.Equal("e2e-ios-0", config.Session);
@@ -47,7 +63,12 @@ public sealed class ClientBindingTests
 
         public AmbientDaemon(string baseUrl, string token, string transport)
         {
-            _before = [Get("AGENT_DEVICE_DAEMON_BASE_URL"), Get("AGENT_DEVICE_DAEMON_AUTH_TOKEN"), Get("AGENT_DEVICE_DAEMON_TRANSPORT")];
+            _before =
+            [
+                Get("AGENT_DEVICE_DAEMON_BASE_URL"),
+                Get("AGENT_DEVICE_DAEMON_AUTH_TOKEN"),
+                Get("AGENT_DEVICE_DAEMON_TRANSPORT"),
+            ];
             Environment.SetEnvironmentVariable("AGENT_DEVICE_DAEMON_BASE_URL", baseUrl);
             Environment.SetEnvironmentVariable("AGENT_DEVICE_DAEMON_AUTH_TOKEN", token);
             Environment.SetEnvironmentVariable("AGENT_DEVICE_DAEMON_TRANSPORT", transport);

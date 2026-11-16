@@ -14,22 +14,16 @@ public sealed class SessionAttributesTests
     private class Base
     {
         [E2ESession("method-session")]
-        public void Pinned()
-        {
-        }
+        public void Pinned() { }
 
-        public void Plain()
-        {
-        }
+        public void Plain() { }
     }
 
     private sealed class Derived : Base;
 
     private sealed class Unmarked
     {
-        public void Plain()
-        {
-        }
+        public void Plain() { }
     }
 
     [AttributeUsage(AttributeTargets.Method)]
@@ -42,35 +36,42 @@ public sealed class SessionAttributesTests
     private sealed class SetupInASessionClass
     {
         [SetupMark]
-        public void SignIn()
-        {
-        }
+        public void SignIn() { }
     }
 
     private sealed class SetupTest
     {
-        public void Body()
-        {
-        }
+        public void Body() { }
     }
 
     [Fact]
     public void The_method_wins_over_its_class()
     {
-        Assert.Equal("method-session", global::E2E.SessionAttributes.Restore(typeof(Base), typeof(Base).GetMethod(nameof(Base.Pinned))));
+        Assert.Equal(
+            "method-session",
+            global::E2E.SessionAttributes.Restore(typeof(Base), typeof(Base).GetMethod(nameof(Base.Pinned)))
+        );
     }
 
     [Fact]
     public void A_test_without_its_own_session_takes_the_class_or_base_class_session()
     {
-        Assert.Equal("class-session", global::E2E.SessionAttributes.Restore(typeof(Base), typeof(Base).GetMethod(nameof(Base.Plain))));
-        Assert.Equal("class-session", global::E2E.SessionAttributes.Restore(typeof(Derived), typeof(Base).GetMethod(nameof(Base.Plain))));
+        Assert.Equal(
+            "class-session",
+            global::E2E.SessionAttributes.Restore(typeof(Base), typeof(Base).GetMethod(nameof(Base.Plain)))
+        );
+        Assert.Equal(
+            "class-session",
+            global::E2E.SessionAttributes.Restore(typeof(Derived), typeof(Base).GetMethod(nameof(Base.Plain)))
+        );
     }
 
     [Fact]
     public void A_test_with_no_session_restores_none()
     {
-        Assert.Null(global::E2E.SessionAttributes.Restore(typeof(Unmarked), typeof(Unmarked).GetMethod(nameof(Unmarked.Plain))));
+        Assert.Null(
+            global::E2E.SessionAttributes.Restore(typeof(Unmarked), typeof(Unmarked).GetMethod(nameof(Unmarked.Plain)))
+        );
     }
 
     [Fact]

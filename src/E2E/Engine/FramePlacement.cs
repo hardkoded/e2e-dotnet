@@ -13,7 +13,11 @@ internal static class FramePlacement
     /// clipped, and a clip that moves the box's corner keeps the unclipped corner as the origin, so an offset into the node lands where it
     /// would at the top level. Upstream's <c>placeBoxInFrame</c>.
     /// </summary>
-    internal static (BoundingBox? Rect, Point? Origin) PlaceBoxInFrame(BoundingBox rect, Point? origin, BoundingBox frame)
+    internal static (BoundingBox? Rect, Point? Origin) PlaceBoxInFrame(
+        BoundingBox rect,
+        Point? origin,
+        BoundingBox frame
+    )
     {
         var x0 = Math.Max(rect.X + frame.X, frame.X);
         var y0 = Math.Max(rect.Y + frame.Y, frame.Y);

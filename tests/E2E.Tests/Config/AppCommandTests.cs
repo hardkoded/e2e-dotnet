@@ -12,9 +12,23 @@ public sealed class AppCommandTests
     [Fact]
     public void Accepts_reuseExisting_on_a_fixed_port_and_checks_its_shape()
     {
-        Assert.True(ResolveConfigTests.Resolved($$"""{ "url": "{{AppUrl}}", "command": { "executable": "pnpm", "args": ["dev"], "reuseExisting": true } }""").Command!.ReuseExisting);
-        var error = Assert.Throws<ConfigurationException>(() => ResolveConfigTests.App($$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "reuseExisting": "yes" } }"""));
-        Assert.Contains("target \"web\" app.command.reuseExisting must be a boolean", error.Message, StringComparison.Ordinal);
+        Assert.True(
+            ResolveConfigTests
+                .Resolved(
+                    $$"""{ "url": "{{AppUrl}}", "command": { "executable": "pnpm", "args": ["dev"], "reuseExisting": true } }"""
+                )
+                .Command!.ReuseExisting
+        );
+        var error = Assert.Throws<ConfigurationException>(() =>
+            ResolveConfigTests.App(
+                $$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "reuseExisting": "yes" } }"""
+            )
+        );
+        Assert.Contains(
+            "target \"web\" app.command.reuseExisting must be a boolean",
+            error.Message,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>Partial: JSON has no NaN or infinity, and a number over what a .NET timer waits is refused with a message of its own.</summary>
@@ -23,13 +37,33 @@ public sealed class AppCommandTests
     {
         foreach (var value in new[] { "0", "-1", "1.5", "\"1000\"", "true" })
         {
-            var startup = Assert.Throws<ConfigurationException>(() => ResolveConfigTests.App($$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "startupTimeout": {{value}} } }"""));
-            Assert.Contains("app.command.startupTimeout must be a positive safe integer", startup.Message, StringComparison.Ordinal);
-            var shutdown = Assert.Throws<ConfigurationException>(() => ResolveConfigTests.App($$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "shutdownTimeout": {{value}} } }"""));
-            Assert.Contains("app.command.shutdownTimeout must be a positive safe integer", shutdown.Message, StringComparison.Ordinal);
+            var startup = Assert.Throws<ConfigurationException>(() =>
+                ResolveConfigTests.App(
+                    $$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "startupTimeout": {{value}} } }"""
+                )
+            );
+            Assert.Contains(
+                "app.command.startupTimeout must be a positive safe integer",
+                startup.Message,
+                StringComparison.Ordinal
+            );
+            var shutdown = Assert.Throws<ConfigurationException>(() =>
+                ResolveConfigTests.App(
+                    $$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "shutdownTimeout": {{value}} } }"""
+                )
+            );
+            Assert.Contains(
+                "app.command.shutdownTimeout must be a positive safe integer",
+                shutdown.Message,
+                StringComparison.Ordinal
+            );
         }
 
-        var command = ResolveConfigTests.Resolved($$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "startupTimeout": 5000, "shutdownTimeout": 500 } }""").Command!;
+        var command = ResolveConfigTests
+            .Resolved(
+                $$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "startupTimeout": 5000, "shutdownTimeout": 500 } }"""
+            )
+            .Command!;
         Assert.Equal(TimeSpan.FromMilliseconds(5000), command.StartupTimeout);
         Assert.Equal(TimeSpan.FromMilliseconds(500), command.ShutdownTimeout);
     }
@@ -39,11 +73,24 @@ public sealed class AppCommandTests
     {
         foreach (var key in new[] { "startupTimeout", "shutdownTimeout" })
         {
-            var command = ResolveConfigTests.Resolved($$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "{{key}}": 2147483647 } }""").Command!;
-            Assert.Equal(TimeSpan.FromMilliseconds(int.MaxValue), key == "startupTimeout" ? command.StartupTimeout : command.ShutdownTimeout);
-            var error = Assert.Throws<ConfigurationException>(() => ResolveConfigTests.App($$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "{{key}}": 2147483648 } }"""));
+            var command = ResolveConfigTests
+                .Resolved($$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "{{key}}": 2147483647 } }""")
+                .Command!;
+            Assert.Equal(
+                TimeSpan.FromMilliseconds(int.MaxValue),
+                key == "startupTimeout" ? command.StartupTimeout : command.ShutdownTimeout
+            );
+            var error = Assert.Throws<ConfigurationException>(() =>
+                ResolveConfigTests.App(
+                    $$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "{{key}}": 2147483648 } }"""
+                )
+            );
             Assert.Equal("INVALID_CONFIG", error.Code);
-            Assert.Contains("app.command." + key + " must be at most 2147483647 milliseconds, got 2147483648", error.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "app.command." + key + " must be at most 2147483647 milliseconds, got 2147483648",
+                error.Message,
+                StringComparison.Ordinal
+            );
         }
     }
 }

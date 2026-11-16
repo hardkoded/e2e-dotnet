@@ -16,12 +16,21 @@ public sealed class FileCacheStoreTests : IDisposable
         _store = new FileStepCache(_directory);
     }
 
-    private static CacheEntry Payload() => new()
-    {
-        Instruction = "upgrade the plan",
-        Route = "/settings",
-        Actions = [new RecordedAction { Kind = "tap", Role = "button", Name = "Upgrade" }],
-    };
+    private static CacheEntry Payload() =>
+        new()
+        {
+            Instruction = "upgrade the plan",
+            Route = "/settings",
+            Actions =
+            [
+                new RecordedAction
+                {
+                    Kind = "tap",
+                    Role = "button",
+                    Name = "Upgrade",
+                },
+            ],
+        };
 
     public void Dispose()
     {

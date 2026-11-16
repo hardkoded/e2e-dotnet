@@ -16,25 +16,38 @@ namespace E2E.Cli.Tests.ExploreHostedDevice;
 /// </summary>
 public sealed class ExploreHostedDeviceTests : IDisposable
 {
-    private const string Config = """{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }] }""";
+    private const string Config =
+        """{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }] }""";
 
     private readonly string _root = Directory.CreateTempSubdirectory("e2e-explore-hosted-").FullName;
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
     /// <summary>A planner that has seen enough: it finishes at once.</summary>
-    private static ScriptedModel Finishing() => new(_ => new ModelResponse
-    {
-        ToolCalls =
-        [
-            new ModelToolCall
-            {
-                Id = "call_extract",
-                Name = "extract",
-                Arguments = JsonSerializer.SerializeToElement(new { data = new { decision = "finish", title = "", instruction = "", summary = "Looked." } }),
-            },
-        ],
-    });
+    private static ScriptedModel Finishing() =>
+        new(_ => new ModelResponse
+        {
+            ToolCalls =
+            [
+                new ModelToolCall
+                {
+                    Id = "call_extract",
+                    Name = "extract",
+                    Arguments = JsonSerializer.SerializeToElement(
+                        new
+                        {
+                            data = new
+                            {
+                                decision = "finish",
+                                title = "",
+                                instruction = "",
+                                summary = "Looked.",
+                            },
+                        }
+                    ),
+                },
+            ],
+        });
 
     private ExploreOptions Options(FakeCloud cloud, ScriptedModel model, string? target = null)
     {
@@ -73,7 +86,11 @@ public sealed class ExploreHostedDeviceTests : IDisposable
     [Fact]
     public async Task Releases_the_lease_when_the_app_will_not_launch()
     {
-        var cloud = new FakeCloud { OnOpen = (count, _) => count == 2 ? throw new InvalidOperationException("the app would not launch") : Task.CompletedTask };
+        var cloud = new FakeCloud
+        {
+            OnOpen = (count, _) =>
+                count == 2 ? throw new InvalidOperationException("the app would not launch") : Task.CompletedTask,
+        };
         var outcome = await Explore.ExploreAsync(Options(cloud, Finishing()));
         Assert.NotNull(outcome.Error);
         Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));

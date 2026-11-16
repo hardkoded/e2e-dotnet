@@ -27,11 +27,24 @@ public sealed class EngineAuthorHelpersTests
     {
         var tree = new[]
         {
-            new SemanticNode { Ref = "save", Role = "button", Name = "Save" },
-            new SemanticNode { Ref = "cancel", Role = "button", Name = "Cancel" },
+            new SemanticNode
+            {
+                Ref = "save",
+                Role = "button",
+                Name = "Save",
+            },
+            new SemanticNode
+            {
+                Ref = "cancel",
+                Role = "button",
+                Name = "Cancel",
+            },
         };
 
-        var matches = ExpressionResolution.ResolveExpression(LocatorExpression.ForRole("button", null, new RoleOptions()), tree);
+        var matches = ExpressionResolution.ResolveExpression(
+            LocatorExpression.ForRole("button", null, new RoleOptions()),
+            tree
+        );
 
         Assert.Equal(["save", "cancel"], matches.Select(node => node.Ref));
     }
@@ -39,14 +52,23 @@ public sealed class EngineAuthorHelpersTests
     [Fact]
     public void Answers_a_selector_only_through_the_selector_it_is_given()
     {
-        var tree = new[] { new SemanticNode { Ref = "a", Role = "button", Name = "A" } };
+        var tree = new[]
+        {
+            new SemanticNode
+            {
+                Ref = "a",
+                Role = "button",
+                Name = "A",
+            },
+        };
         var selector = new LocatorExpression { Kind = "selector", Selector = ".primary" };
 
         Assert.Throws<EngineException>(() => ExpressionResolution.ResolveExpression(selector, tree));
         var answered = ExpressionResolution.ResolveExpression(
             selector,
             tree,
-            new ResolveExpressionOptions { Selector = (_, candidates) => candidates });
+            new ResolveExpressionOptions { Selector = (_, candidates) => candidates }
+        );
         Assert.Equal(["a"], answered.Select(node => node.Ref));
     }
 
@@ -63,14 +85,25 @@ public sealed class EngineAuthorHelpersTests
     {
         Assert.True(E2E.Internal.Urls.UrlMatches("https://app.example.com/home", "/home", "https://app.example.com/"));
         Assert.False(E2E.Internal.Urls.UrlMatches("https://app.example.com/Home", "/home", "https://app.example.com/"));
-        Assert.True(E2E.Internal.Urls.UrlMatches("https://app.example.com/Home", "/home", "https://app.example.com/", ignoreCase: true));
+        Assert.True(
+            E2E.Internal.Urls.UrlMatches(
+                "https://app.example.com/Home",
+                "/home",
+                "https://app.example.com/",
+                ignoreCase: true
+            )
+        );
     }
 
     [Fact]
     public void Tests_a_regular_expression_against_the_whole_url_and_applies_ignore_case()
     {
-        Assert.True(E2E.Internal.Urls.UrlMatches("https://app.example.com/home", new Regex("/HOME$"), ignoreCase: true));
-        Assert.False(E2E.Internal.Urls.UrlMatches("https://app.example.com/home", new Regex("/HOME$"), ignoreCase: false));
+        Assert.True(
+            E2E.Internal.Urls.UrlMatches("https://app.example.com/home", new Regex("/HOME$"), ignoreCase: true)
+        );
+        Assert.False(
+            E2E.Internal.Urls.UrlMatches("https://app.example.com/home", new Regex("/HOME$"), ignoreCase: false)
+        );
     }
 
     [Fact]
@@ -84,7 +117,14 @@ public sealed class EngineAuthorHelpersTests
     [Fact]
     public void Accepts_plain_json_and_refuses_what_is_not_plain_json()
     {
-        JsonValueValidation.ValidateJsonValue(new Dictionary<string, object?> { ["n"] = 1, ["list"] = new List<object?> { "x", true, null } }, "params");
+        JsonValueValidation.ValidateJsonValue(
+            new Dictionary<string, object?>
+            {
+                ["n"] = 1,
+                ["list"] = new List<object?> { "x", true, null },
+            },
+            "params"
+        );
 
         var nan = Assert.Throws<TestException>(() => JsonValueValidation.ValidateJsonValue(double.NaN, "params"));
         Assert.Equal("INVALID_ARGUMENT", nan.Code);
@@ -99,13 +139,21 @@ public sealed class EngineAuthorHelpersTests
     public void Refuses_a_secret_in_json_with_the_policy_code_unless_a_rule_says_otherwise()
     {
         var secret = Secret.Create("token", "s3cret-value", "generic-secret");
-        var denied = Assert.Throws<ConfigurationException>(() => JsonValueValidation.ValidateJsonValue(new Dictionary<string, object?> { ["t"] = secret }, "params"));
+        var denied = Assert.Throws<ConfigurationException>(() =>
+            JsonValueValidation.ValidateJsonValue(new Dictionary<string, object?> { ["t"] = secret }, "params")
+        );
         Assert.Equal("POLICY_DENIED", denied.Code);
 
-        var ruled = Assert.Throws<TestException>(() => JsonValueValidation.ValidateJsonValue(
-            new List<object?> { secret },
-            "params",
-            new JsonValueRules { OnSecret = label => throw new TestException("INVALID_ARGUMENT", label + " is a secret") }));
+        var ruled = Assert.Throws<TestException>(() =>
+            JsonValueValidation.ValidateJsonValue(
+                new List<object?> { secret },
+                "params",
+                new JsonValueRules
+                {
+                    OnSecret = label => throw new TestException("INVALID_ARGUMENT", label + " is a secret"),
+                }
+            )
+        );
         Assert.Equal("params is a secret", ruled.Message);
     }
 
@@ -123,7 +171,9 @@ public sealed class EngineAuthorHelpersTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => Timing.RaceAbortAsync(() => Task.FromResult(1), cancelled.Token, "press"));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            Timing.RaceAbortAsync(() => Task.FromResult(1), cancelled.Token, "press")
+        );
         Assert.Equal("CANCELLED", error.Code);
     }
 
@@ -132,7 +182,11 @@ public sealed class EngineAuthorHelpersTests
     {
         var slow = Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(static _ => 1, TaskScheduler.Default);
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => E2E.Internal.Time.WithTimeout(slow, TimeSpan.FromMilliseconds(20), () => new InvalidOperationException("timed out")));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            E2E.Internal.Time.WithTimeout(slow, TimeSpan.FromMilliseconds(20), () =>
+                new InvalidOperationException("timed out")
+            )
+        );
         Assert.Equal("timed out", error.Message);
     }
 

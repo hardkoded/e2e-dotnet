@@ -8,7 +8,11 @@ namespace E2E.Cli.Tests.CliInit;
 internal sealed record SelectCall(string Message, IReadOnlyList<PromptOption> Options, string InitialValue);
 
 /// <summary>A <see cref="IInitPrompts.MultiSelect"/> question as it was asked.</summary>
-internal sealed record MultiSelectCall(string Message, IReadOnlyList<PromptOption> Options, IReadOnlyList<string> InitialValues);
+internal sealed record MultiSelectCall(
+    string Message,
+    IReadOnlyList<PromptOption> Options,
+    IReadOnlyList<string> InitialValues
+);
 
 /// <summary>A <see cref="IInitPrompts.Text"/> question as it was asked.</summary>
 internal sealed record TextCall(string Message, string Placeholder, Func<string?, string?> Validate);
@@ -63,11 +67,17 @@ internal sealed class FakePrompts : IInitPrompts
         }
     }
 
-    public IReadOnlyList<string>? MultiSelect(string message, IReadOnlyList<PromptOption> options, IReadOnlyList<string> initialValues)
+    public IReadOnlyList<string>? MultiSelect(
+        string message,
+        IReadOnlyList<PromptOption> options,
+        IReadOnlyList<string> initialValues
+    )
     {
         MultiSelectCalls.Add(message);
         MultiSelects.Add(new MultiSelectCall(message, options, initialValues));
-        return message.Contains("MCP", StringComparison.Ordinal) ? Mcp : message.Contains("Which engines", StringComparison.Ordinal) ? Engines : Skills;
+        return message.Contains("MCP", StringComparison.Ordinal) ? Mcp
+            : message.Contains("Which engines", StringComparison.Ordinal) ? Engines
+            : Skills;
     }
 
     public string? Select(string message, IReadOnlyList<PromptOption> options, string initialValue)

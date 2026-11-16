@@ -60,7 +60,10 @@ public sealed class FiltersTests
         {
             var error = Refused(Filter(name));
             Assert.Equal("INVALID_CONFIG", error.Code);
-            Assert.Equal($"invalid filter name \"{name}\": names are ASCII letters, numbers, \"_\", \"-\", or \".\", and cannot be only dots", error.Message);
+            Assert.Equal(
+                $"invalid filter name \"{name}\": names are ASCII letters, numbers, \"_\", \"-\", or \".\", and cannot be only dots",
+                error.Message
+            );
         }
     }
 
@@ -89,7 +92,12 @@ public sealed class FiltersTests
         var plain = HostTestFilters.Resolve(config, []).ConfigDigest;
         Assert.NotEmpty(plain);
         Assert.Equal(plain, HostTestFilters.Resolve(config, [Filter("areas"), Filter("jev")]).ConfigDigest);
-        Assert.Equal(plain, HostTestFilters.Resolve(config, [new NamedFilter("jev") { Client = new ResolveConfigTests.Cycle() }]).ConfigDigest);
+        Assert.Equal(
+            plain,
+            HostTestFilters
+                .Resolve(config, [new NamedFilter("jev") { Client = new ResolveConfigTests.Cycle() }])
+                .ConfigDigest
+        );
     }
 
     /// <summary>A filter that leaves nothing out, with a key of its own (upstream's <c>{ name, filter: decide, model }</c>).</summary>
@@ -102,7 +110,9 @@ public sealed class FiltersTests
         /// <summary>A client that points back at itself (upstream's <c>client</c>): JSON cannot clone it.</summary>
         public ResolveConfigTests.Cycle? Client { get; init; }
 
-        public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) =>
-            Task.FromResult(new TestFilterResult { Exclude = new Dictionary<string, string>() });
+        public Task<TestFilterResult> FilterAsync(
+            IReadOnlyList<TestFilterCandidate> tests,
+            TestFilterContext context
+        ) => Task.FromResult(new TestFilterResult { Exclude = new Dictionary<string, string>() });
     }
 }

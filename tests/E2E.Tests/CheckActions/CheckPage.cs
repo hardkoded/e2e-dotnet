@@ -9,7 +9,8 @@ namespace E2E.Tests.CheckActions;
 /// <summary>A page served on a loopback port and a web engine session on it, shared by the check action tests.</summary>
 internal static class CheckPage
 {
-    public const string CountClicks = """<script>window.clicks = 0; document.addEventListener("click", () => window.clicks++, true)</script>""";
+    public const string CountClicks =
+        """<script>window.clicks = 0; document.addEventListener("click", () => window.clicks++, true)</script>""";
 
     public static async Task RunAsync(string body, Func<IEngineSession, Task> test, TimeSpan? actionTimeout = null)
     {
@@ -20,18 +21,24 @@ internal static class CheckPage
     }
 
     /// <summary>Opens <paramref name="body"/> in a test session, whose screen locators act on it.</summary>
-    public static async Task RunWithScreenAsync(string body, Func<E2ESession, Task> test, TimeSpan? actionTimeout = null)
+    public static async Task RunWithScreenAsync(
+        string body,
+        Func<E2ESession, Task> test,
+        TimeSpan? actionTimeout = null
+    )
     {
         using var site = await TinySite.StartAsync("<!DOCTYPE html><html><body>" + body + "</body></html>");
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
-            BaseUrl = site.Url,
-            TestTitle = "check actions > through the locator target",
-            ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(2),
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+                BaseUrl = site.Url,
+                TestTitle = "check actions > through the locator target",
+                ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(2),
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         await session.App.OpenAsync("/");
         await test(session);
         session.Complete(null);
@@ -39,7 +46,10 @@ internal static class CheckPage
 
     public static Task<IEngineSession> StartAsync(TimeSpan? actionTimeout = null)
     {
-        return new WebEngine(headless: true).StartAsync(new EngineStartOptions { ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(2) }, CancellationToken.None);
+        return new WebEngine(headless: true).StartAsync(
+            new EngineStartOptions { ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(2) },
+            CancellationToken.None
+        );
     }
 
     public static async Task<SemanticNode> FindAsync(IEngineSession session, string role, string name)
@@ -50,7 +60,12 @@ internal static class CheckPage
 
     public static async Task<T> EvaluateAsync<T>(IEngineSession session, string expression)
     {
-        var result = await ((IBrowserSession)session).EvaluateAsync(expression, null, hasArg: false, CancellationToken.None);
+        var result = await ((IBrowserSession)session).EvaluateAsync(
+            expression,
+            null,
+            hasArg: false,
+            CancellationToken.None
+        );
         return System.Text.Json.JsonSerializer.Deserialize<T>(result!.Value)!;
     }
 

@@ -25,9 +25,12 @@ public sealed class AnInertSubtreeTests(ChromiumPage chromium) : IClassFixture<C
     [Fact]
     public async Task Lists_nothing_under_an_inert_document_root_and_nothing_slotted_into_an_inert_slot_of_a_closed_root()
     {
-        var whole = await VisibilitySupport.ObserveAsync("<!doctype html><html inert><body><button>Whole page</button></body></html>");
+        var whole = await VisibilitySupport.ObserveAsync(
+            "<!doctype html><html inert><body><button>Whole page</button></body></html>"
+        );
         Assert.DoesNotContain(whole, node => node.Role == "button");
-        var slotted = await VisibilitySupport.ObserveAsync("""
+        var slotted = await VisibilitySupport.ObserveAsync(
+            """
             <inert-slot><button>Slotted</button></inert-slot>
             <button>Outside</button>
             <script>
@@ -35,7 +38,8 @@ public sealed class AnInertSubtreeTests(ChromiumPage chromium) : IClassFixture<C
                 connectedCallback() { this.attachShadow({ mode: 'closed' }).innerHTML = '<div inert><slot></slot></div>'; }
               });
             </script>
-            """);
+            """
+        );
         Assert.Equal(["Outside"], slotted.Where(node => node.Role == "button").Select(node => node.Name));
     }
 }

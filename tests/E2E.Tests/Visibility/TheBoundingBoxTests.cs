@@ -13,16 +13,20 @@ public sealed class TheBoundingBoxTests(ChromiumPage chromium) : IClassFixture<C
     public Task Display_none() => BoxAsync("""<div id="box" style="display:none">gone</div>""", null);
 
     [Fact]
-    public Task Under_a_display_none_ancestor() => BoxAsync("""<div style="display:none"><span id="box">gone</span></div>""", null);
+    public Task Under_a_display_none_ancestor() =>
+        BoxAsync("""<div style="display:none"><span id="box">gone</span></div>""", null);
 
     [Fact]
-    public Task An_empty_display_contents_element() => BoxAsync("""<div id="box" style="display:contents"></div>""", null);
+    public Task An_empty_display_contents_element() =>
+        BoxAsync("""<div id="box" style="display:contents"></div>""", null);
 
     [Fact]
-    public Task Display_contents_around_text() => BoxAsync("""<div id="box" style="display:contents">text</div>""", null);
+    public Task Display_contents_around_text() =>
+        BoxAsync("""<div id="box" style="display:contents">text</div>""", null);
 
     [Fact]
-    public Task Visibility_hidden_which_keeps_its_box() => BoxAsync("""<div id="box" style="visibility:hidden;width:30px;height:20px"></div>""", (30, 20));
+    public Task Visibility_hidden_which_keeps_its_box() =>
+        BoxAsync("""<div id="box" style="visibility:hidden;width:30px;height:20px"></div>""", (30, 20));
 
     [Fact]
     public Task A_zero_size_box() => BoxAsync("""<div id="box" style="width:0;height:0"></div>""", (0, 0));
@@ -31,7 +35,9 @@ public sealed class TheBoundingBoxTests(ChromiumPage chromium) : IClassFixture<C
     private async Task BoxAsync(string html, (double Width, double Height)? size)
     {
         // The id is the reader's test id too, so the box is listed whatever its role.
-        await chromium.Page.SetContentAsync($"""<body style="margin:0">{html.Replace("id=\"box\"", "id=\"box\" data-testid=\"box\"", StringComparison.Ordinal)}</body>""");
+        await chromium.Page.SetContentAsync(
+            $"""<body style="margin:0">{html.Replace("id=\"box\"", "id=\"box\" data-testid=\"box\"", StringComparison.Ordinal)}</body>"""
+        );
         var locator = chromium.Page.Locator("#box");
         var node = await chromium.ReadAsync(locator);
         Assert.NotNull(node);

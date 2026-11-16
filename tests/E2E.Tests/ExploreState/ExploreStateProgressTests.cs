@@ -18,7 +18,10 @@ public sealed class ExploreStateProgressTests
         state.Start();
         state.Planning(false);
         state.BeginStep("Cart", "a");
-        ExploreStateTests.Finding(state, new FindingInput(ReportExploreFindingKind.Issue, 4, "Total shows $0.00", "e", "a", ["x"], Path: "/cart"));
+        ExploreStateTests.Finding(
+            state,
+            new FindingInput(ReportExploreFindingKind.Issue, 4, "Total shows $0.00", "e", "a", ["x"], Path: "/cart")
+        );
         state.EndStep(ReportExploreStepStatus.Passed, "covered");
         state.Planning(true);
         state.End(ReportExploreEnded.StepLimit, "Checkout is broken.");
@@ -33,7 +36,8 @@ public sealed class ExploreStateProgressTests
                 typeof(ExploreProgress.Planning),
                 typeof(ExploreProgress.Finished),
             ],
-            seen.Select(progress => progress.GetType()));
+            seen.Select(progress => progress.GetType())
+        );
         Assert.Equal(new ExploreProgress.Started("goal", budgets), seen[0]);
         Assert.Equal(new ExploreProgress.Planning(false), seen[1]);
         Assert.Equal(new ExploreProgress.Planning(true), seen[5]);

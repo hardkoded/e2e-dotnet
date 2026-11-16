@@ -31,20 +31,28 @@ internal sealed class ReporterRunKit : IDisposable
     }
 
     /// <summary>One passing test that keeps a screenshot, as a session of the fake engine.</summary>
-    public async Task<E2ESession> StartAsync(string title = "shows the submit button", int attempt = 1, RecordingMode trace = RecordingMode.On, string? file = "E2E.Tests.Reporters.ReporterRun", bool emitRunEvents = true) =>
-        await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new ArtifactEngine(),
-            TestTitle = title,
-            TestFile = file,
-            BaseUrl = "http://127.0.0.1:4100",
-            ProjectRoot = _output,
-            ResultsDirectory = Results,
-            CacheEnabled = false,
-            Trace = new ResolvedRecording(trace, RecordingSource.Target),
-            Attempt = attempt,
-            EmitRunEvents = emitRunEvents,
-        });
+    public async Task<E2ESession> StartAsync(
+        string title = "shows the submit button",
+        int attempt = 1,
+        RecordingMode trace = RecordingMode.On,
+        string? file = "E2E.Tests.Reporters.ReporterRun",
+        bool emitRunEvents = true
+    ) =>
+        await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new ArtifactEngine(),
+                TestTitle = title,
+                TestFile = file,
+                BaseUrl = "http://127.0.0.1:4100",
+                ProjectRoot = _output,
+                ResultsDirectory = Results,
+                CacheEnabled = false,
+                Trace = new ResolvedRecording(trace, RecordingSource.Target),
+                Attempt = attempt,
+                EmitRunEvents = emitRunEvents,
+            }
+        );
 
     /// <summary>Runs the test that passes: opens the app, keeps a screenshot, and completes.</summary>
     public async Task PassAsync(string title = "shows the submit button")
@@ -59,7 +67,11 @@ internal sealed class ReporterRunKit : IDisposable
     /// A whole run: its start and plan, the passing test, and its end, with <paramref name="reporters"/> listening. Returns what the process's report of this run
     /// said, with stderr of the run beside it.
     /// </summary>
-    public async Task<(FinishedRun Finished, string Stderr)> RunAsync(IReadOnlyList<Reporter> reporters, TimeSpan? timeout = null, CancellationToken force = default)
+    public async Task<(FinishedRun Finished, string Stderr)> RunAsync(
+        IReadOnlyList<Reporter> reporters,
+        TimeSpan? timeout = null,
+        CancellationToken force = default
+    )
     {
         var stderr = new StringWriter();
         var original = Console.Error;
@@ -68,7 +80,11 @@ internal sealed class ReporterRunKit : IDisposable
         {
             using var run = HostRun.Begin(reporters);
             HostRun.Started(E2EConfig.Default(_output));
-            HostRun.Planned("web", [new DiscoveredTest("case", "E2E.Tests.Reporters", "ReporterRun", "shows the submit button", [])], new Dictionary<string, string>());
+            HostRun.Planned(
+                "web",
+                [new DiscoveredTest("case", "E2E.Tests.Reporters", "ReporterRun", "shows the submit button", [])],
+                new Dictionary<string, string>()
+            );
             await PassAsync();
             await run.FinishAsync(timeout, force);
         }
@@ -81,7 +97,8 @@ internal sealed class ReporterRunKit : IDisposable
     }
 
     /// <summary>The run of this kit, as the process's report file read back.</summary>
-    public async Task<FinishedRun> FinishedAsync() => (await ReportFile.FinishedRunsAsync()).Single(run => run.ArtifactsRoot == Results);
+    public async Task<FinishedRun> FinishedAsync() =>
+        (await ReportFile.FinishedRunsAsync()).Single(run => run.ArtifactsRoot == Results);
 
     private sealed class ArtifactEngine : IEngine
     {
@@ -89,9 +106,11 @@ internal sealed class ReporterRunKit : IDisposable
 
         public string Version => "test";
 
-        public EngineCapabilities Capabilities => EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location;
+        public EngineCapabilities Capabilities =>
+            EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location;
 
-        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) => Task.FromResult<IEngineSession>(new Session(options.ArtifactsDir!));
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            Task.FromResult<IEngineSession>(new Session(options.ArtifactsDir!));
     }
 
     private sealed class Session(string artifactsDir) : IEngineSession
@@ -100,13 +119,33 @@ internal sealed class ReporterRunKit : IDisposable
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => Task.FromResult(new Observation
-        {
-            Route = "/",
-            Roots = [new SemanticNode { Ref = "root", Role = "document", Children = [new SemanticNode { Ref = "submit", Role = "button", Name = "Submit" }] }],
-        });
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(
+                new Observation
+                {
+                    Route = "/",
+                    Roots =
+                    [
+                        new SemanticNode
+                        {
+                            Ref = "root",
+                            Role = "document",
+                            Children =
+                            [
+                                new SemanticNode
+                                {
+                                    Ref = "submit",
+                                    Role = "button",
+                                    Name = "Submit",
+                                },
+                            ],
+                        },
+                    ],
+                }
+            );
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
 
         public Task PressAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
 
@@ -114,7 +153,11 @@ internal sealed class ReporterRunKit : IDisposable
         {
             var relative = "screenshots/001-" + label + ".png";
             Directory.CreateDirectory(Path.Combine(artifactsDir, "screenshots"));
-            await File.WriteAllBytesAsync(Path.Combine(artifactsDir, relative), [0x89, 0x50, 0x4E, 0x47], cancellationToken);
+            await File.WriteAllBytesAsync(
+                Path.Combine(artifactsDir, relative),
+                [0x89, 0x50, 0x4E, 0x47],
+                cancellationToken
+            );
             return relative;
         }
 

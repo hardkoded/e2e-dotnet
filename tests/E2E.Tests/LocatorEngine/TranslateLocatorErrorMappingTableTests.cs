@@ -19,7 +19,10 @@ public sealed class TranslateLocatorErrorMappingTableTests
         () => CancellationToken.None,
         () => { },
         TimeSpan.FromMilliseconds(300),
-        TimeSpan.FromMilliseconds(300)).GetByRole("button").Query;
+        TimeSpan.FromMilliseconds(300)
+    )
+        .GetByRole("button")
+        .Query;
 
     [Theory]
     [InlineData(EngineErrorCodes.NodeStale, "test", "LOCATOR_NOT_FOUND")]
@@ -66,7 +69,10 @@ public sealed class TranslateLocatorErrorMappingTableTests
     [Fact]
     public void Appends_the_locator_description_when_an_expression_is_provided()
     {
-        var translated = LocatorEngineType.TranslateLocatorError(new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: false), Button);
+        var translated = LocatorEngineType.TranslateLocatorError(
+            new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: false),
+            Button
+        );
 
         Assert.Contains("stale", translated.Message, StringComparison.Ordinal);
         Assert.EndsWith(": getByRole(\"button\")", translated.Message, StringComparison.Ordinal);
@@ -90,7 +96,8 @@ public sealed class TranslateLocatorErrorMappingTableTests
             () => CancellationToken.None,
             () => { },
             TimeSpan.FromMilliseconds(300),
-            TimeSpan.FromMilliseconds(300));
+            TimeSpan.FromMilliseconds(300)
+        );
 
         var translated = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").CountAsync());
 

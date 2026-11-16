@@ -16,8 +16,16 @@ public sealed class RouteDecisionHeadersTests
     {
         var headers = new Dictionary<string, string> { ["__proto__"] = "kept" };
 
-        var continued = E2E.Internal.RouteOptions.ParseContinue(new RouteContinueOverrides { Headers = headers }, "http://127.0.0.1/echo", ResolveUrl).Headers!;
-        var fulfilled = E2E.Internal.RouteOptions.ParseFulfill(new RouteFulfillResponse { Headers = headers }, file => file).Headers!;
+        var continued = E2E
+            .Internal.RouteOptions.ParseContinue(
+                new RouteContinueOverrides { Headers = headers },
+                "http://127.0.0.1/echo",
+                ResolveUrl
+            )
+            .Headers!;
+        var fulfilled = E2E
+            .Internal.RouteOptions.ParseFulfill(new RouteFulfillResponse { Headers = headers }, file => file)
+            .Headers!;
 
         Assert.Equal("kept", continued["__proto__"]);
         Assert.Equal("kept", fulfilled["__proto__"]);

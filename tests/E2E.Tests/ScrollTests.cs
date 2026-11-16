@@ -23,7 +23,8 @@ public sealed class ScrollTests
         var model = Sequence(
             ModelResponses.Call("scroll_to", new { text = "Row 12" }),
             ModelResponses.Tap("button", "Row 12"),
-            ModelResponses.Done("passed", "opened"));
+            ModelResponses.Done("passed", "opened")
+        );
         var first = await RunAsync(Body, Rows(), model, directory);
         Assert.Null(first.Error);
         Assert.Contains("until \"Row 12\" was in view", ToolResults(model)[0], StringComparison.Ordinal);
@@ -62,7 +63,8 @@ public sealed class ScrollTests
             ModelResponses.Tap("link", "Details"),
             ModelResponses.Call("back", new { }),
             ModelResponses.Tap("button", "Finish"),
-            ModelResponses.Done("passed", "finished"));
+            ModelResponses.Done("passed", "finished")
+        );
         var first = await RunAsync(Body, world, model, directory);
         Assert.Null(first.Error);
         var results = ToolResults(model);
@@ -91,12 +93,14 @@ public sealed class ScrollTests
                 {
                     shown++;
                     var label = "Row " + shown.ToString(CultureInfo.InvariantCulture);
-                    list.Children.Add(new DocumentElement
-                    {
-                        Role = "button",
-                        Name = label,
-                        OnTap = () => status.Name = status.Text = "Opened " + label,
-                    });
+                    list.Children.Add(
+                        new DocumentElement
+                        {
+                            Role = "button",
+                            Name = label,
+                            OnTap = () => status.Name = status.Text = "Opened " + label,
+                        }
+                    );
                 }
             }
 
@@ -115,15 +119,18 @@ public sealed class ScrollTests
     internal static ScriptedModel Sequence(params ModelResponse[] responses)
     {
         var next = 0;
-        return new ScriptedModel(_ => next < responses.Length
-            ? responses[next++]
-            : ModelResponses.Done("failed", "The script ran out of responses."));
+        return new ScriptedModel(_ =>
+            next < responses.Length
+                ? responses[next++]
+                : ModelResponses.Done("failed", "The script ran out of responses.")
+        );
     }
 
     private static List<string> ToolResults(ScriptedModel model)
     {
-        return model.Requests[^1].Messages
-            .Where(message => message.Role == "tool")
+        return model
+            .Requests[^1]
+            .Messages.Where(message => message.Role == "tool")
             .Select(message => message.Content ?? "")
             .ToList();
     }
@@ -131,7 +138,10 @@ public sealed class ScrollTests
     internal static CacheEntry ReadEntry(string directory)
     {
         var file = Assert.Single(Directory.GetFiles(directory, "*.json"));
-        return System.Text.Json.JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(file), new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+        return System.Text.Json.JsonSerializer.Deserialize<CacheEntry>(
+            File.ReadAllText(file),
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)
+        )!;
     }
 
     internal static string TempCache()
@@ -145,21 +155,24 @@ public sealed class ScrollTests
         Func<TestContext, Task> body,
         DocumentWorld world,
         IAgentModel model,
-        string? cacheDirectory = null)
+        string? cacheDirectory = null
+    )
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(world),
-            Model = model,
-            BaseUrl = "https://rows.test",
-            Cache = cacheDirectory is null ? null : new FileStepCache(cacheDirectory),
-            CacheEnabled = cacheDirectory is not null,
-            TestTitle = "rows > case",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(world),
+                Model = model,
+                BaseUrl = "https://rows.test",
+                Cache = cacheDirectory is null ? null : new FileStepCache(cacheDirectory),
+                CacheEnabled = cacheDirectory is not null,
+                TestTitle = "rows > case",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         Exception? error = null;
         try
         {

@@ -24,8 +24,14 @@ public sealed class ProviderHintsForOtherProvidersTests
     public async Task Adds_no_hint_fields_and_passes_the_providers_options_through_for(string provider, string model)
     {
         var body = await ChatAsync(
-            new OpenAiCompatibleModelOptions { Model = model, Provider = provider, ApiKey = "k" },
-            Request(providerOptions: Options(provider, """{ "thinkingConfig": {} }""")));
+            new OpenAiCompatibleModelOptions
+            {
+                Model = model,
+                Provider = provider,
+                ApiKey = "k",
+            },
+            Request(providerOptions: Options(provider, """{ "thinkingConfig": {} }"""))
+        );
 
         Assert.Equal(["model", "messages", "tools", "tool_choice", "thinkingConfig"], body.Select(field => field.Key));
     }

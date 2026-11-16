@@ -29,14 +29,10 @@ public sealed class OAuthException : E2EException
     public const string Misconfigured = "MISCONFIGURED";
 
     public OAuthException(string code, string message)
-        : base(code, message)
-    {
-    }
+        : base(code, message) { }
 
     public OAuthException(string code, string message, Exception inner)
-        : base(code, message, inner)
-    {
-    }
+        : base(code, message, inner) { }
 }
 
 /// <summary>
@@ -54,7 +50,8 @@ public sealed class OAuthCredentials
     public long Expires { get; init; }
 
     /// <summary>Provider fields: <c>accountId</c>, <c>residency</c>, <c>enterpriseUrl</c>, <c>orgId</c>.</summary>
-    public IReadOnlyDictionary<string, string> Extra { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
+    public IReadOnlyDictionary<string, string> Extra { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
 
     public string? Get(string name) => Extra.TryGetValue(name, out var value) ? value : null;
 
@@ -71,12 +68,23 @@ public sealed class OAuthCredentials
             extra[name] = value;
         }
 
-        return new OAuthCredentials { Access = Access, Refresh = Refresh, Expires = Expires, Extra = extra };
+        return new OAuthCredentials
+        {
+            Access = Access,
+            Refresh = Refresh,
+            Expires = Expires,
+            Extra = extra,
+        };
     }
 
     internal JsonObject ToJson()
     {
-        var json = new JsonObject { ["access"] = Access, ["refresh"] = Refresh, ["expires"] = Expires };
+        var json = new JsonObject
+        {
+            ["access"] = Access,
+            ["refresh"] = Refresh,
+            ["expires"] = Expires,
+        };
         foreach (var (name, value) in Extra)
         {
             json[name] = value;
@@ -88,10 +96,15 @@ public sealed class OAuthCredentials
     /// <summary>An entry of the credentials file, or null when it is damaged.</summary>
     internal static OAuthCredentials? FromJson(JsonNode? node)
     {
-        if (node is not JsonObject json
-            || json["access"] is not JsonValue access || !access.TryGetValue<string>(out var accessText)
-            || json["refresh"] is not JsonValue refresh || !refresh.TryGetValue<string>(out var refreshText)
-            || json["expires"] is not JsonValue expires || expires.GetValueKind() != JsonValueKind.Number)
+        if (
+            node is not JsonObject json
+            || json["access"] is not JsonValue access
+            || !access.TryGetValue<string>(out var accessText)
+            || json["refresh"] is not JsonValue refresh
+            || !refresh.TryGetValue<string>(out var refreshText)
+            || json["expires"] is not JsonValue expires
+            || expires.GetValueKind() != JsonValueKind.Number
+        )
         {
             return null;
         }
@@ -99,12 +112,22 @@ public sealed class OAuthCredentials
         var extra = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var (name, value) in json)
         {
-            if (name is not ("access" or "refresh" or "expires") && value is JsonValue text && text.TryGetValue<string>(out var s))
+            if (
+                name is not ("access" or "refresh" or "expires")
+                && value is JsonValue text
+                && text.TryGetValue<string>(out var s)
+            )
             {
                 extra[name] = s;
             }
         }
 
-        return new OAuthCredentials { Access = accessText, Refresh = refreshText, Expires = (long)expires.GetValue<double>(), Extra = extra };
+        return new OAuthCredentials
+        {
+            Access = accessText,
+            Refresh = refreshText,
+            Expires = (long)expires.GetValue<double>(),
+            Extra = extra,
+        };
     }
 }

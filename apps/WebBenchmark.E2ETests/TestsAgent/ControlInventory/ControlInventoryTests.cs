@@ -32,7 +32,9 @@ public sealed class ControlInventoryTests : TestsAgentTest
     [Test]
     public async Task A_long_press_and_a_double_click_are_chosen_over_a_plain_tap()
     {
-        await Agent.ActAsync("long-press the Hold me button until its state reads long-pressed, then double-click the Double-click me button");
+        await Agent.ActAsync(
+            "long-press the Hold me button until its state reads long-pressed, then double-click the Double-click me button"
+        );
         await Expect.That(Screen.GetByLabel("Hold state")).ToHaveTextAsync("long-pressed");
         await Expect.That(Screen.GetByLabel("Double-click state")).ToHaveTextAsync("double-clicked");
     }
@@ -49,7 +51,14 @@ public sealed class ControlInventoryTests : TestsAgentTest
     {
         await Agent.ActAsync(
             "attach both files to the Attachments input",
-            new ActOptions { Params = new Dictionary<string, object?> { ["files"] = new[] { "Fixtures/attachment.txt", "Fixtures/second.txt" } } });
+            new ActOptions
+            {
+                Params = new Dictionary<string, object?>
+                {
+                    ["files"] = new[] { "Fixtures/attachment.txt", "Fixtures/second.txt" },
+                },
+            }
+        );
         await Expect.That(Screen.GetByLabel("Attachments state")).ToHaveTextAsync("attachment.txt, second.txt");
     }
 

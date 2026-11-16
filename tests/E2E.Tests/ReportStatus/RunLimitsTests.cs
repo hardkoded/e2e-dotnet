@@ -20,8 +20,11 @@ public sealed class RunLimitsTests
             { "agents": { "default": { "maxObservationBytes": 4096, "maxInputTokens": 200000 }, "ux": { "maxObservationBytes": 65536, "maxInputTokens": 8000 } } }
             """,
             Root,
-            _ => null);
-        var limits = ResolvedAgent.RunLimits(config.Agents.Select(pair => ResolvedAgent.From(pair.Key, pair.Value.CreateOptions())));
+            _ => null
+        );
+        var limits = ResolvedAgent.RunLimits(
+            config.Agents.Select(pair => ResolvedAgent.From(pair.Key, pair.Value.CreateOptions()))
+        );
 
         Assert.Equal(new ReportLimits(16_384, 8_192, 65_536, 1_000, 200_000), Build(limits: limits).Run.Limits);
     }

@@ -34,11 +34,13 @@ public sealed class KanbanBoardTests : BenchmarkTest
     [Test]
     public async Task A_swipe_along_a_path_drags_a_card_as_well()
     {
-        await Screen.SwipeAsync(new SwipePathOptions
-        {
-            From = await Support.CenterOfAsync(Screen.GetByTestId("card-fix-payment-bug")),
-            To = await Support.CenterOfAsync(Screen.GetByTestId("column-done")),
-        });
+        await Screen.SwipeAsync(
+            new SwipePathOptions
+            {
+                From = await Support.CenterOfAsync(Screen.GetByTestId("card-fix-payment-bug")),
+                To = await Support.CenterOfAsync(Screen.GetByTestId("column-done")),
+            }
+        );
         await Expect.That(Screen.GetByTestId("column-done").GetByText("Fix payment bug")).ToBeVisibleAsync();
     }
 

@@ -24,7 +24,13 @@ public interface ITestFilter
 /// <param name="TitlePath">The describe titles, then the test title.</param>
 /// <param name="Tags">The describe chain's tags, outermost first, then the test's own.</param>
 /// <param name="SetupFile">Project-relative POSIX path of the setup test file that saves the test's session; null when the test uses none.</param>
-public sealed record TestFilterCandidate(string Id, string File, IReadOnlyList<string> TitlePath, IReadOnlyList<string> Tags, string? SetupFile = null);
+public sealed record TestFilterCandidate(
+    string Id,
+    string File,
+    IReadOnlyList<string> TitlePath,
+    IReadOnlyList<string> Tags,
+    string? SetupFile = null
+);
 
 /// <summary>What a run's test filters judge: every file that differs from the base commit (upstream's <c>TestFilterChanges</c>).</summary>
 /// <param name="Base">The commit the change is measured from: the merge base of the base ref and HEAD.</param>

@@ -29,14 +29,46 @@ public sealed class InputCancellationTests
         if (reason == "device fixture abort")
         {
             var snapshot = FakeDeviceClient.SettingsSnapshotWith(
-                N("@e30", index: 10, parentIndex: 0, depth: 1, type: "static-text", label: "Speed up your typing by sliding your finger across the letters to compose a word.", rect: new Rect(20, 600, 350, 60)),
-                N("@e31", index: 11, parentIndex: 0, depth: 1, type: "button", label: "Continue", rect: new Rect(95, 700, 200, 44)));
-            snapshot["keyboard"] = new JsonObject { ["kind"] = "visible", ["frame"] = new JsonObject { ["x"] = 0, ["y"] = 583, ["width"] = 390, ["height"] = 261 } };
+                N(
+                    "@e30",
+                    index: 10,
+                    parentIndex: 0,
+                    depth: 1,
+                    type: "static-text",
+                    label: "Speed up your typing by sliding your finger across the letters to compose a word.",
+                    rect: new Rect(20, 600, 350, 60)
+                ),
+                N(
+                    "@e31",
+                    index: 11,
+                    parentIndex: 0,
+                    depth: 1,
+                    type: "button",
+                    label: "Continue",
+                    rect: new Rect(95, 700, 200, 44)
+                )
+            );
+            snapshot["keyboard"] = new JsonObject
+            {
+                ["kind"] = "visible",
+                ["frame"] = new JsonObject
+                {
+                    ["x"] = 0,
+                    ["y"] = 583,
+                    ["width"] = 390,
+                    ["height"] = 261,
+                },
+            };
             h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => snapshot.DeepClone());
-            h.Fake.Respond(DeviceMethods.CommandKeyboard, _ => throw new AgentDeviceError("UNSUPPORTED_OPERATION", "The keyboard has no dismiss key"));
+            h.Fake.Respond(DeviceMethods.CommandKeyboard, _ =>
+                throw new AgentDeviceError("UNSUPPORTED_OPERATION", "The keyboard has no dismiss key")
+            );
         }
 
-        var session = await OpenAttempt(h, actionTimeout: reason == "input deadline" ? TimeSpan.FromMilliseconds(100) : TimeSpan.FromSeconds(30));
+        var session = await OpenAttempt(
+            h,
+            actionTimeout: reason == "input deadline" ? TimeSpan.FromMilliseconds(100) : TimeSpan.FromSeconds(30)
+        );
         try
         {
             var about = reason == "device fixture abort" ? null : await Observed(session, "About");
@@ -55,15 +87,22 @@ public sealed class InputCancellationTests
             var pressing = about is null
                 ? session.DismissKeyboardAsync(controller.Token)
                 : session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, controller.Token);
-            Task rejected = reason == "input deadline"
-                ? Assert.ThrowsAsync<EngineException>(() => pressing).ContinueWith(
-                    task => Assert.Equal("ACTION_MAY_HAVE_COMMITTED", task.Result.Code),
-                    TaskScheduler.Default)
-                : Assert.ThrowsAsync<EngineException>(() => pressing).ContinueWith(
-                    task => Assert.Equal("CANCELLED", task.Result.Code),
-                    TaskScheduler.Default);
+            Task rejected =
+                reason == "input deadline"
+                    ? Assert
+                        .ThrowsAsync<EngineException>(() => pressing)
+                        .ContinueWith(
+                            task => Assert.Equal("ACTION_MAY_HAVE_COMMITTED", task.Result.Code),
+                            TaskScheduler.Default
+                        )
+                    : Assert
+                        .ThrowsAsync<EngineException>(() => pressing)
+                        .ContinueWith(task => Assert.Equal("CANCELLED", task.Result.Code), TaskScheduler.Default);
             await Task.WhenAny(started.Task, rejected).WaitAsync(Bound);
-            Assert.True(started.Task.IsCompleted, $"the press was never sent: {(rejected.IsFaulted ? (pressing.Exception?.GetBaseException().Message ?? "") : "")}");
+            Assert.True(
+                started.Task.IsCompleted,
+                $"the press was never sent: {(rejected.IsFaulted ? (pressing.Exception?.GetBaseException().Message ?? "") : "")}"
+            );
             if (reason != "input deadline")
             {
                 await controller.CancelAsync();

@@ -23,8 +23,12 @@ public sealed class StepRecorderActivityTests
 
         Assert.Equal(
             [StepProgressPhase.Start, StepProgressPhase.Activity, StepProgressPhase.Activity, StepProgressPhase.End],
-            heard.Select(progress => progress.Phase));
-        Assert.Equal([StepActivity.Action, StepActivity.Observe], heard.Where(progress => progress.Phase == StepProgressPhase.Activity).Select(progress => progress.Activity));
+            heard.Select(progress => progress.Phase)
+        );
+        Assert.Equal(
+            [StepActivity.Action, StepActivity.Observe],
+            heard.Where(progress => progress.Phase == StepProgressPhase.Activity).Select(progress => progress.Activity)
+        );
         Assert.Equal(0, heard[3].ModelCalls);
         Assert.Empty(steps.All()[0].Events);
     }

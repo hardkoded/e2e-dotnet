@@ -22,51 +22,63 @@ public sealed class SurfaceScreenshotWhileNavigatingTests
     private const string Race = "page.screenshot: Execution context was destroyed, most likely because of a navigation";
 
     /// <summary><c>/hop?n=&lt;n&gt;</c> holds a white password field on a white page and moves on to the next hop a moment after it loads, up to 40.</summary>
-    private static Task<TinySite> StartHoppingSiteAsync() => TinySite.StartAsync(context =>
-    {
-        var hop = int.Parse(HttpUtility.ParseQueryString(context.Request.Url!.Query)["n"] ?? "0", CultureInfo.InvariantCulture);
-        return TinySite.RespondAsync(context, $$"""
-            <!doctype html><title>Hop {{hop}}</title>
-            <style>body { margin: 0; background: #fff; } input { position: absolute; left: 20px; top: 20px; width: 120px; height: 40px; border: 0; background: #fff; color: #fff; }</style>
-            <input type="password" value="hunter22">
-            <script>if ({{hop}} < 40) setTimeout(() => { location.href = '/hop?n={{hop + 1}}'; }, 1);</script>
-            """);
-    });
+    private static Task<TinySite> StartHoppingSiteAsync() =>
+        TinySite.StartAsync(context =>
+        {
+            var hop = int.Parse(
+                HttpUtility.ParseQueryString(context.Request.Url!.Query)["n"] ?? "0",
+                CultureInfo.InvariantCulture
+            );
+            return TinySite.RespondAsync(
+                context,
+                $$"""
+                <!doctype html><title>Hop {{hop}}</title>
+                <style>body { margin: 0; background: #fff; } input { position: absolute; left: 20px; top: 20px; width: 120px; height: 40px; border: 0; background: #fff; color: #fff; }</style>
+                <input type="password" value="hunter22">
+                <script>if ({{hop}} < 40) setTimeout(() => { location.href = '/hop?n={{hop + 1}}'; }, 1);</script>
+                """
+            );
+        });
 
     [Fact]
-    public Task Captures_each_screenshot_masked_while_the_page_hops_between_documents() => WithSessionAsync(null, TimeSpan.FromSeconds(10), async (session, page, site) =>
-    {
-        await page.GotoAsync(site.Url + "hop?n=0");
-        for (var shot = 0; shot < 10; shot++)
+    public Task Captures_each_screenshot_masked_while_the_page_hops_between_documents() =>
+        WithSessionAsync(null, TimeSpan.FromSeconds(10), async (session, page, site) =>
         {
-            await ExpectMaskedShotAsync(session, "hop-" + shot);
-        }
-    });
+            await page.GotoAsync(site.Url + "hop?n=0");
+            for (var shot = 0; shot < 10; shot++)
+            {
+                await ExpectMaskedShotAsync(session, "hop-" + shot);
+            }
+        });
 
     [Fact]
     public async Task Partial_Retries_the_capture_when_the_navigation_event_arrives_after_the_screenshot_error()
     {
         var captures = 0;
-        await WithSessionAsync(async (page, site, options) =>
-        {
-            if (Interlocked.Increment(ref captures) > 1)
+        await WithSessionAsync(
+            async (page, site, options) =>
             {
-                return await page.ScreenshotAsync(options);
-            }
+                if (Interlocked.Increment(ref captures) > 1)
+                {
+                    return await page.ScreenshotAsync(options);
+                }
 
-            // Upstream emits framenavigated on a timer, after the rejection. Playwright for .NET cannot emit its events, so the
-            // page commits a real navigation a moment after the rejection instead, which delivers the event late the same way.
-            _ = Task.Run(async () =>
+                // Upstream emits framenavigated on a timer, after the rejection. Playwright for .NET cannot emit its events, so the
+                // page commits a real navigation a moment after the rejection instead, which delivers the event late the same way.
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(100);
+                    await page.GotoAsync(site.Url + "hop?n=40");
+                });
+                throw new PlaywrightException(Race);
+            },
+            TimeSpan.FromSeconds(10),
+            async (session, page, site) =>
             {
-                await Task.Delay(100);
                 await page.GotoAsync(site.Url + "hop?n=40");
-            });
-            throw new PlaywrightException(Race);
-        }, TimeSpan.FromSeconds(10), async (session, page, site) =>
-        {
-            await page.GotoAsync(site.Url + "hop?n=40");
-            await ExpectMaskedShotAsync(session, "late-event");
-        });
+                await ExpectMaskedShotAsync(session, "late-event");
+            }
+        );
         Assert.Equal(2, captures);
     }
 
@@ -74,20 +86,24 @@ public sealed class SurfaceScreenshotWhileNavigatingTests
     public async Task Takes_the_capture_again_masked_of_the_document_that_replaced_the_one_its_masks_were_resolved_in()
     {
         var captures = 0;
-        await WithSessionAsync(async (page, site, options) =>
-        {
-            if (Interlocked.Increment(ref captures) > 1)
+        await WithSessionAsync(
+            async (page, site, options) =>
             {
-                return await page.ScreenshotAsync(options);
-            }
+                if (Interlocked.Increment(ref captures) > 1)
+                {
+                    return await page.ScreenshotAsync(options);
+                }
 
-            await page.GotoAsync(site.Url + "hop?n=40");
-            throw new PlaywrightException(Race);
-        }, TimeSpan.FromSeconds(10), async (session, page, site) =>
-        {
-            await page.GotoAsync(site.Url + "hop?n=40");
-            await ExpectMaskedShotAsync(session, "replaced");
-        });
+                await page.GotoAsync(site.Url + "hop?n=40");
+                throw new PlaywrightException(Race);
+            },
+            TimeSpan.FromSeconds(10),
+            async (session, page, site) =>
+            {
+                await page.GotoAsync(site.Url + "hop?n=40");
+                await ExpectMaskedShotAsync(session, "replaced");
+            }
+        );
         Assert.Equal(2, captures);
     }
 
@@ -95,49 +111,66 @@ public sealed class SurfaceScreenshotWhileNavigatingTests
     public async Task Fails_with_the_race_itself_when_no_document_was_replaced_tried_once()
     {
         var captures = 0;
-        await WithSessionAsync((page, site, options) =>
-        {
-            Interlocked.Increment(ref captures);
-            return Task.FromException<byte[]>(new PlaywrightException(Race));
-        }, TimeSpan.FromSeconds(10), async (session, page, site) =>
-        {
-            await page.GotoAsync(site.Url + "hop?n=40");
-            var failure = await Assert.ThrowsAnyAsync<E2EException>(() => session.App.ScreenshotAsync("unreplaced"));
-            Assert.Equal("ENGINE_FAILURE", failure.Code);
-        });
+        await WithSessionAsync(
+            (page, site, options) =>
+            {
+                Interlocked.Increment(ref captures);
+                return Task.FromException<byte[]>(new PlaywrightException(Race));
+            },
+            TimeSpan.FromSeconds(10),
+            async (session, page, site) =>
+            {
+                await page.GotoAsync(site.Url + "hop?n=40");
+                var failure = await Assert.ThrowsAnyAsync<E2EException>(() =>
+                    session.App.ScreenshotAsync("unreplaced")
+                );
+                Assert.Equal("ENGINE_FAILURE", failure.Code);
+            }
+        );
         Assert.Equal(1, captures);
     }
 
     [Fact]
-    public Task Times_out_when_the_page_replaces_its_document_during_every_capture_until_the_step_deadline() => WithSessionAsync(async (page, site, options) =>
-    {
-        await page.GotoAsync(site.Url + "hop?n=40");
-        throw new PlaywrightException(Race);
-    }, TimeSpan.FromSeconds(1), async (session, page, site) =>
-    {
-        await page.GotoAsync(site.Url + "hop?n=40");
-        // Upstream calls the surface; the port goes through App, whose step maps the engine error: it is ACTION_FAILED, the engine's error its cause.
-        var mapped = await Assert.ThrowsAsync<TestException>(() => session.App.ScreenshotAsync("restless"));
-        Assert.Equal("ACTION_FAILED", mapped.Code);
-        var failure = Assert.IsType<EngineException>(mapped.InnerException);
-        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
-        Assert.False(failure.Retryable);
-    });
+    public Task Times_out_when_the_page_replaces_its_document_during_every_capture_until_the_step_deadline() =>
+        WithSessionAsync(
+            async (page, site, options) =>
+            {
+                await page.GotoAsync(site.Url + "hop?n=40");
+                throw new PlaywrightException(Race);
+            },
+            TimeSpan.FromSeconds(1),
+            async (session, page, site) =>
+            {
+                await page.GotoAsync(site.Url + "hop?n=40");
+                // Upstream calls the surface; the port goes through App, whose step maps the engine error: it is ACTION_FAILED, the engine's error its cause.
+                var mapped = await Assert.ThrowsAsync<TestException>(() => session.App.ScreenshotAsync("restless"));
+                Assert.Equal("ACTION_FAILED", mapped.Code);
+                var failure = Assert.IsType<EngineException>(mapped.InnerException);
+                Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+                Assert.False(failure.Retryable);
+            }
+        );
 
     [Fact]
     public async Task Keeps_any_other_capture_failure_an_engine_failure_tried_once()
     {
         var captures = 0;
-        await WithSessionAsync((page, site, options) =>
-        {
-            Interlocked.Increment(ref captures);
-            return Task.FromException<byte[]>(new PlaywrightException("Target page, context or browser has been closed"));
-        }, TimeSpan.FromSeconds(10), async (session, page, site) =>
-        {
-            await page.GotoAsync(site.Url + "hop?n=40");
-            var failure = await Assert.ThrowsAnyAsync<E2EException>(() => session.App.ScreenshotAsync("closed"));
-            Assert.Equal("ENGINE_FAILURE", failure.Code);
-        });
+        await WithSessionAsync(
+            (page, site, options) =>
+            {
+                Interlocked.Increment(ref captures);
+                return Task.FromException<byte[]>(
+                    new PlaywrightException("Target page, context or browser has been closed")
+                );
+            },
+            TimeSpan.FromSeconds(10),
+            async (session, page, site) =>
+            {
+                await page.GotoAsync(site.Url + "hop?n=40");
+                var failure = await Assert.ThrowsAnyAsync<E2EException>(() => session.App.ScreenshotAsync("closed"));
+                Assert.Equal("ENGINE_FAILURE", failure.Code);
+            }
+        );
         Assert.Equal(1, captures);
     }
 
@@ -158,24 +191,30 @@ public sealed class SurfaceScreenshotWhileNavigatingTests
     private static async Task WithSessionAsync(
         Func<IPage, TinySite, PageScreenshotOptions, Task<byte[]>>? capture,
         TimeSpan actionTimeout,
-        Func<E2ESession, IPage, TinySite, Task> body)
+        Func<E2ESession, IPage, TinySite, Task> body
+    )
     {
         using var site = await StartHoppingSiteAsync();
         var projectRoot = Directory.CreateTempSubdirectory("e2e-screenshot-navigation-").FullName;
         try
         {
-            var session = await E2ESession.StartAsync(new E2ESessionOptions
-            {
-                Engine = new WebEngine(new WebEngineOptions { Headless = true, Viewport = new WebViewport(320, 200) })
+            var session = await E2ESession.StartAsync(
+                new E2ESessionOptions
                 {
-                    CapturePage = (page, options) => capture is null ? page.ScreenshotAsync(options) : capture(page, site, options),
-                },
-                BaseUrl = site.Url,
-                ProjectRoot = projectRoot,
-                TestTitle = "surface.screenshot while navigating",
-                ActionTimeout = actionTimeout,
-                TestTimeout = TimeSpan.FromSeconds(30),
-            });
+                    Engine = new WebEngine(
+                        new WebEngineOptions { Headless = true, Viewport = new WebViewport(320, 200) }
+                    )
+                    {
+                        CapturePage = (page, options) =>
+                            capture is null ? page.ScreenshotAsync(options) : capture(page, site, options),
+                    },
+                    BaseUrl = site.Url,
+                    ProjectRoot = projectRoot,
+                    TestTitle = "surface.screenshot while navigating",
+                    ActionTimeout = actionTimeout,
+                    TestTimeout = TimeSpan.FromSeconds(30),
+                }
+            );
             await WebEngineTests.RunAsync(session, async () =>
             {
                 await session.App.OpenAsync("/hop?n=40");

@@ -53,9 +53,13 @@ public sealed class DevFlowAgents : IDeviceProvider, IDeviceClientSource
     public bool AttachesToRunningApp => true;
 
     public DevFlowAgents(DevFlowAgentsOptions? options = null)
-        : this(options, new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) }) { Timeout = Timeout.InfiniteTimeSpan })
-    {
-    }
+        : this(
+            options,
+            new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) })
+            {
+                Timeout = Timeout.InfiniteTimeSpan,
+            }
+        ) { }
 
     /// <summary>Over a client of the caller's making: the seam unit tests script.</summary>
     internal DevFlowAgents(DevFlowAgentsOptions? options, HttpClient http, AgentDiscovery? discovery = null)
@@ -63,7 +67,10 @@ public sealed class DevFlowAgents : IDeviceProvider, IDeviceClientSource
         _options = options ?? new DevFlowAgentsOptions();
         if (_options.Port is { } port && (port <= 0 || port > ushort.MaxValue))
         {
-            throw new ConfigurationException("INVALID_CONFIG", $"devflow: `Port` must be between 1 and {ushort.MaxValue}, not {port}");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"devflow: `Port` must be between 1 and {ushort.MaxValue}, not {port}"
+            );
         }
 
         if (_options.ConnectTimeout <= TimeSpan.Zero)
@@ -91,31 +98,52 @@ public sealed class DevFlowAgents : IDeviceProvider, IDeviceClientSource
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"devflow: target \"{request.TargetName}\" asks for {request.Slots} devices, but one DevFlow agent is one running app; run the target with one worker");
+                $"devflow: target \"{request.TargetName}\" asks for {request.Slots} devices, but one DevFlow agent is one running app; run the target with one worker"
+            );
         }
 
-        var lease = new LeaseIdentity($"e2e-{request.RunId}-{request.Slot}", "e2e", $"e2e {request.TargetName} slot {request.Slot + 1} of {request.Slots}");
+        var lease = new LeaseIdentity(
+            $"e2e-{request.RunId}-{request.Slot}",
+            "e2e",
+            $"e2e {request.TargetName} slot {request.Slot + 1} of {request.Slots}"
+        );
         try
         {
             var endpoint = await _discovery.ResolveAsync(request.Platform, cancellationToken).ConfigureAwait(false);
             request.Log($"waiting for the DevFlow agent at {endpoint}");
             var client = new DevFlowAgentClient(_http, endpoint, lease);
-            var status = await _discovery.WaitForStatusAsync(client, _options.ConnectTimeout, cancellationToken).ConfigureAwait(false);
+            var status = await _discovery
+                .WaitForStatusAsync(client, _options.ConnectTimeout, cancellationToken)
+                .ConfigureAwait(false);
             var platform = DevFlowDeviceClient.PlatformOf(status);
-            if (platform is not null && !string.Equals(platform, request.Platform.WireName(), StringComparison.OrdinalIgnoreCase))
+            if (
+                platform is not null
+                && !string.Equals(platform, request.Platform.WireName(), StringComparison.OrdinalIgnoreCase)
+            )
             {
-                throw DevFlowErrors.Failed($"the DevFlow agent at {endpoint} runs a {platform} app, but target \"{request.TargetName}\" is {request.Platform.WireName()}");
+                throw DevFlowErrors.Failed(
+                    $"the DevFlow agent at {endpoint} runs a {platform} app, but target \"{request.TargetName}\" is {request.Platform.WireName()}"
+                );
             }
 
             var packageId = Text(status?["app"]?["packageId"]);
             var appName = Text(status?["app"]?["name"]);
-            if (request.App is { } wanted && packageId is not null && !string.Equals(packageId, wanted, StringComparison.OrdinalIgnoreCase) && !string.Equals(appName, wanted, StringComparison.OrdinalIgnoreCase))
+            if (
+                request.App is { } wanted
+                && packageId is not null
+                && !string.Equals(packageId, wanted, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(appName, wanted, StringComparison.OrdinalIgnoreCase)
+            )
             {
-                throw DevFlowErrors.Failed($"the DevFlow agent at {endpoint} runs {packageId}, not {wanted}; launch the right app or fix the target's bundle id");
+                throw DevFlowErrors.Failed(
+                    $"the DevFlow agent at {endpoint} runs {packageId}, not {wanted}; launch the right app or fix the target's bundle id"
+                );
             }
 
             await client.ClaimLeaseAsync(cancellationToken).ConfigureAwait(false);
-            request.Log($"attached to {appName ?? packageId ?? "the app"} ({platform ?? request.Platform.WireName()}) at {endpoint}");
+            request.Log(
+                $"attached to {appName ?? packageId ?? "the app"} ({platform ?? request.Platform.WireName()}) at {endpoint}"
+            );
             return new DevFlowLease
             {
                 Id = endpoint.Authority,
@@ -149,7 +177,9 @@ public sealed class DevFlowAgents : IDeviceProvider, IDeviceClientSource
 
         try
         {
-            await new DevFlowAgentClient(_http, endpoint, identity).ReleaseLeaseAsync(cancellationToken).ConfigureAwait(false);
+            await new DevFlowAgentClient(_http, endpoint, identity)
+                .ReleaseLeaseAsync(cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (DevFlowAgentException failure)
         {
@@ -166,9 +196,15 @@ public sealed class DevFlowAgents : IDeviceProvider, IDeviceClientSource
     public IDeviceClient CreateClient(string session, DeviceConnection? connection)
     {
         ArgumentNullException.ThrowIfNull(session);
-        if (connection?.Client is { } bound && Text(bound["host"]) is { } host && bound["port"]?.GetValue<int>() is { } port and > 0)
+        if (
+            connection?.Client is { } bound
+            && Text(bound["host"]) is { } host
+            && bound["port"]?.GetValue<int>() is { } port and > 0
+        )
         {
-            var identity = Text(bound["leaseId"]) is { } leaseId ? new LeaseIdentity(leaseId, "e2e", Text(bound["label"])) : null;
+            var identity = Text(bound["leaseId"]) is { } leaseId
+                ? new LeaseIdentity(leaseId, "e2e", Text(bound["label"]))
+                : null;
             return new DevFlowDeviceClient(new DevFlowAgentClient(_http, new Uri($"http://{host}:{port}/"), identity));
         }
 
@@ -176,7 +212,8 @@ public sealed class DevFlowAgents : IDeviceProvider, IDeviceClientSource
         return new DevFlowDeviceClient(new DevFlowAgentClient(_http, _discovery.ResolveAsync, lease));
     }
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     /// <summary>A lease on one agent: what release needs beyond what travels to the worker.</summary>
     private sealed class DevFlowLease : DeviceLease

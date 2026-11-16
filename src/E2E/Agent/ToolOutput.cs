@@ -18,7 +18,13 @@ internal readonly record struct ToolOutputLimits(int MaxLines, int MaxBytes);
 /// <param name="By">Which limit cut the result, <c>lines</c> or <c>bytes</c>; <see langword="null"/> when it fit.</param>
 /// <param name="TotalLines">Lines of the result before the cut.</param>
 /// <param name="TotalBytes">UTF-8 bytes of the result before the cut.</param>
-internal readonly record struct BoundToolOutput(string Text, bool Truncated, string? By, int TotalLines, int TotalBytes);
+internal readonly record struct BoundToolOutput(
+    string Text,
+    bool Truncated,
+    string? By,
+    int TotalLines,
+    int TotalBytes
+);
 
 /// <summary>
 /// The bound on what a project tool may hand the model in one result (upstream's <c>agent/tool-output.ts</c>). A tool that returns a
@@ -92,10 +98,13 @@ internal static class ToolOutput
 
         var notice = string.Create(
             CultureInfo.InvariantCulture,
-            $"[tool output truncated: showing {kept.Count} of {totalLines} lines, {FormatBytes(bytes)} of {FormatBytes(totalBytes)}; the {by} limit was reached. Ask for a narrower result if you need the rest.]");
+            $"[tool output truncated: showing {kept.Count} of {totalLines} lines, {FormatBytes(bytes)} of {FormatBytes(totalBytes)}; the {by} limit was reached. Ask for a narrower result if you need the rest.]"
+        );
         return new BoundToolOutput(string.Join('\n', kept) + "\n" + notice, true, by, totalLines, totalBytes);
     }
 
     private static string FormatBytes(int bytes) =>
-        bytes < 1024 ? bytes.ToString(CultureInfo.InvariantCulture) + " B" : (bytes / 1024.0).ToString("F1", CultureInfo.InvariantCulture) + " KB";
+        bytes < 1024
+            ? bytes.ToString(CultureInfo.InvariantCulture) + " B"
+            : (bytes / 1024.0).ToString("F1", CultureInfo.InvariantCulture) + " KB";
 }

@@ -16,10 +16,10 @@ namespace E2E.NUnit.Tests.LocatorFrame;
 /// </summary>
 public sealed class LocatorFrameTests : PlaywrightTest
 {
-
     private static readonly string Nested = Content("<html><button>Hello nested iframe</button></html>");
 
-    private static readonly string Iframe = Content($"""
+    private static readonly string Iframe = Content(
+        $"""
         <html>
           <div>
             <button data-testid="buttonId">Hello iframe</button>
@@ -29,7 +29,8 @@ public sealed class LocatorFrameTests : PlaywrightTest
           <span>2</span>
           <label for=target>Name</label><input id=target type=text placeholder=Placeholder title=Title alt=Alternative>
         </html>
-        """);
+        """
+    );
 
     private static readonly string Routed = Content($"""<iframe src="{Iframe}" name="frame1"></iframe>""");
 
@@ -78,7 +79,9 @@ public sealed class LocatorFrameTests : PlaywrightTest
     public async Task Should_wait_for_frame_to_go()
     {
         await Browser.GotoAsync(Routed);
-        var removed = After(300, () => Browser.EvaluateAsync<object>("() => { document.querySelector('iframe').remove(); }"));
+        var removed = After(300, () =>
+            Browser.EvaluateAsync<object>("() => { document.querySelector('iframe').remove(); }")
+        );
         await Expect.That(Browser.FrameLocator("iframe").Locator("button")).ToBeHiddenAsync();
         await removed;
     }
@@ -111,7 +114,9 @@ public sealed class LocatorFrameTests : PlaywrightTest
         await Browser.GotoAsync("/empty.html");
         var attached = After(500, async () =>
         {
-            await Browser.EvaluateAsync<object>("() => { document.body.appendChild(document.createElement('iframe')); }");
+            await Browser.EvaluateAsync<object>(
+                "() => { document.body.appendChild(document.createElement('iframe')); }"
+            );
             await Task.Delay(500);
             await Browser.EvaluateAsync<object>("(src) => { document.querySelector('iframe').src = src; }", lazy);
         });
@@ -130,7 +135,10 @@ public sealed class LocatorFrameTests : PlaywrightTest
         var button = Browser.FrameLocator("iframe").Locator("button").Filter(hasText: "Hello nested iframe");
         var promise = button.WaitForAsync();
         await Browser.EvaluateAsync<object>("() => { document.querySelector('iframe').remove(); }");
-        await Browser.EvaluateAsync<object>("(src) => { const iframe = document.createElement('iframe'); iframe.src = src; document.body.appendChild(iframe); }", Nested);
+        await Browser.EvaluateAsync<object>(
+            "(src) => { const iframe = document.createElement('iframe'); iframe.src = src; document.body.appendChild(iframe); }",
+            Nested
+        );
         await promise;
     }
 
@@ -141,7 +149,10 @@ public sealed class LocatorFrameTests : PlaywrightTest
         var button = Browser.FrameLocator("iframe").Locator("button").Filter(hasText: "Hello nested iframe");
         var promise = button.TapAsync();
         await Browser.EvaluateAsync<object>("() => { document.querySelector('iframe').remove(); }");
-        await Browser.EvaluateAsync<object>("(src) => { const iframe = document.createElement('iframe'); iframe.src = src; document.body.appendChild(iframe); }", Nested);
+        await Browser.EvaluateAsync<object>(
+            "(src) => { const iframe = document.createElement('iframe'); iframe.src = src; document.body.appendChild(iframe); }",
+            Nested
+        );
         await promise;
     }
 
@@ -151,7 +162,10 @@ public sealed class LocatorFrameTests : PlaywrightTest
         await Browser.GotoAsync(Routed);
         var button = Browser.FrameLocator("iframe").Locator("button").Filter(hasText: "Hello nested iframe");
         var promise = button.TapAsync();
-        var navigated = Browser.EvaluateAsync<object>("(src) => { document.querySelector('iframe').src = src; }", Nested);
+        var navigated = Browser.EvaluateAsync<object>(
+            "(src) => { document.querySelector('iframe').src = src; }",
+            Nested
+        );
         await promise;
         await navigated;
     }
@@ -178,9 +192,17 @@ public sealed class LocatorFrameTests : PlaywrightTest
         await Browser.GotoAsync("about:blank");
         var button = Browser.FrameLocator("iframe1").Locator("button");
         Assert.That(await button.IsHiddenAsync(), Is.True);
-        await button.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden, Timeout = TimeSpan.FromSeconds(1) });
-        await button.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Detached, Timeout = TimeSpan.FromSeconds(1) });
-        var error = await Assert.CatchAsync(() => button.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Attached, Timeout = TimeSpan.FromSeconds(1) }));
+        await button.WaitForAsync(
+            new LocatorWaitForOptions { State = WaitForState.Hidden, Timeout = TimeSpan.FromSeconds(1) }
+        );
+        await button.WaitForAsync(
+            new LocatorWaitForOptions { State = WaitForState.Detached, Timeout = TimeSpan.FromSeconds(1) }
+        );
+        var error = await Assert.CatchAsync(() =>
+            button.WaitForAsync(
+                new LocatorWaitForOptions { State = WaitForState.Attached, Timeout = TimeSpan.FromSeconds(1) }
+            )
+        );
         // Upstream only expects the error to be defined; the port's message names the missing frame.
         Assert.That(error!.Message, Does.Contain("no frame matches iframe1"));
     }
@@ -188,21 +210,27 @@ public sealed class LocatorFrameTests : PlaywrightTest
     [Test]
     public async Task Should_treat_elements_inside_hidden_iframe_as_hidden()
     {
-        await Browser.GotoAsync(Content("""
-            <iframe name="hidden" style="visibility: hidden" srcdoc="<button>Hidden</button>"></iframe>
-            <div style="visibility: hidden">
-              <iframe name="hidden-parent" srcdoc="<button>Hidden parent</button>"></iframe>
-              <iframe name="visible-override" style="visibility: visible" srcdoc="<button>Visible override</button>"></iframe>
-            </div>
-            <iframe name="outer" style="visibility: hidden" srcdoc="<iframe name='inner' srcdoc='<button>Nested</button>'></iframe>"></iframe>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <iframe name="hidden" style="visibility: hidden" srcdoc="<button>Hidden</button>"></iframe>
+                <div style="visibility: hidden">
+                  <iframe name="hidden-parent" srcdoc="<button>Hidden parent</button>"></iframe>
+                  <iframe name="visible-override" style="visibility: visible" srcdoc="<button>Visible override</button>"></iframe>
+                </div>
+                <iframe name="outer" style="visibility: hidden" srcdoc="<iframe name='inner' srcdoc='<button>Nested</button>'></iframe>"></iframe>
+                """
+            )
+        );
 
-        foreach (var button in new[]
-        {
-            Browser.FrameLocator("[name=hidden]").Locator("button"),
-            Browser.FrameLocator("[name=hidden-parent]").Locator("button"),
-            Browser.FrameLocator("[name=outer]").FrameLocator("[name=inner]").Locator("button"),
-        })
+        foreach (
+            var button in new[]
+            {
+                Browser.FrameLocator("[name=hidden]").Locator("button"),
+                Browser.FrameLocator("[name=hidden-parent]").Locator("button"),
+                Browser.FrameLocator("[name=outer]").FrameLocator("[name=inner]").Locator("button"),
+            }
+        )
         {
             await Expect.That(button).ToBeAttachedAsync();
             Assert.That(await button.IsVisibleAsync(), Is.False);
@@ -221,19 +249,31 @@ public sealed class LocatorFrameTests : PlaywrightTest
     [Test]
     public async Task Should_wait_for_hidden_iframe_to_become_visible()
     {
-        await Browser.GotoAsync(Content("""<iframe name="frame" style="visibility: hidden" srcdoc="<button onclick='window.__clicked = true'>Button</button>"></iframe>"""));
+        await Browser.GotoAsync(
+            Content(
+                """<iframe name="frame" style="visibility: hidden" srcdoc="<button onclick='window.__clicked = true'>Button</button>"></iframe>"""
+            )
+        );
         var button = Browser.FrameLocator("[name=frame]").Locator("button");
         await Expect.That(button).ToBeHiddenAsync();
 
         var error = await Record(() => button.TapAsync(new ActionOptions { Timeout = TimeSpan.FromSeconds(1) }));
         Assert.That(error, Is.Not.Null);
-        Assert.That(await Browser.EvaluateAsync<bool>("() => document.querySelector('iframe').contentWindow.__clicked === true"), Is.False);
+        Assert.That(
+            await Browser.EvaluateAsync<bool>(
+                "() => document.querySelector('iframe').contentWindow.__clicked === true"
+            ),
+            Is.False
+        );
 
         var clickPromise = button.TapAsync();
         var visiblePromise = Expect.That(button).ToBeVisibleAsync();
         await Browser.EvaluateAsync<object>("() => { document.querySelector('iframe').style.visibility = 'visible'; }");
         await Task.WhenAll(clickPromise, visiblePromise);
-        Assert.That(await Browser.EvaluateAsync<bool>("() => document.querySelector('iframe').contentWindow.__clicked"), Is.True);
+        Assert.That(
+            await Browser.EvaluateAsync<bool>("() => document.querySelector('iframe').contentWindow.__clicked"),
+            Is.True
+        );
 
         await Browser.EvaluateAsync<object>("() => { document.querySelector('iframe').style.visibility = 'hidden'; }");
         await Expect.That(button).ToBeHiddenAsync();
@@ -249,7 +289,9 @@ public sealed class LocatorFrameTests : PlaywrightTest
         }
 
         await Browser.GotoAsync("/empty.html");
-        await Browser.GotoAsync(Content($"""<iframe style="visibility: hidden" src="{CROSS}/frames/frame.html"></iframe>"""));
+        await Browser.GotoAsync(
+            Content($"""<iframe style="visibility: hidden" src="{CROSS}/frames/frame.html"></iframe>""")
+        );
         var div = Browser.FrameLocator("iframe").Locator("div");
         await Expect.That(div).ToHaveTextAsync("Hi, I'm frame");
         Assert.That(await div.IsVisibleAsync(), Is.False);

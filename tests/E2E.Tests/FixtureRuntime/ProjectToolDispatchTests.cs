@@ -25,16 +25,28 @@ public sealed class ProjectToolDispatchTests
     {
         var started = 0;
         var turns = 0;
-        var model = new ScriptedModel(_ => turns++ == 0
-            ? new ModelResponse
-            {
-                ToolCalls =
-                [
-                    new ModelToolCall { Id = "call_1", Name = "mutate", Arguments = System.Text.Json.JsonSerializer.SerializeToElement(new { }) },
-                    new ModelToolCall { Id = "call_2", Name = "mutate", Arguments = System.Text.Json.JsonSerializer.SerializeToElement(new { }) },
-                ],
-            }
-            : ModelResponses.Done("passed", "finished"));
+        var model = new ScriptedModel(_ =>
+            turns++ == 0
+                ? new ModelResponse
+                {
+                    ToolCalls =
+                    [
+                        new ModelToolCall
+                        {
+                            Id = "call_1",
+                            Name = "mutate",
+                            Arguments = System.Text.Json.JsonSerializer.SerializeToElement(new { }),
+                        },
+                        new ModelToolCall
+                        {
+                            Id = "call_2",
+                            Name = "mutate",
+                            Arguments = System.Text.Json.JsonSerializer.SerializeToElement(new { }),
+                        },
+                    ],
+                }
+                : ModelResponses.Done("passed", "finished")
+        );
         var tools = new Dictionary<string, AgentTool>
         {
             ["mutate"] = new AgentTool("changes the app", EmptySchema, true, async (_, _) =>
@@ -53,7 +65,8 @@ public sealed class ProjectToolDispatchTests
             },
             CounterPage.World(),
             model,
-            agentTools: tools);
+            agentTools: tools
+        );
 
         Assert.Equal("STEP_BUDGET_EXHAUSTED", Assert.IsType<AgentException>(result.Error).Code);
         Assert.Equal(1, started);
@@ -90,7 +103,8 @@ public sealed class ProjectToolDispatchTests
                 act = await ctx.Agent.ActAsync("sequence");
             },
             world,
-            executor: executor);
+            executor: executor
+        );
 
         Assert.Null(result.Error);
         Assert.Equal(["start", "end", "tap"], order);
@@ -103,7 +117,9 @@ public sealed class ProjectToolDispatchTests
         string? path = null;
         string? withheld = null;
         var turns = 0;
-        var model = new ScriptedModel(_ => turns++ == 0 ? ModelResponses.Call("inspect", new { }) : ModelResponses.Done("passed", "looked"));
+        var model = new ScriptedModel(_ =>
+            turns++ == 0 ? ModelResponses.Call("inspect", new { }) : ModelResponses.Done("passed", "looked")
+        );
         var tools = new Dictionary<string, AgentTool>
         {
             ["inspect"] = new AgentTool("looks at the screen", EmptySchema, false, async (_, context, _) =>
@@ -123,7 +139,8 @@ public sealed class ProjectToolDispatchTests
             },
             new DocumentWorld().Map("/settings/general", page => page.Paragraph("General")),
             model,
-            agentTools: tools);
+            agentTools: tools
+        );
 
         Assert.Null(result.Error);
         Assert.Equal("/settings/general", path);
@@ -137,9 +154,17 @@ public sealed class ProjectToolDispatchTests
 
         public int Calls => Volatile.Read(ref _calls);
 
-        public (SemanticNode Node, IReadOnlyList<string> Properties, OperationContext Context)? Last { get; private set; }
+        public (SemanticNode Node, IReadOnlyList<string> Properties, OperationContext Context)? Last
+        {
+            get;
+            private set;
+        }
 
-        public Task<IReadOnlyDictionary<string, string>> Read(SemanticNode node, IReadOnlyList<string> properties, OperationContext context)
+        public Task<IReadOnlyDictionary<string, string>> Read(
+            SemanticNode node,
+            IReadOnlyList<string> properties,
+            OperationContext context
+        )
         {
             Interlocked.Increment(ref _calls);
             Last = (node, properties, context);
@@ -147,17 +172,24 @@ public sealed class ProjectToolDispatchTests
         }
     }
 
-    private static Task<E2ESession> StartStyleSessionAsync(StyleEngine engine, IStepExecutor? executor = null, IAgentModel? model = null, IReadOnlyDictionary<string, AgentTool>? tools = null) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            AgentExecutor = executor,
-            Model = model,
-            AgentTools = tools,
-            BaseUrl = "https://style.test",
-            TestTitle = "style",
-            CacheEnabled = false,
-        });
+    private static Task<E2ESession> StartStyleSessionAsync(
+        StyleEngine engine,
+        IStepExecutor? executor = null,
+        IAgentModel? model = null,
+        IReadOnlyDictionary<string, AgentTool>? tools = null
+    ) =>
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                AgentExecutor = executor,
+                Model = model,
+                AgentTools = tools,
+                BaseUrl = "https://style.test",
+                TestTitle = "style",
+                CacheEnabled = false,
+            }
+        );
 
     private static ExecutorReadOptions Style(params string[] properties) => new() { Style = properties };
 
@@ -165,10 +197,19 @@ public sealed class ProjectToolDispatchTests
     public async Task Reads_only_requested_style_values_redacts_secrets_and_uses_no_action_slot()
     {
         const string sentinel = "style-secret-2718";
-        var reads = new StyleReads(() => new Dictionary<string, string> { ["color"] = sentinel, ["opacity"] = "0.5", ["content"] = sentinel });
+        var reads = new StyleReads(() =>
+            new Dictionary<string, string>
+            {
+                ["color"] = sentinel,
+                ["opacity"] = "0.5",
+                ["content"] = sentinel,
+            }
+        );
         ExecutorReadResult? result = null;
         var turns = 0;
-        var model = new ScriptedModel(_ => turns++ == 0 ? ModelResponses.Call("inspect", new { }) : ModelResponses.Done("passed", "looked"));
+        var model = new ScriptedModel(_ =>
+            turns++ == 0 ? ModelResponses.Call("inspect", new { }) : ModelResponses.Done("passed", "looked")
+        );
         var tools = new Dictionary<string, AgentTool>
         {
             ["inspect"] = new AgentTool("looks at the screen", EmptySchema, false, async (_, context, token) =>
@@ -178,13 +219,20 @@ public sealed class ProjectToolDispatchTests
                 return "inspected";
             }),
         };
-        await using var session = await StartStyleSessionAsync(new StyleEngine { ReadStyle = reads.Read }, model: model, tools: tools);
+        await using var session = await StartStyleSessionAsync(
+            new StyleEngine { ReadStyle = reads.Read },
+            model: model,
+            tools: tools
+        );
         session.Register("member.password", sentinel);
 
         await session.Agent.ActAsync("inspect");
 
         session.Complete();
-        Assert.Equal(new Dictionary<string, string> { ["color"] = "<secret:member.password>", ["opacity"] = "0.5" }, result!.Style);
+        Assert.Equal(
+            new Dictionary<string, string> { ["color"] = "<secret:member.password>", ["opacity"] = "0.5" },
+            result!.Style
+        );
         Assert.Equal(1, reads.Calls);
         var (node, properties, context) = reads.Last!.Value;
         Assert.Equal("message", node.Ref);
@@ -193,8 +241,15 @@ public sealed class ProjectToolDispatchTests
         var step = Assert.Single(session.Steps(), candidate => candidate.Api == "agent.act");
         Assert.Equal(0, step.Metrics!.ActionSteps);
         var read = Assert.Single(step.Events, entry => entry.Name == "readStyle");
-        Assert.Equal((E2E.Reports.StepEventKind.Observation, E2E.Reports.StepEventStatus.Passed, "style: color, opacity"), (read.Kind, read.Status, read.Detail));
-        Assert.DoesNotContain(sentinel, System.Text.Json.JsonSerializer.Serialize(session.Steps()), StringComparison.Ordinal);
+        Assert.Equal(
+            (E2E.Reports.StepEventKind.Observation, E2E.Reports.StepEventStatus.Passed, "style: color, opacity"),
+            (read.Kind, read.Status, read.Detail)
+        );
+        Assert.DoesNotContain(
+            sentinel,
+            System.Text.Json.JsonSerializer.Serialize(session.Steps()),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -203,7 +258,9 @@ public sealed class ProjectToolDispatchTests
         var reads = new StyleReads();
         Exception? failure = null;
         var turns = 0;
-        var model = new ScriptedModel(_ => turns++ == 0 ? ModelResponses.Call("inspect", new { }) : ModelResponses.Done("passed", "denied"));
+        var model = new ScriptedModel(_ =>
+            turns++ == 0 ? ModelResponses.Call("inspect", new { }) : ModelResponses.Done("passed", "denied")
+        );
         var tools = new Dictionary<string, AgentTool>
         {
             ["inspect"] = new AgentTool("changes the app", EmptySchema, true, async (_, context, token) =>
@@ -220,7 +277,11 @@ public sealed class ProjectToolDispatchTests
                 return "done";
             }),
         };
-        await using var session = await StartStyleSessionAsync(new StyleEngine { ReadStyle = reads.Read }, model: model, tools: tools);
+        await using var session = await StartStyleSessionAsync(
+            new StyleEngine { ReadStyle = reads.Read },
+            model: model,
+            tools: tools
+        );
 
         await session.Agent.ActAsync("inspect");
 
@@ -236,7 +297,15 @@ public sealed class ProjectToolDispatchTests
         var failures = new List<Exception>();
         var engine = new StyleEngine
         {
-            Nodes = generation => [new SemanticNode { Ref = "message-" + generation, Role = "status", Text = "Error" }],
+            Nodes = generation =>
+                [
+                    new SemanticNode
+                    {
+                        Ref = "message-" + generation,
+                        Role = "status",
+                        Text = "Error",
+                    },
+                ],
             ReadStyle = reads.Read,
         };
         var executor = new TestExecutor("test", async (context, _) =>
@@ -274,7 +343,10 @@ public sealed class ProjectToolDispatchTests
         await session.Agent.ActAsync("inspect");
 
         session.Complete();
-        Assert.Equal(["LOCATOR_NOT_FOUND", "LOCATOR_NOT_FOUND"], failures.Select(failure => Assert.IsType<E2EException>(failure, exactMatch: false).Code));
+        Assert.Equal(
+            ["LOCATOR_NOT_FOUND", "LOCATOR_NOT_FOUND"],
+            failures.Select(failure => Assert.IsType<E2EException>(failure, exactMatch: false).Code)
+        );
         Assert.Equal(1, reads.Calls);
     }
 
@@ -349,7 +421,9 @@ public sealed class ProjectToolDispatchTests
         });
         await using var session = await StartStyleSessionAsync(engine, executor);
 
-        var act = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("read within the deadline", new ActOptions { Timeout = timeout }));
+        var act = await Assert.ThrowsAsync<AgentException>(() =>
+            session.Agent.ActAsync("read within the deadline", new ActOptions { Timeout = timeout })
+        );
 
         Assert.Equal("STEP_TIMEOUT", act.Code);
         Assert.Equal("STEP_TIMEOUT", Assert.IsType<AgentException>(failure).Code);
@@ -357,7 +431,9 @@ public sealed class ProjectToolDispatchTests
         Assert.Equal(expires == "before" ? 0 : 1, reads.Calls);
         if (expires == "after")
         {
-            var read = Assert.Single(session.Steps().Single(step => step.Api == "agent.act").Events, entry => entry.Name == "readStyle");
+            var read = Assert.Single(session.Steps().Single(step => step.Api == "agent.act").Events, entry =>
+                entry.Name == "readStyle"
+            );
             Assert.Equal((E2E.Reports.StepEventStatus.Failed, "STEP_TIMEOUT"), (read.Status, read.Code));
         }
 
@@ -367,9 +443,21 @@ public sealed class ProjectToolDispatchTests
     [Theory]
     [InlineData("operation timeout near the deadline", 50, "OPERATION_TIMEOUT", "STEP_TIMEOUT", "STEP_TIMEOUT")]
     [InlineData("stale node after the deadline", -50, "NODE_STALE", "STEP_TIMEOUT", "STEP_TIMEOUT")]
-    [InlineData("operation timeout with time remaining", 1_000, "OPERATION_TIMEOUT", "ACTION_FAILED", "OPERATION_TIMEOUT")]
+    [InlineData(
+        "operation timeout with time remaining",
+        1_000,
+        "OPERATION_TIMEOUT",
+        "ACTION_FAILED",
+        "OPERATION_TIMEOUT"
+    )]
     [InlineData("stale node with time remaining", 1_000, "NODE_STALE", "LOCATOR_NOT_FOUND", "LOCATOR_NOT_FOUND")]
-    public async Task Accounts_for_a_rejected_style_read(string label, int remainingMs, string code, string expected, string eventCode)
+    public async Task Accounts_for_a_rejected_style_read(
+        string label,
+        int remainingMs,
+        string code,
+        string expected,
+        string eventCode
+    )
     {
         _ = label;
         var rejectsAt = DateTimeOffset.MinValue;
@@ -404,7 +492,10 @@ public sealed class ProjectToolDispatchTests
             return Passed("caught the read failure");
         });
         await using var session = await StartStyleSessionAsync(engine, executor);
-        var act = session.Agent.ActAsync("handle a rejected style read", new ActOptions { Timeout = TimeSpan.FromMilliseconds(1_500) });
+        var act = session.Agent.ActAsync(
+            "handle a rejected style read",
+            new ActOptions { Timeout = TimeSpan.FromMilliseconds(1_500) }
+        );
 
         Exception? thrown = null;
         try
@@ -418,7 +509,9 @@ public sealed class ProjectToolDispatchTests
 
         Assert.Equal(expected == "STEP_TIMEOUT", thrown is AgentException { Code: "STEP_TIMEOUT" });
         Assert.Equal(expected, Assert.IsType<AgentException>(failure).Code);
-        var read = Assert.Single(session.Steps().Single(step => step.Api == "agent.act").Events, entry => entry.Name == "readStyle");
+        var read = Assert.Single(session.Steps().Single(step => step.Api == "agent.act").Events, entry =>
+            entry.Name == "readStyle"
+        );
         Assert.Equal((E2E.Reports.StepEventStatus.Failed, eventCode), (read.Status, read.Code));
         session.Complete(thrown);
     }
@@ -450,7 +543,9 @@ public sealed class ProjectToolDispatchTests
         var unreachable = Assert.IsType<AgentException>(failure);
         Assert.Equal("APP_UNREACHABLE", unreachable.Code);
         Assert.Contains("returned no string for \"color\"", unreachable.Message, StringComparison.Ordinal);
-        var read = Assert.Single(session.Steps().Single(step => step.Api == "agent.act").Events, entry => entry.Name == "readStyle");
+        var read = Assert.Single(session.Steps().Single(step => step.Api == "agent.act").Events, entry =>
+            entry.Name == "readStyle"
+        );
         Assert.Equal((E2E.Reports.StepEventStatus.Failed, "ENGINE_FAILURE"), (read.Status, read.Code));
     }
 
@@ -496,13 +591,15 @@ public sealed class ProjectToolDispatchTests
             measured.Add((await context.ObserveAsync()).KeyboardVisible);
             return Passed("looked");
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            AgentExecutor = executor,
-            BaseUrl = "https://counter.test",
-            TestTitle = "keyboard",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                AgentExecutor = executor,
+                BaseUrl = "https://counter.test",
+                TestTitle = "keyboard",
+            }
+        );
         await session.App.OpenAsync("/");
 
         foreach (var state in new bool?[] { null, true, false })
@@ -521,7 +618,13 @@ public sealed class ProjectToolDispatchTests
         var directory = Path.Combine(Path.GetTempPath(), "e2e-start-view", Guid.NewGuid().ToString("n"));
         ExecutorObservation? start = null;
         ExecutorObservation? observed = null;
-        var engine = new KeyboardEngine(new DocumentEngine(new DocumentWorld().Map("/settings/general", page => page.Paragraph("General")))) { Reported = true, Truncated = true };
+        var engine = new KeyboardEngine(
+            new DocumentEngine(new DocumentWorld().Map("/settings/general", page => page.Paragraph("General")))
+        )
+        {
+            Reported = true,
+            Truncated = true,
+        };
         var executor = new TestExecutor("test", async (context, _) =>
         {
             start = context.Start;
@@ -530,16 +633,18 @@ public sealed class ProjectToolDispatchTests
         });
         try
         {
-            await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-            {
-                Engine = engine,
-                AgentExecutor = executor,
-                BaseUrl = "https://settings.test",
-                Cache = new FileStepCache(directory),
-                CacheEnabled = true,
-                CacheMode = CacheMode.ReadWrite,
-                TestTitle = "start view",
-            });
+            await using var session = await E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = engine,
+                    AgentExecutor = executor,
+                    BaseUrl = "https://settings.test",
+                    Cache = new FileStepCache(directory),
+                    CacheEnabled = true,
+                    CacheMode = CacheMode.ReadWrite,
+                    TestTitle = "start view",
+                }
+            );
             await session.App.OpenAsync("/settings/general");
 
             await session.Agent.ActAsync("look");
@@ -584,7 +689,8 @@ public sealed class ProjectToolDispatchTests
         {
             public string Route => session.Route;
 
-            public Task OpenAsync(string url, CancellationToken cancellationToken) => session.OpenAsync(url, cancellationToken);
+            public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+                session.OpenAsync(url, cancellationToken);
 
             public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
             {
@@ -598,17 +704,21 @@ public sealed class ProjectToolDispatchTests
                 };
             }
 
-            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => session.PerformAsync(node, action, cancellationToken);
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+                session.PerformAsync(node, action, cancellationToken);
 
-            public Task PressAsync(string key, CancellationToken cancellationToken) => session.PressAsync(key, cancellationToken);
+            public Task PressAsync(string key, CancellationToken cancellationToken) =>
+                session.PressAsync(key, cancellationToken);
 
-            public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => session.SwipeAsync(direction, cancellationToken);
+            public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
+                session.SwipeAsync(direction, cancellationToken);
 
             public Task BackAsync(CancellationToken cancellationToken) => session.BackAsync(cancellationToken);
 
             public Task RestartAsync(CancellationToken cancellationToken) => session.RestartAsync(cancellationToken);
 
-            public Task ClearStateAsync(CancellationToken cancellationToken) => session.ClearStateAsync(cancellationToken);
+            public Task ClearStateAsync(CancellationToken cancellationToken) =>
+                session.ClearStateAsync(cancellationToken);
 
             public ValueTask DisposeAsync() => session.DisposeAsync();
         }

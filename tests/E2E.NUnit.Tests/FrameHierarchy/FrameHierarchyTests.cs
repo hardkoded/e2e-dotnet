@@ -22,8 +22,12 @@ public sealed class FrameHierarchyTests : PlaywrightTest
     {
         await Browser.GotoAsync("/frames/nested-frames.html");
         await Expect.That(Browser.FrameLocator("[name=aframe]").Locator("div")).ToHaveTextAsync("Hi, I'm frame");
-        await Expect.That(Browser.FrameLocator("[name=\"2frames\"]").FrameLocator("[name=dos]").Locator("div")).ToHaveTextAsync("Hi, I'm frame");
-        await Expect.That(Browser.FrameLocator("[name=\"2frames\"]").FrameLocator("[name=uno]").Locator("div")).ToHaveTextAsync("Hi, I'm frame");
+        await Expect
+            .That(Browser.FrameLocator("[name=\"2frames\"]").FrameLocator("[name=dos]").Locator("div"))
+            .ToHaveTextAsync("Hi, I'm frame");
+        await Expect
+            .That(Browser.FrameLocator("[name=\"2frames\"]").FrameLocator("[name=uno]").Locator("div"))
+            .ToHaveTextAsync("Hi, I'm frame");
         await Expect.That(Browser.FrameLocator("[name=\"2frames\"]").Locator("iframe")).ToHaveCountAsync(2);
         await Expect.That(Browser.Locator("iframe")).ToHaveCountAsync(2);
     }
@@ -40,14 +44,17 @@ public sealed class FrameHierarchyTests : PlaywrightTest
     public async Task Partial_Should_report_frame_from_inside_shadow_DOM()
     {
         await Browser.GotoAsync("/shadow.html");
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             async (url) => {
               const frame = document.createElement('iframe');
               frame.src = url;
               document.body.shadowRoot.appendChild(frame);
               await new Promise((x) => (frame.onload = x));
             }
-            """, $"{PREFIX}/empty.html");
+            """,
+            $"{PREFIX}/empty.html"
+        );
         await Expect.That(Browser.Locator("iframe")).ToHaveCountAsync(1);
         await Expect.That(Browser.FrameLocator("iframe").Locator("body")).ToHaveCountAsync(1);
     }

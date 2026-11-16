@@ -14,7 +14,8 @@ public sealed class SmokeTests : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -25,7 +26,9 @@ public sealed class SmokeTests : E2ETest
     {
         await App.OpenAsync();
         await Expect.That(Browser).ToHaveTitleAsync("Playground");
-        await Expect.That(Screen.GetByRole("heading", new RoleOptions { Name = "Playground", Level = 1 })).ToBeVisibleAsync();
+        await Expect
+            .That(Screen.GetByRole("heading", new RoleOptions { Name = "Playground", Level = 1 }))
+            .ToBeVisibleAsync();
         await Expect.That(Screen.GetByRole("heading", new RoleOptions { Level = 2 })).ToHaveCountAsync(0);
 
         await Screen.GetByRole("link", "Todos").TapAsync();

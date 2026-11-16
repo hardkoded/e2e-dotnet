@@ -29,14 +29,21 @@ public static class MobileTargetEngine
         return Create(target, Environment.GetEnvironmentVariable, hostedProvider);
     }
 
-    internal static MobileEngine Create(TargetConfig target, Func<string, string?> environment, Func<string, IDeviceProvider>? hostedProvider)
+    internal static MobileEngine Create(
+        TargetConfig target,
+        Func<string, string?> environment,
+        Func<string, IDeviceProvider>? hostedProvider
+    )
     {
         ArgumentNullException.ThrowIfNull(target);
         var platform = target.Platform switch
         {
             "ios" => MobilePlatform.Ios,
             "android" => MobilePlatform.Android,
-            _ => throw new ConfigurationException("INVALID_CONFIG", $"target \"{target.Name}\" has platform {target.Platform}, not a device platform (ios or android)"),
+            _ => throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"target \"{target.Name}\" has platform {target.Platform}, not a device platform (ios or android)"
+            ),
         };
         var app = new MobileApp
         {
@@ -47,22 +54,30 @@ public static class MobileTargetEngine
         };
         MobileEngine.ValidateApp(app, target.App.Url, target.Name, platform);
         IDeviceProvider? provider = null;
-        if (environment("E2E_MOBILE_PROVIDER") is { Length: > 0 } name && !string.Equals(name, "local", StringComparison.OrdinalIgnoreCase))
+        if (
+            environment("E2E_MOBILE_PROVIDER") is { Length: > 0 } name
+            && !string.Equals(name, "local", StringComparison.OrdinalIgnoreCase)
+        )
         {
             provider = hostedProvider is null
-                ? throw new ConfigurationException("INVALID_CONFIG", $"E2E_MOBILE_PROVIDER={name} asks for a hosted device, and this host has no hosted device provider; unset it to drive a local simulator or emulator")
+                ? throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"E2E_MOBILE_PROVIDER={name} asks for a hosted device, and this host has no hosted device provider; unset it to drive a local simulator or emulator"
+                )
                 : hostedProvider(name.ToLowerInvariant());
         }
 
         // The provider leases the device, so a named local one would be a second choice.
-        return new MobileEngine(new MobileOptions
-        {
-            Platform = platform,
-            Device = provider is null && environment("E2E_MOBILE_DEVICE") is { Length: > 0 } device ? device : null,
-            Provider = provider,
-            TargetName = target.Name,
-            App = app,
-        });
+        return new MobileEngine(
+            new MobileOptions
+            {
+                Platform = platform,
+                Device = provider is null && environment("E2E_MOBILE_DEVICE") is { Length: > 0 } device ? device : null,
+                Provider = provider,
+                TargetName = target.Name,
+                App = app,
+            }
+        );
     }
 
     /// <summary>
@@ -70,14 +85,18 @@ public static class MobileTargetEngine
     /// is <c>INVALID_CONFIG</c>, with the nearest one (upstream's <c>assertPermissions</c>, which the mobile engine's <c>validateApp</c> runs).
     /// </summary>
     /// <exception cref="ConfigurationException"><c>INVALID_CONFIG</c>: a permission name the device does not know.</exception>
-    public static Dictionary<DevicePermission, PermissionState>? DevicePermissionsOf(string targetName, IReadOnlyDictionary<string, AppPermissionState>? permissions)
+    public static Dictionary<DevicePermission, PermissionState>? DevicePermissionsOf(
+        string targetName,
+        IReadOnlyDictionary<string, AppPermissionState>? permissions
+    )
     {
         if (permissions is null)
         {
             return null;
         }
 
-        var known = Enum.GetValues<DevicePermission>().ToDictionary(permission => permission.WireName(), StringComparer.Ordinal);
+        var known = Enum.GetValues<DevicePermission>()
+            .ToDictionary(permission => permission.WireName(), StringComparer.Ordinal);
         var names = known.Keys.ToList();
         var resolved = new Dictionary<DevicePermission, PermissionState>();
         foreach (var (name, state) in permissions)
@@ -87,7 +106,9 @@ public static class MobileTargetEngine
                 var hint = Suggestions.DidYouMean(name, names);
                 throw new ConfigurationException(
                     "INVALID_CONFIG",
-                    $"target \"{targetName}\" app.permissions has unknown key \"{name}\"" + (hint.Length == 0 ? "; expected one of " + string.Join(", ", names) : hint));
+                    $"target \"{targetName}\" app.permissions has unknown key \"{name}\""
+                        + (hint.Length == 0 ? "; expected one of " + string.Join(", ", names) : hint)
+                );
             }
 
             resolved[permission] = state switch

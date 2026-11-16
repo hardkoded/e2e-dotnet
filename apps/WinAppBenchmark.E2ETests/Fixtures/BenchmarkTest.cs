@@ -20,8 +20,14 @@ public abstract class BenchmarkTest : WinAppTest
     [OneTimeSetUp]
     public void DeclareTheBenchmarkAccount()
     {
-        Environment.SetEnvironmentVariable("E2E_USER_BENCHMARK_USERNAME", Environment.GetEnvironmentVariable("E2E_USER_BENCHMARK_USERNAME") ?? "tester@tester.army");
-        Environment.SetEnvironmentVariable("E2E_USER_BENCHMARK_PASSWORD", Environment.GetEnvironmentVariable("E2E_USER_BENCHMARK_PASSWORD") ?? "benchmark123");
+        Environment.SetEnvironmentVariable(
+            "E2E_USER_BENCHMARK_USERNAME",
+            Environment.GetEnvironmentVariable("E2E_USER_BENCHMARK_USERNAME") ?? "tester@tester.army"
+        );
+        Environment.SetEnvironmentVariable(
+            "E2E_USER_BENCHMARK_PASSWORD",
+            Environment.GetEnvironmentVariable("E2E_USER_BENCHMARK_PASSWORD") ?? "benchmark123"
+        );
     }
 
     /// <summary>

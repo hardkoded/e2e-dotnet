@@ -26,19 +26,23 @@ public sealed class ReadExploreChangeInterruptedWhileReadingTheBriefTests
             GitRepo.CommitFiles(dir, new Dictionary<string, string> { ["a.txt"] = "a\n" }, "add");
             using var interrupt = new CancellationTokenSource();
 
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ExploreChanges.ReadExploreChangeAsync(new ReadExploreChangeOptions
-            {
-                Cwd = dir,
-                ChangedSince = "base",
-                CancellationToken = interrupt.Token,
-                Redact = text => text,
-                FindChanges = async options =>
-                {
-                    var changes = await E2E.Changes.FindChangesAsync(options);
-                    await interrupt.CancelAsync();
-                    return changes;
-                },
-            }));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                ExploreChanges.ReadExploreChangeAsync(
+                    new ReadExploreChangeOptions
+                    {
+                        Cwd = dir,
+                        ChangedSince = "base",
+                        CancellationToken = interrupt.Token,
+                        Redact = text => text,
+                        FindChanges = async options =>
+                        {
+                            var changes = await E2E.Changes.FindChangesAsync(options);
+                            await interrupt.CancelAsync();
+                            return changes;
+                        },
+                    }
+                )
+            );
         }
         finally
         {

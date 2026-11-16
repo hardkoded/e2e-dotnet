@@ -38,8 +38,10 @@ internal static class ConfigSecrets
     /// The credential a <c>Secrets.Get(name)</c> that names no <c>secrets</c> entry most likely meant: the one named <paramref name="name"/>,
     /// or the one whose password <paramref name="name"/> is (upstream's <c>credentialNamed</c>). The config load and a running test both name it in their error.
     /// </summary>
-    public static ResolvedCredential? CredentialNamed(string name, IReadOnlyDictionary<string, ResolvedCredential> credentials) =>
-        credentials.Values.FirstOrDefault(credential => credential.Name == name || credential.Password.Name == name);
+    public static ResolvedCredential? CredentialNamed(
+        string name,
+        IReadOnlyDictionary<string, ResolvedCredential> credentials
+    ) => credentials.Values.FirstOrDefault(credential => credential.Name == name || credential.Password.Name == name);
 
     /// <summary>
     /// The name of a credential's password handle: <c>admin.password</c> (upstream's <c>credentialSecretName</c>). Credentials and secrets

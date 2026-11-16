@@ -55,8 +55,15 @@ public sealed class DispatchPointerActionTests
 
             var before = (await LogAsync(session)).Length;
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            await session.PerformAtAsync(new Point(10, 20), new PointerAction.LongPress(TimeSpan.FromMilliseconds(700)), CancellationToken.None);
-            Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(650), "a long press holds the button for its duration");
+            await session.PerformAtAsync(
+                new Point(10, 20),
+                new PointerAction.LongPress(TimeSpan.FromMilliseconds(700)),
+                CancellationToken.None
+            );
+            Assert.True(
+                watch.Elapsed >= TimeSpan.FromMilliseconds(650),
+                "a long press holds the button for its duration"
+            );
             Assert.Equal("click 10,20", (await LogAsync(session))[before..].Last());
         });
     }
@@ -70,8 +77,15 @@ public sealed class DispatchPointerActionTests
             Assert.Contains("click 332,159", await LogAsync(session));
 
             var before = (await DragLogAsync(session)).Length;
-            await session.PerformAtAsync(new Point(10.4, 20.5), new PointerAction.SwipeTo(new Point(110.6, 20.5)), CancellationToken.None);
-            Assert.Equal(["move 10,21", "down", "move 61,21", "move 111,21", "up"], (await DragLogAsync(session))[before..]);
+            await session.PerformAtAsync(
+                new Point(10.4, 20.5),
+                new PointerAction.SwipeTo(new Point(110.6, 20.5)),
+                CancellationToken.None
+            );
+            Assert.Equal(
+                ["move 10,21", "down", "move 61,21", "move 111,21", "up"],
+                (await DragLogAsync(session))[before..]
+            );
         });
     }
 
@@ -80,7 +94,11 @@ public sealed class DispatchPointerActionTests
     {
         await RunAsync(Page, async session =>
         {
-            await session.PerformAtAsync(new Point(10, 20), new PointerAction.SwipeTo(new Point(110, 20)), CancellationToken.None);
+            await session.PerformAtAsync(
+                new Point(10, 20),
+                new PointerAction.SwipeTo(new Point(110, 20)),
+                CancellationToken.None
+            );
 
             Assert.Equal(["move 10,20", "down", "move 60,20", "move 110,20", "up"], await DragLogAsync(session));
         });
@@ -94,10 +112,17 @@ public sealed class DispatchPointerActionTests
         await RunAsync(Page, async session =>
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            await session.PerformAtAsync(new Point(10, 20), new PointerAction.SwipeTo(new Point(70, 20), TimeSpan.FromMilliseconds(48)), CancellationToken.None);
+            await session.PerformAtAsync(
+                new Point(10, 20),
+                new PointerAction.SwipeTo(new Point(70, 20), TimeSpan.FromMilliseconds(48)),
+                CancellationToken.None
+            );
 
             Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(40), "the drag is paced over its duration");
-            Assert.Equal(["move 10,20", "down", "move 30,20", "move 50,20", "move 70,20", "up"], await DragLogAsync(session));
+            Assert.Equal(
+                ["move 10,20", "down", "move 30,20", "move 50,20", "move 70,20", "up"],
+                await DragLogAsync(session)
+            );
         });
     }
 
@@ -107,20 +132,31 @@ public sealed class DispatchPointerActionTests
         // Partial: upstream aborts after the first paced move on a fake clock. The port aborts once the page sees the first move after the
         // button went down, with an action budget and a swipe duration of one hour so only the abort ends it, and reads that the drag did
         // not reach its end and the button is up.
-        await RunAsync(Page, async session =>
-        {
-            using var cancel = new CancellationTokenSource();
-            var swipe = session.PerformAtAsync(new Point(10, 20), new PointerAction.SwipeTo(new Point(1010, 20), TimeSpan.FromHours(1)), cancel.Token);
-            await WaitForMoveAfterDownAsync(session);
+        await RunAsync(
+            Page,
+            async session =>
+            {
+                using var cancel = new CancellationTokenSource();
+                var swipe = session.PerformAtAsync(
+                    new Point(10, 20),
+                    new PointerAction.SwipeTo(new Point(1010, 20), TimeSpan.FromHours(1)),
+                    cancel.Token
+                );
+                await WaitForMoveAfterDownAsync(session);
 
-            await cancel.CancelAsync();
-            Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)))).Code);
+                await cancel.CancelAsync();
+                Assert.Equal(
+                    "CANCELLED",
+                    (await Assert.ThrowsAsync<EngineException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)))).Code
+                );
 
-            await WaitForReleaseAsync(session);
-            var log = await DragLogAsync(session);
-            Assert.Equal("up", log[^1]);
-            Assert.DoesNotContain("move 1010,20", log);
-        }, TimeSpan.FromHours(1));
+                await WaitForReleaseAsync(session);
+                var log = await DragLogAsync(session);
+                Assert.Equal("up", log[^1]);
+                Assert.DoesNotContain("move 1010,20", log);
+            },
+            TimeSpan.FromHours(1)
+        );
     }
 
     [Fact]
@@ -132,7 +168,13 @@ public sealed class DispatchPointerActionTests
         {
             var context = new OperationContext(OperationOrigin.Test) { Timeout = TimeSpan.FromMilliseconds(800) };
             var failure = await Assert.ThrowsAsync<EngineException>(() =>
-                session.PerformAtAsync(new Point(10, 20), new PointerAction.SwipeTo(new Point(1010, 20), TimeSpan.FromHours(1)), context, CancellationToken.None));
+                session.PerformAtAsync(
+                    new Point(10, 20),
+                    new PointerAction.SwipeTo(new Point(1010, 20), TimeSpan.FromHours(1)),
+                    context,
+                    CancellationToken.None
+                )
+            );
             Assert.Equal(EngineErrorCodes.ActionMayHaveCommitted, failure.Code);
 
             var released = false;
@@ -159,21 +201,37 @@ public sealed class DispatchPointerActionTests
     public async Task Stops_dispatching_moves_when_aborted_while_the_drag_is_behind_its_schedule()
     {
         // Each move takes the page about 50 ms, so a 16 ms step is always late and no step waits. An abort must still end the drag.
-        const string SlowPage = Page + "<script>addEventListener('mousemove', () => { const end = performance.now() + 50; while (performance.now() < end); });</script>";
-        await RunAsync(SlowPage, async session =>
-        {
-            using var cancel = new CancellationTokenSource();
-            var swipe = session.PerformAtAsync(new Point(10, 20), new PointerAction.SwipeTo(new Point(1010, 20), TimeSpan.FromSeconds(10)), cancel.Token);
-            await WaitForMoveAfterDownAsync(session);
+        const string SlowPage =
+            Page
+            + "<script>addEventListener('mousemove', () => { const end = performance.now() + 50; while (performance.now() < end); });</script>";
+        await RunAsync(
+            SlowPage,
+            async session =>
+            {
+                using var cancel = new CancellationTokenSource();
+                var swipe = session.PerformAtAsync(
+                    new Point(10, 20),
+                    new PointerAction.SwipeTo(new Point(1010, 20), TimeSpan.FromSeconds(10)),
+                    cancel.Token
+                );
+                await WaitForMoveAfterDownAsync(session);
 
-            await cancel.CancelAsync();
-            Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)))).Code);
+                await cancel.CancelAsync();
+                Assert.Equal(
+                    "CANCELLED",
+                    (await Assert.ThrowsAsync<EngineException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)))).Code
+                );
 
-            await WaitForReleaseAsync(session);
-            var log = await DragLogAsync(session);
-            Assert.Equal("up", log[^1]);
-            Assert.True(log.Count(entry => entry.StartsWith("move ", StringComparison.Ordinal)) < 20, "the drag stopped soon after the abort");
-        }, TimeSpan.FromHours(1));
+                await WaitForReleaseAsync(session);
+                var log = await DragLogAsync(session);
+                Assert.Equal("up", log[^1]);
+                Assert.True(
+                    log.Count(entry => entry.StartsWith("move ", StringComparison.Ordinal)) < 20,
+                    "the drag stopped soon after the abort"
+                );
+            },
+            TimeSpan.FromHours(1)
+        );
     }
 
     /// <summary>
@@ -215,7 +273,11 @@ public sealed class DispatchPointerActionTests
         {
             var height = await EvaluateAsync<int>(session, "() => innerHeight");
 
-            await session.PerformAtAsync(new Point(10, 20), new PointerAction.Swipe(ScrollDirection.Down), CancellationToken.None);
+            await session.PerformAtAsync(
+                new Point(10, 20),
+                new PointerAction.Swipe(ScrollDirection.Down),
+                CancellationToken.None
+            );
 
             Assert.Equal(["move 10,20", $"wheel 0,{height / 2}"], await LogAsync(session));
         });
@@ -228,7 +290,11 @@ public sealed class DispatchPointerActionTests
         // time the swipe resolved, which the wheel's frame wait makes true.
         await RunAsync(Page, async session =>
         {
-            await session.PerformAtAsync(new Point(10, 20), new PointerAction.Swipe(ScrollDirection.Down), CancellationToken.None);
+            await session.PerformAtAsync(
+                new Point(10, 20),
+                new PointerAction.Swipe(ScrollDirection.Down),
+                CancellationToken.None
+            );
 
             Assert.True(await EvaluateAsync<double>(session, "() => scrollY") > 0);
         });

@@ -13,7 +13,10 @@ public sealed class WithHintTests
     public void Joins_a_clause_to_one_line_and_starts_a_new_line_after_a_paragraph()
     {
         Assert.Equal("nope; try this", TextRules.WithHint("nope", "try this"));
-        Assert.Equal("first line\nsecond line\ntry this", TextRules.WithHint("first line\nsecond line\n\n", "try this"));
+        Assert.Equal(
+            "first line\nsecond line\ntry this",
+            TextRules.WithHint("first line\nsecond line\n\n", "try this")
+        );
         Assert.Equal("nope", TextRules.WithHint("nope", ""));
     }
 }

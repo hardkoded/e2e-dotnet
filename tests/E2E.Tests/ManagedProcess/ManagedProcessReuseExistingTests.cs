@@ -14,14 +14,25 @@ public sealed class ManagedProcessReuseExistingTests : IDisposable
 
     /// <summary>A command that stays up like a server would.</summary>
     private static CommandConfig ServerApp(bool reuseExisting, TimeSpan? startupTimeout = null) =>
-        AppProgram.Command(["idle"], startupTimeout ?? TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2), reuseExisting: reuseExisting);
+        AppProgram.Command(
+            ["idle"],
+            startupTimeout ?? TimeSpan.FromSeconds(10),
+            TimeSpan.FromSeconds(2),
+            reuseExisting: reuseExisting
+        );
 
     [Fact]
     public async Task Attaches_to_an_app_already_answering_at_readyUrl_nothing_spawns_and_stop_leaves_it_running()
     {
         await using var running = TestServer.Answering();
         var notices = new List<string>();
-        var app = new ManagedProcessUnderTest("app.command", ServerApp(true), _dir, new Readiness(running.Url), new ManagedProcessHooks { Ci = false, Notice = notices.Add });
+        var app = new ManagedProcessUnderTest(
+            "app.command",
+            ServerApp(true),
+            _dir,
+            new Readiness(running.Url),
+            new ManagedProcessHooks { Ci = false, Notice = notices.Add }
+        );
         await app.StartAsync();
         Assert.False(app.Spawned);
         Assert.Equal([$"app.command: reusing the process already serving {running.Url}"], notices);
@@ -34,10 +45,19 @@ public sealed class ManagedProcessReuseExistingTests : IDisposable
     {
         await using var running = TestServer.Answering();
         var notices = new List<string>();
-        var app = new ManagedProcessUnderTest("app.command", ServerApp(true), _dir, new Readiness(running.Url), new ManagedProcessHooks { Ci = true, Notice = notices.Add });
+        var app = new ManagedProcessUnderTest(
+            "app.command",
+            ServerApp(true),
+            _dir,
+            new Readiness(running.Url),
+            new ManagedProcessHooks { Ci = true, Notice = notices.Add }
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Equal("APP_ALREADY_RUNNING", failure.Code);
-        Assert.Equal($"{running.Url} already answered before app.command started; stop that process (reuseExisting is ignored in CI)", failure.Message);
+        Assert.Equal(
+            $"{running.Url} already answered before app.command started; stop that process (reuseExisting is ignored in CI)",
+            failure.Message
+        );
         Assert.False(app.Spawned);
         Assert.Equal(["app.command: reuseExisting is ignored in CI, starting the command"], notices);
         await app.StopAsync();
@@ -49,10 +69,19 @@ public sealed class ManagedProcessReuseExistingTests : IDisposable
     {
         await using var running = TestServer.Answering();
         var notices = new List<string>();
-        var app = new ManagedProcessUnderTest("app.command", ServerApp(false), _dir, new Readiness(running.Url), new ManagedProcessHooks { Ci = false, Notice = notices.Add });
+        var app = new ManagedProcessUnderTest(
+            "app.command",
+            ServerApp(false),
+            _dir,
+            new Readiness(running.Url),
+            new ManagedProcessHooks { Ci = false, Notice = notices.Add }
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Equal("APP_ALREADY_RUNNING", failure.Code);
-        Assert.Equal($"{running.Url} already answered before app.command started; stop that process or set reuseExisting: true", failure.Message);
+        Assert.Equal(
+            $"{running.Url} already answered before app.command started; stop that process or set reuseExisting: true",
+            failure.Message
+        );
         Assert.False(app.Spawned);
         Assert.Empty(notices);
         await app.StopAsync();
@@ -69,7 +98,13 @@ public sealed class ManagedProcessReuseExistingTests : IDisposable
             Interlocked.Increment(ref probes);
             return Task.FromResult<int?>(null);
         });
-        var app = new ManagedProcessUnderTest("app.command", ServerApp(true, TimeSpan.FromMilliseconds(300)), _dir, new Readiness(server.Url), new ManagedProcessHooks { Ci = false });
+        var app = new ManagedProcessUnderTest(
+            "app.command",
+            ServerApp(true, TimeSpan.FromMilliseconds(300)),
+            _dir,
+            new Readiness(server.Url),
+            new ManagedProcessHooks { Ci = false }
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Equal("APP_UNREACHABLE", failure.Code);
         Assert.Contains("within 300 ms", failure.Message, StringComparison.Ordinal);

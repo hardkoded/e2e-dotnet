@@ -36,7 +36,8 @@ public sealed record CdpTarget
 internal static class BrowserConnection
 {
     /// <summary>What a failed connection with handshake headers says, in place of an error that may echo them.</summary>
-    internal const string CdpConnectionFailed = "CDP connection failed; check the endpoint, handshake headers, and connection timeout";
+    internal const string CdpConnectionFailed =
+        "CDP connection failed; check the endpoint, handshake headers, and connection timeout";
 
     /// <summary>Every browser Playwright installs, in the order the CLI lists them (upstream <c>BROWSER_NAMES</c>). The engine launches each of them.</summary>
     public static readonly IReadOnlyList<string> BrowserNames = ["chromium", "firefox", "webkit"];
@@ -73,7 +74,12 @@ internal static class BrowserConnection
     /// Attaches to a Chromium over CDP, failing once <paramref name="timeout"/> passes
     /// without an answer instead of holding the caller.
     /// </summary>
-    public static async Task<IBrowser> ConnectCdpAsync(IPlaywright playwright, CdpTarget target, TimeSpan timeout, CancellationToken cancellationToken)
+    public static async Task<IBrowser> ConnectCdpAsync(
+        IPlaywright playwright,
+        CdpTarget target,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    )
     {
         // Upstream registers its Playwright selector engines first; the port reads the page with its own script and registers none.
         cancellationToken.ThrowIfCancellationRequested();
@@ -90,7 +96,9 @@ internal static class BrowserConnection
         catch (Exception cause) when (target.Headers is not null && cause is not OperationCanceledException)
         {
             // Connection errors can echo credentials in altered forms, so retain only their type.
-            throw cause is TimeoutException ? new TimeoutException(CdpConnectionFailed) : new PlaywrightException(CdpConnectionFailed);
+            throw cause is TimeoutException
+                ? new TimeoutException(CdpConnectionFailed)
+                : new PlaywrightException(CdpConnectionFailed);
         }
     }
 
@@ -98,9 +106,17 @@ internal static class BrowserConnection
     /// Attaches to a Playwright server, or a grid that hosts one, with Playwright's own protocol, under the same bound as
     /// <see cref="ConnectCdpAsync"/>. .NET-only. The browser has no context yet: the caller opens its own.
     /// </summary>
-    public static Task<IBrowser> ConnectPlaywrightAsync(IPlaywright playwright, string endpoint, TimeSpan timeout, CancellationToken cancellationToken)
+    public static Task<IBrowser> ConnectPlaywrightAsync(
+        IPlaywright playwright,
+        string endpoint,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return playwright.Chromium.ConnectAsync(endpoint, new BrowserTypeConnectOptions { Timeout = (float)timeout.TotalMilliseconds });
+        return playwright.Chromium.ConnectAsync(
+            endpoint,
+            new BrowserTypeConnectOptions { Timeout = (float)timeout.TotalMilliseconds }
+        );
     }
 }

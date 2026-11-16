@@ -17,7 +17,12 @@ internal sealed record AgentCacheStrict(string Advice);
 /// Upstream's <c>AgentCacheContext</c> (<c>cache/context.ts</c>), as far as the port has it: the resolved store, and whether the attempt
 /// may replay. Upstream's <c>claimKey</c> and <c>staged</c> stay on <c>AttemptScope</c> and the step session.
 /// </summary>
-internal sealed record AgentCacheContext(CacheMode Mode, IStepCache Store, bool ReplayEligible, AgentCacheStrict? Strict);
+internal sealed record AgentCacheContext(
+    CacheMode Mode,
+    IStepCache Store,
+    bool ReplayEligible,
+    AgentCacheStrict? Strict
+);
 
 /// <summary>Upstream's <c>cache/context.ts</c>: the per-attempt cache context. .NET-only name: <c>Context</c> would collide with <c>E2ESession.Context</c>.</summary>
 internal static class CacheContexts
@@ -38,12 +43,18 @@ internal static class CacheContexts
 
         var strict = cache.Strict;
         var mode = strict ? CacheMode.ReadOnly : cache.Mode;
-        var store = cache.Store ?? new FileStepCache(cache.Directory, FileStepCache.MaxCacheWireBytes, mode == CacheMode.ReadWrite);
+        var store = cache.Store
+            ?? new FileStepCache(cache.Directory, FileStepCache.MaxCacheWireBytes, mode == CacheMode.ReadWrite);
         return new AgentCacheContext(
             mode,
             store,
             strict || attemptIndex == 0,
-            strict ? new AgentCacheStrict(StaleAdvice(cache, cache.StrictSource ?? new CacheStrictSource(true, false), projectRoot)) : null);
+            strict
+                ? new AgentCacheStrict(
+                    StaleAdvice(cache, cache.StrictSource ?? new CacheStrictSource(true, false), projectRoot)
+                )
+                : null
+        );
     }
 
     /// <summary>
@@ -52,7 +63,14 @@ internal static class CacheContexts
     /// </summary>
     private static string StaleAdvice(CacheConfig cache, CacheStrictSource source, string projectRoot)
     {
-        var off = string.Join(" and ", new[] { source.Flag ? "without --strict-cache" : null, source.Config ? "with cache.strict set to false" : null }.OfType<string>());
+        var off = string.Join(
+            " and ",
+            new[]
+            {
+                source.Flag ? "without --strict-cache" : null,
+                source.Config ? "with cache.strict set to false" : null,
+            }.OfType<string>()
+        );
         var run = "re-record it with a read-write run " + off;
         if (cache.Store is not null)
         {

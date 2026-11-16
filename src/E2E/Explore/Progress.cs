@@ -22,9 +22,7 @@ public sealed record OpenedStep(int Index, string Title, string Instruction);
 /// </summary>
 public abstract record ExploreProgress
 {
-    private protected ExploreProgress()
-    {
-    }
+    private protected ExploreProgress() { }
 
     /// <summary>The exploration begins: its test has started and the app is about to open.</summary>
     public sealed record Started(string Goal, ExploreBudgets Budgets) : ExploreProgress;

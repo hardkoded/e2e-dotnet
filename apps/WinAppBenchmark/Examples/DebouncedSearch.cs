@@ -40,27 +40,30 @@ public sealed class DebouncedSearch : Component
         var (searching, setSearching) = UseState(false);
         var (selected, setSelected) = UseState<string?>(null);
 
-        UseEffect(() =>
-        {
-            var cts = new CancellationTokenSource();
-            After(DebounceMilliseconds, cts.Token, () =>
+        UseEffect(
+            () =>
             {
-                if (query.Trim().Length == 0)
+                var cts = new CancellationTokenSource();
+                After(DebounceMilliseconds, cts.Token, () =>
                 {
-                    setResults([]);
-                    setSearching(false);
-                    return;
-                }
+                    if (query.Trim().Length == 0)
+                    {
+                        setResults([]);
+                        setSearching(false);
+                        return;
+                    }
 
-                setSearching(true);
-                After(FetchMilliseconds, cts.Token, () =>
-                {
-                    setResults(SearchDataset(query));
-                    setSearching(false);
+                    setSearching(true);
+                    After(FetchMilliseconds, cts.Token, () =>
+                    {
+                        setResults(SearchDataset(query));
+                        setSearching(false);
+                    });
                 });
-            });
-            return () => cts.Cancel();
-        }, query);
+                return () => cts.Cancel();
+            },
+            query
+        );
 
         if (selected == Target)
         {
@@ -69,21 +72,35 @@ public sealed class DebouncedSearch : Component
 
         Element list = searching
             ? ProgressRing().AutomationId("search-loading").Padding(12)
-            : ScrollView(VStack(4, [
-                .. results.Select(item => Button(TextBlock(item), () => setSelected(item))
-                    .AutomationId($"result-{item}")
-                    .HAlign(HorizontalAlignment.Stretch)
-                    .WithKey(item)),
-                When(results.Count == 0 && query.Trim().Length > 0, () => Hint("No results")),
-            ])).AutomationName("Results").AutomationId("search-results");
+            : ScrollView(
+                    VStack(
+                        4,
+                        [
+                            .. results.Select(item =>
+                                Button(TextBlock(item), () => setSelected(item))
+                                    .AutomationId($"result-{item}")
+                                    .HAlign(HorizontalAlignment.Stretch)
+                                    .WithKey(item)
+                            ),
+                            When(results.Count == 0 && query.Trim().Length > 0, () => Hint("No results")),
+                        ]
+                    )
+                )
+                .AutomationName("Results")
+                .AutomationId("search-results");
 
         return Grid(
             columns: [GridSize.Star()],
             rows: [GridSize.Auto, GridSize.Star()],
-            VStack(12,
-                Hint($"Search for and select \"{Target}\""),
-                TextBox(query, setQuery, placeholderText: "Search…").AutomationName("Search").AutomationId("search-input"))
+            VStack(
+                    12,
+                    Hint($"Search for and select \"{Target}\""),
+                    TextBox(query, setQuery, placeholderText: "Search…")
+                        .AutomationName("Search")
+                        .AutomationId("search-input")
+                )
                 .Padding(24, 16),
-            list.Padding(24, 0).Grid(row: 1));
+            list.Padding(24, 0).Grid(row: 1)
+        );
     }
 }

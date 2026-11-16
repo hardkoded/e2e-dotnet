@@ -45,11 +45,15 @@ public sealed class LocatorConvenienceTests : PlaywrightTest
     [Test]
     public async Task IsEnabled_and_isDisabled_should_work()
     {
-        await Browser.GotoAsync(Content("""
-            <button disabled>button1</button>
-            <button>button2</button>
-            <div>div</div>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <button disabled>button1</button>
+                <button>button2</button>
+                <div>div</div>
+                """
+            )
+        );
         var div = Browser.Locator("div");
         Assert.That(await div.IsEnabledAsync(), Is.True);
         Assert.That(await div.IsDisabledAsync(), Is.False);

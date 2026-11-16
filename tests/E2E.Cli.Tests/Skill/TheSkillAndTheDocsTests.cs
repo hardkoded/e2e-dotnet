@@ -13,7 +13,11 @@ public sealed class TheSkillAndTheDocsTests
     {
         foreach (var (file, text) in UserFacingPages())
         {
-            foreach (var paragraph in Regex.Split(text, @"\n\s*\n").Where(block => block.Contains("--artifacts", StringComparison.Ordinal)))
+            foreach (
+                var paragraph in Regex
+                    .Split(text, @"\n\s*\n")
+                    .Where(block => block.Contains("--artifacts", StringComparison.Ordinal))
+            )
             {
                 Assert.True(Regex.IsMatch(paragraph, "removed|gone"), file);
             }

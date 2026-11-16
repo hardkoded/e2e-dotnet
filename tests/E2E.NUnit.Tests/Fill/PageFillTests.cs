@@ -42,7 +42,10 @@ public sealed partial class PageFillTests : PlaywrightTest
         await Browser.GotoAsync("/input/textarea.html");
         foreach (var type in new[] { "button", "checkbox", "file", "image", "radio", "reset", "submit" })
         {
-            await Browser.EvaluateAsync<object>("(type) => document.querySelector('input').setAttribute('type', type)", type);
+            await Browser.EvaluateAsync<object>(
+                "(type) => document.querySelector('input').setAttribute('type', type)",
+                type
+            );
             var error = await Assert.CatchAsync(() => Browser.Locator("input").FillAsync(""));
             Assert.That(error!.Message, Does.Contain($"Input of type \"{type}\" cannot be filled"));
         }
@@ -54,7 +57,10 @@ public sealed partial class PageFillTests : PlaywrightTest
         await Browser.GotoAsync("/input/textarea.html");
         foreach (var type in new[] { "password", "search", "tel", "text", "url", "invalid-type" })
         {
-            await Browser.EvaluateAsync<object>("(type) => document.querySelector('input').setAttribute('type', type)", type);
+            await Browser.EvaluateAsync<object>(
+                "(type) => document.querySelector('input').setAttribute('type', type)",
+                type
+            );
             await Browser.Locator("input").FillAsync("text " + type);
             Assert.That(await Browser.EvaluateAsync<string>("result"), Is.EqualTo("text " + type));
         }
@@ -122,31 +128,42 @@ public sealed partial class PageFillTests : PlaywrightTest
     public async Task Input_event_composed_should_be_true_and_cross_shadow_dom_boundary(string type, string value)
     {
         await Browser.GotoAsync("/empty.html");
-        await Browser.GotoAsync(Content($$"""
-            <body><script>
-              const div = document.createElement('div');
-              const shadowRoot = div.attachShadow({mode: 'open'});
-              shadowRoot.innerHTML = '<input type={{type}}></input>';
-              document.body.appendChild(div);
-            </script></body>
-            """));
-        await Browser.EvaluateAsync<object>("""
+        await Browser.GotoAsync(
+            Content(
+                $$"""
+                <body><script>
+                  const div = document.createElement('div');
+                  const shadowRoot = div.attachShadow({mode: 'open'});
+                  shadowRoot.innerHTML = '<input type={{type}}></input>';
+                  document.body.appendChild(div);
+                </script></body>
+                """
+            )
+        );
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               window.firedBodyEvents = [];
               for (const event of ['input', 'change'])
                 document.body.addEventListener(event, (e) => window.firedBodyEvents.push(e.type + ':' + e.composed), false);
             }
-            """);
-        await Browser.EvaluateAsync<object>("""
+            """
+        );
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               window.firedEvents = [];
               const input = document.querySelector('div').shadowRoot.querySelector('input');
               for (const event of ['input', 'change'])
                 input.addEventListener(event, (e) => window.firedEvents.push(e.type + ':' + e.composed), false);
             }
-            """);
+            """
+        );
         await Browser.Locator("input").FillAsync(value);
-        Assert.That(await Browser.EvaluateAsync<string[]>("firedEvents"), Is.EqualTo(new[] { "input:true", "change:false" }));
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>("firedEvents"),
+            Is.EqualTo(new[] { "input:true", "change:false" })
+        );
         Assert.That(await Browser.EvaluateAsync<string[]>("firedBodyEvents"), Is.EqualTo(new[] { "input:true" }));
     }
 
@@ -227,7 +244,10 @@ public sealed partial class PageFillTests : PlaywrightTest
     {
         await Browser.GotoAsync("/input/textarea.html");
         await Browser.Locator("div[contenteditable]").FillAsync("some value");
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('div[contenteditable]').textContent"), Is.EqualTo("some value"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('div[contenteditable]').textContent"),
+            Is.EqualTo("some value")
+        );
     }
 
     [Test]
@@ -236,22 +256,29 @@ public sealed partial class PageFillTests : PlaywrightTest
         await Browser.GotoAsync("/empty.html");
         await Browser.GotoAsync(Content("<div contenteditable=\"true\"></div>"));
         await Browser.Locator("div[contenteditable]").FillAsync("John\nDoe");
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('div[contenteditable]').innerText"), Is.EqualTo("John\nDoe"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('div[contenteditable]').innerText"),
+            Is.EqualTo("John\nDoe")
+        );
     }
 
     [Test]
     public async Task Should_not_double_fill_in_contenteditable_with_beforeinput_handler_in_Firefox()
     {
-        await Browser.GotoAsync(Content("""
-            <div id="editor" contenteditable="true"></div>
-            <script>
-              const editor = document.getElementById('editor');
-              editor.addEventListener('beforeinput', (event) => {
-                event.preventDefault();
-                editor.textContent = event.data;
-              });
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <div id="editor" contenteditable="true"></div>
+                <script>
+                  const editor = document.getElementById('editor');
+                  editor.addEventListener('beforeinput', (event) => {
+                    event.preventDefault();
+                    editor.textContent = event.data;
+                  });
+                </script>
+                """
+            )
+        );
         var locator = Browser.Locator("#editor");
         const string testValue = "Playwright";
         await locator.FillAsync(testValue);
@@ -267,11 +294,14 @@ public sealed partial class PageFillTests : PlaywrightTest
         await Browser.Locator("input").FillAsync("another value");
         Assert.That(await Browser.EvaluateAsync<string>("result"), Is.EqualTo("another value"));
 
-        await Browser.EvaluateAsync<object>("() => { const input = document.querySelector('input'); input.selectionStart = 1; input.selectionEnd = 2; }");
+        await Browser.EvaluateAsync<object>(
+            "() => { const input = document.querySelector('input'); input.selectionStart = 1; input.selectionEnd = 2; }"
+        );
         await Browser.Locator("input").FillAsync("maybe this one");
         Assert.That(await Browser.EvaluateAsync<string>("result"), Is.EqualTo("maybe this one"));
 
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               const div = document.querySelector('div[contenteditable]');
               div.innerHTML = 'some text <span>some more text<span> and even more text';
@@ -281,9 +311,13 @@ public sealed partial class PageFillTests : PlaywrightTest
               selection.removeAllRanges();
               selection.addRange(range);
             }
-            """);
+            """
+        );
         await Browser.Locator("div[contenteditable]").FillAsync("replace with this");
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('div[contenteditable]').textContent"), Is.EqualTo("replace with this"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('div[contenteditable]').textContent"),
+            Is.EqualTo("replace with this")
+        );
     }
 
     [Test]
@@ -302,7 +336,9 @@ public sealed partial class PageFillTests : PlaywrightTest
         var done = false;
         var promise = Task.Run(async () =>
         {
-            await Browser.Locator("input").FillAsync("some value", new ActionOptions { Timeout = TimeSpan.FromSeconds(10) });
+            await Browser
+                .Locator("input")
+                .FillAsync("some value", new ActionOptions { Timeout = TimeSpan.FromSeconds(10) });
             done = true;
         });
         await Browser.EvaluateAsync<object>(GiveItAChanceToFill);
@@ -322,7 +358,9 @@ public sealed partial class PageFillTests : PlaywrightTest
         var done = false;
         var promise = Task.Run(async () =>
         {
-            await Browser.Locator("textarea").FillAsync("some value", new ActionOptions { Timeout = TimeSpan.FromSeconds(10) });
+            await Browser
+                .Locator("textarea")
+                .FillAsync("some value", new ActionOptions { Timeout = TimeSpan.FromSeconds(10) });
             done = true;
         });
         await Browser.EvaluateAsync<object>(GiveItAChanceToFill);
@@ -342,7 +380,9 @@ public sealed partial class PageFillTests : PlaywrightTest
         var done = false;
         var promise = Task.Run(async () =>
         {
-            await Browser.Locator("input").FillAsync("some value", new ActionOptions { Timeout = TimeSpan.FromSeconds(10) });
+            await Browser
+                .Locator("input")
+                .FillAsync("some value", new ActionOptions { Timeout = TimeSpan.FromSeconds(10) });
             done = true;
         });
         await Browser.EvaluateAsync<object>(GiveItAChanceToFill);
@@ -373,13 +413,20 @@ public sealed partial class PageFillTests : PlaywrightTest
     [Test]
     public async Task Should_be_able_to_fill_when_focus_is_in_the_wrong_frame()
     {
-        await Browser.GotoAsync(Content("""
-            <div contentEditable="true"></div>
-            <iframe></iframe>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <div contentEditable="true"></div>
+                <iframe></iframe>
+                """
+            )
+        );
         await Browser.Locator("iframe").FocusAsync();
         await Browser.Locator("div").FillAsync("some value");
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('div').textContent"), Is.EqualTo("some value"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('div').textContent"),
+            Is.EqualTo("some value")
+        );
     }
 
     [Test]
@@ -429,10 +476,10 @@ public sealed partial class PageFillTests : PlaywrightTest
     {
         await Browser.GotoAsync("/input/textarea.html");
         await Browser.GotoAsync(Content("<input type=date>"));
-        await Browser.EvaluateAsync<object>("() => document.querySelector('input').addEventListener('input', () => window.location.href = '/empty.html')");
-        await Task.WhenAll(
-            Browser.Locator("input").FillAsync("2020-03-02"),
-            Browser.WaitForURLAsync(EmptyHtml()));
+        await Browser.EvaluateAsync<object>(
+            "() => document.querySelector('input').addEventListener('input', () => window.location.href = '/empty.html')"
+        );
+        await Task.WhenAll(Browser.Locator("input").FillAsync("2020-03-02"), Browser.WaitForURLAsync(EmptyHtml()));
         Assert.That(await Browser.UrlAsync(), Does.Contain("empty.html"));
     }
 
@@ -449,17 +496,21 @@ public sealed partial class PageFillTests : PlaywrightTest
     [Test]
     public async Task Should_fill_contenteditable_with_focus_handler_that_collapses_selection()
     {
-        await Browser.GotoAsync(Content("""
-            <div contenteditable="true">initial text</div>
-            <script>
-              const editor = document.querySelector('[contenteditable]');
-              editor.addEventListener('focus', () => {
-                const selection = window.getSelection();
-                if (selection.rangeCount > 0)
-                  selection.collapseToEnd();
-              });
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <div contenteditable="true">initial text</div>
+                <script>
+                  const editor = document.querySelector('[contenteditable]');
+                  editor.addEventListener('focus', () => {
+                    const selection = window.getSelection();
+                    if (selection.rangeCount > 0)
+                      selection.collapseToEnd();
+                  });
+                </script>
+                """
+            )
+        );
         await Browser.Locator("div[contenteditable]").FillAsync("some value");
         Assert.That(await Browser.Locator("div[contenteditable]").TextContentAsync(), Is.EqualTo("some value"));
     }

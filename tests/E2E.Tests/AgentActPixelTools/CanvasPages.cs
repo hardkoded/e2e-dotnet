@@ -118,16 +118,16 @@ internal static class CanvasPages
 
     private static string CanvasMap(bool reset) =>
         $$"""
-        <!doctype html>
-        <html>
-        <head><title>{{(reset ? "Canvas map" : "Bare canvas map")}}</title></head>
-        <body style="margin:0">
-          <canvas id="map" width="400" height="200" style="position:fixed;left:0;top:0"></canvas>
-          <output id="hit" role="status" aria-label="Hit" style="position:fixed;left:0;top:220px">none</output>
-        {{(reset ? Controls : "")}}{{Map}}
-        </body>
-        </html>
-        """;
+            <!doctype html>
+            <html>
+            <head><title>{{(reset ? "Canvas map" : "Bare canvas map")}}</title></head>
+            <body style="margin:0">
+              <canvas id="map" width="400" height="200" style="position:fixed;left:0;top:0"></canvas>
+              <output id="hit" role="status" aria-label="Hit" style="position:fixed;left:0;top:220px">none</output>
+            {{(reset ? Controls : "")}}{{Map}}
+            </body>
+            </html>
+            """;
 
     /// <summary>A map whose pins exist only as pixels, with a Reset button, a Note field, a Pad, and a Tint select under it.</summary>
     public static string Canvas { get; } = CanvasMap(reset: true);
@@ -176,13 +176,16 @@ internal static class CanvasPages
 
     /// <summary>Serves the pages by path.</summary>
     public static Task<TinySite> StartAsync() =>
-        TinySite.StartAsync(context => TinySite.RespondAsync(
-            context,
-            context.Request.Url!.AbsolutePath switch
-            {
-                "/canvas" => Canvas,
-                "/canvas-bare" => CanvasBare,
-                "/popover" => Popover,
-                _ => Home,
-            }));
+        TinySite.StartAsync(context =>
+            TinySite.RespondAsync(
+                context,
+                context.Request.Url!.AbsolutePath switch
+                {
+                    "/canvas" => Canvas,
+                    "/canvas-bare" => CanvasBare,
+                    "/popover" => Popover,
+                    _ => Home,
+                }
+            )
+        );
 }

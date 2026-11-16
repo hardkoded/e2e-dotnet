@@ -30,10 +30,14 @@ public sealed class DetectActionsTests
         Assert.Null(await Detect(new() { ["CI"] = "1", ["GITLAB_CI"] = "true" }));
         Assert.Equal(
             "GITHUB_ACTIONS is set but GITHUB_REPOSITORY is not",
-            (await Assert.ThrowsAsync<InvalidOperationException>(() => Detect(new() { ["GITHUB_ACTIONS"] = "true" }))).Message);
+            (
+                await Assert.ThrowsAsync<InvalidOperationException>(() => Detect(new() { ["GITHUB_ACTIONS"] = "true" }))
+            ).Message
+        );
         Assert.Equal(
             "GITHUB_ACTIONS is set but GITHUB_JOB is not",
-            (await Assert.ThrowsAsync<InvalidOperationException>(() => Detect(With(("GITHUB_JOB", " "))))).Message);
+            (await Assert.ThrowsAsync<InvalidOperationException>(() => Detect(With(("GITHUB_JOB", " "))))).Message
+        );
     }
 
     [Fact]
@@ -52,19 +56,25 @@ public sealed class DetectActionsTests
                 41,
                 "t",
                 "/summary.md",
-                null),
-            await Detect(With(("GITHUB_TOKEN", "t"))));
+                null
+            ),
+            await Detect(With(("GITHUB_TOKEN", "t")))
+        );
     }
 
     [Fact]
     public async Task Takes_an_issue_comment_on_a_pull_request_without_a_commit_to_link_and_not_one_on_an_issue()
     {
-        var comment = await Detect(With(("GITHUB_EVENT_NAME", "issue_comment"), ("GITHUB_EVENT_PATH", "/event/comment.json")));
+        var comment = await Detect(
+            With(("GITHUB_EVENT_NAME", "issue_comment"), ("GITHUB_EVENT_PATH", "/event/comment.json"))
+        );
         Assert.Equal(7, comment?.PullRequest);
 
         // GITHUB_SHA is the default branch on this event, not the pull request's head.
         Assert.Null(comment?.Sha);
-        var issue = await Detect(With(("GITHUB_EVENT_NAME", "issue_comment"), ("GITHUB_EVENT_PATH", "/event/issue.json")));
+        var issue = await Detect(
+            With(("GITHUB_EVENT_NAME", "issue_comment"), ("GITHUB_EVENT_PATH", "/event/issue.json"))
+        );
         Assert.Null(issue?.PullRequest);
         Assert.Equal("merge-sha", issue?.Sha);
     }
@@ -72,12 +82,19 @@ public sealed class DetectActionsTests
     [Fact]
     public async Task Falls_back_to_the_ref_when_the_payload_is_missing_broken_or_not_about_a_pull_request()
     {
-        (string, string)[] Ref(string path, string reference = "refs/pull/12/merge") => [("GITHUB_REF", reference), ("GITHUB_EVENT_PATH", path)];
+        (string, string)[] Ref(string path, string reference = "refs/pull/12/merge") =>
+            [("GITHUB_REF", reference), ("GITHUB_EVENT_PATH", path)];
         Assert.Equal(12, (await Detect(With(Ref("/event/push.json"))))?.PullRequest);
         Assert.Equal(12, (await Detect(With(Ref("/event/broken.json"))))?.PullRequest);
         Assert.Equal(12, (await Detect(With(Ref("/event/missing.json"))))?.PullRequest);
         Assert.Null((await Detect(With(Ref("/event/push.json", "refs/pull/0/merge"))))?.PullRequest);
-        var push = await Detect(With(("GITHUB_EVENT_NAME", "push"), ("GITHUB_REF", "refs/heads/main"), ("GITHUB_EVENT_PATH", "/event/push.json")));
+        var push = await Detect(
+            With(
+                ("GITHUB_EVENT_NAME", "push"),
+                ("GITHUB_REF", "refs/heads/main"),
+                ("GITHUB_EVENT_PATH", "/event/push.json")
+            )
+        );
         Assert.Null(push?.PullRequest);
         Assert.Equal("merge-sha", push?.Sha);
     }
@@ -85,10 +102,13 @@ public sealed class DetectActionsTests
     [Fact]
     public async Task Reads_GH_TOKEN_when_GITHUB_TOKEN_is_unset_and_honors_Enterprise_Server_URLs()
     {
-        var context = await Detect(With(
-            ("GH_TOKEN", "gh"),
-            ("GITHUB_SERVER_URL", "https://git.corp.example/"),
-            ("GITHUB_API_URL", "https://git.corp.example/api/v3/")));
+        var context = await Detect(
+            With(
+                ("GH_TOKEN", "gh"),
+                ("GITHUB_SERVER_URL", "https://git.corp.example/"),
+                ("GITHUB_API_URL", "https://git.corp.example/api/v3/")
+            )
+        );
         Assert.Equal("gh", context?.Token);
         Assert.Equal("https://git.corp.example", context?.ServerUrl);
         Assert.Equal("https://git.corp.example/api/v3", context?.ApiUrl);

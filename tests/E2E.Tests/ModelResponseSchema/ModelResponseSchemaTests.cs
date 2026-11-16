@@ -14,15 +14,16 @@ namespace E2E.Tests.ModelResponseSchema;
 /// </summary>
 public sealed class ModelResponseSchemaTests
 {
-    private static ModelRequest Request(IReadOnlyDictionary<string, JsonElement>? providerOptions = null) => new()
-    {
-        System = "rules",
-        Messages = [new ModelMessage { Role = "user", Content = "judge" }],
-        Tools = [],
-        Schema = AgentProtocol.JudgmentSchema,
-        SchemaName = AgentProtocol.JudgmentSchemaName,
-        ProviderOptions = providerOptions,
-    };
+    private static ModelRequest Request(IReadOnlyDictionary<string, JsonElement>? providerOptions = null) =>
+        new()
+        {
+            System = "rules",
+            Messages = [new ModelMessage { Role = "user", Content = "judge" }],
+            Tools = [],
+            Schema = AgentProtocol.JudgmentSchema,
+            SchemaName = AgentProtocol.JudgmentSchemaName,
+            ProviderOptions = providerOptions,
+        };
 
     private static IReadOnlyDictionary<string, JsonElement> Options(string provider, string json) =>
         new Dictionary<string, JsonElement> { [provider] = JsonDocument.Parse(json).RootElement.Clone() };
@@ -39,13 +40,23 @@ public sealed class ModelResponseSchemaTests
         Assert.Null(body["tool_choice"]);
         Assert.Equal("json_schema", (string?)body["response_format"]!["type"]);
         Assert.Equal("agent-judgment-2", (string?)body["response_format"]!["json_schema"]!["name"]);
-        Assert.Equal(JsonNode.Parse(Schema)!.ToJsonString(), body["response_format"]!["json_schema"]!["schema"]!.ToJsonString());
+        Assert.Equal(
+            JsonNode.Parse(Schema)!.ToJsonString(),
+            body["response_format"]!["json_schema"]!["schema"]!.ToJsonString()
+        );
     }
 
     [Fact]
     public void Chat_completions_leaves_out_response_format_when_the_server_rejects_it()
     {
-        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "m", ApiKey = "k", JsonSchemaResponseFormat = false });
+        using var model = new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions
+            {
+                Model = "m",
+                ApiKey = "k",
+                JsonSchemaResponseFormat = false,
+            }
+        );
         var body = model.BuildBody(Request());
 
         Assert.Null(body["response_format"]);
@@ -72,7 +83,10 @@ public sealed class ModelResponseSchemaTests
 
         Assert.Null(body["tools"]);
         Assert.Equal("application/json", (string?)body["generationConfig"]!["responseMimeType"]);
-        Assert.Equal(JsonNode.Parse(Schema)!.ToJsonString(), body["generationConfig"]!["responseJsonSchema"]!.ToJsonString());
+        Assert.Equal(
+            JsonNode.Parse(Schema)!.ToJsonString(),
+            body["generationConfig"]!["responseJsonSchema"]!.ToJsonString()
+        );
         Assert.Equal(0, (int?)body["generationConfig"]!["temperature"]);
     }
 
@@ -91,7 +105,9 @@ public sealed class ModelResponseSchemaTests
     public void Anthropic_only_offers_the_json_tool_while_the_model_thinks()
     {
         using var model = new AnthropicModel(new AnthropicModelOptions { Model = "m", ApiKey = "k" });
-        var body = model.BuildBody(Request(Options("anthropic", """{ "thinking": { "type": "enabled", "budget_tokens": 1024 } }""")));
+        var body = model.BuildBody(
+            Request(Options("anthropic", """{ "thinking": { "type": "enabled", "budget_tokens": 1024 } }"""))
+        );
 
         Assert.Equal("json", (string?)body["tools"]![0]!["name"]);
         Assert.Equal("""{"type":"auto"}""", body["tool_choice"]!.ToJsonString());
@@ -100,7 +116,14 @@ public sealed class ModelResponseSchemaTests
     [Fact]
     public void Bedrock_forces_a_json_tool_that_takes_the_schema()
     {
-        using var model = new BedrockModel(new BedrockModelOptions { Model = "m", Region = "us-east-1", ApiKey = "k" });
+        using var model = new BedrockModel(
+            new BedrockModelOptions
+            {
+                Model = "m",
+                Region = "us-east-1",
+                ApiKey = "k",
+            }
+        );
         var body = model.BuildBody(Request());
 
         Assert.Equal("json", (string?)body["toolConfig"]!["tools"]![0]!["toolSpec"]!["name"]);
@@ -110,7 +133,12 @@ public sealed class ModelResponseSchemaTests
     [Fact]
     public void A_forced_json_tool_call_is_the_content_of_the_turn()
     {
-        var call = new ModelToolCall { Id = "1", Name = "json", Arguments = JsonDocument.Parse("""{"verdict":"holds"}""").RootElement.Clone() };
+        var call = new ModelToolCall
+        {
+            Id = "1",
+            Name = "json",
+            Arguments = JsonDocument.Parse("""{"verdict":"holds"}""").RootElement.Clone(),
+        };
         var answer = ModelHttp.StructuredAnswer(new ModelResponse { ToolCalls = [call], FinishReason = "stop" });
 
         Assert.Equal("""{"verdict":"holds"}""", answer.Content);

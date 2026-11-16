@@ -91,7 +91,8 @@ internal static class ReportFile
     }
 
     /// <summary>Where the document of the run whose results go to <paramref name="resultsRoot"/> is written.</summary>
-    public static string PathFor(string resultsRoot) => Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(resultsRoot))!, FileName);
+    public static string PathFor(string resultsRoot) =>
+        Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(resultsRoot))!, FileName);
 
     /// <summary>
     /// The commit of the project at <paramref name="projectRoot"/>, asked of the version control once per process and root, so a run of many
@@ -100,7 +101,11 @@ internal static class ReportFile
     internal static async Task<VcsInfo?> DetectVcs(string projectRoot, Func<string, Task<VcsInfo?>>? detect = null)
     {
         // The lazy keeps two sessions that ask together from both starting a lookup; the task inside keeps no exception, so a failure is evicted below.
-        var detection = Detections.GetOrAdd(projectRoot, root => new Lazy<Task<VcsInfo?>>(async () => detect is null ? await Vcs.DetectAsync(root, EnvironmentVariables()).ConfigureAwait(false) : await detect(root).ConfigureAwait(false)));
+        var detection = Detections.GetOrAdd(projectRoot, root => new Lazy<Task<VcsInfo?>>(async () =>
+            detect is null
+                ? await Vcs.DetectAsync(root, EnvironmentVariables()).ConfigureAwait(false)
+                : await detect(root).ConfigureAwait(false)
+        ));
         try
         {
             return await detection.Value.ConfigureAwait(false);
@@ -122,14 +127,29 @@ internal static class ReportFile
     /// <paramref name="interrupted"/> is the run's interrupt flag: when set the exit codes include 130, whatever the results say
     /// (upstream's <c>currentExitCode</c> adds 130 when <c>interruptController.signal.aborted</c>).
     /// </summary>
-    internal static (ReportRunStatus Status, int ExitCode) StatusOf(IEnumerable<ReportResult> results, bool interrupted = false)
+    internal static (ReportRunStatus Status, int ExitCode) StatusOf(
+        IEnumerable<ReportResult> results,
+        bool interrupted = false
+    )
     {
-        var exitCode = ErrorSerializer.CombineExitCodes(interrupted ? [.. VerdictExitCodes(results), 130] : VerdictExitCodes(results));
-        return (exitCode switch { 0 => ReportRunStatus.Passed, 1 => ReportRunStatus.Failed, 130 => ReportRunStatus.Interrupted, _ => ReportRunStatus.Error }, exitCode);
+        var exitCode = ErrorSerializer.CombineExitCodes(
+            interrupted ? [.. VerdictExitCodes(results), 130] : VerdictExitCodes(results)
+        );
+        return (
+            exitCode switch
+            {
+                0 => ReportRunStatus.Passed,
+                1 => ReportRunStatus.Failed,
+                130 => ReportRunStatus.Interrupted,
+                _ => ReportRunStatus.Error,
+            },
+            exitCode
+        );
     }
 
     /// <summary>Whether a session cancelled by the user ended an attempt of <paramref name="result"/>: a retry the run interrupted counts, though the verdict keeps the failure before it.</summary>
-    private static bool WasInterrupted(ReportResult result) => result.Attempts.Any(attempt => attempt.Status == AttemptStatus.Interrupted);
+    private static bool WasInterrupted(ReportResult result) =>
+        result.Attempts.Any(attempt => attempt.Status == AttemptStatus.Interrupted);
 
     /// <summary>The exit codes the verdicts imply: a failed result exits 1, or its attempts' error category when that is worse. An attempt whose cleanup failed adds its cleanup errors' codes, even when the test passed (upstream's <c>verdictExitCodes</c>).</summary>
     private static IEnumerable<int> VerdictExitCodes(IEnumerable<ReportResult> results)
@@ -162,29 +182,44 @@ internal static class ReportFile
     /// The document of the attempt in <paramref name="report"/> (a single-attempt report, as <see cref="AttemptReport.Build"/> returns it) alone, as a
     /// run of one result, redacted by <paramref name="redact"/>. Upstream's <c>writeHostTrace</c> builds the same report for a hosted session and returns it.
     /// </summary>
-    public static async Task<JsonObject> SingleAsync(Report1Document report, string? projectRoot, string resultsRoot, Func<string, string> redact, ResolvedConfig? config = null)
+    public static async Task<JsonObject> SingleAsync(
+        Report1Document report,
+        string? projectRoot,
+        string resultsRoot,
+        Func<string, string> redact,
+        ResolvedConfig? config = null
+    )
     {
         var result = report.Run.Results[0];
         projectRoot = ProjectRootOf(projectRoot, resultsRoot);
         var (status, exitCode) = StatusOf([result], WasInterrupted(result));
-        var document = BuildReport.Build(new BuildReportOptions
-        {
-            RunId = report.Run.Id,
-            ProjectRoot = projectRoot,
-            StartedAt = result.Attempts[0].StartedAt ?? DateTimeOffset.UtcNow,
-            Status = status,
-            ExitCode = exitCode,
-            Results = [result],
-            ReportTargets = report.Run.Targets,
-            Explore = report.Run.Explore,
-            Limits = report.Run.Limits,
-            Vcs = await VcsOf(DetectVcs(projectRoot)).ConfigureAwait(false),
-            Ci = E2EConfig.IsCi(),
-            Config = config,
-        });
-        var node = ReportWire.Result(document.Run.Results[0], result.Platform, Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot)));
+        var document = BuildReport.Build(
+            new BuildReportOptions
+            {
+                RunId = report.Run.Id,
+                ProjectRoot = projectRoot,
+                StartedAt = result.Attempts[0].StartedAt ?? DateTimeOffset.UtcNow,
+                Status = status,
+                ExitCode = exitCode,
+                Results = [result],
+                ReportTargets = report.Run.Targets,
+                Explore = report.Run.Explore,
+                Limits = report.Run.Limits,
+                Vcs = await VcsOf(DetectVcs(projectRoot)).ConfigureAwait(false),
+                Ci = E2EConfig.IsCi(),
+                Config = config,
+            }
+        );
+        var node = ReportWire.Result(
+            document.Run.Results[0],
+            result.Platform,
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot))
+        );
         ReportWire.Redact(node, redact);
-        return ReportWire.Document(document, new Dictionary<string, JsonNode>(StringComparer.Ordinal) { [result.Id] = node });
+        return ReportWire.Document(
+            document,
+            new Dictionary<string, JsonNode>(StringComparer.Ordinal) { [result.Id] = node }
+        );
     }
 
     /// <summary>
@@ -193,11 +228,23 @@ internal static class ReportFile
     /// redactor of that test's attempts. <paramref name="config"/> is the resolved config of the session that ran it, whose digest the document's
     /// <c>project.configDigest</c> carries (upstream's <c>config?.configDigest</c>, <c>report/build.ts</c>); null keeps the one the run holds.
     /// </summary>
-    public static async Task WriteAsync(Report1Document report, string projectRoot, string resultsRoot, Func<string, string> redact, ResolvedConfig? config = null, CancellationToken cancellationToken = default)
+    public static async Task WriteAsync(
+        Report1Document report,
+        string projectRoot,
+        string resultsRoot,
+        Func<string, string> redact,
+        ResolvedConfig? config = null,
+        CancellationToken cancellationToken = default
+    )
     {
         resultsRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot));
         var added = report.Run.Results[0];
-        var state = StateOf(resultsRoot, report.Run.Id, projectRoot, added.Attempts.FirstOrDefault()?.StartedAt ?? DateTimeOffset.UtcNow);
+        var state = StateOf(
+            resultsRoot,
+            report.Run.Id,
+            projectRoot,
+            added.Attempts.FirstOrDefault()?.StartedAt ?? DateTimeOffset.UtcNow
+        );
         await state.Write.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -208,7 +255,11 @@ internal static class ReportFile
             }
 
             ReplacePlaceholder(state, report.Run.Targets[0]);
-            foreach (var target in report.Run.Targets.Where(target => state.Targets.TrueForAll(known => known.Id != target.Id)))
+            foreach (
+                var target in report.Run.Targets.Where(target =>
+                    state.Targets.TrueForAll(known => known.Id != target.Id)
+                )
+            )
             {
                 state.Targets.Add(target);
             }
@@ -229,7 +280,14 @@ internal static class ReportFile
     /// unselected result of each test left out, <c>run.filters</c>, and <c>run.changes</c> (.NET-only: upstream's runner holds them when it builds the report;
     /// a test left out starts no session, so no session would add it). The run exists from here, so a run whose every test was left out still has its document.
     /// </summary>
-    public static async Task WriteLeftOutAsync(HostSelection selection, ReportTarget target, string projectRoot, string resultsRoot, ResolvedConfig? config = null, CancellationToken cancellationToken = default)
+    public static async Task WriteLeftOutAsync(
+        HostSelection selection,
+        ReportTarget target,
+        string projectRoot,
+        string resultsRoot,
+        ResolvedConfig? config = null,
+        CancellationToken cancellationToken = default
+    )
     {
         resultsRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot));
         var state = StateOf(resultsRoot, AttemptReport.RunId, projectRoot, DateTimeOffset.UtcNow);
@@ -332,23 +390,25 @@ internal static class ReportFile
         // Read from the results the run holds: a rerun that replaces an interrupted result clears the flag, while the retries of a test stay in its result.
         state.Interrupted = state.Results.Values.Any(entry => WasInterrupted(entry.Result));
         var (status, exitCode) = StatusOf(state.Results.Values.Select(entry => entry.Result), state.Interrupted);
-        var document = BuildReport.Build(new BuildReportOptions
-        {
-            RunId = state.RunId,
-            ProjectRoot = state.ProjectRoot,
-            Config = state.Config,
-            ReportTargets = state.Targets,
-            StartedAt = state.StartedAt,
-            Status = status,
-            ExitCode = exitCode,
-            Results = [.. state.Results.Values.Select(entry => entry.Result)],
-            Explore = state.Explore,
-            Limits = state.Limits,
-            Vcs = await VcsOf(state.Vcs).ConfigureAwait(false),
-            Ci = E2EConfig.IsCi(),
-            Changes = state.Changes,
-            Filters = state.Filters,
-        });
+        var document = BuildReport.Build(
+            new BuildReportOptions
+            {
+                RunId = state.RunId,
+                ProjectRoot = state.ProjectRoot,
+                Config = state.Config,
+                ReportTargets = state.Targets,
+                StartedAt = state.StartedAt,
+                Status = status,
+                ExitCode = exitCode,
+                Results = [.. state.Results.Values.Select(entry => entry.Result)],
+                Explore = state.Explore,
+                Limits = state.Limits,
+                Vcs = await VcsOf(state.Vcs).ConfigureAwait(false),
+                Ci = E2EConfig.IsCi(),
+                Changes = state.Changes,
+                Filters = state.Filters,
+            }
+        );
 
         // A result that gained no attempt keeps its wire form: only the test this call is about is built again.
         var nodes = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
@@ -368,7 +428,11 @@ internal static class ReportFile
         var wire = ReportWire.Document(document, nodes);
 
         // What the report this run reran owed and this run did not run again is carried, and stays owed until a run carries it out.
-        if (state.Previous is { } previous && state.Collected is { } collected && LastRun.CarryForward(previous.Report, CurrentOf(document), collected) is { } carried)
+        if (
+            state.Previous is { } previous
+            && state.Collected is { } collected
+            && LastRun.CarryForward(previous.Report, CurrentOf(document), collected) is { } carried
+        )
         {
             wire["run"]!["carried"] = previous.Carried(carried);
         }
@@ -377,34 +441,37 @@ internal static class ReportFile
     }
 
     // The part of this run's document that deciding what to carry reads, in the public form (.NET-only: upstream's builder holds the typed document).
-    private static Reports.Report CurrentOf(Report1Document document) => new()
-    {
-        Run = new Reports.ReportRun
+    private static Reports.Report CurrentOf(Report1Document document) =>
+        new()
         {
-            Targets = [.. document.Run.Targets.Select(target => new Reports.ReportTarget { Id = target.Id })],
-            Results =
-            [
-                .. document.Run.Results.Select(result => new Reports.ReportResult
-                {
-                    Id = result.Id,
-                    TestId = result.TestId,
-                    TargetId = result.TargetId,
-                    Agent = result.Agent,
-                    File = result.File,
-                    TitlePath = result.TitlePath,
-                    Selected = result.Selected,
-                    Status = Enum.Parse<Reports.ResultStatus>(result.Status.ToString()),
-                }),
-            ],
-            Errors = [],
-        },
-    };
+            Run = new Reports.ReportRun
+            {
+                Targets = [.. document.Run.Targets.Select(target => new Reports.ReportTarget { Id = target.Id })],
+                Results =
+                [
+                    .. document.Run.Results.Select(result => new Reports.ReportResult
+                    {
+                        Id = result.Id,
+                        TestId = result.TestId,
+                        TargetId = result.TargetId,
+                        Agent = result.Agent,
+                        File = result.File,
+                        TitlePath = result.TitlePath,
+                        Selected = result.Selected,
+                        Status = Enum.Parse<Reports.ResultStatus>(result.Status.ToString()),
+                    }),
+                ],
+                Errors = [],
+            },
+        };
 
     /// <summary>
     /// What each run this process wrote a report for looks like to a reporter (upstream's <c>FinishedRun</c>): the document read back from
     /// <c>report.json</c>, so a reporter that uploads it ships the file byte for byte. A run whose file cannot be read is left out.
     /// </summary>
-    public static async Task<IReadOnlyList<FinishedRun>> FinishedRunsAsync(CancellationToken cancellationToken = default)
+    public static async Task<IReadOnlyList<FinishedRun>> FinishedRunsAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         List<(string ResultsRoot, RunState State)> runs;
         lock (Gate)
@@ -421,23 +488,38 @@ internal static class ReportFile
             var path = PathFor(resultsRoot);
             try
             {
-                var report = ReportSerializer.Read(JsonNode.Parse(await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false))!.AsObject());
+                var report = ReportSerializer.Read(
+                    JsonNode
+                        .Parse(await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false))!
+                        .AsObject()
+                );
                 Dictionary<string, string> traces;
                 lock (state.Traces)
                 {
                     traces = new Dictionary<string, string>(state.Traces, StringComparer.Ordinal);
                 }
 
-                finished.Add(new FinishedRun(report, report.Run.Status, report.Run.ExitCode, state.ProjectRoot, path, resultsRoot)
-                {
-                    Traces = traces,
-                    AiTracePath = AiTrace.WrittenPath(Path.GetDirectoryName(resultsRoot)!),
-                    LastRun = state.Previous?.Report,
-                });
+                finished.Add(
+                    new FinishedRun(
+                        report,
+                        report.Run.Status,
+                        report.Run.ExitCode,
+                        state.ProjectRoot,
+                        path,
+                        resultsRoot
+                    )
+                    {
+                        Traces = traces,
+                        AiTracePath = AiTrace.WrittenPath(Path.GetDirectoryName(resultsRoot)!),
+                        LastRun = state.Previous?.Report,
+                    }
+                );
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Console.Error.WriteLine($"e2e: the report of run {state.RunId} could not be read for the reporters: {ex.Message}");
+                Console.Error.WriteLine(
+                    $"e2e: the report of run {state.RunId} could not be read for the reporters: {ex.Message}"
+                );
             }
         }
 
@@ -458,5 +540,8 @@ internal static class ReportFile
     }
 
     private static Dictionary<string, string?> EnvironmentVariables() =>
-        Environment.GetEnvironmentVariables().Cast<DictionaryEntry>().ToDictionary(pair => (string)pair.Key, pair => (string?)pair.Value, StringComparer.Ordinal);
+        Environment
+            .GetEnvironmentVariables()
+            .Cast<DictionaryEntry>()
+            .ToDictionary(pair => (string)pair.Key, pair => (string?)pair.Value, StringComparer.Ordinal);
 }

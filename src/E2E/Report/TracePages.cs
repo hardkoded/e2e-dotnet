@@ -34,7 +34,8 @@ internal static class TracePages
         IReadOnlySet<string> traced,
         WriteTracePagesOptions options,
         Func<string, string>? redact = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         string Relative(string absolute)
         {
@@ -94,12 +95,19 @@ internal static class TracePages
                 outcome,
                 new TracePageOptions
                 {
-                    ArtifactsDir = Source.ProjectRelativePath(options.ProjectRoot, options.ResultsRoot) ?? options.ResultsRoot.Replace('\\', '/'),
+                    ArtifactsDir = Source.ProjectRelativePath(options.ProjectRoot, options.ResultsRoot)
+                        ?? options.ResultsRoot.Replace('\\', '/'),
                     PageDir = dir,
                     ReadArtifact = ReadArtifact,
-                    CacheDir = options.CacheDir is null ? null : Source.ProjectRelativePath(options.ProjectRoot, options.CacheDir) ?? options.CacheDir.Replace('\\', '/'),
-                });
-            await WriteReport.WriteTextReportAsync(file, redact?.Invoke(page) ?? page, cancellationToken).ConfigureAwait(false);
+                    CacheDir = options.CacheDir is null
+                        ? null
+                        : Source.ProjectRelativePath(options.ProjectRoot, options.CacheDir)
+                            ?? options.CacheDir.Replace('\\', '/'),
+                }
+            );
+            await WriteReport
+                .WriteTextReportAsync(file, redact?.Invoke(page) ?? page, cancellationToken)
+                .ConfigureAwait(false);
             pages[result.Id] = Relative(file);
         }
 
@@ -111,5 +119,6 @@ internal static class TracePages
     /// Upstream's <c>isExploreVerdict</c>.
     /// </summary>
     internal static bool IsExploreVerdict(Outcome final, ReportExplore explore) =>
-        final.Final.Error?.Code == "ASSERTION_FAILED" && explore.Findings.Any(finding => finding.Kind == ReportExploreFindingKind.Issue);
+        final.Final.Error?.Code == "ASSERTION_FAILED"
+        && explore.Findings.Any(finding => finding.Kind == ReportExploreFindingKind.Issue);
 }

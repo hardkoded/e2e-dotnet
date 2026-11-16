@@ -39,14 +39,16 @@ internal sealed class FakeExplore(IReadOnlyList<ExploreProgress> moments, Explor
 
         var goal = outcome.Explore.Goal;
         var target = options.Target ?? "web";
-        RunEvents.Emit(new RunStartedEvent
-        {
-            RunId = "run-1",
-            ProjectId = "project",
-            ProjectRoot = "/project",
-            ArtifactsRoot = "/project/.e2e/results",
-            Targets = [target],
-        });
+        RunEvents.Emit(
+            new RunStartedEvent
+            {
+                RunId = "run-1",
+                ProjectId = "project",
+                ProjectRoot = "/project",
+                ArtifactsRoot = "/project/.e2e/results",
+                Targets = [target],
+            }
+        );
         RunEvents.Emit(new PlanEvent(1, [(Explore.ExploreFile, target, 1)]));
         RunEvents.Emit(new TestStartedEvent(Id, "default", 0, goal, Explore.ExploreFile, null, target));
         foreach (var moment in moments)
@@ -62,23 +64,33 @@ internal sealed class FakeExplore(IReadOnlyList<ExploreProgress> moments, Explor
             Status = failed ? AttemptStatus.Failed : AttemptStatus.Passed,
             Error = outcome.Error is { } error ? new ReportError(error.Code, error.Message) : null,
         };
-        RunEvents.Emit(new TestFinishedEvent(new RunEventResult
-        {
-            Test = new TestIdentity([goal], Id, Explore.ExploreFile, 0),
-            Target = (target, "web"),
-            ResultId = Id,
-            Status = failed ? Reports.ResultStatus.Failed : Reports.ResultStatus.Passed,
-            Recorded = new ReportResult
+        RunEvents.Emit(
+            new TestFinishedEvent(
+                new RunEventResult
+                {
+                    Test = new TestIdentity([goal], Id, Explore.ExploreFile, 0),
+                    Target = (target, "web"),
+                    ResultId = Id,
+                    Status = failed ? Reports.ResultStatus.Failed : Reports.ResultStatus.Passed,
+                    Recorded = new ReportResult
+                    {
+                        Id = Id,
+                        File = Explore.ExploreFile,
+                        TitlePath = [goal],
+                        Status = failed ? ResultStatus.Failed : ResultStatus.Passed,
+                        Source = new SourceLocation("unknown", 0, 0),
+                        Attempts = [attempt],
+                    },
+                }
+            )
+        );
+        RunEvents.Emit(
+            new RunFinishedEvent
             {
-                Id = Id,
-                File = Explore.ExploreFile,
-                TitlePath = [goal],
-                Status = failed ? ResultStatus.Failed : ResultStatus.Passed,
-                Source = new SourceLocation("unknown", 0, 0),
-                Attempts = [attempt],
-            },
-        }));
-        RunEvents.Emit(new RunFinishedEvent { Status = failed ? ReportRunStatus.Failed : ReportRunStatus.Passed, ExitCode = outcome.ExitCode });
+                Status = failed ? ReportRunStatus.Failed : ReportRunStatus.Passed,
+                ExitCode = outcome.ExitCode,
+            }
+        );
         return Task.FromResult(outcome);
     }
 
@@ -87,7 +99,14 @@ internal sealed class FakeExplore(IReadOnlyList<ExploreProgress> moments, Explor
     {
         using var stdout = new LineFeedWriter();
         using var stderr = new LineFeedWriter();
-        var code = await ExploreCommand.RunAsync(args, stdout, stderr, interactive: false, RunAsync, CancellationToken.None);
+        var code = await ExploreCommand.RunAsync(
+            args,
+            stdout,
+            stderr,
+            interactive: false,
+            RunAsync,
+            CancellationToken.None
+        );
         return (code, stdout.ToString(), stderr.ToString());
     }
 }

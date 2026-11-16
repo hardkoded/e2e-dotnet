@@ -16,7 +16,8 @@ public sealed class BrowserTests : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -33,7 +34,9 @@ public sealed class BrowserTests : E2ETest
         await App.RestartAsync();
         await App.OpenAsync("/browser");
         await Expect.That(Screen.GetByLabel("Media")).ToHaveTextAsync("dark, reduced motion");
-        await Browser.EmulateMediaAsync(new WebMedia { ColorScheme = WebColorScheme.Light, ReducedMotion = WebReducedMotion.NoPreference });
+        await Browser.EmulateMediaAsync(
+            new WebMedia { ColorScheme = WebColorScheme.Light, ReducedMotion = WebReducedMotion.NoPreference }
+        );
         await Expect.That(Screen.GetByLabel("Media")).ToHaveTextAsync("light, full motion");
     }
 }

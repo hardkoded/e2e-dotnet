@@ -80,7 +80,12 @@ public static class JsonValueValidation
             throw new TestException("INVALID_ARGUMENT", label + " must be JSON-safe, found " + item.GetType().Name);
         }
 
-        if (item is System.Text.Json.Nodes.JsonNode and not System.Text.Json.Nodes.JsonObject and not System.Text.Json.Nodes.JsonArray)
+        if (
+            item
+            is System.Text.Json.Nodes.JsonNode
+                and not System.Text.Json.Nodes.JsonObject
+                and not System.Text.Json.Nodes.JsonArray
+        )
         {
             return;
         }

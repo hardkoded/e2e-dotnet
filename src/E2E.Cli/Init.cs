@@ -88,7 +88,18 @@ internal sealed record InitOptions
 }
 
 /// <summary>How init ended, with its exit code and what was chosen (upstream's <c>InitRunOutcome</c> without <c>ready</c>).</summary>
-internal sealed record InitRunOutcome(int ExitCode, InitResult Result, bool Yes, bool ExistingConfig, string? Engine, string? Gateway, bool Skill, bool Mcp, string? Example = null, bool Install = false);
+internal sealed record InitRunOutcome(
+    int ExitCode,
+    InitResult Result,
+    bool Yes,
+    bool ExistingConfig,
+    string? Engine,
+    string? Gateway,
+    bool Skill,
+    bool Mcp,
+    string? Example = null,
+    bool Install = false
+);
 
 /// <summary>
 /// Upstream's <c>cli/init.ts</c>: non-destructive project scaffolding. Every question is answered from a flag, from
@@ -128,7 +139,12 @@ internal static partial class Init
 
     /// <summary>Runs <c>e2e init</c> in <paramref name="root"/>, writing its report to <paramref name="output"/>.</summary>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> stopped the restore.</exception>
-    public static async Task<InitRunOutcome> RunAsync(string root, InitOptions options, TextWriter output, CancellationToken cancellationToken = default)
+    public static async Task<InitRunOutcome> RunAsync(
+        string root,
+        InitOptions options,
+        TextWriter output,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(options);
@@ -145,7 +161,13 @@ internal static partial class Init
         }
     }
 
-    private static async Task<InitRunOutcome> RunCoreAsync(string root, InitOptions options, TextWriter output, StrongBox<ExampleCopy?> copied, CancellationToken cancellationToken)
+    private static async Task<InitRunOutcome> RunCoreAsync(
+        string root,
+        InitOptions options,
+        TextWriter output,
+        StrongBox<ExampleCopy?> copied,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(output);
         var log = new InitLog(output);
@@ -167,14 +189,27 @@ internal static partial class Init
                 exampleCopy?.Remove();
             }
 
-            return new(exitCode, result, options.Yes, existingConfig, engineFact, gatewayFact, skillFact, mcpFact, exampleFact, installFact);
+            return new(
+                exitCode,
+                result,
+                options.Yes,
+                existingConfig,
+                engineFact,
+                gatewayFact,
+                skillFact,
+                mcpFact,
+                exampleFact,
+                installFact
+            );
         }
 
         InitRunOutcome Cancel() => Done(InitResult.Cancelled, log.Cancelled());
 
         if (options.Interactive == false && !options.Yes)
         {
-            log.Error("e2e init asks questions and needs an interactive terminal; run it from a terminal, or pass --yes to accept the defaults (the web engine, the Vercel AI Gateway) or --yes with flags such as --engine for other answers");
+            log.Error(
+                "e2e init asks questions and needs an interactive terminal; run it from a terminal, or pass --yes to accept the defaults (the web engine, the Vercel AI Gateway) or --yes with flags such as --engine for other answers"
+            );
             return Done(InitResult.NotInteractive, 2);
         }
 
@@ -196,7 +231,11 @@ internal static partial class Init
             exampleFact = example.Id;
             if (!Examples.IsEmptyDirectory(root))
             {
-                log.Error((options.Directory ?? root) + " is not empty; --example needs a new or empty directory, such as e2e init my-app --example " + example.Id);
+                log.Error(
+                    (options.Directory ?? root)
+                        + " is not empty; --example needs a new or empty directory, such as e2e init my-app --example "
+                        + example.Id
+                );
                 return Done(InitResult.InvalidProject, 2);
             }
 
@@ -204,7 +243,18 @@ internal static partial class Init
             var fellBack = (string?)null;
             try
             {
-                exampleCopy = await Examples.CopyExampleAsync(example, root, new CopyOptions { OnFallback = tag => fellBack = tag, Signal = cancellationToken, Handler = options.ExampleHandler }).ConfigureAwait(false);
+                exampleCopy = await Examples
+                    .CopyExampleAsync(
+                        example,
+                        root,
+                        new CopyOptions
+                        {
+                            OnFallback = tag => fellBack = tag,
+                            Signal = cancellationToken,
+                            Handler = options.ExampleHandler,
+                        }
+                    )
+                    .ConfigureAwait(false);
                 copied.Value = exampleCopy;
             }
             catch (ExampleCopyCancelled)
@@ -214,7 +264,14 @@ internal static partial class Init
             }
             catch (ExampleDownloadError cause)
             {
-                log.Error("Could not download the " + example.Id + " example: " + cause.Message + "; check the connection and retry, or copy it from https://github.com/hardkoded/e2e-dotnet/tree/main/samples/" + example.Id);
+                log.Error(
+                    "Could not download the "
+                        + example.Id
+                        + " example: "
+                        + cause.Message
+                        + "; check the connection and retry, or copy it from https://github.com/hardkoded/e2e-dotnet/tree/main/samples/"
+                        + example.Id
+                );
                 return Done(InitResult.ExampleFailed, 2);
             }
 
@@ -244,7 +301,9 @@ internal static partial class Init
         var detected = Frameworks.Detect(Package.DeclaredDependencies(pkg));
         if (requested is not null && detected is not null && requested.Id != detected.Id)
         {
-            log.Error($"{pkg.FileName} already uses {detected.Label}; --framework {requested.Id} would add a second test framework.");
+            log.Error(
+                $"{pkg.FileName} already uses {detected.Label}; --framework {requested.Id} would add a second test framework."
+            );
             return Done(InitResult.InvalidProject, 2);
         }
 
@@ -270,8 +329,18 @@ internal static partial class Init
         // A flag answers its question, an earlier run's locations stand when no flag names others, --yes answers the rest, and a missing one is asked.
         var foundSkillDirs = AgentSkill.FindInstalledSkillDirs(cwd);
         var foundMcpFiles = McpConfig.FindRegisteredMcpFiles(cwd);
-        IReadOnlyList<string>? givenSkills = options.Skills ?? (foundSkillDirs.Count > 0 ? foundSkillDirs : options.Yes ? [.. AgentSkill.SkillLocations.Select(location => location.Dir)] : null);
-        IReadOnlyList<string>? givenMcp = options.Mcp ?? (foundMcpFiles.Count > 0 ? foundMcpFiles : options.Yes ? [.. McpConfig.McpLocations.Select(location => location.File)] : null);
+        IReadOnlyList<string>? givenSkills = options.Skills
+            ?? (
+                foundSkillDirs.Count > 0 ? foundSkillDirs
+                : options.Yes ? [.. AgentSkill.SkillLocations.Select(location => location.Dir)]
+                : null
+            );
+        IReadOnlyList<string>? givenMcp = options.Mcp
+            ?? (
+                foundMcpFiles.Count > 0 ? foundMcpFiles
+                : options.Yes ? [.. McpConfig.McpLocations.Select(location => location.File)]
+                : null
+            );
 
         // Engine and model gateway are choices for a new config only; an existing config keeps its own.
         IReadOnlyList<string> engines = [];
@@ -294,16 +363,28 @@ internal static partial class Init
 
         if (existingConfig && configFlags.Count > 0)
         {
-            log.Warn("Ignoring " + string.Join(", ", configFlags) + ": " + E2EConfig.FileName + " exists, and these apply to a new config only");
+            log.Warn(
+                "Ignoring "
+                    + string.Join(", ", configFlags)
+                    + ": "
+                    + E2EConfig.FileName
+                    + " exists, and these apply to a new config only"
+            );
         }
 
         if (!existingConfig)
         {
             var presets = Engines.GetEnginePresets();
-            var selected = options.Engines ?? (options.Yes ? Engines.DefaultEngineIds : prompts.MultiSelect(
-                "Which engines? Select none for the default target.",
-                [.. presets.Select(preset => new PromptOption(preset.Id, preset.Label, preset.Hint))],
-                Engines.DefaultEngineIds));
+            var selected = options.Engines
+                ?? (
+                    options.Yes
+                        ? Engines.DefaultEngineIds
+                        : prompts.MultiSelect(
+                            "Which engines? Select none for the default target.",
+                            [.. presets.Select(preset => new PromptOption(preset.Id, preset.Label, preset.Hint))],
+                            Engines.DefaultEngineIds
+                        )
+                );
             if (selected is null)
             {
                 return Cancel();
@@ -320,10 +401,23 @@ internal static partial class Init
             engines = [.. presets.Select(preset => preset.Id).Where(selected.Contains)];
 
             // The gateway is a visible choice, not a runner default: the config names its provider.
-            var gateway = options.Gateway ?? (options.Yes ? GatewayDefault : prompts.Select(
-                "Which model gateway for agent steps?",
-                [.. Gateways.All.Select(preset => new PromptOption(preset.Id, preset.Label, preset.Hint)), new PromptOption("none", "None", "deterministic tests only; add a gateway later")],
-                GatewayDefault));
+            var gateway = options.Gateway
+                ?? (
+                    options.Yes
+                        ? GatewayDefault
+                        : prompts.Select(
+                            "Which model gateway for agent steps?",
+                            [
+                                .. Gateways.All.Select(preset => new PromptOption(
+                                    preset.Id,
+                                    preset.Label,
+                                    preset.Hint
+                                )),
+                                new PromptOption("none", "None", "deterministic tests only; add a gateway later"),
+                            ],
+                            GatewayDefault
+                        )
+                );
             if (gateway is null)
             {
                 return Cancel();
@@ -331,10 +425,16 @@ internal static partial class Init
 
             if (gateway == "openai-compatible")
             {
-                var endpoint = options.Endpoint ?? (options.Yes ? Gateways.DefaultEndpoint : prompts.Text(
-                    "Base URL of the OpenAI-compatible API",
-                    Gateways.DefaultEndpoint,
-                    Gateways.ValidateEndpoint));
+                var endpoint = options.Endpoint
+                    ?? (
+                        options.Yes
+                            ? Gateways.DefaultEndpoint
+                            : prompts.Text(
+                                "Base URL of the OpenAI-compatible API",
+                                Gateways.DefaultEndpoint,
+                                Gateways.ValidateEndpoint
+                            )
+                    );
                 if (endpoint is null)
                 {
                     return Cancel();
@@ -351,10 +451,18 @@ internal static partial class Init
             gatewayFact = model?.Gateway ?? "none";
         }
 
-        var skillDirs = givenSkills ?? AskLocations(
-            prompts,
-            [.. AgentSkill.SkillLocations.Select(location => new PromptOption(location.Dir, location.Dir, location.Hint))],
-            "Install the e2e skill for coding agents?");
+        var skillDirs = givenSkills
+            ?? AskLocations(
+                prompts,
+                [
+                    .. AgentSkill.SkillLocations.Select(location => new PromptOption(
+                        location.Dir,
+                        location.Dir,
+                        location.Hint
+                    )),
+                ],
+                "Install the e2e skill for coding agents?"
+            );
         if (skillDirs is null)
         {
             return Cancel();
@@ -380,7 +488,13 @@ internal static partial class Init
 
         foreach (var (dir, linksTo) in links)
         {
-            var planned = AgentSkill.PlanSkillLink(cwd, dir, linksTo, bundledSkill, AgentSkill.HoldsCopyAfter(linksTo, plannedCopies, skillInstalls));
+            var planned = AgentSkill.PlanSkillLink(
+                cwd,
+                dir,
+                linksTo,
+                bundledSkill,
+                AgentSkill.HoldsCopyAfter(linksTo, plannedCopies, skillInstalls)
+            );
             if (planned is null)
             {
                 continue;
@@ -398,10 +512,18 @@ internal static partial class Init
             }
         }
 
-        var mcpFiles = givenMcp ?? AskLocations(
-            prompts,
-            [.. McpConfig.McpLocations.Select(location => new PromptOption(location.File, location.File, location.Hint))],
-            "Register the e2e MCP server for coding agents?");
+        var mcpFiles = givenMcp
+            ?? AskLocations(
+                prompts,
+                [
+                    .. McpConfig.McpLocations.Select(location => new PromptOption(
+                        location.File,
+                        location.File,
+                        location.Hint
+                    )),
+                ],
+                "Register the e2e MCP server for coding agents?"
+            );
         if (mcpFiles is null)
         {
             return Cancel();
@@ -428,9 +550,10 @@ internal static partial class Init
         var scaffold = Scaffold.CreateScaffold(engines, model, framework, RootNamespaceOf(projectName));
 
         // A config with an example test of its own keeps it; a re-run adds no second one.
-        var tests = existingConfig && scaffold.Tests.Any(test => File.Exists(Path.Combine(cwd, test.Name + ".cs")))
-            ? []
-            : scaffold.Tests.Select(test => new PlannedFile(test.Name + ".cs", test.Content, false)).ToList();
+        var tests =
+            existingConfig && scaffold.Tests.Any(test => File.Exists(Path.Combine(cwd, test.Name + ".cs")))
+                ? []
+                : scaffold.Tests.Select(test => new PlannedFile(test.Name + ".cs", test.Content, false)).ToList();
         var newTests = tests.Where(test => !File.Exists(Path.Combine(cwd, test.Relative))).ToList();
         if (example is null)
         {
@@ -443,7 +566,10 @@ internal static partial class Init
         var additions = Package.AddDependencies(pkg, scaffold.Dependencies);
         if (example is null && additions.Count > 0)
         {
-            log.Info("Add package references: " + string.Join(", ", additions.Select(addition => addition.Key + "@" + addition.Value)));
+            log.Info(
+                "Add package references: "
+                    + string.Join(", ", additions.Select(addition => addition.Key + "@" + addition.Value))
+            );
         }
 
         // An example's project, config, and tests stay as the example has them.
@@ -452,7 +578,13 @@ internal static partial class Init
         {
             if (pkg.Original is null || additions.Count > 0)
             {
-                files.Add(new PlannedFile(pkg.FileName ?? projectName + ".csproj", Package.SerializePackage(pkg), pkg.Original is not null));
+                files.Add(
+                    new PlannedFile(
+                        pkg.FileName ?? projectName + ".csproj",
+                        Package.SerializePackage(pkg),
+                        pkg.Original is not null
+                    )
+                );
             }
 
             if (!existingConfig)
@@ -463,7 +595,13 @@ internal static partial class Init
             files.AddRange(newTests);
         }
 
-        if (example is null && files.Count == 0 && skillInstalls.Count == 0 && mcpRegistrations.Count == 0 && missingIgnore.Count == 0)
+        if (
+            example is null
+            && files.Count == 0
+            && skillInstalls.Count == 0
+            && mcpRegistrations.Count == 0
+            && missingIgnore.Count == 0
+        )
         {
             log.Outro("Nothing to create; project already initialized");
             return Done(InitResult.AlreadyInitialized, 0);
@@ -474,19 +612,37 @@ internal static partial class Init
             var actions = new List<string>();
             if (example is not null)
             {
-                actions.Add("Keep the " + example.Id + " example in " + (options.Directory ?? "this directory") + " (cancelling removes it)");
+                actions.Add(
+                    "Keep the "
+                        + example.Id
+                        + " example in "
+                        + (options.Directory ?? "this directory")
+                        + " (cancelling removes it)"
+                );
             }
 
             actions.AddRange(files.Select(file => (file.Existing ? "Update " : "Create ") + file.Relative));
 
             foreach (var install in skillInstalls)
             {
-                actions.Add(install is SkillSymlink symlink
-                    ? "Link " + symlink.Relative + " -> " + symlink.Target + LinkReplaces(symlink, "replacing")
-                    : (install.Links.Count > 0 ? "Replace " : install.Existing ? "Update " : "Create ") + install.Relative + "/");
+                actions.Add(
+                    install is SkillSymlink symlink
+                        ? "Link " + symlink.Relative + " -> " + symlink.Target + LinkReplaces(symlink, "replacing")
+                        : (
+                            install.Links.Count > 0 ? "Replace "
+                            : install.Existing ? "Update "
+                            : "Create "
+                        )
+                            + install.Relative
+                            + "/"
+                );
             }
 
-            actions.AddRange(mcpRegistrations.Select(registration => (registration.Existing ? "Update " : "Create ") + registration.Relative));
+            actions.AddRange(
+                mcpRegistrations.Select(registration =>
+                    (registration.Existing ? "Update " : "Create ") + registration.Relative
+                )
+            );
             if (missingIgnore.Count > 0)
             {
                 actions.Add("Update .gitignore");
@@ -501,7 +657,8 @@ internal static partial class Init
         }
 
         // The restore is asked once the plan is accepted and runs after everything is written.
-        var restore = options.Install ?? (options.Yes ? false : prompts.Confirm("Install dependencies with dotnet restore?", initialValue: true));
+        var restore = options.Install
+            ?? (options.Yes ? false : prompts.Confirm("Install dependencies with dotnet restore?", initialValue: true));
         if (restore is null)
         {
             return Cancel();
@@ -531,10 +688,14 @@ internal static partial class Init
         {
             System.IO.Directory.CreateDirectory(Path.GetDirectoryName(registration.Absolute)!);
             WriteFile(registration.Absolute, registration.Content);
-            log.Success((registration.Existing ? "Updated " : "Created ") + registration.Relative + " (e2e mcp server)");
+            log.Success(
+                (registration.Existing ? "Updated " : "Created ") + registration.Relative + " (e2e mcp server)"
+            );
             if (registration.Relative == ".codex/config.toml")
             {
-                log.Info("Codex loads project MCP settings only in trusted projects; start a new Codex session after installing dependencies.");
+                log.Info(
+                    "Codex loads project MCP settings only in trusted projects; start a new Codex session after installing dependencies."
+                );
             }
         }
 
@@ -547,7 +708,11 @@ internal static partial class Init
         {
             var prefix = existingIgnore.Length == 0 || existingIgnore.EndsWith('\n') ? "" : "\n";
             WriteFile(gitignorePath, existingIgnore + prefix + string.Join("\n", missingIgnore) + "\n");
-            log.Success("Updated .gitignore (" + missingIgnore.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " entries)");
+            log.Success(
+                "Updated .gitignore ("
+                    + missingIgnore.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + " entries)"
+            );
         }
 
         if (restore.Value)
@@ -557,7 +722,10 @@ internal static partial class Init
             try
             {
                 exitCode = await (options.RunInstall ?? RestoreAsync)(cwd, cancellationToken).ConfigureAwait(false);
-                reason = exitCode == RestoreTimedOut ? "timed out after " + RestoreTimeout.TotalMinutes + " minutes" : "exit " + exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                reason =
+                    exitCode == RestoreTimedOut
+                        ? "timed out after " + RestoreTimeout.TotalMinutes + " minutes"
+                        : "exit " + exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
             }
             catch (System.ComponentModel.Win32Exception cause)
             {
@@ -602,17 +770,25 @@ internal static partial class Init
     {
         var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory)));
         var invalid = Path.GetInvalidFileNameChars();
-        var clean = string.Concat(name.Select(character => invalid.Contains(character) ? '-' : character)).Trim('.', ' ');
+        var clean = string.Concat(name.Select(character => invalid.Contains(character) ? '-' : character))
+            .Trim('.', ' ');
         return clean.Length == 0 ? "E2ETests" : clean;
     }
 
     /// <summary>.NET-only: the namespace <c>dotnet new</c> gives a project of this name: every part an identifier.</summary>
     internal static string RootNamespaceOf(string projectName) =>
-        string.Join('.', projectName.Split('.').Select(part =>
-        {
-            var identifier = string.Concat(part.Select(character => char.IsLetterOrDigit(character) || character == '_' ? character : '_'));
-            return identifier.Length == 0 || char.IsDigit(identifier[0]) ? "_" + identifier : identifier;
-        }));
+        string.Join(
+            '.',
+            projectName
+                .Split('.')
+                .Select(part =>
+                {
+                    var identifier = string.Concat(
+                        part.Select(character => char.IsLetterOrDigit(character) || character == '_' ? character : '_')
+                    );
+                    return identifier.Length == 0 || char.IsDigit(identifier[0]) ? "_" + identifier : identifier;
+                })
+        );
 
     /// <summary>
     /// Runs <c>dotnet restore</c> in <paramref name="cwd"/> with the terminal of this process (upstream's <c>spawnSync(manager,
@@ -661,7 +837,9 @@ internal static partial class Init
             return value;
         }
 
-        return windows ? "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"" : "'" + value.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
+        return windows
+            ? "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\""
+            : "'" + value.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
     }
 
     /// <summary>
@@ -689,25 +867,37 @@ internal static partial class Init
         }
 
         var replacement = planned is SkillSymlink symlink ? "a link to " + symlink.Target : "a copy of the skill";
-        return prompts.Confirm("Replace the symlink " + AgentSkill.DescribeLinks(planned) + " with " + replacement + "?", initialValue: false);
+        return prompts.Confirm(
+            "Replace the symlink " + AgentSkill.DescribeLinks(planned) + " with " + replacement + "?",
+            initialValue: false
+        );
     }
 
     /// <summary>What a link takes the place of, for the summary (<c>replacing</c>) and the success line (<c>replaced</c>); empty when nothing is there.</summary>
     private static string LinkReplaces(SkillInstall install, string verb)
     {
-        var what = install.Links.Count > 0 ? "the symlink" : install.Existing ? "the copy" : null;
+        var what =
+            install.Links.Count > 0 ? "the symlink"
+            : install.Existing ? "the copy"
+            : null;
         return what is null ? "" : " (" + verb + " " + what + ")";
     }
 
     /// <summary>Asks where an agent-facing artifact (the skill, the MCP registration) goes, every location preselected.</summary>
-    private static IReadOnlyList<string>? AskLocations(IInitPrompts prompts, IReadOnlyList<PromptOption> locations, string message) =>
-        prompts.MultiSelect(message, locations, [.. locations.Select(location => location.Value)]);
+    private static IReadOnlyList<string>? AskLocations(
+        IInitPrompts prompts,
+        IReadOnlyList<PromptOption> locations,
+        string message
+    ) => prompts.MultiSelect(message, locations, [.. locations.Select(location => location.Value)]);
 
     /// <summary>Removes a symlink without touching what it leads to.</summary>
     private static void RemoveLink(string absolute)
     {
         // FileInfo.Attributes reads the link itself and never throws, even for a link whose target is gone.
-        if (OperatingSystem.IsWindows() && ((int)new FileInfo(absolute).Attributes & (int)FileAttributes.Directory) != 0)
+        if (
+            OperatingSystem.IsWindows()
+            && ((int)new FileInfo(absolute).Attributes & (int)FileAttributes.Directory) != 0
+        )
         {
             System.IO.Directory.Delete(absolute);
             return;
@@ -734,11 +924,20 @@ internal static partial class Init
             System.IO.Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
             try
             {
-                System.IO.Directory.CreateSymbolicLink(absolute, symlink.Target.Replace('/', Path.DirectorySeparatorChar));
+                System.IO.Directory.CreateSymbolicLink(
+                    absolute,
+                    symlink.Target.Replace('/', Path.DirectorySeparatorChar)
+                );
                 log.Success("Linked " + symlink.Relative + " -> " + symlink.Target + LinkReplaces(symlink, "replaced"));
                 return;
             }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException or PlatformNotSupportedException)
+            catch (Exception error)
+                when (error
+                        is IOException
+                            or UnauthorizedAccessException
+                            or NotSupportedException
+                            or PlatformNotSupportedException
+                )
             {
                 // Windows lets only a privileged account create a symlink; a copy serves the agent the same.
                 log.Warn("Could not link " + symlink.Relative + " (" + error.Message + "); writing a copy instead");
@@ -749,7 +948,13 @@ internal static partial class Init
                     WriteFile(target, file.Content);
                 }
 
-                log.Success("Created " + symlink.Relative + "/ (" + bundled.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " files)");
+                log.Success(
+                    "Created "
+                        + symlink.Relative
+                        + "/ ("
+                        + bundled.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                        + " files)"
+                );
                 return;
             }
         }
@@ -761,7 +966,17 @@ internal static partial class Init
             WriteFile(file.Absolute, file.Content);
         }
 
-        log.Success((copy.Links.Count > 0 ? "Replaced " : copy.Existing ? "Updated " : "Created ") + copy.Relative + "/ (" + copy.Files.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " files)");
+        log.Success(
+            (
+                copy.Links.Count > 0 ? "Replaced "
+                : copy.Existing ? "Updated "
+                : "Created "
+            )
+                + copy.Relative
+                + "/ ("
+                + copy.Files.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " files)"
+        );
     }
 
     /// <summary>Writes through a unique temp name, then moves it over the target, so a crash never leaves a half-written file (.NET-only; upstream writes in place).</summary>

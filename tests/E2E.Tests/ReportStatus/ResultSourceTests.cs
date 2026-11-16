@@ -10,7 +10,11 @@ namespace E2E.Tests.ReportStatus;
 /// <summary>Upstream's <c>describe('result source')</c> (<c>tests/unit/report-status.test.ts</c>).</summary>
 public sealed class ResultSourceTests
 {
-    private static ReportResult DeclaredAt(string file) => FailedResult(ProductFailure) with { Source = new SourceLocation(file, 7, 3) };
+    private static ReportResult DeclaredAt(string file) =>
+        FailedResult(ProductFailure) with
+        {
+            Source = new SourceLocation(file, 7, 3),
+        };
 
     [Fact]
     public void Keeps_a_file_under_the_project_root_relative_to_it()

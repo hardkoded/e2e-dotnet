@@ -17,8 +17,14 @@ public sealed partial class ResultSegmentTests
     [Fact]
     public void Names_a_result_by_its_file_the_first_words_of_its_title_and_the_head_of_its_id()
     {
-        Assert.Equal("checkout-applies-the-coupon-1a2b3c4d5e6f7a8b", ArtifactPaths.ResultSegment(Id, "tests/checkout.e2e.ts", ["applies the coupon"]));
-        Assert.Equal("cart-spec-cart-keeps-items-1a2b3c4d5e6f7a8b", ArtifactPaths.ResultSegment(Id, "apps/shop/tests/cart.spec.mts", ["cart", "keeps items"]));
+        Assert.Equal(
+            "checkout-applies-the-coupon-1a2b3c4d5e6f7a8b",
+            ArtifactPaths.ResultSegment(Id, "tests/checkout.e2e.ts", ["applies the coupon"])
+        );
+        Assert.Equal(
+            "cart-spec-cart-keeps-items-1a2b3c4d5e6f7a8b",
+            ArtifactPaths.ResultSegment(Id, "apps/shop/tests/cart.spec.mts", ["cart", "keeps items"])
+        );
     }
 
     [Fact]
@@ -26,8 +32,16 @@ public sealed partial class ResultSegmentTests
     {
         Assert.Equal(
             "todos-adds-todos-with-the-button-and-1a2b3c4d5e6f7a8b",
-            ArtifactPaths.ResultSegment(Id, "tests/todos.e2e.ts", ["todos", "adds todos with the button and the keyboard"]));
-        Assert.Equal("explore-the-app-and-find-bugs-1a2b3c4d5e6f7a8b", ArtifactPaths.ResultSegment(Id, "explore", ["Explore the app and find bugs"]));
+            ArtifactPaths.ResultSegment(
+                Id,
+                "tests/todos.e2e.ts",
+                ["todos", "adds todos with the button and the keyboard"]
+            )
+        );
+        Assert.Equal(
+            "explore-the-app-and-find-bugs-1a2b3c4d5e6f7a8b",
+            ArtifactPaths.ResultSegment(Id, "explore", ["Explore the app and find bugs"])
+        );
     }
 
     [Fact]

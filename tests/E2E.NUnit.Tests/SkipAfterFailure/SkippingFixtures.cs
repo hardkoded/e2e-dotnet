@@ -20,17 +20,23 @@ internal static class NestedRun
     {
         // A runner of its own, on a thread of its own, so the running test's context stays out of it.
         return Task.Run(() =>
-        {
-            var runner = new NUnitTestAssemblyRunner(new DefaultTestAssemblyBuilder());
-            runner.Load(typeof(NestedRun).Assembly, new Dictionary<string, object>());
-            return Leaf(runner.Run(TestListener.NULL, TestFilter.FromXml($"<filter><name>{testName}</name></filter>")));
-        }).GetAwaiter().GetResult();
+            {
+                var runner = new NUnitTestAssemblyRunner(new DefaultTestAssemblyBuilder());
+                runner.Load(typeof(NestedRun).Assembly, new Dictionary<string, object>());
+                return Leaf(
+                    runner.Run(TestListener.NULL, TestFilter.FromXml($"<filter><name>{testName}</name></filter>"))
+                );
+            })
+            .GetAwaiter()
+            .GetResult();
     }
 
     // The runner answers with the assembly's result. The test is the one result with no children.
     private static ITestResult Leaf(ITestResult result)
     {
-        return result.HasChildren ? Leaf(result.Children.Single(child => child.Test.IsSuite || child.Test.RunState != RunState.NotRunnable)) : result;
+        return result.HasChildren
+            ? Leaf(result.Children.Single(child => child.Test.IsSuite || child.Test.RunState != RunState.NotRunnable))
+            : result;
     }
 }
 
@@ -41,7 +47,8 @@ public sealed class SkippingFixture : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     private static readonly TimeSpan SoftTimeout = TimeSpan.FromMilliseconds(200);
 

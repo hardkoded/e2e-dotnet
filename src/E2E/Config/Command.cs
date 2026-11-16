@@ -55,7 +55,17 @@ public sealed class CommandConfig
 internal static partial class Command
 {
     private static readonly string[] CommandKeys =
-        ["executable", "args", "cwd", "env", "inheritEnv", "startupTimeout", "shutdownTimeout", "log", "reuseExisting"];
+    [
+        "executable",
+        "args",
+        "cwd",
+        "env",
+        "inheritEnv",
+        "startupTimeout",
+        "shutdownTimeout",
+        "log",
+        "reuseExisting",
+    ];
 
     private const long MaxTimerMs = int.MaxValue;
 
@@ -72,7 +82,10 @@ internal static partial class Command
         }
 
         RejectUnknownKeys(label, command);
-        if (Get(command, "executable") is not { ValueKind: JsonValueKind.String } executable || string.IsNullOrWhiteSpace(executable.GetString()))
+        if (
+            Get(command, "executable") is not { ValueKind: JsonValueKind.String } executable
+            || string.IsNullOrWhiteSpace(executable.GetString())
+        )
         {
             throw Invalid(label + ".executable is required");
         }
@@ -85,7 +98,11 @@ internal static partial class Command
                 throw Invalid(label + ".args must be an array of strings");
             }
 
-            args = rawArgs.EnumerateArray().Select((item, index) => CommandString(item, label + ".args[" + Number(index) + "]")).ToList().AsReadOnly();
+            args = rawArgs
+                .EnumerateArray()
+                .Select((item, index) => CommandString(item, label + ".args[" + Number(index) + "]"))
+                .ToList()
+                .AsReadOnly();
         }
 
         IReadOnlyDictionary<string, string>? env = null;
@@ -97,9 +114,16 @@ internal static partial class Command
             }
 
             // A null value is dropped, as a process start drops it: a variable that is unset starts the process without it.
-            env = new ReadOnlyDictionary<string, string>(rawEnv.EnumerateObject()
-                .Where(entry => entry.Value.ValueKind != JsonValueKind.Null)
-                .ToDictionary(entry => entry.Name, entry => CommandString(entry.Value, label + ".env." + entry.Name), StringComparer.Ordinal));
+            env = new ReadOnlyDictionary<string, string>(
+                rawEnv
+                    .EnumerateObject()
+                    .Where(entry => entry.Value.ValueKind != JsonValueKind.Null)
+                    .ToDictionary(
+                        entry => entry.Name,
+                        entry => CommandString(entry.Value, label + ".env." + entry.Name),
+                        StringComparer.Ordinal
+                    )
+            );
         }
 
         IReadOnlyList<string>? inheritEnv = null;
@@ -110,13 +134,20 @@ internal static partial class Command
                 throw Invalid(label + ".inheritEnv must be an array of variable names");
             }
 
-            inheritEnv = rawInherit.EnumerateArray().Select((item, index) => InheritPattern(item, label + ".inheritEnv[" + Number(index) + "]")).ToList().AsReadOnly();
+            inheritEnv = rawInherit
+                .EnumerateArray()
+                .Select((item, index) => InheritPattern(item, label + ".inheritEnv[" + Number(index) + "]"))
+                .ToList()
+                .AsReadOnly();
         }
 
         string? cwd = null;
         if (Get(command, "cwd") is { } rawCwd)
         {
-            cwd = rawCwd.ValueKind == JsonValueKind.String ? rawCwd.GetString() : throw Invalid(label + ".cwd must be a string");
+            cwd =
+                rawCwd.ValueKind == JsonValueKind.String
+                    ? rawCwd.GetString()
+                    : throw Invalid(label + ".cwd must be a string");
         }
 
         var startupTimeout = PositiveMs(Get(command, "startupTimeout"), label + ".startupTimeout");
@@ -124,9 +155,10 @@ internal static partial class Command
         string? log = null;
         if (Get(command, "log") is { } rawLog)
         {
-            log = rawLog.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(rawLog.GetString())
-                ? rawLog.GetString()
-                : throw Invalid(label + ".log must be a non-empty path");
+            log =
+                rawLog.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(rawLog.GetString())
+                    ? rawLog.GetString()
+                    : throw Invalid(label + ".log must be a non-empty path");
         }
 
         bool? reuseExisting = null;
@@ -176,12 +208,18 @@ internal static partial class Command
 
         if (command.Env is not null)
         {
-            digest["env"] = new JsonObject(command.Env.Keys.Select(key => KeyValuePair.Create(key, (JsonNode?)new JsonObject { ["envName"] = key })));
+            digest["env"] = new JsonObject(
+                command.Env.Keys.Select(key =>
+                    KeyValuePair.Create(key, (JsonNode?)new JsonObject { ["envName"] = key })
+                )
+            );
         }
 
         if (command.InheritEnv is not null)
         {
-            digest["inheritEnv"] = new JsonArray([.. command.InheritEnv.Select(name => (JsonNode?)JsonValue.Create(name))]);
+            digest["inheritEnv"] = new JsonArray([
+                .. command.InheritEnv.Select(name => (JsonNode?)JsonValue.Create(name)),
+            ]);
         }
 
         if (command.StartupTimeout is { } startup)
@@ -208,18 +246,20 @@ internal static partial class Command
     }
 
     /// <summary>A value as the author wrote it, for messages that quote the offending input (upstream's <c>describeValue</c>).</summary>
-    internal static string DescribeValue(JsonElement value) => value.ValueKind switch
-    {
-        JsonValueKind.String => JsonSerializer.Serialize(value.GetString()),
-        JsonValueKind.Number => value.GetRawText(),
-        JsonValueKind.True => "true",
-        JsonValueKind.False => "false",
-        JsonValueKind.Null => "null",
-        JsonValueKind.Array => "an array",
-        _ => "an object",
-    };
+    internal static string DescribeValue(JsonElement value) =>
+        value.ValueKind switch
+        {
+            JsonValueKind.String => JsonSerializer.Serialize(value.GetString()),
+            JsonValueKind.Number => value.GetRawText(),
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            JsonValueKind.Null => "null",
+            JsonValueKind.Array => "an array",
+            _ => "an object",
+        };
 
-    private static JsonElement? Get(JsonElement value, string name) => value.TryGetProperty(name, out var property) ? property : null;
+    private static JsonElement? Get(JsonElement value, string name) =>
+        value.TryGetProperty(name, out var property) ? property : null;
 
     private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
 
@@ -236,12 +276,20 @@ internal static partial class Command
             }
 
             var hint = Suggestions.DidYouMean(property.Name, CommandKeys);
-            throw Invalid(label + " has unknown key \"" + property.Name + "\"" + (hint.Length == 0 ? "; expected one of " + string.Join(", ", CommandKeys) : hint));
+            throw Invalid(
+                label
+                    + " has unknown key \""
+                    + property.Name
+                    + "\""
+                    + (hint.Length == 0 ? "; expected one of " + string.Join(", ", CommandKeys) : hint)
+            );
         }
     }
 
     private static string CommandString(JsonElement value, string label) =>
-        value.ValueKind == JsonValueKind.String ? value.GetString()! : throw Invalid(label + " must be a string, got " + DescribeValue(value));
+        value.ValueKind == JsonValueKind.String
+            ? value.GetString()!
+            : throw Invalid(label + " must be a string, got " + DescribeValue(value));
 
     /// <summary>
     /// One <c>inheritEnv</c> entry: a variable name, or a prefix ending in <c>*</c>. A <c>*</c> anywhere else, an <c>=</c> or whitespace,
@@ -257,12 +305,19 @@ internal static partial class Command
         var text = value.GetString()!;
         if (text == "*")
         {
-            throw Invalid(label + " cannot be \"*\": it would pass every variable to the app, model keys included; list the names or prefixes it needs");
+            throw Invalid(
+                label
+                    + " cannot be \"*\": it would pass every variable to the app, model keys included; list the names or prefixes it needs"
+            );
         }
 
         if (!InheritName().IsMatch(text))
         {
-            throw Invalid(label + " must be a variable name or a prefix ending in * (such as \"STRIPE_*\"), got " + JsonSerializer.Serialize(text));
+            throw Invalid(
+                label
+                    + " must be a variable name or a prefix ending in * (such as \"STRIPE_*\"), got "
+                    + JsonSerializer.Serialize(text)
+            );
         }
 
         return text;
@@ -276,7 +331,13 @@ internal static partial class Command
         }
 
         // JS numbers: `1e3` is 1000, and anything past 2^53 - 1 is not a safe integer (upstream's Number.isSafeInteger).
-        if (raw.ValueKind != JsonValueKind.Number || !raw.TryGetDouble(out var number) || !double.IsInteger(number) || Math.Abs(number) > 9007199254740991d || number <= 0)
+        if (
+            raw.ValueKind != JsonValueKind.Number
+            || !raw.TryGetDouble(out var number)
+            || !double.IsInteger(number)
+            || Math.Abs(number) > 9007199254740991d
+            || number <= 0
+        )
         {
             throw Invalid(label + " must be a positive safe integer of milliseconds, got " + DescribeValue(raw));
         }
@@ -285,7 +346,13 @@ internal static partial class Command
 
         // A .NET timer cannot wait longer than int.MaxValue milliseconds.
         return ms > MaxTimerMs
-            ? throw Invalid(label + " must be at most " + MaxTimerMs.ToString(CultureInfo.InvariantCulture) + " milliseconds, got " + ms.ToString(CultureInfo.InvariantCulture))
+            ? throw Invalid(
+                label
+                    + " must be at most "
+                    + MaxTimerMs.ToString(CultureInfo.InvariantCulture)
+                    + " milliseconds, got "
+                    + ms.ToString(CultureInfo.InvariantCulture)
+            )
             : TimeSpan.FromMilliseconds(ms);
     }
 

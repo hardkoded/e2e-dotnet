@@ -34,7 +34,10 @@ public sealed class BrowserWaitForResponseBodiesTests
             using var cancel = new CancellationTokenSource();
             var waiting = session.Browser.WaitForResponseAsync("**/never", cancellationToken: cancel.Token);
             await cancel.CancelAsync();
-            Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => waiting.WaitAsync(TimeSpan.FromSeconds(2)))).Code);
+            Assert.Equal(
+                "CANCELLED",
+                (await Assert.ThrowsAsync<EngineException>(() => waiting.WaitAsync(TimeSpan.FromSeconds(2)))).Code
+            );
         });
     }
 
@@ -46,7 +49,10 @@ public sealed class BrowserWaitForResponseBodiesTests
             var response = await ObserveAsync(session, site, "/api/full");
             Assert.Equal(200, response.Status);
             Assert.Equal("{\"ok\":true}", await response.TextAsync());
-            Assert.Equal(new Dictionary<string, bool> { ["ok"] = true }, await response.JsonAsync<Dictionary<string, bool>>());
+            Assert.Equal(
+                new Dictionary<string, bool> { ["ok"] = true },
+                await response.JsonAsync<Dictionary<string, bool>>()
+            );
         });
     }
 
@@ -74,7 +80,10 @@ public sealed class BrowserWaitForResponseBodiesTests
             Assert.Equal("1000", response.Headers["content-length"]);
             var text = await Assert.ThrowsAsync<TestException>(() => response.TextAsync());
             Assert.Equal("ACTION_FAILED", text.Code);
-            Assert.Equal("waitForResponse: response body could not be read: net::ERR_CONTENT_LENGTH_MISMATCH", text.Message);
+            Assert.Equal(
+                "waitForResponse: response body could not be read: net::ERR_CONTENT_LENGTH_MISMATCH",
+                text.Message
+            );
             var json = await Assert.ThrowsAsync<TestException>(() => response.JsonAsync<object>());
             Assert.Equal("ACTION_FAILED", json.Code);
         });
@@ -115,7 +124,11 @@ public sealed class BrowserWaitForResponseBodiesTests
             Assert.Equal(302, response.Status);
             var error = await Assert.ThrowsAsync<TestException>(() => response.TextAsync());
             Assert.Equal("ACTION_FAILED", error.Code);
-            Assert.Contains("Response body is unavailable for redirect responses", error.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "Response body is unavailable for redirect responses",
+                error.Message,
+                StringComparison.Ordinal
+            );
         });
     }
 
@@ -123,14 +136,16 @@ public sealed class BrowserWaitForResponseBodiesTests
     private static async Task RunAsync(TimeSpan actionTimeout, Func<E2ESession, BodySite, Task> test)
     {
         using var site = BodySite.Start();
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
-            BaseUrl = site.Origin + "/",
-            TestTitle = "browser.waitForResponse bodies",
-            ActionTimeout = actionTimeout,
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+                BaseUrl = site.Origin + "/",
+                TestTitle = "browser.waitForResponse bodies",
+                ActionTimeout = actionTimeout,
+            }
+        );
         await test(session, site);
         session.Complete(null);
     }
@@ -139,7 +154,12 @@ public sealed class BrowserWaitForResponseBodiesTests
     /// Fires one page-side fetch that reads its body the way an app does and
     /// returns the response <c>WaitForResponseAsync</c> observed for it.
     /// </summary>
-    private static async Task<WebResponse> ObserveAsync(E2ESession session, BodySite site, string pathname, TimeSpan? timeout = null)
+    private static async Task<WebResponse> ObserveAsync(
+        E2ESession session,
+        BodySite site,
+        string pathname,
+        TimeSpan? timeout = null
+    )
     {
         await session.App.OpenAsync("/");
 
@@ -148,7 +168,8 @@ public sealed class BrowserWaitForResponseBodiesTests
         var waiting = session.Browser.WaitForResponseAsync("**" + pathname, timeout);
         await session.Browser.EvaluateAsync<object>(
             "(url) => { void fetch(url).then((reply) => reply.text()).catch(() => undefined); }",
-            site.Origin + pathname);
+            site.Origin + pathname
+        );
         return await waiting.WaitAsync(bound);
     }
 }

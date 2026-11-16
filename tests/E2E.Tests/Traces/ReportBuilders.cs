@@ -16,8 +16,13 @@ internal static class ReportBuilders
 
     private static readonly SourceLocation Origin = new("tests/auth.e2e.ts", 3, 1);
 
-    public static ReportError Error(string code = "ASSERTION_FAILED", string message = "expected \"Sign in\" to be visible", string? phase = null, SourceLocation? source = null, ErrorDetails? details = null) =>
-        new(code, message, phase, source, details);
+    public static ReportError Error(
+        string code = "ASSERTION_FAILED",
+        string message = "expected \"Sign in\" to be visible",
+        string? phase = null,
+        SourceLocation? source = null,
+        ErrorDetails? details = null
+    ) => new(code, message, phase, source, details);
 
     public static StepRecord Step(
         int index = 0,
@@ -29,7 +34,8 @@ internal static class ReportBuilders
         CacheInfo? cache = null,
         CacheWrite? cacheWrite = null,
         StepScreen? screen = null,
-        SerializedError? error = null)
+        SerializedError? error = null
+    )
     {
         var step = new StepRecord
         {
@@ -57,7 +63,8 @@ internal static class ReportBuilders
         IReadOnlyList<ReportError>? secondaryErrors = null,
         IReadOnlyList<AppLogRecord>? appLog = null,
         IReadOnlyList<StepRecord>? steps = null,
-        IReadOnlyDictionary<string, string>? environment = null) =>
+        IReadOnlyDictionary<string, string>? environment = null
+    ) =>
         new()
         {
             Status = status,
@@ -74,7 +81,8 @@ internal static class ReportBuilders
         string file = "tests/auth.e2e.ts",
         IReadOnlyList<string>? titlePath = null,
         ResultStatus status = ResultStatus.Passed,
-        IReadOnlyList<ReportAttempt>? attempts = null) =>
+        IReadOnlyList<ReportAttempt>? attempts = null
+    ) =>
         new()
         {
             Id = id,
@@ -99,7 +107,13 @@ internal static class ReportBuilders
         var root = Directory.CreateTempSubdirectory("e2e-public-report-");
         try
         {
-            foreach (var path in document.Run.Results.SelectMany(result => result.Attempts).SelectMany(attempt => attempt.Artifacts).Select(artifact => artifact.Path).OfType<string>())
+            foreach (
+                var path in document
+                    .Run.Results.SelectMany(result => result.Attempts)
+                    .SelectMany(attempt => attempt.Artifacts)
+                    .Select(artifact => artifact.Path)
+                    .OfType<string>()
+            )
             {
                 var file = Path.GetFullPath(Path.Combine(root.FullName, path));
                 if (!file.StartsWith(root.FullName, StringComparison.Ordinal))
@@ -112,14 +126,34 @@ internal static class ReportBuilders
             }
 
             // Results may share an id in a fixture; the wire form is keyed by it, so each is given its own for the trip.
-            var unique = document with { Run = document.Run with { Results = [.. document.Run.Results.Select((result, index) => result with { Id = index.ToString(System.Globalization.CultureInfo.InvariantCulture) })] } };
+            var unique = document with
+            {
+                Run = document.Run with
+                {
+                    Results =
+                    [
+                        .. document.Run.Results.Select(
+                            (result, index) =>
+                                result with
+                                {
+                                    Id = index.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                                }
+                        ),
+                    ],
+                },
+            };
             var report = ReportSerializer.Read(ReportWire.Document(unique, root.FullName));
             return report with
             {
                 Run = report.Run with
                 {
                     Id = document.Run.Id,
-                    Results = [.. report.Run.Results.Select((result, index) => result with { Id = document.Run.Results[index].Id })],
+                    Results =
+                    [
+                        .. report.Run.Results.Select(
+                            (result, index) => result with { Id = document.Run.Results[index].Id }
+                        ),
+                    ],
                 },
             };
         }
@@ -133,14 +167,35 @@ internal static class ReportBuilders
     public static E2E.Reports.ReportResult Public(ReportResult result) => Public(Document(result)).Run.Results[0];
 
     /// <summary><paramref name="attempt"/> as a reporter receives it.</summary>
-    public static E2E.Reports.ReportAttempt Public(ReportAttempt attempt) => Public(Result(attempts: [attempt])).Attempts[0];
+    public static E2E.Reports.ReportAttempt Public(ReportAttempt attempt) =>
+        Public(Result(attempts: [attempt])).Attempts[0];
 
     /// <summary><paramref name="step"/> as a reporter receives it.</summary>
     public static E2E.Reports.ReportStep Public(StepRecord step) => Public(Attempt(steps: [step])).Steps[0];
 
     /// <summary><paramref name="error"/> as a reporter receives it.</summary>
-    public static E2E.Reports.ReportError Public(ReportError error) => Public(Attempt(AttemptStatus.Failed, error)).Error!;
+    public static E2E.Reports.ReportError Public(ReportError error) =>
+        Public(Attempt(AttemptStatus.Failed, error)).Error!;
 
-    public static StepEvent Event(StepEventKind kind, DateTimeOffset startedAt, long durationMs = 1, StepEventStatus status = StepEventStatus.Passed, string? name = null, int? count = null, string? code = null, string? detail = null) =>
-        new() { Kind = kind, StartedAt = startedAt, DurationMs = durationMs, Status = status, Name = name, Count = count, Code = code, Detail = detail };
+    public static StepEvent Event(
+        StepEventKind kind,
+        DateTimeOffset startedAt,
+        long durationMs = 1,
+        StepEventStatus status = StepEventStatus.Passed,
+        string? name = null,
+        int? count = null,
+        string? code = null,
+        string? detail = null
+    ) =>
+        new()
+        {
+            Kind = kind,
+            StartedAt = startedAt,
+            DurationMs = durationMs,
+            Status = status,
+            Name = name,
+            Count = count,
+            Code = code,
+            Detail = detail,
+        };
 }

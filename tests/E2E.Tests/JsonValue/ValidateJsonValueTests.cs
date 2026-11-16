@@ -37,7 +37,9 @@ public sealed class ValidateJsonValueTests
 
         var list = new List<object?>();
         list.Add(new Dictionary<string, object?> { ["list"] = list });
-        var inList = Assert.Throws<TestException>(() => ActParams.Validate(new Dictionary<string, object?> { ["items"] = list }, "agent.act"));
+        var inList = Assert.Throws<TestException>(() =>
+            ActParams.Validate(new Dictionary<string, object?> { ["items"] = list }, "agent.act")
+        );
         Assert.Contains("contains a cycle", inList.Message);
     }
 
@@ -45,7 +47,9 @@ public sealed class ValidateJsonValueTests
     [Fact]
     public void Rejects_a_non_finite_number()
     {
-        var error = Assert.Throws<TestException>(() => ActParams.Validate(new Dictionary<string, object?> { ["n"] = double.NaN }, "agent.act"));
+        var error = Assert.Throws<TestException>(() =>
+            ActParams.Validate(new Dictionary<string, object?> { ["n"] = double.NaN }, "agent.act")
+        );
         Assert.Equal("INVALID_ARGUMENT", error.Code);
         Assert.Contains("non-finite", error.Message);
     }

@@ -21,13 +21,20 @@ public sealed class ClassifyErrorTests
     {
         // PARTIAL: an InnerException is always an Exception, so upstream's non-Error cause check ("outer: text") has no counterpart.
         var refused = new Exception("connect ECONNREFUSED 127.0.0.1:3000") { Data = { ["code"] = "ECONNREFUSED" } };
-        Assert.Equal("fetch failed: connect ECONNREFUSED 127.0.0.1:3000", ErrorSerializer.Classify(new InvalidOperationException("fetch failed", refused)).Message);
+        Assert.Equal(
+            "fetch failed: connect ECONNREFUSED 127.0.0.1:3000",
+            ErrorSerializer.Classify(new InvalidOperationException("fetch failed", refused)).Message
+        );
         // Node reports a dual-stack failure as an aggregate whose members carry the detail.
         var aggregate = new AggregateException(
             "",
             new Exception("") { Data = { ["code"] = "ECONNREFUSED" } },
-            new Exception("connect ECONNREFUSED ::1:3000"));
-        Assert.Equal("fetch failed: ECONNREFUSED; connect ECONNREFUSED ::1:3000", ErrorSerializer.Classify(new InvalidOperationException("fetch failed", aggregate)).Message);
+            new Exception("connect ECONNREFUSED ::1:3000")
+        );
+        Assert.Equal(
+            "fetch failed: ECONNREFUSED; connect ECONNREFUSED ::1:3000",
+            ErrorSerializer.Classify(new InvalidOperationException("fetch failed", aggregate)).Message
+        );
         Assert.Equal("same", ErrorSerializer.MessageWithCauses(new Exception("same", new Exception("same"))));
         var deep = new Exception("a", new Exception("b", new Exception("c", new Exception("d", new Exception("e")))));
         Assert.Equal("a: b: c: d", ErrorSerializer.MessageWithCauses(deep));
@@ -40,7 +47,9 @@ public sealed class ClassifyErrorTests
         Assert.Equal("infrastructure", failure.Category);
         Assert.Equal("ENGINE_FAILURE", failure.Code);
 
-        var unsupported = ErrorSerializer.Classify(new EngineException(EngineErrorCodes.UnsupportedCapability, "no video"));
+        var unsupported = ErrorSerializer.Classify(
+            new EngineException(EngineErrorCodes.UnsupportedCapability, "no video")
+        );
         Assert.Equal("configuration", unsupported.Category);
         Assert.Equal("UNSUPPORTED_CAPABILITY", unsupported.Code);
 
@@ -59,8 +68,13 @@ public sealed class ClassifyErrorTests
         // .NET-only: upstream throws these as InfrastructureError, which asEngineError (the closed engine code set) never matches.
         // The port's EngineException is both, so a code outside the set and a Mapped error must stay as they are.
         var unreachable = ErrorSerializer.Classify(new EngineException("APP_UNREACHABLE", "app down"));
-        Assert.Equal(("infrastructure", "APP_UNREACHABLE", "app down"), (unreachable.Category, unreachable.Code, unreachable.Message));
-        var mapped = ErrorSerializer.Classify(new EngineException(EngineErrorCodes.InvalidState, "kept") { Mapped = true });
+        Assert.Equal(
+            ("infrastructure", "APP_UNREACHABLE", "app down"),
+            (unreachable.Category, unreachable.Code, unreachable.Message)
+        );
+        var mapped = ErrorSerializer.Classify(
+            new EngineException(EngineErrorCodes.InvalidState, "kept") { Mapped = true }
+        );
         Assert.Equal(("infrastructure", "INVALID_STATE"), (mapped.Category, mapped.Code));
     }
 

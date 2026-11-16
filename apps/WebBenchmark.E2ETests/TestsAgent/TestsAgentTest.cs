@@ -34,7 +34,8 @@ public abstract class TestsAgentTest : BenchmarkTest
           }
         }
         """,
-        E2EConfig.Discover().ProjectRoot);
+        E2EConfig.Discover().ProjectRoot
+    );
 
     protected override E2EConfig Config => AgentConfig;
 

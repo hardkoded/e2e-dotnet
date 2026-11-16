@@ -25,55 +25,100 @@ public sealed class ErrorTranslationTests
     [Fact]
     public void Maps_a_missing_session_to_INVALID_STATE_and_unsupported_operations_to_UNSUPPORTED_CAPABILITY()
     {
-        var missing = Engine(DeviceErrors.TranslateError(new AgentDeviceError("SESSION_NOT_FOUND", "session gone"), "snapshot"));
+        var missing = Engine(
+            DeviceErrors.TranslateError(new AgentDeviceError("SESSION_NOT_FOUND", "session gone"), "snapshot")
+        );
         Assert.Equal("INVALID_STATE", missing.Code);
         Assert.False(missing.Retryable);
 
         // What `appstate` says once `close` ended the session; the harness reports it as APP_NOT_OPEN.
-        var closed = Engine(DeviceErrors.TranslateError(
-            new AgentDeviceError(
-                "INVALID_ARGS",
-                "appstate requires an active session or an explicit device selector (e.g. --platform ios).",
-                Details(("reason", "session_or_device_selector_required"), ("dispatched", "no"))),
-            "device.foregroundApp"));
+        var closed = Engine(
+            DeviceErrors.TranslateError(
+                new AgentDeviceError(
+                    "INVALID_ARGS",
+                    "appstate requires an active session or an explicit device selector (e.g. --platform ios).",
+                    Details(("reason", "session_or_device_selector_required"), ("dispatched", "no"))
+                ),
+                "device.foregroundApp"
+            )
+        );
         Assert.Equal("INVALID_STATE", closed.Code);
         Assert.False(closed.Retryable);
 
         // Keyed on the code and reason, never the text: a message that only reads like a missing session stays an engine failure.
         Assert.Equal(
             "ENGINE_FAILURE",
-            Engine(DeviceErrors.TranslateError(new AgentDeviceError("INVALID_ARGS", "appstate requires an active session"), "device.foregroundApp")).Code);
+            Engine(
+                DeviceErrors.TranslateError(
+                    new AgentDeviceError("INVALID_ARGS", "appstate requires an active session"),
+                    "device.foregroundApp"
+                )
+            ).Code
+        );
         Assert.Equal(
             "INVALID_STATE",
-            Engine(DeviceErrors.TranslateError(
-                new AgentDeviceError("SESSION_NOT_FOUND", "iOS appstate requires an active session on the target device. Run open first."),
-                "device.foregroundApp")).Code);
+            Engine(
+                DeviceErrors.TranslateError(
+                    new AgentDeviceError(
+                        "SESSION_NOT_FOUND",
+                        "iOS appstate requires an active session on the target device. Run open first."
+                    ),
+                    "device.foregroundApp"
+                )
+            ).Code
+        );
         Assert.Equal(
             "UNSUPPORTED_CAPABILITY",
-            Engine(DeviceErrors.TranslateError(new AgentDeviceError("UNSUPPORTED_OPERATION", "hover is macOS only"), "perform hover")).Code);
+            Engine(
+                DeviceErrors.TranslateError(
+                    new AgentDeviceError("UNSUPPORTED_OPERATION", "hover is macOS only"),
+                    "perform hover"
+                )
+            ).Code
+        );
         Assert.Equal(
             "UNSUPPORTED_CAPABILITY",
-            Engine(DeviceErrors.TranslateError(
-                new AgentDeviceError("COMMAND_FAILED", "Android shell clipboard write is not supported on this device."),
-                "device.setClipboard")).Code);
+            Engine(
+                DeviceErrors.TranslateError(
+                    new AgentDeviceError(
+                        "COMMAND_FAILED",
+                        "Android shell clipboard write is not supported on this device."
+                    ),
+                    "device.setClipboard"
+                )
+            ).Code
+        );
     }
 
     [Fact]
     public void Keeps_a_timeout_the_device_reports_under_ENGINE_FAILURE_with_its_text_and_hint_never_OPERATION_TIMEOUT()
     {
-        const string hint = "Retry simulator boot and inspect simctl bootstatus logs; in CI reduce parallel jobs or use a larger runner.";
-        var bootTimeout = Engine(DeviceErrors.TranslateError(
-            new AgentDeviceError("IOS_BOOT_TIMEOUT", "Timed out waiting for iPhone 17 Pro to boot", Details(("hint", hint))),
-            "boot"));
+        const string hint =
+            "Retry simulator boot and inspect simctl bootstatus logs; in CI reduce parallel jobs or use a larger runner.";
+        var bootTimeout = Engine(
+            DeviceErrors.TranslateError(
+                new AgentDeviceError(
+                    "IOS_BOOT_TIMEOUT",
+                    "Timed out waiting for iPhone 17 Pro to boot",
+                    Details(("hint", hint))
+                ),
+                "boot"
+            )
+        );
         Assert.Equal("ENGINE_FAILURE", bootTimeout.Code);
         Assert.False(bootTimeout.Retryable);
         Assert.Equal($"boot failed: Timed out waiting for iPhone 17 Pro to boot Hint: {hint}", bootTimeout.Message);
-        var snapshot = Engine(DeviceErrors.TranslateError(new Exception("snapshot timed out after 30000ms"), "snapshot"));
+        var snapshot = Engine(
+            DeviceErrors.TranslateError(new Exception("snapshot timed out after 30000ms"), "snapshot")
+        );
         Assert.Equal("ENGINE_FAILURE", snapshot.Code);
         Assert.Equal("snapshot failed: snapshot timed out after 30000ms", snapshot.Message);
-        var connect = Engine(DeviceErrors.TranslateError(
-            new AgentDeviceError("IOS_RUNNER_CONNECT_TIMEOUT", "runner connect timed out after 60s"),
-            "open com.example.app"));
+        var connect = Engine(
+            DeviceErrors.TranslateError(
+                new AgentDeviceError("IOS_RUNNER_CONNECT_TIMEOUT", "runner connect timed out after 60s"),
+                "open com.example.app"
+            )
+        );
         Assert.Equal("ENGINE_FAILURE", connect.Code);
         Assert.Equal("open com.example.app failed: runner connect timed out after 60s", connect.Message);
     }
@@ -81,16 +126,31 @@ public sealed class ErrorTranslationTests
     // Each refusal as agent-device 0.21.21 sends it: the typed reason, and the message the reason replaces.
     [Theory]
     [InlineData("ref_not_found", "Ref @e12 not found", "no")]
-    [InlineData("ref_frame_expired", "Ref @e12 belongs to an expired ref frame — a device action since the snapshot invalidated it", "no")]
+    [InlineData(
+        "ref_frame_expired",
+        "Ref @e12 belongs to an expired ref frame — a device action since the snapshot invalidated it",
+        "no"
+    )]
     [InlineData("ref_generation_mismatch", "Ref @e12 was minted from a superseded snapshot generation", "no")]
-    [InlineData("plain_ref_requires_complete_frame", "Ref @e12 needs a complete snapshot — the current frame only authorizes its emitted refs", "no")]
+    [InlineData(
+        "plain_ref_requires_complete_frame",
+        "Ref @e12 needs a complete snapshot — the current frame only authorizes its emitted refs",
+        "no"
+    )]
     [InlineData("ref_not_issued", "Ref @e12 was not issued by the current ref frame", "no")]
-
     // After Android blocking-dialog recovery, a drag refuses its stale ref before the gesture but reports it as `unknown`.
-    [InlineData("ref_frame_expired", "Ref @e12 belongs to an expired ref frame — a device action since the snapshot invalidated it", "unknown")]
+    [InlineData(
+        "ref_frame_expired",
+        "Ref @e12 belongs to an expired ref frame — a device action since the snapshot invalidated it",
+        "unknown"
+    )]
     public void Maps_the_stale_ref_refusal_to_retryable_NODE_STALE(string reason, string text, string dispatched)
     {
-        var refused = new AgentDeviceError("COMMAND_FAILED", text, Details(("reason", reason), ("dispatched", dispatched)));
+        var refused = new AgentDeviceError(
+            "COMMAND_FAILED",
+            text,
+            Details(("reason", reason), ("dispatched", dispatched))
+        );
         var stale = Engine(DeviceErrors.StaleOr(refused, "perform tap"));
         Assert.Equal("NODE_STALE", stale.Code);
         Assert.True(stale.Retryable);
@@ -109,7 +169,10 @@ public sealed class ErrorTranslationTests
         var cause = new AgentDeviceError(
             "COMMAND_FAILED",
             "Target position was not confirmed",
-            dispatched is null ? Details(("reason", "target_still_moving")) : Details(("reason", "target_still_moving"), ("dispatched", dispatched)));
+            dispatched is null
+                ? Details(("reason", "target_still_moving"))
+                : Details(("reason", "target_still_moving"), ("dispatched", dispatched))
+        );
         var translated = Engine(DeviceErrors.StaleOr(cause, "perform tap"));
         Assert.Equal(dispatched == "no" ? "NODE_STALE" : "ENGINE_FAILURE", translated.Code);
         Assert.Equal(dispatched == "no", translated.Retryable);
@@ -121,14 +184,24 @@ public sealed class ErrorTranslationTests
     [InlineData(
         "target_covered",
         "@e12 is covered by another visible element and cannot be tapped safely",
-        "Covered by Toolbar \"Back Next\". Dismiss or close that element, scroll the target clear of it, or inspect with snapshot/screenshot before retrying.")]
+        "Covered by Toolbar \"Back Next\". Dismiss or close that element, scroll the target clear of it, or inspect with snapshot/screenshot before retrying."
+    )]
     [InlineData(
         "tap_keyboard_occludes_target",
         "@e12 is behind the visible keyboard and cannot be tapped safely",
-        "The visible keyboard covers this target, so the tap would land on a key instead of on it. End editing first: tap the app's own Done/Cancel/close control.")]
-    public void Fails_a_tap_agent_device_refused_as_the_reason_with_NOT_ACTIONABLE_and_its_hint(string reason, string text, string hint)
+        "The visible keyboard covers this target, so the tap would land on a key instead of on it. End editing first: tap the app's own Done/Cancel/close control."
+    )]
+    public void Fails_a_tap_agent_device_refused_as_the_reason_with_NOT_ACTIONABLE_and_its_hint(
+        string reason,
+        string text,
+        string hint
+    )
     {
-        var refused = new AgentDeviceError("COMMAND_FAILED", text, Details(("reason", reason), ("hint", hint), ("dispatched", "no")));
+        var refused = new AgentDeviceError(
+            "COMMAND_FAILED",
+            text,
+            Details(("reason", reason), ("hint", hint), ("dispatched", "no"))
+        );
         var failure = Engine(DeviceErrors.StaleOr(refused, "perform tap"));
         Assert.Equal("NOT_ACTIONABLE", failure.Code);
         Assert.False(failure.Retryable);
@@ -136,17 +209,25 @@ public sealed class ErrorTranslationTests
         Assert.Equal($"perform tap failed: {text} Hint: {hint}", failure.Message);
 
         // A refusal that may have sent input is not the test's to fix.
-        var unknown = new AgentDeviceError("COMMAND_FAILED", text, Details(("reason", reason), ("hint", hint), ("dispatched", "unknown")));
+        var unknown = new AgentDeviceError(
+            "COMMAND_FAILED",
+            text,
+            Details(("reason", reason), ("hint", hint), ("dispatched", "unknown"))
+        );
         Assert.Equal("ENGINE_FAILURE", Engine(DeviceErrors.StaleOr(unknown, "perform tap")).Code);
     }
 
     [Fact]
     public void Maps_the_rest_to_ENGINE_FAILURE_with_the_text_a_ref_named_in_a_message_without_a_stale_reason_included()
     {
-        var named = Engine(DeviceErrors.StaleOr(new Exception("ref @e12 not found in the current snapshot"), "perform tap"));
+        var named = Engine(
+            DeviceErrors.StaleOr(new Exception("ref @e12 not found in the current snapshot"), "perform tap")
+        );
         Assert.Equal("ENGINE_FAILURE", named.Code);
         Assert.False(named.Retryable);
-        var failure = Engine(DeviceErrors.TranslateError(new AgentDeviceError("COMMAND_FAILED", "xcrun exploded"), "boot"));
+        var failure = Engine(
+            DeviceErrors.TranslateError(new AgentDeviceError("COMMAND_FAILED", "xcrun exploded"), "boot")
+        );
         Assert.Equal("ENGINE_FAILURE", failure.Code);
         Assert.False(failure.Retryable);
         Assert.Equal("boot failed: xcrun exploded", failure.Message);
@@ -158,13 +239,18 @@ public sealed class ErrorTranslationTests
         var refused = new AgentDeviceError(
             "UNSUPPORTED_OPERATION",
             "Unable to dismiss the iOS keyboard: the keyboard exposes no dismiss key",
-            Details(("hint", "Tap the app's own Done control, or press the return key to submit.")));
+            Details(("hint", "Tap the app's own Done control, or press the return key to submit."))
+        );
         var translated = Engine(DeviceErrors.TranslateError(refused, "keyboard.dismiss"));
         Assert.Equal("UNSUPPORTED_CAPABILITY", translated.Code);
         Assert.Equal(
             "keyboard.dismiss failed: Unable to dismiss the iOS keyboard: the keyboard exposes no dismiss key Hint: Tap the app's own Done control, or press the return key to submit.",
-            translated.Message);
-        Assert.Equal("boot failed: plain", DeviceErrors.TranslateError(new AgentDeviceError("COMMAND_FAILED", "plain"), "boot").Message);
+            translated.Message
+        );
+        Assert.Equal(
+            "boot failed: plain",
+            DeviceErrors.TranslateError(new AgentDeviceError("COMMAND_FAILED", "plain"), "boot").Message
+        );
     }
 
     [Fact]
@@ -173,10 +259,12 @@ public sealed class ErrorTranslationTests
         var advised = new AgentDeviceError(
             "COMMAND_FAILED",
             "permission setting requires an active app in session",
-            Details(("hint", "Check command arguments and run --help for usage examples.")));
+            Details(("hint", "Check command arguments and run --help for usage examples."))
+        );
         Assert.Equal(
             "device.setPermission failed: permission setting requires an active app in session",
-            DeviceErrors.TranslateError(advised, "device.setPermission").Message);
+            DeviceErrors.TranslateError(advised, "device.setPermission").Message
+        );
     }
 
     [Fact]
@@ -185,16 +273,29 @@ public sealed class ErrorTranslationTests
         var missing = new AgentDeviceError(
             "APP_NOT_INSTALLED",
             "No app found matching \"e2eBenchmark\"",
-            Details(("hint", "Run apps to discover the exact installed package or bundle id, or install the app before open.")));
+            Details(
+                (
+                    "hint",
+                    "Run apps to discover the exact installed package or bundle id, or install the app before open."
+                )
+            )
+        );
         var translated = DeviceErrors.TranslateError(missing, "open e2eBenchmark");
         Assert.Equal("open e2eBenchmark failed: No app found matching \"e2eBenchmark\"", translated.Message);
         Assert.True(DeviceErrors.IsAppNotInstalled(translated));
-        Assert.False(DeviceErrors.IsAppNotInstalled(DeviceErrors.TranslateError(new AgentDeviceError("COMMAND_FAILED", "plain"), "open x")));
+        Assert.False(
+            DeviceErrors.IsAppNotInstalled(
+                DeviceErrors.TranslateError(new AgentDeviceError("COMMAND_FAILED", "plain"), "open x")
+            )
+        );
     }
 
     [Fact]
     public void Turns_an_AbortError_into_CANCELLED()
     {
-        Assert.Equal("CANCELLED", Engine(DeviceErrors.TranslateError(new OperationCanceledException("aborted"), "snapshot")).Code);
+        Assert.Equal(
+            "CANCELLED",
+            Engine(DeviceErrors.TranslateError(new OperationCanceledException("aborted"), "snapshot")).Code
+        );
     }
 }

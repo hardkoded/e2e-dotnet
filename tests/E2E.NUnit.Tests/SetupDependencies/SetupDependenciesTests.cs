@@ -30,10 +30,21 @@ public sealed class SetupDependenciesTests
     [Test]
     public void A_test_that_restores_a_session_runs_the_setup_test_that_saves_it_once()
     {
-        var results = NestedSessionRun.Run(nameof(AConsumerFixture.Consumes_the_dependency_session), nameof(AConsumerFixture.Consumes_the_dependency_session_again));
+        var results = NestedSessionRun.Run(
+            nameof(AConsumerFixture.Consumes_the_dependency_session),
+            nameof(AConsumerFixture.Consumes_the_dependency_session_again)
+        );
 
-        Assert.That(results[nameof(AConsumerFixture.Consumes_the_dependency_session)].ResultState.Status, Is.EqualTo(TestStatus.Passed), results[nameof(AConsumerFixture.Consumes_the_dependency_session)].Message);
-        Assert.That(results[nameof(AConsumerFixture.Consumes_the_dependency_session_again)].ResultState.Status, Is.EqualTo(TestStatus.Passed), results[nameof(AConsumerFixture.Consumes_the_dependency_session_again)].Message);
+        Assert.That(
+            results[nameof(AConsumerFixture.Consumes_the_dependency_session)].ResultState.Status,
+            Is.EqualTo(TestStatus.Passed),
+            results[nameof(AConsumerFixture.Consumes_the_dependency_session)].Message
+        );
+        Assert.That(
+            results[nameof(AConsumerFixture.Consumes_the_dependency_session_again)].ResultState.Status,
+            Is.EqualTo(TestStatus.Passed),
+            results[nameof(AConsumerFixture.Consumes_the_dependency_session_again)].Message
+        );
         Assert.That(AConsumerFixture.Seen, Is.EqualTo("dependent"));
         Assert.That(DependencySetupFixture.Runs, Is.EqualTo(1));
     }
@@ -41,21 +52,40 @@ public sealed class SetupDependenciesTests
     [Test]
     public void The_setup_test_does_not_run_again_when_the_run_reaches_it()
     {
-        var results = NestedSessionRun.Run(nameof(AConsumerFixture.Consumes_the_dependency_session), "save the dependency session");
+        var results = NestedSessionRun.Run(
+            nameof(AConsumerFixture.Consumes_the_dependency_session),
+            "save the dependency session"
+        );
 
-        Assert.That(results[nameof(AConsumerFixture.Consumes_the_dependency_session)].ResultState.Status, Is.EqualTo(TestStatus.Passed), results[nameof(AConsumerFixture.Consumes_the_dependency_session)].Message);
+        Assert.That(
+            results[nameof(AConsumerFixture.Consumes_the_dependency_session)].ResultState.Status,
+            Is.EqualTo(TestStatus.Passed),
+            results[nameof(AConsumerFixture.Consumes_the_dependency_session)].Message
+        );
         Assert.That(DependencySetupFixture.Runs, Is.EqualTo(1));
     }
 
     [Test]
     public void A_failed_setup_test_fails_each_dependent_without_running_again()
     {
-        var results = NestedSessionRun.Run(nameof(BrokenSetupFixture.Consumes_the_broken_session), nameof(BrokenSetupFixture.Consumes_the_broken_session_again));
+        var results = NestedSessionRun.Run(
+            nameof(BrokenSetupFixture.Consumes_the_broken_session),
+            nameof(BrokenSetupFixture.Consumes_the_broken_session_again)
+        );
 
-        foreach (var name in new[] { nameof(BrokenSetupFixture.Consumes_the_broken_session), nameof(BrokenSetupFixture.Consumes_the_broken_session_again) })
+        foreach (
+            var name in new[]
+            {
+                nameof(BrokenSetupFixture.Consumes_the_broken_session),
+                nameof(BrokenSetupFixture.Consumes_the_broken_session_again),
+            }
+        )
         {
             Assert.That(results[name].ResultState.Status, Is.EqualTo(TestStatus.Failed));
-            Assert.That(results[name].Message, Does.Contain("SESSION_UNAVAILABLE").Or.Contain("session \"broken\" was not produced"));
+            Assert.That(
+                results[name].Message,
+                Does.Contain("SESSION_UNAVAILABLE").Or.Contain("session \"broken\" was not produced")
+            );
         }
 
         Assert.That(BrokenSetupFixture.Runs, Is.EqualTo(1));

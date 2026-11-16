@@ -28,14 +28,16 @@ public sealed class E2EConfig
         ["app"] = "the app under test is declared on its target: targets: [{ \"app\": { \"url\": ... } }]",
         ["engine"] = "the engine is chosen by the fixture; declare the target as targets: [{ \"platform\": \"web\" }]",
         ["agent"] = "agents are named: agents: { \"default\": { \"model\": ... } }",
-        ["timeouts"] = "timeouts are top-level milliseconds: timeout, launchTimeout, actionTimeout, assertionTimeout, cleanupTimeout",
+        ["timeouts"] =
+            "timeouts are top-level milliseconds: timeout, launchTimeout, actionTimeout, assertionTimeout, cleanupTimeout",
     };
 
     // Upstream's REMOVED_TOP_LEVEL_KEYS: keys the runner used to accept, each mapped to what replaces it.
     private static readonly Dictionary<string, string> RemovedTopLevelKeys = new(StringComparer.Ordinal)
     {
         ["specVersion"] = "delete it; the runner version is the format version",
-        ["limits"] = "set maxInputTokens on each agent (it was limits.maxModelTokensPerCall); the runner fixes maxAgentContextBytes, maxLedgerBytes, and maxEventsPerStep",
+        ["limits"] =
+            "set maxInputTokens on each agent (it was limits.maxModelTokensPerCall); the runner fixes maxAgentContextBytes, maxLedgerBytes, and maxEventsPerStep",
     };
 
     // Upstream's REMOVED_AGENT_KEYS: agent keys the runner used to accept, each mapped to what replaces it.
@@ -49,15 +51,29 @@ public sealed class E2EConfig
 
     private static readonly string[] TopLevelKeys =
     [
-        "targets", "timeout", "launchTimeout", "actionTimeout", "assertionTimeout", "cleanupTimeout",
-        "retries", "failOnSkippedFailure", "maxDuration", "agents", "cache", "secrets", "credentials", "artifacts", "output", "trace", "video", "testAssembly", "reporters",
+        "targets",
+        "timeout",
+        "launchTimeout",
+        "actionTimeout",
+        "assertionTimeout",
+        "cleanupTimeout",
+        "retries",
+        "failOnSkippedFailure",
+        "maxDuration",
+        "agents",
+        "cache",
+        "secrets",
+        "credentials",
+        "artifacts",
+        "output",
+        "trace",
+        "video",
+        "testAssembly",
+        "reporters",
     ];
 
     // Upstream keys the .NET port does not implement. They fail loudly rather than being ignored.
-    private static readonly string[] UnsupportedTopLevelKeys =
-    [
-        "projectId", "tests", "workers",
-    ];
+    private static readonly string[] UnsupportedTopLevelKeys = ["projectId", "tests", "workers"];
 
     private static readonly string[] ReporterKeys = ["type", "options"];
 
@@ -67,13 +83,41 @@ public sealed class E2EConfig
 
     private static readonly string[] CredentialKeys = ["username", "password"];
 
-    private static readonly string[] AppKeys = ["url", "linkBase", "command", "readyUrl", "identity", "environment", "permissions"];
+    private static readonly string[] AppKeys =
+    [
+        "url",
+        "linkBase",
+        "command",
+        "readyUrl",
+        "identity",
+        "environment",
+        "permissions",
+    ];
 
     private static readonly string[] MobileAppKeys =
-        ["bundleId", "appPath", "linkBase", "command", "readyUrl", "identity", "environment", "launchArguments", "permissions"];
+    [
+        "bundleId",
+        "appPath",
+        "linkBase",
+        "command",
+        "readyUrl",
+        "identity",
+        "environment",
+        "launchArguments",
+        "permissions",
+    ];
 
     private static readonly string[] WindowsAppKeys =
-        ["bundleId", "appPath", "linkBase", "command", "readyUrl", "identity", "environment", "launchArguments"];
+    [
+        "bundleId",
+        "appPath",
+        "linkBase",
+        "command",
+        "readyUrl",
+        "identity",
+        "environment",
+        "launchArguments",
+    ];
 
     // A Windows app has no permissions to grant.
     private static readonly string[] UnsupportedAppKeys = ["permissions"];
@@ -83,7 +127,22 @@ public sealed class E2EConfig
     private static readonly string[] Platforms = ["web", "ios", "android", "windows"];
 
     private static readonly string[] AgentKeys =
-        ["model", "judge", "provider", "system", "context", "baseUrl", "apiKeyEnv", "maxSteps", "maxModelCalls", "judgmentTimeout", "maxObservationBytes", "maxInputTokens", "providerOptions", "tools"];
+    [
+        "model",
+        "judge",
+        "provider",
+        "system",
+        "context",
+        "baseUrl",
+        "apiKeyEnv",
+        "maxSteps",
+        "maxModelCalls",
+        "judgmentTimeout",
+        "maxObservationBytes",
+        "maxInputTokens",
+        "providerOptions",
+        "tools",
+    ];
 
     private static readonly string[] UnsupportedAgentKeys = ["executor"];
 
@@ -106,9 +165,7 @@ public sealed class E2EConfig
 
     private Func<string, string?> _environment = Environment.GetEnvironmentVariable;
 
-    private E2EConfig()
-    {
-    }
+    private E2EConfig() { }
 
     /// <summary>The file this config was read from, or null for the defaults.</summary>
     public string? ConfigPath { get; private init; }
@@ -155,7 +212,8 @@ public sealed class E2EConfig
     /// <summary>0 to 10. Defaults to 1 in CI and 0 elsewhere. NUnit retries still come from <c>[Retry]</c>.</summary>
     public int Retries { get; private init; }
 
-    public IReadOnlyDictionary<string, AgentConfig> Agents { get; private set; } = ReadOnlyDictionary<string, AgentConfig>.Empty;
+    public IReadOnlyDictionary<string, AgentConfig> Agents { get; private set; } =
+        ReadOnlyDictionary<string, AgentConfig>.Empty;
 
     /// <summary>
     /// The agents unpinned tests run as (upstream's <c>agentNames</c>): <c>default</c>, or the names <c>--agent</c> gave, in order and
@@ -211,22 +269,26 @@ public sealed class E2EConfig
     public Secrets Secrets { get; private set; } = Secrets.Empty;
 
     /// <summary>The <c>credentials</c> entries by name, each with its password as the secret <c>&lt;name&gt;.password</c> (upstream's <c>ResolvedConfig.credentials</c>).</summary>
-    public IReadOnlyDictionary<string, ResolvedCredential> Credentials { get; private set; } = ReadOnlyDictionary<string, ResolvedCredential>.Empty;
+    public IReadOnlyDictionary<string, ResolvedCredential> Credentials { get; private set; } =
+        ReadOnlyDictionary<string, ResolvedCredential>.Empty;
 
     private JsonElement? _rawCredentials;
     private JsonElement? _rawSecrets;
-    private IReadOnlyDictionary<string, CredentialProvider> _credentialProviders = ReadOnlyDictionary<string, CredentialProvider>.Empty;
-    private IReadOnlyDictionary<string, SecretProvider> _secretProviders = ReadOnlyDictionary<string, SecretProvider>.Empty;
+    private IReadOnlyDictionary<string, CredentialProvider> _credentialProviders = ReadOnlyDictionary<
+        string,
+        CredentialProvider
+    >.Empty;
+    private IReadOnlyDictionary<string, SecretProvider> _secretProviders = ReadOnlyDictionary<
+        string,
+        SecretProvider
+    >.Empty;
 
     /// <summary>A <c>credentials</c> entry the code declares: the username (null reads <c>E2E_USER_&lt;NAME&gt;_USERNAME</c> alone) and the provider of its password.</summary>
     private sealed record CredentialProvider(string? Username, SecretProvider Password);
 
     /// <summary>Every secret the run holds: each credential's password, then the <c>secrets</c> entries (upstream's <c>allSecrets</c>). Redaction reads it.</summary>
     internal IReadOnlyList<Secret> AllSecrets =>
-    [
-        .. Credentials.Values.Select(credential => credential.Password),
-        .. Secrets.Names.Select(Secrets.Get),
-    ];
+        [.. Credentials.Values.Select(credential => credential.Password), .. Secrets.Names.Select(Secrets.Get)];
 
     /// <summary>
     /// A copy of the config whose replay cache is <paramref name="store"/> (upstream's <c>cache.store</c>), over the file store at
@@ -270,7 +332,10 @@ public sealed class E2EConfig
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(provider);
-        return WithProviders(_credentialProviders, new Dictionary<string, SecretProvider>(_secretProviders, StringComparer.Ordinal) { [name] = provider });
+        return WithProviders(
+            _credentialProviders,
+            new Dictionary<string, SecretProvider>(_secretProviders, StringComparer.Ordinal) { [name] = provider }
+        );
     }
 
     /// <summary>
@@ -284,7 +349,13 @@ public sealed class E2EConfig
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(password);
-        return WithProviders(new Dictionary<string, CredentialProvider>(_credentialProviders, StringComparer.Ordinal) { [name] = new CredentialProvider(username, password) }, _secretProviders);
+        return WithProviders(
+            new Dictionary<string, CredentialProvider>(_credentialProviders, StringComparer.Ordinal)
+            {
+                [name] = new CredentialProvider(username, password),
+            },
+            _secretProviders
+        );
     }
 
     /// <summary>
@@ -298,15 +369,17 @@ public sealed class E2EConfig
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(engine);
         var existing = Targets.FirstOrDefault(target => string.Equals(target.Name, name, StringComparison.Ordinal));
-        return WithTarget(new TargetConfig
-        {
-            Name = name,
-            Platform = engine.Platform,
-            App = existing?.App ?? new AppConfig(),
-            Trace = existing?.Trace ?? new(RecordingMode.RetainOnFailure, RecordingSource.Default),
-            Video = existing?.Video ?? new(RecordingMode.Off, RecordingSource.Default),
-            Engine = engine,
-        });
+        return WithTarget(
+            new TargetConfig
+            {
+                Name = name,
+                Platform = engine.Platform,
+                App = existing?.App ?? new AppConfig(),
+                Trace = existing?.Trace ?? new(RecordingMode.RetainOnFailure, RecordingSource.Default),
+                Video = existing?.Video ?? new(RecordingMode.Off, RecordingSource.Default),
+                Engine = engine,
+            }
+        );
     }
 
     /// <summary>A copy of the config with <paramref name="target"/> in place of the target of the same name, or after the others when none has it.</summary>
@@ -329,7 +402,10 @@ public sealed class E2EConfig
         return copy;
     }
 
-    private E2EConfig WithProviders(IReadOnlyDictionary<string, CredentialProvider> credentialProviders, IReadOnlyDictionary<string, SecretProvider> secretProviders)
+    private E2EConfig WithProviders(
+        IReadOnlyDictionary<string, CredentialProvider> credentialProviders,
+        IReadOnlyDictionary<string, SecretProvider> secretProviders
+    )
     {
         var copy = (E2EConfig)MemberwiseClone();
         copy._credentialProviders = credentialProviders;
@@ -370,7 +446,8 @@ public sealed class E2EConfig
     }
 
     /// <summary>Reads and validates a config file. Throws <see cref="ConfigurationException"/> with <c>INVALID_CONFIG</c>.</summary>
-    public static E2EConfig Load(string path, Func<string, string?>? environment = null) => Load(path, environment, null);
+    public static E2EConfig Load(string path, Func<string, string?>? environment = null) =>
+        Load(path, environment, null);
 
     /// <summary>Upstream's <c>resolveConfig(raw, { cli })</c> for a file: the flags that replace config keys applied (<c>e2e cache --cache-dir</c>).</summary>
     internal static E2EConfig Load(string path, Func<string, string?>? environment, CliOverrides? cli)
@@ -402,7 +479,12 @@ public sealed class E2EConfig
     /// Upstream's <c>resolveConfig(raw, { cli })</c>: the config with the flags that replace config keys applied. The port has no
     /// command line to read them from, so only code (the tests) passes them.
     /// </summary>
-    internal static E2EConfig Parse(string json, string projectRoot, Func<string, string?>? environment, CliOverrides cli)
+    internal static E2EConfig Parse(
+        string json,
+        string projectRoot,
+        Func<string, string?>? environment,
+        CliOverrides cli
+    )
     {
         ArgumentNullException.ThrowIfNull(json);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
@@ -431,7 +513,11 @@ public sealed class E2EConfig
                 continue;
             }
 
-            for (var directory = new DirectoryInfo(Path.GetFullPath(start)); directory is not null; directory = directory.Parent)
+            for (
+                var directory = new DirectoryInfo(Path.GetFullPath(start));
+                directory is not null;
+                directory = directory.Parent
+            )
             {
                 var candidate = Path.Combine(directory.FullName, FileName);
                 if (File.Exists(candidate))
@@ -463,7 +549,14 @@ public sealed class E2EConfig
         var baseDirectory = Path.GetFullPath(cwd);
         return new ConfigurationException(
             "CONFIG_NOT_FOUND",
-            "config file not found: " + absolute + " (" + explicitPath + " resolved against the working directory " + baseDirectory + "); pass an absolute path, or a path relative to that directory");
+            "config file not found: "
+                + absolute
+                + " ("
+                + explicitPath
+                + " resolved against the working directory "
+                + baseDirectory
+                + "); pass an absolute path, or a path relative to that directory"
+        );
     }
 
     /// <summary>
@@ -486,16 +579,26 @@ public sealed class E2EConfig
     }
 
     /// <summary>Whether a flag variable's value is <c>1</c> or <c>true</c>.</summary>
-    private static bool IsFlagOn(string? value) => value?.Trim() is { } trimmed && (trimmed == "1" || trimmed.Equals("true", StringComparison.OrdinalIgnoreCase));
+    private static bool IsFlagOn(string? value) =>
+        value?.Trim() is { } trimmed && (trimmed == "1" || trimmed.Equals("true", StringComparison.OrdinalIgnoreCase));
 
-    private static E2EConfig Parse(string json, string projectRoot, string? configPath, Func<string, string?>? environment, CliOverrides? cli)
+    private static E2EConfig Parse(
+        string json,
+        string projectRoot,
+        string? configPath,
+        Func<string, string?>? environment,
+        CliOverrides? cli
+    )
     {
         cli ??= new CliOverrides();
         environment ??= Environment.GetEnvironmentVariable;
         JsonDocument document;
         try
         {
-            document = JsonDocument.Parse(json, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+            document = JsonDocument.Parse(
+                json,
+                new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true }
+            );
         }
         catch (JsonException ex)
         {
@@ -514,7 +617,11 @@ public sealed class E2EConfig
             var ci = IsCi(environment);
             var trace = ReadRun(root, RecordingKind.Trace, environment, cli.Trace);
             var video = ReadRun(root, RecordingKind.Video, environment, cli.Video);
-            var credentials = ReadCredentials(Property(root, "credentials"), environment, ReadOnlyDictionary<string, CredentialProvider>.Empty);
+            var credentials = ReadCredentials(
+                Property(root, "credentials"),
+                environment,
+                ReadOnlyDictionary<string, CredentialProvider>.Empty
+            );
             var cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment, null, cli);
             ReadArtifacts(Property(root, "artifacts"));
             // The port's `--agent` is one name in E2E_AGENT; flags passed by code win over it.
@@ -533,15 +640,25 @@ public sealed class E2EConfig
                 CleanupTimeout = Milliseconds(root, "cleanupTimeout", E2EDefaults.CleanupTimeout),
                 FailOnSkippedFailure = ReadFailOnSkippedFailure(Property(root, "failOnSkippedFailure")),
                 MaxDuration = Command.PositiveMs(Property(root, "maxDuration"), "maxDuration"),
-                Retries = Property(root, "retries") is { } retries ? Integer(retries, "retries", 0, 10) : ci ? 1 : 0,
+                Retries =
+                    Property(root, "retries") is { } retries ? Integer(retries, "retries", 0, 10)
+                    : ci ? 1
+                    : 0,
                 Agents = agents.Agents,
                 AgentNames = agents.AgentNames,
-                TestAssembly = OptionalString(root, "testAssembly", "testAssembly") is { } testAssembly ? Path.GetFullPath(testAssembly, projectRoot) : null,
+                TestAssembly = OptionalString(root, "testAssembly", "testAssembly") is { } testAssembly
+                    ? Path.GetFullPath(testAssembly, projectRoot)
+                    : null,
                 Cache = cache,
                 Reporters = ReadReporters(Property(root, "reporters")),
                 _rawOutput = Property(root, "output")?.Clone(),
                 RawConfig = root.Clone(),
-                Secrets = ReadSecrets(Property(root, "secrets"), environment, credentials, ReadOnlyDictionary<string, SecretProvider>.Empty),
+                Secrets = ReadSecrets(
+                    Property(root, "secrets"),
+                    environment,
+                    credentials,
+                    ReadOnlyDictionary<string, SecretProvider>.Empty
+                ),
                 Credentials = credentials,
                 _rawCredentials = Property(root, "credentials")?.Clone(),
                 _rawSecrets = Property(root, "secrets")?.Clone(),
@@ -563,7 +680,9 @@ public sealed class E2EConfig
 
         if (raw.Value.ValueKind != JsonValueKind.Array)
         {
-            throw Invalid("reporters must be an array of reporter type names and { \"type\": ..., \"options\": ... } objects");
+            throw Invalid(
+                "reporters must be an array of reporter type names and { \"type\": ..., \"options\": ... } objects"
+            );
         }
 
         var index = 0;
@@ -582,7 +701,10 @@ public sealed class E2EConfig
                 name = Property(entry, "type") is { ValueKind: JsonValueKind.String } type ? type.GetString() : null;
                 if (Property(entry, "options") is { } rawOptions)
                 {
-                    options = rawOptions.ValueKind == JsonValueKind.Object ? rawOptions.Clone() : throw Invalid(at + ".options must be an object");
+                    options =
+                        rawOptions.ValueKind == JsonValueKind.Object
+                            ? rawOptions.Clone()
+                            : throw Invalid(at + ".options must be an object");
                 }
             }
             else
@@ -601,11 +723,26 @@ public sealed class E2EConfig
         return entries;
     }
 
-    private static List<TargetConfig> ReadTargets(JsonElement? raw, string projectRoot, RunRecording trace, RunRecording video)
+    private static List<TargetConfig> ReadTargets(
+        JsonElement? raw,
+        string projectRoot,
+        RunRecording trace,
+        RunRecording video
+    )
     {
         if (raw is null)
         {
-            return [new TargetConfig { Name = "web", Platform = "web", App = new AppConfig(), Trace = trace.For(null), Video = video.For(null) }];
+            return
+            [
+                new TargetConfig
+                {
+                    Name = "web",
+                    Platform = "web",
+                    App = new AppConfig(),
+                    Trace = trace.For(null),
+                    Video = video.For(null),
+                },
+            ];
         }
 
         if (raw.Value.ValueKind != JsonValueKind.Array || raw.Value.GetArrayLength() == 0)
@@ -626,7 +763,14 @@ public sealed class E2EConfig
     }
 
     private static TargetConfig ReadTarget(
-        JsonElement target, int index, string projectRoot, RunRecording trace, RunRecording video, HashSet<string> seen, HashSet<string> defaulted)
+        JsonElement target,
+        int index,
+        string projectRoot,
+        RunRecording trace,
+        RunRecording video,
+        HashSet<string> seen,
+        HashSet<string> defaulted
+    )
     {
         var at = "targets[" + index.ToString(CultureInfo.InvariantCulture) + "]";
         if (target.ValueKind != JsonValueKind.Object)
@@ -638,21 +782,29 @@ public sealed class E2EConfig
         var platform = OptionalString(target, "platform", at + ".platform") ?? "web";
         if (!Platforms.Contains(platform, StringComparer.Ordinal))
         {
-            throw Invalid(at + ".platform \"" + platform + "\" is not supported; the .NET port drives \"web\", \"ios\", \"android\", and \"windows\"");
+            throw Invalid(
+                at
+                    + ".platform \""
+                    + platform
+                    + "\" is not supported; the .NET port drives \"web\", \"ios\", \"android\", and \"windows\""
+            );
         }
 
         var declaredName = OptionalString(target, "name", at + ".name");
         var name = declaredName ?? platform;
         if (!ValidName(name))
         {
-            throw Invalid(at + ".name must use ASCII letters, numbers, \"_\", \"-\", and \".\", and cannot be only dots");
+            throw Invalid(
+                at + ".name must use ASCII letters, numbers, \"_\", \"-\", and \".\", and cannot be only dots"
+            );
         }
 
         if (!seen.Add(name))
         {
-            var hint = declaredName is null || defaulted.Contains(name)
-                ? "; a target without a name is named after its platform, so name one of them"
-                : "";
+            var hint =
+                declaredName is null || defaulted.Contains(name)
+                    ? "; a target without a name is named after its platform, so name one of them"
+                    : "";
             throw Invalid("duplicate target name \"" + name + "\"" + hint);
         }
 
@@ -673,15 +825,27 @@ public sealed class E2EConfig
 
             // A pinned-app target (a device or a Windows app) names its app by bundle id and build path, a web target by URL.
             var pinned = platform != "web";
-            CheckKeys(rawApp, at + ".app", !pinned ? AppKeys : platform == "windows" ? WindowsAppKeys : MobileAppKeys, UnsupportedAppKeys, null);
+            CheckKeys(
+                rawApp,
+                at + ".app",
+                !pinned ? AppKeys
+                    : platform == "windows" ? WindowsAppKeys
+                    : MobileAppKeys,
+                UnsupportedAppKeys,
+                null
+            );
             var where = "target \"" + name + "\" app";
             app = new AppConfig
             {
-                Url = OptionalString(rawApp, "url", at + ".app.url") is { } url ? Urls.NormalizeBaseUrl(url).Href : null,
+                Url = OptionalString(rawApp, "url", at + ".app.url") is { } url
+                    ? Urls.NormalizeBaseUrl(url).Href
+                    : null,
                 BundleId = OptionalString(rawApp, "bundleId", at + ".app.bundleId"),
                 AppPath = OptionalString(rawApp, "appPath", at + ".app.appPath"),
                 LinkBase = OptionalString(rawApp, "linkBase", at + ".app.linkBase"),
-                Command = Property(rawApp, "command") is { } command ? Command.Normalize(command, "target \"" + name + "\" app.command") : null,
+                Command = Property(rawApp, "command") is { } command
+                    ? Command.Normalize(command, "target \"" + name + "\" app.command")
+                    : null,
                 ReadyUrl = OptionalString(rawApp, "readyUrl", at + ".app.readyUrl"),
                 Identity = OptionalString(rawApp, "identity", at + ".app.identity"),
                 Environment = ReadEnvironment(Property(rawApp, "environment"), where + ".environment"),
@@ -693,12 +857,24 @@ public sealed class E2EConfig
             TargetApps.ResolveTargetApp(name, app, projectRoot);
         }
 
-        return new TargetConfig { Name = name, Platform = platform, App = app, Trace = trace.For(ownTrace), Video = video.For(ownVideo) };
+        return new TargetConfig
+        {
+            Name = name,
+            Platform = platform,
+            App = app,
+            Trace = trace.For(ownTrace),
+            Video = video.For(ownVideo),
+        };
     }
 
     // The run's trace or video mode before any target speaks: the environment variable, the config root, and the default under both.
     // A failed attempt keeps its trace by default. The video is off.
-    private static RunRecording ReadRun(JsonElement root, RecordingKind kind, Func<string, string?> environment, RecordingMode? cli)
+    private static RunRecording ReadRun(
+        JsonElement root,
+        RecordingKind kind,
+        Func<string, string?> environment,
+        RecordingMode? cli
+    )
     {
         var key = kind == RecordingKind.Trace ? "trace" : "video";
         var variable = "E2E_" + key.ToUpperInvariant();
@@ -709,7 +885,11 @@ public sealed class E2EConfig
         }
 
         flag = cli ?? flag;
-        return new RunRecording(flag, ReadMode(Property(root, key), key, kind), kind == RecordingKind.Trace ? RecordingMode.RetainOnFailure : RecordingMode.Off);
+        return new RunRecording(
+            flag,
+            ReadMode(Property(root, key), key, kind),
+            kind == RecordingKind.Trace ? RecordingMode.RetainOnFailure : RecordingMode.Off
+        );
     }
 
     // Checks one trace or video value: a mode, or null when the key is unset.
@@ -729,11 +909,21 @@ public sealed class E2EConfig
         if (kind == RecordingKind.Trace)
         {
             var block = value.ValueKind == JsonValueKind.Object;
-            var record = block ? (value.TryGetProperty("record", out var inner) && inner.ValueKind == JsonValueKind.String ? inner.GetString() : null) : text;
+            var record = block
+                ? (
+                    value.TryGetProperty("record", out var inner) && inner.ValueKind == JsonValueKind.String
+                        ? inner.GetString()
+                        : null
+                )
+                : text;
             if (RecordingModes.TryLegacyTraceSpelling(record, block, out var was, out var meant))
             {
-                var spelled = where.StartsWith("E2E_", StringComparison.Ordinal) ? where + "=" + RecordingModes.Name(meant) : "trace: '" + RecordingModes.Name(meant) + "'";
-                throw Invalid(where + " " + was + " is the old spelling of " + spelled + "; the modes are " + RecordingModes.List);
+                var spelled = where.StartsWith("E2E_", StringComparison.Ordinal)
+                    ? where + "=" + RecordingModes.Name(meant)
+                    : "trace: '" + RecordingModes.Name(meant) + "'";
+                throw Invalid(
+                    where + " " + was + " is the old spelling of " + spelled + "; the modes are " + RecordingModes.List
+                );
             }
         }
 
@@ -744,21 +934,31 @@ public sealed class E2EConfig
     /// Upstream's <c>resolveAgents</c>: every named entry, and <c>default</c> even when the config names none. The run's agents are
     /// <c>default</c> alone unless <c>--agent</c> named others; an unknown name is a config error before anything starts.
     /// </summary>
-    private static (ReadOnlyDictionary<string, AgentConfig> Agents, IReadOnlyList<string> AgentNames) ResolveAgents(JsonElement? raw, IReadOnlyList<string>? selected, string projectRoot)
+    private static (ReadOnlyDictionary<string, AgentConfig> Agents, IReadOnlyList<string> AgentNames) ResolveAgents(
+        JsonElement? raw,
+        IReadOnlyList<string>? selected,
+        string projectRoot
+    )
     {
         var agents = new Dictionary<string, AgentConfig>(StringComparer.Ordinal);
         if (raw is not null)
         {
             if (raw.Value.ValueKind != JsonValueKind.Object)
             {
-                throw Invalid("agents must be an object of agents by name: agents: { \"default\": { \"model\": ... } }");
+                throw Invalid(
+                    "agents must be an object of agents by name: agents: { \"default\": { \"model\": ... } }"
+                );
             }
 
             foreach (var property in raw.Value.EnumerateObject())
             {
                 if (!ValidName(property.Name))
                 {
-                    throw Invalid("agent name \"" + property.Name + "\" must use ASCII letters, numbers, \"_\", \"-\", and \".\", and cannot be only dots");
+                    throw Invalid(
+                        "agent name \""
+                            + property.Name
+                            + "\" must use ASCII letters, numbers, \"_\", \"-\", and \".\", and cannot be only dots"
+                    );
                 }
 
                 var label = "agents." + property.Name;
@@ -774,14 +974,23 @@ public sealed class E2EConfig
                 var provider = OptionalString(value, "provider", label + ".provider") ?? AgentConfig.DefaultProvider;
                 if (!AgentConfig.Providers.Contains(provider, StringComparer.Ordinal))
                 {
-                    throw Invalid(label + ".provider must be one of " + string.Join(", ", AgentConfig.Providers.Select(name => "\"" + name + "\"")));
+                    throw Invalid(
+                        label
+                            + ".provider must be one of "
+                            + string.Join(", ", AgentConfig.Providers.Select(name => "\"" + name + "\""))
+                    );
                 }
 
                 var baseUrl = OptionalString(value, "baseUrl", label + ".baseUrl");
                 var apiKeyEnv = OptionalString(value, "apiKeyEnv", label + ".apiKeyEnv");
                 if (AgentConfig.IsSubscription(provider) && (baseUrl is not null || apiKeyEnv is not null))
                 {
-                    throw Invalid(label + ": the " + provider + " subscription reads its stored login, so baseUrl and apiKeyEnv do not apply");
+                    throw Invalid(
+                        label
+                            + ": the "
+                            + provider
+                            + " subscription reads its stored login, so baseUrl and apiKeyEnv do not apply"
+                    );
                 }
 
                 if (provider == "openai-compatible" && baseUrl is null)
@@ -798,29 +1007,48 @@ public sealed class E2EConfig
                     Context = context,
                     BaseUrl = baseUrl,
                     ApiKeyEnv = apiKeyEnv,
-                    MaxSteps = Property(value, "maxSteps") is { } steps ? Integer(steps, label + ".maxSteps", 1, ResolvedAgent.MaxBudget) : null,
-                    MaxModelCalls = Property(value, "maxModelCalls") is { } calls ? Integer(calls, label + ".maxModelCalls", 1, ResolvedAgent.MaxBudget) : null,
-                    JudgmentTimeout = Command.PositiveMs(Property(value, "judgmentTimeout"), label + ".judgmentTimeout") ?? E2EDefaults.JudgmentTimeout,
+                    MaxSteps = Property(value, "maxSteps") is { } steps
+                        ? Integer(steps, label + ".maxSteps", 1, ResolvedAgent.MaxBudget)
+                        : null,
+                    MaxModelCalls = Property(value, "maxModelCalls") is { } calls
+                        ? Integer(calls, label + ".maxModelCalls", 1, ResolvedAgent.MaxBudget)
+                        : null,
+                    JudgmentTimeout = Command.PositiveMs(Property(value, "judgmentTimeout"), label + ".judgmentTimeout")
+                        ?? E2EDefaults.JudgmentTimeout,
                     MaxObservationBytes = Property(value, "maxObservationBytes") is { } bytes
-                        ? Integer(bytes, label + ".maxObservationBytes", ResolvedAgent.MinObservationBytes, ResolvedAgent.MaxObservationBytesLimit)
+                        ? Integer(
+                            bytes,
+                            label + ".maxObservationBytes",
+                            ResolvedAgent.MinObservationBytes,
+                            ResolvedAgent.MaxObservationBytesLimit
+                        )
                         : E2EDefaults.MaxObservationBytes,
                     MaxInputTokens = Property(value, "maxInputTokens") is { } tokens
                         ? Integer(tokens, label + ".maxInputTokens", 1, ResolvedAgent.MaxInputTokensLimit)
                         : E2EDefaults.MaxInputTokens,
                     ProviderOptions = ReadProviderOptions(Property(value, "providerOptions"), label),
-                    Tools = Property(value, "tools") is { ValueKind: not JsonValueKind.Null } tools ? CommandTool.Read(tools, label + ".tools", projectRoot) : null,
+                    Tools = Property(value, "tools") is { ValueKind: not JsonValueKind.Null } tools
+                        ? CommandTool.Read(tools, label + ".tools", projectRoot)
+                        : null,
                 };
             }
         }
 
         agents.TryAdd("default", new AgentConfig());
         // `--agent a --agent a` is one agent, not two results per test.
-        IReadOnlyList<string> agentNames = selected is null || selected.Count == 0 ? ["default"] : [.. selected.Distinct(StringComparer.Ordinal)];
+        IReadOnlyList<string> agentNames =
+            selected is null || selected.Count == 0 ? ["default"] : [.. selected.Distinct(StringComparer.Ordinal)];
         foreach (var name in agentNames)
         {
             if (!agents.ContainsKey(name))
             {
-                throw Invalid("unknown agent \"" + name + "\"; configured: " + string.Join(", ", agents.Keys) + Suggestions.DidYouMean(name, [.. agents.Keys]));
+                throw Invalid(
+                    "unknown agent \""
+                        + name
+                        + "\"; configured: "
+                        + string.Join(", ", agents.Keys)
+                        + Suggestions.DidYouMean(name, [.. agents.Keys])
+                );
             }
         }
 
@@ -876,13 +1104,17 @@ public sealed class E2EConfig
             value = raw.ValueKind == JsonValueKind.String ? raw.GetString() : null;
             if (value is null)
             {
-                throw Invalid(where + " must be a non-empty path relative to the project root, got " + raw.GetRawText());
+                throw Invalid(
+                    where + " must be a non-empty path relative to the project root, got " + raw.GetRawText()
+                );
             }
         }
 
         if (value is not null && string.IsNullOrWhiteSpace(value))
         {
-            throw Invalid(where + " must be a non-empty path relative to the project root, got " + JsonSerializer.Serialize(value));
+            throw Invalid(
+                where + " must be a non-empty path relative to the project root, got " + JsonSerializer.Serialize(value)
+            );
         }
 
         var output = Path.GetFullPath(value ?? ".e2e", projectRoot);
@@ -893,7 +1125,9 @@ public sealed class E2EConfig
         var realCache = Paths.RealPathOfExisting(cache.Directory);
         if (real == realRoot)
         {
-            throw Refuse("is the project root; the run clears <output>/results, so name a directory of its own, such as '.e2e'");
+            throw Refuse(
+                "is the project root; the run clears <output>/results, so name a directory of its own, such as '.e2e'"
+            );
         }
 
         if (!IsWithin(real, realRoot))
@@ -907,20 +1141,35 @@ public sealed class E2EConfig
             throw Refuse(
                 existing == output
                     ? "is a file; name a directory, which the run creates when it is missing"
-                    : "is under the file " + Path.GetRelativePath(realRoot, Paths.RealPathOfExisting(existing)) + "; name a directory, which the run creates when it is missing");
+                    : "is under the file "
+                        + Path.GetRelativePath(realRoot, Paths.RealPathOfExisting(existing))
+                        + "; name a directory, which the run creates when it is missing"
+            );
         }
 
         var cacheName = Path.GetRelativePath(realRoot, realCache);
         if (IsWithin(real, realCache))
         {
-            throw Refuse("is the cache directory " + cacheName + " or inside it; keep results and the replay cache apart");
+            throw Refuse(
+                "is the cache directory " + cacheName + " or inside it; keep results and the replay cache apart"
+            );
         }
 
         foreach (var owned in OutputOwnedDirs)
         {
             if (IsWithin(realCache, Paths.RealPathOfExisting(Path.Combine(output, owned))))
             {
-                throw Refuse("would hold " + cache.DirectorySource + " " + cacheName + " under " + owned + "/, which the run owns; move " + cache.DirectorySource + " or the output");
+                throw Refuse(
+                    "would hold "
+                        + cache.DirectorySource
+                        + " "
+                        + cacheName
+                        + " under "
+                        + owned
+                        + "/, which the run owns; move "
+                        + cache.DirectorySource
+                        + " or the output"
+                );
             }
         }
 
@@ -931,7 +1180,8 @@ public sealed class E2EConfig
     private static bool IsWithin(string inner, string outer)
     {
         var relative = Path.GetRelativePath(outer, inner);
-        return relative == "." || (!relative.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relative));
+        return relative == "."
+            || (!relative.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relative));
     }
 
     // The nearest of `target` and its ancestors that exists, or null when none does.
@@ -940,7 +1190,10 @@ public sealed class E2EConfig
         for (var current = target; ; current = Path.GetDirectoryName(current)!)
         {
             // A dangling symlink does not exist, as upstream's existsSync follows links.
-            if (Directory.Exists(current) || (File.Exists(current) && new FileInfo(current).ResolveLinkTarget(true)?.Exists != false))
+            if (
+                Directory.Exists(current)
+                || (File.Exists(current) && new FileInfo(current).ResolveLinkTarget(true)?.Exists != false)
+            )
             {
                 return current;
             }
@@ -963,14 +1216,29 @@ public sealed class E2EConfig
         if (traced && trace is { } value)
         {
             var block = value.ValueKind == JsonValueKind.Object;
-            var record = block ? (value.TryGetProperty("record", out var inner) && inner.ValueKind == JsonValueKind.String ? inner.GetString() : null) : value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+            var record =
+                block
+                    ? (
+                        value.TryGetProperty("record", out var inner) && inner.ValueKind == JsonValueKind.String
+                            ? inner.GetString()
+                            : null
+                    )
+                : value.ValueKind == JsonValueKind.String ? value.GetString()
+                : null;
             if (RecordingModes.TryLegacyTraceSpelling(record, block, out _, out var meant))
             {
                 mode = meant;
             }
         }
 
-        var parts = new List<string> { "write trace: '" + (traced ? RecordingModes.Name(mode) : "off") + "' at the config root instead (the modes are " + RecordingModes.List + ")" };
+        var parts = new List<string>
+        {
+            "write trace: '"
+                + (traced ? RecordingModes.Name(mode) : "off")
+                + "' at the config root instead (the modes are "
+                + RecordingModes.List
+                + ")",
+        };
         if (kinds?.Contains("video") == true)
         {
             parts.Add(VideoMoved);
@@ -1009,7 +1277,12 @@ public sealed class E2EConfig
         {
             var kinds = value.TryGetProperty("kinds", out var list) ? KindsOf(list) : null;
             var keys = string.Join(" and ", removed.Select(key => "artifacts." + key));
-            throw Invalid(keys + (removed.Count == 1 ? " was" : " were") + " removed: " + RemovedRecordingReplacement(kinds, Property(value, "trace")));
+            throw Invalid(
+                keys
+                    + (removed.Count == 1 ? " was" : " were")
+                    + " removed: "
+                    + RemovedRecordingReplacement(kinds, Property(value, "trace"))
+            );
         }
 
         foreach (var property in value.EnumerateObject())
@@ -1025,13 +1298,27 @@ public sealed class E2EConfig
 
     // The kinds a removed `artifacts` list names; a `kinds` value that is no list names none (upstream's `'kinds' in block ? []`).
     private static List<string?> KindsOf(JsonElement list) =>
-        list.ValueKind == JsonValueKind.Array ? [.. list.EnumerateArray().Select(kind => kind.ValueKind == JsonValueKind.String ? kind.GetString() : null)] : [];
+        list.ValueKind == JsonValueKind.Array
+            ?
+            [
+                .. list.EnumerateArray()
+                    .Select(kind => kind.ValueKind == JsonValueKind.String ? kind.GetString() : null),
+            ]
+            : [];
 
-    private static CacheConfig ReadCache(JsonElement? raw, string projectRoot, bool ci, Func<string, string?> environment, IStepCache? store, CliOverrides cli)
+    private static CacheConfig ReadCache(
+        JsonElement? raw,
+        string projectRoot,
+        bool ci,
+        Func<string, string?> environment,
+        IStepCache? store,
+        CliOverrides cli
+    )
     {
         // Upstream's resolveCacheDir: --cache-dir (the port's E2E_CACHE_DIR_OVERRIDE, or cli.CacheDir from code), else a non-blank E2E_CACHE_DIR, replaces cache.dir
         // and the default; the mode stays as configured. A store has no directory: the flag is refused beside it and the variable is ignored.
-        var flag = cli.CacheDir ?? (environment("E2E_CACHE_DIR_OVERRIDE") is { Length: > 0 } overridden ? overridden : null);
+        var flag = cli.CacheDir
+            ?? (environment("E2E_CACHE_DIR_OVERRIDE") is { Length: > 0 } overridden ? overridden : null);
         string? shared = null;
         var sharedSource = "E2E_CACHE_DIR";
         if (flag is not null)
@@ -1043,7 +1330,9 @@ public sealed class E2EConfig
 
             if (store is not null)
             {
-                throw Invalid("--cache-dir names a file store directory, but cache.store replaces the file store; drop one");
+                throw Invalid(
+                    "--cache-dir names a file store directory, but cache.store replaces the file store; drop one"
+                );
             }
 
             shared = flag;
@@ -1061,7 +1350,18 @@ public sealed class E2EConfig
         var noCache = cli.NoCache || IsFlagOn(environment("E2E_NO_CACHE"));
         if (raw is null)
         {
-            return new CacheConfig { Mode = noCache ? CacheMode.Off : ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory, Strict = cli.CacheStrict, StrictSource = cli.CacheStrict ? new CacheStrictSource(false, true) : null, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : sharedSource };
+            return new CacheConfig
+            {
+                Mode =
+                    noCache ? CacheMode.Off
+                    : ci && store is null ? CacheMode.ReadOnly
+                    : CacheMode.ReadWrite,
+                Directory = defaultDirectory,
+                Strict = cli.CacheStrict,
+                StrictSource = cli.CacheStrict ? new CacheStrictSource(false, true) : null,
+                Store = store,
+                DirectorySource = sharedDirectory is null ? "cache.dir" : sharedSource,
+            };
         }
 
         if (raw.Value.ValueKind != JsonValueKind.Object)
@@ -1111,7 +1411,15 @@ public sealed class E2EConfig
             };
         }
 
-        return new CacheConfig { Mode = noCache ? CacheMode.Off : mode, Directory = directory, Strict = strict || cli.CacheStrict, StrictSource = strict || cli.CacheStrict ? new CacheStrictSource(strict, cli.CacheStrict) : null, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : sharedSource };
+        return new CacheConfig
+        {
+            Mode = noCache ? CacheMode.Off : mode,
+            Directory = directory,
+            Strict = strict || cli.CacheStrict,
+            StrictSource = strict || cli.CacheStrict ? new CacheStrictSource(strict, cli.CacheStrict) : null,
+            Store = store,
+            DirectorySource = sharedDirectory is null ? "cache.dir" : sharedSource,
+        };
     }
 
     /// <summary>The value with a leading <c>~</c> or <c>~/</c> read as the home directory, which no shell expands in an env file.</summary>
@@ -1123,7 +1431,9 @@ public sealed class E2EConfig
             return home;
         }
 
-        return value.StartsWith("~/", StringComparison.Ordinal) || value.StartsWith("~" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+        return
+            value.StartsWith("~/", StringComparison.Ordinal)
+            || value.StartsWith("~" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
             ? Path.Join(home, value[2..])
             : value;
     }
@@ -1133,7 +1443,11 @@ public sealed class E2EConfig
     /// <c>resolveSecrets</c>). <c>E2E_USER_&lt;NAME&gt;_USERNAME</c> and <c>E2E_USER_&lt;NAME&gt;_PASSWORD</c> win over the config. A
     /// message never holds a username or a password.
     /// </summary>
-    private static Dictionary<string, ResolvedCredential> ReadCredentials(JsonElement? raw, Func<string, string?> environment, IReadOnlyDictionary<string, CredentialProvider> providers)
+    private static Dictionary<string, ResolvedCredential> ReadCredentials(
+        JsonElement? raw,
+        Func<string, string?> environment,
+        IReadOnlyDictionary<string, CredentialProvider> providers
+    )
     {
         var credentials = new Dictionary<string, ResolvedCredential>(StringComparer.Ordinal);
         if (raw is not null && raw.Value.ValueKind != JsonValueKind.Object)
@@ -1156,7 +1470,12 @@ public sealed class E2EConfig
                 CheckCredentialShape(name, entry);
                 username = environment(prefix + "_USERNAME") ?? Property(entry, "username")?.GetString();
                 // An env override always wins: the operator rotating a credential must not need to know how it was configured.
-                password = environment(prefix + "_PASSWORD") ?? (Property(entry, "password") is { ValueKind: JsonValueKind.String } text ? text.GetString() : null);
+                password = environment(prefix + "_PASSWORD")
+                    ?? (
+                        Property(entry, "password") is { ValueKind: JsonValueKind.String } text
+                            ? text.GetString()
+                            : null
+                    );
             }
             else
             {
@@ -1172,7 +1491,11 @@ public sealed class E2EConfig
             var handle = ConfigSecrets.CredentialSecretName(name);
             if (provided is not null && password is null)
             {
-                credentials[name] = new ResolvedCredential(name, username, Secret.Create(handle, provided.Password, "password"));
+                credentials[name] = new ResolvedCredential(
+                    name,
+                    username,
+                    Secret.Create(handle, provided.Password, "password")
+                );
                 continue;
             }
 
@@ -1195,7 +1518,9 @@ public sealed class E2EConfig
     {
         if (credential.ValueKind != JsonValueKind.Object)
         {
-            throw Invalid("credential \"" + name + "\" must be an object of { username, password }, got " + KindOf(credential));
+            throw Invalid(
+                "credential \"" + name + "\" must be an object of { username, password }, got " + KindOf(credential)
+            );
         }
 
         foreach (var property in credential.EnumerateObject())
@@ -1203,13 +1528,25 @@ public sealed class E2EConfig
             if (!CredentialKeys.Contains(property.Name, StringComparer.Ordinal))
             {
                 throw Invalid(
-                    "unknown key \"" + property.Name + "\" in credential \"" + name + "\"; a credential has username and password" + Suggestions.DidYouMean(property.Name, CredentialKeys));
+                    "unknown key \""
+                        + property.Name
+                        + "\" in credential \""
+                        + name
+                        + "\"; a credential has username and password"
+                        + Suggestions.DidYouMean(property.Name, CredentialKeys)
+                );
             }
         }
 
         if (Property(credential, "username") is { ValueKind: not JsonValueKind.String } username)
         {
-            throw Invalid("credential \"" + name + "\" username must be a string, got " + KindOf(username) + "; only password may be a provider function");
+            throw Invalid(
+                "credential \""
+                    + name
+                    + "\" username must be a string, got "
+                    + KindOf(username)
+                    + "; only password may be a provider function"
+            );
         }
     }
 
@@ -1217,15 +1554,16 @@ public sealed class E2EConfig
     /// The kind of a JSON value, never its content: a credential entry written as a bare string may be the password. Upstream's
     /// <c>describeValue</c> quotes the value here; a message that holds a secret is worse than one that names the kind.
     /// </summary>
-    private static string KindOf(JsonElement value) => value.ValueKind switch
-    {
-        JsonValueKind.String => "a string",
-        JsonValueKind.Number => "a number",
-        JsonValueKind.True or JsonValueKind.False => "a boolean",
-        JsonValueKind.Null => "null",
-        JsonValueKind.Array => "an array",
-        _ => "an object",
-    };
+    private static string KindOf(JsonElement value) =>
+        value.ValueKind switch
+        {
+            JsonValueKind.String => "a string",
+            JsonValueKind.Number => "a number",
+            JsonValueKind.True or JsonValueKind.False => "a boolean",
+            JsonValueKind.Null => "null",
+            JsonValueKind.Array => "an array",
+            _ => "an object",
+        };
 
     /// <summary>
     /// Two entries of one namespace whose names map to the same override variable (<c>api-key</c> and <c>api_key</c> both read
@@ -1234,19 +1572,29 @@ public sealed class E2EConfig
     /// </summary>
     private static void CheckEnvNameCollisions(string prefix, string namespaceName, IReadOnlyList<string> names)
     {
-        var shared = names.GroupBy(name => ConfigSecrets.EnvName(prefix, name), StringComparer.Ordinal).FirstOrDefault(group => group.Count() > 1);
+        var shared = names
+            .GroupBy(name => ConfigSecrets.EnvName(prefix, name), StringComparer.Ordinal)
+            .FirstOrDefault(group => group.Count() > 1);
         if (shared is null)
         {
             return;
         }
 
         var quoted = shared.Select(name => "\"" + name + "\"").ToArray();
-        var variables = prefix == "E2E_USER"
-            ? "the override variables " + shared.Key + "_USERNAME and " + shared.Key + "_PASSWORD"
-            : "the override variable " + shared.Key;
+        var variables =
+            prefix == "E2E_USER"
+                ? "the override variables " + shared.Key + "_USERNAME and " + shared.Key + "_PASSWORD"
+                : "the override variable " + shared.Key;
         throw Invalid(
-            namespaceName + " " + string.Join(", ", quoted[..^1]) + " and " + quoted[^1] + " share " + variables
-            + ", so one value set there would replace all of them; rename all but one");
+            namespaceName
+                + " "
+                + string.Join(", ", quoted[..^1])
+                + " and "
+                + quoted[^1]
+                + " share "
+                + variables
+                + ", so one value set there would replace all of them; rename all but one"
+        );
     }
 
     /// <summary>The properties of a JSON object by name and in file order. A name written twice stays in the list, so the variable collision check refuses it.</summary>
@@ -1266,7 +1614,12 @@ public sealed class E2EConfig
         return (entries, names);
     }
 
-    private static Secrets ReadSecrets(JsonElement? raw, Func<string, string?> environment, IReadOnlyDictionary<string, ResolvedCredential> credentials, IReadOnlyDictionary<string, SecretProvider> providers)
+    private static Secrets ReadSecrets(
+        JsonElement? raw,
+        Func<string, string?> environment,
+        IReadOnlyDictionary<string, ResolvedCredential> credentials,
+        IReadOnlyDictionary<string, SecretProvider> providers
+    )
     {
         if (raw is not null && raw.Value.ValueKind != JsonValueKind.Object)
         {
@@ -1277,7 +1630,9 @@ public sealed class E2EConfig
         List<string> names = [.. fileNames, .. providers.Keys.Where(name => !entries.ContainsKey(name))];
         if (names.Count == 0)
         {
-            return credentials.Count == 0 ? Secrets.Empty : new Secrets(new Dictionary<string, Secret>(StringComparer.Ordinal), credentials);
+            return credentials.Count == 0
+                ? Secrets.Empty
+                : new Secrets(new Dictionary<string, Secret>(StringComparer.Ordinal), credentials);
         }
 
         var values = new Dictionary<string, Secret>(StringComparer.Ordinal);
@@ -1291,7 +1646,13 @@ public sealed class E2EConfig
         {
             if (credentials.Values.FirstOrDefault(credential => credential.Password.Name == name) is { } owner)
             {
-                throw Invalid("secret \"" + name + "\" has the name of credential \"" + owner.Name + "\"'s password handle; rename the secret");
+                throw Invalid(
+                    "secret \""
+                        + name
+                        + "\" has the name of credential \""
+                        + owner.Name
+                        + "\"'s password handle; rename the secret"
+                );
             }
 
             var variable = Secrets.EnvironmentVariable(name);
@@ -1303,7 +1664,9 @@ public sealed class E2EConfig
                 {
                     JsonValueKind.String => entries[name].GetString(),
                     JsonValueKind.Null => null,
-                    _ => throw Invalid("secret \"" + name + "\" must be a non-empty string, or null to read only " + variable),
+                    _ => throw Invalid(
+                        "secret \"" + name + "\" must be a non-empty string, or null to read only " + variable
+                    ),
                 };
             }
 
@@ -1331,7 +1694,14 @@ public sealed class E2EConfig
         return new Secrets(values, credentials);
     }
 
-    private static void CheckKeys(JsonElement value, string label, string[] allowed, string[] unsupported, Dictionary<string, string>? moved, Dictionary<string, string>? removed = null)
+    private static void CheckKeys(
+        JsonElement value,
+        string label,
+        string[] allowed,
+        string[] unsupported,
+        Dictionary<string, string>? moved,
+        Dictionary<string, string>? removed = null
+    )
     {
         foreach (var property in value.EnumerateObject())
         {
@@ -1349,13 +1719,22 @@ public sealed class E2EConfig
             var where = label == "config" ? "config key" : label + " key";
             if (unsupported.Contains(key, StringComparer.Ordinal))
             {
-                throw Invalid(where + " \"" + key + "\" is not supported by the .NET port" + (key switch
-                {
-                    "executor" => ": an executor is code, so set AgentOptions.Executor",
-                    "store" when label == "cache config" => ": a store is code, so call E2EConfig.WithCacheStore",
-                    "store" => ": a store is code, so call E2EConfig.WithArtifactStore",
-                    _ => "",
-                }));
+                throw Invalid(
+                    where
+                        + " \""
+                        + key
+                        + "\" is not supported by the .NET port"
+                        + (
+                            key switch
+                            {
+                                "executor" => ": an executor is code, so set AgentOptions.Executor",
+                                "store" when label == "cache config" =>
+                                    ": a store is code, so call E2EConfig.WithCacheStore",
+                                "store" => ": a store is code, so call E2EConfig.WithArtifactStore",
+                                _ => "",
+                            }
+                        )
+                );
             }
 
             string hint;
@@ -1379,9 +1758,9 @@ public sealed class E2EConfig
 
     private static bool ReadFailOnSkippedFailure(JsonElement? value)
     {
-        return value is not { } raw
-            ? false
-            : raw.ValueKind is JsonValueKind.True or JsonValueKind.False ? raw.GetBoolean() : throw Invalid("failOnSkippedFailure must be a boolean");
+        return value is not { } raw ? false
+            : raw.ValueKind is JsonValueKind.True or JsonValueKind.False ? raw.GetBoolean()
+            : throw Invalid("failOnSkippedFailure must be a boolean");
     }
 
     private static string? OptionalString(JsonElement value, string name, string label)
@@ -1411,7 +1790,9 @@ public sealed class E2EConfig
         var text = value.ValueKind == JsonValueKind.String ? value.GetString() : null;
         return text is not null && Environments.Contains(text, StringComparer.Ordinal)
             ? text
-            : throw Invalid(label + " must be one of " + string.Join(", ", Environments) + ", got " + value.GetRawText());
+            : throw Invalid(
+                label + " must be one of " + string.Join(", ", Environments) + ", got " + value.GetRawText()
+            );
     }
 
     // Checks app.launchArguments: an array of strings.
@@ -1422,7 +1803,10 @@ public sealed class E2EConfig
             return null;
         }
 
-        if (value.ValueKind != JsonValueKind.Array || value.EnumerateArray().Any(argument => argument.ValueKind != JsonValueKind.String))
+        if (
+            value.ValueKind != JsonValueKind.Array
+            || value.EnumerateArray().Any(argument => argument.ValueKind != JsonValueKind.String)
+        )
         {
             throw Invalid(label + " must be an array of strings");
         }
@@ -1452,7 +1836,9 @@ public sealed class E2EConfig
                 "grant" => AppPermissionState.Grant,
                 "deny" => AppPermissionState.Deny,
                 "reset" => AppPermissionState.Reset,
-                _ => throw Invalid(label + "." + property.Name + " must be grant, deny, or reset, got " + property.Value.GetRawText()),
+                _ => throw Invalid(
+                    label + "." + property.Name + " must be grant, deny, or reset, got " + property.Value.GetRawText()
+                ),
             };
         }
 
@@ -1482,11 +1868,22 @@ public sealed class E2EConfig
 
     private static int Integer(JsonElement value, string label, int min, int max)
     {
-        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var number) || number < min || number > max)
+        if (
+            value.ValueKind != JsonValueKind.Number
+            || !value.TryGetInt32(out var number)
+            || number < min
+            || number > max
+        )
         {
-            throw Invalid(max == int.MaxValue
-                ? label + " must be a positive integer"
-                : label + " must be an integer from " + min.ToString(CultureInfo.InvariantCulture) + " through " + max.ToString(CultureInfo.InvariantCulture));
+            throw Invalid(
+                max == int.MaxValue
+                    ? label + " must be a positive integer"
+                    : label
+                        + " must be an integer from "
+                        + min.ToString(CultureInfo.InvariantCulture)
+                        + " through "
+                        + max.ToString(CultureInfo.InvariantCulture)
+            );
         }
 
         return number;
@@ -1512,7 +1909,16 @@ public sealed class TargetConfig
     public required AppConfig App { get; init; }
 
     /// <summary>This target with another app: the one resolved on the port its command was started on.</summary>
-    internal TargetConfig WithApp(AppConfig app) => new() { Name = Name, Platform = Platform, App = app, Trace = Trace, Video = Video, Engine = Engine };
+    internal TargetConfig WithApp(AppConfig app) =>
+        new()
+        {
+            Name = Name,
+            Platform = Platform,
+            App = app,
+            Trace = Trace,
+            Video = Video,
+            Engine = Engine,
+        };
 
     /// <summary>
     /// The engine this target runs, built in code (upstream's <c>engine</c> of a target, <c>defineEngine(...)</c>); null for a JSON target, whose
@@ -1544,7 +1950,9 @@ internal sealed record RunRecording(RecordingMode? Flag, RecordingMode? Config, 
             return new ResolvedRecording(target, RecordingSource.Target);
         }
 
-        return Config is { } config ? new ResolvedRecording(config, RecordingSource.Run) : new ResolvedRecording(Fallback, RecordingSource.Default);
+        return Config is { } config
+            ? new ResolvedRecording(config, RecordingSource.Run)
+            : new ResolvedRecording(Fallback, RecordingSource.Default);
     }
 }
 
@@ -1604,19 +2012,20 @@ public sealed class AppConfig
     public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
 
     /// <summary>This app with another URL: the one on the port its command was started on.</summary>
-    internal AppConfig WithUrl(string? url) => new()
-    {
-        Url = url,
-        BundleId = BundleId,
-        AppPath = AppPath,
-        LinkBase = LinkBase,
-        Identity = Identity,
-        Environment = Environment,
-        LaunchArguments = LaunchArguments,
-        Permissions = Permissions,
-        Command = Command,
-        ReadyUrl = ReadyUrl,
-    };
+    internal AppConfig WithUrl(string? url) =>
+        new()
+        {
+            Url = url,
+            BundleId = BundleId,
+            AppPath = AppPath,
+            LinkBase = LinkBase,
+            Identity = Identity,
+            Environment = Environment,
+            LaunchArguments = LaunchArguments,
+            Permissions = Permissions,
+            Command = Command,
+            ReadyUrl = ReadyUrl,
+        };
 }
 
 /// <summary>What a permission is set to before a launch (upstream's <c>AppPermissionState</c>): held, refused, or not asked for yet, so the OS asks again.</summary>
@@ -1648,8 +2057,20 @@ public sealed class AgentConfig
     /// </summary>
     public static IReadOnlyList<string> Providers { get; } =
     [
-        "openai", "openai-responses", "azure", "anthropic", "google", "bedrock", "xai", "openrouter", "gateway", "openai-compatible",
-        "chatgpt", "copilot", "grok", "opencode-console",
+        "openai",
+        "openai-responses",
+        "azure",
+        "anthropic",
+        "google",
+        "bedrock",
+        "xai",
+        "openrouter",
+        "gateway",
+        "openai-compatible",
+        "chatgpt",
+        "copilot",
+        "grok",
+        "opencode-console",
     ];
 
     public string? Model { get; init; }
@@ -1728,7 +2149,8 @@ public sealed class AgentConfig
         };
     }
 
-    internal static bool IsSubscription(string provider) => provider is "chatgpt" or "copilot" or "grok" or "opencode-console";
+    internal static bool IsSubscription(string provider) =>
+        provider is "chatgpt" or "copilot" or "grok" or "opencode-console";
 
     private IAgentModel? Create(string? model)
     {
@@ -1739,43 +2161,65 @@ public sealed class AgentConfig
 
         return Provider switch
         {
-            "openai-responses" => new OpenAiResponsesModel(new OpenAiResponsesModelOptions
-            {
-                Model = model,
-                BaseUrl = BaseUrl ?? "https://api.openai.com/v1",
-                ApiKeyEnv = ApiKeyEnv ?? "OPENAI_API_KEY",
-            }),
-            "azure" => new OpenAiResponsesModel(new OpenAiResponsesModelOptions
-            {
-                Model = model,
-                BaseUrl = BaseUrl ?? AzureBaseUrl(),
-                Provider = "azure",
-                ApiKeyEnv = ApiKeyEnv ?? "AZURE_API_KEY",
-                ApiKeyHeader = "api-key",
-                QueryParameters = new Dictionary<string, string>(StringComparer.Ordinal) { ["api-version"] = "v1" },
-            }),
-            "anthropic" => new AnthropicModel(new AnthropicModelOptions
-            {
-                Model = model,
-                BaseUrl = BaseUrl ?? "https://api.anthropic.com/v1",
-                ApiKeyEnv = ApiKeyEnv ?? "ANTHROPIC_API_KEY",
-            }),
-            "google" => new GoogleModel(new GoogleModelOptions
-            {
-                Model = model,
-                BaseUrl = BaseUrl ?? "https://generativelanguage.googleapis.com/v1beta",
-                ApiKeyEnv = ApiKeyEnv ?? "GOOGLE_GENERATIVE_AI_API_KEY",
-            }),
-            "bedrock" => new BedrockModel(new BedrockModelOptions
-            {
-                Model = model,
-                BaseUrl = BaseUrl,
-                ApiKeyEnv = ApiKeyEnv ?? "AWS_BEARER_TOKEN_BEDROCK",
-            }),
+            "openai-responses" => new OpenAiResponsesModel(
+                new OpenAiResponsesModelOptions
+                {
+                    Model = model,
+                    BaseUrl = BaseUrl ?? "https://api.openai.com/v1",
+                    ApiKeyEnv = ApiKeyEnv ?? "OPENAI_API_KEY",
+                }
+            ),
+            "azure" => new OpenAiResponsesModel(
+                new OpenAiResponsesModelOptions
+                {
+                    Model = model,
+                    BaseUrl = BaseUrl ?? AzureBaseUrl(),
+                    Provider = "azure",
+                    ApiKeyEnv = ApiKeyEnv ?? "AZURE_API_KEY",
+                    ApiKeyHeader = "api-key",
+                    QueryParameters = new Dictionary<string, string>(StringComparer.Ordinal) { ["api-version"] = "v1" },
+                }
+            ),
+            "anthropic" => new AnthropicModel(
+                new AnthropicModelOptions
+                {
+                    Model = model,
+                    BaseUrl = BaseUrl ?? "https://api.anthropic.com/v1",
+                    ApiKeyEnv = ApiKeyEnv ?? "ANTHROPIC_API_KEY",
+                }
+            ),
+            "google" => new GoogleModel(
+                new GoogleModelOptions
+                {
+                    Model = model,
+                    BaseUrl = BaseUrl ?? "https://generativelanguage.googleapis.com/v1beta",
+                    ApiKeyEnv = ApiKeyEnv ?? "GOOGLE_GENERATIVE_AI_API_KEY",
+                }
+            ),
+            "bedrock" => new BedrockModel(
+                new BedrockModelOptions
+                {
+                    Model = model,
+                    BaseUrl = BaseUrl,
+                    ApiKeyEnv = ApiKeyEnv ?? "AWS_BEARER_TOKEN_BEDROCK",
+                }
+            ),
             "xai" => Compatible(model, "https://api.x.ai/v1", "xai", "XAI_API_KEY", null),
             "openrouter" => Compatible(model, "https://openrouter.ai/api/v1", "openrouter", "OPENROUTER_API_KEY", null),
-            "gateway" => Compatible(model, "https://ai-gateway.vercel.sh/v1", "gateway", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"),
-            "openai-compatible" => Compatible(model, "http://127.0.0.1:11434/v1", "openai-compatible", "LLM_API_KEY", null),
+            "gateway" => Compatible(
+                model,
+                "https://ai-gateway.vercel.sh/v1",
+                "gateway",
+                "AI_GATEWAY_API_KEY",
+                "VERCEL_OIDC_TOKEN"
+            ),
+            "openai-compatible" => Compatible(
+                model,
+                "http://127.0.0.1:11434/v1",
+                "openai-compatible",
+                "LLM_API_KEY",
+                null
+            ),
             "chatgpt" => OAuth.Subscriptions.ChatGpt(model),
             "copilot" => OAuth.Subscriptions.Copilot(model),
             "grok" => OAuth.Subscriptions.Grok(model),
@@ -1784,23 +2228,34 @@ public sealed class AgentConfig
         };
     }
 
-    private OpenAiCompatibleModel Compatible(string model, string baseUrl, string provider, string apiKeyEnv, string? fallbackEnv)
+    private OpenAiCompatibleModel Compatible(
+        string model,
+        string baseUrl,
+        string provider,
+        string apiKeyEnv,
+        string? fallbackEnv
+    )
     {
-        return new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions
-        {
-            Model = model,
-            BaseUrl = BaseUrl ?? baseUrl,
-            Provider = provider,
-            ApiKeyEnv = ApiKeyEnv ?? apiKeyEnv,
-            ApiKeyFallbackEnv = ApiKeyEnv is null ? fallbackEnv : null,
-        });
+        return new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions
+            {
+                Model = model,
+                BaseUrl = BaseUrl ?? baseUrl,
+                Provider = provider,
+                ApiKeyEnv = ApiKeyEnv ?? apiKeyEnv,
+                ApiKeyFallbackEnv = ApiKeyEnv is null ? fallbackEnv : null,
+            }
+        );
     }
 
     private static string AzureBaseUrl()
     {
         var resource = Environment.GetEnvironmentVariable("AZURE_RESOURCE_NAME");
         return string.IsNullOrWhiteSpace(resource)
-            ? throw new ConfigurationException("INVALID_CONFIG", "provider \"azure\" needs baseUrl or AZURE_RESOURCE_NAME")
+            ? throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "provider \"azure\" needs baseUrl or AZURE_RESOURCE_NAME"
+            )
             : "https://" + resource.Trim() + ".openai.azure.com/openai/v1";
     }
 }
@@ -1957,5 +2412,6 @@ public interface IArtifactStore
     /// a link is only recorded (upstream's optional <c>putLink</c>). A passed attempt's link under <c>retain-on-failure</c> is never handed
     /// over, since the report leaves it out. A failed call never fails the run, like <see cref="PutAsync"/>.
     /// </summary>
-    Task<string?> PutLinkAsync(StoredArtifactLink link, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+    Task<string?> PutLinkAsync(StoredArtifactLink link, CancellationToken cancellationToken = default) =>
+        Task.FromResult<string?>(null);
 }

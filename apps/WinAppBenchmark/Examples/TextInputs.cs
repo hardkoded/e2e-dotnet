@@ -23,14 +23,26 @@ public sealed class TextInputs : Component
             return VStack(Success("Form submitted")).Padding(24);
         }
 
-        return ScrollView(VStack(8,
-            Caption("Username (min 3 chars)"),
-            TextBox(username, setUsername).AutomationName("Username").AutomationId("username-input"),
-            Caption("PIN (exactly 4 digits, secure)"),
-            PasswordBox(pin, text => setPin(new string([.. text.Where(char.IsDigit)]))).MaxLength(4).AutomationName("PIN").AutomationId("pin-input"),
-            Caption($"Notes (multiline, min {MinNotesLength} chars) — {notes.Length}/{MinNotesLength}"),
-            TextBox(notes, setNotes).AcceptsReturn().TextWrapping().MinHeight(96).AutomationName("Notes").AutomationId("notes-input"),
-            Button("Submit", () => setSubmitted(true)).IsEnabled(isValid).AutomationId("submit-button"))
-            .Padding(24));
+        return ScrollView(
+            VStack(
+                    8,
+                    Caption("Username (min 3 chars)"),
+                    TextBox(username, setUsername).AutomationName("Username").AutomationId("username-input"),
+                    Caption("PIN (exactly 4 digits, secure)"),
+                    PasswordBox(pin, text => setPin(new string([.. text.Where(char.IsDigit)])))
+                        .MaxLength(4)
+                        .AutomationName("PIN")
+                        .AutomationId("pin-input"),
+                    Caption($"Notes (multiline, min {MinNotesLength} chars) — {notes.Length}/{MinNotesLength}"),
+                    TextBox(notes, setNotes)
+                        .AcceptsReturn()
+                        .TextWrapping()
+                        .MinHeight(96)
+                        .AutomationName("Notes")
+                        .AutomationId("notes-input"),
+                    Button("Submit", () => setSubmitted(true)).IsEnabled(isValid).AutomationId("submit-button")
+                )
+                .Padding(24)
+        );
     }
 }

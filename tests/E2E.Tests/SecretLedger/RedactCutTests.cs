@@ -41,7 +41,10 @@ public sealed class RedactCutTests
     public void Still_rewrites_whole_values_and_the_fragment_after_the_last_one_down_to_half_of_a_short_value()
     {
         var ledger = Ledger.Of(("member", "hunter2"));
-        Assert.Equal("<secret:member> then <secret:member> then <secret:member>", ledger.RedactCut("hunter2 then hunter2 then hunt"));
+        Assert.Equal(
+            "<secret:member> then <secret:member> then <secret:member>",
+            ledger.RedactCut("hunter2 then hunter2 then hunt")
+        );
         Assert.Equal("<secret:member> then hun", ledger.RedactCut("hunter2 then hun"));
         Assert.Equal("<secret:member><secret:member>", ledger.RedactCut("hunter2hunt"));
     }
@@ -117,7 +120,9 @@ public sealed class RedactCutTests
     [Fact]
     public void Rewrites_a_cut_hex_value_with_a_line_break_and_one_whose_leading_whitespace_the_reader_trimmed()
     {
-        var hex = Ledger.Of(("hex", "0f3a9c71e4b2d85601aa7c3e\n9b84f0c2d17e6a35b9f04c8d2e71a6b3c95d08f4e2a7b61c3d9e0f5a8b47c26"));
+        var hex = Ledger.Of(
+            ("hex", "0f3a9c71e4b2d85601aa7c3e\n9b84f0c2d17e6a35b9f04c8d2e71a6b3c95d08f4e2a7b61c3d9e0f5a8b47c26")
+        );
         Assert.Equal("id <secret:hex>", hex.RedactCut("id 0f3a9c71e4b2d85601aa7c3e 9b84f0c2d1"));
         var padded = Ledger.Of(("padded", "\n\t  padded-secret-value-2718"));
         Assert.Equal("value:<secret:padded>", padded.RedactCut("value: padded-secr"));

@@ -9,8 +9,21 @@ namespace E2E.Tests.AgentReading;
 /// <summary>The helpers upstream's <c>agent-reading.test.ts</c> keeps at the top of its file: a node, and an observation of nodes.</summary>
 internal static class ReadingKit
 {
-    public static SemanticNode Node(string id, string? role = null, string? name = null, string? text = null, BoundingBox? rect = null) =>
-        new() { Ref = id, Role = role, Name = name, Text = text, Rect = rect };
+    public static SemanticNode Node(
+        string id,
+        string? role = null,
+        string? name = null,
+        string? text = null,
+        BoundingBox? rect = null
+    ) =>
+        new()
+        {
+            Ref = id,
+            Role = role,
+            Name = name,
+            Text = text,
+            Rect = rect,
+        };
 
     public static Observation IndexOf(params SemanticNode[] nodes) => new() { Route = "/", Roots = nodes };
 

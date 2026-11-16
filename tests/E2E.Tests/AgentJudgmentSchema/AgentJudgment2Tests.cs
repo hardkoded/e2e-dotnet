@@ -15,7 +15,9 @@ public sealed class AgentJudgment2Tests
 {
     private static readonly JsonSchemaCheck WireSchema = JsonSchemaCheck.FromFile("agent-judgment-v2.schema.json");
 
-    private static readonly JsonSchemaCheck ProviderSchema = JsonSchemaCheck.FromText(AgentProtocol.JudgmentSchema.GetRawText());
+    private static readonly JsonSchemaCheck ProviderSchema = JsonSchemaCheck.FromText(
+        AgentProtocol.JudgmentSchema.GetRawText()
+    );
 
     private const string Astral = "\U0001F600";
 
@@ -64,7 +66,17 @@ public sealed class AgentJudgment2Tests
         ("a missing explanation", () => Judgment("explanation", remove: true), false),
         ("a missing protocolVersion", () => Judgment("protocolVersion", remove: true), false),
         ("a non-string explanation", () => Judgment("explanation", 42), false),
-        ("the agent-judgment-1 shape", () => new JsonObject { ["protocolVersion"] = "agent-judgment-1", ["result"] = true, ["explanation"] = "yes" }, false),
+        (
+            "the agent-judgment-1 shape",
+            () =>
+                new JsonObject
+                {
+                    ["protocolVersion"] = "agent-judgment-1",
+                    ["result"] = true,
+                    ["explanation"] = "yes",
+                },
+            false
+        ),
         ("null", () => null, false),
     ];
 

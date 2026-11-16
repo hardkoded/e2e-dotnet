@@ -45,7 +45,9 @@ public sealed class PageKeyboardTests : PlaywrightTest
     public async Task Should_type_into_a_textarea()
     {
         await Browser.GotoAsync("/empty.html");
-        await Browser.EvaluateAsync<object>("() => { const textarea = document.createElement('textarea'); document.body.appendChild(textarea); textarea.focus(); }");
+        await Browser.EvaluateAsync<object>(
+            "() => { const textarea = document.createElement('textarea'); document.body.appendChild(textarea); textarea.focus(); }"
+        );
         const string text = "Hello world. I am the text that was typed!";
         await Browser.Keyboard.TypeAsync(text);
         Assert.That(await TextareaValueAsync(), Is.EqualTo(text));
@@ -83,7 +85,9 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await textarea.PressAsync("a");
         Assert.That(await TextareaValueAsync(), Is.EqualTo("a"));
 
-        await Browser.EvaluateAsync<object>("() => window.addEventListener('keydown', (e) => e.preventDefault(), true)");
+        await Browser.EvaluateAsync<object>(
+            "() => window.addEventListener('keydown', (e) => e.preventDefault(), true)"
+        );
 
         await textarea.PressAsync("b");
         Assert.That(await TextareaValueAsync(), Is.EqualTo("a"));
@@ -114,23 +118,29 @@ public sealed class PageKeyboardTests : PlaywrightTest
     public async Task Should_emit_keydown_keypress_textInput_and_input_when_typing_a_character()
     {
         await Browser.GotoAsync(Content("<input>"));
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               window.events = [];
               for (const type of ['keydown', 'keypress', 'textInput', 'input', 'keyup'])
                 document.querySelector('input').addEventListener(type, () => window.events.push(type));
             }
-            """);
+            """
+        );
         await Browser.Locator("input").FocusAsync();
         await Browser.Keyboard.PressAsync("f");
-        Assert.That(await Browser.EvaluateAsync<string[]>("events"), Is.EqualTo(new[] { "keydown", "keypress", "textInput", "input", "keyup" }));
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>("events"),
+            Is.EqualTo(new[] { "keydown", "keypress", "textInput", "input", "keyup" })
+        );
     }
 
     [Test]
     public async Task Should_dispatch_key_events_in_separate_tasks()
     {
         await Browser.GotoAsync(Content("<input>"));
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               window.log = [];
               const input = document.querySelector('input');
@@ -138,9 +148,13 @@ public sealed class PageKeyboardTests : PlaywrightTest
                 input.addEventListener(type, () => { window.log.push(type); queueMicrotask(() => window.log.push('microtask-' + type)); });
               input.focus();
             }
-            """);
+            """
+        );
         await Browser.Keyboard.PressAsync("a");
-        Assert.That(await Browser.EvaluateAsync<string[]>("log"), Is.EqualTo(new[] { "keydown", "microtask-keydown", "keypress", "microtask-keypress" }));
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>("log"),
+            Is.EqualTo(new[] { "keydown", "microtask-keydown", "keypress", "microtask-keypress" })
+        );
     }
 
     [Test]
@@ -151,11 +165,23 @@ public sealed class PageKeyboardTests : PlaywrightTest
         foreach (var modifierKey in new[] { "Shift", "Alt", "Control" })
         {
             await keyboard.DownAsync(modifierKey);
-            Assert.That(await ResultAsync(), Is.EqualTo("Keydown: " + modifierKey + " " + modifierKey + "Left LEFT [" + modifierKey + "]"));
+            Assert.That(
+                await ResultAsync(),
+                Is.EqualTo("Keydown: " + modifierKey + " " + modifierKey + "Left LEFT [" + modifierKey + "]")
+            );
             await keyboard.DownAsync("!");
             if (modifierKey == "Shift")
             {
-                Assert.That(await ResultAsync(), Is.EqualTo("Keydown: ! Digit1 STANDARD [" + modifierKey + "]\nKeypress: ! Digit1 STANDARD 33 [" + modifierKey + "]"));
+                Assert.That(
+                    await ResultAsync(),
+                    Is.EqualTo(
+                        "Keydown: ! Digit1 STANDARD ["
+                            + modifierKey
+                            + "]\nKeypress: ! Digit1 STANDARD 33 ["
+                            + modifierKey
+                            + "]"
+                    )
+                );
             }
             else
             {
@@ -195,11 +221,25 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.Keyboard.TypeAsync("!");
         Assert.That(
             await ResultAsync(),
-            Is.EqualTo(Lines("Keydown: ! Digit1 STANDARD []", "Keypress: ! Digit1 STANDARD 33 []", "Keyup: ! Digit1 STANDARD []")));
+            Is.EqualTo(
+                Lines(
+                    "Keydown: ! Digit1 STANDARD []",
+                    "Keypress: ! Digit1 STANDARD 33 []",
+                    "Keyup: ! Digit1 STANDARD []"
+                )
+            )
+        );
         await Browser.Keyboard.TypeAsync("^");
         Assert.That(
             await ResultAsync(),
-            Is.EqualTo(Lines("Keydown: ^ Digit6 STANDARD []", "Keypress: ^ Digit6 STANDARD 94 []", "Keyup: ^ Digit6 STANDARD []")));
+            Is.EqualTo(
+                Lines(
+                    "Keydown: ^ Digit6 STANDARD []",
+                    "Keypress: ^ Digit6 STANDARD 94 []",
+                    "Keyup: ^ Digit6 STANDARD []"
+                )
+            )
+        );
     }
 
     [Test]
@@ -211,11 +251,15 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.Keyboard.TypeAsync("~");
         Assert.That(
             await ResultAsync(),
-            Is.EqualTo(Lines(
-                "Keydown: Shift ShiftLeft LEFT [Shift]",
-                "Keydown: ~ Backquote STANDARD [Shift]",
-                "Keypress: ~ Backquote STANDARD 126 [Shift]",
-                "Keyup: ~ Backquote STANDARD [Shift]")));
+            Is.EqualTo(
+                Lines(
+                    "Keydown: Shift ShiftLeft LEFT [Shift]",
+                    "Keydown: ~ Backquote STANDARD [Shift]",
+                    "Keypress: ~ Backquote STANDARD 126 [Shift]",
+                    "Keyup: ~ Backquote STANDARD [Shift]"
+                )
+            )
+        );
         await keyboard.UpAsync("Shift");
     }
 
@@ -224,7 +268,8 @@ public sealed class PageKeyboardTests : PlaywrightTest
     {
         await Browser.GotoAsync("/input/textarea.html");
         await Browser.Locator("textarea").FocusAsync();
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               window.addEventListener('keydown', (event) => {
                 event.stopPropagation();
@@ -235,7 +280,8 @@ public sealed class PageKeyboardTests : PlaywrightTest
                   event.preventDefault();
               }, false);
             }
-            """);
+            """
+        );
         await Browser.Keyboard.TypeAsync("Hello World!");
         Assert.That(await TextareaValueAsync(), Is.EqualTo("He Wrd!"));
     }
@@ -247,7 +293,10 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.Keyboard.PressAsync("+");
         Assert.That(
             await ResultAsync(),
-            Is.EqualTo(Lines("Keydown: + Equal STANDARD []", "Keypress: + Equal STANDARD 43 []", "Keyup: + Equal STANDARD []")));
+            Is.EqualTo(
+                Lines("Keydown: + Equal STANDARD []", "Keypress: + Equal STANDARD 43 []", "Keyup: + Equal STANDARD []")
+            )
+        );
     }
 
     [Test]
@@ -257,12 +306,16 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.Keyboard.PressAsync("Shift++");
         Assert.That(
             await ResultAsync(),
-            Is.EqualTo(Lines(
-                "Keydown: Shift ShiftLeft LEFT [Shift]",
-                "Keydown: + Equal STANDARD [Shift]",
-                "Keypress: + Equal STANDARD 43 [Shift]",
-                "Keyup: + Equal STANDARD [Shift]",
-                "Keyup: Shift ShiftLeft LEFT []")));
+            Is.EqualTo(
+                Lines(
+                    "Keydown: Shift ShiftLeft LEFT [Shift]",
+                    "Keydown: + Equal STANDARD [Shift]",
+                    "Keypress: + Equal STANDARD 43 [Shift]",
+                    "Keyup: + Equal STANDARD [Shift]",
+                    "Keyup: Shift ShiftLeft LEFT []"
+                )
+            )
+        );
     }
 
     [Test]
@@ -272,12 +325,16 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.Keyboard.PressAsync("Shift+~");
         Assert.That(
             await ResultAsync(),
-            Is.EqualTo(Lines(
-                "Keydown: Shift ShiftLeft LEFT [Shift]",
-                "Keydown: ~ Backquote STANDARD [Shift]",
-                "Keypress: ~ Backquote STANDARD 126 [Shift]",
-                "Keyup: ~ Backquote STANDARD [Shift]",
-                "Keyup: Shift ShiftLeft LEFT []")));
+            Is.EqualTo(
+                Lines(
+                    "Keydown: Shift ShiftLeft LEFT [Shift]",
+                    "Keydown: ~ Backquote STANDARD [Shift]",
+                    "Keypress: ~ Backquote STANDARD 126 [Shift]",
+                    "Keyup: ~ Backquote STANDARD [Shift]",
+                    "Keyup: Shift ShiftLeft LEFT []"
+                )
+            )
+        );
     }
 
     [Test]
@@ -287,13 +344,17 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.Keyboard.PressAsync("Control+Shift+~");
         Assert.That(
             await ResultAsync(),
-            Is.EqualTo(Lines(
-                "Keydown: Control ControlLeft LEFT [Control]",
-                "Keydown: Shift ShiftLeft LEFT [Control Shift]",
-                "Keydown: ~ Backquote STANDARD [Control Shift]",
-                "Keyup: ~ Backquote STANDARD [Control Shift]",
-                "Keyup: Shift ShiftLeft LEFT [Control]",
-                "Keyup: Control ControlLeft LEFT []")));
+            Is.EqualTo(
+                Lines(
+                    "Keydown: Control ControlLeft LEFT [Control]",
+                    "Keydown: Shift ShiftLeft LEFT [Control Shift]",
+                    "Keydown: ~ Backquote STANDARD [Control Shift]",
+                    "Keyup: ~ Backquote STANDARD [Control Shift]",
+                    "Keyup: Shift ShiftLeft LEFT [Control]",
+                    "Keyup: Control ControlLeft LEFT []"
+                )
+            )
+        );
     }
 
     [Test]
@@ -303,12 +364,16 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.Keyboard.PressAsync("Shift+Digit3");
         Assert.That(
             await ResultAsync(),
-            Is.EqualTo(Lines(
-                "Keydown: Shift ShiftLeft LEFT [Shift]",
-                "Keydown: # Digit3 STANDARD [Shift]",
-                "Keypress: # Digit3 STANDARD 35 [Shift]",
-                "Keyup: # Digit3 STANDARD [Shift]",
-                "Keyup: Shift ShiftLeft LEFT []")));
+            Is.EqualTo(
+                Lines(
+                    "Keydown: Shift ShiftLeft LEFT [Shift]",
+                    "Keydown: # Digit3 STANDARD [Shift]",
+                    "Keypress: # Digit3 STANDARD 35 [Shift]",
+                    "Keyup: # Digit3 STANDARD [Shift]",
+                    "Keyup: Shift ShiftLeft LEFT []"
+                )
+            )
+        );
     }
 
     [Test]
@@ -387,7 +452,14 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.Keyboard.PressAsync("NumpadSubtract");
         Assert.That(
             await ResultAsync(),
-            Is.EqualTo(Lines("Keydown: - NumpadSubtract NUMPAD []", "Keypress: - NumpadSubtract NUMPAD 45 []", "Keyup: - NumpadSubtract NUMPAD []")));
+            Is.EqualTo(
+                Lines(
+                    "Keydown: - NumpadSubtract NUMPAD []",
+                    "Keypress: - NumpadSubtract NUMPAD 45 []",
+                    "Keyup: - NumpadSubtract NUMPAD []"
+                )
+            )
+        );
     }
 
     [Test]
@@ -423,13 +495,15 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.GotoAsync(Content("<textarea></textarea>"));
         await Browser.Locator("textarea").FocusAsync();
         await Browser.EvaluateAsync<object>(CaptureLastKeydown);
-        foreach (var (key, expectedKey, expectedCode) in new[]
-        {
-            ("Enter", "Enter", "Enter"),
-            ("NumpadEnter", "Enter", "NumpadEnter"),
-            ("\n", "Enter", "Enter"),
-            ("\r", "Enter", "Enter"),
-        })
+        foreach (
+            var (key, expectedKey, expectedCode) in new[]
+            {
+                ("Enter", "Enter", "Enter"),
+                ("NumpadEnter", "Enter", "NumpadEnter"),
+                ("\n", "Enter", "Enter"),
+                ("\r", "Enter", "Enter"),
+            }
+        )
         {
             await Browser.Keyboard.PressAsync(key);
             Assert.That(await Browser.EvaluateAsync<string>("lastEvent.key"), Is.EqualTo(expectedKey));
@@ -445,7 +519,17 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.GotoAsync(Content("<input autofocus>"));
         await Browser.Locator("input").FocusAsync();
         await Browser.EvaluateAsync<object>(CaptureLastKeydown);
-        foreach (var mediaKey in new[] { "AudioVolumeMute", "AudioVolumeDown", "AudioVolumeUp", "MediaTrackNext", "MediaTrackPrevious", "MediaPlayPause" })
+        foreach (
+            var mediaKey in new[]
+            {
+                "AudioVolumeMute",
+                "AudioVolumeDown",
+                "AudioVolumeUp",
+                "MediaTrackNext",
+                "MediaTrackPrevious",
+                "MediaPlayPause",
+            }
+        )
         {
             await Browser.Keyboard.PressAsync(mediaKey);
             await ExpectLastKeydownAsync(0, mediaKey, mediaKey);
@@ -475,7 +559,8 @@ public sealed class PageKeyboardTests : PlaywrightTest
     public async Task Should_type_emoji_into_an_iframe()
     {
         await Browser.GotoAsync("/empty.html");
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => new Promise((resolve) => {
               const frame = document.createElement('iframe');
               frame.id = 'emoji-test';
@@ -483,11 +568,18 @@ public sealed class PageKeyboardTests : PlaywrightTest
               frame.onload = () => resolve();
               document.body.appendChild(frame);
             })
-            """);
-        await Browser.FrameLocator("#emoji-test").Locator("textarea").PressSequentiallyAsync("👹 Tokyo street Japan 🇯🇵");
+            """
+        );
+        await Browser
+            .FrameLocator("#emoji-test")
+            .Locator("textarea")
+            .PressSequentiallyAsync("👹 Tokyo street Japan 🇯🇵");
         Assert.That(
-            await Browser.EvaluateAsync<string>("() => document.querySelector('#emoji-test').contentDocument.querySelector('textarea').value"),
-            Is.EqualTo("👹 Tokyo street Japan 🇯🇵"));
+            await Browser.EvaluateAsync<string>(
+                "() => document.querySelector('#emoji-test').contentDocument.querySelector('textarea').value"
+            ),
+            Is.EqualTo("👹 Tokyo street Japan 🇯🇵")
+        );
     }
 
     [Test]
@@ -518,14 +610,16 @@ public sealed class PageKeyboardTests : PlaywrightTest
     {
         await Browser.GotoAsync("/input/textarea.html");
         await Browser.Locator("textarea").PressSequentiallyAsync("some text");
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               document.querySelector('textarea').addEventListener('keydown', (event) => {
                 if (event.key === 'a' && (event.metaKey || event.ctrlKey))
                   event.preventDefault();
               }, false);
             }
-            """);
+            """
+        );
         await Browser.Keyboard.DownAsync("ControlOrMeta");
         await Browser.Keyboard.PressAsync("a");
         await Browser.Keyboard.UpAsync("ControlOrMeta");
@@ -607,14 +701,19 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.Locator("div").FocusAsync();
         await Browser.Keyboard.TypeAsync("1\n2\n3\n");
         await Browser.Keyboard.PressAsync("Shift+Meta+ArrowUp");
-        Assert.That(await Browser.EvaluateAsync<string>("() => window.getSelection().toString()"), Is.EqualTo("1\n2\n3\n"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => window.getSelection().toString()"),
+            Is.EqualTo("1\n2\n3\n")
+        );
     }
 
     [Test]
     public async Task Should_dispatch_a_click_event_on_a_button_when_Space_gets_pressed()
     {
         await Browser.GotoAsync(Content("<button type=\"button\">a11y</button>"));
-        await Browser.EvaluateAsync<object>("() => { window.actual = { clicked: false }; document.querySelector('button').addEventListener('click', () => (window.actual.clicked = true)); }");
+        await Browser.EvaluateAsync<object>(
+            "() => { window.actual = { clicked: false }; document.querySelector('button').addEventListener('click', () => (window.actual.clicked = true)); }"
+        );
         await Browser.Locator("button").FocusAsync();
         await Browser.Keyboard.PressAsync("Space");
         Assert.That(await Browser.EvaluateAsync<bool>("actual.clicked"), Is.True);
@@ -624,7 +723,9 @@ public sealed class PageKeyboardTests : PlaywrightTest
     public async Task Should_dispatch_a_click_event_on_a_button_when_Enter_gets_pressed()
     {
         await Browser.GotoAsync(Content("<button type=\"button\">a11y</button>"));
-        await Browser.EvaluateAsync<object>("() => { window.actual = { clicked: false }; document.querySelector('button').addEventListener('click', () => (window.actual.clicked = true)); }");
+        await Browser.EvaluateAsync<object>(
+            "() => { window.actual = { clicked: false }; document.querySelector('button').addEventListener('click', () => (window.actual.clicked = true)); }"
+        );
         await Browser.Locator("button").FocusAsync();
         await Browser.Keyboard.PressAsync("Enter");
         Assert.That(await Browser.EvaluateAsync<bool>("actual.clicked"), Is.True);
@@ -639,7 +740,10 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.Keyboard.PressAsync("ControlOrMeta+KeyC");
         await Browser.Keyboard.PressAsync("ControlOrMeta+KeyV");
         await Browser.Keyboard.PressAsync("ControlOrMeta+KeyV");
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('div').textContent"), Is.EqualTo("123123"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('div').textContent"),
+            Is.EqualTo("123123")
+        );
     }
 
     [Test]
@@ -651,7 +755,10 @@ public sealed class PageKeyboardTests : PlaywrightTest
         await Browser.Keyboard.PressAsync("ControlOrMeta+KeyX");
         await Browser.Keyboard.PressAsync("ControlOrMeta+KeyV");
         await Browser.Keyboard.PressAsync("ControlOrMeta+KeyV");
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('div').textContent"), Is.EqualTo("123123"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('div').textContent"),
+            Is.EqualTo("123123")
+        );
     }
 
     [Test]
@@ -669,41 +776,48 @@ public sealed class PageKeyboardTests : PlaywrightTest
     }
 
     /// <summary>A page with a <c>shadow-element</c> whose shadow root holds <paramref name="editors"/>, for the typing-in-shadow-dom tests.</summary>
-    private static string ShadowElementPage(string editors) => $$"""
-        <html>
-          <body>
-            <shadow-element></shadow-element>
-            <script>
-              customElements.define('shadow-element', class extends HTMLElement {
-                constructor() {
-                  super();
-                  this.attachShadow({ mode: 'open' });
-                }
+    private static string ShadowElementPage(string editors) =>
+        $$"""
+            <html>
+              <body>
+                <shadow-element></shadow-element>
+                <script>
+                  customElements.define('shadow-element', class extends HTMLElement {
+                    constructor() {
+                      super();
+                      this.attachShadow({ mode: 'open' });
+                    }
 
-                connectedCallback() {
-                  this.shadowRoot.innerHTML = `
-                    <style>
-                      .editor { padding: 1rem; margin: 1rem; border: 1px solid #ccc; }
-                    </style>
-                    {{editors}}
-                  `;
-                }
-              });
-            </script>
-          </body>
-        </html>
-        """;
+                    connectedCallback() {
+                      this.shadowRoot.innerHTML = `
+                        <style>
+                          .editor { padding: 1rem; margin: 1rem; border: 1px solid #ccc; }
+                        </style>
+                        {{editors}}
+                      `;
+                    }
+                  });
+                </script>
+              </body>
+            </html>
+            """;
 
     [Test]
     public async Task Should_type_repeatedly_in_contenteditable_in_shadow_dom()
     {
-        await Browser.GotoAsync(Content(ShadowElementPage("""
-            <div class=editor contenteditable id=foo></div>
-            <hr>
-            <section>
-              <div class=editor contenteditable id=bar></div>
-            </section>
-            """)));
+        await Browser.GotoAsync(
+            Content(
+                ShadowElementPage(
+                    """
+                    <div class=editor contenteditable id=foo></div>
+                    <hr>
+                    <section>
+                      <div class=editor contenteditable id=bar></div>
+                    </section>
+                    """
+                )
+            )
+        );
 
         var editor = Browser.Locator("shadow-element > .editor").First();
         await editor.PressSequentiallyAsync("This is the first box.");
@@ -718,13 +832,19 @@ public sealed class PageKeyboardTests : PlaywrightTest
     [Test]
     public async Task Should_type_repeatedly_in_contenteditable_in_shadow_dom_with_nested_elements()
     {
-        await Browser.GotoAsync(Content(ShadowElementPage("""
-            <div class=editor contenteditable id=foo><p>hello</p></div>
-            <hr>
-            <section>
-              <div class=editor contenteditable id=bar><p>world</p></div>
-            </section>
-            """)));
+        await Browser.GotoAsync(
+            Content(
+                ShadowElementPage(
+                    """
+                    <div class=editor contenteditable id=foo><p>hello</p></div>
+                    <hr>
+                    <section>
+                      <div class=editor contenteditable id=bar><p>world</p></div>
+                    </section>
+                    """
+                )
+            )
+        );
 
         var editor = Browser.Locator("shadow-element > .editor").First();
         await editor.PressSequentiallyAsync("This is the first box: ");
@@ -739,13 +859,19 @@ public sealed class PageKeyboardTests : PlaywrightTest
     [Test]
     public async Task Should_type_repeatedly_in_input_in_shadow_dom()
     {
-        await Browser.GotoAsync(Content(ShadowElementPage("""
-            <input class=editor id=foo>
-            <hr>
-            <section>
-              <input class=editor id=bar>
-            </section>
-            """)));
+        await Browser.GotoAsync(
+            Content(
+                ShadowElementPage(
+                    """
+                    <input class=editor id=foo>
+                    <hr>
+                    <section>
+                      <input class=editor id=bar>
+                    </section>
+                    """
+                )
+            )
+        );
 
         var editor = Browser.Locator("shadow-element > .editor").First();
         await editor.PressSequentiallyAsync("This is the first box.");
@@ -760,10 +886,14 @@ public sealed class PageKeyboardTests : PlaywrightTest
     [Test]
     public async Task Type_to_non_focusable_element_should_maintain_old_focus()
     {
-        await Browser.GotoAsync(Content("""
-            <div id="focusable" tabindex="0">focusable div</div>
-            <div id="non-focusable-and-non-editable">non-editable, non-focusable</div>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <div id="focusable" tabindex="0">focusable div</div>
+                <div id="non-focusable-and-non-editable">non-editable, non-focusable</div>
+                """
+            )
+        );
 
         await Browser.Locator("#focusable").FocusAsync();
         Assert.That(await Browser.EvaluateAsync<string>("() => document.activeElement?.id"), Is.EqualTo("focusable"));
@@ -776,24 +906,35 @@ public sealed class PageKeyboardTests : PlaywrightTest
     {
         await Browser.GotoAsync("/input/keyboard.html");
         await Browser.Keyboard.PressAsync("Escape");
-        Assert.That(await ResultAsync(), Is.EqualTo(Lines("Keydown: Escape Escape STANDARD []", "Keyup: Escape Escape STANDARD []")));
+        Assert.That(
+            await ResultAsync(),
+            Is.EqualTo(Lines("Keydown: Escape Escape STANDARD []", "Keyup: Escape Escape STANDARD []"))
+        );
     }
 
     [Test]
     public async Task Should_close_dialog_on_Escape_key_press_in_contenteditable()
     {
-        await Browser.GotoAsync(Content("""
-            <dialog>
-              <div contenteditable>Edit Me</div>
-            </dialog>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <dialog>
+                  <div contenteditable>Edit Me</div>
+                </dialog>
+                """
+            )
+        );
         var widget = Browser.Locator("dialog [contenteditable]");
         await Browser.EvaluateAsync<object>("() => document.querySelector('dialog').showModal()");
-        await Expect.Poll(() => Browser.EvaluateAsync<bool>("() => document.querySelector('dialog').open")).ToBeAsync(true);
+        await Expect
+            .Poll(() => Browser.EvaluateAsync<bool>("() => document.querySelector('dialog').open"))
+            .ToBeAsync(true);
         await Expect.That(widget).ToBeVisibleAsync();
 
         await widget.PressAsync("Escape");
-        await Expect.Poll(() => Browser.EvaluateAsync<bool>("() => document.querySelector('dialog').open")).ToBeAsync(false);
+        await Expect
+            .Poll(() => Browser.EvaluateAsync<bool>("() => document.querySelector('dialog').open"))
+            .ToBeAsync(false);
         await Expect.That(widget).Not.ToBeVisibleAsync();
     }
 

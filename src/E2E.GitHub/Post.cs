@@ -16,7 +16,15 @@ namespace E2E.GitHub;
 /// <param name="PullRequest">The pull request's number.</param>
 /// <param name="Marker">The hidden HTML comment that identifies the reporter's own comment.</param>
 /// <param name="Body">The comment's text.</param>
-internal sealed record PostParams(HttpClient Http, string ApiUrl, string Token, string Repository, int PullRequest, string Marker, string Body);
+internal sealed record PostParams(
+    HttpClient Http,
+    string ApiUrl,
+    string Token,
+    string Repository,
+    int PullRequest,
+    string Marker,
+    string Body
+);
 
 /// <summary>
 /// One comment per pull request, kept current (upstream's <c>post.ts</c>): the reporter looks for the comment the token's own account wrote whose
@@ -47,10 +55,17 @@ internal static class Post
     /// Text that came from GitHub or from the machine, with the token taken out. .NET-only: upstream's messages never hold the token, and this
     /// keeps that true here whatever GitHub echoes back.
     /// </summary>
-    private static string Redact(PostParams parameters, string text) => Redactor.For([("GITHUB_TOKEN", parameters.Token)]).Redact(text);
+    private static string Redact(PostParams parameters, string text) =>
+        Redactor.For([("GITHUB_TOKEN", parameters.Token)]).Redact(text);
 
     /// <summary>Sends one GitHub REST call and hands back the response as it came.</summary>
-    private static Task<HttpResponseMessage> SendAsync(PostParams parameters, HttpMethod method, string route, object? body, CancellationToken cancellationToken)
+    private static Task<HttpResponseMessage> SendAsync(
+        PostParams parameters,
+        HttpMethod method,
+        string route,
+        object? body,
+        CancellationToken cancellationToken
+    )
     {
         var request = new HttpRequestMessage(method, parameters.ApiUrl + route);
         request.Headers.Authorization = new("Bearer", parameters.Token);
@@ -66,7 +81,11 @@ internal static class Post
     }
 
     /// <summary>The start of a response's body, for error messages.</summary>
-    private static async Task<string> BodyStartAsync(PostParams parameters, HttpResponseMessage response, CancellationToken cancellationToken)
+    private static async Task<string> BodyStartAsync(
+        PostParams parameters,
+        HttpResponseMessage response,
+        CancellationToken cancellationToken
+    )
     {
         string text;
         try
@@ -82,11 +101,16 @@ internal static class Post
     }
 
     /// <summary>The body as JSON, or null when it is not.</summary>
-    private static async Task<JsonElement?> ReadJsonAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static async Task<JsonElement?> ReadJsonAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            using var document = JsonDocument.Parse(
+                await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)
+            );
             return document.RootElement.Clone();
         }
         catch (Exception ex) when (ex is JsonException or HttpRequestException or InvalidOperationException)
@@ -96,8 +120,15 @@ internal static class Post
     }
 
     /// <summary>The error for a response the protocol has no meaning for, with the start of its body.</summary>
-    private static InvalidOperationException Unexpected(HttpResponseMessage response, HttpMethod method, string route, string detail) =>
-        new($"GitHub responded {(int)response.StatusCode} to {method.Method} {route}{(detail.Length == 0 ? "" : ": " + detail)}");
+    private static InvalidOperationException Unexpected(
+        HttpResponseMessage response,
+        HttpMethod method,
+        string route,
+        string detail
+    ) =>
+        new(
+            $"GitHub responded {(int)response.StatusCode} to {method.Method} {route}{(detail.Length == 0 ? "" : ": " + detail)}"
+        );
 
     /// <summary>Whether GitHub throttled the request rather than refused it: a 429, or a 403 for a spent primary limit, a <c>Retry-After</c>, or a secondary limit.</summary>
     private static bool IsRateLimited(HttpResponseMessage response, string detail)
@@ -108,13 +139,21 @@ internal static class Post
         }
 
         return response.StatusCode == System.Net.HttpStatusCode.Forbidden
-            && ((response.Headers.TryGetValues("x-ratelimit-remaining", out var remaining) && remaining.Contains("0"))
+            && (
+                (response.Headers.TryGetValues("x-ratelimit-remaining", out var remaining) && remaining.Contains("0"))
                 || response.Headers.Contains("retry-after")
-                || detail.Contains("secondary rate limit", StringComparison.OrdinalIgnoreCase));
+                || detail.Contains("secondary rate limit", StringComparison.OrdinalIgnoreCase)
+            );
     }
 
     /// <summary>The error the runner prints for a response that is not a success.</summary>
-    private static async Task<Exception> FailureAsync(PostParams parameters, HttpResponseMessage response, HttpMethod method, string route, CancellationToken cancellationToken)
+    private static async Task<Exception> FailureAsync(
+        PostParams parameters,
+        HttpResponseMessage response,
+        HttpMethod method,
+        string route,
+        CancellationToken cancellationToken
+    )
     {
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
@@ -124,20 +163,29 @@ internal static class Post
         var detail = await BodyStartAsync(parameters, response, cancellationToken).ConfigureAwait(false);
         if (IsRateLimited(response, detail))
         {
-            return new InvalidOperationException($"GitHub rate limited {method.Method} {route}; wait for the rate-limit reset or Retry-After before rerunning the job");
+            return new InvalidOperationException(
+                $"GitHub rate limited {method.Method} {route}; wait for the rate-limit reset or Retry-After before rerunning the job"
+            );
         }
 
         if (response.StatusCode is System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.NotFound)
         {
             return new InvalidOperationException(
-                $"the token cannot comment on {parameters.Repository}#{parameters.PullRequest}: a pull request from a fork runs with a read-only token, and the job needs `permissions: pull-requests: write`");
+                $"the token cannot comment on {parameters.Repository}#{parameters.PullRequest}: a pull request from a fork runs with a read-only token, and the job needs `permissions: pull-requests: write`"
+            );
         }
 
         return Unexpected(response, method, route, detail);
     }
 
     /// <summary>One GitHub REST call; anything but success is an error the runner can print.</summary>
-    private static async Task<JsonElement?> RequestAsync(PostParams parameters, HttpMethod method, string route, object? body, CancellationToken cancellationToken)
+    private static async Task<JsonElement?> RequestAsync(
+        PostParams parameters,
+        HttpMethod method,
+        string route,
+        object? body,
+        CancellationToken cancellationToken
+    )
     {
         using var response = await SendAsync(parameters, method, route, body, cancellationToken).ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
@@ -149,7 +197,11 @@ internal static class Post
     }
 
     private static string? StringProperty(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     /// <summary>
     /// The account the token posts as. A personal token names its user at <c>GET /user</c>. An installation token cannot read it, and posts as its
@@ -157,7 +209,8 @@ internal static class Post
     /// </summary>
     private static async Task<Author> TokenAuthorAsync(PostParams parameters, CancellationToken cancellationToken)
     {
-        using var response = await SendAsync(parameters, HttpMethod.Get, "/user", null, cancellationToken).ConfigureAwait(false);
+        using var response = await SendAsync(parameters, HttpMethod.Get, "/user", null, cancellationToken)
+            .ConfigureAwait(false);
         if (response.IsSuccessStatusCode)
         {
             var user = await ReadJsonAsync(response, cancellationToken).ConfigureAwait(false);
@@ -181,10 +234,16 @@ internal static class Post
 
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            throw await FailureAsync(parameters, response, HttpMethod.Get, "/user", cancellationToken).ConfigureAwait(false);
+            throw await FailureAsync(parameters, response, HttpMethod.Get, "/user", cancellationToken)
+                .ConfigureAwait(false);
         }
 
-        throw Unexpected(response, HttpMethod.Get, "/user", await BodyStartAsync(parameters, response, cancellationToken).ConfigureAwait(false));
+        throw Unexpected(
+            response,
+            HttpMethod.Get,
+            "/user",
+            await BodyStartAsync(parameters, response, cancellationToken).ConfigureAwait(false)
+        );
     }
 
     /// <summary>
@@ -199,11 +258,23 @@ internal static class Post
     }
 
     /// <summary>The id of the comment the author wrote carrying the marker, or null when no page has one.</summary>
-    private static async Task<long?> FindCommentAsync(PostParams parameters, string issue, Author author, CancellationToken cancellationToken)
+    private static async Task<long?> FindCommentAsync(
+        PostParams parameters,
+        string issue,
+        Author author,
+        CancellationToken cancellationToken
+    )
     {
         for (var page = 1; page <= MaxPages; page++)
         {
-            var comments = await RequestAsync(parameters, HttpMethod.Get, $"{issue}/comments?per_page={PerPage}&page={page}", null, cancellationToken).ConfigureAwait(false);
+            var comments = await RequestAsync(
+                    parameters,
+                    HttpMethod.Get,
+                    $"{issue}/comments?per_page={PerPage}&page={page}",
+                    null,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             if (comments is not { ValueKind: JsonValueKind.Array } list)
             {
                 throw new InvalidOperationException("GitHub answered the comment list with a body that is not a list");
@@ -211,7 +282,8 @@ internal static class Post
 
             foreach (var comment in list.EnumerateArray())
             {
-                if (comment.ValueKind == JsonValueKind.Object
+                if (
+                    comment.ValueKind == JsonValueKind.Object
                     && comment.TryGetProperty("user", out var user)
                     && user.ValueKind == JsonValueKind.Object
                     && author(user)
@@ -219,7 +291,8 @@ internal static class Post
                     && CarriesMarker(body, parameters.Marker)
                     && comment.TryGetProperty("id", out var id)
                     && id.ValueKind == JsonValueKind.Number
-                    && id.TryGetInt64(out var number))
+                    && id.TryGetInt64(out var number)
+                )
                 {
                     return number;
                 }
@@ -238,11 +311,25 @@ internal static class Post
     public static async Task<string> UpsertCommentAsync(PostParams parameters, CancellationToken cancellationToken)
     {
         var issue = $"/repos/{parameters.Repository}/issues/{parameters.PullRequest}";
-        var existing = await FindCommentAsync(parameters, issue, await TokenAuthorAsync(parameters, cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+        var existing = await FindCommentAsync(
+                parameters,
+                issue,
+                await TokenAuthorAsync(parameters, cancellationToken).ConfigureAwait(false),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         var body = new { body = parameters.Body };
         var created = existing is null
-            ? await RequestAsync(parameters, HttpMethod.Post, $"{issue}/comments", body, cancellationToken).ConfigureAwait(false)
-            : await RequestAsync(parameters, HttpMethod.Patch, $"/repos/{parameters.Repository}/issues/comments/{existing}", body, cancellationToken).ConfigureAwait(false);
+            ? await RequestAsync(parameters, HttpMethod.Post, $"{issue}/comments", body, cancellationToken)
+                .ConfigureAwait(false)
+            : await RequestAsync(
+                    parameters,
+                    HttpMethod.Patch,
+                    $"/repos/{parameters.Repository}/issues/comments/{existing}",
+                    body,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         return created is { } c && StringProperty(c, "html_url") is { } url
             ? url
             : throw new InvalidOperationException("GitHub answered the comment without its html_url");

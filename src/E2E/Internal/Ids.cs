@@ -13,7 +13,8 @@ namespace E2E.Internal;
 internal static class Ids
 {
     /// <summary>SHA-256 of a UTF-8 string, lowercase hex.</summary>
-    public static string Sha256Hex(string input) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
+    public static string Sha256Hex(string input) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
 
     /// <summary>SHA-256 of raw bytes, lowercase hex.</summary>
     public static string Sha256Hex(ReadOnlySpan<byte> input) => Convert.ToHexStringLower(SHA256.HashData(input));
@@ -24,7 +25,12 @@ internal static class Ids
     /// </summary>
     public static string ResultId(string test, string targetId, string agent, int repeat = 0)
     {
-        var value = new JsonObject { ["testId"] = test, ["targetId"] = targetId, ["agent"] = agent };
+        var value = new JsonObject
+        {
+            ["testId"] = test,
+            ["targetId"] = targetId,
+            ["agent"] = agent,
+        };
         if (repeat != 0)
         {
             value["repeat"] = repeat;
@@ -75,7 +81,16 @@ internal static class Ids
         var encoded = new StringBuilder();
         foreach (var value in Encoding.UTF8.GetBytes(Wellformed(title).Normalize(NormalizationForm.FormC)))
         {
-            if (value is (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'a' and <= (byte)'z') or (>= (byte)'0' and <= (byte)'9') or (byte)'-' or (byte)'.' or (byte)'_' or (byte)'~')
+            if (
+                value
+                is (>= (byte)'A' and <= (byte)'Z')
+                    or (>= (byte)'a' and <= (byte)'z')
+                    or (>= (byte)'0' and <= (byte)'9')
+                    or (byte)'-'
+                    or (byte)'.'
+                    or (byte)'_'
+                    or (byte)'~'
+            )
             {
                 encoded.Append((char)value);
             }
@@ -92,16 +107,20 @@ internal static class Ids
     /// Builds a test id, <c>&lt;file&gt;::&lt;encoded title&gt;::...</c>, from the file and the title path (upstream's <c>testId</c>). Each title is
     /// percent-encoded, so a <c>::</c> inside a title cannot pass for the separator.
     /// </summary>
-    public static string TestId(string file, IReadOnlyList<string> titlePath) => file + "::" + string.Join("::", titlePath.Select(EncodeTitle));
+    public static string TestId(string file, IReadOnlyList<string> titlePath) =>
+        file + "::" + string.Join("::", titlePath.Select(EncodeTitle));
 
     /// <summary>Builds a setup test id, <c>setup::&lt;test id&gt;</c> (upstream's <c>setupTestId</c>).</summary>
-    public static string SetupTestId(string file, IReadOnlyList<string> titlePath) => "setup::" + TestId(file, titlePath);
+    public static string SetupTestId(string file, IReadOnlyList<string> titlePath) =>
+        "setup::" + TestId(file, titlePath);
 
     /// <summary>Generates one lowercase UUIDv7 string for a time (upstream's <c>uuidv7</c>).</summary>
-    public static string Uuidv7(DateTimeOffset? now = null) => Guid.CreateVersion7(now ?? DateTimeOffset.UtcNow).ToString();
+    public static string Uuidv7(DateTimeOffset? now = null) =>
+        Guid.CreateVersion7(now ?? DateTimeOffset.UtcNow).ToString();
 
     /// <summary>RFC 3339 UTC timestamp with exactly millisecond precision (upstream's <c>timestamp</c>, <c>toISOString</c>).</summary>
-    public static string Timestamp(DateTimeOffset date) => date.UtcDateTime.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'", CultureInfo.InvariantCulture);
+    public static string Timestamp(DateTimeOffset date) =>
+        date.UtcDateTime.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'", CultureInfo.InvariantCulture);
 
     /// <summary>SHA-256 over the RFC 8785 canonical form, lowercase hex.</summary>
     public static string CanonicalDigest(JsonNode? value) => Sha256Hex(CanonicalJson(value));
@@ -189,7 +208,10 @@ internal static class Ids
     private static void WriteNumber(StringBuilder builder, string raw)
     {
         // An integer that a double holds exactly is digits; beyond 2^53 ECMAScript rounds it to a double, so the port does too.
-        if (long.TryParse(raw, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var integer) && integer is >= -MaxSafeInteger and <= MaxSafeInteger)
+        if (
+            long.TryParse(raw, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var integer)
+            && integer is >= -MaxSafeInteger and <= MaxSafeInteger
+        )
         {
             builder.Append(integer.ToString(CultureInfo.InvariantCulture));
             return;

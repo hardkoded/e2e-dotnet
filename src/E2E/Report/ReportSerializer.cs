@@ -32,14 +32,23 @@ internal static class ReportSerializer
 
         // The schema spells an enum value in kebab case (timed-out), but the hook phases in camel case (beforeEach) and a vision degradation
         // in upper snake case (PIXEL_TAINTED).
-        foreach (var type in typeof(Report).Assembly.GetTypes().Where(type => type.IsEnum && (type.Namespace == typeof(Report).Namespace || type == typeof(ReportRunStatus))).Concat([typeof(ReportExploreFindingKind), typeof(ReportExploreStepStatus), typeof(ReportExploreEnded)]))
+        foreach (
+            var type in typeof(Report)
+                .Assembly.GetTypes()
+                .Where(type =>
+                    type.IsEnum && (type.Namespace == typeof(Report).Namespace || type == typeof(ReportRunStatus))
+                )
+                .Concat([typeof(ReportExploreFindingKind), typeof(ReportExploreStepStatus), typeof(ReportExploreEnded)])
+        )
         {
-            var policy = type == typeof(Reports.ErrorPhase) || type == typeof(Reports.StepPhase)
-                ? JsonNamingPolicy.CamelCase
-                : type == typeof(Reports.VisionDegradation)
-                    ? JsonNamingPolicy.SnakeCaseUpper
-                    : JsonNamingPolicy.KebabCaseLower;
-            options.Converters.Add((JsonConverter)Activator.CreateInstance(typeof(JsonStringEnumConverter<>).MakeGenericType(type), policy, false)!);
+            var policy =
+                type == typeof(Reports.ErrorPhase) || type == typeof(Reports.StepPhase) ? JsonNamingPolicy.CamelCase
+                : type == typeof(Reports.VisionDegradation) ? JsonNamingPolicy.SnakeCaseUpper
+                : JsonNamingPolicy.KebabCaseLower;
+            options.Converters.Add(
+                (JsonConverter)
+                    Activator.CreateInstance(typeof(JsonStringEnumConverter<>).MakeGenericType(type), policy, false)!
+            );
         }
 
         return options;
@@ -59,33 +68,47 @@ internal static class ReportSerializer
                 (string)node["goal"]!,
                 new ExploreBudgets((int)budgets["maxSteps"]!, TimeSpan.FromMilliseconds((long)budgets["timeoutMs"]!)),
                 node["ended"].Deserialize<ReportExploreEnded>(options),
-                [.. node["steps"]!.AsArray().Select(step => new ReportExploreStep(
-                    (int)step!["index"]!,
-                    (string)step["title"]!,
-                    (string)step["instruction"]!,
-                    step["status"].Deserialize<ReportExploreStepStatus>(options),
-                    step["startedAt"].Deserialize<DateTimeOffset>(options),
-                    TimeSpan.FromMilliseconds((long)step["durationMs"]!),
-                    (string?)step["summary"],
-                    (string?)step["errorCode"]))],
-                [.. node["findings"]!.AsArray().Select(finding => new ReportExploreFinding(
-                    (string)finding!["id"]!,
-                    (int)finding["index"]!,
-                    (int?)finding["step"],
-                    finding["kind"].Deserialize<ReportExploreFindingKind>(options),
-                    (int)finding["severity"]!,
-                    (string)finding["title"]!,
-                    (string)finding["expected"]!,
-                    (string)finding["actual"]!,
-                    [.. finding["reproduction"]!.AsArray().Select(line => (string)line!)],
-                    finding["reportedAt"].Deserialize<DateTimeOffset>(options),
-                    (string?)finding["path"],
-                    (string?)finding["artifactId"],
-                    (string?)finding["observationRevision"]))],
+                [
+                    .. node["steps"]!
+                        .AsArray()
+                        .Select(step => new ReportExploreStep(
+                            (int)step!["index"]!,
+                            (string)step["title"]!,
+                            (string)step["instruction"]!,
+                            step["status"].Deserialize<ReportExploreStepStatus>(options),
+                            step["startedAt"].Deserialize<DateTimeOffset>(options),
+                            TimeSpan.FromMilliseconds((long)step["durationMs"]!),
+                            (string?)step["summary"],
+                            (string?)step["errorCode"]
+                        )),
+                ],
+                [
+                    .. node["findings"]!
+                        .AsArray()
+                        .Select(finding => new ReportExploreFinding(
+                            (string)finding!["id"]!,
+                            (int)finding["index"]!,
+                            (int?)finding["step"],
+                            finding["kind"].Deserialize<ReportExploreFindingKind>(options),
+                            (int)finding["severity"]!,
+                            (string)finding["title"]!,
+                            (string)finding["expected"]!,
+                            (string)finding["actual"]!,
+                            [.. finding["reproduction"]!.AsArray().Select(line => (string)line!)],
+                            finding["reportedAt"].Deserialize<DateTimeOffset>(options),
+                            (string?)finding["path"],
+                            (string?)finding["artifactId"],
+                            (string?)finding["observationRevision"]
+                        )),
+                ],
                 (string?)node["summary"],
-                node["change"] is { } change ? new ReportExploreChange((string)change["base"]!, (int)change["files"]!) : null);
+                node["change"] is { } change
+                    ? new ReportExploreChange((string)change["base"]!, (int)change["files"]!)
+                    : null
+            );
         }
 
-        public override void Write(Utf8JsonWriter writer, ReportExplore value, JsonSerializerOptions options) => throw new NotSupportedException();
+        public override void Write(Utf8JsonWriter writer, ReportExplore value, JsonSerializerOptions options) =>
+            throw new NotSupportedException();
     }
 }

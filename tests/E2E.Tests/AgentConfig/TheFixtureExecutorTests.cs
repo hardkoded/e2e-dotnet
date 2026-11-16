@@ -16,10 +16,10 @@ public sealed class TheFixtureExecutorTests
     {
         var seen = new List<string>();
         var fixture = new Fixture(new TestExecutor("fixture-brain", (context, _) =>
-        {
-            seen.Add(context.Step.Instruction);
-            return Task.FromResult(Passed("done"));
-        }));
+            {
+                seen.Add(context.Step.Instruction);
+                return Task.FromResult(Passed("done"));
+            }));
         await fixture.StartAsync();
 
         var result = await fixture.ActAsync("look at the screen");

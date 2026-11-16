@@ -5,13 +5,18 @@
 namespace E2E.Tests.TestFilters;
 
 /// <summary>A filter named <c>name</c> deciding with <c>decide</c> (upstream's <c>filterOf</c>, <c>tests/unit/test-filters.test.ts</c>).</summary>
-internal sealed class FilterOf(string name, Func<IReadOnlyList<TestFilterCandidate>, TestFilterContext, Task<TestFilterResult>> decide) : ITestFilter
+internal sealed class FilterOf(
+    string name,
+    Func<IReadOnlyList<TestFilterCandidate>, TestFilterContext, Task<TestFilterResult>> decide
+) : ITestFilter
 {
     public string Name { get; } = name;
 
-    public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) => decide(tests, context);
+    public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) =>
+        decide(tests, context);
 
-    public static FilterOf Of(string name, Func<IReadOnlyList<TestFilterCandidate>, TestFilterResult> decide) => new(name, (tests, _) => Task.FromResult(decide(tests)));
+    public static FilterOf Of(string name, Func<IReadOnlyList<TestFilterCandidate>, TestFilterResult> decide) =>
+        new(name, (tests, _) => Task.FromResult(decide(tests)));
 }
 
 /// <summary>The fixtures of <c>tests/unit/test-filters.test.ts</c>.</summary>
@@ -31,7 +36,8 @@ internal static class TestFiltersKit
         CancellationToken cancellationToken = default,
         IReadOnlySet<string>? collectedIds = null,
         IReadOnlyList<(string Name, string Value)>? secrets = null,
-        Func<string, Func<Task<FilterCall>>, List<string>, Task<FilterCall>>? step = null)
+        Func<string, Func<Task<FilterCall>>, List<string>, Task<FilterCall>>? step = null
+    )
     {
         var notices = new List<string>();
         var steps = new List<string>();
@@ -51,35 +57,43 @@ internal static class TestFiltersKit
                     steps.Add(name);
                     return await work();
                 }
-            : (name, work) => step(name, work, steps),
+                : (name, work) => step(name, work, steps),
         };
         return (value, notices, steps);
     }
 
     /// <summary>Candidates for plain tests titled <paramref name="titles"/>, in order (upstream's <c>candidatesOf</c>, which collects and selects them).</summary>
     public static IReadOnlyList<TestFilterCandidate> CandidatesOf(params string[] titles) =>
-        [.. titles.Select(title => new TestFilterCandidate("tests/a.e2e.ts::" + Uri.EscapeDataString(title), "tests/a.e2e.ts", [title], []))];
+        [
+            .. titles.Select(title => new TestFilterCandidate(
+                "tests/a.e2e.ts::" + Uri.EscapeDataString(title),
+                "tests/a.e2e.ts",
+                [title],
+                []
+            )),
+        ];
 
     /// <summary>A candidate's own title: the last of its title path.</summary>
     public static string TitleOf(TestFilterCandidate candidate) => candidate.TitlePath[^1];
 
     /// <summary>The id of the candidate titled <paramref name="title"/>.</summary>
     public static string IdOf(IEnumerable<TestFilterCandidate> candidates, string title) =>
-        candidates.FirstOrDefault(entry => TitleOf(entry) == title)?.Id ?? throw new InvalidOperationException($"no candidate titled {title}");
+        candidates.FirstOrDefault(entry => TitleOf(entry) == title)?.Id
+        ?? throw new InvalidOperationException($"no candidate titled {title}");
 
     /// <summary>A filter that records the context of each call and never settles, whatever its signal says.</summary>
     public static (ITestFilter Filter, List<TestFilterContext> Seen) Hanging(string name)
     {
         var seen = new List<TestFilterContext>();
         return (new FilterOf(name, (_, context) =>
-        {
-            lock (seen)
             {
-                seen.Add(context);
-            }
+                lock (seen)
+                {
+                    seen.Add(context);
+                }
 
-            return new TaskCompletionSource<TestFilterResult>().Task;
-        }), seen);
+                return new TaskCompletionSource<TestFilterResult>().Task;
+            }), seen);
     }
 
     public static TestFilterResult Excluding(params (string Id, string Reason)[] excluded) =>

@@ -30,14 +30,21 @@ internal static partial class ProtectedApp
 
         // An IPv6 host keeps its brackets, as the origin of a URL writes it; IdnHost drops them.
         var host = url.HostNameType == UriHostNameType.IPv6 ? url.Host : url.IdnHost;
-        return url.Scheme + "://" + host + (url.IsDefaultPort ? "" : ":" + url.Port.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return url.Scheme
+            + "://"
+            + host
+            + (url.IsDefaultPort ? "" : ":" + url.Port.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
     /// <summary>
     /// The configured headers a request to <paramref name="url"/> carries: all of them when its origin is one of
     /// <paramref name="origins"/>, none otherwise.
     /// </summary>
-    internal static IReadOnlyDictionary<string, string>? ConfiguredHeadersFor(string url, IReadOnlySet<string> origins, IReadOnlyDictionary<string, string>? headers)
+    internal static IReadOnlyDictionary<string, string>? ConfiguredHeadersFor(
+        string url,
+        IReadOnlySet<string> origins,
+        IReadOnlyDictionary<string, string>? headers
+    )
     {
         if (headers is null)
         {
@@ -83,7 +90,8 @@ internal static partial class ProtectedApp
     /// </summary>
     internal static string? OriginProblem(string? value)
     {
-        const string Expected = "must be an origin such as \"https://preview.example.com\": an http or https URL with no path, query, or fragment";
+        const string Expected =
+            "must be an origin such as \"https://preview.example.com\": an http or https URL with no path, query, or fragment";
         if (value is null)
         {
             return Expected + ", got null";
@@ -104,9 +112,16 @@ internal static partial class ProtectedApp
             return "must name the port requests use, got \"" + value + "\": port 0 matches no request";
         }
 
-        var bare = url.UserInfo.Length == 0 && url.AbsolutePath == "/" && url.Query.Length == 0 && url.Fragment.Length == 0
-            && !value.EndsWith('?') && !value.EndsWith('#');
-        return (url.Scheme == Uri.UriSchemeHttp || url.Scheme == Uri.UriSchemeHttps) && bare ? null : Expected + ", got \"" + value + "\"";
+        var bare =
+            url.UserInfo.Length == 0
+            && url.AbsolutePath == "/"
+            && url.Query.Length == 0
+            && url.Fragment.Length == 0
+            && !value.EndsWith('?')
+            && !value.EndsWith('#');
+        return (url.Scheme == Uri.UriSchemeHttp || url.Scheme == Uri.UriSchemeHttps) && bare
+            ? null
+            : Expected + ", got \"" + value + "\"";
     }
 
     // A `*` in the authority's host, after any user info.

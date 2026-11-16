@@ -49,17 +49,25 @@ public sealed class FlattenedLogin : Component
 
         if (loggedIn)
         {
-            return VStack(TextBlock("Logged in successfully").SemiBold().FontSize(20).AccessibilityView(AccessibilityView.Raw)).Padding(24);
+            return VStack(
+                    TextBlock("Logged in successfully").SemiBold().FontSize(20).AccessibilityView(AccessibilityView.Raw)
+                )
+                .Padding(24);
         }
 
-        return VStack(12,
-            Hint($"Use {LoginForm.ValidEmail} / {LoginForm.ValidPassword}").AccessibilityView(AccessibilityView.Raw),
-            Caption("Email").AccessibilityView(AccessibilityView.Raw),
-            TextBox(email, setEmail).AccessibilityView(AccessibilityView.Raw),
-            Caption("Password").AccessibilityView(AccessibilityView.Raw),
-            PasswordBox(password, setPassword).AccessibilityView(AccessibilityView.Raw),
-            When(error is not null, () => Body(error!).Foreground("#b00020").AccessibilityView(AccessibilityView.Raw)),
-            Button("SIGN IN", Submit).AccessibilityView(AccessibilityView.Raw))
+        return VStack(
+                12,
+                Hint($"Use {LoginForm.ValidEmail} / {LoginForm.ValidPassword}")
+                    .AccessibilityView(AccessibilityView.Raw),
+                Caption("Email").AccessibilityView(AccessibilityView.Raw),
+                TextBox(email, setEmail).AccessibilityView(AccessibilityView.Raw),
+                Caption("Password").AccessibilityView(AccessibilityView.Raw),
+                PasswordBox(password, setPassword).AccessibilityView(AccessibilityView.Raw),
+                When(error is not null, () =>
+                    Body(error!).Foreground("#b00020").AccessibilityView(AccessibilityView.Raw)
+                ),
+                Button("SIGN IN", Submit).AccessibilityView(AccessibilityView.Raw)
+            )
             .Padding(24);
     }
 }

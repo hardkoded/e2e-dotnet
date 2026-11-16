@@ -16,8 +16,17 @@ namespace E2E.Tests.LastRun;
 /// </summary>
 public sealed class CarryForwardTests : IDisposable
 {
-    private static readonly JsonObject Scope = Result(("file", "tests/a.e2e.ts"), ("targetId", "web"), ("titlePath", new JsonArray("teardown")));
-    private static readonly JsonObject AfterAll = Result(("code", "HOOK_FAILED"), ("phase", "afterAll"), ("scopeId", "teardown"), ("scope", Scope));
+    private static readonly JsonObject Scope = Result(
+        ("file", "tests/a.e2e.ts"),
+        ("targetId", "web"),
+        ("titlePath", new JsonArray("teardown"))
+    );
+    private static readonly JsonObject AfterAll = Result(
+        ("code", "HOOK_FAILED"),
+        ("phase", "afterAll"),
+        ("scopeId", "teardown"),
+        ("scope", Scope)
+    );
 
     private readonly List<string> _roots = [];
 
@@ -58,26 +67,49 @@ public sealed class CarryForwardTests : IDisposable
         return With(Result(("id", id), ("status", "passed"), ("attempts", new JsonArray(attempt))), extra);
     }
 
-    private static JsonObject InScope(Func<string, (string Name, JsonNode? Value)[], JsonObject> status) => status("in-scope", [("titlePath", new JsonArray("teardown", "in-scope"))]);
+    private static JsonObject InScope(Func<string, (string Name, JsonNode? Value)[], JsonObject> status) =>
+        status("in-scope", [("titlePath", new JsonArray("teardown", "in-scope"))]);
 
-    private static Read DocumentOf(JsonObject[] results, JsonObject[]? errors = null, JsonObject? run = null) => Of(Document(results, errors, run));
+    private static Read DocumentOf(JsonObject[] results, JsonObject[]? errors = null, JsonObject? run = null) =>
+        Of(Document(results, errors, run));
 
     /// <summary><c>CarryForward</c> with the rerun having collected the tests its report has rows for, unless <paramref name="collected"/> says more, and failed to collect <paramref name="uncollected"/>.</summary>
-    private static ReportCarried? Carry(Read lastRun, Read current, string[]? collected = null, string[]? uncollected = null) =>
+    private static ReportCarried? Carry(
+        Read lastRun,
+        Read current,
+        string[]? collected = null,
+        string[]? uncollected = null
+    ) =>
         Last.CarryForward(
             lastRun.Report,
             current.Report,
             new RerunCollection(
-                new HashSet<string>([.. current.Report.Run.Results.Select(result => result.TestId), .. collected ?? []], StringComparer.Ordinal),
-                new HashSet<string>(uncollected ?? [], StringComparer.Ordinal)));
+                new HashSet<string>(
+                    [.. current.Report.Run.Results.Select(result => result.TestId), .. collected ?? []],
+                    StringComparer.Ordinal
+                ),
+                new HashSet<string>(uncollected ?? [], StringComparer.Ordinal)
+            )
+        );
 
     private static string[] CarriedIds(ReportCarried? carried) => [.. carried!.Results.Select(result => result.TestId)];
 
     [Fact]
     public void Carries_what_the_run_before_owed_and_another_filter_left_out_as_that_run_reported_it()
     {
-        var before = DocumentOf([Failed("broken"), Result(("id", "limit"), ("status", "skipped"), ("skip", Result(("cause", "failure-limit"), ("reason", "stopped")))), Passed("fine")]);
-        var carried = Carry(before, DocumentOf([Passed("broken"), LeftOut("limit"), LeftOut("fine", "did not fail in the last run")]));
+        var before = DocumentOf([
+            Failed("broken"),
+            Result(
+                ("id", "limit"),
+                ("status", "skipped"),
+                ("skip", Result(("cause", "failure-limit"), ("reason", "stopped")))
+            ),
+            Passed("fine"),
+        ]);
+        var carried = Carry(
+            before,
+            DocumentOf([Passed("broken"), LeftOut("limit"), LeftOut("fine", "did not fail in the last run")])
+        );
         Assert.Equal(["limit"], CarriedIds(carried));
         Assert.Same(before.Report.Run.Results[1], carried!.Results[0]);
         Assert.Empty(carried.Errors);
@@ -92,7 +124,11 @@ public sealed class CarryForwardTests : IDisposable
         var first = DocumentOf([Failed("a"), Failed("b")]);
         var carriedOnce = Carry(first, DocumentOf([Passed("a"), LeftOut("b")]));
         Assert.Equal(["b"], CarriedIds(carriedOnce));
-        var second = DocumentOf([Passed("a"), LeftOut("b")], [], Result(("carried", new PreviousRun(first.Report, first.Document).Carried(carriedOnce!))));
+        var second = DocumentOf(
+            [Passed("a"), LeftOut("b")],
+            [],
+            Result(("carried", new PreviousRun(first.Report, first.Document).Carried(carriedOnce!)))
+        );
         Assert.Equal([IdOf("b")], Last.LastFailedIds(second.Report));
 
         // Left out again: still the first run's row, not the filtered one in between.
@@ -110,8 +146,14 @@ public sealed class CarryForwardTests : IDisposable
     [Fact]
     public void Carries_a_suite_hook_failure_while_its_scope_holds_a_carried_test_and_drops_it_once_the_scope_ran_again()
     {
-        var before = DocumentOf([InScope(Passed), Failed("elsewhere", ("file", "tests/b.e2e.ts"))], [AfterAll, Result(("code", "CLEANUP_TIMEOUT"), ("phase", "cleanup"))]);
-        var narrowed = Carry(before, DocumentOf([LeftOut("in-scope"), Passed("elsewhere", ("file", "tests/b.e2e.ts"))]));
+        var before = DocumentOf(
+            [InScope(Passed), Failed("elsewhere", ("file", "tests/b.e2e.ts"))],
+            [AfterAll, Result(("code", "CLEANUP_TIMEOUT"), ("phase", "cleanup"))]
+        );
+        var narrowed = Carry(
+            before,
+            DocumentOf([LeftOut("in-scope"), Passed("elsewhere", ("file", "tests/b.e2e.ts"))])
+        );
         Assert.Equal(["in-scope"], CarriedIds(narrowed));
         Assert.Single(narrowed!.Errors);
         Assert.Same(before.Report.Run.Errors[0], narrowed.Errors[0]);
@@ -122,7 +164,11 @@ public sealed class CarryForwardTests : IDisposable
         Assert.Null(Carry(before, DocumentOf([InScope(Passed), elsewhere], [AfterAll])));
 
         // A hook failure carried from further back stays carried with its scope.
-        var second = DocumentOf([LeftOut("in-scope"), Passed("elsewhere", ("file", "tests/b.e2e.ts"))], [], Result(("carried", new PreviousRun(before.Report, before.Document).Carried(narrowed))));
+        var second = DocumentOf(
+            [LeftOut("in-scope"), Passed("elsewhere", ("file", "tests/b.e2e.ts"))],
+            [],
+            Result(("carried", new PreviousRun(before.Report, before.Document).Carried(narrowed)))
+        );
         var later = Carry(second, DocumentOf([LeftOut("in-scope"), LeftOut("elsewhere")]));
         Assert.Single(later!.Errors);
         Assert.Equivalent(before.Report.Run.Errors[0], later.Errors[0], strict: true);
@@ -131,7 +177,8 @@ public sealed class CarryForwardTests : IDisposable
     [Fact]
     public void Resolves_a_hook_whose_scope_ran_again_without_it_failing_though_another_filter_left_part_of_the_scope_out()
     {
-        JsonObject Sibling(Func<string, (string Name, JsonNode? Value)[], JsonObject> status) => status("sibling", [("titlePath", new JsonArray("teardown", "sibling"))]);
+        JsonObject Sibling(Func<string, (string Name, JsonNode? Value)[], JsonObject> status) =>
+            status("sibling", [("titlePath", new JsonArray("teardown", "sibling"))]);
         var before = DocumentOf([InScope(Passed), Sibling(Passed)], [AfterAll]);
         Assert.Null(Carry(before, DocumentOf([InScope(Passed), LeftOut("sibling")])));
 
@@ -141,7 +188,12 @@ public sealed class CarryForwardTests : IDisposable
         Assert.Empty(again!.Errors);
 
         // A scope test the rerun selected but never ran does not show the hook passing.
-        var limited = Result(("id", "in-scope"), ("titlePath", new JsonArray("teardown", "in-scope")), ("status", "skipped"), ("skip", Result(("cause", "failure-limit"), ("reason", "stopped"))));
+        var limited = Result(
+            ("id", "in-scope"),
+            ("titlePath", new JsonArray("teardown", "in-scope")),
+            ("status", "skipped"),
+            ("skip", Result(("cause", "failure-limit"), ("reason", "stopped")))
+        );
         var held = Carry(before, DocumentOf([limited, LeftOut("sibling")]));
         Assert.Single(held!.Errors);
         Assert.Same(before.Report.Run.Errors[0], held.Errors[0]);
@@ -150,19 +202,39 @@ public sealed class CarryForwardTests : IDisposable
     [Fact]
     public void Carries_a_test_on_a_target_or_agent_the_rerun_did_not_select_while_the_test_and_the_target_are_still_there()
     {
-        var before = DocumentOf([Failed("a"), Failed("a", ("targetId", "mobile"), ("id", "a-mobile"), ("testId", "a")), Failed("a", ("agent", "other"), ("id", "a-other"), ("testId", "a"))]);
+        var before = DocumentOf([
+            Failed("a"),
+            Failed("a", ("targetId", "mobile"), ("id", "a-mobile"), ("testId", "a")),
+            Failed("a", ("agent", "other"), ("id", "a-other"), ("testId", "a")),
+        ]);
         var onWeb = Carry(before, DocumentOf([Passed("a")]));
-        Assert.Equal(new[] { ("mobile", "default"), ("web", "other") }, onWeb!.Results.Select(result => (result.TargetId, result.Agent)));
+        Assert.Equal(
+            new[] { ("mobile", "default"), ("web", "other") },
+            onWeb!.Results.Select(result => (result.TargetId, result.Agent))
+        );
 
         // A target the config no longer has cannot run it again.
         var webOnly = Result(("targets", new JsonArray(Result(("id", "web")))));
-        Assert.Null(Carry(before, DocumentOf([Passed("a"), Passed("a", ("agent", "other"), ("id", "a-other"), ("testId", "a"))], [], webOnly)));
+        Assert.Null(
+            Carry(
+                before,
+                DocumentOf(
+                    [Passed("a"), Passed("a", ("agent", "other"), ("id", "a-other"), ("testId", "a"))],
+                    [],
+                    webOnly
+                )
+            )
+        );
     }
 
     [Fact]
     public void Carries_a_setup_whose_afterAll_failed_when_the_rerun_needed_none_of_its_sessions_so_the_report_has_no_row_for_it()
     {
-        var setupScope = With(AfterAll, ("scopeId", "file"), ("scope", Result(("file", "tests/auth.e2e.ts"), ("targetId", "web"), ("titlePath", new JsonArray()))));
+        var setupScope = With(
+            AfterAll,
+            ("scopeId", "file"),
+            ("scope", Result(("file", "tests/auth.e2e.ts"), ("targetId", "web"), ("titlePath", new JsonArray())))
+        );
         var signIn = Passed("sign in", ("kind", "setup"), ("file", "tests/auth.e2e.ts"));
         var before = DocumentOf([signIn, Passed("signed in"), Failed("unrelated")], [setupScope]);
         var narrowed = DocumentOf([LeftOut("signed in"), Passed("unrelated")]);
@@ -199,7 +271,12 @@ public sealed class CarryForwardTests : IDisposable
         var hosted = Result(("url", "https://hosted.example/v.mp4"));
         var linked = With(Failed("linked"), ("attempts", new JsonArray(Result(("artifacts", new JsonArray(hosted))))));
         var carried = Result(("results", new JsonArray(Failed("old"), linked)));
-        var paths = Last.ReportArtifactPaths(DocumentOf([Failed("new"), Passed("fine")], [], Result(("carried", carried))).Report);
-        Assert.Equal(["web/new/attempt-0/failure.png", "web/old/attempt-0/failure.png"], paths.Order(StringComparer.Ordinal));
+        var paths = Last.ReportArtifactPaths(
+            DocumentOf([Failed("new"), Passed("fine")], [], Result(("carried", carried))).Report
+        );
+        Assert.Equal(
+            ["web/new/attempt-0/failure.png", "web/old/attempt-0/failure.png"],
+            paths.Order(StringComparer.Ordinal)
+        );
     }
 }
