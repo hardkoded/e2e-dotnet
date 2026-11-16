@@ -34,8 +34,9 @@ public sealed class Browser
     private readonly string _platform;
     private readonly string? _baseUrl;
     private readonly string _projectRoot;
-    private readonly TimeSpan _actionTimeout;
-    private readonly TimeSpan _assertionTimeout;
+    private TimeSpan _actionTimeout;
+    private TimeSpan _assertionTimeout;
+    private TimeSpan? _lifecycleTimeout;
     private readonly Func<CancellationToken> _token;
     private readonly Action _verified;
     private readonly List<(object Pattern, Func<IBrowserRoute, Task> Handler)> _routes = [];
@@ -70,6 +71,23 @@ public sealed class Browser
     internal Func<string, string> Redact { get; set; } = static text => text;
 
     internal TimeSpan AssertionTimeout => _assertionTimeout;
+
+    /// <summary>Moves the default timeouts of the operations that start from now on (upstream's <c>fixtureContext</c> timeouts, read as getters).</summary>
+    internal void SetDefaultTimeouts(TimeSpan action, TimeSpan assertion, TimeSpan lifecycle)
+    {
+        _actionTimeout = action;
+        _assertionTimeout = assertion;
+        _lifecycleTimeout = lifecycle;
+    }
+
+    /// <summary>The default timeout of an app open, restart, or link open, when a program set one; null in a run.</summary>
+    internal TimeSpan? LifecycleTimeout => _lifecycleTimeout;
+
+    /// <summary>The test's timeout, which bounds an app open, restart, or link open until a program sets a default timeout (upstream's <c>config.timeout</c>).</summary>
+    internal TimeSpan DefaultLifecycleTimeout { get; set; } = E2EDefaults.TestTimeout;
+
+    /// <summary>What bounds an app open, restart, or link open (upstream's <c>lifecycleMs</c>).</summary>
+    internal TimeSpan LifecycleBudget() => _lifecycleTimeout ?? DefaultLifecycleTimeout;
 
     /// <summary>The deadline of the running phase, which a call with <c>Timeout = TimeSpan.Zero</c> waits for; null when nothing bounds the test.</summary>
     internal Deadline? BudgetDeadline { get; set; }

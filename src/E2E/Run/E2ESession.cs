@@ -408,6 +408,10 @@ public sealed class E2ESession : IAsyncDisposable
             softFailures.Redact = text => scope.Redactor.Redact(text);
             browser.Redact = text => scope.Redactor.Redact(text);
             app.OperationBudget = api => browser.OperationBudget(api);
+
+            // An open, a restart, and a link open take the test's timeout until a program sets a default one.
+            browser.DefaultLifecycleTimeout = Bounded(options.TestTimeout) ? options.TestTimeout : E2EDefaults.TestTimeout;
+            app.LifecycleBudget = browser.LifecycleBudget;
             browser.Failed = scope.Implicate;
             browser.Attach = scope.AttachArtifact;
             var agent = new Agent(scope);
@@ -516,6 +520,18 @@ public sealed class E2ESession : IAsyncDisposable
 
         var state = await _engine.CaptureStateAsync(OperationContext.Test, linked.Token).ConfigureAwait(false);
         staging.Stage(name, state, _scope.Learned());
+    }
+
+    /// <summary>
+    /// Moves the action, assertion, and lifecycle timeouts of the operations that start from now on, for an <c>@e2e-dev/core</c> session's
+    /// <c>setDefaultTimeout</c>. A running operation keeps the deadline it started with. Upstream's <c>LocatorEngine.setDefaultTimeouts</c> with
+    /// the <c>fixtureContext</c> timeouts, read as getters.
+    /// </summary>
+    internal void SetDefaultTimeouts(TimeSpan timeout)
+    {
+        Screen.Engine.SetDefaultTimeouts(timeout, timeout, timeout);
+        Browser.SetDefaultTimeouts(timeout, timeout, timeout);
+        _scope.ActionTimeout = timeout;
     }
 
     /// <summary>

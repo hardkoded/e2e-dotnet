@@ -58,6 +58,12 @@ internal sealed class LocatorEngineOptions
     /// <summary>How long an assertion waits.</summary>
     public required TimeSpan AssertionTimeout { get; init; }
 
+    /// <summary>
+    /// How long an app open, restart, or link open may take, once a program has set a default timeout; null in a run, where the test's timeout
+    /// bounds them (upstream's <c>lifecycleTimeout</c>).
+    /// </summary>
+    public TimeSpan? LifecycleTimeout { get; init; }
+
     /// <summary>The clock every deadline reads.</summary>
     public TimeProvider Clock { get; init; } = TimeProvider.System;
 }
@@ -66,10 +72,24 @@ internal sealed class LocatorEngineOptions
 internal sealed class LocatorEngine(LocatorEngineOptions options)
 {
     /// <summary>How long an action waits for its node.</summary>
-    internal TimeSpan ActionTimeout { get; } = options.ActionTimeout;
+    internal TimeSpan ActionTimeout { get; private set; } = options.ActionTimeout;
 
     /// <summary>How long an assertion waits (upstream's <c>assertionTimeout</c>).</summary>
-    internal TimeSpan AssertionTimeout { get; } = options.AssertionTimeout;
+    internal TimeSpan AssertionTimeout { get; private set; } = options.AssertionTimeout;
+
+    /// <summary>The default timeout of an app open, restart, or link open, when a program set one (upstream's <c>lifecycleTimeout</c>).</summary>
+    internal TimeSpan? LifecycleTimeout { get; private set; } = options.LifecycleTimeout;
+
+    /// <summary>
+    /// Replaces the default timeouts of the operations that start from now on, for an <c>@e2e-dev/core</c> session's <c>setDefaultTimeout</c>. A
+    /// running operation keeps the deadline it started with (upstream's <c>setDefaultTimeouts</c>).
+    /// </summary>
+    internal void SetDefaultTimeouts(TimeSpan action, TimeSpan assertion, TimeSpan lifecycle)
+    {
+        ActionTimeout = action;
+        AssertionTimeout = assertion;
+        LifecycleTimeout = lifecycle;
+    }
 
     internal TimeProvider Clock { get; } = options.Clock;
 

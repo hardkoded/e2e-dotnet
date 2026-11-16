@@ -19,10 +19,24 @@ internal sealed class CoreFakeEngine : IEngine
     private int _starts;
     private int _disposes;
 
-    public CoreFakeEngine(IReadOnlyList<SemanticNode>? scene = null, bool state = false)
+    private readonly List<(string Method, TimeSpan? Timeout)> _operations = [];
+
+    public CoreFakeEngine(IReadOnlyList<SemanticNode>? scene = null, bool state = false, bool device = false)
     {
         Scene = scene ?? [new SemanticNode { Ref = "submit", Role = "button", Name = "Submit" }];
-        Capabilities = EngineCapabilities.Observation | EngineCapabilities.Actions | (state ? EngineCapabilities.State : 0);
+        Capabilities = EngineCapabilities.Observation | EngineCapabilities.Actions | (state ? EngineCapabilities.State : 0) | (device ? EngineCapabilities.PinnedApp : 0);
+    }
+
+    /// <summary>The engine calls that carry an operation, in order, with the timeout each was given. Upstream's <c>operations</c> (<c>timeoutMs</c>).</summary>
+    public IReadOnlyList<(string Method, TimeSpan? Timeout)> Operations
+    {
+        get
+        {
+            lock (_operations)
+            {
+                return [.. _operations];
+            }
+        }
     }
 
     /// <summary>Throws when a session opens this URL's path; the message is the engine's own.</summary>
@@ -55,9 +69,29 @@ internal sealed class CoreFakeEngine : IEngine
         return Task.FromResult<IEngineSession>(new Session(this, options.ArtifactsDir));
     }
 
+    private void Record(string method, OperationContext context)
+    {
+        lock (_operations)
+        {
+            _operations.Add((method, context.Timeout));
+        }
+    }
+
     private sealed class Session(CoreFakeEngine owner, string? artifactsDir) : IEngineSession
     {
         public string Route => "/";
+
+        public Task OpenAsync(string url, OperationContext context, CancellationToken cancellationToken)
+        {
+            owner.Record("session.open", context);
+            return OpenAsync(url, cancellationToken);
+        }
+
+        public Task RestartAsync(OperationContext context, CancellationToken cancellationToken)
+        {
+            owner.Record("session.restart", context);
+            return Task.CompletedTask;
+        }
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) =>
             owner.OnNavigate?.Invoke(url) is { } failure ? Task.FromException(failure) : Task.CompletedTask;
