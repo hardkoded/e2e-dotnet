@@ -2,7 +2,6 @@
 
 ## Contents
 
-- When to use a host
 - Open a host and a session
 - The options
 - Closing: the failures it returns
