@@ -119,8 +119,8 @@ The agent lives inside the app, so the app must run before the tests start. On a
 
 ```bash
 xcrun simctl boot "iPhone 17"          # skip if a simulator is already booted
-dotnet build -f net10.0-ios -r iossimulator-arm64 -p:ValidateXcodeVersion=false
-xcrun simctl install booted bin/Debug/net10.0-ios/iossimulator-arm64/MyApp.app
+dotnet build -f net11.0-ios -r iossimulator-arm64 -p:ValidateXcodeVersion=false
+xcrun simctl install booted bin/Debug/net11.0-ios/iossimulator-arm64/MyApp.app
 xcrun simctl launch booted com.example.myapp
 ```
 
