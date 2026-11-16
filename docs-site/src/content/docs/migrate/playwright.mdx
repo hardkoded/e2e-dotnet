@@ -301,7 +301,7 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `pwsh bin/Debug/net10.0/playwright.ps1 install` | `e2e install chromium`, with `--with-deps` on Linux. A run also installs a missing browser on its own; `E2E_SKIP_BROWSER_INSTALL=1` turns that off | renamed |
 | `playwright.ps1 codegen` | `e2e explore` walks the app from a goal and reports what it found; `e2e mcp` lets a coding agent drive the app while it writes the test. See [Coding agents](/coding-agents/) | renamed |
 | `playwright.ps1 show-trace` | no viewer; open the `trace.md` that a failed test names | by design |
-| `--logger "trx"` and the framework's other loggers | the same, from the framework | same |
+| `--logger "trx"` (`--report-trx` on Microsoft.Testing.Platform) and the framework's other loggers | the same, from the framework | same |
 | `dotnet test -- NUnit.NumberOfTestWorkers=4` | the same; see the parallelism row above | same |
 
 ## Port page objects

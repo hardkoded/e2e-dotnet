@@ -74,6 +74,32 @@ A run fixture stops the app commands your targets declare when the last test end
 
 `dotnet test` runs all three. Each page has the filter syntax for its framework, and TUnit needs a one-time opt-in on .NET 10 and later.
 
+### VSTest and Microsoft.Testing.Platform
+
+NUnit and xUnit v3 run on VSTest by default. TUnit runs on Microsoft.Testing.Platform (MTP). The options differ:
+
+| Need | VSTest | MTP |
+| --- | --- | --- |
+| TRX file | `--logger "trx;LogFileName=e2e.trx"` | `--report-trx --report-trx-filename e2e.trx` |
+| Detailed console output | `--logger "console;verbosity=detailed"` | `--output Detailed` |
+| Pick a test | `--filter "FullyQualifiedName~Class"` | NUnit: the same `--filter`. xUnit v3: `--filter-class Class`. TUnit: `--treenode-filter` |
+
+NUnit and xUnit v3 can run on MTP too. Add a `global.json` next to the solution:
+
+```json
+{
+  "test": { "runner": "Microsoft.Testing.Platform" }
+}
+```
+
+It applies to every test project under it, so a VSTest project fails with `All projects must use that test runner`. Then set up each project:
+
+- NUnit: set `<OutputType>Exe</OutputType>` and `<EnableNUnitRunner>true</EnableNUnitRunner>`, and use a current `NUnit3TestAdapter` (6.3.0 worked; 5.0.0 was not seen as an MTP project).
+- xUnit v3: reference `xunit.v3` instead of `xunit.v3.mtp-off`.
+- TUnit: nothing more.
+
+For `--report-trx`, NUnit and xUnit v3 also need `dotnet add package Microsoft.Testing.Extensions.TrxReport`, at or above the `Microsoft.Testing.Platform` version the runner brings. TUnit includes it. A MAUI project that uses the .NET 11 device test templates (`dotnet new androidtest`, `iostest`) is likely to have MTP on already.
+
 ## Which one
 
 Use the framework your team already uses. The test API and the replay cache do not change with it. Choose by what you need:
