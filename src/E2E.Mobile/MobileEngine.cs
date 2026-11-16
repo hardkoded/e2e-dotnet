@@ -259,7 +259,8 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
         | EngineCapabilities.History
         | EngineCapabilities.Screenshot
         | EngineCapabilities.Video
-        | EngineCapabilities.PinnedApp;
+        | EngineCapabilities.PinnedApp
+        | EngineCapabilities.OpenLink;
 
     /// <summary>
     /// A device target launches an installed app or a build: one of the bundle id and the build path is required. A URL

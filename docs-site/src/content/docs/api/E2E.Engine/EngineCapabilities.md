@@ -131,6 +131,22 @@ Observation = 1
 
 **Value:** [EngineCapabilities](./)
 
+<a id="E2E_Engine_EngineCapabilities_OpenLink"></a>
+
+### OpenLink
+
+
+```csharp
+OpenLink = 65536
+```
+
+
+`OpenLinkAsync`: the engine opens a link in the app under test, which
+`app.open(path)` needs on a target that declares `app.linkBase`. .NET-only name for upstream's optional `session.openLink`;
+C# has no optional member to test, so this declares it.
+
+**Value:** [EngineCapabilities](./)
+
 <a id="E2E_Engine_EngineCapabilities_PinnedApp"></a>
 
 ### PinnedApp

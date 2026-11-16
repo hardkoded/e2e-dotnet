@@ -267,6 +267,22 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
+    public async Task Opens_app_open_path_links_on_a_target_with_app_linkBase_in_the_pinned_app_through_session_openLink()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject { ["session"] = "s", ["appName"] = "Benchmark", ["appBundleId"] = "dev.e2e.benchmark" });
+        var before = h.Fake.Calls.Count;
+        await ((IEngineSession)session).OpenLinkAsync("e2e-benchmark://orders/42", OperationContext.Test, CancellationToken.None);
+        JsonAssert.Calls(
+            h.Fake.Calls,
+            before,
+            ("apps.open", """{"platform":"ios","app":"Settings","url":"e2e-benchmark://orders/42"}"""));
+        var refused = await Assert.ThrowsAsync<ConfigurationException>(() => ((IEngineSession)session).OpenLinkAsync("javascript:alert(1)", OperationContext.Test, CancellationToken.None));
+        Assert.Equal("POLICY_DENIED", refused.Code);
+    }
+
+    [Fact]
     public async Task Lets_Android_route_a_link_without_an_app_and_needs_one_on_iOS_where_an_unbound_open_leaves_no_session()
     {
         var android = Android(pinned: false);

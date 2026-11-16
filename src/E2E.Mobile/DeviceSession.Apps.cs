@@ -57,7 +57,7 @@ public sealed partial class DeviceSession
 {
     /// <summary>
     /// Opens an app in the session, remembering its identity for the path anchor. A link is refused before the device
-    /// sees it: agent-device would open it as a URL, and <see cref="OpenLinkAsync"/> is the path that carries the
+    /// sees it: agent-device would open it as a URL, and <see cref="OpenLinkAsync(Uri, string?, CancellationToken)"/> is the path that carries the
     /// navigation rule. The engine's own launch options belong to a fresh launch of the pinned app: a foreground-only
     /// open of a running app takes no arguments, and a permission change there would terminate the app it means to keep.
     /// </summary>
@@ -232,7 +232,10 @@ public sealed partial class DeviceSession
     /// identity, and the package that took the link as its bundle id when the OS told it. The next snapshot names the
     /// foreground app either way.
     /// </summary>
-    public async Task OpenLinkAsync(Uri url, string? app = null, CancellationToken cancellationToken = default)
+    public Task OpenLinkAsync(Uri url, string? app = null, CancellationToken cancellationToken = default) => OpenLinkAsync(url, app, cancellationToken, null);
+
+    /// <summary><see cref="OpenLinkAsync(Uri, string?, CancellationToken)"/> under <paramref name="input"/>, the budget of <c>session.openLink</c> (upstream's <c>inputBudget('open link', operation)</c>).</summary>
+    internal async Task OpenLinkAsync(Uri url, string? app, CancellationToken cancellationToken, InputBudget? input)
     {
         ArgumentNullException.ThrowIfNull(url);
         var target = app ?? PinnedApp;
@@ -243,12 +246,12 @@ public sealed partial class DeviceSession
                 "openLink needs an app on iOS: pass `app`, or pin one with the target's app.bundleId or app.appPath; the session observes the app a link is opened into");
         }
 
+        var args = target is null
+            ? Selection.ToArgs(("app", JsonValue.Create(url.AbsoluteUri)))
+            : Selection.ToArgs(("app", JsonValue.Create(target)), ("url", JsonValue.Create(url.AbsoluteUri)));
         var result = await CommandAsync(
             "device.openLink",
-            DeviceMethods.AppsOpen,
-            target is null
-                ? Selection.ToArgs(("app", JsonValue.Create(url.AbsoluteUri)))
-                : Selection.ToArgs(("app", JsonValue.Create(target)), ("url", JsonValue.Create(url.AbsoluteUri))),
+            (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.AppsOpen, args, token), token),
             cancellationToken).ConfigureAwait(false);
         Launched(Text(result?["appBundleId"]) ?? (target is null ? null : Text(result?["appName"]) ?? target));
     }

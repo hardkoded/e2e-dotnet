@@ -90,6 +90,28 @@ True for loopback hosts where plain HTTP is allowed.
 
 **Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_Internal_Urls_IsRefusedLinkScheme_"></a>
+<a id="E2E_Internal_Urls_IsRefusedLinkScheme_System_String_"></a>
+
+### IsRefusedLinkScheme(string)
+
+
+```csharp
+public static bool IsRefusedLinkScheme(string protocol)
+```
+
+
+Whether a link's scheme (with its colon, as `Uri.Scheme + ":"`) is one no app link may take, in any case. A device link is any app's
+custom scheme, so links are checked against this list rather than the http(s) rule navigation follows. Upstream's `isRefusedLinkScheme`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `protocol` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Internal_Urls_PrintableUrl_"></a>
 <a id="E2E_Internal_Urls_PrintableUrl_System_String_"></a>
 

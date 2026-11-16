@@ -493,6 +493,9 @@ public static class EngineSessions
             public Task OpenAsync(string url, OperationContext operation) =>
                 session.Call("navigation", session._engine?.Session?.Open is { } open ? () => open(url, operation) : null);
 
+            public Task OpenLinkAsync(string url, OperationContext operation) =>
+                session.Call("app links", session._engine?.Session?.OpenLink is { } openLink ? () => openLink(url, operation) : null);
+
             public Task BackAsync(OperationContext operation) =>
                 session.Call("back navigation", session._engine?.Session?.Back is { } back ? () => back(operation) : null);
 

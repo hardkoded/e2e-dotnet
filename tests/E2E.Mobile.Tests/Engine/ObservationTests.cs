@@ -372,6 +372,7 @@ public sealed class ObservationTests
     [InlineData("press", DeviceMethods.CommandKeyboard)]
     [InlineData("keyboard dismiss", DeviceMethods.CommandKeyboard)]
     [InlineData("back", DeviceMethods.CommandBack)]
+    [InlineData("open link", DeviceMethods.AppsOpen)]
     public async Task Ends_an_input_hung_on_its_device_command_at_its_budget_as_possibly_committed(string entry, string method)
     {
         var h = Harness.Create();
@@ -399,6 +400,7 @@ public sealed class ObservationTests
             "press" => session.PressAsync("Enter", CancellationToken.None),
             "keyboard dismiss" => ((IEngineSession)session).DismissKeyboardAsync(CancellationToken.None),
             "back" => session.BackAsync(OperationContext.Test, CancellationToken.None),
+            "open link" => ((IEngineSession)session).OpenLinkAsync("e2e-benchmark://orders/42", OperationContext.Test, CancellationToken.None),
             _ => throw new ArgumentOutOfRangeException(nameof(entry), entry, null),
         };
         await sent.Task;

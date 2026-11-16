@@ -71,6 +71,23 @@ public Func<string, OperationContext, Task>? Open { get; init; }
 
 **Value:** [Func&lt;string, OperationContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
 
+<a id="E2E_Engine_EngineSessionSpec_OpenLink_"></a>
+<a id="E2E_Engine_EngineSessionSpec_OpenLink"></a>
+
+### OpenLink
+
+
+```csharp
+public Func<string, OperationContext, Task>? OpenLink { get; init; }
+```
+
+
+Opens a link in the app under test, as a deep link or a universal link would: `App.OpenAsync(path)` on a target that declares
+`app.linkBase` lands here with the link joined and its scheme checked. A device engine's hook; a target whose engine lacks it
+cannot declare `linkBase`. Upstream's `session.openLink`.
+
+**Value:** [Func&lt;string, OperationContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
+
 <a id="E2E_Engine_EngineSessionSpec_Reset_"></a>
 <a id="E2E_Engine_EngineSessionSpec_Reset"></a>
 

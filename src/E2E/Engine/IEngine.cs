@@ -74,6 +74,13 @@ public enum EngineCapabilities
     /// rendered properties of an observed node. Upstream's <c>computed-style</c> capability (named <c>computed-style</c> in <c>requires</c>).
     /// </summary>
     ComputedStyle = 32768,
+
+    /// <summary>
+    /// <see cref="IEngineSession.OpenLinkAsync(string, OperationContext, CancellationToken)"/>: the engine opens a link in the app under test, which
+    /// <c>app.open(path)</c> needs on a target that declares <c>app.linkBase</c>. .NET-only name for upstream's optional <c>session.openLink</c>;
+    /// C# has no optional member to test, so this declares it.
+    /// </summary>
+    OpenLink = 65536,
 }
 
 /// <summary>
@@ -255,6 +262,13 @@ public interface IEngineSession : IAsyncDisposable
     /// <see cref="OpenAsync(string, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>session.open</c>. The default drops the context, as <see cref="PerformAsync(SemanticNode, LocatorAction, OperationContext, CancellationToken)"/> does (.NET-only: it keeps the engines that ignore it compiling).
     /// </summary>
     Task OpenAsync(string url, OperationContext context, CancellationToken cancellationToken) => OpenAsync(url, cancellationToken);
+
+    /// <summary>
+    /// Opens a link in the app under test, as a deep link or a universal link would: <c>App.OpenAsync(path)</c> on a target that declares
+    /// <c>app.linkBase</c> lands here with the link joined and its scheme checked. Engines that declare <see cref="EngineCapabilities.OpenLink"/>
+    /// implement it. Upstream's <c>session.openLink</c>.
+    /// </summary>
+    Task OpenLinkAsync(string url, OperationContext context, CancellationToken cancellationToken) => Unsupported("app links");
 
     Task<Observation> ObserveAsync(CancellationToken cancellationToken);
 

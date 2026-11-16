@@ -258,7 +258,7 @@ public abstract class E2EFixture
         _engine = engine;
         var declaredApp = string.Equals(configuredUrl, declared.App.Url, StringComparison.Ordinal)
             ? declared.App
-            : new AppConfig { Url = configuredUrl, BundleId = declared.App.BundleId, AppPath = declared.App.AppPath, Identity = declared.App.Identity, Environment = declared.App.Environment };
+            : new AppConfig { Url = configuredUrl, BundleId = declared.App.BundleId, AppPath = declared.App.AppPath, LinkBase = declared.App.LinkBase, Identity = declared.App.Identity, Environment = declared.App.Environment };
         var sessionIdentity = Sessions.TargetIdentity(
             TargetName, declared.Platform, engine, TargetApps.ResolveTargetApp(TargetName, declaredApp, ProjectRoot));
         var identity = sessionIdentity.AppIdentity;
@@ -315,6 +315,7 @@ public abstract class E2EFixture
                 Permissions = Permissions,
                 BundleId = DeclaredTarget.App.BundleId,
                 AppPath = DeclaredTarget.App.AppPath,
+                LinkBase = DeclaredTarget.App.LinkBase,
                 LaunchArguments = DeclaredTarget.App.LaunchArguments,
                 ProjectRoot = ProjectRoot,
                 TargetName = TargetName,

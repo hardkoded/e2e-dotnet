@@ -10,7 +10,7 @@ namespace E2E.Tests.Core;
 
 /// <summary>
 /// Upstream's <c>describe('e2e/core')</c> (<c>tests/integration/core.test.ts</c>): hosts, sessions, saved state, secrets, timeouts, link bases, and the
-/// agent's cache. The <c>it</c> that need a feature the port has not ported (<c>app.linkBase</c>, <c>createAgent</c>) are not here, or are partial.
+/// agent's cache. The <c>it</c> that need a feature the port has not ported (<c>createAgent</c>) are not here, or are partial.
 /// </summary>
 public sealed class CoreTests : IAsyncLifetime
 {
@@ -226,26 +226,25 @@ public sealed class CoreTests : IAsyncLifetime
         await session.CloseAsync();
     }
 
-    // Partial: upstream opens a path as a link in the pinned app (app.linkBase and the engine's openLink, #1675); the port launches the pinned app, which bounds its restart the same way.
     [Fact]
-    public async Task Partial_Gives_an_app_open_the_long_default_until_a_program_sets_a_timeout_which_then_bounds_it_too()
+    public async Task Gives_an_app_open_the_long_default_until_a_program_sets_a_timeout_which_then_bounds_it_too()
     {
-        var app = new LaunchApp { BundleId = "com.example.shop" };
+        var app = new LaunchApp { BundleId = "com.example.shop", LinkBase = "shopapp://" };
         async Task<TimeSpan?> OpenTimeout(CoreFakeEngine fake, Session session)
         {
             var before = fake.Operations.Count;
-            await session.App.OpenAsync();
-            return fake.Operations.Skip(before).First(operation => operation.Method == "session.restart").Timeout;
+            await session.App.OpenAsync("/cart");
+            return fake.Operations.Skip(before).First(operation => operation.Method == "session.openLink").Timeout;
         }
 
-        var plain = new CoreFakeEngine(device: true);
+        var plain = new CoreFakeEngine(device: true, links: true);
         var session = await (await HostOf(plain, new LaunchOptions { App = app })).NewSessionAsync();
         Assert.True(await OpenTimeout(plain, session) > TimeSpan.FromSeconds(60));
         session.SetDefaultTimeout(TimeSpan.FromMilliseconds(1234));
         Assert.True(await OpenTimeout(plain, session) <= TimeSpan.FromMilliseconds(1234));
         await session.CloseAsync();
 
-        var bounded = new CoreFakeEngine(device: true);
+        var bounded = new CoreFakeEngine(device: true, links: true);
         var launched = await (await HostOf(bounded, new LaunchOptions { App = app, Timeout = TimeSpan.FromSeconds(5) })).NewSessionAsync();
         Assert.True(await OpenTimeout(bounded, launched) <= TimeSpan.FromSeconds(5));
         await launched.CloseAsync();

@@ -342,6 +342,29 @@ Reads one node from the resolution that minted its ref.
 
 **Returns:** [Task&lt;EngineNode&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
+<a id="E2E_Engine_ITargetSession_ReadStyleAsync_"></a>
+<a id="E2E_Engine_ITargetSession_ReadStyleAsync_E2E_Engine_NodeRef_System_Collections_Generic_IReadOnlyList_System_String__E2E_Engine_OperationContext_"></a>
+
+### `ReadStyleAsync(NodeRef, IReadOnlyList<string>, OperationContext)`
+
+
+```csharp
+Task<IReadOnlyDictionary<string, string>> ReadStyleAsync(NodeRef reference, IReadOnlyList<string> properties, OperationContext operation)
+```
+
+
+Reads the requested, allow-listed rendered properties of a node without changing app state (upstream's `readStyle`); `UNSUPPORTED_CAPABILITY` without the computed-style capability.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `reference` | [NodeRef](/api/E2E.Engine/NodeRef/) |  |
+| `properties` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) |  |
+| `operation` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+
+**Returns:** [Task&lt;IReadOnlyDictionary&lt;string, string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_ITargetSession_SettleAsync_"></a>
 <a id="E2E_Engine_ITargetSession_SettleAsync_E2E_Engine_OperationContext_"></a>
 

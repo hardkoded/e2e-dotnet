@@ -91,6 +91,9 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
     public Task OpenAsync(string url, OperationContext context, CancellationToken cancellationToken) =>
         Guard("navigation", cancellationToken, () => _engine.OpenAsync(url, Stamp(context), cancellationToken));
 
+    public Task OpenLinkAsync(string url, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("app links", cancellationToken, () => _engine.OpenLinkAsync(url, Stamp(context), cancellationToken));
+
     public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
         Guard("observation", cancellationToken, () => _engine.ObserveAsync(cancellationToken));
 

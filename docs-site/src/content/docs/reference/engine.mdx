@@ -80,6 +80,7 @@ One attempt's session with the app, disposed at the end of the attempt after `af
 | --- | --- | --- |
 | `Route` | always | `location` of the observation |
 | `OpenAsync(url, ct)` | always | `session.open` |
+| `OpenLinkAsync(url, context, ct)` | `OpenLink`. Defaults to `UNSUPPORTED_CAPABILITY` | `session.openLink` |
 | `ObserveAsync(ct)`, `ObserveAsync(timeout, ct)`, `ObserveAsync(options, timeout, ct)` | `Observation` | `observe` |
 | `PerformAsync(node, action, ct)`, `PerformAsync(node, action, context, ct)` | `Actions` | `perform` |
 | `ActionKinds` | `Actions`. Defaults to every kind | `actions` |
@@ -154,6 +155,7 @@ public enum OperationOrigin { Test, Agent }
 | `Resize` | `ResizeAsync` | The agent's `resize_viewport`. .NET-only name for the optional `session.resize`. |
 | `SwitchTab` | `SwitchTabAsync` | The agent's `switch_tab`. .NET-only name for the optional `session.switchTab`. Report the tabs with `Observation.Tabs`. |
 | `CloseTab` | `CloseTabAsync` | The agent's `close_tab`. .NET-only name for the optional `session.closeTab`. |
+| `OpenLink` | `OpenLinkAsync` | `App.OpenAsync(path)` on a target that declares `app.linkBase`. .NET-only name for the optional `session.openLink`. A target can declare `linkBase` only when its engine has it. |
 
 #### Rendered node properties
 
@@ -451,6 +453,7 @@ Steering hooks behind the universal `App` fixture and the agent's `navigate`, `b
 | Hook | Behind |
 | --- | --- |
 | `OpenAsync(url, ct)` | `App.OpenAsync()`, the agent's `navigate`, the reopen after `RestartAsync` and `ClearStateAsync`. The URL is resolved against the base URL and the origin policy. |
+| `OpenLinkAsync(url, context, ct)` | `App.OpenAsync(path)` on a target with `app.linkBase`: the joined link, its scheme already checked, opened in the app under test as a deep link or a universal link would be. The device engine opens it in the pinned app, as `Device.OpenLinkAsync` does. |
 | `BackAsync(ct)` | `App.BackAsync()`, the agent's `back`. With no earlier entry it does nothing. |
 | `ResizeAsync(size, context, ct)` | the agent's `resize_viewport`; `size` is a `TraceViewport` in CSS pixels and holds for this page and every page the attempt opens after it. |
 | `SwitchTabAsync(index, context, ct)` | the agent's `switch_tab`; `index` is zero-based in the order the tabs opened, as `Observation.Tabs` counts them. An index with no open tab is `ACTION_FAILED`. |

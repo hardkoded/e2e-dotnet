@@ -15,7 +15,8 @@ public sealed class ManifestTests
         Assert.Equal(
             EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard
             | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Screenshot | EngineCapabilities.Video
-            | EngineCapabilities.PinnedApp, // .NET-only: upstream's launchesPinnedApp, which the port holds as a capability
+            | EngineCapabilities.PinnedApp // .NET-only: upstream's launchesPinnedApp, which the port holds as a capability
+            | EngineCapabilities.OpenLink, // .NET-only: upstream's session.openLink hook, which the port holds as a capability
             engine.Capabilities);
         Assert.Equal("ios", engine.Platform);
         Assert.Equal("android", Harness.Create(options => options with { Platform = MobilePlatform.Android }).Engine.Platform);
