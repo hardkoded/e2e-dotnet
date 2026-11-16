@@ -25,6 +25,9 @@ export default defineConfig({
                 alt: "E2E",
             },
             favicon: "/favicon.png",
+            components: {
+                Head: "./src/components/Head.astro",
+            },
             customCss: [
                 "@fontsource/inter/400.css",
                 "@fontsource/inter/500.css",
