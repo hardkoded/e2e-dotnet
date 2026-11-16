@@ -29,9 +29,8 @@ This writes `samples/MobileApp/bin/Debug/net11.0-ios/iossimulator-arm64/MobileAp
 .NET 11 builds, installs, and launches the app in one command. List the devices, then run the app on one:
 
 ```bash
-cd samples/MobileApp
-dotnet run -f net11.0-ios --list-devices
-dotnet run -f net11.0-ios --device <UDID>
+(cd samples/MobileApp && dotnet run -f net11.0-ios --list-devices)
+(cd samples/MobileApp && dotnet run -f net11.0-ios --device <UDID>)
 ```
 
 `--list-devices` prints each device's id, name, and state. `dotnet run --device` stays attached and streams the app's log until you press Ctrl+C. Run it from the project folder. With `--project samples/MobileApp` from another folder, SDK 11.0.100 builds the app and then fails with `MT0069: The app directory 'bin/Debug/...' does not exist`, because it looks for the app relative to the current folder.
