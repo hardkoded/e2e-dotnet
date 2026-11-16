@@ -82,7 +82,7 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
     public EngineCapabilities Capabilities { get; }
 
     /// <summary>Contributes the <c>gadget</c> fixture. Upstream's <c>fixtures: true</c>.</summary>
-    public CoreFakeFixtures CreateFixtures(IEngineSession session) => new("gadget on " + Platform);
+    public CoreFakeFixtures CreateFixtures(IEngineSession session, E2E.Session controls) => new("gadget on " + Platform);
 
     public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {

@@ -28,27 +28,30 @@ Upstream's `EngineHandle<Fixtures>` (`defineEngine<Fixtures>`).
 | --- | --- |
 | `TFixtures` | What a session on this engine holds beside `Screen` and `App`, such as `Device` on a mobile engine. |
 
+**Derived:** [WebEngine](/api/E2E.Engine/WebEngine/)
+
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 ## Methods
 
 <a id="E2E_Engine_IEngine_1_CreateFixtures_"></a>
-<a id="E2E_Engine_IEngine_1_CreateFixtures_E2E_Engine_IEngineSession_"></a>
+<a id="E2E_Engine_IEngine_1_CreateFixtures_E2E_Engine_IEngineSession_E2E_Session_"></a>
 
-### CreateFixtures(IEngineSession)
+### CreateFixtures(IEngineSession, Session)
 
 
 ```csharp
-TFixtures CreateFixtures(IEngineSession session)
+TFixtures CreateFixtures(IEngineSession session, Session controls)
 ```
 
 
-The fixtures of one session, over the engine's own &lt;code class="paramref"&gt;session&lt;/code&gt;.
+The fixtures of one session, over the engine's own &lt;code class="paramref"&gt;session&lt;/code&gt; and the &lt;code class="paramref"&gt;controls&lt;/code&gt; the harness built (its `Browser` and `App`).
 
 **Parameters**
 
 | Name | Type | Description |
 | --- | --- | --- |
 | `session` | [IEngineSession](/api/E2E.Engine/IEngineSession/) |  |
+| `controls` | [Session](/api/E2E/Session/) |  |
 
 **Returns:** `TFixtures`

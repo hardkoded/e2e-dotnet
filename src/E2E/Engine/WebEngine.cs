@@ -278,8 +278,17 @@ public sealed class WebEngineOptions
 /// same node actions the document engine does. Install browsers once with
 /// <c>playwright.ps1 install chromium</c> (or <c>firefox</c>, <c>webkit</c>) from this project's build output.
 /// </summary>
-public sealed partial class WebEngine : IEngine
+public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
 {
+    /// <summary>The fixtures of a session on this engine: its <c>Browser</c> and its <c>App</c> with the base URL set. A web target always declares <c>app.url</c>, so a session with none is a <c>WORKER_PROTOCOL</c> failure.</summary>
+    public WebFixtures CreateFixtures(IEngineSession session, Session controls)
+    {
+        ArgumentNullException.ThrowIfNull(controls);
+        return new WebFixtures(
+            controls.Browser,
+            new WebApp(controls.App, controls.App.BaseUrl ?? throw new EngineException("WORKER_PROTOCOL", "a web target always declares app.url")));
+    }
+
     public const string EngineVersion = "1.1.0";
 
     private const string SkipInstallVariable = "E2E_SKIP_BROWSER_INSTALL";

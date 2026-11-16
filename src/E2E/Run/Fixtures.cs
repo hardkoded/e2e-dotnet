@@ -39,7 +39,7 @@ internal interface IArtifactSink
 /// Opens and resets the app under test. A relative URL is resolved against
 /// <see cref="BaseUrl"/>; no URL opens the base URL.
 /// </summary>
-public sealed class App
+public class App
 {
     private readonly IEngineSession _session;
     private readonly string? _baseUrl;
@@ -65,6 +65,25 @@ public sealed class App
         _baseUrl = baseUrl;
         _token = token;
         _steps = steps;
+    }
+
+    /// <summary>Copies an app, which <see cref="WebApp"/> extends (upstream's <c>WebApp extends App</c>).</summary>
+    private protected App(App other)
+    {
+        _session = other._session;
+        _baseUrl = other._baseUrl;
+        _token = other._token;
+        _steps = other._steps;
+        _pinnedApp = other._pinnedApp;
+        _target = other._target;
+        _linkBase = other._linkBase;
+        OperationBudget = other.OperationBudget;
+        LifecycleBudget = other.LifecycleBudget;
+        Recordings = other.Recordings;
+        SinkOf = other.SinkOf;
+        ArtifactsDir = other.ArtifactsDir;
+        Redact = other.Redact;
+        Attach = other.Attach;
     }
 
     /// <summary>
