@@ -6,7 +6,9 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using E2E.Internal;
 
 namespace E2E.Cli;
 
@@ -62,6 +64,12 @@ internal sealed record InitOptions
 
     public IReadOnlyList<string>? Mcp { get; init; }
 
+    /// <summary>
+    /// The CI pipeline to write, one job per platform; <c>none</c> writes none. Not asked when the project has no engine or
+    /// e2e already runs in CI, and <c>--yes</c> alone writes none, since a pipeline runs on the next push.
+    /// </summary>
+    public string? Ci { get; init; }
+
     /// <summary>An <c>samples/</c> folder name to copy into the directory first; the wizard then runs on the example's project with its config and tests as they are.</summary>
     public string? Example { get; init; }
 
@@ -98,7 +106,8 @@ internal sealed record InitRunOutcome(
     bool Skill,
     bool Mcp,
     string? Example = null,
-    bool Install = false
+    bool Install = false,
+    string? Ci = null
 );
 
 /// <summary>
@@ -180,6 +189,7 @@ internal static partial class Init
         var skillFact = false;
         var mcpFact = false;
         var installFact = false;
+        string? ciFact = null;
         ExampleCopy? exampleCopy = null;
         InitRunOutcome Done(InitResult result, int exitCode)
         {
@@ -199,7 +209,8 @@ internal static partial class Init
                 skillFact,
                 mcpFact,
                 exampleFact,
-                installFact
+                installFact,
+                ciFact
             );
         }
 
@@ -563,6 +574,8 @@ internal static partial class Init
             }
         }
 
+        // What the project declared before init adds the engine's packages: an existing config's engines.
+        var declared = Package.DeclaredDependencies(pkg);
         var additions = Package.AddDependencies(pkg, scaffold.Dependencies);
         if (example is null && additions.Count > 0)
         {
@@ -571,6 +584,74 @@ internal static partial class Init
                     + string.Join(", ", additions.Select(addition => addition.Key + "@" + addition.Value))
             );
         }
+
+        var repositoryRoot = Ci.FindRepositoryRoot(cwd, root);
+
+        // A new config's engines are the ones just chosen; an existing config's are the ones its project references.
+        var engineInstalled = existingConfig
+            ? declared.Any(name =>
+                name.StartsWith("E2E", StringComparison.OrdinalIgnoreCase)
+                && !name.Equals("E2E.Cli", StringComparison.OrdinalIgnoreCase)
+            )
+            : engines.Count > 0;
+
+        // Asked once: a later run finds e2e already running in some service's pipeline and leaves the question out.
+        var setUp = Ci.Services.Any(service => service.Locate(repositoryRoot).Existing);
+        var ci = "none";
+        if (engineInstalled && (options.Ci is not null || !setUp))
+        {
+            var chosen = options.Ci
+                ?? (
+                    options.Yes
+                        ? "none"
+                        : prompts.Select(
+                            "Add a CI pipeline that runs the tests?",
+                            [
+                                .. Ci.Services.Select(service => new PromptOption(
+                                    service.Id,
+                                    service.Label,
+                                    service.Hint
+                                )),
+                                new PromptOption("none", "None", "another CI service"),
+                            ],
+                            Ci.DetectCiService(repositoryRoot) ?? "none"
+                        )
+                );
+            if (chosen is null)
+            {
+                return Cancel();
+            }
+
+            ci = chosen;
+            ciFact = ci;
+        }
+        else if (!engineInstalled && options.Ci is not null and not "none")
+        {
+            log.Warn(
+                "Ignoring --ci: init writes a pipeline for web, iOS, and Android targets, and the project has none; see "
+                    + Ci.GetCiService(options.Ci).Docs
+            );
+        }
+
+        var ciService = ci == "none" ? null : Ci.GetCiService(ci);
+        var ciFile = ciService?.Locate(repositoryRoot);
+        var ciRelative = ciFile is null ? "" : Ci.PosixRelative(cwd, Path.Combine(repositoryRoot, ciFile.File));
+        if (ciFile?.Existing == true)
+        {
+            log.Warn("Exists, not touching: " + ciRelative);
+        }
+
+        // Nothing is written through a symlink: a linked .github or .gitlab could put the file outside the repository.
+        var ciLink =
+            ciFile is null || ciFile.Existing
+                ? null
+                : McpConfig.LinkOnPath(repositoryRoot, Path.Combine(repositoryRoot, ciFile.File));
+        if (ciLink is not null)
+        {
+            log.Warn("Symlink, not touching: " + ciLink.Relative + " -> " + ciLink.Target + " (" + ciRelative + ")");
+        }
+
+        var writesCi = ciService is not null && ciFile is not null && !ciFile.Existing && ciLink is null;
 
         // An example's project, config, and tests stay as the example has them.
         var files = new List<PlannedFile>();
@@ -601,6 +682,7 @@ internal static partial class Init
             && skillInstalls.Count == 0
             && mcpRegistrations.Count == 0
             && missingIgnore.Count == 0
+            && !writesCi
         )
         {
             log.Outro("Nothing to create; project already initialized");
@@ -646,6 +728,11 @@ internal static partial class Init
             if (missingIgnore.Count > 0)
             {
                 actions.Add("Update .gitignore");
+            }
+
+            if (writesCi)
+            {
+                actions.Add("Create " + ciRelative);
             }
 
             // One change per line: a dozen paths in one sentence is unreadable.
@@ -715,6 +802,24 @@ internal static partial class Init
             );
         }
 
+        if (writesCi)
+        {
+            WritePipeline(
+                ciService!,
+                ciFile!,
+                ciRelative,
+                repositoryRoot,
+                cwd,
+                pkg.FileName ?? projectName + ".csproj",
+                pkg.Original ?? Package.SerializePackage(pkg),
+                model,
+                existingConfig ? File.ReadAllText(Path.Combine(cwd, E2EConfig.FileName)) : null,
+                [.. engines.Select(id => Engines.GetEnginePreset(id).Target())],
+                declared,
+                log
+            );
+        }
+
         if (restore.Value)
         {
             int exitCode;
@@ -760,6 +865,180 @@ internal static partial class Init
 
         log.Outro("Next: " + string.Join(", then ", [.. before, framework.TestCommand]));
         return Done(InitResult.Scaffolded, 0);
+    }
+
+    /// <summary>
+    /// Plans the pipeline's jobs from the config's targets and writes it, then says what the user still has to do for it to
+    /// pass (upstream's <c>writePipeline</c> and <c>planWorkflow</c>). A config that does not read falls back to its project: with
+    /// only the web engine one web job runs; with a mobile engine the targets cannot be told apart, and there is no pipeline.
+    /// </summary>
+    private static void WritePipeline(
+        CiService service,
+        CiFile file,
+        string relative,
+        string repositoryRoot,
+        string cwd,
+        string projectFile,
+        string projectText,
+        ScaffoldModel? model,
+        string? existingConfigText,
+        IReadOnlyList<JsonObject> newTargets,
+        IReadOnlyList<string> declared,
+        InitLog log
+    )
+    {
+        var config = existingConfigText is null ? null : Ci.ReadConfig(existingConfigText);
+        CiJobs jobs;
+        if (existingConfigText is null)
+        {
+            jobs = Ci.GetCiJobs([
+                .. newTargets.Select(target => new CiTarget(
+                    target["name"]!.GetValue<string>(),
+                    target["platform"]!.GetValue<string>()
+                )),
+            ]);
+        }
+        else if (config is not null)
+        {
+            jobs = Ci.GetCiJobs(Ci.ConfigTargets(config));
+        }
+        else if (
+            declared.Contains("E2E", StringComparer.OrdinalIgnoreCase)
+            && !declared.Any(name => name.StartsWith("E2E.Mobile", StringComparison.OrdinalIgnoreCase))
+        )
+        {
+            log.Warn(
+                "The pipeline runs the tests in one web job; run e2e init again once "
+                    + E2EConfig.FileName
+                    + " reads to split them"
+            );
+            jobs = new CiJobs(true, false, false);
+        }
+        else
+        {
+            log.Warn(
+                "No pipeline: the mobile jobs need the config's targets; run e2e init again once "
+                    + E2EConfig.FileName
+                    + " reads"
+            );
+            return;
+        }
+
+        if (!jobs.Any)
+        {
+            log.Warn("No web, iOS, or Android target to run in CI, so no pipeline");
+            return;
+        }
+
+        var gateways = existingConfigText is null
+            ? model is null
+                ? []
+                : [Gateways.GetGatewayPreset(model.Gateway)]
+            : config is null
+                ? []
+                : Ci.GatewaysInConfig(config);
+        var secrets = gateways.SelectMany(gateway => gateway.Keys?.Take(1) ?? []).ToList();
+        var absoluteProject = Path.Combine(cwd, projectFile);
+        var context = new WorkflowContext(
+            Ci.PosixRelative(repositoryRoot, absoluteProject),
+            Ci.DotnetVersionOf(projectText),
+            secrets,
+            jobs,
+            file.JobSuffix
+        );
+        var absolute = Path.Combine(repositoryRoot, file.File);
+        System.IO.Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+        WriteFile(absolute, service.Render(context));
+        log.Success("Created " + relative + " (" + service.Label + ")");
+        if (file.Include is not null)
+        {
+            log.Warn(
+                Ci.GitlabPipeline + " exists, not touching it; add this to it to run the e2e jobs:\n" + file.Include
+            );
+        }
+
+        if (file.Note is not null)
+        {
+            log.Warn(file.Note);
+        }
+
+        foreach (var secret in secrets)
+        {
+            log.Info(service.SecretHint(secret));
+        }
+
+        foreach (var login in gateways.Where(gateway => gateway.Login is not null))
+        {
+            log.Warn(
+                login.Label
+                    + " signs in on this machine only, so agent steps fail in CI; use a gateway with an API key there, see "
+                    + service.Docs
+            );
+        }
+
+        foreach (
+            var (enabled, label, artifact) in new[]
+            {
+                (jobs.Ios, "iOS", "a .app for the simulator under build/"),
+                (jobs.Android, "Android", "an APK at android/app/build/outputs/apk/release/app-release.apk"),
+            }
+        )
+        {
+            if (enabled)
+            {
+                log.Warn(
+                    "The "
+                        + label
+                        + " job's build step is a placeholder that fails: replace it in "
+                        + relative
+                        + " with your app's build, "
+                        + artifact
+                );
+            }
+        }
+
+        if (service.Id == "gitlab" && (jobs.Ios || jobs.Android))
+        {
+            log.Warn(
+                "GitLab's hosted runners can't run a simulator or an emulator: the mobile jobs need self-managed runners; set their tags in "
+                    + relative
+                    + ", see "
+                    + service.Docs
+            );
+            if (!(existingConfigText ?? "").Contains("E2E_DEVICE", StringComparison.Ordinal))
+            {
+                log.Warn(
+                    "The GitLab mobile jobs boot a device of their own and name it in E2E_DEVICE: set the device of each mobile target from that variable"
+                );
+            }
+        }
+
+        var localModel = existingConfigText is null
+            ? model?.Gateway == "openai-compatible"
+                && Uri.TryCreate(model.Endpoint ?? Gateways.DefaultEndpoint, UriKind.Absolute, out var endpoint)
+                && Urls.IsLoopbackHost(endpoint.Host)
+            : config is not null && Ci.ConfigUsesLocalModel(config);
+        if (localModel)
+        {
+            log.Warn(
+                "The model endpoint is on this machine, so agent steps fail in CI; point it at a server the runner can reach, see "
+                    + service.Docs
+            );
+        }
+
+        if (jobs.Web && !(config is not null && Ci.ConfigStartsApp(config)))
+        {
+            log.Warn(
+                "Nothing starts the app in CI: set app.command in " + E2EConfig.FileName + " so the runner starts it"
+            );
+        }
+
+        if ((jobs.Ios || jobs.Android) && (jobs.Web || (jobs.Ios && jobs.Android)))
+        {
+            log.Warn(
+                "The port selects a target by overriding E2EFixture.TargetName, not by a flag, so every job runs the whole test project; give each job a --filter for its tests"
+            );
+        }
     }
 
     /// <summary>

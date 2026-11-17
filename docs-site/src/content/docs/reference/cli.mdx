@@ -17,7 +17,7 @@ e2e <command> [options]
 | `e2e mcp` | Serves a coding agent over MCP (stdio). See [Your coding agent](/features/acp/). |
 | `e2e doctor` | Checks that `e2e explore` and `e2e mcp` can start here. See [e2e doctor](/docs/doctor/). |
 | `e2e cache <ls\|clear\|stats>` | Reads the replay cache the runs write. See [Caching](/features/caching/). |
-| `e2e init [directory]` | Scaffolds a test project, installs the agent skill, and registers the MCP server. |
+| `e2e init [directory]` | Scaffolds a test project, installs the agent skill, registers the MCP server, and with `--ci` writes a GitHub Actions or GitLab CI/CD pipeline. See [CI pipeline](/coding-agents/#ci-pipeline). |
 | `e2e install [browser ...]` | Downloads browsers for the Playwright version E2E runs. Installs `chromium` when none is named. |
 | `e2e login`, `e2e logout`, `e2e models` | Sign in to a subscription provider, sign out, and list a provider's models. |
 | `e2e guide [topic]` | Prints a guide of the installed skill. |

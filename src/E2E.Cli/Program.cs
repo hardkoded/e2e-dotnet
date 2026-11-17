@@ -26,7 +26,7 @@ public static partial class Program
           e2e guide [topic]
           e2e install [chromium|firefox|webkit ...] [--with-deps]
           e2e mcp [--config <path>] [--target <name>] [--headed] [--max-sessions <n>]
-          e2e init [directory] [--yes] [--example <name>] [--framework <id>] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>] [--install | --no-install]
+          e2e init [directory] [--yes] [--example <name>] [--framework <id>] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>] [--ci <id>] [--install | --no-install]
           e2e explore [goal] [--config <path>] [--target <id>] [--agent <name>] [--changed-since <ref>] [--max-steps <n>] [--timeout <ms>] [--headed] [--output <dir>]
                        [--debug] [--ai-trace] [--trace [mode]] [--video [mode]]
           e2e doctor [--config <path>] [--target <ids>] [--headed] [--check-model] [--json]

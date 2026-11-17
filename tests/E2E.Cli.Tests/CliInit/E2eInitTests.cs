@@ -109,7 +109,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
     public async Task Partial_Hands_back_what_yes_chose_then_that_a_second_run_had_nothing_to_do()
     {
         Assert.Equal(
-            new InitRunOutcome(0, InitResult.Scaffolded, true, false, "web", "vercel", true, true),
+            new InitRunOutcome(0, InitResult.Scaffolded, true, false, "web", "vercel", true, true, null, false, "none"),
             await RunInitAsync()
         );
         var second = await RunInitAsync();
@@ -185,7 +185,19 @@ public sealed partial class E2eInitTests : CliInitTestBase
             }
         );
         Assert.Equal(
-            new InitRunOutcome(0, InitResult.Scaffolded, true, false, "mobile", "openrouter", true, true, null, true),
+            new InitRunOutcome(
+                0,
+                InitResult.Scaffolded,
+                true,
+                false,
+                "mobile",
+                "openrouter",
+                true,
+                true,
+                null,
+                true,
+                "none"
+            ),
             outcome
         );
         Assert.Empty(Prompts.SelectCalls);
@@ -365,6 +377,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
         var outcome = await RunInitAsync(
             new InitOptions
             {
+                Ci = "none",
                 RunInstall = (directory, _) =>
                 {
                     // Everything is written before the restore starts.
@@ -437,7 +450,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Prompts.NextSelect("openai-compatible");
         Prompts.NextText(" http://127.0.0.1:11434/v1 ");
         Prompts.NextConfirm(true);
-        Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
+        Assert.Equal(0, (await RunInitAsync(new InitOptions { Ci = "none" })).ExitCode);
         var gateway = Assert.Single(Prompts.SelectCalls);
         Assert.Contains("Which model gateway", gateway.Message, StringComparison.Ordinal);
         Assert.Equal("vercel", gateway.InitialValue);
@@ -464,6 +477,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
                 Engines = ["web"],
                 Skills = [".claude/skills"],
                 Mcp = [],
+                Ci = "none",
                 Install = false,
             }
         );
@@ -519,6 +533,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
     [InlineData("endpoint")]
     [InlineData("skill")]
     [InlineData("mcp")]
+    [InlineData("ci")]
     [InlineData("files")]
     // Partial: the port has no install stage.
     public async Task Partial_Leaves_the_directory_untouched_when_cancelling_at_stage(string stage)
@@ -527,6 +542,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Prompts.Skills = stage == "skill" ? null : [".agents/skills"];
         Prompts.Mcp = stage == "mcp" ? null : [".mcp.json"];
         Prompts.NextSelect(stage == "gateway" ? null : "openai-compatible");
+        Prompts.NextSelect(stage == "ci" ? null : "github-actions");
         Prompts.NextText(stage == "endpoint" ? null : "http://127.0.0.1:11434/v1");
         Prompts.NextConfirm(stage != "files", null);
         Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
