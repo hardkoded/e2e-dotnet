@@ -107,7 +107,12 @@ public static class DefaultAgent
                             TranscriptCompaction.CompactScreenHistory(messages)
                         )
                     ),
-                Tools = (context, _) => AgentTools.GrammarTools(context, options.Tools),
+                Tools = (context, _) =>
+                    AgentTools.GrammarTools(
+                        context,
+                        options.Tools,
+                        new GrammarToolsOptions { SecretsListedByCaller = true }
+                    ),
                 BuildMessages = Opening,
             }
         );
@@ -136,6 +141,18 @@ public static class DefaultAgent
 
     internal static ScreenPresenter PresenterFor(StepExecutorContext context) =>
         Presenters.GetValue(context, static _ => new ScreenPresenter());
+
+    // Upstream's secretsLine: the step's declared secrets, which type_secret fills, when the surface can fill one. They are listed here rather than
+    // in the tool's description, so the tools stay the same across steps and a provider's prompt cache serves them.
+    private static string? SecretsLine(StepExecutorContext context) =>
+        !context.Target.Verbs.Contains(ExecutorVerb.TypeSecret) || context.Step.Secrets.Count == 0
+            ? null
+            : "Secrets to fill with type_secret, by name: "
+                + string.Join(
+                    ", ",
+                    context.Step.Secrets.Select(secret => "\"" + secret.Name + "\" (" + secret.Purpose + ")")
+                )
+                + ".";
 
     // Upstream's formatReplayedPrefix: the mid-step hand-off notice. The agent continues from live state; redoing a replayed
     // action would double-commit a mutation.
@@ -181,7 +198,12 @@ public static class DefaultAgent
             builder.Append(title).Append("\n\n");
         }
 
-        // An assertion has no replay behind it and no prior steps to continue from.
+        // An assertion has no replay behind it, no secrets to fill, and no prior steps to continue from.
+        if (!asserting && SecretsLine(context) is { } secrets)
+        {
+            builder.Append(secrets).Append("\n\n");
+        }
+
         if (!asserting && context.ReplayedPrefix is { } prefix)
         {
             builder.Append(FormatReplayedPrefix(prefix)).Append("\n\n");
