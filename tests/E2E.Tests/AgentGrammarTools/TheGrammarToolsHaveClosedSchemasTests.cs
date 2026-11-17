@@ -106,7 +106,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     );
 
     [Fact]
-    public void Offers_the_whole_vocabulary_over_the_full_grammar_a_tool_with_fields_refuses_one_it_does_not_declare_and_a_tool_with_none_drops_it()
+    public void Partial_Offers_the_whole_vocabulary_over_the_full_grammar_a_tool_with_fields_refuses_one_it_does_not_declare_and_a_tool_with_none_drops_it()
     {
         var tools = FullGrammar();
         Assert.Equal(
