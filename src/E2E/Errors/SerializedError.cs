@@ -182,7 +182,7 @@ internal static class ErrorSerializer
         return new SerializedError(
             category,
             code,
-            TextRules.TruncateUtf8(TextRules.SanitizeText(redact(message)), MaxMessageBytes),
+            TextRules.TruncateUtf8(TextRules.SanitizeRecordedText(redact(message)), MaxMessageBytes),
             retryable,
             source ?? LocateIn(cause, projectRoot),
             cause is E2EException { Details: { } details } ? BoundedDetails(details, redact) : null
@@ -195,7 +195,7 @@ internal static class ErrorSerializer
         string? Text(string? text) =>
             string.IsNullOrEmpty(text)
                 ? null
-                : TextRules.TruncateUtf8(TextRules.SanitizeText(redact(text)), MaxDetailBytes);
+                : TextRules.TruncateUtf8(TextRules.SanitizeRecordedText(redact(text)), MaxDetailBytes);
         var bounded = new ErrorDetails
         {
             Locator = Text(details.Locator),

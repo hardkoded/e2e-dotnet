@@ -112,6 +112,14 @@ public static partial class TextRules
     public static string SanitizeText(string text) =>
         ControlCharacters().Replace(AnsiSequences().Replace(text, ""), "�");
 
+    /// <summary>
+    /// Upstream's <c>sanitizeRecordedText</c> (<c>internal/errors.ts</c>): <see cref="SanitizeText"/> that keeps <c>\r\n</c> line breaks, for
+    /// text the run records (serialized errors and skip reasons). A lone <c>\r</c> still becomes U+FFFD, since on a terminal it rewinds the
+    /// line and the text after it overwrites the text before.
+    /// </summary>
+    public static string SanitizeRecordedText(string text) =>
+        RecordedControlCharacters().Replace(AnsiSequences().Replace(text, ""), "�");
+
     /// <summary>Upstream's <c>truncateUtf8</c>: cuts the text so its UTF-8 encoding fits <paramref name="maxBytes"/>, never inside a character.</summary>
     public static string TruncateUtf8(string text, int maxBytes)
     {
@@ -162,4 +170,8 @@ public static partial class TextRules
 
     [GeneratedRegex("[\\u0000-\\u0008\\u000b-\\u001f\\u007f-\\u009f]")]
     private static partial Regex ControlCharacters();
+
+    // C0/C1 control characters except tab, newline, and a carriage return that starts a \r\n.
+    [GeneratedRegex("[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]|\\r(?!\\n)")]
+    private static partial Regex RecordedControlCharacters();
 }
