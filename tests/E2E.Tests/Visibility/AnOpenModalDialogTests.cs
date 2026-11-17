@@ -55,7 +55,7 @@ public sealed class AnOpenModalDialogTests(ChromiumPage chromium) : IClassFixtur
     }
 
     [Fact]
-    public async Task Leaves_the_page_alone_for_a_dialog_shown_without_a_modal_and_once_a_modal_dialog_closes()
+    public async Task Partial_Leaves_the_page_alone_for_a_dialog_shown_without_a_modal_and_once_a_modal_dialog_closes()
     {
         await chromium.Page.SetContentAsync(
             """
@@ -69,7 +69,7 @@ public sealed class AnOpenModalDialogTests(ChromiumPage chromium) : IClassFixtur
             </script>
             """
         );
-        // The port lists a closed dialog's content as hidden nodes, where upstream's tree omits it.
+        // Partial: the port lists a closed dialog's content as hidden nodes, where upstream's tree omits it, so this test counts shown buttons only.
         var shown = (await chromium.CaptureAsync())
             .Where(node => node.Role == "button" && !node.Hidden)
             .Select(node => node.Name);
