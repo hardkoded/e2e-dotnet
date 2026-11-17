@@ -904,9 +904,11 @@ screenshot in `Pixels`. When a tool throws an error that
 `StepExecutors.IsRuntimeHardStop(error)` accepts, end the step and rethrow it.
 The context must be one the runtime opened for a step.
 Each built-in tool's schema, and the schema of `complete_step`, is closed: it carries
-`additionalProperties: false`, and a call with a field the tool does not declare
-(`force`, `selector`) is refused with the field named, never run without it. A
-tool of your own keeps the schema you give it.
+`additionalProperties: false`, and a call with a field a tool that declares fields
+does not declare (`force`, `selector`) is refused with the field named, never run
+without it. A built-in tool with no fields (`observe`, `back`, `dismiss_keyboard`,
+`screenshot`) drops the keys it is given and runs; a value that is not an object
+still fails. A tool of your own keeps the schema you give it.
 
 ```csharp
 Tools = (context, helpers) =>

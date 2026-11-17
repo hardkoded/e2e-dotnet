@@ -632,11 +632,47 @@ public static class AgentTools
     /// </summary>
     internal static string? SchemaTool(ModelTool definition, ModelToolCall call)
     {
-        if (
-            call.Arguments.ValueKind != JsonValueKind.Object
-            || !definition.Parameters.TryGetProperty("properties", out var declared)
-            || declared.ValueKind != JsonValueKind.Object
-        )
+        var hasDeclared =
+            definition.Parameters.TryGetProperty("properties", out var declared)
+            && declared.ValueKind == JsonValueKind.Object;
+        // A tool with no fields reads a plain object as {} (upstream's z.preprocess): some models pad a no-input call and resend the
+        // refusal until the step budget ends. Anything that is not an object still fails validation.
+        if (hasDeclared && !declared.EnumerateObject().Any())
+        {
+            if (call.Arguments.ValueKind == JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            var received = call.Arguments.ValueKind switch
+            {
+                JsonValueKind.Null or JsonValueKind.Undefined => "null",
+                JsonValueKind.Array => "array",
+                JsonValueKind.String => "string",
+                JsonValueKind.Number => "number",
+                _ => "boolean",
+            };
+            var invalid = JsonSerializer.Serialize(
+                new object[]
+                {
+                    new Dictionary<string, object>
+                    {
+                        ["expected"] = "object",
+                        ["code"] = "invalid_type",
+                        ["path"] = Array.Empty<string>(),
+                        ["message"] = "Invalid input: expected object, received " + received,
+                    },
+                }
+            );
+            return "failed: Invalid input for tool "
+                + definition.Name
+                + ": Type validation failed: Value: "
+                + (call.Arguments.ValueKind == JsonValueKind.Undefined ? "null" : call.Arguments.GetRawText())
+                + ".\nError message: "
+                + invalid;
+        }
+
+        if (call.Arguments.ValueKind != JsonValueKind.Object || !hasDeclared)
         {
             return null;
         }

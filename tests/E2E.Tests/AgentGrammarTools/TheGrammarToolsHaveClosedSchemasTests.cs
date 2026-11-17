@@ -99,8 +99,14 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Null(AgentTools.SchemaTool(tool, Call(tool.Name, Input(accepted))));
     }
 
+    /// <summary>Tools whose schema declares no fields. A padded call is read as {}; every other tool stays closed.</summary>
+    private static readonly HashSet<string> NoInput = new(
+        ["observe", "back", "dismiss_keyboard", "screenshot"],
+        StringComparer.Ordinal
+    );
+
     [Fact]
-    public void Offers_the_whole_vocabulary_over_the_full_grammar_and_every_tool_refuses_a_field_it_does_not_declare()
+    public void Offers_the_whole_vocabulary_over_the_full_grammar_a_tool_with_fields_refuses_one_it_does_not_declare_and_a_tool_with_none_drops_it()
     {
         var tools = FullGrammar();
         Assert.Equal(
@@ -109,8 +115,46 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         );
         foreach (var tool in tools)
         {
-            ExpectClosed(tool, Accepted[tool.Name]);
+            if (!NoInput.Contains(tool.Name))
+            {
+                ExpectClosed(tool, Accepted[tool.Name]);
+                continue;
+            }
+
+            Assert.True(
+                SchemaOf(tool).IsValid(Input(Accepted[tool.Name])),
+                tool.Name + " accepts " + Accepted[tool.Name]
+            );
+            Assert.Null(AgentTools.SchemaTool(tool, Call(tool.Name, Input("""{ "force": true, "selector": "#x" }"""))));
+            foreach (var value in new[] { "\"nope\"", "null", "[]" })
+            {
+                var refusal = AgentTools.SchemaTool(
+                    tool,
+                    new ModelToolCall
+                    {
+                        Id = "call",
+                        Name = tool.Name,
+                        Arguments = JsonSerializer.SerializeToElement(JsonNode.Parse(value)),
+                    }
+                );
+                Assert.NotNull(refusal);
+                var issues = JsonNode
+                    .Parse(
+                        refusal[
+                            (refusal.IndexOf("Error message: ", StringComparison.Ordinal) + "Error message: ".Length)..
+                        ]
+                    )!
+                    .AsArray();
+                Assert.Equal(["invalid_type"], issues.Select(issue => (string?)issue!["code"]));
+            }
         }
+
+        Assert.Null(
+            AgentTools.SchemaTool(
+                tools.Single(tool => tool.Name == "screenshot"),
+                Call("screenshot", Input("""{ "description": "check the home screen" }"""))
+            )
+        );
     }
 
     private static IReadOnlyList<ModelTool> OverVerbs(params ExecutorVerb[] verbs) =>
