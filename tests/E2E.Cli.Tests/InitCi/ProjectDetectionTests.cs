@@ -85,6 +85,7 @@ public sealed class ProjectDetectionTests : InitCiTestBase
     [InlineData("a blank line between the items", "stages:\n  - build\n\n  - test\n")]
     [InlineData("a flow list over several lines", "stages: [\n  build,\n  test\n]\n")]
     [InlineData("a spec header above it", "spec:\n  inputs: {}\n---\nstages:\n  - build\n  - test\n")]
+    [InlineData("an anchor on the list", "stages: &s [build, test]\n")]
     [InlineData("an alias to an anchored list", ".stages: &stages\n  - build\n  - test\nstages: *stages\n")]
     public void Reads_the_test_stage_from_a_stages_list_written_with(string layout, string pipeline)
     {

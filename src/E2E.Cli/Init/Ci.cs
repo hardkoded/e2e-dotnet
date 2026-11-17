@@ -91,9 +91,9 @@ internal static partial class Ci
     /// <summary>Where the Android job installs the APK from.</summary>
     private const string Apk = "android/app/build/outputs/apk/release/app-release.apk";
 
-    /// <summary>The SDK version a pipeline sets up when the project names none.</summary>
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
 
+    /// <summary>The SDK version a pipeline sets up when the project names none.</summary>
     private const string DefaultDotnet = "10.0";
 
     /// <summary>The jobs the GitLab pipeline defines, which an existing pipeline's own jobs must not share names with.</summary>
@@ -231,18 +231,22 @@ internal static partial class Ci
                 continue;
             }
 
-            var rest = TopLevelStages().Match(lines[at]).Groups[1].Value.Trim();
+            var rest = NodeProperties().Replace(TopLevelStages().Match(lines[at]).Groups[1].Value.Trim(), "");
             if (rest.StartsWith('*'))
             {
                 // An alias to an anchored list.
-                var anchor = "&" + rest[1..];
+                var anchor = "&" + rest[1..].Trim();
                 var anchored = lines.FindIndex(line => AnchorLine(line, anchor));
                 if (anchored < 0)
                 {
                     continue;
                 }
 
-                (at, rest) = (anchored, CommentPattern().Replace(lines[anchored], "").Split(anchor, 2)[1].Trim());
+                (at, rest) = (
+                    anchored,
+                    NodeProperties()
+                        .Replace(CommentPattern().Replace(lines[anchored], "").Split(anchor, 2)[1].Trim(), "")
+                );
             }
 
             return ReadList(lines, at, rest);
@@ -583,9 +587,16 @@ internal static partial class Ci
         """;
 
     private static string GithubTestCommand(WorkflowContext context) =>
-        $"dotnet test -c Release --no-build {context.ProjectFile}";
+        $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}";
 
-    private static string BuildCommand(WorkflowContext context) => $"dotnet build -c Release {context.ProjectFile}";
+    private static string BuildCommand(WorkflowContext context) =>
+        $"dotnet build -c Release {Quote(context.ProjectFile)}";
+
+    /// <summary>A path as one shell word: quoted when it holds a space or a character the shell or YAML reads.</summary>
+    private static string Quote(string path) =>
+        path.All(c => char.IsLetterOrDigit(c) || c is '/' or '.' or '_' or '-')
+            ? path
+            : "'" + path.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
 
     /// <summary>The path of <c>playwright.ps1</c> the project's build writes.</summary>
     private static string PlaywrightScript(WorkflowContext context)
@@ -593,7 +604,7 @@ internal static partial class Ci
         var directory = context.ProjectFile.Contains('/', StringComparison.Ordinal)
             ? context.ProjectFile[..context.ProjectFile.LastIndexOf('/')] + "/"
             : "";
-        return $"{directory}bin/Release/net{context.DotnetVersion}/playwright.ps1";
+        return Quote($"{directory}bin/Release/net{context.DotnetVersion}/playwright.ps1");
     }
 
     /// <summary>
@@ -636,7 +647,11 @@ internal static partial class Ci
                 .Replace("@DOTNET@", context.DotnetVersion, StringComparison.Ordinal)
                 .Replace("@BUILD@", BuildCommand(context), StringComparison.Ordinal)
                 .Replace("@PLAYWRIGHT@", PlaywrightScript(context), StringComparison.Ordinal)
-                .Replace("@TEST@", $"dotnet test -c Release --no-build {context.ProjectFile}", StringComparison.Ordinal)
+                .Replace(
+                    "@TEST@",
+                    $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}",
+                    StringComparison.Ordinal
+                )
                 .Replace("@APK@", Apk, StringComparison.Ordinal)
             + "\n";
     }
@@ -741,7 +756,12 @@ internal static partial class Ci
     }
 
     private static bool AnchorLine(string line, string anchor) =>
-        CommentPattern().Replace(line, "").Contains(anchor, StringComparison.Ordinal);
+        Regex.IsMatch(
+            CommentPattern().Replace(line, ""),
+            Regex.Escape(anchor) + @"(?![\w-])",
+            RegexOptions.None,
+            RegexTimeout
+        );
 
     /// <summary>The items of the list that starts at <paramref name="at"/>: a flow list over any number of lines, or the block items below the key.</summary>
     private static List<string> ReadList(List<string> lines, int at, string rest)
@@ -796,6 +816,10 @@ internal static partial class Ci
     /// <summary><c>dotnet test</c> as words of their own, which <c>dotnet testing</c> and <c>x-dotnet test</c> are not.</summary>
     [GeneratedRegex(@"(?:^|[\s;&|()\[\],'""`])dotnet\s+test(?=$|[\s;&|()\[\],'""`])", RegexOptions.None, 1000)]
     private static partial Regex RunPattern();
+
+    /// <summary>The anchors and tags that may come before a YAML value: <c>&amp;stages</c>, <c>!!seq</c>.</summary>
+    [GeneratedRegex(@"^(?:[&!][^\s]*\s*)+", RegexOptions.None, 1000)]
+    private static partial Regex NodeProperties();
 
     [GeneratedRegex(@"^stages:[ \t]*(.*)$", RegexOptions.None, 1000)]
     private static partial Regex TopLevelStages();

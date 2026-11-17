@@ -118,4 +118,13 @@ public sealed class RenderGithubWorkflowTests : InitCiTestBase
                 .Count
         );
     }
+
+    [Fact]
+    // .NET-only: a project path with a space is one shell word.
+    public void Keeps_a_folder_name_with_a_space_as_one_value()
+    {
+        var workflow = Ci.RenderGithubWorkflow(Base with { ProjectFile = "My App/My App.csproj" });
+        Assert.Contains("dotnet build -c Release 'My App/My App.csproj'", workflow, StringComparison.Ordinal);
+        Assert.Contains("pwsh 'My App/bin/Release/net10.0/playwright.ps1' install", workflow, StringComparison.Ordinal);
+    }
 }
