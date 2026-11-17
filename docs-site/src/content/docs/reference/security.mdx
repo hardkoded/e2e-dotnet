@@ -14,7 +14,7 @@ Text a model, a report, or a log would carry is redacted: a configured secret's 
 - video: it masks nothing and is labeled `redaction: "incomplete"`,
 - in an `e2e explore --changed-since` brief, a run of fewer than 8 characters of a value, such as a short last line of a multiline key that git prints on a line of its own.
 
-Error messages and skip reasons in a report are only stripped of ANSI escapes and control characters other than tab, newline, and the `\r` of a `\r\n` line break, so treat them as untrusted. A lone `\r` becomes U+FFFD.
+Error messages and skip reasons in a report only lose their ANSI escapes, and each control character other than tab, newline, and the `\r` of a `\r\n` line break becomes U+FFFD (a lone `\r` included), so treat them as untrusted.
 
 ## MCP and explore
 
