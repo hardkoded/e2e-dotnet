@@ -386,8 +386,7 @@ public static class Time
                 pause = options.Interval;
             }
 
-            await Task.Delay(remaining < pause ? remaining : pause, clock, token)
-                .ConfigureAwait(false);
+            await Task.Delay(remaining < pause ? remaining : pause, clock, token).ConfigureAwait(false);
 
             // A read past the deadline has no budget left, so a negation decides at the deadline on what it has seen.
             readAt = clock.GetUtcNow();
