@@ -627,6 +627,9 @@ misses.
 - Shadow DOM: `Screen` queries reach open shadow roots and closed roots attached with `attachShadow`, not declarative closed roots (`<template shadowrootmode="closed">`). The engine
   tracks the closed roots through a record its init script defines on the page, so a page that
   replaces the global `WeakMap` keeps them reachable, and a secure field inside one is still masked in screenshots.
+- Inert content: the agent doesn't see content that takes no input, so it never aims at it. That is an element with the `inert` attribute and everything under it, and
+  everything outside a modal `<dialog>` opened with `showModal()` or a `show-modal` command. With several modal dialogs open, only the one shown last stays; when e2e can't tell
+  which one that is, it leaves out nothing. Locators still find inert content, and `ToBeVisibleAsync` still passes, as in Playwright.
 - `Keyboard.PressAsync(key)`, `Keyboard.TypeAsync(text)`,
   `Keyboard.DownAsync(key)`, `Keyboard.UpAsync(key)`, and `Mouse.*`: unfocused
   input. Only `DownAsync(key)` holds a key or modifier until `UpAsync(key)`;
