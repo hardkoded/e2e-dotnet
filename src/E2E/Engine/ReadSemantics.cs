@@ -309,7 +309,10 @@ internal static class ReadSemantics
           // visited holds every element already read, so each contributes once.
           // accessible is set for an accessible name, which reads CSS generated
           // content and an embedded control's value, and unset for label text.
-          const nameWalk = (visited, accessible) => ({ inReference: false, hiddenAllowed: false, visited: new Set(visited), accessible });
+          // fromContent is set while reading the content of an element accname
+          // names from content, where a descendant adds its own content only
+          // when its role allows it (addsContentToName).
+          const nameWalk = (visited, accessible, fromContent = false) => ({ inReference: false, hiddenAllowed: false, visited: new Set(visited), accessible, fromContent });
           // Icon-font glyphs (private-use code points) read as nothing a person could type; each becomes a space.
           const iconGlyphs = /\p{Co}/gu;
           const withoutGlyphs = (name) => {
@@ -431,6 +434,7 @@ internal static class ReadSemantics
                 hiddenAllowed: isReferenceHidden(target),
                 visited: walk.visited,
                 accessible: walk.accessible,
+                fromContent: false,
               }));
             }
             if (contributions.join(" ") === "") return null;
@@ -496,10 +500,34 @@ internal static class ReadSemantics
             const alternative = altOf(el) ?? svgTitleOf(el);
             if (alternative !== null) return alternative;
             if (nameOpaqueTags.has(el.tagName)) return "";
+            if (walk.fromContent && !addsContentToName(el)) return excludedDescendantNameOf(el, walk);
             const content = childrenNameOf(el, walk);
             if (content !== "") return content;
             const title = el.getAttribute("title");
             return title === null ? "" : title.trim();
+          };
+          // True when a descendant adds its own content to a name from content, as
+          // Playwright's allowsNameFromContent reads it: no role, a role named from
+          // content, or a text or structure role. So a tree item holding its child
+          // group is named by its own label, and a tab by its text without its
+          // status badge.
+          const addsContentToName = (el) => {
+            const tag = el.tagName.toLowerCase();
+            const role = explicitRole(el) === null && tag in PLAYWRIGHT_TAG_ROLES ? (PLAYWRIGHT_TAG_ROLES[tag] ?? null) : roleOf(el);
+            return role === null || ACCNAME_CONTENT_ROLES.has(role) || CONTENT_DESCENDANT_ROLES.has(role);
+          };
+          // Tags whose role Playwright reads differently from roleOf in a way that
+          // decides whether they add their content: an <address> has none, so its
+          // text counts, and a <blockquote>, <math>, or <search> has one that is
+          // not named from content.
+          const PLAYWRIGHT_TAG_ROLES = { address: null, blockquote: "blockquote", math: "math", search: "search" };
+          // What a descendant that adds no content of its own adds to a name from
+          // content instead: a fieldset its legend, a figure its figcaption, read
+          // whole, and anything else its title.
+          const excludedDescendantNameOf = (el, walk) => {
+            const caption = namingChildOf(el);
+            if (caption !== undefined) return contentNameOf(caption, styleOf(caption), { ...walk, fromContent: false });
+            return el.getAttribute("title")?.trim() ?? "";
           };
           // The children's contributions joined as Playwright's role selector
           // joins them: a space on each side of a block-level child and of a
@@ -539,20 +567,36 @@ internal static class ReadSemantics
           // Text for a name from an element's own content (accname 2F). named is
           // the element the text names when that is not el (a control read
           // through its <label>), which never contributes to its own name.
-          const nameTextOf = (el, accessible, named = el) => {
+          // fromContent when accname names el from its content, so each
+          // descendant's role decides whether its content counts.
+          const nameTextOf = (el, accessible, named = el, fromContent = false) => {
             if (isNameHidden(el, styleOf(el))) return "";
             if (nameOpaqueTags.has(el.tagName)) return "";
-            return childrenNameOf(el, nameWalk([el, named], accessible)).replace(/\s+/g, " ").trim();
+            return childrenNameOf(el, nameWalk([el, named], accessible, fromContent)).replace(/\s+/g, " ").trim();
           };
           const nameOpaqueTags = new Set(["TEXTAREA", "SELECT", "INPUT", "SCRIPT", "STYLE"]);
-          // Roles named from their content (accname 2F, the list Playwright's
-          // role selector uses), plus listitem, status, and alert.
-          const nameFromContentRoles = new Set([
+          // Roles accname names from their content (2F), the list Playwright's role selector uses.
+          const ACCNAME_CONTENT_ROLES = new Set([
             "button", "cell", "checkbox", "columnheader", "gridcell", "heading", "link", "menuitem", "menuitemcheckbox",
-            "menuitemradio", "option", "radio", "row", "rowheader", "switch", "tab", "tooltip", "treeitem", "listitem", "status", "alert"
+            "menuitemradio", "option", "radio", "row", "rowheader", "switch", "tab", "tooltip", "treeitem"
+          ]);
+          // Roles named from their content: accname's, plus listitem, status, and
+          // alert, which the tree has always named so a list row or a message reads as one line.
+          const nameFromContentRoles = new Set([...ACCNAME_CONTENT_ROLES, "listitem", "status", "alert"]);
+          // Text and structure roles whose content a descendant adds to a name from
+          // content, besides ACCNAME_CONTENT_ROLES (Playwright's allowsNameFromContent).
+          const CONTENT_DESCENDANT_ROLES = new Set([
+            "caption", "code", "contentinfo", "definition", "deletion", "emphasis", "insertion", "list", "listitem",
+            "mark", "none", "paragraph", "presentation", "region", "row", "rowgroup", "section", "strong",
+            "subscript", "superscript", "table", "term", "time"
           ]);
           // HTML-AAM: the child element that names its parent when nothing ARIA does.
           const namingChildTags = { FIELDSET: "LEGEND", FIGURE: "FIGCAPTION", TABLE: "CAPTION" };
+          // The <legend>, <figcaption>, or <caption> child that names a fieldset, figure, or table (namingChildTags).
+          const namingChildOf = (el) => {
+            const captionTag = namingChildTags[el.tagName];
+            return captionTag === undefined ? undefined : Array.from(el.children).find((child) => child.tagName === captionTag);
+          };
           const placeholderNamedInputTypes = ["text", "password", "number", "search", "tel", "email", "url"];
           // The controls a placeholder may name: text-like inputs, textareas, and the textbox and searchbox roles.
           const isPlaceholderNamed = (el, role) => {
@@ -586,12 +630,9 @@ internal static class ReadSemantics
             }
             const alternative = altOf(el) ?? (isPresentational(el) ? null : svgTitleOf(el));
             if (alternative !== null) return alternative;
-            const captionTag = namingChildTags[el.tagName];
-            if (captionTag !== undefined) {
-              const caption = Array.from(el.children).find((child) => child.tagName === captionTag);
-              const text = caption === undefined ? "" : nameTextOf(caption, true);
-              if (text !== "") return text;
-            }
+            const caption = namingChildOf(el);
+            const captionText = caption === undefined ? "" : nameTextOf(caption, true);
+            if (captionText !== "") return captionText;
             if (el instanceof HTMLInputElement && (el.type === "button" || el.type === "submit" || el.type === "reset")) {
               if (el.value.trim() !== "") return el.value.trim();
               // HTML-AAM: a submit or reset button with no value reads its default label.
@@ -599,7 +640,7 @@ internal static class ReadSemantics
               if (el.type === "reset") return "Reset";
             }
             if (role !== null && nameFromContentRoles.has(role)) {
-              const text = nameTextOf(el, true);
+              const text = nameTextOf(el, true, el, ACCNAME_CONTENT_ROLES.has(role));
               if (text !== "") return text;
             }
             const title = el.getAttribute("title");
