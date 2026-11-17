@@ -28,6 +28,7 @@ public sealed class WebPlatformIntegrationTests
     [InlineData("a *css= capture is refused before the last selector part")]
     [InlineData("toHaveURL ignoreCase folds the comparison")]
     [InlineData("string and RegExp URL patterns match what they name")]
+    [InlineData("toHaveRole compares the role the tree reads")]
     [InlineData("routes are attempt-scoped: registered before the first page, kept across restart and clearState")]
     [InlineData("clicks hold the modifiers they name")]
     [InlineData(
@@ -277,6 +278,33 @@ public sealed class WebPlatformIntegrationTests
         );
         Assert.Equal("ASSERTION_FAILED", control.Code);
         Assert.Contains("observed: attribute \"value\" \"marker-5e0c\"", control.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Fails_toHaveRole_on_a_switch_asked_for_a_checkbox_naming_both_roles()
+    {
+        var error = Assert.IsType<TestException>(await RunAsync(Scenarios["toHaveRole fails on another role"]));
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Contains(
+            "expected: role \"checkbox\"\nobserved: role \"switch\"",
+            error.Message,
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
+    public async Task Fails_toHaveRole_on_a_password_field_and_keeps_its_value_out_of_the_result()
+    {
+        var error = Assert.IsType<TestException>(
+            await RunAsync(Scenarios["toHaveRole fails on a secure field without its value"])
+        );
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Contains(
+            "expected: role \"searchbox\"\nobserved: role \"textbox\"",
+            error.Message,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("marker-7c1f", error.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -722,6 +750,36 @@ public sealed class WebPlatformIntegrationTests
             await Expect
                 .That(session.Screen.GetByLabel("Plain"))
                 .Not.ToHaveAttributeAsync("value", TimeSpan.FromMilliseconds(500));
+        },
+        ["toHaveRole compares the role the tree reads"] = async session =>
+        {
+            await session.App.OpenAsync("/role-matcher");
+            var screen = session.Screen;
+            var soon = TimeSpan.FromMilliseconds(200);
+            await Expect.That(screen.GetByLabel("Name")).ToHaveRoleAsync("textbox");
+            await Expect.That(screen.GetByLabel("Secret")).ToHaveRoleAsync("textbox");
+            await Expect.That(screen.GetByTestId("logo")).ToHaveRoleAsync("img");
+            await Expect.That(screen.GetByTestId("logo")).ToHaveRoleAsync("image");
+            await Expect.That(screen.GetByTestId("title")).ToHaveRoleAsync("heading");
+            await Expect.That(screen.GetByText("Wi-Fi")).ToHaveRoleAsync("switch");
+            await Expect.That(screen.GetByText("Wi-Fi")).Not.ToHaveRoleAsync("checkbox", soon);
+            await Expect.That(screen.GetByTestId("plain")).Not.ToHaveRoleAsync("button", soon);
+            // An editing host reads as a textbox in the tree, though getByRole finds it by its tag's role.
+            await Expect.That(screen.GetByRole("heading", "Untitled")).ToHaveRoleAsync("textbox");
+        },
+        ["toHaveRole fails on another role"] = async session =>
+        {
+            await session.App.OpenAsync("/role-matcher");
+            await Expect
+                .That(session.Screen.GetByText("Wi-Fi"))
+                .ToHaveRoleAsync("checkbox", TimeSpan.FromMilliseconds(500));
+        },
+        ["toHaveRole fails on a secure field without its value"] = async session =>
+        {
+            await session.App.OpenAsync("/role-matcher");
+            await Expect
+                .That(session.Screen.GetByLabel("Secret"))
+                .ToHaveRoleAsync("searchbox", TimeSpan.FromMilliseconds(300));
         },
         ["secure fields refuse value reads"] = async session =>
         {

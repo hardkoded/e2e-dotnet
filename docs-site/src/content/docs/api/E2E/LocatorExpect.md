@@ -390,6 +390,31 @@ Waits for an exact match count.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_LocatorExpect_ToHaveRoleAsync_"></a>
+<a id="E2E_LocatorExpect_ToHaveRoleAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### ToHaveRoleAsync(string, TimeSpan?, CancellationToken)
+
+
+```csharp
+public Task ToHaveRoleAsync(string role, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Waits for the one match to have the role, compared as a string. `img` reads as `image`, as `GetByRole` reads it;
+any other string is compared as written, and an empty one is `INVALID_ARGUMENT`.
+
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `role` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_LocatorExpect_ToHaveScreenshotAsync_"></a>
 <a id="E2E_LocatorExpect_ToHaveScreenshotAsync_E2E_ScreenshotOptions_System_String_"></a>
 

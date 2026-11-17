@@ -359,6 +359,14 @@ and an icon-only button reads `""`. A hidden node reads its DOM text, so a
 text query still finds a `visibility: hidden` copy. Check a label with
 `ToHaveAccessibleNameAsync`.
 
+`ToHaveRoleAsync(role)` waits for the one match to have that role, compared as
+a string. `img` reads as `image`, as `GetByRole` reads it; any other string is
+compared as written, and an empty one is `INVALID_ARGUMENT`. It compares the
+role `Screen.TreeAsync()` shows, so a `switch` is not a `checkbox`, and on the
+web an editing host (`contenteditable`) reads as `textbox`. A node the tree
+shows without a role fails it with `observed: no role`. It answers on a
+secure field, whose role is never withheld.
+
 `Screen.TreeAsync()` returns the whole screen as the agent reads it (one node
 per line, children indented, secrets redacted) and `Screen.DebugAsync()` prints
 it to the test's output. Use them to write a locator. Both read once without

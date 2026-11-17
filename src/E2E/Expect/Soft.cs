@@ -107,6 +107,9 @@ public sealed class SoftLocatorExpect
         CancellationToken cancellationToken = default
     ) => KeepAsync(_expect.ToHaveAccessibleNameAsync(expected, ignoreCase, timeout, cancellationToken));
 
+    public Task ToHaveRoleAsync(string role, TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
+        KeepAsync(_expect.ToHaveRoleAsync(role, timeout, cancellationToken));
+
     public Task ToHaveAttributeAsync(
         string name,
         TimeSpan? timeout = null,

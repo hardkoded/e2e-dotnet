@@ -177,7 +177,7 @@ Every row works today. For an API that is not here, check [What e2e doesn't have
 
 | Playwright .NET | e2e |
 | --- | --- |
-| `ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeFocusedAsync`, `ToHaveValueAsync`, `ToHaveAttributeAsync`, `ToHaveCountAsync`, `ToHaveAccessibleNameAsync` | the same |
+| `ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeFocusedAsync`, `ToHaveValueAsync`, `ToHaveAttributeAsync`, `ToHaveCountAsync`, `ToHaveAccessibleNameAsync`, `ToHaveRoleAsync` | the same |
 | `ToBeCheckedAsync()` | the same on a checkable node; on any other node `.Not.ToBeCheckedAsync()` passes, see [What differs on purpose](#what-differs-on-purpose) |
 | `ToHaveTextAsync()`, `ToContainTextAsync()` | compare the rendered text, see [What differs on purpose](#what-differs-on-purpose) |
 | `ToHaveTextAsync(new[] { "a", "b" })` on several matches | the same: `ToHaveTextAsync` needs the count to match |
@@ -309,7 +309,7 @@ Planned is on the roadmap. Not yet has no date. Not planned is left out on purpo
 | `EvaluateAsync(fn)`, `EvaluateAllAsync(fn)` on a locator, `DispatchEventAsync()`, `BlurAsync()`, `SelectTextAsync()`, `ToHaveCSSAsync()`, `ToHaveIdAsync()`, `ToHaveJSPropertyAsync()`, `ToContainClassAsync()`, `ToHaveValuesAsync()` | `Browser.EvaluateAsync<T>(expression, selector)` with a CSS selector in the argument and a value assert; `Expect.That(Browser).ToHaveClassAsync(locator, cls)` |
 | `SetInputFilesAsync(new FilePayload { ... })`, `SelectOptionAsync(new[] { "a", "b" })`, `ClickAsync(new() { ClickCount })`, `HoverAsync(new() { Position })` | A temp file path; `SetInputFilesAsync([])` to clear the input; `Browser.EvaluateAsync` for a multi-select; `Browser.Mouse` with `BoundingBoxAsync()` |
 | `Expect(async () => { ... }).ToPassAsync()` with custom intervals | `Expect.Poll(read).ToBeAsync(...)`; it takes one `Interval` |
-| `ToBeEmptyAsync()`, `ToBeEditableAsync()`, `IsEditableAsync()`, `ToBeInViewportAsync()`, `ToHaveRoleAsync()`, `ToHaveAccessibleDescriptionAsync()`, `ToBeCheckedAsync(new() { Indeterminate })`, `UseInnerText` | `ToHaveValueAsync("")` on a form control, `ToHaveTextAsync("")` on other elements; `ToBeEnabledAsync()`; `Expect.Poll` over `BoundingBoxAsync()`; a `GetByRole` query |
+| `ToBeEmptyAsync()`, `ToBeEditableAsync()`, `IsEditableAsync()`, `ToBeInViewportAsync()`, `ToHaveAccessibleDescriptionAsync()`, `ToBeCheckedAsync(new() { Indeterminate })`, `UseInnerText` | `ToHaveValueAsync("")` on a form control, `ToHaveTextAsync("")` on other elements; `ToBeEnabledAsync()`; `Expect.Poll` over `BoundingBoxAsync()`; a `GetByRole` query |
 | `Locator.ScreenshotAsync()`, `ToHaveScreenshotAsync(new() { FullPage, Clip, Animations, Caret, Scale, StylePath })` | The viewport or one locator in `ToHaveScreenshotAsync`; `App.ScreenshotAsync(label)` captures the viewport |
 | `Expect(locator, new() { Message })` | Drop the message. The failure names the locator and the matcher; `Timeout` on each call |
 | A custom matcher | An async helper that calls `Expect.That` |
@@ -364,6 +364,7 @@ Planned is on the roadmap. Not yet has no date. Not planned is left out on purpo
   Screen.GetByRole("button", "save changes");               // no match, case differs
   Screen.GetByLabel("Email");                               // no match
   ```
+- `ToHaveRoleAsync` takes the `GetByRole` vocabulary as a string, and `img` reads as `image`. It compares the role the tree reads, where a `contenteditable` editor is a `textbox`.
 - Text reads are rendered text. On the web, `TextContentAsync()` and `ToHaveTextAsync` read what `innerText` returns, like Playwright's `UseInnerText = true`. Playwright reads the DOM's `textContent` by default. Queries still match the source text: `GetByText("Draft")` finds `<span style="text-transform: uppercase">Draft</span>`, and `ToHaveTextAsync("DRAFT")` passes on it. `Browser.EvaluateAsync` reads the raw DOM text.
 - `.Not.ToBeCheckedAsync()` passes on a button or a heading, where Playwright throws, as `IsCheckedAsync()` does. Query a checkable control by role, so the query fails when the control changes kind.
 - A negated locator matcher passes only after its condition has been false for 1 s in a row, or for its whole timeout when that is shorter. The positive inverse, such as `ToBeHiddenAsync()`, passes on the first read that holds.
