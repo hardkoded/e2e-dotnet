@@ -126,7 +126,7 @@ internal static class AttemptReport
                     ? new ReportSkip(
                         "explicit",
                         TextRules.TruncateUtf8(
-                            TextRules.SanitizeText(scope.Redactor.Redact(serialized?.Message ?? "skipped")),
+                            TextRules.SanitizeRecordedText(scope.Redactor.Redact(serialized?.Message ?? "skipped")),
                             TextRules.MaxSkipReasonBytes
                         )
                     )

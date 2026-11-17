@@ -365,7 +365,7 @@ internal static class HostTestFilters
                         test.SkipReason is null
                             ? null
                             : TextRules.TruncateUtf8(
-                                TextRules.SanitizeText(Redactor.For(secrets).Redact(test.SkipReason)),
+                                TextRules.SanitizeRecordedText(Redactor.For(secrets).Redact(test.SkipReason)),
                                 TextRules.MaxSkipReasonBytes
                             ),
                         false
