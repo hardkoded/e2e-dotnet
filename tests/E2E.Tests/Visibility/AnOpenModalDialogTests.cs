@@ -2,16 +2,15 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Engine;
+
 namespace E2E.Tests.Visibility;
 
 [Collection(BrowserCollection.Name)]
 public sealed class AnOpenModalDialogTests(ChromiumPage chromium) : IClassFixture<ChromiumPage>
 {
     private async Task<List<string?>> ButtonNamesAsync() =>
-        (await chromium.CaptureAsync())
-            .Where(node => node.Role == "button" && !node.Hidden)
-            .Select(node => node.Name)
-            .ToList();
+        (await chromium.CaptureAsync()).Where(node => node.Role == "button").Select(node => node.Name).ToList();
 
     [Fact]
     public async Task Leaves_the_page_behind_it_out_of_the_tree_while_Playwright_still_calls_that_page_visible()
@@ -27,7 +26,19 @@ public sealed class AnOpenModalDialogTests(ChromiumPage chromium) : IClassFixtur
         Assert.Contains("Accept", names);
         Assert.DoesNotContain("Add to cart", names);
         Assert.DoesNotContain("Store", names);
-        Assert.False(await chromium.Page.Locator("#behind").IsHiddenAsync());
+        var behind = chromium.Page.Locator("#behind");
+        // Upstream's hiddenOf reads the element in node mode, which reads it on its own, not through the walk that leaves it out.
+        var reader = await behind.EvaluateAsync<bool>(
+            $$"""
+            (el) => {
+            {{ReadSemantics.Prelude}}
+            {{ReadSemantics.NodeMode}}
+              return nodeOf(el, "data-testid").hidden;
+            }
+            """
+        );
+        Assert.False(reader);
+        Assert.False(await behind.IsHiddenAsync());
     }
 
     [Fact]
@@ -58,6 +69,10 @@ public sealed class AnOpenModalDialogTests(ChromiumPage chromium) : IClassFixtur
             </script>
             """
         );
-        Assert.Equal(["Page button", "Plain dialog"], await ButtonNamesAsync());
+        // The port lists a closed dialog's content as hidden nodes, where upstream's tree omits it.
+        var shown = (await chromium.CaptureAsync())
+            .Where(node => node.Role == "button" && !node.Hidden)
+            .Select(node => node.Name);
+        Assert.Equal(["Page button", "Plain dialog"], shown);
     }
 }
