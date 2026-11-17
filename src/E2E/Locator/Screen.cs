@@ -1738,7 +1738,7 @@ public sealed record LocatorExpression
 
     /// <summary>The vocabulary role behind a <c>GetByRole</c> or <c>ToHaveRole</c> argument; a role is its own.</summary>
     internal static string CanonicalRole(string role) =>
-        string.Equals(role, "img", StringComparison.OrdinalIgnoreCase) ? "image" : role;
+        string.Equals(role, "img", StringComparison.Ordinal) ? "image" : role;
 
     internal static LocatorExpression ForRole(string role, TextMatch? name, RoleOptions options)
     {

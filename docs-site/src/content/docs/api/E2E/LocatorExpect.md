@@ -401,8 +401,8 @@ public Task ToHaveRoleAsync(string role, TimeSpan? timeout = null, CancellationT
 ```
 
 
-Waits for the one match to have the role, compared as a string. `img` reads as `image`, as `GetByRole` reads it;
-any other string is compared as written, and an empty one is `INVALID_ARGUMENT`.
+Waits for the one match to have the role, compared as a string. only the exact `img` reads as `image`, as `GetByRole` reads it;
+any other string, `IMG` included, is compared as written, and an empty one is `INVALID_ARGUMENT`.
 
 
 **Parameters**

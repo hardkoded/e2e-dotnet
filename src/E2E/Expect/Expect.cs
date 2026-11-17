@@ -369,7 +369,7 @@ public sealed class LocatorExpect
     }
 
     /// <summary>
-    /// Waits for the one match to have the role, compared as a string. <c>img</c> reads as <c>image</c>, as <c>GetByRole</c> reads it;
+    /// Waits for the one match to have the role, compared as a string. only the exact <c>img</c> reads as <c>image</c>, as <c>GetByRole</c> reads it;
     /// any other string is compared as written, and an empty one is <c>INVALID_ARGUMENT</c>.
     /// </summary>
     public Task ToHaveRoleAsync(string role, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
