@@ -113,13 +113,22 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
         session.Complete();
     }
 
+    /// <summary>
+    /// Partial: upstream's <c>puts the title in a judgment prompt after its fixed request, outside its system message</c> (tester-army/e2e#1823)
+    /// also asserts the title follows the fixed request text of the user message, more than 1000 characters in. The port keeps that text in the
+    /// judgment's system message, so the title opens the user message, after the whole cached prefix. This checks the rest: the title, the
+    /// shared prefix across two tests, and a system message without it.
+    /// </summary>
     [Fact]
-    public async Task Opens_a_judgment_prompt_with_the_title_too_outside_its_system_message()
+    public async Task Keeps_the_title_of_a_judgment_prompt_out_of_its_system_message_and_the_system_the_same_across_tests()
     {
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "shown"));
-        await using var session = await StartAsync(model, file: "BillingTests", title: "billing > upgrades the plan");
-
-        await session.Agent.AssertAsync("the plan is upgraded");
+        await using var first = await StartAsync(model, file: "BillingTests", title: "billing > upgrades the plan");
+        await first.Agent.AssertAsync("the plan is upgraded");
+        first.Complete();
+        await using var second = await StartAsync(model, file: "BillingTests", title: "billing > downgrades the plan");
+        await second.Agent.AssertAsync("the plan is downgraded");
+        second.Complete();
 
         Assert.StartsWith(
             "Test: billing > upgrades the plan\n\n",
@@ -127,7 +136,7 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
             StringComparison.Ordinal
         );
         Assert.DoesNotContain("Test:", model.Requests[0].System, StringComparison.Ordinal);
-        session.Complete();
+        Assert.Equal(model.Requests[0].System, model.Requests[1].System);
     }
 
     /// <summary>

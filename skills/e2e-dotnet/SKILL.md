@@ -571,7 +571,7 @@ lines you changed:
   (default 64000) fails before the model call of a built-in judgment; a custom `ToolLoop` sends its own requests and is not checked first (topic `agent`). A custom `IAgentModel` returns its token counts in `ModelResponse.Usage` (`ModelCallUsage`); the step report marks a step `adapter-upper-bound` when a call returns none (topic `agent`). A different brain
   is an executor: your own tools in a `ToolLoop` (with the built-in actions from `AgentTools.CreateGrammarTools` if you want them), an `IStepExecutor`, or
   `AcpExecutor.ClaudeCode()`, `AcpExecutor.Codex()`, or `AcpExecutor.Create(command, args)` from the `E2E.Acp` package, which run steps on a coding agent over the Agent Client Protocol (the presets need Node and the agent's npm adapter; topic
-  `agent`). Every built-in prompt of a test opens with the test's title
+  `agent`). Every built-in prompt of a test carries the test's title
   (`Test: <name>`), judges included (a custom executor reads `context.Attempt.TitlePath`), so name a test for what it covers, not
   for the verdict you expect (topic `agent`).
 - `run.exitCode` in `report.json` is the worst exit code of the results. An attempt marked `cleanup: "failed"` adds its cleanup error's code, usually 3, even when the test passed. A test that failed or timed out and whose retry was interrupted keeps that verdict (`failed` or `timed-out`), and the run still reads `interrupted` with exit code 130: any attempt a user cancel ended sets the run's interrupt flag, as upstream's `interruptController.signal.aborted` does; the xUnit and NUnit adapters pass the cancellation of a cancelled test on, so the flag is set under them too (topic `running`).

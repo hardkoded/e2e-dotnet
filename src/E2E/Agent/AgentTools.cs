@@ -319,21 +319,29 @@ public static class AgentTools
     ];
 
     /// <summary>
-    /// Upstream's <c>type_secret</c> tool (<c>agent/primitives.ts</c>). Offered only when the step
-    /// declared secrets and the engine can fill: its description lists each as <c>"name" (purpose)</c>. It takes <c>target</c> and the
-    /// secret's <c>name</c>, as upstream.
+    /// Upstream's <c>type_secret</c> tool (<c>agent/primitives.ts</c>). Offered when the engine can fill: its description lists each secret the
+    /// step declared as <c>"name" (purpose)</c>, or, when the caller lists them in its own message (<paramref name="listedByCaller"/>), names
+    /// none, so the description stays the same across steps. It takes <c>target</c> and the secret's <c>name</c>, as upstream.
     /// </summary>
-    private static ModelTool FillSecret(IReadOnlyList<ExecutorSecret> secrets) =>
+    private static ModelTool FillSecret(IReadOnlyList<ExecutorSecret> secrets, bool listedByCaller) =>
         Tool(
             "type_secret",
-            "Fill one declared secret into an input by its name; the plaintext never passes through you. A password fills only a password field; a generic-secret fills any editable input. Available: "
-                + string.Join(
-                    ", ",
-                    secrets.Select(secret =>
-                        "\"" + secret.Name + "\"" + (secret.Purpose is null ? "" : " (" + secret.Purpose + ")")
-                    )
-                )
-                + ".",
+            "Fill one declared secret into an input by its name; the plaintext never passes through you. A password fills only a password field; a generic-secret fills any editable input. "
+                + (
+                    listedByCaller
+                        ? "The step message lists the secrets it declares."
+                        : "Available: "
+                            + string.Join(
+                                ", ",
+                                secrets.Select(secret =>
+                                    "\""
+                                    + secret.Name
+                                    + "\""
+                                    + (secret.Purpose is null ? "" : " (" + secret.Purpose + ")")
+                                )
+                            )
+                            + "."
+                ),
             WithValue(Target, "name")
         );
 
@@ -584,7 +592,8 @@ public static class AgentTools
                 host.Scope.ActionKinds,
                 host.Scope.Session.PointerActionKinds,
                 host.Scope.Session.CanDismissKeyboard,
-                options?.Secrets ?? context.Step.Secrets
+                options?.Secrets ?? context.Step.Secrets,
+                options?.SecretsListedByCaller == true
             )
             .Where(definition => !asserting || AssertionOffers(definition.Name, project, context.Step.Vision))
             .Select(definition => new ToolLoopTool(definition, async (call, token) =>
@@ -685,14 +694,16 @@ public static class AgentTools
         IReadOnlyCollection<string>? actionKinds = null,
         IReadOnlyCollection<string>? pointerKinds = null,
         bool dismissKeyboard = false,
-        IReadOnlyList<ExecutorSecret>? secrets = null
+        IReadOnlyList<ExecutorSecret>? secrets = null,
+        bool secretsListedByCaller = false
     ) =>
         GrammarToolDefinitions(
             ActContext.VerbsOf(capabilities, actionKinds, pointerKinds ?? [], dismissKeyboard),
             capabilities.HasFlag(EngineCapabilities.TapModifiers),
             actionKinds,
             project,
-            secrets
+            secrets,
+            secretsListedByCaller
         );
 
     /// <summary>The same over the verbs the engine's declarations unlock (upstream's <c>verbs</c> of <c>createGrammarTools</c>): each tool is shaped by them.</summary>
@@ -701,7 +712,8 @@ public static class AgentTools
         bool tapModifiers = false,
         IReadOnlyCollection<string>? actionKinds = null,
         IReadOnlyList<ModelTool>? project = null,
-        IReadOnlyList<ExecutorSecret>? secrets = null
+        IReadOnlyList<ExecutorSecret>? secrets = null,
+        bool secretsListedByCaller = false
     )
     {
         var tools = new List<ModelTool> { Observe };
@@ -724,10 +736,14 @@ public static class AgentTools
 
         var keyboard = verbs.Contains(ExecutorVerb.TypeText) || verbs.Contains(ExecutorVerb.PressKey);
         var grammar = Verbs.Where(verb => OffersVerb(verb.Name, verbs)).Select(verb => NodeTool(verb, verbs)).ToList();
-        // Offered only when the step declared secrets and the engine can fill: an empty vocabulary is better than a tool the model can only be rejected on.
-        if (verbs.Contains(ExecutorVerb.TypeSecret) && secrets is { Count: > 0 })
+        // Offered only when the engine can fill, and otherwise only when the step declared secrets: an empty vocabulary is better than a tool the
+        // model can only be rejected on. A caller that lists the secrets itself takes the refusal for a tool set that stays the same across steps.
+        if (verbs.Contains(ExecutorVerb.TypeSecret) && (secretsListedByCaller || secrets is { Count: > 0 }))
         {
-            grammar.Insert(grammar.FindIndex(verb => verb.Name == "type") + 1, FillSecret(secrets));
+            grammar.Insert(
+                grammar.FindIndex(verb => verb.Name == "type") + 1,
+                FillSecret(secrets ?? [], secretsListedByCaller)
+            );
         }
 
         tools.AddRange(tapModifiers ? grammar.Concat(pointer).Select(HoldingModifiers) : [.. grammar, .. pointer]);
@@ -1112,6 +1128,14 @@ public sealed class GrammarToolsOptions
     /// (upstream's <c>listing</c> builds a context with a secret by <c>Object.create</c>, which the port has no counterpart of). .NET-only.
     /// </summary>
     internal IReadOnlyList<ExecutorSecret>? Secrets { get; init; }
+
+    /// <summary>
+    /// Offers <c>type_secret</c> on every step the surface can fill a secret on, with a description that names no secret, so every act step of
+    /// a target sends the same tools and a provider's prompt cache serves them. The caller lists the step's secrets in its own message; a call
+    /// on a step that declares none fails like any undeclared name. Without it the tool is offered only to a step that declares secrets, and its
+    /// description names them. Upstream's <c>secretsListedByCaller</c> (<c>GrammarToolSetup</c>, which the public grammar does not take).
+    /// </summary>
+    internal bool SecretsListedByCaller { get; init; }
 }
 
 /// <summary>

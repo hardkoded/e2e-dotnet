@@ -77,6 +77,8 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
                 "tap_at",
                 "type",
                 "type_at",
+                // Offered on a step without secrets too, so every step sends the same tools.
+                "type_secret",
                 "upload",
             ],
             model.Requests[0].Tools.Select(tool => tool.Name).Order(StringComparer.Ordinal)

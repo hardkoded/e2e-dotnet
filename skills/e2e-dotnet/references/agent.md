@@ -128,7 +128,7 @@ or a method adds facts only that test knows. It joins the agent's `context`,
 outer layer first, one per line, and reaches the judges too, so keep
 instructions out of it. A changed text records again.
 
-Under a test, every prompt of the built-in agent and the judges also opens with the test's title, such as
+Under a test, every prompt of the built-in agent and the judges also carries the test's title, such as
 `Test: billing > upgrades the tier`. Under NUnit or xUnit the title is the test's
 full name (`CacheTitle`), as `Test: Billing.UpgradeTests.Upgrades_the_tier`; under
 `e2e explore` it is the goal. An `e2e mcp` session runs no test and has no such
@@ -292,6 +292,10 @@ A project tool adds its own name to this list (see "Project tools").
 `type_secret` fills any editable field, a rich-text editor included, with a
 generic secret; a password secret needs a password field. It takes `target`
 (the node id) and `name` (the secret's name), as upstream's `type_secret`.
+The tool is offered on every act step whose engine can fill, so every step of a
+target sends the same tools and a provider's prompt cache serves them. The
+step's opening message lists the secrets it declares, and a call that names one
+the step did not declare fills nothing (`POLICY_DENIED`).
 
 ## AssertAsync, WaitForAsync, ExtractAsync: one question
 
