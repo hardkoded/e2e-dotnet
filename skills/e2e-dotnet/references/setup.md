@@ -41,8 +41,9 @@ it), registers the MCP server in `.mcp.json`, `.cursor/mcp.json`, and `.codex/co
 updates `.gitignore`. A flag per question overrides one default: `--engine`
 (`web` or `mobile`), `--gateway` (`vercel`, `openrouter`, `openai-compatible`,
 `chatgpt`, `copilot`, `opencode-console`, `grok`, or `none`), `--endpoint`,
-`--skills`, `--mcp` (comma-separated locations, or `none`); `e2e init --help`
-lists the values. `--engine`, `--gateway`, and `--endpoint` apply to a new
+`--skills`, `--mcp` (comma-separated locations, or `none`), `--ci github-actions`,
+`--ci gitlab`, or `--ci none` (a pipeline with a job per platform; `--yes` writes
+none); `e2e init --help` lists the values. `--engine`, `--gateway`, and `--endpoint` apply to a new
 config only. Init leaves an existing config alone, refreshes the skill and MCP
 entries on a re-run, and never writes through a symlink. A subscription
 gateway needs its sign-in before the first run (`e2e login <provider>`).

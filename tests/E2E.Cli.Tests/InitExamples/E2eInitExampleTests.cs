@@ -34,7 +34,19 @@ public sealed class E2eInitExampleTests : CliInitTestBase
             target
         );
         Assert.Equal(
-            new InitRunOutcome(0, InitResult.Scaffolded, true, true, null, null, true, true, "E2E.Sample"),
+            new InitRunOutcome(
+                0,
+                InitResult.Scaffolded,
+                true,
+                true,
+                null,
+                null,
+                true,
+                true,
+                "E2E.Sample",
+                false,
+                "none"
+            ),
             outcome
         );
         Assert.Equal([Tag], handler.Urls);
@@ -67,6 +79,29 @@ public sealed class E2eInitExampleTests : CliInitTestBase
         );
         Assert.DoesNotContain("Add package references", Output, StringComparison.Ordinal);
         Assert.Contains("Next: cd my-app, then dotnet test", Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // Partial: the sample's JSON config reads without its packages installed, so the pipeline comes from its targets, not from the one-web-job fallback.
+    public async Task Partial_Writes_a_CI_pipeline_for_the_example_before_its_dependencies_are_installed()
+    {
+        var handler = ExampleArchives.StubHandler.Serving(ExampleArchives.SampleTarball());
+        var target = Path.Combine(Dir, "my-app");
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Example = "E2E.Sample",
+                Directory = "my-app",
+                ExampleHandler = handler,
+                Ci = "github-actions",
+            },
+            target
+        );
+        Assert.Equal(0, outcome.ExitCode);
+        Assert.Equal("github-actions", outcome.Ci);
+        var workflow = await File.ReadAllTextAsync(Path.Combine(target, ".github/workflows/e2e.yml"));
+        Assert.Contains("run: dotnet test -c Release --no-build E2E.Sample.csproj", workflow, StringComparison.Ordinal);
     }
 
     [Fact]

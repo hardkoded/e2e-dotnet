@@ -16,12 +16,13 @@ internal static class InitFlags
     private static readonly string[] McpFiles = [.. McpConfig.McpLocations.Select(location => location.File)];
 
     public const string Usage = """
-        e2e init [directory] [--yes] [--example <name>] [--framework <id>] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>] [--install | --no-install]
+        e2e init [directory] [--yes] [--example <name>] [--framework <id>] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>] [--ci <id>] [--install | --no-install]
 
         Scaffolds a test project (a .csproj and ExampleTests.cs) with e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore. Existing files are never overwritten.
           --yes             accept the defaults for every question a flag does not answer, and ask nothing
           --example <name>  start from a sample downloaded from GitHub: E2E.Sample, E2E.XUnit.V3.Sample, TodoMvc
           --framework <id>  test framework of a new project: nunit (the default), xunit, or tunit; an existing project keeps its own
+          --ci <id>         CI pipeline that runs the tests, one job per platform: github-actions, gitlab, or none; none writes none, and --yes alone writes none
           --install         restore the packages with dotnet restore after scaffolding
           --no-install      do not restore the packages
           --engine <ids>    engine for a new config: web, mobile, or none
@@ -65,7 +66,19 @@ internal static class InitFlags
                     (name, value) = (name[..eq], name[(eq + 1)..]);
                 }
 
-                if (name is not ("engine" or "gateway" or "endpoint" or "skills" or "mcp" or "example" or "framework"))
+                if (
+                    name
+                    is not (
+                        "engine"
+                        or "gateway"
+                        or "endpoint"
+                        or "skills"
+                        or "mcp"
+                        or "example"
+                        or "framework"
+                        or "ci"
+                    )
+                )
                 {
                     return (null, "error: unknown option '--" + name + "'");
                 }
@@ -174,6 +187,23 @@ internal static class InitFlags
             }
         }
 
+        string? ci = null;
+        if (values.TryGetValue("ci", out var ciName))
+        {
+            ci = Ci.Services.Select(service => service.Id).Append("none").FirstOrDefault(id => id == ciName);
+            if (ci is null)
+            {
+                return (
+                    null,
+                    "error: option '--ci' argument '"
+                        + ciName
+                        + "' is invalid. Allowed choices are "
+                        + string.Join(", ", Ci.Services.Select(service => service.Id).Append("none"))
+                        + "."
+                );
+            }
+        }
+
         if (values.TryGetValue("endpoint", out var endpoint))
         {
             if (Gateways.ValidateEndpoint(endpoint) is { } problem)
@@ -254,6 +284,7 @@ internal static class InitFlags
                 Example = example,
                 Install = install,
                 Framework = framework,
+                Ci = ci,
             },
             null
         );

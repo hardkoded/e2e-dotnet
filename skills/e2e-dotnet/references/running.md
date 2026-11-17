@@ -261,6 +261,14 @@ jobs:
           E2E_USER_ADMIN_PASSWORD: ${{ secrets.E2E_USER_ADMIN_PASSWORD }}
 ```
 
+`e2e init --yes --ci github-actions` writes a workflow like this one with a job
+per platform the config's targets run on (web, iOS, Android) and the project's
+model key; `--ci gitlab` writes the same jobs as `.gitlab-ci.yml` (or
+`.gitlab/e2e.gitlab-ci.yml` to include beside an existing one), its mobile jobs
+on self-managed runners. The mobile jobs have a build step that fails until you
+replace it with your app's build. It leaves existing pipeline files alone. Set
+`app.command` in the config so the runner starts the app.
+
 - Install the browser in its own step, so the download stays out of the
   launch timeout.
 - The cache step keeps the Playwright browsers between runs (`~/.cache/ms-playwright` is the Linux path; macOS and Windows runners use another, see `PLAYWRIGHT_BROWSERS_PATH`), so the install

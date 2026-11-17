@@ -103,7 +103,7 @@ internal static partial class McpConfig
     /// The first symlink between the project root and <paramref name="target"/>, or null when every existing component is a
     /// plain entry. A component past the link is not inspected: it lives wherever the link points.
     /// </summary>
-    private static McpLink? LinkOnPath(string cwd, string target)
+    internal static McpLink? LinkOnPath(string cwd, string target)
     {
         var current = cwd;
         foreach (var segment in Path.GetRelativePath(cwd, target).Split(Path.DirectorySeparatorChar))

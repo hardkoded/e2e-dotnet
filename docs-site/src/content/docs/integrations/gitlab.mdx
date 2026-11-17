@@ -5,6 +5,8 @@ description: Run web tests with dotnet test on GitLab CI/CD, show the results in
 
 This ports upstream's GitLab CI/CD page (`docs/ci/gitlab.mdx`). The jobs run `dotnet test` where upstream runs `npx e2e run`. The port has no CI index page, so this page sits under Integrations, next to [Pull request comments](/integrations/github/) for GitHub Actions.
 
+`e2e init --ci gitlab` writes these jobs for your targets, with a build step to replace in each mobile job; see [CI pipeline](/coding-agents/#ci-pipeline).
+
 Web tests run on GitLab's hosted Linux runners. iOS and Android tests need your own runners (see [Mobile](#ios-and-android)).
 
 ## Web

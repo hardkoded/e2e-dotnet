@@ -63,7 +63,7 @@ but refreshes stale skill copies and updates the e2e entry of existing MCP
 files. Leaving a question or declining the final plan writes nothing and exits
 0; declining a symlink replacement skips only that replacement. You have no terminal, so pass `--yes`: it asks nothing and takes the default
 of each question a flag (`--engine`, `--gateway`, `--endpoint`, `--framework`,
-`--install`, `--skills`, `--mcp`) did not answer, and it never replaces a symlink. A run with no
+`--install`, `--skills`, `--mcp`, `--ci`) did not answer, and it never replaces a symlink. A run with no
 terminal and no `--yes` exits 2. `setup` has the details.
 
 ## Quick start
