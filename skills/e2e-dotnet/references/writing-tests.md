@@ -206,6 +206,12 @@ Members of `E2ETest` in both frameworks:
   A table is named by its `<caption>`, a fieldset by its `<legend>`, a figure
   by its `<figcaption>`, and an svg by its `<title>` child, which also names
   a link or button around it. A node with no name reports `Name` null.
+  A content role reads its descendants, a custom element's shadow tree
+  included. A descendant with a role of its own that is not text or structure
+  (a `status` badge, a tree item's child `group`, an `img`) adds only its
+  label or `title`: a tab holding `Inbox <span role="status">3</span>` is
+  `Inbox`. An `<input type="submit">` or `type="reset"` with no `value` and no
+  other accessible name reads `Submit` or `Reset`.
 - `RoleOptions` adds `Checked`, `Disabled`, `Selected`, `Expanded`,
   `Pressed`, and `Level`.
 - Narrow with `Filter(text)` (a case-insensitive substring, unlike a query),
