@@ -49,6 +49,7 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
         await Expect.That(screen.GetByTestId("card")).ToHaveAttributeAsync("data-state", "open");
         await Expect.That(screen.GetByTestId("card")).ToHaveAttributeAsync("class", new Regex("active"));
         await Expect.That(screen.GetByRole("list", "Todos")).ToHaveAccessibleNameAsync("Todos");
+        await Expect.That(screen.GetByRole("switch", "Dark mode")).ToHaveRoleAsync("switch");
         await Expect.That(screen.GetByTestId("todo")).ToHaveCountAsync(3);
         await Expect.That(screen.GetByTestId("todo")).ToHaveTextAsync(["Write spec", new Regex("^Ship"), "Release"]);
         await Expect.That(screen.GetByTestId("todo")).ToContainTextAsync(["spec", "runner", "Release"]);

@@ -368,6 +368,33 @@ public sealed class LocatorExpect
         return TextAsync(Field.Name, expected, ignoreCase, timeout, cancellationToken);
     }
 
+    /// <summary>
+    /// Waits for the one match to have the role, compared as a string. only the exact <c>img</c> reads as <c>image</c>, as <c>GetByRole</c> reads it;
+    /// any other string is compared as written, and an empty one is <c>INVALID_ARGUMENT</c>.
+    /// </summary>
+    public Task ToHaveRoleAsync(string role, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(role))
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "expect." + (_negated ? "not." : "") + "toHaveRole role must be a non-empty string"
+            );
+        }
+
+        var expected = LocatorExpression.CanonicalRole(role);
+        return PollSingleAsync(
+            "toHaveRole",
+            "role " + Quote(expected),
+            timeout,
+            node => new Verdict(
+                string.Equals(node.Role, expected, StringComparison.Ordinal),
+                node.Role is null ? "no role" : "role " + Quote(node.Role)
+            ),
+            cancellationToken
+        );
+    }
+
     /// <summary>Waits for the attribute to be present.</summary>
     public Task ToHaveAttributeAsync(
         string name,

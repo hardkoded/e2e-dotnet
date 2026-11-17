@@ -359,6 +359,28 @@ public Task ToHaveCountAsync(int count, TimeSpan? timeout = null, CancellationTo
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_SoftLocatorExpect_ToHaveRoleAsync_"></a>
+<a id="E2E_SoftLocatorExpect_ToHaveRoleAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### ToHaveRoleAsync(string, TimeSpan?, CancellationToken)
+
+
+```csharp
+public Task ToHaveRoleAsync(string role, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `role` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_SoftLocatorExpect_ToHaveScreenshotAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToHaveScreenshotAsync_E2E_ScreenshotOptions_System_String_"></a>
 
