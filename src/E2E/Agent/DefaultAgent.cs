@@ -150,7 +150,9 @@ public static class DefaultAgent
             : "Secrets to fill with type_secret, by name: "
                 + string.Join(
                     ", ",
-                    context.Step.Secrets.Select(secret => "\"" + secret.Name + "\" (" + secret.Purpose + ")")
+                    context.Step.Secrets.Select(secret =>
+                        "\"" + secret.Name + "\"" + (secret.Purpose is null ? "" : " (" + secret.Purpose + ")")
+                    )
                 )
                 + ".";
 
