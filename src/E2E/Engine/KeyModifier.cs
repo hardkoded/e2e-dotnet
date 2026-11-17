@@ -23,7 +23,8 @@ public static class KeyModifiers
     /// <summary>The names in declaration order: <c>Shift</c>, <c>Control</c>, <c>Alt</c>, <c>Meta</c>, <c>ControlOrMeta</c>.</summary>
     public static IReadOnlyList<string> Names { get; } = [.. Enum.GetNames<KeyModifier>()];
 
-    private static readonly Dictionary<string, KeyModifier> ByName = Enum.GetValues<KeyModifier>().ToDictionary(modifier => modifier.ToString(), StringComparer.Ordinal);
+    private static readonly Dictionary<string, KeyModifier> ByName = Enum.GetValues<KeyModifier>()
+        .ToDictionary(modifier => modifier.ToString(), StringComparer.Ordinal);
 
     /// <summary>Reads a name exactly as spelled: no other case, no number.</summary>
     public static bool TryParse(string? name, out KeyModifier modifier)

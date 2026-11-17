@@ -72,7 +72,8 @@ public sealed record ReportExploreFinding(
     DateTimeOffset ReportedAt,
     string? Path = null,
     string? ArtifactId = null,
-    string? ObservationRevision = null);
+    string? ObservationRevision = null
+);
 
 /// <summary>One exploration step: a charter the agent planned and then executed as an <c>ActAsync</c> step.</summary>
 /// <param name="Index">One-based position of the step.</param>
@@ -91,7 +92,8 @@ public sealed record ReportExploreStep(
     DateTimeOffset StartedAt,
     TimeSpan Duration,
     string? Summary = null,
-    string? ErrorCode = null);
+    string? ErrorCode = null
+);
 
 /// <summary>What an exploration was asked, did, and found: upstream's <c>run.explore</c> block of the report.</summary>
 /// <param name="Goal">The goal, with the secret values it spelled out redacted.</param>
@@ -108,7 +110,8 @@ public sealed record ReportExplore(
     IReadOnlyList<ReportExploreStep> Steps,
     IReadOnlyList<ReportExploreFinding> Findings,
     string? Summary = null,
-    ReportExploreChange? Change = null);
+    ReportExploreChange? Change = null
+);
 
 /// <summary>The change since <c>--changed-since</c> an exploration planned from, by counts.</summary>
 /// <param name="Base">The merge base the change is measured from.</param>

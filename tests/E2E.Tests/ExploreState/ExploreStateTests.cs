@@ -11,13 +11,17 @@ namespace E2E.Tests.ExploreState;
 public sealed class ExploreStateTests
 {
     internal static ReportExploreFinding Finding(State state, FindingInput? input = null) =>
-        state.AddFinding(input ?? new FindingInput(
-            ReportExploreFindingKind.Issue,
-            4,
-            "Total shows $0.00",
-            "The total reflects the cart",
-            "Total: $0.00",
-            ["Add two items", "Open the cart"]));
+        state.AddFinding(
+            input
+                ?? new FindingInput(
+                    ReportExploreFindingKind.Issue,
+                    4,
+                    "Total shows $0.00",
+                    "The total reflects the cart",
+                    "Total: $0.00",
+                    ["Add two items", "Open the cart"]
+                )
+        );
 
     [Fact]
     public void Records_steps_in_order_with_their_outcome_and_timing()
@@ -34,7 +38,10 @@ public sealed class ExploreStateTests
         Assert.Equal("Cart opened with both items", step.Summary);
         Assert.Equal(2, state.BeginStep("Checkout", "Pay for the cart").Index);
         state.EndStep(ReportExploreStepStatus.Failed, "agent.act failed: the pay button did nothing", "ACTION_FAILED");
-        Assert.Equal([ReportExploreStepStatus.Passed, ReportExploreStepStatus.Failed], state.Steps.Select(entry => entry.Status));
+        Assert.Equal(
+            [ReportExploreStepStatus.Passed, ReportExploreStepStatus.Failed],
+            state.Steps.Select(entry => entry.Status)
+        );
         Assert.Equal("ACTION_FAILED", state.Steps[1].ErrorCode);
     }
 
@@ -42,9 +49,15 @@ public sealed class ExploreStateTests
     public void Refuses_to_open_a_second_step_while_one_is_open_and_to_close_none()
     {
         var state = new State("goal", new ExploreBudgets(2, TimeSpan.FromMinutes(5)));
-        Assert.Matches("no exploration step is open", Assert.Throws<InvalidOperationException>(() => state.EndStep(ReportExploreStepStatus.Passed)).Message);
+        Assert.Matches(
+            "no exploration step is open",
+            Assert.Throws<InvalidOperationException>(() => state.EndStep(ReportExploreStepStatus.Passed)).Message
+        );
         state.BeginStep("One", "do one");
-        Assert.Matches("step 1 is still open", Assert.Throws<InvalidOperationException>(() => state.BeginStep("Two", "do two")).Message);
+        Assert.Matches(
+            "step 1 is still open",
+            Assert.Throws<InvalidOperationException>(() => state.BeginStep("Two", "do two")).Message
+        );
     }
 
     // .NET-only: upstream's state keeps a finding's text as the model wrote it.
@@ -52,32 +65,58 @@ public sealed class ExploreStateTests
     public void Redacts_secret_values_from_a_findings_text_before_it_reaches_the_record_and_the_progress_event()
     {
         const string value = "finding-Secret-9Kp2Lx";
-        var state = new State("goal", new ExploreBudgets(2, TimeSpan.FromMinutes(5)), redactor: Redactor.For([Secret.Create("probe", value)]));
+        var state = new State(
+            "goal",
+            new ExploreBudgets(2, TimeSpan.FromMinutes(5)),
+            redactor: Redactor.For([Secret.Create("probe", value)])
+        );
         var seen = new List<ExploreProgress>();
         state.Subscribe(seen.Add);
-        var finding = Finding(state, new FindingInput(
-            ReportExploreFindingKind.Issue,
-            4,
-            "Token " + value + " is shown",
-            "No token on screen " + value,
-            "Token: " + value,
-            ["Open the page with " + value]));
+        var finding = Finding(
+            state,
+            new FindingInput(
+                ReportExploreFindingKind.Issue,
+                4,
+                "Token " + value + " is shown",
+                "No token on screen " + value,
+                "Token: " + value,
+                ["Open the page with " + value]
+            )
+        );
 
         Assert.Equal("Token <secret:probe> is shown", finding.Title);
         Assert.Equal("Token: <secret:probe>", finding.Actual);
         var reported = Assert.IsType<ExploreProgress.FindingReported>(Assert.Single(seen)).Finding;
         Assert.Equal(finding, reported);
-        Assert.DoesNotContain(value, System.Text.Json.JsonSerializer.Serialize(state.Snapshot()), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            value,
+            System.Text.Json.JsonSerializer.Serialize(state.Snapshot()),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public void Attributes_findings_to_the_step_in_progress_and_keeps_them_ordered()
     {
         var state = new State("goal", new ExploreBudgets(2, TimeSpan.FromMinutes(5)));
-        var early = Finding(state, new FindingInput(ReportExploreFindingKind.Issue, 4, "Reported before any step", "a", "b", ["x"]));
+        var early = Finding(
+            state,
+            new FindingInput(ReportExploreFindingKind.Issue, 4, "Reported before any step", "a", "b", ["x"])
+        );
         Assert.Null(early.Step);
         state.BeginStep("Cart", "open the cart");
-        var inStep = Finding(state, new FindingInput(ReportExploreFindingKind.Issue, 4, "Total shows $0.00", "a", "b", ["x"], ArtifactId: "screenshots/001-finding-1.png"));
+        var inStep = Finding(
+            state,
+            new FindingInput(
+                ReportExploreFindingKind.Issue,
+                4,
+                "Total shows $0.00",
+                "a",
+                "b",
+                ["x"],
+                ArtifactId: "screenshots/001-finding-1.png"
+            )
+        );
         Assert.Equal(1, inStep.Index);
         Assert.Equal(1, inStep.Step);
         Assert.Equal(ReportExploreFindingKind.Issue, inStep.Kind);
@@ -139,7 +178,18 @@ public sealed class ExploreStateTests
         var state = new State("goal", new ExploreBudgets(2, TimeSpan.FromMinutes(5)));
         state.BeginStep(new string('x', 400), new string('y', 5_000));
         state.EndStep(ReportExploreStepStatus.Passed, new string('z', 9_000));
-        Finding(state, new FindingInput(ReportExploreFindingKind.Issue, 4, new string('t', 300), new string('e', 2_500), new string('a', 2_500), [.. Enumerable.Repeat(new string('r', 900), 30)], new string('p', 2_500)));
+        Finding(
+            state,
+            new FindingInput(
+                ReportExploreFindingKind.Issue,
+                4,
+                new string('t', 300),
+                new string('e', 2_500),
+                new string('a', 2_500),
+                [.. Enumerable.Repeat(new string('r', 900), 30)],
+                new string('p', 2_500)
+            )
+        );
         state.End(ReportExploreEnded.Finished, new string('s', 9_000));
         var snapshot = state.Snapshot();
         Assert.Equal(200, snapshot.Steps[0].Title.Length);

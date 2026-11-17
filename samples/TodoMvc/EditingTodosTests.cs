@@ -23,7 +23,8 @@ public sealed class EditingTodosTests : TodoMvcTest
         await AddTodosAsync("Call dentist");
 
         await Agent.ActAsync(
-            "rename the todo Call dentist to Schedule dentist appointment. Save it by clicking the todos heading, not by pressing Enter");
+            "rename the todo Call dentist to Schedule dentist appointment. Save it by clicking the todos heading, not by pressing Enter"
+        );
         await Expect.That(Todo("Schedule dentist appointment")).ToBeVisibleAsync();
         await Expect.That(Todo("Call dentist")).ToBeHiddenAsync();
     }
@@ -33,7 +34,9 @@ public sealed class EditingTodosTests : TodoMvcTest
     {
         await AddTodosAsync("Original text");
 
-        await Agent.ActAsync("start renaming the todo Original text to Modified text, then press Escape instead of saving");
+        await Agent.ActAsync(
+            "start renaming the todo Original text to Modified text, then press Escape instead of saving"
+        );
         await Expect.That(Todo("Original text")).ToBeVisibleAsync();
         await Expect.That(Screen.GetByText("Modified text")).ToBeHiddenAsync();
     }
@@ -52,10 +55,10 @@ public sealed class EditingTodosTests : TodoMvcTest
     {
         await AddTodosAsync("Original task");
 
-        await Agent.ActAsync("rename the todo Original task to this exact text, spaces included, and save: {text}", new ActOptions
-        {
-            Params = new Dictionary<string, object?> { ["text"] = "   Edited task   " },
-        });
+        await Agent.ActAsync(
+            "rename the todo Original task to this exact text, spaces included, and save: {text}",
+            new ActOptions { Params = new Dictionary<string, object?> { ["text"] = "   Edited task   " } }
+        );
         await Expect.Poll(() => Todos.GetByTestId("todo-title").TextContentAsync()).ToBeAsync("Edited task");
     }
 }

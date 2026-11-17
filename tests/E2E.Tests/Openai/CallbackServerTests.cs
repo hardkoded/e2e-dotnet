@@ -24,7 +24,9 @@ public sealed class CallbackServerTests
             await browser.ConnectAsync("localhost", port);
             browser.LingerState = new LingerOption(true, 0);
             var stream = browser.GetStream();
-            await stream.WriteAsync(Encoding.ASCII.GetBytes("GET /auth/callback?code=abc&state=st HTTP/1.1\r\nHost: localhost\r\n"));
+            await stream.WriteAsync(
+                Encoding.ASCII.GetBytes("GET /auth/callback?code=abc&state=st HTTP/1.1\r\nHost: localhost\r\n")
+            );
 
             // The listener's socket is IPv6, and on macOS the runtime throws from its accept callback, with no frame
             // of ours, when a connection is reset before it is accepted (dotnet/runtime#121848). The queue is first in,
@@ -67,7 +69,8 @@ public sealed class CallbackServerTests
         var (server, port) = StartOnFreePort();
         using var stop = server;
 
-        var oversized = "GET /auth/callback?code=oversized&state=st HTTP/1.1\r\nX-Pad: " + new string('a', 20 * 1024) + "\r\n\r\n";
+        var oversized =
+            "GET /auth/callback?code=oversized&state=st HTTP/1.1\r\nX-Pad: " + new string('a', 20 * 1024) + "\r\n\r\n";
         Assert.Equal("", await SendRawAsync(port, oversized));
 
         await AssertLaterCodeAsync(server, port);
@@ -79,7 +82,10 @@ public sealed class CallbackServerTests
         var (server, port) = StartOnFreePort();
         using var stop = server;
 
-        Assert.Equal("", await SendRawAsync(port, "POST /auth/callback?code=posted&state=st HTTP/1.1\r\nHost: localhost\r\n\r\n"));
+        Assert.Equal(
+            "",
+            await SendRawAsync(port, "POST /auth/callback?code=posted&state=st HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        );
 
         await AssertLaterCodeAsync(server, port);
     }
@@ -102,7 +108,10 @@ public sealed class CallbackServerTests
         var (server, port) = StartOnFreePort();
         using var stop = server;
 
-        Assert.StartsWith("HTTP/1.1 400", await SendRawAsync(port, "GET /auth/callback?code=forged&state=other HTTP/1.1\r\nHost: localhost\r\n\r\n"));
+        Assert.StartsWith(
+            "HTTP/1.1 400",
+            await SendRawAsync(port, "GET /auth/callback?code=forged&state=other HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        );
 
         await AssertLaterCodeAsync(server, port);
     }

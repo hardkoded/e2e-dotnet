@@ -16,7 +16,12 @@ namespace E2E;
 internal static class AiTraceModel
 {
     /// <summary>Asks <paramref name="model"/> for one turn, and records it when <paramref name="recorder"/> is set.</summary>
-    public static async Task<ModelResponse> CompleteAsync(AiTraceRecorder? recorder, IAgentModel model, ModelRequest request, CancellationToken cancellationToken)
+    public static async Task<ModelResponse> CompleteAsync(
+        AiTraceRecorder? recorder,
+        IAgentModel model,
+        ModelRequest request,
+        CancellationToken cancellationToken
+    )
     {
         var turn = await BeginAsync(recorder, model, request, cancellationToken).ConfigureAwait(false);
         turn.End();
@@ -28,17 +33,30 @@ internal static class AiTraceModel
     /// runs each tool through <see cref="AiTraceTurn.ExecuteToolAsync"/>, so a generation a tool starts is a child of this step, and then
     /// calls <see cref="AiTraceTurn.End"/>.
     /// </summary>
-    public static async Task<AiTraceTurn> BeginAsync(AiTraceRecorder? recorder, IAgentModel model, ModelRequest request, CancellationToken cancellationToken)
+    public static async Task<AiTraceTurn> BeginAsync(
+        AiTraceRecorder? recorder,
+        IAgentModel model,
+        ModelRequest request,
+        CancellationToken cancellationToken
+    )
     {
         if (recorder is null)
         {
-            return new AiTraceTurn(await model.CompleteAsync(request, cancellationToken).ConfigureAwait(false), null, null, null);
+            return new AiTraceTurn(
+                await model.CompleteAsync(request, cancellationToken).ConfigureAwait(false),
+                null,
+                null,
+                null
+            );
         }
 
         var redactor = request.Redactor;
         var callId = Guid.NewGuid().ToString("n");
         var typeName = model.GetType().Name;
-        var provider = typeName.Length > "Model".Length && typeName.EndsWith("Model", StringComparison.Ordinal) ? typeName[..^"Model".Length] : null;
+        var provider =
+            typeName.Length > "Model".Length && typeName.EndsWith("Model", StringComparison.Ordinal)
+                ? typeName[..^"Model".Length]
+                : null;
         var instructions = redactor.Redact(request.System);
         var messages = request.Messages.Select(message => Message(message, redactor)).ToList();
         // The AI SDK reports the choice as it was asked for: { type: 'required' }, or { type: 'tool', toolName }.
@@ -49,8 +67,18 @@ internal static class AiTraceModel
             _ => Obj("auto"),
         };
         recorder.OnStart(new AiTraceStartEvent(callId, "ai.generateText"));
-        recorder.OnStepStart(new AiTraceStepStartEvent(callId, 0, provider, model.Name, instructions, messages, toolChoice));
-        recorder.OnLanguageModelCallStart(new AiTraceModelCallStartEvent(callId, instructions, messages, request.Tools.Select(Tool).ToList(), toolChoice));
+        recorder.OnStepStart(
+            new AiTraceStepStartEvent(callId, 0, provider, model.Name, instructions, messages, toolChoice)
+        );
+        recorder.OnLanguageModelCallStart(
+            new AiTraceModelCallStartEvent(
+                callId,
+                instructions,
+                messages,
+                request.Tools.Select(Tool).ToList(),
+                toolChoice
+            )
+        );
         var started = Stopwatch.GetTimestamp();
         ModelResponse response;
         try
@@ -59,11 +87,18 @@ internal static class AiTraceModel
         }
         catch (Exception ex)
         {
-            recorder.OnError(new AiTraceErrorEvent(callId, ex is OperationCanceledException ? "the call was cancelled" : redactor.Redact(ex.Message)));
+            recorder.OnError(
+                new AiTraceErrorEvent(
+                    callId,
+                    ex is OperationCanceledException ? "the call was cancelled" : redactor.Redact(ex.Message)
+                )
+            );
             throw;
         }
 
-        recorder.OnLanguageModelCallEnd(new AiTraceModelCallEndEvent(callId, Stopwatch.GetElapsedTime(started).TotalMilliseconds));
+        recorder.OnLanguageModelCallEnd(
+            new AiTraceModelCallEndEvent(callId, Stopwatch.GetElapsedTime(started).TotalMilliseconds)
+        );
         var content = new List<object?>();
         if (!string.IsNullOrEmpty(response.Content))
         {
@@ -79,9 +114,16 @@ internal static class AiTraceModel
             0,
             content,
             response.ToolCalls.Count > 0 ? "tool-calls" : "stop",
-            response.Usage is null ? null : Obj(null, ("inputTokens", response.Usage.InputTokens), ("outputTokens", response.Usage.OutputTokens)),
-            new AiTraceResponse(ModelId: model.Name, Timestamp: DateTimeOffset.UtcNow, Messages: [Obj(null, ("role", "assistant"), ("content", messageContent))]),
-            response.ProviderMetadata is { } providerMetadata ? ProviderMetadata(providerMetadata, redactor) : null);
+            response.Usage is null
+                ? null
+                : Obj(null, ("inputTokens", response.Usage.InputTokens), ("outputTokens", response.Usage.OutputTokens)),
+            new AiTraceResponse(
+                ModelId: model.Name,
+                Timestamp: DateTimeOffset.UtcNow,
+                Messages: [Obj(null, ("role", "assistant"), ("content", messageContent))]
+            ),
+            response.ProviderMetadata is { } providerMetadata ? ProviderMetadata(providerMetadata, redactor) : null
+        );
         return new AiTraceTurn(response, recorder, callId, stepEnd);
     }
 
@@ -103,7 +145,8 @@ internal static class AiTraceModel
                     "tool-result",
                     ("toolCallId", message.ToolCallId),
                     ("toolName", message.Name),
-                    ("output", Obj("text", ("value", message.Content is null ? "" : redactor.Redact(message.Content)))));
+                    ("output", Obj("text", ("value", message.Content is null ? "" : redactor.Redact(message.Content))))
+                );
                 return Obj(null, ("role", "tool"), ("content", new List<object?> { result }));
             default:
                 var text = message.Content is null ? null : redactor.Redact(message.Content);
@@ -118,7 +161,9 @@ internal static class AiTraceModel
                     content.Add(Obj("text", ("text", text)));
                 }
 
-                content.AddRange(images.Select(image => Obj("image", ("image", image.Data), ("mediaType", image.MediaType))));
+                content.AddRange(
+                    images.Select(image => Obj("image", ("image", image.Data), ("mediaType", image.MediaType)))
+                );
                 return Obj(null, ("role", message.Role), ("content", content));
         }
     }
@@ -126,7 +171,12 @@ internal static class AiTraceModel
     // The call as the SDK holds it, with the provider's data on it (such as a Gemini thought signature) redacted like any provider text.
     private static Dictionary<string, object?> ToolCall(ModelToolCall call, Redactor redactor, string providerKey)
     {
-        var part = Obj("tool-call", ("toolCallId", call.Id), ("toolName", call.Name), ("input", Tree(call.Arguments, redactor)));
+        var part = Obj(
+            "tool-call",
+            ("toolCallId", call.Id),
+            ("toolName", call.Name),
+            ("input", Tree(call.Arguments, redactor))
+        );
         if (call.ProviderMetadata is { } metadata)
         {
             part[providerKey] = ProviderMetadata(metadata, redactor);
@@ -136,20 +186,39 @@ internal static class AiTraceModel
     }
 
     // What a provider attached, keyed by provider, with every key and string redacted like any provider text.
-    private static Dictionary<string, object?> ProviderMetadata(IReadOnlyDictionary<string, JsonElement> metadata, Redactor redactor) =>
-        metadata.ToDictionary(entry => redactor.Redact(entry.Key), entry => Tree(entry.Value, redactor), StringComparer.Ordinal);
+    private static Dictionary<string, object?> ProviderMetadata(
+        IReadOnlyDictionary<string, JsonElement> metadata,
+        Redactor redactor
+    ) =>
+        metadata.ToDictionary(
+            entry => redactor.Redact(entry.Key),
+            entry => Tree(entry.Value, redactor),
+            StringComparer.Ordinal
+        );
 
     private static Dictionary<string, object?> Tool(ModelTool tool) =>
-        Obj(null, ("name", tool.Name), ("description", tool.Description), ("inputSchema", tool.Parameters.ValueKind == JsonValueKind.Undefined ? null : tool.Parameters.Clone()));
+        Obj(
+            null,
+            ("name", tool.Name),
+            ("description", tool.Description),
+            ("inputSchema", tool.Parameters.ValueKind == JsonValueKind.Undefined ? null : tool.Parameters.Clone())
+        );
 
     // The JSON a model produced or was sent, with every string redacted: a secret the model echoed stops here.
-    private static object? Tree(JsonElement element, Redactor redactor) => element.ValueKind switch
-    {
-        JsonValueKind.Object => element.EnumerateObject().ToDictionary(property => property.Name, property => Tree(property.Value, redactor), StringComparer.Ordinal),
-        JsonValueKind.Array => element.EnumerateArray().Select(item => Tree(item, redactor)).ToList(),
-        JsonValueKind.String => redactor.Redact(element.GetString()!),
-        _ => element.Clone(),
-    };
+    private static object? Tree(JsonElement element, Redactor redactor) =>
+        element.ValueKind switch
+        {
+            JsonValueKind.Object => element
+                .EnumerateObject()
+                .ToDictionary(
+                    property => property.Name,
+                    property => Tree(property.Value, redactor),
+                    StringComparer.Ordinal
+                ),
+            JsonValueKind.Array => element.EnumerateArray().Select(item => Tree(item, redactor)).ToList(),
+            JsonValueKind.String => redactor.Redact(element.GetString()!),
+            _ => element.Clone(),
+        };
 
     private static Dictionary<string, object?> Obj(string? type, params (string Key, object? Value)[] fields)
     {
@@ -172,7 +241,12 @@ internal static class AiTraceModel
 /// No upstream equivalent (see <see cref="AiTraceModel"/>): one model turn whose generation is still open. The AI SDK ends the step and
 /// the generation after the turn's tools ran, and runs each tool under <c>executeTool</c> with the generation's call id.
 /// </summary>
-internal sealed class AiTraceTurn(ModelResponse response, AiTraceRecorder? recorder, string? callId, AiTraceStepEndEvent? stepEnd) : IDisposable
+internal sealed class AiTraceTurn(
+    ModelResponse response,
+    AiTraceRecorder? recorder,
+    string? callId,
+    AiTraceStepEndEvent? stepEnd
+) : IDisposable
 {
     private int _ended;
 

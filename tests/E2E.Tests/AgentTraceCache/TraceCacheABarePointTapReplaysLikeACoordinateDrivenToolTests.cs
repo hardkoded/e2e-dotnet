@@ -17,34 +17,36 @@ namespace E2E.Tests.AgentTraceCache;
 public sealed class TraceCacheABarePointTapReplaysLikeACoordinateDrivenToolTests
 {
     // Taps the red pin, drawn at CSS (300, 60) on a canvas the tree does not list. No model.
-    private static TestExecutor PinExecutor(Action onRun) =>
-        new("pin-executor", async (context, token) =>
+    private static TestExecutor PinExecutor(Action onRun) => new("pin-executor", async (context, token) =>
         {
             onRun();
             await context.ObserveAsync(cancellationToken: token);
             var tapped = await context.Actions.TapAtAsync(new Point(300, 60), token);
             return Passed(tapped.Summary);
-        })
-        {
-            Version = "test",
-        };
+        }) { Version = "test" };
 
-    private static async Task<(ActResult Result, IReadOnlyList<StepRecord> Steps)> RunAsync(string directory, string appUrl, Action onRun)
+    private static async Task<(ActResult Result, IReadOnlyList<StepRecord> Steps)> RunAsync(
+        string directory,
+        string appUrl,
+        Action onRun
+    )
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            AgentExecutor = PinExecutor(onRun),
-            BaseUrl = appUrl,
-            AppIdentity = "fixture-app",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "picks the red pin",
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(30),
-            TestTimeout = TimeSpan.FromSeconds(60),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                AgentExecutor = PinExecutor(onRun),
+                BaseUrl = appUrl,
+                AppIdentity = "fixture-app",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "picks the red pin",
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(30),
+                TestTimeout = TimeSpan.FromSeconds(60),
+            }
+        );
         await session.App.OpenAsync("/canvas");
         var result = await session.Agent.ActAsync("pick the red pin on the map");
         await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("red");

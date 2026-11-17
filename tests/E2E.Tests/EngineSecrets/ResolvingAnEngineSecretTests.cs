@@ -22,30 +22,42 @@ public sealed class ResolvingAnEngineSecretTests
         var declared = Secret.Create("declared", "declared-value");
         var undeclared = Secret.Create("undeclared", "undeclared-value");
         var resolved = new List<string>();
-        var engine = new AskingEngine(new DocumentEngine(BillingWorld.Create()), [declared], async (options, attemptIndex) =>
-            resolved.Add(await options.ResolveSecret!(attemptIndex == 0 ? declared : undeclared, null)));
+        var engine = new AskingEngine(
+            new DocumentEngine(BillingWorld.Create()),
+            [declared],
+            async (options, attemptIndex) =>
+                resolved.Add(await options.ResolveSecret!(attemptIndex == 0 ? declared : undeclared, null))
+        );
 
-        await using (await StartAsync(engine, "first"))
-        {
-        }
+        await using (await StartAsync(engine, "first")) { }
 
         var refused = await Assert.ThrowsAsync<ConfigurationException>(() => StartAsync(engine, "second"));
 
         Assert.Equal(["declared-value"], resolved);
         Assert.Equal("SECRET_UNAVAILABLE", refused.Code);
-        Assert.Contains("asked for secret \"undeclared\", which it did not declare in its secrets", refused.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "asked for secret \"undeclared\", which it did not declare in its secrets",
+            refused.Message,
+            StringComparison.Ordinal
+        );
     }
 
     private static Task<E2ESession> StartAsync(IEngine engine, string title) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            BaseUrl = "https://billing.test",
-            TestTitle = title,
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                BaseUrl = "https://billing.test",
+                TestTitle = title,
+            }
+        );
 
     /// <summary>A document engine that declares secrets and asks for one when an attempt starts (upstream's fake engine with <c>secrets</c> and <c>onStartAttempt</c>).</summary>
-    private sealed class AskingEngine(IEngine inner, IReadOnlyList<Secret> secrets, Func<EngineStartOptions, int, Task> onStartAttempt) : IEngine
+    private sealed class AskingEngine(
+        IEngine inner,
+        IReadOnlyList<Secret> secrets,
+        Func<EngineStartOptions, int, Task> onStartAttempt
+    ) : IEngine
     {
         private int _started = -1;
 

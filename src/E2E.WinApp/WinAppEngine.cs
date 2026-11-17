@@ -11,7 +11,12 @@ namespace E2E.WinApp;
 /// <remarks><see cref="WindowActions"/> is the implementation the engine uses unless a caller sets another through <see cref="WinAppEngine.Actions"/>.</remarks>
 public interface IWindowActions
 {
-    Task PerformAsync(WindowSession session, SemanticNode node, LocatorAction action, CancellationToken cancellationToken);
+    Task PerformAsync(
+        WindowSession session,
+        SemanticNode node,
+        LocatorAction action,
+        CancellationToken cancellationToken
+    );
 
     Task PressAsync(WindowSession session, string key, CancellationToken cancellationToken);
 
@@ -39,9 +44,7 @@ public sealed class WinAppEngine : IEngine
 
     /// <summary>Creates the engine over Windows UI Automation. Starting a session on another operating system fails with <c>ENVIRONMENT_UNAVAILABLE</c>.</summary>
     public WinAppEngine(WinAppOptions options)
-        : this(options, CreateDriver)
-    {
-    }
+        : this(options, CreateDriver) { }
 
     /// <summary>Creates the engine over a driver of the caller's making: the seam unit tests script.</summary>
     internal WinAppEngine(WinAppOptions options, Func<IWindowDriver> createDriver)
@@ -62,7 +65,8 @@ public sealed class WinAppEngine : IEngine
     internal TimeProvider Clock { get; init; } = TimeProvider.System;
 
     /// <summary>The settle wait after an input. Tests replace it to spend no time.</summary>
-    internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = static (span, token) => Task.Delay(span, token);
+    internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } =
+        static (span, token) => Task.Delay(span, token);
 
     /// <summary>The sessions this engine started that have not closed: the attempts running on it right now.</summary>
     public IReadOnlyList<WindowSession> ActiveSessions
@@ -100,7 +104,16 @@ public sealed class WinAppEngine : IEngine
     {
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(info);
-        ValidateApp(new WinAppApp { BundleId = app.BundleId, AppPath = app.AppPath, LaunchArguments = app.LaunchArguments }, app.Url, info.TargetName);
+        ValidateApp(
+            new WinAppApp
+            {
+                BundleId = app.BundleId,
+                AppPath = app.AppPath,
+                LaunchArguments = app.LaunchArguments,
+            },
+            app.Url,
+            info.TargetName
+        );
     }
 
     /// <summary>The desktop-app checks of <see cref="IEngine.ValidateApp"/>, over the target's app and URL.</summary>
@@ -112,14 +125,16 @@ public sealed class WinAppEngine : IEngine
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"{where} declares app.url, but a windows target drives a desktop app, not a website; name the app with app.appPath (an executable) or app.bundleId (a running app's process name)");
+                $"{where} declares app.url, but a windows target drives a desktop app, not a website; name the app with app.appPath (an executable) or app.bundleId (a running app's process name)"
+            );
         }
 
         if (app.BundleId is null && app.AppPath is null)
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"{where} needs app.appPath or app.bundleId: a windows target launches an executable, targets: [{{ \"platform\": \"windows\", \"app\": {{ \"appPath\": \"bin/MyApp.exe\" }} }}]");
+                $"{where} needs app.appPath or app.bundleId: a windows target launches an executable, targets: [{{ \"platform\": \"windows\", \"app\": {{ \"appPath\": \"bin/MyApp.exe\" }} }}]"
+            );
         }
     }
 
@@ -155,14 +170,19 @@ public sealed class WinAppEngine : IEngine
             return new UiAutomationDriver();
         }
 
-        throw WinAppSupport.Unavailable($"the Windows app engine drives desktop apps through Windows UI Automation and runs on Windows only; this host is {RuntimeInformation.OSDescription}");
+        throw WinAppSupport.Unavailable(
+            $"the Windows app engine drives desktop apps through Windows UI Automation and runs on Windows only; this host is {RuntimeInformation.OSDescription}"
+        );
     }
 
     private static void Validate(WinAppOptions options)
     {
         if (options.SettleMilliseconds < 0)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "winapp: `settle` must be a non-negative integer of milliseconds, or false");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "winapp: `settle` must be a non-negative integer of milliseconds, or false"
+            );
         }
 
         if (options.LaunchTimeout <= TimeSpan.Zero)

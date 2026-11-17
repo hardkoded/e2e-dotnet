@@ -33,7 +33,12 @@ internal sealed class JsonRpcConnection : IDisposable
     private long _nextId;
     private Exception? _failure;
 
-    public JsonRpcConnection(Stream output, TextReader input, Func<string, JsonElement, JsonNode?> onRequest, Action<string, JsonElement> onNotification)
+    public JsonRpcConnection(
+        Stream output,
+        TextReader input,
+        Func<string, JsonElement, JsonNode?> onRequest,
+        Action<string, JsonElement> onNotification
+    )
     {
         _output = output;
         _input = input;
@@ -59,7 +64,11 @@ internal sealed class JsonRpcConnection : IDisposable
     }
 
     /// <summary>Sends a request and waits for its answer. <paramref name="cancellationToken"/> stops the wait only; the agent may still answer.</summary>
-    public async Task<JsonElement> RequestAsync(string method, JsonNode? parameters, CancellationToken cancellationToken)
+    public async Task<JsonElement> RequestAsync(
+        string method,
+        JsonNode? parameters,
+        CancellationToken cancellationToken
+    )
     {
         var id = Interlocked.Increment(ref _nextId);
         var waiting = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -71,7 +80,17 @@ internal sealed class JsonRpcConnection : IDisposable
                 throw failure;
             }
 
-            await SendAsync(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = id, ["method"] = method, ["params"] = parameters }, cancellationToken).ConfigureAwait(false);
+            await SendAsync(
+                    new JsonObject
+                    {
+                        ["jsonrpc"] = "2.0",
+                        ["id"] = id,
+                        ["method"] = method,
+                        ["params"] = parameters,
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             return await waiting.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -82,7 +101,15 @@ internal sealed class JsonRpcConnection : IDisposable
 
     /// <summary>Sends a notification: no answer comes.</summary>
     public Task NotifyAsync(string method, JsonNode? parameters, CancellationToken cancellationToken) =>
-        SendAsync(new JsonObject { ["jsonrpc"] = "2.0", ["method"] = method, ["params"] = parameters }, cancellationToken);
+        SendAsync(
+            new JsonObject
+            {
+                ["jsonrpc"] = "2.0",
+                ["method"] = method,
+                ["params"] = parameters,
+            },
+            cancellationToken
+        );
 
     public void Dispose()
     {
@@ -164,7 +191,12 @@ internal sealed class JsonRpcConnection : IDisposable
             return;
         }
 
-        if (hasId && id.ValueKind == JsonValueKind.Number && id.TryGetInt64(out var number) && _pending.TryRemove(number, out var waiting))
+        if (
+            hasId
+            && id.ValueKind == JsonValueKind.Number
+            && id.TryGetInt64(out var number)
+            && _pending.TryRemove(number, out var waiting)
+        )
         {
             if (message.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.Object)
             {
@@ -215,7 +247,10 @@ internal sealed class AcpRequestException(int code, string message, JsonElement 
     public static AcpRequestException From(JsonElement error)
     {
         var code = error.TryGetProperty("code", out var number) && number.TryGetInt32(out var value) ? value : 0;
-        var message = error.TryGetProperty("message", out var text) && text.ValueKind == JsonValueKind.String ? text.GetString()! : "request failed";
+        var message =
+            error.TryGetProperty("message", out var text) && text.ValueKind == JsonValueKind.String
+                ? text.GetString()!
+                : "request failed";
         return new AcpRequestException(code, message, error.TryGetProperty("data", out var data) ? data : default);
     }
 }

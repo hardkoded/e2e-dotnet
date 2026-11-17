@@ -44,9 +44,17 @@ public sealed class SessionState
     private static readonly TimeSpan PatternTimeout = TimeSpan.FromSeconds(1);
 
     // A 12-byte IV and a 16-byte tag in base64, as schema/session-state-v1.schema.json pins them.
-    private static readonly Regex IvPattern = new(@"^[A-Za-z0-9+/]{16}\z", RegexOptions.CultureInvariant, PatternTimeout);
+    private static readonly Regex IvPattern = new(
+        @"^[A-Za-z0-9+/]{16}\z",
+        RegexOptions.CultureInvariant,
+        PatternTimeout
+    );
 
-    private static readonly Regex TagPattern = new(@"^[A-Za-z0-9+/]{22}==\z", RegexOptions.CultureInvariant, PatternTimeout);
+    private static readonly Regex TagPattern = new(
+        @"^[A-Za-z0-9+/]{22}==\z",
+        RegexOptions.CultureInvariant,
+        PatternTimeout
+    );
 
     private readonly StateIdentity _identity;
 
@@ -105,8 +113,11 @@ public sealed class SessionState
     }
 
     /// <summary>A state a session just captured. Upstream's <c>SessionState.captured</c>.</summary>
-    internal static SessionState Captured(StateIdentity identity, EngineState state, IReadOnlyList<(string Name, string Value)> secrets) =>
-        new(identity, new SavedSession(state, secrets));
+    internal static SessionState Captured(
+        StateIdentity identity,
+        EngineState state,
+        IReadOnlyList<(string Name, string Value)> secrets
+    ) => new(identity, new SavedSession(state, secrets));
 
     /// <summary>
     /// What a host restores from <paramref name="state"/>, checked against the host's own identity: another engine, platform, or app is
@@ -116,15 +127,22 @@ public sealed class SessionState
     {
         if (state is not SessionState held)
         {
-            throw new TestException("INVALID_ARGUMENT", "NewSessionAsync state must be a SessionState from SaveStateAsync() or SessionState.ImportAsync()");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "NewSessionAsync state must be a SessionState from SaveStateAsync() or SessionState.ImportAsync()"
+            );
         }
 
         var identity = held._identity;
-        if (!string.Equals(identity.Engine, host.Engine, StringComparison.Ordinal) || !string.Equals(identity.Platform, host.Platform, StringComparison.Ordinal))
+        if (
+            !string.Equals(identity.Engine, host.Engine, StringComparison.Ordinal)
+            || !string.Equals(identity.Platform, host.Platform, StringComparison.Ordinal)
+        )
         {
             throw new ConfigurationException(
                 "SESSION_MISMATCH",
-                $"the session state was saved on engine {identity.Engine} ({identity.Platform}), and this host runs {host.Engine} ({host.Platform}); a state restores only on the engine and platform that saved it");
+                $"the session state was saved on engine {identity.Engine} ({identity.Platform}), and this host runs {host.Engine} ({host.Platform}); a state restores only on the engine and platform that saved it"
+            );
         }
 
         if (!string.Equals(identity.AppIdentity, host.AppIdentity, StringComparison.Ordinal))
@@ -132,7 +150,8 @@ public sealed class SessionState
             throw new ConfigurationException(
                 "SESSION_MISMATCH",
                 $"the session state was saved for {identity.App ?? "another app"}, and this host drives {host.App ?? "an app with no URL or bundle id"}; a state restores only on the app it was saved for. "
-                + "When both are one app at two addresses, give both hosts the same app identity");
+                    + "When both are one app at two addresses, give both hosts the same app identity"
+            );
         }
 
         if (IsExpired(held._saved.State.ExpiresAt))
@@ -173,13 +192,30 @@ public sealed class SessionState
         }
         catch (CryptographicException cause)
         {
-            throw new ConfigurationException("SESSION_INVALID", "the session state failed authentication: a different key, or the document was changed", cause);
+            throw new ConfigurationException(
+                "SESSION_INVALID",
+                "the session state failed authentication: a different key, or the document was changed",
+                cause
+            );
         }
 
         var (data2, secrets) = ParsePayload(Encoding.UTF8.GetString(plaintext));
         return new SessionState(
-            new StateIdentity(document["engine"]!.GetValue<string>(), document["platform"]!.GetValue<string>(), document["appIdentity"]!.GetValue<string>()),
-            new SavedSession(new EngineState(state["format"]!.GetValue<string>(), state["version"]!.GetValue<int>(), data2, expiresAt), secrets));
+            new StateIdentity(
+                document["engine"]!.GetValue<string>(),
+                document["platform"]!.GetValue<string>(),
+                document["appIdentity"]!.GetValue<string>()
+            ),
+            new SavedSession(
+                new EngineState(
+                    state["format"]!.GetValue<string>(),
+                    state["version"]!.GetValue<int>(),
+                    data2,
+                    expiresAt
+                ),
+                secrets
+            )
+        );
     }
 
     private byte[] Export(SessionStateKeyOptions options)
@@ -196,12 +232,19 @@ public sealed class SessionState
         };
         if (_saved.State.ExpiresAt is { } expiresAt)
         {
-            unsealed["expiresAt"] = Ids.Timestamp(DateTimeOffset.Parse(expiresAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind));
+            unsealed["expiresAt"] = Ids.Timestamp(
+                DateTimeOffset.Parse(expiresAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind)
+            );
         }
 
         unsealed["secrecy"] = new JsonObject
         {
-            ["names"] = new JsonArray([.. _saved.Secrets.Select(secret => secret.Name).Distinct(StringComparer.Ordinal).Select(name => (JsonNode)name)]),
+            ["names"] = new JsonArray([
+                .. _saved
+                    .Secrets.Select(secret => secret.Name)
+                    .Distinct(StringComparer.Ordinal)
+                    .Select(name => (JsonNode)name),
+            ]),
         };
         unsealed["state"] = new JsonObject
         {
@@ -214,7 +257,9 @@ public sealed class SessionState
         var payload = new JsonObject
         {
             ["data"] = _saved.State.Data?.DeepClone(),
-            ["secrets"] = new JsonArray([.. _saved.Secrets.Select(secret => (JsonNode)new JsonArray(secret.Name, secret.Value))]),
+            ["secrets"] = new JsonArray([
+                .. _saved.Secrets.Select(secret => (JsonNode)new JsonArray(secret.Name, secret.Value)),
+            ]),
         };
         var plaintext = Encoding.UTF8.GetBytes(payload.ToJsonString());
         var ciphertext = new byte[plaintext.Length];
@@ -231,13 +276,18 @@ public sealed class SessionState
     }
 
     private static bool IsExpired(string? expiresAt) =>
-        expiresAt is not null && DateTimeOffset.TryParse(expiresAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at) && at <= DateTimeOffset.UtcNow;
+        expiresAt is not null
+        && DateTimeOffset.TryParse(expiresAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at)
+        && at <= DateTimeOffset.UtcNow;
 
     private static byte[] RequireKey(SessionStateKeyOptions? options, string api)
     {
         if (options?.Key is not { Length: KeyBytes } key)
         {
-            throw new TestException("INVALID_ARGUMENT", $"{api} key must be a byte array of {KeyBytes} bytes, such as RandomNumberGenerator.GetBytes({KeyBytes})");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"{api} key must be a byte array of {KeyBytes} bytes, such as RandomNumberGenerator.GetBytes({KeyBytes})"
+            );
         }
 
         return [.. key];
@@ -256,16 +306,43 @@ public sealed class SessionState
             throw new ConfigurationException("SESSION_INVALID", "the session state is not valid JSON", cause);
         }
 
-        if (parsed is JsonObject document
-            && document["schemaVersion"] is JsonValue schema && schema.TryGetValue<string>(out var version) && version == SchemaVersion
-            && IsString(document["engine"]) && IsString(document["platform"]) && IsString(document["appIdentity"]) && IsString(document["createdAt"])
-            && (document["expiresAt"] is null || (IsString(document["expiresAt"]) && DateTimeOffset.TryParse(document["expiresAt"]!.GetValue<string>(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _)))
-            && document["secrecy"] is JsonObject { } secrecy && secrecy["names"] is JsonArray names && names.All(IsString)
+        if (
+            parsed is JsonObject document
+            && document["schemaVersion"] is JsonValue schema
+            && schema.TryGetValue<string>(out var version)
+            && version == SchemaVersion
+            && IsString(document["engine"])
+            && IsString(document["platform"])
+            && IsString(document["appIdentity"])
+            && IsString(document["createdAt"])
+            && (
+                document["expiresAt"] is null
+                || (
+                    IsString(document["expiresAt"])
+                    && DateTimeOffset.TryParse(
+                        document["expiresAt"]!.GetValue<string>(),
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.RoundtripKind,
+                        out _
+                    )
+                )
+            )
+            && document["secrecy"] is JsonObject { } secrecy
+            && secrecy["names"] is JsonArray names
+            && names.All(IsString)
             && document["state"] is JsonObject state
-            && IsString(state["format"]) && IsInteger(state["version"]) && state["algorithm"] is JsonValue algorithm && algorithm.TryGetValue<string>(out var name) && name == "A256GCM"
-            && IsString(state["iv"]) && IvPattern.IsMatch(state["iv"]!.GetValue<string>())
-            && IsString(state["tag"]) && TagPattern.IsMatch(state["tag"]!.GetValue<string>())
-            && IsString(state["ciphertext"]) && IsBase64(state["ciphertext"]!.GetValue<string>()))
+            && IsString(state["format"])
+            && IsInteger(state["version"])
+            && state["algorithm"] is JsonValue algorithm
+            && algorithm.TryGetValue<string>(out var name)
+            && name == "A256GCM"
+            && IsString(state["iv"])
+            && IvPattern.IsMatch(state["iv"]!.GetValue<string>())
+            && IsString(state["tag"])
+            && TagPattern.IsMatch(state["tag"]!.GetValue<string>())
+            && IsString(state["ciphertext"])
+            && IsBase64(state["ciphertext"]!.GetValue<string>())
+        )
         {
             return document;
         }
@@ -286,10 +363,17 @@ public sealed class SessionState
             throw new ConfigurationException("SESSION_INVALID", "the session state has an unexpected payload", cause);
         }
 
-        if (parsed is JsonObject payload && payload.ContainsKey("data") && payload["secrets"] is JsonArray secrets
-            && secrets.All(entry => entry is JsonArray { Count: 2 } pair && IsString(pair[0]) && IsString(pair[1])))
+        if (
+            parsed is JsonObject payload
+            && payload.ContainsKey("data")
+            && payload["secrets"] is JsonArray secrets
+            && secrets.All(entry => entry is JsonArray { Count: 2 } pair && IsString(pair[0]) && IsString(pair[1]))
+        )
         {
-            return (payload["data"]?.DeepClone(), [.. secrets.Select(entry => (entry![0]!.GetValue<string>(), entry[1]!.GetValue<string>()))]);
+            return (
+                payload["data"]?.DeepClone(),
+                [.. secrets.Select(entry => (entry![0]!.GetValue<string>(), entry[1]!.GetValue<string>()))]
+            );
         }
 
         throw new ConfigurationException("SESSION_INVALID", "the session state has an unexpected payload");

@@ -13,11 +13,16 @@ public sealed class SerializeLedgerTests
     [Fact]
     public void Presents_entries_in_chronological_order()
     {
-        var text = Ledger.SerializeLedger(
-            Ledger.ProjectPriorSteps([Step("app.open", "/", StepKind.App), Step("agent.act", "the buy button")]),
-            8_192).Text;
+        var text = Ledger
+            .SerializeLedger(
+                Ledger.ProjectPriorSteps([Step("app.open", "/", StepKind.App), Step("agent.act", "the buy button")]),
+                8_192
+            )
+            .Text;
 
-        Assert.True(text.IndexOf("app.open", StringComparison.Ordinal) < text.IndexOf("agent.act", StringComparison.Ordinal));
+        Assert.True(
+            text.IndexOf("app.open", StringComparison.Ordinal) < text.IndexOf("agent.act", StringComparison.Ordinal)
+        );
         Assert.Contains("1. app.open passed :: /", text, StringComparison.Ordinal);
         Assert.Contains("2. agent.act passed :: the buy button", text, StringComparison.Ordinal);
     }
@@ -38,9 +43,12 @@ public sealed class SerializeLedgerTests
     [Fact]
     public void Quotes_the_step_explanation_as_a_bounded_handoff()
     {
-        var text = Ledger.SerializeLedger(
-            Ledger.ProjectPriorSteps([Step("agent.assert", "x", explanation: new string('y', 2_000))]),
-            65_536).Text;
+        var text = Ledger
+            .SerializeLedger(
+                Ledger.ProjectPriorSteps([Step("agent.assert", "x", explanation: new string('y', 2_000))]),
+                65_536
+            )
+            .Text;
 
         var handoff = Regex.Match(text, "observed: (y+)").Groups[1].Value;
 
@@ -50,8 +58,19 @@ public sealed class SerializeLedgerTests
     [Fact]
     public void Hands_later_steps_the_recorded_verdict_of_a_replayed_step_not_the_replay_notice()
     {
-        const string explanation = "replayed 2 recorded action(s) zero-turn from the trace cache; recorded verdict: opened the customers page";
-        var replayed = Step("agent.act", "open customers", explanation: explanation, cache: new CacheInfo { Mode = "self-finalized", ReplayedActions = 2, TotalActions = 2 });
+        const string explanation =
+            "replayed 2 recorded action(s) zero-turn from the trace cache; recorded verdict: opened the customers page";
+        var replayed = Step(
+            "agent.act",
+            "open customers",
+            explanation: explanation,
+            cache: new CacheInfo
+            {
+                Mode = "self-finalized",
+                ReplayedActions = 2,
+                TotalActions = 2,
+            }
+        );
 
         // Projection is the trust boundary where records become model input; the notice goes there.
         var text = Ledger.SerializeLedger(Ledger.ProjectPriorSteps([replayed]), 65_536).Text;
@@ -60,16 +79,36 @@ public sealed class SerializeLedgerTests
         Assert.DoesNotContain("replayed 2 recorded", text, StringComparison.Ordinal);
 
         // A step the executor ran keeps its explanation as written, whatever it starts with.
-        var ran = Step("agent.act", "open customers", explanation: explanation, cache: new CacheInfo { Mode = "missed" });
+        var ran = Step(
+            "agent.act",
+            "open customers",
+            explanation: explanation,
+            cache: new CacheInfo { Mode = "missed" }
+        );
 
-        Assert.Contains("replayed 2 recorded", Ledger.SerializeLedger(Ledger.ProjectPriorSteps([ran]), 65_536).Text, StringComparison.Ordinal);
+        Assert.Contains(
+            "replayed 2 recorded",
+            Ledger.SerializeLedger(Ledger.ProjectPriorSteps([ran]), 65_536).Text,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public void Labels_a_replayed_step_as_recorded_in_an_earlier_run_instead_of_observed()
     {
-        const string explanation = "replayed 2 recorded action(s) zero-turn from the trace cache; recorded verdict: opened the customers page";
-        var replayed = Step("agent.act", "open customers", explanation: explanation, cache: new CacheInfo { Mode = "self-finalized", ReplayedActions = 2, TotalActions = 2 });
+        const string explanation =
+            "replayed 2 recorded action(s) zero-turn from the trace cache; recorded verdict: opened the customers page";
+        var replayed = Step(
+            "agent.act",
+            "open customers",
+            explanation: explanation,
+            cache: new CacheInfo
+            {
+                Mode = "self-finalized",
+                ReplayedActions = 2,
+                TotalActions = 2,
+            }
+        );
 
         var text = Ledger.SerializeLedger(Ledger.ProjectPriorSteps([replayed]), 65_536).Text;
 

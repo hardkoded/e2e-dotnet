@@ -28,7 +28,10 @@ public sealed class AFrameWhoseNavigationIsHeldTests
     private static async Task WithHeldFrameAsync(string attributes, Func<IEngineSession, IPage, Task> body)
     {
         using var site = await TinySite.StartAsync("<!doctype html><title>Held</title><p>Around the frame</p>");
-        await using var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions(), CancellationToken.None);
+        await using var session = await new WebEngine(headless: true).StartAsync(
+            new EngineStartOptions(),
+            CancellationToken.None
+        );
         await session.OpenAsync(site.Url, CancellationToken.None);
         var page = WebEngine.SurfaceOf(session)!.Page();
         await page.SetViewportSizeAsync(Width, Height);
@@ -46,7 +49,10 @@ public sealed class AFrameWhoseNavigationIsHeldTests
         });
         try
         {
-            await page.EvaluateAsync("extra => document.body.insertAdjacentHTML('beforeend', `<iframe ${extra} src=\"/held.html\"></iframe>`)", attributes);
+            await page.EvaluateAsync(
+                "extra => document.body.insertAdjacentHTML('beforeend', `<iframe ${extra} src=\"/held.html\"></iframe>`)",
+                attributes
+            );
             await routed.Task.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.Equal([site.Url, ""], page.Frames.Select(frame => frame.Url).ToArray());
 
@@ -66,9 +72,7 @@ public sealed class AFrameWhoseNavigationIsHeldTests
                 {
                     await route.AbortAsync();
                 }
-                catch (PlaywrightException)
-                {
-                }
+                catch (PlaywrightException) { }
             }
         }
     }
@@ -78,7 +82,11 @@ public sealed class AFrameWhoseNavigationIsHeldTests
     {
         await WithHeldFrameAsync(string.Empty, async (session, page) =>
         {
-            var observation = await session.ObserveAsync(new ObserveOptions { Pixels = true }, Budget, CancellationToken.None);
+            var observation = await session.ObserveAsync(
+                new ObserveOptions { Pixels = true },
+                Budget,
+                CancellationToken.None
+            );
 
             Assert.Equal(Width, ImageWidth(observation.Pixels!.Png));
             Assert.False(observation.Truncated);
@@ -93,7 +101,9 @@ public sealed class AFrameWhoseNavigationIsHeldTests
     {
         await WithHeldFrameAsync(string.Empty, async (_, page) =>
         {
-            await page.EvaluateAsync("() => { document.querySelector('iframe').contentDocument.body.innerHTML = '<input type=\"password\" value=\"hunter2\">'; }");
+            await page.EvaluateAsync(
+                "() => { document.querySelector('iframe').contentDocument.body.innerHTML = '<input type=\"password\" value=\"hunter2\">'; }"
+            );
 
             var pixels = await CapturePixelsAsync(page);
 
@@ -115,8 +125,13 @@ public sealed class AFrameWhoseNavigationIsHeldTests
     }
 
     private static Task<PixelCapture> CapturePixelsAsync(IPage page) =>
-        WebObserve.CapturePixelsAsync(page, new OperationBudget(Budget, "observe", CancellationToken.None), new ViewportSize { Width = Width, Height = Height });
+        WebObserve.CapturePixelsAsync(
+            page,
+            new OperationBudget(Budget, "observe", CancellationToken.None),
+            new ViewportSize { Width = Width, Height = Height }
+        );
 
     /// <summary>The width in pixels of a PNG, read from its header.</summary>
-    private static int ImageWidth(byte[] png) => System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(16, 4));
+    private static int ImageWidth(byte[] png) =>
+        System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(16, 4));
 }

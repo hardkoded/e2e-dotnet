@@ -36,25 +36,37 @@ internal static class Phases
     /// <param name="timeoutMs">The step's timeout, which the message names.</param>
     /// <param name="cause">The failure being handled, if any.</param>
     /// <param name="clock">The clock the deadline reads. .NET-only: the port's <see cref="Deadline"/> takes its time as an argument.</param>
-    public static void CheckStepClock(CancellationToken signal, Deadline deadline, string api, long timeoutMs, Exception? cause = null, TimeProvider? clock = null)
+    public static void CheckStepClock(
+        CancellationToken signal,
+        Deadline deadline,
+        string api,
+        long timeoutMs,
+        Exception? cause = null,
+        TimeProvider? clock = null
+    )
     {
         ArgumentNullException.ThrowIfNull(deadline);
         if (signal.IsCancellationRequested)
         {
-            throw cause is null ? new AgentException("CANCELLED", api + " was cancelled") : new AgentException("CANCELLED", api + " was cancelled", cause);
+            throw cause is null
+                ? new AgentException("CANCELLED", api + " was cancelled")
+                : new AgentException("CANCELLED", api + " was cancelled", cause);
         }
 
         var now = (clock ?? TimeProvider.System).GetUtcNow();
         if (deadline.Expired(now) || TimedOutAtDeadline(cause, deadline, now))
         {
             var message = api + " exceeded its " + timeoutMs.ToString(CultureInfo.InvariantCulture) + " ms timeout";
-            throw cause is null ? new AgentException("STEP_TIMEOUT", message, blocked: true) : new AgentException("STEP_TIMEOUT", message, blocked: true, cause);
+            throw cause is null
+                ? new AgentException("STEP_TIMEOUT", message, blocked: true)
+                : new AgentException("STEP_TIMEOUT", message, blocked: true, cause);
         }
     }
 
     // True when the cause is an operation timeout and the deadline is less than one poll tick away.
     private static bool TimedOutAtDeadline(Exception? cause, Deadline deadline, DateTimeOffset now) =>
-        deadline.Remaining(now) < Time.PollInterval && cause is EngineException { Code: EngineErrorCodes.OperationTimeout };
+        deadline.Remaining(now) < Time.PollInterval
+        && cause is EngineException { Code: EngineErrorCodes.OperationTimeout };
 
     /// <summary>
     /// Captures one raw observation, re-capturing while the engine reports a retryable failure and the step clock allows (upstream's
@@ -62,7 +74,11 @@ internal static class Phases
     /// app, so it is re-read rather than surfaced as a failed call. <paramref name="guard"/> is the caller's clock check, so a capture
     /// that outlives the deadline reports the step's own timeout rather than whichever transport error the truncated budget produced.
     /// </summary>
-    public static async Task<Observation> RetryingObserveAsync(Func<Task<Observation>> capture, Action<Exception?> guard, CancellationToken signal)
+    public static async Task<Observation> RetryingObserveAsync(
+        Func<Task<Observation>> capture,
+        Action<Exception?> guard,
+        CancellationToken signal
+    )
     {
         ArgumentNullException.ThrowIfNull(capture);
         ArgumentNullException.ThrowIfNull(guard);
@@ -86,32 +102,45 @@ internal static class Phases
     }
 
     /// <summary>Records one policy decision as a child event of the current step (upstream's <c>recordPolicyEvent</c>).</summary>
-    public static void RecordPolicyEvent(StepRecorder? steps, string name, PolicyDecision decision, string? code = null) =>
-        steps?.RecordEvent(new StepEvent
-        {
-            Kind = StepEventKind.Policy,
-            StartedAt = DateTimeOffset.UtcNow,
-            DurationMs = 0,
-            Status = decision == PolicyDecision.Allowed ? StepEventStatus.Passed : StepEventStatus.Failed,
-            Name = name,
-            Decision = decision,
-            Code = code,
-        });
+    public static void RecordPolicyEvent(
+        StepRecorder? steps,
+        string name,
+        PolicyDecision decision,
+        string? code = null
+    ) =>
+        steps?.RecordEvent(
+            new StepEvent
+            {
+                Kind = StepEventKind.Policy,
+                StartedAt = DateTimeOffset.UtcNow,
+                DurationMs = 0,
+                Status = decision == PolicyDecision.Allowed ? StepEventStatus.Passed : StepEventStatus.Failed,
+                Name = name,
+                Decision = decision,
+                Code = code,
+            }
+        );
 
     /// <summary>The live activity a phase announces as it begins (upstream's <c>ACTIVITY_BY_PHASE</c>).</summary>
-    private static StepActivity? ActivityOf(string phase) => phase switch
-    {
-        Observe => StepActivity.Observe,
-        Model => StepActivity.Model,
-        Action => StepActivity.Action,
-        _ => null,
-    };
+    private static StepActivity? ActivityOf(string phase) =>
+        phase switch
+        {
+            Observe => StepActivity.Observe,
+            Model => StepActivity.Model,
+            Action => StepActivity.Action,
+            _ => null,
+        };
 
     /// <summary>
     /// Runs one phase with uniform accounting: the activity announced as it begins, a child event on success and failure, and one
     /// debug bucket. A failed phase records the code of the error and what it said, and rethrows it.
     /// </summary>
-    public static async Task<T> InstrumentPhaseAsync<T>(PhaseHost host, PhaseSpec spec, Func<Task<T>> body, Func<T, PhaseDetail>? detail = null)
+    public static async Task<T> InstrumentPhaseAsync<T>(
+        PhaseHost host,
+        PhaseSpec spec,
+        Func<Task<T>> body,
+        Func<T, PhaseDetail>? detail = null
+    )
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(body);
@@ -132,21 +161,21 @@ internal static class Phases
             {
                 told = detail?.Invoke(value);
             }
-            catch (Exception)
-            {
-            }
+            catch (Exception) { }
 
-            host.Steps?.RecordEvent(new StepEvent
-            {
-                Kind = spec.Kind,
-                StartedAt = startedAt,
-                DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
-                Status = StepEventStatus.Passed,
-                Name = spec.Name,
-                Count = told?.Count,
-                Bytes = told?.Bytes,
-                Detail = told?.Detail,
-            });
+            host.Steps?.RecordEvent(
+                new StepEvent
+                {
+                    Kind = spec.Kind,
+                    StartedAt = startedAt,
+                    DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                    Status = StepEventStatus.Passed,
+                    Name = spec.Name,
+                    Count = told?.Count,
+                    Bytes = told?.Bytes,
+                    Detail = told?.Detail,
+                }
+            );
             return value;
         }
         catch (Exception cause)
@@ -154,20 +183,24 @@ internal static class Phases
             var (_, classified, message, _) = ErrorSerializer.Classify(cause);
             var code = cause is E2EException { Code: var runnerCode } ? runnerCode : classified;
             var first = message.Split('\n')[0].Trim();
-            host.Steps?.RecordEvent(new StepEvent
-            {
-                Kind = spec.Kind,
-                StartedAt = startedAt,
-                DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
-                Status = string.Equals(code, ErrorSerializer.Cancelled, StringComparison.Ordinal) ? StepEventStatus.Cancelled : StepEventStatus.Failed,
-                Name = spec.Name,
+            host.Steps?.RecordEvent(
+                new StepEvent
+                {
+                    Kind = spec.Kind,
+                    StartedAt = startedAt,
+                    DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                    Status = string.Equals(code, ErrorSerializer.Cancelled, StringComparison.Ordinal)
+                        ? StepEventStatus.Cancelled
+                        : StepEventStatus.Failed,
+                    Name = spec.Name,
 
-                // The runner's or the engine's code, or the error's type for a failure of neither.
-                Code = string.Equals(code, "ERROR", StringComparison.Ordinal) ? cause.GetType().Name : code,
+                    // The runner's or the engine's code, or the error's type for a failure of neither.
+                    Code = string.Equals(code, "ERROR", StringComparison.Ordinal) ? cause.GetType().Name : code,
 
-                // What went wrong, not only its code: the tool result the model read said it too.
-                Detail = first.Length == 0 ? null : (spec.Name is null ? "" : spec.Name + ": ") + first,
-            });
+                    // What went wrong, not only its code: the tool result the model read said it too.
+                    Detail = first.Length == 0 ? null : (spec.Name is null ? "" : spec.Name + ": ") + first,
+                }
+            );
             throw;
         }
         finally

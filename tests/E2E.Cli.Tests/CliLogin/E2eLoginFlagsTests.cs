@@ -89,14 +89,19 @@ public sealed class E2eLoginFlagsTests : IDisposable
     [Fact]
     public async Task Fails_a_from_gh_login_with_no_signed_in_GitHub_CLI_with_the_flows_message_and_stores_nothing()
     {
-        OAuthProviders.Replacements["github-copilot"] = new CopilotProvider(githubCliToken: (_, _) => Task.FromResult<string?>(null));
+        OAuthProviders.Replacements["github-copilot"] = new CopilotProvider(
+            githubCliToken: (_, _) => Task.FromResult<string?>(null)
+        );
 
-        var error = await Assert.ThrowsAsync<OAuthException>(() => LoginAsync("github-copilot", "--client-id", "Iv23_my_app", "--from-gh"));
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            LoginAsync("github-copilot", "--client-id", "Iv23_my_app", "--from-gh")
+        );
 
         // With a client id and no --from-gh the flow would run GitHub's device flow, so the error proves the flag arrived.
         Assert.Equal(
             "GitHub Copilot login needs either the GitHub CLI signed in (gh auth login) or the client id of a GitHub OAuth App with the device flow enabled",
-            error.Message);
+            error.Message
+        );
         Assert.Null(Stored());
     }
 
@@ -104,7 +109,14 @@ public sealed class E2eLoginFlagsTests : IDisposable
     {
         var stdout = new StringWriter();
         var stderr = new StringWriter();
-        var code = await Program.RunAsync(["login", .. args], stdout, stderr, TextReader.Null, interactive: false, CancellationToken.None);
+        var code = await Program.RunAsync(
+            ["login", .. args],
+            stdout,
+            stderr,
+            TextReader.Null,
+            interactive: false,
+            CancellationToken.None
+        );
         return (code, stdout.ToString(), stderr.ToString());
     }
 
@@ -122,19 +134,36 @@ public sealed class E2eLoginFlagsTests : IDisposable
 
         public string Name => id + " double";
 
-        public Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken)
+        public Task<OAuthCredentials> LoginAsync(
+            OAuthLoginCallbacks callbacks,
+            OAuthLoginOptions options,
+            CancellationToken cancellationToken
+        )
         {
             received.Add((id, options));
-            return Task.FromResult(new OAuthCredentials { Access = "token", Refresh = "", Expires = 0 });
+            return Task.FromResult(
+                new OAuthCredentials
+                {
+                    Access = "token",
+                    Refresh = "",
+                    Expires = 0,
+                }
+            );
         }
 
         public Task<OAuthCredentials> RefreshAsync(OAuthCredentials credentials, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("a login is never refreshed here");
 
-        public Task PrepareAsync(HttpRequestMessage request, OAuthCredentials credentials, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PrepareAsync(
+            HttpRequestMessage request,
+            OAuthCredentials credentials,
+            CancellationToken cancellationToken
+        ) => Task.CompletedTask;
 
-        public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(HttpClient http, CancellationToken cancellationToken) =>
-            throw new InvalidOperationException("models are never listed here");
+        public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+            HttpClient http,
+            CancellationToken cancellationToken
+        ) => throw new InvalidOperationException("models are never listed here");
     }
 }
 

@@ -15,12 +15,19 @@ public sealed class AttemptVideoTests
     {
         Assert.Equal(
             new VideoRecording(Keep.OnFailure, VideoPolicy.Required),
-            Modes.AttemptVideo(new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Run), 0));
+            Modes.AttemptVideo(new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Run), 0)
+        );
         Assert.Null(Modes.AttemptVideo(new ResolvedRecording(RecordingMode.Off, RecordingSource.Run), 0));
-        Assert.Equal(VideoPolicy.BestEffort, Modes.AttemptVideo(new ResolvedRecording(RecordingMode.On, RecordingSource.Default), 0)?.Policy);
+        Assert.Equal(
+            VideoPolicy.BestEffort,
+            Modes.AttemptVideo(new ResolvedRecording(RecordingMode.On, RecordingSource.Default), 0)?.Policy
+        );
         foreach (var source in new[] { RecordingSource.Run, RecordingSource.Target, RecordingSource.Test })
         {
-            Assert.Equal(VideoPolicy.Required, Modes.AttemptVideo(new ResolvedRecording(RecordingMode.On, source), 0)?.Policy);
+            Assert.Equal(
+                VideoPolicy.Required,
+                Modes.AttemptVideo(new ResolvedRecording(RecordingMode.On, source), 0)?.Policy
+            );
         }
     }
 }

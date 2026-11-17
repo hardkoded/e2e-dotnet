@@ -29,11 +29,14 @@ public sealed class CoreTests
             page.Button("Save");
             page.Button("Save");
         });
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/dup");
-            await ctx.Screen.GetByRole("button", "Save").TapAsync();
-        }, world);
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/dup");
+                await ctx.Screen.GetByRole("button", "Save").TapAsync();
+            },
+            world
+        );
 
         var error = Assert.IsType<TestException>(result.Error);
         Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
@@ -47,11 +50,14 @@ public sealed class CoreTests
             page.Button("Save");
             page.Button("Save");
         });
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/dup");
-            await ctx.Screen.GetByRole("button", "Save").First().TapAsync();
-        }, world);
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/dup");
+                await ctx.Screen.GetByRole("button", "Save").First().TapAsync();
+            },
+            world
+        );
 
         Assert.Null(result.Error);
     }
@@ -63,12 +69,15 @@ public sealed class CoreTests
         {
             page.Paragraph("Total: 42").Children.Add(new DocumentElement { Text = "Total: 42" });
         });
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/total");
-            await Expect.That(ctx.Screen.GetByText("Total: 42")).ToHaveCountAsync(1);
-            Assert.Equal("Total: 42", await ctx.Screen.GetByText("Total: 42").TextContentAsync());
-        }, world);
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/total");
+                await Expect.That(ctx.Screen.GetByText("Total: 42")).ToHaveCountAsync(1);
+                Assert.Equal("Total: 42", await ctx.Screen.GetByText("Total: 42").TextContentAsync());
+            },
+            world
+        );
 
         Assert.Null(result.Error);
     }
@@ -81,11 +90,14 @@ public sealed class CoreTests
             page.Button("Save draft");
             page.Button("Cancel");
         });
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/buttons");
-            await ctx.Screen.GetByRole("button").Filter("SAVE").TapAsync();
-        }, world);
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/buttons");
+                await ctx.Screen.GetByRole("button").Filter("SAVE").TapAsync();
+            },
+            world
+        );
 
         Assert.Null(result.Error);
     }
@@ -100,16 +112,20 @@ public sealed class CoreTests
             save = page.Button("Save", () => tapped = true);
             save.Hidden = true;
         });
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/later");
-            _ = Task.Run(async () =>
+        var result = await RunAsync(
+            async ctx =>
             {
-                await Task.Delay(80);
-                save!.Hidden = false;
-            });
-            await ctx.Screen.GetByRole("button", "Save").TapAsync();
-        }, world, actionTimeout: TimeSpan.FromSeconds(2));
+                await ctx.App.OpenAsync("/later");
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(80);
+                    save!.Hidden = false;
+                });
+                await ctx.Screen.GetByRole("button", "Save").TapAsync();
+            },
+            world,
+            actionTimeout: TimeSpan.FromSeconds(2)
+        );
 
         Assert.Null(result.Error);
         Assert.True(tapped);
@@ -125,16 +141,20 @@ public sealed class CoreTests
             save = page.Button("Save", () => tapped = true);
             save.Disabled = true;
         });
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/later");
-            _ = Task.Run(async () =>
+        var result = await RunAsync(
+            async ctx =>
             {
-                await Task.Delay(80);
-                save!.Disabled = false;
-            });
-            await ctx.Screen.GetByRole("button", "Save").TapAsync();
-        }, world, actionTimeout: TimeSpan.FromSeconds(2));
+                await ctx.App.OpenAsync("/later");
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(80);
+                    save!.Disabled = false;
+                });
+                await ctx.Screen.GetByRole("button", "Save").TapAsync();
+            },
+            world,
+            actionTimeout: TimeSpan.FromSeconds(2)
+        );
 
         Assert.Null(result.Error);
         Assert.True(tapped);
@@ -168,19 +188,22 @@ public sealed class CoreTests
     {
         var world = new DocumentWorld().Map("/disabled", page => page.Button("Save").Disabled = true);
         var waited = TimeSpan.Zero;
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/disabled");
-            var watch = System.Diagnostics.Stopwatch.StartNew();
-            try
+        var result = await RunAsync(
+            async ctx =>
             {
-                await ctx.Screen.GetByRole("button", "Save").TapAsync();
-            }
-            finally
-            {
-                waited = watch.Elapsed;
-            }
-        }, world);
+                await ctx.App.OpenAsync("/disabled");
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                try
+                {
+                    await ctx.Screen.GetByRole("button", "Save").TapAsync();
+                }
+                finally
+                {
+                    waited = watch.Elapsed;
+                }
+            },
+            world
+        );
 
         var error = Assert.IsType<TestException>(result.Error);
         Assert.Equal("NOT_ACTIONABLE", error.Code);
@@ -195,16 +218,20 @@ public sealed class CoreTests
         {
             status = page.Status("Ready", hidden: true);
         });
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/wait");
-            _ = Task.Run(async () =>
+        var result = await RunAsync(
+            async ctx =>
             {
-                await Task.Delay(80);
-                status!.Hidden = false;
-            });
-            await Expect.That(ctx.Screen.GetByRole("status", "Ready")).ToBeVisibleAsync();
-        }, world, assertionTimeout: TimeSpan.FromSeconds(2));
+                await ctx.App.OpenAsync("/wait");
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(80);
+                    status!.Hidden = false;
+                });
+                await Expect.That(ctx.Screen.GetByRole("status", "Ready")).ToBeVisibleAsync();
+            },
+            world,
+            assertionTimeout: TimeSpan.FromSeconds(2)
+        );
 
         Assert.Null(result.Error);
     }
@@ -218,7 +245,8 @@ public sealed class CoreTests
                 await ctx.App.OpenAsync("/settings/billing");
                 await Expect.That(ctx.Screen.GetByRole("status", "Missing")).ToBeVisibleAsync();
             },
-            assertionTimeout: TimeSpan.FromMilliseconds(200));
+            assertionTimeout: TimeSpan.FromMilliseconds(200)
+        );
 
         var error = Assert.IsType<TestException>(result.Error);
         Assert.Equal("ASSERTION_FAILED", error.Code);
@@ -274,10 +302,17 @@ public sealed class CoreTests
     {
         var directory = TempCache();
         static DocumentWorld World() => new DocumentWorld().Map("/todos", page =>
-        {
-            var status = page.Status("Empty");
-            page.Roots.Add(new DocumentElement { Role = "textbox", Name = "New todo", OnFill = value => status.Name = status.Text = "Typed " + value });
-        });
+            {
+                var status = page.Status("Empty");
+                page.Roots.Add(
+                    new DocumentElement
+                    {
+                        Role = "textbox",
+                        Name = "New todo",
+                        OnFill = value => status.Name = status.Text = "Typed " + value,
+                    }
+                );
+            });
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
@@ -301,7 +336,12 @@ public sealed class CoreTests
         var first = await RunAsync(Body, World(), model, directory);
         Assert.Null(first.Error);
 
-        var second = await RunAsync(Body, World(), new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), directory);
+        var second = await RunAsync(
+            Body,
+            World(),
+            new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+            directory
+        );
         Assert.Null(second.Error);
         Assert.Equal(1, second.Replayed);
         Assert.Equal(0, second.ModelCalls);
@@ -313,7 +353,15 @@ public sealed class CoreTests
         var world = new DocumentWorld().Map("/form", page =>
         {
             var status = page.Status("Not saved");
-            page.Roots.Add(new DocumentElement { Role = "button", Name = "Save", TestId = "save", OnTap = () => status.Name = status.Text = "Saved" });
+            page.Roots.Add(
+                new DocumentElement
+                {
+                    Role = "button",
+                    Name = "Save",
+                    TestId = "save",
+                    OnTap = () => status.Name = status.Text = "Saved",
+                }
+            );
         });
         var model = new ScriptedModel(request =>
         {
@@ -323,12 +371,16 @@ public sealed class CoreTests
                 : ModelResponses.Call("press", new { key = "Enter", testId = "save" });
         });
 
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/form");
-            await ctx.Agent.ActAsync("save the form");
-            await Expect.That(ctx.Screen.GetByRole("status")).ToHaveTextAsync("Saved");
-        }, world, model);
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/form");
+                await ctx.Agent.ActAsync("save the form");
+                await Expect.That(ctx.Screen.GetByRole("status")).ToHaveTextAsync("Saved");
+            },
+            world,
+            model
+        );
 
         Assert.Null(result.Error);
     }
@@ -338,14 +390,21 @@ public sealed class CoreTests
     {
         var directory = TempCache();
         static DocumentWorld World() => new DocumentWorld().Map("/todos", page =>
-        {
-            page.Button("Add two", () =>
             {
-                page.Roots.Add(new DocumentElement { Role = "button", Name = "Delete" });
-                page.Roots.Add(new DocumentElement { Role = "button", Name = "Delete" });
-                page.Roots.Add(new DocumentElement { Role = "status", Name = "Added two", Text = "Added two" });
+                page.Button("Add two", () =>
+                {
+                    page.Roots.Add(new DocumentElement { Role = "button", Name = "Delete" });
+                    page.Roots.Add(new DocumentElement { Role = "button", Name = "Delete" });
+                    page.Roots.Add(
+                        new DocumentElement
+                        {
+                            Role = "status",
+                            Name = "Added two",
+                            Text = "Added two",
+                        }
+                    );
+                });
             });
-        });
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
@@ -364,7 +423,12 @@ public sealed class CoreTests
         var first = await RunAsync(Body, World(), model, directory);
         Assert.Null(first.Error);
 
-        var second = await RunAsync(Body, World(), new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), directory);
+        var second = await RunAsync(
+            Body,
+            World(),
+            new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+            directory
+        );
         Assert.Null(second.Error);
         Assert.Equal(1, second.Replayed);
     }
@@ -374,15 +438,15 @@ public sealed class CoreTests
     {
         var directory = TempCache();
         static DocumentWorld World() => new DocumentWorld().Map("/todos", page =>
-        {
-            var status = page.Status("Not editing");
-            var taps = 0;
-            page.Button("Buy milk", () =>
             {
-                taps++;
-                status.Name = status.Text = taps == 2 ? "Editing Buy milk" : "Not editing";
+                var status = page.Status("Not editing");
+                var taps = 0;
+                page.Button("Buy milk", () =>
+                {
+                    taps++;
+                    status.Name = status.Text = taps == 2 ? "Editing Buy milk" : "Not editing";
+                });
             });
-        });
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
@@ -402,7 +466,12 @@ public sealed class CoreTests
         Assert.Null(first.Error);
         Assert.Contains(model.Requests[0].Tools, tool => tool.Name == "double_tap");
 
-        var second = await RunAsync(Body, World(), new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), directory);
+        var second = await RunAsync(
+            Body,
+            World(),
+            new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+            directory
+        );
         Assert.Null(second.Error);
         Assert.Equal(1, second.Replayed);
         Assert.Equal(0, second.ModelCalls);
@@ -500,7 +569,8 @@ public sealed class CoreTests
             },
             Current(),
             model,
-            directory);
+            directory
+        );
 
         button = "Switch plan";
         var second = await RunAsync(
@@ -512,7 +582,8 @@ public sealed class CoreTests
             },
             Current(),
             model,
-            directory);
+            directory
+        );
 
         Assert.Null(second.Error);
         Assert.Equal(1, second.Missed);
@@ -532,19 +603,26 @@ public sealed class CoreTests
             async ctx =>
             {
                 await ctx.App.OpenAsync("/login");
-                await ctx.Agent.ActAsync("sign in", new ActOptions
-                {
-                    Params = new Dictionary<string, object?>
+                await ctx.Agent.ActAsync(
+                    "sign in",
+                    new ActOptions
                     {
-                        ["password"] = Secret.Create("password", "s3cret-value", "member password"),
-                    },
-                });
+                        Params = new Dictionary<string, object?>
+                        {
+                            ["password"] = Secret.Create("password", "s3cret-value", "member password"),
+                        },
+                    }
+                );
             },
             world,
-            model: captured = new ScriptedModel(_ => ModelResponses.Done("passed", "signed in")));
+            model: captured = new ScriptedModel(_ => ModelResponses.Done("passed", "signed in"))
+        );
 
         Assert.Null(result.Error);
-        var prompt = string.Join('\n', captured!.Requests.SelectMany(request => request.Messages.Select(message => message.Content)));
+        var prompt = string.Join(
+            '\n',
+            captured!.Requests.SelectMany(request => request.Messages.Select(message => message.Content))
+        );
         Assert.DoesNotContain("s3cret-value", prompt);
         Assert.Contains("<secret:password>", prompt, StringComparison.Ordinal);
     }
@@ -568,22 +646,29 @@ public sealed class CoreTests
             async ctx =>
             {
                 await ctx.App.OpenAsync("/login");
-                await ctx.Agent.ActAsync("sign in", new ActOptions
-                {
-                    Params = new Dictionary<string, object?>
+                await ctx.Agent.ActAsync(
+                    "sign in",
+                    new ActOptions
                     {
-                        ["password"] = Secret.Create("password", "s3cret-value", "member password"),
-                    },
-                });
+                        Params = new Dictionary<string, object?>
+                        {
+                            ["password"] = Secret.Create("password", "s3cret-value", "member password"),
+                        },
+                    }
+                );
                 await ctx.Agent.AssertAsync("the hint says S3cret-Value");
                 await ctx.Agent.WaitForAsync("the hint says s3cret%2Dvalue");
                 await ctx.Agent.ExtractAsync<string>("read s3cret-value from the hint");
             },
             world,
-            model: model);
+            model: model
+        );
 
         Assert.Null(result.Error);
-        var prompt = string.Join('\n', model.Requests.SelectMany(request => request.Messages.Select(message => message.Content)));
+        var prompt = string.Join(
+            '\n',
+            model.Requests.SelectMany(request => request.Messages.Select(message => message.Content))
+        );
         Assert.DoesNotContain("s3cret", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Statement: the hint says <secret:password>", prompt, StringComparison.Ordinal);
         Assert.Contains("Instruction: read <secret:password> from the hint", prompt, StringComparison.Ordinal);
@@ -595,24 +680,25 @@ public sealed class CoreTests
         var directory = TempCache();
         var email = "ada+1@example.test";
         var world = new DocumentWorld().Map("/signup", page => page.Textbox("Email"));
-        ScriptedModel Model() => new(request =>
-        {
-            var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("Typed into", StringComparison.Ordinal))
+        ScriptedModel Model() =>
+            new(request =>
             {
-                return ModelResponses.Done("passed", "filled");
-            }
+                var text = string.Join('\n', request.Messages.Select(message => message.Content));
+                if (text.Contains("Typed into", StringComparison.Ordinal))
+                {
+                    return ModelResponses.Done("passed", "filled");
+                }
 
-            return ModelResponses.Fill("textbox", "Email", email);
-        });
+                return ModelResponses.Fill("textbox", "Email", email);
+            });
 
         async Task Body(TestContext ctx)
         {
             await ctx.App.OpenAsync("/signup");
-            await ctx.Agent.ActAsync("sign up with {email}", new ActOptions
-            {
-                Params = new Dictionary<string, object?> { ["email"] = Values.Unique(email) },
-            });
+            await ctx.Agent.ActAsync(
+                "sign up with {email}",
+                new ActOptions { Params = new Dictionary<string, object?> { ["email"] = Values.Unique(email) } }
+            );
             await Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync(email);
         }
 
@@ -636,7 +722,8 @@ public sealed class CoreTests
                 await ctx.App.OpenAsync("/settings/billing");
                 await ctx.Agent.ActAsync("upgrade");
             },
-            model: new ScriptedModel(_ => ModelResponses.Done("failed", "No upgrade button.", code)));
+            model: new ScriptedModel(_ => ModelResponses.Done("failed", "No upgrade button.", code))
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("ACTION_FAILED", error.Code);
@@ -654,7 +741,8 @@ public sealed class CoreTests
                 await ctx.App.OpenAsync("/settings/billing");
                 await ctx.Agent.AssertAsync("the plan is Pro");
             },
-            model: new ScriptedModel(_ => ModelResponses.Done("failed", "Not Pro.", code)));
+            model: new ScriptedModel(_ => ModelResponses.Done("failed", "Not Pro.", code))
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal(expected, error.Code);
@@ -690,7 +778,8 @@ public sealed class CoreTests
                 await ctx.Agent.WaitForAsync("the status is shown");
             },
             world,
-            model);
+            model
+        );
 
         Assert.Null(result.Error);
     }
@@ -755,8 +844,12 @@ public sealed class CoreTests
         Assert.Equal(Key(new[] { Values.Unique("a@example.test") }), Key(new[] { Values.Unique("b@example.test") }));
         Assert.Equal(
             Key(new { password = Secret.Create("password", "one-value") }),
-            Key(new { password = Secret.Create("password", "two-value") }));
-        Assert.Equal("{\"password\":\"<secret:password>\"}", CacheKeys.Canonical(new { password = Secret.Create("password", "one-value") }));
+            Key(new { password = Secret.Create("password", "two-value") })
+        );
+        Assert.Equal(
+            "{\"password\":\"<secret:password>\"}",
+            CacheKeys.Canonical(new { password = Secret.Create("password", "one-value") })
+        );
 
         var cycle = new List<object>();
         cycle.Add(cycle);
@@ -771,19 +864,35 @@ public sealed class CoreTests
             async ctx =>
             {
                 await ctx.App.OpenAsync("/settings/billing");
-                await ctx.Agent.ActAsync("add {items} to the cart", new ActOptions
-                {
-                    Params = new Dictionary<string, object?>
+                await ctx.Agent.ActAsync(
+                    "add {items} to the cart",
+                    new ActOptions
                     {
-                        ["items"] = new object[] { "apple", Values.Unique("pear-1"), Secret.Create("coupon", "s3cret") },
-                    },
-                });
+                        Params = new Dictionary<string, object?>
+                        {
+                            ["items"] = new object[]
+                            {
+                                "apple",
+                                Values.Unique("pear-1"),
+                                Secret.Create("coupon", "s3cret"),
+                            },
+                        },
+                    }
+                );
             },
-            model: model);
+            model: model
+        );
 
         Assert.Null(result.Error);
-        var prompt = string.Join('\n', model.Requests.SelectMany(request => request.Messages.Select(message => message.Content)));
-        Assert.Contains("Goal: add [\"apple\",\"pear-1\",\"<secret:coupon>\"] to the cart", prompt, StringComparison.Ordinal);
+        var prompt = string.Join(
+            '\n',
+            model.Requests.SelectMany(request => request.Messages.Select(message => message.Content))
+        );
+        Assert.Contains(
+            "Goal: add [\"apple\",\"pear-1\",\"<secret:coupon>\"] to the cart",
+            prompt,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("s3cret", prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("System.Object[]", prompt, StringComparison.Ordinal);
     }
@@ -791,7 +900,8 @@ public sealed class CoreTests
     [Fact]
     public async Task OpenAi_compatible_model_parses_tool_calls()
     {
-        var handler = new StubHandler("""
+        var handler = new StubHandler(
+            """
             {
               "choices": [{
                 "message": {
@@ -805,15 +915,22 @@ public sealed class CoreTests
               }],
               "usage": { "prompt_tokens": 4, "completion_tokens": 2 }
             }
-            """);
+            """
+        );
         using var http = new HttpClient(handler);
-        var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "gpt-test", ApiKey = "test" }, http);
-        var response = await model.CompleteAsync(new ModelRequest
-        {
-            System = "system",
-            Messages = [new ModelMessage { Role = "user", Content = "hi" }],
-            Tools = AgentToolList(),
-        }, CancellationToken.None);
+        var model = new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions { Model = "gpt-test", ApiKey = "test" },
+            http
+        );
+        var response = await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "system",
+                Messages = [new ModelMessage { Role = "user", Content = "hi" }],
+                Tools = AgentToolList(),
+            },
+            CancellationToken.None
+        );
 
         Assert.Equal("done", response.ToolCalls[0].Name);
         Assert.Equal(4, response.Usage!.InputTokens);
@@ -849,14 +966,16 @@ public sealed class CoreTests
                 await ctx.App.OpenAsync("/settings/billing");
                 await ctx.Agent.ActAsync("upgrade", new ActOptions { MaxSteps = 1 });
             },
-            model: model);
+            model: model
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("ACTION_FAILED", error.Code);
         Assert.False(error.Blocked);
     }
 
-    public static TheoryData<string> RaisedBudgets => new() { "act-steps", "act-steps-zero", "act-calls", "wait-calls", "wait-calls-negative" };
+    public static TheoryData<string> RaisedBudgets =>
+        new() { "act-steps", "act-steps-zero", "act-calls", "wait-calls", "wait-calls-negative" };
 
     [Theory]
     [MemberData(nameof(RaisedBudgets))]
@@ -867,16 +986,28 @@ public sealed class CoreTests
             async ctx =>
             {
                 await ctx.App.OpenAsync("/settings/billing");
-                await (which switch
-                {
-                    "act-steps" => ctx.Agent.ActAsync("upgrade", new ActOptions { MaxSteps = E2EDefaults.MaxSteps + 1 }),
-                    "act-steps-zero" => ctx.Agent.ActAsync("upgrade", new ActOptions { MaxSteps = 0 }),
-                    "act-calls" => ctx.Agent.ActAsync("upgrade", new ActOptions { MaxModelCalls = E2EDefaults.MaxModelCalls + 1 }),
-                    "wait-calls" => ctx.Agent.WaitForAsync("the plan is Pro", new WaitForOptions { MaxModelCalls = E2EDefaults.MaxModelCalls + 1 }),
-                    _ => ctx.Agent.WaitForAsync("the plan is Pro", new WaitForOptions { MaxModelCalls = -1 }),
-                });
+                await (
+                    which switch
+                    {
+                        "act-steps" => ctx.Agent.ActAsync(
+                            "upgrade",
+                            new ActOptions { MaxSteps = E2EDefaults.MaxSteps + 1 }
+                        ),
+                        "act-steps-zero" => ctx.Agent.ActAsync("upgrade", new ActOptions { MaxSteps = 0 }),
+                        "act-calls" => ctx.Agent.ActAsync(
+                            "upgrade",
+                            new ActOptions { MaxModelCalls = E2EDefaults.MaxModelCalls + 1 }
+                        ),
+                        "wait-calls" => ctx.Agent.WaitForAsync(
+                            "the plan is Pro",
+                            new WaitForOptions { MaxModelCalls = E2EDefaults.MaxModelCalls + 1 }
+                        ),
+                        _ => ctx.Agent.WaitForAsync("the plan is Pro", new WaitForOptions { MaxModelCalls = -1 }),
+                    }
+                );
             },
-            model: model);
+            model: model
+        );
 
         Assert.Equal("INVALID_ARGUMENT", Assert.IsType<TestException>(result.Error).Code);
         Assert.Equal(0, model.CallCount);
@@ -896,7 +1027,10 @@ public sealed class CoreTests
     {
         Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => Secret.Create("pin", "12345")).Code);
         Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => Secret.Create("pin", "")).Code);
-        Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => Secret.Create("pin", "ab\U0001F600cd")).Code);
+        Assert.Equal(
+            "INVALID_ARGUMENT",
+            Assert.Throws<TestException>(() => Secret.Create("pin", "ab\U0001F600cd")).Code
+        );
         Assert.Equal("pin", Secret.Create("pin", "ab\U0001F600cde").Name);
         Assert.Equal("pin", Secret.Create("pin", "123456").Name);
     }
@@ -906,7 +1040,18 @@ public sealed class CoreTests
         return Path.Combine(Path.GetTempPath(), "e2e-tests", Guid.NewGuid().ToString("n"));
     }
 
-    internal readonly record struct Attempt(Exception? Error, int ModelCalls, int Replayed, int Missed, int InputTokens = 0, int OutputTokens = 0, IReadOnlyList<StepRecord>? Steps = null, E2E.Reports.ArtifactRecord? Log = null, string? LogText = null, string? AgentStepId = null);
+    internal readonly record struct Attempt(
+        Exception? Error,
+        int ModelCalls,
+        int Replayed,
+        int Missed,
+        int InputTokens = 0,
+        int OutputTokens = 0,
+        IReadOnlyList<StepRecord>? Steps = null,
+        E2E.Reports.ArtifactRecord? Log = null,
+        string? LogText = null,
+        string? AgentStepId = null
+    );
 
     internal static async Task<Attempt> RunAsync(
         Func<TestContext, Task> body,
@@ -919,28 +1064,31 @@ public sealed class CoreTests
         IStepExecutor? executor = null,
         ReportJson.ReportDirectory? report = null,
         Func<IEngine, IEngine>? wrapEngine = null,
-        bool debug = false)
+        bool debug = false
+    )
     {
         IEngine engine = new DocumentEngine(world ?? BillingWorld.Create());
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            ResultsDirectory = report?.Results,
-            Engine = wrapEngine is null ? engine : wrapEngine(engine),
-            Model = model,
-            AgentTools = agentTools,
-            AgentExecutor = executor,
-            BaseUrl = "https://billing.test",
-            Cache = cacheDirectory is null ? null : new FileStepCache(cacheDirectory),
-            CacheEnabled = cacheDirectory is not null,
-            TestTitle = "billing > case",
-            AssertionTimeout = assertionTimeout ?? TimeSpan.FromSeconds(2),
-            ActionTimeout = actionTimeout ?? TimeSpan.FromMilliseconds(300),
-            ReplayTimeout = actionTimeout ?? TimeSpan.FromMilliseconds(300),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-            Debug = debug,
-            DebugOutput = debug ? TextWriter.Null : null,
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                ResultsDirectory = report?.Results,
+                Engine = wrapEngine is null ? engine : wrapEngine(engine),
+                Model = model,
+                AgentTools = agentTools,
+                AgentExecutor = executor,
+                BaseUrl = "https://billing.test",
+                Cache = cacheDirectory is null ? null : new FileStepCache(cacheDirectory),
+                CacheEnabled = cacheDirectory is not null,
+                TestTitle = "billing > case",
+                AssertionTimeout = assertionTimeout ?? TimeSpan.FromSeconds(2),
+                ActionTimeout = actionTimeout ?? TimeSpan.FromMilliseconds(300),
+                ReplayTimeout = actionTimeout ?? TimeSpan.FromMilliseconds(300),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+                Debug = debug,
+                DebugOutput = debug ? TextWriter.Null : null,
+            }
+        );
         Exception? error = null;
         try
         {
@@ -954,15 +1102,35 @@ public sealed class CoreTests
         session.Complete(error);
         if (!debug)
         {
-            return new Attempt(error, session.ModelCalls, session.Replayed, session.Missed, session.InputTokens, session.OutputTokens);
+            return new Attempt(
+                error,
+                session.ModelCalls,
+                session.Replayed,
+                session.Missed,
+                session.InputTokens,
+                session.OutputTokens
+            );
         }
 
         await session.DisposeAsync();
         var log = session.Artifacts.FirstOrDefault(artifact => artifact.Kind == E2E.Reports.ArtifactKind.Log);
         // The transcript is read through the path the artifact registers, so a record that points elsewhere fails the test.
-        var logText = log?.Path is { } logPath ? File.ReadAllText(Path.Combine(session.ArtifactsDir, Path.GetFileName(logPath))) : null;
+        var logText = log?.Path is { } logPath
+            ? File.ReadAllText(Path.Combine(session.ArtifactsDir, Path.GetFileName(logPath)))
+            : null;
         var agentStep = session.StepRecords.FirstOrDefault(step => step.Api == "agent.act");
-        return new Attempt(error, session.ModelCalls, session.Replayed, session.Missed, session.InputTokens, session.OutputTokens, session.StepRecords, log, logText, agentStep?.Id);
+        return new Attempt(
+            error,
+            session.ModelCalls,
+            session.Replayed,
+            session.Missed,
+            session.InputTokens,
+            session.OutputTokens,
+            session.StepRecords,
+            log,
+            logText,
+            agentStep?.Id
+        );
     }
 
     private sealed class StubHandler : HttpMessageHandler
@@ -973,13 +1141,18 @@ public sealed class CoreTests
 
         public Uri? RequestUri { get; private set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
         {
             RequestUri = request.RequestUri;
-            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
-            {
-                Content = new StringContent(_body, System.Text.Encoding.UTF8, "application/json"),
-            });
+            return Task.FromResult(
+                new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent(_body, System.Text.Encoding.UTF8, "application/json"),
+                }
+            );
         }
     }
 }

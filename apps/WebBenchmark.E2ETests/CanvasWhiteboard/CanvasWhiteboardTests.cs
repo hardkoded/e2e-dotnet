@@ -42,18 +42,22 @@ public sealed class CanvasWhiteboardTests : BenchmarkTest
         Assert.That(await PixelAt(Browser, RectSlot), Is.EqualTo(White));
         Assert.That(await PixelAt(Browser, CircleSlot), Is.EqualTo(White));
 
-        await Screen.SwipeAsync(new SwipePathOptions
-        {
-            From = await OnCanvas(Browser, CanvasSize, RectHome),
-            To = await OnCanvas(Browser, CanvasSize, RectSlot),
-        });
+        await Screen.SwipeAsync(
+            new SwipePathOptions
+            {
+                From = await OnCanvas(Browser, CanvasSize, RectHome),
+                To = await OnCanvas(Browser, CanvasSize, RectSlot),
+            }
+        );
         await Expect.Poll(() => PixelAt(Browser, RectSlot)).ToMatchAsync(Is.EqualTo(Blue));
 
-        await Screen.SwipeAsync(new SwipePathOptions
-        {
-            From = await OnCanvas(Browser, CanvasSize, CircleHome),
-            To = await OnCanvas(Browser, CanvasSize, CircleSlot),
-        });
+        await Screen.SwipeAsync(
+            new SwipePathOptions
+            {
+                From = await OnCanvas(Browser, CanvasSize, CircleHome),
+                To = await OnCanvas(Browser, CanvasSize, CircleSlot),
+            }
+        );
         await Expect.Poll(() => PixelAt(Browser, CircleSlot)).ToMatchAsync(Is.EqualTo(Orange));
         await Expect.Poll(() => PixelAt(Browser, SaveButtonEdge)).ToMatchAsync(Is.EqualTo(Blue));
 
@@ -65,11 +69,13 @@ public sealed class CanvasWhiteboardTests : BenchmarkTest
     [Test]
     public async Task Bounces_a_shape_off_the_wrong_slot_and_refuses_to_save_early()
     {
-        await Screen.SwipeAsync(new SwipePathOptions
-        {
-            From = await OnCanvas(Browser, CanvasSize, RectHome),
-            To = await OnCanvas(Browser, CanvasSize, CircleSlot),
-        });
+        await Screen.SwipeAsync(
+            new SwipePathOptions
+            {
+                From = await OnCanvas(Browser, CanvasSize, RectHome),
+                To = await OnCanvas(Browser, CanvasSize, CircleSlot),
+            }
+        );
         await Expect.Poll(() => CountColor(Browser, BannerBand, Red)).ToMatchAsync(Is.GreaterThan(0));
         Assert.That(await PixelAt(Browser, RectHome), Is.EqualTo(Blue));
         Assert.That(await PixelAt(Browser, CircleSlot), Is.EqualTo(White));

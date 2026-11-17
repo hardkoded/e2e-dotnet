@@ -23,25 +23,87 @@ public sealed class NodesUnderTheSoftKeyboardTests
         N("@e3", index: 3, parentIndex: 2, depth: 3, type: "Keyboard", rect: new Rect(0, 583, 402, 233)),
         N("@e4", index: 4, parentIndex: 3, depth: 4, type: "Key", label: "q", rect: new Rect(4, 590, 39, 54)),
         N("@e5", index: 5, parentIndex: 3, depth: 4, type: "Button", label: "return", rect: new Rect(300, 752, 99, 54)),
-        N("@e6", index: 6, parentIndex: 2, depth: 3, type: "Button", label: "Dictate", keyboardOwned: true, rect: new Rect(325, 805, 68, 68)),
-
+        N(
+            "@e6",
+            index: 6,
+            parentIndex: 2,
+            depth: 3,
+            type: "Button",
+            label: "Dictate",
+            keyboardOwned: true,
+            rect: new Rect(325, 805, 68, 68)
+        ),
         // The keyboard's window holds its dock; agent-device does not always mark the dock keyboard-owned.
-        N("@e14", index: 14, parentIndex: 2, depth: 3, type: "Button", label: "Next keyboard", rect: new Rect(8, 805, 68, 68)),
+        N(
+            "@e14",
+            index: 14,
+            parentIndex: 2,
+            depth: 3,
+            type: "Button",
+            label: "Next keyboard",
+            rect: new Rect(8, 805, 68, 68)
+        ),
         N("@e7", index: 7, parentIndex: 0, depth: 1, type: "Other", label: "Form", rect: new Rect(0, 116, 402, 758)),
-        N("@e8", index: 8, parentIndex: 7, depth: 2, type: "TextField", label: "Product name", rect: new Rect(24, 200, 354, 44)),
-        N("@e9", index: 9, parentIndex: 7, depth: 2, type: "TextField", label: "Brand", identifier: "brand", rect: new Rect(24, 600, 354, 44)),
-        N("@e10", index: 10, parentIndex: 7, depth: 2, type: "Other", label: "Continue", rect: new Rect(24, 806, 354, 44)),
-        N("@e11", index: 11, parentIndex: 10, depth: 3, type: "StaticText", label: "Continue", rect: new Rect(160, 818, 80, 20)),
-
+        N(
+            "@e8",
+            index: 8,
+            parentIndex: 7,
+            depth: 2,
+            type: "TextField",
+            label: "Product name",
+            rect: new Rect(24, 200, 354, 44)
+        ),
+        N(
+            "@e9",
+            index: 9,
+            parentIndex: 7,
+            depth: 2,
+            type: "TextField",
+            label: "Brand",
+            identifier: "brand",
+            rect: new Rect(24, 600, 354, 44)
+        ),
+        N(
+            "@e10",
+            index: 10,
+            parentIndex: 7,
+            depth: 2,
+            type: "Other",
+            label: "Continue",
+            rect: new Rect(24, 806, 354, 44)
+        ),
+        N(
+            "@e11",
+            index: 11,
+            parentIndex: 10,
+            depth: 3,
+            type: "StaticText",
+            label: "Continue",
+            rect: new Rect(160, 818, 80, 20)
+        ),
         // A row whose top shows above the keyboard while its centre is under it: the label child shows, so the row does.
         N("@e12", index: 12, parentIndex: 7, depth: 2, type: "Cell", label: "Notes", rect: new Rect(0, 520, 402, 120)),
-        N("@e13", index: 13, parentIndex: 12, depth: 3, type: "StaticText", label: "Notes", rect: new Rect(24, 528, 80, 20)),
+        N(
+            "@e13",
+            index: 13,
+            parentIndex: 12,
+            depth: 3,
+            type: "StaticText",
+            label: "Notes",
+            rect: new Rect(24, 528, 80, 20)
+        ),
     ];
 
     private static List<string?> HiddenNamesOf(RawNode[] nodes, Rect? keyboard)
     {
         var counter = 0;
-        return [.. SnapshotProjection.ProjectSnapshot(nodes, () => $"n{++counter}", keyboard: keyboard).Index.Where(entry => entry.Node.States.Hidden).Select(entry => entry.Node.Name)];
+        return
+        [
+            .. SnapshotProjection
+                .ProjectSnapshot(nodes, () => $"n{++counter}", keyboard: keyboard)
+                .Index.Where(entry => entry.Node.States.Hidden)
+                .Select(entry => entry.Node.Name),
+        ];
     }
 
     [Fact]
@@ -55,7 +117,9 @@ public sealed class NodesUnderTheSoftKeyboardTests
     {
         var counter = 0;
         var index = SnapshotProjection.ProjectSnapshot(Form, () => $"n{++counter}", keyboard: Keyboard).Index;
-        foreach (var name in new[] { "q", "return", "Dictate", "Next keyboard", "Product name", "Form", "Notes", "Shop" })
+        foreach (
+            var name in new[] { "q", "return", "Dictate", "Next keyboard", "Product name", "Form", "Notes", "Shop" }
+        )
         {
             Assert.False(index.First(entry => entry.Node.Name == name).Node.States.Hidden, name);
         }
@@ -70,10 +134,35 @@ public sealed class NodesUnderTheSoftKeyboardTests
         RawNode[] nodes =
         [
             N("@e0", index: 0, depth: 0, type: "Application", label: "Settings", rect: new Rect(0, 0, 402, 874)),
-            N("@e1", index: 1, parentIndex: 0, depth: 1, type: "Button", label: "Passwords", rect: new Rect(16, 718, 370, 52)),
-            N("@e2", index: 2, parentIndex: 0, depth: 1, type: "SearchField", label: "Search", focused: true, rect: new Rect(26, 789, 344, 28)),
+            N(
+                "@e1",
+                index: 1,
+                parentIndex: 0,
+                depth: 1,
+                type: "Button",
+                label: "Passwords",
+                rect: new Rect(16, 718, 370, 52)
+            ),
+            N(
+                "@e2",
+                index: 2,
+                parentIndex: 0,
+                depth: 1,
+                type: "SearchField",
+                label: "Search",
+                focused: true,
+                rect: new Rect(26, 789, 344, 28)
+            ),
             N("@e3", index: 3, parentIndex: 0, depth: 1, type: "Keyboard", rect: new Rect(0, 590, 402, 226)),
-            N("@e4", index: 4, parentIndex: 0, depth: 1, type: "Button", label: "Next keyboard", rect: new Rect(8, 805, 68, 68)),
+            N(
+                "@e4",
+                index: 4,
+                parentIndex: 0,
+                depth: 1,
+                type: "Button",
+                label: "Next keyboard",
+                rect: new Rect(8, 805, 68, 68)
+            ),
         ];
         Assert.Equal(["Passwords"], HiddenNamesOf(nodes, new Rect(0, 590, 402, 284)));
     }
@@ -86,9 +175,33 @@ public sealed class NodesUnderTheSoftKeyboardTests
         [
             N("@e0", index: 0, depth: 0, type: "Application", label: "Shop", rect: new Rect(0, 0, 402, 874)),
             N("@e1", index: 1, parentIndex: 0, depth: 1, type: "Keyboard", rect: new Rect(0, 500, 402, 300)),
-            N("@e2", index: 2, parentIndex: 0, depth: 1, type: "Button", label: "Next keyboard", rect: new Rect(8, 805, 68, 68)),
-            N("@e3", index: 3, parentIndex: 0, depth: 1, type: "Other", label: "Form", rect: new Rect(0, 116, 402, 758)),
-            N("@e4", index: 4, parentIndex: 3, depth: 2, type: "Button", label: "Continue", rect: new Rect(24, 650, 354, 40)),
+            N(
+                "@e2",
+                index: 2,
+                parentIndex: 0,
+                depth: 1,
+                type: "Button",
+                label: "Next keyboard",
+                rect: new Rect(8, 805, 68, 68)
+            ),
+            N(
+                "@e3",
+                index: 3,
+                parentIndex: 0,
+                depth: 1,
+                type: "Other",
+                label: "Form",
+                rect: new Rect(0, 116, 402, 758)
+            ),
+            N(
+                "@e4",
+                index: 4,
+                parentIndex: 3,
+                depth: 2,
+                type: "Button",
+                label: "Continue",
+                rect: new Rect(24, 650, 354, 40)
+            ),
         ];
         Assert.Equal(["Continue"], HiddenNamesOf(nodes, new Rect(0, 500, 402, 374)));
     }

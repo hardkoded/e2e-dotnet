@@ -15,15 +15,16 @@ public sealed class ObservationFeedTextTests
 {
     private const string Value = "feed-secret-Qx7-2718";
 
-    private static AttemptScope Scope() => new()
-    {
-        Session = null!,
-        Agents = new Dictionary<string, ResolvedAgent>(),
-        Cache = null,
-        CacheEnabled = false,
-        TestTitle = "feed",
-        EnginePlatform = "web",
-    };
+    private static AttemptScope Scope() =>
+        new()
+        {
+            Session = null!,
+            Agents = new Dictionary<string, ResolvedAgent>(),
+            Cache = null,
+            CacheEnabled = false,
+            TestTitle = "feed",
+            EnginePlatform = "web",
+        };
 
     [Fact]
     public void Redacts_a_secret_registered_after_the_look_was_first_rendered()
@@ -33,7 +34,15 @@ public sealed class ObservationFeedTextTests
         var look = new Observation
         {
             Route = "/",
-            Roots = [new SemanticNode { Ref = "n1", Role = "button", Name = "Pay with " + Value }],
+            Roots =
+            [
+                new SemanticNode
+                {
+                    Ref = "n1",
+                    Role = "button",
+                    Name = "Pay with " + Value,
+                },
+            ],
         };
 
         Assert.Contains(Value, feed.Text(look), StringComparison.Ordinal);
@@ -52,16 +61,34 @@ public sealed class ObservationFeedTextTests
         scope.Register("CARD", Value);
         var feed = new ObservationFeed(null!, TimeProvider.System) { Scope = scope };
 
-        feed.NoteShown(new Observation
-        {
-            Route = "/",
-            Roots =
-            [
-                new SemanticNode { Ref = "n1", Role = "button", Name = "Pay with " + Value },
-                new SemanticNode { Ref = "n2", Role = "textbox", Name = "typed-by-the-model" },
-                new SemanticNode { Ref = "n3", Role = "text", Text = "Ready", Value = "echo" },
-            ],
-        });
+        feed.NoteShown(
+            new Observation
+            {
+                Route = "/",
+                Roots =
+                [
+                    new SemanticNode
+                    {
+                        Ref = "n1",
+                        Role = "button",
+                        Name = "Pay with " + Value,
+                    },
+                    new SemanticNode
+                    {
+                        Ref = "n2",
+                        Role = "textbox",
+                        Name = "typed-by-the-model",
+                    },
+                    new SemanticNode
+                    {
+                        Ref = "n3",
+                        Role = "text",
+                        Text = "Ready",
+                        Value = "echo",
+                    },
+                ],
+            }
+        );
 
         Assert.Equal(["Pay with <secret:CARD>"], feed.ShownText());
     }
@@ -75,7 +102,15 @@ public sealed class ObservationFeedTextTests
         {
             Route = "/pay?card=" + Value,
             Location = "https://shop.test/pay?card=" + Value,
-            Roots = [new SemanticNode { Ref = "n1", Role = "button", Name = "Pay with " + Value }],
+            Roots =
+            [
+                new SemanticNode
+                {
+                    Ref = "n1",
+                    Role = "button",
+                    Name = "Pay with " + Value,
+                },
+            ],
         };
         _ = feed.View(feed.PreparedOf(look), scope, new ExecutorObserveOptions { Tree = true });
 
@@ -94,7 +129,13 @@ public sealed class ObservationFeedTextTests
         var scope = Scope();
         scope.Register("CARD", Value);
         var feed = new ObservationFeed(null!, TimeProvider.System) { Scope = scope };
-        var look = new Observation { Route = "/pay?card=" + Value, Location = "https://shop.test/pay?card=" + Value, Roots = [], TreeUnavailable = true };
+        var look = new Observation
+        {
+            Route = "/pay?card=" + Value,
+            Location = "https://shop.test/pay?card=" + Value,
+            Roots = [],
+            TreeUnavailable = true,
+        };
 
         Assert.Equal("/pay?card=%3Csecret:CARD%3E", feed.View(feed.PreparedOf(look), scope).Path);
     }
@@ -103,7 +144,19 @@ public sealed class ObservationFeedTextTests
     public void Reuses_the_rendering_of_a_look_while_no_secret_is_registered()
     {
         var feed = new ObservationFeed(null!, TimeProvider.System) { Scope = Scope() };
-        var look = new Observation { Route = "/", Roots = [new SemanticNode { Ref = "n1", Role = "button", Name = "Pay" }] };
+        var look = new Observation
+        {
+            Route = "/",
+            Roots =
+            [
+                new SemanticNode
+                {
+                    Ref = "n1",
+                    Role = "button",
+                    Name = "Pay",
+                },
+            ],
+        };
 
         Assert.Same(feed.Text(look), feed.Text(look));
     }

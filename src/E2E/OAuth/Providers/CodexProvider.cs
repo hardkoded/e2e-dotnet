@@ -50,7 +50,8 @@ public sealed class CodexProvider : IOAuthProvider
         string issuer = "https://auth.openai.com",
         string apiUrl = DefaultApiUrl,
         int callbackPort = 1455,
-        TimeSpan? loginTimeout = null)
+        TimeSpan? loginTimeout = null
+    )
     {
         _http = http ?? OAuthHttp.Shared;
         _originator = originator;
@@ -64,7 +65,11 @@ public sealed class CodexProvider : IOAuthProvider
 
     public string Name => "ChatGPT";
 
-    public async Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken)
+    public async Task<OAuthCredentials> LoginAsync(
+        OAuthLoginCallbacks callbacks,
+        OAuthLoginOptions options,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(callbacks);
         ArgumentNullException.ThrowIfNull(options);
@@ -77,13 +82,21 @@ public sealed class CodexProvider : IOAuthProvider
     public async Task<OAuthCredentials> RefreshAsync(OAuthCredentials credentials, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(credentials);
-        var tokens = await TokenEndpoint.RequestAsync(
-            _http,
-            Name,
-            _issuer + "/oauth/token",
-            new Dictionary<string, string>(StringComparer.Ordinal) { ["grant_type"] = "refresh_token", ["refresh_token"] = credentials.Refresh, ["client_id"] = ClientId },
-            OAuthException.LoginRequired,
-            cancellationToken).ConfigureAwait(false);
+        var tokens = await TokenEndpoint
+            .RequestAsync(
+                _http,
+                Name,
+                _issuer + "/oauth/token",
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["grant_type"] = "refresh_token",
+                    ["refresh_token"] = credentials.Refresh,
+                    ["client_id"] = ClientId,
+                },
+                OAuthException.LoginRequired,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         return ToCredentials(tokens, credentials);
     }
 
@@ -91,7 +104,11 @@ public sealed class CodexProvider : IOAuthProvider
     /// Routes a Responses request at the Codex backend with the body the Codex CLI sends: no server-side storage,
     /// encrypted reasoning carried between turns, always streamed. The model folds the stream back.
     /// </summary>
-    public async Task PrepareAsync(HttpRequestMessage request, OAuthCredentials credentials, CancellationToken cancellationToken)
+    public async Task PrepareAsync(
+        HttpRequestMessage request,
+        OAuthCredentials credentials,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(credentials);
@@ -101,7 +118,11 @@ public sealed class CodexProvider : IOAuthProvider
             request.Headers.TryAddWithoutValidation("chatgpt-account-id", account);
         }
 
-        if (request.RequestUri is null || !request.RequestUri.AbsolutePath.EndsWith("/responses", StringComparison.Ordinal) || request.Content is null)
+        if (
+            request.RequestUri is null
+            || !request.RequestUri.AbsolutePath.EndsWith("/responses", StringComparison.Ordinal)
+            || request.Content is null
+        )
         {
             return;
         }
@@ -114,8 +135,13 @@ public sealed class CodexProvider : IOAuthProvider
         JsonObject body;
         try
         {
-            body = JsonNode.Parse(await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)) as JsonObject
-                ?? throw new OAuthException(OAuthException.FlowFailed, "the Responses request body is not a JSON object");
+            body =
+                JsonNode.Parse(await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false))
+                    as JsonObject
+                ?? throw new OAuthException(
+                    OAuthException.FlowFailed,
+                    "the Responses request body is not a JSON object"
+                );
         }
         catch (JsonException ex)
         {
@@ -144,31 +170,44 @@ public sealed class CodexProvider : IOAuthProvider
     }
 
     /// <summary>The models the Codex backend serves this subscription, <c>/models</c> next to <c>/responses</c>. Hidden ones are listed, marked.</summary>
-    public async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(HttpClient http, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+        HttpClient http,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(http);
         if (!_apiUrl.EndsWith("/responses", StringComparison.Ordinal))
         {
-            throw new OAuthException(OAuthException.Misconfigured, "the Codex API URL must end in /responses to list models next to it; got " + _apiUrl);
+            throw new OAuthException(
+                OAuthException.Misconfigured,
+                "the Codex API URL must end in /responses to list models next to it; got " + _apiUrl
+            );
         }
 
         var url = _apiUrl[..^"/responses".Length] + "/models?client_version=" + CodexClientVersion;
         var payload = await OAuthHttp.GetJsonAsync(http, url, Name, cancellationToken).ConfigureAwait(false);
         var models = payload["models"] as JsonArray ?? [];
-        return models.OfType<JsonObject>()
+        return models
+            .OfType<JsonObject>()
             .Where(model => !string.IsNullOrEmpty(TokenEndpoint.Text(model, "slug")))
             .OrderBy(model => TokenEndpoint.Number(model, "priority") ?? 0)
             .Select(model =>
             {
                 var levels = (model["supported_reasoning_levels"] as JsonArray ?? [])
-                    .Select(level => level is JsonObject entry ? TokenEndpoint.Text(entry, "effort") : level?.ToString())
+                    .Select(level =>
+                        level is JsonObject entry ? TokenEndpoint.Text(entry, "effort") : level?.ToString()
+                    )
                     .Where(level => !string.IsNullOrEmpty(level))
                     .ToList();
                 var detail = new List<string>();
                 if (levels.Count > 0)
                 {
                     var fallback = TokenEndpoint.Text(model, "default_reasoning_level");
-                    detail.Add("reasoning " + string.Join('/', levels) + (fallback is null ? "" : " (default " + fallback + ")"));
+                    detail.Add(
+                        "reasoning "
+                            + string.Join('/', levels)
+                            + (fallback is null ? "" : " (default " + fallback + ")")
+                    );
                 }
 
                 if (TokenEndpoint.Text(model, "visibility") == "hide")
@@ -179,7 +218,8 @@ public sealed class CodexProvider : IOAuthProvider
                 return new SubscriptionModel(
                     TokenEndpoint.Text(model, "slug")!,
                     TokenEndpoint.Text(model, "display_name") is { Length: > 0 } name ? name : null,
-                    detail.Count == 0 ? null : string.Join("; ", detail));
+                    detail.Count == 0 ? null : string.Join("; ", detail)
+                );
             })
             .ToList();
     }
@@ -196,7 +236,12 @@ public sealed class CodexProvider : IOAuthProvider
 
             var candidate = TokenEndpoint.Text(claims, "chatgpt_account_id")
                 ?? (claims[AuthClaim] is JsonObject nested ? TokenEndpoint.Text(nested, "chatgpt_account_id") : null)
-                ?? (claims["organizations"] is JsonArray { Count: > 0 } organizations && organizations[0] is JsonObject first ? TokenEndpoint.Text(first, "id") : null);
+                ?? (
+                    claims["organizations"] is JsonArray { Count: > 0 } organizations
+                    && organizations[0] is JsonObject first
+                        ? TokenEndpoint.Text(first, "id")
+                        : null
+                );
             if (!string.IsNullOrEmpty(candidate))
             {
                 return candidate;
@@ -240,15 +285,20 @@ public sealed class CodexProvider : IOAuthProvider
     {
         var account = AccountId(tokens.IdToken, tokens.AccessToken) ?? previous?.Get("accountId");
         var claims = Jwt.Claims(tokens.AccessToken);
-        var residency = (claims?[AuthClaim] is JsonObject nested ? TokenEndpoint.Text(nested, "chatgpt_compute_residency") : null)
-            ?? (claims is null ? null : TokenEndpoint.Text(claims, "chatgpt_compute_residency"));
+        var residency = (
+            claims?[AuthClaim] is JsonObject nested ? TokenEndpoint.Text(nested, "chatgpt_compute_residency") : null
+        ) ?? (claims is null ? null : TokenEndpoint.Text(claims, "chatgpt_compute_residency"));
         if (string.IsNullOrEmpty(residency) || residency == "no_constraint")
         {
             residency = previous?.Get("residency");
         }
 
-        var refresh = tokens.RefreshToken ?? previous?.Refresh
-            ?? throw new OAuthException(OAuthException.FlowFailed, "the ChatGPT token response is missing refresh_token");
+        var refresh = tokens.RefreshToken
+            ?? previous?.Refresh
+            ?? throw new OAuthException(
+                OAuthException.FlowFailed,
+                "the ChatGPT token response is missing refresh_token"
+            );
         var extra = new Dictionary<string, string>(StringComparer.Ordinal);
         if (account is not null)
         {
@@ -260,27 +310,41 @@ public sealed class CodexProvider : IOAuthProvider
             extra["residency"] = residency;
         }
 
-        return new OAuthCredentials { Access = tokens.AccessToken, Refresh = refresh, Expires = TokenEndpoint.ExpiryFrom(tokens.ExpiresIn), Extra = extra };
+        return new OAuthCredentials
+        {
+            Access = tokens.AccessToken,
+            Refresh = refresh,
+            Expires = TokenEndpoint.ExpiryFrom(tokens.ExpiresIn),
+            Extra = extra,
+        };
     }
 
-    private async Task<TokenResponse> ExchangeCodeAsync(string code, string redirectUri, string verifier, CancellationToken cancellationToken)
+    private async Task<TokenResponse> ExchangeCodeAsync(
+        string code,
+        string redirectUri,
+        string verifier,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            return await TokenEndpoint.RequestAsync(
-                _http,
-                Name,
-                _issuer + "/oauth/token",
-                new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    ["grant_type"] = "authorization_code",
-                    ["code"] = code,
-                    ["redirect_uri"] = redirectUri,
-                    ["client_id"] = ClientId,
-                    ["code_verifier"] = verifier,
-                },
-                OAuthException.FlowFailed,
-                cancellationToken).ConfigureAwait(false);
+            return await TokenEndpoint
+                .RequestAsync(
+                    _http,
+                    Name,
+                    _issuer + "/oauth/token",
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["grant_type"] = "authorization_code",
+                        ["code"] = code,
+                        ["redirect_uri"] = redirectUri,
+                        ["client_id"] = ClientId,
+                        ["code_verifier"] = verifier,
+                    },
+                    OAuthException.FlowFailed,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
         {
@@ -288,12 +352,18 @@ public sealed class CodexProvider : IOAuthProvider
         }
     }
 
-    private async Task<TokenResponse> BrowserLoginAsync(OAuthLoginCallbacks callbacks, CancellationToken cancellationToken)
+    private async Task<TokenResponse> BrowserLoginAsync(
+        OAuthLoginCallbacks callbacks,
+        CancellationToken cancellationToken
+    )
     {
         var (verifier, challenge) = Pkce.Generate();
         var state = Pkce.State();
         using var server = CallbackServer.TryStart(_callbackPort, CallbackPath, state, "ChatGPT login");
-        var redirectUri = server?.RedirectUri ?? "http://localhost:" + _callbackPort.ToString(System.Globalization.CultureInfo.InvariantCulture) + CallbackPath;
+        var redirectUri = server?.RedirectUri
+            ?? "http://localhost:"
+                + _callbackPort.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + CallbackPath;
         var query = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["response_type"] = "code",
@@ -307,12 +377,20 @@ public sealed class CodexProvider : IOAuthProvider
             ["state"] = state,
             ["originator"] = _originator,
         };
-        var url = _issuer + "/oauth/authorize?" + string.Join('&', query.Select(pair => pair.Key + "=" + Uri.EscapeDataString(pair.Value)));
-        callbacks.OnAuth(new OAuthAuthInfo(
-            url,
-            server is null
-                ? "Port " + _callbackPort.ToString(System.Globalization.CultureInfo.InvariantCulture) + " is in use, so the browser cannot return here: sign in, then paste the URL the browser lands on."
-                : "Sign in in the browser; this terminal continues when the browser returns, or asks for the URL it landed on."));
+        var url =
+            _issuer
+            + "/oauth/authorize?"
+            + string.Join('&', query.Select(pair => pair.Key + "=" + Uri.EscapeDataString(pair.Value)));
+        callbacks.OnAuth(
+            new OAuthAuthInfo(
+                url,
+                server is null
+                    ? "Port "
+                        + _callbackPort.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                        + " is in use, so the browser cannot return here: sign in, then paste the URL the browser lands on."
+                    : "Sign in in the browser; this terminal continues when the browser returns, or asks for the URL it landed on."
+            )
+        );
 
         string? code;
         if (server is null)
@@ -348,12 +426,23 @@ public sealed class CodexProvider : IOAuthProvider
         return await ExchangeCodeAsync(code, redirectUri, verifier, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<string?> PasteCodeAsync(OAuthLoginCallbacks callbacks, string state, CancellationToken cancellationToken)
+    private static async Task<string?> PasteCodeAsync(
+        OAuthLoginCallbacks callbacks,
+        string state,
+        CancellationToken cancellationToken
+    )
     {
-        var pasted = ParseAuthorizationInput(await callbacks.OnPrompt("Paste the URL the browser landed on (or the code it shows)", cancellationToken).ConfigureAwait(false));
+        var pasted = ParseAuthorizationInput(
+            await callbacks
+                .OnPrompt("Paste the URL the browser landed on (or the code it shows)", cancellationToken)
+                .ConfigureAwait(false)
+        );
         if (pasted.State is not null && pasted.State != state)
         {
-            throw new OAuthException(OAuthException.FlowFailed, "the pasted code belongs to a different login attempt; start over");
+            throw new OAuthException(
+                OAuthException.FlowFailed,
+                "the pasted code belongs to a different login attempt; start over"
+            );
         }
 
         return pasted.Code;
@@ -365,35 +454,61 @@ public sealed class CodexProvider : IOAuthProvider
         return DeviceFlow.RunAsync<TokenResponse>(
             async token =>
             {
-                using var response = await PostJsonAsync(_issuer + "/api/accounts/deviceauth/usercode", new JsonObject { ["client_id"] = ClientId }, token).ConfigureAwait(false);
+                using var response = await PostJsonAsync(
+                        _issuer + "/api/accounts/deviceauth/usercode",
+                        new JsonObject { ["client_id"] = ClientId },
+                        token
+                    )
+                    .ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new OAuthException(OAuthException.FlowFailed, "ChatGPT device login could not start: " + await TokenEndpoint.DescribeAsync(response, token).ConfigureAwait(false));
+                    throw new OAuthException(
+                        OAuthException.FlowFailed,
+                        "ChatGPT device login could not start: "
+                            + await TokenEndpoint.DescribeAsync(response, token).ConfigureAwait(false)
+                    );
                 }
 
                 var device = await OAuthHttp.ReadJsonAsync(response, Name, token).ConfigureAwait(false);
                 return new DeviceAuthorization(
-                    TokenEndpoint.Text(device, "device_auth_id") ?? throw new OAuthException(OAuthException.FlowFailed, "the ChatGPT device response is missing device_auth_id"),
-                    TokenEndpoint.Text(device, "user_code") ?? throw new OAuthException(OAuthException.FlowFailed, "the ChatGPT device response is missing user_code"),
+                    TokenEndpoint.Text(device, "device_auth_id")
+                        ?? throw new OAuthException(
+                            OAuthException.FlowFailed,
+                            "the ChatGPT device response is missing device_auth_id"
+                        ),
+                    TokenEndpoint.Text(device, "user_code")
+                        ?? throw new OAuthException(
+                            OAuthException.FlowFailed,
+                            "the ChatGPT device response is missing user_code"
+                        ),
                     _issuer + "/codex/device",
                     null,
                     _loginTimeout.TotalSeconds,
-                    (TokenEndpoint.Number(device, "interval") ?? 5) + 3);
+                    (TokenEndpoint.Number(device, "interval") ?? 5) + 3
+                );
             },
             async (authorization, token) =>
             {
                 using var response = await PostJsonAsync(
-                    _issuer + "/api/accounts/deviceauth/token",
-                    new JsonObject { ["device_auth_id"] = authorization.DeviceCode, ["user_code"] = authorization.UserCode },
-                    token).ConfigureAwait(false);
+                        _issuer + "/api/accounts/deviceauth/token",
+                        new JsonObject
+                        {
+                            ["device_auth_id"] = authorization.DeviceCode,
+                            ["user_code"] = authorization.UserCode,
+                        },
+                        token
+                    )
+                    .ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                 {
                     var grant = await OAuthHttp.ReadJsonAsync(response, Name, token).ConfigureAwait(false);
                     var tokens = await ExchangeCodeAsync(
-                        TokenEndpoint.Text(grant, "authorization_code") ?? "",
-                        _issuer + "/deviceauth/callback",
-                        TokenEndpoint.Text(grant, "code_verifier") ?? "",
-                        token).ConfigureAwait(false);
+                            TokenEndpoint.Text(grant, "authorization_code") ?? "",
+                            _issuer + "/deviceauth/callback",
+                            TokenEndpoint.Text(grant, "code_verifier") ?? "",
+                            token
+                        )
+                        .ConfigureAwait(false);
                     return new DevicePoll<TokenResponse>(DevicePollStatus.Granted, tokens);
                 }
 
@@ -403,14 +518,23 @@ public sealed class CodexProvider : IOAuthProvider
                     return new DevicePoll<TokenResponse>(DevicePollStatus.Pending);
                 }
 
-                throw new OAuthException(OAuthException.FlowFailed, "ChatGPT device login failed: " + await TokenEndpoint.DescribeAsync(response, token).ConfigureAwait(false));
+                throw new OAuthException(
+                    OAuthException.FlowFailed,
+                    "ChatGPT device login failed: "
+                        + await TokenEndpoint.DescribeAsync(response, token).ConfigureAwait(false)
+                );
             },
             callbacks,
             null,
-            cancellationToken);
+            cancellationToken
+        );
     }
 
-    private async Task<HttpResponseMessage> PostJsonAsync(string url, JsonObject body, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> PostJsonAsync(
+        string url,
+        JsonObject body,
+        CancellationToken cancellationToken
+    )
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = ModelHttp.Json(body) };
         request.Headers.TryAddWithoutValidation("User-Agent", ModelHttp.UserAgent);

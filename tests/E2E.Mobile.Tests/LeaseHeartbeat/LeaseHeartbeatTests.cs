@@ -17,7 +17,10 @@ public sealed class LeaseHeartbeatTests
     {
         public List<JsonObject> Requests { get; } = [];
 
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
         {
             var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken))!.AsObject();
             lock (Requests)
@@ -27,20 +30,25 @@ public sealed class LeaseHeartbeatTests
 
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("""{"jsonrpc":"2.0","id":1,"result":{"ok":true,"data":{"lease":{"leaseId":"lease-2"}}}}""", Encoding.UTF8, "application/json"),
+                Content = new StringContent(
+                    """{"jsonrpc":"2.0","id":1,"result":{"ok":true,"data":{"lease":{"leaseId":"lease-2"}}}}""",
+                    Encoding.UTF8,
+                    "application/json"
+                ),
             };
         }
     }
 
-    private static JsonObject Scope() => new()
-    {
-        ["stateDir"] = "/state",
-        ["tenant"] = "browserstack",
-        ["runId"] = "run",
-        ["leaseId"] = "lease-2",
-        ["leaseBackend"] = "android-instance",
-        ["leaseProvider"] = "browserstack",
-    };
+    private static JsonObject Scope() =>
+        new()
+        {
+            ["stateDir"] = "/state",
+            ["tenant"] = "browserstack",
+            ["runId"] = "run",
+            ["leaseId"] = "lease-2",
+            ["leaseBackend"] = "android-instance",
+            ["leaseProvider"] = "browserstack",
+        };
 
     [Fact]
     public async Task Renews_the_lease_on_the_leases_own_daemon_until_stopped()
@@ -55,11 +63,17 @@ public sealed class LeaseHeartbeatTests
             (session, connection) =>
             {
                 created.Add(DeviceClientConfig.For(session, connection));
-                return new AgentDeviceRpcClient(session, connection!.Client, _ => Task.FromResult(new DaemonEndpoint(new Uri("http://127.0.0.1:1/"), "token")), new HttpClient(daemon));
+                return new AgentDeviceRpcClient(
+                    session,
+                    connection!.Client,
+                    _ => Task.FromResult(new DaemonEndpoint(new Uri("http://127.0.0.1:1/"), "token")),
+                    new HttpClient(daemon)
+                );
             },
             _ => { },
             clock.Delay,
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         var config = Assert.Single(created);
         Assert.Matches("^e2e-lease-[0-9a-f]{8}$", config.Session);
@@ -68,8 +82,13 @@ public sealed class LeaseHeartbeatTests
         Assert.Equal("auto", config.DaemonTransport);
         await clock.AdvanceAsync(TimeSpan.FromSeconds(140));
         Assert.Equal(8, daemon.Requests.Count);
-        Assert.All(daemon.Requests, request => Assert.Equal("agent_device.lease.heartbeat", request["method"]!.GetValue<string>()));
-        JsonAssert.Args($$"""{"session":"{{config.Session}}","tenantId":"browserstack","runId":"run","leaseProvider":"browserstack","leaseId":"lease-2","ttlMs":60000}""", daemon.Requests[^1]["params"]);
+        Assert.All(daemon.Requests, request =>
+            Assert.Equal("agent_device.lease.heartbeat", request["method"]!.GetValue<string>())
+        );
+        JsonAssert.Args(
+            $$"""{"session":"{{config.Session}}","tenantId":"browserstack","runId":"run","leaseProvider":"browserstack","leaseId":"lease-2","ttlMs":60000}""",
+            daemon.Requests[^1]["params"]
+        );
         await stop();
         await clock.AdvanceAsync(TimeSpan.FromSeconds(140));
         Assert.Equal(8, daemon.Requests.Count);
@@ -112,7 +131,8 @@ public sealed class LeaseHeartbeatTests
                 }
             },
             clock.Delay,
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         await clock.AdvanceAsync(TimeSpan.FromSeconds(40));
         Assert.Equal("lease lease-2: renewal failed: transport unavailable", messages[0]);

@@ -14,9 +14,7 @@ public sealed class DiscoveredFixture : E2ETest
     [Fact(Skip = "only found by reflection")]
     [Trait("TestCategory", "Slow")]
     [Trait("Owner", "nobody")]
-    public void Is_found_by_reflection()
-    {
-    }
+    public void Is_found_by_reflection() { }
 
     [Theory(Skip = "only found by reflection")]
     [InlineData(1)]
@@ -24,9 +22,7 @@ public sealed class DiscoveredFixture : E2ETest
     public void A_theory_is_one_test(int row) => Assert.True(row > 0);
 
     [Fact(Explicit = true)]
-    public void Is_not_judged_when_explicit()
-    {
-    }
+    public void Is_not_judged_when_explicit() { }
 }
 
 /// <summary>A fixture the filters judge: its test is skipped when it runs, by a condition that is never met, so no engine starts.</summary>
@@ -35,18 +31,14 @@ public sealed class JudgedFixture : E2ETest
     public static bool Never => false;
 
     [Fact(Skip = "never runs", SkipUnless = nameof(Never))]
-    public void Is_judged()
-    {
-    }
+    public void Is_judged() { }
 }
 
 /// <summary>A fixture whose test would start a session if the filters did not stop it; it only runs when asked for, and the tests call its setup by hand.</summary>
 public sealed class LeftOutFixture : E2ETest
 {
     [Fact(Explicit = true)]
-    public void Is_left_out()
-    {
-    }
+    public void Is_left_out() { }
 }
 
 /// <summary>
@@ -61,7 +53,9 @@ public sealed class RunSelectionTests
     [Fact]
     public void Finds_the_tests_of_the_assembly_with_their_categories_and_skip_reason()
     {
-        var found = E2E.XUnit.V3.RunSelection.Discover(typeof(RunSelectionTests).Assembly).Single(test => test.Key == KeyOf(nameof(DiscoveredFixture.Is_found_by_reflection)));
+        var found = E2E
+            .XUnit.V3.RunSelection.Discover(typeof(RunSelectionTests).Assembly)
+            .Single(test => test.Key == KeyOf(nameof(DiscoveredFixture.Is_found_by_reflection)));
 
         Assert.Equal("E2E.XUnit.V3.Tests.RunSelection", found.Namespace);
         Assert.Equal(nameof(DiscoveredFixture), found.TypeName);
@@ -72,15 +66,24 @@ public sealed class RunSelectionTests
     [Fact]
     public void Finds_a_theory_once_and_leaves_an_explicit_test_out()
     {
-        var methods = E2E.XUnit.V3.RunSelection.Discover(typeof(RunSelectionTests).Assembly).Where(test => test.TypeName == nameof(DiscoveredFixture)).Select(test => test.Title).ToList();
+        var methods = E2E
+            .XUnit.V3.RunSelection.Discover(typeof(RunSelectionTests).Assembly)
+            .Where(test => test.TypeName == nameof(DiscoveredFixture))
+            .Select(test => test.Title)
+            .ToList();
 
-        Assert.Equal([nameof(DiscoveredFixture.Is_found_by_reflection), nameof(DiscoveredFixture.A_theory_is_one_test)], methods);
+        Assert.Equal(
+            [nameof(DiscoveredFixture.Is_found_by_reflection), nameof(DiscoveredFixture.A_theory_is_one_test)],
+            methods
+        );
     }
 
     [Fact]
     public void Does_not_take_a_conditional_skip_for_an_outright_one()
     {
-        var found = E2E.XUnit.V3.RunSelection.Discover(typeof(RunSelectionTests).Assembly).Single(test => test.Key == $"{typeof(JudgedFixture).FullName}.{nameof(JudgedFixture.Is_judged)}");
+        var found = E2E
+            .XUnit.V3.RunSelection.Discover(typeof(RunSelectionTests).Assembly)
+            .Single(test => test.Key == $"{typeof(JudgedFixture).FullName}.{nameof(JudgedFixture.Is_judged)}");
 
         Assert.Null(found.SkipReason);
     }
@@ -102,11 +105,16 @@ public sealed class RunSelectionTests
     [Fact]
     public void Skips_a_test_the_filters_left_out_with_their_reason()
     {
-        E2E.XUnit.V3.RunSelection.Set(new Dictionary<string, string> { [KeyOf("Left_out")] = "login.cs did not change" });
+        E2E.XUnit.V3.RunSelection.Set(
+            new Dictionary<string, string> { [KeyOf("Left_out")] = "login.cs did not change" }
+        );
         try
         {
             // xUnit v3 reads this prefix as a skip, and the rest as its reason.
-            Assert.Equal("$XunitDynamicSkip$login.cs did not change", SkipReasonOf(typeof(DiscoveredFixture), "Left_out"));
+            Assert.Equal(
+                "$XunitDynamicSkip$login.cs did not change",
+                SkipReasonOf(typeof(DiscoveredFixture), "Left_out")
+            );
             Assert.Null(SkipReasonOf(typeof(DiscoveredFixture), "Kept"));
         }
         finally
@@ -136,7 +144,12 @@ public sealed class RunSelectionTests
     public async Task Ends_a_test_the_filters_left_out_as_skipped_before_its_session_starts()
     {
         var method = Xunit.TestContext.Current.Test!.TestCase.TestMethodName!;
-        E2E.XUnit.V3.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutFixture).FullName}.{method}"] = "login.cs did not change" });
+        E2E.XUnit.V3.RunSelection.Set(
+            new Dictionary<string, string>
+            {
+                [$"{typeof(LeftOutFixture).FullName}.{method}"] = "login.cs did not change",
+            }
+        );
         try
         {
             // The setup of the test base class is called by hand, as xUnit calls it; no session exists for it to start when the test is left out.
@@ -164,8 +177,18 @@ public sealed class RunSelectionTests
         {
             public string Name => "judged";
 
-            public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) =>
-                Task.FromResult(new TestFilterResult { Exclude = tests.Where(test => test.TitlePath[0] == nameof(JudgedFixture)).ToDictionary(test => test.Id, _ => "left out") });
+            public Task<TestFilterResult> FilterAsync(
+                IReadOnlyList<TestFilterCandidate> tests,
+                TestFilterContext context
+            ) =>
+                Task.FromResult(
+                    new TestFilterResult
+                    {
+                        Exclude = tests
+                            .Where(test => test.TitlePath[0] == nameof(JudgedFixture))
+                            .ToDictionary(test => test.Id, _ => "left out"),
+                    }
+                );
         }
 
         protected override IReadOnlyList<ITestFilter> Filters => [new Judged()];
@@ -183,7 +206,10 @@ public sealed class RunSelectionTests
         {
             await ((IAsyncLifetime)new LeaveOutJudged(dir, "main")).InitializeAsync();
 
-            Assert.Equal("$XunitDynamicSkip$left out", SkipReasonOf(typeof(JudgedFixture), nameof(JudgedFixture.Is_judged)));
+            Assert.Equal(
+                "$XunitDynamicSkip$left out",
+                SkipReasonOf(typeof(JudgedFixture), nameof(JudgedFixture.Is_judged))
+            );
             var run = JsonNode.Parse(File.ReadAllText(Path.Combine(dir, ".e2e", "report.json")))!["run"]!;
             Assert.Equal("judged", (string)run["filters"]![0]!["name"]!);
             var result = Assert.Single(run["results"]!.AsArray())!;
@@ -231,8 +257,23 @@ public sealed class RunSelectionTests
 
     private static void Git(string dir, params string[] args)
     {
-        var start = new ProcessStartInfo("git") { WorkingDirectory = dir, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false" }.Concat(args))
+        var start = new ProcessStartInfo("git")
+        {
+            WorkingDirectory = dir,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        foreach (
+            var arg in new[]
+            {
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@example.com",
+                "-c",
+                "commit.gpgsign=false",
+            }.Concat(args)
+        )
         {
             start.ArgumentList.Add(arg);
         }

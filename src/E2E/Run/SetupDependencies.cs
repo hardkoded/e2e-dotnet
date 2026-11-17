@@ -26,7 +26,13 @@ internal static class SetupDependencies
     /// one setup test of its assembly that declares it. Does nothing when the session is saved, or when no setup test, or more than one,
     /// declares it: the restore then fails with <c>SESSION_UNAVAILABLE</c> as before.
     /// </summary>
-    public static async Task EnsureAsync(SessionPlan plan, string name, Type dependent, Func<E2EFixture, MethodInfo, CancellationToken, Task> run, CancellationToken cancellationToken)
+    public static async Task EnsureAsync(
+        SessionPlan plan,
+        string name,
+        Type dependent,
+        Func<E2EFixture, MethodInfo, CancellationToken, Task> run,
+        CancellationToken cancellationToken
+    )
     {
         if (plan.Store.Exists(name, plan.Identity))
         {
@@ -40,13 +46,19 @@ internal static class SetupDependencies
         }
 
         var key = plan.Identity.TargetId + "\0" + name;
-        var lazy = Runs.GetOrAdd(key, _ => new Lazy<Task<bool>>(() => RunAsync(setup, run), LazyThreadSafetyMode.ExecutionAndPublication));
+        var lazy = Runs.GetOrAdd(key, _ => new Lazy<Task<bool>>(
+            () => RunAsync(setup, run),
+            LazyThreadSafetyMode.ExecutionAndPublication
+        ));
         // A caller that is cancelled stops waiting; the run goes on for the others.
         var passed = await lazy.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         if (!passed)
         {
-            throw new ConfigurationException("SESSION_UNAVAILABLE", $"session \"{name}\" was not produced: its setup test {setup.Type.FullName}.{setup.Method.Name} failed");
+            throw new ConfigurationException(
+                "SESSION_UNAVAILABLE",
+                $"session \"{name}\" was not produced: its setup test {setup.Type.FullName}.{setup.Method.Name} failed"
+            );
         }
     }
 
@@ -75,9 +87,17 @@ internal static class SetupDependencies
             types = [.. ex.Types.OfType<Type>()];
         }
 
-        foreach (var type in types.Where(type => type is { IsAbstract: false, IsClass: true } && typeof(E2EFixture).IsAssignableFrom(type)))
+        foreach (
+            var type in types.Where(type =>
+                type is { IsAbstract: false, IsClass: true } && typeof(E2EFixture).IsAssignableFrom(type)
+            )
+        )
         {
-            foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            foreach (
+                var method in type.GetMethods(
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly
+                )
+            )
             {
                 if (SessionAttributes.Saves(method) is { } saves && saves.Contains(name, StringComparer.Ordinal))
                 {
@@ -94,7 +114,10 @@ internal static class SetupDependencies
         return found;
     }
 
-    private static async Task<bool> RunAsync((Type Type, MethodInfo Method) setup, Func<E2EFixture, MethodInfo, CancellationToken, Task> run)
+    private static async Task<bool> RunAsync(
+        (Type Type, MethodInfo Method) setup,
+        Func<E2EFixture, MethodInfo, CancellationToken, Task> run
+    )
     {
         if (setup.Type.GetConstructor(Type.EmptyTypes) is null)
         {

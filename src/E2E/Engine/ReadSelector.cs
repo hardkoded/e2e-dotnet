@@ -34,7 +34,12 @@ internal static class ReadSelector
     public static (string Selector, string Token) Create(string testIdAttribute, string secureFieldSelector)
     {
         var token = Guid.NewGuid().ToString();
-        return (ReadSelectorEngine + "=" + JsonSerializer.Serialize(new ReadSelectorBody(token, testIdAttribute, secureFieldSelector), Json), token);
+        return (
+            ReadSelectorEngine
+                + "="
+                + JsonSerializer.Serialize(new ReadSelectorBody(token, testIdAttribute, secureFieldSelector), Json),
+            token
+        );
     }
 
     // Where the engine records reads on an element: a Map from locate token to read under a registry symbol, like the observation's ref

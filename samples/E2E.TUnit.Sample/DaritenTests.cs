@@ -32,7 +32,9 @@ public sealed class DaritenTests : E2ETest
     {
         await App.OpenAsync("/transactions");
         await Agent.ActAsync("filter the register to show only the Groceries category");
-        await Agent.AssertAsync("every transaction listed is in the Groceries category, or the register says no transactions match");
+        await Agent.AssertAsync(
+            "every transaction listed is in the Groceries category, or the register says no transactions match"
+        );
         await Expect.That(Screen.GetByRole("heading", "Transactions")).ToBeVisibleAsync();
     }
 }

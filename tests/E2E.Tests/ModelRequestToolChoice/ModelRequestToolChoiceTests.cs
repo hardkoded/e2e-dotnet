@@ -14,16 +14,21 @@ namespace E2E.Tests.ModelRequestToolChoice;
 /// </summary>
 public sealed class ModelRequestToolChoiceTests
 {
-    private const string BedrockAnswer = """{ "output": { "message": { "role": "assistant", "content": [{ "text": "ok" }] } } }""";
+    private const string BedrockAnswer =
+        """{ "output": { "message": { "role": "assistant", "content": [{ "text": "ok" }] } } }""";
 
-    private static ModelRequest With(ModelToolChoice? choice, IReadOnlyDictionary<string, JsonElement>? providerOptions = null) => new()
-    {
-        System = "rules",
-        Tools = ModelProviderTests.Tools(),
-        Messages = [new ModelMessage { Role = "user", Content = "step" }],
-        ToolChoice = choice,
-        ProviderOptions = providerOptions,
-    };
+    private static ModelRequest With(
+        ModelToolChoice? choice,
+        IReadOnlyDictionary<string, JsonElement>? providerOptions = null
+    ) =>
+        new()
+        {
+            System = "rules",
+            Tools = ModelProviderTests.Tools(),
+            Messages = [new ModelMessage { Role = "user", Content = "step" }],
+            ToolChoice = choice,
+            ProviderOptions = providerOptions,
+        };
 
     private static string Wire(JsonNode? node) => node!.ToJsonString();
 
@@ -35,7 +40,10 @@ public sealed class ModelRequestToolChoiceTests
         Assert.Equal("\"auto\"", Wire((await ChatAsync(options, With(null)))["tool_choice"]));
         Assert.Equal("\"auto\"", Wire((await ChatAsync(options, With(ModelToolChoice.Auto)))["tool_choice"]));
         Assert.Equal("\"required\"", Wire((await ChatAsync(options, With(ModelToolChoice.Required)))["tool_choice"]));
-        Assert.Equal("""{"type":"function","function":{"name":"done"}}""", Wire((await ChatAsync(options, With(ModelToolChoice.Tool("done"))))["tool_choice"]));
+        Assert.Equal(
+            """{"type":"function","function":{"name":"done"}}""",
+            Wire((await ChatAsync(options, With(ModelToolChoice.Tool("done"))))["tool_choice"])
+        );
     }
 
     [Fact]
@@ -44,16 +52,28 @@ public sealed class ModelRequestToolChoiceTests
         var options = new OpenAiResponsesModelOptions { Model = "m", ApiKey = "k" };
 
         Assert.Equal("\"auto\"", Wire((await ResponsesAsync(options, With(null)))["tool_choice"]));
-        Assert.Equal("\"required\"", Wire((await ResponsesAsync(options, With(ModelToolChoice.Required)))["tool_choice"]));
-        Assert.Equal("""{"type":"function","name":"done"}""", Wire((await ResponsesAsync(options, With(ModelToolChoice.Tool("done"))))["tool_choice"]));
+        Assert.Equal(
+            "\"required\"",
+            Wire((await ResponsesAsync(options, With(ModelToolChoice.Required)))["tool_choice"])
+        );
+        Assert.Equal(
+            """{"type":"function","name":"done"}""",
+            Wire((await ResponsesAsync(options, With(ModelToolChoice.Tool("done"))))["tool_choice"])
+        );
     }
 
     [Fact]
     public async Task Anthropic_sends_auto_any_or_the_named_tool()
     {
         Assert.Equal("""{"type":"auto"}""", Wire((await AnthropicBodyAsync(With(null)))["tool_choice"]));
-        Assert.Equal("""{"type":"any"}""", Wire((await AnthropicBodyAsync(With(ModelToolChoice.Required)))["tool_choice"]));
-        Assert.Equal("""{"type":"tool","name":"done"}""", Wire((await AnthropicBodyAsync(With(ModelToolChoice.Tool("done"))))["tool_choice"]));
+        Assert.Equal(
+            """{"type":"any"}""",
+            Wire((await AnthropicBodyAsync(With(ModelToolChoice.Required)))["tool_choice"])
+        );
+        Assert.Equal(
+            """{"type":"tool","name":"done"}""",
+            Wire((await AnthropicBodyAsync(With(ModelToolChoice.Tool("done"))))["tool_choice"])
+        );
     }
 
     [Fact]
@@ -62,19 +82,39 @@ public sealed class ModelRequestToolChoiceTests
         using var model = new GoogleModel(new GoogleModelOptions { Model = "m", ApiKey = "k" });
 
         Assert.Equal("""{"mode":"AUTO"}""", Wire(model.BuildBody(With(null))["toolConfig"]!["functionCallingConfig"]));
-        Assert.Equal("""{"mode":"ANY"}""", Wire(model.BuildBody(With(ModelToolChoice.Required))["toolConfig"]!["functionCallingConfig"]));
-        Assert.Equal("""{"mode":"ANY","allowedFunctionNames":["done"]}""", Wire(model.BuildBody(With(ModelToolChoice.Tool("done")))["toolConfig"]!["functionCallingConfig"]));
+        Assert.Equal(
+            """{"mode":"ANY"}""",
+            Wire(model.BuildBody(With(ModelToolChoice.Required))["toolConfig"]!["functionCallingConfig"])
+        );
+        Assert.Equal(
+            """{"mode":"ANY","allowedFunctionNames":["done"]}""",
+            Wire(model.BuildBody(With(ModelToolChoice.Tool("done")))["toolConfig"]!["functionCallingConfig"])
+        );
     }
 
     [Fact]
     public void Bedrock_sends_no_choice_by_default_and_auto_any_or_the_named_tool_when_asked()
     {
-        using var model = new BedrockModel(new BedrockModelOptions { Model = "m", Region = "eu-west-1", ApiKey = "k" }, new HttpClient());
+        using var model = new BedrockModel(
+            new BedrockModelOptions
+            {
+                Model = "m",
+                Region = "eu-west-1",
+                ApiKey = "k",
+            },
+            new HttpClient()
+        );
 
         Assert.Null(model.BuildBody(With(null))["toolConfig"]!["toolChoice"]);
         Assert.Equal("""{"auto":{}}""", Wire(model.BuildBody(With(ModelToolChoice.Auto))["toolConfig"]!["toolChoice"]));
-        Assert.Equal("""{"any":{}}""", Wire(model.BuildBody(With(ModelToolChoice.Required))["toolConfig"]!["toolChoice"]));
-        Assert.Equal("""{"tool":{"name":"done"}}""", Wire(model.BuildBody(With(ModelToolChoice.Tool("done")))["toolConfig"]!["toolChoice"]));
+        Assert.Equal(
+            """{"any":{}}""",
+            Wire(model.BuildBody(With(ModelToolChoice.Required))["toolConfig"]!["toolChoice"])
+        );
+        Assert.Equal(
+            """{"tool":{"name":"done"}}""",
+            Wire(model.BuildBody(With(ModelToolChoice.Tool("done")))["toolConfig"]!["toolChoice"])
+        );
     }
 
     [Fact]
@@ -102,7 +142,9 @@ public sealed class ModelRequestToolChoiceTests
         var thinking = Options("anthropic", """{ "thinking": { "type": "enabled", "budget_tokens": 1024 } }""");
 
         Assert.Empty((await model.CompleteAsync(With(ModelToolChoice.Required), CancellationToken.None)).Warnings);
-        Assert.Empty((await model.CompleteAsync(With(ModelToolChoice.Auto, thinking), CancellationToken.None)).Warnings);
+        Assert.Empty(
+            (await model.CompleteAsync(With(ModelToolChoice.Auto, thinking), CancellationToken.None)).Warnings
+        );
     }
 
     [Fact]
@@ -110,8 +152,19 @@ public sealed class ModelRequestToolChoiceTests
     {
         var handler = new RecordingHandler(BedrockAnswer);
         using var http = new HttpClient(handler);
-        using var model = new BedrockModel(new BedrockModelOptions { Model = "m", Region = "eu-west-1", ApiKey = "k" }, http);
-        var thinking = Options("bedrock", """{ "additionalModelRequestFields": { "thinking": { "type": "enabled", "budget_tokens": 1024 } } }""");
+        using var model = new BedrockModel(
+            new BedrockModelOptions
+            {
+                Model = "m",
+                Region = "eu-west-1",
+                ApiKey = "k",
+            },
+            http
+        );
+        var thinking = Options(
+            "bedrock",
+            """{ "additionalModelRequestFields": { "thinking": { "type": "enabled", "budget_tokens": 1024 } } }"""
+        );
 
         var response = await model.CompleteAsync(With(ModelToolChoice.Tool("done"), thinking), CancellationToken.None);
 
@@ -131,7 +184,9 @@ public sealed class ModelRequestToolChoiceTests
         Assert.Throws<ConfigurationException>(() => anthropic.BuildBody(With(null, Options("anthropic", choice))));
         Assert.Throws<ConfigurationException>(() => chat.BuildBody(With(null, Options("openai", choice))));
         Assert.Throws<ConfigurationException>(() => responses.BuildBody(With(null, Options("openai", choice))));
-        Assert.Throws<ConfigurationException>(() => google.BuildBody(With(null, Options("google", """{ "toolConfig": {} }"""))));
+        Assert.Throws<ConfigurationException>(() =>
+            google.BuildBody(With(null, Options("google", """{ "toolConfig": {} }""")))
+        );
     }
 
     [Fact]
@@ -141,14 +196,16 @@ public sealed class ModelRequestToolChoiceTests
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "ok"));
 
         using (await AiTraceModel.BeginAsync(recorder, model, With(ModelToolChoice.Required), CancellationToken.None))
-        {
-        }
+        { }
 
-        using (await AiTraceModel.BeginAsync(recorder, model, With(ModelToolChoice.Tool("done")), CancellationToken.None))
-        {
-        }
+        using (
+            await AiTraceModel.BeginAsync(recorder, model, With(ModelToolChoice.Tool("done")), CancellationToken.None)
+        ) { }
 
-        var choices = recorder.Drain().Steps.Select(step => JsonNode.Parse(step.Input)!["toolChoice"]!.ToJsonString()).ToList();
+        var choices = recorder
+            .Drain()
+            .Steps.Select(step => JsonNode.Parse(step.Input)!["toolChoice"]!.ToJsonString())
+            .ToList();
         Assert.Equal(["""{"type":"required"}""", """{"type":"tool","toolName":"done"}"""], choices);
     }
 

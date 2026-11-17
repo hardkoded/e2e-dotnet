@@ -14,9 +14,31 @@ public sealed class AiTraceCollectorTests
     {
         var collector = new AiTraceCollector();
         static AiTraceRun Run(string id, string startedAt) => new() { Id = id, StartedAt = startedAt };
-        static AiTraceStep Step(string id, string runId, string startedAt) => new() { Id = id, RunId = runId, StepNumber = 1, ModelId = "m", StartedAt = startedAt, DurationMs = 1, Input = "{}" };
-        collector.Merge(new AiTraceDocument { Runs = [Run("b", "2026-01-01T00:00:02Z")], Steps = [Step("s2", "b", "2026-01-01T00:00:02Z")] });
-        collector.Merge(new AiTraceDocument { Runs = [Run("a", "2026-01-01T00:00:01Z")], Steps = [Step("s1", "a", "2026-01-01T00:00:01Z")] });
+        static AiTraceStep Step(string id, string runId, string startedAt) =>
+            new()
+            {
+                Id = id,
+                RunId = runId,
+                StepNumber = 1,
+                ModelId = "m",
+                StartedAt = startedAt,
+                DurationMs = 1,
+                Input = "{}",
+            };
+        collector.Merge(
+            new AiTraceDocument
+            {
+                Runs = [Run("b", "2026-01-01T00:00:02Z")],
+                Steps = [Step("s2", "b", "2026-01-01T00:00:02Z")],
+            }
+        );
+        collector.Merge(
+            new AiTraceDocument
+            {
+                Runs = [Run("a", "2026-01-01T00:00:01Z")],
+                Steps = [Step("s1", "a", "2026-01-01T00:00:01Z")],
+            }
+        );
 
         var document = collector.Document();
 

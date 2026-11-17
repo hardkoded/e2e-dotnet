@@ -22,7 +22,8 @@ public sealed class TheActionChangeDeadlineTests
         var model = new ScriptedModel(request =>
             request.Messages.Any(message => message.Role == "tool")
                 ? ModelResponses.Done("passed", "the list has not changed")
-                : ModelResponses.Call("scroll", new { direction = "down" }));
+                : ModelResponses.Call("scroll", new { direction = "down" })
+        );
         await using var session = await StartAsync(engine, model: model);
         await session.App.OpenAsync("/");
         var result = await session.Agent.ActAsync("scroll once and inspect the result");
@@ -54,14 +55,20 @@ public sealed class TheActionChangeDeadlineTests
         Assert.Equal(2, engine.Captures);
     }
 
-    private static Task<E2ESession> StartAsync(SlowCaptureEngine engine, IAgentModel? model = null, IStepExecutor? executor = null) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            Model = model,
-            AgentExecutor = executor,
-            BaseUrl = "https://app.test",
-            CacheEnabled = false,
-            TestTitle = "observes after an unchanged scroll",
-        });
+    private static Task<E2ESession> StartAsync(
+        SlowCaptureEngine engine,
+        IAgentModel? model = null,
+        IStepExecutor? executor = null
+    ) =>
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                Model = model,
+                AgentExecutor = executor,
+                BaseUrl = "https://app.test",
+                CacheEnabled = false,
+                TestTitle = "observes after an unchanged scroll",
+            }
+        );
 }

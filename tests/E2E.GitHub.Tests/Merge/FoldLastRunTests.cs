@@ -15,13 +15,26 @@ namespace E2E.GitHub.Tests.Merge;
 /// </summary>
 public sealed class FoldLastRunTests
 {
-    private static readonly ReportAttempt FailedAttempt = Attempt(AttemptStatus.Failed, error: Error("ASSERTION_FAILED", "no cart"));
+    private static readonly ReportAttempt FailedAttempt = Attempt(
+        AttemptStatus.Failed,
+        error: Error("ASSERTION_FAILED", "no cart")
+    );
 
     private static readonly ReportAttempt InterruptedAttempt = Attempt(
         AttemptStatus.Interrupted,
-        error: new ReportError { Category = ErrorCategory.Interrupted, Code = "INTERRUPTED", Message = "run interrupted in phase test" });
+        error: new ReportError
+        {
+            Category = ErrorCategory.Interrupted,
+            Code = "INTERRUPTED",
+            Message = "run interrupted in phase test",
+        }
+    );
 
-    private static readonly SkipInfo LeftOut = new() { Cause = SkipCause.Filtered, Reason = "did not fail in the last run" };
+    private static readonly SkipInfo LeftOut = new()
+    {
+        Cause = SkipCause.Filtered,
+        Reason = "did not fail in the last run",
+    };
 
     private static SkipInfo Grepped => new() { Cause = SkipCause.Filtered, Reason = "title does not match --grep" };
 
@@ -31,8 +44,13 @@ public sealed class FoldLastRunTests
             Result("steady", ResultStatus.Passed, attempts: [Attempt(durationMs: 500)]),
             Result("recovers", ResultStatus.Failed, attempts: [FailedAttempt, FailedAttempt]),
             Result("still broken", ResultStatus.Failed, attempts: [FailedAttempt]),
-            Result("never wanted", ResultStatus.Skipped, skip: new SkipInfo { Cause = SkipCause.Explicit, Reason = "later" }),
-        ]);
+            Result(
+                "never wanted",
+                ResultStatus.Skipped,
+                skip: new SkipInfo { Cause = SkipCause.Explicit, Reason = "later" }
+            ),
+        ]
+    );
 
     private static readonly Report Rerun = ReportOf(
         ReportRunStatus.Failed,
@@ -42,7 +60,8 @@ public sealed class FoldLastRunTests
             Result("still broken", ResultStatus.Failed, attempts: [FailedAttempt]),
             Result("never wanted", ResultStatus.Skipped, selected: false, skip: LeftOut),
             Result("new since", ResultStatus.Passed, attempts: [Attempt()]),
-        ]);
+        ]
+    );
 
     private static Dictionary<string, ReportResult> ByTitle(Report document)
     {
@@ -63,7 +82,15 @@ public sealed class FoldLastRunTests
         var explored = ReportOf(
             ReportRunStatus.Failed,
             [Result("Explore checkout", ResultStatus.Failed, attempts: [FailedAttempt])],
-            explore: new ReportExplore("Explore checkout", new ExploreBudgets(8, TimeSpan.FromMilliseconds(600_000)), ReportExploreEnded.Finished, [], [], null));
+            explore: new ReportExplore(
+                "Explore checkout",
+                new ExploreBudgets(8, TimeSpan.FromMilliseconds(600_000)),
+                ReportExploreEnded.Finished,
+                [],
+                [],
+                null
+            )
+        );
         Assert.Same(Rerun, Folding.FoldLastRun(Rerun, explored));
     }
 
@@ -77,7 +104,10 @@ public sealed class FoldLastRunTests
         Assert.Single(entries["steady#0"].Attempts);
         Assert.Equal(ResultStatus.Flaky, entries["recovers#0"].Status);
         Assert.True(entries["recovers#0"].Selected);
-        Assert.Equal([AttemptStatus.Failed, AttemptStatus.Failed, AttemptStatus.Passed], entries["recovers#0"].Attempts.Select(entry => entry.Status));
+        Assert.Equal(
+            [AttemptStatus.Failed, AttemptStatus.Failed, AttemptStatus.Passed],
+            entries["recovers#0"].Attempts.Select(entry => entry.Status)
+        );
         Assert.Equal(ResultStatus.Failed, entries["still broken#0"].Status);
         Assert.Equal(2, entries["still broken#0"].Attempts.Count);
 
@@ -86,7 +116,20 @@ public sealed class FoldLastRunTests
         Assert.Equal(SkipCause.Explicit, entries["never wanted#0"].Skip!.Cause);
         Assert.Equal(ResultStatus.Passed, entries["new since#0"].Status);
         Assert.True(entries["new since#0"].Selected);
-        Assert.Equal(new ReportSummary { Discovered = 5, Selected = 5, Executed = 4, Passed = 2, Flaky = 1, Failed = 1, Interrupted = 0, Skipped = 1 }, folded.Run.Summary);
+        Assert.Equal(
+            new ReportSummary
+            {
+                Discovered = 5,
+                Selected = 5,
+                Executed = 4,
+                Passed = 2,
+                Flaky = 1,
+                Failed = 1,
+                Interrupted = 0,
+                Skipped = 1,
+            },
+            folded.Run.Summary
+        );
 
         // The rerun decides the outcome; the start is the run before's, so the duration spans both.
         Assert.Equal(ReportRunStatus.Failed, folded.Run.Status);
@@ -105,17 +148,23 @@ public sealed class FoldLastRunTests
                 Result("wobbly", ResultStatus.Failed, attempts: [FailedAttempt], repeat: 2),
                 Result("solid", ResultStatus.Passed, attempts: [Attempt()], repeat: 0),
                 Result("solid", ResultStatus.Passed, attempts: [Attempt()], repeat: 1),
-            ]);
-        var once = ReportOf(results:
-        [
-            Result("wobbly", ResultStatus.Passed, attempts: [Attempt()]),
-            Result("solid", ResultStatus.Skipped, selected: false, skip: LeftOut),
-        ]);
+            ]
+        );
+        var once = ReportOf(
+            results:
+            [
+                Result("wobbly", ResultStatus.Passed, attempts: [Attempt()]),
+                Result("solid", ResultStatus.Skipped, selected: false, skip: LeftOut),
+            ]
+        );
         var folded = Folding.FoldLastRun(once, before);
         var entries = ByTitle(folded);
         Assert.Equal(3, folded.Run.Results.Count);
         Assert.Equal(ResultStatus.Flaky, entries["wobbly#0"].Status);
-        Assert.Equal([AttemptStatus.Passed, AttemptStatus.Failed, AttemptStatus.Failed, AttemptStatus.Passed], entries["wobbly#0"].Attempts.Select(entry => entry.Status));
+        Assert.Equal(
+            [AttemptStatus.Passed, AttemptStatus.Failed, AttemptStatus.Failed, AttemptStatus.Passed],
+            entries["wobbly#0"].Attempts.Select(entry => entry.Status)
+        );
         Assert.False(entries.ContainsKey("wobbly#1"));
         Assert.Equal(ResultStatus.Passed, entries["solid#0"].Status);
         Assert.True(entries["solid#0"].Selected);
@@ -133,12 +182,18 @@ public sealed class FoldLastRunTests
     {
         var before = ReportOf(
             ReportRunStatus.Failed,
-            [Result("A", ResultStatus.Failed, attempts: [FailedAttempt]), Result("B", ResultStatus.Failed, attempts: [FailedAttempt])]);
-        var onlyB = ReportOf(results:
-        [
-            Result("A", ResultStatus.Skipped, selected: false, skip: Grepped),
-            Result("B", ResultStatus.Passed, attempts: [Attempt()]),
-        ]);
+            [
+                Result("A", ResultStatus.Failed, attempts: [FailedAttempt]),
+                Result("B", ResultStatus.Failed, attempts: [FailedAttempt]),
+            ]
+        );
+        var onlyB = ReportOf(
+            results:
+            [
+                Result("A", ResultStatus.Skipped, selected: false, skip: Grepped),
+                Result("B", ResultStatus.Passed, attempts: [Attempt()]),
+            ]
+        );
         var folded = Folding.FoldLastRun(onlyB, before);
         Assert.Equal(ResultStatus.Failed, ByTitle(folded)["A#0"].Status);
         Assert.True(ByTitle(folded)["A#0"].Selected);
@@ -153,22 +208,44 @@ public sealed class FoldLastRunTests
     {
         var before = ReportOf(
             ReportRunStatus.Interrupted,
-            [Result("A", ResultStatus.Interrupted, attempts: [InterruptedAttempt]), Result("B", ResultStatus.Interrupted, attempts: [InterruptedAttempt])]);
-        var onlyA = ReportOf(results:
-        [
-            Result("A", ResultStatus.Passed, attempts: [Attempt()]),
-            Result("B", ResultStatus.Skipped, selected: false, skip: Grepped),
-        ]);
+            [
+                Result("A", ResultStatus.Interrupted, attempts: [InterruptedAttempt]),
+                Result("B", ResultStatus.Interrupted, attempts: [InterruptedAttempt]),
+            ]
+        );
+        var onlyA = ReportOf(
+            results:
+            [
+                Result("A", ResultStatus.Passed, attempts: [Attempt()]),
+                Result("B", ResultStatus.Skipped, selected: false, skip: Grepped),
+            ]
+        );
         var folded = Folding.FoldLastRun(onlyA, before);
         Assert.Equal(ResultStatus.Passed, ByTitle(folded)["A#0"].Status);
         Assert.Equal(ResultStatus.Interrupted, ByTitle(folded)["B#0"].Status);
         Assert.True(ByTitle(folded)["B#0"].Selected);
-        Assert.Equal(new ReportSummary { Discovered = 2, Selected = 2, Executed = 2, Passed = 1, Failed = 0, Interrupted = 1, Flaky = 0, Skipped = 0 }, folded.Run.Summary);
+        Assert.Equal(
+            new ReportSummary
+            {
+                Discovered = 2,
+                Selected = 2,
+                Executed = 2,
+                Passed = 1,
+                Failed = 0,
+                Interrupted = 1,
+                Flaky = 0,
+                Skipped = 0,
+            },
+            folded.Run.Summary
+        );
         Assert.Equal(ReportRunStatus.Passed, folded.Run.Status);
         Assert.Contains("### ⏹️ e2e: 1 interrupted, 1 passed", Page(folded), StringComparison.Ordinal);
 
         // The runner carries B, still owed; a carried interrupted test reached no verdict, so it does not red the page.
-        var carryingB = ReportOf(results: onlyA.Run.Results, carried: new ReportCarried { Results = [before.Run.Results[1]] });
+        var carryingB = ReportOf(
+            results: onlyA.Run.Results,
+            carried: new ReportCarried { Results = [before.Run.Results[1]] }
+        );
         var foldedCarried = Folding.FoldLastRun(carryingB, before);
         Assert.Equal(ResultStatus.Interrupted, ByTitle(foldedCarried)["B#0"].Status);
         Assert.True(ByTitle(foldedCarried)["B#0"].Selected);
@@ -181,7 +258,10 @@ public sealed class FoldLastRunTests
     public void Keeps_the_first_pass_s_failure_when_the_rerun_of_that_test_is_interrupted()
     {
         var before = ReportOf(ReportRunStatus.Failed, [Result("A", ResultStatus.Failed, attempts: [FailedAttempt])]);
-        var cut = ReportOf(ReportRunStatus.Interrupted, [Result("A", ResultStatus.Interrupted, attempts: [InterruptedAttempt])]);
+        var cut = ReportOf(
+            ReportRunStatus.Interrupted,
+            [Result("A", ResultStatus.Interrupted, attempts: [InterruptedAttempt])]
+        );
         var folded = Folding.FoldLastRun(cut, before);
         Assert.Equal(ResultStatus.Failed, ByTitle(folded)["A#0"].Status);
         Assert.Equal(1, folded.Run.Summary.Failed);
@@ -199,18 +279,28 @@ public sealed class FoldLastRunTests
             Message = "afterAll failed: teardown broke",
             Phase = ErrorPhase.AfterAll,
             ScopeId = "file",
-            Scope = new HookScope { File = "tests/a.e2e.ts", TargetId = "web", TitlePath = [] },
+            Scope = new HookScope
+            {
+                File = "tests/a.e2e.ts",
+                TargetId = "web",
+                TitlePath = [],
+            },
         };
         var evidence = Attempt(artifacts: [ArtifactKind.Screenshot]);
         var inHookScope = Result("A", ResultStatus.Passed, file: "tests/a.e2e.ts", attempts: [evidence]);
-        var before = ReportOf(ReportRunStatus.Failed, [inHookScope, Result("B", ResultStatus.Failed, attempts: [FailedAttempt])], errors: [hook]);
+        var before = ReportOf(
+            ReportRunStatus.Failed,
+            [inHookScope, Result("B", ResultStatus.Failed, attempts: [FailedAttempt])],
+            errors: [hook]
+        );
         var onlyB = ReportOf(
             results:
             [
                 Result("A", ResultStatus.Skipped, file: "tests/a.e2e.ts", selected: false, skip: Grepped),
                 Result("B", ResultStatus.Passed, attempts: [Attempt()]),
             ],
-            carried: new ReportCarried { Results = [inHookScope], Errors = [hook] });
+            carried: new ReportCarried { Results = [inHookScope], Errors = [hook] }
+        );
         var folded = Folding.FoldLastRun(onlyB, before);
         Assert.Same(inHookScope, ByTitle(folded)["A#0"]);
         Assert.Equal(ResultStatus.Flaky, ByTitle(folded)["B#0"].Status);
@@ -224,18 +314,47 @@ public sealed class FoldLastRunTests
         // A carried test that failed reds the page on its own.
         var carriedFailure = Result("C", ResultStatus.Failed, attempts: [FailedAttempt]);
         var withFailure = ReportOf(
-            results: [Result("C", ResultStatus.Skipped, selected: false, skip: LeftOut), Result("B", ResultStatus.Passed, attempts: [Attempt()])],
-            carried: new ReportCarried { Results = [carriedFailure] });
+            results:
+            [
+                Result("C", ResultStatus.Skipped, selected: false, skip: LeftOut),
+                Result("B", ResultStatus.Passed, attempts: [Attempt()]),
+            ],
+            carried: new ReportCarried { Results = [carriedFailure] }
+        );
         Assert.Equal(
             ReportRunStatus.Failed,
-            Folding.FoldLastRun(withFailure, ReportOf(results: [Result("B", ResultStatus.Skipped, selected: false, skip: LeftOut)])).Run.Status);
+            Folding
+                .FoldLastRun(
+                    withFailure,
+                    ReportOf(results: [Result("B", ResultStatus.Skipped, selected: false, skip: LeftOut)])
+                )
+                .Run.Status
+        );
 
         // So does one the failure limit stopped before it ever ran.
-        var neverRan = Result("D", ResultStatus.Skipped, skip: new SkipInfo { Cause = SkipCause.FailureLimit, Reason = "run stopped after 1 failure (--max-failures 1)" });
+        var neverRan = Result(
+            "D",
+            ResultStatus.Skipped,
+            skip: new SkipInfo
+            {
+                Cause = SkipCause.FailureLimit,
+                Reason = "run stopped after 1 failure (--max-failures 1)",
+            }
+        );
         var withLimit = ReportOf(
-            results: [Result("D", ResultStatus.Skipped, selected: false, skip: LeftOut), Result("B", ResultStatus.Passed, attempts: [Attempt()])],
-            carried: new ReportCarried { Results = [neverRan] });
-        var limited = Folding.FoldLastRun(withLimit, ReportOf(results: [Result("B", ResultStatus.Skipped, selected: false, skip: LeftOut)])).Run;
+            results:
+            [
+                Result("D", ResultStatus.Skipped, selected: false, skip: LeftOut),
+                Result("B", ResultStatus.Passed, attempts: [Attempt()]),
+            ],
+            carried: new ReportCarried { Results = [neverRan] }
+        );
+        var limited = Folding
+            .FoldLastRun(
+                withLimit,
+                ReportOf(results: [Result("B", ResultStatus.Skipped, selected: false, skip: LeftOut)])
+            )
+            .Run;
         Assert.Equal(ReportRunStatus.Failed, limited.Status);
         Assert.Equal(1, limited.ExitCode);
     }
@@ -250,15 +369,21 @@ public sealed class FoldLastRunTests
                 Result("A", ResultStatus.Skipped, selected: false, skip: Grepped),
                 Result("B", ResultStatus.Passed, attempts: [Attempt()]),
             ],
-            carried: new ReportCarried { Results = [firstFailure] });
-        var atLast = ReportOf(results:
-        [
-            Result("A", ResultStatus.Passed, attempts: [Attempt()]),
-            Result("B", ResultStatus.Skipped, selected: false, skip: LeftOut),
-        ]);
+            carried: new ReportCarried { Results = [firstFailure] }
+        );
+        var atLast = ReportOf(
+            results:
+            [
+                Result("A", ResultStatus.Passed, attempts: [Attempt()]),
+                Result("B", ResultStatus.Skipped, selected: false, skip: LeftOut),
+            ]
+        );
         var folded = Folding.FoldLastRun(atLast, narrowed);
         Assert.Equal(ResultStatus.Flaky, ByTitle(folded)["A#0"].Status);
-        Assert.Equal([AttemptStatus.Failed, AttemptStatus.Passed], ByTitle(folded)["A#0"].Attempts.Select(entry => entry.Status));
+        Assert.Equal(
+            [AttemptStatus.Failed, AttemptStatus.Passed],
+            ByTitle(folded)["A#0"].Attempts.Select(entry => entry.Status)
+        );
         Assert.Equal(ResultStatus.Passed, ByTitle(folded)["B#0"].Status);
         Assert.True(ByTitle(folded)["B#0"].Selected);
         Assert.Equal(ReportRunStatus.Passed, folded.Run.Status);
@@ -273,10 +398,29 @@ public sealed class FoldLastRunTests
             [
                 Result("alpha", ResultStatus.Failed, attempts: [FailedAttempt]),
                 Result("beta", ResultStatus.Passed, attempts: [Attempt()]),
-                Result("gamma", ResultStatus.Skipped, selected: false, skip: new SkipInfo { Cause = SkipCause.Filtered, Reason = "Jev: 5% likely affected", Filter = "jev" }),
+                Result(
+                    "gamma",
+                    ResultStatus.Skipped,
+                    selected: false,
+                    skip: new SkipInfo
+                    {
+                        Cause = SkipCause.Filtered,
+                        Reason = "Jev: 5% likely affected",
+                        Filter = "jev",
+                    }
+                ),
             ],
-            filters: [new ReportFilter { Name = "jev", Candidates = 3, Excluded = 1 }],
-            changes: new ReportChanges { Base = Base, Files = 4 });
+            filters:
+            [
+                new ReportFilter
+                {
+                    Name = "jev",
+                    Candidates = 3,
+                    Excluded = 1,
+                },
+            ],
+            changes: new ReportChanges { Base = Base, Files = 4 }
+        );
         var lastFailed = ReportOf(
             results:
             [
@@ -284,7 +428,8 @@ public sealed class FoldLastRunTests
                 Result("beta", ResultStatus.Skipped, selected: false, skip: LeftOut),
                 Result("gamma", ResultStatus.Skipped, selected: false, skip: LeftOut),
             ],
-            changes: new ReportChanges { Skipped = "--last-failed" });
+            changes: new ReportChanges { Skipped = "--last-failed" }
+        );
         var folded = Folding.FoldLastRun(lastFailed, before);
         Assert.Same(before.Run.Filters, folded.Run.Filters);
         Assert.Same(before.Run.Changes, folded.Run.Changes);
@@ -295,7 +440,10 @@ public sealed class FoldLastRunTests
         Assert.Contains("**Filter** `jev` kept 2 of 3 tests, left out 1\n", page, StringComparison.Ordinal);
 
         // A first pass that ran no filter folds to no run.filters and no run.changes, not even the rerun's `--last-failed` record.
-        var unfiltered = Folding.FoldLastRun(lastFailed, ReportOf(ReportRunStatus.Failed, [.. before.Run.Results.Take(2)]));
+        var unfiltered = Folding.FoldLastRun(
+            lastFailed,
+            ReportOf(ReportRunStatus.Failed, [.. before.Run.Results.Take(2)])
+        );
         Assert.Null(unfiltered.Run.Filters);
         Assert.Null(unfiltered.Run.Changes);
     }
@@ -307,11 +455,30 @@ public sealed class FoldLastRunTests
             ReportRunStatus.Failed,
             [
                 Result("sign in", ResultStatus.Failed, attempts: [FailedAttempt]),
-                Result("member b", ResultStatus.Skipped, selected: false, skip: new SkipInfo { Cause = SkipCause.Filtered, Reason = "unaffected", Filter = "pages" }),
+                Result(
+                    "member b",
+                    ResultStatus.Skipped,
+                    selected: false,
+                    skip: new SkipInfo
+                    {
+                        Cause = SkipCause.Filtered,
+                        Reason = "unaffected",
+                        Filter = "pages",
+                    }
+                ),
                 Result("guest page", ResultStatus.Passed, attempts: [Attempt()]),
             ],
-            filters: [new ReportFilter { Name = "pages", Candidates = 2, Excluded = 1 }],
-            changes: new ReportChanges { Base = "0123456789abcdef0123456789abcdef01234567", Files = 2 });
+            filters:
+            [
+                new ReportFilter
+                {
+                    Name = "pages",
+                    Candidates = 2,
+                    Excluded = 1,
+                },
+            ],
+            changes: new ReportChanges { Base = "0123456789abcdef0123456789abcdef01234567", Files = 2 }
+        );
         var lastFailed = ReportOf(
             results:
             [
@@ -319,7 +486,8 @@ public sealed class FoldLastRunTests
                 Result("member b", ResultStatus.Passed, attempts: [Attempt()]),
                 Result("guest page", ResultStatus.Skipped, selected: false, skip: LeftOut),
             ],
-            changes: new ReportChanges { Skipped = "--last-failed" });
+            changes: new ReportChanges { Skipped = "--last-failed" }
+        );
         var folded = Folding.FoldLastRun(lastFailed, before);
         Assert.True(ByTitle(folded)["member b#0"].Selected);
         Assert.Equal(ResultStatus.Passed, ByTitle(folded)["member b#0"].Status);

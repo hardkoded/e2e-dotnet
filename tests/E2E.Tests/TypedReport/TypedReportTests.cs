@@ -35,8 +35,13 @@ public sealed class TypedReportTests
 
         Assert.Equal("report-1", report.SchemaVersion);
         Assert.Equal(ReportRunStatus.Failed, report.Run.Status);
-        Assert.Contains(report.Run.Results, result => result is { Status: Reports.ResultStatus.Skipped, Skip.Cause: Reports.SkipCause.Explicit });
-        Assert.Contains(report.Run.Results.SelectMany(result => result.Attempts).SelectMany(attempt => attempt.Steps), step => step.Kind == Reports.StepKind.Agent);
+        Assert.Contains(report.Run.Results, result =>
+            result is { Status: Reports.ResultStatus.Skipped, Skip.Cause: Reports.SkipCause.Explicit }
+        );
+        Assert.Contains(
+            report.Run.Results.SelectMany(result => result.Attempts).SelectMany(attempt => attempt.Steps),
+            step => step.Kind == Reports.StepKind.Agent
+        );
     }
 
     private static string FirstDifference(JsonNode? expected, JsonNode? actual, string path)

@@ -30,7 +30,14 @@ public sealed class DownloadTests : PlaywrightTest
         {
             var response = await route.FetchAsync();
             var headers = new Dictionary<string, string>(response.Headers) { ["Content-Disposition"] = "attachment" };
-            await route.FulfillAsync(new RouteFulfillResponse { Status = response.Status, Headers = headers, BodyBytes = await response.BodyAsync() });
+            await route.FulfillAsync(
+                new RouteFulfillResponse
+                {
+                    Status = response.Status,
+                    Headers = headers,
+                    BodyBytes = await response.BodyAsync(),
+                }
+            );
         });
         await Browser.GotoAsync(Content("""<a href="/empty.pdf">open</a>"""));
         var download = await Browser.WaitForDownloadAsync(() => Browser.Locator("a").TapAsync());
@@ -49,7 +56,11 @@ public sealed class DownloadTests : PlaywrightTest
     [Test]
     public async Task Should_download_even_if_there_is_no_attachment_value()
     {
-        await Browser.GotoAsync(Content($"""<a href="{PREFIX}{Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream", ["content-disposition"] = "filename=foo.txt" })}">download</a>"""));
+        await Browser.GotoAsync(
+            Content(
+                $"""<a href="{PREFIX}{Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream", ["content-disposition"] = "filename=foo.txt" })}">download</a>"""
+            )
+        );
         await Browser.WaitForDownloadAsync(() => Browser.Locator("a").TapAsync());
     }
 
@@ -62,7 +73,9 @@ public sealed class DownloadTests : PlaywrightTest
         {
             try
             {
-                await Browser.GotoAsync(Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream" }));
+                await Browser.GotoAsync(
+                    Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream" })
+                );
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -74,7 +87,9 @@ public sealed class DownloadTests : PlaywrightTest
     [Test]
     public async Task Should_download_links_with_data_url()
     {
-        await Browser.GotoAsync(Content("""<a download="SomeFile.txt" href="data:text/plain;charset=utf8;,hello world">Download!</a>"""));
+        await Browser.GotoAsync(
+            Content("""<a download="SomeFile.txt" href="data:text/plain;charset=utf8;,hello world">Download!</a>""")
+        );
         var download = await Browser.WaitForDownloadAsync(() => Browser.Locator("a").TapAsync());
         Assert.That(download.SuggestedFilename, Is.EqualTo("SomeFile.txt"));
     }

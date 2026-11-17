@@ -33,7 +33,10 @@ public sealed class CacheStrictTests
         var unreadable = MakeSession(Strict(FakeContext(() => new CacheLookup { Entry = malformed })), MakeHost(["/"]));
         Assert.Equal("REPLAY_STALE", (await Assert.ThrowsAsync<AgentException>(unreadable.BeginAsync)).Code);
 
-        var elsewhere = MakeSession(Strict(EntryContext(startPath: "/pricing", actions: [Tap("button", "Upgrade")])), MakeHost(["/billing"]));
+        var elsewhere = MakeSession(
+            Strict(EntryContext(startPath: "/pricing", actions: [Tap("button", "Upgrade")])),
+            MakeHost(["/billing"])
+        );
         Assert.Equal("REPLAY_STALE", (await Assert.ThrowsAsync<AgentException>(elsewhere.BeginAsync)).Code);
         Assert.Equal(("missed", "wrong-context"), (elsewhere.CacheInfo?.Mode, elsewhere.CacheInfo?.Reason));
     }
@@ -45,8 +48,15 @@ public sealed class CacheStrictTests
         Assert.Null(await session.BeginAsync());
 
         var truncated = MakeSession(
-            Strict(EntryContext(startPath: "/pricing", actions: [.. Enumerable.Range(0, 50).Select(_ => Tap("button", "Upgrade"))], truncated: true)),
-            MakeHost(["/pricing"]));
+            Strict(
+                EntryContext(
+                    startPath: "/pricing",
+                    actions: [.. Enumerable.Range(0, 50).Select(_ => Tap("button", "Upgrade"))],
+                    truncated: true
+                )
+            ),
+            MakeHost(["/pricing"])
+        );
         Assert.Null(await truncated.BeginAsync());
     }
 
@@ -65,7 +75,10 @@ public sealed class CacheStrictTests
     [Fact]
     public async Task Runs_live_when_the_store_read_rejects_since_nothing_says_a_recording_exists()
     {
-        var session = MakeSession(Strict(FakeContext(() => throw new InvalidOperationException("redis is down"))), MakeHost(["/"]));
+        var session = MakeSession(
+            Strict(FakeContext(() => throw new InvalidOperationException("redis is down"))),
+            MakeHost(["/"])
+        );
 
         Assert.Null(await session.BeginAsync());
 

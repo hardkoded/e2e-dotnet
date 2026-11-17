@@ -10,7 +10,10 @@ public sealed class TestIdsTests
     [Fact]
     public void Joins_the_file_and_encoded_title_path_with_double_colon()
     {
-        Assert.Equal("tests/auth.e2e.ts::login::user%20can%20sign%20in", E2E.Internal.Ids.TestId("tests/auth.e2e.ts", ["login", "user can sign in"]));
+        Assert.Equal(
+            "tests/auth.e2e.ts::login::user%20can%20sign%20in",
+            E2E.Internal.Ids.TestId("tests/auth.e2e.ts", ["login", "user can sign in"])
+        );
     }
 
     [Fact]
@@ -24,7 +27,8 @@ public sealed class TestIdsTests
     {
         Assert.Equal(
             "tests/koszyk.e2e.ts::zakupy::p%C5%82aci%20kart%C4%85::caf%C3%A9",
-            E2E.Internal.Ids.TestId("tests/koszyk.e2e.ts", ["zakupy", "płaci kartą", "café"]));
+            E2E.Internal.Ids.TestId("tests/koszyk.e2e.ts", ["zakupy", "płaci kartą", "café"])
+        );
     }
 
     [Fact]

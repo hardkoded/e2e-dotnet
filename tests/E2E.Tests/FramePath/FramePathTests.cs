@@ -29,7 +29,11 @@ public sealed class FramePathTests : IAsyncLifetime
         await _session.OpenAsync("about:blank", CancellationToken.None);
         _page = WebEngine.SurfaceOf(_session)!.Page();
         await _page.SetContentAsync(Document);
-        await _page.FrameLocator("[name=ad-slot]").FrameLocator("#inner").GetByRole(AriaRole.Button).WaitForAsync(new() { State = WaitForSelectorState.Attached });
+        await _page
+            .FrameLocator("[name=ad-slot]")
+            .FrameLocator("#inner")
+            .GetByRole(AriaRole.Button)
+            .WaitForAsync(new() { State = WaitForSelectorState.Attached });
     }
 
     public async Task DisposeAsync() => await _session.DisposeAsync();

@@ -32,7 +32,9 @@ public sealed class WebLocaleTimezoneIdTests
     [InlineData(null, "utc", "IANA time zone")]
     public void Rejects_a_value_that_is_no_language_tag_or_time_zone(string? locale, string? timezoneId, string message)
     {
-        var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Locale = locale, TimezoneId = timezoneId }));
+        var error = Assert.Throws<EngineException>(() =>
+            new WebEngine(new WebEngineOptions { Locale = locale, TimezoneId = timezoneId })
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains(message, error.Message, StringComparison.Ordinal);
     }
@@ -40,12 +42,22 @@ public sealed class WebLocaleTimezoneIdTests
     [Fact]
     public void Rejects_an_accept_language_header_beside_locale_which_would_override_it_on_the_app_site_only()
     {
-        var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions
-        {
-            Locale = "de-DE",
-            Headers = new Dictionary<string, string> { ["Accept-Language"] = "fr" },
-        }));
+        var error = Assert.Throws<EngineException>(() =>
+            new WebEngine(
+                new WebEngineOptions
+                {
+                    Locale = "de-DE",
+                    Headers = new Dictionary<string, string> { ["Accept-Language"] = "fr" },
+                }
+            )
+        );
         Assert.Contains("conflict", error.Message, StringComparison.Ordinal);
-        _ = new WebEngine(new WebEngineOptions { Locale = "de-DE", Headers = new Dictionary<string, string> { ["x-preview"] = "token" } });
+        _ = new WebEngine(
+            new WebEngineOptions
+            {
+                Locale = "de-DE",
+                Headers = new Dictionary<string, string> { ["x-preview"] = "token" },
+            }
+        );
     }
 }

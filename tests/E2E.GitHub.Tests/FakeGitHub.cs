@@ -56,12 +56,21 @@ internal sealed class FakeGitHub : HttpMessageHandler
         return response;
     }
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
     {
-        var headers = request.Headers.Concat(request.Content?.Headers ?? Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
+        var headers = request
+            .Headers.Concat(request.Content?.Headers ?? Enumerable.Empty<KeyValuePair<string, IEnumerable<string>>>())
             .ToDictionary(header => header.Key.ToLowerInvariant(), header => string.Join(", ", header.Value));
         var text = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
-        var call = new Call(request.RequestUri!.ToString(), request.Method.Method, headers, text is null ? null : JsonDocument.Parse(text).RootElement.Clone());
+        var call = new Call(
+            request.RequestUri!.ToString(),
+            request.Method.Method,
+            headers,
+            text is null ? null : JsonDocument.Parse(text).RootElement.Clone()
+        );
         Calls.Add(call);
         cancellationToken.ThrowIfCancellationRequested();
         var uri = request.RequestUri;
@@ -73,21 +82,23 @@ internal sealed class FakeGitHub : HttpMessageHandler
         return answer(call);
     }
 
-    private Func<Call, HttpResponseMessage>? Find(string key) => _script.TryGetValue(key, out var answer) ? answer : null;
+    private Func<Call, HttpResponseMessage>? Find(string key) =>
+        _script.TryGetValue(key, out var answer) ? answer : null;
 
     /// <summary>What GitHub Actions sets for a <c>pull_request</c> job, event payload at <c>/event.json</c>.</summary>
-    public static Dictionary<string, string> ActionsEnv() => new()
-    {
-        ["GITHUB_ACTIONS"] = "true",
-        ["GITHUB_REPOSITORY"] = "octo/app",
-        ["GITHUB_SHA"] = "merge-sha",
-        ["GITHUB_RUN_ID"] = "99",
-        ["GITHUB_EVENT_NAME"] = "pull_request",
-        ["GITHUB_EVENT_PATH"] = "/event.json",
-        ["GITHUB_WORKFLOW"] = "e2e",
-        ["GITHUB_JOB"] = "test",
-        ["GITHUB_STEP_SUMMARY"] = "/summary.md",
-    };
+    public static Dictionary<string, string> ActionsEnv() =>
+        new()
+        {
+            ["GITHUB_ACTIONS"] = "true",
+            ["GITHUB_REPOSITORY"] = "octo/app",
+            ["GITHUB_SHA"] = "merge-sha",
+            ["GITHUB_RUN_ID"] = "99",
+            ["GITHUB_EVENT_NAME"] = "pull_request",
+            ["GITHUB_EVENT_PATH"] = "/event.json",
+            ["GITHUB_WORKFLOW"] = "e2e",
+            ["GITHUB_JOB"] = "test",
+            ["GITHUB_STEP_SUMMARY"] = "/summary.md",
+        };
 
     /// <summary>Event payloads by path, the way <c>ReadFile</c> hands them to <c>DetectActionsAsync</c>.</summary>
     private static readonly Dictionary<string, string> Events = new()
@@ -100,8 +111,11 @@ internal sealed class FakeGitHub : HttpMessageHandler
     };
 
     public static Task<string> ReadEvent(string file, CancellationToken cancellationToken) =>
-        Events.TryGetValue(file, out var text) ? Task.FromResult(text) : throw new FileNotFoundException($"ENOENT {file}");
+        Events.TryGetValue(file, out var text)
+            ? Task.FromResult(text)
+            : throw new FileNotFoundException($"ENOENT {file}");
 
     /// <summary>An environment reader over a dictionary; unset names read as null.</summary>
-    public static Func<string, string?> Env(IReadOnlyDictionary<string, string> values) => name => values.GetValueOrDefault(name);
+    public static Func<string, string?> Env(IReadOnlyDictionary<string, string> values) =>
+        name => values.GetValueOrDefault(name);
 }

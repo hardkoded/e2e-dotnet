@@ -18,18 +18,22 @@ internal sealed record RecordedCall(string Method, JsonObject? Args, Cancellatio
 /// </summary>
 internal sealed class FakeDeviceClient : IDeviceClient
 {
-    private static readonly JsonSerializerOptions CamelCase = new(JsonSerializerDefaults.Web) { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+    private static readonly JsonSerializerOptions CamelCase = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
 
     private readonly Dictionary<string, Func<JsonObject?, CancellationToken, Task<JsonNode?>>> _responders = [];
 
     /// <summary>An iOS Settings-like screen: app root, navigation bar, a cell, a switch, two fields, a hidden button.</summary>
-    public static JsonObject SettingsSnapshot() => new()
-    {
-        ["nodes"] = JsonSerializer.SerializeToNode(RawNodes.SettingsNodes, CamelCase),
-        ["appName"] = "Settings",
-        ["appBundleId"] = "com.apple.Preferences",
-        ["truncated"] = false,
-    };
+    public static JsonObject SettingsSnapshot() =>
+        new()
+        {
+            ["nodes"] = JsonSerializer.SerializeToNode(RawNodes.SettingsNodes, CamelCase),
+            ["appName"] = "Settings",
+            ["appBundleId"] = "com.apple.Preferences",
+            ["truncated"] = false,
+        };
 
     /// <summary>The Settings screen with more nodes under the application, as a snapshot.</summary>
     public static JsonObject SettingsSnapshotWith(params RawNode[] extra)
@@ -40,12 +44,18 @@ internal sealed class FakeDeviceClient : IDeviceClient
     }
 
     /// <summary>A snapshot of the given nodes alone: it names no app.</summary>
-    public static JsonObject NodesOnly(IEnumerable<RawNode> nodes) => new() { ["nodes"] = JsonSerializer.SerializeToNode(nodes, CamelCase) };
+    public static JsonObject NodesOnly(IEnumerable<RawNode> nodes) =>
+        new() { ["nodes"] = JsonSerializer.SerializeToNode(nodes, CamelCase) };
 
     /// <summary>A snapshot of the given nodes, answered with the Settings screen's app identity.</summary>
     public static JsonObject SnapshotOf(IEnumerable<RawNode> nodes, params (string Key, JsonNode? Value)[] more)
     {
-        var snapshot = new JsonObject { ["nodes"] = JsonSerializer.SerializeToNode(nodes, CamelCase), ["appName"] = "Settings", ["appBundleId"] = "com.apple.Preferences" };
+        var snapshot = new JsonObject
+        {
+            ["nodes"] = JsonSerializer.SerializeToNode(nodes, CamelCase),
+            ["appName"] = "Settings",
+            ["appBundleId"] = "com.apple.Preferences",
+        };
         foreach (var (key, value) in more)
         {
             snapshot[key] = value;
@@ -61,7 +71,8 @@ internal sealed class FakeDeviceClient : IDeviceClient
         _responders[method] = (options, _) => Task.FromResult(responder(options));
 
     /// <summary>Registers an asynchronous responder, for a call that waits or never answers.</summary>
-    public void RespondAsync(string method, Func<JsonObject?, CancellationToken, Task<JsonNode?>> responder) => _responders[method] = responder;
+    public void RespondAsync(string method, Func<JsonObject?, CancellationToken, Task<JsonNode?>> responder) =>
+        _responders[method] = responder;
 
     /// <summary>Methods called so far, in order.</summary>
     public List<string> Methods() => [.. Calls.Select(call => call.Method)];
@@ -73,7 +84,9 @@ internal sealed class FakeDeviceClient : IDeviceClient
     {
         Calls.Add(new RecordedCall(method, (JsonObject?)options?.DeepClone(), cancellationToken));
         await Task.Yield();
-        return _responders.TryGetValue(method, out var responder) ? await responder(options, cancellationToken).ConfigureAwait(false) : new JsonObject();
+        return _responders.TryGetValue(method, out var responder)
+            ? await responder(options, cancellationToken).ConfigureAwait(false)
+            : new JsonObject();
     }
 }
 
@@ -81,7 +94,10 @@ internal static class JsonAssert
 {
     /// <summary>Asserts a recorded options object equals the JSON text, whatever the order of its keys.</summary>
     public static void Args(string expected, JsonNode? actual) =>
-        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expected), actual), $"expected {expected} but was {actual?.ToJsonString() ?? "null"}");
+        Assert.True(
+            JsonNode.DeepEquals(JsonNode.Parse(expected), actual),
+            $"expected {expected} but was {actual?.ToJsonString() ?? "null"}"
+        );
 
     /// <summary>Asserts every press the fake recorded went out with a cancellation token: upstream's <c>presses.every((call) =&gt; call.signal instanceof AbortSignal)</c>.</summary>
     public static void PressesCarryASignal(FakeDeviceClient fake)
@@ -92,7 +108,11 @@ internal static class JsonAssert
     }
 
     /// <summary>Asserts the calls after the first <paramref name="skip"/> are exactly these methods with these options, in order.</summary>
-    public static void Calls(IEnumerable<RecordedCall> recorded, int skip, params (string Method, string Args)[] expected)
+    public static void Calls(
+        IEnumerable<RecordedCall> recorded,
+        int skip,
+        params (string Method, string Args)[] expected
+    )
     {
         var actual = recorded.Skip(skip).ToList();
         Assert.Equal(expected.Select(call => call.Method), actual.Select(call => call.Method));

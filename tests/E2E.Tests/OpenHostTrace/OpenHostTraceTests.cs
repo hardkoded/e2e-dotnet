@@ -39,12 +39,14 @@ public sealed partial class OpenHostTraceTests : IDisposable
     private async Task<E2EHost> OpenHostAsync(IEngine engine, string config)
     {
         await File.WriteAllTextAsync(Path.Combine(_output, E2EConfig.FileName), config);
-        var host = await E2EHost.OpenAsync(new OpenHostOptions
-        {
-            Cwd = _output,
-            Env = new Dictionary<string, string?>(),
-            EngineFactory = _ => engine,
-        });
+        var host = await E2EHost.OpenAsync(
+            new OpenHostOptions
+            {
+                Cwd = _output,
+                Env = new Dictionary<string, string?>(),
+                EngineFactory = _ => engine,
+            }
+        );
         _hosts.Add(host);
         return host;
     }
@@ -63,16 +65,22 @@ public sealed partial class OpenHostTraceTests : IDisposable
         var title = "hosted video " + (failed ? "failed" : "passed");
         var opened = await OpenHostAsync(
             new WebEngine(),
-            $$"""{ "trace": "on", "video": "retain-on-failure", "targets": [{ "name": "web", "platform": "web", "app": { "url": "{{app.Url}}" } }] }""");
+            $$"""{ "trace": "on", "video": "retain-on-failure", "targets": [{ "name": "web", "platform": "web", "app": { "url": "{{app.Url}}" } }] }"""
+        );
         var session = await opened.OpenSessionAsync(new OpenSessionOptions { Name = title });
         await session.Fixtures.App.OpenAsync("/form");
         if (failed)
         {
-            await Expect.Soft(session.Fixtures.Screen.GetByRole("textbox")).ToHaveCountAsync(5, TimeSpan.FromMilliseconds(200));
+            await Expect
+                .Soft(session.Fixtures.Screen.GetByRole("textbox"))
+                .ToHaveCountAsync(5, TimeSpan.FromMilliseconds(200));
         }
 
         var failures = await session.CloseAsync();
-        Assert.Equal(failed ? ["ASSERTION_FAILED"] : [], failures.OfType<E2EException>().Select(failure => failure.Code));
+        Assert.Equal(
+            failed ? ["ASSERTION_FAILED"] : [],
+            failures.OfType<E2EException>().Select(failure => failure.Code)
+        );
         var tracePath = session.TracePath;
         var trace = await File.ReadAllTextAsync(tracePath);
         if (failed)
@@ -81,7 +89,9 @@ public sealed partial class OpenHostTraceTests : IDisposable
             var video = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(tracePath)!, "attempt-1", kept.Path));
             Assert.True(new FileInfo(video).Length > 0);
             var links = Link().Matches(trace).Select(match => Uri.UnescapeDataString(match.Groups[1].Value));
-            Assert.Contains(links, link => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(tracePath)!, link)) == video);
+            Assert.Contains(links, link =>
+                Path.GetFullPath(Path.Combine(Path.GetDirectoryName(tracePath)!, link)) == video
+            );
             Assert.Contains("ASSERTION_FAILED", trace, StringComparison.Ordinal);
         }
         else
@@ -106,16 +116,24 @@ public sealed partial class OpenHostTraceTests : IDisposable
         const string secret = "host-secret-7Xq-91";
         var opened = await OpenHostAsync(
             new HostFakeEngine(),
-            """{ "trace": "on", "targets": [{ "name": "kiosk", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }""");
+            """{ "trace": "on", "targets": [{ "name": "kiosk", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }"""
+        );
         var name = $"../../escape\\folder/<script>\u001b[31m {secret}";
         for (var index = 0; index < 2; index++)
         {
             var session = await opened.OpenSessionAsync(new OpenSessionOptions { Name = name });
             session.Remember([Secret.Create("hostToken", secret)]);
             await session.Fixtures.App.ScreenshotAsync($"home {secret}");
-            await Expect.Soft(session.Fixtures.Screen.GetByRole("button", "Submit")).ToHaveCountAsync(2, TimeSpan.FromMilliseconds(200));
+            await Expect
+                .Soft(session.Fixtures.Screen.GetByRole("button", "Submit"))
+                .ToHaveCountAsync(2, TimeSpan.FromMilliseconds(200));
             var failures = await session.CloseAsync();
-            Assert.DoesNotContain(secret, string.Join(' ', failures.Select(failure => failure.Message)) + System.Text.Json.JsonSerializer.Serialize(session.Steps()), StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                secret,
+                string.Join(' ', failures.Select(failure => failure.Message))
+                    + System.Text.Json.JsonSerializer.Serialize(session.Steps()),
+                StringComparison.Ordinal
+            );
             Assert.True(Path.IsPathRooted(session.TracePath));
             var relative = Path.GetRelativePath(Results, session.ArtifactsDir);
             Assert.DoesNotMatch(@"^\.\.(?:[\\/]|$)", relative);
@@ -128,13 +146,23 @@ public sealed partial class OpenHostTraceTests : IDisposable
             Assert.DoesNotContain(secret, trace, StringComparison.Ordinal);
             Assert.DoesNotContain('\u001b', trace);
             Assert.DoesNotContain("<script>", trace, StringComparison.Ordinal);
-            var local = Link().Matches(trace).Select(match => match.Groups[1].Value)
-                .Where(link => !Regex.IsMatch(link, "^[a-z][a-z\\d+.-]*:", RegexOptions.IgnoreCase) && !link.StartsWith('#'))
+            var local = Link()
+                .Matches(trace)
+                .Select(match => match.Groups[1].Value)
+                .Where(link =>
+                    !Regex.IsMatch(link, "^[a-z][a-z\\d+.-]*:", RegexOptions.IgnoreCase) && !link.StartsWith('#')
+                )
                 .ToList();
             Assert.NotEmpty(local);
             foreach (var link in local)
             {
-                Assert.NotNull(await File.ReadAllBytesAsync(Path.GetFullPath(Path.Combine(Path.GetDirectoryName(session.TracePath)!, Uri.UnescapeDataString(link)))));
+                Assert.NotNull(
+                    await File.ReadAllBytesAsync(
+                        Path.GetFullPath(
+                            Path.Combine(Path.GetDirectoryName(session.TracePath)!, Uri.UnescapeDataString(link))
+                        )
+                    )
+                );
             }
         }
 
@@ -142,7 +170,11 @@ public sealed partial class OpenHostTraceTests : IDisposable
         foreach (var file in Directory.EnumerateFiles(_output, "*", SearchOption.AllDirectories))
         {
             Assert.DoesNotContain(secret, file, StringComparison.Ordinal);
-            Assert.DoesNotContain(secret, Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)), StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                secret,
+                Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)),
+                StringComparison.Ordinal
+            );
         }
     }
 
@@ -152,7 +184,8 @@ public sealed partial class OpenHostTraceTests : IDisposable
     {
         var opened = await OpenHostAsync(
             new HostFakeEngine(),
-            """{ "trace": "off", "targets": [{ "name": "kiosk", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }""");
+            """{ "trace": "off", "targets": [{ "name": "kiosk", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }"""
+        );
         var session = await opened.OpenSessionAsync(new OpenSessionOptions { Name = "no trace" });
         Assert.Empty(await session.CloseAsync());
         Assert.Contains("no trace", await File.ReadAllTextAsync(session.TracePath), StringComparison.Ordinal);
@@ -169,17 +202,20 @@ public sealed partial class OpenHostTraceTests : IDisposable
         var result = ReportBuilders.Result(
             id: "aaaaaaaa11",
             status: ResultStatus.Failed,
-            attempts: [ReportBuilders.Attempt(AttemptStatus.Failed, ReportBuilders.Error(message: $"private {secret}"))]);
+            attempts: [ReportBuilders.Attempt(AttemptStatus.Failed, ReportBuilders.Error(message: $"private {secret}"))]
+        );
         var tracePath = Path.Combine(_output, "hosted", "trace.md");
-        var report = await HostTrace.WriteHostTraceAsync(new HostTraceOptions
-        {
-            Attempt = ReportBuilders.Document(result),
-            ProjectRoot = _output,
-            ResultsDir = Results,
-            Segments = ["aaaaaaaa11"],
-            TracePath = tracePath,
-            Redact = text => text.Replace(secret, "[secret:hostToken]", StringComparison.Ordinal),
-        });
+        var report = await HostTrace.WriteHostTraceAsync(
+            new HostTraceOptions
+            {
+                Attempt = ReportBuilders.Document(result),
+                ProjectRoot = _output,
+                ResultsDir = Results,
+                Segments = ["aaaaaaaa11"],
+                TracePath = tracePath,
+                Redact = text => text.Replace(secret, "[secret:hostToken]", StringComparison.Ordinal),
+            }
+        );
 
         var page = await File.ReadAllTextAsync(tracePath);
         Assert.Contains("ASSERTION_FAILED", page, StringComparison.Ordinal);

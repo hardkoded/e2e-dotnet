@@ -59,11 +59,16 @@ internal static class ListSteps
     {
         var passed = step.Status == StepStatus.Passed;
         var glyph = passed ? pc.Green(Format.Check) : pc.Red(Format.Cross);
-        var calls = step.ModelCalls > 0 ? $" · {step.ModelCalls} model call{(step.ModelCalls == 1 ? string.Empty : "s")}" : string.Empty;
+        var calls =
+            step.ModelCalls > 0
+                ? $" · {step.ModelCalls} model call{(step.ModelCalls == 1 ? string.Empty : "s")}"
+                : string.Empty;
         var outcome = passed ? string.Empty : " " + StepNames.Of(step.Status);
         var head = $"{glyph} {context}{pc.Dim(step.Api)} ";
         var tail = pc.Dim($"{Format.FormatTime(TimeSpan.FromMilliseconds(step.DurationMs))}{calls}{outcome}");
-        var room = maxWidth is { } width ? width - Format.VisibleWidth(head) - Format.VisibleWidth(tail) - LabelChrome : MaxStepLabelColumns;
+        var room = maxWidth is { } width
+            ? width - Format.VisibleWidth(head) - Format.VisibleWidth(tail) - LabelChrome
+            : MaxStepLabelColumns;
         return $"{head}{QuotedLabel(step.Label, room)} {tail}";
     }
 
@@ -72,7 +77,10 @@ internal static class ListSteps
     /// the configured one, that replayed nothing, or whose recording came from the configured model is no mismatch. The port's step records the
     /// recording model as one label (<see cref="CacheInfo.RecordedBy"/>), so the notice's <c>Source</c> is that label.
     /// </summary>
-    public static List<ReplayNotice> ReplayNotices(IEnumerable<IReadOnlyList<StepRecord>> attempts, ConfiguredModel? configured)
+    public static List<ReplayNotice> ReplayNotices(
+        IEnumerable<IReadOnlyList<StepRecord>> attempts,
+        ConfiguredModel? configured
+    )
     {
         if (configured is null)
         {
@@ -89,12 +97,19 @@ internal static class ListSteps
                     continue;
                 }
 
-                if (step.Cache is not { RecordedBy: { } source, ReplayedActions: > 0 } cache || source == configured.Label)
+                if (
+                    step.Cache is not { RecordedBy: { } source, ReplayedActions: > 0 } cache
+                    || source == configured.Label
+                )
                 {
                     continue;
                 }
 
-                notices[(cache.Entry ?? $"{step.Index}\n{step.Api}\n{step.Label}", source)] = new ReplayNotice(step.Api, step.Label, source);
+                notices[(cache.Entry ?? $"{step.Index}\n{step.Api}\n{step.Label}", source)] = new ReplayNotice(
+                    step.Api,
+                    step.Label,
+                    source
+                );
             }
         }
 
@@ -127,7 +142,8 @@ internal static class ListSteps
     {
         if (stepEvent.Kind == Reports.StepEventKind.Model)
         {
-            var head = $"{FModel} Thinking ({Format.FormatTime(TimeSpan.FromMilliseconds(stepEvent.DurationMs))}){TokenSplit(stepEvent)}";
+            var head =
+                $"{FModel} Thinking ({Format.FormatTime(TimeSpan.FromMilliseconds(stepEvent.DurationMs))}){TokenSplit(stepEvent)}";
             var reasoning = ReasoningExcerpt(stepEvent.Reasoning, Format.VisibleWidth(head), maxWidth);
             return pc.Dim(reasoning is null ? head : $"{head} · {reasoning}");
         }

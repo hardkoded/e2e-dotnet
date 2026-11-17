@@ -14,7 +14,9 @@ namespace E2E.NUnit;
 /// </summary>
 internal static class RunSelection
 {
-    private static IReadOnlyDictionary<string, string> _excluded = new Dictionary<string, string>(StringComparer.Ordinal);
+    private static IReadOnlyDictionary<string, string> _excluded = new Dictionary<string, string>(
+        StringComparer.Ordinal
+    );
 
     private static readonly Lock Gate = new();
 
@@ -25,13 +27,18 @@ internal static class RunSelection
     {
         lock (Gate)
         {
-            _excluded = new Dictionary<string, string>(_excluded, StringComparer.Ordinal).Concat(excluded).GroupBy(pair => pair.Key, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().Value, StringComparer.Ordinal);
+            _excluded = new Dictionary<string, string>(_excluded, StringComparer.Ordinal)
+                .Concat(excluded)
+                .GroupBy(pair => pair.Key, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First().Value, StringComparer.Ordinal);
         }
     }
 
     /// <summary>Why the filters left the test out; null when it runs.</summary>
     public static string? ReasonFor(Type fixture, string? method) =>
-        method is not null && Volatile.Read(ref _excluded).TryGetValue(KeyOf(fixture, method), out var reason) ? reason : null;
+        method is not null && Volatile.Read(ref _excluded).TryGetValue(KeyOf(fixture, method), out var reason)
+            ? reason
+            : null;
 
     private static string KeyOf(Type fixture, string method) => fixture.FullName + "." + method;
 
@@ -43,18 +50,36 @@ internal static class RunSelection
     internal static IReadOnlyList<DiscoveredTest> Discover(IEnumerable<Type> types, Assembly assembly)
     {
         var found = new List<DiscoveredTest>();
-        foreach (var type in types.Where(type => type is { IsAbstract: false, IsClass: true } && typeof(E2ETest).IsAssignableFrom(type)).OrderBy(type => type.FullName, StringComparer.Ordinal))
+        foreach (
+            var type in types
+                .Where(type => type is { IsAbstract: false, IsClass: true } && typeof(E2ETest).IsAssignableFrom(type))
+                .OrderBy(type => type.FullName, StringComparer.Ordinal)
+        )
         {
             var typeTags = TagsOf(type, assembly);
-            foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance).Where(IsTest).Where(method => !IsExplicit(method)).OrderBy(method => method.MetadataToken))
+            foreach (
+                var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(IsTest)
+                    .Where(method => !IsExplicit(method))
+                    .OrderBy(method => method.MetadataToken)
+            )
             {
-                found.Add(new DiscoveredTest(
-                    KeyOf(type, method.Name),
-                    type.Namespace ?? "",
-                    TypeNameOf(type),
-                    method.Name,
-                    [.. typeTags, .. method.GetCustomAttributes<CategoryAttribute>(true).Select(category => category.Name)],
-                    (method.GetCustomAttribute<IgnoreAttribute>(true) ?? type.GetCustomAttribute<IgnoreAttribute>(true))?.Reason));
+                found.Add(
+                    new DiscoveredTest(
+                        KeyOf(type, method.Name),
+                        type.Namespace ?? "",
+                        TypeNameOf(type),
+                        method.Name,
+                        [
+                            .. typeTags,
+                            .. method.GetCustomAttributes<CategoryAttribute>(true).Select(category => category.Name),
+                        ],
+                        (
+                            method.GetCustomAttribute<IgnoreAttribute>(true)
+                            ?? type.GetCustomAttribute<IgnoreAttribute>(true)
+                        )?.Reason
+                    )
+                );
             }
         }
 
@@ -75,13 +100,16 @@ internal static class RunSelection
     }
 
     private static bool IsTest(MethodInfo method) =>
-        method.IsDefined(typeof(TestAttribute), true) || method.IsDefined(typeof(TestCaseAttribute), true)
-        || method.IsDefined(typeof(TestCaseSourceAttribute), true) || method.IsDefined(typeof(TheoryAttribute), true);
+        method.IsDefined(typeof(TestAttribute), true)
+        || method.IsDefined(typeof(TestCaseAttribute), true)
+        || method.IsDefined(typeof(TestCaseSourceAttribute), true)
+        || method.IsDefined(typeof(TheoryAttribute), true);
 
     private static bool IsExplicit(MemberInfo member) => member.IsDefined(typeof(ExplicitAttribute), true);
 
     // A nested class is named with its enclosing classes, so two nested classes with one name stay apart.
-    private static string TypeNameOf(Type type) => type.DeclaringType is { } outer ? TypeNameOf(outer) + "+" + type.Name : type.Name;
+    private static string TypeNameOf(Type type) =>
+        type.DeclaringType is { } outer ? TypeNameOf(outer) + "+" + type.Name : type.Name;
 
     private static IEnumerable<string> TagsOf(Type type, Assembly assembly)
     {

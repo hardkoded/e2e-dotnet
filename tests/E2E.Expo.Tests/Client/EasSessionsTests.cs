@@ -15,7 +15,13 @@ namespace E2E.Expo.Tests.Client;
 /// </summary>
 public sealed class EasSessionsTests
 {
-    private static readonly EasSessionParams Params = new() { AppId = "p1", Platform = MobilePlatform.Ios, Name = "e2e ios 1 of 1", Tags = [] };
+    private static readonly EasSessionParams Params = new()
+    {
+        AppId = "p1",
+        Platform = MobilePlatform.Ios,
+        Name = "e2e ios 1 of 1",
+        Tags = [],
+    };
 
     /// <summary>A client whose every request is answered with <paramref name="body"/> as JSON.</summary>
     internal static EasSessions Answering(string body, int status = 200) =>
@@ -24,73 +30,97 @@ public sealed class EasSessionsTests
     [Fact]
     public async Task NamesAnAnswerThatIsNotAGraphQlObjectAsOneWithoutData()
     {
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => Answering("null").StateAsync("s1", CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Answering("null").StateAsync("s1", CancellationToken.None)
+        );
         Assert.Equal("Expo: HTTP 200, no data", error.Message);
     }
 
     [Fact]
     public async Task FallsBackToTheStatusForAGraphQlErrorThatIsNotAnObject()
     {
-        var error = await Assert.ThrowsAsync<EasException>(() => Answering("""{ "errors": [null], "data": null }""").StateAsync("s1", CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EasException>(() =>
+            Answering("""{ "errors": [null], "data": null }""").StateAsync("s1", CancellationToken.None)
+        );
         Assert.Equal("Expo: HTTP 200", error.Message);
     }
 
     [Fact]
     public async Task RejectsACreatedSessionWithoutItsApp()
     {
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Answering("""{ "data": { "deviceRunSession": { "createDeviceRunSession": { "id": "s1" } } } }""").CreateAsync(Params, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Answering("""{ "data": { "deviceRunSession": { "createDeviceRunSession": { "id": "s1" } } } }""")
+                .CreateAsync(Params, CancellationToken.None)
+        );
         Assert.Equal("Expo: unexpected response to createDeviceRunSession", error.Message);
     }
 
     [Fact]
     public async Task RejectsASessionStateWithNoSessionOrADaemonAddressThatIsNotAString()
     {
-        var none = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Answering("""{ "data": { "deviceRunSessions": { "byId": null } } }""").StateAsync("s1", CancellationToken.None));
+        var none = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Answering("""{ "data": { "deviceRunSessions": { "byId": null } } }""")
+                .StateAsync("s1", CancellationToken.None)
+        );
         Assert.Equal("Expo: unexpected response to deviceRunSessions.byId", none.Message);
-        var number = await Assert.ThrowsAsync<InvalidOperationException>(() => Answering("""
-            { "data": { "deviceRunSessions": { "byId": {
-              "status": "IN_PROGRESS",
-              "turtleJobRun": { "status": "IN_PROGRESS" },
-              "remoteConfig": { "agentDeviceRemoteSessionUrl": 42, "agentDeviceRemoteSessionToken": "daemon-token" }
-            } } } }
-            """).StateAsync("s1", CancellationToken.None));
+        var number = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Answering(
+                    """
+                    { "data": { "deviceRunSessions": { "byId": {
+                      "status": "IN_PROGRESS",
+                      "turtleJobRun": { "status": "IN_PROGRESS" },
+                      "remoteConfig": { "agentDeviceRemoteSessionUrl": 42, "agentDeviceRemoteSessionToken": "daemon-token" }
+                    } } } }
+                    """
+                )
+                .StateAsync("s1", CancellationToken.None)
+        );
         Assert.Equal("Expo: unexpected response to deviceRunSessions.byId", number.Message);
     }
 
     [Fact]
     public async Task ReadsADaemonAddressGraphQlAnswersAsNullAsNotReadyYet()
     {
-        var state = await Answering("""
-            { "data": { "deviceRunSessions": { "byId": {
-              "status": "IN_PROGRESS",
-              "turtleJobRun": { "status": "IN_PROGRESS" },
-              "remoteConfig": { "agentDeviceRemoteSessionUrl": null, "agentDeviceRemoteSessionToken": null }
-            } } } }
-            """).StateAsync("s1", CancellationToken.None);
+        var state = await Answering(
+                """
+                { "data": { "deviceRunSessions": { "byId": {
+                  "status": "IN_PROGRESS",
+                  "turtleJobRun": { "status": "IN_PROGRESS" },
+                  "remoteConfig": { "agentDeviceRemoteSessionUrl": null, "agentDeviceRemoteSessionToken": null }
+                } } } }
+                """
+            )
+            .StateAsync("s1", CancellationToken.None);
         Assert.Equal(new EasSessionState(EasPhase.Starting), state);
     }
 
     [Fact]
     public async Task RejectsAStopAnswerWithoutTheStoppedSession()
     {
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Answering("""{ "data": { "deviceRunSession": {} } }""").StopAsync("s1", CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Answering("""{ "data": { "deviceRunSession": {} } }""").StopAsync("s1", CancellationToken.None)
+        );
         Assert.Equal("Expo: unexpected response to ensureDeviceRunSessionStopped", error.Message);
     }
 
     [Fact]
     public async Task RejectsAStopAnswerThatLeavesOutTheJobRatherThanSkipCancellingIt()
     {
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Answering("""{ "data": { "deviceRunSession": { "ensureDeviceRunSessionStopped": {} } } }""").StopAsync("s1", CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Answering("""{ "data": { "deviceRunSession": { "ensureDeviceRunSessionStopped": {} } } }""")
+                .StopAsync("s1", CancellationToken.None)
+        );
         Assert.Equal("Expo: unexpected response to ensureDeviceRunSessionStopped", error.Message);
     }
 
     internal sealed class Answer(string body, HttpStatusCode status) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") });
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        ) =>
+            Task.FromResult(
+                new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") }
+            );
     }
 }

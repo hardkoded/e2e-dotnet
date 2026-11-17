@@ -12,7 +12,9 @@ internal static class WinAppHost
 {
     /// <summary><c>E2E_WINAPP_APP_PATH</c>, else the target's <c>app.appPath</c>.</summary>
     internal static string? AppPath(E2EConfig config) =>
-        Environment.GetEnvironmentVariable(WinAppTargetEngine.AppPathVariable) is { Length: > 0 } path ? path : config.Target.App.AppPath;
+        Environment.GetEnvironmentVariable(WinAppTargetEngine.AppPathVariable) is { Length: > 0 } path
+            ? path
+            : config.Target.App.AppPath;
 
     /// <summary>The target's <c>app.bundleId</c>: the process name the app is known by.</summary>
     internal static string? AppId(E2EConfig config) => config.Target.App.BundleId;
@@ -22,13 +24,20 @@ internal static class WinAppHost
     {
         if (appId is null && appPath is null)
         {
-            throw new InvalidOperationException($"Set targets[0].app.appPath or targets[0].app.bundleId in e2e.config.json, {WinAppTargetEngine.AppPathVariable}, or override WinAppTest.AppPath.");
+            throw new InvalidOperationException(
+                $"Set targets[0].app.appPath or targets[0].app.bundleId in e2e.config.json, {WinAppTargetEngine.AppPathVariable}, or override WinAppTest.AppPath."
+            );
         }
 
         return new WinAppOptions
         {
             TargetName = config.Target.Name,
-            App = new WinAppApp { BundleId = appId, AppPath = appPath, LaunchArguments = config.Target.App.LaunchArguments },
+            App = new WinAppApp
+            {
+                BundleId = appId,
+                AppPath = appPath,
+                LaunchArguments = config.Target.App.LaunchArguments,
+            },
         };
     }
 

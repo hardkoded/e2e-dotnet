@@ -18,9 +18,19 @@ public sealed class PollConditionTests
 {
     private static readonly TimeSpan Grace = TimeSpan.FromMilliseconds(1000);
 
-    private static readonly SemanticNode Shown = new() { Ref = "s", Role = "status", Name = "Saving" };
+    private static readonly SemanticNode Shown = new()
+    {
+        Ref = "s",
+        Role = "status",
+        Name = "Saving",
+    };
 
-    private static readonly SemanticNode Unchecked = new() { Ref = "c", Role = "checkbox", Name = "Terms" };
+    private static readonly SemanticNode Unchecked = new()
+    {
+        Ref = "c",
+        Role = "checkbox",
+        Name = "Terms",
+    };
 
     private readonly SteppingTime _time = new();
 
@@ -28,7 +38,9 @@ public sealed class PollConditionTests
     public async Task Throws_the_caller_error_at_the_deadline()
     {
         var screen = Scripted(_ => []);
-        var error = await Assert.ThrowsAsync<TestException>(() => Drive(Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(350))));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Drive(Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(350)))
+        );
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.InRange(_time.Elapsed, TimeSpan.FromMilliseconds(350), TimeSpan.FromMilliseconds(1000));
     }
@@ -44,7 +56,9 @@ public sealed class PollConditionTests
             readsAt.Add(_time.Elapsed.TotalMilliseconds);
             return Task.FromResult<SemanticNode[]>(_time.Elapsed > budget ? [Shown] : []);
         });
-        var error = await Assert.ThrowsAsync<TestException>(() => Drive(Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: budget)));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Drive(Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: budget))
+        );
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.Equal([0, 50, 100, 150, 200, 250, 300, 330], readsAt);
     }
@@ -53,7 +67,9 @@ public sealed class PollConditionTests
     public async Task Negated_a_budget_shorter_than_the_grace_window_is_still_satisfiable()
     {
         var screen = Scripted(_ => []);
-        await Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(400)));
+        await Drive(
+            Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(400))
+        );
         Assert.InRange(_time.Elapsed, TimeSpan.FromMilliseconds(400), Grace);
     }
 
@@ -87,7 +103,9 @@ public sealed class PollConditionTests
     {
         var issued = new List<TimeSpan>();
         var screen = Slow(issued, first: 80, rest: 10);
-        await Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(500)));
+        await Drive(
+            Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(500))
+        );
         Assert.Equal(TimeSpan.FromMilliseconds(500), _time.Elapsed);
         Assert.All(issued, at => Assert.True(at < TimeSpan.FromMilliseconds(500), "a read was issued at " + at));
     }
@@ -96,7 +114,9 @@ public sealed class PollConditionTests
     public async Task Negated_a_slow_first_read_counts_toward_the_grace_window_under_a_longer_budget()
     {
         var screen = Slow([], first: 80, rest: 10);
-        await Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(1500)));
+        await Drive(
+            Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(1500))
+        );
         Assert.InRange(_time.Elapsed, Grace, TimeSpan.FromMilliseconds(1500));
     }
 
@@ -104,7 +124,9 @@ public sealed class PollConditionTests
     public async Task Negated_fast_reads_under_a_short_budget_pass_at_the_deadline_not_before()
     {
         var screen = Slow([], first: 0, rest: 0);
-        await Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(500)));
+        await Drive(
+            Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(500))
+        );
         Assert.Equal(TimeSpan.FromMilliseconds(500), _time.Elapsed);
     }
 
@@ -121,7 +143,9 @@ public sealed class PollConditionTests
             calls = call;
             return call == 3 ? [Shown] : [];
         });
-        var error = await Assert.ThrowsAsync<TestException>(() => Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(500))));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(500)))
+        );
         Assert.Equal("ASSERTION_FAILED", error.Code);
 
         // It decided at the deadline instead of reading past it: one read per 50 ms sample, the last at the deadline.
@@ -146,7 +170,9 @@ public sealed class PollConditionTests
     {
         var screen = Scripted(_ => []);
         using var abort = new CancellationTokenSource();
-        var poll = Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(60), cancellationToken: abort.Token);
+        var poll = Expect
+            .That(screen.GetByRole("status"))
+            .ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(60), cancellationToken: abort.Token);
         while (!_time.HasTimer && !poll.IsCompleted)
         {
             await Task.Delay(1);
@@ -168,12 +194,16 @@ public sealed class PollConditionTests
             calls++;
             return _time.Elapsed < budget ? Task.FromResult<SemanticNode[]>([]) : throw cut;
         });
-        var error = await Assert.ThrowsAsync<TestException>(() => Drive(Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: budget)));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Drive(Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: budget))
+        );
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.True(calls > 1);
 
         var early = Over(_ => throw cut);
-        var timedOut = await Assert.ThrowsAsync<TestException>(() => Drive(Expect.That(early.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(5))));
+        var timedOut = await Assert.ThrowsAsync<TestException>(() =>
+            Drive(Expect.That(early.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(5)))
+        );
         Assert.Equal("ACTION_FAILED", timedOut.Code);
         Assert.Same(cut, timedOut.InnerException);
     }
@@ -197,7 +227,9 @@ public sealed class PollConditionTests
             await Task.Delay(rest > TimeSpan.Zero ? rest : TimeSpan.Zero, _time, token);
             throw cut;
         });
-        var timedOut = await Assert.ThrowsAsync<TestException>(() => Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: budget)));
+        var timedOut = await Assert.ThrowsAsync<TestException>(() =>
+            Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: budget))
+        );
         Assert.Equal("ACTION_FAILED", timedOut.Code);
         Assert.Same(cut, timedOut.InnerException);
     }
@@ -219,7 +251,9 @@ public sealed class PollConditionTests
                     throw cut;
                 }
 
-                return Task.FromResult<SemanticNode[]>((_time.Elapsed - from).TotalMilliseconds < cutAfterMs ? [Shown] : []);
+                return Task.FromResult<SemanticNode[]>(
+                    (_time.Elapsed - from).TotalMilliseconds < cutAfterMs ? [Shown] : []
+                );
             });
             return Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: budget));
         }
@@ -261,22 +295,25 @@ public sealed class PollConditionTests
         var deadline = new Deadline(TimeSpan.FromMilliseconds(350), _time);
         var timeouts = new List<TimeSpan>();
         var calls = 0;
-        var poll = InternalTime.PollReadsAsync(new PollReadsOptions
-        {
-            Deadline = deadline,
-            Reads = new ReadWindow(deadline, _time, new Deadline(TimeSpan.FromMilliseconds(400), _time)),
-            Clock = _time,
-            Token = CancellationToken.None,
-            Negated = false,
-            Evaluate = reads => reads.ReadAsync<bool?>(async timeout =>
+        var poll = InternalTime.PollReadsAsync(
+            new PollReadsOptions
             {
-                timeouts.Add(timeout);
-                calls++;
-                await Bounded(TimeSpan.FromMilliseconds(calls == 1 ? 200 : 50), timeout);
-                return calls == 2;
-            }),
-            OnTimeout = _ => new InvalidOperationException("poll timed out"),
-        });
+                Deadline = deadline,
+                Reads = new ReadWindow(deadline, _time, new Deadline(TimeSpan.FromMilliseconds(400), _time)),
+                Clock = _time,
+                Token = CancellationToken.None,
+                Negated = false,
+                Evaluate = reads =>
+                    reads.ReadAsync<bool?>(async timeout =>
+                    {
+                        timeouts.Add(timeout);
+                        calls++;
+                        await Bounded(TimeSpan.FromMilliseconds(calls == 1 ? 200 : 50), timeout);
+                        return calls == 2;
+                    }),
+                OnTimeout = _ => new InvalidOperationException("poll timed out"),
+            }
+        );
         await Drive(poll);
         Assert.Equal([TimeSpan.FromMilliseconds(350), TimeSpan.FromMilliseconds(100)], timeouts);
     }
@@ -286,11 +323,13 @@ public sealed class PollConditionTests
     {
         var deadline = new Deadline(TimeSpan.FromMilliseconds(100), _time);
         var reads = new ReadWindow(deadline, _time, new Deadline(TimeSpan.FromSeconds(10), _time));
-        await Drive(reads.ReadAsync(async _ =>
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(300), _time);
-            return 0;
-        }));
+        await Drive(
+            reads.ReadAsync(async _ =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(300), _time);
+                return 0;
+            })
+        );
         Assert.Equal(TimeSpan.FromMilliseconds(100), reads.Timeout());
         _time.Advance(TimeSpan.FromMilliseconds(50));
         Assert.Equal(TimeSpan.FromMilliseconds(50), reads.Timeout());
@@ -303,29 +342,31 @@ public sealed class PollConditionTests
     {
         var deadline = new Deadline(TimeSpan.FromMilliseconds(1_000), _time);
         var samples = 0;
-        var poll = InternalTime.PollReadsAsync(new PollReadsOptions
-        {
-            Deadline = deadline,
-            Reads = new ReadWindow(deadline, _time, new Deadline(TimeSpan.FromSeconds(10), _time)),
-            Clock = _time,
-            Token = CancellationToken.None,
-            Negated = false,
-            Evaluate = async reads =>
+        var poll = InternalTime.PollReadsAsync(
+            new PollReadsOptions
             {
-                samples++;
-                if (samples == 1)
+                Deadline = deadline,
+                Reads = new ReadWindow(deadline, _time, new Deadline(TimeSpan.FromSeconds(10), _time)),
+                Clock = _time,
+                Token = CancellationToken.None,
+                Negated = false,
+                Evaluate = async reads =>
                 {
-                    await reads.ReadAsync(async _ => await Slept(300));
-                    return false;
-                }
+                    samples++;
+                    if (samples == 1)
+                    {
+                        await reads.ReadAsync(async _ => await Slept(300));
+                        return false;
+                    }
 
-                // The sample starts with 600 ms left; its second read starts with 100.
-                await reads.ReadAsync(async _ => await Slept(500));
-                await reads.ReadAsync<int>(timeout => Hung(timeout));
-                return true;
-            },
-            OnTimeout = _ => new InvalidOperationException("poll timed out"),
-        });
+                    // The sample starts with 600 ms left; its second read starts with 100.
+                    await reads.ReadAsync(async _ => await Slept(500));
+                    await reads.ReadAsync<int>(timeout => Hung(timeout));
+                    return true;
+                },
+                OnTimeout = _ => new InvalidOperationException("poll timed out"),
+            }
+        );
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => Drive(poll));
         Assert.Equal("poll timed out", error.Message);
     }
@@ -335,23 +376,25 @@ public sealed class PollConditionTests
     {
         var deadline = new Deadline(TimeSpan.FromMilliseconds(3_000), _time);
         var samples = 0;
-        var poll = InternalTime.PollReadsAsync(new PollReadsOptions
-        {
-            Deadline = deadline,
-            Reads = new ReadWindow(deadline, _time, new Deadline(TimeSpan.FromSeconds(10), _time)),
-            Clock = _time,
-            Token = CancellationToken.None,
-            Negated = true,
-            Evaluate = async reads =>
+        var poll = InternalTime.PollReadsAsync(
+            new PollReadsOptions
             {
-                samples++;
+                Deadline = deadline,
+                Reads = new ReadWindow(deadline, _time, new Deadline(TimeSpan.FromSeconds(10), _time)),
+                Clock = _time,
+                Token = CancellationToken.None,
+                Negated = true,
+                Evaluate = async reads =>
+                {
+                    samples++;
 
-                // The first read sees the condition; the second starts 400 ms before the deadline and ends 1.1 s past it.
-                await reads.ReadAsync(async _ => await Slept(samples == 1 ? 2_500 : 1_500));
-                return samples == 1;
-            },
-            OnTimeout = _ => new InvalidOperationException("negation timed out"),
-        });
+                    // The first read sees the condition; the second starts 400 ms before the deadline and ends 1.1 s past it.
+                    await reads.ReadAsync(async _ => await Slept(samples == 1 ? 2_500 : 1_500));
+                    return samples == 1;
+                },
+                OnTimeout = _ => new InvalidOperationException("negation timed out"),
+            }
+        );
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => Drive(poll));
         Assert.Equal("negation timed out", error.Message);
     }
@@ -364,21 +407,24 @@ public sealed class PollConditionTests
         {
             var deadline = new Deadline(TimeSpan.FromMilliseconds(timeoutMs), _time);
             var calls = 0;
-            return InternalTime.PollReadsAsync(new PollReadsOptions
-            {
-                Deadline = deadline,
-                Reads = new ReadWindow(deadline, _time),
-                Clock = _time,
-                Token = CancellationToken.None,
-                Negated = false,
-                Evaluate = reads => reads.ReadAsync<bool?>(async _ =>
+            return InternalTime.PollReadsAsync(
+                new PollReadsOptions
                 {
-                    calls++;
-                    await Slept(300);
-                    return calls == 1 ? false : throw cut;
-                }),
-                OnTimeout = _ => new InvalidOperationException("poll timed out"),
-            });
+                    Deadline = deadline,
+                    Reads = new ReadWindow(deadline, _time),
+                    Clock = _time,
+                    Token = CancellationToken.None,
+                    Negated = false,
+                    Evaluate = reads =>
+                        reads.ReadAsync<bool?>(async _ =>
+                        {
+                            calls++;
+                            await Slept(300);
+                            return calls == 1 ? false : throw cut;
+                        }),
+                    OnTimeout = _ => new InvalidOperationException("poll timed out"),
+                }
+            );
         }
 
         // The second read starts with 200 ms left: under the 300 ms the first took, so the deadline cut it.
@@ -452,6 +498,7 @@ public sealed class PollConditionTests
             () => { },
             ScreenFixture.Timeout,
             ScreenFixture.Timeout,
-            clock: _time);
+            clock: _time
+        );
     }
 }

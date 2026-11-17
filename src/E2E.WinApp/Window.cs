@@ -37,17 +37,32 @@ public sealed class Window
     /// <see cref="OpenAppOptions.Relaunch"/>, or when it is not running. Its launch arguments apply to this launch alone; the target's own
     /// apply to a relaunch of the app under test.
     /// </summary>
-    public Task OpenAppAsync(string? app = null, OpenAppOptions? options = null, CancellationToken cancellationToken = default) =>
-        _session.OpenAppAsync(app ?? _session.AppName ?? throw WinAppSupport.Unsupported("openApp needs an app, or the target's `app.appPath` or `app.bundleId`"), options, cancellationToken);
+    public Task OpenAppAsync(
+        string? app = null,
+        OpenAppOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) =>
+        _session.OpenAppAsync(
+            app
+                ?? _session.AppName
+                ?? throw WinAppSupport.Unsupported(
+                    "openApp needs an app, or the target's `app.appPath` or `app.bundleId`"
+                ),
+            options,
+            cancellationToken
+        );
 
     /// <summary>Ends the app the session started, so the next <see cref="OpenAppAsync"/> launches it fresh. Until then the screen is unobservable.</summary>
-    public Task CloseAppAsync(CancellationToken cancellationToken = default) => _session.CloseAppAsync(cancellationToken);
+    public Task CloseAppAsync(CancellationToken cancellationToken = default) =>
+        _session.CloseAppAsync(cancellationToken);
 
     /// <summary>The app the session is on and the title of its main window.</summary>
-    public Task<ForegroundApp> ForegroundAppAsync(CancellationToken cancellationToken = default) => _session.ForegroundAppAsync(cancellationToken);
+    public Task<ForegroundApp> ForegroundAppAsync(CancellationToken cancellationToken = default) =>
+        _session.ForegroundAppAsync(cancellationToken);
 
     /// <summary>The app's visible top-level windows, with their titles and boxes.</summary>
-    public Task<IReadOnlyList<WindowInfo>> ListWindowsAsync(CancellationToken cancellationToken = default) => _session.WindowsAsync(cancellationToken);
+    public Task<IReadOnlyList<WindowInfo>> ListWindowsAsync(CancellationToken cancellationToken = default) =>
+        _session.WindowsAsync(cancellationToken);
 
     /// <summary>Resizes the main window to a logical size, in device-independent pixels. The next observation reads the new layout.</summary>
     public async Task ResizeAsync(int width, int height, CancellationToken cancellationToken = default)
@@ -55,18 +70,27 @@ public sealed class Window
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
         var window = _session.MainWindow;
-        await _session.CommandAsync("window.resize", (driver, token) => driver.ResizeAsync(window, width, height, token), cancellationToken).ConfigureAwait(false);
+        await _session
+            .CommandAsync(
+                "window.resize",
+                (driver, token) => driver.ResizeAsync(window, width, height, token),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         await _session.SettleAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Maximizes the main window.</summary>
-    public Task MaximizeAsync(CancellationToken cancellationToken = default) => ShowAsync("window.maximize", WindowState.Maximized, cancellationToken);
+    public Task MaximizeAsync(CancellationToken cancellationToken = default) =>
+        ShowAsync("window.maximize", WindowState.Maximized, cancellationToken);
 
     /// <summary>Restores the main window to its normal size.</summary>
-    public Task RestoreAsync(CancellationToken cancellationToken = default) => ShowAsync("window.restore", WindowState.Normal, cancellationToken);
+    public Task RestoreAsync(CancellationToken cancellationToken = default) =>
+        ShowAsync("window.restore", WindowState.Normal, cancellationToken);
 
     /// <summary>Minimizes the main window. Keys and clicks need it back: <see cref="RestoreAsync"/> or <see cref="OpenAppAsync"/> bring it forward.</summary>
-    public Task MinimizeAsync(CancellationToken cancellationToken = default) => ShowAsync("window.minimize", WindowState.Minimized, cancellationToken);
+    public Task MinimizeAsync(CancellationToken cancellationToken = default) =>
+        ShowAsync("window.minimize", WindowState.Minimized, cancellationToken);
 
     /// <summary>
     /// Accepts or dismisses the open dialog, as the last observation saw it: a node of role <c>dialog</c>. Accept presses the
@@ -77,27 +101,46 @@ public sealed class Window
     public async Task AlertAsync(AlertAction action, CancellationToken cancellationToken = default)
     {
         var dialog = _session.Latest.LastOrDefault(entry => entry.Role == "dialog" && !entry.Node.States.Hidden)
-            ?? throw WinAppSupport.InvalidState("no dialog is open; observe the screen first, and tap a listed button by id when the dialog has one");
+            ?? throw WinAppSupport.InvalidState(
+                "no dialog is open; observe the screen first, and tap a listed button by id when the dialog has one"
+            );
         var buttons = _session.Latest.Where(entry => entry.Role == "button" && IsWithin(entry, dialog)).ToList();
         var wanted = action == AlertAction.Accept ? AcceptIds : DismissIds;
-        var button = buttons.FirstOrDefault(entry => wanted.Contains(entry.Raw.AutomationId ?? "", StringComparer.Ordinal))
-            ?? (action == AlertAction.Accept ? buttons.FirstOrDefault(entry => AcceptNames.Contains(entry.Node.Name ?? "", StringComparer.OrdinalIgnoreCase)) : null);
+        var button = buttons.FirstOrDefault(entry =>
+            wanted.Contains(entry.Raw.AutomationId ?? "", StringComparer.Ordinal)
+        )
+            ?? (
+                action == AlertAction.Accept
+                    ? buttons.FirstOrDefault(entry =>
+                        AcceptNames.Contains(entry.Node.Name ?? "", StringComparer.OrdinalIgnoreCase)
+                    )
+                    : null
+            );
         if (button is not null)
         {
-            await _session.CommandAsync("window.alert", (driver, token) => driver.InvokeAsync(button.Handle, InvokeKind.Invoke, token), cancellationToken).ConfigureAwait(false);
+            await _session
+                .CommandAsync(
+                    "window.alert",
+                    (driver, token) => driver.InvokeAsync(button.Handle, InvokeKind.Invoke, token),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
         else if (action == AlertAction.Dismiss)
         {
             var window = dialog.WindowHandle;
             // The key goes through SendInput, which reaches the foreground window only.
-            await _session.CommandAsync(
-                "window.alert",
-                async (driver, token) =>
-                {
-                    await driver.ForegroundAsync(window, token).ConfigureAwait(false);
-                    await driver.SendKeysAsync(window, "esc", verbatim: false, token).ConfigureAwait(false);
-                },
-                cancellationToken).ConfigureAwait(false);
+            await _session
+                .CommandAsync(
+                    "window.alert",
+                    async (driver, token) =>
+                    {
+                        await driver.ForegroundAsync(window, token).ConfigureAwait(false);
+                        await driver.SendKeysAsync(window, "esc", verbatim: false, token).ConfigureAwait(false);
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
         else
         {
@@ -124,7 +167,9 @@ public sealed class Window
     private async Task ShowAsync(string label, WindowState state, CancellationToken cancellationToken)
     {
         var window = _session.MainWindow;
-        await _session.CommandAsync(label, (driver, token) => driver.ShowAsync(window, state, token), cancellationToken).ConfigureAwait(false);
+        await _session
+            .CommandAsync(label, (driver, token) => driver.ShowAsync(window, state, token), cancellationToken)
+            .ConfigureAwait(false);
         await _session.SettleAsync(cancellationToken).ConfigureAwait(false);
     }
 }

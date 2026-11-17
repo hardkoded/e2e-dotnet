@@ -22,7 +22,8 @@ public sealed class TraceCacheKeyEngineNameTests
 
         public EngineCapabilities Capabilities => inner.Capabilities;
 
-        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) => inner.StartAsync(options, cancellationToken);
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            inner.StartAsync(options, cancellationToken);
     }
 
     [Fact]
@@ -40,18 +41,22 @@ public sealed class TraceCacheKeyEngineNameTests
                 invoice.Text = "Prorated amount: $12";
             });
         });
-        await using (var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new NamedEngine(new DocumentEngine(world)),
-            Model = BillingSession.UpgradeModel(() => { }),
-            BaseUrl = "https://app.test",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            TestTitle = "keys > engine",
-            Attempt = 1,
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ReplayTimeout = TimeSpan.FromMilliseconds(300),
-        }))
+        await using (
+            var session = await E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = new NamedEngine(new DocumentEngine(world)),
+                    Model = BillingSession.UpgradeModel(() => { }),
+                    BaseUrl = "https://app.test",
+                    Cache = new FileStepCache(directory),
+                    CacheEnabled = true,
+                    TestTitle = "keys > engine",
+                    Attempt = 1,
+                    ActionTimeout = TimeSpan.FromMilliseconds(300),
+                    ReplayTimeout = TimeSpan.FromMilliseconds(300),
+                }
+            )
+        )
         {
             await session.App.OpenAsync("/");
             await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
@@ -59,7 +64,9 @@ public sealed class TraceCacheKeyEngineNameTests
             session.Complete();
         }
 
-        var keyedBy = new FileStepCache(directory).Read(Path.GetFileNameWithoutExtension(Directory.GetFiles(directory).Single())).Entry!.KeyedBy!;
+        var keyedBy = new FileStepCache(directory)
+            .Read(Path.GetFileNameWithoutExtension(Directory.GetFiles(directory).Single()))
+            .Entry!.KeyedBy!;
         Assert.Equal("mobile", keyedBy.EngineName);
         Assert.Equal("ios", keyedBy.Platform);
     }

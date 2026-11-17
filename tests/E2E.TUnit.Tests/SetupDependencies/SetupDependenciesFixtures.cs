@@ -32,11 +32,13 @@ public sealed class ConsumerFixture : SessionFixtureBase
 
     [Test, Explicit]
     [E2ESession("dependency")]
-    public async Task Consumes_the_dependency_session() => await Assert.That(await SignedInAsync()).IsEqualTo("dependent");
+    public async Task Consumes_the_dependency_session() =>
+        await Assert.That(await SignedInAsync()).IsEqualTo("dependent");
 
     [Test, Explicit]
     [E2ESession("dependency")]
-    public async Task Consumes_the_dependency_session_again() => await Assert.That(await SignedInAsync()).IsEqualTo("dependent");
+    public async Task Consumes_the_dependency_session_again() =>
+        await Assert.That(await SignedInAsync()).IsEqualTo("dependent");
 }
 
 /// <summary>A setup that fails before it saves, and a consumer of its session.</summary>

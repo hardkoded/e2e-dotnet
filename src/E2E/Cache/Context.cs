@@ -18,13 +18,23 @@ internal sealed record AgentCacheStrict(string Advice);
 /// may replay, and, for a context a program created (<see cref="CoreAgents"/>), the <c>claimKey</c> that names its recordings and the
 /// <c>staged</c> acts it settles. A test's attempt keeps both on <c>AttemptScope</c>, which builds its context per act.
 /// </summary>
-internal sealed record AgentCacheContext(CacheMode Mode, IStepCache Store, bool ReplayEligible, AgentCacheStrict? Strict)
+internal sealed record AgentCacheContext(
+    CacheMode Mode,
+    IStepCache Store,
+    bool ReplayEligible,
+    AgentCacheStrict? Strict
+)
 {
     /// <summary>The test id its keys and entries carry: the test's title, or <c>core:&lt;cacheKey&gt;</c> for a program's agent.</summary>
     public string TestId { get; init; } = "";
 
     /// <summary>Upstream's <c>claimKey</c>: claims one act's key, advancing its occurrence count.</summary>
-    public Func<string, IReadOnlyDictionary<string, object?>?, CacheAgentIdentity, ClaimedTraceKey> ClaimKey { get; init; } = static (_, _, _) => throw new InvalidOperationException("the context claims no keys");
+    public Func<
+        string,
+        IReadOnlyDictionary<string, object?>?,
+        CacheAgentIdentity,
+        ClaimedTraceKey
+    > ClaimKey { get; init; } = static (_, _, _) => throw new InvalidOperationException("the context claims no keys");
 
     /// <summary>Upstream's <c>staged</c>: the acts this context's agent ran, which settle when the context's session ends. Null when the attempt settles them.</summary>
     public List<PendingAct>? Staged { get; init; }
@@ -43,7 +53,11 @@ internal sealed record ClaimedTraceKey(string Key, int CallIndex, TraceKeyContex
 /// Failures the attempt went on after, which only a program without a test around it does: each settles the entries it found unconfirmed as that
 /// failure does, whatever passed later. Entries staged after it are judged by the checks that follow them.
 /// </param>
-internal sealed record AttemptSettlement(int LastVerifiedStepIndex, bool ImplicatesUnconfirmed, IReadOnlyList<SurvivedFailure> Survived);
+internal sealed record AttemptSettlement(
+    int LastVerifiedStepIndex,
+    bool ImplicatesUnconfirmed,
+    IReadOnlyList<SurvivedFailure> Survived
+);
 
 /// <summary>One failed step an attempt went on after, and the staged entries it found unconfirmed. Upstream's <c>SurvivedFailure</c> (<c>cache/context.ts</c>).</summary>
 /// <param name="From">The first step index no verification had confirmed when the step failed.</param>
@@ -60,7 +74,14 @@ internal static class CacheContexts
     /// <c>cache.strict</c> is on, where every attempt replays, nothing is written or evicted, and the mode is <see cref="CacheMode.ReadOnly"/>.
     /// The port has no <c>projectId</c>, <c>testId</c>, or <c>target</c> parameter: <c>AttemptScope</c> claims the keys.
     /// </summary>
-    public static AgentCacheContext? CreateAgentCacheContext(CacheConfig cache, string projectRoot, int attemptIndex, string projectId = "", string testId = "", CacheTargetIdentity? target = null)
+    public static AgentCacheContext? CreateAgentCacheContext(
+        CacheConfig cache,
+        string projectRoot,
+        int attemptIndex,
+        string projectId = "",
+        string testId = "",
+        CacheTargetIdentity? target = null
+    )
     {
         ArgumentNullException.ThrowIfNull(cache);
         if (cache.Mode == CacheMode.Off)
@@ -70,15 +91,23 @@ internal static class CacheContexts
 
         var strict = cache.Strict;
         var mode = strict ? CacheMode.ReadOnly : cache.Mode;
-        var store = cache.Store ?? new FileStepCache(cache.Directory, FileStepCache.MaxCacheWireBytes, mode == CacheMode.ReadWrite);
+        var store = cache.Store
+            ?? new FileStepCache(cache.Directory, FileStepCache.MaxCacheWireBytes, mode == CacheMode.ReadWrite);
         return new AgentCacheContext(
             mode,
             store,
             strict || attemptIndex == 0,
-            strict ? new AgentCacheStrict(StaleAdvice(cache, cache.StrictSource ?? new CacheStrictSource(true, false), projectRoot)) : null)
+            strict
+                ? new AgentCacheStrict(
+                    StaleAdvice(cache, cache.StrictSource ?? new CacheStrictSource(true, false), projectRoot)
+                )
+                : null
+        )
         {
             TestId = testId,
-            ClaimKey = target is null ? static (_, _, _) => throw new InvalidOperationException("the context claims no keys") : KeyClaimer(projectId, testId, target),
+            ClaimKey = target is null
+                ? static (_, _, _) => throw new InvalidOperationException("the context claims no keys")
+                : KeyClaimer(projectId, testId, target),
             Staged = target is null ? null : [],
         };
     }
@@ -87,7 +116,11 @@ internal static class CacheContexts
     /// Upstream's <c>claimKey</c> of <c>createAgentCacheContext</c>: one occurrence count per agent (the agent is part of the key, so another
     /// agent's call of the same instruction must not renumber this one's), and the hash of the trace cache key the call claims.
     /// </summary>
-    internal static Func<string, IReadOnlyDictionary<string, object?>?, CacheAgentIdentity, ClaimedTraceKey> KeyClaimer(string projectId, string testId, CacheTargetIdentity target)
+    internal static Func<string, IReadOnlyDictionary<string, object?>?, CacheAgentIdentity, ClaimedTraceKey> KeyClaimer(
+        string projectId,
+        string testId,
+        CacheTargetIdentity target
+    )
     {
         var project = Identity.ProjectIdentity(projectId);
         var indexers = new Dictionary<string, Func<TraceCallSignature, int>>(StringComparer.Ordinal);
@@ -105,7 +138,17 @@ internal static class CacheContexts
                 }
 
                 var callIndex = indexer(signature);
-                var key = Identity.BuildTraceCacheKey(new TraceCacheKeyParts(project, testId, target, signature, callIndex, agent, CacheKeys.ReplayPolicyVersion));
+                var key = Identity.BuildTraceCacheKey(
+                    new TraceCacheKeyParts(
+                        project,
+                        testId,
+                        target,
+                        signature,
+                        callIndex,
+                        agent,
+                        CacheKeys.ReplayPolicyVersion
+                    )
+                );
                 return new ClaimedTraceKey(Identity.TraceCacheKeyHash(key), callIndex, Identity.KeyContext(key));
             }
         };
@@ -140,7 +183,9 @@ internal static class CacheContexts
         var covers = new Dictionary<PendingAct, SurvivedFailure?>();
         foreach (var act in acts)
         {
-            var failure = act.StepIndex is { } index ? settlement.Survived.FirstOrDefault(survived => index >= survived.From && index <= survived.Through) : null;
+            var failure = act.StepIndex is { } index
+                ? settlement.Survived.FirstOrDefault(survived => index >= survived.From && index <= survived.Through)
+                : null;
             covers[act] = failure;
             act.Verified = failure is null && act.StepIndex is { } at && at < settlement.LastVerifiedStepIndex;
         }
@@ -154,7 +199,14 @@ internal static class CacheContexts
     /// </summary>
     private static string StaleAdvice(CacheConfig cache, CacheStrictSource source, string projectRoot)
     {
-        var off = string.Join(" and ", new[] { source.Flag ? "without --strict-cache" : null, source.Config ? "with cache.strict set to false" : null }.OfType<string>());
+        var off = string.Join(
+            " and ",
+            new[]
+            {
+                source.Flag ? "without --strict-cache" : null,
+                source.Config ? "with cache.strict set to false" : null,
+            }.OfType<string>()
+        );
         var run = "re-record it with a read-write run " + off;
         if (cache.Store is not null)
         {

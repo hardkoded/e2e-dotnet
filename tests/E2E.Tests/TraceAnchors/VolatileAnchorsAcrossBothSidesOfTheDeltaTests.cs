@@ -28,7 +28,10 @@ public sealed class VolatileAnchorsAcrossBothSidesOfTheDeltaTests
     [Fact]
     public void Drops_a_clock_that_disappeared_when_the_other_side_holds_a_stable_result()
     {
-        var (appeared, gone) = Describe([Heading, Clock("10:00")], [Heading, Node("status", text: "Record created"), Clock("10:01")]);
+        var (appeared, gone) = Describe(
+            [Heading, Clock("10:00")],
+            [Heading, Node("status", text: "Record created"), Clock("10:01")]
+        );
 
         Assert.Equal(["status|~Record created"], Shapes(appeared));
         Assert.Empty(gone);
@@ -68,7 +71,11 @@ public sealed class VolatileAnchorsAcrossBothSidesOfTheDeltaTests
         Assert.Equal(["dialog|Import CSV"], Shapes(gone));
 
         var brokenReplay = new[] { Heading, Node("status", text: "0 records imported") };
-        var mismatch = Anchors.Mismatch(new CacheEntry { Appeared = appeared, Gone = gone }, Project(brokenReplay), Project(before));
+        var mismatch = Anchors.Mismatch(
+            new CacheEntry { Appeared = appeared, Gone = gone },
+            Project(brokenReplay),
+            Project(before)
+        );
 
         Assert.NotNull(mismatch);
         Assert.Equal(["status|~3 records imported"], Shapes(mismatch.Missing));
@@ -79,7 +86,10 @@ public sealed class VolatileAnchorsAcrossBothSidesOfTheDeltaTests
     [Fact]
     public void Still_records_an_alert_beside_a_clock()
     {
-        var (appeared, gone) = Describe([Heading, Record, Clock("10:00")], [Heading, Node("alert", text: "Delete failed"), Clock("09:59")]);
+        var (appeared, gone) = Describe(
+            [Heading, Record, Clock("10:00")],
+            [Heading, Node("alert", text: "Delete failed"), Clock("09:59")]
+        );
 
         Assert.Equal(["alert|~Delete failed"], Shapes(appeared));
         Assert.Equal(["row|Example record"], Shapes(gone));

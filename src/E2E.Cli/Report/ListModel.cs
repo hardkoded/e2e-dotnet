@@ -32,7 +32,8 @@ internal sealed record FinishedStep(string Api, string Label, StepStatus Status,
 /// <summary>Whether an event is one the live window shows (upstream's <c>isShownEvent</c>): step events worth a glance; polls and policy decisions stay quiet.</summary>
 internal static class ListModel
 {
-    public static bool IsShownEvent(Reports.StepEvent stepEvent) => stepEvent.Kind is Reports.StepEventKind.Model or Reports.StepEventKind.Engine;
+    public static bool IsShownEvent(Reports.StepEvent stepEvent) =>
+        stepEvent.Kind is Reports.StepEventKind.Model or Reports.StepEventKind.Engine;
 }
 
 /// <summary>The step a running pair is executing right now (upstream's <c>CurrentStep</c>).</summary>

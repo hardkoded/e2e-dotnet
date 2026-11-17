@@ -50,28 +50,54 @@ internal static class CommandTool
                 }
             }
 
-            var description = tool.TryGetProperty("description", out var text) && text.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(text.GetString())
-                ? text.GetString()!
-                : throw Invalid(where + ".description must be a non-empty string");
-            if (!tool.TryGetProperty("command", out var command) || command.ValueKind != JsonValueKind.Array || command.GetArrayLength() == 0
-                || command.EnumerateArray().Any(part => part.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(part.GetString())))
+            var description =
+                tool.TryGetProperty("description", out var text)
+                && text.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(text.GetString())
+                    ? text.GetString()!
+                    : throw Invalid(where + ".description must be a non-empty string");
+            if (
+                !tool.TryGetProperty("command", out var command)
+                || command.ValueKind != JsonValueKind.Array
+                || command.GetArrayLength() == 0
+                || command
+                    .EnumerateArray()
+                    .Any(part => part.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(part.GetString()))
+            )
             {
                 throw Invalid(where + ".command must be a non-empty array of strings: the program, then its arguments");
             }
 
-            if (!tool.TryGetProperty("mutates", out var mutates) || mutates.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            if (
+                !tool.TryGetProperty("mutates", out var mutates)
+                || mutates.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
+            )
             {
-                throw Invalid(where + ".mutates must be true or false: whether running the tool can change the application");
+                throw Invalid(
+                    where + ".mutates must be true or false: whether running the tool can change the application"
+                );
             }
 
             var schema = tool.TryGetProperty("inputSchema", out var given)
-                ? given.ValueKind == JsonValueKind.Object ? JsonNode.Parse(given.GetRawText())!.AsObject() : throw Invalid(where + ".inputSchema must be a JSON schema object")
-                : new JsonObject { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false };
+                ? given.ValueKind == JsonValueKind.Object
+                    ? JsonNode.Parse(given.GetRawText())!.AsObject()
+                    : throw Invalid(where + ".inputSchema must be a JSON schema object")
+                : new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject(),
+                    ["additionalProperties"] = false,
+                };
             string[]? platforms = null;
             if (tool.TryGetProperty("platforms", out var named))
             {
-                if (named.ValueKind != JsonValueKind.Array || named.GetArrayLength() == 0
-                    || named.EnumerateArray().Any(name => name.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(name.GetString())))
+                if (
+                    named.ValueKind != JsonValueKind.Array
+                    || named.GetArrayLength() == 0
+                    || named
+                        .EnumerateArray()
+                        .Any(name => name.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(name.GetString()))
+                )
                 {
                     throw Invalid(where + ".platforms must be a non-empty array of platform names");
                 }
@@ -80,13 +106,24 @@ internal static class CommandTool
             }
 
             string[] argv = [.. command.EnumerateArray().Select(part => part.GetString()!)];
-            tools[property.Name] = new AgentTool(description, schema, mutates.GetBoolean(), (input, token) => RunAsync(argv, projectRoot, input, token), platforms);
+            tools[property.Name] = new AgentTool(
+                description,
+                schema,
+                mutates.GetBoolean(),
+                (input, token) => RunAsync(argv, projectRoot, input, token),
+                platforms
+            );
         }
 
         return tools;
     }
 
-    private static async Task<string> RunAsync(string[] argv, string projectRoot, JsonObject input, CancellationToken cancellationToken)
+    private static async Task<string> RunAsync(
+        string[] argv,
+        string projectRoot,
+        JsonObject input,
+        CancellationToken cancellationToken
+    )
     {
         var start = new ProcessStartInfo(argv[0])
         {
@@ -125,7 +162,9 @@ internal static class CommandTool
             stderr = ForwardStderrAsync(process.StandardError, limit.Token);
             try
             {
-                await process.StandardInput.WriteAsync(input.ToJsonString().AsMemory(), limit.Token).ConfigureAwait(false);
+                await process
+                    .StandardInput.WriteAsync(input.ToJsonString().AsMemory(), limit.Token)
+                    .ConfigureAwait(false);
                 process.StandardInput.Close();
             }
             catch (IOException)
@@ -152,7 +191,10 @@ internal static class CommandTool
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new TestException("TOOL_FAILED", argv[0] + " did not finish within " + (int)Timeout.TotalSeconds + " seconds");
+            throw new TestException(
+                "TOOL_FAILED",
+                argv[0] + " did not finish within " + (int)Timeout.TotalSeconds + " seconds"
+            );
         }
         finally
         {

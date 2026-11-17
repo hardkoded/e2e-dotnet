@@ -20,7 +20,11 @@ public sealed class SemanticCaptureFallbackTests
 {
     private static readonly CancellationToken None = CancellationToken.None;
 
-    private static readonly EngineException Timeout = new(EngineErrorCodes.OperationTimeout, "semantic reader timed out", retryable: false);
+    private static readonly EngineException Timeout = new(
+        EngineErrorCodes.OperationTimeout,
+        "semantic reader timed out",
+        retryable: false
+    );
 
     private static readonly TimeSpan Budget = TimeSpan.FromSeconds(1);
 
@@ -34,7 +38,11 @@ public sealed class SemanticCaptureFallbackTests
         var old = Assert.Single(first.Roots);
         setup.Reader = () => Task.FromException<IJSHandle>(Timeout);
 
-        var result = await setup.Session.ObserveAsync(new ObserveOptions { Pixels = true, PixelFallback = true }, Budget, None);
+        var result = await setup.Session.ObserveAsync(
+            new ObserveOptions { Pixels = true, PixelFallback = true },
+            Budget,
+            None
+        );
 
         Assert.True(result.TreeUnavailable);
         Assert.True(result.Truncated);
@@ -44,7 +52,9 @@ public sealed class SemanticCaptureFallbackTests
         Assert.Equal("#000000", setup.Screenshots[1].MaskColor);
         Assert.NotEmpty(setup.Screenshots[1].Mask!);
         Assert.Equal(1, disposed);
-        var stale = await Assert.ThrowsAsync<EngineException>(() => setup.Session.PerformAsync(old, new LocatorAction.Tap(), None));
+        var stale = await Assert.ThrowsAsync<EngineException>(() =>
+            setup.Session.PerformAsync(old, new LocatorAction.Tap(), None)
+        );
         Assert.Equal(EngineErrorCodes.NodeStale, stale.Code);
     }
 
@@ -65,7 +75,9 @@ public sealed class SemanticCaptureFallbackTests
         await using var setup = await SetupAsync();
         setup.Count[0] = () => Task.FromException<int>(new InvalidOperationException("frame detached"));
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => setup.Session.ObserveAsync(new ObserveOptions { PixelFallback = true }, Budget, None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            setup.Session.ObserveAsync(new ObserveOptions { PixelFallback = true }, Budget, None)
+        );
 
         Assert.Same(Timeout, error);
     }
@@ -86,7 +98,8 @@ public sealed class SemanticCaptureFallbackTests
     {
         await using var setup = await SetupAsync();
         var probes = 0;
-        setup.Count[0] = () => Interlocked.Increment(ref probes) == 1 ? new TaskCompletionSource<int>().Task : Task.FromResult(1);
+        setup.Count[0] = () =>
+            Interlocked.Increment(ref probes) == 1 ? new TaskCompletionSource<int>().Task : Task.FromResult(1);
         // The reader waits out its deadline, as one that stalls does.
         setup.Reader = async () =>
         {
@@ -94,7 +107,11 @@ public sealed class SemanticCaptureFallbackTests
             throw Timeout;
         };
 
-        var captured = await setup.Session.ObserveAsync(new ObserveOptions { Pixels = true, PixelFallback = true }, Budget, None);
+        var captured = await setup.Session.ObserveAsync(
+            new ObserveOptions { Pixels = true, PixelFallback = true },
+            Budget,
+            None
+        );
 
         Assert.True(captured.TreeUnavailable);
         Assert.Single(setup.Screenshots);
@@ -107,7 +124,9 @@ public sealed class SemanticCaptureFallbackTests
         var error = new TestException("POLICY_DENIED", "pixels denied");
         setup.Screenshot = _ => Task.FromException<byte[]>(error);
 
-        var thrown = await Assert.ThrowsAsync<TestException>(() => setup.Session.ObserveAsync(new ObserveOptions { PixelFallback = true }, Budget, None));
+        var thrown = await Assert.ThrowsAsync<TestException>(() =>
+            setup.Session.ObserveAsync(new ObserveOptions { PixelFallback = true }, Budget, None)
+        );
 
         Assert.Same(error, thrown);
     }
@@ -118,10 +137,15 @@ public sealed class SemanticCaptureFallbackTests
     public async Task Preserves_code_instead_of_falling_back(string code)
     {
         await using var setup = await SetupAsync();
-        Exception error = code == "POLICY_DENIED" ? new TestException(code, "stop") : new EngineException(code, "stop", retryable: false);
+        Exception error =
+            code == "POLICY_DENIED"
+                ? new TestException(code, "stop")
+                : new EngineException(code, "stop", retryable: false);
         setup.Reader = () => Task.FromException<IJSHandle>(error);
 
-        var thrown = await Assert.ThrowsAnyAsync<Exception>(() => setup.Session.ObserveAsync(new ObserveOptions { PixelFallback = true }, Budget, None));
+        var thrown = await Assert.ThrowsAnyAsync<Exception>(() =>
+            setup.Session.ObserveAsync(new ObserveOptions { PixelFallback = true }, Budget, None)
+        );
 
         Assert.Same(error, thrown);
         Assert.Empty(setup.Screenshots);
@@ -138,7 +162,9 @@ public sealed class SemanticCaptureFallbackTests
             return Task.FromResult(new byte[] { 1 });
         };
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => setup.Session.ObserveAsync(new ObserveOptions { PixelFallback = true }, Budget, controller.Token));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            setup.Session.ObserveAsync(new ObserveOptions { PixelFallback = true }, Budget, controller.Token)
+        );
 
         Assert.Equal(EngineErrorCodes.Cancelled, error.Code);
     }
@@ -167,7 +193,8 @@ public sealed class SemanticCaptureFallbackTests
         /// <summary>The mask probes: the first covers the light DOM and open roots, the second the closed ones.</summary>
         public Func<Task<int>>[] Count { get; } = [() => Task.FromResult(1), () => Task.FromResult(0)];
 
-        public Func<PageScreenshotOptions, Task<byte[]>> Screenshot { get; set; } = _ => Task.FromResult(new byte[] { 1, 2, 3 });
+        public Func<PageScreenshotOptions, Task<byte[]>> Screenshot { get; set; } =
+            _ => Task.FromResult(new byte[] { 1, 2, 3 });
 
         public List<PageScreenshotOptions> Screenshots { get; } = [];
 
@@ -192,11 +219,17 @@ public sealed class SemanticCaptureFallbackTests
             frameFake.Members["Locator"] = args =>
             {
                 var (mask, maskFake) = Fake<ILocator>.New();
-                var probe = ((string)args[0]!).StartsWith(PageScript.ClosedShadowSelectorEngine, StringComparison.Ordinal) ? 1 : 0;
+                var probe = ((string)args[0]!).StartsWith(
+                    PageScript.ClosedShadowSelectorEngine,
+                    StringComparison.Ordinal
+                )
+                    ? 1
+                    : 0;
                 maskFake.Members["CountAsync"] = _ => Count[probe]();
                 return mask;
             };
-            frameFake.Members["EvaluateHandleAsync"] = args => (string)args[0]! == PageScript.Collect ? Reader() : Task.FromResult(NoCaret());
+            frameFake.Members["EvaluateHandleAsync"] = args =>
+                (string)args[0]! == PageScript.Collect ? Reader() : Task.FromResult(NoCaret());
             pageFake.Members["get_Context"] = _ => null;
             pageFake.Members["get_IsClosed"] = _ => false;
             pageFake.Members["get_Url"] = _ => "https://app.test/current";
@@ -230,11 +263,13 @@ public sealed class SemanticCaptureFallbackTests
             browserFake.Members["CloseAsync"] = _ => Task.CompletedTask;
             browserFake.Members["get_IsConnected"] = _ => true;
 
-            var engine = new WebEngine(new WebEngineOptions
-            {
-                Viewport = new WebViewport(100, 80),
-                Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("provisioned") },
-            })
+            var engine = new WebEngine(
+                new WebEngineOptions
+                {
+                    Viewport = new WebViewport(100, 80),
+                    Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("provisioned") },
+                }
+            )
             {
                 CreatePlaywright = FakeRemote.Playwright,
                 ConnectCdp = (_, _, _, _) => Task.FromResult(browser),
@@ -255,7 +290,11 @@ public sealed class SemanticCaptureFallbackTests
             };
             var (result, resultFake) = Fake<IJSHandle>.New();
             var roots = string.Join(",", ids.Select(id => $$"""{"ref":"{{id}}","role":"button"}"""));
-            var metadata = JsonDocument.Parse($$"""{"next":{{ids.Length + 1}},"ids":[{{string.Join(",", ids.Select(id => $"\"{id}\""))}}],"count":{{ids.Length}},"roots":[{{roots}}]}""").RootElement.Clone();
+            var metadata = JsonDocument
+                .Parse(
+                    $$"""{"next":{{ids.Length + 1}},"ids":[{{string.Join(",", ids.Select(id => $"\"{id}\""))}}],"count":{{ids.Length}},"roots":[{{roots}}]}"""
+                )
+                .RootElement.Clone();
             resultFake.Members["EvaluateAsync"] = _ => Task.FromResult(metadata);
             resultFake.Members["GetPropertyAsync"] = _ => Task.FromResult(elements);
             resultFake.Members["DisposeAsync"] = _ => ValueTask.CompletedTask;

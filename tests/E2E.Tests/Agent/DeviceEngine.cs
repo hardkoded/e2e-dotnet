@@ -63,11 +63,14 @@ internal sealed class DeviceEngine(DocumentWorld world) : IEngine
             return inner.ObserveAsync(cancellationToken);
         }
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => inner.PerformAsync(node, action, cancellationToken);
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+            inner.PerformAsync(node, action, cancellationToken);
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+        public Task PressAsync(string key, CancellationToken cancellationToken) =>
+            inner.PressAsync(key, cancellationToken);
 
-        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => inner.ScreenshotAsync(cancellationToken);
+        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
+            inner.ScreenshotAsync(cancellationToken);
 
         public ValueTask DisposeAsync() => inner.DisposeAsync();
     }

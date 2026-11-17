@@ -41,6 +41,8 @@ internal static class FixtureApp
     /// <summary>Starts the app: <c>/caret</c> and <c>/caret-csp</c>.</summary>
     public static Task<TinySite> StartAsync()
     {
-        return TinySite.StartAsync(context => TinySite.RespondAsync(context, context.Request.Url!.AbsolutePath == "/caret-csp" ? CaretCsp : Caret));
+        return TinySite.StartAsync(context =>
+            TinySite.RespondAsync(context, context.Request.Url!.AbsolutePath == "/caret-csp" ? CaretCsp : Caret)
+        );
     }
 }

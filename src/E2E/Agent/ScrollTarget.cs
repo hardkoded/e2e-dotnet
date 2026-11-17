@@ -45,7 +45,10 @@ internal static class ScrollTarget
             return new Resolved(again, observation);
         }
 
-        if (seen.Observation.Viewport is { } viewport && Geometry.ViewportShare(box, viewport) >= CacheKeys.MainListShare)
+        if (
+            seen.Observation.Viewport is { } viewport
+            && Geometry.ViewportShare(box, viewport) >= CacheKeys.MainListShare
+        )
         {
             return null;
         }
@@ -62,7 +65,11 @@ internal static class ScrollTarget
         var bestOverlap = 0.0;
         foreach (var node in LocatorResolver.Walk(observation.Tree))
         {
-            if (!string.Equals(node.Role, role, StringComparison.Ordinal) || node.Rect is not { } rect || node.States.Hidden)
+            if (
+                !string.Equals(node.Role, role, StringComparison.Ordinal)
+                || node.Rect is not { } rect
+                || node.States.Hidden
+            )
             {
                 continue;
             }

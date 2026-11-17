@@ -25,8 +25,15 @@ internal sealed class OperationQueue
         lock (_gate)
         {
             // The tail is a task that never fails, so a failure goes to its own caller and never poisons the queue.
-            var run = _tail.ContinueWith(_ => body(), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default).Unwrap();
-            _tail = run.ContinueWith(static _ => { }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+            var run = _tail
+                .ContinueWith(_ => body(), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default)
+                .Unwrap();
+            _tail = run.ContinueWith(
+                static _ => { },
+                CancellationToken.None,
+                TaskContinuationOptions.None,
+                TaskScheduler.Default
+            );
             return run;
         }
     }

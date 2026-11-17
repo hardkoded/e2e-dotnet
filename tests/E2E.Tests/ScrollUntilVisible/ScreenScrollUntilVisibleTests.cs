@@ -27,32 +27,80 @@ public sealed class ScreenScrollUntilVisibleTests
     [Fact]
     public async Task On_a_locator_swipes_that_node_instead_of_the_viewport_so_a_scroll_container_pages()
     {
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[ScrollScreen.Feed()], [ScrollScreen.Feed()], [ScrollScreen.Feed(Target)]] });
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [ScrollScreen.Feed()],
+                    [ScrollScreen.Feed()],
+                    [ScrollScreen.Feed(Target)],
+                ],
+            }
+        );
         var screen = scroll.Screen;
         await screen.GetByRole("list", "Feed").ScrollUntilVisibleAsync(screen.GetByText("Accept"));
         Assert.Equal(
-            [new Swipe("feed", ScrollDirection.Down, Momentum.Slow), new Swipe("feed", ScrollDirection.Down, Momentum.Slow)],
-            scroll.Swipes);
+            [
+                new Swipe("feed", ScrollDirection.Down, Momentum.Slow),
+                new Swipe("feed", ScrollDirection.Down, Momentum.Slow),
+            ],
+            scroll.Swipes
+        );
     }
 
     /// <summary>Partial: the viewport swipe is addressed to the engine's <c>SwipeAsync</c>, not to an observation-root node.</summary>
     [Fact]
     public async Task Partial_Takes_a_direction_and_a_momentum_for_the_stride_of_each_step_on_the_screen_and_on_a_locator()
     {
-        var viewport = new ScrollScreen(new ScrollScript { Screens = [[], [Target]] });
-        await viewport.Screen.ScrollUntilVisibleAsync(viewport.Screen.GetByText("Accept"), new ScrollUntilVisibleOptions { Direction = ScrollDirection.Up, Momentum = Momentum.None });
+        var viewport = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [],
+                    [Target],
+                ],
+            }
+        );
+        await viewport.Screen.ScrollUntilVisibleAsync(
+            viewport.Screen.GetByText("Accept"),
+            new ScrollUntilVisibleOptions { Direction = ScrollDirection.Up, Momentum = Momentum.None }
+        );
         Assert.Equal([new Swipe("viewport", ScrollDirection.Up, Momentum.None)], viewport.Swipes);
 
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[ScrollScreen.Feed()], [ScrollScreen.Feed(Target)]] });
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [ScrollScreen.Feed()],
+                    [ScrollScreen.Feed(Target)],
+                ],
+            }
+        );
         var screen = scroll.Screen;
-        await screen.GetByRole("list", "Feed").ScrollUntilVisibleAsync(screen.GetByText("Accept"), new ScrollUntilVisibleOptions { Direction = ScrollDirection.Right, Momentum = Momentum.None });
+        await screen
+            .GetByRole("list", "Feed")
+            .ScrollUntilVisibleAsync(
+                screen.GetByText("Accept"),
+                new ScrollUntilVisibleOptions { Direction = ScrollDirection.Right, Momentum = Momentum.None }
+            );
         Assert.Equal([new Swipe("feed", ScrollDirection.Right, Momentum.None)], scroll.Swipes);
     }
 
     [Fact]
     public async Task Returns_at_once_when_the_target_is_already_visible_with_no_swipe()
     {
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[Target]] });
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [Target],
+                ],
+            }
+        );
         await scroll.Screen.ScrollUntilVisibleAsync(scroll.Screen.GetByText("Accept"));
         Assert.Empty(scroll.Swipes);
     }
@@ -61,18 +109,42 @@ public sealed class ScreenScrollUntilVisibleTests
     [Fact]
     public async Task Partial_Swipes_down_slowly_at_the_viewport_until_the_target_appears_then_stops()
     {
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[], [], [Target]] });
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [],
+                    [],
+                    [Target],
+                ],
+            }
+        );
         await scroll.Screen.ScrollUntilVisibleAsync(scroll.Screen.GetByText("Accept"));
         Assert.Equal(
-            [new Swipe("viewport", ScrollDirection.Down, Momentum.Slow), new Swipe("viewport", ScrollDirection.Down, Momentum.Slow)],
-            scroll.Swipes);
+            [
+                new Swipe("viewport", ScrollDirection.Down, Momentum.Slow),
+                new Swipe("viewport", ScrollDirection.Down, Momentum.Slow),
+            ],
+            scroll.Swipes
+        );
     }
 
     [Fact]
     public async Task Keeps_scrolling_past_a_target_the_engine_reports_hidden()
     {
         var hidden = ScrollScreen.HiddenTarget;
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[hidden], [hidden], [Target]] });
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [hidden],
+                    [hidden],
+                    [Target],
+                ],
+            }
+        );
         await scroll.Screen.ScrollUntilVisibleAsync(scroll.Screen.GetByText("Accept"));
         Assert.Equal(2, scroll.Swipes.Count);
     }
@@ -80,8 +152,21 @@ public sealed class ScreenScrollUntilVisibleTests
     [Fact]
     public async Task Fails_as_LOCATOR_NOT_FOUND_naming_the_locator_once_the_deadline_passes_and_records_the_failed_step()
     {
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[]] });
-        var failure = await Assert.ThrowsAsync<TestException>(() => scroll.Screen.ScrollUntilVisibleAsync(scroll.Screen.GetByText("Accept"), Options(TimeSpan.FromMilliseconds(250))));
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [],
+                ],
+            }
+        );
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            scroll.Screen.ScrollUntilVisibleAsync(
+                scroll.Screen.GetByText("Accept"),
+                Options(TimeSpan.FromMilliseconds(250))
+            )
+        );
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.Equal("target did not become visible while scrolling: getByText(\"Accept\")", failure.Message);
         Assert.Equal("getByText(\"Accept\")", failure.Details?.Locator);
@@ -99,9 +184,24 @@ public sealed class ScreenScrollUntilVisibleTests
     [Fact]
     public async Task Bounds_a_viewport_swipe_by_its_own_deadline_a_hung_swipe_is_LOCATOR_NOT_FOUND_within_the_scroll_timeout_not_the_action_timeout()
     {
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[]], Hang = true, ActionTimeout = TimeSpan.FromSeconds(5) });
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [],
+                ],
+                Hang = true,
+                ActionTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         var started = Stopwatch.StartNew();
-        var failure = await Assert.ThrowsAsync<TestException>(() => scroll.Screen.ScrollUntilVisibleAsync(scroll.Screen.GetByText("Accept"), Options(TimeSpan.FromMilliseconds(250))));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            scroll.Screen.ScrollUntilVisibleAsync(
+                scroll.Screen.GetByText("Accept"),
+                Options(TimeSpan.FromMilliseconds(250))
+            )
+        );
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.Equal("target did not become visible while scrolling: getByText(\"Accept\")", failure.Message);
         Assert.Equal(EngineErrorCodes.OperationTimeout, Assert.IsType<EngineException>(failure.InnerException).Code);
@@ -115,11 +215,24 @@ public sealed class ScreenScrollUntilVisibleTests
     [Fact]
     public async Task Partial_Bounds_a_locator_swipe_by_the_same_deadline()
     {
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[ScrollScreen.Feed()]], Hang = true, ActionTimeout = TimeSpan.FromSeconds(5) });
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [ScrollScreen.Feed()],
+                ],
+                Hang = true,
+                ActionTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         var screen = scroll.Screen;
         var started = Stopwatch.StartNew();
         var failure = await Assert.ThrowsAsync<TestException>(() =>
-            screen.GetByRole("list", "Feed").ScrollUntilVisibleAsync(screen.GetByText("Accept"), Options(TimeSpan.FromMilliseconds(250))));
+            screen
+                .GetByRole("list", "Feed")
+                .ScrollUntilVisibleAsync(screen.GetByText("Accept"), Options(TimeSpan.FromMilliseconds(250)))
+        );
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.Equal("target did not become visible while scrolling: getByText(\"Accept\")", failure.Message);
         Assert.Equal(EngineErrorCodes.OperationTimeout, Assert.IsType<EngineException>(failure.InnerException).Code);
@@ -133,8 +246,23 @@ public sealed class ScreenScrollUntilVisibleTests
     public async Task Owns_the_outcome_whichever_timer_fires_first_a_swipe_timing_out_on_the_budget_the_deadline_left_it_is_LOCATOR_NOT_FOUND()
     {
         // A swipe whose budget is the deadline's remainder, ending on the engine's own clock a moment before this one reads the deadline as passed.
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[]], HangFor = TimeSpan.FromMilliseconds(110), ActionTimeout = TimeSpan.FromSeconds(5) });
-        var failure = await Assert.ThrowsAsync<TestException>(() => scroll.Screen.ScrollUntilVisibleAsync(scroll.Screen.GetByText("Accept"), Options(TimeSpan.FromMilliseconds(200))));
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [],
+                ],
+                HangFor = TimeSpan.FromMilliseconds(110),
+                ActionTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            scroll.Screen.ScrollUntilVisibleAsync(
+                scroll.Screen.GetByText("Accept"),
+                Options(TimeSpan.FromMilliseconds(200))
+            )
+        );
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.Equal(EngineErrorCodes.OperationTimeout, Assert.IsType<EngineException>(failure.InnerException).Code);
     }
@@ -143,18 +271,43 @@ public sealed class ScreenScrollUntilVisibleTests
     [Fact]
     public async Task Partial_Still_swipes_with_less_than_a_poll_interval_of_the_budget_left()
     {
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[], [Target]] });
-        await scroll.Screen.ScrollUntilVisibleAsync(scroll.Screen.GetByText("Accept"), Options(TimeSpan.FromMilliseconds(50)));
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [],
+                    [Target],
+                ],
+            }
+        );
+        await scroll.Screen.ScrollUntilVisibleAsync(
+            scroll.Screen.GetByText("Accept"),
+            Options(TimeSpan.FromMilliseconds(50))
+        );
         Assert.Equal([new Swipe("viewport", ScrollDirection.Down, Momentum.Slow)], scroll.Swipes);
     }
 
     [Fact]
     public async Task Keeps_an_engine_timeout_far_from_the_deadline_as_the_action_failure_it_is()
     {
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[ScrollScreen.Feed()]], HangFor = TimeSpan.FromMilliseconds(20), ActionTimeout = TimeSpan.FromSeconds(5) });
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [ScrollScreen.Feed()],
+                ],
+                HangFor = TimeSpan.FromMilliseconds(20),
+                ActionTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         var screen = scroll.Screen;
         var failure = await Assert.ThrowsAsync<TestException>(() =>
-            screen.GetByRole("list", "Feed").ScrollUntilVisibleAsync(screen.GetByText("Accept"), Options(TimeSpan.FromSeconds(30))));
+            screen
+                .GetByRole("list", "Feed")
+                .ScrollUntilVisibleAsync(screen.GetByText("Accept"), Options(TimeSpan.FromSeconds(30)))
+        );
         Assert.Equal("ACTION_FAILED", failure.Code);
         Assert.Equal("operation timed out: getByRole(\"list\", \"Feed\")", failure.Message);
         Assert.Equal(EngineErrorCodes.OperationTimeout, Assert.IsType<EngineException>(failure.InnerException).Code);
@@ -167,7 +320,15 @@ public sealed class ScreenScrollUntilVisibleTests
     [Fact]
     public async Task Partial_Rejects_a_target_that_is_not_an_e2e_locator_before_recording_a_step()
     {
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[Target]] });
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [Target],
+                ],
+            }
+        );
         await Assert.ThrowsAsync<ArgumentNullException>(() => scroll.Screen.ScrollUntilVisibleAsync(null!));
         Assert.Empty(scroll.Steps.All());
         Assert.Empty(scroll.Swipes);
@@ -177,7 +338,16 @@ public sealed class ScreenScrollUntilVisibleTests
     [Fact]
     public async Task Partial_On_a_locator_labels_the_step_with_the_target_whose_description_carries_the_scope_once()
     {
-        var scroll = new ScrollScreen(new ScrollScript { Screens = [[ScrollScreen.Feed()], [ScrollScreen.Feed(Target)]] });
+        var scroll = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [ScrollScreen.Feed()],
+                    [ScrollScreen.Feed(Target)],
+                ],
+            }
+        );
         var container = scroll.Screen.GetByRole("list", "Feed");
         await container.ScrollUntilVisibleAsync(container.GetByText("Accept"));
         var step = Assert.Single(scroll.Steps.All());
@@ -190,10 +360,30 @@ public sealed class ScreenScrollUntilVisibleTests
     [Fact]
     public async Task Needs_the_swipe_action_only_once_it_has_to_scroll_a_visible_target_passes_on_an_engine_without_one()
     {
-        var visible = new ScrollScreen(new ScrollScript { Screens = [[Target]], Swipeable = false });
+        var visible = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [Target],
+                ],
+                Swipeable = false,
+            }
+        );
         await visible.Screen.ScrollUntilVisibleAsync(visible.Screen.GetByText("Accept"));
-        var absent = new ScrollScreen(new ScrollScript { Screens = [[]], Swipeable = false });
-        var failure = await Assert.ThrowsAsync<EngineException>(() => absent.Screen.ScrollUntilVisibleAsync(absent.Screen.GetByText("Accept")));
+        var absent = new ScrollScreen(
+            new ScrollScript
+            {
+                Screens =
+                [
+                    [],
+                ],
+                Swipeable = false,
+            }
+        );
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            absent.Screen.ScrollUntilVisibleAsync(absent.Screen.GetByText("Accept"))
+        );
         Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
     }
 }

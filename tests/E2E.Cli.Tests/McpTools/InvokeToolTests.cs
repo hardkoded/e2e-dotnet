@@ -26,7 +26,9 @@ public sealed class InvokeToolTests
             },
         };
 
-        var error = await Assert.ThrowsAsync<E2EException>(() => Tools.InvokeToolAsync("tap", tool, Json("""{ "target": "n4" }"""), new CancellationToken(canceled: true)));
+        var error = await Assert.ThrowsAsync<E2EException>(() =>
+            Tools.InvokeToolAsync("tap", tool, Json("""{ "target": "n4" }"""), new CancellationToken(canceled: true))
+        );
 
         Assert.Equal("CANCELLED", error.Code);
         Assert.False(ran);
@@ -56,10 +58,14 @@ public sealed class InvokeToolTests
             },
         };
 
-        var wrong = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("tap", guarded, Json("""{ "target": 5 }"""), Extra));
+        var wrong = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Tools.InvokeToolAsync("tap", guarded, Json("""{ "target": 5 }"""), Extra)
+        );
         Assert.Equal("INVALID_ARGUMENT", wrong.Code);
         Assert.Matches("""^call tap: target: .*; tools \{tool: "tap"\} shows its arguments$""", wrong.Message);
-        var missing = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("tap", guarded, Json("{}"), Extra));
+        var missing = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Tools.InvokeToolAsync("tap", guarded, Json("{}"), Extra)
+        );
         Assert.Equal("INVALID_ARGUMENT", missing.Code);
         Assert.False(ran);
     }
@@ -69,15 +75,28 @@ public sealed class InvokeToolTests
     {
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
-        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator);
+        var catalog = SessionCatalog.Create(
+            context,
+            engine.Capabilities,
+            secrets: [],
+            projectRoot: "/project",
+            attemptDir: "/project/.e2e/results/attempt",
+            actionKinds: EngineActionKinds.Locator
+        );
         await Tools.InvokeToolAsync("observe", catalog.Find("observe")!, Json("{}"), Extra);
 
-        var result = await Tools.InvokeToolAsync("press", catalog.Find("press")!, Json("""{ "target": "k-1", "key": "ArrowDown", "times": 3 }"""), Extra);
+        var result = await Tools.InvokeToolAsync(
+            "press",
+            catalog.Find("press")!,
+            Json("""{ "target": "k-1", "key": "ArrowDown", "times": 3 }"""),
+            Extra
+        );
 
         Assert.Contains(
             "No test line: a key pressed several times in one call has no one-line equivalent; press it once per call for lines.",
             string.Join('\n', Parts(result).Select(part => part.Value)),
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -85,8 +104,17 @@ public sealed class InvokeToolTests
     {
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
-        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator);
-        var error = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("tap", catalog.Find("tap")!, Json("""{ "target": "n4", "force": true }"""), Extra));
+        var catalog = SessionCatalog.Create(
+            context,
+            engine.Capabilities,
+            secrets: [],
+            projectRoot: "/project",
+            attemptDir: "/project/.e2e/results/attempt",
+            actionKinds: EngineActionKinds.Locator
+        );
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Tools.InvokeToolAsync("tap", catalog.Find("tap")!, Json("""{ "target": "n4", "force": true }"""), Extra)
+        );
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
         Assert.Equal("call tap: Unrecognized key: \"force\"; tools {tool: \"tap\"} shows its arguments", error.Message);
@@ -98,13 +126,34 @@ public sealed class InvokeToolTests
     {
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
-        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt");
-        var observe = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("observe", catalog.Find("observe")!, Json("""{ "verbose": true }"""), Extra));
+        var catalog = SessionCatalog.Create(
+            context,
+            engine.Capabilities,
+            secrets: [],
+            projectRoot: "/project",
+            attemptDir: "/project/.e2e/results/attempt"
+        );
+        var observe = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Tools.InvokeToolAsync("observe", catalog.Find("observe")!, Json("""{ "verbose": true }"""), Extra)
+        );
         Assert.Equal("INVALID_ARGUMENT", observe.Code);
-        Assert.Equal("call observe: Unrecognized key: \"verbose\"; tools {tool: \"observe\"} shows its arguments", observe.Message);
-        var locate = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("locate", catalog.Find("locate")!, Json("""{ "role": "button", "selector": "#save" }"""), Extra));
+        Assert.Equal(
+            "call observe: Unrecognized key: \"verbose\"; tools {tool: \"observe\"} shows its arguments",
+            observe.Message
+        );
+        var locate = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Tools.InvokeToolAsync(
+                "locate",
+                catalog.Find("locate")!,
+                Json("""{ "role": "button", "selector": "#save" }"""),
+                Extra
+            )
+        );
         Assert.Equal("INVALID_ARGUMENT", locate.Code);
-        Assert.Equal("call locate: Unrecognized key: \"selector\"; tools {tool: \"locate\"} shows its arguments", locate.Message);
+        Assert.Equal(
+            "call locate: Unrecognized key: \"selector\"; tools {tool: \"locate\"} shows its arguments",
+            locate.Message
+        );
         Assert.Equal(0, engine.Actions);
         Assert.Equal(0, engine.Observations);
     }
@@ -119,7 +168,9 @@ public sealed class InvokeToolTests
             Execute = (_, _) => throw new TestException("LOCATOR_NOT_FOUND", "no observation has been captured yet"),
         };
 
-        var error = await Assert.ThrowsAsync<TestException>(() => Tools.InvokeToolAsync("observe", failing, Json("{}"), Extra));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Tools.InvokeToolAsync("observe", failing, Json("{}"), Extra)
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
     }
@@ -129,7 +180,9 @@ public sealed class InvokeToolTests
     {
         var inert = new CatalogTool { Description = "x", InputSchema = NoArguments };
 
-        var error = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("inert", inert, Json("{}"), Extra));
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Tools.InvokeToolAsync("inert", inert, Json("{}"), Extra)
+        );
 
         Assert.Equal("UNSUPPORTED_CAPABILITY", error.Code);
     }

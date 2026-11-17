@@ -31,9 +31,12 @@ public sealed class ResultFromOutputTests
         {
             Description = "x",
             InputSchema = NoArguments,
-            ToModelOutput = (_, output, _) => Task.FromResult<ToolModelOutput>(output is Shot { Png: { } png }
-                ? new ToolModelOutput.Content([new ToolOutputPart.File(png, "image/png")])
-                : new ToolModelOutput.Text("Screenshot withheld: UNSUPPORTED_CAPABILITY")),
+            ToModelOutput = (_, output, _) =>
+                Task.FromResult<ToolModelOutput>(
+                    output is Shot { Png: { } png }
+                        ? new ToolModelOutput.Content([new ToolOutputPart.File(png, "image/png")])
+                        : new ToolModelOutput.Text("Screenshot withheld: UNSUPPORTED_CAPABILITY")
+                ),
         };
 
         var image = await Tools.ResultFromOutputAsync(screenshot, new Shot("AAAA"));
@@ -51,8 +54,13 @@ public sealed class ResultFromOutputTests
         var echo = new CatalogTool
         {
             Description = "x",
-            InputSchema = Json("""{ "type": "object", "properties": { "label": { "type": "string" } }, "required": ["label"], "additionalProperties": false }"""),
-            ToModelOutput = (input, output, _) => Task.FromResult<ToolModelOutput>(new ToolModelOutput.Text(input!.Value.GetProperty("label").GetString() + ": " + output)),
+            InputSchema = Json(
+                """{ "type": "object", "properties": { "label": { "type": "string" } }, "required": ["label"], "additionalProperties": false }"""
+            ),
+            ToModelOutput = (input, output, _) =>
+                Task.FromResult<ToolModelOutput>(
+                    new ToolModelOutput.Text(input!.Value.GetProperty("label").GetString() + ": " + output)
+                ),
         };
 
         var result = await Tools.ResultFromOutputAsync(echo, 42, Json("""{ "label": "answer" }"""));
@@ -86,13 +94,15 @@ public sealed class ResultFromOutputTests
         {
             Description = "x",
             InputSchema = NoArguments,
-            ToModelOutput = (_, _, _) => Task.FromResult<ToolModelOutput>(new ToolModelOutput.Text("not available", IsError: true)),
+            ToModelOutput = (_, _, _) =>
+                Task.FromResult<ToolModelOutput>(new ToolModelOutput.Text("not available", IsError: true)),
         };
         var errorJson = new CatalogTool
         {
             Description = "x",
             InputSchema = NoArguments,
-            ToModelOutput = (_, output, _) => Task.FromResult<ToolModelOutput>(new ToolModelOutput.Json(output, IsError: true)),
+            ToModelOutput = (_, output, _) =>
+                Task.FromResult<ToolModelOutput>(new ToolModelOutput.Json(output, IsError: true)),
         };
 
         var text = await Tools.ResultFromOutputAsync(errorText, "raw string");

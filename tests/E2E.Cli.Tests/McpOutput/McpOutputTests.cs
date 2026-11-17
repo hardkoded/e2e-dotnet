@@ -44,11 +44,13 @@ public sealed class McpOutputTests
         var (output, ledger, text) = Output();
         var finishOther = new TaskCompletionSource<int>();
         var other = output.WithholdDuringAsync(() => finishOther.Task);
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => output.WithholdDuringAsync<int>(() =>
-        {
-            output.Write(OutputStream.Stderr, $"broken: {Token}\n");
-            throw new InvalidOperationException("config refuses to load");
-        }));
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            output.WithholdDuringAsync<int>(() =>
+            {
+                output.Write(OutputStream.Stderr, $"broken: {Token}\n");
+                throw new InvalidOperationException("config refuses to load");
+            })
+        );
         Assert.Equal("config refuses to load", failure.Message);
         ledger.Add([Secret.Create("other", "other-secret-value")]);
         finishOther.SetResult(0);

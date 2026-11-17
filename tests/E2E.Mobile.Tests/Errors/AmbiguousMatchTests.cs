@@ -25,11 +25,14 @@ public sealed class AmbiguousMatchTests
     [Fact]
     public void Adds_the_option_that_selects_a_device_after_the_hint_agent_device_declared()
     {
-        var error = Assert.IsType<EngineException>(DeviceErrors.TranslateError(Ambiguous("Pass --udid <id> or --device <name>."), "boot"));
+        var error = Assert.IsType<EngineException>(
+            DeviceErrors.TranslateError(Ambiguous("Pass --udid <id> or --device <name>."), "boot")
+        );
         Assert.Equal("ENGINE_FAILURE", error.Code);
         Assert.Equal(
             $"boot failed: {Message} Hint: Pass --udid <id> or --device <name>. Set MobileOptions.Device to a device id, or boot exactly one device.",
-            error.Message);
+            error.Message
+        );
         var cause = Assert.IsType<AgentDeviceError>(error.InnerException);
         Assert.Equal("AMBIGUOUS_MATCH", cause.Code);
         Assert.Equal(Message, cause.Message);
@@ -40,13 +43,18 @@ public sealed class AmbiguousMatchTests
     public void Adds_the_option_when_agent_device_declared_no_hint()
     {
         var error = Assert.IsType<EngineException>(DeviceErrors.TranslateError(Ambiguous(null), "boot"));
-        Assert.Equal($"boot failed: {Message} Set MobileOptions.Device to a device id, or boot exactly one device.", error.Message);
+        Assert.Equal(
+            $"boot failed: {Message} Set MobileOptions.Device to a device id, or boot exactly one device.",
+            error.Message
+        );
     }
 
     [Fact]
     public void Leaves_other_codes_without_the_line()
     {
-        var error = Assert.IsType<EngineException>(DeviceErrors.TranslateError(new AgentDeviceError("COMMAND_FAILED", "xcrun exploded"), "boot"));
+        var error = Assert.IsType<EngineException>(
+            DeviceErrors.TranslateError(new AgentDeviceError("COMMAND_FAILED", "xcrun exploded"), "boot")
+        );
         Assert.Equal("boot failed: xcrun exploded", error.Message);
     }
 }

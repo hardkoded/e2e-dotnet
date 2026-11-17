@@ -19,14 +19,19 @@ public sealed class LineTextTests
     public async Task Reads_a_sentence_with_an_inline_link_whole_and_keeps_the_link_as_its_own_node_under_it()
     {
         var nodes = await ObserveAsync("""<p>Read our <a href="/privacy">privacy policy</a> for details.</p>""");
-        Assert.Equal(["paragraph Read our privacy policy for details.", """link "privacy policy" privacy policy"""], Lines(nodes));
+        Assert.Equal(
+            ["paragraph Read our privacy policy for details.", """link "privacy policy" privacy policy"""],
+            Lines(nodes)
+        );
         Assert.Equal(["link"], nodes[0].Children.Select(child => child.Role));
     }
 
     [Fact]
     public async Task Reads_emphasis_code_and_spans_in_place_and_lists_none_of_them_again()
     {
-        var nodes = await ObserveAsync("<p>Use <strong>bold</strong>, <em>italic <b>nested</b></em>, <code>npx e2e</code>, and a <span>span</span>.</p>");
+        var nodes = await ObserveAsync(
+            "<p>Use <strong>bold</strong>, <em>italic <b>nested</b></em>, <code>npx e2e</code>, and a <span>span</span>.</p>"
+        );
         Assert.Equal(["paragraph Use bold, italic nested, npx e2e, and a span."], Lines(nodes));
     }
 
@@ -41,14 +46,16 @@ public sealed class LineTextTests
     [Fact]
     public async Task Keeps_an_inline_element_that_offers_an_action_listed_its_words_still_in_the_sentence()
     {
-        var nodes = await ObserveAsync("""
+        var nodes = await ObserveAsync(
+            """
             <p>Text <span onclick="" tabindex="0">change</span> here</p>
             <p>Or <span id="wired">resend</span> the code</p>
             <p>See <a>the note</a> below</p>
             <p>Pick <span tabindex="-1"><b>this</b></span> now</p>
             <div tabindex="-1"><span>Outside</span> <span tabindex="0"><b>any</b></span></div>
             <script>document.getElementById('wired').onclick = () => undefined;</script>
-            """);
+            """
+        );
         Assert.Equal(
             [
                 "paragraph Text change here",
@@ -62,7 +69,8 @@ public sealed class LineTextTests
                 "Outside",
                 "any",
             ],
-            Lines(nodes));
+            Lines(nodes)
+        );
     }
 
     [Fact]
@@ -75,22 +83,28 @@ public sealed class LineTextTests
     [Fact]
     public async Task Separates_words_at_block_children_line_breaks_and_form_controls_and_reads_no_hidden_inline_text()
     {
-        var nodes = await ObserveAsync("""
+        var nodes = await ObserveAsync(
+            """
             <div>Intro<p>Block</p>tail</div>
             <p>one<br>two</p>
             <label>Show <select><option>10</option></select> per page</label>
             <p>Shown <span style="display:none">gone</span><span aria-hidden="true">decor</span><span style="visibility:hidden">ghost</span> end</p>
             <p>Price <span style="display:inline-block;width:0;height:0;overflow:hidden">$99</span><span style="font-size:0">$98</span> today</p>
             <p>extra<wbr>ordinary</p>
-            """);
+            """
+        );
         var texts = nodes.Where(node => node.Role is null or "paragraph").Select(node => node.OwnText ?? node.Text);
-        Assert.Equal(["Intro tail", "Block", "one two", "Show per page", "Shown end", "Price today", "extraordinary"], texts);
+        Assert.Equal(
+            ["Intro tail", "Block", "one two", "Show per page", "Shown end", "Price today", "extraordinary"],
+            texts
+        );
     }
 
     [Fact]
     public async Task Reads_the_shadow_tree_an_inline_custom_element_renders_open_or_closed_and_the_light_text_it_slots()
     {
-        var nodes = await ObserveAsync("""
+        var nodes = await ObserveAsync(
+            """
             <p>Signed in as <open-name></open-name>, welcome back.</p>
             <p>Your plan: <closed-plan></closed-plan> until May.</p>
             <p>Hello <slot-greet>Ada <unused-light style="display:none">x</unused-light></slot-greet>!</p>
@@ -105,7 +119,8 @@ public sealed class LineTextTests
                 connectedCallback() { this.attachShadow({ mode: 'open' }).innerHTML = 'dear <em><slot></slot></em>'; }
               });
             </script>
-            """);
+            """
+        );
         Assert.Equal(
             [
                 "paragraph Signed in as Ada Lovelace, welcome back.",
@@ -113,14 +128,16 @@ public sealed class LineTextTests
                 "paragraph Your plan: Pro until May.",
                 "paragraph Hello dear Ada !",
             ],
-            Lines(nodes));
+            Lines(nodes)
+        );
     }
 
     [Fact]
     public async Task Reads_no_slotted_text_a_hidden_slot_hides_and_lists_a_slotted_child_that_shows_itself_again()
     {
         // The page records what the browser itself reads for the paragraph, as upstream's innerText check does.
-        var nodes = await ObserveAsync("""
+        var nodes = await ObserveAsync(
+            """
             <p>Status <hidden-slot>secret <span style="visibility:visible">shown</span></hidden-slot> end</p>
             <script>
               customElements.define('hidden-slot', class extends HTMLElement {
@@ -129,7 +146,8 @@ public sealed class LineTextTests
               const paragraph = document.querySelector('p');
               paragraph.setAttribute('data-inner-text', paragraph.innerText);
             </script>
-            """);
+            """
+        );
         Assert.Equal(["paragraph Status end", "shown"], Lines(nodes));
         Assert.Equal("Status shown end", nodes[0].Attributes["data-inner-text"]);
     }
@@ -137,7 +155,9 @@ public sealed class LineTextTests
     [Fact]
     public async Task Keeps_listing_the_inline_text_of_a_line_too_long_for_the_text_bound_so_nothing_past_the_cut_is_lost()
     {
-        var nodes = await ObserveAsync($"<p>{string.Concat(Enumerable.Repeat("word ", 120))}<strong>Total: $42</strong></p>");
+        var nodes = await ObserveAsync(
+            $"<p>{string.Concat(Enumerable.Repeat("word ", 120))}<strong>Total: $42</strong></p>"
+        );
         Assert.Equal(2, nodes.Count);
         Assert.StartsWith("word word", (nodes[0].OwnText ?? nodes[0].Text));
         Assert.Equal("Total: $42", (nodes[1].OwnText ?? nodes[1].Text));
@@ -151,12 +171,22 @@ public sealed class LineTextTests
     {
         using var site = await TinySite.StartAsync($"<!DOCTYPE html><html><body>{body}</body></html>");
         await using var engine = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
-        return WebSemanticsTests.Flatten((await engine.ObserveAsync(CancellationToken.None)).Roots)
+        return WebSemanticsTests
+            .Flatten((await engine.ObserveAsync(CancellationToken.None)).Roots)
             .Where(node => !node.States.Hidden && !node.States.AriaHidden && node.Rect is { Width: > 0, Height: > 0 })
             .ToList();
     }
 
     /// <summary>The nodes as <c>role "name" text</c>, the parts a model reads.</summary>
     private static List<string> Lines(IEnumerable<SemanticNode> nodes) =>
-        nodes.Select(node => string.Join(' ', new[] { node.Role, node.Name is null ? null : $"\"{node.Name}\"", node.OwnText ?? node.Text }.Where(part => !string.IsNullOrEmpty(part)))).ToList();
+        nodes
+            .Select(node =>
+                string.Join(
+                    ' ',
+                    new[] { node.Role, node.Name is null ? null : $"\"{node.Name}\"", node.OwnText ?? node.Text }.Where(
+                        part => !string.IsNullOrEmpty(part)
+                    )
+                )
+            )
+            .ToList();
 }

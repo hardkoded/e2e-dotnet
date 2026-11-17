@@ -46,7 +46,17 @@ public abstract class CliInitTestBase : IDisposable
     /// <summary>The answers to the questions init asks; a run reads them from here unless its options bring their own.</summary>
     private protected FakePrompts Prompts { get; } = new();
 
-    private protected Task<InitRunOutcome> RunInitAsync(InitOptions options, string? root = null, CancellationToken cancellationToken = default) => Init.RunAsync(root ?? Dir, options.Prompts is null ? options with { Prompts = Prompts } : options, _output, cancellationToken);
+    private protected Task<InitRunOutcome> RunInitAsync(
+        InitOptions options,
+        string? root = null,
+        CancellationToken cancellationToken = default
+    ) =>
+        Init.RunAsync(
+            root ?? Dir,
+            options.Prompts is null ? options with { Prompts = Prompts } : options,
+            _output,
+            cancellationToken
+        );
 
     private protected Task<InitRunOutcome> RunInitAsync(bool yes = true) => RunInitAsync(new InitOptions { Yes = yes });
 
@@ -64,7 +74,8 @@ public abstract class CliInitTestBase : IDisposable
     protected void ClearOutput() => _output.GetStringBuilder().Clear();
 
     /// <summary>The bundled SKILL.md.</summary>
-    protected static string BundledSkillMd() => E2E.Cli.Skill.ReadFiles().First(file => file.Relative == "SKILL.md").Content;
+    protected static string BundledSkillMd() =>
+        E2E.Cli.Skill.ReadFiles().First(file => file.Relative == "SKILL.md").Content;
 
     /// <summary>Writes the bundled skill into <c>&lt;location&gt;/e2e-dotnet</c> as an earlier init left it, every file holding <paramref name="content"/> when given.</summary>
     protected void WriteCopy(string location, string? content = null)

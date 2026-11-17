@@ -19,9 +19,11 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests : IDisposabl
         GC.SuppressFinalize(this);
     }
 
-    private static async Task<string> Location(DeviceSession session) => (await session.ObserveAsync(CancellationToken.None)).Route;
+    private static async Task<string> Location(DeviceSession session) =>
+        (await session.ObserveAsync(CancellationToken.None)).Route;
 
-    private static JsonObject PinOnly() => FakeDeviceClient.NodesOnly([N("e1", type: "SecureTextField", label: "PIN", value: "1234")]);
+    private static JsonObject PinOnly() =>
+        FakeDeviceClient.NodesOnly([N("e1", type: "SecureTextField", label: "PIN", value: "1234")]);
 
     /// <summary>Answers the screenshot with a file of these bytes and remembers where the engine asked for it.</summary>
     private static void Writes(Harness h, byte[] png, List<string> files) =>
@@ -41,7 +43,9 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests : IDisposabl
         Assert.Equal("com.apple.Preferences / General", await Location(session));
 
         // No title bar: the app alone. The app identity is remembered from the launch when the snapshot omits it.
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly([N("@e1", type: "button", label: "Go")]));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.NodesOnly([N("@e1", type: "button", label: "Go")])
+        );
         Assert.Equal("com.apple.Preferences", await Location(session));
         var other = FakeDeviceClient.SettingsSnapshot();
         other["appBundleId"] = "other.app";
@@ -51,7 +55,9 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests : IDisposabl
         // Nothing pinned, nothing opened, no title: no location, and never an invented URL.
         var cold = Harness.Create(pinned: false);
         var coldSession = await OpenAttempt(cold);
-        cold.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly([N("@e1", type: "button", rect: new Rect(0, 0, 10, 10))]));
+        cold.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.NodesOnly([N("@e1", type: "button", rect: new Rect(0, 0, 10, 10))])
+        );
         Assert.Equal("", await Location(coldSession));
     }
 
@@ -68,9 +74,17 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests : IDisposabl
         try
         {
             session = await OpenAttempt(h, _artifactsDir);
-            Assert.Equal("screenshots/001-first_shot.png", await session.ScreenshotArtifactAsync("first shot", CancellationToken.None));
-            Assert.Equal("screenshots/002-screenshot.png", await session.ScreenshotArtifactAsync(null, CancellationToken.None));
-            var written = PngCodec.Decode(await File.ReadAllBytesAsync(Path.Combine(_artifactsDir, "screenshots", "002-screenshot.png")));
+            Assert.Equal(
+                "screenshots/001-first_shot.png",
+                await session.ScreenshotArtifactAsync("first shot", CancellationToken.None)
+            );
+            Assert.Equal(
+                "screenshots/002-screenshot.png",
+                await session.ScreenshotArtifactAsync(null, CancellationToken.None)
+            );
+            var written = PngCodec.Decode(
+                await File.ReadAllBytesAsync(Path.Combine(_artifactsDir, "screenshots", "002-screenshot.png"))
+            );
             byte[] At(int x, int y)
             {
                 var start = ((y * written.Width) + x) * written.Channels;
@@ -83,10 +97,15 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests : IDisposabl
             // The next attempt is a new session, and numbers its screenshots from one.
             await session.DisposeAsync();
             next = await OpenAttempt(h, _artifactsDir);
-            Assert.Equal("screenshots/001-again.png", await next.ScreenshotArtifactAsync("again", CancellationToken.None));
+            Assert.Equal(
+                "screenshots/001-again.png",
+                await next.ScreenshotArtifactAsync("again", CancellationToken.None)
+            );
 
             h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => PinOnly());
-            var leak = await Assert.ThrowsAsync<EngineException>(() => next.ScreenshotArtifactAsync("leak", CancellationToken.None));
+            var leak = await Assert.ThrowsAsync<EngineException>(() =>
+                next.ScreenshotArtifactAsync("leak", CancellationToken.None)
+            );
             Assert.Equal("ENGINE_FAILURE", leak.Code);
             Assert.False(File.Exists(Path.Combine(_artifactsDir, "screenshots", "002-leak.png")));
             Assert.Equal(files.Count, files.Distinct().Count());

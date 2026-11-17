@@ -14,8 +14,12 @@ public sealed class ModelUsageAccountingTests
 {
     private static readonly StepModelInfo Provenance = new() { Provider = "test", Model = "test" };
 
-    private static E2E.ModelUsage.Usage Usage(long? input = null, long? output = null, double? cost = null, TokenAccounting? accounting = null) =>
-        new(input, output, EstimatedCostUsd: cost, Accounting: accounting);
+    private static E2E.ModelUsage.Usage Usage(
+        long? input = null,
+        long? output = null,
+        double? cost = null,
+        TokenAccounting? accounting = null
+    ) => new(input, output, EstimatedCostUsd: cost, Accounting: accounting);
 
     [Fact]
     public void Totals_complete_provider_reports_and_preserves_the_peak_per_call()
@@ -37,7 +41,11 @@ public sealed class ModelUsageAccountingTests
     [InlineData(null, null, null)]
     [InlineData(1L, null, null)]
     [InlineData(1L, 2L, TokenAccounting.AdapterUpperBound)]
-    public void Keeps_mixed_usage_non_authoritative_after_later_complete_reports(long? input, long? output, TokenAccounting? accounting)
+    public void Keeps_mixed_usage_non_authoritative_after_later_complete_reports(
+        long? input,
+        long? output,
+        TokenAccounting? accounting
+    )
     {
         var usage = new E2E.ModelUsage();
         usage.Record(Usage(input, output, accounting: accounting));

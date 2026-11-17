@@ -15,13 +15,18 @@ namespace E2E.Tests.FixtureRuntime;
 /// </summary>
 public sealed class AssertEvidenceUnderACustomExecutorTests
 {
-    private static readonly TestExecutor Judging = new("judging", (_, _) => Task.FromResult(Passed("holds"))) { Version = "1" };
+    private static readonly TestExecutor Judging = new("judging", (_, _) => Task.FromResult(Passed("holds")))
+    {
+        Version = "1",
+    };
 
     [Fact]
     public async Task Attaches_the_screenshot_the_engine_delivers_after_the_verdict()
     {
         var root = TempRoot();
-        var engine = new ScreenshotEngine(new DocumentWorld().Map("/", page => page.Paragraph("holds")), _ => ScreenshotEngine.Png());
+        var engine = new ScreenshotEngine(new DocumentWorld().Map("/", page => page.Paragraph("holds")), _ =>
+            ScreenshotEngine.Png()
+        );
         await using var session = await StartAsync(engine, root, TimeSpan.FromMilliseconds(300));
         await session.App.OpenAsync("/");
 
@@ -62,15 +67,17 @@ public sealed class AssertEvidenceUnderACustomExecutorTests
     }
 
     private static Task<E2ESession> StartAsync(IEngine engine, string root, TimeSpan actionTimeout) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            AgentExecutor = Judging,
-            BaseUrl = "https://app.test",
-            ProjectRoot = root,
-            TestTitle = "evidence budget",
-            ActionTimeout = actionTimeout,
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                AgentExecutor = Judging,
+                BaseUrl = "https://app.test",
+                ProjectRoot = root,
+                TestTitle = "evidence budget",
+                ActionTimeout = actionTimeout,
+            }
+        );
 
     /// <summary>A document engine that takes a screenshot request and never answers it, whatever token it carries.</summary>
     private sealed class HungScreenshotEngine(DocumentWorld world) : IEngine
@@ -93,13 +100,17 @@ public sealed class AssertEvidenceUnderACustomExecutorTests
         {
             public string Route => inner.Route;
 
-            public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+            public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+                inner.OpenAsync(url, cancellationToken);
 
-            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => inner.ObserveAsync(cancellationToken);
+            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+                inner.ObserveAsync(cancellationToken);
 
-            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => inner.PerformAsync(node, action, cancellationToken);
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+                inner.PerformAsync(node, action, cancellationToken);
 
-            public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+            public Task PressAsync(string key, CancellationToken cancellationToken) =>
+                inner.PressAsync(key, cancellationToken);
 
             public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken)
             {

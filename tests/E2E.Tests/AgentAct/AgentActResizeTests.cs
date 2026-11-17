@@ -34,21 +34,27 @@ public sealed class AgentActResizeTests
 
             await context.Actions.ResizeAsync(new TraceViewport(390, 844));
             var viewport = (await context.ObserveAsync()).Viewport!;
-            return Passed("out of bounds: " + refused + "; viewport: " + viewport.Width.ToString(CultureInfo.InvariantCulture) + "x" + viewport.Height.ToString(CultureInfo.InvariantCulture));
-        })
-        {
-            Version = "test",
-        };
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            AgentExecutor = executor,
-            BaseUrl = site.Url,
-            TestTitle = "executor resizes the viewport",
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(30),
-            TestTimeout = TimeSpan.FromSeconds(60),
-        });
+            return Passed(
+                "out of bounds: "
+                    + refused
+                    + "; viewport: "
+                    + viewport.Width.ToString(CultureInfo.InvariantCulture)
+                    + "x"
+                    + viewport.Height.ToString(CultureInfo.InvariantCulture)
+            );
+        }) { Version = "test" };
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                AgentExecutor = executor,
+                BaseUrl = site.Url,
+                TestTitle = "executor resizes the viewport",
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(30),
+                TestTimeout = TimeSpan.FromSeconds(60),
+            }
+        );
 
         Exception? error = null;
         try
@@ -64,9 +70,16 @@ public sealed class AgentActResizeTests
         session.Complete(error);
         Assert.Null(error);
         var step = Assert.Single(session.StepRecords, candidate => candidate.Api == "agent.act");
-        Assert.Contains("out of bounds: INVALID_ARGUMENT; viewport: 390x844", step.Explanation, StringComparison.Ordinal);
+        Assert.Contains(
+            "out of bounds: INVALID_ARGUMENT; viewport: 390x844",
+            step.Explanation,
+            StringComparison.Ordinal
+        );
         Assert.Equal(1, step.Metrics!.ActionSteps);
-        Assert.Equal(["resize"], step.Events.Where(item => item.Kind == StepEventKind.Engine).Select(item => item.Name));
+        Assert.Equal(
+            ["resize"],
+            step.Events.Where(item => item.Kind == StepEventKind.Engine).Select(item => item.Name)
+        );
         Assert.Equal(new StepViewport(390, 844, 1), step.Viewport);
     }
 }

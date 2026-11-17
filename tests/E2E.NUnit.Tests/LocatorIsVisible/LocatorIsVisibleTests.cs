@@ -48,16 +48,20 @@ public sealed class LocatorIsVisibleTests : PlaywrightTest
     [Test]
     public async Task IsVisible_and_isHidden_should_work_with_details()
     {
-        await Browser.GotoAsync(Content("""
-            <details>
-              <summary>click to open</summary>
-                <ul>
-                  <li>hidden item 1</li>
-                  <li>hidden item 2</li>
-                  <li>hidden item 3</li>
-                </ul
-            </details>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <details>
+                  <summary>click to open</summary>
+                    <ul>
+                      <li>hidden item 1</li>
+                      <li>hidden item 2</li>
+                      <li>hidden item 3</li>
+                    </ul
+                </details>
+                """
+            )
+        );
 
         await Expect.That(Browser.Locator("ul")).ToBeHiddenAsync();
     }
@@ -65,15 +69,19 @@ public sealed class LocatorIsVisibleTests : PlaywrightTest
     [Test]
     public async Task IsVisible_and_isHidden_should_work_with_nested_details()
     {
-        await Browser.GotoAsync(Content("""
-            <details>
-              <summary>outer</summary>
-              <details open>
-                <summary>inner</summary>
-                <button>hidden button</button>
-              </details>
-            </details>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <details>
+                  <summary>outer</summary>
+                  <details open>
+                    <summary>inner</summary>
+                    <button>hidden button</button>
+                  </details>
+                </details>
+                """
+            )
+        );
 
         await Expect.That(Browser.Locator("summary").Filter(hasText: "outer")).ToBeVisibleAsync();
         await Expect.That(Browser.Locator("summary").Filter(hasText: "inner")).ToBeHiddenAsync();
@@ -84,14 +92,18 @@ public sealed class LocatorIsVisibleTests : PlaywrightTest
     [Test]
     public async Task IsVisible_and_isHidden_should_work_with_unslotted_content()
     {
-        await Browser.GotoAsync(Content("""
-            <div id=unslotted><span>hidden 1</span><div><span>hidden 2</span></div></div>
-            <div id=slotted><span>visible</span></div>
-            <script>
-              unslotted.attachShadow({ mode: 'open' }).innerHTML = 'nothing to see here';
-              slotted.attachShadow({ mode: 'open' }).innerHTML = '<slot></slot>';
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <div id=unslotted><span>hidden 1</span><div><span>hidden 2</span></div></div>
+                <div id=slotted><span>visible</span></div>
+                <script>
+                  unslotted.attachShadow({ mode: 'open' }).innerHTML = 'nothing to see here';
+                  slotted.attachShadow({ mode: 'open' }).innerHTML = '<slot></slot>';
+                </script>
+                """
+            )
+        );
 
         await Expect.That(Browser.Locator("span").Filter(hasText: "hidden 1")).ToBeHiddenAsync();
         await Expect.That(Browser.Locator("span").Filter(hasText: "hidden 2")).ToBeHiddenAsync();
@@ -101,16 +113,20 @@ public sealed class LocatorIsVisibleTests : PlaywrightTest
     [Test]
     public async Task IsVisible_and_isHidden_should_work_with_list_box_options()
     {
-        await Browser.GotoAsync(Content("""
-            <select multiple>
-              <option>visible 1</option>
-              <optgroup label="group"><option>visible 2</option></optgroup>
-              <option hidden>hidden 1</option>
-              <optgroup label="hidden group" style="display:none"><option>hidden 2</option></optgroup>
-            </select>
-            <select size=3><option>visible 3</option></select>
-            <select multiple style="display:none"><option>hidden 3</option></select>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <select multiple>
+                  <option>visible 1</option>
+                  <optgroup label="group"><option>visible 2</option></optgroup>
+                  <option hidden>hidden 1</option>
+                  <optgroup label="hidden group" style="display:none"><option>hidden 2</option></optgroup>
+                </select>
+                <select size=3><option>visible 3</option></select>
+                <select multiple style="display:none"><option>hidden 3</option></select>
+                """
+            )
+        );
 
         foreach (var name in new[] { "visible 1", "visible 2", "visible 3" })
         {
@@ -156,13 +172,17 @@ public sealed class LocatorIsVisibleTests : PlaywrightTest
         {
             try
             {
-                await Browser.GotoAsync(Content("""
-                    <script>
-                      setTimeout(() => {
-                        window.location.href = '/empty.html';
-                      }, Math.random(50));
-                    </script>
-                    """));
+                await Browser.GotoAsync(
+                    Content(
+                        """
+                        <script>
+                          setTimeout(() => {
+                            window.location.href = '/empty.html';
+                          }, Math.random(50));
+                        </script>
+                        """
+                    )
+                );
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

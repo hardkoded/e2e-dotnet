@@ -79,7 +79,8 @@ internal sealed class ExploreView
     /// <summary>The step that finished last, with what the view counted while it ran.</summary>
     public FinishedStep? LastStep => _steps.Count == 0 ? null : _steps[^1];
 
-    private IEnumerable<ReportExploreFinding> Issues => _findings.Where(finding => finding.Kind == ReportExploreFindingKind.Issue);
+    private IEnumerable<ReportExploreFinding> Issues =>
+        _findings.Where(finding => finding.Kind == ReportExploreFindingKind.Issue);
 
     /// <summary>Applies one moment of the exploration.</summary>
     public void Progress(ExploreProgress progress)
@@ -144,12 +145,19 @@ internal sealed class ExploreView
     /// </summary>
     public string Header(string badge, ExploreVerb verb = ExploreVerb.Exploring, int? maxWidth = null)
     {
-        var glyph = verb == ExploreVerb.Exploring
-            ? _pc.Yellow(Format.Pointer)
-            : _ended is null || Issues.Any() ? _pc.Red(Format.Cross) : _pc.Green(Format.Check);
-        var head = " " + _pc.Bold(glyph) + " " + (badge.Length == 0 ? "" : badge + " ") + _pc.Bold(verb.ToString()) + "  ";
+        var glyph =
+            verb == ExploreVerb.Exploring ? _pc.Yellow(Format.Pointer)
+            : _ended is null || Issues.Any() ? _pc.Red(Format.Cross)
+            : _pc.Green(Format.Check);
+        var head =
+            " " + _pc.Bold(glyph) + " " + (badge.Length == 0 ? "" : badge + " ") + _pc.Bold(verb.ToString()) + "  ";
         var goal = TextRules.Collapse(_goal);
-        return head + (maxWidth is not { } width ? Format.Bounded(goal) : Format.FitColumns(goal, Math.Max(24, width - Format.VisibleWidth(head))));
+        return head
+            + (
+                maxWidth is not { } width
+                    ? Format.Bounded(goal)
+                    : Format.FitColumns(goal, Math.Max(24, width - Format.VisibleWidth(head)))
+            );
     }
 
     /// <summary>One finished step: glyph, number, title, then duration, actions, findings, and a non-passed status; its explanation under it.</summary>
@@ -164,7 +172,10 @@ internal sealed class ExploreView
         };
         var tail = string.Join(
             " · ",
-            new[] { Format.FormatTime(step.Duration) }.Concat(actions > 0 ? [Count(actions, "action")] : []).Concat(findings > 0 ? [Count(findings, "finding")] : []));
+            new[] { Format.FormatTime(step.Duration) }
+                .Concat(actions > 0 ? [Count(actions, "action")] : [])
+                .Concat(findings > 0 ? [Count(findings, "finding")] : [])
+        );
         var status = step.Status switch
         {
             ReportExploreStepStatus.Failed => "failed",
@@ -174,7 +185,14 @@ internal sealed class ExploreView
         };
         List<string> lines =
         [
-            indent + glyph + " " + _pc.Dim(step.Index.ToString(CultureInfo.InvariantCulture)) + "  " + Format.Bounded(step.Title) + " " + _pc.Dim(tail)
+            indent
+                + glyph
+                + " "
+                + _pc.Dim(step.Index.ToString(CultureInfo.InvariantCulture))
+                + "  "
+                + Format.Bounded(step.Title)
+                + " "
+                + _pc.Dim(tail)
                 + (status.Length == 0 ? "" : " " + _pc.Yellow(status)),
         ];
 
@@ -182,7 +200,9 @@ internal sealed class ExploreView
         if (step.Status != ReportExploreStepStatus.Passed && step.Summary is not null)
         {
             var room = Format.TerminalColumns() - LiveWindow.WidthMargin - indent.Length - 5;
-            lines.Add(indent + "     " + _pc.Dim(Format.FitColumns(TextRules.Collapse(step.Summary), Math.Max(24, room))));
+            lines.Add(
+                indent + "     " + _pc.Dim(Format.FitColumns(TextRules.Collapse(step.Summary), Math.Max(24, room)))
+            );
         }
 
         return lines;
@@ -193,19 +213,32 @@ internal sealed class ExploreView
     {
         ArgumentNullException.ThrowIfNull(finding);
         var location = finding.Path is null ? "" : _pc.Dim(" (" + Format.Bounded(finding.Path) + ")");
-        return indent + SeverityColor(finding, FindingGlyph + " " + Grade(finding)) + "  " + Format.Bounded(TextRules.Collapse(finding.Title)) + location;
+        return indent
+            + SeverityColor(finding, FindingGlyph + " " + Grade(finding))
+            + "  "
+            + Format.Bounded(TextRules.Collapse(finding.Title))
+            + location;
     }
 
     /// <summary>
     /// The live window's running area: the header with its clock, the finished steps, and the step in progress with its latest calls and findings in
     /// time order, or the planner deciding. Sized to the screen as the running tree is: the step in progress has priority, older finished steps fold.
     /// </summary>
-    public IReadOnlyList<string> LiveRows(string badge, IReadOnlyList<Reports.StepEvent>? events, IReadOnlyList<string> summary, long now, int room)
+    public IReadOnlyList<string> LiveRows(
+        string badge,
+        IReadOnlyList<Reports.StepEvent>? events,
+        IReadOnlyList<string> summary,
+        long now,
+        int room
+    )
     {
         ArgumentNullException.ThrowIfNull(summary);
         var columns = Format.TerminalColumns() - LiveWindow.WidthMargin;
         var clock = _pc.Bold(_pc.Yellow(Format.FormatTime(TimeSpan.FromMilliseconds(Math.Max(0, now - _startedMs)))));
-        List<string> lines = [Header(badge, ExploreVerb.Exploring, columns - Format.VisibleWidth(clock) - 1) + " " + clock];
+        List<string> lines =
+        [
+            Header(badge, ExploreVerb.Exploring, columns - Format.VisibleWidth(clock) - 1) + " " + clock,
+        ];
         var capacity = Format.TerminalRows() - summary.Count - ChromeRows;
         var budget = capacity - 1;
         var current = CurrentRows(events, now, budget);
@@ -214,7 +247,9 @@ internal sealed class ExploreView
         if (budget > 0)
         {
             var folded = finished.Count - budget + 1;
-            lines.AddRange(folded > 1 ? [LiveIndent + _pc.Dim($"… {folded} earlier rows"), .. finished.Skip(folded)] : finished);
+            lines.AddRange(
+                folded > 1 ? [LiveIndent + _pc.Dim($"… {folded} earlier rows"), .. finished.Skip(folded)] : finished
+            );
         }
 
         lines.AddRange(current);
@@ -239,11 +274,25 @@ internal sealed class ExploreView
             }
 
             var what = planning.Closing ? "the closing assessment" : $"step {_steps.Count + 1} of {_budgets.MaxSteps}";
-            return [.. new[] { LiveIndent + _pc.Dim($"{DownRight} planning {what}"), LiveIndent + "  " + RunningTree.WaitingRow(_pc, now, "Thinking") }.Take(budget)];
+            return
+            [
+                .. new[]
+                {
+                    LiveIndent + _pc.Dim($"{DownRight} planning {what}"),
+                    LiveIndent + "  " + RunningTree.WaitingRow(_pc, now, "Thinking"),
+                }.Take(budget),
+            ];
         }
 
         var step = _open.Step;
-        List<string> rows = [LiveIndent + _pc.Dim($"{DownRight} {step.Index}  ") + Format.Bounded(step.Title) + " " + _pc.Dim($"(step {step.Index} of {_budgets.MaxSteps})")];
+        List<string> rows =
+        [
+            LiveIndent
+                + _pc.Dim($"{DownRight} {step.Index}  ")
+                + Format.Bounded(step.Title)
+                + " "
+                + _pc.Dim($"(step {step.Index} of {_budgets.MaxSteps})"),
+        ];
         var timeline = Timeline(events ?? []);
         var shown = Math.Min(MaxEvents, Math.Max(0, budget - 2));
         var overflow = timeline.Count - shown;
@@ -266,7 +315,9 @@ internal sealed class ExploreView
             .. events
                 .Where(stepEvent => stepEvent.Name != FindingToolEvent)
                 .Select(stepEvent => (At: stepEvent.StartedAt, Row: ListSteps.EventLine(_pc, stepEvent, maxWidth)))
-                .Concat((_open?.Findings ?? []).Select(finding => (At: finding.ReportedAt, Row: FindingLine(finding, ""))))
+                .Concat(
+                    (_open?.Findings ?? []).Select(finding => (At: finding.ReportedAt, Row: FindingLine(finding, "")))
+                )
                 .OrderBy(entry => entry.At)
                 .Select(entry => entry.Row),
         ];
@@ -277,12 +328,15 @@ internal sealed class ExploreView
     {
         var issues = Issues.Count();
         var warnings = _findings.Count - issues;
-        var findings = _findings.Count == 0
-            ? _pc.Dim("none")
-            : string.Join(
-                _pc.Dim(" | "),
-                (issues > 0 ? [_pc.Bold(_pc.Red(Count(issues, "issue")))] : Enumerable.Empty<string>())
-                    .Concat(warnings > 0 ? [_pc.Yellow(Count(warnings, "warning"))] : []));
+        var findings =
+            _findings.Count == 0
+                ? _pc.Dim("none")
+                : string.Join(
+                    _pc.Dim(" | "),
+                    (issues > 0 ? [_pc.Bold(_pc.Red(Count(issues, "issue")))] : Enumerable.Empty<string>()).Concat(
+                        warnings > 0 ? [_pc.Yellow(Count(warnings, "warning"))] : []
+                    )
+                );
         var max = _budgets.MaxSteps.ToString(CultureInfo.InvariantCulture);
         var done = _steps.Count.ToString(CultureInfo.InvariantCulture);
         List<string> steps = [];
@@ -305,7 +359,11 @@ internal sealed class ExploreView
             steps.Add(_pc.Dim(ExploreText.EndedText(ended)));
         }
 
-        return [Format.PadTitle(_pc, "Findings") + findings, Format.PadTitle(_pc, "Steps") + string.Join(_pc.Dim(" · "), steps)];
+        return
+        [
+            Format.PadTitle(_pc, "Findings") + findings,
+            Format.PadTitle(_pc, "Steps") + string.Join(_pc.Dim(" · "), steps),
+        ];
     }
 
     /// <summary>
@@ -314,7 +372,9 @@ internal sealed class ExploreView
     /// </summary>
     public IReadOnlyList<string> Record(string badge, bool withSteps)
     {
-        List<string> lines = withSteps ? ["", Header(badge, ExploreVerb.Explored), .. _steps.SelectMany(step => StepLines(step))] : [];
+        List<string> lines = withSteps
+            ? ["", Header(badge, ExploreVerb.Explored), .. _steps.SelectMany(step => StepLines(step))]
+            : [];
         if (_steps.Count == 0 && _ended != ReportExploreEnded.Skipped)
         {
             lines.Add(RowIndent + _pc.Dim("no step ran"));
@@ -335,13 +395,26 @@ internal sealed class ExploreView
             return [];
         }
 
-        List<string> lines = ["", Banner("Findings " + _findings.Count.ToString(CultureInfo.InvariantCulture), Issues.Any() ? _pc.Red : _pc.Yellow), ""];
+        List<string> lines =
+        [
+            "",
+            Banner(
+                "Findings " + _findings.Count.ToString(CultureInfo.InvariantCulture),
+                Issues.Any() ? _pc.Red : _pc.Yellow
+            ),
+            "",
+        ];
         var position = 0;
         foreach (var finding in ExploreText.OrderFindings(_findings))
         {
             position++;
             var number = position.ToString(CultureInfo.InvariantCulture).PadLeft(2) + ". ";
-            lines.Add(number + SeverityColor(finding, Grade(finding).PadRight(16)) + " " + _pc.Bold(Format.Bounded(TextRules.Collapse(finding.Title))));
+            lines.Add(
+                number
+                    + SeverityColor(finding, Grade(finding).PadRight(16))
+                    + " "
+                    + _pc.Bold(Format.Bounded(TextRules.Collapse(finding.Title)))
+            );
             List<string> where = [];
             if (finding.Path is not null)
             {
@@ -362,12 +435,22 @@ internal sealed class ExploreView
             lines.AddRange(Detail("actual", finding.Actual));
             for (var i = 0; i < finding.Reproduction.Count; i++)
             {
-                lines.AddRange(Detail(i == 0 ? "steps" : "", (i + 1).ToString(CultureInfo.InvariantCulture) + ". " + finding.Reproduction[i]));
+                lines.AddRange(
+                    Detail(
+                        i == 0 ? "steps" : "",
+                        (i + 1).ToString(CultureInfo.InvariantCulture) + ". " + finding.Reproduction[i]
+                    )
+                );
             }
 
             if (Screenshot(finding, displayPath, artifactsRoot) is { } screenshot)
             {
-                lines.Add(DetailIndent + _pc.Dim("evidence".PadRight(DetailLabelWidth)) + "  " + _pc.Cyan(Format.Bounded(screenshot)));
+                lines.Add(
+                    DetailIndent
+                        + _pc.Dim("evidence".PadRight(DetailLabelWidth))
+                        + "  "
+                        + _pc.Cyan(Format.Bounded(screenshot))
+                );
             }
 
             lines.Add("");
@@ -379,7 +462,10 @@ internal sealed class ExploreView
     /// <summary>The path of a finding's screenshot as the reporter shows paths; null when no artifact of the run has the finding's id.</summary>
     private string? Screenshot(ReportExploreFinding finding, Func<string, string> displayPath, string? artifactsRoot)
     {
-        if (finding.ArtifactId is null || _artifacts.FirstOrDefault(artifact => artifact.Id == finding.ArtifactId).Path is not { } path)
+        if (
+            finding.ArtifactId is null
+            || _artifacts.FirstOrDefault(artifact => artifact.Id == finding.ArtifactId).Path is not { } path
+        )
         {
             return null;
         }
@@ -396,7 +482,11 @@ internal sealed class ExploreView
         }
 
         var width = Math.Max(24, Format.TerminalColumns() - RowIndent.Length - LiveWindow.WidthMargin);
-        return [" " + _pc.Bold("Assessment"), .. Wrap(Format.Bounded(_summary), width).Select(line => RowIndent + line)];
+        return
+        [
+            " " + _pc.Bold("Assessment"),
+            .. Wrap(Format.Bounded(_summary), width).Select(line => RowIndent + line),
+        ];
     }
 
     /// <summary>`  1 issue`, `2 findings`.</summary>
@@ -405,7 +495,9 @@ internal sealed class ExploreView
 
     /// <summary>`high issue`, `low warning`.</summary>
     private static string Grade(ReportExploreFinding finding) =>
-        ExploreText.SeverityWord(finding.Severity) + " " + (finding.Kind == ReportExploreFindingKind.Warning ? "warning" : "issue");
+        ExploreText.SeverityWord(finding.Severity)
+        + " "
+        + (finding.Kind == ReportExploreFindingKind.Warning ? "warning" : "issue");
 
     private string SeverityColor(ReportExploreFinding finding, string text)
     {
@@ -424,20 +516,27 @@ internal sealed class ExploreView
 
     /// <summary>`3 passed`, `1 failed`, ... over the finished steps, zero counts left out, colored by status.</summary>
     private IEnumerable<string> OutcomeParts() =>
-        ExploreText.StepCountParts(_steps.Select(step => step.Step)).Select(part => part.Status switch
-        {
-            ReportExploreStepStatus.Passed => _pc.Green(part.Text),
-            ReportExploreStepStatus.Failed => _pc.Red(part.Text),
-            _ => _pc.Yellow(part.Text),
-        });
+        ExploreText
+            .StepCountParts(_steps.Select(step => step.Step))
+            .Select(part =>
+                part.Status switch
+                {
+                    ReportExploreStepStatus.Passed => _pc.Green(part.Text),
+                    ReportExploreStepStatus.Failed => _pc.Red(part.Text),
+                    _ => _pc.Yellow(part.Text),
+                }
+            );
 
     /// <summary>`    expected  text…`, wrapped to the width with continuation lines under the text.</summary>
     private IEnumerable<string> Detail(string label, string text)
     {
         var gutterWidth = DetailIndent.Length + DetailLabelWidth + 2;
         var blank = new string(' ', gutterWidth);
-        return Wrap(TextRules.Collapse(Format.Bounded(text)), Math.Max(24, Format.TerminalColumns() - gutterWidth)).Select((line, index) =>
-            (index == 0 ? DetailIndent + _pc.Dim(label.PadRight(DetailLabelWidth)) + "  " : blank) + line);
+        return Wrap(TextRules.Collapse(Format.Bounded(text)), Math.Max(24, Format.TerminalColumns() - gutterWidth))
+            .Select(
+                (line, index) =>
+                    (index == 0 ? DetailIndent + _pc.Dim(label.PadRight(DetailLabelWidth)) + "  " : blank) + line
+            );
     }
 
     private string Banner(string message, Func<string, string> color)

@@ -38,7 +38,9 @@ internal sealed class AttemptBudget : IDisposable
             lock (_gate)
             {
                 // A phase that ended for a reason of its own (a closed session) starts nothing more, and the reason is the error.
-                return _disposed ? (_closed is null ? new CancellationToken(canceled: true) : throw _closed()) : _current.Token;
+                return _disposed
+                    ? (_closed is null ? new CancellationToken(canceled: true) : throw _closed())
+                    : _current.Token;
             }
         }
     }

@@ -73,20 +73,35 @@ internal static class Relocate
     private static readonly TimeSpan MatchTimeout = TimeSpan.FromSeconds(2);
 
     /// <summary>Identity fields that must match whenever the recording captured them.</summary>
-    private static readonly DescriptorField[] IdentityFields = [DescriptorField.Role, DescriptorField.Name, DescriptorField.TestId, DescriptorField.Placeholder, DescriptorField.InputPurpose];
+    private static readonly DescriptorField[] IdentityFields =
+    [
+        DescriptorField.Role,
+        DescriptorField.Name,
+        DescriptorField.TestId,
+        DescriptorField.Placeholder,
+        DescriptorField.InputPurpose,
+    ];
 
     /// <summary>Text is identity too when neither a test id nor a name was recorded.</summary>
     private static readonly DescriptorField[] IdentityFieldsWithText = [.. IdentityFields, DescriptorField.Text];
 
     /// <summary>The uuid a test id part may spell.</summary>
-    private static readonly Regex Uuid = new("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, MatchTimeout);
+    private static readonly Regex Uuid = new(
+        "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        MatchTimeout
+    );
 
     private static readonly Regex TestIdSeparators = new("([-_:./]+)", RegexOptions.CultureInvariant, MatchTimeout);
 
     /// <summary>A test id part an app mints: a hex id or hash, a cuid, a recent epoch time in seconds or milliseconds.</summary>
     private static readonly Regex[] MintedTestIdPart =
     [
-        new(@"\A(?=.*[0-9])(?=.*[a-f])[0-9a-f]{8,}\z", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, MatchTimeout),
+        new(
+            @"\A(?=.*[0-9])(?=.*[a-f])[0-9a-f]{8,}\z",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            MatchTimeout
+        ),
         new(@"\A(?=(?:[^0-9]*[0-9]){2})(?=.*[A-Za-z])[A-Za-z0-9]{8,}\z", RegexOptions.CultureInvariant, MatchTimeout),
         new(@"\A1[5-9][0-9]{8}(?:[0-9]{3})?\z", RegexOptions.CultureInvariant, MatchTimeout),
     ];
@@ -98,7 +113,11 @@ internal static class Relocate
     /// The projection of one observation under one redactor, shared by every lookup into it. Upstream's <c>projections</c> <c>WeakMap</c>.
     /// The projection also depends on the redactor it was made under: a lookup under another one projects again.
     /// </summary>
-    private sealed class Projection(Redactor redactor, IReadOnlyList<DescribedNode> described, IReadOnlyList<SemanticNode> roots)
+    private sealed class Projection(
+        Redactor redactor,
+        IReadOnlyList<DescribedNode> described,
+        IReadOnlyList<SemanticNode> roots
+    )
     {
         private IReadOnlyDictionary<SemanticNode, SemanticNode>? _parents;
 
@@ -117,7 +136,10 @@ internal static class Relocate
     /// strictly (<see cref="FieldsIdentical"/>): an unnamed textbox must never stand in for a named one.
     /// </summary>
     private static bool IsAnonymous(RecordedTarget descriptor) =>
-        descriptor.TestId is null && descriptor.Name is null && descriptor.Text is null && descriptor.Placeholder is null;
+        descriptor.TestId is null
+        && descriptor.Name is null
+        && descriptor.Text is null
+        && descriptor.Placeholder is null;
 
     /// <summary>
     /// Whether a descriptor can identify a node at all. Role or selector alone cannot: a wrong match acts on the wrong control, so such a
@@ -133,7 +155,8 @@ internal static class Relocate
     }
 
     /// <summary>Whether a recorded place tells the target apart: it was counted alone, or sits in a named container.</summary>
-    private static bool IsPlaced(RecordedTarget descriptor) => descriptor.Position is { } position && (position.Of == 1 || descriptor.Within is not null);
+    private static bool IsPlaced(RecordedTarget descriptor) =>
+        descriptor.Position is { } position && (position.Of == 1 || descriptor.Within is not null);
 
     /// <summary>The semantic tier of a descriptor: every identity field but the test id.</summary>
     private static RecordedTarget WithoutTestId(RecordedTarget descriptor)
@@ -190,11 +213,14 @@ internal static class Relocate
     {
         ArgumentNullException.ThrowIfNull(tier);
         ArgumentNullException.ThrowIfNull(candidate);
-        return tier.Kind != DescriptorTierKind.Shape ? candidate : DescriptorTiers(candidate).FirstOrDefault(rung => rung.Kind == DescriptorTierKind.Shape)?.Descriptor;
+        return tier.Kind != DescriptorTierKind.Shape
+            ? candidate
+            : DescriptorTiers(candidate).FirstOrDefault(rung => rung.Kind == DescriptorTierKind.Shape)?.Descriptor;
     }
 
     /// <summary>Whether a tier tells nodes apart only by their count and place: an unnamed control, or a test id shape.</summary>
-    private static bool MatchesByPlace(DescriptorTier tier) => tier.Kind == DescriptorTierKind.Shape || IsAnonymous(tier.Descriptor);
+    private static bool MatchesByPlace(DescriptorTier tier) =>
+        tier.Kind == DescriptorTierKind.Shape || IsAnonymous(tier.Descriptor);
 
     /// <summary>The test id with each uuid and minted part read as <c>#</c>, null when it has none.</summary>
     private static string? TestIdShape(string testId)
@@ -212,32 +238,48 @@ internal static class Relocate
         return string.Equals(shape, testId, StringComparison.Ordinal) ? null : shape;
     }
 
-    private static string? Field(RecordedTarget descriptor, DescriptorField field) => field switch
-    {
-        DescriptorField.Role => descriptor.Role,
-        DescriptorField.Name => descriptor.Name,
-        DescriptorField.TestId => descriptor.TestId,
-        DescriptorField.Placeholder => descriptor.Placeholder,
-        DescriptorField.InputPurpose => descriptor.InputPurpose,
-        DescriptorField.Text => descriptor.Text,
-        _ => null,
-    };
+    private static string? Field(RecordedTarget descriptor, DescriptorField field) =>
+        field switch
+        {
+            DescriptorField.Role => descriptor.Role,
+            DescriptorField.Name => descriptor.Name,
+            DescriptorField.TestId => descriptor.TestId,
+            DescriptorField.Placeholder => descriptor.Placeholder,
+            DescriptorField.InputPurpose => descriptor.InputPurpose,
+            DescriptorField.Text => descriptor.Text,
+            _ => null,
+        };
 
     /// <summary>Every listed field the recording captured must be present and equal on the candidate.</summary>
-    public static bool FieldsEqual(RecordedTarget recorded, RecordedTarget candidate, IEnumerable<DescriptorField> fields)
+    public static bool FieldsEqual(
+        RecordedTarget recorded,
+        RecordedTarget candidate,
+        IEnumerable<DescriptorField> fields
+    )
     {
         ArgumentNullException.ThrowIfNull(recorded);
         ArgumentNullException.ThrowIfNull(candidate);
-        return fields.All(field => Field(recorded, field) is not { } value || string.Equals(Field(candidate, field), value, StringComparison.Ordinal));
+        return fields.All(field =>
+            Field(recorded, field) is not { } value
+            || string.Equals(Field(candidate, field), value, StringComparison.Ordinal)
+        );
     }
 
     /// <summary>Like <see cref="FieldsEqual"/>, but a field the recording lacks must be absent on the candidate too.</summary>
-    private static bool FieldsIdentical(RecordedTarget recorded, RecordedTarget candidate, IEnumerable<DescriptorField> fields) =>
-        fields.All(field => string.Equals(Field(candidate, field), Field(recorded, field), StringComparison.Ordinal));
+    private static bool FieldsIdentical(
+        RecordedTarget recorded,
+        RecordedTarget candidate,
+        IEnumerable<DescriptorField> fields
+    ) => fields.All(field => string.Equals(Field(candidate, field), Field(recorded, field), StringComparison.Ordinal));
 
     /// <summary>Whether the projection of a node names anything at all. Upstream's <c>describeTarget</c> returns nothing for such a node.</summary>
     internal static bool NamesAnything(RecordedTarget described) =>
-        described.Role is not null || described.Name is not null || described.Text is not null || described.TestId is not null || described.Placeholder is not null || described.InputPurpose is not null;
+        described.Role is not null
+        || described.Name is not null
+        || described.Text is not null
+        || described.TestId is not null
+        || described.Placeholder is not null
+        || described.InputPurpose is not null;
 
     /// <summary>
     /// The node of an observation a relocation named by its reference. No upstream counterpart: upstream's result names a key of the map of
@@ -285,7 +327,11 @@ internal static class Relocate
     /// Upstream takes a map of redacted nodes; the port takes the prepared observation that holds that map and the redactor the descriptors are read through, and the result
     /// names nodes by their reference.
     /// </summary>
-    public static RelocationResult RelocateDescriptor(RecordedTarget descriptor, PreparedObservation observation, Redactor redactor)
+    public static RelocationResult RelocateDescriptor(
+        RecordedTarget descriptor,
+        PreparedObservation observation,
+        Redactor redactor
+    )
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         var (matches, tier) = MatchingIds(descriptor, observation, redactor);
@@ -313,7 +359,11 @@ internal static class Relocate
     /// one to its shape. No tier when nothing matches. The recorder uses the same projection to notice, before it writes a target, that the
     /// description alone would not tell the target from its twins.
     /// </summary>
-    private static (IReadOnlyList<string> Ids, DescriptorTier? Tier) MatchingIds(RecordedTarget descriptor, PreparedObservation observation, Redactor redactor)
+    private static (IReadOnlyList<string> Ids, DescriptorTier? Tier) MatchingIds(
+        RecordedTarget descriptor,
+        PreparedObservation observation,
+        Redactor redactor
+    )
     {
         var keyed = CandidatesWithin(descriptor.Within, observation, redactor);
         foreach (var tier in DescriptorTiers(descriptor))
@@ -336,7 +386,11 @@ internal static class Relocate
     }
 
     /// <summary>The candidates in the recorded container.</summary>
-    private static IReadOnlyList<DescribedNode> CandidatesWithin(string? within, PreparedObservation observation, Redactor redactor)
+    private static IReadOnlyList<DescribedNode> CandidatesWithin(
+        string? within,
+        PreparedObservation observation,
+        Redactor redactor
+    )
     {
         var projection = Project(observation, redactor);
         if (within is null)
@@ -346,7 +400,16 @@ internal static class Relocate
 
         // A recorded container key must hold: the same "Delete" in another row is a different control. Checked against the tree the candidates
         // came from, never guessed.
-        return [.. projection.Described.Where(candidate => string.Equals(AgentActions.ContainerKey(candidate.Node, projection.Parents, redactor), within, StringComparison.Ordinal))];
+        return
+        [
+            .. projection.Described.Where(candidate =>
+                string.Equals(
+                    AgentActions.ContainerKey(candidate.Node, projection.Parents, redactor),
+                    within,
+                    StringComparison.Ordinal
+                )
+            ),
+        ];
     }
 
     private static List<string> TierMatches(DescriptorTier tier, IReadOnlyList<DescribedNode> candidates)
@@ -357,7 +420,10 @@ internal static class Relocate
         return
         [
             .. candidates
-                .Where(candidate => TierView(tier, candidate.Descriptor) is { } view && (identical ? FieldsIdentical(recorded, view, fields) : FieldsEqual(recorded, view, fields)))
+                .Where(candidate =>
+                    TierView(tier, candidate.Descriptor) is { } view
+                    && (identical ? FieldsIdentical(recorded, view, fields) : FieldsEqual(recorded, view, fields))
+                )
                 .Select(candidate => candidate.Node.Ref),
         ];
     }
@@ -368,7 +434,12 @@ internal static class Relocate
     /// change; a distinct label makes it unnecessary. Upstream takes a map of redacted nodes; the port takes the prepared observation and the
     /// redactor its nodes are read through.
     /// </summary>
-    public static TracePosition? DescribePosition(SemanticNode node, string? within, PreparedObservation observation, Redactor redactor)
+    public static TracePosition? DescribePosition(
+        SemanticNode node,
+        string? within,
+        PreparedObservation observation,
+        Redactor redactor
+    )
     {
         ArgumentNullException.ThrowIfNull(node);
         var described = TraceRecorder.DescribeTarget(node, redactor);
@@ -391,7 +462,9 @@ internal static class Relocate
 
         var loosest = tiers[^1];
         var byPlace = MatchesByPlace(loosest);
-        var ids = byPlace ? TierMatches(loosest, CandidatesWithin(within, observation, redactor)) : [.. MatchingIds(probe, observation, redactor).Ids];
+        var ids = byPlace
+            ? TierMatches(loosest, CandidatesWithin(within, observation, redactor))
+            : [.. MatchingIds(probe, observation, redactor).Ids];
         if (ids.Count < (byPlace ? 1 : 2) || ids.Count > MaxPositionedTwins)
         {
             return null;

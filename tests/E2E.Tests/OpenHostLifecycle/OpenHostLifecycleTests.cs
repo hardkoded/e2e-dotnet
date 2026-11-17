@@ -21,21 +21,23 @@ public sealed class OpenHostLifecycleTests : IDisposable
 
     public void Dispose() => _report.Dispose();
 
-    private E2ESessionOptions Options(ToyEngine engine) => new()
-    {
-        ResultsDirectory = _report.Results,
-        TargetName = "kiosk",
-        Engine = engine,
-        CacheEnabled = false,
-        TestTitle = "cancel opening",
-    };
+    private E2ESessionOptions Options(ToyEngine engine) =>
+        new()
+        {
+            ResultsDirectory = _report.Results,
+            TargetName = "kiosk",
+            Engine = engine,
+            CacheEnabled = false,
+            TestTitle = "cancel opening",
+        };
 
-    private StandaloneHostOptions HostOptions(ToyEngine engine) => new()
-    {
-        Engine = engine,
-        TargetName = "kiosk",
-        ProjectRoot = _report.Output,
-    };
+    private StandaloneHostOptions HostOptions(ToyEngine engine) =>
+        new()
+        {
+            Engine = engine,
+            TargetName = "kiosk",
+            ProjectRoot = _report.Output,
+        };
 
     /// <summary>
     /// Partial: the toy's <c>dispose</c> is the end of an attempt's session, which never started here, so upstream's count of one worker
@@ -54,7 +56,9 @@ public sealed class OpenHostLifecycleTests : IDisposable
             },
         };
         var opened = await Standalone.OpenWorkerAsync(HostOptions(toy));
-        var opening = opened.OpenAttemptAsync(Options(toy)).ContinueWith(task => task.IsCompletedSuccessfully ? "opened" : "cancelled", TaskScheduler.Default);
+        var opening = opened
+            .OpenAttemptAsync(Options(toy))
+            .ContinueWith(task => task.IsCompletedSuccessfully ? "opened" : "cancelled", TaskScheduler.Default);
         await starting.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
         var closes = await Task.WhenAll(opened.CloseAsync(), opened.CloseAsync());

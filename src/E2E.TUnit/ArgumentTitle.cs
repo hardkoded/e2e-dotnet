@@ -22,13 +22,21 @@ internal static class ArgumentTitle
         {
             null => "null",
             string text => text.Contains('"', StringComparison.Ordinal)
-                || text.Contains('\\', StringComparison.Ordinal)
-                || text.StartsWith('[')
-                || text == "null"
-                || (quoteComma && text.Contains(',', StringComparison.Ordinal))
-                ? "\"" + text.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\""
+            || text.Contains('\\', StringComparison.Ordinal)
+            || text.StartsWith('[')
+            || text == "null"
+            || (quoteComma && text.Contains(',', StringComparison.Ordinal))
+                ? "\""
+                    + text.Replace("\\", "\\\\", StringComparison.Ordinal)
+                        .Replace("\"", "\\\"", StringComparison.Ordinal)
+                    + "\""
                 : text,
-            System.Collections.IEnumerable items when depth < MaxTitleDepth => "[" + string.Join(", ", items.Cast<object?>().Take(MaxTitleItems).Select(item => Format(item, true, depth + 1))) + "]",
+            System.Collections.IEnumerable items when depth < MaxTitleDepth => "["
+                + string.Join(
+                    ", ",
+                    items.Cast<object?>().Take(MaxTitleItems).Select(item => Format(item, true, depth + 1))
+                )
+                + "]",
             _ => Convert.ToString(argument, CultureInfo.InvariantCulture) ?? "null",
         };
     }

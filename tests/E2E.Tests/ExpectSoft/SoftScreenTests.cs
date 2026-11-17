@@ -21,7 +21,9 @@ public sealed class SoftScreenTests
 
         // The first run has no stored screenshot, so the matcher writes one and fails.
         await Expect.Soft(session.Screen).ToHaveScreenshotAsync("home");
-        await Expect.Soft(session.Screen).Not.ToHaveScreenshotAsync("home", new ScreenshotOptions { Timeout = TimeSpan.FromSeconds(1) });
+        await Expect
+            .Soft(session.Screen)
+            .Not.ToHaveScreenshotAsync("home", new ScreenshotOptions { Timeout = TimeSpan.FromSeconds(1) });
 
         var error = Assert.IsType<TestException>(session.CloseSoftFailures());
         Assert.Equal("ASSERTION_FAILED", error.Code);
@@ -29,14 +31,17 @@ public sealed class SoftScreenTests
         Assert.Contains("no stored screenshot", error.Message, StringComparison.Ordinal);
     }
 
-    private static Task<E2ESession> StartAsync(ScreenProject project) => E2ESession.StartAsync(new E2ESessionOptions
-    {
-        Engine = project.Engine,
-        TestTitle = "soft screen",
-        ProjectRoot = project.Directory,
-        TargetName = "fake",
-        Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Target),
-        AssertionTimeout = TimeSpan.FromSeconds(5),
-        SnapshotDirectoryOf = _ => project.Snapshots("soft"),
-    });
+    private static Task<E2ESession> StartAsync(ScreenProject project) =>
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = project.Engine,
+                TestTitle = "soft screen",
+                ProjectRoot = project.Directory,
+                TargetName = "fake",
+                Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Target),
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                SnapshotDirectoryOf = _ => project.Snapshots("soft"),
+            }
+        );
 }

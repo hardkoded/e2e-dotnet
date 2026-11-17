@@ -14,20 +14,34 @@ namespace E2E.Tests.Engine;
 /// </summary>
 public sealed class DefineEngineTests
 {
-    private static EngineSpec Toy() => new()
-    {
-        Name = "toy",
-        Version = "1.0.0",
-        SpiVersion = 1,
-        Observe = (_, _) => Task.FromResult(Snapshot.Of([Snapshot.Node("n1", "Save"), Snapshot.Node("n2", "Cancel")])),
-    };
+    private static EngineSpec Toy() =>
+        new()
+        {
+            Name = "toy",
+            Version = "1.0.0",
+            SpiVersion = 1,
+            Observe = (_, _) =>
+                Task.FromResult(Snapshot.Of([Snapshot.Node("n1", "Save"), Snapshot.Node("n2", "Cancel")])),
+        };
 
-    private static EngineSpec Bare() => new() { Name = "toy", Version = "1", SpiVersion = 1 };
+    private static EngineSpec Bare() =>
+        new()
+        {
+            Name = "toy",
+            Version = "1",
+            SpiVersion = 1,
+        };
 
     [Fact]
     public void Computes_the_capability_set_from_declared_members_perform_is_the_actions_capability()
     {
-        var handle = EngineManifest.DefineEngine(Toy() with { Actions = ["tap", "fill"], Perform = (_, _, _) => Task.CompletedTask });
+        var handle = EngineManifest.DefineEngine(
+            Toy() with
+            {
+                Actions = ["tap", "fill"],
+                Perform = (_, _, _) => Task.CompletedTask,
+            }
+        );
 
         Assert.Equal(["actions", "observation"], handle.Capabilities.Order(StringComparer.Ordinal));
         Assert.Equal(["tap", "fill"], handle.Actions);
@@ -42,7 +56,13 @@ public sealed class DefineEngineTests
     public void Partial_Computes_the_capability_set_from_declared_members_and_keeps_its_own_copy_of_the_action_list()
     {
         var declared = new List<string> { "tap", "fill" };
-        var handle = EngineManifest.DefineEngine(Toy() with { Actions = declared, Perform = (_, _, _) => Task.CompletedTask });
+        var handle = EngineManifest.DefineEngine(
+            Toy() with
+            {
+                Actions = declared,
+                Perform = (_, _, _) => Task.CompletedTask,
+            }
+        );
 
         declared.Add("press");
 
@@ -52,23 +72,54 @@ public sealed class DefineEngineTests
     [Fact]
     public void Rejects_perform_locate_and_performAt_without_observe_their_refs_are_observation_refs()
     {
-        var perform = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Bare() with { Actions = EngineActionKinds.Locator, Perform = (_, _, _) => Task.CompletedTask }));
+        var perform = Assert.Throws<ConfigurationException>(() =>
+            EngineManifest.DefineEngine(
+                Bare() with
+                {
+                    Actions = EngineActionKinds.Locator,
+                    Perform = (_, _, _) => Task.CompletedTask,
+                }
+            )
+        );
         Assert.Contains("perform without observe", perform.Message, StringComparison.Ordinal);
 
-        var locate = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Bare() with { Locate = (_, _) => Task.FromResult<IReadOnlyList<EngineNode>>([]) }));
+        var locate = Assert.Throws<ConfigurationException>(() =>
+            EngineManifest.DefineEngine(
+                Bare() with
+                {
+                    Locate = (_, _) => Task.FromResult<IReadOnlyList<EngineNode>>([]),
+                }
+            )
+        );
         Assert.Contains("locate without observe", locate.Message, StringComparison.Ordinal);
 
-        var performAt = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Bare() with { PointerActions = ["tap"], PerformAt = (_, _, _) => Task.CompletedTask }));
+        var performAt = Assert.Throws<ConfigurationException>(() =>
+            EngineManifest.DefineEngine(
+                Bare() with
+                {
+                    PointerActions = ["tap"],
+                    PerformAt = (_, _, _) => Task.CompletedTask,
+                }
+            )
+        );
         Assert.Contains("performAt without observe", performAt.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Requires_the_action_list_with_perform_and_perform_with_the_action_list()
     {
-        var withoutActions = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { Perform = (_, _, _) => Task.CompletedTask }));
-        Assert.Contains("perform without actions: list the action kinds", withoutActions.Message, StringComparison.Ordinal);
+        var withoutActions = Assert.Throws<ConfigurationException>(() =>
+            EngineManifest.DefineEngine(Toy() with { Perform = (_, _, _) => Task.CompletedTask })
+        );
+        Assert.Contains(
+            "perform without actions: list the action kinds",
+            withoutActions.Message,
+            StringComparison.Ordinal
+        );
 
-        var withoutPerform = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { Actions = ["tap"] }));
+        var withoutPerform = Assert.Throws<ConfigurationException>(() =>
+            EngineManifest.DefineEngine(Toy() with { Actions = ["tap"] })
+        );
         Assert.Contains("actions without perform", withoutPerform.Message, StringComparison.Ordinal);
     }
 
@@ -78,10 +129,34 @@ public sealed class DefineEngineTests
     [Fact]
     public void Partial_Carries_tapModifiers_onto_the_handle_only_with_perform()
     {
-        Assert.True(EngineManifest.DefineEngine(Toy() with { Actions = ["tap"], Perform = (_, _, _) => Task.CompletedTask, TapModifiers = true }).TapModifiers);
-        Assert.Null(EngineManifest.DefineEngine(Toy() with { Actions = ["tap"], Perform = (_, _, _) => Task.CompletedTask, TapModifiers = false }).TapModifiers);
+        Assert.True(
+            EngineManifest
+                .DefineEngine(
+                    Toy() with
+                    {
+                        Actions = ["tap"],
+                        Perform = (_, _, _) => Task.CompletedTask,
+                        TapModifiers = true,
+                    }
+                )
+                .TapModifiers
+        );
+        Assert.Null(
+            EngineManifest
+                .DefineEngine(
+                    Toy() with
+                    {
+                        Actions = ["tap"],
+                        Perform = (_, _, _) => Task.CompletedTask,
+                        TapModifiers = false,
+                    }
+                )
+                .TapModifiers
+        );
 
-        var error = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { TapModifiers = true }));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            EngineManifest.DefineEngine(Toy() with { TapModifiers = true })
+        );
         Assert.Contains("tapModifiers without perform", error.Message, StringComparison.Ordinal);
     }
 
@@ -93,9 +168,15 @@ public sealed class DefineEngineTests
     public void Partial_Closes_the_action_list_known_kinds_each_once_at_least_one()
     {
         ConfigurationException Define(IReadOnlyList<string> actions) =>
-            Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { Actions = actions, Perform = (_, _, _) => Task.CompletedTask }));
+            Assert.Throws<ConfigurationException>(() =>
+                EngineManifest.DefineEngine(Toy() with { Actions = actions, Perform = (_, _, _) => Task.CompletedTask })
+            );
 
-        Assert.Contains("actions names unknown kind \"click\"; expected one of tap, doubleTap", Define(["tap", "click"]).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "actions names unknown kind \"click\"; expected one of tap, doubleTap",
+            Define(["tap", "click"]).Message,
+            StringComparison.Ordinal
+        );
         Assert.Contains("actions lists \"tap\" twice", Define(["tap", "tap"]).Message, StringComparison.Ordinal);
         Assert.Contains("actions must be a non-empty array", Define([]).Message, StringComparison.Ordinal);
     }
@@ -103,28 +184,101 @@ public sealed class DefineEngineTests
     [Fact]
     public void Computes_the_pointer_capability_from_performAt_which_needs_its_pointerActions_list()
     {
-        var handle = EngineManifest.DefineEngine(Toy() with { PerformAt = (_, _, _) => Task.CompletedTask, PointerActions = ["tap", "longPress"] });
+        var handle = EngineManifest.DefineEngine(
+            Toy() with
+            {
+                PerformAt = (_, _, _) => Task.CompletedTask,
+                PointerActions = ["tap", "longPress"],
+            }
+        );
 
         Assert.Equal(["observation", "pointer"], handle.Capabilities.Order(StringComparer.Ordinal));
         Assert.Equal(["tap", "longPress"], handle.PointerActions);
 
-        Assert.Contains("performAt without pointerActions", Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { PerformAt = (_, _, _) => Task.CompletedTask })).Message, StringComparison.Ordinal);
-        Assert.Contains("pointerActions without performAt", Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { PointerActions = ["tap"] })).Message, StringComparison.Ordinal);
-        Assert.Contains("pointerActions names unknown kind \"fill\"", Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { PerformAt = (_, _, _) => Task.CompletedTask, PointerActions = ["fill"] })).Message, StringComparison.Ordinal);
-        Assert.Contains("pointerActions must be a non-empty array", Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { PerformAt = (_, _, _) => Task.CompletedTask, PointerActions = [] })).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "performAt without pointerActions",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    EngineManifest.DefineEngine(Toy() with { PerformAt = (_, _, _) => Task.CompletedTask })
+                )
+                .Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "pointerActions without performAt",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    EngineManifest.DefineEngine(Toy() with { PointerActions = ["tap"] })
+                )
+                .Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "pointerActions names unknown kind \"fill\"",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    EngineManifest.DefineEngine(
+                        Toy() with
+                        {
+                            PerformAt = (_, _, _) => Task.CompletedTask,
+                            PointerActions = ["fill"],
+                        }
+                    )
+                )
+                .Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "pointerActions must be a non-empty array",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    EngineManifest.DefineEngine(
+                        Toy() with
+                        {
+                            PerformAt = (_, _, _) => Task.CompletedTask,
+                            PointerActions = [],
+                        }
+                    )
+                )
+                .Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public void Computes_the_keyboard_capability_from_the_keyboard_hooks_which_need_observe_and_both_type_and_press()
     {
-        var keyboard = new EngineKeyboardSpec { Type = (_, _, _) => Task.CompletedTask, Press = (_, _) => Task.CompletedTask };
+        var keyboard = new EngineKeyboardSpec
+        {
+            Type = (_, _, _) => Task.CompletedTask,
+            Press = (_, _) => Task.CompletedTask,
+        };
 
         var handle = EngineManifest.DefineEngine(Toy() with { Keyboard = keyboard });
 
         Assert.Equal(["keyboard", "observation"], handle.Capabilities.Order(StringComparer.Ordinal));
         Assert.Null(handle.Keyboard!.Dismiss);
-        Assert.Contains("keyboard without observe", Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Bare() with { Keyboard = keyboard })).Message, StringComparison.Ordinal);
-        Assert.Contains("keyboard.press must be a function", Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { Keyboard = new EngineKeyboardSpec { Type = keyboard.Type } })).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "keyboard without observe",
+            Assert
+                .Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Bare() with { Keyboard = keyboard }))
+                .Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "keyboard.press must be a function",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    EngineManifest.DefineEngine(
+                        Toy() with
+                        {
+                            Keyboard = new EngineKeyboardSpec { Type = keyboard.Type },
+                        }
+                    )
+                )
+                .Message,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
@@ -134,7 +288,17 @@ public sealed class DefineEngineTests
     [Fact]
     public void Partial_Keeps_the_secrets_its_options_hold_as_handles_each_name_once()
     {
-        var handle = EngineManifest.DefineEngine(Toy() with { Secrets = [E2E.Secret.Create("key", "s3cret-one"), E2E.Secret.Create("key", "s3cret-one"), E2E.Secret.Create("other", "s3cret-two")] });
+        var handle = EngineManifest.DefineEngine(
+            Toy() with
+            {
+                Secrets =
+                [
+                    E2E.Secret.Create("key", "s3cret-one"),
+                    E2E.Secret.Create("key", "s3cret-one"),
+                    E2E.Secret.Create("other", "s3cret-two"),
+                ],
+            }
+        );
 
         Assert.Equal(["key", "other"], handle.Secrets!.Select(secret => secret.Name));
     }
@@ -146,16 +310,32 @@ public sealed class DefineEngineTests
     [Fact]
     public void Partial_Rejects_unknown_keys_inside_nested_manifests_the_grammar_is_closed()
     {
-        var video = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with
-        {
-            Artifacts = new EngineArtifactsSpec { Screenshot = (_, _) => Task.FromResult("x"), StartVideo = _ => Task.CompletedTask },
-        }));
-        Assert.Contains("artifacts.startVideo and stopVideo must be declared together", video.Message, StringComparison.Ordinal);
+        var video = Assert.Throws<ConfigurationException>(() =>
+            EngineManifest.DefineEngine(
+                Toy() with
+                {
+                    Artifacts = new EngineArtifactsSpec
+                    {
+                        Screenshot = (_, _) => Task.FromResult("x"),
+                        StartVideo = _ => Task.CompletedTask,
+                    },
+                }
+            )
+        );
+        Assert.Contains(
+            "artifacts.startVideo and stopVideo must be declared together",
+            video.Message,
+            StringComparison.Ordinal
+        );
 
-        var restore = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with
-        {
-            State = new EngineStateSpec { Capture = _ => Task.FromResult(new EngineState("json", 1, null)) },
-        }));
+        var restore = Assert.Throws<ConfigurationException>(() =>
+            EngineManifest.DefineEngine(
+                Toy() with
+                {
+                    State = new EngineStateSpec { Capture = _ => Task.FromResult(new EngineState("json", 1, null)) },
+                }
+            )
+        );
         Assert.Contains("state.restore must be a function", restore.Message, StringComparison.Ordinal);
     }
 
@@ -164,10 +344,17 @@ public sealed class DefineEngineTests
     {
         foreach (var fixture in new[] { "close", "saveState", "setDefaultTimeout" })
         {
-            var refused = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with
-            {
-                Fixtures = new Dictionary<string, Delegate> { [fixture] = new Func<object>(() => new object()) },
-            }));
+            var refused = Assert.Throws<ConfigurationException>(() =>
+                EngineManifest.DefineEngine(
+                    Toy() with
+                    {
+                        Fixtures = new Dictionary<string, Delegate>
+                        {
+                            [fixture] = new Func<object>(() => new object()),
+                        },
+                    }
+                )
+            );
             Assert.Equal("INVALID_CONFIG", refused.Code);
             Assert.Contains("is a method of every @e2e-dev/core session", refused.Message, StringComparison.Ordinal);
         }
@@ -184,8 +371,16 @@ public sealed class DefineEngineTests
         var spec = Toy() with
         {
             ValidateApp = (_, _) => bound.Add("validateApp"),
-            Prepare = _ => { bound.Add("prepare"); return Task.CompletedTask; },
-            Finish = _ => { bound.Add("finish"); return Task.CompletedTask; },
+            Prepare = _ =>
+            {
+                bound.Add("prepare");
+                return Task.CompletedTask;
+            },
+            Finish = _ =>
+            {
+                bound.Add("finish");
+                return Task.CompletedTask;
+            },
             Fixtures = new Dictionary<string, Delegate> { ["hello"] = new Action(() => bound.Add("fixture")) },
         };
         var handle = EngineManifest.DefineEngine(spec);
@@ -209,21 +404,41 @@ public sealed class DefineEngineTests
         Assert.Null(EngineManifest.DefineEngine(Toy()).Workers);
         foreach (var workers in new[] { 0, -1 })
         {
-            Assert.Contains("workers must be a positive safe integer", Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { Workers = workers })).Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "workers must be a positive safe integer",
+                Assert
+                    .Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { Workers = workers }))
+                    .Message,
+                StringComparison.Ordinal
+            );
         }
     }
 
     [Fact]
     public void Requires_a_version_provenance_and_the_trace_cache_key_depend_on_it()
     {
-        Assert.Contains("version", Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { Version = "" })).Message, StringComparison.Ordinal);
-        Assert.Contains("version must be a non-empty string", Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { Version = null })).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "version",
+            Assert
+                .Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { Version = "" }))
+                .Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "version must be a non-empty string",
+            Assert
+                .Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { Version = null }))
+                .Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public void Rejects_unsupported_spiVersion_values()
     {
-        var error = Assert.Throws<ConfigurationException>(() => EngineManifest.DefineEngine(Toy() with { SpiVersion = 2 }));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            EngineManifest.DefineEngine(Toy() with { SpiVersion = 2 })
+        );
         Assert.Contains("spiVersion 2", error.Message, StringComparison.Ordinal);
     }
 

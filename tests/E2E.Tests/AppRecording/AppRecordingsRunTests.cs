@@ -18,23 +18,33 @@ namespace E2E.Tests.AppRecording;
 public sealed class AppRecordingsRunTests : IDisposable
 {
     // The output directory holds the results and the run's report.json beside them.
-    private readonly string _results = Path.Combine(Directory.CreateTempSubdirectory("e2e-app-recording-run-").FullName, "results");
+    private readonly string _results = Path.Combine(
+        Directory.CreateTempSubdirectory("e2e-app-recording-run-").FullName,
+        "results"
+    );
 
     public void Dispose() => Directory.Delete(Path.GetDirectoryName(_results)!, recursive: true);
 
     /// <summary>Runs one test body and returns its one attempt, which must have passed with a complete cleanup.</summary>
-    private async Task<(Reports.ReportAttempt Attempt, IReadOnlyList<(string Path, string? Step)> Videos)> RunAsync(string appUrl, string title, ResolvedRecording video, Func<App, Task> body)
+    private async Task<(Reports.ReportAttempt Attempt, IReadOnlyList<(string Path, string? Step)> Videos)> RunAsync(
+        string appUrl,
+        string title,
+        ResolvedRecording video,
+        Func<App, Task> body
+    )
     {
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(),
-            BaseUrl = appUrl,
-            TestTitle = title,
-            Video = video,
-            ResultsDirectory = _results,
-            ProjectRoot = _results,
-            CacheEnabled = false,
-        });
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(),
+                BaseUrl = appUrl,
+                TestTitle = title,
+                Video = video,
+                ResultsDirectory = _results,
+                ProjectRoot = _results,
+                CacheEnabled = false,
+            }
+        );
         await body(session.App);
         session.Complete();
         await session.DisposeAsync();
@@ -42,9 +52,11 @@ public sealed class AppRecordingsRunTests : IDisposable
         var attempt = Assert.Single(result.Attempts);
         Assert.Equal(Reports.AttemptStatus.Passed, attempt.Status);
         Assert.Equal(Reports.AttemptCleanup.Complete, attempt.Cleanup);
-        var videos = attempt.Artifacts
-            .Where(artifact => artifact.Kind == ArtifactKind.Video)
-            .Select(artifact => (artifact.Path!, attempt.Steps.FirstOrDefault(step => step.Artifacts.Contains(artifact.Id))?.Api))
+        var videos = attempt
+            .Artifacts.Where(artifact => artifact.Kind == ArtifactKind.Video)
+            .Select(artifact =>
+                (artifact.Path!, attempt.Steps.FirstOrDefault(step => step.Artifacts.Contains(artifact.Id))?.Api)
+            )
             .ToList();
         return (attempt, videos);
     }
@@ -62,7 +74,11 @@ public sealed class AppRecordingsRunTests : IDisposable
             await Task.Delay(300);
             var recorded = await fixture.StopRecordingAsync();
             Assert.Single(recorded);
-            Assert.EndsWith("recordings" + Path.DirectorySeparatorChar + "001-span.webm", Assert.IsType<RecordedVideoFile>(recorded[0]).Path, StringComparison.Ordinal);
+            Assert.EndsWith(
+                "recordings" + Path.DirectorySeparatorChar + "001-span.webm",
+                Assert.IsType<RecordedVideoFile>(recorded[0]).Path,
+                StringComparison.Ordinal
+            );
         });
 
         var video = Assert.Single(videos);
@@ -82,10 +98,16 @@ public sealed class AppRecordingsRunTests : IDisposable
             await fixture.StartRecordingAsync(new RecordingOptions { Name = "restart" });
             await fixture.RestartAsync();
             var recorded = await fixture.StopRecordingAsync();
-            Assert.Equal(["001-restart.webm", "001-restart-part2.webm"], recorded.Select(video => Path.GetFileName(Assert.IsType<RecordedVideoFile>(video).Path)));
+            Assert.Equal(
+                ["001-restart.webm", "001-restart-part2.webm"],
+                recorded.Select(video => Path.GetFileName(Assert.IsType<RecordedVideoFile>(video).Path))
+            );
         });
 
-        Assert.Equal(["001-restart.webm", "001-restart-part2.webm"], videos.Select(video => Path.GetFileName(video.Path)));
+        Assert.Equal(
+            ["001-restart.webm", "001-restart-part2.webm"],
+            videos.Select(video => Path.GetFileName(video.Path))
+        );
     }
 
     [Fact]
@@ -107,12 +129,17 @@ public sealed class AppRecordingsRunTests : IDisposable
     public async Task Refuses_a_span_while_the_tests_video_records_and_keeps_that_video()
     {
         using var app = await FixtureApp.StartAsync();
-        var (_, videos) = await RunAsync(app.Url, "refused while the video records", new ResolvedRecording(RecordingMode.On, RecordingSource.Test), async fixture =>
-        {
-            await fixture.OpenAsync();
-            var refusal = await Assert.ThrowsAsync<ConfigurationException>(() => fixture.StartRecordingAsync());
-            Assert.Equal("UNSUPPORTED_CAPABILITY", refusal.Code);
-        });
+        var (_, videos) = await RunAsync(
+            app.Url,
+            "refused while the video records",
+            new ResolvedRecording(RecordingMode.On, RecordingSource.Test),
+            async fixture =>
+            {
+                await fixture.OpenAsync();
+                var refusal = await Assert.ThrowsAsync<ConfigurationException>(() => fixture.StartRecordingAsync());
+                Assert.Equal("UNSUPPORTED_CAPABILITY", refusal.Code);
+            }
+        );
 
         var video = Assert.Single(videos);
         Assert.EndsWith("video/video.webm", video.Path, StringComparison.Ordinal);

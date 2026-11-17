@@ -18,11 +18,16 @@ public sealed class InsideAnAttemptTests
         using var cancel = new CancellationTokenSource();
         var reads = 0;
         var options = new PollOptions { Timeout = TimeSpan.FromSeconds(15), Interval = TimeSpan.FromMilliseconds(5) };
-        var poll = Expect.Poll(() =>
-        {
-            reads++;
-            return "running";
-        }, options).ToBeAsync("done", cancel.Token);
+        var poll = Expect
+            .Poll(
+                () =>
+                {
+                    reads++;
+                    return "running";
+                },
+                options
+            )
+            .ToBeAsync("done", cancel.Token);
 
         cancel.CancelAfter(TimeSpan.FromMilliseconds(30));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => poll);
@@ -42,7 +47,9 @@ public sealed class InsideAnAttemptTests
         cancel.CancelAfter(TimeSpan.FromMilliseconds(150));
         var started = DateTimeOffset.UtcNow;
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Expect.Poll(() => "running", options).ToBeAsync("done", cancel.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Expect.Poll(() => "running", options).ToBeAsync("done", cancel.Token)
+        );
 
         Assert.True(DateTimeOffset.UtcNow - started >= TimeSpan.FromMilliseconds(140));
     }

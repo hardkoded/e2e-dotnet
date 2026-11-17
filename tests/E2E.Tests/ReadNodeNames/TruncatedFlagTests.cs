@@ -38,7 +38,9 @@ public sealed class TruncatedFlagTests(ChromiumPage chromium) : IClassFixture<Ch
         const string Frame = "<button>One</button><iframe title=\"Frame\" srcdoc=\"<button>Inside</button>\"></iframe>";
 
         using var whole = await TinySite.StartAsync($"<!DOCTYPE html><html><body>{Frame}</body></html>");
-        await using (var session = await WebSemanticsTests.OpenAsync(whole.Url, new WebEngineOptions { Headless = true }))
+        await using (
+            var session = await WebSemanticsTests.OpenAsync(whole.Url, new WebEngineOptions { Headless = true })
+        )
         {
             var observation = await session.ObserveAsync(CancellationToken.None);
             Assert.False(observation.Truncated);
@@ -62,7 +64,9 @@ public sealed class TruncatedFlagTests(ChromiumPage chromium) : IClassFixture<Ch
         var filler = string.Concat(Enumerable.Repeat("<button>Fill</button>", ObservationLimits.Nodes - 2));
 
         using var whole = await TinySite.StartAsync($"<!DOCTYPE html><html><body>{Ad}</body></html>");
-        await using (var session = await WebSemanticsTests.OpenAsync(whole.Url, new WebEngineOptions { Headless = true }))
+        await using (
+            var session = await WebSemanticsTests.OpenAsync(whole.Url, new WebEngineOptions { Headless = true })
+        )
         {
             var observation = await session.ObserveAsync(CancellationToken.None);
             Assert.False(observation.Truncated);
@@ -84,7 +88,9 @@ public sealed class TruncatedFlagTests(ChromiumPage chromium) : IClassFixture<Ch
     {
         // Nest same-origin srcdoc frames one deeper than the capture follows.
         using var within = await TinySite.StartAsync(NestedFrames(4));
-        await using (var session = await WebSemanticsTests.OpenAsync(within.Url, new WebEngineOptions { Headless = true }))
+        await using (
+            var session = await WebSemanticsTests.OpenAsync(within.Url, new WebEngineOptions { Headless = true })
+        )
         {
             var observation = await session.ObserveAsync(CancellationToken.None);
             Assert.False(observation.Truncated);
@@ -92,7 +98,9 @@ public sealed class TruncatedFlagTests(ChromiumPage chromium) : IClassFixture<Ch
         }
 
         using var beyond = await TinySite.StartAsync(NestedFrames(5));
-        await using (var session = await WebSemanticsTests.OpenAsync(beyond.Url, new WebEngineOptions { Headless = true }))
+        await using (
+            var session = await WebSemanticsTests.OpenAsync(beyond.Url, new WebEngineOptions { Headless = true })
+        )
         {
             var observation = await session.ObserveAsync(CancellationToken.None);
             Assert.True(observation.Truncated);
@@ -104,7 +112,12 @@ public sealed class TruncatedFlagTests(ChromiumPage chromium) : IClassFixture<Ch
     private static string NestedFrames(int depth)
     {
         static string Level(int level, int deepest) =>
-            $"<button>Level {level}</button>" + (level < deepest ? $"<iframe srcdoc=\"{WebUtility.HtmlEncode(Level(level + 1, deepest))}\"></iframe>" : "");
+            $"<button>Level {level}</button>"
+            + (
+                level < deepest
+                    ? $"<iframe srcdoc=\"{WebUtility.HtmlEncode(Level(level + 1, deepest))}\"></iframe>"
+                    : ""
+            );
 
         return $"<!DOCTYPE html><html><body><button>Top</button><iframe srcdoc=\"{WebUtility.HtmlEncode(Level(1, depth))}\"></iframe></body></html>";
     }

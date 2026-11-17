@@ -13,7 +13,12 @@ public sealed class ScreenshotMaskingTests
     [InlineData(4)]
     public void Masks_and_clips_RGBA_screenshots_encoded_with_filter(int filter)
     {
-        var masked = Decode(ScreenshotMasking.MaskPng(Encode(Solid(10, 10, 4, 255), filter), [new Rect(2, 2, 3, 2), new Rect(8, 8, 50, 50)]));
+        var masked = Decode(
+            ScreenshotMasking.MaskPng(
+                Encode(Solid(10, 10, 4, 255), filter),
+                [new Rect(2, 2, 3, 2), new Rect(8, 8, 50, 50)]
+            )
+        );
         byte[] At(int x, int y) => masked.Pixels[(((y * 10) + x) * 4)..(((y * 10) + x) * 4 + 4)];
 
         Assert.Equal([0, 0, 0, 255], At(2, 2));
@@ -26,16 +31,26 @@ public sealed class ScreenshotMaskingTests
 
     /// <summary>A 4 by 4 screenshot whose every pixel has the same <paramref name="samples"/>, as the color type and bit depth pack them.</summary>
     private static byte[] Filled(int depth, int colorType, params byte[] samples) =>
-        RawPng(4, 4, depth, colorType, Enumerable.Range(0, 4).Select(_ => Enumerable.Repeat(samples, 4).SelectMany(pixel => pixel).ToArray()).ToArray());
+        RawPng(
+            4,
+            4,
+            depth,
+            colorType,
+            Enumerable
+                .Range(0, 4)
+                .Select(_ => Enumerable.Repeat(samples, 4).SelectMany(pixel => pixel).ToArray())
+                .ToArray()
+        );
 
-    public static TheoryData<string, byte[], byte[]> ColorTypes() => new()
-    {
-        { "gray", Filled(8, 0, 200), [200, 200, 200, 255] },
-        { "gray with alpha", Filled(8, 4, 200, 128), [200, 200, 200, 128] },
-        { "RGB", Filled(8, 2, 10, 20, 30), [10, 20, 30, 255] },
-        { "16-bit RGB", Filled(16, 2, 255, 255, 128, 0, 1, 1), [255, 128, 1, 255] },
-        { "16-bit RGBA", Filled(16, 6, 0, 0, 255, 255, 0, 0, 128, 0), [0, 255, 0, 128] },
-    };
+    public static TheoryData<string, byte[], byte[]> ColorTypes() =>
+        new()
+        {
+            { "gray", Filled(8, 0, 200), [200, 200, 200, 255] },
+            { "gray with alpha", Filled(8, 4, 200, 128), [200, 200, 200, 128] },
+            { "RGB", Filled(8, 2, 10, 20, 30), [10, 20, 30, 255] },
+            { "16-bit RGB", Filled(16, 2, 255, 255, 128, 0, 1, 1), [255, 128, 1, 255] },
+            { "16-bit RGBA", Filled(16, 6, 0, 0, 255, 255, 0, 0, 128, 0), [0, 255, 0, 128] },
+        };
 
     [Theory]
     [MemberData(nameof(ColorTypes))]
@@ -45,8 +60,14 @@ public sealed class ScreenshotMaskingTests
         byte[] At(int x, int y) => masked.Pixels[(((y * 4) + x) * 4)..(((y * 4) + x) * 4 + 4)];
 
         byte[] black = [0, 0, 0, 255];
-        Assert.True(black.AsSpan().SequenceEqual(At(0, 0)) && black.AsSpan().SequenceEqual(At(1, 1)), $"{label}: the rectangle is not black");
-        Assert.True(color.AsSpan().SequenceEqual(At(2, 0)) && color.AsSpan().SequenceEqual(At(3, 3)), $"{label}: the rest is not {Convert.ToHexString(color)}");
+        Assert.True(
+            black.AsSpan().SequenceEqual(At(0, 0)) && black.AsSpan().SequenceEqual(At(1, 1)),
+            $"{label}: the rectangle is not black"
+        );
+        Assert.True(
+            color.AsSpan().SequenceEqual(At(2, 0)) && color.AsSpan().SequenceEqual(At(3, 3)),
+            $"{label}: the rest is not {Convert.ToHexString(color)}"
+        );
     }
 
     [Fact]
@@ -63,7 +84,10 @@ public sealed class ScreenshotMaskingTests
         using var bitmap = new SkiaSharp.SKBitmap(2, 2);
         using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
         using var jpeg = image.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 90);
-        Assert.Contains("not a PNG", Assert.ThrowsAny<Exception>(() => ScreenshotMasking.MaskPng(jpeg.ToArray(), rects)).Message);
+        Assert.Contains(
+            "not a PNG",
+            Assert.ThrowsAny<Exception>(() => ScreenshotMasking.MaskPng(jpeg.ToArray(), rects)).Message
+        );
         var masked = Decode(ScreenshotMasking.MaskPng(bytes, rects));
         Assert.Equal([0, 0, 0, 255], masked.Pixels[..4]);
         Assert.Equal([9, 9, 9, 255], masked.Pixels[4..8]);

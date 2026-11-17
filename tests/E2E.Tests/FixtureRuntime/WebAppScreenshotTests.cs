@@ -19,22 +19,27 @@ public sealed class WebAppScreenshotTests
     {
         using var site = await FixtureApp.StartAsync();
         var results = Path.Combine(Path.GetTempPath(), "e2e-web-shot-" + Guid.NewGuid().ToString("N"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(new WebEngineOptions { Headless = true }),
-            BaseUrl = site.Url,
-            TestTitle = "web screenshot",
-            ResultsDirectory = results,
-            CacheEnabled = false,
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(new WebEngineOptions { Headless = true }),
+                BaseUrl = site.Url,
+                TestTitle = "web screenshot",
+                ResultsDirectory = results,
+                CacheEnabled = false,
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         try
         {
             await session.App.OpenAsync("/login");
             var path = await session.App.ScreenshotAsync("login page");
 
             Assert.True(Path.IsPathRooted(path));
-            Assert.Matches(new Regex(@"[\\/]screenshots[\\/]001-login_page\.png\z", RegexOptions.None, TimeSpan.FromSeconds(2)), path);
+            Assert.Matches(
+                new Regex(@"[\\/]screenshots[\\/]001-login_page\.png\z", RegexOptions.None, TimeSpan.FromSeconds(2)),
+                path
+            );
             Assert.Equal([0x89, 0x50, 0x4E, 0x47], (await File.ReadAllBytesAsync(path))[..4]);
             Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp"));
         }

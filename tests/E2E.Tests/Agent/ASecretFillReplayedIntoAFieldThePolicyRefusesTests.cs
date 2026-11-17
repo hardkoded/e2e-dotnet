@@ -17,8 +17,7 @@ namespace E2E.Tests.Agent;
 public sealed class ASecretFillReplayedIntoAFieldThePolicyRefusesTests
 {
     // The counter page with a code field, disabled once the app changed.
-    private static DocumentWorld World(bool disabled) =>
-        new DocumentWorld().Map("/", page =>
+    private static DocumentWorld World(bool disabled) => new DocumentWorld().Map("/", page =>
         {
             var count = 0;
             var counter = page.Status("Counter");
@@ -38,37 +37,45 @@ public sealed class ASecretFillReplayedIntoAFieldThePolicyRefusesTests
 
             async Task<(Exception? Failure, string? Cache)> RunAsync(bool disabled)
             {
-                var secret = Secret.Create("totp", _ => Task.FromResult("fresh-" + Interlocked.Increment(ref providerCalls)));
+                var secret = Secret.Create("totp", _ =>
+                    Task.FromResult("fresh-" + Interlocked.Increment(ref providerCalls))
+                );
                 var executor = new TestExecutor("secret-filler", async (context, token) =>
                 {
                     Interlocked.Increment(ref liveRuns);
                     var observation = await context.ObserveAsync(cancellationToken: token);
-                    await context.Actions.TypeSecretAsync(TargetFor(observation.Text, "textbox \"Code\""), "totp", token);
+                    await context.Actions.TypeSecretAsync(
+                        TargetFor(observation.Text, "textbox \"Code\""),
+                        "totp",
+                        token
+                    );
 
                     // The fill leaves nothing on screen, so the counter is the step's visible effect, which makes it recordable.
                     await context.Actions.TapAsync(TargetFor(observation.Text, "button \"Increment\""), token);
                     return Passed("filled");
-                })
-                {
-                    Version = "test",
-                };
-                await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-                {
-                    Engine = new DocumentEngine(World(disabled)),
-                    AgentExecutor = executor,
-                    BaseUrl = "https://counter.test",
-                    AppIdentity = "fixture-app",
-                    Cache = new FileStepCache(directory),
-                    CacheEnabled = true,
-                    CacheMode = CacheMode.ReadWrite,
-                    TestTitle = "fills the code",
-                });
+                }) { Version = "test" };
+                await using var session = await E2ESession.StartAsync(
+                    new E2ESessionOptions
+                    {
+                        Engine = new DocumentEngine(World(disabled)),
+                        AgentExecutor = executor,
+                        BaseUrl = "https://counter.test",
+                        AppIdentity = "fixture-app",
+                        Cache = new FileStepCache(directory),
+                        CacheEnabled = true,
+                        CacheMode = CacheMode.ReadWrite,
+                        TestTitle = "fills the code",
+                    }
+                );
                 await session.App.OpenAsync("/");
                 Exception? failure = null;
                 string? cache = null;
                 try
                 {
-                    var result = await session.Agent.ActAsync("fill the code", new ActOptions { Params = new Dictionary<string, object?> { ["code"] = secret } });
+                    var result = await session.Agent.ActAsync(
+                        "fill the code",
+                        new ActOptions { Params = new Dictionary<string, object?> { ["code"] = secret } }
+                    );
                     cache = result.Cache?.Mode;
 
                     // A recording is kept once a later assertion verifies the step.

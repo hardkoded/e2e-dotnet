@@ -13,7 +13,13 @@ namespace E2E.Tests.LocatorWaitFor;
 /// </summary>
 public sealed class ASlowLastReadTests
 {
-    private static readonly SemanticNode Banner = new() { Ref = "banner", Role = "alert", Name = "Saved", TestId = "banner" };
+    private static readonly SemanticNode Banner = new()
+    {
+        Ref = "banner",
+        Role = "alert",
+        Name = "Saved",
+        TestId = "banner",
+    };
 
     /// <summary>
     /// A screen whose every read takes 350 ms, bounded by its operation's budget, and whose banner shows up at 1050 ms. The reads move a
@@ -34,7 +40,8 @@ public sealed class ASlowLastReadTests
                 // The banner is read when the read ends, as a device answers with the screen of its end.
                 await SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(350), [], budget).ConfigureAwait(false);
                 return clock.Elapsed >= TimeSpan.FromMilliseconds(1_050) ? [Banner] : [];
-            });
+            }
+        );
         return screen.GetByTestId("banner");
     }
 

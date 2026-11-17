@@ -12,16 +12,23 @@ public sealed class InteractiveNodeCountTests
     {
         Assert.Equal(
             3,
-            global::E2E.AgentObservation.InteractiveNodeCount(string.Join(
-                '\n',
-                "#n1 document \"Home\"",
-                " #n2 heading \"Welcome\"",
-                " #n3 button \"Increment\"",
-                " #n4 status \"Counter\" text=\"0\"",
-                " #n5 link \"About\"",
-                " #n6 textbox \"Email\"")));
+            global::E2E.AgentObservation.InteractiveNodeCount(
+                string.Join(
+                    '\n',
+                    "#n1 document \"Home\"",
+                    " #n2 heading \"Welcome\"",
+                    " #n3 button \"Increment\"",
+                    " #n4 status \"Counter\" text=\"0\"",
+                    " #n5 link \"About\"",
+                    " #n6 textbox \"Email\""
+                )
+            )
+        );
         Assert.Equal(
             0,
-            global::E2E.AgentObservation.InteractiveNodeCount(string.Join('\n', "#n1 document \"Canvas\"", " #n2 heading \"Map\"", " #n3 status \"Picked\"")));
+            global::E2E.AgentObservation.InteractiveNodeCount(
+                string.Join('\n', "#n1 document \"Canvas\"", " #n2 heading \"Map\"", " #n3 status \"Picked\"")
+            )
+        );
     }
 }

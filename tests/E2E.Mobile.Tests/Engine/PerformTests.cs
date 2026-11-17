@@ -16,7 +16,13 @@ public sealed class PerformTests
         var h = Harness.Create();
         var session = await OpenAttempt(h);
         var root = await RootOf(session);
-        var (about, toggle, search, scroller, back) = (Named(root, "About"), Named(root, "Airplane Mode"), Named(root, "Search"), Named(root, "Scroller"), Named(root, "Back"));
+        var (about, toggle, search, scroller, back) = (
+            Named(root, "About"),
+            Named(root, "Airplane Mode"),
+            Named(root, "Search"),
+            Named(root, "Scroller"),
+            Named(root, "Back")
+        );
         var before = h.Fake.Calls.Count;
         await session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None);
         await session.PerformAsync(about, new LocatorAction.DoubleTap(), CancellationToken.None);
@@ -40,35 +46,31 @@ public sealed class PerformTests
             ("interactions.press", """{"ref":"@e4","settle":true,"settleQuietMs":150}"""),
             ("interactions.press", """{"ref":"@e4","count":2,"settle":true,"settleQuietMs":150}"""),
             ("interactions.longPress", """{"ref":"@e4","durationMs":900}"""),
-
             // No duration named: the engine's one-second hold, past a Pressable's delayLongPress.
             ("interactions.longPress", """{"ref":"@e4","durationMs":1000}"""),
             ("interactions.press", """{"ref":"@e7","settle":true,"settleQuietMs":150}"""),
             ("interactions.hover", """{"ref":"@e4"}"""),
-
             // A fill or clear reads the field again before typing into it.
             ("capture.snapshot", """{"interactiveOnly":false}"""),
             ("interactions.fill", """{"ref":"@e7","text":"blue","settle":true,"settleQuietMs":150}"""),
             ("capture.snapshot", """{"interactiveOnly":false}"""),
             ("interactions.fill", """{"ref":"@e7","text":"","settle":true,"settleQuietMs":150}"""),
             ("interactions.press", """{"ref":"@e6","settle":true,"settleQuietMs":150}"""),
-
             // Enter reaches the field through the soft keyboard, so the unfocused field is tapped first.
             ("interactions.press", """{"ref":"@e7","settle":true,"settleQuietMs":150}"""),
             ("command.keyboard", """{"action":"enter"}"""),
             ("interactions.press", """{"ref":"@e7","settle":true,"settleQuietMs":150}"""),
             ("interactions.type", """{"text":"a"}"""),
-
             // Space is typed like a character, the unfocused field tapped first.
             ("interactions.press", """{"ref":"@e7","settle":true,"settleQuietMs":150}"""),
             ("interactions.type", """{"text":" "}"""),
             ("interactions.swipe", """{"from":{"x":195,"y":620},"to":{"x":195,"y":420}}"""),
-
             // The root swipe is the viewport swipe: agent-device's whole-screen scroll at its default amount, a test's step carries no settle wait.
             ("interactions.scroll", """{"direction":"up","postGestureStabilization":false}"""),
             // The swipe left the stabilization wait to the next action, so the drag first reads its control again.
             ("capture.snapshot", """{"interactiveOnly":false}"""),
-            ("interactions.drag", """{"source":"@e4","destination":"@e3"}"""));
+            ("interactions.drag", """{"source":"@e4","destination":"@e3"}""")
+        );
         JsonAssert.PressesCarryASignal(h.Fake);
     }
 
@@ -80,7 +82,11 @@ public sealed class PerformTests
         var root = await RootOf(session);
         var (about, back) = (Named(root, "About"), Named(root, "Back"));
         var before = h.Fake.Calls.Count;
-        await session.PerformAsync(about, new LocatorAction.LongPress(TimeSpan.FromMilliseconds(900)), CancellationToken.None);
+        await session.PerformAsync(
+            about,
+            new LocatorAction.LongPress(TimeSpan.FromMilliseconds(900)),
+            CancellationToken.None
+        );
         await session.PerformAsync(about, new LocatorAction.LongPress(), CancellationToken.None);
         await session.PerformAsync(about, new LocatorAction.Hover(), CancellationToken.None);
         await session.PerformAsync(about, new LocatorAction.DragTo(back), CancellationToken.None);
@@ -90,7 +96,8 @@ public sealed class PerformTests
             ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":900}"""),
             ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":1000}"""),
             ("interactions.hover", """{"ref":"@e4"}"""),
-            ("interactions.drag", """{"source":"@e4","destination":"@e3"}"""));
+            ("interactions.drag", """{"source":"@e4","destination":"@e3"}""")
+        );
     }
 
     [Fact]
@@ -99,7 +106,9 @@ public sealed class PerformTests
         var h = Harness.Create();
         var session = await OpenAttempt(h);
         var about = Named(await RootOf(session), "About");
-        await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.SecondaryTap(), CancellationToken.None));
+        await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(about, new LocatorAction.SecondaryTap(), CancellationToken.None)
+        );
     }
 
     [Theory]
@@ -108,8 +117,11 @@ public sealed class PerformTests
     public async Task Sends_a_key_to_a_focused_field_without_tapping_it_first(string key, string method)
     {
         var h = Harness.Create();
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(
-            [.. RawNodes.SettingsNodes.Select(node => node.Label == "Search" ? node with { Focused = true } : node)]));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SnapshotOf([
+                .. RawNodes.SettingsNodes.Select(node => node.Label == "Search" ? node with { Focused = true } : node),
+            ])
+        );
         var session = await OpenAttempt(h);
         var search = await Observed(session, "Search");
         var before = h.Fake.Calls.Count;
@@ -123,14 +135,15 @@ public sealed class PerformTests
     public async Task Presses_the_innermost_control_even_when_the_row_ref_is(string rowRef)
     {
         var h = Harness.Create();
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(
-        [
-            N("e1", index: 0, depth: 0, type: "Application"),
-            N(rowRef, index: 1, parentIndex: 0, depth: 1, type: "Switch", label: "Haptic Feedback", value: "1"),
-            N("e3", index: 2, parentIndex: 1, depth: 2, type: "Button", label: "Haptic Feedback"),
-            N("e4", index: 3, parentIndex: 1, depth: 2, type: "Switch", value: "1"),
-            N("e5", index: 4, parentIndex: 0, depth: 1, type: "Switch", label: "Sound", value: "0"),
-        ]));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SnapshotOf([
+                N("e1", index: 0, depth: 0, type: "Application"),
+                N(rowRef, index: 1, parentIndex: 0, depth: 1, type: "Switch", label: "Haptic Feedback", value: "1"),
+                N("e3", index: 2, parentIndex: 1, depth: 2, type: "Button", label: "Haptic Feedback"),
+                N("e4", index: 3, parentIndex: 1, depth: 2, type: "Switch", value: "1"),
+                N("e5", index: 4, parentIndex: 0, depth: 1, type: "Switch", label: "Sound", value: "0"),
+            ])
+        );
         var session = await OpenAttempt(h);
         var root = await RootOf(session);
         var haptic = Named(root, "Haptic Feedback");
@@ -145,7 +158,8 @@ public sealed class PerformTests
             0,
             ("interactions.press", """{"ref":"@e4","settle":true,"settleQuietMs":150}"""),
             ("interactions.press", """{"ref":"@e4","settle":true,"settleQuietMs":150}"""),
-            ("interactions.press", """{"ref":"@e5","settle":true,"settleQuietMs":150}"""));
+            ("interactions.press", """{"ref":"@e5","settle":true,"settleQuietMs":150}""")
+        );
     }
 
     [Fact]
@@ -159,40 +173,50 @@ public sealed class PerformTests
         [
             new LocatorAction.Select("x"),
             new LocatorAction.ScrollIntoView(),
-
             // Named keys other than Enter and Space, and every modifier, have no soft-keyboard equivalent.
             new LocatorAction.Press("Escape"),
             new LocatorAction.Press("Tab"),
             new LocatorAction.Press("Control+a"),
             new LocatorAction.Press("Shift+Enter"),
-
             // A tap would activate the row. Focus is for editable fields only.
             new LocatorAction.Focus(),
-
             // The row-level cell exposes no checked state. A blind flip could undo a correct one.
             new LocatorAction.Check(),
         ];
         foreach (var action in refused)
         {
-            var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, action, CancellationToken.None));
+            var failure = await Assert.ThrowsAsync<EngineException>(() =>
+                session.PerformAsync(about, action, CancellationToken.None)
+            );
             Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
         }
 
         // The root takes swipe only.
-        var rootTap = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(root, new LocatorAction.Tap(), CancellationToken.None));
+        var rootTap = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(root, new LocatorAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal("NOT_ACTIONABLE", rootTap.Code);
         Assert.DoesNotContain("interactions.press", h.Fake.Methods());
 
-        h.Fake.Respond(DeviceMethods.InteractionsPress, _ => throw new AgentDeviceError(
-            "COMMAND_FAILED",
-            "Ref @e4 not found",
-            new Dictionary<string, object?> { ["reason"] = "ref_not_found", ["dispatched"] = "no" }));
-        var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None));
+        h.Fake.Respond(DeviceMethods.InteractionsPress, _ =>
+            throw new AgentDeviceError(
+                "COMMAND_FAILED",
+                "Ref @e4 not found",
+                new Dictionary<string, object?> { ["reason"] = "ref_not_found", ["dispatched"] = "no" }
+            )
+        );
+        var stale = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal("NODE_STALE", stale.Code);
         Assert.True(stale.Retryable);
 
-        h.Fake.Respond(DeviceMethods.InteractionsPress, _ => throw new AgentDeviceError("COMMAND_FAILED", "XCTest lost the runner"));
-        var lost = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None));
+        h.Fake.Respond(DeviceMethods.InteractionsPress, _ =>
+            throw new AgentDeviceError("COMMAND_FAILED", "XCTest lost the runner")
+        );
+        var lost = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", lost.Code);
         Assert.False(lost.Retryable);
     }

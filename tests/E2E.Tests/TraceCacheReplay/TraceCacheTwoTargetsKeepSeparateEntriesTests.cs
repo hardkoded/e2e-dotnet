@@ -20,7 +20,8 @@ public sealed class TraceCacheTwoTargetsKeepSeparateEntriesTests
             Assert.Equal("no-entry", result.Cache?.Reason);
         }
 
-        var recorded = Directory.GetFiles(directory)
+        var recorded = Directory
+            .GetFiles(directory)
             .Select(path => TargetOf(File.ReadAllText(path)))
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -37,10 +38,19 @@ public sealed class TraceCacheTwoTargetsKeepSeparateEntriesTests
         try
         {
             var config = Path.Combine(project, "e2e.config.json");
-            File.WriteAllText(config, """{ "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }] }""");
+            File.WriteAllText(
+                config,
+                """{ "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }] }"""
+            );
             var stdout = new StringWriter();
             var stderr = new StringWriter();
-            var code = E2E.Cli.CacheCommand.Run(["ls", "--config", config, "--cache-dir", directory], stdout, stderr, interactive: false, project);
+            var code = E2E.Cli.CacheCommand.Run(
+                ["ls", "--config", config, "--cache-dir", directory],
+                stdout,
+                stderr,
+                interactive: false,
+                project
+            );
             Assert.Equal(0, code);
             return stdout.ToString();
         }

@@ -51,12 +51,12 @@ public sealed class ScreenshotCaretTests
     /// <summary>The caret color of every editable, light DOM, closed root, and iframe, and the sheets each root holds.</summary>
     private sealed record Sample(SortedDictionary<string, string> Colors, int[] Adopted)
     {
-        public bool SameAs(Sample other) =>
-            Colors.SequenceEqual(other.Colors) && Adopted.SequenceEqual(other.Adopted);
+        public bool SameAs(Sample other) => Colors.SequenceEqual(other.Colors) && Adopted.SequenceEqual(other.Adopted);
     }
 
     private static IFrame Framed(IPage page) =>
-        page.Frames.FirstOrDefault(candidate => candidate != page.MainFrame) ?? throw new InvalidOperationException("the fixture iframe is missing");
+        page.Frames.FirstOrDefault(candidate => candidate != page.MainFrame)
+        ?? throw new InvalidOperationException("the fixture iframe is missing");
 
     private static async Task<Sample> SampleAsync(IPage page)
     {
@@ -68,9 +68,15 @@ public sealed class ScreenshotCaretTests
         }
 
         var frame = Framed(page);
-        colors["framed"] = await frame.EvaluateAsync<string>("() => getComputedStyle(document.getElementById('framed')).caretColor");
+        colors["framed"] = await frame.EvaluateAsync<string>(
+            "() => getComputedStyle(document.getElementById('framed')).caretColor"
+        );
         var framedAdopted = await frame.EvaluateAsync<int>("() => document.adoptedStyleSheets.length");
-        var adopted = main.GetProperty("adopted").EnumerateArray().Select(count => count.GetInt32()).Append(framedAdopted).ToArray();
+        var adopted = main.GetProperty("adopted")
+            .EnumerateArray()
+            .Select(count => count.GetInt32())
+            .Append(framedAdopted)
+            .ToArray();
         return new Sample(colors, adopted);
     }
 
@@ -78,7 +84,8 @@ public sealed class ScreenshotCaretTests
     {
         var session = await new WebEngine(new WebEngineOptions()).StartAsync(
             new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(30) },
-            CancellationToken.None);
+            CancellationToken.None
+        );
         try
         {
             await session.OpenAsync(url, CancellationToken.None);
@@ -130,7 +137,8 @@ public sealed class ScreenshotCaretTests
         var before = await SampleAsync(page);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            Caret.WithHiddenCaretAsync<int>(page, () => throw new InvalidOperationException("capture failed")));
+            Caret.WithHiddenCaretAsync<int>(page, () => throw new InvalidOperationException("capture failed"))
+        );
 
         Assert.Equal("capture failed", error.Message);
         Assert.True((await SampleAsync(page)).SameAs(before));
@@ -142,16 +150,22 @@ public sealed class ScreenshotCaretTests
         using var site = await FixtureApp.StartAsync();
         var (session, page) = await OpenAsync(site.Url + "caret-csp");
         await using var _ = session;
-        Task<string> CaretColor() => page.EvaluateAsync<string>("() => getComputedStyle(document.getElementById('plain')).caretColor");
+        Task<string> CaretColor() =>
+            page.EvaluateAsync<string>("() => getComputedStyle(document.getElementById('plain')).caretColor");
         // The policy is real: a style element does not apply.
-        Assert.Equal("rgb(0, 0, 0)", await page.EvaluateAsync<string>("""
-            () => {
-              const style = document.createElement('style');
-              style.textContent = 'input { caret-color: transparent !important; }';
-              document.head.append(style);
-              return getComputedStyle(document.getElementById('plain')).caretColor;
-            }
-            """));
+        Assert.Equal(
+            "rgb(0, 0, 0)",
+            await page.EvaluateAsync<string>(
+                """
+                () => {
+                  const style = document.createElement('style');
+                  style.textContent = 'input { caret-color: transparent !important; }';
+                  document.head.append(style);
+                  return getComputedStyle(document.getElementById('plain')).caretColor;
+                }
+                """
+            )
+        );
 
         var during = await Caret.WithHiddenCaretAsync(page, CaretColor);
         await session.ScreenshotAsync(CancellationToken.None);

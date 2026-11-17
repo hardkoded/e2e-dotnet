@@ -14,7 +14,10 @@ namespace E2E.Mobile.Tests.Provider;
 /// </remarks>
 public sealed class DeviceProviderRecordingTests : IDisposable
 {
-    private static readonly DateTimeOffset StartedAt = DateTimeOffset.Parse("2026-09-28T10:00:00.000Z", System.Globalization.CultureInfo.InvariantCulture);
+    private static readonly DateTimeOffset StartedAt = DateTimeOffset.Parse(
+        "2026-09-28T10:00:00.000Z",
+        System.Globalization.CultureInfo.InvariantCulture
+    );
 
     private static readonly TimeSpan Budget = TimeSpan.FromSeconds(5);
 
@@ -35,11 +38,17 @@ public sealed class DeviceProviderRecordingTests : IDisposable
     }
 
     /// <summary>A recording a scripted provider's service made: each stop answers what the test scripts, or writes <c>replay.mp4</c>.</summary>
-    private sealed class ScriptedRecording(Func<ProviderRecordingStopContext, Task<ProviderRecordingResult>>? stop, List<ProviderRecordingStopContext> stopped) : ProviderRecording
+    private sealed class ScriptedRecording(
+        Func<ProviderRecordingStopContext, Task<ProviderRecordingResult>>? stop,
+        List<ProviderRecordingStopContext> stopped
+    ) : ProviderRecording
     {
         public override DateTimeOffset StartedAt => DeviceProviderRecordingTests.StartedAt;
 
-        public override Task<ProviderRecordingResult> StopAsync(ProviderRecordingStopContext context, CancellationToken cancellationToken)
+        public override Task<ProviderRecordingResult> StopAsync(
+            ProviderRecordingStopContext context,
+            CancellationToken cancellationToken
+        )
         {
             stopped.Add(context);
             if (stop is not null)
@@ -56,7 +65,8 @@ public sealed class DeviceProviderRecordingTests : IDisposable
     private sealed class RecordingCloud(
         Func<DeviceLease, ProviderRecordContext, Task>? start = null,
         Func<ProviderRecordingStopContext, Task<ProviderRecordingResult>>? stop = null,
-        bool records = true) : IDeviceProvider
+        bool records = true
+    ) : IDeviceProvider
     {
         public string Name => "toy-cloud";
 
@@ -65,17 +75,27 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         public List<ProviderRecordingStopContext> Stopped { get; } = [];
 
         public Task<DeviceLease> AcquireAsync(DeviceRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult<DeviceLease>(new KeptLease
-            {
-                Id = $"lease-{request.Slot}",
-                Daemon = new DeviceDaemon($"https://{request.Slot}.example"),
-                Device = $"sim-{request.Slot}",
-                Session = "kept by the provider",
-            });
+            Task.FromResult<DeviceLease>(
+                new KeptLease
+                {
+                    Id = $"lease-{request.Slot}",
+                    Daemon = new DeviceDaemon($"https://{request.Slot}.example"),
+                    Device = $"sim-{request.Slot}",
+                    Session = "kept by the provider",
+                }
+            );
 
-        public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task ReleaseAsync(
+            DeviceLease lease,
+            DeviceReleaseContext context,
+            CancellationToken cancellationToken
+        ) => Task.CompletedTask;
 
-        public async Task<ProviderRecording?> RecordAsync(DeviceLease lease, ProviderRecordContext context, CancellationToken cancellationToken)
+        public async Task<ProviderRecording?> RecordAsync(
+            DeviceLease lease,
+            ProviderRecordContext context,
+            CancellationToken cancellationToken
+        )
         {
             if (!records)
             {
@@ -98,17 +118,32 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         public string Name => "toy-cloud";
 
         public Task<DeviceLease> AcquireAsync(DeviceRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new DeviceLease { Id = $"lease-{request.Slot}", Daemon = new DeviceDaemon($"https://{request.Slot}.example"), Device = $"sim-{request.Slot}" });
+            Task.FromResult(
+                new DeviceLease
+                {
+                    Id = $"lease-{request.Slot}",
+                    Daemon = new DeviceDaemon($"https://{request.Slot}.example"),
+                    Device = $"sim-{request.Slot}",
+                }
+            );
 
-        public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task ReleaseAsync(
+            DeviceLease lease,
+            DeviceReleaseContext context,
+            CancellationToken cancellationToken
+        ) => Task.CompletedTask;
     }
 
-    private static Harness Over(IDeviceProvider provider) => Harness.Create(options => options with { Provider = provider });
+    private static Harness Over(IDeviceProvider provider) =>
+        Harness.Create(options => options with { Provider = provider });
 
     private static readonly Dictionary<string, string?> Token = new() { ["DEVICE_SERVICE_TOKEN"] = "t" };
 
     /// <summary>Prepares one leased slot in the runner, then boots a worker on it from the environment prepare returned.</summary>
-    private async Task<(Harness Worker, DeviceSession Session)> LeasedWorker(IDeviceProvider provider, string attemptId = "a1")
+    private async Task<(Harness Worker, DeviceSession Session)> LeasedWorker(
+        IDeviceProvider provider,
+        string attemptId = "a1"
+    )
     {
         var runner = Over(provider);
         var result = await runner.Engine.PrepareAsync(runner.PrepareInfo(1, env: Token), CancellationToken.None);
@@ -125,7 +160,11 @@ public sealed class DeviceProviderRecordingTests : IDisposable
     private static Func<ProviderRecordingStopContext, Task<ProviderRecordingResult>> Fails(string message) =>
         _ => Task.FromException<ProviderRecordingResult>(new InvalidOperationException(message));
 
-    private static readonly ProviderRecordingResult Link = new() { Url = "https://toy.example/a1.mp4", MediaType = "video/mp4" };
+    private static readonly ProviderRecordingResult Link = new()
+    {
+        Url = "https://toy.example/a1.mp4",
+        MediaType = "video/mp4",
+    };
 
     /// <summary>The native recorder of a fake device: a start while one runs fails, and a stop fails while <paramref name="failStop"/> holds.</summary>
     private static JsonNode? NativeRecording(JsonObject? args, ref bool active, bool failStop)
@@ -162,7 +201,10 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         // The lease as it traveled to the worker: the id rode the binding, the provider's own field stayed behind.
         var (lease, context) = Assert.Single(cloud.Recorded);
         Assert.IsNotType<KeptLease>(lease);
-        Assert.Equal(("lease-0", "sim-0", new DeviceDaemon("https://0.example")), (lease.Id, lease.Device, lease.Daemon));
+        Assert.Equal(
+            ("lease-0", "sim-0", new DeviceDaemon("https://0.example")),
+            (lease.Id, lease.Device, lease.Daemon)
+        );
         Assert.Null(lease.DeviceId);
         Assert.Null(lease.Client);
         Assert.Null(lease.InstalledApp);
@@ -170,7 +212,10 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         Assert.False(string.IsNullOrEmpty(context.AttemptId));
         Assert.Equal("t", context.Env["DEVICE_SERVICE_TOKEN"]);
         var segments = await session.StopVideoAsync(CancellationToken.None);
-        Assert.Equal<VideoSegment>([new VideoFile { Path = "video/replay.mp4", StartedAt = "2026-09-28T10:00:00.000Z" }], segments);
+        Assert.Equal<VideoSegment>(
+            [new VideoFile { Path = "video/replay.mp4", StartedAt = "2026-09-28T10:00:00.000Z" }],
+            segments
+        );
         Assert.Equal([VideoDir], cloud.Stopped.Select(stop => stop.Dir));
         Assert.True(File.Exists(Path.Combine(VideoDir, "replay.mp4")));
         await session.DisposeAsync();
@@ -183,12 +228,24 @@ public sealed class DeviceProviderRecordingTests : IDisposable
     [Fact]
     public async Task Reports_a_recording_the_service_keeps_as_a_link()
     {
-        var cloud = new RecordingCloud(stop: _ => Task.FromResult(new ProviderRecordingResult { Url = "https://toy.example/replays/lease-0.mp4", MediaType = "video/mp4" }));
+        var cloud = new RecordingCloud(stop: _ =>
+            Task.FromResult(
+                new ProviderRecordingResult { Url = "https://toy.example/replays/lease-0.mp4", MediaType = "video/mp4" }
+            )
+        );
         var (_, session) = await LeasedWorker(cloud);
         await session.StartVideoAsync(CancellationToken.None);
         Assert.Equal<VideoSegment>(
-            [new VideoLink { Url = "https://toy.example/replays/lease-0.mp4", MediaType = "video/mp4", StartedAt = "2026-09-28T10:00:00.000Z" }],
-            await session.StopVideoAsync(CancellationToken.None));
+            [
+                new VideoLink
+                {
+                    Url = "https://toy.example/replays/lease-0.mp4",
+                    MediaType = "video/mp4",
+                    StartedAt = "2026-09-28T10:00:00.000Z",
+                },
+            ],
+            await session.StopVideoAsync(CancellationToken.None)
+        );
     }
 
     [Fact]
@@ -198,7 +255,8 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         await session.StartVideoAsync(CancellationToken.None);
         JsonAssert.Args(
             $$"""{"platform":"ios","device":"sim-0","action":"start","path":{{JsonValue.Create(Path.Combine(VideoDir, "video.mp4"))!.ToJsonString()}},"quality":"medium","recordingScope":"device"}""",
-            worker.Fake.LastArgs(DeviceMethods.RecordingRecord));
+            worker.Fake.LastArgs(DeviceMethods.RecordingRecord)
+        );
         await session.StopVideoAsync(CancellationToken.None);
         Assert.Equal(2, Records(worker));
     }
@@ -229,11 +287,16 @@ public sealed class DeviceProviderRecordingTests : IDisposable
     [Fact]
     public async Task Names_the_provider_and_the_lease_when_record_fails_and_has_nothing_to_stop_at_attempt_end()
     {
-        var cloud = new RecordingCloud(start: (_, _) => throw new InvalidOperationException("recording quota exceeded"));
+        var cloud = new RecordingCloud(
+            start: (_, _) => throw new InvalidOperationException("recording quota exceeded")
+        );
         var (worker, session) = await LeasedWorker(cloud);
         var failure = await Assert.ThrowsAsync<EngineException>(() => session.StartVideoAsync(CancellationToken.None));
         Assert.Equal("ENGINE_FAILURE", failure.Code);
-        Assert.Equal("device provider \"toy-cloud\" could not start recording: recording quota exceeded for lease lease-0", failure.Message);
+        Assert.Equal(
+            "device provider \"toy-cloud\" could not start recording: recording quota exceeded for lease lease-0",
+            failure.Message
+        );
         await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
         Assert.Empty(cloud.Stopped);
         Assert.Equal(0, Records(worker));
@@ -312,7 +375,10 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         await session.StartVideoAsync(CancellationToken.None);
         var failure = await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));
         Assert.Equal("ENGINE_FAILURE", failure.Code);
-        Assert.Equal("device provider \"toy-cloud\" recording lease lease-0 could not finish: replay not ready", failure.Message);
+        Assert.Equal(
+            "device provider \"toy-cloud\" recording lease lease-0 could not finish: replay not ready",
+            failure.Message
+        );
         Assert.Single(cloud.Stopped);
         await session.DisposeAsync();
         Assert.Equal(2, cloud.Stopped.Count);
@@ -347,7 +413,8 @@ public sealed class DeviceProviderRecordingTests : IDisposable
                 var result = await stopped.Task;
                 events.Add("stopped");
                 return result;
-            });
+            }
+        );
         var (worker, session) = await LeasedWorker(cloud, "a1");
         await session.StartVideoAsync(CancellationToken.None);
         await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));
@@ -380,15 +447,19 @@ public sealed class DeviceProviderRecordingTests : IDisposable
     public async Task Blocks_the_next_attempt_while_its_retained_provider_recording_cannot_stop_and_preserves_its_owner()
     {
         var unavailable = true;
-        var cloud = new RecordingCloud(stop: _ => unavailable
-            ? Task.FromException<ProviderRecordingResult>(new InvalidOperationException("stop unavailable"))
-            : Task.FromResult(Link));
+        var cloud = new RecordingCloud(stop: _ =>
+            unavailable
+                ? Task.FromException<ProviderRecordingResult>(new InvalidOperationException("stop unavailable"))
+                : Task.FromResult(Link)
+        );
         var (worker, session) = await LeasedWorker(cloud, "a1");
         await session.StartVideoAsync(CancellationToken.None);
         await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));
         await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
         var nextDir = Path.Combine(_artifactsDir, "retry");
-        var blocked = await Assert.ThrowsAsync<EngineException>(() => worker.Boot("ios", 0, _workerEnv, nextDir, attemptId: "a2"));
+        var blocked = await Assert.ThrowsAsync<EngineException>(() =>
+            worker.Boot("ios", 0, _workerEnv, nextDir, attemptId: "a2")
+        );
         Assert.Contains("stop unavailable", blocked.Message, StringComparison.Ordinal);
         Assert.Single(cloud.Recorded);
         Assert.Equal(Enumerable.Repeat(VideoDir, 3), Dirs(cloud));
@@ -422,7 +493,14 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));
         await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
         using var budget = new CancellationTokenSource();
-        var starting = worker.Boot("ios", 0, _workerEnv, Path.Combine(_artifactsDir, "retry"), cancellationToken: budget.Token, attemptId: "a2");
+        var starting = worker.Boot(
+            "ios",
+            0,
+            _workerEnv,
+            Path.Combine(_artifactsDir, "retry"),
+            cancellationToken: budget.Token,
+            attemptId: "a2"
+        );
         try
         {
             await reached.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -459,44 +537,68 @@ public sealed class DeviceProviderRecordingTests : IDisposable
 
         var replacement = Over(new PlainCloud());
         var replacementActive = false;
-        replacement.Fake.Respond(DeviceMethods.RecordingRecord, args => NativeRecording(args, ref replacementActive, failStop: false));
+        replacement.Fake.Respond(DeviceMethods.RecordingRecord, args =>
+            NativeRecording(args, ref replacementActive, failStop: false)
+        );
         var booted = await replacement.Boot("ios", 0, _workerEnv, _artifactsDir, attemptId: "a2");
         await booted.StartVideoAsync(CancellationToken.None);
         Assert.Empty(await booted.StopVideoAsync(CancellationToken.None));
-        JsonAssert.Args("""{"platform":"ios","device":"sim-0","action":"stop"}""", replacement.Fake.LastArgs(DeviceMethods.RecordingRecord));
+        JsonAssert.Args(
+            """{"platform":"ios","device":"sim-0","action":"stop"}""",
+            replacement.Fake.LastArgs(DeviceMethods.RecordingRecord)
+        );
     }
 
     [Fact]
     public async Task Resets_an_unconfirmed_native_recording_before_another_attempt_in_the_same_worker()
     {
         var (worker, session) = await LeasedWorker(new PlainCloud());
-        worker.Fake.Respond(DeviceMethods.RecordingRecord, args => args!["action"]!.GetValue<string>() == "stop"
-            ? throw new InvalidOperationException("native recorder busy")
-            : new JsonObject());
+        worker.Fake.Respond(DeviceMethods.RecordingRecord, args =>
+            args!["action"]!.GetValue<string>() == "stop"
+                ? throw new InvalidOperationException("native recorder busy")
+                : new JsonObject()
+        );
         await session.StartVideoAsync(CancellationToken.None);
         await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
         var next = await worker.Boot("ios", 0, _workerEnv, _artifactsDir, attemptId: "a2");
         await next.StartVideoAsync(CancellationToken.None);
         Assert.Equal(
-            [DeviceMethods.DevicesBoot, DeviceMethods.RecordingRecord, DeviceMethods.RecordingRecord, DeviceMethods.SessionsClose, DeviceMethods.RecordingRecord],
-            worker.Fake.Methods());
+            [
+                DeviceMethods.DevicesBoot,
+                DeviceMethods.RecordingRecord,
+                DeviceMethods.RecordingRecord,
+                DeviceMethods.SessionsClose,
+                DeviceMethods.RecordingRecord,
+            ],
+            worker.Fake.Methods()
+        );
     }
 
     [Fact]
     public async Task Fails_the_next_attempt_when_its_native_recording_reset_cannot_close_the_session()
     {
         var (worker, session) = await LeasedWorker(new PlainCloud());
-        worker.Fake.Respond(DeviceMethods.RecordingRecord, args => args!["action"]!.GetValue<string>() == "stop"
-            ? throw new InvalidOperationException("native recorder busy")
-            : new JsonObject());
+        worker.Fake.Respond(DeviceMethods.RecordingRecord, args =>
+            args!["action"]!.GetValue<string>() == "stop"
+                ? throw new InvalidOperationException("native recorder busy")
+                : new JsonObject()
+        );
         worker.Fake.Respond(DeviceMethods.SessionsClose, _ => throw new InvalidOperationException("reset failed"));
         await session.StartVideoAsync(CancellationToken.None);
         await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
-        var failure = await Assert.ThrowsAnyAsync<Exception>(() => worker.Boot("ios", 0, _workerEnv, _artifactsDir, attemptId: "a2"));
+        var failure = await Assert.ThrowsAnyAsync<Exception>(() =>
+            worker.Boot("ios", 0, _workerEnv, _artifactsDir, attemptId: "a2")
+        );
         Assert.Contains("reset failed", failure.Message, StringComparison.Ordinal);
         Assert.Equal(
-            [DeviceMethods.DevicesBoot, DeviceMethods.RecordingRecord, DeviceMethods.RecordingRecord, DeviceMethods.SessionsClose],
-            worker.Fake.Methods());
+            [
+                DeviceMethods.DevicesBoot,
+                DeviceMethods.RecordingRecord,
+                DeviceMethods.RecordingRecord,
+                DeviceMethods.SessionsClose,
+            ],
+            worker.Fake.Methods()
+        );
     }
 
     [Fact]
@@ -556,16 +658,23 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
         using var reuse = new CancellationTokenSource();
         await worker.Engine.DisposeAsync(Budget, reuse.Token, CancellationToken.None);
-        Assert.Equal([DeviceMethods.DevicesBoot, DeviceMethods.RecordingRecord, DeviceMethods.RecordingRecord], worker.Fake.Methods());
+        Assert.Equal(
+            [DeviceMethods.DevicesBoot, DeviceMethods.RecordingRecord, DeviceMethods.RecordingRecord],
+            worker.Fake.Methods()
+        );
     }
 
     [Fact]
     public async Task Clears_a_confirmed_provider_stop_before_rejecting_its_invalid_artifact()
     {
         var stops = 0;
-        var cloud = new RecordingCloud(stop: _ => Task.FromResult(++stops == 1
-            ? new ProviderRecordingResult { File = "missing.mp4" }
-            : new ProviderRecordingResult { Url = "https://toy.example/replay.mp4", MediaType = "video/mp4" }));
+        var cloud = new RecordingCloud(stop: _ =>
+            Task.FromResult(
+                ++stops == 1
+                    ? new ProviderRecordingResult { File = "missing.mp4" }
+                    : new ProviderRecordingResult { Url = "https://toy.example/replay.mp4", MediaType = "video/mp4" }
+            )
+        );
         var (worker, session) = await LeasedWorker(cloud, "a1");
         await session.StartVideoAsync(CancellationToken.None);
         var failure = await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));
@@ -574,8 +683,16 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         var next = await worker.Boot("ios", 0, _workerEnv, _artifactsDir, attemptId: "a2");
         await next.StartVideoAsync(CancellationToken.None);
         Assert.Equal<VideoSegment>(
-            [new VideoLink { Url = "https://toy.example/replay.mp4", MediaType = "video/mp4", StartedAt = "2026-09-28T10:00:00.000Z" }],
-            await next.StopVideoAsync(CancellationToken.None));
+            [
+                new VideoLink
+                {
+                    Url = "https://toy.example/replay.mp4",
+                    MediaType = "video/mp4",
+                    StartedAt = "2026-09-28T10:00:00.000Z",
+                },
+            ],
+            await next.StopVideoAsync(CancellationToken.None)
+        );
         using var reuse = new CancellationTokenSource();
         await worker.Engine.DisposeAsync(Budget, reuse.Token, CancellationToken.None);
         Assert.Equal(2, cloud.Stopped.Count);
@@ -586,9 +703,11 @@ public sealed class DeviceProviderRecordingTests : IDisposable
     public async Task Retries_an_unconfirmed_provider_stop_after_endAttempt_during_disposal()
     {
         var stops = 0;
-        var cloud = new RecordingCloud(stop: _ => ++stops < 3
-            ? Task.FromException<ProviderRecordingResult>(new InvalidOperationException("stop unavailable"))
-            : Task.FromResult(Link));
+        var cloud = new RecordingCloud(stop: _ =>
+            ++stops < 3
+                ? Task.FromException<ProviderRecordingResult>(new InvalidOperationException("stop unavailable"))
+                : Task.FromResult(Link)
+        );
         var (worker, session) = await LeasedWorker(cloud);
         await session.StartVideoAsync(CancellationToken.None);
         await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));

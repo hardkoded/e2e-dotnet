@@ -34,16 +34,41 @@ public sealed class NodeReadingTests
     public void Reads_only_inside_the_list_it_is_given_and_the_whole_screen_without_one()
     {
         var jump = Node("jump", role: "button", name: "Jump to Row 333");
-        var list = Node("list", role: "list", name: "Ledger", children: [Node("r1", role: "listitem", text: "Row 1"), Node("r2", role: "listitem", text: "Row 2")]);
+        var list = Node(
+            "list",
+            role: "list",
+            name: "Ledger",
+            children: [Node("r1", role: "listitem", text: "Row 1"), Node("r2", role: "listitem", text: "Row 2")]
+        );
         var needle = TextRules.Normalize("Row 333");
         Assert.Null(ReadIn(needle, list, jump, list));
         Assert.Equal("jump", ReadIn(needle, null, jump, list)?.Ref);
-        var rendered = Node("list", role: "list", name: "Ledger", children: [.. list.Children, Node("r333", role: "listitem", text: "Row 333")]);
+        var rendered = Node(
+            "list",
+            role: "list",
+            name: "Ledger",
+            children: [.. list.Children, Node("r333", role: "listitem", text: "Row 333")]
+        );
         Assert.Equal("r333", ReadIn(needle, rendered, jump, rendered)?.Ref);
     }
 
-    private static SemanticNode Node(string id, string? role = null, string? name = null, string? text = null, bool hidden = false, IReadOnlyList<SemanticNode>? children = null) =>
-        new() { Ref = id, Role = role, Name = name, Text = text, States = new NodeStates { Hidden = hidden }, Children = children ?? [] };
+    private static SemanticNode Node(
+        string id,
+        string? role = null,
+        string? name = null,
+        string? text = null,
+        bool hidden = false,
+        IReadOnlyList<SemanticNode>? children = null
+    ) =>
+        new()
+        {
+            Ref = id,
+            Role = role,
+            Name = name,
+            Text = text,
+            States = new NodeStates { Hidden = hidden },
+            Children = children ?? [],
+        };
 
     private static SemanticNode? Read(string needle, params SemanticNode[] roots) => ReadIn(needle, null, roots);
 

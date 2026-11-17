@@ -23,15 +23,26 @@ public sealed class ASecretTheObservedScreenShowsTests
         const string multiline = lead + "\r\n\t" + tail;
         const string collapsed = lead + " " + tail;
         static DocumentWorld World() => new DocumentWorld().Map("/reveal", page =>
-        {
-            page.Roots.Add(new DocumentElement
             {
-                Role = "button",
-                Name = "Go " + collapsed,
-                TestId = probe,
-                OnTap = () => page.Roots.Add(new DocumentElement { Role = "status", Name = "Output " + collapsed, Text = "Output " + collapsed, TestId = probe }),
+                page.Roots.Add(
+                    new DocumentElement
+                    {
+                        Role = "button",
+                        Name = "Go " + collapsed,
+                        TestId = probe,
+                        OnTap = () =>
+                            page.Roots.Add(
+                                new DocumentElement
+                                {
+                                    Role = "status",
+                                    Name = "Output " + collapsed,
+                                    Text = "Output " + collapsed,
+                                    TestId = probe,
+                                }
+                            ),
+                    }
+                );
             });
-        });
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
@@ -44,14 +55,19 @@ public sealed class ASecretTheObservedScreenShowsTests
         async Task Body(TestContext ctx)
         {
             await ctx.App.OpenAsync("/reveal");
-            results.Add(await ctx.Agent.ActAsync("reveal the output", new ActOptions
-            {
-                Params = new Dictionary<string, object?>
-                {
-                    ["probe"] = Secret.Create("probe", probe),
-                    ["multiline"] = Secret.Create("multiline", multiline),
-                },
-            }));
+            results.Add(
+                await ctx.Agent.ActAsync(
+                    "reveal the output",
+                    new ActOptions
+                    {
+                        Params = new Dictionary<string, object?>
+                        {
+                            ["probe"] = Secret.Create("probe", probe),
+                            ["multiline"] = Secret.Create("multiline", multiline),
+                        },
+                    }
+                )
+            );
             await Expect.That(ctx.Screen.GetByRole("status")).ToBeVisibleAsync();
         }
 
@@ -61,26 +77,39 @@ public sealed class ASecretTheObservedScreenShowsTests
         Assert.Null(recorded.Error);
 
         // The redacted anchors still match the redacted screen, so the replay finishes on its own.
-        var replayed = await RunAsync(Body, World(), new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), directory, report: replayedReport);
+        var replayed = await RunAsync(
+            Body,
+            World(),
+            new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+            directory,
+            report: replayedReport
+        );
         Assert.Equal("self-finalized", results[1].Cache?.Mode);
         Assert.Equal(1, results[1].Actions);
 
         // Read JSON unescaped, since the cache writes a marker's angle brackets as \u003C and \u003E.
         var relaxed = new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-        var entries = Directory.GetFiles(directory, "*", SearchOption.AllDirectories)
+        var entries = Directory
+            .GetFiles(directory, "*", SearchOption.AllDirectories)
             .Select(file => JsonNode.Parse(File.ReadAllText(file))!.ToJsonString(relaxed))
             .ToList();
         Assert.Single(entries);
         Assert.Contains("<secret:multiline>", entries[0], StringComparison.Ordinal);
 
         // The observation text is every screen the model read, in its prompts and tool results.
-        var seen = model.Requests.SelectMany(request => request.Messages.Select(message => message.Content).Prepend(request.System)).ToList();
+        var seen = model
+            .Requests.SelectMany(request => request.Messages.Select(message => message.Content).Prepend(request.System))
+            .ToList();
         Assert.Contains("<secret:probe>", string.Join('\n', seen), StringComparison.Ordinal);
 
         // The documents the two sessions wrote are valid, and so are the act results and run outcomes the port returns.
         recordedReport.Read();
         replayedReport.Read();
-        var written = seen.Concat(entries).Append(File.ReadAllText(Path.Combine(recordedReport.Output, "report.json"))).Append(File.ReadAllText(Path.Combine(replayedReport.Output, "report.json"))).Append(JsonSerializer.Serialize(results, relaxed)).Append(JsonSerializer.Serialize(new[] { recorded, replayed }, relaxed));
+        var written = seen.Concat(entries)
+            .Append(File.ReadAllText(Path.Combine(recordedReport.Output, "report.json")))
+            .Append(File.ReadAllText(Path.Combine(replayedReport.Output, "report.json")))
+            .Append(JsonSerializer.Serialize(results, relaxed))
+            .Append(JsonSerializer.Serialize(new[] { recorded, replayed }, relaxed));
         foreach (var fragment in new[] { probe, multiline, collapsed, lead[..12], tail[..8] })
         {
             foreach (var text in written)

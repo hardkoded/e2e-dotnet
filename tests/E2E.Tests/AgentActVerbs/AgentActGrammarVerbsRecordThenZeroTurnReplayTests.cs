@@ -13,8 +13,9 @@ namespace E2E.Tests.AgentActVerbs;
 /// The engine-name lines are not ported: a replay records no engine events. The upload policy line is.
 /// </summary>
 [Collection(BrowserCollection.Name)]
-public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGrammarVerbsRecordThenZeroTurnReplayTests.Runs runs)
-    : IClassFixture<AgentActGrammarVerbsRecordThenZeroTurnReplayTests.Runs>
+public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(
+    AgentActGrammarVerbsRecordThenZeroTurnReplayTests.Runs runs
+) : IClassFixture<AgentActGrammarVerbsRecordThenZeroTurnReplayTests.Runs>
 {
     private const string RoundTrip = "opens a page and comes back";
 
@@ -46,14 +47,18 @@ public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGr
         }
 
         // The replay authorizes the recorded paths against the project root again.
-        var policy = Assert.Single(runs.SecondSteps[UploadFlow.Title].Single(step => step.Api == "agent.act").Events, item => item.Kind == StepEventKind.Policy);
+        var policy = Assert.Single(
+            runs.SecondSteps[UploadFlow.Title].Single(step => step.Api == "agent.act").Events,
+            item => item.Kind == StepEventKind.Policy
+        );
         Assert.Equal(("upload.path", PolicyDecision.Allowed), (policy.Name, policy.Decision));
     }
 
     /// <summary>Both passes over the replay flows, sharing one cache: the first records, the second replays.</summary>
     public sealed class Runs : IAsyncLifetime
     {
-        public string CacheDirectory { get; } = Path.Combine(Path.GetTempPath(), "e2e-verbs", Guid.NewGuid().ToString("n"));
+        public string CacheDirectory { get; } =
+            Path.Combine(Path.GetTempPath(), "e2e-verbs", Guid.NewGuid().ToString("n"));
 
         public Dictionary<string, ActResult> First { get; } = [];
 
@@ -71,7 +76,12 @@ public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGr
 
             foreach (var flow in ReplayFlows)
             {
-                (Second[flow.Title], SecondSteps[flow.Title]) = await RunFlowWithStepsAsync(site, flow, ModelFor(flow), CacheDirectory);
+                (Second[flow.Title], SecondSteps[flow.Title]) = await RunFlowWithStepsAsync(
+                    site,
+                    flow,
+                    ModelFor(flow),
+                    CacheDirectory
+                );
             }
         }
 

@@ -149,20 +149,40 @@ internal static class Replay
     private static readonly Look HeldStill = new(null, SettleMode.HeldStill);
 
     /// <summary>Replays one trace until it completes or diverges.</summary>
-    public static async Task<ReplayOutcome> ReplayTrace(IReplayHost host, IReadOnlyList<RecordedAction> trace, ReplayOptions? options = null)
+    public static async Task<ReplayOutcome> ReplayTrace(
+        IReplayHost host,
+        IReadOnlyList<RecordedAction> trace,
+        ReplayOptions? options = null
+    )
     {
         var summaries = new List<string>();
         var total = trace.Count;
         var token = host.Signal;
 
-        ReplayOutcome Stop(ReplayHandOffReason stopReason, string? partial = null, string? detail = null, string? uncertainAction = null, DerivedReason? derived = null)
+        ReplayOutcome Stop(
+            ReplayHandOffReason stopReason,
+            string? partial = null,
+            string? detail = null,
+            string? uncertainAction = null,
+            DerivedReason? derived = null
+        )
         {
             if (partial is not null)
             {
                 summaries.Add(partial);
             }
 
-            return new ReplayOutcome { Completed = false, Executed = summaries.Count, Total = total, Summaries = summaries, StopReason = stopReason, Detail = detail, UncertainAction = uncertainAction, Derived = derived };
+            return new ReplayOutcome
+            {
+                Completed = false,
+                Executed = summaries.Count,
+                Total = total,
+                Summaries = summaries,
+                StopReason = stopReason,
+                Detail = detail,
+                UncertainAction = uncertainAction,
+                Derived = derived,
+            };
         }
 
         RecordedAction? previous = null;
@@ -182,10 +202,18 @@ internal static class Replay
 
             // The look before this action: the start capture serves the first one; after that, the previous action's settle
             // policy says how far a fresh capture settles.
-            var look = previous is not null ? new Look(null, SettlePolicy.For(previous).Look) : options?.Initial is { } initial ? new Look(initial, SettleMode.Raw) : HeldStill;
+            var look =
+                previous is not null ? new Look(null, SettlePolicy.For(previous).Look)
+                : options?.Initial is { } initial ? new Look(initial, SettleMode.Raw)
+                : HeldStill;
 
             // An action with no target reads no screen, so the screen the previous action left would go unseen.
-            if (previous is not null && !HasTarget(action) && !IsPointAction(action) && options?.LooksBeforeFree?.Invoke() == true)
+            if (
+                previous is not null
+                && !HasTarget(action)
+                && !IsPointAction(action)
+                && options?.LooksBeforeFree?.Invoke() == true
+            )
             {
                 await host.ObserveAsync(look.Settle).ConfigureAwait(false);
             }
@@ -194,7 +222,23 @@ internal static class Replay
 
             // A replayed action draws on the step's action budget like a live one. The first always fits.
             // An action with a target takes its slot once the target is found, so a lost target is a miss.
-            if ((action.Kind is "back" or "resize" or "switchTab" or "closeTab" or "scroll" or "scrollUntil" or "press" or "typeText" or "pressKey" or "dismissKeyboard") && !HasTarget(action) && !await ReserveAsync(host).ConfigureAwait(false))
+            if (
+                (
+                    action.Kind
+                    is "back"
+                        or "resize"
+                        or "switchTab"
+                        or "closeTab"
+                        or "scroll"
+                        or "scrollUntil"
+                        or "press"
+                        or "typeText"
+                        or "pressKey"
+                        or "dismissKeyboard"
+                )
+                && !HasTarget(action)
+                && !await ReserveAsync(host).ConfigureAwait(false)
+            )
             {
                 return Stop(ReplayHandOffReason.ActionBudget);
             }
@@ -202,7 +246,15 @@ internal static class Replay
             // Repeats of a folded scroll done before it failed moved the screen: the outcome counts them as executed. The host
             // commits whole actions only, so the act's recording and hand-off prefix leave the partial scroll out.
             var repeated = 0;
-            string? Partial() => repeated == 0 ? null : summary + " (" + repeated.ToString(CultureInfo.InvariantCulture) + " of " + (action.Times ?? 1).ToString(CultureInfo.InvariantCulture) + " repeats)";
+            string? Partial() =>
+                repeated == 0
+                    ? null
+                    : summary
+                        + " ("
+                        + repeated.ToString(CultureInfo.InvariantCulture)
+                        + " of "
+                        + (action.Times ?? 1).ToString(CultureInfo.InvariantCulture)
+                        + " repeats)";
             try
             {
                 // back, a viewport scroll, and a key press on the focused control target nothing, so they replay as given.
@@ -236,7 +288,13 @@ internal static class Replay
                     case "typeText":
                         // Keyboard input to whatever held focus, replayed as given: the focus it relies on is the effect of the recorded
                         // actions before it, and the end anchors decide whether it landed.
-                        await host.Actions.TypeTextAsync(action.Value ?? "", new TypeTextOptions { Replace = action.Replace == true }, token).ConfigureAwait(false);
+                        await host
+                            .Actions.TypeTextAsync(
+                                action.Value ?? "",
+                                new TypeTextOptions { Replace = action.Replace == true },
+                                token
+                            )
+                            .ConfigureAwait(false);
                         break;
                     case "pressKey":
                         await host.Actions.PressKeyAsync(action.Key ?? "Enter", token).ConfigureAwait(false);
@@ -256,7 +314,9 @@ internal static class Replay
                                 await host.ObserveAsync(SettleMode.HeldStill).ConfigureAwait(false);
                             }
 
-                            await host.Actions.ScrollAsync(null, Direction(action.Direction), 1, token).ConfigureAwait(false);
+                            await host
+                                .Actions.ScrollAsync(null, Direction(action.Direction), 1, token)
+                                .ConfigureAwait(false);
                             repeated++;
                         }
 
@@ -271,7 +331,8 @@ internal static class Replay
                             SemanticNode? scrolledList = null;
                             if (onList)
                             {
-                                var list = await Relocate(host, action, index == 0 ? look : HeldStill).ConfigureAwait(false);
+                                var list = await Relocate(host, action, index == 0 ? look : HeldStill)
+                                    .ConfigureAwait(false);
                                 if (list.Node is null)
                                 {
                                     if (!FilledTheScreen(action))
@@ -297,7 +358,14 @@ internal static class Replay
                                 return Stop(ReplayHandOffReason.ActionBudget);
                             }
 
-                            await host.Actions.ScrollAsync(scrolledList is null ? null : new ExecutorTarget(scrolledList), Direction(action.Direction), 1, token).ConfigureAwait(false);
+                            await host
+                                .Actions.ScrollAsync(
+                                    scrolledList is null ? null : new ExecutorTarget(scrolledList),
+                                    Direction(action.Direction),
+                                    1,
+                                    token
+                                )
+                                .ConfigureAwait(false);
                             repeated++;
                         }
 
@@ -306,7 +374,9 @@ internal static class Replay
                         var text = action.Text ?? "";
                         if (!HasTarget(action))
                         {
-                            await host.Actions.ScrollUntilAsync(text, Direction(action.Direction), null, token).ConfigureAwait(false);
+                            await host
+                                .Actions.ScrollUntilAsync(text, Direction(action.Direction), null, token)
+                                .ConfigureAwait(false);
                             break;
                         }
 
@@ -322,11 +392,19 @@ internal static class Replay
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
 
-                        await host.Actions.ScrollUntilAsync(text, Direction(action.Direction), scrolled.Node is null ? null : new ExecutorTarget(scrolled.Node) { Recorded = action }, token).ConfigureAwait(false);
+                        await host
+                            .Actions.ScrollUntilAsync(
+                                text,
+                                Direction(action.Direction),
+                                scrolled.Node is null ? null : new ExecutorTarget(scrolled.Node) { Recorded = action },
+                                token
+                            )
+                            .ConfigureAwait(false);
                         break;
                     case "tapAt" or "hoverAt":
                         // A bare point, placed the way PlacePoint places one, then acted on through its point verb.
-                        var placed = await PlacePoint(host, action.Point!.Value, action.Under, action.Viewport!, look).ConfigureAwait(false);
+                        var placed = await PlacePoint(host, action.Point!.Value, action.Under, action.Viewport!, look)
+                            .ConfigureAwait(false);
                         if (placed.Failure is { } placedFailure)
                         {
                             return Stop(placedFailure, null, placed.Why);
@@ -337,7 +415,11 @@ internal static class Replay
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
 
-                        await (action.Kind == "tapAt" ? host.Actions.TapAtAsync(placed.Point, token) : host.Actions.HoverAtAsync(placed.Point, token)).ConfigureAwait(false);
+                        await (
+                            action.Kind == "tapAt"
+                                ? host.Actions.TapAtAsync(placed.Point, token)
+                                : host.Actions.HoverAtAsync(placed.Point, token)
+                        ).ConfigureAwait(false);
                         break;
                     case "drag":
                         // Both ends are re-found on one screen, so the nodes the drag joins come from the same look at the app.
@@ -352,19 +434,39 @@ internal static class Replay
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
 
-                        await host.Actions.DragAsync(new ExecutorTarget(pair.Source), new ExecutorTarget(pair.Destination), token).ConfigureAwait(false);
+                        await host
+                            .Actions.DragAsync(
+                                new ExecutorTarget(pair.Source),
+                                new ExecutorTarget(pair.Destination),
+                                token
+                            )
+                            .ConfigureAwait(false);
                         break;
                     case "dragAt":
                         // Points, not ids, reach the drag, so each end may take its own look: nothing acts between the two, and a renumbered
                         // tree moves no box.
                         // A stored end always holds its point: TraceRead.ReadTraceEntry makes an end that lost it a miss before a replay starts.
-                        var start = await PlacePoint(host, action.From!.Point!.Value, action.From.Under, action.Viewport!, look).ConfigureAwait(false);
+                        var start = await PlacePoint(
+                                host,
+                                action.From!.Point!.Value,
+                                action.From.Under,
+                                action.Viewport!,
+                                look
+                            )
+                            .ConfigureAwait(false);
                         if (start.Failure is { } startFailure)
                         {
                             return Stop(startFailure, null, start.Why);
                         }
 
-                        var end = await PlacePoint(host, action.To!.Point!.Value, action.To.Under, action.Viewport!, look).ConfigureAwait(false);
+                        var end = await PlacePoint(
+                                host,
+                                action.To!.Point!.Value,
+                                action.To.Under,
+                                action.Viewport!,
+                                look
+                            )
+                            .ConfigureAwait(false);
                         if (end.Failure is { } endFailure)
                         {
                             return Stop(endFailure, null, end.Why);
@@ -395,14 +497,21 @@ internal static class Replay
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
 
-                        await PerformAsync(host.Actions, new ExecutorTarget(found.Node), action, token).ConfigureAwait(false);
+                        await PerformAsync(host.Actions, new ExecutorTarget(found.Node), action, token)
+                            .ConfigureAwait(false);
                         break;
                 }
             }
-            catch (EngineException ex) when (ex.Code == EngineErrorCodes.ActionMayHaveCommitted && !token.IsCancellationRequested)
+            catch (EngineException ex)
+                when (ex.Code == EngineErrorCodes.ActionMayHaveCommitted && !token.IsCancellationRequested)
             {
                 // The action's input may have reached the app. The executor verifies the state before it tries anything like it again.
-                return Stop(ReplayHandOffReason.ActionUncertain, Partial(), host.Redact.Redact(FirstLine(ex.Message)), summary);
+                return Stop(
+                    ReplayHandOffReason.ActionUncertain,
+                    Partial(),
+                    host.Redact.Redact(FirstLine(ex.Message)),
+                    summary
+                );
             }
             catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex) && !token.IsCancellationRequested)
             {
@@ -415,7 +524,13 @@ internal static class Replay
             previous = action;
         }
 
-        return new ReplayOutcome { Completed = true, Executed = summaries.Count, Total = total, Summaries = summaries };
+        return new ReplayOutcome
+        {
+            Completed = true,
+            Executed = summaries.Count,
+            Total = total,
+            Summaries = summaries,
+        };
     }
 
     // Takes the action's slot, then lets the test's OnBeforeAction hook see the action before it runs: upstream's runAction order.
@@ -440,7 +555,14 @@ internal static class Replay
     private const int EndWaitReserveMs = 20_000;
 
     /// <summary>Backoff between looks at the screen while it settles.</summary>
-    private static readonly TimeSpan[] RetryDelays = [TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(600), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3)];
+    private static readonly TimeSpan[] RetryDelays =
+    [
+        TimeSpan.FromMilliseconds(100),
+        TimeSpan.FromMilliseconds(300),
+        TimeSpan.FromMilliseconds(600),
+        TimeSpan.FromSeconds(1),
+        TimeSpan.FromSeconds(3),
+    ];
 
     /// <summary>
     /// Waits for a trace's recorded end state on the live screen: <paramref name="holds"/> (the recorded delta, <c>Anchors.Mismatch</c>)
@@ -450,21 +572,36 @@ internal static class Replay
     /// step clock leaves room for a hand-off to act. A surface that cannot be observed at all is a mismatch too: the executor gets
     /// the step and judges the live state; only runtime hard stops propagate.
     /// </summary>
-    public static async Task<bool> VerifyEndState(IReplayHost host, Func<PreparedObservation, bool> holds, VerifyEndStateOptions? options = null)
+    public static async Task<bool> VerifyEndState(
+        IReplayHost host,
+        Func<PreparedObservation, bool> holds,
+        VerifyEndStateOptions? options = null
+    )
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(holds);
         var started = host.Time.GetUtcNow();
         try
         {
-            if (await PollSettled(host, holds, options?.Initial is { } initial ? new Look(initial, SettleMode.Raw) : HeldStill).ConfigureAwait(false))
+            if (
+                await PollSettled(
+                        host,
+                        holds,
+                        options?.Initial is { } initial ? new Look(initial, SettleMode.Raw) : HeldStill
+                    )
+                    .ConfigureAwait(false)
+            )
             {
                 return true;
             }
 
             // The settling backoff covers a slow re-render; the recorded run may have waited far longer than that for its effect, a
             // report that takes half a minute, and so does the replay, up to what the recording needed.
-            var deadline = started + TimeSpan.FromMilliseconds(Math.Min(options?.WaitMs ?? 0, Math.Max(0, host.RemainingMs() - EndWaitReserveMs)));
+            var deadline =
+                started
+                + TimeSpan.FromMilliseconds(
+                    Math.Min(options?.WaitMs ?? 0, Math.Max(0, host.RemainingMs() - EndWaitReserveMs))
+                );
             while (true)
             {
                 var pause = deadline - host.Time.GetUtcNow();
@@ -473,7 +610,8 @@ internal static class Replay
                     return false;
                 }
 
-                await Task.Delay(pause < EndWaitPoll ? pause : EndWaitPoll, host.Time, host.Signal).ConfigureAwait(false);
+                await Task.Delay(pause < EndWaitPoll ? pause : EndWaitPoll, host.Time, host.Signal)
+                    .ConfigureAwait(false);
                 var screen = await host.ObserveAsync(SettleMode.Raw).ConfigureAwait(false);
                 if (!host.TraceEligible)
                 {
@@ -515,7 +653,10 @@ internal static class Replay
 
             // The backoff's last delay repeats until the wait runs out: the list shapes the first looks, the timeout bounds them.
             var delay = RetryDelays[Math.Min(attempt, RetryDelays.Length - 1)];
-            if (host.Time.GetUtcNow() - started + delay > host.ReplayTimeout || host.RemainingMs() <= delay.TotalMilliseconds)
+            if (
+                host.Time.GetUtcNow() - started + delay > host.ReplayTimeout
+                || host.RemainingMs() <= delay.TotalMilliseconds
+            )
             {
                 return false;
             }
@@ -526,7 +667,12 @@ internal static class Replay
     }
 
     /// <summary>One recorded action on a node, through the grammar call of its kind.</summary>
-    private static Task PerformAsync(IExecutorActions actions, ExecutorTarget target, RecordedAction action, CancellationToken token)
+    private static Task PerformAsync(
+        IExecutorActions actions,
+        ExecutorTarget target,
+        RecordedAction action,
+        CancellationToken token
+    )
     {
         switch (action.Kind)
         {
@@ -540,7 +686,10 @@ internal static class Replay
                 return actions.LongPressAsync(target, token);
             case "hover":
                 return actions.HoverAsync(target, token);
-            case "fill" when action.Value is { } value && value.StartsWith("<secret:", StringComparison.Ordinal) && value.EndsWith('>'):
+            case "fill"
+                when action.Value is { } value
+                    && value.StartsWith("<secret:", StringComparison.Ordinal)
+                    && value.EndsWith('>'):
                 return actions.TypeSecretAsync(target, value["<secret:".Length..^1], token);
             case "fill":
                 return actions.TypeAsync(target, action.Value ?? "", token);
@@ -565,31 +714,45 @@ internal static class Replay
 
     // The keys a recorded tap held, which it replays with. Null for a tap that held none.
     private static ClickOptions? ClickOptionsOf(RecordedAction action) =>
-        action.Modifiers is { } names ? new ClickOptions { Modifiers = [.. names.Select(name => KeyModifiers.TryParse(name, out var modifier) ? modifier : throw new AgentException("AUTOMATION_UNSUPPORTED", "Cannot replay modifier " + name + "."))] } : null;
+        action.Modifiers is { } names
+            ? new ClickOptions
+            {
+                Modifiers =
+                [
+                    .. names.Select(name =>
+                        KeyModifiers.TryParse(name, out var modifier)
+                            ? modifier
+                            : throw new AgentException("AUTOMATION_UNSUPPORTED", "Cannot replay modifier " + name + ".")
+                    ),
+                ],
+            }
+            : null;
 
     /// <summary>
     /// Upstream's <c>relocate</c> for a recorded action: re-finds the node the action named (<see cref="DescriptorOf"/>), looking again while
     /// the failure may pass.
     /// </summary>
-    private static Task<Relocated> Relocate(IReplayHost host, RecordedAction action, Look look) => Relocate(host, DescriptorOf(action), look);
+    private static Task<Relocated> Relocate(IReplayHost host, RecordedAction action, Look look) =>
+        Relocate(host, DescriptorOf(action), look);
 
     /// <summary>
     /// The descriptor a recorded action carries. Upstream's actions nest it as <c>target</c>; the port's carry its fields flat (.NET-only
     /// shape, see <c>TraceRecorder.ActionOf</c>), so a replay reads them back into one.
     /// </summary>
-    private static RecordedTarget DescriptorOf(RecordedAction action) => new()
-    {
-        Role = action.Role,
-        Name = action.Name,
-        TestId = action.TestId,
-        Within = action.Within,
-        // A scrollUntil's Text is the text it paged toward; its target's own text is TargetText (upstream's target.text).
-        Text = action.Kind == "scrollUntil" ? action.TargetText : action.Text,
-        Placeholder = action.Placeholder,
-        Selector = action.Selector,
-        InputPurpose = action.InputPurpose,
-        Position = action.Position,
-    };
+    private static RecordedTarget DescriptorOf(RecordedAction action) =>
+        new()
+        {
+            Role = action.Role,
+            Name = action.Name,
+            TestId = action.TestId,
+            Within = action.Within,
+            // A scrollUntil's Text is the text it paged toward; its target's own text is TargetText (upstream's target.text).
+            Text = action.Kind == "scrollUntil" ? action.TargetText : action.Text,
+            Placeholder = action.Placeholder,
+            Selector = action.Selector,
+            InputPurpose = action.InputPurpose,
+            Position = action.Position,
+        };
 
     /// <summary>
     /// Upstream's <c>relocate</c>: relocates one descriptor against the settling screen, looking again while <see cref="Retryable"/> says the
@@ -604,7 +767,10 @@ internal static class Replay
         var first = true;
         while (true)
         {
-            var observation = first && look.InHand is { } inHand ? inHand : await host.ObserveAsync(first ? look.Settle : SettleMode.Raw).ConfigureAwait(false);
+            var observation =
+                first && look.InHand is { } inHand
+                    ? inHand
+                    : await host.ObserveAsync(first ? look.Settle : SettleMode.Raw).ConfigureAwait(false);
             first = false;
             var result = RelocateRules.RelocateDescriptor(descriptor, observation, host.Redact);
             if (result is RelocationResult.Found found && RelocateRules.NodeOf(observation, found.Id) is { } node)
@@ -634,7 +800,16 @@ internal static class Replay
     // A failed relocation as the replay reads it: a missing node carries nothing, an ambiguous one the look-alikes and the screen they are on.
     private static Relocated Failure(RelocationResult.Failed failed, PreparedObservation observation) =>
         failed.Failure == RelocationFailure.TargetAmbiguous
-            ? new Relocated(null, ReplayHandOffReason.TargetAmbiguous, [.. (failed.Candidates ?? []).Select(id => RelocateRules.NodeOf(observation, id)).OfType<SemanticNode>()], observation)
+            ? new Relocated(
+                null,
+                ReplayHandOffReason.TargetAmbiguous,
+                [
+                    .. (failed.Candidates ?? [])
+                        .Select(id => RelocateRules.NodeOf(observation, id))
+                        .OfType<SemanticNode>(),
+                ],
+                observation
+            )
             : new Relocated(null, ReplayHandOffReason.TargetNotFound, [], null);
 
     /// <summary>
@@ -647,7 +822,12 @@ internal static class Replay
         failure == ReplayHandOffReason.TargetNotFound || descriptor.Position is not null;
 
     // A relocation that keeps the look-alikes it found with the screen they are on, for a replay that needs boxes.
-    private readonly record struct Relocated(SemanticNode? Node, ReplayHandOffReason Failure, IReadOnlyList<SemanticNode> Candidates, PreparedObservation? Screen);
+    private readonly record struct Relocated(
+        SemanticNode? Node,
+        ReplayHandOffReason Failure,
+        IReadOnlyList<SemanticNode> Candidates,
+        PreparedObservation? Screen
+    );
 
     /// <summary>Whether a recorded action acts on a bare viewport point, which takes its own look and reads its viewport.</summary>
     private static bool IsPointAction(RecordedAction action) => action.Kind is "tapAt" or "hoverAt" or "dragAt";
@@ -661,7 +841,13 @@ internal static class Replay
     /// (<c>Relocate.IsRelocatableDescriptor</c>: an anonymous container recorded without a place) places the point as no node was
     /// recorded, which is upstream's <c>pointEnd</c>.
     /// </summary>
-    private static async Task<Placed> PlacePoint(IReplayHost host, Point point, RecordedPointPlace? within, TraceViewport viewport, Look look)
+    private static async Task<Placed> PlacePoint(
+        IReplayHost host,
+        Point point,
+        RecordedPointPlace? within,
+        TraceViewport viewport,
+        Look look
+    )
     {
         if (within?.Target is not { } recordedNode || !RelocateRules.IsRelocatableDescriptor(recordedNode))
         {
@@ -674,12 +860,20 @@ internal static class Replay
             host.MarkActing();
             if (screen.Viewport is not { } live)
             {
-                return new Placed(default, ReplayHandOffReason.ViewportChanged, "recorded at " + Size(viewport) + ", the screen is of unknown size");
+                return new Placed(
+                    default,
+                    ReplayHandOffReason.ViewportChanged,
+                    "recorded at " + Size(viewport) + ", the screen is of unknown size"
+                );
             }
 
             if (live.Width != viewport.Width || live.Height != viewport.Height)
             {
-                return new Placed(default, ReplayHandOffReason.ViewportChanged, "recorded at " + Size(viewport) + ", the screen is " + Size(live));
+                return new Placed(
+                    default,
+                    ReplayHandOffReason.ViewportChanged,
+                    "recorded at " + Size(viewport) + ", the screen is " + Size(live)
+                );
             }
 
             return new Placed(point);
@@ -687,17 +881,26 @@ internal static class Replay
 
         var relocated = await Relocate(host, recordedNode, look).ConfigureAwait(false);
         var at = PlaceWithin(relocated, within, point, viewport);
-        return at is { } placedAt ? new Placed(placedAt) : new Placed(default, relocated.Node is null ? relocated.Failure : ReplayHandOffReason.TargetNotFound);
+        return at is { } placedAt
+            ? new Placed(placedAt)
+            : new Placed(default, relocated.Node is null ? relocated.Failure : ReplayHandOffReason.TargetNotFound);
     }
 
-    private static string Size(TraceViewport viewport) => viewport.Width.ToString(CultureInfo.InvariantCulture) + "x" + viewport.Height.ToString(CultureInfo.InvariantCulture);
+    private static string Size(TraceViewport viewport) =>
+        viewport.Width.ToString(CultureInfo.InvariantCulture)
+        + "x"
+        + viewport.Height.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Upstream's <c>relocatePair</c>: re-finds a drag's two nodes on one screen, so the nodes the drag joins come from the same look
     /// at the app. Waits like <c>Relocate</c> and gives up the same way: a missing node or a positioned twin is worth another look, an
     /// unpositioned ambiguity is not (<see cref="Retryable"/>).
     /// </summary>
-    private static async Task<(SemanticNode? Source, SemanticNode? Destination, ReplayHandOffReason Failure)> RelocatePair(IReplayHost host, RecordedAction action, Look look)
+    private static async Task<(
+        SemanticNode? Source,
+        SemanticNode? Destination,
+        ReplayHandOffReason Failure
+    )> RelocatePair(IReplayHost host, RecordedAction action, Look look)
     {
         if (action.Destination is not { } destination)
         {
@@ -710,14 +913,23 @@ internal static class Replay
         var first = true;
         while (true)
         {
-            var observation = first && look.InHand is { } inHand ? inHand : await host.ObserveAsync(first ? look.Settle : SettleMode.Raw).ConfigureAwait(false);
+            var observation =
+                first && look.InHand is { } inHand
+                    ? inHand
+                    : await host.ObserveAsync(first ? look.Settle : SettleMode.Raw).ConfigureAwait(false);
             first = false;
             // The end that fails decides: a missing node or a positioned twin is worth another look, an unpositioned ambiguity is not.
             var from = RelocateRules.RelocateDescriptor(source, observation, host.Redact);
-            var to = from is RelocationResult.Failed ? null : RelocateRules.RelocateDescriptor(destination, observation, host.Redact);
-            if (from is RelocationResult.Found foundFrom && to is RelocationResult.Found foundTo
+            var to =
+                from is RelocationResult.Failed
+                    ? null
+                    : RelocateRules.RelocateDescriptor(destination, observation, host.Redact);
+            if (
+                from is RelocationResult.Found foundFrom
+                && to is RelocationResult.Found foundTo
                 && RelocateRules.NodeOf(observation, foundFrom.Id) is { } sourceNode
-                && RelocateRules.NodeOf(observation, foundTo.Id) is { } destinationNode)
+                && RelocateRules.NodeOf(observation, foundTo.Id) is { } destinationNode
+            )
             {
                 host.MarkActing();
                 return (sourceNode, destinationNode, default);
@@ -747,9 +959,15 @@ internal static class Replay
     /// it skipped hidden nodes. Null when the node is gone or has no box, or the point settles nothing: tapping the bare point could press
     /// whatever now sits there.
     /// </summary>
-    private static Point? PlaceWithin(Relocated relocated, RecordedPointPlace within, Point point, TraceViewport viewport)
+    private static Point? PlaceWithin(
+        Relocated relocated,
+        RecordedPointPlace within,
+        Point point,
+        TraceViewport viewport
+    )
     {
-        static BoundingBox? Usable(BoundingBox? rect) => rect is null || rect.Width <= 0 || rect.Height <= 0 ? null : rect;
+        static BoundingBox? Usable(BoundingBox? rect) =>
+            rect is null || rect.Width <= 0 || rect.Height <= 0 ? null : rect;
         Point Inside(BoundingBox box) => new(box.X + within.Fx * box.Width, box.Y + within.Fy * box.Height);
 
         if (relocated.Node is { } node)
@@ -757,13 +975,18 @@ internal static class Replay
             return Usable(node.Rect) is { } box ? Inside(box) : null;
         }
 
-        if (relocated.Failure != ReplayHandOffReason.TargetAmbiguous || relocated.Screen?.Viewport is not { } live || live.Width != viewport.Width || live.Height != viewport.Height)
+        if (
+            relocated.Failure != ReplayHandOffReason.TargetAmbiguous
+            || relocated.Screen?.Viewport is not { } live
+            || live.Width != viewport.Width
+            || live.Height != viewport.Height
+        )
         {
             return null;
         }
 
-        var containing = relocated.Candidates
-            .Where(candidate => !candidate.States.Hidden)
+        var containing = relocated
+            .Candidates.Where(candidate => !candidate.States.Hidden)
             .Select(candidate => Usable(candidate.Rect))
             .OfType<BoundingBox>()
             .Where(box => Geometry.ContainsPoint(box, point))
@@ -783,10 +1006,15 @@ internal static class Replay
     private static bool Nested(List<BoundingBox> boxes)
     {
         var byArea = boxes.OrderBy(box => box.Width * box.Height).ToList();
-        return byArea.Skip(1).Select((box, index) => (Outer: box, Inner: byArea[index]))
-            .All(pair => pair.Inner.X >= pair.Outer.X && pair.Inner.Y >= pair.Outer.Y
+        return byArea
+            .Skip(1)
+            .Select((box, index) => (Outer: box, Inner: byArea[index]))
+            .All(pair =>
+                pair.Inner.X >= pair.Outer.X
+                && pair.Inner.Y >= pair.Outer.Y
                 && pair.Inner.X + pair.Inner.Width <= pair.Outer.X + pair.Outer.Width
-                && pair.Inner.Y + pair.Inner.Height <= pair.Outer.Y + pair.Outer.Height);
+                && pair.Inner.Y + pair.Inner.Height <= pair.Outer.Y + pair.Outer.Height
+            );
     }
 
     private static string FirstLine(string text)

@@ -20,7 +20,8 @@ public sealed record SelectOption
     /// <summary>The option's position in its list, from 0.</summary>
     public int? Index { get; init; }
 
-    internal const string Shape = "selectOption takes a label string or exactly one of { label }, { value }, { index } with a nonnegative integer index";
+    internal const string Shape =
+        "selectOption takes a label string or exactly one of { label }, { value }, { index } with a nonnegative integer index";
 
     /// <summary>Refuses an option that names none or more than one of the three, or an index below 0 (upstream's <c>requireSelectOption</c>).</summary>
     internal void Require()

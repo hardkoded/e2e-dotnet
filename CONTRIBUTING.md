@@ -59,6 +59,12 @@ dotnet test
 
 Style is enforced at build time through `.editorconfig` and `Directory.Build.props` (`EnforceCodeStyleInBuild`, `TreatWarningsAsErrors`). C# files use the Apache file header.
 
+[CSharpier](https://csharpier.com/) formats C# and the MSBuild files. It is a local tool in `dotnet-tools.json`, with its settings in `.csharpierrc.json`. Run `dotnet csharpier format .` before you commit. CI runs `dotnet csharpier check .` and fails on unformatted files. `dotnet format` in CI checks only code style and analyzers, because CSharpier owns the whitespace.
+
+A [Husky.Net](https://alirezanet.github.io/Husky.Net/) `pre-push` hook runs `dotnet csharpier check .` and stops the push if a file is not formatted. The hook installs itself: restoring or building `src/E2E` runs `dotnet tool restore` and `dotnet husky install`. This step is skipped in CI (`CI=true`), outside a git checkout, and when `HUSKY=0` is set. To install the hook by hand, run `dotnet tool restore` and then `dotnet husky install`.
+
+The commit that first formatted the codebase is listed in `.git-blame-ignore-revs`. Run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once so `git blame` skips it. GitHub skips it already.
+
 Do not commit API keys.
 
 ## Documentation

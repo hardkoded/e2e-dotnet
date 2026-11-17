@@ -26,7 +26,11 @@ public sealed class ALinkedMcpConfigTests : CliInitTestBase
             await File.WriteAllTextAsync(target, original);
             Link(Path_(".mcp.json"), target, directory: false);
             Assert.Equal(0, (await RunInitAsync()).ExitCode);
-            Assert.Contains("Symlink, not touching: .mcp.json -> " + Real(target) + " (e2e mcp server)", Output, StringComparison.Ordinal);
+            Assert.Contains(
+                "Symlink, not touching: .mcp.json -> " + Real(target) + " (e2e mcp server)",
+                Output,
+                StringComparison.Ordinal
+            );
             Assert.DoesNotContain("Updated .mcp.json", Output, StringComparison.Ordinal);
             // The linked file is untouched and still a link; the other location is written normally.
             Assert.Equal(original, await File.ReadAllTextAsync(target));
@@ -52,7 +56,11 @@ public sealed class ALinkedMcpConfigTests : CliInitTestBase
         {
             Link(Path_(".cursor"), elsewhere, directory: true);
             Assert.Equal(0, (await RunInitAsync()).ExitCode);
-            Assert.Contains("Symlink, not touching: .cursor -> " + Real(elsewhere) + " (e2e mcp server)", Output, StringComparison.Ordinal);
+            Assert.Contains(
+                "Symlink, not touching: .cursor -> " + Real(elsewhere) + " (e2e mcp server)",
+                Output,
+                StringComparison.Ordinal
+            );
             Assert.Empty(Directory.EnumerateFileSystemEntries(elsewhere));
             Assert.NotNull(Json(".mcp.json")["mcpServers"]!["e2e"]);
         }

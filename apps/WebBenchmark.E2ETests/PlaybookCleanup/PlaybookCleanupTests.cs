@@ -15,7 +15,9 @@ public sealed class PlaybookCleanupTests : BenchmarkTest
     public async Task OpenThePlaybookCleanup()
     {
         await App.OpenAsync("/e/playbook-cleanup");
-        await Expect.That(Screen.GetByRole("heading", new RoleOptions { Level = 3 })).ToHaveTextAsync(["NDA Review", Target, "Vendor Onboarding"]);
+        await Expect
+            .That(Screen.GetByRole("heading", new RoleOptions { Level = 3 }))
+            .ToHaveTextAsync(["NDA Review", Target, "Vendor Onboarding"]);
     }
 
     [Test]
@@ -30,7 +32,9 @@ public sealed class PlaybookCleanupTests : BenchmarkTest
         await Expect.That(dialog).ToContainTextAsync($"Are you sure you want to remove \"{Target}\"?");
         await dialog.GetByRole("button", "Remove").TapAsync();
         await Expect.That(dialog).ToBeHiddenAsync();
-        await Expect.That(Screen.GetByRole("heading", new RoleOptions { Level = 3 })).ToHaveTextAsync(["NDA Review", "Vendor Onboarding"]);
+        await Expect
+            .That(Screen.GetByRole("heading", new RoleOptions { Level = 3 }))
+            .ToHaveTextAsync(["NDA Review", "Vendor Onboarding"]);
 
         await Screen.GetByLabel("Search playbooks").FillAsync(Target);
         await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync($"No playbooks match \"{Target}\".");

@@ -37,7 +37,12 @@ internal sealed class FailureWatch
     public void OnProgress(StepProgress progress)
     {
         // Only an agent step's failure implicates recordings: a program catches a locator's timeout on purpose, to branch.
-        if (progress.Phase != StepProgressPhase.End || progress.Kind != StepKind.Agent || progress.Status is null or StepStatus.Passed || _steps is null)
+        if (
+            progress.Phase != StepProgressPhase.End
+            || progress.Kind != StepKind.Agent
+            || progress.Status is null or StepStatus.Passed
+            || _steps is null
+        )
         {
             return;
         }
@@ -45,10 +50,13 @@ internal sealed class FailureWatch
         var code = progress.Error?.Code;
         lock (_failures)
         {
-            _failures.Add(new SurvivedFailure(
-                _steps.LastVerifiedStepIndex,
-                progress.Identity?.StepIndex ?? int.MaxValue,
-                code is null || !AgentError.ModelUnreachableCodes.Contains(code)));
+            _failures.Add(
+                new SurvivedFailure(
+                    _steps.LastVerifiedStepIndex,
+                    progress.Identity?.StepIndex ?? int.MaxValue,
+                    code is null || !AgentError.ModelUnreachableCodes.Contains(code)
+                )
+            );
         }
     }
 

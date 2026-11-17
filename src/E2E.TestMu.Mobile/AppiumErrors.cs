@@ -23,30 +23,58 @@ internal static class AppiumErrors
     public static AgentDeviceError NotImplemented(string message) => new("NOT_IMPLEMENTED", message);
 
     public static AgentDeviceError StaleReference(string reference) =>
-        new("COMMAND_FAILED", $"{reference} is not on the newest screen read", new Dictionary<string, object?> { ["reason"] = StaleRef });
+        new(
+            "COMMAND_FAILED",
+            $"{reference} is not on the newest screen read",
+            new Dictionary<string, object?> { ["reason"] = StaleRef }
+        );
 
     public static AgentDeviceError InvalidArgument(string message) => new("INVALID_ARGS", message);
 
     /// <summary>The error for a failed Appium call. <paramref name="method"/> is the client method it served.</summary>
     public static AgentDeviceError Translate(WebDriverException failure, string method)
     {
-        var details = new Dictionary<string, object?> { ["webdriverError"] = failure.Error, ["status"] = (int?)failure.Status };
+        var details = new Dictionary<string, object?>
+        {
+            ["webdriverError"] = failure.Error,
+            ["status"] = (int?)failure.Status,
+        };
         switch (failure.Error)
         {
             case "no such element" or "stale element reference":
                 details["reason"] = StaleRef;
                 return new AgentDeviceError("COMMAND_FAILED", $"{method}: {failure.Message}", details, failure);
             case "invalid session id" or "session not created":
-                return new AgentDeviceError("SESSION_NOT_FOUND", $"the TestMu session is not available: {failure.Message}", details, failure);
+                return new AgentDeviceError(
+                    "SESSION_NOT_FOUND",
+                    $"the TestMu session is not available: {failure.Message}",
+                    details,
+                    failure
+                );
             case "unsupported operation" or "unknown command" or "unknown method":
-                return new AgentDeviceError("UNSUPPORTED_OPERATION", $"{method} is not supported by this device or the TestMu hub: {failure.Message}", details, failure);
+                return new AgentDeviceError(
+                    "UNSUPPORTED_OPERATION",
+                    $"{method} is not supported by this device or the TestMu hub: {failure.Message}",
+                    details,
+                    failure
+                );
         }
 
         if (failure.Status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
-            return new AgentDeviceError("COMMAND_FAILED", $"the TestMu hub rejected the credentials: {failure.Message}", details, failure);
+            return new AgentDeviceError(
+                "COMMAND_FAILED",
+                $"the TestMu hub rejected the credentials: {failure.Message}",
+                details,
+                failure
+            );
         }
 
-        return new AgentDeviceError("COMMAND_FAILED", $"{method}: {failure.Error}: {failure.Message}", details, failure);
+        return new AgentDeviceError(
+            "COMMAND_FAILED",
+            $"{method}: {failure.Error}: {failure.Message}",
+            details,
+            failure
+        );
     }
 }

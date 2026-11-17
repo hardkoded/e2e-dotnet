@@ -41,6 +41,7 @@ public sealed class SecretLedgerTests
         var redacted = SessionHost.RedactResult(observed, ledger.Redact);
         Assert.Equal(
             [("text", "#n3 textbox \"Token\" value=\"<secret:apiKey>\"")],
-            McpTools.ToolFixtures.Parts(redacted));
+            McpTools.ToolFixtures.Parts(redacted)
+        );
     }
 }

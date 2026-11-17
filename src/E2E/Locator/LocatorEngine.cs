@@ -35,7 +35,12 @@ internal sealed class LocatorEngineOptions
     public Func<TimeSpan, CancellationToken, Task<Observation>>? ObserveWithin { get; init; }
 
     /// <summary>The engine's own resolve (upstream's <c>session.locate</c>); null resolves over <see cref="Observe"/>.</summary>
-    public Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? Locate { get; init; }
+    public Func<
+        LocatorExpression,
+        TimeSpan,
+        CancellationToken,
+        Task<IReadOnlyList<SemanticNode>>
+    >? Locate { get; init; }
 
     /// <summary>One action on a node (upstream's <c>session.perform</c>), with the context that says who acts.</summary>
     public required Func<SemanticNode, LocatorAction, OperationContext, CancellationToken, Task> Perform { get; init; }
@@ -129,8 +134,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     internal bool LocatesInEngine => options.Locate is not null;
 
     /// <summary>Canonical visibility predicate over a semantic node snapshot (upstream's <c>isNodeVisible</c>).</summary>
-    internal static bool IsNodeVisible(SemanticNode? node) =>
-        node is { States: { Hidden: false, EmptyBox: false } };
+    internal static bool IsNodeVisible(SemanticNode? node) => node is { States: { Hidden: false, EmptyBox: false } };
 
     /// <summary>
     /// Denies reading a value, text, or attribute when any node is a secure field: the engine withholds them there, so what reads as
@@ -149,7 +153,11 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// what it asked for, and how long it waited, when it waited.
     /// </summary>
     internal static ErrorDetails LocatorDetails(LocatorExpression expression, TimeSpan? waited = null) =>
-        expression.ExpressionHints() with { Locator = expression.Describe(), WaitedMs = waited is { } elapsed ? (long)elapsed.TotalMilliseconds : null };
+        expression.ExpressionHints() with
+        {
+            Locator = expression.Describe(),
+            WaitedMs = waited is { } elapsed ? (long)elapsed.TotalMilliseconds : null,
+        };
 
     /// <summary>
     /// Translates an engine error into the runner-owned public taxonomy (upstream's <c>translateLocatorError</c>), naming
@@ -157,33 +165,43 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// </summary>
     internal static Exception TranslateLocatorError(Exception cause, LocatorExpression? expression = null)
     {
-        var translated = ErrorSerializer.TranslateEngineError(cause, expression is null ? "" : ": " + expression.Describe());
-        return expression is not null && translated is TestException { Code: "LOCATOR_NOT_FOUND" or "LOCATOR_AMBIGUOUS" } frame && cause is EngineException { Code: EngineErrorCodes.FrameNotFound or EngineErrorCodes.FrameAmbiguous }
-            ? new TestException(frame.Code, frame.Message, frame.InnerException!) { Details = LocatorDetails(expression) }
+        var translated = ErrorSerializer.TranslateEngineError(
+            cause,
+            expression is null ? "" : ": " + expression.Describe()
+        );
+        return
+            expression is not null
+            && translated is TestException { Code: "LOCATOR_NOT_FOUND" or "LOCATOR_AMBIGUOUS" } frame
+            && cause is EngineException { Code: EngineErrorCodes.FrameNotFound or EngineErrorCodes.FrameAmbiguous }
+            ? new TestException(frame.Code, frame.Message, frame.InnerException!)
+            {
+                Details = LocatorDetails(expression),
+            }
             : translated;
     }
 
     /// <summary>The method a test called, as upstream names the action: tap, doubleTap, fill, selectOption.</summary>
-    internal static string ApiName(LocatorAction action) => action switch
-    {
-        LocatorAction.Tap => "tap",
-        LocatorAction.DoubleTap => "doubleTap",
-        LocatorAction.Fill => "fill",
-        LocatorAction.Press => "press",
-        LocatorAction.Select => "selectOption",
-        LocatorAction.SetInputFiles => "setInputFiles",
-        LocatorAction.Check => "check",
-        LocatorAction.Uncheck => "uncheck",
-        LocatorAction.Clear => "clear",
-        LocatorAction.Focus => "focus",
-        LocatorAction.ScrollIntoView => "scrollIntoView",
-        LocatorAction.Swipe => "swipe",
-        LocatorAction.SecondaryTap => "secondaryTap",
-        LocatorAction.LongPress => "longPress",
-        LocatorAction.Hover => "hover",
-        LocatorAction.DragTo => "dragTo",
-        _ => throw new ArgumentOutOfRangeException(nameof(action), action, "unknown locator action"),
-    };
+    internal static string ApiName(LocatorAction action) =>
+        action switch
+        {
+            LocatorAction.Tap => "tap",
+            LocatorAction.DoubleTap => "doubleTap",
+            LocatorAction.Fill => "fill",
+            LocatorAction.Press => "press",
+            LocatorAction.Select => "selectOption",
+            LocatorAction.SetInputFiles => "setInputFiles",
+            LocatorAction.Check => "check",
+            LocatorAction.Uncheck => "uncheck",
+            LocatorAction.Clear => "clear",
+            LocatorAction.Focus => "focus",
+            LocatorAction.ScrollIntoView => "scrollIntoView",
+            LocatorAction.Swipe => "swipe",
+            LocatorAction.SecondaryTap => "secondaryTap",
+            LocatorAction.LongPress => "longPress",
+            LocatorAction.Hover => "hover",
+            LocatorAction.DragTo => "dragTo",
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "unknown locator action"),
+        };
 
     /// <summary>
     /// The failure of an action whose deadline passed before it was sent. A read may finish past its deadline so its result is classed
@@ -193,10 +211,12 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         new("ACTION_FAILED", "operation timed out before the " + kind + " was sent: " + target);
 
     /// <summary>The token an operation runs under: the caller's, ending with the running phase's too (upstream's <c>signal</c>).</summary>
-    internal CancellationToken Token(CancellationToken cancellationToken) => Time.Link(cancellationToken, options.Cancellation());
+    internal CancellationToken Token(CancellationToken cancellationToken) =>
+        Time.Link(cancellationToken, options.Cancellation());
 
     /// <summary>The reads of one wait on <paramref name="deadline"/>: the last may run past it, up to the test timeout (upstream's <c>reads</c>).</summary>
-    internal ReadWindow Reads(Deadline deadline) => new(deadline, Clock, BudgetDeadline ?? new Deadline(DateTimeOffset.MaxValue));
+    internal ReadWindow Reads(Deadline deadline) =>
+        new(deadline, Clock, BudgetDeadline ?? new Deadline(DateTimeOffset.MaxValue));
 
     /// <summary>
     /// The timeout of one action-family operation: <paramref name="timeout"/> when given, the action timeout otherwise. Upstream's
@@ -204,34 +224,55 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// negative <paramref name="timeout"/> is <c>INVALID_ARGUMENT</c>. Zero sets no deadline of its own: the budget is what is left of the
     /// running phase's deadline.
     /// </summary>
-    internal TimeSpan TimeoutOf(TimeSpan? timeout) => Time.StepBudget(timeout, "the step", ActionTimeout, BudgetDeadline, Clock);
+    internal TimeSpan TimeoutOf(TimeSpan? timeout) =>
+        Time.StepBudget(timeout, "the step", ActionTimeout, BudgetDeadline, Clock);
 
     /// <summary>
     /// Deadline for one action-family operation (upstream's <c>deadline</c>; .NET-only name, as <c>Deadline</c> is the type). Zero sets no
     /// deadline of its own, so the running phase's alone bounds it.
     /// </summary>
-    internal Deadline DeadlineFor(TimeSpan? timeout = null) => Time.StepDeadline(timeout, "the step", ActionTimeout, BudgetDeadline, Clock);
+    internal Deadline DeadlineFor(TimeSpan? timeout = null) =>
+        Time.StepDeadline(timeout, "the step", ActionTimeout, BudgetDeadline, Clock);
 
     /// <summary>Deadline for one assertion on a matcher's own <paramref name="timeout"/>, the assertion timeout by default; <paramref name="api"/> names the call in a refusal.</summary>
-    internal Deadline AssertionDeadlineFor(TimeSpan? timeout, string api) => Time.StepDeadline(timeout, api, AssertionTimeout, BudgetDeadline, Clock);
+    internal Deadline AssertionDeadlineFor(TimeSpan? timeout, string api) =>
+        Time.StepDeadline(timeout, api, AssertionTimeout, BudgetDeadline, Clock);
 
     /// <summary>One observation of the screen, an unopened app reported as <c>APP_NOT_OPEN</c>.</summary>
     internal async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
     {
-        return await AppNotOpen.GuardAsync(() => options.Observe(cancellationToken == default ? options.Cancellation() : cancellationToken)).ConfigureAwait(false);
+        return await AppNotOpen
+            .GuardAsync(() =>
+                options.Observe(cancellationToken == default ? options.Cancellation() : cancellationToken)
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary><see cref="ObserveAsync(CancellationToken)"/> within <paramref name="timeout"/>, the budget the engine bounds its reads by (upstream's <c>operation.timeoutMs</c>).</summary>
     internal async Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
         var token = cancellationToken == default ? options.Cancellation() : cancellationToken;
-        return await AppNotOpen.GuardAsync(() => options.ObserveWithin is { } within ? within(timeout, token) : options.Observe(token)).ConfigureAwait(false);
+        return await AppNotOpen
+            .GuardAsync(() => options.ObserveWithin is { } within ? within(timeout, token) : options.Observe(token))
+            .ConfigureAwait(false);
     }
 
     /// <summary>One immediate engine resolve: the nodes the query matches now, within <paramref name="timeout"/> of the engine's own work. Upstream's <c>session.locate</c>.</summary>
-    private async Task<IReadOnlyList<SemanticNode>> SessionLocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<SemanticNode>> SessionLocateAsync(
+        LocatorExpression expression,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    )
     {
-        return await AppNotOpen.GuardAsync(() => options.Locate!(expression, timeout, cancellationToken == default ? options.Cancellation() : cancellationToken)).ConfigureAwait(false);
+        return await AppNotOpen
+            .GuardAsync(() =>
+                options.Locate!(
+                    expression,
+                    timeout,
+                    cancellationToken == default ? options.Cancellation() : cancellationToken
+                )
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -239,22 +280,57 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// Upstream's <c>operationWithin</c>: the time left, never under 1 ms.
     /// </summary>
     internal OperationContext OperationWithin(Deadline deadline) =>
-        OperationContext.Test with { Timeout = Time.Between(deadline.Remaining(Clock.GetUtcNow()), TimeSpan.FromMilliseconds(1), Time.Unbounded) };
+        OperationContext.Test with
+        {
+            Timeout = Time.Between(deadline.Remaining(Clock.GetUtcNow()), TimeSpan.FromMilliseconds(1), Time.Unbounded),
+        };
 
     /// <summary>Carries out one action on a node within <paramref name="deadline"/> (upstream's <c>session.perform(ref, action, this.operationWithin(deadline))</c>).</summary>
-    internal async Task SessionPerformAsync(SemanticNode node, LocatorAction action, Deadline deadline, CancellationToken cancellationToken)
+    internal async Task SessionPerformAsync(
+        SemanticNode node,
+        LocatorAction action,
+        Deadline deadline,
+        CancellationToken cancellationToken
+    )
     {
         // The session adapter's own guard (upstream's `session.ts`): an action built per attempt, such as a drag, is checked when it is sent.
         CheckAction(action);
-        await AppNotOpen.GuardAsync(() => options.Perform(node, action, OperationWithin(deadline), cancellationToken == default ? options.Cancellation() : cancellationToken)).ConfigureAwait(false);
+        await AppNotOpen
+            .GuardAsync(() =>
+                options.Perform(
+                    node,
+                    action,
+                    OperationWithin(deadline),
+                    cancellationToken == default ? options.Cancellation() : cancellationToken
+                )
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>Carries out one pointer action at a viewport point, with no node behind it. Upstream's <c>session.performAt</c>.</summary>
-    internal async Task SessionPerformAtAsync(Point point, PointerAction action, Deadline deadline, CancellationToken cancellationToken)
+    internal async Task SessionPerformAtAsync(
+        Point point,
+        PointerAction action,
+        Deadline deadline,
+        CancellationToken cancellationToken
+    )
     {
         CheckPointerAction(action);
-        var perform = options.PerformAt ?? throw new EngineException(EngineErrorCodes.UnsupportedCapability, "the pointer actions are not supported by this engine.");
-        await AppNotOpen.GuardAsync(() => perform(point, action, OperationWithin(deadline), cancellationToken == default ? options.Cancellation() : cancellationToken)).ConfigureAwait(false);
+        var perform = options.PerformAt
+            ?? throw new EngineException(
+                EngineErrorCodes.UnsupportedCapability,
+                "the pointer actions are not supported by this engine."
+            );
+        await AppNotOpen
+            .GuardAsync(() =>
+                perform(
+                    point,
+                    action,
+                    OperationWithin(deadline),
+                    cancellationToken == default ? options.Cancellation() : cancellationToken
+                )
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -268,7 +344,8 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         {
             throw new EngineException(
                 EngineErrorCodes.UnsupportedCapability,
-                $"the \"{kind}\" action is not available on this target: its engine declares {(declared.Count == 0 ? "no actions" : string.Join(", ", declared))}");
+                $"the \"{kind}\" action is not available on this target: its engine declares {(declared.Count == 0 ? "no actions" : string.Join(", ", declared))}"
+            );
         }
 
         if (action is LocatorAction.Press press)
@@ -286,7 +363,8 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         {
             throw new EngineException(
                 EngineErrorCodes.UnsupportedCapability,
-                $"the \"{kind}\" action at a point is not available on this target: its engine declares {(declared.Count == 0 ? "no pointer actions" : string.Join(", ", declared))}");
+                $"the \"{kind}\" action at a point is not available on this target: its engine declares {(declared.Count == 0 ? "no pointer actions" : string.Join(", ", declared))}"
+            );
         }
     }
 
@@ -297,7 +375,13 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// to a window of the action timeout. With <see cref="MissingFrame.Empty"/> a retryable <c>FRAME_NOT_FOUND</c> is zero matches instead:
     /// nothing under a frame that is not in the document matches, and a read that promised not to wait must not wait for it.
     /// </summary>
-    internal async Task<IReadOnlyList<SemanticNode>> ResolveOnceAsync(LocatorExpression expression, CancellationToken token, bool includeHidden = false, ReadWindow? reads = null, MissingFrame missingFrame = MissingFrame.Wait)
+    internal async Task<IReadOnlyList<SemanticNode>> ResolveOnceAsync(
+        LocatorExpression expression,
+        CancellationToken token,
+        bool includeHidden = false,
+        ReadWindow? reads = null,
+        MissingFrame missingFrame = MissingFrame.Wait
+    )
     {
         reads ??= Reads(new Deadline(ActionTimeout, Clock));
         if (!LocatesInEngine)
@@ -327,22 +411,30 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         {
             try
             {
-                var nodes = await reads.ReadAsync(budget => SessionLocateAsync(query, budget, token)).ConfigureAwait(false);
+                var nodes = await reads
+                    .ReadAsync(budget => SessionLocateAsync(query, budget, token))
+                    .ConfigureAwait(false);
 
                 // An engine answers `visible` inside scopes, filters, and indices, where only it can. A direct query is held to the same
                 // predicate here, so it never resolves to a node its own state calls hidden.
-                return expression.Visible && expression.Kind is not ("filter" or "index" or "selector") ? nodes.Where(node => IsNodeVisible(node)).ToList() : nodes;
+                return expression.Visible && expression.Kind is not ("filter" or "index" or "selector")
+                    ? nodes.Where(node => IsNodeVisible(node)).ToList()
+                    : nodes;
             }
             catch (EngineException ex) when (retried is not null && !token.IsCancellationRequested && reads.CutOff(ex))
             {
                 // A retry the deadline cut off saw nothing new: the wait ends on the failure it was retrying.
                 throw TranslateLocatorError(retried, expression);
             }
-            catch (EngineException ex) when (missingFrame == MissingFrame.Empty && ex is { Code: EngineErrorCodes.FrameNotFound, Retryable: true })
+            catch (EngineException ex)
+                when (missingFrame == MissingFrame.Empty
+                    && ex is { Code: EngineErrorCodes.FrameNotFound, Retryable: true }
+                )
             {
                 return [];
             }
-            catch (EngineException ex) when (ex.Retryable && !reads.Deadline.Expired(Clock.GetUtcNow()) && !token.IsCancellationRequested)
+            catch (EngineException ex)
+                when (ex.Retryable && !reads.Deadline.Expired(Clock.GetUtcNow()) && !token.IsCancellationRequested)
             {
                 retried = ex;
                 await Task.Delay(PollInterval, token).ConfigureAwait(false);
@@ -364,15 +456,21 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// Resolves every current match at once, without waiting for one. A frame the engine reports missing is zero matches, since nothing
     /// under it is in the document. A stale resolve is still retried within the deadline, as every resolve does.
     /// </summary>
-    internal Task<IReadOnlyList<SemanticNode>> ResolveNowAsync(LocatorExpression expression, CancellationToken token, ReadWindow? reads = null) =>
-        ResolveOnceAsync(expression, token, reads: reads, missingFrame: MissingFrame.Empty);
+    internal Task<IReadOnlyList<SemanticNode>> ResolveNowAsync(
+        LocatorExpression expression,
+        CancellationToken token,
+        ReadWindow? reads = null
+    ) => ResolveOnceAsync(expression, token, reads: reads, missingFrame: MissingFrame.Empty);
 
     /// <summary>
     /// Reads every current match at once, in document order: a missing frame reads as no matches. A locate answers the nodes themselves,
     /// so there is no separate read to go stale between a resolve and a read (upstream's <c>session.read</c>).
     /// </summary>
-    internal Task<IReadOnlyList<SemanticNode>> ReadAllNowAsync(LocatorExpression expression, CancellationToken token, ReadWindow? reads = null) =>
-        ResolveNowAsync(expression, token, reads);
+    internal Task<IReadOnlyList<SemanticNode>> ReadAllNowAsync(
+        LocatorExpression expression,
+        CancellationToken token,
+        ReadWindow? reads = null
+    ) => ResolveNowAsync(expression, token, reads);
 
     /// <summary>
     /// Reads the one current match at once, for <c>isVisible</c> and <c>isHidden</c>: null for zero matches or a missing frame; two matches
@@ -385,10 +483,18 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// Reads one node for polling surfaces; null while zero matches. A poll that waits for absence passes <see cref="MissingFrame.Empty"/>:
     /// nothing under a frame that is not in the document is attached, so the sample is zero matches rather than a wait for the frame.
     /// </summary>
-    internal async Task<SemanticNode?> TryReadAsync(LocatorExpression expression, CancellationToken token, ReadWindow? reads = null, MissingFrame missingFrame = MissingFrame.Wait)
+    internal async Task<SemanticNode?> TryReadAsync(
+        LocatorExpression expression,
+        CancellationToken token,
+        ReadWindow? reads = null,
+        MissingFrame missingFrame = MissingFrame.Wait
+    )
     {
-        var matches = await ResolveOnceAsync(expression, token, reads: reads, missingFrame: missingFrame).ConfigureAwait(false);
-        return matches.Count > 1 ? throw await AmbiguousAsync(expression, matches.Count, token).ConfigureAwait(false) : matches.Count == 1 ? matches[0] : null;
+        var matches = await ResolveOnceAsync(expression, token, reads: reads, missingFrame: missingFrame)
+            .ConfigureAwait(false);
+        return matches.Count > 1 ? throw await AmbiguousAsync(expression, matches.Count, token).ConfigureAwait(false)
+            : matches.Count == 1 ? matches[0]
+            : null;
     }
 
     /// <summary>
@@ -404,7 +510,10 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         var sampled = false;
         while (true)
         {
-            var node = await ResolveCountedAsync(expression, token, reads, sampled, () => Stopwatch.GetElapsedTime(stamp)).ConfigureAwait(false);
+            var node = await ResolveCountedAsync(expression, token, reads, sampled, () =>
+                    Stopwatch.GetElapsedTime(stamp)
+                )
+                .ConfigureAwait(false);
             sampled = true;
             if (node is not null)
             {
@@ -424,14 +533,19 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// Waits until <paramref name="deadline"/> for the one match. Zero matches poll until the deadline; more than one match fails at once.
     /// Upstream's <c>resolveExactlyOne</c>, which a drag uses for the node it drops on.
     /// </summary>
-    internal async Task<SemanticNode> ResolveExactlyOneAsync(LocatorExpression expression, Deadline deadline, CancellationToken token)
+    internal async Task<SemanticNode> ResolveExactlyOneAsync(
+        LocatorExpression expression,
+        Deadline deadline,
+        CancellationToken token
+    )
     {
         var started = Clock.GetTimestamp();
         var reads = Reads(deadline);
         var sampled = false;
         while (true)
         {
-            var node = await ResolveCountedAsync(expression, token, reads, sampled, () => Clock.GetElapsedTime(started)).ConfigureAwait(false);
+            var node = await ResolveCountedAsync(expression, token, reads, sampled, () => Clock.GetElapsedTime(started))
+                .ConfigureAwait(false);
             sampled = true;
             if (node is not null)
             {
@@ -451,7 +565,13 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// <see cref="TryReadAsync"/> for a wait: a resolve the deadline cut off, after one that matched nothing, is the wait running out
     /// (upstream's <c>resolveCounted</c>), reported as not found rather than as the timeout of the read.
     /// </summary>
-    private async Task<SemanticNode?> ResolveCountedAsync(LocatorExpression expression, CancellationToken token, ReadWindow reads, bool sampled, Func<TimeSpan> elapsed)
+    private async Task<SemanticNode?> ResolveCountedAsync(
+        LocatorExpression expression,
+        CancellationToken token,
+        ReadWindow reads,
+        bool sampled,
+        Func<TimeSpan> elapsed
+    )
     {
         try
         {
@@ -469,7 +589,13 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// re-resolved together with the source. With <paramref name="anyState"/> a hidden or disabled match is acted on too, as for a scroll into view,
     /// which needs no visibility.
     /// </summary>
-    internal async Task PerformAsync(LocatorExpression expression, Func<Deadline, CancellationToken, Task<LocatorAction>> build, TimeSpan? timeout, CancellationToken token, bool anyState = false)
+    internal async Task PerformAsync(
+        LocatorExpression expression,
+        Func<Deadline, CancellationToken, Task<LocatorAction>> build,
+        TimeSpan? timeout,
+        CancellationToken token,
+        bool anyState = false
+    )
     {
         var started = Clock.GetUtcNow();
         var window = DeadlineFor(timeout);
@@ -483,7 +609,10 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         var reads = Reads(window);
         while (true)
         {
-            var node = await ResolveCountedAsync(expression, token, reads, sampled: rounds > 0, () => Stopwatch.GetElapsedTime(resolveStamp)).ConfigureAwait(false);
+            var node = await ResolveCountedAsync(expression, token, reads, sampled: rounds > 0, () =>
+                    Stopwatch.GetElapsedTime(resolveStamp)
+                )
+                .ConfigureAwait(false);
             rounds++;
             if (node is not null && (anyState || node is { States.Disabled: false, States.Hidden: false }))
             {
@@ -500,7 +629,11 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 {
                     await SessionPerformAsync(node, action, window, token).ConfigureAwait(false);
                 }
-                catch (EngineException ex) when (ex is { Code: EngineErrorCodes.NodeStale, Retryable: true } && !token.IsCancellationRequested && !window.Expired(Clock.GetUtcNow()))
+                catch (EngineException ex)
+                    when (ex is { Code: EngineErrorCodes.NodeStale, Retryable: true }
+                        && !token.IsCancellationRequested
+                        && !window.Expired(Clock.GetUtcNow())
+                    )
                 {
                     // The node went stale under the action: look again, within the deadline.
                     stale++;
@@ -511,7 +644,16 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 catch (Exception ex)
                 {
                     var failure = token.IsCancellationRequested ? ex : TranslateLocatorError(ex, expression);
-                    RecordAction(node, action, startedAt, stamp, waitedMs, stale, token.IsCancellationRequested ? StepEventStatus.Cancelled : StepEventStatus.Failed, ErrorSerializer.Classify(failure).Code);
+                    RecordAction(
+                        node,
+                        action,
+                        startedAt,
+                        stamp,
+                        waitedMs,
+                        stale,
+                        token.IsCancellationRequested ? StepEventStatus.Cancelled : StepEventStatus.Failed,
+                        ErrorSerializer.Classify(failure).Code
+                    );
                     if (ReferenceEquals(failure, ex))
                     {
                         throw;
@@ -528,7 +670,10 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             {
                 throw node is null
                     ? await NotFoundAsync(expression, Clock.GetUtcNow() - started, token).ConfigureAwait(false)
-                    : new TestException("NOT_ACTIONABLE", expression.Describe() + (node.States.Hidden ? " is hidden." : " is disabled."));
+                    : new TestException(
+                        "NOT_ACTIONABLE",
+                        expression.Describe() + (node.States.Hidden ? " is hidden." : " is disabled.")
+                    );
             }
 
             await Task.Delay(PollInterval, token).ConfigureAwait(false);
@@ -542,18 +687,30 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// budget. The focus retries a stale node like any action; the typing never does, because a keystroke may already have landed. An
     /// engine that declares no <c>focus</c> action or no keyboard is refused with <c>UNSUPPORTED_CAPABILITY</c> before any node resolves.
     /// </summary>
-    internal async Task PressSequentiallyAsync(LocatorExpression expression, IReadOnlyList<string> chunks, TimeSpan delay, TimeSpan? timeout, CancellationToken token)
+    internal async Task PressSequentiallyAsync(
+        LocatorExpression expression,
+        IReadOnlyList<string> chunks,
+        TimeSpan delay,
+        TimeSpan? timeout,
+        CancellationToken token
+    )
     {
         CheckAction(new LocatorAction.Focus());
         if (options.TypeText is not { } typeText || (Capabilities & EngineCapabilities.Keyboard) == 0)
         {
-            throw new EngineException(EngineErrorCodes.UnsupportedCapability, "pressSequentially is not available on this target: its engine declares no keyboard");
+            throw new EngineException(
+                EngineErrorCodes.UnsupportedCapability,
+                "pressSequentially is not available on this target: its engine declares no keyboard"
+            );
         }
 
         var deadline = DeadlineFor(timeout);
         await PerformUntilAsync(expression, new LocatorAction.Focus(), deadline, token).ConfigureAwait(false);
         TestException TimedOut(int typed) =>
-            new("ACTION_FAILED", $"operation timed out after typing {typed.ToString(CultureInfo.InvariantCulture)} of {chunks.Count.ToString(CultureInfo.InvariantCulture)} characters: {expression.Describe()}");
+            new(
+                "ACTION_FAILED",
+                $"operation timed out after typing {typed.ToString(CultureInfo.InvariantCulture)} of {chunks.Count.ToString(CultureInfo.InvariantCulture)} characters: {expression.Describe()}"
+            );
 
         for (var index = 0; index < chunks.Count; index++)
         {
@@ -596,14 +753,21 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// Performs one action on the one enabled match, waiting for it until <paramref name="deadline"/> a caller shares across steps (upstream's
     /// <c>performUntil</c>). With <paramref name="anyState"/> a hidden or disabled match is acted on too, as upstream's resolve does not look at the state.
     /// </summary>
-    internal async Task PerformUntilAsync(LocatorExpression expression, LocatorAction action, Deadline deadline, CancellationToken token, bool anyState = false)
+    internal async Task PerformUntilAsync(
+        LocatorExpression expression,
+        LocatorAction action,
+        Deadline deadline,
+        CancellationToken token,
+        bool anyState = false
+    )
     {
         var started = Clock.GetTimestamp();
         var reads = Reads(deadline);
         var sampled = false;
         while (true)
         {
-            var node = await ResolveCountedAsync(expression, token, reads, sampled, () => Clock.GetElapsedTime(started)).ConfigureAwait(false);
+            var node = await ResolveCountedAsync(expression, token, reads, sampled, () => Clock.GetElapsedTime(started))
+                .ConfigureAwait(false);
             sampled = true;
             if (node is not null && (anyState || node is { States.Disabled: false, States.Hidden: false }))
             {
@@ -616,7 +780,11 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 {
                     await SessionPerformAsync(node, action, deadline, token).ConfigureAwait(false);
                 }
-                catch (EngineException ex) when (ex is { Code: EngineErrorCodes.NodeStale, Retryable: true } && !token.IsCancellationRequested && !deadline.Expired(Clock.GetUtcNow()))
+                catch (EngineException ex)
+                    when (ex is { Code: EngineErrorCodes.NodeStale, Retryable: true }
+                        && !token.IsCancellationRequested
+                        && !deadline.Expired(Clock.GetUtcNow())
+                    )
                 {
                     // The node went stale under the action: look again, within the deadline.
                     continue;
@@ -639,7 +807,10 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             {
                 throw node is null
                     ? await NotFoundAsync(expression, Clock.GetElapsedTime(started), token).ConfigureAwait(false)
-                    : new TestException("NOT_ACTIONABLE", expression.Describe() + (node.States.Hidden ? " is hidden." : " is disabled."));
+                    : new TestException(
+                        "NOT_ACTIONABLE",
+                        expression.Describe() + (node.States.Hidden ? " is hidden." : " is disabled.")
+                    );
             }
 
             await Task.Delay(PollInterval, token).ConfigureAwait(false);
@@ -658,21 +829,30 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// can, then its box is read and the pointer dispatched at the point, with no node behind the gesture. The node has to be visible with a
     /// box within the deadline; one that never is fails as <c>LOCATOR_NOT_FOUND</c>, as <c>WaitForAsync</c> does. Upstream's <c>performWithin</c>.
     /// </summary>
-    internal async Task PerformWithinAsync(LocatorExpression expression, Point offset, PointerAction action, TimeSpan? timeout, CancellationToken token)
+    internal async Task PerformWithinAsync(
+        LocatorExpression expression,
+        Point offset,
+        PointerAction action,
+        TimeSpan? timeout,
+        CancellationToken token
+    )
     {
         CheckPointerAction(action);
         var deadline = DeadlineFor(timeout);
         var started = Clock.GetTimestamp();
         if (ActionKinds is not { } declared || declared.Contains("scrollIntoView"))
         {
-            await PerformUntilAsync(expression, new LocatorAction.ScrollIntoView(), deadline, token, anyState: true).ConfigureAwait(false);
+            await PerformUntilAsync(expression, new LocatorAction.ScrollIntoView(), deadline, token, anyState: true)
+                .ConfigureAwait(false);
         }
 
         TestException NotVisible(Exception? cause)
         {
             var message = "locator did not become visible with a box to act within: " + expression.Describe();
             var details = LocatorDetails(expression, Clock.GetElapsedTime(started));
-            return cause is null ? new TestException("LOCATOR_NOT_FOUND", message) { Details = details } : new TestException("LOCATOR_NOT_FOUND", message, cause) { Details = details };
+            return cause is null
+                ? new TestException("LOCATOR_NOT_FOUND", message) { Details = details }
+                : new TestException("LOCATOR_NOT_FOUND", message, cause) { Details = details };
         }
 
         var reads = Reads(deadline);
@@ -693,7 +873,8 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             if (node is { States.Hidden: false, Rect: { } rect })
             {
                 var origin = node.Origin ?? new Point(rect.X, rect.Y);
-                await DispatchAtAsync(new Point(origin.X + offset.X, origin.Y + offset.Y), action, deadline, token).ConfigureAwait(false);
+                await DispatchAtAsync(new Point(origin.X + offset.X, origin.Y + offset.Y), action, deadline, token)
+                    .ConfigureAwait(false);
                 return;
             }
 
@@ -712,17 +893,23 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         var startedAt = DateTimeOffset.UtcNow;
         var stamp = Stopwatch.GetTimestamp();
         var kind = EngineActionKinds.Of(action);
-        var at = string.Create(CultureInfo.InvariantCulture, $"({Math.Round(point.X, MidpointRounding.AwayFromZero)}, {Math.Round(point.Y, MidpointRounding.AwayFromZero)})");
-        void Record(StepEventStatus status, string? code) => Steps?.RecordEvent(new StepEvent
-        {
-            Kind = StepEventKind.Engine,
-            Name = kind,
-            StartedAt = startedAt,
-            DurationMs = (long)Stopwatch.GetElapsedTime(stamp).TotalMilliseconds,
-            Status = status,
-            Code = code,
-            Detail = kind + " at " + at,
-        });
+        var at = string.Create(
+            CultureInfo.InvariantCulture,
+            $"({Math.Round(point.X, MidpointRounding.AwayFromZero)}, {Math.Round(point.Y, MidpointRounding.AwayFromZero)})"
+        );
+        void Record(StepEventStatus status, string? code) =>
+            Steps?.RecordEvent(
+                new StepEvent
+                {
+                    Kind = StepEventKind.Engine,
+                    Name = kind,
+                    StartedAt = startedAt,
+                    DurationMs = (long)Stopwatch.GetElapsedTime(stamp).TotalMilliseconds,
+                    Status = status,
+                    Code = code,
+                    Detail = kind + " at " + at,
+                }
+            );
 
         if (deadline.Expired(Clock.GetUtcNow()))
         {
@@ -738,7 +925,10 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         catch (Exception ex)
         {
             var failure = token.IsCancellationRequested ? ex : TranslateLocatorError(ex);
-            Record(token.IsCancellationRequested ? StepEventStatus.Cancelled : StepEventStatus.Failed, ErrorSerializer.Classify(failure).Code);
+            Record(
+                token.IsCancellationRequested ? StepEventStatus.Cancelled : StepEventStatus.Failed,
+                ErrorSerializer.Classify(failure).Code
+            );
             if (ReferenceEquals(failure, ex))
             {
                 throw;
@@ -757,7 +947,16 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// Records one performed action as an <c>engine</c> event of the running step (upstream's <c>recordAction</c>): the node it landed on as
     /// the resolve read it, how long the node took to appear, and how many times it went stale under the action.
     /// </summary>
-    private void RecordAction(SemanticNode node, LocatorAction action, DateTimeOffset startedAt, long started, long waitedMs, int stale, StepEventStatus status, string? code)
+    private void RecordAction(
+        SemanticNode node,
+        LocatorAction action,
+        DateTimeOffset startedAt,
+        long started,
+        long waitedMs,
+        int stale,
+        StepEventStatus status,
+        string? code
+    )
     {
         if (Steps is null)
         {
@@ -770,14 +969,16 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             return text.Length == 0 ? null : text;
         }
 
-        var target = RecordedTarget.TargetLabel(new RecordedTarget
-        {
-            Role = node.Role,
-            Name = Field(node.Name),
-            Text = Field(node.Text),
-            Placeholder = Field(node.AttributeOf("placeholder")),
-            TestId = Field(node.TestId),
-        });
+        var target = RecordedTarget.TargetLabel(
+            new RecordedTarget
+            {
+                Role = node.Role,
+                Name = Field(node.Name),
+                Text = Field(node.Text),
+                Placeholder = Field(node.AttributeOf("placeholder")),
+                TestId = Field(node.TestId),
+            }
+        );
         var kind = KindOf(action);
         List<string> notes = [];
         if (waitedMs > 0)
@@ -790,16 +991,18 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             notes.Add("went stale " + stale.ToString(CultureInfo.InvariantCulture) + "x");
         }
 
-        Steps.RecordEvent(new StepEvent
-        {
-            Kind = StepEventKind.Engine,
-            Name = kind,
-            StartedAt = startedAt,
-            DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
-            Status = status,
-            Code = code,
-            Detail = kind + " " + target + (notes.Count == 0 ? "" : " (" + string.Join(", ", notes) + ")"),
-        });
+        Steps.RecordEvent(
+            new StepEvent
+            {
+                Kind = StepEventKind.Engine,
+                Name = kind,
+                StartedAt = startedAt,
+                DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                Status = status,
+                Code = code,
+                Detail = kind + " " + target + (notes.Count == 0 ? "" : " (" + string.Join(", ", notes) + ")"),
+            }
+        );
     }
 
     /// <summary>
@@ -808,18 +1011,34 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     internal async Task<TestException> AmbiguousAsync(LocatorExpression expression, int count, CancellationToken token)
     {
         var lines = await CandidateCountsAsync(expression, token).ConfigureAwait(false);
-        return new("LOCATOR_AMBIGUOUS", expression.Describe() + " matched " + count.ToString(CultureInfo.InvariantCulture) + " nodes." + lines) { Details = LocatorDetails(expression) with { Matches = count } };
+        return new(
+            "LOCATOR_AMBIGUOUS",
+            expression.Describe() + " matched " + count.ToString(CultureInfo.InvariantCulture) + " nodes." + lines
+        )
+        {
+            Details = LocatorDetails(expression) with { Matches = count },
+        };
     }
 
     /// <summary>
     /// <c>LOCATOR_NOT_FOUND</c>, with the per-step counts of a filtered locator (upstream's <c>notFound</c> in <c>resolveCounted</c>).
     /// <paramref name="waited"/> is the wait as it happened, read before the diagnostic pass runs: the prefix resolves are not part of it.
     /// </summary>
-    private async Task<TestException> NotFoundAsync(LocatorExpression expression, TimeSpan waited, CancellationToken token, Exception? cause = null)
+    private async Task<TestException> NotFoundAsync(
+        LocatorExpression expression,
+        TimeSpan waited,
+        CancellationToken token,
+        Exception? cause = null
+    )
     {
-        var message = expression.Describe() + " matched 0 nodes." + await CandidateCountsAsync(expression, token).ConfigureAwait(false);
+        var message =
+            expression.Describe()
+            + " matched 0 nodes."
+            + await CandidateCountsAsync(expression, token).ConfigureAwait(false);
         var details = LocatorDetails(expression, waited);
-        return cause is null ? new TestException("LOCATOR_NOT_FOUND", message) { Details = details } : new TestException("LOCATOR_NOT_FOUND", message, cause) { Details = details };
+        return cause is null
+            ? new TestException("LOCATOR_NOT_FOUND", message) { Details = details }
+            : new TestException("LOCATOR_NOT_FOUND", message, cause) { Details = details };
     }
 
     /// <summary>
@@ -837,7 +1056,10 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             return "";
         }
 
-        var deadline = Deadline.Min(new Deadline(StepCountBudget, Clock), BudgetDeadline ?? new Deadline(DateTimeOffset.MaxValue));
+        var deadline = Deadline.Min(
+            new Deadline(StepCountBudget, Clock),
+            BudgetDeadline ?? new Deadline(DateTimeOffset.MaxValue)
+        );
         var reads = new ReadWindow(deadline, Clock);
         List<string> lines = [];
         try
@@ -865,7 +1087,17 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             return "";
         }
 
-        var stopped = lines.Count < spine.Count ? ", walk stopped after " + lines.Count.ToString(CultureInfo.InvariantCulture) + " of " + spine.Count.ToString(CultureInfo.InvariantCulture) + " steps" : "";
-        return "\ncandidates left after each filter step" + stopped + ", counted after the failure:\n" + string.Join('\n', lines);
+        var stopped =
+            lines.Count < spine.Count
+                ? ", walk stopped after "
+                    + lines.Count.ToString(CultureInfo.InvariantCulture)
+                    + " of "
+                    + spine.Count.ToString(CultureInfo.InvariantCulture)
+                    + " steps"
+                : "";
+        return "\ncandidates left after each filter step"
+            + stopped
+            + ", counted after the failure:\n"
+            + string.Join('\n', lines);
     }
 }

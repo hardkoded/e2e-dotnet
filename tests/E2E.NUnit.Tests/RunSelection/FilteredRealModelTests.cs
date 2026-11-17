@@ -22,7 +22,8 @@ public sealed class FilteredAgentFixture : ControlInventoryTest
           "agents": { "default": { "model": "claude-sonnet-5.5", "provider": "copilot" } }
         }
         """,
-        AppContext.BaseDirectory);
+        AppContext.BaseDirectory
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -34,7 +35,8 @@ public sealed class FilteredAgentFixture : ControlInventoryTest
     }
 
     [Test]
-    public void Left_out_test_would_fail_if_it_started() => Assert.Fail("The filters left this test out, so it must not start.");
+    public void Left_out_test_would_fail_if_it_started() =>
+        Assert.Fail("The filters left this test out, so it must not start.");
 }
 
 /// <summary>
@@ -48,17 +50,39 @@ public sealed class FilteredRealModelTests
     {
         public string Name => "leave-out";
 
-        public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) =>
-            Task.FromResult(new TestFilterResult
-            {
-                Exclude = tests.Where(test => test.TitlePath[^1] == title).ToDictionary(test => test.Id, _ => "left out by the test"),
-            });
+        public Task<TestFilterResult> FilterAsync(
+            IReadOnlyList<TestFilterCandidate> tests,
+            TestFilterContext context
+        ) =>
+            Task.FromResult(
+                new TestFilterResult
+                {
+                    Exclude = tests
+                        .Where(test => test.TitlePath[^1] == title)
+                        .ToDictionary(test => test.Id, _ => "left out by the test"),
+                }
+            );
     }
 
-    private static async Task<IReadOnlyDictionary<string, string>> ExcludeAsync(string dir, params ITestFilter[] filters)
+    private static async Task<IReadOnlyDictionary<string, string>> ExcludeAsync(
+        string dir,
+        params ITestFilter[] filters
+    )
     {
-        var found = E2E.NUnit.RunSelection.Discover([typeof(FilteredAgentFixture)], typeof(FilteredAgentFixture).Assembly);
-        return (await HostTestFilters.ExcludeAsync(E2EConfig.Parse("{}", dir, _ => null), filters, "main", found, _ => { }, CancellationToken.None)).Excluded;
+        var found = E2E.NUnit.RunSelection.Discover(
+            [typeof(FilteredAgentFixture)],
+            typeof(FilteredAgentFixture).Assembly
+        );
+        return (
+            await HostTestFilters.ExcludeAsync(
+                E2EConfig.Parse("{}", dir, _ => null),
+                filters,
+                "main",
+                found,
+                _ => { },
+                CancellationToken.None
+            )
+        ).Excluded;
     }
 
     internal static string FeatureRepo()
@@ -76,8 +100,23 @@ public sealed class FilteredRealModelTests
 
     private static void Git(string dir, params string[] args)
     {
-        var start = new ProcessStartInfo("git") { WorkingDirectory = dir, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false" }.Concat(args))
+        var start = new ProcessStartInfo("git")
+        {
+            WorkingDirectory = dir,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        foreach (
+            var arg in new[]
+            {
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@example.com",
+                "-c",
+                "commit.gpgsign=false",
+            }.Concat(args)
+        )
         {
             start.ArgumentList.Add(arg);
         }
@@ -111,9 +150,17 @@ public sealed class FilteredRealModelTests
         var dir = FeatureRepo();
         try
         {
-            E2E.NUnit.RunSelection.Set(await ExcludeAsync(dir, new LeaveOut(nameof(FilteredAgentFixture.Left_out_test_would_fail_if_it_started))));
+            E2E.NUnit.RunSelection.Set(
+                await ExcludeAsync(
+                    dir,
+                    new LeaveOut(nameof(FilteredAgentFixture.Left_out_test_would_fail_if_it_started))
+                )
+            );
 
-            Assert.That(NestedRun.Run(nameof(FilteredAgentFixture.Kept_test_picks_a_radio)).ResultState.Status, Is.EqualTo(TestStatus.Passed));
+            Assert.That(
+                NestedRun.Run(nameof(FilteredAgentFixture.Kept_test_picks_a_radio)).ResultState.Status,
+                Is.EqualTo(TestStatus.Passed)
+            );
             var left = NestedRun.Run(nameof(FilteredAgentFixture.Left_out_test_would_fail_if_it_started));
             Assert.That(left.ResultState.Status, Is.EqualTo(TestStatus.Skipped));
             Assert.That(left.Message, Does.EndWith("left out by the test"));
@@ -133,10 +180,16 @@ public sealed class FilteredRealModelTests
         {
             E2E.NUnit.RunSelection.Set(await ExcludeAsync(dir, new LeaveOut("no such test")));
 
-            Assert.That(NestedRun.Run(nameof(FilteredAgentFixture.Kept_test_picks_a_radio)).ResultState.Status, Is.EqualTo(TestStatus.Passed));
+            Assert.That(
+                NestedRun.Run(nameof(FilteredAgentFixture.Kept_test_picks_a_radio)).ResultState.Status,
+                Is.EqualTo(TestStatus.Passed)
+            );
 
             // Nothing was left out, so the test starts, and it fails by its own assertion.
-            Assert.That(NestedRun.Run(nameof(FilteredAgentFixture.Left_out_test_would_fail_if_it_started)).ResultState.Status, Is.EqualTo(TestStatus.Failed));
+            Assert.That(
+                NestedRun.Run(nameof(FilteredAgentFixture.Left_out_test_would_fail_if_it_started)).ResultState.Status,
+                Is.EqualTo(TestStatus.Failed)
+            );
         }
         finally
         {

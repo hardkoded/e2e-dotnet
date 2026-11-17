@@ -33,11 +33,16 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
     public async Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        using var message = new HttpRequestMessage(HttpMethod.Post, ModelEndpoint.Build(_options.BaseUrl, "/responses", _options.QueryParameters));
+        using var message = new HttpRequestMessage(
+            HttpMethod.Post,
+            ModelEndpoint.Build(_options.BaseUrl, "/responses", _options.QueryParameters)
+        );
         ModelEndpoint.Authorize(message, _options.ResolveApiKey(), _options.ApiKeyHeader);
         ModelEndpoint.AddHeaders(message, _options.Headers);
         message.Content = ModelHttp.Json(BuildBody(request));
-        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, maxRetries: request.MaxRetries).ConfigureAwait(false);
+        var body = await ModelHttp
+            .SendAsync(_http, message, request.Redactor, cancellationToken, maxRetries: request.MaxRetries)
+            .ConfigureAwait(false);
         var folded = ResponsesStream.Fold(body);
         if (folded.Error is not null)
         {
@@ -76,30 +81,36 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
                 // No item ids: with storage off the backend cannot resolve them, and the call id is what pairs an output.
                 foreach (var call in message.ToolCalls)
                 {
-                    input.Add(new JsonObject
-                    {
-                        ["type"] = "function_call",
-                        ["call_id"] = call.Id,
-                        ["name"] = call.Name,
-                        ["arguments"] = ModelHttp.ArgumentsText(call.Arguments),
-                    });
+                    input.Add(
+                        new JsonObject
+                        {
+                            ["type"] = "function_call",
+                            ["call_id"] = call.Id,
+                            ["name"] = call.Name,
+                            ["arguments"] = ModelHttp.ArgumentsText(call.Arguments),
+                        }
+                    );
                 }
             }
             else if (string.Equals(message.Role, "tool", StringComparison.Ordinal))
             {
-                input.Add(new JsonObject
-                {
-                    ["type"] = "function_call_output",
-                    ["call_id"] = message.ToolCallId,
-                    ["output"] = message.Content ?? "",
-                });
+                input.Add(
+                    new JsonObject
+                    {
+                        ["type"] = "function_call_output",
+                        ["call_id"] = message.ToolCallId,
+                        ["output"] = message.Content ?? "",
+                    }
+                );
             }
             else
             {
                 var turn = Text(message.Role, message.Content ?? "");
                 foreach (var image in ModelHttp.UserImages(message))
                 {
-                    ((JsonArray)turn["content"]!).Add(new JsonObject { ["type"] = "input_image", ["image_url"] = ModelHttp.DataUrl(image) });
+                    ((JsonArray)turn["content"]!).Add(
+                        new JsonObject { ["type"] = "input_image", ["image_url"] = ModelHttp.DataUrl(image) }
+                    );
                 }
 
                 input.Add(turn);
@@ -109,14 +120,16 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
         var tools = new JsonArray();
         foreach (var tool in request.Tools)
         {
-            tools.Add(new JsonObject
-            {
-                ["type"] = "function",
-                ["name"] = tool.Name,
-                ["description"] = tool.Description,
-                ["parameters"] = JsonNode.Parse(tool.Parameters.GetRawText()),
-                ["strict"] = false,
-            });
+            tools.Add(
+                new JsonObject
+                {
+                    ["type"] = "function",
+                    ["name"] = tool.Name,
+                    ["description"] = tool.Description,
+                    ["parameters"] = JsonNode.Parse(tool.Parameters.GetRawText()),
+                    ["strict"] = false,
+                }
+            );
         }
 
         var payload = new JsonObject
@@ -147,12 +160,22 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
 
         if (_options.PromptCacheHints)
         {
-            payload["prompt_cache_key"] = request.System.Length == 0 && _options.SessionId is not null
-                ? _options.SessionId
-                : ModelHttp.PromptCacheKey(request.System);
+            payload["prompt_cache_key"] =
+                request.System.Length == 0 && _options.SessionId is not null
+                    ? _options.SessionId
+                    : ModelHttp.PromptCacheKey(request.System);
         }
 
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "input", "tools", "instructions", "tool_choice");
+        ModelHttp.MergeProviderOptions(
+            payload,
+            request,
+            _options.Provider,
+            "model",
+            "input",
+            "tools",
+            "instructions",
+            "tool_choice"
+        );
 
         // The format joins the text options a provider option may have set (verbosity). Not strict: strict mode refuses keywords
         // such as maxLength, and the agent validates the answer itself.
@@ -175,10 +198,12 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
     private static bool IsReasoningModel(string model)
     {
         var id = model.Contains('/', StringComparison.Ordinal) ? model[(model.LastIndexOf('/') + 1)..] : model;
-        return !(id.StartsWith("gpt-3", StringComparison.OrdinalIgnoreCase)
+        return !(
+            id.StartsWith("gpt-3", StringComparison.OrdinalIgnoreCase)
             || id.StartsWith("gpt-4", StringComparison.OrdinalIgnoreCase)
             || id.StartsWith("chatgpt-4o", StringComparison.OrdinalIgnoreCase)
-            || id.StartsWith("gpt-5-chat", StringComparison.OrdinalIgnoreCase));
+            || id.StartsWith("gpt-5-chat", StringComparison.OrdinalIgnoreCase)
+        );
     }
 
     private static JsonObject Reasoning(JsonElement item)
@@ -190,9 +215,10 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
         }
 
         reasoning["encrypted_content"] = item.GetProperty("encrypted_content").GetString();
-        reasoning["summary"] = item.TryGetProperty("summary", out var summary) && summary.ValueKind == JsonValueKind.Array
-            ? JsonNode.Parse(summary.GetRawText())
-            : new JsonArray();
+        reasoning["summary"] =
+            item.TryGetProperty("summary", out var summary) && summary.ValueKind == JsonValueKind.Array
+                ? JsonNode.Parse(summary.GetRawText())
+                : new JsonArray();
         return reasoning;
     }
 
@@ -228,29 +254,48 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
                 // The summary parts are the reasoning text the model shows; the encrypted content is what it takes back.
                 if (item.TryGetProperty("summary", out var summary) && summary.ValueKind == JsonValueKind.Array)
                 {
-                    reasoningText.AddRange(summary.EnumerateArray().Select(part => ModelHttp.OptionalString(part, "text") ?? ""));
+                    reasoningText.AddRange(
+                        summary.EnumerateArray().Select(part => ModelHttp.OptionalString(part, "text") ?? "")
+                    );
                 }
 
                 // Without encrypted content the item cannot be replayed: its id means nothing to a backend that stored nothing.
-                if (item.TryGetProperty("encrypted_content", out var encrypted) && encrypted.ValueKind == JsonValueKind.String)
+                if (
+                    item.TryGetProperty("encrypted_content", out var encrypted)
+                    && encrypted.ValueKind == JsonValueKind.String
+                )
                 {
                     reasoning.Add(item.Clone());
                 }
             }
             else if (type == "function_call")
             {
-                calls.Add(new ModelToolCall
-                {
-                    Id = item.TryGetProperty("call_id", out var id) ? id.GetString() ?? "call" : "call_" + calls.Count,
-                    Name = item.GetProperty("name").GetString() ?? "",
-                    Arguments = ModelHttp.Arguments(item.TryGetProperty("arguments", out var arguments) ? arguments.GetString() : null),
-                });
+                calls.Add(
+                    new ModelToolCall
+                    {
+                        Id = item.TryGetProperty("call_id", out var id)
+                            ? id.GetString() ?? "call"
+                            : "call_" + calls.Count,
+                        Name = item.GetProperty("name").GetString() ?? "",
+                        Arguments = ModelHttp.Arguments(
+                            item.TryGetProperty("arguments", out var arguments) ? arguments.GetString() : null
+                        ),
+                    }
+                );
             }
-            else if (type == "message" && item.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
+            else if (
+                type == "message"
+                && item.TryGetProperty("content", out var content)
+                && content.ValueKind == JsonValueKind.Array
+            )
             {
                 foreach (var part in content.EnumerateArray())
                 {
-                    if (part.TryGetProperty("type", out var partType) && partType.GetString() == "output_text" && part.TryGetProperty("text", out var value))
+                    if (
+                        part.TryGetProperty("type", out var partType)
+                        && partType.GetString() == "output_text"
+                        && part.TryGetProperty("text", out var value)
+                    )
                     {
                         text.Add(value.GetString() ?? "");
                     }
@@ -265,11 +310,15 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
             {
                 InputTokens = ModelHttp.Int(usageElement, "input_tokens"),
                 OutputTokens = ModelHttp.Int(usageElement, "output_tokens"),
-                CacheReadTokens = ModelHttp.Details(usageElement, "input_tokens_details") is { } details ? ModelHttp.OptionalInt(details, "cached_tokens") : null,
+                CacheReadTokens = ModelHttp.Details(usageElement, "input_tokens_details") is { } details
+                    ? ModelHttp.OptionalInt(details, "cached_tokens")
+                    : null,
             };
         }
 
-        var incomplete = root.TryGetProperty("incomplete_details", out var incompleteDetails) ? ModelHttp.OptionalString(incompleteDetails, "reason") : null;
+        var incomplete = root.TryGetProperty("incomplete_details", out var incompleteDetails)
+            ? ModelHttp.OptionalString(incompleteDetails, "reason")
+            : null;
         return new ModelResponse
         {
             Content = text.Count == 0 ? null : string.Concat(text),
@@ -327,7 +376,10 @@ internal static class ResponsesStream
     public static (string Body, string? Error) Fold(string body)
     {
         var trimmed = body.TrimStart();
-        if (!trimmed.StartsWith("event:", StringComparison.Ordinal) && !trimmed.StartsWith("data:", StringComparison.Ordinal))
+        if (
+            !trimmed.StartsWith("event:", StringComparison.Ordinal)
+            && !trimmed.StartsWith("data:", StringComparison.Ordinal)
+        )
         {
             return (body, null);
         }
@@ -357,7 +409,11 @@ internal static class ResponsesStream
             }
 
             var type = record["type"]?.GetValue<string>();
-            if (type == "response.output_item.done" && record["output_index"] is JsonValue index && index.TryGetValue<int>(out var position))
+            if (
+                type == "response.output_item.done"
+                && record["output_index"] is JsonValue index
+                && index.TryGetValue<int>(out var position)
+            )
             {
                 items[position] = record["item"]?.DeepClone();
             }

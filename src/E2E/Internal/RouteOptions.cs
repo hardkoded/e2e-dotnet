@@ -31,7 +31,12 @@ internal static partial class RouteOptions
             throw Invalid("route.fulfill takes an options object");
         }
 
-        var sources = new[] { ("json", response.Json is not null), ("body", response.Body is not null || response.BodyBytes is not null), ("path", response.Path is not null) }
+        var sources = new[]
+        {
+            ("json", response.Json is not null),
+            ("body", response.Body is not null || response.BodyBytes is not null),
+            ("path", response.Path is not null),
+        }
             .Where(source => source.Item2)
             .Select(source => source.Item1)
             .ToList();
@@ -52,15 +57,20 @@ internal static partial class RouteOptions
         }
 
         var body = response.Json is null ? response.Body : SerializeJson(response.Json);
-        var file = response.Path is null ? null : resolvePath(RequireString("route.fulfill", "path", response.Path, nonempty: true));
+        var file = response.Path is null
+            ? null
+            : resolvePath(RequireString("route.fulfill", "path", response.Path, nonempty: true));
         if (file is not null && !File.Exists(file))
         {
             throw Invalid("route.fulfill path is not a readable file: " + file);
         }
 
-        var headers = RequireHeaders("route.fulfill", response.Headers, response: true) ?? new Dictionary<string, string>();
+        var headers = RequireHeaders("route.fulfill", response.Headers, response: true)
+            ?? new Dictionary<string, string>();
         var type = response.ContentType is null
-            ? headers.FirstOrDefault(header => string.Equals(header.Key, "content-type", StringComparison.OrdinalIgnoreCase)).Value
+            ? headers
+                .FirstOrDefault(header => string.Equals(header.Key, "content-type", StringComparison.OrdinalIgnoreCase))
+                .Value
             : RequireString("route.fulfill", "contentType", response.ContentType, nonempty: true);
         return new RouteFulfillResponse
         {
@@ -79,7 +89,11 @@ internal static partial class RouteOptions
     /// denies, and keeps the request's scheme, as the browser requires of a
     /// rewritten request.
     /// </summary>
-    public static RouteContinueOverrides ParseContinue(RouteContinueOverrides? overrides, string requestUrl, Func<string, string> resolveUrl)
+    public static RouteContinueOverrides ParseContinue(
+        RouteContinueOverrides? overrides,
+        string requestUrl,
+        Func<string, string> resolveUrl
+    )
     {
         overrides ??= new RouteContinueOverrides();
         string? target = null;
@@ -97,7 +111,9 @@ internal static partial class RouteOptions
         return new RouteContinueOverrides
         {
             Url = target,
-            Method = overrides.Method is null ? null : RequireString("route.continue", "method", overrides.Method, nonempty: true),
+            Method = overrides.Method is null
+                ? null
+                : RequireString("route.continue", "method", overrides.Method, nonempty: true),
             Headers = RequireHeaders("route.continue", overrides.Headers, response: false),
             DropHeaders = RequireDropHeaders(overrides.DropHeaders),
             PostData = overrides.PostData,
@@ -122,7 +138,9 @@ internal static partial class RouteOptions
             return "header \"" + name + "\" must be a string, got object";
         }
 
-        return FieldValueControl().IsMatch(value) ? "header \"" + name + "\" must not contain a control character" : null;
+        return FieldValueControl().IsMatch(value)
+            ? "header \"" + name + "\" must not contain a control character"
+            : null;
     }
 
     private static string SerializeJson(object json)
@@ -131,7 +149,8 @@ internal static partial class RouteOptions
         {
             return JsonSerializer.Serialize(json, Json);
         }
-        catch (Exception ex) when (ex is JsonException or NotSupportedException or ArgumentException or InvalidOperationException)
+        catch (Exception ex)
+            when (ex is JsonException or NotSupportedException or ArgumentException or InvalidOperationException)
         {
             throw new TestException("INVALID_ARGUMENT", "route.fulfill json is not a JSON value: " + ex.Message, ex);
         }
@@ -142,7 +161,11 @@ internal static partial class RouteOptions
     /// <c>\n</c>, the way Playwright reports them, and each line is checked as its own value; any other line break is refused as
     /// header injection.
     /// </summary>
-    private static Dictionary<string, string>? RequireHeaders(string api, IReadOnlyDictionary<string, string>? headers, bool response)
+    private static Dictionary<string, string>? RequireHeaders(
+        string api,
+        IReadOnlyDictionary<string, string>? headers,
+        bool response
+    )
     {
         if (headers is null)
         {
@@ -151,9 +174,10 @@ internal static partial class RouteOptions
 
         foreach (var (name, value) in headers)
         {
-            var lines = response && string.Equals(name, "set-cookie", StringComparison.OrdinalIgnoreCase)
-                ? value.Split('\n')
-                : [value];
+            var lines =
+                response && string.Equals(name, "set-cookie", StringComparison.OrdinalIgnoreCase)
+                    ? value.Split('\n')
+                    : [value];
             foreach (var line in lines)
             {
                 if (HeaderProblem(name, line) is { } problem)

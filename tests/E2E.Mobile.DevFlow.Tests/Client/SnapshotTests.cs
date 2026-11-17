@@ -16,7 +16,10 @@ public sealed class SnapshotTests
         var snapshot = await client.CallAsync(DeviceMethods.CaptureSnapshot, "{}");
         await client.CallAsync(DeviceMethods.CaptureSnapshot, "{}");
 
-        Assert.Equal(["GET /api/v1/agent/status", "GET /api/v1/ui/tree", "GET /api/v1/ui/tree"], agent.Calls.Select(call => call.Route));
+        Assert.Equal(
+            ["GET /api/v1/agent/status", "GET /api/v1/ui/tree", "GET /api/v1/ui/tree"],
+            agent.Calls.Select(call => call.Route)
+        );
         Assert.Equal("true", agent.Sent("GET /api/v1/ui/tree").First().Query("envelope"));
         Assert.Equal("MobileApp", snapshot!["appName"]!.GetValue<string>());
         Assert.Equal(FakeAgent.PackageId, snapshot["appBundleId"]!.GetValue<string>());
@@ -34,7 +37,8 @@ public sealed class SnapshotTests
         Assert.Equal(14, nodes.Count);
         Json.AssertEqual(
             """{"ref":"win_0","index":0,"depth":0,"type":"window","kind":"window","label":"MobileApp","rect":{"x":0,"y":0,"width":390,"height":844},"enabled":true,"focused":true,"selected":false,"visibleToUser":true,"hittable":true}""",
-            nodes["win_0"]);
+            nodes["win_0"]
+        );
         Assert.Equal("content-page", nodes["page_main"]["type"]!.GetValue<string>());
         Assert.Equal(0, nodes["page_main"]["parentIndex"]!.GetValue<int>());
         Assert.Equal(1, nodes["page_main"]["depth"]!.GetValue<int>());
@@ -51,7 +55,8 @@ public sealed class SnapshotTests
 
         Json.AssertEqual(
             """{"ref":"btn_greet","index":7,"depth":4,"type":"button","kind":"button","parentIndex":3,"identifier":"greet","label":"Greet","rect":{"x":24,"y":261,"width":342,"height":44},"enabled":true,"focused":false,"selected":false,"visibleToUser":true,"hittable":true}""",
-            nodes["btn_greet"]);
+            nodes["btn_greet"]
+        );
     }
 
     [Fact]
@@ -101,9 +106,26 @@ public sealed class SnapshotTests
     {
         var (client, _) = DevFlow.Over();
 
-        var nodes = DevFlow.Nodes(await client.CallAsync(DeviceMethods.CaptureSnapshot, """{"interactiveOnly":true}"""));
+        var nodes = DevFlow.Nodes(
+            await client.CallAsync(DeviceMethods.CaptureSnapshot, """{"interactiveOnly":true}""")
+        );
 
-        Assert.Equal(["win_0", "lbl_title", "lbl_sub", "entry_name", "btn_greet", "lbl_error", "lbl_counter", "btn_increment", "lbl_link", "sw_dark", "entry_secret"], nodes.Keys);
+        Assert.Equal(
+            [
+                "win_0",
+                "lbl_title",
+                "lbl_sub",
+                "entry_name",
+                "btn_greet",
+                "lbl_error",
+                "lbl_counter",
+                "btn_increment",
+                "lbl_link",
+                "sw_dark",
+                "entry_secret",
+            ],
+            nodes.Keys
+        );
         Assert.Equal(0, nodes["btn_greet"]["parentIndex"]!.GetValue<int>());
         Assert.Equal(1, nodes["btn_greet"]["depth"]!.GetValue<int>());
         Assert.Equal(4, nodes["btn_greet"]["index"]!.GetValue<int>());
@@ -125,9 +147,15 @@ public sealed class SnapshotTests
     {
         var (client, agent) = DevFlow.Over();
         var changing = 2;
-        agent.Script("GET", "/api/v1/ui/tree", _ => changing-- > 0
-            ? FakeAgent.Failure(System.Net.HttpStatusCode.Conflict, "The UI changed while it was being captured. Retry the tree, query, or hit-test request.", "capture-changed-during-read")
-            : FakeAgent.Json(FakeAgent.Envelope()));
+        agent.Script("GET", "/api/v1/ui/tree", _ =>
+            changing-- > 0
+                ? FakeAgent.Failure(
+                    System.Net.HttpStatusCode.Conflict,
+                    "The UI changed while it was being captured. Retry the tree, query, or hit-test request.",
+                    "capture-changed-during-read"
+                )
+                : FakeAgent.Json(FakeAgent.Envelope())
+        );
 
         var snapshot = await client.CallAsync(DeviceMethods.CaptureSnapshot, "{}");
 
@@ -139,7 +167,13 @@ public sealed class SnapshotTests
     public async Task A_screen_that_keeps_changing_fails_after_the_attempts_run_out()
     {
         var (client, agent) = DevFlow.Over();
-        agent.ScriptFailure("GET", "/api/v1/ui/tree", System.Net.HttpStatusCode.Conflict, "The UI changed while it was being captured.", "capture-changed-during-read");
+        agent.ScriptFailure(
+            "GET",
+            "/api/v1/ui/tree",
+            System.Net.HttpStatusCode.Conflict,
+            "The UI changed while it was being captured.",
+            "capture-changed-during-read"
+        );
 
         var error = await client.FailureAsync(DeviceMethods.CaptureSnapshot, "{}");
 
@@ -151,7 +185,17 @@ public sealed class SnapshotTests
     public async Task A_tree_the_agent_cannot_give_is_an_unsupported_capability()
     {
         var (client, agent) = DevFlow.Over();
-        agent.ScriptJson("GET", "/api/v1/ui/tree", new JsonObject { ["error"] = "not_supported", ["capability"] = "ui.tree", ["reason"] = "Not supported by the 'native' DevFlow backend." }, System.Net.HttpStatusCode.NotImplemented);
+        agent.ScriptJson(
+            "GET",
+            "/api/v1/ui/tree",
+            new JsonObject
+            {
+                ["error"] = "not_supported",
+                ["capability"] = "ui.tree",
+                ["reason"] = "Not supported by the 'native' DevFlow backend.",
+            },
+            System.Net.HttpStatusCode.NotImplemented
+        );
 
         var error = await client.FailureAsync(DeviceMethods.CaptureSnapshot, "{}");
 

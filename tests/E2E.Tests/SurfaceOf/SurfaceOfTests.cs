@@ -21,7 +21,10 @@ public sealed class SurfaceOfTests
         await using var web = await StartAsync();
         Assert.NotNull(WebEngine.SurfaceOf(web));
 
-        await using var other = await new DocumentEngine(new DocumentWorld()).StartAsync(new EngineStartOptions(), CancellationToken.None);
+        await using var other = await new DocumentEngine(new DocumentWorld()).StartAsync(
+            new EngineStartOptions(),
+            CancellationToken.None
+        );
         Assert.Null(WebEngine.SurfaceOf(other));
     }
 }

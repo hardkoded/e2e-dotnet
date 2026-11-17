@@ -13,22 +13,28 @@ public sealed class AgentActEngineOperationsAreBoundedByActionTimeoutTests
     [Fact]
     public async Task A_navigation_that_never_settles_costs_one_action_timeout_not_the_step_budget()
     {
-        using var site = await TinySite.StartAsync(context => context.Request.Url!.AbsolutePath == "/hang"
-            ? Task.Delay(Timeout.Infinite)
-            : TinySite.RespondAsync(context, "<!doctype html><title>Home</title><h1>Home</h1>"));
-        var model = new ScriptedModel(request => request.Messages.LastOrDefault(message => message.Role == "tool") is { } result
-            ? ModelResponses.Done("failed", "navigation gave up: " + result.Content)
-            : ModelResponses.Call("navigate", new { url = "/hang" }));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = model,
-            BaseUrl = site.Url,
-            TestTitle = "act > hang",
-            ActionTimeout = TimeSpan.FromSeconds(1),
-            StepTimeout = TimeSpan.FromSeconds(60),
-            TestTimeout = TimeSpan.FromSeconds(120),
-        });
+        using var site = await TinySite.StartAsync(context =>
+            context.Request.Url!.AbsolutePath == "/hang"
+                ? Task.Delay(Timeout.Infinite)
+                : TinySite.RespondAsync(context, "<!doctype html><title>Home</title><h1>Home</h1>")
+        );
+        var model = new ScriptedModel(request =>
+            request.Messages.LastOrDefault(message => message.Role == "tool") is { } result
+                ? ModelResponses.Done("failed", "navigation gave up: " + result.Content)
+                : ModelResponses.Call("navigate", new { url = "/hang" })
+        );
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = model,
+                BaseUrl = site.Url,
+                TestTitle = "act > hang",
+                ActionTimeout = TimeSpan.FromSeconds(1),
+                StepTimeout = TimeSpan.FromSeconds(60),
+                TestTimeout = TimeSpan.FromSeconds(120),
+            }
+        );
 
         Exception? error = null;
         var watch = Stopwatch.StartNew();
@@ -36,7 +42,10 @@ public sealed class AgentActEngineOperationsAreBoundedByActionTimeoutTests
         {
             await session.App.OpenAsync("/");
             watch.Restart();
-            await session.Agent.ActAsync("open the hanging page", new ActOptions { Timeout = TimeSpan.FromSeconds(60) });
+            await session.Agent.ActAsync(
+                "open the hanging page",
+                new ActOptions { Timeout = TimeSpan.FromSeconds(60) }
+            );
         }
         catch (Exception ex)
         {

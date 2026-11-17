@@ -46,24 +46,37 @@ public sealed class Harness : IAsyncDisposable
 
     public WindowSession? Session { get; private set; }
 
-    public static WinAppOptions Options(string? appPath = "bin/Desk.exe", string? bundleId = "Desk", IReadOnlyList<string>? launchArguments = null, bool settle = true) => new()
-    {
-        TargetName = "desk",
-        App = new WinAppApp { AppPath = appPath, BundleId = bundleId, LaunchArguments = launchArguments },
-        Settle = settle,
-    };
+    public static WinAppOptions Options(
+        string? appPath = "bin/Desk.exe",
+        string? bundleId = "Desk",
+        IReadOnlyList<string>? launchArguments = null,
+        bool settle = true
+    ) =>
+        new()
+        {
+            TargetName = "desk",
+            App = new WinAppApp
+            {
+                AppPath = appPath,
+                BundleId = bundleId,
+                LaunchArguments = launchArguments,
+            },
+            Settle = settle,
+        };
 
     public async Task<WindowSession> StartAsync(CancellationToken cancellationToken = default)
     {
-        var session = (WindowSession)await Engine.StartAsync(
-            new EngineStartOptions
-            {
-                ProjectRoot = Root,
-                ArtifactsDir = ArtifactsDir,
-                AppLog = AppLog.Add,
-                Environment = Environment.Add,
-            },
-            cancellationToken);
+        var session = (WindowSession)
+            await Engine.StartAsync(
+                new EngineStartOptions
+                {
+                    ProjectRoot = Root,
+                    ArtifactsDir = ArtifactsDir,
+                    AppLog = AppLog.Add,
+                    Environment = Environment.Add,
+                },
+                cancellationToken
+            );
         Session = session;
         return session;
     }

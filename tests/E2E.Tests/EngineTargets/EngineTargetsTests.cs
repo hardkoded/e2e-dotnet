@@ -30,8 +30,15 @@ public sealed partial class EngineTargetsTests
         {
             // The executor is told which grammar the surface honors: no scroll and no back, since the toy declares neither.
             // It declares no action kinds, so it gets every locator one, and the pointer verbs with them.
-            var verbs = string.Join(",", context.Target.Verbs.Select(verb => verb.ToString()).Order(StringComparer.Ordinal));
-            if (context.Target.Platform != "ios" || verbs != "Check,Clear,DoubleTap,Drag,Hover,LongPress,Navigate,Press,SecondaryTap,Select,Tap,Type,TypeSecret")
+            var verbs = string.Join(
+                ",",
+                context.Target.Verbs.Select(verb => verb.ToString()).Order(StringComparer.Ordinal)
+            );
+            if (
+                context.Target.Platform != "ios"
+                || verbs
+                    != "Check,Clear,DoubleTap,Drag,Hover,LongPress,Navigate,Press,SecondaryTap,Select,Tap,Type,TypeSecret"
+            )
             {
                 return Failed("unexpected target " + context.Target.Platform + " " + verbs);
             }
@@ -49,21 +56,20 @@ public sealed partial class EngineTargetsTests
             }
 
             return Failed("counter never reached 2");
-        })
-        {
-            Version = "1",
-        };
+        }) { Version = "1" };
         using var report = new ReportDirectory();
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            ResultsDirectory = report.Results,
-            TargetName = "toy-sim",
-            Engine = toy,
-            AgentExecutor = executor,
-            MaxModelCalls = 10,
-            CacheEnabled = false,
-            TestTitle = "agent drives the toy device",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                ResultsDirectory = report.Results,
+                TargetName = "toy-sim",
+                Engine = toy,
+                AgentExecutor = executor,
+                MaxModelCalls = 10,
+                CacheEnabled = false,
+                TestTitle = "agent drives the toy device",
+            }
+        );
 
         var result = await session.Agent.ActAsync("increment the counter to 2");
         session.Complete();
@@ -89,14 +95,18 @@ public sealed partial class EngineTargetsTests
     {
         var toy = new ToyEngine(ToyPrepare.Fail);
         using var report = new ReportDirectory();
-        var failure = await Assert.ThrowsAsync<EngineException>(() => Standalone.OpenAttemptAsync(new E2ESessionOptions
-        {
-            ResultsDirectory = report.Results,
-            TargetName = "toy-sim",
-            Engine = toy,
-            CacheEnabled = false,
-            TestTitle = "screen and expect drive the toy device over locate",
-        }));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            Standalone.OpenAttemptAsync(
+                new E2ESessionOptions
+                {
+                    ResultsDirectory = report.Results,
+                    TargetName = "toy-sim",
+                    Engine = toy,
+                    CacheEnabled = false,
+                    TestTitle = "screen and expect drive the toy device over locate",
+                }
+            )
+        );
 
         Assert.Contains("toolchain missing", failure.Message, StringComparison.Ordinal);
 
@@ -113,15 +123,17 @@ public sealed partial class EngineTargetsTests
     {
         var toy = new ToyEngine(ToyPrepare.HangFinish);
         using var report = new ReportDirectory();
-        var attempt = await Standalone.OpenAttemptAsync(new E2ESessionOptions
-        {
-            ResultsDirectory = report.Results,
-            TargetName = "toy-sim",
-            Engine = toy,
-            CacheEnabled = false,
-            CleanupTimeout = TimeSpan.FromMilliseconds(300),
-            TestTitle = "screen and expect drive the toy device over locate",
-        });
+        var attempt = await Standalone.OpenAttemptAsync(
+            new E2ESessionOptions
+            {
+                ResultsDirectory = report.Results,
+                TargetName = "toy-sim",
+                Engine = toy,
+                CacheEnabled = false,
+                CleanupTimeout = TimeSpan.FromMilliseconds(300),
+                TestTitle = "screen and expect drive the toy device over locate",
+            }
+        );
         attempt.Session.Complete();
 
         var errors = await attempt.CloseAsync().WaitAsync(TimeSpan.FromSeconds(30));

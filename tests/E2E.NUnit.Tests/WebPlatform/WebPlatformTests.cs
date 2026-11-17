@@ -30,11 +30,17 @@ public sealed class WebPlatformTests
     [Test]
     public void Partial_Takes_the_failure_evidence_of_a_late_handler_assertion_before_a_teardown_navigates_away()
     {
-        var result = NestedRun.Run(nameof(LateHandlerFixture.A_route_handler_assertion_that_no_step_follows_then_a_teardown_that_navigates));
+        var result = NestedRun.Run(
+            nameof(LateHandlerFixture.A_route_handler_assertion_that_no_step_follows_then_a_teardown_that_navigates)
+        );
 
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
         Assert.That(result.Message, Does.Contain("ASSERTION_FAILED").Or.Contain("expect(received).toBe(expected)"));
-        var files = Directory.GetFiles(LateHandlerFixture.Results, "screen-at-failure.txt", SearchOption.AllDirectories);
+        var files = Directory.GetFiles(
+            LateHandlerFixture.Results,
+            "screen-at-failure.txt",
+            SearchOption.AllDirectories
+        );
         Assert.That(files, Has.Length.EqualTo(1));
         var text = File.ReadAllText(files[0]);
         Assert.That(text, Does.Contain("heading \"Flags\""));

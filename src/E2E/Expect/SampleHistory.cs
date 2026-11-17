@@ -76,16 +76,18 @@ internal sealed class SampleHistory
     /// The poll as one <c>poll</c> event: how many rounds it read over how long and, when the reading changed or the poll failed,
     /// the readings in order, <c>"2 remaining" x3 -> at 410ms "1 remaining" x12</c>.
     /// </summary>
-    public StepEvent Event(StepEventStatus status) => new()
-    {
-        Kind = StepEventKind.Poll,
-        Name = _name,
-        StartedAt = _startedAt,
-        DurationMs = (long)Stopwatch.GetElapsedTime(_started).TotalMilliseconds,
-        Status = status,
-        Count = _reads,
-        Detail = (_runs.Count > 1 || _dropped || status != StepEventStatus.Passed) && _runs.Count > 0 ? Detail() : null,
-    };
+    public StepEvent Event(StepEventStatus status) =>
+        new()
+        {
+            Kind = StepEventKind.Poll,
+            Name = _name,
+            StartedAt = _startedAt,
+            DurationMs = (long)Stopwatch.GetElapsedTime(_started).TotalMilliseconds,
+            Status = status,
+            Count = _reads,
+            Detail =
+                (_runs.Count > 1 || _dropped || status != StepEventStatus.Passed) && _runs.Count > 0 ? Detail() : null,
+        };
 
     /// <summary>
     /// Runs one poll and records it as the running step's <c>poll</c> event once it settles: passed, failed, or cancelled when the
@@ -101,19 +103,30 @@ internal sealed class SampleHistory
         }
         finally
         {
-            steps?.RecordEvent(Event(status == StepEventStatus.Failed && cancellationToken.IsCancellationRequested ? StepEventStatus.Cancelled : status));
+            steps?.RecordEvent(
+                Event(
+                    status == StepEventStatus.Failed && cancellationToken.IsCancellationRequested
+                        ? StepEventStatus.Cancelled
+                        : status
+                )
+            );
         }
     }
 
     private string Detail()
     {
         var shown = _runs;
-        var parts = shown.Select((run, index) =>
-        {
-            var skipped = index == 1 && _dropped ? "… -> " : "";
-            var at = index == 0 ? "" : "at " + run.AtMs.ToString(CultureInfo.InvariantCulture) + "ms ";
-            return skipped + at + TextRules.Bound(run.Value, MaxValueChars) + (run.Count > 1 ? " x" + run.Count.ToString(CultureInfo.InvariantCulture) : "");
-        });
+        var parts = shown.Select(
+            (run, index) =>
+            {
+                var skipped = index == 1 && _dropped ? "… -> " : "";
+                var at = index == 0 ? "" : "at " + run.AtMs.ToString(CultureInfo.InvariantCulture) + "ms ";
+                return skipped
+                    + at
+                    + TextRules.Bound(run.Value, MaxValueChars)
+                    + (run.Count > 1 ? " x" + run.Count.ToString(CultureInfo.InvariantCulture) : "");
+            }
+        );
         return TextRules.Bound(string.Join(" -> ", parts), StepRecorder.MaxEventDetailChars);
     }
 

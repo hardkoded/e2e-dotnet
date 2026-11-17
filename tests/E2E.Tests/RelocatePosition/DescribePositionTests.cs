@@ -14,9 +14,16 @@ namespace E2E.Tests.RelocatePosition;
 /// </summary>
 public sealed class DescribePositionTests
 {
-    internal static SemanticNode Button(string id, string name = "Set up") => new() { Ref = id, Role = "button", Name = name };
+    internal static SemanticNode Button(string id, string name = "Set up") =>
+        new()
+        {
+            Ref = id,
+            Role = "button",
+            Name = name,
+        };
 
-    internal static PreparedObservation Screen(params SemanticNode[] roots) => global::E2E.Tests.TraceReplay.TestHost.Prepare(new Observation { Route = "/", Roots = roots }, Redactor.None);
+    internal static PreparedObservation Screen(params SemanticNode[] roots) =>
+        global::E2E.Tests.TraceReplay.TestHost.Prepare(new Observation { Route = "/", Roots = roots }, Redactor.None);
 
     [Fact]
     public void Records_where_a_target_stands_among_the_twins_its_description_matches()
@@ -43,8 +50,19 @@ public sealed class DescribePositionTests
     {
         var d2 = Button("d2", "Delete");
         var rows = Screen(
-            new SemanticNode { Ref = "r1", Role = "row", Children = [new SemanticNode { Ref = "t1", Text = "Alpha" }, Button("d1", "Delete")] },
-            new SemanticNode { Ref = "r2", Role = "row", Children = [new SemanticNode { Ref = "t2", Text = "Beta" }, d2] });
+            new SemanticNode
+            {
+                Ref = "r1",
+                Role = "row",
+                Children = [new SemanticNode { Ref = "t1", Text = "Alpha" }, Button("d1", "Delete")],
+            },
+            new SemanticNode
+            {
+                Ref = "r2",
+                Role = "row",
+                Children = [new SemanticNode { Ref = "t2", Text = "Beta" }, d2],
+            }
+        );
 
         Assert.Null(Relocate.DescribePosition(d2, "Beta", rows, Redactor.None));
     }

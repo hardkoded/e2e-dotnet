@@ -46,6 +46,8 @@ public sealed class UrlMatchesFunctionTests
         Assert.False(InternalUrls.UrlMatches(current, "/billing", Base, ignoreCase: false));
         Assert.True(InternalUrls.UrlMatches(current, new Regex("billing$"), ignoreCase: true));
         Assert.True(InternalUrls.UrlMatches(current, new Regex("billing$", RegexOptions.IgnoreCase)));
-        Assert.False(InternalUrls.UrlMatches(current, new Regex("billing$", RegexOptions.IgnoreCase), ignoreCase: false));
+        Assert.False(
+            InternalUrls.UrlMatches(current, new Regex("billing$", RegexOptions.IgnoreCase), ignoreCase: false)
+        );
     }
 }

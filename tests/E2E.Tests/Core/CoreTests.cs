@@ -40,30 +40,67 @@ public sealed class CoreTests : IAsyncLifetime
         Directory.Delete(_dir, recursive: true);
     }
 
-    private static List<SemanticNode> Password() => [new SemanticNode { Ref = "password", Role = "textbox", Name = "Password", Text = "" }];
+    private static List<SemanticNode> Password() =>
+        [
+            new SemanticNode
+            {
+                Ref = "password",
+                Role = "textbox",
+                Name = "Password",
+                Text = "",
+            },
+        ];
 
     private async Task<Host> HostOf(CoreFakeEngine engine, LaunchOptions? options = null)
     {
-        var opened = await Launch.LaunchAsync((IEngine)engine, (options ?? new LaunchOptions()) with { Cwd = _dir, Env = new Dictionary<string, string?>() });
+        var opened = await Launch.LaunchAsync(
+            (IEngine)engine,
+            (options ?? new LaunchOptions()) with
+            {
+                Cwd = _dir,
+                Env = new Dictionary<string, string?>(),
+            }
+        );
         _hosts.Add(opened);
         return opened;
     }
 
     private async Task<Host<CoreFakeFixtures>> FixtureHostOf(CoreFakeEngine engine, LaunchOptions? options = null)
     {
-        var opened = await Launch.LaunchAsync(engine, (options ?? new LaunchOptions()) with { Cwd = _dir, Env = new Dictionary<string, string?>() });
+        var opened = await Launch.LaunchAsync(
+            engine,
+            (options ?? new LaunchOptions()) with
+            {
+                Cwd = _dir,
+                Env = new Dictionary<string, string?>(),
+            }
+        );
         _hosts.Add(opened);
         return opened;
     }
 
     private static Task<ConfigurationException> Mismatch(Host target, SessionState state) =>
-        Assert.ThrowsAsync<ConfigurationException>(() => target.NewSessionAsync(new NewSessionOptions { State = state }));
+        Assert.ThrowsAsync<ConfigurationException>(() =>
+            target.NewSessionAsync(new NewSessionOptions { State = state })
+        );
 
     // The port's session also holds Browser, the web engine's fixture that every port session carries, so it is in the expected members.
     [Fact]
     public async Task Opens_sessions_one_at_a_time_on_one_engine_instance_each_with_screen_app_and_platform()
     {
-        var fake = new CoreFakeEngine(scene: [new SemanticNode { Ref = "price", Role = "text", Name = "Price", Text = "39,000", TestId = "sale-price" }]);
+        var fake = new CoreFakeEngine(
+            scene:
+            [
+                new SemanticNode
+                {
+                    Ref = "price",
+                    Role = "text",
+                    Name = "Price",
+                    Text = "39,000",
+                    TestId = "sale-price",
+                },
+            ]
+        );
         var opened = await FixtureHostOf(fake, new LaunchOptions { App = FakeApp });
 
         Assert.Equal("fake", opened.Platform);
@@ -71,13 +108,36 @@ public sealed class CoreTests : IAsyncLifetime
         await first.App.OpenAsync("/");
         Assert.Equal("39,000", await first.Screen.GetByTestId("sale-price").TextContentAsync());
         Assert.Equal("gadget on fake", first.Fixtures.Gadget);
-        var members = typeof(Session<CoreFakeFixtures>).GetProperties().Select(member => member.Name)
-            .Concat(typeof(Session<CoreFakeFixtures>).GetMethods().Where(method => !method.IsSpecialName && method.DeclaringType != typeof(object)).Select(method => method.Name))
+        var members = typeof(Session<CoreFakeFixtures>)
+            .GetProperties()
+            .Select(member => member.Name)
+            .Concat(
+                typeof(Session<CoreFakeFixtures>)
+                    .GetMethods()
+                    .Where(method => !method.IsSpecialName && method.DeclaringType != typeof(object))
+                    .Select(method => method.Name)
+            )
             .Order(StringComparer.Ordinal)
             .ToList();
-        Assert.Equal(["App", "Browser", "CloseAsync", "DisposeAsync", "Fixtures", "Platform", "SaveStateAsync", "Screen", "SetDefaultTimeout"], members);
+        Assert.Equal(
+            [
+                "App",
+                "Browser",
+                "CloseAsync",
+                "DisposeAsync",
+                "Fixtures",
+                "Platform",
+                "SaveStateAsync",
+                "Screen",
+                "SetDefaultTimeout",
+            ],
+            members
+        );
         Assert.Null(typeof(Session<CoreFakeFixtures>).GetProperty("Agent"));
-        Assert.Equal("WORKER_PROTOCOL", (await Assert.ThrowsAsync<EngineException>(() => opened.NewSessionAsync())).Code);
+        Assert.Equal(
+            "WORKER_PROTOCOL",
+            (await Assert.ThrowsAsync<EngineException>(() => opened.NewSessionAsync())).Code
+        );
         await first.CloseAsync();
         await first.CloseAsync();
         var second = await opened.NewSessionAsync();
@@ -86,7 +146,10 @@ public sealed class CoreTests : IAsyncLifetime
 
         Assert.Equal(2, fake.Starts);
         Assert.Equal(2, fake.Disposes);
-        Assert.Equal("WORKER_PROTOCOL", (await Assert.ThrowsAsync<EngineException>(() => opened.NewSessionAsync())).Code);
+        Assert.Equal(
+            "WORKER_PROTOCOL",
+            (await Assert.ThrowsAsync<EngineException>(() => opened.NewSessionAsync())).Code
+        );
     }
 
     [Fact]
@@ -111,22 +174,50 @@ public sealed class CoreTests : IAsyncLifetime
         var session = await opened.NewSessionAsync();
         await session.App.OpenAsync("/");
 
-        Assert.Contains(Path.Combine(_dir, "shots"), await session.App.ScreenshotAsync("product"), StringComparison.Ordinal);
+        Assert.Contains(
+            Path.Combine(_dir, "shots"),
+            await session.App.ScreenshotAsync("product"),
+            StringComparison.Ordinal
+        );
         await session.CloseAsync();
     }
 
     [Fact]
     public async Task Says_a_closed_session_is_closed_and_redacts_a_secret_from_the_error_an_operation_throws()
     {
-        var fake = new CoreFakeEngine(scene:
-        [
-            new SemanticNode { Ref = "add", Role = "button", Name = "Add to cart" },
-            new SemanticNode { Ref = "price", Role = "text", Name = "Price", Text = "$9", TestId = "sale-price" },
-        ])
+        var fake = new CoreFakeEngine(
+            scene:
+            [
+                new SemanticNode
+                {
+                    Ref = "add",
+                    Role = "button",
+                    Name = "Add to cart",
+                },
+                new SemanticNode
+                {
+                    Ref = "price",
+                    Role = "text",
+                    Name = "Price",
+                    Text = "$9",
+                    TestId = "sale-price",
+                },
+            ]
+        )
         {
-            OnNavigate = url => url.EndsWith("/broken", StringComparison.Ordinal) ? new InvalidOperationException("the page printed hunter2-secret and stopped") : null,
+            OnNavigate = url =>
+                url.EndsWith("/broken", StringComparison.Ordinal)
+                    ? new InvalidOperationException("the page printed hunter2-secret and stopped")
+                    : null,
         };
-        var opened = await HostOf(fake, new LaunchOptions { App = FakeApp, Secrets = new Dictionary<string, string> { ["SHOP_PASSWORD"] = "hunter2-secret" } });
+        var opened = await HostOf(
+            fake,
+            new LaunchOptions
+            {
+                App = FakeApp,
+                Secrets = new Dictionary<string, string> { ["SHOP_PASSWORD"] = "hunter2-secret" },
+            }
+        );
         var session = await opened.NewSessionAsync();
 
         var failure = await Assert.ThrowsAnyAsync<E2EException>(() => session.App.OpenAsync("/broken"));
@@ -137,12 +228,16 @@ public sealed class CoreTests : IAsyncLifetime
         Assert.DoesNotContain("hunter2-secret", failure.ToString(), StringComparison.Ordinal);
         await session.CloseAsync();
 
-        var tap = await Assert.ThrowsAnyAsync<E2EException>(() => session.Screen.GetByRole("button", "Add to cart").TapAsync());
+        var tap = await Assert.ThrowsAnyAsync<E2EException>(() =>
+            session.Screen.GetByRole("button", "Add to cart").TapAsync()
+        );
         Assert.Equal("CANCELLED", tap.Code);
         Assert.Contains("the session is closed", tap.Message, StringComparison.Ordinal);
         Assert.Equal("CANCELLED", (await Assert.ThrowsAnyAsync<E2EException>(() => session.App.OpenAsync("/"))).Code);
         // A read reaches the engine with no step around it, and says the same.
-        var count = await Assert.ThrowsAnyAsync<E2EException>(() => session.Screen.GetByTestId("sale-price").CountAsync());
+        var count = await Assert.ThrowsAnyAsync<E2EException>(() =>
+            session.Screen.GetByTestId("sale-price").CountAsync()
+        );
         Assert.Equal("CANCELLED", count.Code);
         Assert.Equal("the session is closed", count.Message);
     }
@@ -162,20 +257,38 @@ public sealed class CoreTests : IAsyncLifetime
         var document = JsonNode.Parse(Encoding.UTF8.GetString(bytes))!;
         Assert.Equal("session-state-1", (string?)document["schemaVersion"]);
         Assert.DoesNotContain("\"ok\"", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
-        await Assert.ThrowsAsync<ConfigurationException>(() => SessionState.ImportAsync(bytes, new SessionStateKeyOptions { Key = new byte[32] }));
-        Assert.Equal("INVALID_ARGUMENT", (await Assert.ThrowsAsync<TestException>(() => state.ExportAsync(new SessionStateKeyOptions { Key = new byte[16] }))).Code);
+        await Assert.ThrowsAsync<ConfigurationException>(() =>
+            SessionState.ImportAsync(bytes, new SessionStateKeyOptions { Key = new byte[32] })
+        );
+        Assert.Equal(
+            "INVALID_ARGUMENT",
+            (
+                await Assert.ThrowsAsync<TestException>(() =>
+                    state.ExportAsync(new SessionStateKeyOptions { Key = new byte[16] })
+                )
+            ).Code
+        );
 
         var restored = await SessionState.ImportAsync(bytes, key);
         var second = await opened.NewSessionAsync(new NewSessionOptions { State = restored });
         await second.CloseAsync();
         var applied = Assert.Single(fake.RestoredStates);
-        Assert.Equal(("fake-state", 1, """{"ok":true}"""), (applied.Format, applied.Version, applied.Data!.ToJsonString()));
+        Assert.Equal(
+            ("fake-state", 1, """{"ok":true}"""),
+            (applied.Format, applied.Version, applied.Data!.ToJsonString())
+        );
 
-        var elsewhere = await HostOf(new CoreFakeEngine(state: true), new LaunchOptions { App = new LaunchApp { Url = "http://127.0.0.1:4600" } });
+        var elsewhere = await HostOf(
+            new CoreFakeEngine(state: true),
+            new LaunchOptions { App = new LaunchApp { Url = "http://127.0.0.1:4600" } }
+        );
         // The state itself names the app it was saved for; an imported one holds its digest alone.
         var named = await Mismatch(elsewhere, state);
         Assert.Equal("SESSION_MISMATCH", named.Code);
-        Assert.Matches(@"saved for http://\S+, and this host drives http://127\.0\.0\.1:4600.*app identity", named.Message);
+        Assert.Matches(
+            @"saved for http://\S+, and this host drives http://127\.0\.0\.1:4600.*app identity",
+            named.Message
+        );
         var imported = await Mismatch(elsewhere, restored);
         Assert.Equal("SESSION_MISMATCH", imported.Code);
         Assert.Contains("saved for another app", imported.Message, StringComparison.Ordinal);
@@ -184,18 +297,43 @@ public sealed class CoreTests : IAsyncLifetime
     [Fact]
     public async Task Carries_every_secret_value_a_saved_session_knew_so_a_host_launched_without_them_still_redacts_what_the_app_echoes()
     {
-        var saving = await HostOf(new CoreFakeEngine(Password(), state: true), new LaunchOptions { App = FakeApp, Secrets = new Dictionary<string, string> { ["SHOP_PASSWORD"] = "hunter2-secret" } });
+        var saving = await HostOf(
+            new CoreFakeEngine(Password(), state: true),
+            new LaunchOptions
+            {
+                App = FakeApp,
+                Secrets = new Dictionary<string, string> { ["SHOP_PASSWORD"] = "hunter2-secret" },
+            }
+        );
         var first = await saving.NewSessionAsync();
         await first.App.OpenAsync("/");
         await first.Screen.GetByRole("textbox", "Password").FillAsync(saving.Secret("SHOP_PASSWORD"));
         var key = new SessionStateKeyOptions { Key = [.. Enumerable.Repeat((byte)3, 32)] };
         var bytes = await (await first.SaveStateAsync()).ExportAsync(key);
         await first.CloseAsync();
-        Assert.Equal(["SHOP_PASSWORD"], JsonNode.Parse(Encoding.UTF8.GetString(bytes))!["secrecy"]!["names"]!.AsArray().Select(name => (string?)name));
+        Assert.Equal(
+            ["SHOP_PASSWORD"],
+            JsonNode.Parse(Encoding.UTF8.GetString(bytes))!["secrecy"]!["names"]!
+                .AsArray()
+                .Select(name => (string?)name)
+        );
 
-        var echo = new CoreFakeEngine([new SemanticNode { Ref = "echo", Role = "paragraph", Name = "", Text = "remembered hunter2-secret" }], state: true);
+        var echo = new CoreFakeEngine(
+            [
+                new SemanticNode
+                {
+                    Ref = "echo",
+                    Role = "paragraph",
+                    Name = "",
+                    Text = "remembered hunter2-secret",
+                },
+            ],
+            state: true
+        );
         var restoring = await HostOf(echo, new LaunchOptions { App = FakeApp });
-        var second = await restoring.NewSessionAsync(new NewSessionOptions { State = await SessionState.ImportAsync(bytes, key) });
+        var second = await restoring.NewSessionAsync(
+            new NewSessionOptions { State = await SessionState.ImportAsync(bytes, key) }
+        );
         await second.App.OpenAsync("/");
 
         var tree = await second.Screen.TreeAsync();
@@ -207,8 +345,18 @@ public sealed class CoreTests : IAsyncLifetime
     [Fact]
     public async Task Fails_a_capture_with_the_error_classified_and_redacted_carrying_no_engine_cause()
     {
-        var fake = new CoreFakeEngine(state: true) { OnCapture = () => new InvalidOperationException("capture failed with capture-secret-123") };
-        var opened = await HostOf(fake, new LaunchOptions { App = FakeApp, Secrets = new Dictionary<string, string> { ["CAPTURE"] = "capture-secret-123" } });
+        var fake = new CoreFakeEngine(state: true)
+        {
+            OnCapture = () => new InvalidOperationException("capture failed with capture-secret-123"),
+        };
+        var opened = await HostOf(
+            fake,
+            new LaunchOptions
+            {
+                App = FakeApp,
+                Secrets = new Dictionary<string, string> { ["CAPTURE"] = "capture-secret-123" },
+            }
+        );
         var session = await opened.NewSessionAsync();
 
         var failure = await Assert.ThrowsAnyAsync<E2EException>(() => session.SaveStateAsync());
@@ -223,7 +371,14 @@ public sealed class CoreTests : IAsyncLifetime
     public async Task Hands_secrets_out_by_name_and_redacts_their_values_from_what_the_screen_reads()
     {
         var fake = new CoreFakeEngine(Password());
-        var opened = await HostOf(fake, new LaunchOptions { App = FakeApp, Secrets = new Dictionary<string, string> { ["SHOP_PASSWORD"] = "hunter2-secret" } });
+        var opened = await HostOf(
+            fake,
+            new LaunchOptions
+            {
+                App = FakeApp,
+                Secrets = new Dictionary<string, string> { ["SHOP_PASSWORD"] = "hunter2-secret" },
+            }
+        );
         Assert.Equal("SECRET_UNAVAILABLE", Assert.Throws<ConfigurationException>(() => opened.Secret("NOPE")).Code);
         var session = await opened.NewSessionAsync();
         await session.App.OpenAsync("/");
@@ -246,11 +401,16 @@ public sealed class CoreTests : IAsyncLifetime
         session.SetDefaultTimeout(TimeSpan.FromMilliseconds(200));
 
         var started = DateTime.UtcNow;
-        var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("button", "Missing").TapAsync());
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            session.Screen.GetByRole("button", "Missing").TapAsync()
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(5));
-        Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => session.SetDefaultTimeout(TimeSpan.Zero)).Code);
+        Assert.Equal(
+            "INVALID_ARGUMENT",
+            Assert.Throws<TestException>(() => session.SetDefaultTimeout(TimeSpan.Zero)).Code
+        );
 
         // The agent's engine operations take the same default.
         session.SetDefaultTimeout(TimeSpan.FromMilliseconds(1_234));
@@ -259,11 +419,10 @@ public sealed class CoreTests : IAsyncLifetime
         {
             await context.ObserveAsync();
             return ExecutorKit.Passed("looked");
-        })
-        {
-            Version = "1",
-        };
-        await CoreAgents.CreateAgent(session, new CreateAgentOptions { Executor = observer }).ActAsync("look at the page");
+        }) { Version = "1" };
+        await CoreAgents
+            .CreateAgent(session, new CreateAgentOptions { Executor = observer })
+            .ActAsync("look at the page");
         var observes = fake.Operations.Skip(before).Where(operation => operation.Method == "observe").ToList();
         Assert.NotEmpty(observes);
         foreach (var operation in observes)
@@ -293,7 +452,9 @@ public sealed class CoreTests : IAsyncLifetime
         await session.CloseAsync();
 
         var bounded = new CoreFakeEngine(device: true, links: true);
-        var launched = await (await HostOf(bounded, new LaunchOptions { App = app, Timeout = TimeSpan.FromSeconds(5) })).NewSessionAsync();
+        var launched = await (
+            await HostOf(bounded, new LaunchOptions { App = app, Timeout = TimeSpan.FromSeconds(5) })
+        ).NewSessionAsync();
         Assert.True(await OpenTimeout(bounded, launched) <= TimeSpan.FromSeconds(5));
         await launched.CloseAsync();
     }

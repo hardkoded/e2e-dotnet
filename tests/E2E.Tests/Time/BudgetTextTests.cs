@@ -11,6 +11,9 @@ public sealed class BudgetTextTests
     public void Names_a_budget_exactly_in_the_largest_unit_that_divides_it()
     {
         long[] budgets = [50, 1000, 1499, 1500, 30_000, 60_000, 90_500, 300_000];
-        Assert.Equal(["50ms", "1s", "1499ms", "1500ms", "30s", "1m", "90500ms", "5m"], budgets.Select(Internal.Time.BudgetText));
+        Assert.Equal(
+            ["50ms", "1s", "1499ms", "1500ms", "30s", "1m", "90500ms", "5m"],
+            budgets.Select(Internal.Time.BudgetText)
+        );
     }
 }

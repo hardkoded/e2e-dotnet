@@ -27,7 +27,8 @@ internal sealed class StateSpyEngine(IEngine inner, bool state = true, bool fail
 
     public string Version => inner.Version;
 
-    public EngineCapabilities Capabilities => state ? inner.Capabilities | EngineCapabilities.State : inner.Capabilities & ~EngineCapabilities.State;
+    public EngineCapabilities Capabilities =>
+        state ? inner.Capabilities | EngineCapabilities.State : inner.Capabilities & ~EngineCapabilities.State;
 
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {

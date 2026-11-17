@@ -23,31 +23,38 @@ public sealed class CdpHeadersTests
         await using var remote = await RemoteChrome.LaunchAsync();
         var handshakeHeaders = new List<string?>();
         var pageHeaders = new List<string?>();
-        await using var server = new HeaderServer((path, headers, _) =>
-        {
-            if (path.StartsWith("/devtools/", StringComparison.Ordinal))
+        await using var server = new HeaderServer(
+            (path, headers, _) =>
             {
-                lock (handshakeHeaders)
+                if (path.StartsWith("/devtools/", StringComparison.Ordinal))
                 {
-                    handshakeHeaders.Add(headers.GetValueOrDefault("authorization"));
+                    lock (handshakeHeaders)
+                    {
+                        handshakeHeaders.Add(headers.GetValueOrDefault("authorization"));
+                    }
+
+                    return Ok("application/json", $$"""{"webSocketDebuggerUrl":"{{remote.Endpoint}}"}""");
                 }
 
-                return Ok("application/json", $$"""{"webSocketDebuggerUrl":"{{remote.Endpoint}}"}""");
-            }
+                lock (pageHeaders)
+                {
+                    pageHeaders.Add(headers.GetValueOrDefault("authorization"));
+                }
 
-            lock (pageHeaders)
-            {
-                pageHeaders.Add(headers.GetValueOrDefault("authorization"));
+                return Ok("text/html", "<title>Test app</title>");
             }
-
-            return Ok("text/html", "<title>Test app</title>");
-        });
+        );
         using var playwright = await Playwright.CreateAsync();
         var browser = await BrowserConnection.ConnectCdpAsync(
             playwright,
-            new CdpTarget { Endpoint = $"{server.Url}/devtools", Headers = new Dictionary<string, string> { ["Authorization"] = "Bearer synthetic-token" } },
+            new CdpTarget
+            {
+                Endpoint = $"{server.Url}/devtools",
+                Headers = new Dictionary<string, string> { ["Authorization"] = "Bearer synthetic-token" },
+            },
             TimeSpan.FromSeconds(5),
-            CancellationToken.None);
+            CancellationToken.None
+        );
         try
         {
             var page = await (await browser.NewContextAsync()).NewPageAsync();
@@ -68,16 +75,29 @@ public sealed class CdpHeadersTests
     [InlineData("Authorization Bearer synthetic-token, token synthetic-token")]
     public async Task Sanitizes_rejected_WebSocket_upgrades_with_reason(string reason)
     {
-        await using var server = new HeaderServer((_, _, upgrade) => upgrade
-            ? Encoding.ASCII.GetBytes($"HTTP/1.1 401 {reason}\r\nContent-Length: 0\r\n\r\n")
-            : Ok("text/plain", ""));
+        await using var server = new HeaderServer(
+            (_, _, upgrade) =>
+                upgrade
+                    ? Encoding.ASCII.GetBytes($"HTTP/1.1 401 {reason}\r\nContent-Length: 0\r\n\r\n")
+                    : Ok("text/plain", "")
+        );
         using var playwright = await Playwright.CreateAsync();
-        var failure = await Assert.ThrowsAnyAsync<Exception>(() => BrowserConnection.ConnectCdpAsync(
-            playwright,
-            new CdpTarget { Endpoint = server.Url.Replace("http:", "ws:", StringComparison.Ordinal), Headers = new Dictionary<string, string> { ["Authorization"] = "Bearer synthetic-token" } },
-            TimeSpan.FromSeconds(5),
-            CancellationToken.None));
-        Assert.Equal("CDP connection failed; check the endpoint, handshake headers, and connection timeout", failure.Message);
+        var failure = await Assert.ThrowsAnyAsync<Exception>(() =>
+            BrowserConnection.ConnectCdpAsync(
+                playwright,
+                new CdpTarget
+                {
+                    Endpoint = server.Url.Replace("http:", "ws:", StringComparison.Ordinal),
+                    Headers = new Dictionary<string, string> { ["Authorization"] = "Bearer synthetic-token" },
+                },
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None
+            )
+        );
+        Assert.Equal(
+            "CDP connection failed; check the endpoint, handshake headers, and connection timeout",
+            failure.Message
+        );
         Assert.DoesNotContain("synthetic-token", failure.ToString(), StringComparison.Ordinal);
         Assert.Null(failure.InnerException);
     }
@@ -85,7 +105,13 @@ public sealed class CdpHeadersTests
     private static byte[] Ok(string contentType, string body)
     {
         var bytes = Encoding.UTF8.GetBytes(body);
-        return [.. Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: {contentType}\r\nContent-Length: {bytes.Length}\r\nConnection: close\r\n\r\n"), .. bytes];
+        return
+        [
+            .. Encoding.ASCII.GetBytes(
+                $"HTTP/1.1 200 OK\r\nContent-Type: {contentType}\r\nContent-Length: {bytes.Length}\r\nConnection: close\r\n\r\n"
+            ),
+            .. bytes,
+        ];
     }
 
     /// <summary>A loopback HTTP server that answers each request with the bytes the test builds from its path and headers; every connection closes after one answer.</summary>
@@ -123,7 +149,8 @@ public sealed class CdpHeadersTests
                 {
                     client = await _listener.AcceptTcpClientAsync(_stop.Token);
                 }
-                catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or SocketException)
+                catch (Exception ex)
+                    when (ex is OperationCanceledException or ObjectDisposedException or SocketException)
                 {
                     return;
                 }
@@ -157,10 +184,13 @@ public sealed class CdpHeadersTests
                     }
 
                     var path = requestLine.Split(' ')[1];
-                    var upgrade = headers.TryGetValue("upgrade", out var value) && value.Equals("websocket", StringComparison.OrdinalIgnoreCase);
+                    var upgrade =
+                        headers.TryGetValue("upgrade", out var value)
+                        && value.Equals("websocket", StringComparison.OrdinalIgnoreCase);
                     await stream.WriteAsync(_respond(path, headers, upgrade), _stop.Token);
                 }
-                catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException or SocketException)
+                catch (Exception ex)
+                    when (ex is IOException or OperationCanceledException or ObjectDisposedException or SocketException)
                 {
                     // A client that went away, or the server stopping, ends its own connection.
                 }

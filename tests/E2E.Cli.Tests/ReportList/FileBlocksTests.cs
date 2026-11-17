@@ -24,9 +24,29 @@ public sealed class FileBlocksTests
         reporter.Handle(RunStarted());
         reporter.Handle(Plan(("tests/auth.e2e.ts", 2)));
         output.Lines.Clear();
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "a", file: "tests/auth.e2e.ts", title: ["auth", "signs in"], attempts: [Attempt() with { DurationMs = 80 }])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Passed,
+                    id: "a",
+                    file: "tests/auth.e2e.ts",
+                    title: ["auth", "signs in"],
+                    attempts: [Attempt() with { DurationMs = 80 }]
+                )
+            )
+        );
         Assert.Equal(["   ✓ |chromium| tests/auth.e2e.ts > auth > signs in 80ms"], output.Lines);
-        reporter.Handle(Finished(Result(ResultStatus.Failed, id: "b", file: "tests/auth.e2e.ts", title: ["auth", "signs out"], attempts: [FailedAttempt("still signed in")])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Failed,
+                    id: "b",
+                    file: "tests/auth.e2e.ts",
+                    title: ["auth", "signs out"],
+                    attempts: [FailedAttempt("still signed in")]
+                )
+            )
+        );
         Assert.Equal(
             [
                 "   ✓ |chromium| tests/auth.e2e.ts > auth > signs in 80ms",
@@ -34,7 +54,8 @@ public sealed class FileBlocksTests
                 "     → still signed in",
                 " ❯ |chromium| tests/auth.e2e.ts (2 tests | 1 failed) 200ms",
             ],
-            output.Lines);
+            output.Lines
+        );
     }
 
     [Fact]
@@ -45,9 +66,29 @@ public sealed class FileBlocksTests
         reporter.Handle(RunStarted());
         reporter.Handle(Plan(("tests/auth.e2e.ts", 2), ("tests/home.e2e.ts", 1)));
         output.Lines.Clear();
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "a", file: "tests/auth.e2e.ts", title: ["auth", "signs in"], attempts: [Attempt() with { DurationMs = 80 }])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Passed,
+                    id: "a",
+                    file: "tests/auth.e2e.ts",
+                    title: ["auth", "signs in"],
+                    attempts: [Attempt() with { DurationMs = 80 }]
+                )
+            )
+        );
         Assert.Empty(output.Lines);
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "b", file: "tests/auth.e2e.ts", title: ["auth", "signs out"], attempts: [Attempt() with { DurationMs = 70 }])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Passed,
+                    id: "b",
+                    file: "tests/auth.e2e.ts",
+                    title: ["auth", "signs out"],
+                    attempts: [Attempt() with { DurationMs = 70 }]
+                )
+            )
+        );
         Assert.Equal([" ✓ |chromium| tests/auth.e2e.ts (2 tests) 150ms"], output.Lines);
     }
 
@@ -57,13 +98,17 @@ public sealed class FileBlocksTests
         var output = new Capture { Raw = _ => { } };
         var reporter = PlainReporter(output, live: true);
         reporter.Handle(Plan(("tests/auth.e2e.ts", 1)));
-        reporter.Handle(Finished(Result(ResultStatus.Passed, file: "tests/auth.e2e.ts", title: ["auth", "signs in"], attempts: [Attempt() with { DurationMs = 80 }])));
-        Assert.Equal(
-            [
-                " ✓ |chromium| tests/auth.e2e.ts (1 test) 80ms",
-                "   ✓ auth > signs in 80ms",
-            ],
-            output.Lines);
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Passed,
+                    file: "tests/auth.e2e.ts",
+                    title: ["auth", "signs in"],
+                    attempts: [Attempt() with { DurationMs = 80 }]
+                )
+            )
+        );
+        Assert.Equal([" ✓ |chromium| tests/auth.e2e.ts (1 test) 80ms", "   ✓ auth > signs in 80ms"], output.Lines);
     }
 
     [Fact]
@@ -84,7 +129,18 @@ public sealed class FileBlocksTests
         reporter.Handle(Step("t1", AgentStep(StepProgressPhase.End, "pay"), "buyer"));
         foreach (var agent in new[] { "default", "buyer", "admin" })
         {
-            reporter.Handle(Finished(Result(ResultStatus.Passed, id: "t1", agent: agent, file: "tests/checkout.e2e.ts", title: ["checkout", "pays"], attempts: [Attempt() with { DurationMs = 80 }])));
+            reporter.Handle(
+                Finished(
+                    Result(
+                        ResultStatus.Passed,
+                        id: "t1",
+                        agent: agent,
+                        file: "tests/checkout.e2e.ts",
+                        title: ["checkout", "pays"],
+                        attempts: [Attempt() with { DurationMs = 80 }]
+                    )
+                )
+            );
         }
 
         Assert.Equal(
@@ -95,7 +151,8 @@ public sealed class FileBlocksTests
                 "   ✓ |chromium| tests/checkout.e2e.ts > checkout > pays [admin] 80ms",
                 " ✓ |chromium| tests/checkout.e2e.ts (3 tests) 240ms",
             ],
-            output.Lines);
+            output.Lines
+        );
     }
 
     [Fact]
@@ -104,16 +161,29 @@ public sealed class FileBlocksTests
         var output = new Capture { Raw = _ => { } };
         var reporter = PlainReporter(output, live: true);
         reporter.Handle(Plan(("tests/a.e2e.ts", 1), ("tests/b.e2e.ts", 1)));
-        reporter.Handle(Finished(Result(
-            ResultStatus.Flaky,
-            file: "tests/a.e2e.ts",
-            attempts: [Attempt(status: AttemptStatus.Failed) with { DurationMs = 100 }, Attempt(id: "attempt-2") with { DurationMs = 50 }])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Flaky,
+                    file: "tests/a.e2e.ts",
+                    attempts:
+                    [
+                        Attempt(status: AttemptStatus.Failed) with
+                        {
+                            DurationMs = 100,
+                        },
+                        Attempt(id: "attempt-2") with
+                        {
+                            DurationMs = 50,
+                        },
+                    ]
+                )
+            )
+        );
         Assert.Equal(
-            [
-                " ✓ |chromium| tests/a.e2e.ts (1 test | 1 flaky) 150ms",
-                "   ✓ suite > case (flaky) 150ms",
-            ],
-            output.Lines);
+            [" ✓ |chromium| tests/a.e2e.ts (1 test | 1 flaky) 150ms", "   ✓ suite > case (flaky) 150ms"],
+            output.Lines
+        );
     }
 
     [Fact]
@@ -144,12 +214,20 @@ public sealed class FileBlocksTests
     public void Groups_the_same_file_per_target_colored_by_target_order()
     {
         var chunks = new List<string>();
-        var reporter = new global::E2E.Cli.Report.ListReporter(new Recorder(chunks), new ListReporterOptions { Colors = true });
+        var reporter = new global::E2E.Cli.Report.ListReporter(
+            new Recorder(chunks),
+            new ListReporterOptions { Colors = true }
+        );
         reporter.Handle(RunStarted(targets: ["chromium", "firefox"]));
         reporter.Handle(new PlanEvent(2, [("tests/a.e2e.ts", "chromium", 1), ("tests/a.e2e.ts", "firefox", 1)]));
         reporter.Handle(Finished(Result(ResultStatus.Passed, target: "firefox", file: "tests/a.e2e.ts")));
         reporter.Handle(Finished(Result(ResultStatus.Passed, target: "chromium", file: "tests/a.e2e.ts")));
-        var blocks = chunks.Where(line => line.Contains("tests/a.e2e.ts", StringComparison.Ordinal) && !line.Contains(" > ", StringComparison.Ordinal)).ToList();
+        var blocks = chunks
+            .Where(line =>
+                line.Contains("tests/a.e2e.ts", StringComparison.Ordinal)
+                && !line.Contains(" > ", StringComparison.Ordinal)
+            )
+            .ToList();
         Assert.Equal(2, blocks.Count);
         Assert.Contains(" firefox ", blocks[0], StringComparison.Ordinal);
         Assert.Contains(" chromium ", blocks[1], StringComparison.Ordinal);
@@ -164,7 +242,16 @@ public sealed class FileBlocksTests
         var output = new Capture();
         var reporter = PlainReporter(output);
         reporter.Handle(Plan(("tests/a.e2e.ts", 1)));
-        reporter.Handle(Finished(Result(ResultStatus.Failed, file: "tests/a.e2e.ts", title: ["long"], attempts: [FailedAttempt(new string('e', 200))])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Failed,
+                    file: "tests/a.e2e.ts",
+                    title: ["long"],
+                    attempts: [FailedAttempt(new string('e', 200))]
+                )
+            )
+        );
         var glance = output.Lines.First(line => line.Contains('→', StringComparison.Ordinal));
         Assert.True(glance.Length <= 40);
         Assert.EndsWith("…", glance, StringComparison.Ordinal);

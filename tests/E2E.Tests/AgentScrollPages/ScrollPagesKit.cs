@@ -39,7 +39,9 @@ internal static class ScrollPagesKit
     public static readonly RowText SlotAt = index =>
     {
         var minutes = 9 * 60 + index * 30;
-        return (minutes / 60).ToString(CultureInfo.InvariantCulture) + ":" + (minutes % 60).ToString("00", CultureInfo.InvariantCulture);
+        return (minutes / 60).ToString(CultureInfo.InvariantCulture)
+            + ":"
+            + (minutes % 60).ToString("00", CultureInfo.InvariantCulture);
     };
 
     // A clock that reads a minute later on every capture, as one ticking on the screen does.
@@ -50,16 +52,24 @@ internal static class ScrollPagesKit
         list.Children.Clear();
         for (var at = 0; at < count; at++)
         {
-            list.Children.Add(new DocumentElement
-            {
-                Role = "listitem",
-                Text = textOf(page * PerPage + at),
-                Rect = new BoundingBox(0, 20 + at * 40, 100, 40),
-            });
+            list.Children.Add(
+                new DocumentElement
+                {
+                    Role = "listitem",
+                    Text = textOf(page * PerPage + at),
+                    Rect = new BoundingBox(0, 20 + at * 40, 100, 40),
+                }
+            );
         }
     }
 
-    public static async Task<Paged> ScrollToAsync(string text, Turning turning, bool withClock = false, RowText? textOf = null, bool withCounter = false)
+    public static async Task<Paged> ScrollToAsync(
+        string text,
+        Turning turning,
+        bool withClock = false,
+        RowText? textOf = null,
+        bool withCounter = false
+    )
     {
         textOf ??= Numbered;
         var gate = new object();
@@ -67,8 +77,20 @@ internal static class ScrollPagesKit
         var page = 0;
         var atSwipe = new List<int>();
         var list = new DocumentElement { Role = "list", Name = "Ledger" };
-        var clock = new DocumentElement { Role = "status", Name = "Clock", Text = ClockText(0), Rect = new BoundingBox(0, 0, 100, 20) };
-        var counter = new DocumentElement { Role = "status", Name = "Inbox", Text = "0 unread", Rect = new BoundingBox(0, 0, 100, 20) };
+        var clock = new DocumentElement
+        {
+            Role = "status",
+            Name = "Clock",
+            Text = ClockText(0),
+            Rect = new BoundingBox(0, 0, 100, 20),
+        };
+        var counter = new DocumentElement
+        {
+            Role = "status",
+            Name = "Inbox",
+            Text = "0 unread",
+            Rect = new BoundingBox(0, 0, 100, 20),
+        };
         RowsOf(list, 0, PerPage, textOf);
 
         void Turn(int to, int count = PerPage)
@@ -77,14 +99,15 @@ internal static class ScrollPagesKit
             RowsOf(list, to, count, textOf);
         }
 
-        void After(TimeSpan delay, Action turn) => _ = Task.Run(async () =>
-        {
-            await Task.Delay(delay).ConfigureAwait(false);
-            lock (gate)
+        void After(TimeSpan delay, Action turn) =>
+            _ = Task.Run(async () =>
             {
-                turn();
-            }
-        });
+                await Task.Delay(delay).ConfigureAwait(false);
+                lock (gate)
+                {
+                    turn();
+                }
+            });
 
         var world = new DocumentWorld().Map("/", document =>
         {
@@ -160,16 +183,18 @@ internal static class ScrollPagesKit
             return Passed("scrolled");
         });
 
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            AgentExecutor = executor,
-            BaseUrl = "https://ledger.test",
-            CacheEnabled = false,
-            TestTitle = "reaches the row",
-            StepTimeout = TimeSpan.FromSeconds(60),
-            TestTimeout = TimeSpan.FromSeconds(120),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                AgentExecutor = executor,
+                BaseUrl = "https://ledger.test",
+                CacheEnabled = false,
+                TestTitle = "reaches the row",
+                StepTimeout = TimeSpan.FromSeconds(60),
+                TestTimeout = TimeSpan.FromSeconds(120),
+            }
+        );
         await session.App.OpenAsync("/");
         await session.Agent.ActAsync("reach the row");
         session.Complete();

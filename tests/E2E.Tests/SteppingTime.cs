@@ -52,7 +52,9 @@ internal sealed class SteppingTime : FakeTimeProvider
             }
             else if (!pending.IsCompleted && idle.Elapsed > TimeSpan.FromSeconds(30))
             {
-                throw new TimeoutException("The poll waits on no timer of the fake clock for 30 seconds; it must wait on this clock.");
+                throw new TimeoutException(
+                    "The poll waits on no timer of the fake clock for 30 seconds; it must wait on this clock."
+                );
             }
         }
 
@@ -74,7 +76,8 @@ internal sealed class SteppingTime : FakeTimeProvider
 
         public bool Disposed { get; private set; }
 
-        public bool Change(TimeSpan dueTime, TimeSpan period) => throw new NotSupportedException("A poll never retimes a timer.");
+        public bool Change(TimeSpan dueTime, TimeSpan period) =>
+            throw new NotSupportedException("A poll never retimes a timer.");
 
         public void Dispose()
         {

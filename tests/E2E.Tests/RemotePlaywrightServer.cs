@@ -36,7 +36,12 @@ internal sealed partial class RemotePlaywrightServer : IAsyncDisposable
         var node = OperatingSystem.IsWindows()
             ? Path.Combine(driver, "node", "win32_x64", "node.exe")
             : Path.Combine(driver, "node", (OperatingSystem.IsMacOS() ? "darwin-" : "linux-") + platform, "node");
-        var info = new ProcessStartInfo(node) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+        var info = new ProcessStartInfo(node)
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
         foreach (var argument in new[] { Path.Combine(driver, "package", "cli.js"), "run-server", "--port", "0" })
         {
             info.ArgumentList.Add(argument);

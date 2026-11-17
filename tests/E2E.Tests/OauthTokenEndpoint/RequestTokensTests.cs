@@ -30,15 +30,33 @@ public sealed class RequestTokensTests
     [Fact]
     public async Task Drops_an_optional_token_of_the_wrong_type_and_keeps_vendor_fields()
     {
-        var tokens = await RequestAsync("""{"access_token":"at","refresh_token":42,"id_token":null,"expires_in":"60","org_id":"org_1"}""");
+        var tokens = await RequestAsync(
+            """{"access_token":"at","refresh_token":42,"id_token":null,"expires_in":"60","org_id":"org_1"}"""
+        );
 
-        Assert.Equal(("at", null, null, "60"), (tokens.AccessToken, tokens.RefreshToken, tokens.IdToken, tokens.ExpiresIn!.GetValue<string>()));
-        Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{"access_token":"at","expires_in":"60","org_id":"org_1"}"""), tokens.Raw), tokens.Raw.ToJsonString());
+        Assert.Equal(
+            ("at", null, null, "60"),
+            (tokens.AccessToken, tokens.RefreshToken, tokens.IdToken, tokens.ExpiresIn!.GetValue<string>())
+        );
+        Assert.True(
+            JsonNode.DeepEquals(
+                JsonNode.Parse("""{"access_token":"at","expires_in":"60","org_id":"org_1"}"""),
+                tokens.Raw
+            ),
+            tokens.Raw.ToJsonString()
+        );
     }
 
     private static async Task<TokenResponse> RequestAsync(string body)
     {
         using var http = new HttpClient(new FakeApi(_ => (HttpStatusCode.OK, body)));
-        return await TokenEndpoint.RequestAsync(http, "Acme", "https://auth.test/token", new Dictionary<string, string>(), OAuthException.FlowFailed, CancellationToken.None);
+        return await TokenEndpoint.RequestAsync(
+            http,
+            "Acme",
+            "https://auth.test/token",
+            new Dictionary<string, string>(),
+            OAuthException.FlowFailed,
+            CancellationToken.None
+        );
     }
 }

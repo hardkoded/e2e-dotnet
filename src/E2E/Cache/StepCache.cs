@@ -124,11 +124,15 @@ public sealed class CacheEntry
     /// Upstream's <c>readProvenance</c> (<c>cache/trace-read.ts</c>), which makes a malformed <c>recordedFor</c> a miss.
     /// </summary>
     internal bool HasValidProvenance() =>
-        IsDescriptor(Test) && IsDescriptor(TargetId) && IsDescriptor(Agent)
-        && ParamsDigest is null or { Length: 64 } && (ParamsDigest is null || ParamsDigest.All(char.IsAsciiHexDigitLower))
+        IsDescriptor(Test)
+        && IsDescriptor(TargetId)
+        && IsDescriptor(Agent)
+        && ParamsDigest is null or { Length: 64 }
+        && (ParamsDigest is null || ParamsDigest.All(char.IsAsciiHexDigitLower))
         && CallIndex is null or >= 0;
 
-    private static bool IsDescriptor(string? value) => value is null || !string.IsNullOrWhiteSpace(value) && value.Length <= Trace.MaxTraceDescriptorChars;
+    private static bool IsDescriptor(string? value) =>
+        value is null || !string.IsNullOrWhiteSpace(value) && value.Length <= Trace.MaxTraceDescriptorChars;
 
     /// <summary>
     /// Upstream's <c>readRecordedModel</c>: the model attribution when it is nonblank text within its budget, else null. A malformed
@@ -168,7 +172,8 @@ internal sealed class OptionalTextConverter : JsonConverter<string>
         return null;
     }
 
-    public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options) => writer.WriteStringValue(value);
+    public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(value);
 }
 
 public sealed class RecordedAction
@@ -254,12 +259,13 @@ public sealed class RecordedAction
     /// <c>pressKey</c> holds a <see cref="Key"/> of one to 64 characters, and no other action holds a <see cref="Replace"/>. Upstream's
     /// <c>readAction</c>, which makes a malformed entry a miss.
     /// </summary>
-    internal bool HasValidKeyboard() => Kind switch
-    {
-        "typeText" => Value is { Length: <= Trace.MaxTraceInputChars } && Replace is not null && Key is null,
-        "pressKey" => Key is { Length: > 0 and <= 64 } && Value is null && Replace is null,
-        _ => Replace is null,
-    };
+    internal bool HasValidKeyboard() =>
+        Kind switch
+        {
+            "typeText" => Value is { Length: <= Trace.MaxTraceInputChars } && Replace is not null && Key is null,
+            "pressKey" => Key is { Length: > 0 and <= 64 } && Value is null && Replace is null,
+            _ => Replace is null,
+        };
 
     public string? Url { get; set; }
 
@@ -305,7 +311,8 @@ public sealed class RecordedAction
     /// </summary>
     internal bool HasValidPaths() =>
         Kind == "upload"
-            ? Paths is { Count: > 0 and <= Trace.MaxTraceUploadPaths } && Paths.All(path => !string.IsNullOrEmpty(path) && path.Length <= Trace.MaxTraceInputChars)
+            ? Paths is { Count: > 0 and <= Trace.MaxTraceUploadPaths }
+                && Paths.All(path => !string.IsNullOrEmpty(path) && path.Length <= Trace.MaxTraceInputChars)
             : Paths is null;
 
     /// <summary>
@@ -336,12 +343,14 @@ public sealed class RecordedAction
     /// <c>scrollUntil</c>'s target is read with its own <see cref="TargetText"/>, not <see cref="Text"/>, which holds the text it pages toward. Upstream's
     /// <c>readDescriptor</c> on the <c>target</c> of each node action, which makes a target that names nothing a miss.
     /// </summary>
-    internal bool HasValidTarget() => (Kind == "scrollUntil" || TargetText is null) && Kind switch
-    {
-        _ when E2E.Cache.TraceRecorder.TargetedKinds.Contains(Kind) => TargetDescriptor().HasValidDescriptor(),
-        "scroll" or "scrollUntil" when HasTargetFields() => TargetDescriptor().HasValidDescriptor(),
-        _ => true,
-    };
+    internal bool HasValidTarget() =>
+        (Kind == "scrollUntil" || TargetText is null)
+        && Kind switch
+        {
+            _ when E2E.Cache.TraceRecorder.TargetedKinds.Contains(Kind) => TargetDescriptor().HasValidDescriptor(),
+            "scroll" or "scrollUntil" when HasTargetFields() => TargetDescriptor().HasValidDescriptor(),
+            _ => true,
+        };
 
     /// <summary>The target the action names, read as upstream's <c>target</c>: a <c>scrollUntil</c> takes its text from <see cref="TargetText"/>.</summary>
     private RecordedTarget TargetDescriptor()
@@ -359,8 +368,13 @@ public sealed class RecordedAction
     private bool HasTargetFields()
     {
         var target = TargetDescriptor();
-        return target.Role is not null || target.Name is not null || target.TestId is not null || target.Within is not null || target.Text is not null
-            || target.Placeholder is not null || target.InputPurpose is not null;
+        return target.Role is not null
+            || target.Name is not null
+            || target.TestId is not null
+            || target.Within is not null
+            || target.Text is not null
+            || target.Placeholder is not null
+            || target.InputPurpose is not null;
     }
 
     /// <summary>
@@ -368,12 +382,24 @@ public sealed class RecordedAction
     /// <see cref="Viewport"/>, a <c>dragAt</c> holds both ends and a viewport, and every other action holds none of them. Upstream's
     /// <c>readAction</c>, which makes a malformed entry a miss.
     /// </summary>
-    internal bool HasValidPoints() => Kind switch
-    {
-        "tapAt" or "hoverAt" => Point is { } point && RecordedPointPlace.IsFinite(point) && Viewport is { Width: > 0, Height: > 0 } && From is null && To is null && (Under?.IsValid() ?? true),
-        "dragAt" => Point is null && Under is null && Viewport is { Width: > 0, Height: > 0 } && From is { } from && from.IsValid() && To is { } to && to.IsValid(),
-        _ => Point is null && Viewport is null && Under is null && From is null && To is null,
-    };
+    internal bool HasValidPoints() =>
+        Kind switch
+        {
+            "tapAt" or "hoverAt" => Point is { } point
+                && RecordedPointPlace.IsFinite(point)
+                && Viewport is { Width: > 0, Height: > 0 }
+                && From is null
+                && To is null
+                && (Under?.IsValid() ?? true),
+            "dragAt" => Point is null
+                && Under is null
+                && Viewport is { Width: > 0, Height: > 0 }
+                && From is { } from
+                && from.IsValid()
+                && To is { } to
+                && to.IsValid(),
+            _ => Point is null && Viewport is null && Under is null && From is null && To is null,
+        };
 
     /// <summary>The viewport a <c>resize</c> set, in CSS pixels, replayed as given (upstream's <c>size</c> of a <c>ResizeAction</c>). Null on every other action.</summary>
     public TraceViewport? Size { get; set; }
@@ -397,10 +423,7 @@ public sealed class RecordedAction
     /// Whether <see cref="Tab"/> is well formed: a <c>switchTab</c> or <c>closeTab</c> holds a place from zero, and every other action none.
     /// Upstream's <c>readAction</c>, which makes a malformed entry a miss.
     /// </summary>
-    internal bool HasValidTab() =>
-        Kind is "switchTab" or "closeTab"
-            ? Tab is >= 0
-            : Tab is null;
+    internal bool HasValidTab() => Kind is "switchTab" or "closeTab" ? Tab is >= 0 : Tab is null;
 
     /// <summary>
     /// Upstream's <c>destination</c> of a <c>drag</c>: the node the source was dropped on, described like the source with the container it
@@ -414,7 +437,9 @@ public sealed class RecordedAction
     /// </summary>
     internal bool HasValidDestination() =>
         Kind == "drag"
-            ? Destination is { } destination && (destination.Role is not null || destination.Name is not null || destination.TestId is not null) && destination.HasValidDescriptor()
+            ? Destination is { } destination
+                && (destination.Role is not null || destination.Name is not null || destination.TestId is not null)
+                && destination.HasValidDescriptor()
             : Destination is null;
 
     /// <summary>
@@ -439,10 +464,12 @@ public sealed class RecordedAction
     /// </summary>
     internal bool HasValidModifiers() =>
         Modifiers is null
-        || (Kind is "tap" or "doubleTap" or "secondaryTap"
+        || (
+            Kind is "tap" or "doubleTap" or "secondaryTap"
             && Modifiers.Count > 0
             && Modifiers.Distinct(StringComparer.Ordinal).Count() == Modifiers.Count
-            && Modifiers.All(name => KeyModifiers.TryParse(name, out _)));
+            && Modifiers.All(name => KeyModifiers.TryParse(name, out _))
+        );
 }
 
 /// <summary>
@@ -557,9 +584,11 @@ public sealed class RecordedTarget
     /// </summary>
     internal bool HasValidStates() =>
         States is null
-        || (States.Count > 0
+        || (
+            States.Count > 0
             && States.All(state => state is not null && Trace.TraceAnchorStates.Contains(state))
-            && States.Zip(States.Skip(1)).All(pair => string.CompareOrdinal(pair.First, pair.Second) < 0));
+            && States.Zip(States.Skip(1)).All(pair => string.CompareOrdinal(pair.First, pair.Second) < 0)
+        );
 
     /// <summary>A shallow copy of this node, which <see cref="Trace.MapTraceText"/> rewrites the text of.</summary>
     internal RecordedTarget Copy() => (RecordedTarget)MemberwiseClone();
@@ -614,9 +643,7 @@ public sealed class FileStepCache : IStepCache
     private Dictionary<string, List<string>>? _recordings;
 
     public FileStepCache(string directory)
-        : this(directory, MaxCacheWireBytes, true)
-    {
-    }
+        : this(directory, MaxCacheWireBytes, true) { }
 
     /// <summary>
     /// Upstream's <c>FileCacheStoreOptions</c> as arguments: <paramref name="maxBytes"/> is the entry size cap for tests (production passes
@@ -813,16 +840,34 @@ public sealed class FileStepCache : IStepCache
 
     private static string? StepKey(CacheEntry step)
     {
-        if (step.Test is null || step.Instruction is null || step.Engine is null || step.ParamsDigest is null || step.CallIndex is null || step.Agent is null)
+        if (
+            step.Test is null
+            || step.Instruction is null
+            || step.Engine is null
+            || step.ParamsDigest is null
+            || step.CallIndex is null
+            || step.Agent is null
+        )
         {
             return null;
         }
 
-        return JsonSerializer.Serialize(new object[] { step.Test, step.Engine, step.Instruction, step.ParamsDigest, step.CallIndex.Value, step.Agent });
+        return JsonSerializer.Serialize(
+            new object[]
+            {
+                step.Test,
+                step.Engine,
+                step.Instruction,
+                step.ParamsDigest,
+                step.CallIndex.Value,
+                step.Agent,
+            }
+        );
     }
 
     // Upstream's KEY_HASH: a bare lowercase SHA-256 digest.
-    private static bool IsKeyHash(string key) => key.Length == 64 && key.All(c => char.IsAsciiDigit(c) || c is >= 'a' and <= 'f');
+    private static bool IsKeyHash(string key) =>
+        key.Length == 64 && key.All(c => char.IsAsciiDigit(c) || c is >= 'a' and <= 'f');
 
     /// <summary>
     /// Upstream's <c>entryPath</c>. The key hash is the only caller-supplied path component and must be a bare digest, so traversal is
@@ -849,9 +894,15 @@ internal static partial class CacheKeys
     /// </summary>
     public const double MainListShare = 0.5;
 
-    private static readonly JsonSerializerOptions KeyJson = Json(new LeafConverter<Secret>(Canonical), new LeafConverter<UniqueValue>(Canonical));
+    private static readonly JsonSerializerOptions KeyJson = Json(
+        new LeafConverter<Secret>(Canonical),
+        new LeafConverter<UniqueValue>(Canonical)
+    );
 
-    private static readonly JsonSerializerOptions DisplayJson = Json(new LeafConverter<Secret>(Display), new LeafConverter<UniqueValue>(Display));
+    private static readonly JsonSerializerOptions DisplayJson = Json(
+        new LeafConverter<Secret>(Display),
+        new LeafConverter<UniqueValue>(Display)
+    );
 
     /// <summary>
     /// SHA-256/JCS of the params as the key digests them (<see cref="Identity.ParamsDigest"/>): a placeholder for each unique value and
@@ -881,14 +932,17 @@ internal static partial class CacheKeys
     public static JsonObject TemplateParams(JsonObject? parameters, IReadOnlyList<ParamTemplate> templates)
     {
         var pointers = templates.Select(template => template.Pointer).ToHashSet(StringComparer.Ordinal);
-        JsonNode? Walk(JsonNode? value, string pointer) => pointers.Contains(pointer)
-            ? Placeholder(pointer, null)
-            : value switch
-            {
-                JsonObject map => WalkObject(map, pointer),
-                JsonArray list => new JsonArray([.. list.Select((item, index) => Walk(item, ParamPointer(pointer, index)))]),
-                _ => value?.DeepClone(),
-            };
+        JsonNode? Walk(JsonNode? value, string pointer) =>
+            pointers.Contains(pointer)
+                ? Placeholder(pointer, null)
+                : value switch
+                {
+                    JsonObject map => WalkObject(map, pointer),
+                    JsonArray list => new JsonArray([
+                        .. list.Select((item, index) => Walk(item, ParamPointer(pointer, index))),
+                    ]),
+                    _ => value?.DeepClone(),
+                };
         JsonObject WalkObject(JsonObject map, string pointer)
         {
             var copy = new JsonObject();
@@ -931,7 +985,8 @@ internal static partial class CacheKeys
     }
 
     /// <summary>The <c>unique()</c> values of the params as templates (upstream's <c>validateParams</c> list); none for no params.</summary>
-    public static List<ParamTemplate> TemplatesOf(IReadOnlyDictionary<string, object?>? parameters) => ActParams.ValidateParams(parameters, "agent.act").Templates;
+    public static List<ParamTemplate> TemplatesOf(IReadOnlyDictionary<string, object?>? parameters) =>
+        ActParams.ValidateParams(parameters, "agent.act").Templates;
 
     /// <summary>
     /// Upstream's <c>spellings</c>: every distinct spelling of every template (as typed, then each encoding that differs), with the
@@ -955,10 +1010,13 @@ internal static partial class CacheKeys
             }
         }
 
-        return [.. found
-            .OrderByDescending(spelling => spelling.Text.Length)
-            .ThenBy(spelling => spelling.Pointer, StringComparer.InvariantCulture)
-            .ThenBy(spelling => spelling.Slot, StringComparer.InvariantCulture)];
+        return
+        [
+            .. found
+                .OrderByDescending(spelling => spelling.Text.Length)
+                .ThenBy(spelling => spelling.Pointer, StringComparer.InvariantCulture)
+                .ThenBy(spelling => spelling.Slot, StringComparer.InvariantCulture),
+        ];
     }
 
     /// <summary>
@@ -1035,12 +1093,14 @@ internal static partial class CacheKeys
         parent + "/" + key.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
 
     /// <summary>Upstream's <c>paramPointer</c> for an array index: the index follows its parent after one slash.</summary>
-    public static string ParamPointer(string parent, int index) => parent + "/" + index.ToString(CultureInfo.InvariantCulture);
+    public static string ParamPointer(string parent, int index) =>
+        parent + "/" + index.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>Upstream's <c>PLACEHOLDER_PREFIX</c>: what every placeholder opens with, so a text that already spells one is told apart.</summary>
     public const string PlaceholderPrefix = "{{param:";
 
-    private static string Placeholder(string pointer, string? encoding) => PlaceholderPrefix + pointer + (encoding is null ? "" : "|" + encoding) + "}}";
+    private static string Placeholder(string pointer, string? encoding) =>
+        PlaceholderPrefix + pointer + (encoding is null ? "" : "|" + encoding) + "}}";
 
     /// <summary>
     /// Upstream's <c>expandText</c>: fills every placeholder in one regex pass from <paramref name="values"/> (pointer to value), in the
@@ -1051,32 +1111,38 @@ internal static partial class CacheKeys
     public static string? ExpandText(string text, IReadOnlyDictionary<string, string> values)
     {
         var missing = false;
-        var expanded = PlaceholderPattern().Replace(text, match =>
-        {
-            // Upstream's parsePlaceholder: the encoding follows the last bar; an unknown one makes the placeholder unusable.
-            var inner = match.Groups[1].Value;
-            var bar = inner.LastIndexOf('|');
-            var pointer = bar == -1 ? inner : inner[..bar];
-            Func<string, string?>? encode = null;
-            if (bar != -1)
+        var expanded = PlaceholderPattern()
+            .Replace(text, match =>
             {
-                var name = inner[(bar + 1)..];
-                encode = Encodings.FirstOrDefault(encoding => string.Equals(encoding.Name, name, StringComparison.Ordinal)).Encode;
-                if (encode is null)
+                // Upstream's parsePlaceholder: the encoding follows the last bar; an unknown one makes the placeholder unusable.
+                var inner = match.Groups[1].Value;
+                var bar = inner.LastIndexOf('|');
+                var pointer = bar == -1 ? inner : inner[..bar];
+                Func<string, string?>? encode = null;
+                if (bar != -1)
+                {
+                    var name = inner[(bar + 1)..];
+                    encode = Encodings
+                        .FirstOrDefault(encoding => string.Equals(encoding.Name, name, StringComparison.Ordinal))
+                        .Encode;
+                    if (encode is null)
+                    {
+                        missing = true;
+                        return "";
+                    }
+                }
+
+                if (
+                    !values.TryGetValue(pointer, out var value)
+                    || (encode is null ? value : encode(value)) is not { } filled
+                )
                 {
                     missing = true;
                     return "";
                 }
-            }
 
-            if (!values.TryGetValue(pointer, out var value) || (encode is null ? value : encode(value)) is not { } filled)
-            {
-                missing = true;
-                return "";
-            }
-
-            return filled;
-        });
+                return filled;
+            });
         return missing ? null : expanded;
     }
 
@@ -1118,8 +1184,21 @@ internal static partial class CacheKeys
         var builder = new StringBuilder();
         foreach (var octet in Encoding.UTF8.GetBytes(value))
         {
-            if (octet is (>= (byte)'a' and <= (byte)'z') or (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'0' and <= (byte)'9')
-                or (byte)'-' or (byte)'_' or (byte)'.' or (byte)'!' or (byte)'~' or (byte)'*' or (byte)'\'' or (byte)'(' or (byte)')')
+            if (
+                octet
+                is (>= (byte)'a' and <= (byte)'z')
+                    or (>= (byte)'A' and <= (byte)'Z')
+                    or (>= (byte)'0' and <= (byte)'9')
+                    or (byte)'-'
+                    or (byte)'_'
+                    or (byte)'.'
+                    or (byte)'!'
+                    or (byte)'~'
+                    or (byte)'*'
+                    or (byte)'\''
+                    or (byte)'('
+                    or (byte)')'
+            )
             {
                 builder.Append((char)octet);
             }
@@ -1139,7 +1218,10 @@ internal static partial class CacheKeys
         var dash = false;
         foreach (var rune in value.ToLowerInvariant().EnumerateRunes())
         {
-            if (Rune.IsLetterOrDigit(rune) || Rune.GetUnicodeCategory(rune) is UnicodeCategory.LetterNumber or UnicodeCategory.OtherNumber)
+            if (
+                Rune.IsLetterOrDigit(rune)
+                || Rune.GetUnicodeCategory(rune) is UnicodeCategory.LetterNumber or UnicodeCategory.OtherNumber
+            )
             {
                 if (dash && builder.Length > 0)
                 {
@@ -1164,7 +1246,16 @@ internal static partial class CacheKeys
         var builder = new StringBuilder();
         foreach (var octet in Encoding.UTF8.GetBytes(value))
         {
-            if (octet is (>= (byte)'a' and <= (byte)'z') or (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'0' and <= (byte)'9') or (byte)'*' or (byte)'-' or (byte)'.' or (byte)'_')
+            if (
+                octet
+                is (>= (byte)'a' and <= (byte)'z')
+                    or (>= (byte)'A' and <= (byte)'Z')
+                    or (>= (byte)'0' and <= (byte)'9')
+                    or (byte)'*'
+                    or (byte)'-'
+                    or (byte)'.'
+                    or (byte)'_'
+            )
             {
                 builder.Append((char)octet);
             }
@@ -1210,7 +1301,14 @@ internal static partial class CacheKeys
 
                     break;
                 case JsonValue scalar:
-                    leaves.Add(new ParamTemplate(pointer, scalar.GetValueKind() == JsonValueKind.String ? scalar.GetValue<string>() : scalar.ToJsonString()));
+                    leaves.Add(
+                        new ParamTemplate(
+                            pointer,
+                            scalar.GetValueKind() == JsonValueKind.String
+                                ? scalar.GetValue<string>()
+                                : scalar.ToJsonString()
+                        )
+                    );
                     break;
             }
         }
@@ -1240,7 +1338,8 @@ internal static partial class CacheKeys
         }
 
         var marked = Spellings(templates);
-        return Spellings(LiteralLeaves(parameters, templates)).Any(plain => marked.Any(slot => plain.Text.Contains(slot.Text, StringComparison.Ordinal)));
+        return Spellings(LiteralLeaves(parameters, templates))
+            .Any(plain => marked.Any(slot => plain.Text.Contains(slot.Text, StringComparison.Ordinal)));
     }
 
     private static string Json(object value)

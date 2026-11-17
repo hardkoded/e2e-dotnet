@@ -34,4 +34,27 @@
     <InternalsVisibleTo Include="E2E.GitHub" />
     <InternalsVisibleTo Include="E2E.Acp" />
   </ItemGroup>
+  <!--
+    Installs the Husky.Net git hooks (.husky/) on restore, so the CSharpier pre-push check is set up for every contributor.
+    Every project in the repo references this one, so any restore runs it. It is skipped in CI, outside a git checkout,
+    and when HUSKY=0 is set.
+  -->
+  <Target
+    Name="Husky"
+    BeforeTargets="Restore;CollectPackageReferences"
+    Condition="'$(HUSKY)' != '0' and '$(CI)' != 'true' and Exists('$(MSBuildThisFileDirectory)../../.git')"
+  >
+    <Exec
+      Command="dotnet tool restore"
+      WorkingDirectory="$(MSBuildThisFileDirectory)../../"
+      StandardOutputImportance="Low"
+      StandardErrorImportance="High"
+    />
+    <Exec
+      Command="dotnet husky install"
+      WorkingDirectory="$(MSBuildThisFileDirectory)../../"
+      StandardOutputImportance="Low"
+      StandardErrorImportance="High"
+    />
+  </Target>
 </Project>

@@ -36,7 +36,11 @@ public interface ITargetSession
     Task<EngineNode> ReadAsync(NodeRef reference, OperationContext operation);
 
     /// <summary>Reads the requested, allow-listed rendered properties of a node without changing app state (upstream's <c>readStyle</c>); <c>UNSUPPORTED_CAPABILITY</c> without the computed-style capability.</summary>
-    Task<IReadOnlyDictionary<string, string>> ReadStyleAsync(NodeRef reference, IReadOnlyList<string> properties, OperationContext operation);
+    Task<IReadOnlyDictionary<string, string>> ReadStyleAsync(
+        NodeRef reference,
+        IReadOnlyList<string> properties,
+        OperationContext operation
+    );
 
     /// <summary>Performs exactly one action on a located or observed node.</summary>
     Task PerformAsync(NodeRef reference, LocatorAction action, OperationContext operation);
@@ -155,7 +159,12 @@ public sealed class AppLogRoute
     public const int MaxNavigations = 50;
 
     private readonly List<(AppEvent Event, DateTimeOffset At)> _waiting = [];
-    private readonly Dictionary<string, int> _held = new(StringComparer.Ordinal) { ["errorsAndWarnings"] = 0, ["info"] = 0, ["navigation"] = 0 };
+    private readonly Dictionary<string, int> _held = new(StringComparer.Ordinal)
+    {
+        ["errorsAndWarnings"] = 0,
+        ["info"] = 0,
+        ["navigation"] = 0,
+    };
     private Action<AppEvent, DateTimeOffset>? _sink;
     private readonly TimeProvider _clock;
 
@@ -261,18 +270,23 @@ public sealed class ScreenRoute
 
         _screenRevision++;
         var minted = $"s{_screenRevision}";
-        _sink(new SessionObservation
-        {
-            Kind = "semantic",
-            Root = new NodeRef(snapshot.Root.Ref.Id, minted),
-            Revision = minted,
-            CapturedAt = _clock.GetUtcNow().ToString("O"),
-            Location = snapshot.Location,
-            Viewport = snapshot.Viewport,
-            Redaction = new ObservationRedaction(EngineSessions.CountSecure(snapshot.Root), snapshot.MaskedRegionCount ?? 0),
-            Tree = EngineSessions.StampRevision(snapshot.Root, minted),
-            Truncated = snapshot.Truncated,
-        });
+        _sink(
+            new SessionObservation
+            {
+                Kind = "semantic",
+                Root = new NodeRef(snapshot.Root.Ref.Id, minted),
+                Revision = minted,
+                CapturedAt = _clock.GetUtcNow().ToString("O"),
+                Location = snapshot.Location,
+                Viewport = snapshot.Viewport,
+                Redaction = new ObservationRedaction(
+                    EngineSessions.CountSecure(snapshot.Root),
+                    snapshot.MaskedRegionCount ?? 0
+                ),
+                Tree = EngineSessions.StampRevision(snapshot.Root, minted),
+                Truncated = snapshot.Truncated,
+            }
+        );
     }
 
     /// <summary>Sends every screen from now on to <paramref name="sink"/>; null drops them again.</summary>

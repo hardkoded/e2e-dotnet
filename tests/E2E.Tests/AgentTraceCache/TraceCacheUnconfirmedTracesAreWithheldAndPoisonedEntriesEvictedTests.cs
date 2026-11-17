@@ -40,7 +40,11 @@ public sealed class TraceCacheUnconfirmedTracesAreWithheldAndPoisonedEntriesEvic
         {
             await session.App.OpenAsync("/settings/billing");
             await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
-            var error = await Assert.ThrowsAsync<TestException>(() => Expect.That(session.Screen.GetByRole("status", "Enterprise")).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(100)));
+            var error = await Assert.ThrowsAsync<TestException>(() =>
+                Expect
+                    .That(session.Screen.GetByRole("status", "Enterprise"))
+                    .ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(100))
+            );
             session.Complete(error);
         }
 

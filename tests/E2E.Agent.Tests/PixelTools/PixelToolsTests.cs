@@ -21,7 +21,9 @@ public sealed class PixelToolsTests : E2ETest
     public async Task Drives_a_marked_up_todo_page_from_the_tree()
     {
         await Browser.GotoAsync("/todos");
-        var result = await Agent.ActAsync("add two todos named \"Buy milk\" and \"Walk the dog\", then mark \"Buy milk\" as done");
+        var result = await Agent.ActAsync(
+            "add two todos named \"Buy milk\" and \"Walk the dog\", then mark \"Buy milk\" as done"
+        );
         await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("1 remaining");
         await Expect.That(Screen.GetByText("Buy milk")).ToBeVisibleAsync();
         await Expect.That(Screen.GetByText("Walk the dog")).ToBeVisibleAsync();
@@ -33,7 +35,10 @@ public sealed class PixelToolsTests : E2ETest
     {
         await Browser.GotoAsync("/canvas-flow");
         // Nine model turns, each with a screenshot, take 28 to 30 s: the step's default timeout is too short for the port's providers.
-        await Agent.ActAsync("on the drawn keypad enter the code 31415 digit by digit, check the display shows it, then press OK", new ActOptions { Timeout = TimeSpan.FromMinutes(2) });
+        await Agent.ActAsync(
+            "on the drawn keypad enter the code 31415 digit by digit, check the display shows it, then press OK",
+            new ActOptions { Timeout = TimeSpan.FromMinutes(2) }
+        );
         await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("code accepted: 31415");
     }
 
@@ -42,7 +47,10 @@ public sealed class PixelToolsTests : E2ETest
     {
         await Browser.GotoAsync("/canvas-wizard");
         // Sixteen taps through a model that reads each screen: the step's default timeout is too short for the port's providers.
-        await Agent.ActAsync("complete all eight steps of the drawn wizard: on each screen tap the shape its instruction names, then tap Next", new ActOptions { Timeout = TimeSpan.FromMinutes(4) });
+        await Agent.ActAsync(
+            "complete all eight steps of the drawn wizard: on each screen tap the shape its instruction names, then tap Next",
+            new ActOptions { Timeout = TimeSpan.FromMinutes(4) }
+        );
         await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("wizard done: ok,ok,ok,ok,ok,ok,ok,ok");
     }
 

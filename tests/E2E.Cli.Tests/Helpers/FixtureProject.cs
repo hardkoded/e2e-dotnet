@@ -21,9 +21,12 @@ internal sealed class FixtureProject : IDisposable
     /// <summary>A config with one web target on <paramref name="appUrl"/> and the given secrets (JSON members).</summary>
     public static string Config(string appUrl, string secrets = "", string credentials = "")
     {
-        return "{ \"targets\": [{ \"name\": \"web\", \"platform\": \"web\", \"app\": { \"url\": \"" + appUrl + "\" } }]"
+        return "{ \"targets\": [{ \"name\": \"web\", \"platform\": \"web\", \"app\": { \"url\": \""
+            + appUrl
+            + "\" } }]"
             + (secrets.Length == 0 ? "" : ", \"secrets\": { " + secrets + " }")
-            + (credentials.Length == 0 ? "" : ", \"credentials\": { " + credentials + " }") + " }";
+            + (credentials.Length == 0 ? "" : ", \"credentials\": { " + credentials + " }")
+            + " }";
     }
 
     public void Dispose()

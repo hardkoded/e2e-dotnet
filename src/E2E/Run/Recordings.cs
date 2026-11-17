@@ -82,7 +82,8 @@ internal sealed partial class SessionRecordings
     }
 
     // A window that is unbounded (zero or infinite) gives the call no timeout of its own.
-    private static TimeSpan? Bounded(TimeSpan timeout) => timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan ? timeout : null;
+    private static TimeSpan? Bounded(TimeSpan timeout) =>
+        timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan ? timeout : null;
 
     /// <summary>True while a span records, so the attempt's end can stop it.</summary>
     public bool SpanRunning => _holder is Span;
@@ -98,7 +99,10 @@ internal sealed partial class SessionRecordings
     }
 
     /// <summary>Stops the attempt's video and returns its segments.</summary>
-    public Task<IReadOnlyList<VideoSegment>> StopAttemptVideoAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<VideoSegment>> StopAttemptVideoAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    )
     {
         if (ReferenceEquals(_holder, AttemptHolder))
         {
@@ -112,26 +116,34 @@ internal sealed partial class SessionRecordings
     /// Starts a span. Refused when the engine records no video, while the attempt's video records, and while another span
     /// records. A start that fails is stopped, so the next one begins from nothing.
     /// </summary>
-    public Task StartSpanAsync(string? name, CancellationToken cancellationToken) => StartSpanAsync(name, OperationContext.Test, cancellationToken);
+    public Task StartSpanAsync(string? name, CancellationToken cancellationToken) =>
+        StartSpanAsync(name, OperationContext.Test, cancellationToken);
 
     /// <summary><see cref="StartSpanAsync(string?, CancellationToken)"/> with the video start and any cleanup stop run on <paramref name="context"/>.</summary>
     public async Task StartSpanAsync(string? name, OperationContext context, CancellationToken cancellationToken)
     {
         if (!_recordsVideo)
         {
-            throw new ConfigurationException("UNSUPPORTED_CAPABILITY", $"app.startRecording: target \"{_targetName}\" has an engine that records no video");
+            throw new ConfigurationException(
+                "UNSUPPORTED_CAPABILITY",
+                $"app.startRecording: target \"{_targetName}\" has an engine that records no video"
+            );
         }
 
         if (ReferenceEquals(_holder, AttemptHolder))
         {
             throw new ConfigurationException(
                 "UNSUPPORTED_CAPABILITY",
-                "app.startRecording cannot record while the test's video records, since the engine has one recorder; set video: 'off' on the test: test('...', { video: 'off' }, ...)");
+                "app.startRecording cannot record while the test's video records, since the engine has one recorder; set video: 'off' on the test: test('...', { video: 'off' }, ...)"
+            );
         }
 
         if (_holder is not null)
         {
-            throw new TestException("INVALID_ARGUMENT", "app.startRecording: a recording is already running; await app.stopRecording() before starting another");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "app.startRecording: a recording is already running; await app.stopRecording() before starting another"
+            );
         }
 
         var index = _spans + 1;
@@ -147,7 +159,9 @@ internal sealed partial class SessionRecordings
 
             // The engine may still have come up, so it is stopped within the cleanup budget: whatever that does, the start's own failure is the one to tell.
             using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
-            await ((Task)_session.StopVideoAsync(context, budget.Token)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            await ((Task)_session.StopVideoAsync(context, budget.Token)).ConfigureAwait(
+                ConfigureAwaitOptions.SuppressThrowing
+            );
             throw;
         }
 
@@ -158,14 +172,22 @@ internal sealed partial class SessionRecordings
     /// Stops the running span, moves its files into <c>recordings/</c>, and registers each file or link as a video artifact;
     /// returns their artifact ids and what the test sees, absolute paths and links in play order.
     /// </summary>
-    public Task<StoppedSpan> StopSpanAsync(IArtifactSink sink, CancellationToken cancellationToken) => StopSpanAsync(sink, OperationContext.Test, cancellationToken);
+    public Task<StoppedSpan> StopSpanAsync(IArtifactSink sink, CancellationToken cancellationToken) =>
+        StopSpanAsync(sink, OperationContext.Test, cancellationToken);
 
     /// <summary><see cref="StopSpanAsync(IArtifactSink, CancellationToken)"/> with the video stop run on <paramref name="context"/>.</summary>
-    public async Task<StoppedSpan> StopSpanAsync(IArtifactSink sink, OperationContext context, CancellationToken cancellationToken)
+    public async Task<StoppedSpan> StopSpanAsync(
+        IArtifactSink sink,
+        OperationContext context,
+        CancellationToken cancellationToken
+    )
     {
         if (_holder is not Span span)
         {
-            throw new TestException("INVALID_ARGUMENT", "app.stopRecording: no recording is running; call app.startRecording() first");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "app.stopRecording: no recording is running; call app.startRecording() first"
+            );
         }
 
         _holder = null;
@@ -179,10 +201,22 @@ internal sealed partial class SessionRecordings
             if (segment is VideoLink link)
             {
                 var url = ProviderRecordings.HostedVideoUrl(link.Url)
-                    ?? throw new EngineException(EngineErrorCodes.EngineFailure, "the engine returned a video link that is not an http(s) URL: " + System.Text.Json.JsonSerializer.Serialize(link.Url), retryable: false);
+                    ?? throw new EngineException(
+                        EngineErrorCodes.EngineFailure,
+                        "the engine returned a video link that is not an http(s) URL: "
+                            + System.Text.Json.JsonSerializer.Serialize(link.Url),
+                        retryable: false
+                    );
                 var startedAt = ParseStartedAt(link.StartedAt) ?? DateTimeOffset.UtcNow;
                 ids.Add(sink.Link(url, new ArtifactLink(link.MediaType, startedAt)));
-                videos.Add(new RecordedVideoLink { Url = url, MediaType = link.MediaType, StartedAt = link.StartedAt });
+                videos.Add(
+                    new RecordedVideoLink
+                    {
+                        Url = url,
+                        MediaType = link.MediaType,
+                        StartedAt = link.StartedAt,
+                    }
+                );
                 continue;
             }
 
@@ -195,22 +229,38 @@ internal sealed partial class SessionRecordings
             var source = Path.GetFullPath(Path.Combine(directory, file.Path));
             if (!source.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.Ordinal))
             {
-                throw new EngineException(EngineErrorCodes.EngineFailure, $"the engine returned a video outside the attempt's directory: {System.Text.Json.JsonSerializer.Serialize(file.Path)}", retryable: false);
+                throw new EngineException(
+                    EngineErrorCodes.EngineFailure,
+                    $"the engine returned a video outside the attempt's directory: {System.Text.Json.JsonSerializer.Serialize(file.Path)}",
+                    retryable: false
+                );
             }
 
             Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
             File.Move(source, absolute, overwrite: true);
-            ids.Add(sink.Register(ArtifactKind.Video, relative, new ArtifactRegistration { StartedAt = ParseStartedAt(file.StartedAt) }));
+            ids.Add(
+                sink.Register(
+                    ArtifactKind.Video,
+                    relative,
+                    new ArtifactRegistration { StartedAt = ParseStartedAt(file.StartedAt) }
+                )
+            );
             videos.Add(new RecordedVideoFile { Path = absolute, StartedAt = file.StartedAt });
         }
 
         return videos.Count == 0
-            ? throw new EngineException(EngineErrorCodes.EngineFailure, $"recording {span.Index.ToString(CultureInfo.InvariantCulture)} stopped, but the engine wrote no video for it", retryable: false)
+            ? throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"recording {span.Index.ToString(CultureInfo.InvariantCulture)} stopped, but the engine wrote no video for it",
+                retryable: false
+            )
             : new StoppedSpan(ids, videos);
     }
 
     private static DateTimeOffset? ParseStartedAt(string startedAt) =>
-        DateTimeOffset.TryParse(startedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : null;
+        DateTimeOffset.TryParse(startedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
+            ? parsed
+            : null;
 
     /// <summary>A recording name as a file name stem: letters, digits, <c>-</c>, and <c>_</c>, at most 64 characters.</summary>
     private static string FileStem(string? name)

@@ -49,7 +49,8 @@ internal sealed class HookedEngine(IEngine inner) : IEngine
 
         public bool CanLocate => inner.CanLocate;
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+        public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+            inner.OpenAsync(url, cancellationToken);
 
         public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
         {
@@ -67,16 +68,23 @@ internal sealed class HookedEngine(IEngine inner) : IEngine
             return await inner.ObserveAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => inner.PerformAsync(node, action, cancellationToken);
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+            inner.PerformAsync(node, action, cancellationToken);
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+        public Task PressAsync(string key, CancellationToken cancellationToken) =>
+            inner.PressAsync(key, cancellationToken);
 
-        public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) => inner.TypeTextAsync(text, replace, cancellationToken);
+        public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) =>
+            inner.TypeTextAsync(text, replace, cancellationToken);
 
-        public Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken) =>
-            inner.LocateAsync(expression, timeout, cancellationToken);
+        public Task<IReadOnlyList<SemanticNode>> LocateAsync(
+            LocatorExpression expression,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        ) => inner.LocateAsync(expression, timeout, cancellationToken);
 
-        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => inner.SwipeAsync(direction, cancellationToken);
+        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
+            inner.SwipeAsync(direction, cancellationToken);
 
         public Task BackAsync(CancellationToken cancellationToken) => inner.BackAsync(cancellationToken);
 

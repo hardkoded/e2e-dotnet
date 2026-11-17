@@ -128,12 +128,17 @@ internal static class FixtureApp
     /// <summary>Starts the fixture app: <c>/login</c>, <c>/form</c>, <c>/media</c>, and <c>/smooth-scroll</c>.</summary>
     public static Task<TinySite> StartAsync()
     {
-        return TinySite.StartAsync(context => TinySite.RespondAsync(context, context.Request.Url!.AbsolutePath switch
-        {
-            "/form" => Form,
-            "/media" => Media,
-            "/smooth-scroll" => SmoothScroll(context.Request.Url!),
-            _ => Login,
-        }));
+        return TinySite.StartAsync(context =>
+            TinySite.RespondAsync(
+                context,
+                context.Request.Url!.AbsolutePath switch
+                {
+                    "/form" => Form,
+                    "/media" => Media,
+                    "/smooth-scroll" => SmoothScroll(context.Request.Url!),
+                    _ => Login,
+                }
+            )
+        );
     }
 }

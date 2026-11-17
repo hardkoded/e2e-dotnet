@@ -27,7 +27,8 @@ public sealed class EngineScreenshotMaskedRegionCountTests
         using var site = await TinySite.StartAsync(html);
         await using var session = await new WebEngine(new WebEngineOptions()).StartAsync(
             new EngineStartOptions { BaseUrl = site.Url, ActionTimeout = TimeSpan.FromSeconds(30) },
-            CancellationToken.None);
+            CancellationToken.None
+        );
         await session.OpenAsync(site.Url, CancellationToken.None);
         return await session.ScreenshotAsync(CancellationToken.None);
     }
@@ -41,6 +42,9 @@ public sealed class EngineScreenshotMaskedRegionCountTests
     [Fact]
     public async Task Web_counts_none_for_a_page_without_a_secure_field()
     {
-        Assert.Equal(0, (await ScreenshotAsync("<!DOCTYPE html><html><body><h1>Home</h1></body></html>")).MaskedRegionCount);
+        Assert.Equal(
+            0,
+            (await ScreenshotAsync("<!DOCTYPE html><html><body><h1>Home</h1></body></html>")).MaskedRegionCount
+        );
     }
 }

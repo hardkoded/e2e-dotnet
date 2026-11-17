@@ -47,12 +47,14 @@ public sealed class DownloadEventTests : PlaywrightTest
         // e2e opens no page before the first goto, where Playwright starts on about:blank.
         await Browser.GotoAsync("/empty.html");
         Exception? responseOrError = null;
-        var url = Respond(new Dictionary<string, string>
-        {
-            ["content-type"] = "application/octet-stream",
-            ["content-disposition"] = "attachment",
-            ["cross-origin-opener-policy"] = "same-origin",
-        });
+        var url = Respond(
+            new Dictionary<string, string>
+            {
+                ["content-type"] = "application/octet-stream",
+                ["content-disposition"] = "attachment",
+                ["cross-origin-opener-policy"] = "same-origin",
+            }
+        );
         var download = await Browser.WaitForDownloadAsync(async () =>
         {
             responseOrError = await Failure(() => Browser.GotoAsync(url));
@@ -87,7 +89,11 @@ public sealed class DownloadEventTests : PlaywrightTest
     public async Task Should_report_non_navigation_downloads()
     {
         await Browser.GotoAsync("/empty.html");
-        await Browser.GotoAsync(Content($"""<a download="file.txt" href="{PREFIX}{Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream" })}">download</a>"""));
+        await Browser.GotoAsync(
+            Content(
+                $"""<a download="file.txt" href="{PREFIX}{Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream" })}">download</a>"""
+            )
+        );
         var download = await Browser.WaitForDownloadAsync(() => Browser.Locator("a").TapAsync());
         Assert.That(download.SuggestedFilename, Is.EqualTo("file.txt"));
         Assert.That(File.Exists(download.AbsolutePath), Is.True);
@@ -114,8 +120,14 @@ public sealed class DownloadEventTests : PlaywrightTest
     public async Task Should_report_alt_click_downloads()
     {
         await Browser.GotoAsync("/empty.html");
-        await Browser.GotoAsync(Content($"""<a href="{PREFIX}{Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream" })}">download</a>"""));
-        var download = await Browser.WaitForDownloadAsync(() => Browser.Locator("a").TapAsync(new ClickOptions { Modifiers = [KeyModifier.Alt] }));
+        await Browser.GotoAsync(
+            Content(
+                $"""<a href="{PREFIX}{Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream" })}">download</a>"""
+            )
+        );
+        var download = await Browser.WaitForDownloadAsync(() =>
+            Browser.Locator("a").TapAsync(new ClickOptions { Modifiers = [KeyModifier.Alt] })
+        );
         Assert.That(File.Exists(download.AbsolutePath), Is.True);
         Assert.That(await File.ReadAllTextAsync(download.AbsolutePath), Is.EqualTo("Hello world"));
     }
@@ -138,7 +150,9 @@ public sealed class DownloadEventTests : PlaywrightTest
         }
 
         await Browser.GotoAsync("/empty.html");
-        await Browser.GotoAsync(Content($"""<a href="{PREFIX}/binary?bytes={1 << 20}" download="binary.zip">download</a>"""));
+        await Browser.GotoAsync(
+            Content($"""<a href="{PREFIX}/binary?bytes={1 << 20}" download="binary.zip">download</a>""")
+        );
         var download = await Browser.WaitForDownloadAsync(() => Browser.Locator("a").TapAsync());
         var downloaded = await File.ReadAllBytesAsync(download.AbsolutePath);
         Assert.That(downloaded, Has.Length.EqualTo(fileContent.Length));
@@ -161,7 +175,9 @@ public sealed class DownloadEventTests : PlaywrightTest
         var third = Content($""" <a href="{PREFIX}/download">download</a>""");
         var second = Content($"""<iframe src="{PREFIX}{third}"></iframe>""");
         await Browser.GotoAsync(Content($"""<iframe src="{PREFIX}{second}"></iframe>"""));
-        var download = await Browser.WaitForDownloadAsync(() => Browser.FrameLocator("iframe").FrameLocator("iframe").Locator("a").TapAsync());
+        var download = await Browser.WaitForDownloadAsync(() =>
+            Browser.FrameLocator("iframe").FrameLocator("iframe").Locator("a").TapAsync()
+        );
         Assert.That(File.Exists(download.AbsolutePath), Is.True);
         Assert.That(await File.ReadAllTextAsync(download.AbsolutePath), Is.EqualTo("Hello world"));
     }

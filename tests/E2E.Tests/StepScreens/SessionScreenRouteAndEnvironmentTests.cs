@@ -12,11 +12,28 @@ namespace E2E.Tests.StepScreens;
 /// </summary>
 public sealed class SessionScreenRouteAndEnvironmentTests
 {
-    private static Observation Snapshot(string name) => new()
-    {
-        Route = "com.example.app",
-        Roots = [new SemanticNode { Ref = "root", Role = "document", Children = [new SemanticNode { Ref = "n1", Role = "button", Name = name }] }],
-    };
+    private static Observation Snapshot(string name) =>
+        new()
+        {
+            Route = "com.example.app",
+            Roots =
+            [
+                new SemanticNode
+                {
+                    Ref = "root",
+                    Role = "document",
+                    Children =
+                    [
+                        new SemanticNode
+                        {
+                            Ref = "n1",
+                            Role = "button",
+                            Name = name,
+                        },
+                    ],
+                },
+            ],
+        };
 
     // Partial: the engine hands the port a typed observation, so upstream's malformed snapshots and `treeUnavailable` ones have no counterpart to drop.
     [Fact]
@@ -57,7 +74,14 @@ public sealed class SessionScreenRouteAndEnvironmentTests
 
         environment.Push(new Dictionary<string, string> { ["browser"] = "chromium 140" });
         // A secret that straddles the value's clip: redacted whole first, so no head of it is left.
-        environment.Push(new Dictionary<string, string> { ["browser"] = "chromium 141", ["blank"] = "  ", ["user agent"] = "Mozilla " + new string('x', 190) + "hunter2-secret" });
+        environment.Push(
+            new Dictionary<string, string>
+            {
+                ["browser"] = "chromium 141",
+                ["blank"] = "  ",
+                ["user agent"] = "Mozilla " + new string('x', 190) + "hunter2-secret",
+            }
+        );
         for (var index = 0; index < 10; index++)
         {
             environment.Push(new Dictionary<string, string> { [$"fact {index}"] = "yes" });

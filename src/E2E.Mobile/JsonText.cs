@@ -47,7 +47,11 @@ internal static class JsonText
                     text.Append("\\u").Append(((int)character).ToString("x4", CultureInfo.InvariantCulture));
                     break;
                 default:
-                    if (char.IsHighSurrogate(character) && position + 1 < value.Length && char.IsLowSurrogate(value[position + 1]))
+                    if (
+                        char.IsHighSurrogate(character)
+                        && position + 1 < value.Length
+                        && char.IsLowSurrogate(value[position + 1])
+                    )
                     {
                         text.Append(character).Append(value[++position]);
                     }

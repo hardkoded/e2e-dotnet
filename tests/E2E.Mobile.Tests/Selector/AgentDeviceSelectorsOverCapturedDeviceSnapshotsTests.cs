@@ -15,13 +15,26 @@ public sealed class AgentDeviceSelectorsOverCapturedDeviceSnapshotsTests
     /// <summary>A captured benchmark screen, projected the way the locator projects it.</summary>
     private static IReadOnlyList<ProjectedNode> Captured(MobilePlatform platform, string scenario)
     {
-        var file = Path.Combine(AppContext.BaseDirectory, "Fixtures", "snapshots", platform.ToString().ToLowerInvariant(), $"{scenario}.json");
-        var capture = JsonSerializer.Deserialize<Capture>(File.ReadAllText(file), new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+        var file = Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "snapshots",
+            platform.ToString().ToLowerInvariant(),
+            $"{scenario}.json"
+        );
+        var capture = JsonSerializer.Deserialize<Capture>(
+            File.ReadAllText(file),
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+        )!;
         return Project(capture.Nodes).Index;
     }
 
     private static List<string?> Ids(MobilePlatform platform, string selector) =>
-        [.. AgentDeviceSelector.Compile(selector, platform)(Captured(platform, "text-input-variations")).Select(entry => entry.Raw.Identifier)];
+        [
+            .. AgentDeviceSelector
+                .Compile(selector, platform)(Captured(platform, "text-input-variations"))
+                .Select(entry => entry.Raw.Identifier),
+        ];
 
     [Theory]
     [MemberData(nameof(Platforms))]
@@ -43,7 +56,8 @@ public sealed class AgentDeviceSelectorsOverCapturedDeviceSnapshotsTests
     {
         Assert.Equal(
             platform == MobilePlatform.Ios ? ["username-input"] : ["username-input", "pin-input", "notes-input"],
-            Ids(platform, "role=text-field"));
+            Ids(platform, "role=text-field")
+        );
         Assert.Empty(Ids(platform, "role=textbox"));
     }
 
@@ -51,14 +65,20 @@ public sealed class AgentDeviceSelectorsOverCapturedDeviceSnapshotsTests
     [MemberData(nameof(Platforms))]
     public void Returns_every_match_of_the_first_alternative_that_matches_in_snapshot_order(MobilePlatform platform)
     {
-        Assert.Equal(["username-input", "pin-input", "notes-input"], Ids(platform, "id=missing || editable || role=button"));
+        Assert.Equal(
+            ["username-input", "pin-input", "notes-input"],
+            Ids(platform, "id=missing || editable || role=button")
+        );
         Assert.Empty(Ids(platform, "id=missing"));
     }
 
     [Fact]
     public void Rejects_a_ref_which_is_not_a_selector()
     {
-        Assert.Equal("ENGINE_FAILURE", Assert.Throws<EngineException>(() => AgentDeviceSelector.Compile("@e3", MobilePlatform.Ios)).Code);
+        Assert.Equal(
+            "ENGINE_FAILURE",
+            Assert.Throws<EngineException>(() => AgentDeviceSelector.Compile("@e3", MobilePlatform.Ios)).Code
+        );
     }
 
     private sealed record Capture(RawNode[] Nodes);

@@ -19,7 +19,8 @@ public sealed class SettleObservationTests
     private static readonly TimeSpan FastStableWait = TimeSpan.FromMilliseconds(30);
 
     /// <summary>The pre-action shape and the window to leave it in.</summary>
-    private static PendingChange Leaving(TimeProvider time) => new("old", time.GetUtcNow() + TimeSpan.FromMilliseconds(150));
+    private static PendingChange Leaving(TimeProvider time) =>
+        new("old", time.GetUtcNow() + TimeSpan.FromMilliseconds(150));
 
     [Fact]
     public async Task Waits_for_the_screen_to_leave_the_pre_action_shape_before_settling_on_it()
@@ -70,7 +71,12 @@ public sealed class SettleObservationTests
     {
         var time = new SteppingTime();
         var source = new Scripted("", "", "new");
-        var options = new SettleOptions<string> { Transitional = value => value.Length == 0, Poll = FastPoll, StableWait = FastStableWait };
+        var options = new SettleOptions<string>
+        {
+            Transitional = value => value.Length == 0,
+            Poll = FastPoll,
+            StableWait = FastStableWait,
+        };
         Assert.Equal("", await RunAllTimersAsync(time, SettleAsync(source, time, options)));
         Assert.Equal(2, source.Calls);
     }
@@ -80,11 +86,23 @@ public sealed class SettleObservationTests
     {
         var time = new SteppingTime();
         var vouched = new Scripted("a", "b", "b");
-        Assert.Equal("a", await RunAllTimersAsync(time, SettleAsync(vouched, time, Fast(time, changedFrom: false, settledWhen: _ => true))));
+        Assert.Equal(
+            "a",
+            await RunAllTimersAsync(
+                time,
+                SettleAsync(vouched, time, Fast(time, changedFrom: false, settledWhen: _ => true))
+            )
+        );
         Assert.Equal(1, vouched.Calls);
 
         var declined = new Scripted("a", "b", "b");
-        Assert.Equal("b", await RunAllTimersAsync(time, SettleAsync(declined, time, Fast(time, changedFrom: false, settledWhen: _ => false))));
+        Assert.Equal(
+            "b",
+            await RunAllTimersAsync(
+                time,
+                SettleAsync(declined, time, Fast(time, changedFrom: false, settledWhen: _ => false))
+            )
+        );
         Assert.Equal(3, declined.Calls);
     }
 
@@ -94,11 +112,14 @@ public sealed class SettleObservationTests
         var time = new SteppingTime();
         var source = new Scripted("old", "old", "new", "new");
         var asked = new List<string>();
-        var value = await RunAllTimersAsync(time, SettleAsync(source, time, Fast(time, changedFrom: true, settledWhen: seen =>
-        {
-            asked.Add(seen);
-            return true;
-        })));
+        var value = await RunAllTimersAsync(
+            time,
+            SettleAsync(source, time, Fast(time, changedFrom: true, settledWhen: seen =>
+                {
+                    asked.Add(seen);
+                    return true;
+                }))
+        );
         Assert.Equal("new", value);
         Assert.Equal(["new"], asked);
     }
@@ -126,7 +147,8 @@ public sealed class SettleObservationTests
                 Poll = TimeSpan.FromMilliseconds(100),
             },
             time,
-            CancellationToken.None);
+            CancellationToken.None
+        );
         Assert.Equal("old", await RunAllTimersAsync(time, pending));
         Assert.Equal(TimeSpan.FromMilliseconds(1_400), time.GetUtcNow() - started);
         Assert.Equal(3, captures);
@@ -189,12 +211,22 @@ public sealed class SettleObservationTests
     {
         var time = new SteppingTime();
         var started = time.GetUtcNow();
-        Observation Canvas(byte data) => new()
-        {
-            Route = "/",
-            Roots = [new SemanticNode { Ref = "e1", Role = "screen", States = new NodeStates(), Children = [] }],
-            Pixels = new EngineScreenshot([data], 1, 0),
-        };
+        Observation Canvas(byte data) =>
+            new()
+            {
+                Route = "/",
+                Roots =
+                [
+                    new SemanticNode
+                    {
+                        Ref = "e1",
+                        Role = "screen",
+                        States = new NodeStates(),
+                        Children = [],
+                    },
+                ],
+                Pixels = new EngineScreenshot([data], 1, 0),
+            };
         var before = Canvas(1);
         var after = Canvas(2);
         var calls = 0;
@@ -207,29 +239,44 @@ public sealed class SettleObservationTests
             global::E2E.AgentObservation.Shape,
             new SettleOptions<Observation>
             {
-                ChangedFrom = new PendingChange(global::E2E.AgentObservation.Shape(before), started + TimeSpan.FromSeconds(2)),
+                ChangedFrom = new PendingChange(
+                    global::E2E.AgentObservation.Shape(before),
+                    started + TimeSpan.FromSeconds(2)
+                ),
                 Transitional = global::E2E.AgentObservation.IsTransitional,
                 StableWait = TimeSpan.FromSeconds(1),
                 Poll = TimeSpan.FromMilliseconds(100),
             },
             time,
-            CancellationToken.None);
+            CancellationToken.None
+        );
         Assert.Same(after, await RunAllTimersAsync(time, pending));
         Assert.Equal(2, calls);
         Assert.Equal(TimeSpan.FromMilliseconds(100), time.GetUtcNow() - started);
     }
 
-    private static SettleOptions<string> Fast(TimeProvider time, bool changedFrom, Func<string, bool>? settledWhen = null) => new()
-    {
-        ChangedFrom = changedFrom ? Leaving(time) : null,
-        Poll = FastPoll,
-        StableWait = FastStableWait,
-        SettledWhen = settledWhen,
-    };
+    private static SettleOptions<string> Fast(
+        TimeProvider time,
+        bool changedFrom,
+        Func<string, bool>? settledWhen = null
+    ) =>
+        new()
+        {
+            ChangedFrom = changedFrom ? Leaving(time) : null,
+            Poll = FastPoll,
+            StableWait = FastStableWait,
+            SettledWhen = settledWhen,
+        };
 
     private static Task<string> SettleAsync(Scripted source, TimeProvider time, SettleOptions<string> options)
     {
-        return global::E2E.AgentObservation.SettleAsync(source.CaptureAsync, value => value, options, time, CancellationToken.None);
+        return global::E2E.AgentObservation.SettleAsync(
+            source.CaptureAsync,
+            value => value,
+            options,
+            time,
+            CancellationToken.None
+        );
     }
 
     /// <summary>
@@ -286,6 +333,7 @@ public sealed class SettleObservationTests
     {
         public int Calls { get; private set; }
 
-        public Task<string> CaptureAsync(CancellationToken token) => Task.FromResult(values[Math.Min(Calls++, values.Length - 1)]);
+        public Task<string> CaptureAsync(CancellationToken token) =>
+            Task.FromResult(values[Math.Min(Calls++, values.Length - 1)]);
     }
 }

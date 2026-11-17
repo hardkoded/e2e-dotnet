@@ -27,13 +27,15 @@ public static class BenchmarkApp
     /// </summary>
     public static WebApplication Create(string[] args)
     {
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-        {
-            Args = args,
-            ContentRootPath = AppContext.BaseDirectory,
-            // The static web assets manifests are named for the app, not for the entry assembly: a test host is the entry assembly of its own run.
-            ApplicationName = typeof(BenchmarkApp).Assembly.GetName().Name,
-        });
+        var builder = WebApplication.CreateBuilder(
+            new WebApplicationOptions
+            {
+                Args = args,
+                ContentRootPath = AppContext.BaseDirectory,
+                // The static web assets manifests are named for the app, not for the entry assembly: a test host is the entry assembly of its own run.
+                ApplicationName = typeof(BenchmarkApp).Assembly.GetName().Name,
+            }
+        );
         // blazor.web.js comes from the framework through the manifest; outside Development the manifest is read only when asked for.
         StaticWebAssetsLoader.UseStaticWebAssets(builder.Environment, builder.Configuration);
         builder.Logging.SetMinimumLevel(LogLevel.Warning);

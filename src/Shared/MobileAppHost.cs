@@ -38,41 +38,59 @@ internal static class MobileAppHost
     /// <summary><c>E2E_MOBILE_PLATFORM</c>, else the target's platform. A value other than <c>ios</c> or <c>android</c> fails the run.</summary>
     internal static MobilePlatform Platform(E2EConfig config)
     {
-        var name = Environment.GetEnvironmentVariable("E2E_MOBILE_PLATFORM") is { Length: > 0 } variable ? variable : config.Target.Platform;
+        var name = Environment.GetEnvironmentVariable("E2E_MOBILE_PLATFORM") is { Length: > 0 } variable
+            ? variable
+            : config.Target.Platform;
         return name.ToLowerInvariant() switch
         {
             "ios" => MobilePlatform.Ios,
             "android" => MobilePlatform.Android,
-            _ => throw new InvalidOperationException($"The platform must be ios or android, not {name}. Set targets[0].platform in e2e.config.json, or E2E_MOBILE_PLATFORM."),
+            _ => throw new InvalidOperationException(
+                $"The platform must be ios or android, not {name}. Set targets[0].platform in e2e.config.json, or E2E_MOBILE_PLATFORM."
+            ),
         };
     }
 
     /// <summary><c>E2E_MOBILE_APP_PATH</c>, else the target's <c>app.appPath</c>.</summary>
     internal static string? AppPath(E2EConfig config) =>
-        Environment.GetEnvironmentVariable("E2E_MOBILE_APP_PATH") is { Length: > 0 } path ? path : config.Target.App.AppPath;
+        Environment.GetEnvironmentVariable("E2E_MOBILE_APP_PATH") is { Length: > 0 } path
+            ? path
+            : config.Target.App.AppPath;
 
     /// <summary>The target's <c>app.bundleId</c>.</summary>
     internal static string AppId(E2EConfig config) =>
-        config.Target.App.BundleId ?? throw new InvalidOperationException("Set targets[0].app.bundleId in e2e.config.json, or override MobileAppTest.AppId.");
+        config.Target.App.BundleId
+        ?? throw new InvalidOperationException(
+            "Set targets[0].app.bundleId in e2e.config.json, or override MobileAppTest.AppId."
+        );
 
     /// <summary><c>E2E_MOBILE_DEVICE</c> names a simulator or emulator. Unset: the engine drives the booted device of the platform.</summary>
-    internal static string? DeviceName() => Environment.GetEnvironmentVariable("E2E_MOBILE_DEVICE") is { Length: > 0 } device ? device : null;
+    internal static string? DeviceName() =>
+        Environment.GetEnvironmentVariable("E2E_MOBILE_DEVICE") is { Length: > 0 } device ? device : null;
 
     /// <summary>The options of the engine: the local device, or the provider's hosted device.</summary>
-    internal static MobileOptions Options(E2EConfig config, MobilePlatform platform, string appId, string? appPath, string? device, IDeviceProvider? provider) => new()
-    {
-        Platform = platform,
-        Device = provider is null ? device : null,
-        Provider = provider,
-        TargetName = config.Target.Name,
-        App = new MobileApp
+    internal static MobileOptions Options(
+        E2EConfig config,
+        MobilePlatform platform,
+        string appId,
+        string? appPath,
+        string? device,
+        IDeviceProvider? provider
+    ) =>
+        new()
         {
-            BundleId = appId,
-            AppPath = appPath,
-            LaunchArguments = config.Target.App.LaunchArguments,
-            Permissions = MobileTargetEngine.DevicePermissionsOf(config.Target.Name, config.Target.App.Permissions),
-        },
-    };
+            Platform = platform,
+            Device = provider is null ? device : null,
+            Provider = provider,
+            TargetName = config.Target.Name,
+            App = new MobileApp
+            {
+                BundleId = appId,
+                AppPath = appPath,
+                LaunchArguments = config.Target.App.LaunchArguments,
+                Permissions = MobileTargetEngine.DevicePermissionsOf(config.Target.Name, config.Target.App.Permissions),
+            },
+        };
 
     /// <summary>
     /// With <c>E2E_MOBILE_PROVIDER=limrun</c> or <c>devflow</c>, makes the one engine of the run, whose hosted device every test shares. It
@@ -97,7 +115,9 @@ internal static class MobileAppHost
             }
 
             var provider = HostedDeviceProviders.Create(name, Environment.GetEnvironmentVariable)
-                ?? throw new InvalidOperationException($"E2E_MOBILE_PROVIDER must be local, {HostedDeviceProviders.Names}, not {name}.");
+                ?? throw new InvalidOperationException(
+                    $"E2E_MOBILE_PROVIDER must be local, {HostedDeviceProviders.Names}, not {name}."
+                );
             var engine = new MobileEngine(options(provider));
             AttachesToRunningApp = name == "devflow";
             s_engine = engine;
@@ -105,7 +125,12 @@ internal static class MobileAppHost
     }
 
     /// <summary>Installs the build once per run, then launches the app fresh. A device keeps the build between tests.</summary>
-    internal static async Task InstallAndOpenAsync(Device device, string appId, string? appPath, CancellationToken cancellationToken)
+    internal static async Task InstallAndOpenAsync(
+        Device device,
+        string appId,
+        string? appPath,
+        CancellationToken cancellationToken
+    )
     {
         if (AttachesToRunningApp)
         {
@@ -133,6 +158,8 @@ internal static class MobileAppHost
         }
 
         // The core App.OpenAsync takes a URL. A device target launches the app through the device fixture.
-        await device.OpenAppAsync(appId, new OpenAppOptions { Relaunch = true }, cancellationToken).ConfigureAwait(false);
+        await device
+            .OpenAppAsync(appId, new OpenAppOptions { Relaunch = true }, cancellationToken)
+            .ConfigureAwait(false);
     }
 }

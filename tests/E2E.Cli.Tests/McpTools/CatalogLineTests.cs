@@ -21,10 +21,15 @@ public sealed class CatalogLineTests
         var press = new CatalogTool
         {
             Description = "Send one key (e.g. \"Enter\", \"Escape\", \"Tab\") to one node. More text.",
-            InputSchema = Json("""{ "type": "object", "properties": { "key": { "type": "string" } }, "required": ["key"], "additionalProperties": false }"""),
+            InputSchema = Json(
+                """{ "type": "object", "properties": { "key": { "type": "string" } }, "required": ["key"], "additionalProperties": false }"""
+            ),
             Execute = (_, _) => Task.FromResult<object?>("ok"),
         };
-        Assert.Equal("- press {key}: Send one key (e.g. \"Enter\", \"Escape\", \"Tab\") to one node.", Tools.CatalogLine("press", press, false));
+        Assert.Equal(
+            "- press {key}: Send one key (e.g. \"Enter\", \"Escape\", \"Tab\") to one node.",
+            Tools.CatalogLine("press", press, false)
+        );
         var runOn = new CatalogTool
         {
             Description = string.Concat(Enumerable.Repeat("word ", 60)) + "end",

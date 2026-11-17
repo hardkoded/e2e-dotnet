@@ -25,7 +25,12 @@ public sealed class AttemptScopeTests
         var runner = dialer.Engine(cloud);
         var result = await runner.PrepareAsync(Runner.PrepareInfo(2), None);
         Assert.Null(result.Workers);
-        Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{"slots":2,"leases":[]}"""), JsonNode.Parse(result.Env[Runner.LeasesVariableIn(result.Env.Keys)])));
+        Assert.True(
+            JsonNode.DeepEquals(
+                JsonNode.Parse("""{"slots":2,"leases":[]}"""),
+                JsonNode.Parse(result.Env[Runner.LeasesVariableIn(result.Env.Keys)])
+            )
+        );
         Assert.Empty((await runner.PrepareAsync(Runner.PrepareInfo(0), None)).Env);
         runner.Init(Runner.InitInfo(0, Runner.Widen(result.Env)));
         Assert.Empty(cloud.Acquired);
@@ -106,7 +111,11 @@ public sealed class AttemptScopeTests
         worker.Init(Runner.InitInfo(0, env));
         var error = await Assert.ThrowsAsync<EngineException>(() => worker.StartAsync(Runner.Attempt("a1"), None));
         Assert.Equal("ENGINE_FAILURE", error.Code);
-        Assert.Contains("browser provider \"toy-cloud\" could not lease a browser: no capacity for slot 0", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "browser provider \"toy-cloud\" could not lease a browser: no capacity for slot 0",
+            error.Message,
+            StringComparison.Ordinal
+        );
         Assert.Empty(dialer.Endpoints);
         Assert.Empty(cloud.Released);
     }
@@ -129,7 +138,9 @@ public sealed class AttemptScopeTests
         var worker = dialer.Engine(cloud);
         worker.Init(Runner.InitInfo(0, env));
         using var controller = new CancellationTokenSource();
-        var starting = Assert.ThrowsAsync<EngineException>(() => worker.StartAsync(Runner.Attempt("a1"), controller.Token));
+        var starting = Assert.ThrowsAsync<EngineException>(() =>
+            worker.StartAsync(Runner.Attempt("a1"), controller.Token)
+        );
         await controller.CancelAsync();
         Assert.Equal("CANCELLED", (await starting).Code);
         Assert.Empty(cloud.Released);
@@ -153,7 +164,9 @@ public sealed class AttemptScopeTests
             var worker = dialer.Engine(cloud);
             worker.Init(Runner.InitInfo(0, env));
             using var controller = new CancellationTokenSource();
-            var starting = Assert.ThrowsAsync<EngineException>(() => worker.StartAsync(Runner.Attempt("a1"), controller.Token));
+            var starting = Assert.ThrowsAsync<EngineException>(() =>
+                worker.StartAsync(Runner.Attempt("a1"), controller.Token)
+            );
             await controller.CancelAsync();
             granted.SetResult();
             var error = await starting;
@@ -207,7 +220,11 @@ public sealed class AttemptScopeTests
         var session = await worker.StartAsync(Runner.Attempt("a1"), None);
         var error = await Assert.ThrowsAsync<EngineException>(() => session.DisposeAsync().AsTask());
         Assert.Equal("ENGINE_FAILURE", error.Code);
-        Assert.Contains("browser provider \"toy-cloud\" could not release browser lease-0: stop failed", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "browser provider \"toy-cloud\" could not release browser lease-0: stop failed",
+            error.Message,
+            StringComparison.Ordinal
+        );
         await session.DisposeAsync();
         Assert.Single(cloud.Released);
     }
@@ -215,7 +232,9 @@ public sealed class AttemptScopeTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task Reattaches_through_the_leases_reconnectEndpoint_after_the_transport_drops_and_through_cdpEndpoint_without_one(bool reconnect)
+    public async Task Reattaches_through_the_leases_reconnectEndpoint_after_the_transport_drops_and_through_cdpEndpoint_without_one(
+        bool reconnect
+    )
     {
         // One browser identity: recovery must land on the same persistent context.
         var dialer = new Dialer(_ => FakeBrowser.Persistent("same-browser"));
@@ -227,7 +246,10 @@ public sealed class AttemptScopeTests
         await session.OpenAsync("http://app.test/", None);
         dialer.Browsers[0].Drop();
         Assert.Equal("reattached", await WebEngine.Guard(session, "probe", None, () => Task.FromResult("reattached")));
-        Assert.Equal(["wss://0.example", reconnect ? "wss://0.example/reconnect" : "wss://0.example"], dialer.Endpoints);
+        Assert.Equal(
+            ["wss://0.example", reconnect ? "wss://0.example/reconnect" : "wss://0.example"],
+            dialer.Endpoints
+        );
 
         // Recovery is the same browser: no second lease.
         Assert.Single(cloud.Acquired);

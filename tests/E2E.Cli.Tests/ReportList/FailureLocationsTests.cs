@@ -18,7 +18,8 @@ namespace E2E.Cli.Tests.ReportList;
 public sealed class FailureLocationsTests
 {
     /// <summary>The repository root, which holds the tests and the runner's sources, so the runner's own frames are inside the root too.</summary>
-    private static string Root([CallerFilePath] string caller = "") => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(caller)!, "..", "..", ".."));
+    private static string Root([CallerFilePath] string caller = "") =>
+        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(caller)!, "..", "..", ".."));
 
     /// <summary>
     /// The stack of a failure thrown in the runner's assembly (below this test's call) and the line this call is on. One line, so the lambda's
@@ -46,7 +47,9 @@ public sealed class FailureLocationsTests
         var (stack, line) = RunnerFailure(() => Source.ProjectRelativePath(null!, "x"));
 
         // The failure unwound through the runner first: its frame is in the stack, and inside the root when its symbols name its source file.
-        Assert.Contains(stack.GetFrames(), frame => frame.GetMethod()?.DeclaringType?.Assembly == typeof(Source).Assembly);
+        Assert.Contains(stack.GetFrames(), frame =>
+            frame.GetMethod()?.DeclaringType?.Assembly == typeof(Source).Assembly
+        );
         var located = Source.Locate(stack, Root());
         Assert.NotNull(located);
         Assert.Equal("tests/E2E.Cli.Tests/ReportList/FailureLocationsTests.cs", located.File);

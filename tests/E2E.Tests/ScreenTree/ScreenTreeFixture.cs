@@ -18,10 +18,36 @@ internal sealed class ScreenTreeFixture
             Ref = "list",
             Role = "list",
             Name = "Todos",
-            Children = [new SemanticNode { Ref = "milk", Role = "checkbox", Name = "Milk", States = new NodeStates { Checked = true } }],
+            Children =
+            [
+                new SemanticNode
+                {
+                    Ref = "milk",
+                    Role = "checkbox",
+                    Name = "Milk",
+                    States = new NodeStates { Checked = true },
+                },
+            ],
         };
-        var add = new SemanticNode { Ref = "add", Role = "button", Name = "Add" };
-        var observation = new Observation { Route = "/", Roots = [new SemanticNode { Ref = "root", Role = "root", Children = [list, add] }] };
+        var add = new SemanticNode
+        {
+            Ref = "add",
+            Role = "button",
+            Name = "Add",
+        };
+        var observation = new Observation
+        {
+            Route = "/",
+            Roots =
+            [
+                new SemanticNode
+                {
+                    Ref = "root",
+                    Role = "root",
+                    Children = [list, add],
+                },
+            ],
+        };
         Steps = new StepRecorder("attempt");
         Screen = new Screen(
             _ =>
@@ -33,7 +59,8 @@ internal sealed class ScreenTreeFixture
             () => CancellationToken.None,
             () => { },
             TimeSpan.FromSeconds(2),
-            TimeSpan.FromSeconds(2))
+            TimeSpan.FromSeconds(2)
+        )
         {
             Steps = Steps,
         };

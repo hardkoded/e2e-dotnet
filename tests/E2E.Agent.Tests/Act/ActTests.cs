@@ -57,10 +57,17 @@ public sealed class ActTests : E2ETest
 
         // The password is a Secret: the model sees only its name and purpose, and the fill runs through
         // the authorized type_secret tool.
-        await Agent.ActAsync("sign in with the given credentials", new ActOptions
-        {
-            Params = new Dictionary<string, object?> { ["username"] = admin.Username, ["password"] = admin.Password },
-        });
+        await Agent.ActAsync(
+            "sign in with the given credentials",
+            new ActOptions
+            {
+                Params = new Dictionary<string, object?>
+                {
+                    ["username"] = admin.Username,
+                    ["password"] = admin.Password,
+                },
+            }
+        );
         await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("Welcome back, admin!");
     }
 }

@@ -128,5 +128,6 @@ internal sealed class ModelUsage
         long? CacheReadTokens = null,
         long? CacheWriteTokens = null,
         TokenAccounting? Accounting = null,
-        double? EstimatedCostUsd = null);
+        double? EstimatedCostUsd = null
+    );
 }

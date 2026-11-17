@@ -33,11 +33,21 @@ internal sealed record SkillCopyFile(string Absolute, string Content);
 /// Init never writes through them: a link to a dotfiles repo or a shared skills folder would be overwritten there.
 /// </param>
 /// <param name="Obstacles">Entries the writes would fail on, each once; removing them is not a repair init makes.</param>
-internal abstract record SkillInstall(string Relative, bool Existing, IReadOnlyList<SkillLink> Links, IReadOnlyList<SkillObstacle> Obstacles);
+internal abstract record SkillInstall(
+    string Relative,
+    bool Existing,
+    IReadOnlyList<SkillLink> Links,
+    IReadOnlyList<SkillObstacle> Obstacles
+);
 
 /// <summary>The bundled files, written into the skill directory.</summary>
-internal sealed record SkillCopy(string Relative, bool Existing, IReadOnlyList<SkillLink> Links, IReadOnlyList<SkillObstacle> Obstacles, IReadOnlyList<SkillCopyFile> Files)
-    : SkillInstall(Relative, Existing, Links, Obstacles);
+internal sealed record SkillCopy(
+    string Relative,
+    bool Existing,
+    IReadOnlyList<SkillLink> Links,
+    IReadOnlyList<SkillObstacle> Obstacles,
+    IReadOnlyList<SkillCopyFile> Files
+) : SkillInstall(Relative, Existing, Links, Obstacles);
 
 /// <summary>A symlink standing in for the skill directory, leading to the copy in another location.</summary>
 /// <param name="Relative">Project-relative link, with <c>/</c> separators.</param>
@@ -45,8 +55,13 @@ internal sealed record SkillCopy(string Relative, bool Existing, IReadOnlyList<S
 /// <param name="Links">Symlinks met on the way.</param>
 /// <param name="Obstacles">Entries the write cannot pass.</param>
 /// <param name="Target">The link as written, relative to its parent with <c>/</c> separators: <c>../../.agents/skills/e2e-dotnet</c>.</param>
-internal sealed record SkillSymlink(string Relative, bool Existing, IReadOnlyList<SkillLink> Links, IReadOnlyList<SkillObstacle> Obstacles, string Target)
-    : SkillInstall(Relative, Existing, Links, Obstacles);
+internal sealed record SkillSymlink(
+    string Relative,
+    bool Existing,
+    IReadOnlyList<SkillLink> Links,
+    IReadOnlyList<SkillObstacle> Obstacles,
+    string Target
+) : SkillInstall(Relative, Existing, Links, Obstacles);
 
 /// <summary>Upstream's <c>cli/init/agent-skill.ts</c>: the <c>e2e init</c> step that installs the bundled skill for coding agents.</summary>
 internal static class AgentSkill
@@ -77,10 +92,14 @@ internal static class AgentSkill
         [.. SkillLocations.Select(location => location.Dir).Where(dir => Exists(Path.Combine(cwd, dir, Skill.Name)))];
 
     /// <summary>The chosen directories split into the ones written as a copy and the ones linked to a copy among them.</summary>
-    public static (List<string> Copies, List<(string Dir, string LinksTo)> Links) SplitSkillDirs(IReadOnlyList<string> dirs)
+    public static (List<string> Copies, List<(string Dir, string LinksTo)> Links) SplitSkillDirs(
+        IReadOnlyList<string> dirs
+    )
     {
         var links = SkillLocations
-            .Where(location => location.LinksTo is not null && dirs.Contains(location.Dir) && dirs.Contains(location.LinksTo))
+            .Where(location =>
+                location.LinksTo is not null && dirs.Contains(location.Dir) && dirs.Contains(location.LinksTo)
+            )
             .Select(location => (location.Dir, location.LinksTo!))
             .ToList();
         return ([.. dirs.Where(dir => !links.Any(link => link.Dir == dir))], links);
@@ -93,7 +112,11 @@ internal static class AgentSkill
     /// planned with what was met and never read, for the caller to skip. An empty bundle with somewhere to write is a broken
     /// installation, never a set of current copies.
     /// </summary>
-    public static List<SkillInstall> PlanSkillInstall(string cwd, IReadOnlyList<string> dirs, IReadOnlyList<SkillFile> bundled)
+    public static List<SkillInstall> PlanSkillInstall(
+        string cwd,
+        IReadOnlyList<string> dirs,
+        IReadOnlyList<SkillFile> bundled
+    )
     {
         if (dirs.Count > 0 && bundled.Count == 0)
         {
@@ -104,9 +127,13 @@ internal static class AgentSkill
         foreach (var dir in dirs)
         {
             var root = Path.GetFullPath(Path.Combine(cwd, dir, Skill.Name));
-            var files = bundled.Select(file => new SkillCopyFile(Path.Combine(root, file.Relative), file.Content)).ToList();
+            var files = bundled
+                .Select(file => new SkillCopyFile(Path.Combine(root, file.Relative), file.Content))
+                .ToList();
             var (links, obstacles) = FindBlockers(cwd, root, files.Select(file => file.Absolute));
-            var current = links.Count == 0 && obstacles.Count == 0
+            var current =
+                links.Count == 0
+                && obstacles.Count == 0
                 && files.All(file => CurrentContent(file.Absolute) == file.Content);
             if (current)
             {
@@ -123,10 +150,15 @@ internal static class AgentSkill
     /// Whether a directory holds the copy once the planned writes are done: its plan goes ahead, or nothing was planned
     /// because the copy is current.
     /// </summary>
-    public static bool HoldsCopyAfter(string dir, IReadOnlyList<SkillInstall> planned, IReadOnlyList<SkillInstall> going)
+    public static bool HoldsCopyAfter(
+        string dir,
+        IReadOnlyList<SkillInstall> planned,
+        IReadOnlyList<SkillInstall> going
+    )
     {
         var relative = dir + "/" + Skill.Name;
-        return going.Any(install => install.Relative == relative) || !planned.Any(install => install.Relative == relative);
+        return going.Any(install => install.Relative == relative)
+            || !planned.Any(install => install.Relative == relative);
     }
 
     /// <summary>
@@ -136,7 +168,13 @@ internal static class AgentSkill
     /// holding anything else, like a location whose copy is not ready, is planned as a copy like any other. A symlink leading
     /// elsewhere, or one on the way, is planned with what was met, for the caller to skip.
     /// </summary>
-    public static SkillInstall? PlanSkillLink(string cwd, string dir, string canonicalDir, IReadOnlyList<SkillFile> bundled, bool ready)
+    public static SkillInstall? PlanSkillLink(
+        string cwd,
+        string dir,
+        string canonicalDir,
+        IReadOnlyList<SkillFile> bundled,
+        bool ready
+    )
     {
         var link = Path.GetFullPath(Path.Combine(cwd, dir, Skill.Name));
         var canonical = Path.GetFullPath(Path.Combine(cwd, canonicalDir, Skill.Name));
@@ -160,7 +198,8 @@ internal static class AgentSkill
             entry?.IsDirectory == true,
             found?.Link is { } foundLink ? [foundLink] : [],
             found?.Obstacle is { } foundObstacle ? [foundObstacle] : [],
-            PosixRelative(Path.GetDirectoryName(link)!, canonical));
+            PosixRelative(Path.GetDirectoryName(link)!, canonical)
+        );
     }
 
     /// <summary>
@@ -181,14 +220,19 @@ internal static class AgentSkill
     {
         ArgumentNullException.ThrowIfNull(install);
         var links = string.Join(", ", install.Links.Select(link => link.Relative + " -> " + link.Target));
-        return install.Links.Count == 1 && install.Links[0].Relative == install.Relative ? links : install.Relative + "/ (" + links + ")";
+        return install.Links.Count == 1 && install.Links[0].Relative == install.Relative
+            ? links
+            : install.Relative + "/ (" + links + ")";
     }
 
     /// <summary>The install's obstacles for a message: the directory, then each entry and what it is in parentheses.</summary>
     public static string DescribeObstacles(SkillInstall install)
     {
         ArgumentNullException.ThrowIfNull(install);
-        return install.Relative + "/ (" + string.Join(", ", install.Obstacles.Select(obstacle => obstacle.Relative + " is a " + obstacle.Kind)) + ")";
+        return install.Relative
+            + "/ ("
+            + string.Join(", ", install.Obstacles.Select(obstacle => obstacle.Relative + " is a " + obstacle.Kind))
+            + ")";
     }
 
     /// <summary>The content a bundled file currently has, or null when it cannot be read as a file, which differs from any bundle.</summary>
@@ -217,7 +261,12 @@ internal static class AgentSkill
     private static bool HoldsOnlyBundled(string root, IReadOnlyList<SkillFile> bundled)
     {
         var shipped = bundled.Select(file => file.Relative).ToList();
-        var options = new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = 0, IgnoreInaccessible = false };
+        var options = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            AttributesToSkip = 0,
+            IgnoreInaccessible = false,
+        };
         foreach (var info in new DirectoryInfo(root).EnumerateFileSystemInfos("*", options))
         {
             var relative = PosixRelative(root, info.FullName);
@@ -226,9 +275,10 @@ internal static class AgentSkill
                 return false;
             }
 
-            var good = info is DirectoryInfo
-                ? shipped.Any(file => file.StartsWith(relative + "/", StringComparison.Ordinal))
-                : shipped.Contains(relative);
+            var good =
+                info is DirectoryInfo
+                    ? shipped.Any(file => file.StartsWith(relative + "/", StringComparison.Ordinal))
+                    : shipped.Contains(relative);
             if (!good)
             {
                 return false;
@@ -243,7 +293,11 @@ internal static class AgentSkill
     /// live wherever it points and are not inspected), a file that resolves outside the project without one, and the entries a
     /// write cannot pass.
     /// </summary>
-    private static (List<SkillLink> Links, List<SkillObstacle> Obstacles) FindBlockers(string cwd, string root, IEnumerable<string> files)
+    private static (List<SkillLink> Links, List<SkillObstacle> Obstacles) FindBlockers(
+        string cwd,
+        string root,
+        IEnumerable<string> files
+    )
     {
         var links = new Dictionary<string, SkillLink>(StringComparer.Ordinal);
         var obstacles = new Dictionary<string, SkillObstacle>(StringComparer.Ordinal);
@@ -288,10 +342,19 @@ internal static class AgentSkill
 
         if (blocker.Kind == BlockerKind.Link)
         {
-            return new Described(new SkillLink(PosixRelative(cwd, blocker.Absolute), LinkTarget(blocker.Absolute)), null);
+            return new Described(
+                new SkillLink(PosixRelative(cwd, blocker.Absolute), LinkTarget(blocker.Absolute)),
+                null
+            );
         }
 
-        return new Described(null, new SkillObstacle(PosixRelative(root, blocker.Absolute), blocker.Kind == BlockerKind.Directory ? "directory" : "file"));
+        return new Described(
+            null,
+            new SkillObstacle(
+                PosixRelative(root, blocker.Absolute),
+                blocker.Kind == BlockerKind.Directory ? "directory" : "file"
+            )
+        );
     }
 
     /// <summary>
@@ -382,5 +445,6 @@ internal static class AgentSkill
     }
 
     /// <summary><paramref name="absolute"/> relative to <paramref name="from"/> with <c>/</c> separators, as the messages and the plan spell paths.</summary>
-    private static string PosixRelative(string from, string absolute) => Path.GetRelativePath(from, absolute).Replace('\\', '/');
+    private static string PosixRelative(string from, string absolute) =>
+        Path.GetRelativePath(from, absolute).Replace('\\', '/');
 }

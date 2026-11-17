@@ -45,11 +45,15 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_svg()
     {
-        await Browser.GotoAsync(Content("""
-            <svg height="100" width="100">
-              <circle onclick="window.__CLICKED=42" cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />
-            </svg>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <svg height="100" width="100">
+                  <circle onclick="window.__CLICKED=42" cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />
+                </svg>
+                """
+            )
+        );
         await Browser.Locator("circle").TapAsync();
         Assert.That(await Browser.EvaluateAsync<int>("__CLICKED"), Is.EqualTo(42));
     }
@@ -66,10 +70,14 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_on_a_span_with_an_inline_element_inside()
     {
-        await Browser.GotoAsync(Content("""
-            <style>span::before { content: 'q'; }</style>
-            <span onclick='window.CLICKED=42'></span>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>span::before { content: 'q'; }</style>
+                <span onclick='window.CLICKED=42'></span>
+                """
+            )
+        );
         await Browser.Locator("span").TapAsync();
         Assert.That(await Browser.EvaluateAsync<int>("CLICKED"), Is.EqualTo(42));
     }
@@ -82,7 +90,9 @@ public sealed class PageClickTests : PlaywrightTest
     [TestCase("unaligned v4", "margin-left: 20.15px; margin-top: 11.24px;")]
     public async Task Should_click_the_1x1_div(string name, string style)
     {
-        await Browser.GotoAsync(Content($"""<div style="{style} width: 1px; height: 1px;" onclick="window.__clicked = true"></div>"""));
+        await Browser.GotoAsync(
+            Content($"""<div style="{style} width: 1px; height: 1px;" onclick="window.__clicked = true"></div>""")
+        );
         await Browser.Locator("div").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("window.__clicked"), Is.True, $"should click the {name} 1x1 div");
     }
@@ -110,10 +120,14 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_when_one_of_inline_box_children_is_outside_of_viewport()
     {
-        await Browser.GotoAsync(Content("""
-            <style>i { position: absolute; top: -1000px; }</style>
-            <span onclick='window.CLICKED = 42;'><i>woof</i><b>doggo</b></span>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>i { position: absolute; top: -1000px; }</style>
+                <span onclick='window.CLICKED = 42;'><i>woof</i><b>doggo</b></span>
+                """
+            )
+        );
         await Browser.Locator("span").TapAsync();
         Assert.That(await Browser.EvaluateAsync<int>("CLICKED"), Is.EqualTo(42));
     }
@@ -122,7 +136,9 @@ public sealed class PageClickTests : PlaywrightTest
     public async Task Should_click_offscreen_buttons()
     {
         await Browser.GotoAsync("/offscreenbuttons.html");
-        await Browser.EvaluateAsync<object>("() => { window.messages = []; console.log = (text) => window.messages.push(text); }");
+        await Browser.EvaluateAsync<object>(
+            "() => { window.messages = []; console.log = (text) => window.messages.push(text); }"
+        );
         for (var index = 0; index < 11; ++index)
         {
             await Browser.EvaluateAsync<object>("() => window.scrollTo(0, 0)");
@@ -131,7 +147,8 @@ public sealed class PageClickTests : PlaywrightTest
 
         Assert.That(
             await Browser.EvaluateAsync<string[]>("messages"),
-            Is.EqualTo(Enumerable.Range(0, 11).Select(index => $"button #{index} clicked").ToArray()));
+            Is.EqualTo(Enumerable.Range(0, 11).Select(index => $"button #{index} clicked").ToArray())
+        );
     }
 
     [Test]
@@ -149,7 +166,9 @@ public sealed class PageClickTests : PlaywrightTest
     private async Task WaitForPropertyToBeGoneAsync(string property, string hidden, string shown)
     {
         await Browser.GotoAsync("/input/button.html");
-        await Browser.EvaluateAsync<object>($"() => {{ document.querySelector('button').style.{property} = '{hidden}'; }}");
+        await Browser.EvaluateAsync<object>(
+            $"() => {{ document.querySelector('button').style.{property} = '{hidden}'; }}"
+        );
         var done = false;
         var clicked = Task.Run(async () =>
         {
@@ -159,7 +178,9 @@ public sealed class PageClickTests : PlaywrightTest
         await Browser.EvaluateAsync<object>(GiveItAChanceToClick);
         Assert.That(await ResultAsync(), Is.EqualTo("Was not clicked"));
         Assert.That(done, Is.False);
-        await Browser.EvaluateAsync<object>($"() => {{ document.querySelector('button').style.{property} = '{shown}'; }}");
+        await Browser.EvaluateAsync<object>(
+            $"() => {{ document.querySelector('button').style.{property} = '{shown}'; }}"
+        );
         await clicked;
         Assert.That(done, Is.True);
         Assert.That(await ResultAsync(), Is.EqualTo("Clicked"));
@@ -169,7 +190,9 @@ public sealed class PageClickTests : PlaywrightTest
     public async Task Should_waitFor_visible_when_parent_is_hidden()
     {
         await Browser.GotoAsync("/input/button.html");
-        await Browser.EvaluateAsync<object>("() => { document.querySelector('button').parentElement.style.display = 'none'; }");
+        await Browser.EvaluateAsync<object>(
+            "() => { document.querySelector('button').parentElement.style.display = 'none'; }"
+        );
         var done = false;
         var clicked = Task.Run(async () =>
         {
@@ -178,7 +201,9 @@ public sealed class PageClickTests : PlaywrightTest
         });
         await Browser.EvaluateAsync<object>(GiveItAChanceToClick);
         Assert.That(done, Is.False);
-        await Browser.EvaluateAsync<object>("() => { document.querySelector('button').parentElement.style.display = 'block'; }");
+        await Browser.EvaluateAsync<object>(
+            "() => { document.querySelector('button').parentElement.style.display = 'block'; }"
+        );
         await clicked;
         Assert.That(done, Is.True);
         Assert.That(await ResultAsync(), Is.EqualTo("Clicked"));
@@ -209,7 +234,10 @@ public sealed class PageClickTests : PlaywrightTest
         Assert.That(await Browser.EvaluateAsync<bool?>("() => window.result.check"), Is.True);
         Assert.That(
             await Browser.EvaluateAsync<string[]>("() => window.result.events"),
-            Is.EqualTo(new[] { "mouseover", "mouseenter", "mousemove", "mousedown", "mouseup", "click", "input", "change" }));
+            Is.EqualTo(
+                new[] { "mouseover", "mouseenter", "mousemove", "mousedown", "mouseup", "click", "input", "change" }
+            )
+        );
         await Browser.Locator("input#agree").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool?>("() => window.result.check"), Is.False);
     }
@@ -221,7 +249,10 @@ public sealed class PageClickTests : PlaywrightTest
         Assert.That(await Browser.EvaluateAsync<bool?>("() => window.result.check"), Is.Null);
         await Browser.Locator("label[for=\"agree\"]").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool?>("() => window.result.check"), Is.True);
-        Assert.That(await Browser.EvaluateAsync<string[]>("() => window.result.events"), Is.EqualTo(new[] { "click", "input", "change" }));
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>("() => window.result.events"),
+            Is.EqualTo(new[] { "click", "input", "change" })
+        );
         await Browser.Locator("label[for=\"agree\"]").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool?>("() => window.result.check"), Is.False);
     }
@@ -231,22 +262,36 @@ public sealed class PageClickTests : PlaywrightTest
     {
         await Browser.GotoAsync("/input/scrollable.html");
         await Browser.Locator("#button-5").TapAsync();
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('#button-5').textContent"), Is.EqualTo("clicked"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('#button-5').textContent"),
+            Is.EqualTo("clicked")
+        );
         await Browser.Locator("#button-80").TapAsync();
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('#button-80').textContent"), Is.EqualTo("clicked"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('#button-80').textContent"),
+            Is.EqualTo("clicked")
+        );
     }
 
     [Test]
     public async Task Should_scroll_and_click_the_button_with_smooth_scroll_behavior()
     {
         await Browser.GotoAsync("/input/scrollable.html");
-        await Browser.EvaluateAsync<object>("() => { const style = document.createElement('style'); style.textContent = 'html { scroll-behavior: smooth; }'; document.head.append(style); }");
+        await Browser.EvaluateAsync<object>(
+            "() => { const style = document.createElement('style'); style.textContent = 'html { scroll-behavior: smooth; }'; document.head.append(style); }"
+        );
         for (var index = 0; index < 5; index++)
         {
             await Browser.Locator("#button-80").TapAsync();
-            Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('#button-80').textContent"), Is.EqualTo("clicked"));
+            Assert.That(
+                await Browser.EvaluateAsync<string>("() => document.querySelector('#button-80').textContent"),
+                Is.EqualTo("clicked")
+            );
             await Browser.Locator("#button-20").TapAsync();
-            Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('#button-20').textContent"), Is.EqualTo("clicked"));
+            Assert.That(
+                await Browser.EvaluateAsync<string>("() => document.querySelector('#button-20').textContent"),
+                Is.EqualTo("clicked")
+            );
         }
     }
 
@@ -254,7 +299,9 @@ public sealed class PageClickTests : PlaywrightTest
     public async Task Should_double_click_the_button()
     {
         await Browser.GotoAsync("/input/button.html");
-        await Browser.EvaluateAsync<object>("() => { window.double = false; document.querySelector('button').addEventListener('dblclick', () => { window.double = true; }); }");
+        await Browser.EvaluateAsync<object>(
+            "() => { window.double = false; document.querySelector('button').addEventListener('dblclick', () => { window.double = true; }); }"
+        );
         await Browser.Locator("button").DoubleTapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("double"), Is.True);
         Assert.That(await ResultAsync(), Is.EqualTo("Clicked"));
@@ -264,7 +311,9 @@ public sealed class PageClickTests : PlaywrightTest
     public async Task Should_click_a_partially_obscured_button()
     {
         await Browser.GotoAsync("/input/button.html");
-        await Browser.EvaluateAsync<object>("() => { const button = document.querySelector('button'); button.textContent = 'Some really long text that will go offscreen'; button.style.position = 'absolute'; button.style.left = '368px'; }");
+        await Browser.EvaluateAsync<object>(
+            "() => { const button = document.querySelector('button'); button.textContent = 'Some really long text that will go offscreen'; button.style.position = 'absolute'; button.style.left = '368px'; }"
+        );
         await Browser.Locator("button").TapAsync();
         Assert.That(await ResultAsync(), Is.EqualTo("Clicked"));
     }
@@ -292,7 +341,9 @@ public sealed class PageClickTests : PlaywrightTest
     public async Task Should_click_the_button_with_em_border_with_offset()
     {
         await Browser.GotoAsync("/input/button.html");
-        await Browser.EvaluateAsync<object>("() => { const button = document.querySelector('button'); button.style.borderWidth = '2em'; button.style.fontSize = '12px'; }");
+        await Browser.EvaluateAsync<object>(
+            "() => { const button = document.querySelector('button'); button.style.borderWidth = '2em'; button.style.fontSize = '12px'; }"
+        );
         await Browser.Locator("button").TapAsync(new TapOptions { Position = new Point(20, 10) });
         Assert.That(await ResultAsync(), Is.EqualTo("Clicked"));
         Assert.That(await Browser.EvaluateAsync<int>("offsetX"), Is.EqualTo(20));
@@ -304,7 +355,10 @@ public sealed class PageClickTests : PlaywrightTest
     {
         await Browser.GotoAsync("/input/scrollable.html");
         await Browser.Locator("#button-8").SecondaryTapAsync();
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('#button-8').textContent"), Is.EqualTo("context menu"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('#button-8').textContent"),
+            Is.EqualTo("context menu")
+        );
     }
 
     [Test]
@@ -318,30 +372,41 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_the_button_inside_an_iframe()
     {
-        await Browser.GotoAsync(Content("<div style=\"width:100px;height:100px\">spacer</div><iframe name=\"button-test\" src=\"/input/button.html\"></iframe>"));
+        await Browser.GotoAsync(
+            Content(
+                "<div style=\"width:100px;height:100px\">spacer</div><iframe name=\"button-test\" src=\"/input/button.html\"></iframe>"
+            )
+        );
         var frame = Browser.FrameLocator("iframe");
         await frame.Locator("button").TapAsync();
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('iframe').contentWindow.result"), Is.EqualTo("Clicked"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('iframe').contentWindow.result"),
+            Is.EqualTo("Clicked")
+        );
     }
 
     [Test]
     public async Task Should_click_the_button_behind_sticky_header()
     {
         await Browser.SetViewportAsync(500, 240);
-        await Browser.GotoAsync(Content("""
-            <style>
-              * { padding: 0; margin: 0; }
-              li { height: 80px; border: 1px solid black; }
-              ol { padding-top: 160px; }
-              div.fixed { position: fixed; z-index: 1001; width: 100%; background: red; height: 160px; }
-            </style>
-            <div class=fixed></div>
-            <ol>
-              <li>hi1</li><li>hi2</li><li>hi3</li><li>hi4</li><li>hi5</li><li>hi6</li><li>hi7</li><li>hi8</li>
-              <li id=target onclick="window.__clicked = true">hi9</li>
-              <li>hi10</li><li>hi11</li><li>hi12</li><li>hi13</li><li id=li14>hi14</li>
-            </ol>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>
+                  * { padding: 0; margin: 0; }
+                  li { height: 80px; border: 1px solid black; }
+                  ol { padding-top: 160px; }
+                  div.fixed { position: fixed; z-index: 1001; width: 100%; background: red; height: 160px; }
+                </style>
+                <div class=fixed></div>
+                <ol>
+                  <li>hi1</li><li>hi2</li><li>hi3</li><li>hi4</li><li>hi5</li><li>hi6</li><li>hi7</li><li>hi8</li>
+                  <li id=target onclick="window.__clicked = true">hi9</li>
+                  <li>hi10</li><li>hi11</li><li>hi12</li><li>hi13</li><li id=li14>hi14</li>
+                </ol>
+                """
+            )
+        );
         await Browser.EvaluateAsync<object>("() => document.querySelector('#li14').scrollIntoView()");
         await Browser.Locator("#target").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("() => window.__clicked"), Is.True);
@@ -351,22 +416,28 @@ public sealed class PageClickTests : PlaywrightTest
     public async Task Should_click_the_button_behind_position_absolute_header()
     {
         await Browser.SetViewportAsync(500, 240);
-        await Browser.GotoAsync(Content("""
-            <style>
-              * { padding: 0; margin: 0; }
-              li { height: 80px; border: 1px solid black; }
-              ol { height: 100vh; overflow: scroll; padding-top: 160px; }
-              body { position: relative; }
-              div.fixed { position: absolute; top: 0; z-index: 1001; width: 100%; background: red; height: 160px; }
-            </style>
-            <ol>
-              <li>hi1</li><li>hi2</li><li>hi3</li><li>hi4</li><li>hi5</li><li>hi6</li><li>hi7</li><li>hi8</li>
-              <li id=target onclick="window.__clicked = true">hi9</li>
-              <li>hi10</li><li>hi11</li><li>hi12</li><li>hi13</li><li id=li14>hi14</li>
-            </ol>
-            <div class=fixed>Overlay</div>
-            """));
-        await Browser.EvaluateAsync<object>("() => { const target = document.querySelector('#target'); document.querySelector('ol').scrollTo({ top: target.offsetTop, behavior: 'instant' }); }");
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>
+                  * { padding: 0; margin: 0; }
+                  li { height: 80px; border: 1px solid black; }
+                  ol { height: 100vh; overflow: scroll; padding-top: 160px; }
+                  body { position: relative; }
+                  div.fixed { position: absolute; top: 0; z-index: 1001; width: 100%; background: red; height: 160px; }
+                </style>
+                <ol>
+                  <li>hi1</li><li>hi2</li><li>hi3</li><li>hi4</li><li>hi5</li><li>hi6</li><li>hi7</li><li>hi8</li>
+                  <li id=target onclick="window.__clicked = true">hi9</li>
+                  <li>hi10</li><li>hi11</li><li>hi12</li><li>hi13</li><li id=li14>hi14</li>
+                </ol>
+                <div class=fixed>Overlay</div>
+                """
+            )
+        );
+        await Browser.EvaluateAsync<object>(
+            "() => { const target = document.querySelector('#target'); document.querySelector('ol').scrollTo({ top: target.offsetTop, behavior: 'instant' }); }"
+        );
         await Browser.Locator("#target").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("() => window.__clicked"), Is.True);
     }
@@ -375,7 +446,8 @@ public sealed class PageClickTests : PlaywrightTest
     public async Task Should_wait_for_stable_position()
     {
         await Browser.GotoAsync("/input/button.html");
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               const button = document.querySelector('button');
               button.style.transition = 'margin 500ms linear 0s';
@@ -386,7 +458,8 @@ public sealed class PageClickTests : PlaywrightTest
               button.style.display = 'block';
               document.body.style.margin = '0';
             }
-            """);
+            """
+        );
         await Browser.EvaluateAsync<object>(GiveItAChanceToClick);
         await Browser.Locator("button").TapAsync();
         Assert.That(await ResultAsync(), Is.EqualTo("Clicked"));
@@ -398,7 +471,8 @@ public sealed class PageClickTests : PlaywrightTest
     public async Task Should_wait_for_becoming_hit_target()
     {
         await Browser.GotoAsync("/input/button.html");
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               const button = document.querySelector('button');
               button.style.borderWidth = '0';
@@ -416,7 +490,8 @@ public sealed class PageClickTests : PlaywrightTest
               flyOver.style.background = 'red';
               document.body.appendChild(flyOver);
             }
-            """);
+            """
+        );
         var clicked = false;
         var tap = Task.Run(async () =>
         {
@@ -433,8 +508,16 @@ public sealed class PageClickTests : PlaywrightTest
         Assert.That(await ResultAsync(), Is.EqualTo("Clicked"));
     }
 
-    [TestCase("button", "<button onclick=\"window.__CLICKED=true;\" disabled><span>Click target</span></button>", "document.querySelector('button').removeAttribute('disabled')")]
-    [TestCase("input", "<input onclick=\"window.__CLICKED=true;\" disabled>", "document.querySelector('input').removeAttribute('disabled')")]
+    [TestCase(
+        "button",
+        "<button onclick=\"window.__CLICKED=true;\" disabled><span>Click target</span></button>",
+        "document.querySelector('button').removeAttribute('disabled')"
+    )]
+    [TestCase(
+        "input",
+        "<input onclick=\"window.__CLICKED=true;\" disabled>",
+        "document.querySelector('input').removeAttribute('disabled')"
+    )]
     public async Task Should_wait_for_element_to_be_enabled(string name, string html, string enable)
     {
         await Browser.GotoAsync(Content(html));
@@ -456,12 +539,16 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_wait_for_select_to_be_enabled()
     {
-        await Browser.GotoAsync(Content("""
-            <select disabled><option selected>Hello</option></select>
-            <script>
-              document.querySelector('select').addEventListener('mousedown', event => { window.__CLICKED = true; event.preventDefault(); });
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <select disabled><option selected>Hello</option></select>
+                <script>
+                  document.querySelector('select').addEventListener('mousedown', event => { window.__CLICKED = true; event.preventDefault(); });
+                </script>
+                """
+            )
+        );
         var done = false;
         var tap = Task.Run(async () =>
         {
@@ -487,7 +574,11 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_wait_for_BUTTON_to_be_clickable_when_it_has_pointer_events_none()
     {
-        await Browser.GotoAsync(Content("<button onclick=\"window.__CLICKED=true\" style=\"pointer-events:none\"><span>Click target</span></button>"));
+        await Browser.GotoAsync(
+            Content(
+                "<button onclick=\"window.__CLICKED=true\" style=\"pointer-events:none\"><span>Click target</span></button>"
+            )
+        );
         var done = false;
         var tap = Task.Run(async () =>
         {
@@ -497,7 +588,9 @@ public sealed class PageClickTests : PlaywrightTest
         await Browser.EvaluateAsync<object>(GiveItAChanceToClick);
         Assert.That(await Browser.EvaluateAsync<object>("() => window.__CLICKED"), Is.Null);
         Assert.That(done, Is.False);
-        await Browser.EvaluateAsync<object>("() => { document.querySelector('button').style.removeProperty('pointer-events'); }");
+        await Browser.EvaluateAsync<object>(
+            "() => { document.querySelector('button').style.removeProperty('pointer-events'); }"
+        );
         await tap;
         Assert.That(await Browser.EvaluateAsync<bool>("__CLICKED"), Is.True);
     }
@@ -505,14 +598,20 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_wait_for_LABEL_to_be_clickable_when_it_has_pointer_events_none()
     {
-        await Browser.GotoAsync(Content("<label onclick=\"window.__CLICKED=true\" style=\"pointer-events:none\"><span>Click target</span></label>"));
+        await Browser.GotoAsync(
+            Content(
+                "<label onclick=\"window.__CLICKED=true\" style=\"pointer-events:none\"><span>Click target</span></label>"
+            )
+        );
         var tap = Screen.GetByText("Click target").TapAsync(Ten);
         for (var index = 0; index < 5; ++index)
         {
             Assert.That(await Browser.EvaluateAsync<object>("() => window.__CLICKED"), Is.Null);
         }
 
-        await Browser.EvaluateAsync<object>("() => { document.querySelector('label').style.removeProperty('pointer-events'); }");
+        await Browser.EvaluateAsync<object>(
+            "() => { document.querySelector('label').style.removeProperty('pointer-events'); }"
+        );
         await tap;
         Assert.That(await Browser.EvaluateAsync<bool>("__CLICKED"), Is.True);
     }
@@ -564,16 +663,20 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_retry_when_element_is_animating_from_outside_the_viewport()
     {
-        await Browser.GotoAsync(Content("""
-            <style>
-              @keyframes move { from { left: -300px; } to { left: 0; } }
-              button { position: absolute; left: -300px; top: 0; bottom: 0; width: 200px; }
-              button.animated { animation: 1s linear 1s move forwards; }
-            </style>
-            <div style="position: relative; width: 300px; height: 300px;">
-              <button onclick="window.clicked=true"></button>
-            </div>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>
+                  @keyframes move { from { left: -300px; } to { left: 0; } }
+                  button { position: absolute; left: -300px; top: 0; bottom: 0; width: 200px; }
+                  button.animated { animation: 1s linear 1s move forwards; }
+                </style>
+                <div style="position: relative; width: 300px; height: 300px;">
+                  <button onclick="window.clicked=true"></button>
+                </div>
+                """
+            )
+        );
         var tap = Browser.Locator("button").TapAsync(Ten);
         await Browser.EvaluateAsync<object>("() => { document.querySelector('button').className = 'animated'; }");
         await tap;
@@ -583,23 +686,27 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_dispatch_microtasks_in_order()
     {
-        await Browser.GotoAsync(Content("""
-            <button id=button>Click me</button>
-            <script>
-              let mutationCount = 0;
-              const observer = new MutationObserver((mutationsList) => {
-                for (const mutation of mutationsList) ++mutationCount;
-              });
-              observer.observe(document.body, { attributes: true, childList: true, subtree: true });
-              button.addEventListener('mousedown', () => {
-                mutationCount = 0;
-                document.body.appendChild(document.createElement('div'));
-              });
-              button.addEventListener('mouseup', () => {
-                window.result = mutationCount;
-              });
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <button id=button>Click me</button>
+                <script>
+                  let mutationCount = 0;
+                  const observer = new MutationObserver((mutationsList) => {
+                    for (const mutation of mutationsList) ++mutationCount;
+                  });
+                  observer.observe(document.body, { attributes: true, childList: true, subtree: true });
+                  button.addEventListener('mousedown', () => {
+                    mutationCount = 0;
+                    document.body.appendChild(document.createElement('div'));
+                  });
+                  button.addEventListener('mouseup', () => {
+                    window.result = mutationCount;
+                  });
+                </script>
+                """
+            )
+        );
         await Browser.Locator("button").TapAsync();
         Assert.That(await Browser.EvaluateAsync<int>("() => window.result"), Is.EqualTo(1));
     }
@@ -607,11 +714,15 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_an_offscreen_element_when_scroll_behavior_is_smooth()
     {
-        await Browser.GotoAsync(Content("""
-            <div style="border: 1px solid black; height: 500px; overflow: auto; width: 500px; scroll-behavior: smooth">
-              <button style="margin-top: 2000px" onClick="window.clicked = true">hi</button>
-            </div>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <div style="border: 1px solid black; height: 500px; overflow: auto; width: 500px; scroll-behavior: smooth">
+                  <button style="margin-top: 2000px" onClick="window.clicked = true">hi</button>
+                </div>
+                """
+            )
+        );
         await Browser.Locator("button").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("window.clicked"), Is.True);
     }
@@ -628,12 +739,16 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_zero_sized_input_by_label()
     {
-        await Browser.GotoAsync(Content("""
-            <label>
-              Click me
-              <input onclick="window.__clicked=true" style="width:0;height:0;padding:0;margin:0;border:0;">
-            </label>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <label>
+                  Click me
+                  <input onclick="window.__clicked=true" style="width:0;height:0;padding:0;margin:0;border:0;">
+                </label>
+                """
+            )
+        );
         await Screen.GetByText("Click me").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("window.__clicked"), Is.True);
     }
@@ -641,7 +756,11 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_climb_dom_for_inner_label_with_pointer_events_none()
     {
-        await Browser.GotoAsync(Content("<button onclick=\"window.__CLICKED=true;\"><label style=\"pointer-events:none\">Click target</label></button>"));
+        await Browser.GotoAsync(
+            Content(
+                "<button onclick=\"window.__CLICKED=true;\"><label style=\"pointer-events:none\">Click target</label></button>"
+            )
+        );
         await Screen.GetByText("Click target").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("__CLICKED"), Is.True);
     }
@@ -649,7 +768,11 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_climb_up_to_role_button()
     {
-        await Browser.GotoAsync(Content("<div role=button onclick=\"window.__CLICKED=true;\"><div style=\"pointer-events:none\"><span><div>Click target</div></span></div>"));
+        await Browser.GotoAsync(
+            Content(
+                "<div role=button onclick=\"window.__CLICKED=true;\"><div style=\"pointer-events:none\"><span><div>Click target</div></span></div>"
+            )
+        );
         await Screen.GetByText("Click target").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("__CLICKED"), Is.True);
     }
@@ -657,7 +780,11 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_climb_up_to_a_anchor()
     {
-        await Browser.GotoAsync(Content("<a href=\"#\" onclick=\"window.__CLICKED=true\" id=\"outer\"><div id=\"intermediate\"><div id=\"inner\" style=\"pointer-events: none\">Inner</div></div></a>"));
+        await Browser.GotoAsync(
+            Content(
+                "<a href=\"#\" onclick=\"window.__CLICKED=true\" id=\"outer\"><div id=\"intermediate\"><div id=\"inner\" style=\"pointer-events: none\">Inner</div></div></a>"
+            )
+        );
         await Browser.Locator("#inner").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("__CLICKED"), Is.True);
     }
@@ -665,7 +792,11 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_climb_up_to_a_role_link()
     {
-        await Browser.GotoAsync(Content("<div role=link onclick=\"window.__CLICKED=true\" id=\"outer\"><div id=\"inner\" style=\"pointer-events: none\">Inner</div></div>"));
+        await Browser.GotoAsync(
+            Content(
+                "<div role=link onclick=\"window.__CLICKED=true\" id=\"outer\"><div id=\"inner\" style=\"pointer-events: none\">Inner</div></div>"
+            )
+        );
         await Browser.Locator("#inner").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("__CLICKED"), Is.True);
     }
@@ -673,22 +804,26 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_in_an_iframe_with_border()
     {
-        await Browser.GotoAsync(Content("""
-            <style>
-              body, html, iframe { margin: 0; padding: 0; border: none; box-sizing: border-box; }
-              iframe { border: 4px solid black; background: gray; margin-left: 33px; margin-top: 24px; width: 400px; height: 400px; }
-            </style>
-            <iframe srcdoc="
-              <style>
-                body, html { margin: 0; padding: 0; }
-                div { margin-left: 10px; margin-top: 20px; width: 2px; height: 2px; }
-              </style>
-              <div>Target</div>
-              <script>
-                document.querySelector('div').addEventListener('click', () => window.top._clicked = true);
-              </script>
-            "></iframe>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>
+                  body, html, iframe { margin: 0; padding: 0; border: none; box-sizing: border-box; }
+                  iframe { border: 4px solid black; background: gray; margin-left: 33px; margin-top: 24px; width: 400px; height: 400px; }
+                </style>
+                <iframe srcdoc="
+                  <style>
+                    body, html { margin: 0; padding: 0; }
+                    div { margin-left: 10px; margin-top: 20px; width: 2px; height: 2px; }
+                  </style>
+                  <div>Target</div>
+                  <script>
+                    document.querySelector('div').addEventListener('click', () => window.top._clicked = true);
+                  </script>
+                "></iframe>
+                """
+            )
+        );
         await Browser.FrameLocator("iframe").Locator("div").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("window._clicked"), Is.True);
     }
@@ -696,22 +831,26 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_in_an_iframe_with_border_2()
     {
-        await Browser.GotoAsync(Content("""
-            <style>
-              body, html, iframe { margin: 0; padding: 0; border: none; }
-              iframe { border: 4px solid black; background: gray; margin-left: 33px; margin-top: 24px; width: 400px; height: 400px; }
-            </style>
-            <iframe srcdoc="
-              <style>
-                body, html { margin: 0; padding: 0; }
-                div { margin-left: 10px; margin-top: 20px; width: 2px; height: 2px; }
-              </style>
-              <div>Target</div>
-              <script>
-                document.querySelector('div').addEventListener('click', () => window.top._clicked = true);
-              </script>
-            "></iframe>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>
+                  body, html, iframe { margin: 0; padding: 0; border: none; }
+                  iframe { border: 4px solid black; background: gray; margin-left: 33px; margin-top: 24px; width: 400px; height: 400px; }
+                </style>
+                <iframe srcdoc="
+                  <style>
+                    body, html { margin: 0; padding: 0; }
+                    div { margin-left: 10px; margin-top: 20px; width: 2px; height: 2px; }
+                  </style>
+                  <div>Target</div>
+                  <script>
+                    document.querySelector('div').addEventListener('click', () => window.top._clicked = true);
+                  </script>
+                "></iframe>
+                """
+            )
+        );
         await Browser.FrameLocator("iframe").Locator("div").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("window._clicked"), Is.True);
     }
@@ -719,25 +858,29 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_in_a_transformed_iframe()
     {
-        await Browser.GotoAsync(Content("""
-            <style>
-              body, html, iframe { margin: 0; padding: 0; border: none; }
-              iframe {
-                border: 4px solid black; background: gray; margin-left: 33px; margin-top: 24px; width: 400px; height: 400px;
-                transform: translate(100px, 100px) scale(1.2) rotate3d(1, 1, 1, 25deg);
-              }
-            </style>
-            <iframe srcdoc="
-              <style>
-                body, html { margin: 0; padding: 0; }
-                div { margin-left: 10px; margin-top: 20px; width: 2px; height: 2px; }
-              </style>
-              <div>Target</div>
-              <script>
-                document.querySelector('div').addEventListener('click', () => window.top._clicked = true);
-              </script>
-            "></iframe>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>
+                  body, html, iframe { margin: 0; padding: 0; border: none; }
+                  iframe {
+                    border: 4px solid black; background: gray; margin-left: 33px; margin-top: 24px; width: 400px; height: 400px;
+                    transform: translate(100px, 100px) scale(1.2) rotate3d(1, 1, 1, 25deg);
+                  }
+                </style>
+                <iframe srcdoc="
+                  <style>
+                    body, html { margin: 0; padding: 0; }
+                    div { margin-left: 10px; margin-top: 20px; width: 2px; height: 2px; }
+                  </style>
+                  <div>Target</div>
+                  <script>
+                    document.querySelector('div').addEventListener('click', () => window.top._clicked = true);
+                  </script>
+                "></iframe>
+                """
+            )
+        );
         await Browser.FrameLocator("iframe").Locator("div").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("window._clicked"), Is.True);
     }
@@ -745,24 +888,28 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_in_a_nested_transformed_iframe()
     {
-        await Browser.GotoAsync(Content("""
-            <style>
-              body, html, iframe { margin: 0; padding: 0; box-sizing: border-box; }
-              iframe { border: 1px solid black; background: gray; margin-left: 33px; margin-top: 24px; width: 400px; height: 400px; transform: scale(0.8); }
-            </style>
-            <iframe srcdoc="
-              <style>
-                body, html, iframe { margin: 0; padding: 0; box-sizing: border-box; }
-                iframe { border: 3px solid black; background: gray; margin-left: 18px; margin-top: 14px; width: 200px; height: 200px; transform: scale(0.7); }
-              </style>
-              <iframe srcdoc='
+        await Browser.GotoAsync(
+            Content(
+                """
                 <style>
-                  div { margin-left: 10px; margin-top: 20px; width: 2px; height: 2px; }
+                  body, html, iframe { margin: 0; padding: 0; box-sizing: border-box; }
+                  iframe { border: 1px solid black; background: gray; margin-left: 33px; margin-top: 24px; width: 400px; height: 400px; transform: scale(0.8); }
                 </style>
-                <div onclick=&quot;window.top._clicked = true&quot;>Target</div>
-              '></iframe>
-            "></iframe>
-            """));
+                <iframe srcdoc="
+                  <style>
+                    body, html, iframe { margin: 0; padding: 0; box-sizing: border-box; }
+                    iframe { border: 3px solid black; background: gray; margin-left: 18px; margin-top: 14px; width: 200px; height: 200px; transform: scale(0.7); }
+                  </style>
+                  <iframe srcdoc='
+                    <style>
+                      div { margin-left: 10px; margin-top: 20px; width: 2px; height: 2px; }
+                    </style>
+                    <div onclick=&quot;window.top._clicked = true&quot;>Target</div>
+                  '></iframe>
+                "></iframe>
+                """
+            )
+        );
         await Browser.FrameLocator("iframe").FrameLocator("iframe").Locator("div").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("window._clicked"), Is.True);
     }
@@ -770,15 +917,19 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_if_opened_select_covers_the_button()
     {
-        await Browser.GotoAsync(Content("""
-            <div>
-              <select>
-                <option>very long text #1</option><option>very long text #2</option><option>very long text #3</option>
-                <option>very long text #4</option><option>very long text #5</option><option>very long text #6</option>
-              </select>
-            </div>
-            <div><button onclick="window.__CLICKED=42">clickme</button></div>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <div>
+                  <select>
+                    <option>very long text #1</option><option>very long text #2</option><option>very long text #3</option>
+                    <option>very long text #4</option><option>very long text #5</option><option>very long text #6</option>
+                  </select>
+                </div>
+                <div><button onclick="window.__CLICKED=42">clickme</button></div>
+                """
+            )
+        );
         await Browser.Locator("select").TapAsync();
         await Browser.Locator("button").TapAsync();
         Assert.That(await Browser.EvaluateAsync<int>("window.__CLICKED"), Is.EqualTo(42));
@@ -788,24 +939,32 @@ public sealed class PageClickTests : PlaywrightTest
     public async Task Should_fire_contextmenu_event_on_right_click_in_correct_order()
     {
         await Browser.GotoAsync(Content("<button id=\"target\">Click me</button>"));
-        await Browser.EvaluateAsync<object>("() => { window.entries = []; const log = (event) => window.entries.push(event.type); for (const type of ['mousedown', 'mouseup', 'contextmenu']) document.addEventListener(type, log); }");
+        await Browser.EvaluateAsync<object>(
+            "() => { window.entries = []; const log = (event) => window.entries.push(event.type); for (const type of ['mousedown', 'mouseup', 'contextmenu']) document.addEventListener(type, log); }"
+        );
         await Screen.GetByRole("button", "Click me").SecondaryTapAsync();
         // Platform-conditional assertion: Linux and macOS assert upstream's exact order. Chromium on Windows opens the context menu on mouse release, so it fires
         // contextmenu after mouseup. Playwright's own tests/page/page-click.spec.ts makes the same split (`browserName === 'chromium' && isWindows`).
-        string[] expected = OperatingSystem.IsWindows() ? ["mousedown", "mouseup", "contextmenu"] : ["mousedown", "contextmenu", "mouseup"];
+        string[] expected = OperatingSystem.IsWindows()
+            ? ["mousedown", "mouseup", "contextmenu"]
+            : ["mousedown", "contextmenu", "mouseup"];
         await Expect.Poll(() => Browser.EvaluateAsync<string[]>("entries")).ToMatchAsync(Is.EqualTo(expected));
     }
 
     [Test]
     public async Task Should_click_after_a_right_click()
     {
-        await Browser.GotoAsync(Content("""
-            <button>Click me</button>
-            <script>
-              const button = document.querySelector('button');
-              button.addEventListener('click', () => button.textContent = 'Clicked!');
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <button>Click me</button>
+                <script>
+                  const button = document.querySelector('button');
+                  button.addEventListener('click', () => button.textContent = 'Clicked!');
+                </script>
+                """
+            )
+        );
         await Screen.GetByRole("button").SecondaryTapAsync();
         await Screen.GetByRole("button").TapAsync();
         await Expect.That(Screen.GetByRole("button")).ToHaveTextAsync("Clicked!");
@@ -814,12 +973,16 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_into_shadow_root_with_slotted_div()
     {
-        await Browser.GotoAsync(Content("""
-            <my-button>
-              <template shadowrootmode="open"><button onclick="window.__clicked = true"><slot></slot></button></template>
-              <div>Foo</div>
-            </my-button>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <my-button>
+                  <template shadowrootmode="open"><button onclick="window.__clicked = true"><slot></slot></button></template>
+                  <div>Foo</div>
+                </my-button>
+                """
+            )
+        );
         await Screen.GetByRole("button", "Foo").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("window.__clicked"), Is.True);
     }
@@ -827,12 +990,16 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_shadow_root_button()
     {
-        await Browser.GotoAsync(Content("""
-            <my-button>
-              <template shadowrootmode="open"><button onclick="window.__clicked = true"><slot></slot></button></template>
-              <div>Foo</div>
-            </my-button>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <my-button>
+                  <template shadowrootmode="open"><button onclick="window.__clicked = true"><slot></slot></button></template>
+                  <div>Foo</div>
+                </my-button>
+                """
+            )
+        );
         await Browser.Locator("my-button").TapAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("window.__clicked"), Is.True);
     }
@@ -841,62 +1008,80 @@ public sealed class PageClickTests : PlaywrightTest
     public async Task Should_click_a_button_that_is_overlaid_by_a_permission_popup()
     {
         await Browser.SetViewportAsync(500, 500);
-        await Browser.GotoAsync(Content("""
-            <style>body, html { padding: 0; margin: 0; }</style>
-            <script>
-              window.addEventListener('DOMContentLoaded', () => {
-                for (let i = 0; i < 100; ++i) {
-                  const button = document.createElement('button');
-                  button.textContent = i;
-                  button.style.setProperty('width', '50px');
-                  button.style.setProperty('height', '50px');
-                  document.body.append(button);
-                }
-              }, false);
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>body, html { padding: 0; margin: 0; }</style>
+                <script>
+                  window.addEventListener('DOMContentLoaded', () => {
+                    for (let i = 0; i < 100; ++i) {
+                      const button = document.createElement('button');
+                      button.textContent = i;
+                      button.style.setProperty('width', '50px');
+                      button.style.setProperty('height', '50px');
+                      document.body.append(button);
+                    }
+                  }, false);
+                </script>
+                """
+            )
+        );
         await Browser.EvaluateAsync<object>("() => { navigator.geolocation.getCurrentPosition(() => {}); }");
         for (var index = 0; index < 30; ++index)
         {
-            await Screen.GetByText(index.ToString(System.Globalization.CultureInfo.InvariantCulture), exact: true).TapAsync();
+            await Screen
+                .GetByText(index.ToString(System.Globalization.CultureInfo.InvariantCulture), exact: true)
+                .TapAsync();
         }
     }
 
     [Test]
     public async Task Should_set_PointerEvent_pressure_on_pointerdown()
     {
-        await Browser.GotoAsync(Content("""
-            <button id="target">Click me</button>
-            <script>
-              window.pressures = [];
-              document.addEventListener('pointerdown', e => window.pressures.push(['pointerdown', e.pressure]));
-              document.addEventListener('pointerup', e => window.pressures.push(['pointerup', e.pressure]));
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <button id="target">Click me</button>
+                <script>
+                  window.pressures = [];
+                  document.addEventListener('pointerdown', e => window.pressures.push(['pointerdown', e.pressure]));
+                  document.addEventListener('pointerup', e => window.pressures.push(['pointerup', e.pressure]));
+                </script>
+                """
+            )
+        );
         await Browser.Locator("button").TapAsync();
-        var pressures = await Browser.EvaluateAsync<string[]>("() => window.pressures.map(([type, pressure]) => type + ':' + pressure)");
+        var pressures = await Browser.EvaluateAsync<string[]>(
+            "() => window.pressures.map(([type, pressure]) => type + ':' + pressure)"
+        );
         Assert.That(pressures, Is.SupersetOf(new[] { "pointerdown:0.5", "pointerup:0" }));
     }
 
     [Test]
     public async Task Should_set_PointerEvent_pressure_on_pointermove()
     {
-        await Browser.GotoAsync(Content("""
-            <body style="margin: 0; padding: 0;">
-              <div id="target" style="width: 500px; height: 500px; background-color: red;"></div>
-              <script>
-                window.pressures = [];
-                document.addEventListener('pointermove', e => window.pressures.push([e.pressure, e.clientX, e.clientY]));
-              </script>
-            </body>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <body style="margin: 0; padding: 0;">
+                  <div id="target" style="width: 500px; height: 500px; background-color: red;"></div>
+                  <script>
+                    window.pressures = [];
+                    document.addEventListener('pointermove', e => window.pressures.push([e.pressure, e.clientX, e.clientY]));
+                  </script>
+                </body>
+                """
+            )
+        );
         await Browser.Locator("div#target").TapAsync();
         await Browser.Mouse.MoveAsync(10, 10);
         await Browser.Mouse.DownAsync();
         await Browser.Mouse.MoveAsync(250, 250);
         await Browser.Mouse.UpAsync();
         await Browser.Mouse.MoveAsync(50, 50);
-        var pressures = await Browser.EvaluateAsync<string[]>("() => window.pressures.map(([pressure, x, y]) => pressure + ':' + x + ':' + y)");
+        var pressures = await Browser.EvaluateAsync<string[]>(
+            "() => window.pressures.map(([pressure, x, y]) => pressure + ':' + x + ':' + y)"
+        );
         Assert.That(pressures, Is.SupersetOf(new[] { "0:250:250", "0:10:10", "0.5:250:250", "0:50:50" }));
     }
 }

@@ -32,7 +32,12 @@ public sealed class ChromiumPage : IAsyncLifetime
         await WebEngine.EnsureChromiumAsync(headed: false, CancellationToken.None);
         _playwright = await Microsoft.Playwright.Playwright.CreateAsync();
         _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
-        Page = await _browser.NewPageAsync(new BrowserNewPageOptions { ViewportSize = new ViewportSize { Width = 1280, Height = 720 } });
+        Page = await _browser.NewPageAsync(
+            new BrowserNewPageOptions
+            {
+                ViewportSize = new ViewportSize { Width = 1280, Height = 720 },
+            }
+        );
         // The init script that records closed roots runs on a navigation; setContent alone is none.
         await Page.AddInitScriptAsync(PageScript.RecordClosedShadowRoots);
         await Page.GotoAsync("about:blank");
@@ -55,7 +60,15 @@ public sealed class ChromiumPage : IAsyncLifetime
     public async Task<IReadOnlyList<ReadNode>> CaptureAsync(int budget = ObservationLimits.Nodes)
     {
         // The next free ref carries over, as the engine's does, so a ref never names two elements.
-        var observed = await Page.EvaluateAsync<JsonElement>(PageScript.Collect, new { seed = _nextRef, max = budget, testIdAttribute = "data-testid" });
+        var observed = await Page.EvaluateAsync<JsonElement>(
+            PageScript.Collect,
+            new
+            {
+                seed = _nextRef,
+                max = budget,
+                testIdAttribute = "data-testid",
+            }
+        );
         _nextRef = observed.GetProperty("next").GetInt32();
         Truncated = observed.GetProperty("truncated").GetBoolean();
         NodeCount = observed.GetProperty("count").GetInt32();
@@ -80,32 +93,48 @@ public sealed class ChromiumPage : IAsyncLifetime
         foreach (var node in list.EnumerateArray())
         {
             var rect = node.GetProperty("rect");
-            into.Add(new ReadNode(
-                node.GetProperty("ref").GetString()!,
-                StringOf(node, "role"),
-                StringOf(node, "name"),
-                StringOf(node, "text"),
-                StringOf(node, "value"),
-                StringOf(node, "selection"),
-                StringOf(node, "testId"),
-                node.GetProperty("focused").GetBoolean(),
-                node.GetProperty("secure").GetBoolean(),
-                node.GetProperty("hidden").GetBoolean(),
-                node.GetProperty("ariaHidden").GetBoolean(),
-                node.GetProperty("selected").GetBoolean(),
-                node.GetProperty("checked").GetBoolean(),
-                node.GetProperty("disabled").GetBoolean(),
-                node.GetProperty("attributes").EnumerateObject().ToDictionary(attribute => attribute.Name, attribute => attribute.Value.GetString() ?? "", StringComparer.Ordinal),
-                rect.ValueKind == JsonValueKind.Null
-                    ? null
-                    : new BoundingBox(rect.GetProperty("x").GetDouble(), rect.GetProperty("y").GetDouble(), rect.GetProperty("width").GetDouble(), rect.GetProperty("height").GetDouble())));
+            into.Add(
+                new ReadNode(
+                    node.GetProperty("ref").GetString()!,
+                    StringOf(node, "role"),
+                    StringOf(node, "name"),
+                    StringOf(node, "text"),
+                    StringOf(node, "value"),
+                    StringOf(node, "selection"),
+                    StringOf(node, "testId"),
+                    node.GetProperty("focused").GetBoolean(),
+                    node.GetProperty("secure").GetBoolean(),
+                    node.GetProperty("hidden").GetBoolean(),
+                    node.GetProperty("ariaHidden").GetBoolean(),
+                    node.GetProperty("selected").GetBoolean(),
+                    node.GetProperty("checked").GetBoolean(),
+                    node.GetProperty("disabled").GetBoolean(),
+                    node.GetProperty("attributes")
+                        .EnumerateObject()
+                        .ToDictionary(
+                            attribute => attribute.Name,
+                            attribute => attribute.Value.GetString() ?? "",
+                            StringComparer.Ordinal
+                        ),
+                    rect.ValueKind == JsonValueKind.Null
+                        ? null
+                        : new BoundingBox(
+                            rect.GetProperty("x").GetDouble(),
+                            rect.GetProperty("y").GetDouble(),
+                            rect.GetProperty("width").GetDouble(),
+                            rect.GetProperty("height").GetDouble()
+                        )
+                )
+            );
             Flatten(node.GetProperty("children"), into);
         }
     }
 
     private static string? StringOf(JsonElement node, string name)
     {
-        return node.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        return node.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
     }
 }
 
@@ -126,19 +155,21 @@ public sealed record ReadNode(
     bool Checked,
     bool Disabled,
     IReadOnlyDictionary<string, string> Attributes,
-    BoundingBox? Rect)
+    BoundingBox? Rect
+)
 {
     /// <summary>The node as an observation carries it, for what reads an observation (the snapshot).</summary>
-    public SemanticNode ToSemanticNode() => new()
-    {
-        Ref = Ref,
-        Role = Role,
-        Name = Name,
-        Text = Text,
-        Value = Value,
-        TestId = TestId,
-        States = new NodeStates { Hidden = Hidden, AriaHidden = AriaHidden },
-        Attributes = Attributes,
-        Rect = Rect,
-    };
+    public SemanticNode ToSemanticNode() =>
+        new()
+        {
+            Ref = Ref,
+            Role = Role,
+            Name = Name,
+            Text = Text,
+            Value = Value,
+            TestId = TestId,
+            States = new NodeStates { Hidden = Hidden, AriaHidden = AriaHidden },
+            Attributes = Attributes,
+            Rect = Rect,
+        };
 }

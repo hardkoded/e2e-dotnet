@@ -17,7 +17,10 @@ namespace E2E;
 internal static class MessageShape
 {
     // Upstream's replacer of `JSON.stringify`: System.Text.Json takes a converter where it takes a function.
-    private static readonly JsonSerializerOptions Json = new() { Converters = { new BytesDigest(), new UndefinedAsNull() } };
+    private static readonly JsonSerializerOptions Json = new()
+    {
+        Converters = { new BytesDigest(), new UndefinedAsNull() },
+    };
 
     /// <summary>
     /// A digest of one message's content, taken when it is sent, so an edit to the live message afterwards, bytes included, shows
@@ -35,7 +38,11 @@ internal static class MessageShape
     /// <summary>A default <see cref="JsonElement"/> (a tool call without arguments) has no JSON to write: it reads as null, as a missing value does in upstream.</summary>
     private sealed class UndefinedAsNull : JsonConverter<JsonElement>
     {
-        public override JsonElement Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotSupportedException("a shape is only written");
+        public override JsonElement Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options
+        ) => throw new NotSupportedException("a shape is only written");
 
         public override void Write(Utf8JsonWriter writer, JsonElement value, JsonSerializerOptions options)
         {
@@ -53,8 +60,10 @@ internal static class MessageShape
     /// <summary>Writes a payload as <c>&lt;bytes sha256&gt;</c>, as upstream's replacer does, so the digest reads the bytes without copying them into the JSON.</summary>
     private sealed class BytesDigest : JsonConverter<byte[]>
     {
-        public override byte[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotSupportedException("a shape is only written");
+        public override byte[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            throw new NotSupportedException("a shape is only written");
 
-        public override void Write(Utf8JsonWriter writer, byte[] value, JsonSerializerOptions options) => writer.WriteStringValue("<bytes " + Sha256(value) + ">");
+        public override void Write(Utf8JsonWriter writer, byte[] value, JsonSerializerOptions options) =>
+            writer.WriteStringValue("<bytes " + Sha256(value) + ">");
     }
 }

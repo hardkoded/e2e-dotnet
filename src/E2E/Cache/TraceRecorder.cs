@@ -39,7 +39,14 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     public IReadOnlyList<RecordedAction> Actions => _actions;
 
     /// <summary>Records one committed grammar action on <paramref name="node"/>, described now. Returns the action as recorded.</summary>
-    public RecordedAction Record(string kind, SemanticNode node, string? value = null, string? key = null, string? within = null, TracePosition? position = null)
+    public RecordedAction Record(
+        string kind,
+        SemanticNode node,
+        string? value = null,
+        string? key = null,
+        string? within = null,
+        TracePosition? position = null
+    )
     {
         var action = ActionOf(kind, DescribeTarget(node, redactor(), within, position));
         action.Value = value;
@@ -55,7 +62,16 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     {
         ArgumentNullException.ThrowIfNull(point);
         ArgumentNullException.ThrowIfNull(viewport);
-        return Record(new RecordedAction { Kind = kind, Point = point.Point, Viewport = viewport, Under = WithinOf(point) }, DescribePlaced(point));
+        return Record(
+            new RecordedAction
+            {
+                Kind = kind,
+                Point = point.Point,
+                Viewport = viewport,
+                Under = WithinOf(point),
+            },
+            DescribePlaced(point)
+        );
     }
 
     /// <summary>Records one committed <c>dragAt</c> (upstream's <c>record</c> of a <c>dragAt</c>): both points with the viewport, each placed inside its node.</summary>
@@ -64,13 +80,17 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         ArgumentNullException.ThrowIfNull(from);
         ArgumentNullException.ThrowIfNull(to);
         ArgumentNullException.ThrowIfNull(viewport);
-        return Record(new RecordedAction
-        {
-            Kind = "dragAt",
-            Viewport = viewport,
-            From = new RecordedPointEnd { Point = from.Point, Under = WithinOf(from) },
-            To = new RecordedPointEnd { Point = to.Point, Under = WithinOf(to) },
-        }, DescribePlaced(from), DescribePlaced(to));
+        return Record(
+            new RecordedAction
+            {
+                Kind = "dragAt",
+                Viewport = viewport,
+                From = new RecordedPointEnd { Point = from.Point, Under = WithinOf(from) },
+                To = new RecordedPointEnd { Point = to.Point, Under = WithinOf(to) },
+            },
+            DescribePlaced(from),
+            DescribePlaced(to)
+        );
     }
 
     /// <summary>Upstream's <c>describePlaced</c> for a point: the listed node that held it, described whether or not a replay could re-find it, for the summary alone.</summary>
@@ -96,29 +116,36 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
             return null;
         }
 
-        return new RecordedPointPlace { Target = target, Fx = Fraction((placed.Point.X - box.X) / box.Width), Fy = Fraction((placed.Point.Y - box.Y) / box.Height) };
+        return new RecordedPointPlace
+        {
+            Target = target,
+            Fx = Fraction((placed.Point.X - box.X) / box.Width),
+            Fy = Fraction((placed.Point.Y - box.Y) / box.Height),
+        };
     }
 
     /// <summary>Upstream's <c>fraction</c>: a place inside a box as a fraction of its side, clamped to the box and rounded so the entry stays small.</summary>
-    private static double Fraction(double value) => Math.Round(Math.Clamp(value, 0, 1) * 10_000, MidpointRounding.AwayFromZero) / 10_000;
+    private static double Fraction(double value) =>
+        Math.Round(Math.Clamp(value, 0, 1) * 10_000, MidpointRounding.AwayFromZero) / 10_000;
 
     /// <summary>
     /// An action on <paramref name="target"/>, not yet recorded: the descriptor's fields flat on the action. No upstream counterpart: upstream
     /// nests the descriptor as <c>target</c>; the port's actions carry its fields (.NET-only shape, kept so stored recordings stay readable).
     /// </summary>
-    internal static RecordedAction ActionOf(string kind, RecordedTarget target) => new()
-    {
-        Kind = kind,
-        Role = target.Role,
-        Name = target.Name,
-        TestId = target.TestId,
-        Within = target.Within,
-        Text = target.Text,
-        Placeholder = target.Placeholder,
-        Selector = target.Selector,
-        InputPurpose = target.InputPurpose,
-        Position = target.Position,
-    };
+    internal static RecordedAction ActionOf(string kind, RecordedTarget target) =>
+        new()
+        {
+            Kind = kind,
+            Role = target.Role,
+            Name = target.Name,
+            TestId = target.TestId,
+            Within = target.Within,
+            Text = target.Text,
+            Placeholder = target.Placeholder,
+            Selector = target.Selector,
+            InputPurpose = target.InputPurpose,
+            Position = target.Position,
+        };
 
     /// <summary>Records one committed grammar action as given, replayed ones included. Returns it.</summary>
     public RecordedAction Record(RecordedAction action) => Record(action, null, null);
@@ -138,7 +165,11 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     /// it by (none at all, or an unnamed twin with no named row to tell it apart) cannot replay, so the trace stays honest by poisoning instead
     /// of guessing; and a replay input is kept by <see cref="Verbatim"/>. A secret fill holds its marker, a name, and is not an input.
     /// </summary>
-    private RecordedAction Stored(RecordedAction action, RecordedTarget? target = null, RecordedTarget? destination = null)
+    private RecordedAction Stored(
+        RecordedAction action,
+        RecordedTarget? target = null,
+        RecordedTarget? destination = null
+    )
     {
         var stored = action.Copy();
         stored.Summary = Summarized(action, target, destination);
@@ -189,21 +220,37 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
 
     /// <summary>Upstream's node verbs: the actions that name the node they act on, so they replay only by re-finding it.</summary>
     internal static readonly HashSet<string> TargetedKinds =
-        ["tap", "doubleTap", "secondaryTap", "longPress", "hover", "scrollTo", "fill", "clear", "press", "select", "check", "uncheck", "upload", "drag"];
+    [
+        "tap",
+        "doubleTap",
+        "secondaryTap",
+        "longPress",
+        "hover",
+        "scrollTo",
+        "fill",
+        "clear",
+        "press",
+        "select",
+        "check",
+        "uncheck",
+        "upload",
+        "drag",
+    ];
 
     /// <summary>The descriptor an action holds flat (the port's shape; upstream nests it as <c>target</c>).</summary>
-    internal static RecordedTarget TargetOf(RecordedAction action) => new()
-    {
-        Role = action.Role,
-        Name = action.Name,
-        TestId = action.TestId,
-        Within = action.Within,
-        Text = action.Text,
-        Placeholder = action.Placeholder,
-        Selector = action.Selector,
-        InputPurpose = action.InputPurpose,
-        Position = action.Position,
-    };
+    internal static RecordedTarget TargetOf(RecordedAction action) =>
+        new()
+        {
+            Role = action.Role,
+            Name = action.Name,
+            TestId = action.TestId,
+            Within = action.Within,
+            Text = action.Text,
+            Placeholder = action.Placeholder,
+            Selector = action.Selector,
+            InputPurpose = action.InputPurpose,
+            Position = action.Position,
+        };
 
     /// <summary>Upstream's <c>require</c>: poisons the trace when <paramref name="descriptor"/> is missing or is one no replay could re-find a node by.</summary>
     private void Require(RecordedTarget? descriptor)
@@ -253,12 +300,14 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     public void RecordScroll(RecordedAction scroll)
     {
         ArgumentNullException.ThrowIfNull(scroll);
-        if (_actions.Count > 0
+        if (
+            _actions.Count > 0
             && _actions[^1] is { Kind: "scroll" } last
             && string.Equals(last.Direction, scroll.Direction, StringComparison.Ordinal)
             && string.Equals(last.Role, scroll.Role, StringComparison.Ordinal)
             && string.Equals(last.Name, scroll.Name, StringComparison.Ordinal)
-            && string.Equals(last.TestId, scroll.TestId, StringComparison.Ordinal))
+            && string.Equals(last.TestId, scroll.TestId, StringComparison.Ordinal)
+        )
         {
             // The smallest coverage of the repeats decides the viewport fallback, so a list that shrank on the way is never
             // promoted by its first size.
@@ -277,7 +326,8 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     /// Records one mutating project-tool call as a gap. Replay ends here rather than skipping it: the grammar cannot reproduce the
     /// mutation, and a replay that silently dropped a state change would prove nothing.
     /// </summary>
-    public RecordedAction RecordGap(string toolName) => Record(new RecordedAction { Kind = "tool", Text = redactor().Redact(toolName) });
+    public RecordedAction RecordGap(string toolName) =>
+        Record(new RecordedAction { Kind = "tool", Text = redactor().Redact(toolName) });
 
     /// <summary>The summary a run-time value gap records (upstream's <c>DERIVED_GAP_SUMMARY</c>, <c>tool type (run-time value)</c>), as the text after <c>tool</c>.</summary>
     private const string DerivedGapSummary = "type (run-time value)";
@@ -286,7 +336,15 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     /// Upstream's <c>recordDerivedGap</c>: records a fill whose value was this run's data as a gap, with the rule that said so
     /// (<c>agent/derived.ts</c>). Replay hands the step over before it, so the executor derives the value afresh, and the report can say why.
     /// </summary>
-    public RecordedAction RecordDerivedGap(DerivedReason reason) => Record(new RecordedAction { Kind = "tool", Text = DerivedGapSummary, Derived = reason });
+    public RecordedAction RecordDerivedGap(DerivedReason reason) =>
+        Record(
+            new RecordedAction
+            {
+                Kind = "tool",
+                Text = DerivedGapSummary,
+                Derived = reason,
+            }
+        );
 
     /// <summary>
     /// Forgets every recorded action. No upstream equivalent: a replay that misses before it ran an action leaves nothing to
@@ -306,7 +364,16 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     /// route the redactor alters carried a secret (a token in a query string), and one too long to keep whole cannot be compared, so either marks
     /// the trace non-replayable rather than storing it bent.
     /// </summary>
-    public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone, string? recordedBy = null, long? endWaitMs = null, string? summary = null)
+    public CacheEntry? Finalize(
+        CacheEntry step,
+        string route,
+        string endRoute,
+        List<RecordedTarget> appeared,
+        List<RecordedTarget> gone,
+        string? recordedBy = null,
+        long? endWaitMs = null,
+        string? summary = null
+    )
     {
         ArgumentNullException.ThrowIfNull(step);
         if (_actions.Count == 0)
@@ -338,7 +405,12 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     /// holds. <paramref name="within"/> is the key of the container it sat in and <paramref name="position"/> its place among its twins
     /// (upstream's <c>describePlaced</c>); the key is redacted again and bounded.
     /// </summary>
-    public static RecordedTarget DescribeTarget(SemanticNode node, Redactor redactor, string? within = null, TracePosition? position = null)
+    public static RecordedTarget DescribeTarget(
+        SemanticNode node,
+        Redactor redactor,
+        string? within = null,
+        TracePosition? position = null
+    )
     {
         ArgumentNullException.ThrowIfNull(node);
         // Each field is bounded to the descriptor budget at record time, as upstream's describeTarget bounds it (`field`), so a recording
@@ -350,11 +422,15 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         var text = node.Name is null ? null : NonEmpty(RedactField(node.Text, ObservationLimits.Text, redactor));
         return new RecordedTarget
         {
-            Role = node.Role is null ? null : NonEmpty(Trace.BoundDescriptor(AgentObservation.RedactText(node.Role, redactor))),
+            Role = node.Role is null
+                ? null
+                : NonEmpty(Trace.BoundDescriptor(AgentObservation.RedactText(node.Role, redactor))),
             Name = NonEmpty(Trace.BoundDescriptor(label)),
             Text = text == label ? null : NonEmpty(Trace.BoundDescriptor(text)),
             TestId = NonEmpty(Trace.BoundDescriptor(Redact(node.TestId, redactor))),
-            Placeholder = NonEmpty(Trace.BoundDescriptor(RedactField(node.Placeholder, ObservationLimits.Text, redactor))),
+            Placeholder = NonEmpty(
+                Trace.BoundDescriptor(RedactField(node.Placeholder, ObservationLimits.Text, redactor))
+            ),
             Selector = NonEmpty(Trace.BoundDescriptor(Redact(node.Selector, redactor))),
             InputPurpose = node.InputPurpose is null or "none" or "" ? null : node.InputPurpose,
             Within = within is null ? null : TextRules.Bound(redactor.Redact(within), AgentActions.MaxWithinChars),
@@ -363,5 +439,4 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     }
 
     private static string? NonEmpty(string? text) => string.IsNullOrEmpty(text) ? null : text;
-
 }

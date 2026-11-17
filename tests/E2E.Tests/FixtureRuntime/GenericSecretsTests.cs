@@ -16,7 +16,12 @@ public sealed class GenericSecretsTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-config-root");
 
-    private static readonly SemanticNode Key = new() { Ref = "key", Role = "textbox", Name = "API key" };
+    private static readonly SemanticNode Key = new()
+    {
+        Ref = "key",
+        Role = "textbox",
+        Name = "API key",
+    };
 
     /// <summary>A screen on the page at <paramref name="route"/> that records what each fill writes.</summary>
     private static Screen ScreenAt(string route, List<LocatorAction> performed)
@@ -32,7 +37,8 @@ public sealed class GenericSecretsTests
             () => CancellationToken.None,
             () => { },
             ScreenFixture.Timeout,
-            ScreenFixture.Timeout);
+            ScreenFixture.Timeout
+        );
     }
 
     /// <summary>Partial: the port has no step records to redact the value from.</summary>
@@ -58,7 +64,9 @@ public sealed class GenericSecretsTests
         var config = E2EConfig.Parse("""{ "secrets": { "key": "sk_live_1" } }""", Root, _ => null);
         var performed = new List<LocatorAction>();
 
-        await ScreenAt("https://accounts.idp.test/", performed).GetByRole("textbox", "API key").FillAsync(config.Secrets.Get("key"));
+        await ScreenAt("https://accounts.idp.test/", performed)
+            .GetByRole("textbox", "API key")
+            .FillAsync(config.Secrets.Get("key"));
 
         Assert.Equal(new LocatorAction.Fill("sk_live_1", Sensitive: true), Assert.Single(performed));
     }

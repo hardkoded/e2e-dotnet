@@ -24,21 +24,28 @@ public sealed class CacheModelProvenanceTests
 
     private const string Source = "fake-loop/model-A";
 
-    private static Task<E2ESession> StartAsync(string directory, IAgentModel? model = null, IStepExecutor? executor = null, ReportDirectory? report = null) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            ResultsDirectory = report?.Results,
-            Engine = new DocumentEngine(CounterPage.World()),
-            Model = model,
-            AgentExecutor = executor,
-            BaseUrl = "https://counter.test",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = Title,
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ReplayTimeout = TimeSpan.FromMilliseconds(300),
-        });
+    private static Task<E2ESession> StartAsync(
+        string directory,
+        IAgentModel? model = null,
+        IStepExecutor? executor = null,
+        ReportDirectory? report = null
+    ) =>
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                ResultsDirectory = report?.Results,
+                Engine = new DocumentEngine(CounterPage.World()),
+                Model = model,
+                AgentExecutor = executor,
+                BaseUrl = "https://counter.test",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = Title,
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                ReplayTimeout = TimeSpan.FromMilliseconds(300),
+            }
+        );
 
     private static async Task<StepRecord> RunAsync(E2ESession session)
     {
@@ -91,7 +98,13 @@ public sealed class CacheModelProvenanceTests
         var replay = TwoTapCounter.Model();
         using var report = new ReportDirectory();
         StepRecord step;
-        await using (var replaying = await StartAsync(directory, new NamedModel(replay, mode == "same" ? Source : "fake-loop/model-B"), report: report))
+        await using (
+            var replaying = await StartAsync(
+                directory,
+                new NamedModel(replay, mode == "same" ? Source : "fake-loop/model-B"),
+                report: report
+            )
+        )
         {
             step = await RunAsync(replaying);
         }
@@ -122,18 +135,18 @@ public sealed class CacheModelProvenanceTests
         var executor = new TestExecutor("mixed-model", async (context, token) =>
         {
             calls++;
-            context.Budgets.RecordModelCall(configured ? new ExecutorModelCall { Provider = "fake-loop", ModelId = "text-model" } : null);
+            context.Budgets.RecordModelCall(
+                configured ? new ExecutorModelCall { Provider = "fake-loop", ModelId = "text-model" } : null
+            );
             var observation = await context.ObserveAsync();
             var target = TargetFor(observation.Text, "button \"Increment\"");
             await context.Actions.TapAsync(target, token);
             await context.Actions.TapAsync(target, token);
-            context.Budgets.RecordModelCall(configured ? new ExecutorModelCall { Provider = "decision-provider", ModelId = "decision-model" } : null);
+            context.Budgets.RecordModelCall(
+                configured ? new ExecutorModelCall { Provider = "decision-provider", ModelId = "decision-model" } : null
+            );
             return Passed("the counter shows 2");
-        })
-        {
-            Version = "1",
-            Model = configured ? new NamedModel(TwoTapCounter.Model(), "fake-loop/text-model") : null,
-        };
+        }) { Version = "1", Model = configured ? new NamedModel(TwoTapCounter.Model(), "fake-loop/text-model") : null };
         using var recordedReport = new ReportDirectory();
         await using (var recording = await StartAsync(directory, executor: executor, report: recordedReport))
         {
@@ -149,7 +162,10 @@ public sealed class CacheModelProvenanceTests
         Assert.Equal(2, (int)recordedModel["calls"]!);
         if (configured)
         {
-            Assert.Equal(("decision-provider", "decision-model"), ((string)recordedModel["provider"]!, (string)recordedModel["model"]!));
+            Assert.Equal(
+                ("decision-provider", "decision-model"),
+                ((string)recordedModel["provider"]!, (string)recordedModel["model"]!)
+            );
         }
 
         using var replayedReport = new ReportDirectory();

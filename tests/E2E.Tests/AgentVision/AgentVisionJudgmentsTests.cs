@@ -95,7 +95,10 @@ public sealed class AgentVisionJudgmentsTests
         {
             await session.App.OpenAsync("/");
             await session.Screen.GetByLabel("Password").FillAsync(Secret.Create("memberPassword", Password));
-            await session.Agent.AssertAsync("the password field has a value", new AssertOptions { Vision = VisionMode.On });
+            await session.Agent.AssertAsync(
+                "the password field has a value",
+                new AssertOptions { Vision = VisionMode.On }
+            );
         });
 
         Assert.Null(result.Error);
@@ -138,7 +141,10 @@ public sealed class AgentVisionJudgmentsTests
         {
             await session.App.OpenAsync("/");
             await session.Screen.GetByLabel("Password").FillAsync(Secret.Create("memberPassword", Password));
-            await session.Agent.AssertAsync("the password field looks filled", new AssertOptions { Vision = VisionMode.Only });
+            await session.Agent.AssertAsync(
+                "the password field looks filled",
+                new AssertOptions { Vision = VisionMode.Only }
+            );
         });
 
         Assert.Null(result.Error);
@@ -165,25 +171,38 @@ internal sealed class VisionRun
     /// <summary>A judge that passes every statement, or fails the one it is given as inconclusive.</summary>
     public static async Task<VisionRun> StartAsync(string? inconclusive = null)
     {
-        var judge = new ScriptedModel(request => inconclusive is not null && request.Messages[0].Content!.Contains("Statement: " + inconclusive, StringComparison.Ordinal)
-            ? ModelResponses.Done("failed", "no order total or line items are on this screen", "ASSERTION_INCONCLUSIVE")
-            : ModelResponses.Done("passed", "it does"));
+        var judge = new ScriptedModel(request =>
+            inconclusive is not null
+            && request.Messages[0].Content!.Contains("Statement: " + inconclusive, StringComparison.Ordinal)
+                ? ModelResponses.Done(
+                    "failed",
+                    "no order total or line items are on this screen",
+                    "ASSERTION_INCONCLUSIVE"
+                )
+                : ModelResponses.Done("passed", "it does")
+        );
         return new VisionRun(await FixtureApp.StartAsync(), judge);
     }
 
     public async Task<CoreTests.Attempt> RunAsync(Func<E2ESession, Task> body)
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(new WebEngineOptions { Headless = true }),
-            Judge = Judge,
-            BaseUrl = _site.Url,
-            CacheEnabled = false,
-            TestTitle = "agent vision",
-            AssertionTimeout = TimeSpan.FromSeconds(4),
-            TestTimeout = TimeSpan.FromSeconds(60),
-            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-vision-" + Guid.NewGuid().ToString("N"), "results"),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(new WebEngineOptions { Headless = true }),
+                Judge = Judge,
+                BaseUrl = _site.Url,
+                CacheEnabled = false,
+                TestTitle = "agent vision",
+                AssertionTimeout = TimeSpan.FromSeconds(4),
+                TestTimeout = TimeSpan.FromSeconds(60),
+                ResultsDirectory = Path.Combine(
+                    Path.GetTempPath(),
+                    "e2e-vision-" + Guid.NewGuid().ToString("N"),
+                    "results"
+                ),
+            }
+        );
         Exception? error = null;
         try
         {
@@ -196,6 +215,12 @@ internal sealed class VisionRun
 
         session.Complete(error);
         _site.Dispose();
-        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed, Steps: session.StepRecords);
+        return new CoreTests.Attempt(
+            error,
+            session.ModelCalls,
+            session.Replayed,
+            session.Missed,
+            Steps: session.StepRecords
+        );
     }
 }

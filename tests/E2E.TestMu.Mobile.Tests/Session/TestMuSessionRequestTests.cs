@@ -38,29 +38,32 @@ public sealed class TestMuSessionRequestTests
     [Fact]
     public void Carries_the_credentials_and_every_option_that_is_set()
     {
-        var options = Options(new TestMuSessionRequest
-        {
-            Platform = MobilePlatform.Android,
-            DeviceName = "Galaxy S23",
-            PlatformVersion = "14",
-            App = "lt://APP1",
-            Build = "build-1",
-            Name = "slot 0",
-            Video = true,
-            Network = false,
-            DeviceLog = true,
-            Console = false,
-            IdleTimeoutSeconds = 300,
-            QueueTimeoutSeconds = 450,
-            Region = "EU",
-        });
+        var options = Options(
+            new TestMuSessionRequest
+            {
+                Platform = MobilePlatform.Android,
+                DeviceName = "Galaxy S23",
+                PlatformVersion = "14",
+                App = "lt://APP1",
+                Build = "build-1",
+                Name = "slot 0",
+                Video = true,
+                Network = false,
+                DeviceLog = true,
+                Console = false,
+                IdleTimeoutSeconds = 300,
+                QueueTimeoutSeconds = 450,
+                Region = "EU",
+            }
+        );
 
         Json.AssertEqual(
             """
             {"w3c":true,"platformName":"android","isRealMobile":true,"user":"someone","accessKey":"key","deviceName":"Galaxy S23","platformVersion":"14",
              "app":"lt://APP1","build":"build-1","name":"slot 0","video":true,"network":false,"devicelog":true,"console":false,"idleTimeout":300,"queueTimeout":450,"region":"EU"}
             """,
-            options);
+            options
+        );
     }
 
     [Fact]
@@ -74,12 +77,19 @@ public sealed class TestMuSessionRequestTests
     [Fact]
     public void Further_capabilities_win_over_the_ones_above()
     {
-        var options = Options(new TestMuSessionRequest
-        {
-            Platform = MobilePlatform.Android,
-            Build = "mine",
-            Capabilities = new Dictionary<string, JsonNode?> { ["build"] = "theirs", ["tunnel"] = true, ["gone"] = null },
-        });
+        var options = Options(
+            new TestMuSessionRequest
+            {
+                Platform = MobilePlatform.Android,
+                Build = "mine",
+                Capabilities = new Dictionary<string, JsonNode?>
+                {
+                    ["build"] = "theirs",
+                    ["tunnel"] = true,
+                    ["gone"] = null,
+                },
+            }
+        );
 
         Assert.Equal("theirs", options["build"]!.GetValue<string>());
         Assert.True(options["tunnel"]!.GetValue<bool>());

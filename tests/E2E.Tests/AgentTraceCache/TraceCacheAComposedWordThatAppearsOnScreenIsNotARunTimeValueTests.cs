@@ -19,37 +19,38 @@ public sealed class TraceCacheAComposedWordThatAppearsOnScreenIsNotARunTimeValue
 {
     // Types "one" and "two" into the two unnamed textboxes: words the model composed, which happen to appear inside the row labels beside
     // the fields. No model.
-    private static TestExecutor RowWordsExecutor(Action onRun) =>
-        new("row-words-executor", async (context, token) =>
+    private static TestExecutor RowWordsExecutor(Action onRun) => new("row-words-executor", async (context, token) =>
         {
             onRun();
             var observation = await context.ObserveAsync(cancellationToken: token);
-            var fields = Regex.Matches(observation.Text, @"^\s*#(?<id>\S+) textbox\b", RegexOptions.Multiline).Select(match => match.Groups["id"].Value).ToList();
+            var fields = Regex
+                .Matches(observation.Text, @"^\s*#(?<id>\S+) textbox\b", RegexOptions.Multiline)
+                .Select(match => match.Groups["id"].Value)
+                .ToList();
             Assert.Equal(2, fields.Count);
             await context.Actions.TypeAsync(new ExecutorTarget(fields[0]), "one", token);
             await context.Actions.TypeAsync(new ExecutorTarget(fields[1]), "two", token);
             return Passed("filled both fields");
-        })
-        {
-            Version = "test",
-        };
+        }) { Version = "test" };
 
     private static async Task<ActResult> RunAsync(string directory, string appUrl, Action onRun)
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            AgentExecutor = RowWordsExecutor(onRun),
-            BaseUrl = appUrl,
-            AppIdentity = "fixture-app",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "fills both row fields",
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(30),
-            TestTimeout = TimeSpan.FromSeconds(60),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                AgentExecutor = RowWordsExecutor(onRun),
+                BaseUrl = appUrl,
+                AppIdentity = "fixture-app",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "fills both row fields",
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(30),
+                TestTimeout = TimeSpan.FromSeconds(60),
+            }
+        );
         await session.App.OpenAsync("/row-fields");
         var result = await session.Agent.ActAsync("fill the two fields with short words of your choice");
         await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("one+two");

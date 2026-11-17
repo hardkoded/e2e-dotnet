@@ -10,7 +10,8 @@ public sealed class DisabledStateTests(ChromiumPage chromium) : IClassFixture<Ch
     [Fact]
     public async Task Inherits_from_a_disabled_fieldset_except_inside_its_first_legend()
     {
-        await chromium.Page.SetContentAsync("""
+        await chromium.Page.SetContentAsync(
+            """
             <fieldset disabled>
               <legend>Billing <button data-testid="legend-action">Edit</button></legend>
               <label>Card <input data-testid="fenced-input"></label>
@@ -25,7 +26,8 @@ public sealed class DisabledStateTests(ChromiumPage chromium) : IClassFixture<Ch
             </fieldset>
             <button data-testid="own-disabled" disabled>Own</button>
             <button data-testid="own-enabled">Enabled</button>
-            """);
+            """
+        );
         var states = await DisabledByTestIdAsync();
         Assert.Equal(
             new Dictionary<string, bool>
@@ -40,14 +42,16 @@ public sealed class DisabledStateTests(ChromiumPage chromium) : IClassFixture<Ch
                 ["own-disabled"] = true,
                 ["own-enabled"] = false,
             },
-            states);
+            states
+        );
         await AssertAgreesWithPlaywrightAsync(states);
     }
 
     [Fact]
     public async Task Follows_nested_fieldsets_an_inner_legend_frees_nothing_from_an_outer_disabled_fieldset()
     {
-        await chromium.Page.SetContentAsync("""
+        await chromium.Page.SetContentAsync(
+            """
             <fieldset disabled>
               <legend>Outer</legend>
               <fieldset data-testid="inner-fieldset">
@@ -62,7 +66,8 @@ public sealed class DisabledStateTests(ChromiumPage chromium) : IClassFixture<Ch
                 <button data-testid="closed-button">Fenced</button>
               </fieldset>
             </fieldset>
-            """);
+            """
+        );
         var states = await DisabledByTestIdAsync();
         Assert.True(states["inner-legend-action"]);
         Assert.True(states["inner-button"]);
@@ -75,7 +80,8 @@ public sealed class DisabledStateTests(ChromiumPage chromium) : IClassFixture<Ch
     [Fact]
     public async Task Inherits_aria_disabled_from_an_ancestor_across_a_shadow_root_until_an_aria_disabled_false_cuts_the_chain()
     {
-        await chromium.Page.SetContentAsync("""
+        await chromium.Page.SetContentAsync(
+            """
             <div aria-disabled="true">
               <button data-testid="under-aria">Save</button>
               <div role="group" aria-disabled="false">
@@ -96,7 +102,8 @@ public sealed class DisabledStateTests(ChromiumPage chromium) : IClassFixture<Ch
               button.setAttribute('data-testid', 'in-shadow');
               root.appendChild(button);
             </script>
-            """);
+            """
+        );
         var states = await DisabledByTestIdAsync();
         Assert.True(states["under-aria"]);
         Assert.False(states["reenabled"]);
@@ -111,7 +118,9 @@ public sealed class DisabledStateTests(ChromiumPage chromium) : IClassFixture<Ch
 
     // The `disabled` state per test id, false when the node reports none.
     private async Task<Dictionary<string, bool>> DisabledByTestIdAsync() =>
-        (await chromium.CaptureAsync()).Where(node => node.TestId is not null).ToDictionary(node => node.TestId!, node => node.Disabled);
+        (await chromium.CaptureAsync())
+            .Where(node => node.TestId is not null)
+            .ToDictionary(node => node.TestId!, node => node.Disabled);
 
     // Playwright's answer for the same elements, the reference the reader must agree with.
     private async Task AssertAgreesWithPlaywrightAsync(Dictionary<string, bool> states)

@@ -32,12 +32,7 @@ internal static partial class CacheRoute
     ];
 
     // A query value is minted on the same rules, with the wider alphabet of a signed token or a timestamp, and a date.
-    private static readonly Regex[] MintedValue =
-    [
-        .. MintedSegment,
-        LongValueToken(),
-        Timestamp(),
-    ];
+    private static readonly Regex[] MintedValue = [.. MintedSegment, LongValueToken(), Timestamp()];
 
     /// <summary>
     /// A location as the cache compares it: a URL on the app's own origin as its path, query, and fragment, so a recording follows
@@ -45,12 +40,18 @@ internal static partial class CacheRoute
     /// </summary>
     public static string AppLocation(string location, string? appOrigin)
     {
-        if (appOrigin is null || !SchemePrefix().IsMatch(location) || !Uri.TryCreate(location, UriKind.Absolute, out var url))
+        if (
+            appOrigin is null
+            || !SchemePrefix().IsMatch(location)
+            || !Uri.TryCreate(location, UriKind.Absolute, out var url)
+        )
         {
             return location;
         }
 
-        return url.Scheme is "http" or "https" && string.Equals(url.GetLeftPart(UriPartial.Authority), appOrigin, StringComparison.Ordinal)
+        return
+            url.Scheme is "http" or "https"
+            && string.Equals(url.GetLeftPart(UriPartial.Authority), appOrigin, StringComparison.Ordinal)
             ? url.PathAndQuery + url.Fragment
             : location;
     }
@@ -73,10 +74,12 @@ internal static partial class CacheRoute
         var colon = prefix.Value.IndexOf(':', StringComparison.Ordinal);
         var scheme = prefix.Value[..colon].TrimStart();
         var authority = prefix.Value[(colon + 1)..].TrimStart('/', '\\');
-        if (!Uri.TryCreate($"{scheme}://{authority}{rest}", UriKind.Absolute, out var parsed)
+        if (
+            !Uri.TryCreate($"{scheme}://{authority}{rest}", UriKind.Absolute, out var parsed)
             || parsed.Scheme is not ("http" or "https")
             || !string.Equals(parsed.GetLeftPart(UriPartial.Authority), appOrigin, StringComparison.Ordinal)
-            || parsed.UserInfo.Length > 0)
+            || parsed.UserInfo.Length > 0
+        )
         {
             return url;
         }
@@ -88,7 +91,11 @@ internal static partial class CacheRoute
         }
 
         var path = rest.StartsWith('/') ? rest : "/" + rest;
-        return Uri.TryCreate(new Uri(appOrigin), path, out var opened) && string.Equals(opened.AbsoluteUri, parsed.AbsoluteUri, StringComparison.Ordinal) ? path : url;
+        return
+            Uri.TryCreate(new Uri(appOrigin), path, out var opened)
+            && string.Equals(opened.AbsoluteUri, parsed.AbsoluteUri, StringComparison.Ordinal)
+            ? path
+            : url;
     }
 
     /// <summary>Whether two locations name the same screen: one origin, and segments and query that read alike.</summary>
@@ -144,7 +151,10 @@ internal static partial class CacheRoute
         }
 
         var (fragmentPath, fragmentSearch) = SplitOnce(fragment, '?');
-        return (fragmentPath, string.Join('&', new[] { documentSearch, fragmentSearch }.Where(part => part.Length > 0)));
+        return (
+            fragmentPath,
+            string.Join('&', new[] { documentSearch, fragmentSearch }.Where(part => part.Length > 0))
+        );
     }
 
     private static (string Head, string Tail) SplitOnce(string text, char separator)
@@ -173,7 +183,10 @@ internal static partial class CacheRoute
     [GeneratedRegex("^[A-Za-z][A-Za-z0-9+.-]*:")]
     private static partial Regex SchemePrefix();
 
-    [GeneratedRegex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(
+        "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
+    )]
     private static partial Regex Uuid();
 
     [GeneratedRegex("^[0-9a-f]{8,}$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
@@ -196,6 +209,9 @@ internal static partial class CacheRoute
     [GeneratedRegex(@"^(?=(?:[^0-9]*[0-9]){2})(?=.*[A-Za-z])[A-Za-z0-9_.~+/=:-]{12,}$", RegexOptions.CultureInvariant)]
     private static partial Regex LongValueToken();
 
-    [GeneratedRegex(@"^[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[T ][0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\.[0-9]+)?)?(?:Z|[+-][0-9]{2}:?[0-9]{2})?)?$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(
+        @"^[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[T ][0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\.[0-9]+)?)?(?:Z|[+-][0-9]{2}:?[0-9]{2})?)?$",
+        RegexOptions.CultureInvariant
+    )]
     private static partial Regex Timestamp();
 }

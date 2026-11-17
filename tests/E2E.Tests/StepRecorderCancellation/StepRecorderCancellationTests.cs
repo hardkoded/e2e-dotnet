@@ -36,7 +36,9 @@ public sealed class StepRecorderCancellationTests
     {
         var steps = new StepRecorder("attempt");
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => steps.RunAsync(StepKind.App, "app.open", "/", () => throw new OperationCanceledException()));
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            steps.RunAsync(StepKind.App, "app.open", "/", () => throw new OperationCanceledException())
+        );
 
         var record = steps.All()[0];
         Assert.Equal(StepStatus.Cancelled, record.Status);
@@ -48,12 +50,19 @@ public sealed class StepRecorderCancellationTests
     {
         var steps = new StepRecorder("attempt");
 
-        await Assert.ThrowsAsync<EngineException>(() => steps.RunAsync(StepKind.Locator, "locator.tap", "button", () => throw new EngineException(EngineErrorCodes.NodeStale, "gone", retryable: true)));
+        await Assert.ThrowsAsync<EngineException>(() =>
+            steps.RunAsync(StepKind.Locator, "locator.tap", "button", () =>
+                throw new EngineException(EngineErrorCodes.NodeStale, "gone", retryable: true)
+            )
+        );
 
         var error = steps.All()[0].Error;
         Assert.Equal(StepStatus.Failed, steps.All()[0].Status);
 
         // The step keeps what classifyError makes of an engine error (upstream's steps.ts): the canonical mapping, with no retry claim.
-        Assert.Equal(("test", "LOCATOR_NOT_FOUND", "node became stale", false), (error?.Category, error?.Code, error?.Message, error?.Retryable));
+        Assert.Equal(
+            ("test", "LOCATOR_NOT_FOUND", "node became stale", false),
+            (error?.Category, error?.Code, error?.Message, error?.Retryable)
+        );
     }
 }

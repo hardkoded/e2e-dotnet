@@ -28,9 +28,16 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         var tools = await client.ListToolsAsync();
         Assert.Equal(["open_session", "tools", "call", "close_session"], tools.Select(tool => tool.Name));
         var callTool = tools.Single(tool => tool.Name == "call").ProtocolTool;
-        Assert.Contains("call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}", callTool.Description, StringComparison.Ordinal);
+        Assert.Contains(
+            "call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}",
+            callTool.Description,
+            StringComparison.Ordinal
+        );
         Assert.Equal("object", callTool.InputSchema.GetProperty("type").GetString());
-        Assert.Equal(["tool"], callTool.InputSchema.GetProperty("required").EnumerateArray().Select(name => name.GetString()));
+        Assert.Equal(
+            ["tool"],
+            callTool.InputSchema.GetProperty("required").EnumerateArray().Select(name => name.GetString())
+        );
         Assert.True(tools.Single(tool => tool.Name == "tools").ProtocolTool.Annotations?.ReadOnlyHint);
         var open = tools.Single(tool => tool.Name == "open_session").ProtocolTool.InputSchema.GetProperty("properties");
         Assert.True(open.TryGetProperty("target", out _));
@@ -38,12 +45,23 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Equal("boolean", open.GetProperty("headed").GetProperty("type").GetString());
         Assert.Contains("call {tool, args} runs any catalog tool", client.ServerInstructions, StringComparison.Ordinal);
         Assert.Contains("Several sessions can be open at once", client.ServerInstructions, StringComparison.Ordinal);
-        Assert.Contains("Before you write or edit a test, read the writing-tests guide: the resource e2e://guide/writing-tests, or e2e guide writing-tests in a shell.", client.ServerInstructions, StringComparison.Ordinal);
+        Assert.Contains(
+            "Before you write or edit a test, read the writing-tests guide: the resource e2e://guide/writing-tests, or e2e guide writing-tests in a shell.",
+            client.ServerInstructions,
+            StringComparison.Ordinal
+        );
 
         var resources = await client.ListResourcesAsync();
-        Assert.Superset(new HashSet<string>(["e2e://guide", "e2e://guide/mcp", "e2e://guide/writing-tests"]), resources.Select(resource => resource.Uri).ToHashSet());
+        Assert.Superset(
+            new HashSet<string>(["e2e://guide", "e2e://guide/mcp", "e2e://guide/writing-tests"]),
+            resources.Select(resource => resource.Uri).ToHashSet()
+        );
         var guide = await client.ReadResourceAsync("e2e://guide/mcp");
-        Assert.Contains("# Driving the app over MCP", Assert.IsType<TextResourceContents>(guide.Contents[0]).Text, StringComparison.Ordinal);
+        Assert.Contains(
+            "# Driving the app over MCP",
+            Assert.IsType<TextResourceContents>(guide.Contents[0]).Text,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -62,17 +80,23 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
     {
         // The server validates against the closed schema before the handler runs: the refusal names the tool
         // and the key, and no session opened.
-        foreach (var (name, args, key) in new (string, Dictionary<string, object?>, string)[]
-        {
-            ("open_session", new() { ["headless"] = true }, "headless"),
-            ("tools", new() { ["all"] = true }, "all"),
-            ("call", new() { ["tool"] = "observe", ["verbose"] = true }, "verbose"),
-            ("close_session", new() { ["force"] = true }, "force"),
-        })
+        foreach (
+            var (name, args, key) in new (string, Dictionary<string, object?>, string)[]
+            {
+                ("open_session", new() { ["headless"] = true }, "headless"),
+                ("tools", new() { ["all"] = true }, "all"),
+                ("call", new() { ["tool"] = "observe", ["verbose"] = true }, "verbose"),
+                ("close_session", new() { ["force"] = true }, "force"),
+            }
+        )
         {
             var refused = await _served.InvokeAsync(name, args);
             Assert.True(refused.IsError, name);
-            Assert.Contains("Invalid arguments for tool " + name + ": Unrecognized key: \"" + key + "\"", refused.Text, StringComparison.Ordinal);
+            Assert.Contains(
+                "Invalid arguments for tool " + name + ": Unrecognized key: \"" + key + "\"",
+                refused.Text,
+                StringComparison.Ordinal
+            );
         }
 
         var listed = await _served.InvokeAsync("tools");
@@ -85,21 +109,89 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
     {
         var opened = await _served.InvokeAsync("open_session");
         Assert.False(opened.IsError, opened.Text);
-        Assert.Matches(new Regex(@"^Session \S+ open on target ""web"" \(platform web, engine web [^)]+\), headless; config .*e2e\.config\.json, read with the e2e mcp server's environment, not your shell's\.", RegexOptions.None, TimeSpan.FromSeconds(5)), opened.Text);
+        Assert.Matches(
+            new Regex(
+                @"^Session \S+ open on target ""web"" \(platform web, engine web [^)]+\), headless; config .*e2e\.config\.json, read with the e2e mcp server's environment, not your shell's\.",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            ),
+            opened.Text
+        );
         Assert.Contains($"App: {_served.App.Url}/.", opened.Text, StringComparison.Ordinal);
         Assert.Contains("Secrets: \"adminPassword\", \"apiKey\".", opened.Text, StringComparison.Ordinal);
-        Assert.Contains("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):", opened.Text, StringComparison.Ordinal);
-        Assert.Contains("Before you write or edit a test, read the writing-tests guide: the resource e2e://guide/writing-tests, or e2e guide writing-tests in a shell.", opened.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            "Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):",
+            opened.Text,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Before you write or edit a test, read the writing-tests guide: the resource e2e://guide/writing-tests, or e2e guide writing-tests in a shell.",
+            opened.Text,
+            StringComparison.Ordinal
+        );
         string[] names =
         [
-            "observe", "tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "upload", "drag", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "switch_tab", "close_tab", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at", "type_secret", "locate", "start_recording", "stop_recording", "test_lines",
+            "observe",
+            "tap",
+            "double_tap",
+            "long_press",
+            "right_click",
+            "hover",
+            "type",
+            "press",
+            "select",
+            "check",
+            "uncheck",
+            "clear",
+            "upload",
+            "drag",
+            "scroll_to",
+            "scroll",
+            "navigate",
+            "back",
+            "resize_viewport",
+            "switch_tab",
+            "close_tab",
+            "screenshot",
+            "tap_at",
+            "hover_at",
+            "drag_at",
+            "type_at",
+            "press_at",
+            "select_at",
+            "type_secret",
+            "locate",
+            "start_recording",
+            "stop_recording",
+            "test_lines",
         ];
         Assert.Equal(names, ServedCli.CatalogNames(opened.Text));
-        Assert.Contains("- tap {target, modifiers?}: Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.\n", opened.Text, StringComparison.Ordinal);
-        Assert.Matches(new Regex(@"^- locate \{role\?, name\?, text\?, label\?, placeholder\?, testId\?, exact\?\}: .* \[read-only\]$", RegexOptions.Multiline, TimeSpan.FromSeconds(5)), opened.Text);
-        Assert.Matches(new Regex(@"Current screen \(revision b\d+, path /, \d+ nodes\):", RegexOptions.None, TimeSpan.FromSeconds(5)), opened.Text);
+        Assert.Contains(
+            "- tap {target, modifiers?}: Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.\n",
+            opened.Text,
+            StringComparison.Ordinal
+        );
+        Assert.Matches(
+            new Regex(
+                @"^- locate \{role\?, name\?, text\?, label\?, placeholder\?, testId\?, exact\?\}: .* \[read-only\]$",
+                RegexOptions.Multiline,
+                TimeSpan.FromSeconds(5)
+            ),
+            opened.Text
+        );
+        Assert.Matches(
+            new Regex(
+                @"Current screen \(revision b\d+, path /, \d+ nodes\):",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            ),
+            opened.Text
+        );
         Assert.Contains("button \"Increment\"", opened.Text, StringComparison.Ordinal);
-        var sessionId = Regex.Match(opened.Text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
+        var sessionId = Regex
+            .Match(opened.Text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5))
+            .Groups[1]
+            .Value;
 
         var listed = await _served.InvokeAsync("tools");
         Assert.False(listed.IsError, listed.Text);
@@ -111,7 +203,11 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         var unknown = await _served.InvokeAsync("tools", new() { ["tool"] = "teleport" });
         Assert.True(unknown.IsError);
         Assert.Contains("UNKNOWN_TOOL", unknown.Text, StringComparison.Ordinal);
-        Assert.Contains("tools: observe, tap, double_tap, long_press, right_click, hover, type, press", unknown.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            "tools: observe, tap, double_tap, long_press, right_click, hover, type, press",
+            unknown.Text,
+            StringComparison.Ordinal
+        );
 
         var unique = await _served.CallAsync("locate", new() { ["role"] = "button", ["name"] = "Increment" });
         Assert.False(unique.IsError, unique.Text);
@@ -125,13 +221,21 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Contains("LOCATOR_NOT_FOUND", missing.Text, StringComparison.Ordinal);
 
         var observed = await _served.CallAsync("observe");
-        var tapped = await _served.CallAsync("tap", new() { ["target"] = ServedCli.RefOf(observed.Text, "button \"Increment\"") });
+        var tapped = await _served.CallAsync(
+            "tap",
+            new() { ["target"] = ServedCli.RefOf(observed.Text, "button \"Increment\"") }
+        );
         Assert.False(tapped.IsError, tapped.Text);
 
         // An action reports what changed on screen, and after its lead the test line that repeats it.
         Assert.Matches(
-            new Regex(@"^Tapped #\S+\.\nTest line: await Screen\.GetByRole\(""button"", ""Increment""\)\.TapAsync\(\);\n\nScreen changes since revision", RegexOptions.None, TimeSpan.FromSeconds(5)),
-            tapped.Text);
+            new Regex(
+                @"^Tapped #\S+\.\nTest line: await Screen\.GetByRole\(""button"", ""Increment""\)\.TapAsync\(\);\n\nScreen changes since revision",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            ),
+            tapped.Text
+        );
         var after = await _served.CallAsync("observe");
         Assert.Contains("status \"Counter\" text=\"1\"", after.Text, StringComparison.Ordinal);
 
@@ -142,36 +246,64 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Contains("tools {tool: \"tap\"} shows its arguments", malformed.Text, StringComparison.Ordinal);
 
         // An argument the tool does not declare is refused the same way, never stripped and acted on.
-        var decorated = await _served.CallAsync("tap", new() { ["target"] = ServedCli.RefOf(after.Text, "button \"Increment\""), ["force"] = true });
+        var decorated = await _served.CallAsync(
+            "tap",
+            new() { ["target"] = ServedCli.RefOf(after.Text, "button \"Increment\""), ["force"] = true }
+        );
         Assert.True(decorated.IsError);
-        Assert.Equal("INVALID_ARGUMENT: call tap: Unrecognized key: \"force\"; tools {tool: \"tap\"} shows its arguments", decorated.Text);
+        Assert.Equal(
+            "INVALID_ARGUMENT: call tap: Unrecognized key: \"force\"; tools {tool: \"tap\"} shows its arguments",
+            decorated.Text
+        );
         var nameless = await _served.CallAsync("teleport");
         Assert.True(nameless.IsError);
         Assert.Contains("UNKNOWN_TOOL", nameless.Text, StringComparison.Ordinal);
         var elsewhere = await _served.InvokeAsync("call", new() { ["tool"] = "observe", ["session"] = "not-this-one" });
         Assert.True(elsewhere.IsError);
-        Assert.Contains($"NO_SESSION: session \"not-this-one\" is not open; open: {sessionId} on \"web\"", elsewhere.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            $"NO_SESSION: session \"not-this-one\" is not open; open: {sessionId} on \"web\"",
+            elsewhere.Text,
+            StringComparison.Ordinal
+        );
 
         // A stale node id is refused with its code first and the node named, and no other node is acted on.
         var stale = await _served.CallAsync("tap", new() { ["target"] = "n9999" });
         Assert.True(stale.IsError);
-        Assert.StartsWith("tap n9999 failed: LOCATOR_NOT_FOUND: node n9999 is not on the current screen", stale.Text, StringComparison.Ordinal);
+        Assert.StartsWith(
+            "tap n9999 failed: LOCATOR_NOT_FOUND: node n9999 is not on the current screen",
+            stale.Text,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("tapped", stale.Text, StringComparison.Ordinal);
 
         // A point tool reads its point against the latest screenshot, and has none before the first.
         var blind = await _served.CallAsync("tap_at", new() { ["x"] = 5, ["y"] = 5 });
-        Assert.Contains("No screenshot has been taken in this step: tap_at coordinates are pixels of the latest screenshot", blind.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            "No screenshot has been taken in this step: tap_at coordinates are pixels of the latest screenshot",
+            blind.Text,
+            StringComparison.Ordinal
+        );
 
         var before = await _served.CallAsync("screenshot");
         Assert.False(before.IsError, before.Text);
         Assert.Equal(1, before.Images);
-        Assert.Matches(new Regex(@"^Screenshot attached: \d+ by \d+ pixels \([\d.]+ per CSS pixel\)\.$", RegexOptions.None, TimeSpan.FromSeconds(5)), before.Text);
+        Assert.Matches(
+            new Regex(
+                @"^Screenshot attached: \d+ by \d+ pixels \([\d.]+ per CSS pixel\)\.$",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            ),
+            before.Text
+        );
         var pointed = await _served.CallAsync("tap_at", new() { ["x"] = 5, ["y"] = 5 });
         Assert.False(pointed.IsError, pointed.Text);
         Assert.Contains("Tapped the point", pointed.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("No screenshot has been taken", pointed.Text, StringComparison.Ordinal);
 
-        var filled = await _served.CallAsync("type_secret", new() { ["target"] = ServedCli.RefOf(after.Text, "textbox \"Password\""), ["name"] = "adminPassword" });
+        var filled = await _served.CallAsync(
+            "type_secret",
+            new() { ["target"] = ServedCli.RefOf(after.Text, "textbox \"Password\""), ["name"] = "adminPassword" }
+        );
         Assert.False(filled.IsError, filled.Text);
         Assert.Contains("Filled secret \"adminPassword\" into #", filled.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(Served.AdminPassword, filled.Text, StringComparison.Ordinal);
@@ -185,7 +317,10 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         var saved = await _served.CallAsync("screenshot", new() { ["path"] = "shots/after-fill.png" });
         Assert.False(saved.IsError, saved.Text);
         Assert.Equal(1, saved.Images);
-        var file = Regex.Match(saved.Text, @"^Saved to (.+)$", RegexOptions.Multiline, TimeSpan.FromSeconds(5)).Groups[1].Value;
+        var file = Regex
+            .Match(saved.Text, @"^Saved to (.+)$", RegexOptions.Multiline, TimeSpan.FromSeconds(5))
+            .Groups[1]
+            .Value;
         Assert.Matches(new Regex(@"[\\/]shots[\\/]after-fill\.png$", RegexOptions.None, TimeSpan.FromSeconds(5)), file);
         Assert.Equal("PNG", System.Text.Encoding.ASCII.GetString(File.ReadAllBytes(file), 1, 3));
         var notPng = await _served.CallAsync("screenshot", new() { ["path"] = "shots/after-fill.jpg" });
@@ -200,23 +335,46 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
 
         Assert.False(File.Exists(Path.Combine(_served.Project.Directory, "..", "outside.png")));
 
-        foreach (var url in new[] { "javascript:alert(1)", "file:///etc/passwd", "view-source:file:///etc/passwd", "VIEW-SOURCE:http://example.test/", "about:srcdoc" })
+        foreach (
+            var url in new[]
+            {
+                "javascript:alert(1)",
+                "file:///etc/passwd",
+                "view-source:file:///etc/passwd",
+                "VIEW-SOURCE:http://example.test/",
+                "about:srcdoc",
+            }
+        )
         {
             var denied = await _served.CallAsync("navigate", new() { ["url"] = url });
             Assert.True(denied.IsError, url);
-            Assert.Equal($"navigate {url} failed: POLICY_DENIED: forbidden URL scheme: {url[..(url.IndexOf(':', StringComparison.Ordinal) + 1)].ToLowerInvariant()}", denied.Text.Split('\n')[0]);
+            Assert.Equal(
+                $"navigate {url} failed: POLICY_DENIED: forbidden URL scheme: {url[..(url.IndexOf(':', StringComparison.Ordinal) + 1)].ToLowerInvariant()}",
+                denied.Text.Split('\n')[0]
+            );
             Assert.DoesNotContain("navigated", denied.Text, StringComparison.Ordinal);
         }
 
         // A second session opens beside the first on its own browser: while both are open a call names its session.
         var second = await _served.InvokeAsync("open_session");
         Assert.False(second.IsError, second.Text);
-        var secondId = Regex.Match(second.Text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
+        var secondId = Regex
+            .Match(second.Text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5))
+            .Groups[1]
+            .Value;
         Assert.NotEqual(sessionId, secondId);
-        Assert.Contains($"Pass session \"{secondId}\" to every tools, call, and close_session; with several sessions open, a call without it fails.", second.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            $"Pass session \"{secondId}\" to every tools, call, and close_session; with several sessions open, a call without it fails.",
+            second.Text,
+            StringComparison.Ordinal
+        );
         var unnamed = await _served.CallAsync("observe");
         Assert.True(unnamed.IsError);
-        Assert.StartsWith($"SESSION_REQUIRED: 2 sessions are open; pass session to name one: {sessionId} on \"web\", {secondId} on \"web\"", unnamed.Text, StringComparison.Ordinal);
+        Assert.StartsWith(
+            $"SESSION_REQUIRED: 2 sessions are open; pass session to name one: {sessionId} on \"web\", {secondId} on \"web\"",
+            unnamed.Text,
+            StringComparison.Ordinal
+        );
         var secondScreen = await _served.InvokeAsync("call", new() { ["tool"] = "observe", ["session"] = secondId });
         Assert.Contains("status \"Counter\" text=\"0\"", secondScreen.Text, StringComparison.Ordinal);
         var firstScreen = await _served.InvokeAsync("call", new() { ["tool"] = "observe", ["session"] = sessionId });
@@ -227,11 +385,22 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.False(closedSecond.IsError, closedSecond.Text);
         var endedCall = await _served.InvokeAsync("call", new() { ["tool"] = "observe", ["session"] = secondId });
         Assert.True(endedCall.IsError);
-        Assert.Contains($"NO_SESSION: session \"{secondId}\" ended: closed by the agent; call open_session for a new one", endedCall.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            $"NO_SESSION: session \"{secondId}\" ended: closed by the agent; call open_session for a new one",
+            endedCall.Text,
+            StringComparison.Ordinal
+        );
 
         var closed = await _served.InvokeAsync("close_session", new() { ["session"] = sessionId });
         Assert.False(closed.IsError, closed.Text);
-        Assert.Matches(new Regex(@"^Session \S+ closed \(closed by the agent\); \d+ tool calls ran\.", RegexOptions.None, TimeSpan.FromSeconds(5)), closed.Text);
+        Assert.Matches(
+            new Regex(
+                @"^Session \S+ closed \(closed by the agent\); \d+ tool calls ran\.",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            ),
+            closed.Text
+        );
         Assert.DoesNotContain("Cleanup:", closed.Text, StringComparison.Ordinal);
 
         var gone = await _served.CallAsync("observe");
@@ -244,7 +413,10 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
     {
         var opened = await _served.InvokeAsync("open_session");
         Assert.False(opened.IsError, opened.Text);
-        var sessionId = Regex.Match(opened.Text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
+        var sessionId = Regex
+            .Match(opened.Text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5))
+            .Groups[1]
+            .Value;
 
         var started = await _served.CallAsync("start_recording", new() { ["name"] = "counter" });
         Assert.False(started.IsError, started.Text);
@@ -252,21 +424,41 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         await _served.CallAsync("tap", new() { ["target"] = ServedCli.RefOf(observed.Text, "button \"Increment\"") });
         var stopped = await _served.CallAsync("stop_recording");
         Assert.False(stopped.IsError, stopped.Text);
-        Assert.Matches(new Regex(@"^Recording 1 ""counter"" stopped after \d+\.\d s\.\n- \S+\.webm$", RegexOptions.None, TimeSpan.FromSeconds(5)), stopped.Text);
+        Assert.Matches(
+            new Regex(
+                @"^Recording 1 ""counter"" stopped after \d+\.\d s\.\n- \S+\.webm$",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            ),
+            stopped.Text
+        );
 
         // The server's working directory may be the real path of a symlinked temp directory (macOS /var), so the path is read from the answer.
         var file = stopped.Text[(stopped.Text.LastIndexOf("- ", StringComparison.Ordinal) + 2)..];
         var recordings = Path.GetDirectoryName(file)!;
-        Assert.Equal(Path.Combine(".e2e", "videos", sessionId, "1-counter.webm"), Path.GetRelativePath(Path.GetFullPath(Path.Combine(recordings, "..", "..", "..")), file));
+        Assert.Equal(
+            Path.Combine(".e2e", "videos", sessionId, "1-counter.webm"),
+            Path.GetRelativePath(Path.GetFullPath(Path.Combine(recordings, "..", "..", "..")), file)
+        );
         Assert.True(new FileInfo(file).Length > 0);
 
         await _served.CallAsync("start_recording");
         var closed = await _served.InvokeAsync("close_session");
         Assert.False(closed.IsError, closed.Text);
-        Assert.Matches(new Regex(@"\nRecording 2 stopped after \d+\.\d s\.\n- \S+$", RegexOptions.None, TimeSpan.FromSeconds(5)), closed.Text);
+        Assert.Matches(
+            new Regex(@"\nRecording 2 stopped after \d+\.\d s\.\n- \S+$", RegexOptions.None, TimeSpan.FromSeconds(5)),
+            closed.Text
+        );
         Assert.EndsWith("- " + Path.Combine(recordings, "2.webm"), closed.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("Cleanup:", closed.Text, StringComparison.Ordinal);
-        Assert.Equal(["1-counter.webm", "2.webm"], Directory.GetFiles(recordings).Select(path => Path.GetFileName(path)).Order(StringComparer.Ordinal).ToArray());
+        Assert.Equal(
+            ["1-counter.webm", "2.webm"],
+            Directory
+                .GetFiles(recordings)
+                .Select(path => Path.GetFileName(path))
+                .Order(StringComparer.Ordinal)
+                .ToArray()
+        );
     }
 
     [Fact]
@@ -280,9 +472,17 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.True(absent.IsError);
         Assert.Contains("CONFIG_NOT_FOUND", absent.Text, StringComparison.Ordinal);
         // The server's working directory may be the real path of a symlinked temp directory (macOS /var), so match its last segment.
-        Assert.Matches("missing\\.config\\.json resolved against the working directory .*" + Regex.Escape(Path.GetFileName(_served.Project.Directory)) + "\\)", absent.Text);
+        Assert.Matches(
+            "missing\\.config\\.json resolved against the working directory .*"
+                + Regex.Escape(Path.GetFileName(_served.Project.Directory))
+                + "\\)",
+            absent.Text
+        );
 
-        var reopened = await _served.InvokeAsync("open_session", new() { ["target"] = "web", ["config"] = "e2e.config.json" });
+        var reopened = await _served.InvokeAsync(
+            "open_session",
+            new() { ["target"] = "web", ["config"] = "e2e.config.json" }
+        );
         Assert.False(reopened.IsError, reopened.Text);
         Assert.Contains("button \"Increment\"", reopened.Text, StringComparison.Ordinal);
         var closed = await _served.InvokeAsync("close_session");
@@ -298,15 +498,28 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
 
         // The value goes in as text, not through type_secret: every output still shows a configured value by its name.
         var observed = await _served.CallAsync("observe");
-        var filled = await _served.CallAsync("type", new() { ["target"] = ServedCli.RefOf(observed.Text, "textbox \"Focus target\""), ["text"] = Served.ApiKey });
+        var filled = await _served.CallAsync(
+            "type",
+            new() { ["target"] = ServedCli.RefOf(observed.Text, "textbox \"Focus target\""), ["text"] = Served.ApiKey }
+        );
         Assert.False(filled.IsError, filled.Text);
 
         var located = await _served.CallAsync("locate", new() { ["label"] = "Focus target" });
         Assert.False(located.IsError, located.Text);
         Assert.Contains("1 node matches", located.Text, StringComparison.Ordinal);
-        Assert.True(located.Text.Contains("- textbox \"Focus target\" value \"<secret:apiKey>\"", StringComparison.Ordinal), located.Text);
+        Assert.True(
+            located.Text.Contains("- textbox \"Focus target\" value \"<secret:apiKey>\"", StringComparison.Ordinal),
+            located.Text
+        );
         var after = await _served.CallAsync("observe");
-        Assert.Matches(new Regex(@"#\S+ textbox ""Focus target"" value=""<secret:apiKey>""", RegexOptions.None, TimeSpan.FromSeconds(5)), after.Text);
+        Assert.Matches(
+            new Regex(
+                @"#\S+ textbox ""Focus target"" value=""<secret:apiKey>""",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            ),
+            after.Text
+        );
         foreach (var output in new[] { filled, located, after })
         {
             Assert.DoesNotContain(Served.ApiKey, output.Text, StringComparison.Ordinal);
@@ -322,7 +535,11 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         foreach (var (flag, mode) in new[] { ("--headed", "headed"), ("--headless", "headless") })
         {
             // A headed browser needs a display; the host tests cover the headed flag where there is none.
-            if (flag == "--headed" && OperatingSystem.IsLinux() && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY")))
+            if (
+                flag == "--headed"
+                && OperatingSystem.IsLinux()
+                && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY"))
+            )
             {
                 continue;
             }
@@ -355,18 +572,25 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         internal ServedCli Cli { get; private set; } = null!;
 
         /// <summary>A fixed tool's result.</summary>
-        internal Task<ToolText> InvokeAsync(string name, Dictionary<string, object?>? args = null) => Cli.InvokeAsync(name, args);
+        internal Task<ToolText> InvokeAsync(string name, Dictionary<string, object?>? args = null) =>
+            Cli.InvokeAsync(name, args);
 
         /// <summary>A catalog tool through the server's <c>call</c> tool.</summary>
-        internal Task<ToolText> CallAsync(string tool, Dictionary<string, object?>? args = null) => Cli.CallAsync(tool, args);
+        internal Task<ToolText> CallAsync(string tool, Dictionary<string, object?>? args = null) =>
+            Cli.CallAsync(tool, args);
 
         public async Task InitializeAsync()
         {
             App = FixtureApp.Start();
-            Project = new FixtureProject(new Dictionary<string, string>
-            {
-                ["e2e.config.json"] = FixtureProject.Config(App.Url, $"\"adminPassword\": \"{AdminPassword}\", \"apiKey\": \"{ApiKey}\""),
-            });
+            Project = new FixtureProject(
+                new Dictionary<string, string>
+                {
+                    ["e2e.config.json"] = FixtureProject.Config(
+                        App.Url,
+                        $"\"adminPassword\": \"{AdminPassword}\", \"apiKey\": \"{ApiKey}\""
+                    ),
+                }
+            );
             Cli = await ServedCli.StartAsync(Project.Directory);
         }
 

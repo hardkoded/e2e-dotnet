@@ -45,6 +45,9 @@
   </ItemGroup>
   <!-- The skill ships inside the tool: e2e mcp serves it as the guide resources. -->
   <ItemGroup>
-    <EmbeddedResource Include="..\..\skills\e2e-dotnet\**\*.md" LogicalName="skill/%(RecursiveDir)%(Filename)%(Extension)" />
+    <EmbeddedResource
+      Include="..\..\skills\e2e-dotnet\**\*.md"
+      LogicalName="skill/%(RecursiveDir)%(Filename)%(Extension)"
+    />
   </ItemGroup>
 </Project>

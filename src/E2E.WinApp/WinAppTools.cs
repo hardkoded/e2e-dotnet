@@ -39,49 +39,84 @@ public static class WinAppTools
                     running.Count == 0
                         ? "no Windows app attempt is running; window tools act inside a test attempt only"
                         : "several Windows app attempts are running in one worker; tools cannot pick a window",
-                    retryable: false);
+                    retryable: false
+                );
         }
 
         var tools = new (string Name, AgentTool Tool)[]
         {
-            ("open_app", new AgentTool(
-                "Open an app: the app under test, or a running app by its process name or window title (e.g. \"Notepad\"), bringing it to the foreground. Set relaunch to restart the app under test fresh. Takes an app, not a URL.",
-                Schema(new JsonObject { ["app"] = Primitive("string", minLength: 1), ["relaunch"] = Primitive("boolean") }, "app"),
-                true,
-                async (input, token) =>
-                {
-                    var app = RequireString(input, "app");
-                    await Active().OpenAppAsync(app, new OpenAppOptions { Relaunch = OptionalBoolean(input, "relaunch") }, token).ConfigureAwait(false);
-                    return $"Opened {app}.";
-                },
-                platforms)),
-            ("alert", new AgentTool(
-                "Accept or dismiss the open dialog. Use it when the dialog's buttons are not listed on screen; a listed button tapped by id is the same tap and replays from the trace cache, this tool does not.",
-                Schema(new JsonObject { ["action"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("accept", "dismiss") } }, "action"),
-                true,
-                async (input, token) =>
-                {
-                    var action = RequireString(input, "action");
-                    if (action is not ("accept" or "dismiss"))
+            (
+                "open_app",
+                new AgentTool(
+                    "Open an app: the app under test, or a running app by its process name or window title (e.g. \"Notepad\"), bringing it to the foreground. Set relaunch to restart the app under test fresh. Takes an app, not a URL.",
+                    Schema(
+                        new JsonObject
+                        {
+                            ["app"] = Primitive("string", minLength: 1),
+                            ["relaunch"] = Primitive("boolean"),
+                        },
+                        "app"
+                    ),
+                    true,
+                    async (input, token) =>
                     {
-                        throw new TestException("INVALID_ARGUMENT", "alert takes an action of accept or dismiss");
-                    }
+                        var app = RequireString(input, "app");
+                        await Active()
+                            .OpenAppAsync(
+                                app,
+                                new OpenAppOptions { Relaunch = OptionalBoolean(input, "relaunch") },
+                                token
+                            )
+                            .ConfigureAwait(false);
+                        return $"Opened {app}.";
+                    },
+                    platforms
+                )
+            ),
+            (
+                "alert",
+                new AgentTool(
+                    "Accept or dismiss the open dialog. Use it when the dialog's buttons are not listed on screen; a listed button tapped by id is the same tap and replays from the trace cache, this tool does not.",
+                    Schema(
+                        new JsonObject
+                        {
+                            ["action"] = new JsonObject
+                            {
+                                ["type"] = "string",
+                                ["enum"] = new JsonArray("accept", "dismiss"),
+                            },
+                        },
+                        "action"
+                    ),
+                    true,
+                    async (input, token) =>
+                    {
+                        var action = RequireString(input, "action");
+                        if (action is not ("accept" or "dismiss"))
+                        {
+                            throw new TestException("INVALID_ARGUMENT", "alert takes an action of accept or dismiss");
+                        }
 
-                    await Active().Window.AlertAsync(action == "accept" ? AlertAction.Accept : AlertAction.Dismiss, token).ConfigureAwait(false);
-                    return $"Alert {action}ed.";
-                },
-                platforms)),
+                        await Active()
+                            .Window.AlertAsync(action == "accept" ? AlertAction.Accept : AlertAction.Dismiss, token)
+                            .ConfigureAwait(false);
+                        return $"Alert {action}ed.";
+                    },
+                    platforms
+                )
+            ),
         };
         return tools.ToDictionary(pair => pair.Name, pair => pair.Tool);
     }
 
-    private static JsonObject Schema(JsonObject properties, params string[] required) => new()
-    {
-        ["type"] = "object",
-        ["properties"] = properties,
-        ["required"] = new JsonArray([.. required.Select(name => (JsonNode?)JsonValue.Create(name))]),
-        ["additionalProperties"] = false,
-    };
+    private static JsonObject Schema(JsonObject properties, params string[] required) =>
+        new()
+        {
+            ["type"] = "object",
+            ["properties"] = properties,
+            ["required"] = new JsonArray([.. required.Select(name => (JsonNode?)JsonValue.Create(name))]),
+            ["additionalProperties"] = false,
+        };
 
     private static JsonObject Primitive(string type, int? minLength = null)
     {

@@ -18,26 +18,68 @@ public sealed class WebConnectTests
     {
         using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
-        var engine = new WebEngine(new WebEngineOptions
-        {
-            Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint), ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint) },
-        });
-        await using var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url }, CancellationToken.None);
+        var engine = new WebEngine(
+            new WebEngineOptions
+            {
+                Connect = new WebConnectOptions
+                {
+                    CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
+                    ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
+                },
+            }
+        );
+        await using var session = await engine.StartAsync(
+            new EngineStartOptions { BaseUrl = app.Url },
+            CancellationToken.None
+        );
         var error = await Assert.ThrowsAsync<EngineException>(() => session.ClearStateAsync(CancellationToken.None));
         Assert.Equal("UNSUPPORTED_CAPABILITY", error.Code);
-        Assert.Equal("app.clearState() is unavailable with connect.reconnectEndpoint: it replaces the browser context, and the attempt rides one persistent context", error.Message);
+        Assert.Equal(
+            "app.clearState() is unavailable with connect.reconnectEndpoint: it replaces the browser context, and the attempt rides one persistent context",
+            error.Message
+        );
         await session.RestartAsync(CancellationToken.None);
     }
 
     [Fact]
     public void Rejects_creation_time_credentials_headers_user_agent_locale_and_time_zone_with_persistent_recovery()
     {
-        var connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("ws://localhost:0"), ReconnectEndpoint = _ => Task.FromResult<CdpTarget>("ws://localhost:0") };
-        Assert.Contains("persistent context", Refused(new WebEngineOptions { Connect = connect, Headers = new Dictionary<string, string> { ["x-preview"] = "synthetic" } }), StringComparison.Ordinal);
-        Assert.Contains("persistent context", Refused(new WebEngineOptions { Connect = connect, BasicAuth = new WebBasicAuth("user", "synthetic") }), StringComparison.Ordinal);
-        Assert.Contains("persistent context", Refused(new WebEngineOptions { Connect = connect, UserAgent = "synthetic playwright" }), StringComparison.Ordinal);
-        Assert.Contains("persistent context; locale requires", Refused(new WebEngineOptions { Connect = connect, Locale = "de-DE" }), StringComparison.Ordinal);
-        Assert.Contains("persistent context; timezoneId requires", Refused(new WebEngineOptions { Connect = connect, TimezoneId = "Europe/Berlin" }), StringComparison.Ordinal);
+        var connect = new WebConnectOptions
+        {
+            CdpEndpoint = _ => Task.FromResult<CdpTarget>("ws://localhost:0"),
+            ReconnectEndpoint = _ => Task.FromResult<CdpTarget>("ws://localhost:0"),
+        };
+        Assert.Contains(
+            "persistent context",
+            Refused(
+                new WebEngineOptions
+                {
+                    Connect = connect,
+                    Headers = new Dictionary<string, string> { ["x-preview"] = "synthetic" },
+                }
+            ),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "persistent context",
+            Refused(new WebEngineOptions { Connect = connect, BasicAuth = new WebBasicAuth("user", "synthetic") }),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "persistent context",
+            Refused(new WebEngineOptions { Connect = connect, UserAgent = "synthetic playwright" }),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "persistent context; locale requires",
+            Refused(new WebEngineOptions { Connect = connect, Locale = "de-DE" }),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "persistent context; timezoneId requires",
+            Refused(new WebEngineOptions { Connect = connect, TimezoneId = "Europe/Berlin" }),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -46,7 +88,11 @@ public sealed class WebConnectTests
         foreach (var browser in new[] { BrowserName.Firefox, BrowserName.Webkit })
         {
             var connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("ws://x") };
-            Assert.Contains("chromium-only", Refused(new WebEngineOptions { BrowserName = browser, Connect = connect }), StringComparison.Ordinal);
+            Assert.Contains(
+                "chromium-only",
+                Refused(new WebEngineOptions { BrowserName = browser, Connect = connect }),
+                StringComparison.Ordinal
+            );
         }
     }
 

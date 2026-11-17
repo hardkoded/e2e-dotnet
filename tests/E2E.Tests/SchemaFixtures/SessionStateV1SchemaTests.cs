@@ -10,8 +10,10 @@ public sealed class SessionStateV1SchemaTests
     private static readonly JsonSchemaCheck Validate = JsonSchemaCheck.FromFile("session-state-v1.schema.json");
 
     [Fact]
-    public void Accepts_the_valid_fixture() => Assert.True(Validate.IsValid(ReportSchema.ReadJson("fixtures", "session-state-v1.valid.json")));
+    public void Accepts_the_valid_fixture() =>
+        Assert.True(Validate.IsValid(ReportSchema.ReadJson("fixtures", "session-state-v1.valid.json")));
 
     [Fact]
-    public void Rejects_the_invalid_fixture() => Assert.False(Validate.IsValid(ReportSchema.ReadJson("fixtures", "session-state-v1.invalid.json")));
+    public void Rejects_the_invalid_fixture() =>
+        Assert.False(Validate.IsValid(ReportSchema.ReadJson("fixtures", "session-state-v1.invalid.json")));
 }

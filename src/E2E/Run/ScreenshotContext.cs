@@ -68,7 +68,13 @@ internal sealed class ScreenshotContext
     /// </summary>
     public string KeepEvidence(string label, byte[] png)
     {
-        var name = Path.Combine("screenshots", Interlocked.Increment(ref _evidence).ToString("000", System.Globalization.CultureInfo.InvariantCulture) + "-" + label + ".png");
+        var name = Path.Combine(
+            "screenshots",
+            Interlocked.Increment(ref _evidence).ToString("000", System.Globalization.CultureInfo.InvariantCulture)
+                + "-"
+                + label
+                + ".png"
+        );
         var file = Path.Combine(ResultsDirectory, name);
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
         File.WriteAllBytes(file, png);

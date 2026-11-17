@@ -38,7 +38,8 @@ internal sealed record ActionsContext(
     int? PullRequest,
     string? Token,
     string? StepSummaryPath,
-    string? Workspace);
+    string? Workspace
+);
 
 /// <summary>What <see cref="Actions.DetectActionsAsync"/> touches outside itself, so tests run it against fakes (upstream's <c>ActionsDeps</c>).</summary>
 /// <param name="Env">Reads an environment variable; null when it is unset.</param>
@@ -73,7 +74,11 @@ internal static partial class Actions
         element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) ? value : null;
 
     /// <summary>Reads the pull request out of the webhook payload, or null when the payload is missing, unreadable, or not about a pull request.</summary>
-    private static async Task<PullRequestEvent?> ReadEventAsync(string? path, ActionsDeps deps, CancellationToken cancellationToken)
+    private static async Task<PullRequestEvent?> ReadEventAsync(
+        string? path,
+        ActionsDeps deps,
+        CancellationToken cancellationToken
+    )
     {
         if (path is null)
         {
@@ -103,13 +108,22 @@ internal static partial class Actions
                 var head = Property(pull, "head");
                 return new PullRequestEvent(
                     Property(pull, "number") is { } number ? PullRequestNumber(number) : null,
-                    head is { } h && Property(h, "sha") is { ValueKind: JsonValueKind.String } sha ? sha.GetString() : null);
+                    head is { } h && Property(h, "sha") is { ValueKind: JsonValueKind.String } sha
+                        ? sha.GetString()
+                        : null
+                );
             }
 
             // An `issue_comment` on a pull request: the issue carries a `pull_request` link but not the head commit, and GITHUB_SHA is the default branch here.
-            if (Property(root, "issue") is { ValueKind: JsonValueKind.Object } issue && Property(issue, "pull_request") is { ValueKind: JsonValueKind.Object })
+            if (
+                Property(root, "issue") is { ValueKind: JsonValueKind.Object } issue
+                && Property(issue, "pull_request") is { ValueKind: JsonValueKind.Object }
+            )
             {
-                return new PullRequestEvent(Property(issue, "number") is { } number ? PullRequestNumber(number) : null, null);
+                return new PullRequestEvent(
+                    Property(issue, "number") is { } number ? PullRequestNumber(number) : null,
+                    null
+                );
             }
 
             return null;
@@ -120,14 +134,19 @@ internal static partial class Actions
     private static int? PullFromRef(string? reference)
     {
         var match = reference is null ? null : PullRef().Match(reference);
-        return match is { Success: true } && int.TryParse(match.Groups[1].Value, out var number) && number > 0 ? number : null;
+        return match is { Success: true } && int.TryParse(match.Groups[1].Value, out var number) && number > 0
+            ? number
+            : null;
     }
 
     /// <summary>
     /// The Actions context of the current job, or null outside GitHub Actions (upstream's <c>detectActions</c>). On Actions the runner always sets the
     /// repository, run id, event name, workflow, and job; a job missing one is broken, not "not Actions", and says so.
     /// </summary>
-    public static async Task<ActionsContext?> DetectActionsAsync(ActionsDeps deps, CancellationToken cancellationToken = default)
+    public static async Task<ActionsContext?> DetectActionsAsync(
+        ActionsDeps deps,
+        CancellationToken cancellationToken = default
+    )
     {
         string? Value(string name) => EnvValue(deps.Env, name);
         if (Value("GITHUB_ACTIONS") is null)
@@ -135,7 +154,8 @@ internal static partial class Actions
             return null;
         }
 
-        string Required(string name) => Value(name) ?? throw new InvalidOperationException($"GITHUB_ACTIONS is set but {name} is not");
+        string Required(string name) =>
+            Value(name) ?? throw new InvalidOperationException($"GITHUB_ACTIONS is set but {name} is not");
 
         var repository = Required("GITHUB_REPOSITORY");
         var serverUrl = (Value("GITHUB_SERVER_URL") ?? "https://github.com").TrimEnd('/');
@@ -153,6 +173,7 @@ internal static partial class Actions
             pullEvent?.Number ?? PullFromRef(Value("GITHUB_REF")),
             Value("GITHUB_TOKEN") ?? Value("GH_TOKEN"),
             Value("GITHUB_STEP_SUMMARY"),
-            Value("GITHUB_WORKSPACE"));
+            Value("GITHUB_WORKSPACE")
+        );
     }
 }

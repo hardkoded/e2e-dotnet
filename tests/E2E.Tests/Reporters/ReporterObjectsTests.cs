@@ -38,7 +38,10 @@ public sealed class ReporterObjectsTests : IDisposable
         Assert.IsType<RunFinishedEvent>(recording.Events[^1].Fact);
         Assert.Contains(recording.Events, runEvent => runEvent.Fact is TestFinishedEvent);
         // The process counts its events from the first, so a reporter sees a run of consecutive numbers from wherever it began listening.
-        Assert.Equal(Enumerable.Range(0, recording.Events.Count).Select(offset => recording.Events[0].Seq + offset), recording.Events.Select(runEvent => runEvent.Seq));
+        Assert.Equal(
+            Enumerable.Range(0, recording.Events.Count).Select(offset => recording.Events[0].Seq + offset),
+            recording.Events.Select(runEvent => runEvent.Seq)
+        );
 
         var run = recording.Finished.Single(each => each.ArtifactsRoot == _kit.Results);
         Assert.Equal(ReportRunStatus.Passed, run.Status);
@@ -51,7 +54,10 @@ public sealed class ReporterObjectsTests : IDisposable
         Assert.Equal(Path.Combine(_kit.ProjectRoot, "report.json"), run.ReportPath);
         Assert.Equal(_kit.ProjectRoot, run.ProjectRoot);
         Assert.Equal(_kit.Results, run.ArtifactsRoot);
-        var artifacts = run.Report.Run.Results.SelectMany(result => result.Attempts).SelectMany(attempt => attempt.Artifacts).ToList();
+        var artifacts = run
+            .Report.Run.Results.SelectMany(result => result.Attempts)
+            .SelectMany(attempt => attempt.Artifacts)
+            .ToList();
         Assert.NotEmpty(artifacts);
         foreach (var artifact in artifacts)
         {
@@ -70,7 +76,11 @@ public sealed class ReporterObjectsTests : IDisposable
 
         Assert.Empty(recording.Finished);
         Assert.False(AbandonedWork.LeftWorkBehind);
-        Assert.Contains("e2e: reporter \"uploading\" abandoned: the run was forced to stop", stderr, StringComparison.Ordinal);
+        Assert.Contains(
+            "e2e: reporter \"uploading\" abandoned: the run was forced to stop",
+            stderr,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -80,14 +90,23 @@ public sealed class ReporterObjectsTests : IDisposable
         var malformed = new RecordingReporter
         {
             Label = "malformed",
-            Rows = [new ReporterSummaryRow("", "https://example.test"), new ReporterSummaryRow("ok", "https://example.test/ok")],
+            Rows =
+            [
+                new ReporterSummaryRow("", "https://example.test"),
+                new ReporterSummaryRow("ok", "https://example.test/ok"),
+            ],
         };
         var loud = new LoudReporter();
         var quiet = new RecordingReporter { Label = "quiet" };
 
         // The host's own sink: upstream's `runOptions.onEvent`.
-        using var host = E2E.RunEvents.Subscribe(new RunEventSubscriber("onEvent", _ => throw new InvalidOperationException("host bang")));
-        var (finished, stderr) = await _kit.RunAsync([new ThrowingReporter(), hanging, malformed, loud, quiet], TimeSpan.FromMilliseconds(200));
+        using var host = E2E.RunEvents.Subscribe(
+            new RunEventSubscriber("onEvent", _ => throw new InvalidOperationException("host bang"))
+        );
+        var (finished, stderr) = await _kit.RunAsync(
+            [new ThrowingReporter(), hanging, malformed, loud, quiet],
+            TimeSpan.FromMilliseconds(200)
+        );
 
         Assert.Equal(ReportRunStatus.Passed, finished.Status);
         Assert.Equal(0, finished.ExitCode);
@@ -97,10 +116,19 @@ public sealed class ReporterObjectsTests : IDisposable
         Assert.True(AbandonedWork.LeftWorkBehind);
         Assert.Contains("e2e: reporter \"throwing\" failed: boom", stderr, StringComparison.Ordinal);
         Assert.Contains("e2e: reporter \"hanging\" did not finish within 200ms", stderr, StringComparison.Ordinal);
-        Assert.Contains("e2e: reporter \"malformed\" returned 1 row(s) without a label and text; dropped", stderr, StringComparison.Ordinal);
-        const string loudLine = "e2e: reporter \"loud\" threw on run-started: bang; ignoring it for the rest of the run";
+        Assert.Contains(
+            "e2e: reporter \"malformed\" returned 1 row(s) without a label and text; dropped",
+            stderr,
+            StringComparison.Ordinal
+        );
+        const string loudLine =
+            "e2e: reporter \"loud\" threw on run-started: bang; ignoring it for the rest of the run";
         Assert.Equal(2, stderr.Split(loudLine).Length);
-        Assert.Contains("e2e: reporter \"onEvent\" threw on run-started: host bang; ignoring it for the rest of the run", stderr, StringComparison.Ordinal);
+        Assert.Contains(
+            "e2e: reporter \"onEvent\" threw on run-started: host bang; ignoring it for the rest of the run",
+            stderr,
+            StringComparison.Ordinal
+        );
 
         // The quarantine is per sink: the reporter beside the loud one still sees the whole run.
         var seen = quiet.Events.Select(runEvent => runEvent.Fact).ToList();
@@ -121,7 +149,11 @@ public sealed class ReporterObjectsTests : IDisposable
 
         Assert.Equal(ReportRunStatus.Passed, finished.Status);
         Assert.Equal(0, finished.ExitCode);
-        Assert.Contains("e2e: reporter \"uploading\" abandoned: the run was forced to stop", stderr, StringComparison.Ordinal);
+        Assert.Contains(
+            "e2e: reporter \"uploading\" abandoned: the run was forced to stop",
+            stderr,
+            StringComparison.Ordinal
+        );
     }
 
     private sealed class RecordingReporter : Reporter
@@ -138,7 +170,10 @@ public sealed class ReporterObjectsTests : IDisposable
 
         public override void OnEvent(RunEvent runEvent) => Events.Add(runEvent);
 
-        public override Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(FinishedRun run, CancellationToken cancellationToken)
+        public override Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(
+            FinishedRun run,
+            CancellationToken cancellationToken
+        )
         {
             Finished.Add(run);
             return Task.FromResult<IReadOnlyList<ReporterSummaryRow>?>(Rows);
@@ -156,8 +191,10 @@ public sealed class ReporterObjectsTests : IDisposable
     {
         public override string Name => "throwing";
 
-        public override Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(FinishedRun run, CancellationToken cancellationToken) =>
-            throw new InvalidOperationException("boom");
+        public override Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(
+            FinishedRun run,
+            CancellationToken cancellationToken
+        ) => throw new InvalidOperationException("boom");
     }
 
     private sealed class HangingReporter : Reporter
@@ -170,7 +207,10 @@ public sealed class ReporterObjectsTests : IDisposable
 
         public Action? OnStart { get; init; }
 
-        public override Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(FinishedRun run, CancellationToken cancellationToken)
+        public override Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(
+            FinishedRun run,
+            CancellationToken cancellationToken
+        )
         {
             Token = cancellationToken;
             OnStart?.Invoke();

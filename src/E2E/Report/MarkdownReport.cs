@@ -59,7 +59,8 @@ public static class MarkdownReport
     private const int MaxGoalChars = 400;
     private const int MaxLeftOutRows = 50;
     private const string SiteUrl = "https://e2e.com";
-    private const string TruncatedNote = "_Truncated to fit a pull request comment; the full report is in `report.json`._";
+    private const string TruncatedNote =
+        "_Truncated to fit a pull request comment; the full report is in `report.json`._";
 
     /// <summary>A result with what it left behind, read once.</summary>
     private sealed record Entry(ReportResult Result, Outcome Final);
@@ -68,29 +69,45 @@ public static class MarkdownReport
     private sealed record FileGroup(string File, string Target, IReadOnlyList<Entry> Entries);
 
     /// <summary>Screenshots first, then the recording; a kind not listed reads last.</summary>
-    private static int KindRank(ArtifactKind kind) => kind switch
-    {
-        ArtifactKind.Screenshot => 0,
-        ArtifactKind.Video => 1,
-        ArtifactKind.Download => 2,
-        ArtifactKind.Log => 3,
-        _ => 4,
-    };
+    private static int KindRank(ArtifactKind kind) =>
+        kind switch
+        {
+            ArtifactKind.Screenshot => 0,
+            ArtifactKind.Video => 1,
+            ArtifactKind.Download => 2,
+            ArtifactKind.Log => 3,
+            _ => 4,
+        };
 
-    private static string Icon(ResultBucket bucket) => bucket switch
-    {
-        ResultBucket.Failed => "🔴",
-        ResultBucket.Interrupted => "⏹️",
-        ResultBucket.Flaky => "⚠️",
-        ResultBucket.Skipped => "⏭️",
-        _ => "🟢",
-    };
+    private static string Icon(ResultBucket bucket) =>
+        bucket switch
+        {
+            ResultBucket.Failed => "🔴",
+            ResultBucket.Interrupted => "⏹️",
+            ResultBucket.Flaky => "⚠️",
+            ResultBucket.Skipped => "⏭️",
+            _ => "🟢",
+        };
 
     /// <summary>Worst first: the order failures are listed, files are sorted, and a file's glyph is chosen in.</summary>
-    private static readonly ResultBucket[] WorstFirst = [ResultBucket.Failed, ResultBucket.Interrupted, ResultBucket.Flaky, ResultBucket.Skipped, ResultBucket.Passed];
+    private static readonly ResultBucket[] WorstFirst =
+    [
+        ResultBucket.Failed,
+        ResultBucket.Interrupted,
+        ResultBucket.Flaky,
+        ResultBucket.Skipped,
+        ResultBucket.Passed,
+    ];
 
     /// <summary>The order counts read in: <c>1 failed, 2 interrupted, 1 flaky, 3 passed, 1 skipped</c>.</summary>
-    private static readonly ResultBucket[] CountOrder = [ResultBucket.Failed, ResultBucket.Interrupted, ResultBucket.Flaky, ResultBucket.Passed, ResultBucket.Skipped];
+    private static readonly ResultBucket[] CountOrder =
+    [
+        ResultBucket.Failed,
+        ResultBucket.Interrupted,
+        ResultBucket.Flaky,
+        ResultBucket.Passed,
+        ResultBucket.Skipped,
+    ];
 
     private static ResultBucket WorstBucket(IEnumerable<ReportResult> results)
     {
@@ -100,7 +117,14 @@ public static class MarkdownReport
 
     /// <summary><c>1 failed, 3 passed</c>, zero counts left out.</summary>
     private static string CountText(Dictionary<ResultBucket, int> counts) =>
-        string.Join(", ", CountOrder.Where(key => counts[key] > 0).Select(key => counts[key].ToString(CultureInfo.InvariantCulture) + " " + key.ToString().ToLowerInvariant()));
+        string.Join(
+            ", ",
+            CountOrder
+                .Where(key => counts[key] > 0)
+                .Select(key =>
+                    counts[key].ToString(CultureInfo.InvariantCulture) + " " + key.ToString().ToLowerInvariant()
+                )
+        );
 
     /// <summary><c>e2e regression</c>, or <c>e2e</c> when the page has no title.</summary>
     private static string PageName(MarkdownReportOptions options)
@@ -128,16 +152,32 @@ public static class MarkdownReport
             return Icon(ResultBucket.Failed);
         }
 
-        return worst == ResultBucket.Interrupted || status == ReportRunStatus.Interrupted ? Icon(ResultBucket.Interrupted) : Icon(ResultBucket.Passed);
+        return worst == ResultBucket.Interrupted || status == ReportRunStatus.Interrupted
+            ? Icon(ResultBucket.Interrupted)
+            : Icon(ResultBucket.Passed);
     }
 
     /// <summary>The headline: the counts, and how many tests the test filters left out, so a filtered pull request run never reads as the whole suite passing.</summary>
-    private static string Headline(ReportRun run, IReadOnlyList<ReportResult> results, Dictionary<string, int> counts, MarkdownReportOptions options)
+    private static string Headline(
+        ReportRun run,
+        IReadOnlyList<ReportResult> results,
+        Dictionary<string, int> counts,
+        MarkdownReportOptions options
+    )
     {
         var counted = CountText(ReportFormat.Tally(results.Select(result => result.Status)));
-        var summary = counted.Length > 0 ? counted : run.Errors.Count > 0 ? "no tests ran" : "no tests selected";
+        var summary =
+            counted.Length > 0 ? counted
+            : run.Errors.Count > 0 ? "no tests ran"
+            : "no tests selected";
         var leftOut = TotalLeftOut(counts);
-        return "### " + RunIcon(run, results) + " " + PageName(options) + ": " + summary + (leftOut == 0 ? "" : ", " + leftOut.ToString(CultureInfo.InvariantCulture) + " left out by filters");
+        return "### "
+            + RunIcon(run, results)
+            + " "
+            + PageName(options)
+            + ": "
+            + summary
+            + (leftOut == 0 ? "" : ", " + leftOut.ToString(CultureInfo.InvariantCulture) + " left out by filters");
     }
 
     /// <summary>How many tests the test filters left out in all, from <c>LeftOutTests</c>' counts: a test is left out by one filter.</summary>
@@ -147,7 +187,11 @@ public static class MarkdownReport
     private static string FilterLine(ReportFilter record, Dictionary<string, int> counts)
     {
         var note = record.Note is null ? "" : " (" + Cell(record.Note) + ")";
-        return "**Filter** " + Code(record.Name, MaxIdChars) + " " + ReportFormat.FilterDecision(record.Candidates, counts.GetValueOrDefault(record.Name)) + note;
+        return "**Filter** "
+            + Code(record.Name, MaxIdChars)
+            + " "
+            + ReportFormat.FilterDecision(record.Candidates, counts.GetValueOrDefault(record.Name))
+            + note;
     }
 
     /// <summary>What the filters judged (<c>12 files changed since abc1234</c>), or why no filter ran. Nothing for a run without <c>--changed-since</c>.</summary>
@@ -163,7 +207,10 @@ public static class MarkdownReport
             return "**Filters** none ran: " + Cell(changes.Skipped ?? "");
         }
 
-        return "**Change** " + Plural(changes.Files ?? 0, "file") + " changed since " + Code(ReportFormat.ShortCommit(changes.Base));
+        return "**Change** "
+            + Plural(changes.Files ?? 0, "file")
+            + " changed since "
+            + Code(ReportFormat.ShortCommit(changes.Base));
     }
 
     /// <summary>
@@ -174,9 +221,14 @@ public static class MarkdownReport
     private static List<string> FiltersSection(ReportRun run, bool manyTargets, Dictionary<string, int> counts)
     {
         var leftOut = run.Results.Where(result => result.Skip?.Filter is not null).ToList();
-        var withTarget = manyTargets || leftOut.Select(result => result.TargetId).Distinct(StringComparer.Ordinal).Count() > 1;
+        var withTarget =
+            manyTargets || leftOut.Select(result => result.TargetId).Distinct(StringComparer.Ordinal).Count() > 1;
         var changes = ChangesLine(run.Changes);
-        List<string> said = [.. changes is null ? [] : new[] { changes }, .. (run.Filters ?? []).Select(record => FilterLine(record, counts))];
+        List<string> said =
+        [
+            .. changes is null ? [] : new[] { changes },
+            .. (run.Filters ?? []).Select(record => FilterLine(record, counts)),
+        ];
         List<string> parts = said.Count == 0 ? [] : [string.Join("  \n", said)];
         if (leftOut.Count == 0)
         {
@@ -186,16 +238,42 @@ public static class MarkdownReport
         List<string> lines = [Row(["Test", "Filter", "Reason"]), Row(["---", "---", "---"])];
         foreach (var result in leftOut.Take(MaxLeftOutRows))
         {
-            lines.Add(Row([FileLabel(result.File, result.TargetId, withTarget) + " › " + TestName(result), Code(result.Skip?.Filter ?? "", MaxIdChars), Cell(result.Skip?.Reason ?? "")]));
+            lines.Add(
+                Row([
+                    FileLabel(result.File, result.TargetId, withTarget) + " › " + TestName(result),
+                    Code(result.Skip?.Filter ?? "", MaxIdChars),
+                    Cell(result.Skip?.Reason ?? ""),
+                ])
+            );
         }
 
         if (leftOut.Count > MaxLeftOutRows)
         {
-            lines.Add(Row(["and " + (leftOut.Count - MaxLeftOutRows).ToString(CultureInfo.InvariantCulture) + " more in report.json", "", ""]));
+            lines.Add(
+                Row([
+                    "and "
+                        + (leftOut.Count - MaxLeftOutRows).ToString(CultureInfo.InvariantCulture)
+                        + " more in report.json",
+                    "",
+                    "",
+                ])
+            );
         }
 
         var summary = Plural(TotalLeftOut(counts), "test") + " left out by filters";
-        return [.. parts, .. parts.Count == 0 ? [] : new[] { "" }, string.Join('\n', "<details>", "<summary>" + summary + "</summary>", "", string.Join('\n', lines), "</details>")];
+        return
+        [
+            .. parts,
+            .. parts.Count == 0 ? [] : new[] { "" },
+            string.Join(
+                '\n',
+                "<details>",
+                "<summary>" + summary + "</summary>",
+                "",
+                string.Join('\n', lines),
+                "</details>"
+            ),
+        ];
     }
 
     /// <summary>The model calls an agent step made; the step's metrics are the source of truth.</summary>
@@ -235,7 +313,13 @@ public static class MarkdownReport
         if (tokens > 0)
         {
             var cached = run.Usage.ModelCachedTokens ?? 0;
-            var share = cached == 0 ? "" : " (" + Math.Round((double)cached / tokens * 100, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture) + "% cached)";
+            var share =
+                cached == 0
+                    ? ""
+                    : " ("
+                        + Math.Round((double)cached / tokens * 100, MidpointRounding.AwayFromZero)
+                            .ToString("0", CultureInfo.InvariantCulture)
+                        + "% cached)";
             parts.Add(ReportFormat.FormatTokens(tokens) + " tokens" + share);
         }
 
@@ -250,8 +334,14 @@ public static class MarkdownReport
     /// <summary><c>screenshot `.e2e/results/&lt;test&gt;/attempt-1/screenshots/001-failure.png`</c>: each file as the reader finds it under <paramref name="dir"/>, capped.</summary>
     private static List<string> EvidencePaths(IReadOnlyList<ArtifactRecord> sorted, string dir)
     {
-        var files = sorted.Where(artifact => artifact.Path is not null).Select(artifact => (Artifact: artifact, File: PosixJoin(dir, artifact.Path!))).ToList();
-        var shown = files.Take(MaxEvidencePaths).Select(item => ArtifactKindName(item.Artifact.Kind) + " " + Code(item.File)).ToList();
+        var files = sorted
+            .Where(artifact => artifact.Path is not null)
+            .Select(artifact => (Artifact: artifact, File: PosixJoin(dir, artifact.Path!)))
+            .ToList();
+        var shown = files
+            .Take(MaxEvidencePaths)
+            .Select(item => ArtifactKindName(item.Artifact.Kind) + " " + Code(item.File))
+            .ToList();
         if (files.Count > shown.Count)
         {
             shown.Add("and " + (files.Count - shown.Count).ToString(CultureInfo.InvariantCulture) + " more");
@@ -264,7 +354,8 @@ public static class MarkdownReport
     private static string ArtifactKindName(ArtifactKind kind) => KebabName(kind);
 
     /// <summary>The artifact path under the directory the reader has the files in; the directory <c>.</c> is the path itself (<c>path.posix.join</c>).</summary>
-    private static string PosixJoin(string dir, string artifactPath) => dir is "." or "" ? artifactPath : dir.TrimEnd('/') + "/" + artifactPath;
+    private static string PosixJoin(string dir, string artifactPath) =>
+        dir is "." or "" ? artifactPath : dir.TrimEnd('/') + "/" + artifactPath;
 
     /// <summary>
     /// Where the evidence is: each kind linked to the run's artifacts when there is a URL (the upload keeps one directory per test, named
@@ -274,7 +365,10 @@ public static class MarkdownReport
     private static string Evidence(IReadOnlyList<ArtifactRecord> artifacts, MarkdownReportOptions options)
     {
         // A video a hosted service keeps links to itself, wherever the run's files are.
-        var hosted = artifacts.Where(artifact => artifact.Url is not null).Select(artifact => Link(ArtifactKindName(artifact.Kind), artifact.Url!)).ToList();
+        var hosted = artifacts
+            .Where(artifact => artifact.Url is not null)
+            .Select(artifact => Link(ArtifactKindName(artifact.Kind), artifact.Url!))
+            .ToList();
         var local = artifacts.Where(artifact => artifact.Url is null).ToList();
         if (local.Count == 0)
         {
@@ -282,10 +376,14 @@ public static class MarkdownReport
         }
 
         var sorted = local.OrderBy(artifact => KindRank(artifact.Kind)).ToList();
-        var kinds = sorted.Select(artifact => ArtifactKindName(artifact.Kind)).Distinct(StringComparer.Ordinal).ToList();
-        List<string> shown = options.ArtifactsUrl is { } url
-            ? [.. kinds.Select(kind => Link(kind, url))]
-            : options.ArtifactsDir is null ? [] : EvidencePaths(sorted, options.ArtifactsDir);
+        var kinds = sorted
+            .Select(artifact => ArtifactKindName(artifact.Kind))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        List<string> shown =
+            options.ArtifactsUrl is { } url ? [.. kinds.Select(kind => Link(kind, url))]
+            : options.ArtifactsDir is null ? []
+            : EvidencePaths(sorted, options.ArtifactsDir);
         return string.Join(", ", [.. shown.Count == 0 ? kinds : shown, .. hosted]);
     }
 
@@ -300,14 +398,27 @@ public static class MarkdownReport
     {
         var calls = ModelCalls(at.Step);
         var spent = calls == 0 ? "" : " and " + Plural(calls, "model call");
-        var call = at.Step.Kind == StepKind.Agent ? Code(at.Step.Api, MaxIdChars) + " " + StepLabel(at.Step, MaxPathChars) : Code(at.Step.Api + " " + at.Step.Label, MaxPathChars);
-        return "at step " + (at.Index + 1).ToString(CultureInfo.InvariantCulture) + " of " + steps.Count.ToString(CultureInfo.InvariantCulture) + ": " + call + ", after " + FormatDuration(at.Step.DurationMs) + spent;
+        var call =
+            at.Step.Kind == StepKind.Agent
+                ? Code(at.Step.Api, MaxIdChars) + " " + StepLabel(at.Step, MaxPathChars)
+                : Code(at.Step.Api + " " + at.Step.Label, MaxPathChars);
+        return "at step "
+            + (at.Index + 1).ToString(CultureInfo.InvariantCulture)
+            + " of "
+            + steps.Count.ToString(CultureInfo.InvariantCulture)
+            + ": "
+            + call
+            + ", after "
+            + FormatDuration(at.Step.DurationMs)
+            + spent;
     }
 
     /// <summary><c>**CODE** (phase)</c>: how the error names itself.</summary>
     private static string ErrorName(ReportError error)
     {
-        var phase = error.Phase is null or ErrorPhase.Body ? "" : " (" + TextRules.Collapse(TextRules.SanitizeText(PhaseText(error.Phase.Value))) + ")";
+        var phase = error.Phase is null or ErrorPhase.Body
+            ? ""
+            : " (" + TextRules.Collapse(TextRules.SanitizeText(PhaseText(error.Phase.Value))) + ")";
         return "**" + Cell(error.Code, 128) + "**" + phase;
     }
 
@@ -364,11 +475,26 @@ public static class MarkdownReport
         var name = error is null ? "**" + Cell(KebabName(result.Status), MaxIdChars) + "**" : ErrorName(error);
         var lead = at is null ? name : name + " " + StepClause(told.Steps, at);
         var alike = AttemptsLine(result, final);
-        List<string> facts = [.. DetailLines(error), .. alike is null ? [] : new[] { alike }, .. LastTurnLines(at?.Step), .. ScreenLines(told), .. AppErrorLines(told)];
+        List<string> facts =
+        [
+            .. DetailLines(error),
+            .. alike is null ? [] : new[] { alike },
+            .. LastTurnLines(at?.Step),
+            .. ScreenLines(told),
+            .. AppErrorLines(told),
+        ];
         var where = Evidence(EvidenceOf(told), options);
         var page = options.Traces is { } traces && traces.TryGetValue(result.Id, out var traced) ? traced : null;
-        List<string> about = [SourceText(FailureSource(result, told), options.SourceUrl), .. manyTargets ? new[] { Cell(result.TargetId, MaxIdChars) } : []];
-        List<string> tail = [.. where.Length == 0 ? [] : new[] { "Evidence: " + where }, .. page is null ? [] : new[] { "Trace: " + Code(page, MaxPathChars) }];
+        List<string> about =
+        [
+            SourceText(FailureSource(result, told), options.SourceUrl),
+            .. manyTargets ? new[] { Cell(result.TargetId, MaxIdChars) } : [],
+        ];
+        List<string> tail =
+        [
+            .. where.Length == 0 ? [] : new[] { "Evidence: " + where },
+            .. page is null ? [] : new[] { "Trace: " + Code(page, MaxPathChars) },
+        ];
         string[] paragraphs =
         [
             // Two trailing spaces: a hard break, so the title and its line stay two lines wherever the page is rendered.
@@ -387,7 +513,8 @@ public static class MarkdownReport
 
     /// <summary><c>suite › title</c>.</summary>
     private static string TestName(ReportResult result) =>
-        string.Join(" › ", result.TitlePath.Select(part => Cell(part, MaxTitleChars))) + ReportFormat.RepeatSuffix(result.Repeat);
+        string.Join(" › ", result.TitlePath.Select(part => Cell(part, MaxTitleChars)))
+        + ReportFormat.RepeatSuffix(result.Repeat);
 
     /// <summary>The tests that were flaky, folded: the headline counts them and the run is green, so their blocks are there for the reader who asks, not in the way.</summary>
     private static List<string> FlakyFold(IReadOnlyList<Entry> entries, bool manyTargets, MarkdownReportOptions options)
@@ -404,7 +531,17 @@ public static class MarkdownReport
         }
 
         var summary = Icon(ResultBucket.Flaky) + " " + Plural(entries.Count, "flaky test") + " passed on a retry";
-        return [string.Join('\n', "<details>", "<summary>" + summary + "</summary>", "", string.Join("\n\n", shown), "</details>")];
+        return
+        [
+            string.Join(
+                '\n',
+                "<details>",
+                "<summary>" + summary + "</summary>",
+                "",
+                string.Join("\n\n", shown),
+                "</details>"
+            ),
+        ];
     }
 
     /// <summary>A test that missed a run: flaky when a run failed, else interrupted when the run stopped one, else skipped.</summary>
@@ -415,40 +552,54 @@ public static class MarkdownReport
             return Icon(ResultBucket.Flaky);
         }
 
-        return group.Runs.Any(run => run.Status == "interrupted") ? Icon(ResultBucket.Interrupted) : Icon(ResultBucket.Skipped);
+        return group.Runs.Any(run => run.Status == "interrupted")
+            ? Icon(ResultBucket.Interrupted)
+            : Icon(ResultBucket.Skipped);
     }
 
     /// <summary>A <c>--repeat-each</c> run's tally: how many tests passed every run, then each test that did not, with the runs that failed. Empty for a run that repeated nothing.</summary>
     private static List<string> RepeatsSection(IReadOnlyList<Entry> entries, bool manyTargets)
     {
-        var groups = Repeats.RepeatGroups(
-            entries,
-            entry =>
-            {
-                var result = entry.Result;
-                List<string> label =
-                [
-                    Code(result.File, MaxPathChars),
-                    .. manyTargets ? new[] { "(" + Cell(result.TargetId, MaxIdChars) + ")" } : [],
-                    .. result.Agent == "default" ? [] : new[] { "as " + Cell(result.Agent, MaxIdChars) },
-                    TestName(result with { Repeat = 0 }),
-                ];
-                return (
-                    result.TestId + "@" + result.Agent + "@" + result.TargetId,
-                    string.Join(' ', label),
-                    new RepeatRun(result.Repeat, KebabName(result.Status), entry.Final.Final.Error?.Code ?? entry.Final.LastFailed?.Error?.Code));
-            });
+        var groups = Repeats.RepeatGroups(entries, entry =>
+        {
+            var result = entry.Result;
+            List<string> label =
+            [
+                Code(result.File, MaxPathChars),
+                .. manyTargets ? new[] { "(" + Cell(result.TargetId, MaxIdChars) + ")" } : [],
+                .. result.Agent == "default" ? [] : new[] { "as " + Cell(result.Agent, MaxIdChars) },
+                TestName(result with { Repeat = 0 }),
+            ];
+            return (
+                result.TestId + "@" + result.Agent + "@" + result.TargetId,
+                string.Join(' ', label),
+                new RepeatRun(
+                    result.Repeat,
+                    KebabName(result.Status),
+                    entry.Final.Final.Error?.Code ?? entry.Final.LastFailed?.Error?.Code
+                )
+            );
+        });
         if (groups.Count == 0)
         {
             return [];
         }
 
         // A test is listed when it missed a run: a flake first, then one the run cut short.
-        var missed = groups.Where(group => group.Passed < group.Runs.Count).OrderByDescending(group => group.Unstable).ToList();
+        var missed = groups
+            .Where(group => group.Passed < group.Runs.Count)
+            .OrderByDescending(group => group.Unstable)
+            .ToList();
         return
         [
             "**Repeats:** " + Repeats.RepeatSummary(groups),
-            .. missed.Count == 0 ? [] : new[] { "" }.Concat(missed.Select(group => "- " + MissIcon(group) + " " + group.Label + ": " + Cell(Repeats.RepeatLine(group)))),
+            .. missed.Count == 0
+                ? []
+                : new[] { "" }.Concat(
+                    missed.Select(group =>
+                        "- " + MissIcon(group) + " " + group.Label + ": " + Cell(Repeats.RepeatLine(group))
+                    )
+                ),
         ];
     }
 
@@ -478,12 +629,17 @@ public static class MarkdownReport
             files[byFile].Entries.Add(entry);
         }
 
-        var rows = groups.SelectMany(group => group.Files.Select(file => new FileGroup(file.File, group.Target, file.Entries)));
-        int Rank(FileGroup group) => Array.IndexOf(WorstFirst, WorstBucket(group.Entries.Select(entry => entry.Result)));
-        return [.. rows
-            .OrderBy(Rank)
-            .ThenBy(group => group.File, StringComparer.InvariantCulture)
-            .ThenBy(group => group.Target, StringComparer.InvariantCulture)];
+        var rows = groups.SelectMany(group =>
+            group.Files.Select(file => new FileGroup(file.File, group.Target, file.Entries))
+        );
+        int Rank(FileGroup group) =>
+            Array.IndexOf(WorstFirst, WorstBucket(group.Entries.Select(entry => entry.Result)));
+        return
+        [
+            .. rows.OrderBy(Rank)
+                .ThenBy(group => group.File, StringComparer.InvariantCulture)
+                .ThenBy(group => group.Target, StringComparer.InvariantCulture),
+        ];
     }
 
     /// <summary><c>2 steps · 9 calls</c>: the agent's work over a set of steps, or nothing when it did none.</summary>
@@ -512,9 +668,17 @@ public static class MarkdownReport
     {
         var (result, final) = entry;
         var skipped = result.Status == ResultStatus.Skipped;
-        var note = skipped ? "skipped: " + Cell(result.Skip?.Reason ?? "skipped") : result.Status == ResultStatus.Flaky ? Plural(final.FailedAttempts, "failed attempt") + " first" : "";
+        var note =
+            skipped ? "skipped: " + Cell(result.Skip?.Reason ?? "skipped")
+            : result.Status == ResultStatus.Flaky ? Plural(final.FailedAttempts, "failed attempt") + " first"
+            : "";
         var name = TestName(result) + (note.Length == 0 ? "" : " (" + note + ")");
-        return Row([Icon(ReportFormat.StatusBucket(result.Status)), name, .. withAgent ? new[] { AgentCell(final.Final.Steps) } : [], skipped ? "" : FormatDuration(final.DurationMs)]);
+        return Row([
+            Icon(ReportFormat.StatusBucket(result.Status)),
+            name,
+            .. withAgent ? new[] { AgentCell(final.Final.Steps) } : [],
+            skipped ? "" : FormatDuration(final.DurationMs),
+        ]);
     }
 
     /// <summary><c>⚠️ | **tests/billing.e2e.ts** · 1 failed, 2 passed | 3 steps · 19 calls | 41.2s</c>: a file's row above its tests, the glyph its worst result's.</summary>
@@ -523,7 +687,15 @@ public static class MarkdownReport
         var results = group.Entries.Select(entry => entry.Result).ToList();
         var time = FormatDuration(group.Entries.Sum(entry => entry.Final.DurationMs));
         List<string> agent = withAgent ? [AgentCell(group.Entries.SelectMany(entry => entry.Final.Final.Steps))] : [];
-        return Row([Icon(WorstBucket(results)), "**" + FileLabel(group.File, group.Target, manyTargets) + "** · " + CountText(ReportFormat.Tally(results.Select(result => result.Status))), .. agent, time]);
+        return Row([
+            Icon(WorstBucket(results)),
+            "**"
+                + FileLabel(group.File, group.Target, manyTargets)
+                + "** · "
+                + CountText(ReportFormat.Tally(results.Select(result => result.Status))),
+            .. agent,
+            time,
+        ]);
     }
 
     /// <summary>
@@ -538,7 +710,9 @@ public static class MarkdownReport
             return [];
         }
 
-        var withAgent = groups.Any(group => group.Entries.Any(entry => entry.Final.Final.Steps.Any(step => step.Kind == StepKind.Agent)));
+        var withAgent = groups.Any(group =>
+            group.Entries.Any(entry => entry.Final.Final.Steps.Any(step => step.Kind == StepKind.Agent))
+        );
         List<string> header = ["", "Test", .. withAgent ? new[] { "Agent" } : [], "Time"];
         List<string> lines = [Row(header), Row(header.Select(_ => "---"))];
         var budget = MaxListedTests;
@@ -557,13 +731,30 @@ public static class MarkdownReport
 
         if (total > MaxListedTests)
         {
-            lines.Add(Row(["", "and " + (total - MaxListedTests).ToString(CultureInfo.InvariantCulture) + " more", .. withAgent ? new[] { "" } : [], ""]));
+            lines.Add(
+                Row([
+                    "",
+                    "and " + (total - MaxListedTests).ToString(CultureInfo.InvariantCulture) + " more",
+                    .. withAgent ? new[] { "" } : [],
+                    "",
+                ])
+            );
         }
 
         // A file that ran on several targets is one file, however many groups it has.
         var files = groups.Select(group => group.File).Distinct(StringComparer.Ordinal).Count();
         var summary = "All " + Plural(total, "test") + " in " + Plural(files, "file");
-        return [string.Join('\n', "<details>", "<summary>" + summary + "</summary>", "", string.Join('\n', lines), "</details>")];
+        return
+        [
+            string.Join(
+                '\n',
+                "<details>",
+                "<summary>" + summary + "</summary>",
+                "",
+                string.Join('\n', lines),
+                "</details>"
+            ),
+        ];
     }
 
     /// <summary>
@@ -578,17 +769,27 @@ public static class MarkdownReport
     }
 
     /// <summary><c>&lt;sub&gt;Tested by e2e 0.13.0 · 2m 15s · web · run artifacts&lt;/sub&gt;</c>: one line of small print.</summary>
-    private static List<string> Footer(ReportRun run, IReadOnlyList<ReportTarget> targets, MarkdownReportOptions options)
+    private static List<string> Footer(
+        ReportRun run,
+        IReadOnlyList<ReportTarget> targets,
+        MarkdownReportOptions options
+    )
     {
         // A run with no finish time (interrupted) reads as instant, where upstream's date arithmetic would print NaN.
-        var duration = FormatDuration(run.FinishedAt is { } finished ? (finished - run.StartedAt).TotalMilliseconds : 0);
+        var duration = FormatDuration(
+            run.FinishedAt is { } finished ? (finished - run.StartedAt).TotalMilliseconds : 0
+        );
         var shown = targets.Take(MaxFooterTargets).Select(target => Cell(target.Id, MaxIdChars)).ToList();
         if (targets.Count > shown.Count)
         {
             shown.Add("and " + (targets.Count - shown.Count).ToString(CultureInfo.InvariantCulture) + " more");
         }
 
-        List<string> parts = ["Tested by " + Link("e2e", SiteUrl) + " " + Cell(run.Runner.Version, MaxIdChars), duration];
+        List<string> parts =
+        [
+            "Tested by " + Link("e2e", SiteUrl) + " " + Cell(run.Runner.Version, MaxIdChars),
+            duration,
+        ];
         if (targets.Count == 1)
         {
             parts.Add(shown[0]);
@@ -608,14 +809,26 @@ public static class MarkdownReport
 
     // --- the exploration record ---
 
-    private static string ExploreHeadline(ReportRun run, IReadOnlyList<ReportResult> results, ReportExplore explore, MarkdownReportOptions options)
+    private static string ExploreHeadline(
+        ReportRun run,
+        IReadOnlyList<ReportResult> results,
+        ReportExplore explore,
+        MarkdownReportOptions options
+    )
     {
         var issues = explore.Findings.Count(finding => finding.Kind == ReportExploreFindingKind.Issue);
         var warnings = explore.Findings.Count - issues;
-        List<string> counts = [.. issues > 0 ? new[] { Plural(issues, "issue") } : [], .. warnings > 0 ? new[] { Plural(warnings, "warning") } : []];
-        var summary = counts.Count > 0
-            ? string.Join(", ", counts)
-            : explore.Ended == ReportExploreEnded.Skipped ? "nothing to explore" : run.Status == ReportRunStatus.Blocked ? "explored nothing" : run.Status == ReportRunStatus.Passed ? "no findings" : "did not finish";
+        List<string> counts =
+        [
+            .. issues > 0 ? new[] { Plural(issues, "issue") } : [],
+            .. warnings > 0 ? new[] { Plural(warnings, "warning") } : [],
+        ];
+        var summary =
+            counts.Count > 0 ? string.Join(", ", counts)
+            : explore.Ended == ReportExploreEnded.Skipped ? "nothing to explore"
+            : run.Status == ReportRunStatus.Blocked ? "explored nothing"
+            : run.Status == ReportRunStatus.Passed ? "no findings"
+            : "did not finish";
         return "### " + RunIcon(run, results) + " " + PageName(options) + " explore: " + summary;
     }
 
@@ -623,23 +836,60 @@ public static class MarkdownReport
     private static string ExploreSteps(ReportExplore explore)
     {
         var counts = ExploreText.StepCountParts(explore.Steps).Select(part => part.Text);
-        return string.Join(" · ", [explore.Steps.Count.ToString(CultureInfo.InvariantCulture) + " of " + explore.Budgets.MaxSteps.ToString(CultureInfo.InvariantCulture) + " steps", .. counts, ExploreText.EndedText(explore.Ended)]);
+        return string.Join(
+            " · ",
+            [
+                explore.Steps.Count.ToString(CultureInfo.InvariantCulture)
+                    + " of "
+                    + explore.Budgets.MaxSteps.ToString(CultureInfo.InvariantCulture)
+                    + " steps",
+                .. counts,
+                ExploreText.EndedText(explore.Ended),
+            ]
+        );
     }
 
     /// <summary>One finding as a list item: grade and title, where it was seen, what was expected against what the screen showed, the actions that reach it, and its screenshot.</summary>
-    private static string FindingBlock(ReportExploreFinding finding, int position, Dictionary<string, ArtifactRecord> artifacts, MarkdownReportOptions options)
+    private static string FindingBlock(
+        ReportExploreFinding finding,
+        int position,
+        Dictionary<string, ArtifactRecord> artifacts,
+        MarkdownReportOptions options
+    )
     {
-        List<string> where = [.. finding.Path is null ? [] : new[] { Code(finding.Path, MaxTitleChars) }, .. finding.Step is null ? [] : new[] { "step " + finding.Step.Value.ToString(CultureInfo.InvariantCulture) }];
+        List<string> where =
+        [
+            .. finding.Path is null ? [] : new[] { Code(finding.Path, MaxTitleChars) },
+            .. finding.Step is null
+                ? []
+                : new[] { "step " + finding.Step.Value.ToString(CultureInfo.InvariantCulture) },
+        ];
         var kind = finding.Kind == ReportExploreFindingKind.Issue ? "issue" : "warning";
         List<string> lines =
         [
-            position.ToString(CultureInfo.InvariantCulture) + ". **" + ExploreText.SeverityWord(finding.Severity) + " " + kind + "** " + Cell(finding.Title) + (where.Count == 0 ? "" : " · " + string.Join(" · ", where)),
+            position.ToString(CultureInfo.InvariantCulture)
+                + ". **"
+                + ExploreText.SeverityWord(finding.Severity)
+                + " "
+                + kind
+                + "** "
+                + Cell(finding.Title)
+                + (where.Count == 0 ? "" : " · " + string.Join(" · ", where)),
             "   Expected: " + Cell(finding.Expected, MaxDetailChars),
             "   Actual: " + Cell(finding.Actual, MaxDetailChars),
         ];
         if (finding.Reproduction.Count > 0)
         {
-            lines.Add("   Steps: " + string.Join(' ', finding.Reproduction.Select((action, index) => (index + 1).ToString(CultureInfo.InvariantCulture) + ". " + Cell(action, MaxPathChars))));
+            lines.Add(
+                "   Steps: "
+                    + string.Join(
+                        ' ',
+                        finding.Reproduction.Select(
+                            (action, index) =>
+                                (index + 1).ToString(CultureInfo.InvariantCulture) + ". " + Cell(action, MaxPathChars)
+                        )
+                    )
+            );
         }
 
         if (finding.ArtifactId is { } id && artifacts.TryGetValue(id, out var screenshot))
@@ -659,16 +909,26 @@ public static class MarkdownReport
         }
 
         Dictionary<string, ArtifactRecord> artifacts = [];
-        foreach (var artifact in run.Results.SelectMany(result => result.Attempts).SelectMany(attempt => attempt.Artifacts))
+        foreach (
+            var artifact in run.Results.SelectMany(result => result.Attempts).SelectMany(attempt => attempt.Artifacts)
+        )
         {
             artifacts[artifact.Id] = artifact;
         }
 
         var ordered = ExploreText.OrderFindings(explore.Findings);
-        var blocks = ordered.Take(MaxFindings).Select((finding, index) => FindingBlock(finding, index + 1, artifacts, options)).ToList();
+        var blocks = ordered
+            .Take(MaxFindings)
+            .Select((finding, index) => FindingBlock(finding, index + 1, artifacts, options))
+            .ToList();
         if (ordered.Count > blocks.Count)
         {
-            blocks.Add((blocks.Count + 1).ToString(CultureInfo.InvariantCulture) + ". and " + (ordered.Count - blocks.Count).ToString(CultureInfo.InvariantCulture) + " more");
+            blocks.Add(
+                (blocks.Count + 1).ToString(CultureInfo.InvariantCulture)
+                    + ". and "
+                    + (ordered.Count - blocks.Count).ToString(CultureInfo.InvariantCulture)
+                    + " more"
+            );
         }
 
         return ["**Findings**", "", .. blocks];
@@ -699,7 +959,11 @@ public static class MarkdownReport
 
     /// <summary>Sections as one flat list of parts with a blank line between sections; empty sections vanish.</summary>
     private static List<string> JoinSections(IEnumerable<IReadOnlyList<string>> sections) =>
-        [.. sections.Where(section => section.Count > 0).SelectMany((section, index) => index == 0 ? section : ["", .. section])];
+        [
+            .. sections
+                .Where(section => section.Count > 0)
+                .SelectMany((section, index) => index == 0 ? section : ["", .. section]),
+        ];
 
     /// <summary>Renders the run as one markdown page: a pull request comment body, a job summary, or <c>summary.md</c>.</summary>
     /// <param name="report">The report a reporter receives (<see cref="FinishedRun.Report"/>).</param>
@@ -727,26 +991,61 @@ public static class MarkdownReport
 
         // An exploration is the run's one test and its failure is the verdict the findings express, so that block gives way to them; any
         // other failure stays.
-        var notPassed = entries.Where(entry => explore is null || !TracePages.IsExploreVerdict(entry.Final, explore)).ToList();
-        var failed = notPassed.Where(entry => ReportFormat.StatusBucket(entry.Result.Status) == ResultBucket.Failed).ToList();
-        List<IReadOnlyList<string>> failures = [.. failed.Take(MaxFailureBlocks).Select(entry => (IReadOnlyList<string>)[FailureBlock(entry, manyTargets, options)])];
+        var notPassed = entries
+            .Where(entry => explore is null || !TracePages.IsExploreVerdict(entry.Final, explore))
+            .ToList();
+        var failed = notPassed
+            .Where(entry => ReportFormat.StatusBucket(entry.Result.Status) == ResultBucket.Failed)
+            .ToList();
+        List<IReadOnlyList<string>> failures =
+        [
+            .. failed
+                .Take(MaxFailureBlocks)
+                .Select(entry => (IReadOnlyList<string>)[FailureBlock(entry, manyTargets, options)]),
+        ];
         if (failed.Count > MaxFailureBlocks)
         {
-            failures.Add(["and " + (failed.Count - MaxFailureBlocks).ToString(CultureInfo.InvariantCulture) + " more failed"]);
+            failures.Add([
+                "and " + (failed.Count - MaxFailureBlocks).ToString(CultureInfo.InvariantCulture) + " more failed",
+            ]);
         }
 
-        var flaky = FlakyFold(notPassed.Where(entry => ReportFormat.StatusBucket(entry.Result.Status) == ResultBucket.Flaky).ToList(), manyTargets, options);
+        var flaky = FlakyFold(
+            notPassed.Where(entry => ReportFormat.StatusBucket(entry.Result.Status) == ResultBucket.Flaky).ToList(),
+            manyTargets,
+            options
+        );
 
         var spend = SpendLine(run, entries);
-        List<string> head = [explore is null ? Headline(run, selected, leftOut, options) : ExploreHeadline(run, selected, explore, options), .. spend is null ? [] : new[] { spend }, ""];
+        List<string> head =
+        [
+            explore is null
+                ? Headline(run, selected, leftOut, options)
+                : ExploreHeadline(run, selected, explore, options),
+            .. spend is null ? [] : new[] { spend },
+            "",
+        ];
         var groups = FileGroups(entries);
         List<IReadOnlyList<string>> sections = explore is null
-            ? [errors, .. failures, flaky, RepeatsSection(entries, manyTargets), FiltersSection(run, manyTargets, leftOut), AllTests(groups, selected.Count, manyTargets)]
+            ?
+            [
+                errors,
+                .. failures,
+                flaky,
+                RepeatsSection(entries, manyTargets),
+                FiltersSection(run, manyTargets, leftOut),
+                AllTests(groups, selected.Count, manyTargets),
+            ]
             :
             [
                 [
                     $"**Goal:** {Cell(explore.Goal, MaxGoalChars)}  ",
-                    .. explore.Change is null ? (string[])[] : [$"**Change:** {Plural(explore.Change.Files, "file")} changed since {Code(ReportFormat.ShortCommit(explore.Change.Base))}  "],
+                    .. explore.Change is null
+                        ? (string[])[]
+                        :
+                        [
+                            $"**Change:** {Plural(explore.Change.Files, "file")} changed since {Code(ReportFormat.ShortCommit(explore.Change.Base))}  ",
+                        ],
                     $"**Steps:** {ExploreSteps(explore)}",
                 ],
                 errors,

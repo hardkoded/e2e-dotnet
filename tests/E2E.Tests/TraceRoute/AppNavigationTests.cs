@@ -17,7 +17,10 @@ public sealed class AppNavigationTests
         Assert.Equal("/todos?tab=open#new", CacheRoute.AppNavigation("http://127.0.0.1:4291/todos?tab=open#new", App));
 
         // Not re-encoded, so `unique()` slots still match.
-        Assert.Equal("/companies/a&b c?q=x y", CacheRoute.AppNavigation("http://127.0.0.1:4291/companies/a&b c?q=x y", App));
+        Assert.Equal(
+            "/companies/a&b c?q=x y",
+            CacheRoute.AppNavigation("http://127.0.0.1:4291/companies/a&b c?q=x y", App)
+        );
 
         // Leading whitespace and extra slashes, which the URL parser skips.
         Assert.Equal("/todos", CacheRoute.AppNavigation(" http:////127.0.0.1:4291/todos", App));
@@ -45,7 +48,10 @@ public sealed class AppNavigationTests
         // .NET's parser rejects the extra slashes the web's skips, so the expectation parses the URL without them.
         var plain = url.Replace("////", "//", StringComparison.Ordinal);
         Assert.Equal(new Uri(plain).AbsoluteUri, new Uri(new Uri(App + "/app/"), cut).AbsoluteUri);
-        Assert.Equal(new Uri("http://127.0.0.1:4292" + CacheRoute.AppLocation(plain, App)).AbsoluteUri, new Uri(new Uri("http://127.0.0.1:4292/app/"), cut).AbsoluteUri);
+        Assert.Equal(
+            new Uri("http://127.0.0.1:4292" + CacheRoute.AppLocation(plain, App)).AbsoluteUri,
+            new Uri(new Uri("http://127.0.0.1:4292/app/"), cut).AbsoluteUri
+        );
     }
 
     [Fact]
@@ -56,15 +62,24 @@ public sealed class AppNavigationTests
         Assert.Equal("/todos", CacheRoute.AppNavigation("/todos", App));
         Assert.Equal("todos", CacheRoute.AppNavigation("todos", App));
         Assert.Equal("about:blank", CacheRoute.AppNavigation("about:blank", App));
-        Assert.Equal("http://user:pass@127.0.0.1:4291/todos", CacheRoute.AppNavigation("http://user:pass@127.0.0.1:4291/todos", App));
+        Assert.Equal(
+            "http://user:pass@127.0.0.1:4291/todos",
+            CacheRoute.AppNavigation("http://user:pass@127.0.0.1:4291/todos", App)
+        );
         Assert.Equal("http://127.0.0.1:4291/todos", CacheRoute.AppNavigation("http://127.0.0.1:4291/todos", null));
     }
 
     [Fact]
     public void Keeps_a_URL_whose_rest_a_parser_would_read_as_another_host()
     {
-        Assert.Equal("http://127.0.0.1:4291//evil.test/x", CacheRoute.AppNavigation("http://127.0.0.1:4291//evil.test/x", App));
-        Assert.Equal("http://127.0.0.1:4291/\\evil.test/x", CacheRoute.AppNavigation("http://127.0.0.1:4291/\\evil.test/x", App));
+        Assert.Equal(
+            "http://127.0.0.1:4291//evil.test/x",
+            CacheRoute.AppNavigation("http://127.0.0.1:4291//evil.test/x", App)
+        );
+        Assert.Equal(
+            "http://127.0.0.1:4291/\\evil.test/x",
+            CacheRoute.AppNavigation("http://127.0.0.1:4291/\\evil.test/x", App)
+        );
         Assert.Equal("http://127.0.0.1:4291/to\ndos", CacheRoute.AppNavigation("http://127.0.0.1:4291/to\ndos", App));
     }
 }

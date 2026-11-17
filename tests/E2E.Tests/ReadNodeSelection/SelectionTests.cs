@@ -10,12 +10,14 @@ public sealed class SelectionTests(ChromiumPage chromium) : IClassFixture<Chromi
     [Fact]
     public async Task Reports_the_selected_text_of_the_focused_input_or_editing_host_and_nothing_for_a_caret_an_unfocused_field_or_a_secure_one()
     {
-        await chromium.Page.SetContentAsync("""
+        await chromium.Page.SetContentAsync(
+            """
             <input data-testid="field" value="release approved">
             <textarea data-testid="note">first line</textarea>
             <div data-testid="editor" contenteditable>release approved</div>
             <input type="password" data-testid="secret" value="hunter2">
-            """);
+            """
+        );
 
         await chromium.Page.GetByTestId("field").FocusAsync();
         await chromium.Page.GetByTestId("field").EvaluateAsync("el => el.setSelectionRange(8, 16)");

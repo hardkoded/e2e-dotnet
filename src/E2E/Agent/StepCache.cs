@@ -136,7 +136,11 @@ internal sealed class StepTraceSession
 
     /// <summary>Upstream's <c>failedStepOutcome</c>: the outcome of a step that threw <paramref name="cause"/>.</summary>
     public static StepOutcome FailedStepOutcome(Exception? cause) =>
-        cause is AgentException { Code: "CANCELLED" or "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" or "REPLAY_STALE" } or AgentException { FromActionHook: true } ? StepOutcome.NoVerdict : StepOutcome.Failed;
+        cause
+            is AgentException { Code: "CANCELLED" or "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" or "REPLAY_STALE" }
+                or AgentException { FromActionHook: true }
+            ? StepOutcome.NoVerdict
+            : StepOutcome.Failed;
 
     private const string ReplayNoticeStart = "replayed ";
     private const string StepPassedSummary = "step passed";
@@ -159,7 +163,11 @@ internal sealed class StepTraceSession
 
     /// <summary>Upstream's <c>replaySummary</c>: the verdict summary of a step the cache replayed whole, the notice, then the recorded verdict.</summary>
     private static string ReplaySummary(int executed, string? recorded) =>
-        ReplayNoticeStart + executed.ToString(CultureInfo.InvariantCulture) + " recorded action(s) zero-turn from the trace cache" + RecordedVerdictSeparator + (recorded ?? StepPassedSummary);
+        ReplayNoticeStart
+        + executed.ToString(CultureInfo.InvariantCulture)
+        + " recorded action(s) zero-turn from the trace cache"
+        + RecordedVerdictSeparator
+        + (recorded ?? StepPassedSummary);
 
     /// <summary>Records one committed grammar action into the step trace.</summary>
     public void Record(RecordedAction action) => _recorder.Record(action);
@@ -257,7 +265,10 @@ internal sealed class StepTraceSession
         Pending.Completed = true;
         // Only a cache that writes keeps the recording, so only it waits for the screen to settle: after the last action's
         // change, held still. A step that took no action has nothing to record.
-        Pending.Entry = _options.Write && _start is not null && _recorder.RecordedCount > 0 ? await StageAsync(verdictSummary, CacheEntry.ReadRecordedBy(recordedBy)).ConfigureAwait(false) : null;
+        Pending.Entry =
+            _options.Write && _start is not null && _recorder.RecordedCount > 0
+                ? await StageAsync(verdictSummary, CacheEntry.ReadRecordedBy(recordedBy)).ConfigureAwait(false)
+                : null;
         if (_changedNothing && !Pending.ReadEntry)
         {
             // A step that read an entry and recorded nothing evicts it at the settlement instead.
@@ -267,7 +278,17 @@ internal sealed class StepTraceSession
         if (_info is not null && Pending.ParamCollision && Pending.Entry is not null)
         {
             // The recording cannot be templated safely, so it is not written, and the result says why.
-            _info = new CacheInfo { Mode = _info.Mode, Reason = _info.Reason, Derived = _info.Derived, ReplayedActions = _info.ReplayedActions, TotalActions = _info.TotalActions, Detail = _info.Detail, NotRecorded = "param-collision", Entry = _info.Entry };
+            _info = new CacheInfo
+            {
+                Mode = _info.Mode,
+                Reason = _info.Reason,
+                Derived = _info.Derived,
+                ReplayedActions = _info.ReplayedActions,
+                TotalActions = _info.TotalActions,
+                Detail = _info.Detail,
+                NotRecorded = "param-collision",
+                Entry = _info.Entry,
+            };
         }
     }
 
@@ -295,8 +316,10 @@ internal sealed class StepTraceSession
         // Any store can return a hit, so its shape is checked here, at the one read site, by TraceRead.ReadTraceEntry (upstream's readTraceEntry).
         // The stored recording has a placeholder for each unique() value; this call's values fill it (upstream's expandTrace). One this call
         // cannot fill is an entry recorded for another shape, which the key should have kept apart.
-        if (TraceRead.ReadTraceEntry(entry) is not { } valid
-            || CacheKeys.ExpandTrace(valid, CacheKeys.TemplatesOf(_options.Params)) is not { } expanded)
+        if (
+            TraceRead.ReadTraceEntry(entry) is not { } valid
+            || CacheKeys.ExpandTrace(valid, CacheKeys.TemplatesOf(_options.Params)) is not { } expanded
+        )
         {
             return new EntryRead(null, "invalid-entry");
         }
@@ -319,7 +342,13 @@ internal sealed class StepTraceSession
 
         throw new AgentException(
             "REPLAY_STALE",
-            _host.Redact.Redact("the recording of this step no longer replays (" + reason + "), and cache.strict hands no step to the agent; " + _options.StrictAdvice));
+            _host.Redact.Redact(
+                "the recording of this step no longer replays ("
+                    + reason
+                    + "), and cache.strict hands no step to the agent; "
+                    + _options.StrictAdvice
+            )
+        );
     }
 
     // Under strict mode, ends a step whose key found no entry while the cache directory holds a recording made for the same
@@ -327,19 +356,32 @@ internal sealed class StepTraceSession
     // whose instruction or params changed is a new step and still runs live. A custom IStepCache is not checked.
     private void FailIfRekeyed()
     {
-        if (!_options.Strict
+        if (
+            !_options.Strict
             || _options.Cache is not FileStepCache files
-            || files.UnderAnotherKey(Pending.Key, Pending.Step!) is not { } previous)
+            || files.UnderAnotherKey(Pending.Key, Pending.Step!) is not { } previous
+        )
         {
             return;
         }
 
         var changes = Pending.Step!.KeyedBy is { } now ? Identity.KeyContextChanges(previous.KeyedBy, now) : [];
-        var why = changes.Count == 0 ? "the runner, the engine, the app, or the agent's context changed" : string.Join(", ", changes) + " changed";
+        var why =
+            changes.Count == 0
+                ? "the runner, the engine, the app, or the agent's context changed"
+                : string.Join(", ", changes) + " changed";
 
         throw new AgentException(
             "REPLAY_STALE",
-            _host.Redact.Redact("the recording of this step no longer replays: the store holds it under another cache key (" + previous.Key + ".json), since " + why + " after it was recorded, and cache.strict hands no step to the agent; " + _options.StrictAdvice));
+            _host.Redact.Redact(
+                "the recording of this step no longer replays: the store holds it under another cache key ("
+                    + previous.Key
+                    + ".json), since "
+                    + why
+                    + " after it was recorded, and cache.strict hands no step to the agent; "
+                    + _options.StrictAdvice
+            )
+        );
     }
 
     // Replays one hit: decides it against the start route, runs the recorded actions, then checks the postcondition. Actions
@@ -373,15 +415,30 @@ internal sealed class StepTraceSession
 
         var endRoute = entry.EndRoute;
         var watched = new WatchedHost(_host, screens);
-        var outcome = await ReplayingAsync(() => Replay.ReplayTrace(
-            watched,
-            entry.Actions,
-            new ReplayOptions { Initial = _start, LooksBeforeFree = () => screens.Count == 0 || !CacheRoute.Same(ScreenPath(screens[^1]), endRoute) })).ConfigureAwait(false);
+        var outcome = await ReplayingAsync(() =>
+                Replay.ReplayTrace(
+                    watched,
+                    entry.Actions,
+                    new ReplayOptions
+                    {
+                        Initial = _start,
+                        LooksBeforeFree = () =>
+                            screens.Count == 0 || !CacheRoute.Same(ScreenPath(screens[^1]), endRoute),
+                    }
+                )
+            )
+            .ConfigureAwait(false);
 
         // Where the replay stopped, for the report: the recorded action, one-based, and what went wrong there when
         // more than the reason says.
         string StoppedAt(string? why = null) =>
-            "at action " + (_recorder.RecordedCount + 1).ToString(CultureInfo.InvariantCulture) + " of " + entry.Actions.Count.ToString(CultureInfo.InvariantCulture) + ", " + SummaryOf(entry.Actions[_recorder.RecordedCount]) + (why is null ? "" : ": " + why);
+            "at action "
+            + (_recorder.RecordedCount + 1).ToString(CultureInfo.InvariantCulture)
+            + " of "
+            + entry.Actions.Count.ToString(CultureInfo.InvariantCulture)
+            + ", "
+            + SummaryOf(entry.Actions[_recorder.RecordedCount])
+            + (why is null ? "" : ": " + why);
 
         if (!outcome.Completed)
         {
@@ -391,7 +448,16 @@ internal sealed class StepTraceSession
                 // A prefix that performed nothing is a miss with a name, not a hand-off: the executor starts from the top and owes
                 // the notice nothing, whatever stopped the replay.
                 _recorder.Clear();
-                _info = Missed(reason, entry.Actions.Count, StoppedAt(outcome.StopReason is ReplayHandOffReason.ActionUncertain or ReplayHandOffReason.ActionFailed ? outcome.Detail : null), outcome.Derived);
+                _info = Missed(
+                    reason,
+                    entry.Actions.Count,
+                    StoppedAt(
+                        outcome.StopReason is ReplayHandOffReason.ActionUncertain or ReplayHandOffReason.ActionFailed
+                            ? outcome.Detail
+                            : null
+                    ),
+                    outcome.Derived
+                );
                 return null;
             }
 
@@ -417,12 +483,19 @@ internal sealed class StepTraceSession
         }
 
         _wholeReplay = _stored;
-        _info = new CacheInfo { Mode = "self-finalized", Entry = Pending.Key, ReplayedActions = _recorder.RecordedCount, TotalActions = entry.Actions.Count };
+        _info = new CacheInfo
+        {
+            Mode = "self-finalized",
+            Entry = Pending.Key,
+            ReplayedActions = _recorder.RecordedCount,
+            TotalActions = entry.Actions.Count,
+        };
         return new StepVerdict(StepVerdictStatus.Passed, ReplaySummary(outcome.Executed, entry.Summary));
     }
 
     // The summary the trace recorded (upstream's describeAction, written once), described afresh for an entry that holds none.
-    private string SummaryOf(RecordedAction action) => action.Summary ?? AgentActions.DescribeAction(action, _host.Redact);
+    private string SummaryOf(RecordedAction action) =>
+        action.Summary ?? AgentActions.DescribeAction(action, _host.Redact);
 
     private long NowMs() => _host.Time.GetUtcNow().ToUnixTimeMilliseconds();
 
@@ -431,7 +504,9 @@ internal sealed class StepTraceSession
     private long EndWaitBaselineMs()
     {
         var lastActionAtMs = _recorder.LastActionAtMs ?? _startedMs;
-        return _handedOffMs is null || (_recorder.LastActionAtMs ?? 0) > _handedOffMs ? lastActionAtMs : _executorCompletedMs ?? _handedOffMs.Value;
+        return _handedOffMs is null || (_recorder.LastActionAtMs ?? 0) > _handedOffMs
+            ? lastActionAtMs
+            : _executorCompletedMs ?? _handedOffMs.Value;
     }
 
     private void HandOff(string reason, string? detail, string? uncertain = null, DerivedReason? derived = null)
@@ -442,12 +517,35 @@ internal sealed class StepTraceSession
             _actionsAtEndMismatch = _recorder.RecordedCount;
         }
 
-        _prefix = new ReplayedPrefix(_recorder.Actions.Select(SummaryOf).ToList(), Pending.RecordedActions, ReplayHandOffReasons.Parse(reason), uncertain);
-        _info = new CacheInfo { Mode = "agent-concluded", Entry = Pending.Key, Reason = reason, Derived = derived, ReplayedActions = _recorder.RecordedCount, TotalActions = Pending.RecordedActions, Detail = detail };
+        _prefix = new ReplayedPrefix(
+            _recorder.Actions.Select(SummaryOf).ToList(),
+            Pending.RecordedActions,
+            ReplayHandOffReasons.Parse(reason),
+            uncertain
+        );
+        _info = new CacheInfo
+        {
+            Mode = "agent-concluded",
+            Entry = Pending.Key,
+            Reason = reason,
+            Derived = derived,
+            ReplayedActions = _recorder.RecordedCount,
+            TotalActions = Pending.RecordedActions,
+            Detail = detail,
+        };
     }
 
     private CacheInfo Missed(string reason, int totalActions, string? detail = null, DerivedReason? derived = null) =>
-        new() { Mode = "missed", Entry = Pending.Key, Reason = reason, Derived = derived, ReplayedActions = _recorder.RecordedCount, TotalActions = totalActions, Detail = detail };
+        new()
+        {
+            Mode = "missed",
+            Entry = Pending.Key,
+            Reason = reason,
+            Derived = derived,
+            ReplayedActions = _recorder.RecordedCount,
+            TotalActions = totalActions,
+            Detail = detail,
+        };
 
     // The last action may start a navigation or a slow render, so the end route and anchors get the replay timeout to show up.
     // The replay must also have produced the delta: an outcome already on screen before the actions proves nothing.
@@ -464,15 +562,27 @@ internal sealed class StepTraceSession
         // A screen a scroll to a text marked while it paged is not among the screens; the stretch then opens with it.
         var actedOn = _host.FirstActedOn ?? _start;
         var from = actedOn is null ? -1 : screens.IndexOf(actedOn);
-        List<PreparedObservation> stretch = from >= 0 ? screens.GetRange(from, screens.Count - from) : actedOn is null ? screens : [actedOn, .. screens.Skip(1)];
+        List<PreparedObservation> stretch =
+            from >= 0 ? screens.GetRange(from, screens.Count - from)
+            : actedOn is null ? screens
+            : [actedOn, .. screens.Skip(1)];
         var baseline = Baseline(stretch, entry.EndRoute);
         var baselineAnchors = baseline is null ? null : ProjectAgain(baseline);
-        var inputTargets = entry.Actions.Where(HasTarget).Select(action => new RecordedTarget { Role = action.Role, Name = action.Name, TestId = action.TestId });
+        var inputTargets = entry
+            .Actions.Where(HasTarget)
+            .Select(action => new RecordedTarget
+            {
+                Role = action.Role,
+                Name = action.Name,
+                TestId = action.TestId,
+            });
         if (!Anchors.Evidenced(entry, baselineAnchors, inputTargets))
         {
             // A recording with no delta fails the evidence too, but nothing of it showed before the replay
             // acted: that is the generic detail.
-            return entry.Appeared.Count > 0 || entry.Gone.Count > 0 ? new EndStateCheck(false, AlreadyShowing: true) : new EndStateCheck(false);
+            return entry.Appeared.Count > 0 || entry.Gone.Count > 0
+                ? new EndStateCheck(false, AlreadyShowing: true)
+                : new EndStateCheck(false);
         }
 
         var before = baselineAnchors ?? (actedOn is null ? [] : ProjectAgain(actedOn));
@@ -500,7 +610,9 @@ internal sealed class StepTraceSession
             return mismatch is null;
         }
 
-        var matches = await Replay.VerifyEndState(_host, Holds, new VerifyEndStateOptions { WaitMs = entry.EndWaitMs, Initial = arrived }).ConfigureAwait(false);
+        var matches = await Replay
+            .VerifyEndState(_host, Holds, new VerifyEndStateOptions { WaitMs = entry.EndWaitMs, Initial = arrived })
+            .ConfigureAwait(false);
         return matches ? new EndStateCheck(true) : new EndStateCheck(false, Failure: mismatch);
     }
 
@@ -542,12 +654,19 @@ internal sealed class StepTraceSession
         }
 
         var end = await ProbeAsync(SettleMode.HeldStill).ConfigureAwait(false);
-        return end is null || !_host.TraceEligible ? null : BuildEntry(_host.FirstActedOn ?? _start!, end, verdictSummary, recordedBy);
+        return end is null || !_host.TraceEligible
+            ? null
+            : BuildEntry(_host.FirstActedOn ?? _start!, end, verdictSummary, recordedBy);
     }
 
     // A step that changed nothing a replay could check, no node and no route, records nothing:
     // its recording would replay on mechanics alone.
-    private CacheEntry? BuildEntry(PreparedObservation baseline, PreparedObservation end, string? verdictSummary, string? recordedBy)
+    private CacheEntry? BuildEntry(
+        PreparedObservation baseline,
+        PreparedObservation end,
+        string? verdictSummary,
+        string? recordedBy
+    )
     {
         var routeMoved = !CacheRoute.Same(ScreenPath(baseline), ScreenPath(end));
         var (appeared, gone) = Anchors.Describe(ProjectAgain(baseline), Project(end.Nodes), routeMoved);
@@ -560,7 +679,16 @@ internal sealed class StepTraceSession
         // How long the app took to show its end state after the last action, plus room for a slower day: the budget a replay waits
         // for the recorded end state to return. Measured from the last action, not the step's start: the model's thinking time before
         // that action is no reason for a replay, which does not think, to wait.
-        var entry = _recorder.Finalize(Pending.Step!, ScreenPath(_start!), ScreenPath(end), appeared, gone, recordedBy, NowMs() - EndWaitBaselineMs() + EndWaitMarginMs, verdictSummary);
+        var entry = _recorder.Finalize(
+            Pending.Step!,
+            ScreenPath(_start!),
+            ScreenPath(end),
+            appeared,
+            gone,
+            recordedBy,
+            NowMs() - EndWaitBaselineMs() + EndWaitMarginMs,
+            verdictSummary
+        );
 
         // Stored with a placeholder where each unique() value appeared, so the next run's values, a fresh timestamped name, replay the
         // same flow. A recording that cannot be templated safely is not written at all (upstream's templateTrace).
@@ -583,7 +711,8 @@ internal sealed class StepTraceSession
     }
 
     // Upstream's ObservedScreen.path: where the screen is, as the cache compares it (CacheRoute.AppLocation).
-    private string ScreenPath(PreparedObservation observation) => CacheRoute.AppLocation(observation.Route, _options.AppOrigin);
+    private string ScreenPath(PreparedObservation observation) =>
+        CacheRoute.AppLocation(observation.Route, _options.AppOrigin);
 
     // The span of the replay is the test's: its actions carry the test origin until it ends.
     private async Task<T> ReplayingAsync<T>(Func<Task<T>> replay)
@@ -608,7 +737,8 @@ internal sealed class StepTraceSession
 
     // An earlier capture's anchors, its nodes redacted again through the redactor as it is now (upstream's redactNodesAgain): a capture
     // may predate a secret the replay resolved, and an unchanged node is no change.
-    private List<AnchorNode> ProjectAgain(PreparedObservation observation) => Project(AgentObservation.RedactNodesAgain(observation.Nodes, _host.Redact));
+    private List<AnchorNode> ProjectAgain(PreparedObservation observation) =>
+        Project(AgentObservation.RedactNodesAgain(observation.Nodes, _host.Redact));
 
     // The first screen of the replay's last stretch on the end route, or null when its last screen before the end
     // was on another route, so the last action moved it.
@@ -632,13 +762,18 @@ internal sealed class StepTraceSession
         var where = string.IsNullOrEmpty(route) ? "" : " on " + route;
         if (end.AlreadyShowing)
         {
-            return "every recorded action ran, but the recorded outcome already showed" + where + " before the replay acted there, so nothing proves the replay produced it";
+            return "every recorded action ran, but the recorded outcome already showed"
+                + where
+                + " before the replay acted there, so nothing proves the replay produced it";
         }
 
-        var what = end.Failure is { } failure
-            ? MismatchParts(failure)
-            : entry.Appeared.Count > 0 ? "expected " + string.Join(", ", entry.Appeared.Take(2).Select(DescribeAnchor)) : "";
-        return "every recorded action ran, but the recorded end state did not show" + where + (what.Length == 0 ? "" : ": " + what);
+        var what =
+            end.Failure is { } failure ? MismatchParts(failure)
+            : entry.Appeared.Count > 0 ? "expected " + string.Join(", ", entry.Appeared.Take(2).Select(DescribeAnchor))
+            : "";
+        return "every recorded action ran, but the recorded end state did not show"
+            + where
+            + (what.Length == 0 ? "" : ": " + what);
     }
 
     // A recorded anchor as the detail names it: the node, then its text when the name alone would hide the state
@@ -664,11 +799,17 @@ internal sealed class StepTraceSession
                 yield break;
             }
 
-            var more = anchors.Count > 2 ? " (+" + (anchors.Count - 2).ToString(CultureInfo.InvariantCulture) + " more)" : "";
+            var more =
+                anchors.Count > 2 ? " (+" + (anchors.Count - 2).ToString(CultureInfo.InvariantCulture) + " more)" : "";
             yield return label + " " + string.Join(" and ", anchors.Take(2).Select(DescribeAnchor)) + more;
         }
 
-        return string.Join(", ", Part("missing", mismatch.Missing).Concat(Part("still showing", mismatch.Present)).Concat(Part("unrecorded", mismatch.UnrecordedAlerts)));
+        return string.Join(
+            ", ",
+            Part("missing", mismatch.Missing)
+                .Concat(Part("still showing", mismatch.Present))
+                .Concat(Part("unrecorded", mismatch.UnrecordedAlerts))
+        );
     }
 
     /// <summary>One store read: an entry, or why none was read.</summary>

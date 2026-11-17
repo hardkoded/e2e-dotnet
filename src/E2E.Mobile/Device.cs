@@ -99,22 +99,24 @@ public readonly record struct Coordinates(double Latitude, double Longitude);
 /// <summary>The names agent-device knows the fixture's arguments by.</summary>
 internal static class DeviceFixtureNames
 {
-    public static string WireName(this DeviceOrientation orientation) => orientation switch
-    {
-        DeviceOrientation.Portrait => "portrait",
-        DeviceOrientation.PortraitUpsideDown => "portrait-upside-down",
-        DeviceOrientation.LandscapeLeft => "landscape-left",
-        DeviceOrientation.LandscapeRight => "landscape-right",
-        _ => throw new ArgumentOutOfRangeException(nameof(orientation), orientation, "Unknown orientation."),
-    };
+    public static string WireName(this DeviceOrientation orientation) =>
+        orientation switch
+        {
+            DeviceOrientation.Portrait => "portrait",
+            DeviceOrientation.PortraitUpsideDown => "portrait-upside-down",
+            DeviceOrientation.LandscapeLeft => "landscape-left",
+            DeviceOrientation.LandscapeRight => "landscape-right",
+            _ => throw new ArgumentOutOfRangeException(nameof(orientation), orientation, "Unknown orientation."),
+        };
 
-    public static string WireName(this BiometricSensor sensor) => sensor switch
-    {
-        BiometricSensor.FaceId => "faceid",
-        BiometricSensor.TouchId => "touchid",
-        BiometricSensor.Fingerprint => "fingerprint",
-        _ => throw new ArgumentOutOfRangeException(nameof(sensor), sensor, "Unknown biometric sensor."),
-    };
+    public static string WireName(this BiometricSensor sensor) =>
+        sensor switch
+        {
+            BiometricSensor.FaceId => "faceid",
+            BiometricSensor.TouchId => "touchid",
+            BiometricSensor.Fingerprint => "fingerprint",
+            _ => throw new ArgumentOutOfRangeException(nameof(sensor), sensor, "Unknown biometric sensor."),
+        };
 }
 
 /// <summary>
@@ -171,11 +173,20 @@ public sealed class Device
             if (_session.Options.Platform == MobilePlatform.Ios)
             {
                 return state == NetworkState.Offline
-                    ? Task.FromException(DeviceSupport.Unsupported($"device.setNetwork('offline') turns off an Android device's Wi-Fi; {IosOffline}"))
+                    ? Task.FromException(
+                        DeviceSupport.Unsupported(
+                            $"device.setNetwork('offline') turns off an Android device's Wi-Fi; {IosOffline}"
+                        )
+                    )
                     : Task.CompletedTask;
             }
 
-            return Setting("device.setNetwork", "wifi", state == NetworkState.Offline ? "off" : "on", cancellationToken);
+            return Setting(
+                "device.setNetwork",
+                "wifi",
+                state == NetworkState.Offline ? "off" : "on",
+                cancellationToken
+            );
         });
 
     /// <summary>
@@ -188,7 +199,11 @@ public sealed class Device
             if (_session.Options.Platform == MobilePlatform.Ios)
             {
                 return enabled
-                    ? Task.FromException(DeviceSupport.Unsupported($"device.setAirplaneMode(true) cuts an Android device's radios; {IosOffline}"))
+                    ? Task.FromException(
+                        DeviceSupport.Unsupported(
+                            $"device.setAirplaneMode(true) cuts an Android device's radios; {IosOffline}"
+                        )
+                    )
                     : Task.CompletedTask;
             }
 
@@ -199,8 +214,16 @@ public sealed class Device
     /// Grants, denies, or resets one permission for the pinned app, which need not be running. A change terminates a
     /// running app on iOS, a revoke one on Android, so it goes before the <c>app.open()</c> a test starts with.
     /// </summary>
-    public Task SetPermissionAsync(DevicePermission permission, PermissionState state, CancellationToken cancellationToken = default) =>
-        RunAsync("device.setPermission", Enum.IsDefined(permission) ? permission.WireName() : permission.ToString(), () => _session.SetPermissionAsync(permission, state, cancellationToken));
+    public Task SetPermissionAsync(
+        DevicePermission permission,
+        PermissionState state,
+        CancellationToken cancellationToken = default
+    ) =>
+        RunAsync(
+            "device.setPermission",
+            Enum.IsDefined(permission) ? permission.WireName() : permission.ToString(),
+            () => _session.SetPermissionAsync(permission, state, cancellationToken)
+        );
 
     /// <summary>
     /// The name form of <see cref="SetPermissionAsync(DevicePermission, PermissionState, CancellationToken)"/>, for a name read from
@@ -215,8 +238,11 @@ public sealed class Device
     public Task SetPermissionAsync(string? permission, string? state, CancellationToken cancellationToken = default) =>
         RunAsync(
             "device.setPermission",
-            permission is null ? "undefined" : DeviceSession.PermissionWireNames.Contains(permission) ? permission : "unknown",
-            () => _session.SetPermissionAsync(permission, state, cancellationToken));
+            permission is null ? "undefined"
+                : DeviceSession.PermissionWireNames.Contains(permission) ? permission
+                : "unknown",
+            () => _session.SetPermissionAsync(permission, state, cancellationToken)
+        );
 
     /// <summary>Sets the simulated location, switching location services on first on Android.</summary>
     public Task SetLocationAsync(Coordinates coordinates, CancellationToken cancellationToken = default) =>
@@ -231,31 +257,52 @@ public sealed class Device
             await Setting("device.setLocation", "location", "on", cancellationToken).ConfigureAwait(false);
         }
 
-        await _session.CommandAsync(
-            "device.setLocation",
-            DeviceMethods.SettingsUpdate,
-            _session.Selection.ToArgs(
-                ("setting", JsonValue.Create("location")),
-                ("state", JsonValue.Create("set")),
-                ("latitude", JsonValue.Create(coordinates.Latitude)),
-                ("longitude", JsonValue.Create(coordinates.Longitude))),
-            cancellationToken).ConfigureAwait(false);
+        await _session
+            .CommandAsync(
+                "device.setLocation",
+                DeviceMethods.SettingsUpdate,
+                _session.Selection.ToArgs(
+                    ("setting", JsonValue.Create("location")),
+                    ("state", JsonValue.Create("set")),
+                    ("latitude", JsonValue.Create(coordinates.Latitude)),
+                    ("longitude", JsonValue.Create(coordinates.Longitude))
+                ),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>Turns simulated location off. On Android that is location services off, until the next <see cref="SetLocationAsync"/>.</summary>
     public Task ClearLocationAsync(CancellationToken cancellationToken = default) =>
-        RunAsync("device.clearLocation", "", () => Setting("device.clearLocation", "location", "off", cancellationToken));
+        RunAsync("device.clearLocation", "", () =>
+            Setting("device.clearLocation", "location", "off", cancellationToken)
+        );
 
     /// <summary>Sets the system appearance.</summary>
     public Task SetAppearanceAsync(Appearance appearance, CancellationToken cancellationToken = default) =>
-        RunAsync("device.setAppearance", appearance == Appearance.Dark ? "dark" : "light", () => Setting("device.setAppearance", "appearance", appearance == Appearance.Dark ? "dark" : "light", cancellationToken));
+        RunAsync("device.setAppearance", appearance == Appearance.Dark ? "dark" : "light", () =>
+            Setting(
+                "device.setAppearance",
+                "appearance",
+                appearance == Appearance.Dark ? "dark" : "light",
+                cancellationToken
+            )
+        );
 
     /// <summary>Rotates the device.</summary>
     public Task SetOrientationAsync(DeviceOrientation orientation, CancellationToken cancellationToken = default) =>
-        RunAsync("device.setOrientation", orientation.WireName(), () => _session.ScreenCommandAsync(
-            "device.setOrientation",
-            (client, token) => client.CallAsync(DeviceMethods.CommandOrientation, _session.Selection.ToArgs(("orientation", JsonValue.Create(orientation.WireName()))), token),
-            cancellationToken));
+        RunAsync("device.setOrientation", orientation.WireName(), () =>
+            _session.ScreenCommandAsync(
+                "device.setOrientation",
+                (client, token) =>
+                    client.CallAsync(
+                        DeviceMethods.CommandOrientation,
+                        _session.Selection.ToArgs(("orientation", JsonValue.Create(orientation.WireName()))),
+                        token
+                    ),
+                cancellationToken
+            )
+        );
 
     /// <summary>
     /// Puts a foldable simulator or emulator in a hinge pose. On the iPhone Duo it resolves once agent-device reads the
@@ -269,7 +316,16 @@ public sealed class Device
     /// <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     public Task FoldAsync(FoldPose pose, CancellationToken cancellationToken = default) =>
-        RunAsync("device.fold", pose switch { FoldPose.Closed => "closed", FoldPose.HalfOpen => "half-open", _ => "open" }, () => _session.FoldAsync(pose, cancellationToken));
+        RunAsync(
+            "device.fold",
+            pose switch
+            {
+                FoldPose.Closed => "closed",
+                FoldPose.HalfOpen => "half-open",
+                _ => "open",
+            },
+            () => _session.FoldAsync(pose, cancellationToken)
+        );
 
     /// <summary>
     /// Simulates one biometric attempt on the open app. <c>faceid</c> and <c>touchid</c> work on an iOS simulator;
@@ -277,17 +333,41 @@ public sealed class Device
     /// pair is <c>UNSUPPORTED_CAPABILITY</c>. An Android app's prompt reads the touch only once the device has a
     /// screen lock and an enrolled fingerprint, which <see cref="EnrollBiometricsAsync"/> cannot set up.
     /// </summary>
-    public Task SetBiometricsAsync(BiometricSensor sensor, BiometricResult result, CancellationToken cancellationToken = default) =>
-        RunAsync("device.setBiometrics", "", () => Setting("device.setBiometrics", sensor.WireName(), result == BiometricResult.Match ? "match" : "nonmatch", cancellationToken));
+    public Task SetBiometricsAsync(
+        BiometricSensor sensor,
+        BiometricResult result,
+        CancellationToken cancellationToken = default
+    ) =>
+        RunAsync("device.setBiometrics", "", () =>
+            Setting(
+                "device.setBiometrics",
+                sensor.WireName(),
+                result == BiometricResult.Match ? "match" : "nonmatch",
+                cancellationToken
+            )
+        );
 
     /// <summary>
     /// Enrolls or unenrolls the simulator's Face ID or Touch ID. On Android or a physical iOS device it is
     /// <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
-    public Task EnrollBiometricsAsync(BiometricSensor sensor, bool enrolled, CancellationToken cancellationToken = default) =>
-        RunAsync("device.enrollBiometrics", "", () => sensor == BiometricSensor.Fingerprint
-            ? Task.FromException(new TestException("INVALID_ARGUMENT", "enrollBiometrics takes the simulator's Face ID or Touch ID"))
-            : Setting("device.enrollBiometrics", sensor.WireName(), enrolled ? "enroll" : "unenroll", cancellationToken));
+    public Task EnrollBiometricsAsync(
+        BiometricSensor sensor,
+        bool enrolled,
+        CancellationToken cancellationToken = default
+    ) =>
+        RunAsync("device.enrollBiometrics", "", () =>
+            sensor == BiometricSensor.Fingerprint
+                ? Task.FromException(
+                    new TestException("INVALID_ARGUMENT", "enrollBiometrics takes the simulator's Face ID or Touch ID")
+                )
+                : Setting(
+                    "device.enrollBiometrics",
+                    sensor.WireName(),
+                    enrolled ? "enroll" : "unenroll",
+                    cancellationToken
+                )
+        );
 
     /// <summary>
     /// Installs a build (an iOS <c>.app</c> bundle or an Android <c>.apk</c>, resolved against the project root) on the
@@ -299,16 +379,28 @@ public sealed class Device
     /// <c>AppPath</c>, or when <see cref="InstallAppOptions.Reinstall"/> is set with no <see cref="InstallAppOptions.App"/> and no app
     /// pinned (no <c>BundleId</c>, build not installed yet).
     /// </summary>
-    public Task<InstalledApp> InstallAppAsync(string? appPath = null, InstallAppOptions? options = null, CancellationToken cancellationToken = default) =>
-        RunAsync("device.installApp", appPath ?? _session.Options.App.AppPath ?? "appPath", () => _session.InstallAppAsync(appPath, options, cancellationToken));
+    public Task<InstalledApp> InstallAppAsync(
+        string? appPath = null,
+        InstallAppOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) =>
+        RunAsync("device.installApp", appPath ?? _session.Options.App.AppPath ?? "appPath", () =>
+            _session.InstallAppAsync(appPath, options, cancellationToken)
+        );
 
     /// <summary>
     /// Brings an app to the foreground. <see cref="OpenAppOptions.Relaunch"/> restarts it fresh. Its launch arguments and
     /// permissions apply to this launch alone. The target's own apply to a relaunch of the pinned app, and to no
     /// foreground-only open.
     /// </summary>
-    public Task OpenAppAsync(string app, OpenAppOptions? options = null, CancellationToken cancellationToken = default) =>
-        RunAsync("device.openApp", DeviceLinks.AppLabel(app), () => _session.OpenAppAsync(app, options, cancellationToken));
+    public Task OpenAppAsync(
+        string app,
+        OpenAppOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) =>
+        RunAsync("device.openApp", DeviceLinks.AppLabel(app), () =>
+            _session.OpenAppAsync(app, options, cancellationToken)
+        );
 
     /// <summary>
     /// Opens a deep link (<c>myapp://orders/42</c>) or a web link (<c>https://...</c>) into <paramref name="app"/> (default:
@@ -320,7 +412,9 @@ public sealed class Device
     /// query, or fragment, where a login or a magic link's token rides. A string that does not parse shows as <c>&lt;link&gt;</c>, never as typed.
     /// </summary>
     public Task OpenLinkAsync(string url, string? app = null, CancellationToken cancellationToken = default) =>
-        RunAsync("device.openLink", DeviceLinks.LinkLabel(url), () => _session.OpenLinkAsync(DeviceLinks.LinkTarget(url), app, cancellationToken));
+        RunAsync("device.openLink", DeviceLinks.LinkLabel(url), () =>
+            _session.OpenLinkAsync(DeviceLinks.LinkTarget(url), app, cancellationToken)
+        );
 
     /// <summary>
     /// Terminates the session's app and ends the session, so the next <see cref="OpenAppAsync"/> launches it fresh. Until
@@ -345,7 +439,9 @@ public sealed class Device
 
     private async Task<ForegroundApp> ForegroundAppCoreAsync(CancellationToken cancellationToken)
     {
-        var state = await _session.CommandAsync("device.foregroundApp", DeviceMethods.CommandAppState, new JsonObject(), cancellationToken).ConfigureAwait(false);
+        var state = await _session
+            .CommandAsync("device.foregroundApp", DeviceMethods.CommandAppState, new JsonObject(), cancellationToken)
+            .ConfigureAwait(false);
         if (Text(state?["package"]) is { } package)
         {
             return new ForegroundApp(package, package);
@@ -356,18 +452,40 @@ public sealed class Device
 
     /// <summary>Sends the device to its home screen.</summary>
     public Task HomeAsync(CancellationToken cancellationToken = default) =>
-        RunAsync("device.home", "", () => _session.ScreenCommandAsync("device.home", (client, token) => client.CallAsync(DeviceMethods.CommandHome, _session.Selection.ToArgs(), token), cancellationToken));
+        RunAsync("device.home", "", () =>
+            _session.ScreenCommandAsync(
+                "device.home",
+                (client, token) => client.CallAsync(DeviceMethods.CommandHome, _session.Selection.ToArgs(), token),
+                cancellationToken
+            )
+        );
 
     /// <summary>Navigates back once (in-app back). It settles as <see cref="MobileOptions.Settle"/> and <see cref="MobileOptions.SettleMilliseconds"/> say, which a test's own steps do not.</summary>
     public Task BackAsync(CancellationToken cancellationToken = default) =>
-        RunAsync("device.back", "", () => _session.ScreenCommandAsync("device.back", (client, token) => client.CallAsync(DeviceMethods.CommandBack, _session.SettleArgs(), token), cancellationToken));
+        RunAsync("device.back", "", () =>
+            _session.ScreenCommandAsync(
+                "device.back",
+                (client, token) => client.CallAsync(DeviceMethods.CommandBack, _session.SettleArgs(), token),
+                cancellationToken
+            )
+        );
 
     /// <summary>Accepts or dismisses the visible system alert.</summary>
     public Task AlertAsync(AlertAction action, CancellationToken cancellationToken = default) =>
-        RunAsync("device.alert", action == AlertAction.Accept ? "accept" : "dismiss", () => _session.ScreenCommandAsync(
-            "device.alert",
-            (client, token) => client.CallAsync(DeviceMethods.CommandAlert, _session.Selection.ToArgs(("action", JsonValue.Create(action == AlertAction.Accept ? "accept" : "dismiss"))), token),
-            cancellationToken));
+        RunAsync("device.alert", action == AlertAction.Accept ? "accept" : "dismiss", () =>
+            _session.ScreenCommandAsync(
+                "device.alert",
+                (client, token) =>
+                    client.CallAsync(
+                        DeviceMethods.CommandAlert,
+                        _session.Selection.ToArgs(
+                            ("action", JsonValue.Create(action == AlertAction.Accept ? "accept" : "dismiss"))
+                        ),
+                        token
+                    ),
+                cancellationToken
+            )
+        );
 
     /// <summary>
     /// Dismisses the soft keyboard: the keyboard's own dismiss key where it has one (Android, iPad), else the way a user
@@ -391,11 +509,14 @@ public sealed class Device
 
     private async Task<string> ClipboardCoreAsync(CancellationToken cancellationToken)
     {
-        var result = await _session.CommandAsync(
-            "device.clipboard",
-            DeviceMethods.CommandClipboard,
-            _session.Selection.ToArgs(("action", JsonValue.Create("read"))),
-            cancellationToken).ConfigureAwait(false);
+        var result = await _session
+            .CommandAsync(
+                "device.clipboard",
+                DeviceMethods.CommandClipboard,
+                _session.Selection.ToArgs(("action", JsonValue.Create("read"))),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         return Text(result?["action"]) == "read" ? Text(result?["text"]) ?? "" : "";
     }
 
@@ -406,30 +527,41 @@ public sealed class Device
     public Task SetClipboardAsync(string text, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(text);
-        return RunAsync("device.setClipboard", text.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + " chars", () => _session.CommandAsync(
+        return RunAsync(
             "device.setClipboard",
-            DeviceMethods.CommandClipboard,
-            _session.Selection.ToArgs(("action", JsonValue.Create("write")), ("text", JsonValue.Create(text))),
-            cancellationToken));
+            text.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + " chars",
+            () =>
+                _session.CommandAsync(
+                    "device.setClipboard",
+                    DeviceMethods.CommandClipboard,
+                    _session.Selection.ToArgs(("action", JsonValue.Create("write")), ("text", JsonValue.Create(text))),
+                    cancellationToken
+                )
+        );
     }
 
     /// <summary>Runs one fixture call as a recorded <c>resource</c> step of the attempt, or as it is for a session no test harness started.</summary>
     private async Task RunAsync(string api, string label, Func<Task> body) =>
         await RunAsync(api, label, async () =>
-        {
-            await body().ConfigureAwait(false);
-            return true;
-        }).ConfigureAwait(false);
+            {
+                await body().ConfigureAwait(false);
+                return true;
+            })
+            .ConfigureAwait(false);
 
     private Task<T> RunAsync<T>(string api, string label, Func<Task<T>> body) =>
-        _session.FixtureContextOrNull is { } context ? context.RunOperationAsync(StepKind.Resource, api, label, body) : body();
+        _session.FixtureContextOrNull is { } context
+            ? context.RunOperationAsync(StepKind.Resource, api, label, body)
+            : body();
 
     private Task Setting(string label, string setting, string state, CancellationToken cancellationToken) =>
         _session.CommandAsync(
             label,
             DeviceMethods.SettingsUpdate,
             _session.Selection.ToArgs(("setting", JsonValue.Create(setting)), ("state", JsonValue.Create(state))),
-            cancellationToken);
+            cancellationToken
+        );
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 }

@@ -68,9 +68,11 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
         using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(context, ChurnPage));
         var turns = 0;
         // The ref comes from the newest screen that lists the button, the way a model reads its history.
-        var model = new ScriptedModel(request => turns++ < 3
-            ? ModelResponses.Call("tap", new { target = ButtonRef(request) })
-            : ModelResponses.Done("passed", "tapped three times"));
+        var model = new ScriptedModel(request =>
+            turns++ < 3
+                ? ModelResponses.Call("tap", new { target = ButtonRef(request) })
+                : ModelResponses.Done("passed", "tapped three times")
+        );
 
         var (result, steps) = await RunAsync(site, model);
 
@@ -82,7 +84,11 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
         Assert.True(step.Events.Count(item => item is { Kind: StepEventKind.Observation, Name: "relocate" }) >= 1);
         foreach (var request in model.Requests.Skip(1).Take(3))
         {
-            Assert.DoesNotContain("failed", request.Messages.Last(message => message.Role == "tool").Content, StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                "failed",
+                request.Messages.Last(message => message.Role == "tool").Content,
+                StringComparison.Ordinal
+            );
         }
     }
 
@@ -103,7 +109,17 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
             var arguments = ModelResponses.Call("tap", new { target = ButtonRef(request) }).ToolCalls[0].Arguments;
             return new ModelResponse
             {
-                ToolCalls = [.. Enumerable.Range(1, 3).Select(index => new ModelToolCall { Id = "call_tap_" + index, Name = "tap", Arguments = arguments })],
+                ToolCalls =
+                [
+                    .. Enumerable
+                        .Range(1, 3)
+                        .Select(index => new ModelToolCall
+                        {
+                            Id = "call_tap_" + index,
+                            Name = "tap",
+                            Arguments = arguments,
+                        }),
+                ],
             };
         });
 
@@ -123,21 +139,26 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
         return Regex.Matches(text, @"#(e\d+) button ""Tap me""")[^1].Groups[1].Value;
     }
 
-    private static async Task<(ActResult Result, IReadOnlyList<StepRecord> Steps)> RunAsync(TinySite site, ScriptedModel model)
+    private static async Task<(ActResult Result, IReadOnlyList<StepRecord> Steps)> RunAsync(
+        TinySite site,
+        ScriptedModel model
+    )
     {
         ActResult? result = null;
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = model,
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            TestTitle = "default agent taps a control that remounts under it",
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(20),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = model,
+                BaseUrl = site.Url,
+                CacheEnabled = false,
+                TestTitle = "default agent taps a control that remounts under it",
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(20),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         Exception? error = null;
         try
         {

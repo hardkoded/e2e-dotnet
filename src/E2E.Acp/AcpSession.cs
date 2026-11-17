@@ -25,10 +25,17 @@ internal sealed record AgentLaunch(
     string? Model = null,
     string? Mode = null,
     IReadOnlyDictionary<string, object?>? SessionMeta = null,
-    string? SignIn = null);
+    string? SignIn = null
+);
 
 /// <summary>What an agent reports of a prompt turn's token use. ACP's <c>Usage</c>.</summary>
-internal sealed record TurnUsage(long TotalTokens, long InputTokens, long OutputTokens, long? CachedReadTokens, long? CachedWriteTokens);
+internal sealed record TurnUsage(
+    long TotalTokens,
+    long InputTokens,
+    long OutputTokens,
+    long? CachedReadTokens,
+    long? CachedWriteTokens
+);
 
 /// <summary>What one prompt turn reported. Upstream's <c>TurnReport</c> (<c>session.ts</c>).</summary>
 /// <param name="StartedAt">When the turn began.</param>
@@ -47,7 +54,8 @@ internal sealed record TurnReport(
     double? CostUsd,
     string Text,
     IReadOnlyList<string> Rejected,
-    IReadOnlyList<string> Ran);
+    IReadOnlyList<string> Ran
+);
 
 /// <summary>
 /// One ACP agent process and one session in it. The agent process starts in the project directory, so a command installed there
@@ -68,10 +76,16 @@ internal sealed partial class AcpSession
     private const int StderrLimit = 2_000;
 
     /// <summary>Tool kinds an agent uses for its own tools and subagents; never a call of ours without an adapter's mark.</summary>
-    private static readonly HashSet<string> BuiltInKinds = new(["read", "edit", "delete", "move", "search", "execute", "fetch", "think", "switch_mode"], StringComparer.Ordinal);
+    private static readonly HashSet<string> BuiltInKinds = new(
+        ["read", "edit", "delete", "move", "search", "execute", "fetch", "think", "switch_mode"],
+        StringComparer.Ordinal
+    );
 
     /// <summary>The fields of an MCP call's raw input as adapters report it.</summary>
-    private static readonly HashSet<string> McpCallFields = new(["server", "serverName", "server_name", "tool", "toolName", "tool_name", "arguments", "args", "input"], StringComparer.Ordinal);
+    private static readonly HashSet<string> McpCallFields = new(
+        ["server", "serverName", "server_name", "tool", "toolName", "tool_name", "arguments", "args", "input"],
+        StringComparer.Ordinal
+    );
 
     private static readonly UTF8Encoding Utf8 = new(false);
 
@@ -118,7 +132,12 @@ internal sealed partial class AcpSession
     /// stops the agent and the tool server and fails. <paramref name="onOwnTool"/> hears of every tool of the agent's own that runs
     /// without asking, as soon as it starts or finishes. Upstream's <c>startSession</c>.
     /// </summary>
-    public static async Task<AcpSession> StartAsync(AgentLaunch launch, IReadOnlyList<ServedTool> tools, CancellationToken token, Action<string>? onOwnTool = null)
+    public static async Task<AcpSession> StartAsync(
+        AgentLaunch launch,
+        IReadOnlyList<ServedTool> tools,
+        CancellationToken token,
+        Action<string>? onOwnTool = null
+    )
     {
         token.ThrowIfCancellationRequested();
         var session = new AcpSession(launch, tools, onOwnTool ?? (_ => { }));
@@ -137,7 +156,10 @@ internal sealed partial class AcpSession
 
             if (error is AcpRequestException { Code: AuthRequired })
             {
-                throw new InvalidOperationException($"the agent is not signed in{(launch.SignIn is null ? "" : $": {launch.SignIn}")}", error);
+                throw new InvalidOperationException(
+                    $"the agent is not signed in{(launch.SignIn is null ? "" : $": {launch.SignIn}")}",
+                    error
+                );
             }
 
             throw WithDetails(error);
@@ -159,10 +181,17 @@ internal sealed partial class AcpSession
         JsonElement response;
         try
         {
-            response = await _connection!.RequestAsync(
-                "session/prompt",
-                new JsonObject { ["sessionId"] = _sessionId, ["prompt"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = text }) },
-                _lifetimeToken).ConfigureAwait(false);
+            response = await _connection!
+                .RequestAsync(
+                    "session/prompt",
+                    new JsonObject
+                    {
+                        ["sessionId"] = _sessionId,
+                        ["prompt"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = text }),
+                    },
+                    _lifetimeToken
+                )
+                .ConfigureAwait(false);
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
@@ -179,7 +208,8 @@ internal sealed partial class AcpSession
                 _cost is { } cost ? cost - (costBefore ?? 0) : null,
                 _turn.Text.ToString(),
                 [.. _turn.Rejected.Values],
-                [.. _turn.Ran.Values]);
+                [.. _turn.Ran.Values]
+            );
         }
     }
 
@@ -191,11 +221,14 @@ internal sealed partial class AcpSession
             return;
         }
 
-        _ = _connection.NotifyAsync("session/cancel", new JsonObject { ["sessionId"] = _sessionId }, CancellationToken.None).ContinueWith(
-            static task => _ = task.Exception,
-            CancellationToken.None,
-            TaskContinuationOptions.OnlyOnFaulted,
-            TaskScheduler.Default);
+        _ = _connection
+            .NotifyAsync("session/cancel", new JsonObject { ["sessionId"] = _sessionId }, CancellationToken.None)
+            .ContinueWith(
+                static task => _ = task.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default
+            );
     }
 
     /// <summary>
@@ -213,11 +246,18 @@ internal sealed partial class AcpSession
         {
             if (_canClose && _sessionId is not null && _connection is not null)
             {
-                _ = _connection.RequestAsync("session/close", new JsonObject { ["sessionId"] = _sessionId }, CancellationToken.None).ContinueWith(
-                    static task => _ = task.Exception,
-                    CancellationToken.None,
-                    TaskContinuationOptions.OnlyOnFaulted,
-                    TaskScheduler.Default);
+                _ = _connection
+                    .RequestAsync(
+                        "session/close",
+                        new JsonObject { ["sessionId"] = _sessionId },
+                        CancellationToken.None
+                    )
+                    .ContinueWith(
+                        static task => _ = task.Exception,
+                        CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnFaulted,
+                        TaskScheduler.Default
+                    );
             }
         }
         finally
@@ -227,30 +267,54 @@ internal sealed partial class AcpSession
     }
 
     private static string? Text(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     private static long? Number(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var number) ? number : null;
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetInt64(out var number)
+            ? number
+            : null;
 
     private static TurnUsage? UsageOf(JsonElement response)
     {
-        if (response.ValueKind != JsonValueKind.Object || !response.TryGetProperty("usage", out var usage) || usage.ValueKind != JsonValueKind.Object)
+        if (
+            response.ValueKind != JsonValueKind.Object
+            || !response.TryGetProperty("usage", out var usage)
+            || usage.ValueKind != JsonValueKind.Object
+        )
         {
             return null;
         }
 
-        return new TurnUsage(Number(usage, "totalTokens") ?? 0, Number(usage, "inputTokens") ?? 0, Number(usage, "outputTokens") ?? 0, Number(usage, "cachedReadTokens"), Number(usage, "cachedWriteTokens"));
+        return new TurnUsage(
+            Number(usage, "totalTokens") ?? 0,
+            Number(usage, "inputTokens") ?? 0,
+            Number(usage, "outputTokens") ?? 0,
+            Number(usage, "cachedReadTokens"),
+            Number(usage, "cachedWriteTokens")
+        );
     }
 
     /// <summary><paramref name="error"/> with what the agent said about it beyond its message appended, if anything.</summary>
     private static Exception WithDetails(Exception error) =>
-        error is AcpRequestException request && DetailsOf(request) is { } details ? new InvalidOperationException($"{error.Message}: {details}", error) : error;
+        error is AcpRequestException request && DetailsOf(request) is { } details
+            ? new InvalidOperationException($"{error.Message}: {details}", error)
+            : error;
 
     /// <summary>What an agent said about a refused request beyond its message: the Claude adapter's <c>data.details</c>, the Codex adapter's <c>data.message</c>.</summary>
     private static string? DetailsOf(AcpRequestException error)
     {
         var data = error.ErrorData;
-        var details = data.ValueKind == JsonValueKind.Object ? Text(data, "details") ?? Text(data, "message") : data.ValueKind == JsonValueKind.String ? data.GetString() : null;
+        var details =
+            data.ValueKind == JsonValueKind.Object ? Text(data, "details") ?? Text(data, "message")
+            : data.ValueKind == JsonValueKind.String ? data.GetString()
+            : null;
         return string.IsNullOrEmpty(details) ? null : details;
     }
 
@@ -258,14 +322,23 @@ internal sealed partial class AcpSession
     private static List<string> SelectValues(JsonElement option)
     {
         var values = new List<string>();
-        if (Text(option, "type") != "select" || !option.TryGetProperty("options", out var entries) || entries.ValueKind != JsonValueKind.Array)
+        if (
+            Text(option, "type") != "select"
+            || !option.TryGetProperty("options", out var entries)
+            || entries.ValueKind != JsonValueKind.Array
+        )
         {
             return values;
         }
 
         foreach (var entry in entries.EnumerateArray())
         {
-            if (entry.ValueKind == JsonValueKind.Object && entry.TryGetProperty("group", out _) && entry.TryGetProperty("options", out var inner) && inner.ValueKind == JsonValueKind.Array)
+            if (
+                entry.ValueKind == JsonValueKind.Object
+                && entry.TryGetProperty("group", out _)
+                && entry.TryGetProperty("options", out var inner)
+                && inner.ValueKind == JsonValueKind.Array
+            )
             {
                 values.AddRange(inner.EnumerateArray().Select(item => Text(item, "value")).OfType<string>());
             }
@@ -278,7 +351,8 @@ internal sealed partial class AcpSession
         return values;
     }
 
-    private static string DisplayOf(JsonElement value) => value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetRawText();
+    private static string DisplayOf(JsonElement value) =>
+        value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetRawText();
 
     private static string LastLine(string text) => text.Trim().Split('\n')[^1].TrimEnd('\r');
 
@@ -287,33 +361,63 @@ internal sealed partial class AcpSession
         _server = McpToolServer.Start(_tools);
         StartProcess();
 
-        var initialize = await RequestAsync("initialize", new JsonObject
-        {
-            ["protocolVersion"] = ProtocolVersion,
-            ["clientCapabilities"] = new JsonObject { ["fs"] = new JsonObject { ["readTextFile"] = false, ["writeTextFile"] = false }, ["terminal"] = false },
-            ["clientInfo"] = new JsonObject { ["name"] = "e2e", ["version"] = "1" },
-        }, token).ConfigureAwait(false);
+        var initialize = await RequestAsync(
+                "initialize",
+                new JsonObject
+                {
+                    ["protocolVersion"] = ProtocolVersion,
+                    ["clientCapabilities"] = new JsonObject
+                    {
+                        ["fs"] = new JsonObject { ["readTextFile"] = false, ["writeTextFile"] = false },
+                        ["terminal"] = false,
+                    },
+                    ["clientInfo"] = new JsonObject { ["name"] = "e2e", ["version"] = "1" },
+                },
+                token
+            )
+            .ConfigureAwait(false);
         if (Number(initialize, "protocolVersion") != ProtocolVersion)
         {
-            throw new ConfigurationException("INVALID_CONFIG", $"{_launch.Command} speaks another version of the Agent Client Protocol than {ProtocolVersion}, which this client needs");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"{_launch.Command} speaks another version of the Agent Client Protocol than {ProtocolVersion}, which this client needs"
+            );
         }
 
         JsonElement capabilities = initialize.TryGetProperty("agentCapabilities", out var found) ? found : default;
-        var http = capabilities.ValueKind == JsonValueKind.Object && capabilities.TryGetProperty("mcpCapabilities", out var mcp) && mcp.ValueKind == JsonValueKind.Object
-            && mcp.TryGetProperty("http", out var flag) && flag.ValueKind == JsonValueKind.True;
+        var http =
+            capabilities.ValueKind == JsonValueKind.Object
+            && capabilities.TryGetProperty("mcpCapabilities", out var mcp)
+            && mcp.ValueKind == JsonValueKind.Object
+            && mcp.TryGetProperty("http", out var flag)
+            && flag.ValueKind == JsonValueKind.True;
         if (!http)
         {
-            throw new ConfigurationException("INVALID_CONFIG", $"{_launch.Command} does not accept MCP servers over HTTP, which the step tools need");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"{_launch.Command} does not accept MCP servers over HTTP, which the step tools need"
+            );
         }
 
-        _canClose = capabilities.TryGetProperty("sessionCapabilities", out var sessionCapabilities) && sessionCapabilities.ValueKind == JsonValueKind.Object
-            && sessionCapabilities.TryGetProperty("close", out var close) && close.ValueKind != JsonValueKind.Null;
+        _canClose =
+            capabilities.TryGetProperty("sessionCapabilities", out var sessionCapabilities)
+            && sessionCapabilities.ValueKind == JsonValueKind.Object
+            && sessionCapabilities.TryGetProperty("close", out var close)
+            && close.ValueKind != JsonValueKind.Null;
         AgentName = initialize.TryGetProperty("agentInfo", out var info) ? Text(info, "name") : null;
 
         var parameters = new JsonObject
         {
             ["cwd"] = _directory,
-            ["mcpServers"] = new JsonArray(new JsonObject { ["type"] = "http", ["name"] = McpToolServer.ServerName, ["url"] = _server.Url, ["headers"] = new JsonArray() }),
+            ["mcpServers"] = new JsonArray(
+                new JsonObject
+                {
+                    ["type"] = "http",
+                    ["name"] = McpToolServer.ServerName,
+                    ["url"] = _server.Url,
+                    ["headers"] = new JsonArray(),
+                }
+            ),
         };
         if (_launch.SessionMeta is not null)
         {
@@ -321,22 +425,37 @@ internal sealed partial class AcpSession
         }
 
         var session = await RequestAsync("session/new", parameters, token).ConfigureAwait(false);
-        _sessionId = Text(session, "sessionId") ?? throw new InvalidOperationException("the agent answered session/new without a session id");
+        _sessionId = Text(session, "sessionId")
+            ?? throw new InvalidOperationException("the agent answered session/new without a session id");
 
-        var options = session.TryGetProperty("configOptions", out var configOptions) && configOptions.ValueKind == JsonValueKind.Array ? configOptions.EnumerateArray().ToList() : [];
-        JsonElement? modelOption = options.Where(option => Text(option, "category") == "model" || Text(option, "id") == "model").Select(option => (JsonElement?)option).FirstOrDefault();
+        var options =
+            session.TryGetProperty("configOptions", out var configOptions)
+            && configOptions.ValueKind == JsonValueKind.Array
+                ? configOptions.EnumerateArray().ToList()
+                : [];
+        JsonElement? modelOption = options
+            .Where(option => Text(option, "category") == "model" || Text(option, "id") == "model")
+            .Select(option => (JsonElement?)option)
+            .FirstOrDefault();
         if (_launch.Model is { } model)
         {
             var offered = modelOption is { } choice ? SelectValues(choice) : [];
             if (modelOption is null || !offered.Contains(model))
             {
-                throw new ConfigurationException("INVALID_CONFIG", $"the agent does not offer model {model}{(offered.Count == 0 ? "" : $"; it offers {string.Join(", ", offered)}")}");
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"the agent does not offer model {model}{(offered.Count == 0 ? "" : $"; it offers {string.Join(", ", offered)}")}"
+                );
             }
 
             await SetConfigOptionAsync(Text(modelOption.Value, "id")!, model, token).ConfigureAwait(false);
             ModelId = model;
         }
-        else if (modelOption is { } current && Text(current, "type") == "select" && current.TryGetProperty("currentValue", out var value))
+        else if (
+            modelOption is { } current
+            && Text(current, "type") == "select"
+            && current.TryGetProperty("currentValue", out var value)
+        )
         {
             ModelId = DisplayOf(value);
         }
@@ -347,17 +466,35 @@ internal sealed partial class AcpSession
         }
     }
 
-    private async Task SelectModeAsync(JsonElement session, List<JsonElement> options, string mode, CancellationToken token)
+    private async Task SelectModeAsync(
+        JsonElement session,
+        List<JsonElement> options,
+        string mode,
+        CancellationToken token
+    )
     {
-        JsonElement? option = options.Where(entry => Text(entry, "category") == "mode").Select(entry => (JsonElement?)entry).FirstOrDefault();
+        JsonElement? option = options
+            .Where(entry => Text(entry, "category") == "mode")
+            .Select(entry => (JsonElement?)entry)
+            .FirstOrDefault();
         if (option is { } configured && SelectValues(configured).Contains(mode))
         {
             await SetConfigOptionAsync(Text(configured, "id")!, mode, token).ConfigureAwait(false);
         }
-        else if (session.TryGetProperty("modes", out var modes) && modes.ValueKind == JsonValueKind.Object && modes.TryGetProperty("availableModes", out var available)
-            && available.ValueKind == JsonValueKind.Array && available.EnumerateArray().Any(entry => Text(entry, "id") == mode))
+        else if (
+            session.TryGetProperty("modes", out var modes)
+            && modes.ValueKind == JsonValueKind.Object
+            && modes.TryGetProperty("availableModes", out var available)
+            && available.ValueKind == JsonValueKind.Array
+            && available.EnumerateArray().Any(entry => Text(entry, "id") == mode)
+        )
         {
-            await RequestAsync("session/set_mode", new JsonObject { ["sessionId"] = _sessionId, ["modeId"] = mode }, token).ConfigureAwait(false);
+            await RequestAsync(
+                    "session/set_mode",
+                    new JsonObject { ["sessionId"] = _sessionId, ["modeId"] = mode },
+                    token
+                )
+                .ConfigureAwait(false);
         }
         else
         {
@@ -366,7 +503,16 @@ internal sealed partial class AcpSession
     }
 
     private Task SetConfigOptionAsync(string id, string value, CancellationToken token) =>
-        RequestAsync("session/set_config_option", new JsonObject { ["sessionId"] = _sessionId, ["configId"] = id, ["value"] = value }, token);
+        RequestAsync(
+            "session/set_config_option",
+            new JsonObject
+            {
+                ["sessionId"] = _sessionId,
+                ["configId"] = id,
+                ["value"] = value,
+            },
+            token
+        );
 
     private async Task<JsonElement> RequestAsync(string method, JsonNode? parameters, CancellationToken token)
     {
@@ -401,13 +547,19 @@ internal sealed partial class AcpSession
         {
             process.Start();
         }
-        catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
+        catch (Exception error)
+            when (error is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
         {
             throw new InvalidOperationException($"could not start {_launch.Command}: {error.Message}", error);
         }
 
         _stderrReader = Task.Run(() => ReadStderrAsync(process.StandardError));
-        _connection = new JsonRpcConnection(process.StandardInput.BaseStream, process.StandardOutput, OnRequest, OnNotification);
+        _connection = new JsonRpcConnection(
+            process.StandardInput.BaseStream,
+            process.StandardOutput,
+            OnRequest,
+            OnNotification
+        );
         _connection.Start();
     }
 
@@ -454,7 +606,13 @@ internal sealed partial class AcpSession
                 }
             }
         }
-        catch (Exception error) when (error is OperationCanceledException or IOException or ObjectDisposedException or InvalidOperationException)
+        catch (Exception error)
+            when (error
+                    is OperationCanceledException
+                        or IOException
+                        or ObjectDisposedException
+                        or InvalidOperationException
+            )
         {
             // The agent is gone.
         }
@@ -518,7 +676,13 @@ internal sealed partial class AcpSession
             {
                 process.Kill(entireProcessTree: true);
             }
-            catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException or AggregateException)
+            catch (Exception error)
+                when (error
+                        is InvalidOperationException
+                            or System.ComponentModel.Win32Exception
+                            or NotSupportedException
+                            or AggregateException
+                )
             {
                 // Not started, already exited, or part of the tree could not be killed.
             }
@@ -566,7 +730,8 @@ internal sealed partial class AcpSession
             {
                 await process.WaitForExitAsync(limit.Token).ConfigureAwait(false);
             }
-            catch (Exception error) when (error is OperationCanceledException or InvalidOperationException or ObjectDisposedException)
+            catch (Exception error)
+                when (error is OperationCanceledException or InvalidOperationException or ObjectDisposedException)
             {
                 // The agent did not exit in time: try anyway.
             }
@@ -583,11 +748,17 @@ internal sealed partial class AcpSession
     }
 
     private JsonNode? OnRequest(string method, JsonElement parameters) =>
-        method == "session/request_permission" ? AnswerPermission(parameters) : throw new AcpRequestException(JsonRpcConnection.MethodNotFound, "Method not found", default);
+        method == "session/request_permission"
+            ? AnswerPermission(parameters)
+            : throw new AcpRequestException(JsonRpcConnection.MethodNotFound, "Method not found", default);
 
     private void OnNotification(string method, JsonElement parameters)
     {
-        if (method == "session/update" && parameters.ValueKind == JsonValueKind.Object && parameters.TryGetProperty("update", out var update))
+        if (
+            method == "session/update"
+            && parameters.ValueKind == JsonValueKind.Object
+            && parameters.TryGetProperty("update", out var update)
+        )
         {
             Observe(update);
         }
@@ -598,8 +769,14 @@ internal sealed partial class AcpSession
     {
         try
         {
-            if (parameters.ValueKind == JsonValueKind.Object && parameters.TryGetProperty("toolCall", out var requested) && requested.ValueKind == JsonValueKind.Object
-                && Text(requested, "toolCallId") is { } callId && parameters.TryGetProperty("options", out var options) && options.ValueKind == JsonValueKind.Array)
+            if (
+                parameters.ValueKind == JsonValueKind.Object
+                && parameters.TryGetProperty("toolCall", out var requested)
+                && requested.ValueKind == JsonValueKind.Object
+                && Text(requested, "toolCallId") is { } callId
+                && parameters.TryGetProperty("options", out var options)
+                && options.ValueKind == JsonValueKind.Array
+            )
             {
                 CallFields call;
                 lock (_turnGate)
@@ -607,7 +784,10 @@ internal sealed partial class AcpSession
                     call = _calls.GetValueOrDefault(callId)?.Merged(requested) ?? CallFields.From(requested);
                 }
 
-                var allowed = IsOurs(call, parameters.TryGetProperty("_meta", out var requestMeta) ? requestMeta : default);
+                var allowed = IsOurs(
+                    call,
+                    parameters.TryGetProperty("_meta", out var requestMeta) ? requestMeta : default
+                );
                 lock (_turnGate)
                 {
                     // Remembered, since the call's later updates may not carry what the request named it by.
@@ -627,7 +807,10 @@ internal sealed partial class AcpSession
                     var option = options.EnumerateArray().FirstOrDefault(entry => Text(entry, "kind") == kind);
                     if (option.ValueKind == JsonValueKind.Object && Text(option, "optionId") is { } optionId)
                     {
-                        return new JsonObject { ["outcome"] = new JsonObject { ["outcome"] = "selected", ["optionId"] = optionId } };
+                        return new JsonObject
+                        {
+                            ["outcome"] = new JsonObject { ["outcome"] = "selected", ["optionId"] = optionId },
+                        };
                     }
                 }
             }
@@ -654,7 +837,11 @@ internal sealed partial class AcpSession
                     // caught when it starts, so a long one cannot feed what it read to the step tools before it ends.
                     var started = call.Status is "in_progress" or "completed" or "failed";
                     var turn = _turn;
-                    var ran = started && !turn.Allowed.Contains(callId) && !turn.Rejected.ContainsKey(callId) && !turn.Ran.ContainsKey(callId);
+                    var ran =
+                        started
+                        && !turn.Allowed.Contains(callId)
+                        && !turn.Rejected.ContainsKey(callId)
+                        && !turn.Ran.ContainsKey(callId);
                     if (ran && !IsOurs(call, default))
                     {
                         title = call.Title;
@@ -669,7 +856,11 @@ internal sealed partial class AcpSession
 
                 break;
             case "agent_message_chunk":
-                if (update.TryGetProperty("content", out var content) && Text(content, "type") == "text" && Text(content, "text") is { } chunk)
+                if (
+                    update.TryGetProperty("content", out var content)
+                    && Text(content, "type") == "text"
+                    && Text(content, "text") is { } chunk
+                )
                 {
                     lock (_turnGate)
                     {
@@ -679,8 +870,13 @@ internal sealed partial class AcpSession
 
                 break;
             case "usage_update":
-                if (update.TryGetProperty("cost", out var cost) && cost.ValueKind == JsonValueKind.Object && Text(cost, "currency") == "USD"
-                    && cost.TryGetProperty("amount", out var amount) && amount.ValueKind == JsonValueKind.Number)
+                if (
+                    update.TryGetProperty("cost", out var cost)
+                    && cost.ValueKind == JsonValueKind.Object
+                    && Text(cost, "currency") == "USD"
+                    && cost.TryGetProperty("amount", out var amount)
+                    && amount.ValueKind == JsonValueKind.Number
+                )
                 {
                     lock (_turnGate)
                     {
@@ -706,11 +902,19 @@ internal sealed partial class AcpSession
         if (meta is { ValueKind: JsonValueKind.Object } && meta.Value.TryGetProperty("claudeCode", out var claude))
         {
             var prefix = $"mcp__{McpToolServer.ServerName}__";
-            return Text(claude, "toolName") is { } name && name.StartsWith(prefix, StringComparison.Ordinal) && _ours.Contains(name[prefix.Length..]);
+            return Text(claude, "toolName") is { } name
+                && name.StartsWith(prefix, StringComparison.Ordinal)
+                && _ours.Contains(name[prefix.Length..]);
         }
 
-        var marked = meta is { ValueKind: JsonValueKind.Object } && meta.Value.TryGetProperty("is_mcp_tool_call", out var flag) && flag.ValueKind == JsonValueKind.True;
-        var approval = requestMeta.ValueKind == JsonValueKind.Object && requestMeta.TryGetProperty("is_mcp_tool_approval", out var approved) && approved.ValueKind == JsonValueKind.True;
+        var marked =
+            meta is { ValueKind: JsonValueKind.Object }
+            && meta.Value.TryGetProperty("is_mcp_tool_call", out var flag)
+            && flag.ValueKind == JsonValueKind.True;
+        var approval =
+            requestMeta.ValueKind == JsonValueKind.Object
+            && requestMeta.TryGetProperty("is_mcp_tool_approval", out var approved)
+            && approved.ValueKind == JsonValueKind.True;
         if (marked || approval)
         {
             return IsMcpCall(call.RawInput);
@@ -739,8 +943,10 @@ internal sealed partial class AcpSession
 
         var server = First(fields, "server", "serverName", "server_name");
         var tool = First(fields, "tool", "toolName", "tool_name");
-        return server is { ValueKind: JsonValueKind.String } && server.Value.GetString() == McpToolServer.ServerName
-            && tool is { ValueKind: JsonValueKind.String } && _ours.Contains(tool.Value.GetString()!);
+        return server is { ValueKind: JsonValueKind.String }
+            && server.Value.GetString() == McpToolServer.ServerName
+            && tool is { ValueKind: JsonValueKind.String }
+            && _ours.Contains(tool.Value.GetString()!);
     }
 
     /// <summary>The first of these fields that is set: JavaScript's <c>??</c> over them.</summary>
@@ -770,20 +976,32 @@ internal sealed partial class AcpSession
     }
 
     /// <summary>What a tool call is known by so far: a call's updates add to what its start said.</summary>
-    private sealed record CallFields(string? Kind, string? Status, string? RawTitle, JsonElement? RawInput, JsonElement? Meta)
+    private sealed record CallFields(
+        string? Kind,
+        string? Status,
+        string? RawTitle,
+        JsonElement? RawInput,
+        JsonElement? Meta
+    )
     {
         public string Title => RawTitle ?? Kind ?? "tool";
 
         public static CallFields From(JsonElement call) => new CallFields(null, null, null, null, null).Merged(call);
 
-        public CallFields Merged(JsonElement call) => new(
-            Text(call, "kind") ?? Kind,
-            Text(call, "status") ?? Status,
-            Text(call, "title") ?? RawTitle,
-            Set(call, "rawInput") ?? RawInput,
-            Set(call, "_meta") ?? Meta);
+        public CallFields Merged(JsonElement call) =>
+            new(
+                Text(call, "kind") ?? Kind,
+                Text(call, "status") ?? Status,
+                Text(call, "title") ?? RawTitle,
+                Set(call, "rawInput") ?? RawInput,
+                Set(call, "_meta") ?? Meta
+            );
 
         private static JsonElement? Set(JsonElement call, string name) =>
-            call.ValueKind == JsonValueKind.Object && call.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null ? value : null;
+            call.ValueKind == JsonValueKind.Object
+            && call.TryGetProperty(name, out var value)
+            && value.ValueKind != JsonValueKind.Null
+                ? value
+                : null;
     }
 }

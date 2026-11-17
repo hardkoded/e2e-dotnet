@@ -18,7 +18,14 @@ public sealed class ObservationByteBudgetTests
     {
         Assert.Equal(
             262_144,
-            ObservationBudget.ObservationByteBudget(Limits with { MaxInputTokens = 1_000_000 }, new ObservationBudgetRequest(10_000, 0, false)));
+            ObservationBudget.ObservationByteBudget(
+                Limits with
+                {
+                    MaxInputTokens = 1_000_000,
+                },
+                new ObservationBudgetRequest(10_000, 0, false)
+            )
+        );
     }
 
     [Fact]
@@ -27,15 +34,22 @@ public sealed class ObservationByteBudgetTests
         const int fixedBytes = 100_000;
         Assert.Equal(
             Limits.MaxInputTokens - fixedBytes - InstructionReserve,
-            ObservationBudget.ObservationByteBudget(Limits, new ObservationBudgetRequest(fixedBytes, 0, false)));
+            ObservationBudget.ObservationByteBudget(Limits, new ObservationBudgetRequest(fixedBytes, 0, false))
+        );
     }
 
     [Fact]
     public void Cuts_the_screen_by_the_measured_instruction_not_a_fixed_reserve()
     {
         const int fixedBytes = 100_000;
-        var shortBudget = ObservationBudget.ObservationByteBudget(Limits, new ObservationBudgetRequest(fixedBytes, 100, false));
-        var longBudget = ObservationBudget.ObservationByteBudget(Limits, new ObservationBudgetRequest(fixedBytes, 7_888, false));
+        var shortBudget = ObservationBudget.ObservationByteBudget(
+            Limits,
+            new ObservationBudgetRequest(fixedBytes, 100, false)
+        );
+        var longBudget = ObservationBudget.ObservationByteBudget(
+            Limits,
+            new ObservationBudgetRequest(fixedBytes, 7_888, false)
+        );
 
         Assert.Equal(7_788, shortBudget - longBudget);
         Assert.Equal(Limits.MaxInputTokens - fixedBytes - 7_888 - InstructionReserve, longBudget);
@@ -54,6 +68,9 @@ public sealed class ObservationByteBudgetTests
     [Fact]
     public void Never_falls_below_the_floor_a_tree_can_still_name_controls_under()
     {
-        Assert.Equal(1_024, ObservationBudget.ObservationByteBudget(Limits, new ObservationBudgetRequest(1_000_000, 0, true)));
+        Assert.Equal(
+            1_024,
+            ObservationBudget.ObservationByteBudget(Limits, new ObservationBudgetRequest(1_000_000, 0, true))
+        );
     }
 }

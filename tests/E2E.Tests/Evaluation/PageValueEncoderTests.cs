@@ -32,12 +32,16 @@ public sealed class PageValueEncoderTests
             """,
             null,
             hasArg: false,
-            CancellationToken.None);
+            CancellationToken.None
+        );
         using var parsed = JsonDocument.Parse(result!.Value.GetString()!);
         var value = parsed.RootElement;
         return (
-            value.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String ? text.GetString() : null,
-            value.TryGetProperty("invalid", out var invalid) ? invalid.GetString() : null);
+            value.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String
+                ? text.GetString()
+                : null,
+            value.TryGetProperty("invalid", out var invalid) ? invalid.GetString() : null
+        );
     }
 
     [Theory]
@@ -49,13 +53,19 @@ public sealed class PageValueEncoderTests
     {
         await RunAsync(string.Empty, async session =>
         {
-            var expected = await ((IBrowserSession)session).EvaluateAsync("() => JSON.stringify(" + valueSource + ")", null, hasArg: false, CancellationToken.None);
+            var expected = await ((IBrowserSession)session).EvaluateAsync(
+                "() => JSON.stringify(" + valueSource + ")",
+                null,
+                hasArg: false,
+                CancellationToken.None
+            );
             var (text, invalid) = await EncodeAsync(session, valueSource);
             Assert.Null(invalid);
             Assert.NotNull(text);
             Assert.Equal(
                 JsonSerializer.Serialize(JsonDocument.Parse(expected!.Value.GetString()!).RootElement),
-                JsonSerializer.Serialize(JsonDocument.Parse(text).RootElement));
+                JsonSerializer.Serialize(JsonDocument.Parse(text).RootElement)
+            );
         });
     }
 
@@ -94,10 +104,16 @@ public sealed class PageValueEncoderTests
     {
         await RunAsync(string.Empty, async session =>
         {
-            var (shared, sharedInvalid) = await EncodeAsync(session, "(() => { const shared = { sku: 'a' }; return [shared, shared]; })()");
+            var (shared, sharedInvalid) = await EncodeAsync(
+                session,
+                "(() => { const shared = { sku: 'a' }; return [shared, shared]; })()"
+            );
             Assert.Null(sharedInvalid);
             Assert.Equal("[{\"sku\":\"a\"},{\"sku\":\"a\"}]", shared);
-            var (_, cycle) = await EncodeAsync(session, "(() => { const cyclic = {}; cyclic.self = cyclic; return cyclic; })()");
+            var (_, cycle) = await EncodeAsync(
+                session,
+                "(() => { const cyclic = {}; cyclic.self = cyclic; return cyclic; })()"
+            );
             Assert.Equal("contains a cycle", cycle);
         });
     }

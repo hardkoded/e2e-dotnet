@@ -21,10 +21,20 @@ public sealed class WebScreencastTests
         };
         foreach (var screencast in invalid)
         {
-            Assert.Equal("INVALID_CONFIG", Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Screencast = screencast })).Code);
+            Assert.Equal(
+                "INVALID_CONFIG",
+                Assert
+                    .Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Screencast = screencast }))
+                    .Code
+            );
         }
 
-        _ = new WebEngine(new WebEngineOptions { Screencast = new WebScreencastOptions { Size = new WebViewport(1280, 720), Quality = 100 } });
+        _ = new WebEngine(
+            new WebEngineOptions
+            {
+                Screencast = new WebScreencastOptions { Size = new WebViewport(1280, 720), Quality = 100 },
+            }
+        );
         _ = new WebEngine(new WebEngineOptions { Screencast = new WebScreencastOptions { Quality = 0 } });
     }
 }

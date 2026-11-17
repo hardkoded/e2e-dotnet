@@ -17,10 +17,18 @@ public sealed class AFramesDocumentTests
             """<iframe style="margin:13px;border:7px solid;padding:5px;width:200px;height:100px" srcdoc="<button>Framed</button>"></iframe>""",
             async session =>
             {
-                var observed = VisibilitySupport.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).First(candidate => candidate.Name == "Framed");
-                var box = await WebEngine.SurfaceOf(session)!.Page().FrameLocator("iframe").GetByRole(AriaRole.Button).BoundingBoxAsync();
+                var observed = VisibilitySupport
+                    .Flatten((await session.ObserveAsync(CancellationToken.None)).Roots)
+                    .First(candidate => candidate.Name == "Framed");
+                var box = await WebEngine
+                    .SurfaceOf(session)!
+                    .Page()
+                    .FrameLocator("iframe")
+                    .GetByRole(AriaRole.Button)
+                    .BoundingBoxAsync();
                 return (observed, box!);
-            });
+            }
+        );
         Assert.Equal(expected.X, node.Rect!.X, 3);
         Assert.Equal(expected.Y, node.Rect.Y, 3);
         Assert.Equal(expected.Width, node.Rect.Width, 3);

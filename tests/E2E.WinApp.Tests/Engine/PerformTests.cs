@@ -11,7 +11,10 @@ namespace E2E.WinApp.Tests.Engine;
 /// <summary>.NET-only: upstream has no Windows engine. Each contract action as the driver calls it makes.</summary>
 public sealed class PerformTests
 {
-    private static async Task<(Harness Harness, WindowSession Session, Observation Observation)> OpenAsync(WinAppOptions? options = null, RawElement? tree = null)
+    private static async Task<(Harness Harness, WindowSession Session, Observation Observation)> OpenAsync(
+        WinAppOptions? options = null,
+        RawElement? tree = null
+    )
     {
         var harness = new Harness(options);
         var session = await harness.OpenAsync(tree);
@@ -26,7 +29,11 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        await session.PerformAsync(Harness.ByTestId(observation, "save-button"), new LocatorAction.Tap(), CancellationToken.None);
+        await session.PerformAsync(
+            Harness.ByTestId(observation, "save-button"),
+            new LocatorAction.Tap(),
+            CancellationToken.None
+        );
         Assert.Equal(["invoke btn-save Auto"], harness.Driver.Calls);
         Assert.Empty(harness.Settles);
     }
@@ -36,7 +43,11 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        await session.PerformAsync(Harness.ByName(observation, "Settings are saved on exit"), new LocatorAction.Tap(), CancellationToken.None);
+        await session.PerformAsync(
+            Harness.ByName(observation, "Settings are saved on exit"),
+            new LocatorAction.Tap(),
+            CancellationToken.None
+        );
         Assert.Equal([$"foreground {FakeWindowDriver.MainHandle}", "click 270,30"], harness.Driver.Calls);
         Assert.Equal([TimeSpan.FromMilliseconds(WinAppOptions.DefaultSettleMilliseconds)], harness.Settles);
     }
@@ -46,7 +57,11 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        await session.PerformAsync(Harness.ByTestId(observation, "save-button"), new LocatorAction.DoubleTap(), CancellationToken.None);
+        await session.PerformAsync(
+            Harness.ByTestId(observation, "save-button"),
+            new LocatorAction.DoubleTap(),
+            CancellationToken.None
+        );
         Assert.Equal([$"foreground {FakeWindowDriver.MainHandle}", "click 540,615 double"], harness.Driver.Calls);
     }
 
@@ -55,7 +70,13 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(Harness.ByTestId(observation, "hidden-button"), new LocatorAction.DoubleTap(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(
+                Harness.ByTestId(observation, "hidden-button"),
+                new LocatorAction.DoubleTap(),
+                CancellationToken.None
+            )
+        );
         Assert.Equal(EngineErrorCodes.NotActionable, error.Code);
         Assert.Contains("off the screen", error.Message, StringComparison.Ordinal);
     }
@@ -65,7 +86,11 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync(Harness.Options(settle: false));
         await using var _ = harness;
-        await session.PerformAsync(Harness.ByName(observation, "Settings are saved on exit"), new LocatorAction.Tap(), CancellationToken.None);
+        await session.PerformAsync(
+            Harness.ByName(observation, "Settings are saved on exit"),
+            new LocatorAction.Tap(),
+            CancellationToken.None
+        );
         Assert.Empty(harness.Settles);
     }
 
@@ -74,7 +99,11 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        await session.PerformAsync(Harness.ByTestId(observation, "name-input"), new LocatorAction.Fill("Grace"), CancellationToken.None);
+        await session.PerformAsync(
+            Harness.ByTestId(observation, "name-input"),
+            new LocatorAction.Fill("Grace"),
+            CancellationToken.None
+        );
         Assert.Equal(["setValue edit-name Grace"], harness.Driver.Calls);
     }
 
@@ -84,10 +113,21 @@ public sealed class PerformTests
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
         harness.Driver.RejectsValue.Add("edit-name");
-        await session.PerformAsync(Harness.ByTestId(observation, "name-input"), new LocatorAction.Fill("Grace"), CancellationToken.None);
+        await session.PerformAsync(
+            Harness.ByTestId(observation, "name-input"),
+            new LocatorAction.Fill("Grace"),
+            CancellationToken.None
+        );
         Assert.Equal(
-            ["setValue edit-name Grace", "focus edit-name", $"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} ctrl+a", $"sendKeys {FakeWindowDriver.MainHandle} verbatim:Grace"],
-            harness.Driver.Calls);
+            [
+                "setValue edit-name Grace",
+                "focus edit-name",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                $"sendKeys {FakeWindowDriver.MainHandle} ctrl+a",
+                $"sendKeys {FakeWindowDriver.MainHandle} verbatim:Grace",
+            ],
+            harness.Driver.Calls
+        );
         Assert.Single(harness.Settles);
     }
 
@@ -96,11 +136,19 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        await session.PerformAsync(Harness.ByTestId(observation, "name-input"), new LocatorAction.Clear(), CancellationToken.None);
+        await session.PerformAsync(
+            Harness.ByTestId(observation, "name-input"),
+            new LocatorAction.Clear(),
+            CancellationToken.None
+        );
         Assert.Equal(["setValue edit-name "], harness.Driver.Calls);
         harness.Driver.Calls.Clear();
         harness.Driver.RejectsValue.Add("edit-name");
-        await session.PerformAsync(Harness.ByTestId(observation, "name-input"), new LocatorAction.Clear(), CancellationToken.None);
+        await session.PerformAsync(
+            Harness.ByTestId(observation, "name-input"),
+            new LocatorAction.Clear(),
+            CancellationToken.None
+        );
         Assert.Contains($"sendKeys {FakeWindowDriver.MainHandle} delete", harness.Driver.Calls);
     }
 
@@ -109,8 +157,17 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        harness.Driver.Faults["setValue"] = new WindowDriverException(DriverFault.Other, "cannot set 'hunter2-secret' on the element");
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(Harness.ByTestId(observation, "password-input"), new LocatorAction.Fill("hunter2-secret", Sensitive: true), CancellationToken.None));
+        harness.Driver.Faults["setValue"] = new WindowDriverException(
+            DriverFault.Other,
+            "cannot set 'hunter2-secret' on the element"
+        );
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(
+                Harness.ByTestId(observation, "password-input"),
+                new LocatorAction.Fill("hunter2-secret", Sensitive: true),
+                CancellationToken.None
+            )
+        );
         Assert.Equal(EngineErrorCodes.EngineFailure, error.Code);
         Assert.DoesNotContain("hunter2", error.Message, StringComparison.Ordinal);
         Assert.Contains("[redacted]", error.Message, StringComparison.Ordinal);
@@ -122,8 +179,19 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        await session.PerformAsync(Harness.ByTestId(observation, "name-input"), new LocatorAction.Press("Control+Enter"), CancellationToken.None);
-        Assert.Equal(["focus edit-name", $"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} ctrl+enter"], harness.Driver.Calls);
+        await session.PerformAsync(
+            Harness.ByTestId(observation, "name-input"),
+            new LocatorAction.Press("Control+Enter"),
+            CancellationToken.None
+        );
+        Assert.Equal(
+            [
+                "focus edit-name",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                $"sendKeys {FakeWindowDriver.MainHandle} ctrl+enter",
+            ],
+            harness.Driver.Calls
+        );
         Assert.Single(harness.Settles);
     }
 
@@ -132,8 +200,19 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        await session.PerformAsync(Harness.ByTestId(observation, "name-input"), new LocatorAction.Press("é"), CancellationToken.None);
-        Assert.Equal(["focus edit-name", $"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} verbatim:é"], harness.Driver.Calls);
+        await session.PerformAsync(
+            Harness.ByTestId(observation, "name-input"),
+            new LocatorAction.Press("é"),
+            CancellationToken.None
+        );
+        Assert.Equal(
+            [
+                "focus edit-name",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                $"sendKeys {FakeWindowDriver.MainHandle} verbatim:é",
+            ],
+            harness.Driver.Calls
+        );
     }
 
     [Fact]
@@ -141,7 +220,13 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(Harness.ByTestId(observation, "name-input"), new LocatorAction.Press("Hyper+Q"), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(
+                Harness.ByTestId(observation, "name-input"),
+                new LocatorAction.Press("Hyper+Q"),
+                CancellationToken.None
+            )
+        );
         Assert.Equal(EngineErrorCodes.UnsupportedCapability, error.Code);
         Assert.Empty(harness.Driver.Calls);
     }
@@ -152,7 +237,10 @@ public sealed class PerformTests
         var (harness, session, _) = await OpenAsync();
         await using var __ = harness;
         await session.PressAsync("Escape", CancellationToken.None);
-        Assert.Equal([$"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} esc"], harness.Driver.Calls);
+        Assert.Equal(
+            [$"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} esc"],
+            harness.Driver.Calls
+        );
     }
 
     [Fact]
@@ -192,7 +280,13 @@ public sealed class PerformTests
         var checkedTree = RawElements.Window("W", RawElements.Radio("rad-small", "Small", selected: true));
         var (other, otherSession, otherObservation) = await OpenAsync(tree: checkedTree);
         await using var __ = other;
-        var error = await Assert.ThrowsAsync<EngineException>(() => otherSession.PerformAsync(Harness.ByName(otherObservation, "Small"), new LocatorAction.Uncheck(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            otherSession.PerformAsync(
+                Harness.ByName(otherObservation, "Small"),
+                new LocatorAction.Uncheck(),
+                CancellationToken.None
+            )
+        );
         Assert.Equal(EngineErrorCodes.NotActionable, error.Code);
     }
 
@@ -206,7 +300,18 @@ public sealed class PerformTests
         harness.Driver.Faults.Clear();
 
         // Once expanded, the options are in a popup window of the app.
-        var popup = RawElements.Element("popup", "Window", null, null, new Rect(120, 592, 200, 80), RawElements.ListItem("opt-s", "Small"), RawElements.ListItem("opt-l", "Large")) with { ClassName = "Xaml_WindowedPopupClass" };
+        var popup = RawElements.Element(
+            "popup",
+            "Window",
+            null,
+            null,
+            new Rect(120, 592, 200, 80),
+            RawElements.ListItem("opt-s", "Small"),
+            RawElements.ListItem("opt-l", "Large")
+        ) with
+        {
+            ClassName = "Xaml_WindowedPopupClass",
+        };
         harness.Driver.Script(session.App!.ProcessId, 0x2000, "", popup, new Rect(120, 592, 200, 80));
         await session.PerformAsync(size, new LocatorAction.Select("Large"), CancellationToken.None);
         Assert.Equal("invoke combo-size Expand", harness.Driver.Calls[0]);
@@ -219,7 +324,13 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(Harness.ByName(observation, "Items"), new LocatorAction.Select("Third"), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(
+                Harness.ByName(observation, "Items"),
+                new LocatorAction.Select("Third"),
+                CancellationToken.None
+            )
+        );
         Assert.Equal(EngineErrorCodes.NotActionable, error.Code);
         Assert.Contains("\"First\", \"Second\"", error.Message, StringComparison.Ordinal);
     }
@@ -240,9 +351,19 @@ public sealed class PerformTests
     {
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
-        await session.PerformAsync(Harness.ByTestId(observation, "benchmark-list"), new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None);
+        await session.PerformAsync(
+            Harness.ByTestId(observation, "benchmark-list"),
+            new LocatorAction.Swipe(ScrollDirection.Down),
+            CancellationToken.None
+        );
         Assert.Equal([$"foreground {FakeWindowDriver.MainHandle}", "wheel 300,400 -6"], harness.Driver.Calls);
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(Harness.ByTestId(observation, "save-button"), new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(
+                Harness.ByTestId(observation, "save-button"),
+                new LocatorAction.Swipe(ScrollDirection.Down),
+                CancellationToken.None
+            )
+        );
         Assert.Equal(EngineErrorCodes.NotActionable, error.Code);
     }
 
@@ -253,18 +374,38 @@ public sealed class PerformTests
         await using var _ = harness;
         harness.Driver.Calls.Clear();
         harness.Driver.Faults["foreground"] = new WindowDriverException(DriverFault.ForegroundLost, "locked");
-        await session.PerformAsync(Harness.ByTestId(observation, "benchmark-list"), new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None);
-        Assert.Equal(["scroll list-items Down"], harness.Driver.Calls.Where(call => call.StartsWith("scroll", StringComparison.Ordinal) || call.StartsWith("wheel", StringComparison.Ordinal)));
+        await session.PerformAsync(
+            Harness.ByTestId(observation, "benchmark-list"),
+            new LocatorAction.Swipe(ScrollDirection.Down),
+            CancellationToken.None
+        );
+        Assert.Equal(
+            ["scroll list-items Down"],
+            harness.Driver.Calls.Where(call =>
+                call.StartsWith("scroll", StringComparison.Ordinal)
+                || call.StartsWith("wheel", StringComparison.Ordinal)
+            )
+        );
     }
 
     [Fact]
     public async Task A_swipe_on_an_off_screen_scrollable_node_never_turns_the_wheel_over_it()
     {
-        var tree = RawElements.Window("W", RawElements.List("list-items", "Items", RawElements.ListItem("item-1", "First")) with { IsOffscreen = true });
+        var tree = RawElements.Window(
+            "W",
+            RawElements.List("list-items", "Items", RawElements.ListItem("item-1", "First")) with
+            {
+                IsOffscreen = true,
+            }
+        );
         var (harness, session, observation) = await OpenAsync(tree: tree);
         await using var _ = harness;
         harness.Driver.Calls.Clear();
-        await session.PerformAsync(Harness.ByTestId(observation, "benchmark-list"), new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None);
+        await session.PerformAsync(
+            Harness.ByTestId(observation, "benchmark-list"),
+            new LocatorAction.Swipe(ScrollDirection.Down),
+            CancellationToken.None
+        );
         Assert.Equal(["scroll list-items Down"], harness.Driver.Calls);
     }
 
@@ -274,7 +415,9 @@ public sealed class PerformTests
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
         var root = observation.Roots[0];
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(root, new LocatorAction.Tap(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(root, new LocatorAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal(EngineErrorCodes.NotActionable, error.Code);
         Assert.Contains("the screen root takes swipe only, not tap", error.Message, StringComparison.Ordinal);
         harness.Driver.Calls.Clear();
@@ -290,7 +433,13 @@ public sealed class PerformTests
         harness.Driver.Calls.Clear();
         harness.Driver.Faults["foreground"] = new WindowDriverException(DriverFault.ForegroundLost, "locked");
         await session.SwipeAsync(ScrollDirection.Down, CancellationToken.None);
-        Assert.Equal(["scroll list-items Down"], harness.Driver.Calls.Where(call => call.StartsWith("scroll", StringComparison.Ordinal) || call.StartsWith("wheel", StringComparison.Ordinal)));
+        Assert.Equal(
+            ["scroll list-items Down"],
+            harness.Driver.Calls.Where(call =>
+                call.StartsWith("scroll", StringComparison.Ordinal)
+                || call.StartsWith("wheel", StringComparison.Ordinal)
+            )
+        );
     }
 
     [Fact]
@@ -299,9 +448,13 @@ public sealed class PerformTests
         var (harness, session, _) = await OpenAsync(tree: RawElements.Window("Plain", RawElements.Button("b", "Go")));
         await using var __ = harness;
         harness.Driver.Calls.Clear();
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.SwipeAsync(ScrollDirection.Right, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.SwipeAsync(ScrollDirection.Right, CancellationToken.None)
+        );
         Assert.Equal(EngineErrorCodes.NotActionable, error.Code);
-        Assert.DoesNotContain(harness.Driver.Calls, call => call.StartsWith("sendKeys", StringComparison.Ordinal) || call.StartsWith("wheel", StringComparison.Ordinal));
+        Assert.DoesNotContain(harness.Driver.Calls, call =>
+            call.StartsWith("sendKeys", StringComparison.Ordinal) || call.StartsWith("wheel", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -310,7 +463,10 @@ public sealed class PerformTests
         var (harness, session, _) = await OpenAsync(tree: RawElements.Window("Plain", RawElements.Button("b", "Go")));
         await using var __ = harness;
         await session.SwipeAsync(ScrollDirection.Down, CancellationToken.None);
-        Assert.Equal([$"windows {session.App!.ProcessId}", $"foreground {FakeWindowDriver.MainHandle}", "wheel 500,350 -6"], harness.Driver.Calls);
+        Assert.Equal(
+            [$"windows {session.App!.ProcessId}", $"foreground {FakeWindowDriver.MainHandle}", "wheel 500,350 -6"],
+            harness.Driver.Calls
+        );
         harness.Driver.Calls.Clear();
         await session.SwipeAsync(ScrollDirection.Up, CancellationToken.None);
         Assert.Contains("wheel 500,350 6", harness.Driver.Calls);
@@ -329,12 +485,17 @@ public sealed class PerformTests
         await session.SecondaryTapAsync(save);
         Assert.Equal(
             [
-                $"foreground {FakeWindowDriver.MainHandle}", "hover 540,615",
-                $"foreground {FakeWindowDriver.MainHandle}", "drag 540,615 -> 540,615 hold 1000",
-                $"foreground {FakeWindowDriver.MainHandle}", "drag 540,615 -> 300,400 hold 0",
-                $"foreground {FakeWindowDriver.MainHandle}", "click 540,615 right",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                "hover 540,615",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                "drag 540,615 -> 540,615 hold 1000",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                "drag 540,615 -> 300,400 hold 0",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                "click 540,615 right",
             ],
-            harness.Driver.Calls);
+            harness.Driver.Calls
+        );
     }
 
     [Fact]
@@ -350,12 +511,17 @@ public sealed class PerformTests
         await session.PerformAsync(save, new LocatorAction.SecondaryTap(), CancellationToken.None);
         Assert.Equal(
             [
-                $"foreground {FakeWindowDriver.MainHandle}", "hover 540,615",
-                $"foreground {FakeWindowDriver.MainHandle}", "drag 540,615 -> 540,615 hold 1000",
-                $"foreground {FakeWindowDriver.MainHandle}", "drag 540,615 -> 300,400 hold 0",
-                $"foreground {FakeWindowDriver.MainHandle}", "click 540,615 right",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                "hover 540,615",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                "drag 540,615 -> 540,615 hold 1000",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                "drag 540,615 -> 300,400 hold 0",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                "click 540,615 right",
             ],
-            harness.Driver.Calls);
+            harness.Driver.Calls
+        );
     }
 
     [Fact]
@@ -366,8 +532,15 @@ public sealed class PerformTests
         await session.TypeTextAsync("hi");
         await session.TypeTextAsync("yo", replace: true);
         Assert.Equal(
-            [$"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} verbatim:hi", $"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} ctrl+a", $"sendKeys {FakeWindowDriver.MainHandle} verbatim:yo"],
-            harness.Driver.Calls);
+            [
+                $"foreground {FakeWindowDriver.MainHandle}",
+                $"sendKeys {FakeWindowDriver.MainHandle} verbatim:hi",
+                $"foreground {FakeWindowDriver.MainHandle}",
+                $"sendKeys {FakeWindowDriver.MainHandle} ctrl+a",
+                $"sendKeys {FakeWindowDriver.MainHandle} verbatim:yo",
+            ],
+            harness.Driver.Calls
+        );
     }
 
     [Theory]
@@ -380,7 +553,13 @@ public sealed class PerformTests
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
         harness.Driver.Faults["invoke"] = new WindowDriverException(fault, "the library said no");
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(Harness.ByTestId(observation, "save-button"), new LocatorAction.Tap(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(
+                Harness.ByTestId(observation, "save-button"),
+                new LocatorAction.Tap(),
+                CancellationToken.None
+            )
+        );
         Assert.Equal(code, error.Code);
         Assert.Contains("perform tap failed: the library said no", error.Message, StringComparison.Ordinal);
     }
@@ -392,7 +571,9 @@ public sealed class PerformTests
         await using var _ = harness;
         using var cancel = new CancellationTokenSource();
         await cancel.CancelAsync();
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(Harness.ByTestId(observation, "save-button"), new LocatorAction.Tap(), cancel.Token));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(Harness.ByTestId(observation, "save-button"), new LocatorAction.Tap(), cancel.Token)
+        );
         Assert.Equal(EngineErrorCodes.Cancelled, error.Code);
         Assert.Empty(harness.Driver.Calls);
     }

@@ -20,15 +20,11 @@ public sealed class CreateRunEventEmitterTests
     {
         var broken = 0;
         var events = new List<RunEvent>();
-        var emit = E2E.RunEvents.CreateRunEventEmitter(
-        [
-            new RunEventSubscriber("broken", _ =>
+        var emit = E2E.RunEvents.CreateRunEventEmitter([new RunEventSubscriber("broken", _ =>
             {
                 broken++;
                 throw new InvalidOperationException("broken host sink");
-            }),
-            new RunEventSubscriber("collecting", events.Add),
-        ]);
+            }), new RunEventSubscriber("collecting", events.Add)]);
         var previous = Console.Error;
         using var stderr = new StringWriter();
         Console.SetError(stderr);
@@ -46,7 +42,9 @@ public sealed class CreateRunEventEmitterTests
         }
 
         Assert.Equal(
-            "e2e: reporter \"broken\" threw on plan: broken host sink; ignoring it for the rest of the run" + Environment.NewLine,
-            stderr.ToString());
+            "e2e: reporter \"broken\" threw on plan: broken host sink; ignoring it for the rest of the run"
+                + Environment.NewLine,
+            stderr.ToString()
+        );
     }
 }

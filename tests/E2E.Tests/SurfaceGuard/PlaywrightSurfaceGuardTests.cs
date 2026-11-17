@@ -23,10 +23,10 @@ public sealed class PlaywrightSurfaceGuardTests
             WebEngine.Latch(session.Engine, violation);
             var ran = 0;
             Task<string> Step() => WebEngine.Guard(session.Engine, "step", CancellationToken.None, () =>
-            {
-                ran++;
-                return Task.FromResult("ok");
-            });
+                {
+                    ran++;
+                    return Task.FromResult("ok");
+                });
 
             var failure = await Assert.ThrowsAsync<TestException>(Step);
             Assert.Same(violation, failure);
@@ -40,7 +40,10 @@ public sealed class PlaywrightSurfaceGuardTests
     {
         await WithSurfaceAsync(async session =>
         {
-            var refused = new TestException("INVALID_ARGUMENT", "route.fulfill has an invalid header name: \"bad name\"");
+            var refused = new TestException(
+                "INVALID_ARGUMENT",
+                "route.fulfill has an invalid header name: \"bad name\""
+            );
             var step = WebEngine.Guard<int>(session.Engine, "navigation", CancellationToken.None, () =>
             {
                 WebEngine.Latch(session.Engine, refused);
@@ -48,7 +51,10 @@ public sealed class PlaywrightSurfaceGuardTests
             });
             var failure = await Assert.ThrowsAsync<TestException>(() => step);
             Assert.Same(refused, failure);
-            Assert.Equal("ok", await WebEngine.Guard(session.Engine, "step", CancellationToken.None, () => Task.FromResult("ok")));
+            Assert.Equal(
+                "ok",
+                await WebEngine.Guard(session.Engine, "step", CancellationToken.None, () => Task.FromResult("ok"))
+            );
         });
     }
 
@@ -59,7 +65,9 @@ public sealed class PlaywrightSurfaceGuardTests
         {
             using var controller = new CancellationTokenSource();
             await controller.CancelAsync();
-            var failure = await Assert.ThrowsAsync<EngineException>(() => WebEngine.Guard(session.Engine, "step", controller.Token, () => Task.FromResult(1)));
+            var failure = await Assert.ThrowsAsync<EngineException>(() =>
+                WebEngine.Guard(session.Engine, "step", controller.Token, () => Task.FromResult(1))
+            );
             Assert.Equal("CANCELLED", failure.Code);
             Assert.False(failure.Retryable);
         });
@@ -71,7 +79,9 @@ public sealed class PlaywrightSurfaceGuardTests
         await WithSurfaceAsync(async session =>
         {
             using var controller = new CancellationTokenSource();
-            var pending = WebEngine.Guard(session.Engine, "step", controller.Token, () => new TaskCompletionSource<int>().Task);
+            var pending = WebEngine.Guard(session.Engine, "step", controller.Token, () =>
+                new TaskCompletionSource<int>().Task
+            );
             await controller.CancelAsync();
             var failure = await Assert.ThrowsAsync<EngineException>(() => pending);
             Assert.Equal("CANCELLED", failure.Code);
@@ -113,7 +123,11 @@ public sealed class PlaywrightSurfaceGuardTests
     private static async Task WithSurfaceAsync(Func<E2ESession, Task> body)
     {
         using var site = await TinySite.StartAsync("<!DOCTYPE html><html><body></body></html>");
-        var session = await WebEngineTests.StartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "unused")), cache: null);
+        var session = await WebEngineTests.StartAsync(
+            site,
+            new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+            cache: null
+        );
         await WebEngineTests.RunAsync(session, () => body(session));
     }
 }

@@ -15,16 +15,19 @@ internal static class PngCodec
 {
     private static readonly byte[] Signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
-    private static readonly uint[] CrcTable = Enumerable.Range(0, 256).Select(value =>
-    {
-        var crc = (uint)value;
-        for (var bit = 0; bit < 8; bit++)
+    private static readonly uint[] CrcTable = Enumerable
+        .Range(0, 256)
+        .Select(value =>
         {
-            crc = (crc & 1) != 0 ? 0xedb88320 ^ (crc >> 1) : crc >> 1;
-        }
+            var crc = (uint)value;
+            for (var bit = 0; bit < 8; bit++)
+            {
+                crc = (crc & 1) != 0 ? 0xedb88320 ^ (crc >> 1) : crc >> 1;
+            }
 
-        return crc;
-    }).ToArray();
+            return crc;
+        })
+        .ToArray();
 
     /// <summary>A solid image of one value; RGBA images get an alpha of 200.</summary>
     public static DecodedPng Solid(int width, int height, int channels, byte value)
@@ -61,8 +64,13 @@ internal static class PngCodec
                 var current = image.Pixels[(row * stride) + column];
                 var left = column >= image.Channels ? image.Pixels[(row * stride) + column - image.Channels] : 0;
                 var up = row > 0 ? image.Pixels[((row - 1) * stride) + column] : 0;
-                var upLeft = row > 0 && column >= image.Channels ? image.Pixels[((row - 1) * stride) + column - image.Channels] : 0;
-                raw[(row * (stride + 1)) + 1 + column] = (byte)(filterType == 4 ? current - Paeth(left, up, upLeft) : current);
+                var upLeft =
+                    row > 0 && column >= image.Channels
+                        ? image.Pixels[((row - 1) * stride) + column - image.Channels]
+                        : 0;
+                raw[(row * (stride + 1)) + 1 + column] = (byte)(
+                    filterType == 4 ? current - Paeth(left, up, upLeft) : current
+                );
             }
         }
 

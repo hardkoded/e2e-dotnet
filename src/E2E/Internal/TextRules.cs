@@ -32,9 +32,10 @@ public static partial class TextRules
         }
 
         var text = Normalize(expected.Text ?? "");
-        return exact ? string.Equals(subject, text, StringComparison.Ordinal) : subject.Contains(text, StringComparison.OrdinalIgnoreCase);
+        return exact
+            ? string.Equals(subject, text, StringComparison.Ordinal)
+            : subject.Contains(text, StringComparison.OrdinalIgnoreCase);
     }
-
 
     /// <summary>
     /// App text as one line, as upstream's <c>collapseText</c> reads it: whitespace collapsed, and a control
@@ -108,7 +109,8 @@ public static partial class TextRules
     /// control character except tab and newline becomes U+FFFD. Libraries color their own messages; left in, the color codes
     /// reach a report as literal text.
     /// </summary>
-    public static string SanitizeText(string text) => ControlCharacters().Replace(AnsiSequences().Replace(text, ""), "�");
+    public static string SanitizeText(string text) =>
+        ControlCharacters().Replace(AnsiSequences().Replace(text, ""), "�");
 
     /// <summary>Upstream's <c>truncateUtf8</c>: cuts the text so its UTF-8 encoding fits <paramref name="maxBytes"/>, never inside a character.</summary>
     public static string TruncateUtf8(string text, int maxBytes)
@@ -123,7 +125,8 @@ public static partial class TextRules
         while (end < text.Length)
         {
             // A surrogate pair is one character: the cut never lands between its halves.
-            var width = char.IsHighSurrogate(text[end]) && end + 1 < text.Length && char.IsLowSurrogate(text[end + 1]) ? 2 : 1;
+            var width =
+                char.IsHighSurrogate(text[end]) && end + 1 < text.Length && char.IsLowSurrogate(text[end + 1]) ? 2 : 1;
             var size = Encoding.UTF8.GetByteCount(text.AsSpan(end, width));
             if (bytes + size > maxBytes)
             {
@@ -152,7 +155,9 @@ public static partial class TextRules
         return text + (text.Contains('\n', StringComparison.Ordinal) ? "\n" : "; ") + hint;
     }
 
-    [GeneratedRegex("\\u001B\\[[0-?]*[ -/]*[@-~]|\\u001B\\][^\\u0007\\u001B]*(?:\\u0007|\\u001B\\\\)|\\u009B[0-?]*[ -/]*[@-~]|\\u001B[@-Z\\\\-_]")]
+    [GeneratedRegex(
+        "\\u001B\\[[0-?]*[ -/]*[@-~]|\\u001B\\][^\\u0007\\u001B]*(?:\\u0007|\\u001B\\\\)|\\u009B[0-?]*[ -/]*[@-~]|\\u001B[@-Z\\\\-_]"
+    )]
     private static partial Regex AnsiSequences();
 
     [GeneratedRegex("[\\u0000-\\u0008\\u000b-\\u001f\\u007f-\\u009f]")]

@@ -87,7 +87,9 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     // text without hiding anything. The shared redactor has no floor of its own.
     private const int RedactedEnvMinLength = 4;
 
-    private static readonly HttpClient Probe = new(new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false })
+    private static readonly HttpClient Probe = new(
+        new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false }
+    )
     {
         Timeout = Timeout.InfiniteTimeSpan,
     };
@@ -115,7 +117,13 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         AppDomain.CurrentDomain.ProcessExit += (_, _) => KillManagedProcessGroups();
     }
 
-    public ManagedProcess(string label, CommandConfig command, string projectRoot, Readiness readiness, ManagedProcessHooks? hooks = null)
+    public ManagedProcess(
+        string label,
+        CommandConfig command,
+        string projectRoot,
+        Readiness readiness,
+        ManagedProcessHooks? hooks = null
+    )
     {
         _label = label;
         _command = command;
@@ -194,7 +202,9 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
             var shutdownTimeout = _command.ShutdownTimeout ?? DefaultShutdownTimeout;
 
             // The leader may hand its job to a child and exit at once (`npm run dev`), so the tree is read before anything is signalled.
-            var descendants = OperatingSystem.IsWindows() ? [] : await DescendantsAsync(process.Id).ConfigureAwait(false);
+            var descendants = OperatingSystem.IsWindows()
+                ? []
+                : await DescendantsAsync(process.Id).ConfigureAwait(false);
             if (!process.HasExited)
             {
                 // Windows has no signal to ask a process to stop: the first step there is already the kill.
@@ -243,15 +253,26 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     internal static (Dictionary<string, string> Env, List<(string Name, string Value)> Inherited) ChildEnv(
         CommandConfig command,
         IReadOnlyDictionary<string, string?> source,
-        bool caseInsensitive)
+        bool caseInsensitive
+    )
     {
         var comparer = caseInsensitive ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
         var patterns = command.InheritEnv ?? [];
         var names = new HashSet<string>(patterns.Where(pattern => !pattern.EndsWith('*')), comparer);
         var prefixes = patterns.Where(pattern => pattern.EndsWith('*')).Select(pattern => pattern[..^1]).ToList();
         var inherited = source
-            .Where(entry => entry.Value is not null
-                && (names.Contains(entry.Key) || prefixes.Any(prefix => entry.Key.StartsWith(prefix, caseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))))
+            .Where(entry =>
+                entry.Value is not null
+                && (
+                    names.Contains(entry.Key)
+                    || prefixes.Any(prefix =>
+                        entry.Key.StartsWith(
+                            prefix,
+                            caseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal
+                        )
+                    )
+                )
+            )
             .Select(entry => (entry.Key, entry.Value!))
             .ToList();
         var byName = new Dictionary<string, (string Name, string Value)>(comparer);
@@ -273,7 +294,10 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
             byName[entry.Key] = (entry.Key, entry.Value);
         }
 
-        return (byName.Values.ToDictionary(entry => entry.Name, entry => entry.Value, StringComparer.Ordinal), inherited);
+        return (
+            byName.Values.ToDictionary(entry => entry.Name, entry => entry.Value, StringComparer.Ordinal),
+            inherited
+        );
     }
 
     private static IReadOnlyDictionary<string, string?> ProcessEnvironment()
@@ -294,10 +318,20 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         bound.CancelAfter(timeout);
         try
         {
-            using var response = await Probe.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, bound.Token).ConfigureAwait(false);
+            using var response = await Probe
+                .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, bound.Token)
+                .ConfigureAwait(false);
             return (int)response.StatusCode is >= 200 and <= 499;
         }
-        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidOperationException or IOException or NotSupportedException or UriFormatException)
+        catch (Exception ex)
+            when (ex
+                    is HttpRequestException
+                        or OperationCanceledException
+                        or InvalidOperationException
+                        or IOException
+                        or NotSupportedException
+                        or UriFormatException
+            )
         {
             cancellationToken.ThrowIfCancellationRequested();
             return false;
@@ -333,7 +367,13 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
             Process? pgrepProcess = null;
             try
             {
-                var info = new ProcessStartInfo("pgrep") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+                var info = new ProcessStartInfo("pgrep")
+                {
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                };
                 info.ArgumentList.Add("-P");
                 info.ArgumentList.Add(parent.ToString(CultureInfo.InvariantCulture));
                 var pgrep = Process.Start(info);
@@ -348,7 +388,9 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
                 var text = await pgrep.StandardOutput.ReadToEndAsync(bound.Token).ConfigureAwait(false);
                 await pgrep.WaitForExitAsync(bound.Token).ConfigureAwait(false);
                 await error.ConfigureAwait(false);
-                foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                foreach (
+                    var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                )
                 {
                     if (int.TryParse(line, NumberStyles.None, CultureInfo.InvariantCulture, out var child))
                     {
@@ -357,7 +399,13 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
                     }
                 }
             }
-            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or OperationCanceledException or IOException)
+            catch (Exception ex)
+                when (ex
+                        is System.ComponentModel.Win32Exception
+                            or InvalidOperationException
+                            or OperationCanceledException
+                            or IOException
+                )
             {
                 break;
             }
@@ -411,7 +459,8 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
             using var process = Process.GetProcessById(pid);
             return !process.HasExited;
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        catch (Exception ex)
+            when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
         {
             return false;
         }
@@ -436,7 +485,8 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         {
             process.Kill(entireProcessTree: true);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
+        catch (Exception ex)
+            when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
         {
             // already gone
         }
@@ -449,7 +499,8 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         {
             _ = NativeKill(process.Id, 15);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or DllNotFoundException or EntryPointNotFoundException)
+        catch (Exception ex)
+            when (ex is InvalidOperationException or DllNotFoundException or EntryPointNotFoundException)
         {
             KillTree(process);
         }
@@ -458,7 +509,8 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     [DllImport("libc", EntryPoint = "kill", SetLastError = true)]
     private static extern int NativeKill(int pid, int signal);
 
-    private static string Seconds(TimeSpan value) => Math.Round(value.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+    private static string Seconds(TimeSpan value) =>
+        Math.Round(value.TotalSeconds).ToString(CultureInfo.InvariantCulture);
 
     private static string Ms(TimeSpan value) => ((long)value.TotalMilliseconds).ToString(CultureInfo.InvariantCulture);
 
@@ -477,7 +529,10 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
                 _hooks.Notice?.Invoke(_label + ": reuseExisting is ignored in CI, starting the command");
             }
 
-            if (await AnswersAsync(readyUrl, Min(ReadyProbeTimeout, startupTimeout), cancellationToken).ConfigureAwait(false))
+            if (
+                await AnswersAsync(readyUrl, Min(ReadyProbeTimeout, startupTimeout), cancellationToken)
+                    .ConfigureAwait(false)
+            )
             {
                 if (reuse)
                 {
@@ -488,14 +543,25 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
 
                 throw new EngineException(
                     "APP_ALREADY_RUNNING",
-                    Shown(readyUrl) + " already answered before " + _label + " started; "
-                    + (_hooks.Ci ? "stop that process (reuseExisting is ignored in CI)" : "stop that process or set reuseExisting: true"));
+                    Shown(readyUrl)
+                        + " already answered before "
+                        + _label
+                        + " started; "
+                        + (
+                            _hooks.Ci
+                                ? "stop that process (reuseExisting is ignored in CI)"
+                                : "stop that process or set reuseExisting: true"
+                        )
+                );
             }
         }
 
         var (env, inherited) = ChildEnv(_command, _hooks.Env ?? ProcessEnvironment(), OperatingSystem.IsWindows());
-        _redact = Redactor.For(inherited.Concat((_command.Env ?? new Dictionary<string, string>()).Select(entry => (entry.Key, entry.Value)))
-            .Where(entry => entry.Value.Length >= RedactedEnvMinLength));
+        _redact = Redactor.For(
+            inherited
+                .Concat((_command.Env ?? new Dictionary<string, string>()).Select(entry => (entry.Key, entry.Value)))
+                .Where(entry => entry.Value.Length >= RedactedEnvMinLength)
+        );
 
         var log = OpenLog();
         long? logOffset = log?.Length;
@@ -517,7 +583,8 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         try
         {
             _pump = new OutputPump(process, log);
-            await WaitForReadinessAsync(process, readyUrl, startupTimeout, clock, logOffset, cancellationToken).ConfigureAwait(false);
+            await WaitForReadinessAsync(process, readyUrl, startupTimeout, clock, logOffset, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch
         {
@@ -533,7 +600,14 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         }
     }
 
-    private async Task WaitForReadinessAsync(Process process, string? readyUrl, TimeSpan startupTimeout, Stopwatch clock, long? logOffset, CancellationToken cancellationToken)
+    private async Task WaitForReadinessAsync(
+        Process process,
+        string? readyUrl,
+        TimeSpan startupTimeout,
+        Stopwatch clock,
+        long? logOffset,
+        CancellationToken cancellationToken
+    )
     {
         var half = startupTimeout / 2;
         var noticed = half < ProgressNoticeMin;
@@ -554,7 +628,13 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
                 }
 
                 await StopAsync().ConfigureAwait(false);
-                throw Unreachable(_label + " exited with code " + code.ToString(CultureInfo.InvariantCulture) + (readyUrl is null ? " instead of 0" : " before becoming ready"), logOffset);
+                throw Unreachable(
+                    _label
+                        + " exited with code "
+                        + code.ToString(CultureInfo.InvariantCulture)
+                        + (readyUrl is null ? " instead of 0" : " before becoming ready"),
+                    logOffset
+                );
             }
 
             var remaining = startupTimeout - clock.Elapsed;
@@ -565,7 +645,8 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
                     readyUrl is null
                         ? _label + " did not exit within " + Ms(startupTimeout) + " ms"
                         : _label + " was not reachable at " + Shown(readyUrl) + " within " + Ms(startupTimeout) + " ms",
-                    logOffset);
+                    logOffset
+                );
             }
 
             if (!noticed && remaining <= half)
@@ -573,7 +654,14 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
                 noticed = true;
                 var waitingFor = readyUrl is null ? "waiting for it to exit" : "waiting for " + Shown(readyUrl);
                 var logNote = _command.Log is null ? "" : "; log: " + LogDisplayPath();
-                _hooks.Notice?.Invoke(_label + " still starting after " + Seconds(startupTimeout - remaining) + "s: " + waitingFor + logNote);
+                _hooks.Notice?.Invoke(
+                    _label
+                        + " still starting after "
+                        + Seconds(startupTimeout - remaining)
+                        + "s: "
+                        + waitingFor
+                        + logNote
+                );
             }
 
             // Until the notice is out, neither a probe nor a sleep runs past the half mark, so it lands on time instead of after a 2 s probe.
@@ -619,11 +707,18 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         string workingDirectory;
         try
         {
-            workingDirectory = Path.GetFullPath(string.IsNullOrWhiteSpace(_command.Cwd) ? "." : _command.Cwd, _projectRoot);
+            workingDirectory = Path.GetFullPath(
+                string.IsNullOrWhiteSpace(_command.Cwd) ? "." : _command.Cwd,
+                _projectRoot
+            );
         }
         catch (ArgumentException ex)
         {
-            throw new EngineException("APP_UNREACHABLE", _label + " failed to start: its cwd is not a path: " + ex.Message, ex);
+            throw new EngineException(
+                "APP_UNREACHABLE",
+                _label + " failed to start: its cwd is not a path: " + ex.Message,
+                ex
+            );
         }
 
         var info = new ProcessStartInfo(_command.Executable)
@@ -651,12 +746,19 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         Process? process = null;
         try
         {
-            process = Process.Start(info) ?? throw new EngineException("APP_UNREACHABLE", _label + " failed to start: no process was created");
+            process = Process.Start(info)
+                ?? throw new EngineException("APP_UNREACHABLE", _label + " failed to start: no process was created");
             // Nothing is written to the process: closing its input tells a program that reads it that there is none.
             process.StandardInput.Close();
             return process;
         }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception ex)
+            when (ex
+                    is System.ComponentModel.Win32Exception
+                        or InvalidOperationException
+                        or IOException
+                        or UnauthorizedAccessException
+            )
         {
             if (process is not null)
             {
@@ -683,9 +785,15 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         }
 
         var lines = OutputSince(offset).Select(line => _redact.Redact(line)).ToList();
-        var detail = lines.Count == 0
-            ? "no output in " + LogDisplayPath()
-            : "output in " + LogDisplayPath() + " since " + _label + " started:\n" + string.Join("\n", lines.Select(line => "  " + line));
+        var detail =
+            lines.Count == 0
+                ? "no output in " + LogDisplayPath()
+                : "output in "
+                    + LogDisplayPath()
+                    + " since "
+                    + _label
+                    + " started:\n"
+                    + string.Join("\n", lines.Select(line => "  " + line));
         return new EngineException("APP_UNREACHABLE", message + "\n" + detail);
     }
 
@@ -699,7 +807,12 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     {
         try
         {
-            using var stream = new FileStream(LogPath(), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var stream = new FileStream(
+                LogPath(),
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete
+            );
             var end = stream.Length;
             if (end <= offset)
             {
@@ -792,14 +905,21 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            throw new EngineException("APP_UNREACHABLE", _label + " could not open its log file " + path + ": " + ex.Message, ex);
+            throw new EngineException(
+                "APP_UNREACHABLE",
+                _label + " could not open its log file " + path + ": " + ex.Message,
+                ex
+            );
         }
     }
 
     [GeneratedRegex(@"\r\n|\n|\r", RegexOptions.CultureInvariant)]
     private static partial Regex LineBreak();
 
-    [GeneratedRegex(@"\u001B(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001B]*(?:\u0007|\u001B\\)|[@-Z\\-_])", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(
+        @"\u001B(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001B]*(?:\u0007|\u001B\\)|[@-Z\\-_])",
+        RegexOptions.CultureInvariant
+    )]
     private static partial Regex ControlSequences();
 
     /// <summary>
@@ -856,7 +976,8 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
                                 _log.Write(buffer, 0, read);
                                 _log.Flush();
                             }
-                            catch (Exception ex) when (ex is IOException or ObjectDisposedException or UnauthorizedAccessException)
+                            catch (Exception ex)
+                                when (ex is IOException or ObjectDisposedException or UnauthorizedAccessException)
                             {
                                 // The log is gone (a full disk, a deleted file): the output is dropped, and the pipes still drain so the app never blocks on them.
                                 _log = null;
@@ -911,7 +1032,10 @@ internal sealed class ProcessJob : IDisposable
             }
 
             Marshal.WriteInt32(buffer, 16, (int)KillOnJobClose);
-            if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, buffer, (uint)size) || !AssignProcessToJobObject(job, process.Handle))
+            if (
+                !SetInformationJobObject(job, JobObjectExtendedLimitInformation, buffer, (uint)size)
+                || !AssignProcessToJobObject(job, process.Handle)
+            )
             {
                 CloseHandle(job);
                 return null;

@@ -15,27 +15,36 @@ namespace E2E.Tests.LocatorEngine;
 /// </summary>
 public sealed class LocatorEngineReadRetryContractTests
 {
-    private static Screen ScreenOver(Func<Observation> observe, Action onObserve, TimeSpan actionTimeout) => new(
-        _ =>
-        {
-            onObserve();
-            return Task.FromResult(observe());
-        },
-        (_, _, _) => Task.CompletedTask,
-        () => CancellationToken.None,
-        () => { },
-        actionTimeout,
-        actionTimeout);
+    private static Screen ScreenOver(Func<Observation> observe, Action onObserve, TimeSpan actionTimeout) =>
+        new(
+            _ =>
+            {
+                onObserve();
+                return Task.FromResult(observe());
+            },
+            (_, _, _) => Task.CompletedTask,
+            () => CancellationToken.None,
+            () => { },
+            actionTimeout,
+            actionTimeout
+        );
 
     [Fact]
     public async Task Polls_zero_matches_until_the_node_appears_then_reads_it()
     {
         var observations = 0;
-        var node = new SemanticNode { Ref = "node-1", Role = "status", Name = "Total", Text = "42" };
+        var node = new SemanticNode
+        {
+            Ref = "node-1",
+            Role = "status",
+            Name = "Total",
+            Text = "42",
+        };
         var screen = ScreenOver(
             () => new Observation { Route = "/", Roots = observations >= 3 ? [node] : [] },
             () => observations++,
-            TimeSpan.FromSeconds(5));
+            TimeSpan.FromSeconds(5)
+        );
 
         Assert.Equal("42", await screen.GetByRole("status").TextContentAsync());
         Assert.Equal(3, observations);
@@ -44,7 +53,11 @@ public sealed class LocatorEngineReadRetryContractTests
     [Fact]
     public async Task Gives_zero_matches_the_action_timeout_then_LOCATOR_NOT_FOUND()
     {
-        var screen = ScreenOver(() => new Observation { Route = "/", Roots = [] }, () => { }, TimeSpan.FromMilliseconds(350));
+        var screen = ScreenOver(
+            () => new Observation { Route = "/", Roots = [] },
+            () => { },
+            TimeSpan.FromMilliseconds(350)
+        );
         var watch = Stopwatch.StartNew();
 
         var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("status").TextContentAsync());

@@ -36,7 +36,9 @@ public sealed class ScreenTreeTests
     [Fact]
     public async Task Fails_with_an_operation_timeout_when_the_screen_does_not_answer()
     {
-        var failure = await Assert.ThrowsAsync<EngineException>(() => Hanging().TreeAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(50) }));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            Hanging().TreeAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(50) })
+        );
 
         Assert.Equal(EngineErrorCodes.OperationTimeout, failure.Code);
     }
@@ -52,9 +54,12 @@ public sealed class ScreenTreeTests
             () => CancellationToken.None,
             () => { },
             TimeSpan.FromSeconds(2),
-            TimeSpan.FromSeconds(2));
+            TimeSpan.FromSeconds(2)
+        );
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => screen.TreeAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(50) }));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            screen.TreeAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(50) })
+        );
         release.SetException(new InvalidOperationException("late"));
 
         Assert.Equal(EngineErrorCodes.OperationTimeout, failure.Code);
@@ -66,18 +71,22 @@ public sealed class ScreenTreeTests
     {
         using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Hanging().TreeAsync(cancellationToken: cancel.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Hanging().TreeAsync(cancellationToken: cancel.Token)
+        );
     }
 
-    private static Screen Hanging() => new(
-        async token =>
-        {
-            await Task.Delay(Timeout.Infinite, token);
-            return new E2E.Engine.Observation { Route = "/", Roots = [] };
-        },
-        (_, _, _) => Task.CompletedTask,
-        () => CancellationToken.None,
-        () => { },
-        TimeSpan.FromSeconds(2),
-        TimeSpan.FromSeconds(2));
+    private static Screen Hanging() =>
+        new(
+            async token =>
+            {
+                await Task.Delay(Timeout.Infinite, token);
+                return new E2E.Engine.Observation { Route = "/", Roots = [] };
+            },
+            (_, _, _) => Task.CompletedTask,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(2)
+        );
 }

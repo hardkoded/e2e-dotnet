@@ -51,7 +51,9 @@ public sealed class StaleOrTests
     [InlineData("frame was detached")]
     public void Keeps_a_timeout_a_timeout_when_its_call_log_says(string line)
     {
-        var timeout = new TimeoutException($"Timeout 5000ms exceeded.\nCall log:\n  - waiting for locator('#x')\n  - locator {line}");
+        var timeout = new TimeoutException(
+            $"Timeout 5000ms exceeded.\nCall log:\n  - waiting for locator('#x')\n  - locator {line}"
+        );
         var error = Engine(WebErrors.StaleOr(timeout, "read"));
         Assert.Equal("OPERATION_TIMEOUT", error.Code);
         Assert.False(error.Retryable);

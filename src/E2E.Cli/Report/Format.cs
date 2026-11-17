@@ -39,13 +39,32 @@ internal sealed class Colors(bool enabled)
     public string BgRed(string text) => Wrap(text, 41, 49);
 
     /// <summary>Bright yellow, cyan, green, and magenta backgrounds, by the target's declaration order (upstream's <c>BADGE_COLORS</c>); GitHub Actions renders plain yellow as dark brown.</summary>
-    public string BgBright(int index, string text) => Wrap(text, (index % 4) switch { 0 => 103, 1 => 106, 2 => 102, _ => 105 }, 49);
+    public string BgBright(int index, string text) =>
+        Wrap(
+            text,
+            (index % 4) switch
+            {
+                0 => 103,
+                1 => 106,
+                2 => 102,
+                _ => 105,
+            },
+            49
+        );
 
     /// <summary>Black on cyan, as the list reporter's target badge.</summary>
     public string Badge(string text) => Enabled ? Wrap(Wrap(text, 46, 49), 30, 39) : text;
 
     private string Wrap(string text, int open, int close) =>
-        Enabled ? "\u001b[" + open.ToString(CultureInfo.InvariantCulture) + "m" + text + "\u001b[" + close.ToString(CultureInfo.InvariantCulture) + "m" : text;
+        Enabled
+            ? "\u001b["
+                + open.ToString(CultureInfo.InvariantCulture)
+                + "m"
+                + text
+                + "\u001b["
+                + close.ToString(CultureInfo.InvariantCulture)
+                + "m"
+            : text;
 }
 
 /// <summary>Where <see cref="Format.Rule(string, RuleAlign)"/> puts its text.</summary>
@@ -86,7 +105,8 @@ internal static partial class Format
         if (Encoding.UTF8.GetByteCount(clean) > MaxFieldBytes)
         {
             // Whole characters only, in one pass.
-            int bytes = 0, end = 0;
+            int bytes = 0,
+                end = 0;
             foreach (var rune in clean.EnumerateRunes())
             {
                 if (bytes + rune.Utf8SequenceLength > MaxFieldBytes)
@@ -129,7 +149,12 @@ internal static partial class Format
     }
 
     /// <summary>The <c>step.cache.write</c> outcomes where the step's recording was not written (upstream's <c>NOT_SAVED</c>).</summary>
-    private static readonly HashSet<CacheWrite> NotSaved = [CacheWrite.Unconfirmed, CacheWrite.NoChange, CacheWrite.NotWritten];
+    private static readonly HashSet<CacheWrite> NotSaved =
+    [
+        CacheWrite.Unconfirmed,
+        CacheWrite.NoChange,
+        CacheWrite.NotWritten,
+    ];
 
     /// <summary>Upstream's <c>notSavedCount</c>: the steps whose recording was not saved.</summary>
     public static int NotSavedCount(IEnumerable<StepRecord> steps) =>
@@ -216,7 +241,8 @@ internal static partial class Format
     }
 
     /// <summary>Printed width of a line in terminal columns, ANSI sequences excluded (upstream's <c>visibleWidth</c>).</summary>
-    public static int VisibleWidth(string text) => Graphemes(Ansi().Replace(text, string.Empty)).Sum(cluster => cluster.Columns);
+    public static int VisibleWidth(string text) =>
+        Graphemes(Ansi().Replace(text, string.Empty)).Sum(cluster => cluster.Columns);
 
     /// <summary>
     /// Clips terminal text to <paramref name="columns"/> with the ellipsis inside the budget, whole grapheme clusters only; untouched when it
@@ -253,16 +279,69 @@ internal static partial class Format
     /// </summary>
     private static readonly (int Start, int End)[] WideRanges =
     [
-        (0x1100, 0x115f), (0x231a, 0x231b), (0x2329, 0x232a), (0x23e9, 0x23ec), (0x23f0, 0x23f0), (0x23f3, 0x23f3), (0x25fd, 0x25fe),
-        (0x2614, 0x2615), (0x2648, 0x2653), (0x267f, 0x267f), (0x2693, 0x2693), (0x26a1, 0x26a1), (0x26aa, 0x26ab), (0x26bd, 0x26be),
-        (0x26c4, 0x26c5), (0x26ce, 0x26ce), (0x26d4, 0x26d4), (0x26ea, 0x26ea), (0x26f2, 0x26f3), (0x26f5, 0x26f5), (0x26fa, 0x26fa),
-        (0x26fd, 0x26fd), (0x2705, 0x2705), (0x270a, 0x270b), (0x2728, 0x2728), (0x274c, 0x274c), (0x274e, 0x274e), (0x2753, 0x2755),
-        (0x2757, 0x2757), (0x2795, 0x2797), (0x27b0, 0x27b0), (0x27bf, 0x27bf), (0x2b1b, 0x2b1c), (0x2b50, 0x2b50), (0x2b55, 0x2b55),
-        (0x2e80, 0x303e), (0x3041, 0x33ff), (0x3400, 0x4dbf), (0x4e00, 0x9fff), (0xa000, 0xa4cf), (0xa960, 0xa97f), (0xac00, 0xd7a3),
-        (0xf900, 0xfaff), (0xfe10, 0xfe19), (0xfe30, 0xfe6f), (0xff00, 0xff60), (0xffe0, 0xffe6), (0x16fe0, 0x16fe4), (0x17000, 0x18cff),
-        (0x1b000, 0x1b2ff), (0x1f004, 0x1f004), (0x1f0cf, 0x1f0cf), (0x1f18e, 0x1f18e), (0x1f191, 0x1f19a), (0x1f200, 0x1f251),
-        (0x1f300, 0x1f64f), (0x1f680, 0x1f6ff), (0x1f7e0, 0x1f7eb), (0x1f7f0, 0x1f7f0), (0x1f90c, 0x1f9ff), (0x1fa70, 0x1faff),
-        (0x20000, 0x2fffd), (0x30000, 0x3fffd),
+        (0x1100, 0x115f),
+        (0x231a, 0x231b),
+        (0x2329, 0x232a),
+        (0x23e9, 0x23ec),
+        (0x23f0, 0x23f0),
+        (0x23f3, 0x23f3),
+        (0x25fd, 0x25fe),
+        (0x2614, 0x2615),
+        (0x2648, 0x2653),
+        (0x267f, 0x267f),
+        (0x2693, 0x2693),
+        (0x26a1, 0x26a1),
+        (0x26aa, 0x26ab),
+        (0x26bd, 0x26be),
+        (0x26c4, 0x26c5),
+        (0x26ce, 0x26ce),
+        (0x26d4, 0x26d4),
+        (0x26ea, 0x26ea),
+        (0x26f2, 0x26f3),
+        (0x26f5, 0x26f5),
+        (0x26fa, 0x26fa),
+        (0x26fd, 0x26fd),
+        (0x2705, 0x2705),
+        (0x270a, 0x270b),
+        (0x2728, 0x2728),
+        (0x274c, 0x274c),
+        (0x274e, 0x274e),
+        (0x2753, 0x2755),
+        (0x2757, 0x2757),
+        (0x2795, 0x2797),
+        (0x27b0, 0x27b0),
+        (0x27bf, 0x27bf),
+        (0x2b1b, 0x2b1c),
+        (0x2b50, 0x2b50),
+        (0x2b55, 0x2b55),
+        (0x2e80, 0x303e),
+        (0x3041, 0x33ff),
+        (0x3400, 0x4dbf),
+        (0x4e00, 0x9fff),
+        (0xa000, 0xa4cf),
+        (0xa960, 0xa97f),
+        (0xac00, 0xd7a3),
+        (0xf900, 0xfaff),
+        (0xfe10, 0xfe19),
+        (0xfe30, 0xfe6f),
+        (0xff00, 0xff60),
+        (0xffe0, 0xffe6),
+        (0x16fe0, 0x16fe4),
+        (0x17000, 0x18cff),
+        (0x1b000, 0x1b2ff),
+        (0x1f004, 0x1f004),
+        (0x1f0cf, 0x1f0cf),
+        (0x1f18e, 0x1f18e),
+        (0x1f191, 0x1f19a),
+        (0x1f200, 0x1f251),
+        (0x1f300, 0x1f64f),
+        (0x1f680, 0x1f6ff),
+        (0x1f7e0, 0x1f7eb),
+        (0x1f7f0, 0x1f7f0),
+        (0x1f90c, 0x1f9ff),
+        (0x1fa70, 0x1faff),
+        (0x20000, 0x2fffd),
+        (0x30000, 0x3fffd),
     ];
 
     private const int ZeroWidthJoiner = 0x200d;
@@ -286,9 +365,15 @@ internal static partial class Format
         }
 
         var category = Rune.GetUnicodeCategory(rune);
-        if (category is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark or UnicodeCategory.Format
+        if (
+            category
+                is UnicodeCategory.NonSpacingMark
+                    or UnicodeCategory.SpacingCombiningMark
+                    or UnicodeCategory.EnclosingMark
+                    or UnicodeCategory.Format
             || codePoint is >= 0x1160 and <= 0x11ff
-            || codePoint is >= 0x1f3fb and <= 0x1f3ff)
+            || codePoint is >= 0x1f3fb and <= 0x1f3ff
+        )
         {
             return 0;
         }
@@ -362,7 +447,9 @@ internal static partial class Format
 
         try
         {
-            return Console.IsOutputRedirected ? 80 : Console.WindowWidth is var width and > 0 ? width : 80;
+            return Console.IsOutputRedirected ? 80
+                : Console.WindowWidth is var width and > 0 ? width
+                : 80;
         }
         catch (Exception ex) when (ex is IOException or PlatformNotSupportedException or InvalidOperationException)
         {
@@ -380,7 +467,9 @@ internal static partial class Format
 
         try
         {
-            return Console.IsOutputRedirected ? 40 : Console.WindowHeight is var height and > 0 ? height : 40;
+            return Console.IsOutputRedirected ? 40
+                : Console.WindowHeight is var height and > 0 ? height
+                : 40;
         }
         catch (Exception ex) when (ex is IOException or PlatformNotSupportedException or InvalidOperationException)
         {
@@ -392,7 +481,10 @@ internal static partial class Format
     public static string FormatMinutes(TimeSpan span)
     {
         var total = (long)Math.Round(span.TotalSeconds, MidpointRounding.AwayFromZero);
-        return (total / 60).ToString(CultureInfo.InvariantCulture) + "m " + (total % 60).ToString(CultureInfo.InvariantCulture) + "s";
+        return (total / 60).ToString(CultureInfo.InvariantCulture)
+            + "m "
+            + (total % 60).ToString(CultureInfo.InvariantCulture)
+            + "s";
     }
 
     /// <summary>
@@ -541,7 +633,8 @@ internal static partial class Format
             parts.Add(pc.Gray(counters.Skipped.ToString(CultureInfo.InvariantCulture) + " skipped"));
         }
 
-        return string.Join(pc.Dim(" | "), parts) + pc.Gray(" (" + counters.Total.ToString(CultureInfo.InvariantCulture) + ")");
+        return string.Join(pc.Dim(" | "), parts)
+            + pc.Gray(" (" + counters.Total.ToString(CultureInfo.InvariantCulture) + ")");
     }
 
     /// <summary>Model usage across steps (upstream's <c>AiUsage</c>).</summary>
@@ -624,9 +717,13 @@ internal static partial class Format
             return null;
         }
 
-        var cached = usage.CachedTokens > 0 && usage.InputTokens > 0
-            ? " · " + Math.Round((double)usage.CachedTokens / usage.InputTokens * 100, MidpointRounding.AwayFromZero).ToString("F0", CultureInfo.InvariantCulture) + "% cached"
-            : string.Empty;
+        var cached =
+            usage.CachedTokens > 0 && usage.InputTokens > 0
+                ? " · "
+                    + Math.Round((double)usage.CachedTokens / usage.InputTokens * 100, MidpointRounding.AwayFromZero)
+                        .ToString("F0", CultureInfo.InvariantCulture)
+                    + "% cached"
+                : string.Empty;
         var cost = usage.CostUsd is { } costUsd ? " · " + FormatCost(costUsd) : string.Empty;
         return FormatTokens(usage.Tokens) + " tokens" + cached + cost;
     }
@@ -639,7 +736,9 @@ internal static partial class Format
     /// lacks either half, so a step an executor reported without provenance never prints as <c>undefined/undefined</c>.
     /// </summary>
     public static string? StepModelLabel(StepModelInfo model) =>
-        string.IsNullOrEmpty(model.Provider) || string.IsNullOrEmpty(model.Model) ? null : model.Provider + "/" + model.Model;
+        string.IsNullOrEmpty(model.Provider) || string.IsNullOrEmpty(model.Model)
+            ? null
+            : model.Provider + "/" + model.Model;
 
     /// <summary>Upstream's <c>addModelTally</c>.</summary>
     public static void AddModelTally(Dictionary<string, int> into, Dictionary<string, int> counts)
@@ -672,17 +771,29 @@ internal static partial class Format
     /// </summary>
     public static string? ModelsText(Dictionary<string, int> counts)
     {
-        var sorted = counts.OrderByDescending(entry => entry.Value).ThenBy(entry => entry.Key, StringComparer.InvariantCulture).ToList();
+        var sorted = counts
+            .OrderByDescending(entry => entry.Value)
+            .ThenBy(entry => entry.Key, StringComparer.InvariantCulture)
+            .ToList();
         return sorted.Count switch
         {
             0 => null,
             1 => Bounded(sorted[0].Key),
-            _ => string.Join(" · ", sorted.Select(entry => Bounded(entry.Key) + " (" + entry.Value.ToString(CultureInfo.InvariantCulture) + (entry.Value == 1 ? " call)" : " calls)"))),
+            _ => string.Join(
+                " · ",
+                sorted.Select(entry =>
+                    Bounded(entry.Key)
+                    + " ("
+                    + entry.Value.ToString(CultureInfo.InvariantCulture)
+                    + (entry.Value == 1 ? " call)" : " calls)")
+                )
+            ),
         };
     }
 
     /// <summary>Upstream's <c>repeatSuffix</c>: the title suffix of a repeat-each run past the first, <c> (repeat #2)</c>; empty for the first run.</summary>
-    public static string RepeatSuffix(int repeat) => repeat == 0 ? string.Empty : " (repeat #" + repeat.ToString(CultureInfo.InvariantCulture) + ")";
+    public static string RepeatSuffix(int repeat) =>
+        repeat == 0 ? string.Empty : " (repeat #" + repeat.ToString(CultureInfo.InvariantCulture) + ")";
 
     [GeneratedRegex("\u001b\\[[0-9;]*m")]
     private static partial Regex Ansi();

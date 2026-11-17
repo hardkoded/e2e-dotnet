@@ -16,7 +16,14 @@ namespace E2E.Reports;
 /// <param name="LastFailed">The last attempt before the final one that did not pass, when there was one: what a flaky test hit.</param>
 /// <param name="Attempts">Every attempt in order, so a page can say whether they failed alike.</param>
 /// <param name="FailedAttempts">Attempts that did not pass before the final one; what a flaky pass cost.</param>
-internal sealed record Outcome(long DurationMs, ReportAttempt Final, ReportAttempt Verdict, ReportAttempt? LastFailed, IReadOnlyList<ReportAttempt> Attempts, int FailedAttempts)
+internal sealed record Outcome(
+    long DurationMs,
+    ReportAttempt Final,
+    ReportAttempt Verdict,
+    ReportAttempt? LastFailed,
+    IReadOnlyList<ReportAttempt> Attempts,
+    int FailedAttempts
+)
 {
     /// <summary>What a result that never ran an attempt reads as.</summary>
     private static readonly ReportAttempt NoAttempt = new() { Status = AttemptStatus.Skipped };
@@ -33,7 +40,8 @@ internal sealed record Outcome(long DurationMs, ReportAttempt Final, ReportAttem
             verdict,
             earlier.LastOrDefault(attempt => attempt.Status != AttemptStatus.Passed),
             result.Attempts,
-            earlier.Count(attempt => attempt.Status != AttemptStatus.Passed));
+            earlier.Count(attempt => attempt.Status != AttemptStatus.Passed)
+        );
     }
 
     /// <summary>Upstream's <c>reachedVerdict</c>: whether an attempt ended the way the result did; a failure and a timeout are one verdict.</summary>

@@ -19,15 +19,17 @@ public sealed class CreateAttemptArtifactsWithAnArtifactStoreTests : ArtifactSto
     public async Task Hands_each_artifact_to_the_store_as_produced_with_bytes_digest_and_identity_and_records_the_ref()
     {
         var store = Capturing();
-        var artifacts = ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
-        {
-            ArtifactsRoot = Root(),
-            Segments = ["web", "test-1", "attempt-0"],
-            AttemptId = "att-1",
-            CurrentStepId = () => "step-3",
-            Store = store,
-            Identity = new ArtifactIdentity("run-9", "test-1"),
-        });
+        var artifacts = ArtifactPaths.CreateAttemptArtifacts(
+            new AttemptArtifactsOptions
+            {
+                ArtifactsRoot = Root(),
+                Segments = ["web", "test-1", "attempt-0"],
+                AttemptId = "att-1",
+                CurrentStepId = () => "step-3",
+                Store = store,
+                Identity = new ArtifactIdentity("run-9", "test-1"),
+            }
+        );
         var png = Encoding.UTF8.GetBytes("not really a png");
         File.WriteAllBytes(Path.Combine(artifacts.Dir, "shot.png"), png);
         var id = artifacts.Sink.Register(ArtifactKind.Screenshot, "shot.png");
@@ -57,18 +59,30 @@ public sealed class CreateAttemptArtifactsWithAnArtifactStoreTests : ArtifactSto
     public async Task Carries_a_video_segment_start_time_to_the_record_and_the_store_and_marks_it_unredacted()
     {
         var store = Capturing();
-        var artifacts = ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
-        {
-            ArtifactsRoot = Root(),
-            Segments = ["web", "test-1", "attempt-0"],
-            AttemptId = "att-1",
-            Store = store,
-            Identity = new ArtifactIdentity("run-9", "test-1"),
-        });
+        var artifacts = ArtifactPaths.CreateAttemptArtifacts(
+            new AttemptArtifactsOptions
+            {
+                ArtifactsRoot = Root(),
+                Segments = ["web", "test-1", "attempt-0"],
+                AttemptId = "att-1",
+                Store = store,
+                Identity = new ArtifactIdentity("run-9", "test-1"),
+            }
+        );
         Directory.CreateDirectory(Path.Combine(artifacts.Dir, "video"));
-        File.WriteAllBytes(Path.Combine(artifacts.Dir, "video", "video.webm"), Encoding.UTF8.GetBytes("not really webm"));
-        var startedAt = DateTimeOffset.Parse("2026-09-09T10:00:00.000Z", System.Globalization.CultureInfo.InvariantCulture);
-        artifacts.Sink.Register(ArtifactKind.Video, "video/video.webm", new ArtifactRegistration { StartedAt = startedAt });
+        File.WriteAllBytes(
+            Path.Combine(artifacts.Dir, "video", "video.webm"),
+            Encoding.UTF8.GetBytes("not really webm")
+        );
+        var startedAt = DateTimeOffset.Parse(
+            "2026-09-09T10:00:00.000Z",
+            System.Globalization.CultureInfo.InvariantCulture
+        );
+        artifacts.Sink.Register(
+            ArtifactKind.Video,
+            "video/video.webm",
+            new ArtifactRegistration { StartedAt = startedAt }
+        );
         await artifacts.SettleAsync();
 
         var video = Assert.Single(store.Puts);
@@ -95,14 +109,16 @@ public sealed class CreateAttemptArtifactsWithAnArtifactStoreTests : ArtifactSto
     public async Task Hands_the_store_the_report_owning_attempt_id_while_artifact_ids_still_mint_from_the_member()
     {
         var store = Capturing();
-        var artifacts = ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
-        {
-            ArtifactsRoot = Root(),
-            Segments = ["web", "group", "attempt-0"],
-            AttemptId = "member-private",
-            Store = store,
-            Identity = new ArtifactIdentity("run", "group", "group-attempt"),
-        });
+        var artifacts = ArtifactPaths.CreateAttemptArtifacts(
+            new AttemptArtifactsOptions
+            {
+                ArtifactsRoot = Root(),
+                Segments = ["web", "group", "attempt-0"],
+                AttemptId = "member-private",
+                Store = store,
+                Identity = new ArtifactIdentity("run", "group", "group-attempt"),
+            }
+        );
         File.WriteAllText(Path.Combine(artifacts.Dir, "shot.png"), "x");
         artifacts.Sink.Register(ArtifactKind.Screenshot, "shot.png");
         await artifacts.SettleAsync();
@@ -116,13 +132,15 @@ public sealed class CreateAttemptArtifactsWithAnArtifactStoreTests : ArtifactSto
     [Fact]
     public async Task Keeps_the_local_record_and_omits_ref_when_the_store_fails_without_throwing()
     {
-        var artifacts = ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
-        {
-            ArtifactsRoot = Root(),
-            Segments = ["web", "t", "attempt-0"],
-            AttemptId = "a",
-            Store = new DelegateStore(_ => throw new InvalidOperationException("bucket unreachable")),
-        });
+        var artifacts = ArtifactPaths.CreateAttemptArtifacts(
+            new AttemptArtifactsOptions
+            {
+                ArtifactsRoot = Root(),
+                Segments = ["web", "t", "attempt-0"],
+                AttemptId = "a",
+                Store = new DelegateStore(_ => throw new InvalidOperationException("bucket unreachable")),
+            }
+        );
         File.WriteAllText(Path.Combine(artifacts.Dir, "video.webm"), "webm");
         artifacts.Sink.Register(ArtifactKind.Video, "video.webm");
         await artifacts.SettleAsync();
@@ -136,13 +154,15 @@ public sealed class CreateAttemptArtifactsWithAnArtifactStoreTests : ArtifactSto
     [Fact]
     public async Task Ignores_an_empty_ref_and_never_records_a_missing_file()
     {
-        var artifacts = ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
-        {
-            ArtifactsRoot = Root(),
-            Segments = ["web", "t", "attempt-0"],
-            AttemptId = "a",
-            Store = new DelegateStore(_ => Task.FromResult("")),
-        });
+        var artifacts = ArtifactPaths.CreateAttemptArtifacts(
+            new AttemptArtifactsOptions
+            {
+                ArtifactsRoot = Root(),
+                Segments = ["web", "t", "attempt-0"],
+                AttemptId = "a",
+                Store = new DelegateStore(_ => Task.FromResult("")),
+            }
+        );
         File.WriteAllText(Path.Combine(artifacts.Dir, "a.png"), "x");
         artifacts.Sink.Register(ArtifactKind.Screenshot, "a.png");
         artifacts.Sink.Register(ArtifactKind.Screenshot, "never-written.png");
@@ -157,12 +177,14 @@ public sealed class CreateAttemptArtifactsWithAnArtifactStoreTests : ArtifactSto
     [Fact]
     public async Task Without_a_store_measures_by_streaming_and_records_no_ref()
     {
-        var artifacts = ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
-        {
-            ArtifactsRoot = Root(),
-            Segments = ["web", "t", "attempt-0"],
-            AttemptId = "a",
-        });
+        var artifacts = ArtifactPaths.CreateAttemptArtifacts(
+            new AttemptArtifactsOptions
+            {
+                ArtifactsRoot = Root(),
+                Segments = ["web", "t", "attempt-0"],
+                AttemptId = "a",
+            }
+        );
         var body = Encoding.UTF8.GetBytes("hello");
         File.WriteAllBytes(Path.Combine(artifacts.Dir, "log.txt"), body);
         artifacts.Sink.Register(ArtifactKind.Log, "log.txt");

@@ -18,9 +18,11 @@ public sealed class ConfigReportersTests
 
     private const string Second = "E2E.Tests.Reporters.SecondReporter, E2E.Tests";
 
-    private static E2EConfig Parse(string reporters) => E2EConfig.Parse("{ \"reporters\": " + reporters + " }", Path.GetTempPath());
+    private static E2EConfig Parse(string reporters) =>
+        E2EConfig.Parse("{ \"reporters\": " + reporters + " }", Path.GetTempPath());
 
-    private static string Invalid(string reporters) => Assert.Throws<ConfigurationException>(() => Parse(reporters)).Message;
+    private static string Invalid(string reporters) =>
+        Assert.Throws<ConfigurationException>(() => Parse(reporters)).Message;
 
     [Fact]
     public void A_config_with_no_reporters_key_has_no_reporters()
@@ -86,7 +88,10 @@ public sealed class ConfigReportersTests
     [InlineData("[\"\"]")]
     public void Rejects_an_entry_that_is_not_a_type_name_or_an_object_with_a_string_type(string reporters)
     {
-        Assert.Contains("reporters[0] must be a reporter type name or an object with a string \"type\"", Invalid(reporters));
+        Assert.Contains(
+            "reporters[0] must be a reporter type name or an object with a string \"type\"",
+            Invalid(reporters)
+        );
     }
 
     [Fact]
@@ -98,7 +103,10 @@ public sealed class ConfigReportersTests
     [Fact]
     public void Rejects_options_that_are_not_an_object()
     {
-        Assert.Contains("reporters[0].options must be an object", Invalid($"[{{\"type\": \"{First}\", \"options\": 1}}]"));
+        Assert.Contains(
+            "reporters[0].options must be an object",
+            Invalid($"[{{\"type\": \"{First}\", \"options\": 1}}]")
+        );
     }
 
     [Fact]
@@ -128,7 +136,9 @@ public sealed class ConfigReportersTests
     [Fact]
     public void Options_for_a_reporter_that_is_not_configurable_are_one_stderr_line_that_never_holds_the_value()
     {
-        var (reporters, error) = CreateCapturingStderr(Parse($$$"""[{"type": "{{{First}}}", "options": {"key": "s3cret-value"}}, "{{{Second}}}"]"""));
+        var (reporters, error) = CreateCapturingStderr(
+            Parse($$$"""[{"type": "{{{First}}}", "options": {"key": "s3cret-value"}}, "{{{Second}}}"]""")
+        );
 
         Assert.Equal(["second"], reporters.Select(reporter => reporter.Name));
         Assert.Contains("takes no options", error);
@@ -138,7 +148,9 @@ public sealed class ConfigReportersTests
     [Fact]
     public void A_configure_that_rejects_its_options_is_one_stderr_line_that_names_the_type()
     {
-        var (_, error) = CreateCapturingStderr(Parse($$$"""[{"type": "{{{Second}}}", "options": {"bad": "s3cret-value"}}]"""));
+        var (_, error) = CreateCapturingStderr(
+            Parse($$$"""[{"type": "{{{Second}}}", "options": {"bad": "s3cret-value"}}]""")
+        );
 
         Assert.Contains($"reporter \"{Second}\" could not be created: option \"bad\" is not supported", error);
         Assert.DoesNotContain("s3cret-value", error);

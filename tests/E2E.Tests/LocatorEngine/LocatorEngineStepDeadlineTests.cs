@@ -18,13 +18,22 @@ public sealed class LocatorEngineStepDeadlineTests
     public async Task Waits_past_the_action_timeout_with_timeout_0_until_the_phase_deadline()
     {
         var phase = new Deadline(TimeSpan.FromMilliseconds(600), TimeProvider.System);
-        var scripted = ScriptedLocatorEngine.Make(Enumerable.Repeat(ScriptedLocatorEngine.Nodes(), 50), actionTimeout: TimeSpan.FromMilliseconds(100));
+        var scripted = ScriptedLocatorEngine.Make(
+            Enumerable.Repeat(ScriptedLocatorEngine.Nodes(), 50),
+            actionTimeout: TimeSpan.FromMilliseconds(100)
+        );
         scripted.Engine.BudgetDeadline = phase;
 
         Assert.Equal(phase.EndsAt, scripted.Engine.DeadlineFor(TimeSpan.Zero).EndsAt);
         var started = DateTimeOffset.UtcNow;
-        var error = await Assert.ThrowsAsync<TestException>(() => scripted.Engine.PerformAsync(
-            ScriptedLocatorEngine.Expression, (_, _) => Task.FromResult<LocatorAction>(new LocatorAction.Tap()), TimeSpan.Zero, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            scripted.Engine.PerformAsync(
+                ScriptedLocatorEngine.Expression,
+                (_, _) => Task.FromResult<LocatorAction>(new LocatorAction.Tap()),
+                TimeSpan.Zero,
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.True(DateTimeOffset.UtcNow - started >= TimeSpan.FromMilliseconds(550));
@@ -37,8 +46,14 @@ public sealed class LocatorEngineStepDeadlineTests
 
         foreach (var timeout in new[] { TimeSpan.FromMilliseconds(-1), Timeout.InfiniteTimeSpan })
         {
-            var error = await Assert.ThrowsAsync<TestException>(() => scripted.Engine.PerformAsync(
-                ScriptedLocatorEngine.Expression, (_, _) => Task.FromResult<LocatorAction>(new LocatorAction.Tap()), timeout, CancellationToken.None));
+            var error = await Assert.ThrowsAsync<TestException>(() =>
+                scripted.Engine.PerformAsync(
+                    ScriptedLocatorEngine.Expression,
+                    (_, _) => Task.FromResult<LocatorAction>(new LocatorAction.Tap()),
+                    timeout,
+                    CancellationToken.None
+                )
+            );
             Assert.Equal("INVALID_ARGUMENT", error.Code);
         }
 

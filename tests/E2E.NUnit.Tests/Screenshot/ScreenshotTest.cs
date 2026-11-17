@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.CompilerServices;
+
 namespace E2E.NUnit.Tests.Screenshot;
 
 /// <summary>
@@ -24,7 +25,12 @@ public abstract class ScreenshotTest : PlaywrightTest
     /// Paints a <paramref name="color"/> box over each of <paramref name="targets"/>, as a <c>mask</c> would cover it, keeps the viewport
     /// as the stored screenshot <paramref name="name"/>, then takes the boxes away.
     /// </summary>
-    protected async Task StoreMaskedReferenceAsync(string name, IReadOnlyList<MaskTarget> targets, string color = "#ff00ff", [CallerFilePath] string callerFile = "")
+    protected async Task StoreMaskedReferenceAsync(
+        string name,
+        IReadOnlyList<MaskTarget> targets,
+        string color = "#ff00ff",
+        [CallerFilePath] string callerFile = ""
+    )
     {
         await Browser.EvaluateAsync<object>(
             """
@@ -47,9 +53,23 @@ public abstract class ScreenshotTest : PlaywrightTest
               }
             }
             """,
-            new { targets = targets.Select(target => new { frame = target.Frame, selector = target.Selector, index = target.Index }).ToArray(), color });
+            new
+            {
+                targets = targets
+                    .Select(target => new
+                    {
+                        frame = target.Frame,
+                        selector = target.Selector,
+                        index = target.Index,
+                    })
+                    .ToArray(),
+                color,
+            }
+        );
         await StoreReferenceAsync(name, callerFile);
-        await Browser.EvaluateAsync<object>("() => { for (const box of document.querySelectorAll('[data-test-mask]')) box.remove(); }");
+        await Browser.EvaluateAsync<object>(
+            "() => { for (const box of document.querySelectorAll('[data-test-mask]')) box.remove(); }"
+        );
     }
 
     /// <summary>Keeps the viewport, as <c>app.screenshot</c> takes it, as the stored screenshot <paramref name="name"/> until the test ends.</summary>
@@ -73,11 +93,15 @@ public abstract class ScreenshotTest : PlaywrightTest
               await new Promise((x) => (frame.onload = x));
             }
             """,
-            new { id, url });
+            new { id, url }
+        );
 
     /// <summary>Adds a <c>&lt;style&gt;</c> with <paramref name="css"/> to the page, Playwright's <c>addStyleTag({ content })</c>.</summary>
     protected Task AddStyleTagAsync(string css) =>
-        Browser.EvaluateAsync<object>("(css) => { const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style); }", css);
+        Browser.EvaluateAsync<object>(
+            "(css) => { const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style); }",
+            css
+        );
 
     [TearDown]
     public void RemoveStoredScreenshots()

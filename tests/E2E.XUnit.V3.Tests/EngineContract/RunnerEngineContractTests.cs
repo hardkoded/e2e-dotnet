@@ -55,7 +55,10 @@ public sealed class RunnerEngineContractTests
         // .NET-only: upstream's session contract is checked by its collector and by SessionStaging; the xUnit surface needs its own tests.
         var (results, _) = await NestedSessionRun.RunAsync(typeof(SessionContractBreaksFixture));
 
-        Assert.Contains("setup must save each declared session exactly once; missing: [acct]", results["SavesNothing"].Message);
+        Assert.Contains(
+            "setup must save each declared session exactly once; missing: [acct]",
+            results["SavesNothing"].Message
+        );
         Assert.Contains("session \"twice\" saved twice", results["SavesTwice"].Message);
         Assert.Contains("session \"other\" was not declared by this setup test", results["SavesUndeclared"].Message);
         Assert.Contains("only available in a setup test", results["Saves_outside_a_setup_test"].Message);

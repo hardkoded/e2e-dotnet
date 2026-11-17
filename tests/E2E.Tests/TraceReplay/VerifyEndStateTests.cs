@@ -15,8 +15,19 @@ namespace E2E.Tests.TraceReplay;
 /// </summary>
 public sealed class VerifyEndStateTests
 {
-    private static readonly SemanticNode Saved = new() { Ref = "m", Role = "status", Name = "Marker", Text = "saved" };
-    private static readonly RecordedTarget SavedAnchor = new() { Role = "status", Name = "Marker", Text = "saved" };
+    private static readonly SemanticNode Saved = new()
+    {
+        Ref = "m",
+        Role = "status",
+        Name = "Marker",
+        Text = "saved",
+    };
+    private static readonly RecordedTarget SavedAnchor = new()
+    {
+        Role = "status",
+        Name = "Marker",
+        Text = "saved",
+    };
     private static readonly RecordedTarget UpgradeAnchor = new() { Role = "button", Name = "Upgrade" };
 
     private static Task<bool> VerifyAnchors(TestHost host, IReadOnlyList<RecordedTarget> endAnchors, int? waitMs = null)
@@ -25,7 +36,8 @@ public sealed class VerifyEndStateTests
         return Replay.VerifyEndState(
             host,
             screen => Anchors.Mismatch(entry, Anchors.Project(screen.Nodes, text => text, text => text), []) is null,
-            new VerifyEndStateOptions { WaitMs = waitMs });
+            new VerifyEndStateOptions { WaitMs = waitMs }
+        );
     }
 
     /// <summary>A host with <paramref name="remainingMs"/> on the step clock whose screen shows the saved marker from <paramref name="after"/> on.</summary>
@@ -52,7 +64,13 @@ public sealed class VerifyEndStateTests
     [Fact]
     public async Task Holds_when_every_anchor_is_present_counting_an_ambiguous_match_as_presence()
     {
-        var twin = new SemanticNode { Ref = "m2", Role = "status", Name = "Marker", Text = "saved" };
+        var twin = new SemanticNode
+        {
+            Ref = "m2",
+            Role = "status",
+            Name = "Marker",
+            Text = "saved",
+        };
         var host = Fast([Upgrade, Saved, twin]);
 
         Assert.True(await VerifyAnchors(host, [SavedAnchor, UpgradeAnchor]));

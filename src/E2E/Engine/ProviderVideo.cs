@@ -11,7 +11,8 @@ namespace E2E.Engine;
 /// pages open and close in it, ended by <see cref="ProviderRecordings.StopProviderRecordingAsync"/> into the attempt's one
 /// segment, a file in its <c>video</c> directory or a link. Upstream's <c>ProviderVideo</c>.
 /// </summary>
-internal sealed class ProviderVideo(Func<CancellationToken, Task<LeaseRecording?>> record, string artifactsDir) : IAttemptVideo
+internal sealed class ProviderVideo(Func<CancellationToken, Task<LeaseRecording?>> record, string artifactsDir)
+    : IAttemptVideo
 {
     /// <summary>How long a recording that started after its attempt gave up gets to stop.</summary>
     private static readonly TimeSpan LateStop = TimeSpan.FromSeconds(10);
@@ -94,7 +95,8 @@ internal sealed class ProviderVideo(Func<CancellationToken, Task<LeaseRecording?
             },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
+            TaskScheduler.Default
+        );
         return stopping;
     }
 
@@ -105,7 +107,10 @@ internal sealed class ProviderVideo(Func<CancellationToken, Task<LeaseRecording?
     public async Task AbandonAsync(CancellationToken cancellationToken) =>
         await ((Task)StopAsync(cancellationToken)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
 
-    private async Task<IReadOnlyList<VideoSegment>> StopSharedAsync(LeaseRecording started, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<VideoSegment>> StopSharedAsync(
+        LeaseRecording started,
+        CancellationToken cancellationToken
+    )
     {
         var segment = await StopLeaseAsync(started, cancellationToken).ConfigureAwait(false);
         if (_started == started)
@@ -120,6 +125,12 @@ internal sealed class ProviderVideo(Func<CancellationToken, Task<LeaseRecording?
     private Task<VideoSegment> StopLeaseAsync(LeaseRecording started, CancellationToken cancellationToken) =>
         ProviderRecordings.StopProviderRecordingAsync(
             started.Recording,
-            new ProviderRecordingTarget { ArtifactsDir = artifactsDir, Provider = started.Provider, LeaseId = started.LeaseId },
-            cancellationToken);
+            new ProviderRecordingTarget
+            {
+                ArtifactsDir = artifactsDir,
+                Provider = started.Provider,
+                LeaseId = started.LeaseId,
+            },
+            cancellationToken
+        );
 }

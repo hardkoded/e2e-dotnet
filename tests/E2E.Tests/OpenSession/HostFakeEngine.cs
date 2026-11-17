@@ -50,7 +50,21 @@ internal sealed class HostFakeEngine : IEngine
         public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "submit", Role = "button", Name = "Submit" }] });
+            Task.FromResult(
+                new Observation
+                {
+                    Route = "/",
+                    Roots =
+                    [
+                        new SemanticNode
+                        {
+                            Ref = "submit",
+                            Role = "button",
+                            Name = "Submit",
+                        },
+                    ],
+                }
+            );
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
             owner.OnPerform?.Invoke(action, cancellationToken) ?? Task.CompletedTask;

@@ -10,9 +10,11 @@ namespace E2E.Tests.AgentReading;
 /// <summary>Upstream's <c>describe('a clock on the screen')</c> (<c>agent-reading.test.ts</c>).</summary>
 public sealed class AClockOnTheScreenTests
 {
-    private static SemanticNode Clock(string time) => Node("clock", role: "status", name: "Clock", text: time, rect: new BoundingBox(0, 0, 100, 20));
+    private static SemanticNode Clock(string time) =>
+        Node("clock", role: "status", name: "Clock", text: time, rect: new BoundingBox(0, 0, 100, 20));
 
-    private static SemanticNode Row(string text) => Node("r", role: "listitem", text: text, rect: new BoundingBox(0, 40, 300, 40));
+    private static SemanticNode Row(string text) =>
+        Node("r", role: "listitem", text: text, rect: new BoundingBox(0, 40, 300, 40));
 
     [Theory]
     [InlineData("12:06")]
@@ -29,7 +31,12 @@ public sealed class AClockOnTheScreenTests
     public void Still_lets_a_page_that_moved_read_differently()
     {
         static SemanticNode[] Rows(params string[] texts) =>
-            [.. texts.Select((text, at) => Node("r" + at, role: "listitem", text: text, rect: new BoundingBox(0, 40 + at * 40, 300, 40)))];
+            [
+                .. texts.Select(
+                    (text, at) =>
+                        Node("r" + at, role: "listitem", text: text, rect: new BoundingBox(0, 40 + at * 40, 300, 40))
+                ),
+            ];
 
         var before = Reading.ReadPage(IndexOf([Clock("12:05"), .. Rows("Row 1", "Row 2")]));
         var after = Reading.ReadPage(IndexOf([Clock("12:06"), .. Rows("Row 3", "Row 4")]));

@@ -20,7 +20,8 @@ public sealed record TraceKeyContext(
     string EngineName,
     int EngineSpiVersion,
     string AppIdentity,
-    string AgentContextDigest);
+    string AgentContextDigest
+);
 
 /// <summary>Upstream's <c>cache/trace.ts</c> constants and key context fields that the trace cache identity uses.</summary>
 internal static class Trace
@@ -66,7 +67,8 @@ internal static class Trace
     /// Bounds a descriptor field to <see cref="MaxTraceDescriptorChars"/>, or passes null through. Upstream's <c>bound</c> in <c>describeTarget</c>'s
     /// <c>field</c>. Redaction does not bound a field, so every place that records one calls this after it redacts.
     /// </summary>
-    internal static string? BoundDescriptor(string? text) => text is null ? null : E2E.Internal.TextRules.Bound(text, MaxTraceDescriptorChars);
+    internal static string? BoundDescriptor(string? text) =>
+        text is null ? null : E2E.Internal.TextRules.Bound(text, MaxTraceDescriptorChars);
 
     /// <summary>
     /// Upstream's <c>mapTraceText</c>: applies <paramref name="map"/> to every recorded string a screen value can appear in: typed and
@@ -82,7 +84,14 @@ internal static class Trace
         var actions = Each(trace.Actions, action => MapActionText(action, map));
         var appeared = Each(trace.Appeared, anchor => MapDescriptorText(anchor, map));
         var gone = Each(trace.Gone, anchor => MapDescriptorText(anchor, map));
-        if (actions is null || appeared is null || gone is null || !TryMap(trace.Summary, map, out var summary) || !TryMap(trace.Route, map, out var route) || !TryMap(trace.EndRoute, map, out var endRoute))
+        if (
+            actions is null
+            || appeared is null
+            || gone is null
+            || !TryMap(trace.Summary, map, out var summary)
+            || !TryMap(trace.Route, map, out var route)
+            || !TryMap(trace.EndRoute, map, out var endRoute)
+        )
         {
             return null;
         }
@@ -128,12 +137,14 @@ internal static class Trace
     /// </summary>
     private static RecordedTarget? MapDescriptorText(RecordedTarget descriptor, Func<string, string?> map)
     {
-        if (!TryMap(descriptor.Name, map, out var name)
+        if (
+            !TryMap(descriptor.Name, map, out var name)
             || !TryMap(descriptor.Text, map, out var text)
             || !TryMap(descriptor.TestId, map, out var testId)
             || !TryMap(descriptor.Placeholder, map, out var placeholder)
             || !TryMap(descriptor.Within, map, out var within)
-            || !TryMap(descriptor.Value, map, out var value))
+            || !TryMap(descriptor.Value, map, out var value)
+        )
         {
             return null;
         }
@@ -158,9 +169,13 @@ internal static class Trace
         var mapped = action.Copy();
         // The text of a scroll-until and the name of a tool gap are not target text: the first maps below, the second is vocabulary.
         var targetText = action.Kind is "scrollUntil" or "tool" ? action.Text : null;
-        if (!TryMap(action.Name, map, out var name) || !TryMap(action.TestId, map, out var testId) || !TryMap(action.Within, map, out var within)
+        if (
+            !TryMap(action.Name, map, out var name)
+            || !TryMap(action.TestId, map, out var testId)
+            || !TryMap(action.Within, map, out var within)
             || !TryMap(action.Placeholder, map, out var placeholder)
-            || (action.Kind is not ("scrollUntil" or "tool") && !TryMap(action.Text, map, out targetText)))
+            || (action.Kind is not ("scrollUntil" or "tool") && !TryMap(action.Text, map, out targetText))
+        )
         {
             return null;
         }
@@ -255,7 +270,11 @@ internal static class Trace
     }
 
     // Upstream's mapPointEnd: a point end with its node's text mapped, unchanged without a node; false when that text maps to nothing.
-    private static bool TryMapPlace(RecordedPointPlace? place, Func<string, string?> map, out RecordedPointPlace? mapped)
+    private static bool TryMapPlace(
+        RecordedPointPlace? place,
+        Func<string, string?> map,
+        out RecordedPointPlace? mapped
+    )
     {
         mapped = place;
         if (place?.Target is not { } target)
@@ -292,7 +311,10 @@ internal static class Trace
     }
 
     internal static bool IsSecretMarker(RecordedAction action) =>
-        action.Kind == "fill" && action.Value is { } value && value.StartsWith("<secret:", StringComparison.Ordinal) && value.EndsWith('>');
+        action.Kind == "fill"
+        && action.Value is { } value
+        && value.StartsWith("<secret:", StringComparison.Ordinal)
+        && value.EndsWith('>');
 
     /// <summary>Upstream's <c>KEY_CONTEXT_FIELDS</c>, in upstream's order, each with the value it holds.</summary>
     public static readonly IReadOnlyList<(string Field, Func<TraceKeyContext, object> Get)> KeyContextFields =
@@ -323,9 +345,13 @@ internal sealed class KeyContextConverter : JsonConverter<TraceKeyContext>
             return null;
         }
 
-        string? Text(string name) => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        string? Text(string name) =>
+            root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
 
-        if (Text("cacheSchema") is not { } schema
+        if (
+            Text("cacheSchema") is not { } schema
             || Text("policyVersion") is not { } policy
             || Text("project") is not { } project
             || Text("platform") is not { } platform
@@ -334,7 +360,8 @@ internal sealed class KeyContextConverter : JsonConverter<TraceKeyContext>
             || Text("agentContextDigest") is not { } agentContext
             || !root.TryGetProperty("engineSpiVersion", out var spi)
             || spi.ValueKind != JsonValueKind.Number
-            || !spi.TryGetInt32(out var spiVersion))
+            || !spi.TryGetInt32(out var spiVersion)
+        )
         {
             return null;
         }
@@ -380,4 +407,5 @@ public enum DerivedReason
 }
 
 /// <summary>Writes a <see cref="DerivedReason"/> as upstream spells it (<c>whole-node</c>) and refuses a number or a name it lacks (upstream's <c>isDerivedReason</c>).</summary>
-internal sealed class DerivedReasonConverter() : JsonStringEnumConverter<DerivedReason>(JsonNamingPolicy.KebabCaseLower, allowIntegerValues: false);
+internal sealed class DerivedReasonConverter()
+    : JsonStringEnumConverter<DerivedReason>(JsonNamingPolicy.KebabCaseLower, allowIntegerValues: false);

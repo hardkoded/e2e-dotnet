@@ -88,7 +88,8 @@ public sealed class DownloadsThroughAProviderTests : IAsyncLifetime
         var reads = new List<(string Lease, string File)>();
         var cloud = new ToyCloud(scope)
         {
-            OnAcquire = (request, token) => Task.FromResult<BrowserLease>(new ToyLease { Id = "lease-1", CdpEndpoint = _remote.Endpoint }),
+            OnAcquire = (request, token) =>
+                Task.FromResult<BrowserLease>(new ToyLease { Id = "lease-1", CdpEndpoint = _remote.Endpoint }),
             Downloads = new BrowserProviderDownloads
             {
                 Dir = Path.Combine(remoteDisk, "downloads"),
@@ -102,10 +103,19 @@ public sealed class DownloadsThroughAProviderTests : IAsyncLifetime
         _worker = new WebEngine(new WebEngineOptions { Browser = cloud });
         var prepared = await _worker.PrepareAsync(ToyRunner.PrepareInfo(1), None);
         _worker.Init(ToyRunner.InitInfo(0, ToyRunner.Widen(prepared.Env)));
-        _session = await _worker.StartAsync(new EngineStartOptions { AttemptId = "a1", ArtifactsDir = artifactsDir, ActionTimeout = TimeSpan.FromSeconds(15) }, None);
+        _session = await _worker.StartAsync(
+            new EngineStartOptions
+            {
+                AttemptId = "a1",
+                ArtifactsDir = artifactsDir,
+                ActionTimeout = TimeSpan.FromSeconds(15),
+            },
+            None
+        );
         await _session.OpenAsync(app.Url + "/login", None);
         var page = WebEngine.SurfaceOf(_session)!.Page();
-        await page.EvaluateAsync("""
+        await page.EvaluateAsync(
+            """
             (downloadCount) => {
               for (let index = 0; index < downloadCount; index += 1) {
                 const link = document.createElement('a');
@@ -116,9 +126,21 @@ public sealed class DownloadsThroughAProviderTests : IAsyncLifetime
                 document.body.append(link);
               }
             }
-            """, count);
+            """,
+            count
+        );
         var attached = new List<string>();
-        var browser = new Browser(_session, "web", app.Url, artifactsDir, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15), () => None, static () => { }, new SoftFailures())
+        var browser = new Browser(
+            _session,
+            "web",
+            app.Url,
+            artifactsDir,
+            TimeSpan.FromSeconds(15),
+            TimeSpan.FromSeconds(15),
+            () => None,
+            static () => { },
+            new SoftFailures()
+        )
         {
             Attach = (_, relative) => attached.Add(relative),
         };
@@ -133,9 +155,10 @@ public sealed class DownloadsThroughAProviderTests : IAsyncLifetime
             }
         }
 
-        IReadOnlyList<BrowserDownload> files = count == 1
-            ? [await browser.WaitForDownloadAsync(Trigger)]
-            : await browser.WaitForDownloadsAsync(Trigger, count);
+        IReadOnlyList<BrowserDownload> files =
+            count == 1
+                ? [await browser.WaitForDownloadAsync(Trigger)]
+                : await browser.WaitForDownloadsAsync(Trigger, count);
         Assert.Equal(1, triggers);
         Assert.Equal(count, files.Count);
         for (var index = 0; index < files.Count; index++)
@@ -151,10 +174,16 @@ public sealed class DownloadsThroughAProviderTests : IAsyncLifetime
         Assert.Equal(files.Select(file => file.Path), attached);
         Assert.Equal(count, reads.Count);
         Assert.All(reads, read => Assert.Equal("lease-1", read.Lease));
-        Assert.All(reads, read => Assert.Equal(Path.Combine(remoteDisk, "downloads"), Path.GetDirectoryName(read.File)));
+        Assert.All(reads, read =>
+            Assert.Equal(Path.Combine(remoteDisk, "downloads"), Path.GetDirectoryName(read.File))
+        );
         Assert.Equal(
             reads.Select(read => Path.GetFileName(read.File)).Order(StringComparer.Ordinal),
-            Directory.GetFiles(Path.Combine(remoteDisk, "downloads")).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+            Directory
+                .GetFiles(Path.Combine(remoteDisk, "downloads"))
+                .Select(Path.GetFileName)
+                .Order(StringComparer.Ordinal)
+        );
     }
 
     [Theory]
@@ -172,7 +201,8 @@ public sealed class DownloadsThroughAProviderTests : IAsyncLifetime
         CancellationToken? readSignal = null;
         var cloud = new ToyCloud(scope)
         {
-            OnAcquire = (request, token) => Task.FromResult<BrowserLease>(new ToyLease { Id = "stalled-lease", CdpEndpoint = _remote.Endpoint }),
+            OnAcquire = (request, token) =>
+                Task.FromResult<BrowserLease>(new ToyLease { Id = "stalled-lease", CdpEndpoint = _remote.Endpoint }),
             Downloads = new BrowserProviderDownloads
             {
                 Dir = Path.Combine(remoteDisk, "downloads"),
@@ -188,10 +218,19 @@ public sealed class DownloadsThroughAProviderTests : IAsyncLifetime
         _worker = new WebEngine(new WebEngineOptions { Browser = cloud });
         var prepared = await _worker.PrepareAsync(ToyRunner.PrepareInfo(1), None);
         _worker.Init(ToyRunner.InitInfo(0, ToyRunner.Widen(prepared.Env)));
-        _session = await _worker.StartAsync(new EngineStartOptions { AttemptId = "a1", ArtifactsDir = artifactsDir, ActionTimeout = TimeSpan.FromSeconds(15) }, None);
+        _session = await _worker.StartAsync(
+            new EngineStartOptions
+            {
+                AttemptId = "a1",
+                ArtifactsDir = artifactsDir,
+                ActionTimeout = TimeSpan.FromSeconds(15),
+            },
+            None
+        );
         await _session.OpenAsync(app.Url, None);
         var page = WebEngine.SurfaceOf(_session)!.Page();
-        await page.EvaluateAsync("""
+        await page.EvaluateAsync(
+            """
             () => {
               const link = document.createElement('a');
               link.href = URL.createObjectURL(new Blob(['stalled provider body']));
@@ -200,17 +239,29 @@ public sealed class DownloadsThroughAProviderTests : IAsyncLifetime
               link.textContent = 'Download';
               document.body.append(link);
             }
-            """);
+            """
+        );
         var attached = new List<string>();
-        var browser = new Browser(_session, "web", app.Url, artifactsDir, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15), () => None, static () => { }, new SoftFailures())
+        var browser = new Browser(
+            _session,
+            "web",
+            app.Url,
+            artifactsDir,
+            TimeSpan.FromSeconds(15),
+            TimeSpan.FromSeconds(15),
+            () => None,
+            static () => { },
+            new SoftFailures()
+        )
         {
             Attach = (_, relative) => attached.Add(relative),
         };
 
         Task Trigger() => page.Locator("#download").ClickAsync();
-        Task work = method == "waitForDownload"
-            ? browser.WaitForDownloadAsync(Trigger, TimeSpan.FromMilliseconds(500))
-            : browser.WaitForDownloadsAsync(Trigger, 1, TimeSpan.FromMilliseconds(500));
+        Task work =
+            method == "waitForDownload"
+                ? browser.WaitForDownloadAsync(Trigger, TimeSpan.FromMilliseconds(500))
+                : browser.WaitForDownloadsAsync(Trigger, 1, TimeSpan.FromMilliseconds(500));
         var finished = await Task.WhenAny(work, Task.Delay(1500));
 
         Assert.NotNull(readSignal);

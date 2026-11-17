@@ -25,7 +25,13 @@ public sealed class Trace1EntryTests
 
     private static readonly JsonSerializerOptions EntryJson = new(JsonSerializerDefaults.Web);
 
-    private static CacheEntry Entry(params RecordedAction[] actions) => new() { Route = "/storage", EndRoute = "/storage", Actions = [.. actions] };
+    private static CacheEntry Entry(params RecordedAction[] actions) =>
+        new()
+        {
+            Route = "/storage",
+            EndRoute = "/storage",
+            Actions = [.. actions],
+        };
 
     private static CacheEntry RoundTrip(CacheEntry entry)
     {
@@ -43,7 +49,9 @@ public sealed class Trace1EntryTests
     }
 
     private static CacheLookup ReadRecordedBy(string recordedBy) =>
-        ReadJson("{\"actions\":[{\"kind\":\"back\"}],\"route\":\"/\",\"endRoute\":\"/\",\"recordedBy\":" + recordedBy + "}");
+        ReadJson(
+            "{\"actions\":[{\"kind\":\"back\"}],\"route\":\"/\",\"endRoute\":\"/\",\"recordedBy\":" + recordedBy + "}"
+        );
 
     /// <summary>
     /// Port of "bounds recorded %s without losing the hit". An oversized recorded model reads as absent and the entry still reads.
@@ -84,24 +92,70 @@ public sealed class Trace1EntryTests
     public void Round_trips_every_action_kind_the_port_records_through_the_file_store()
     {
         var target = (Role: "textbox", Name: "Email");
-        RecordedAction Action(string kind) => new() { Kind = kind, Role = target.Role, Name = target.Name, TestId = "email" };
+        RecordedAction Action(string kind) =>
+            new()
+            {
+                Kind = kind,
+                Role = target.Role,
+                Name = target.Name,
+                TestId = "email",
+            };
         var actions = new[]
         {
             new RecordedAction { Kind = "navigate", Url = "/settings" },
             Action("tap"),
             Action("doubleTap"),
-            new RecordedAction { Kind = "fill", Role = target.Role, Name = target.Name, Value = "x" },
-            new RecordedAction { Kind = "press", Role = target.Role, Name = target.Name, Key = "Enter" },
-            new RecordedAction { Kind = "typeText", Value = "a@b.c", Replace = false },
+            new RecordedAction
+            {
+                Kind = "fill",
+                Role = target.Role,
+                Name = target.Name,
+                Value = "x",
+            },
+            new RecordedAction
+            {
+                Kind = "press",
+                Role = target.Role,
+                Name = target.Name,
+                Key = "Enter",
+            },
+            new RecordedAction
+            {
+                Kind = "typeText",
+                Value = "a@b.c",
+                Replace = false,
+            },
             new RecordedAction { Kind = "pressKey", Key = "Enter" },
-            new RecordedAction { Kind = "select", Role = "combobox", Name = "Plan", Value = "Pro" },
+            new RecordedAction
+            {
+                Kind = "select",
+                Role = "combobox",
+                Name = "Plan",
+                Value = "Pro",
+            },
             Action("check"),
             Action("uncheck"),
             Action("clear"),
             Action("scrollTo"),
-            new RecordedAction { Kind = "scroll", Direction = "down", Times = 3 },
-            new RecordedAction { Kind = "scroll", Direction = "up", Role = "group", Name = "Rows" },
-            new RecordedAction { Kind = "scrollUntil", Direction = "down", Text = "Row 40" },
+            new RecordedAction
+            {
+                Kind = "scroll",
+                Direction = "down",
+                Times = 3,
+            },
+            new RecordedAction
+            {
+                Kind = "scroll",
+                Direction = "up",
+                Role = "group",
+                Name = "Rows",
+            },
+            new RecordedAction
+            {
+                Kind = "scrollUntil",
+                Direction = "down",
+                Text = "Row 40",
+            },
             new RecordedAction { Kind = "back" },
         };
 
@@ -115,8 +169,19 @@ public sealed class Trace1EntryTests
     {
         RecordedAction[] actions =
         [
-            new() { Kind = "fill", Role = "textbox", Name = "Name", Value = "" },
-            new() { Kind = "typeText", Value = "", Replace = true },
+            new()
+            {
+                Kind = "fill",
+                Role = "textbox",
+                Name = "Name",
+                Value = "",
+            },
+            new()
+            {
+                Kind = "typeText",
+                Value = "",
+                Replace = true,
+            },
         ];
 
         var read = RoundTrip(Entry(actions));
@@ -129,7 +194,13 @@ public sealed class Trace1EntryTests
     {
         RecordedAction[] actions =
         [
-            new() { Kind = "press", Role = "checkbox", Name = "Remember me", Key = " " },
+            new()
+            {
+                Kind = "press",
+                Role = "checkbox",
+                Name = "Remember me",
+                Key = " ",
+            },
             new() { Kind = "pressKey", Key = " " },
         ];
 
@@ -142,23 +213,57 @@ public sealed class Trace1EntryTests
     [Fact]
     public void Round_trips_the_end_route_and_the_appeared_anchors()
     {
-        var entry = Entry(new RecordedAction { Kind = "tap", Role = "button", Name = "Save" });
+        var entry = Entry(
+            new RecordedAction
+            {
+                Kind = "tap",
+                Role = "button",
+                Name = "Save",
+            }
+        );
         entry.EndRoute = "/settings";
-        entry.Appeared = [new RecordedTarget { Role = "status", Name = "Marker", Text = "saved" }, new RecordedTarget { Text = "Playbook saved" }];
+        entry.Appeared =
+        [
+            new RecordedTarget
+            {
+                Role = "status",
+                Name = "Marker",
+                Text = "saved",
+            },
+            new RecordedTarget { Text = "Playbook saved" },
+        ];
 
         var read = RoundTrip(entry);
 
         Assert.Equal("/settings", read.EndRoute);
-        Assert.Equal(JsonSerializer.Serialize(entry.Appeared, EntryJson), JsonSerializer.Serialize(read.Appeared, EntryJson));
+        Assert.Equal(
+            JsonSerializer.Serialize(entry.Appeared, EntryJson),
+            JsonSerializer.Serialize(read.Appeared, EntryJson)
+        );
     }
 
     [Fact]
     public void Round_trips_both_sides_of_the_delta_anchor_states_included_and_a_long_location_whole()
     {
         var longPath = "/search?q=" + new string('x', 1_000);
-        var entry = Entry(new RecordedAction { Kind = "tap", Role = "button", Name = "Save" });
+        var entry = Entry(
+            new RecordedAction
+            {
+                Kind = "tap",
+                Role = "button",
+                Name = "Save",
+            }
+        );
         entry.Route = longPath;
-        entry.Appeared = [new RecordedTarget { Role = "switch", Name = "Email notifications", States = ["checked", "pressed"] }];
+        entry.Appeared =
+        [
+            new RecordedTarget
+            {
+                Role = "switch",
+                Name = "Email notifications",
+                States = ["checked", "pressed"],
+            },
+        ];
         entry.Gone = [new RecordedTarget { Role = "listitem", Name = "Item A" }];
 
         var read = RoundTrip(entry);
@@ -173,7 +278,17 @@ public sealed class Trace1EntryTests
     {
         var directory = CoreTests.TempCache();
         var store = new FileStepCache(directory);
-        store.Write(Key, Entry(new RecordedAction { Kind = "tap", Role = "button", Name = "Save" }));
+        store.Write(
+            Key,
+            Entry(
+                new RecordedAction
+                {
+                    Kind = "tap",
+                    Role = "button",
+                    Name = "Save",
+                }
+            )
+        );
         var path = Path.Combine(directory, Key + ".json");
         var document = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!.AsObject();
         document["extra"] = "x";
@@ -187,15 +302,31 @@ public sealed class Trace1EntryTests
         Assert.DoesNotContain("\"extra\"", File.ReadAllText(path), StringComparison.Ordinal);
     }
 
-    public static TheoryData<string, string> Rejected => new()
-    {
-        { "not an object", "\"nope\"" },
-        { "wrong schema version", """{ "schema": 2, "actions": [{ "kind": "tap", "role": "button" }], "appeared": [], "gone": [] }""" },
-        { "non-string descriptor field", """{ "schema": 1, "actions": [{ "kind": "tap", "role": 7 }], "appeared": [], "gone": [] }""" },
-        { "non-array anchors", """{ "schema": 1, "actions": [{ "kind": "tap", "role": "button" }], "appeared": { "role": "status" }, "gone": [] }""" },
-        { "non-string anchor field", """{ "schema": 1, "actions": [{ "kind": "tap", "role": "button" }], "appeared": [{ "text": 42 }], "gone": [] }""" },
-        { "non-array gone anchors", """{ "schema": 1, "actions": [{ "kind": "tap", "role": "button" }], "appeared": [], "gone": { "role": "status" } }""" },
-    };
+    public static TheoryData<string, string> Rejected =>
+        new()
+        {
+            { "not an object", "\"nope\"" },
+            {
+                "wrong schema version",
+                """{ "schema": 2, "actions": [{ "kind": "tap", "role": "button" }], "appeared": [], "gone": [] }"""
+            },
+            {
+                "non-string descriptor field",
+                """{ "schema": 1, "actions": [{ "kind": "tap", "role": 7 }], "appeared": [], "gone": [] }"""
+            },
+            {
+                "non-array anchors",
+                """{ "schema": 1, "actions": [{ "kind": "tap", "role": "button" }], "appeared": { "role": "status" }, "gone": [] }"""
+            },
+            {
+                "non-string anchor field",
+                """{ "schema": 1, "actions": [{ "kind": "tap", "role": "button" }], "appeared": [{ "text": 42 }], "gone": [] }"""
+            },
+            {
+                "non-array gone anchors",
+                """{ "schema": 1, "actions": [{ "kind": "tap", "role": "button" }], "appeared": [], "gone": { "role": "status" } }"""
+            },
+        };
 
     [Theory]
     [MemberData(nameof(Rejected))]
@@ -213,27 +344,38 @@ public sealed class Trace1EntryTests
     [InlineData("bad scroll direction", "diagonal")]
     public async Task Rejects_an_entry_the_replay_cannot_use_as_a_miss(string label, string? direction)
     {
-        RecordedAction[] actions = direction is null ? [] : [new RecordedAction { Kind = "scroll", Direction = direction }];
+        RecordedAction[] actions = direction is null
+            ? []
+            : [new RecordedAction { Kind = "scroll", Direction = direction }];
         var cache = new FixedCache(new CacheEntry { Route = "/storage", Actions = [.. actions] });
 
-        var step = await StepAsync(StorageWorld(), cache, "/storage", null, Script(ModelResponses.Tap("button", "Save marker")));
+        var step = await StepAsync(
+            StorageWorld(),
+            cache,
+            "/storage",
+            null,
+            Script(ModelResponses.Tap("button", "Save marker"))
+        );
 
         Assert.True(step.Error is null, label);
-        Assert.Equal(("missed", "invalid-entry", 0), (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions));
+        Assert.Equal(
+            ("missed", "invalid-entry", 0),
+            (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions)
+        );
     }
 
     public static TheoryData<string> OverCap =>
-    [
-        "too many actions",
-        "oversized input value",
-        "oversized start path",
-        "too many anchors",
-        "too many gone anchors",
-        "unknown anchor state",
-        "unsorted anchor states",
-        "repeated anchor state",
-        "empty anchor states",
-    ];
+        [
+            "too many actions",
+            "oversized input value",
+            "oversized start path",
+            "too many anchors",
+            "too many gone anchors",
+            "unknown anchor state",
+            "unsorted anchor states",
+            "repeated anchor state",
+            "empty anchor states",
+        ];
 
     /// <summary>
     /// Port of the "rejects %s" cases that name a cap or an anchor state. Difference: the port reads the entry at the replay, not in the
@@ -243,25 +385,55 @@ public sealed class Trace1EntryTests
     [MemberData(nameof(OverCap))]
     public async Task Rejects_an_entry_over_a_cap_or_with_malformed_anchor_states_as_a_miss(string label)
     {
-        var tap = new RecordedAction { Kind = "tap", Role = "button", Name = "Save marker" };
+        var tap = new RecordedAction
+        {
+            Kind = "tap",
+            Role = "button",
+            Name = "Save marker",
+        };
         var entry = new CacheEntry { Route = "/storage", Actions = [tap] };
-        RecordedTarget Switch(params string[] states) => new() { Role = "switch", Name = "On", States = [.. states] };
+        RecordedTarget Switch(params string[] states) =>
+            new()
+            {
+                Role = "switch",
+                Name = "On",
+                States = [.. states],
+            };
         switch (label)
         {
             case "too many actions":
                 entry.Actions = [.. Enumerable.Range(0, Trace.MaxTraceActions + 1).Select(_ => tap)];
                 break;
             case "oversized input value":
-                entry.Actions = [new RecordedAction { Kind = "fill", Role = "textbox", Name = "Name", Value = new string('v', Trace.MaxTraceInputChars + 1) }];
+                entry.Actions =
+                [
+                    new RecordedAction
+                    {
+                        Kind = "fill",
+                        Role = "textbox",
+                        Name = "Name",
+                        Value = new string('v', Trace.MaxTraceInputChars + 1),
+                    },
+                ];
                 break;
             case "oversized start path":
                 entry.Route = "/" + new string('x', Trace.MaxTraceInputChars + 1);
                 break;
             case "too many anchors":
-                entry.Appeared = [.. Enumerable.Range(0, Trace.MaxTraceAnchors + 1).Select(index => new RecordedTarget { Text = "a" + index })];
+                entry.Appeared =
+                [
+                    .. Enumerable
+                        .Range(0, Trace.MaxTraceAnchors + 1)
+                        .Select(index => new RecordedTarget { Text = "a" + index }),
+                ];
                 break;
             case "too many gone anchors":
-                entry.Gone = [.. Enumerable.Range(0, Trace.MaxTraceAnchors + 1).Select(index => new RecordedTarget { Text = "a" + index })];
+                entry.Gone =
+                [
+                    .. Enumerable
+                        .Range(0, Trace.MaxTraceAnchors + 1)
+                        .Select(index => new RecordedTarget { Text = "a" + index }),
+                ];
                 break;
             case "unknown anchor state":
                 entry.Appeared = [Switch("focused")];
@@ -277,10 +449,19 @@ public sealed class Trace1EntryTests
                 break;
         }
 
-        var step = await StepAsync(StorageWorld(), new FixedCache(entry), "/storage", null, Script(ModelResponses.Tap("button", "Save marker")));
+        var step = await StepAsync(
+            StorageWorld(),
+            new FixedCache(entry),
+            "/storage",
+            null,
+            Script(ModelResponses.Tap("button", "Save marker"))
+        );
 
         Assert.True(step.Error is null, label);
-        Assert.Equal(("missed", "invalid-entry", 0), (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions));
+        Assert.Equal(
+            ("missed", "invalid-entry", 0),
+            (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions)
+        );
     }
 
     /// <summary>Partial port of "rejects resize below the viewport limits" and "rejects resize above the viewport limits": a store may return both, and the replay treats each as a miss.</summary>
@@ -289,12 +470,27 @@ public sealed class Trace1EntryTests
     [InlineData("resize above the viewport limits", 390, 5000)]
     public async Task Rejects_a_resize_outside_the_viewport_limits_as_a_miss(string label, int width, int height)
     {
-        var cache = new FixedCache(new CacheEntry { Route = "/storage", Actions = [new RecordedAction { Kind = "resize", Size = new E2E.Engine.TraceViewport(width, height) }] });
+        var cache = new FixedCache(
+            new CacheEntry
+            {
+                Route = "/storage",
+                Actions = [new RecordedAction { Kind = "resize", Size = new E2E.Engine.TraceViewport(width, height) }],
+            }
+        );
 
-        var step = await StepAsync(StorageWorld(), cache, "/storage", null, Script(ModelResponses.Tap("button", "Save marker")));
+        var step = await StepAsync(
+            StorageWorld(),
+            cache,
+            "/storage",
+            null,
+            Script(ModelResponses.Tap("button", "Save marker"))
+        );
 
         Assert.True(step.Error is null, label);
-        Assert.Equal(("missed", "invalid-entry", 0), (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions));
+        Assert.Equal(
+            ("missed", "invalid-entry", 0),
+            (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions)
+        );
     }
 
     /// <summary>
@@ -304,25 +500,30 @@ public sealed class Trace1EntryTests
     /// cases of the same rule (the descriptor's text budget, and a position that names no node).
     /// </summary>
     public static TheoryData<string> UnnamedOrOversizedTargets =>
-    [
-        "tap without a target",
-        "empty descriptor",
-        "oversized descriptor field",
-        "empty anchor descriptor",
-        "oversized anchor field",
-        "position alone does not name a target",
-        "tap under a point whose node names nothing",
-        "scroll with a target that names nothing",
-        "scroll until with a target that names nothing",
-        "scroll until whose target text is over budget",
-    ];
+        [
+            "tap without a target",
+            "empty descriptor",
+            "oversized descriptor field",
+            "empty anchor descriptor",
+            "oversized anchor field",
+            "position alone does not name a target",
+            "tap under a point whose node names nothing",
+            "scroll with a target that names nothing",
+            "scroll until with a target that names nothing",
+            "scroll until whose target text is over budget",
+        ];
 
     [Theory]
     [MemberData(nameof(UnnamedOrOversizedTargets))]
     public void Rejects_a_target_that_names_nothing_or_carries_an_oversized_field(string label)
     {
         var oversized = new string('x', Trace.MaxTraceDescriptorChars + 1);
-        var tap = new RecordedAction { Kind = "tap", Role = "button", Name = "Save" };
+        var tap = new RecordedAction
+        {
+            Kind = "tap",
+            Role = "button",
+            Name = "Save",
+        };
         var entry = Entry(tap);
         switch (label)
         {
@@ -330,10 +531,24 @@ public sealed class Trace1EntryTests
                 entry = Entry(new RecordedAction { Kind = "tap" });
                 break;
             case "empty descriptor":
-                entry = Entry(new RecordedAction { Kind = "tap", Role = "", Name = "" });
+                entry = Entry(
+                    new RecordedAction
+                    {
+                        Kind = "tap",
+                        Role = "",
+                        Name = "",
+                    }
+                );
                 break;
             case "oversized descriptor field":
-                entry = Entry(new RecordedAction { Kind = "tap", Role = "button", Name = oversized });
+                entry = Entry(
+                    new RecordedAction
+                    {
+                        Kind = "tap",
+                        Role = "button",
+                        Name = oversized,
+                    }
+                );
                 break;
             case "empty anchor descriptor":
                 entry.Appeared = [new RecordedTarget()];
@@ -342,25 +557,61 @@ public sealed class Trace1EntryTests
                 entry.Gone = [new RecordedTarget { Text = oversized }];
                 break;
             case "position alone does not name a target":
-                entry = Entry(new RecordedAction { Kind = "tap", Position = new TracePosition { Index = 0, Of = 2 } });
+                entry = Entry(
+                    new RecordedAction
+                    {
+                        Kind = "tap",
+                        Position = new TracePosition { Index = 0, Of = 2 },
+                    }
+                );
                 break;
             case "tap under a point whose node names nothing":
-                entry = Entry(new RecordedAction
-                {
-                    Kind = "tapAt",
-                    Point = new E2E.Engine.Point(10, 10),
-                    Viewport = new E2E.Engine.TraceViewport(390, 844),
-                    Under = new RecordedPointPlace { Target = new RecordedTarget(), Fx = 0.5, Fy = 0.5 },
-                });
+                entry = Entry(
+                    new RecordedAction
+                    {
+                        Kind = "tapAt",
+                        Point = new E2E.Engine.Point(10, 10),
+                        Viewport = new E2E.Engine.TraceViewport(390, 844),
+                        Under = new RecordedPointPlace
+                        {
+                            Target = new RecordedTarget(),
+                            Fx = 0.5,
+                            Fy = 0.5,
+                        },
+                    }
+                );
                 break;
             case "scroll with a target that names nothing":
-                entry = Entry(new RecordedAction { Kind = "scroll", Direction = "down", Role = "" });
+                entry = Entry(
+                    new RecordedAction
+                    {
+                        Kind = "scroll",
+                        Direction = "down",
+                        Role = "",
+                    }
+                );
                 break;
             case "scroll until with a target that names nothing":
-                entry = Entry(new RecordedAction { Kind = "scrollUntil", Direction = "down", Text = "Row 40", Role = "" });
+                entry = Entry(
+                    new RecordedAction
+                    {
+                        Kind = "scrollUntil",
+                        Direction = "down",
+                        Text = "Row 40",
+                        Role = "",
+                    }
+                );
                 break;
             case "scroll until whose target text is over budget":
-                entry = Entry(new RecordedAction { Kind = "scrollUntil", Direction = "down", Text = "Row 40", TargetText = oversized });
+                entry = Entry(
+                    new RecordedAction
+                    {
+                        Kind = "scrollUntil",
+                        Direction = "down",
+                        Text = "Row 40",
+                        TargetText = oversized,
+                    }
+                );
                 break;
         }
 
@@ -376,17 +627,47 @@ public sealed class Trace1EntryTests
     public void Reads_a_target_at_the_descriptor_budget_and_a_scroll_with_no_target()
     {
         var atBudget = new string('x', Trace.MaxTraceDescriptorChars);
-        var atLimit = Entry(new RecordedAction { Kind = "tap", Role = "button", Name = atBudget });
+        var atLimit = Entry(
+            new RecordedAction
+            {
+                Kind = "tap",
+                Role = "button",
+                Name = atBudget,
+            }
+        );
         var scroll = Entry(new RecordedAction { Kind = "scroll", Direction = "down" });
-        var positioned = Entry(new RecordedAction { Kind = "scroll", Direction = "down", Position = new TracePosition { Index = 0, Of = 2 } });
-        var pagedUntil = Entry(new RecordedAction { Kind = "scrollUntil", Direction = "down", Text = "Row 40", Role = "row", TargetText = "Row 40 detail" });
-        var point = Entry(new RecordedAction
-        {
-            Kind = "tapAt",
-            Point = new E2E.Engine.Point(10, 10),
-            Viewport = new E2E.Engine.TraceViewport(390, 844),
-            Under = new RecordedPointPlace { Target = new RecordedTarget { Role = "button", Name = "Save" }, Fx = 0.5, Fy = 0.5 },
-        });
+        var positioned = Entry(
+            new RecordedAction
+            {
+                Kind = "scroll",
+                Direction = "down",
+                Position = new TracePosition { Index = 0, Of = 2 },
+            }
+        );
+        var pagedUntil = Entry(
+            new RecordedAction
+            {
+                Kind = "scrollUntil",
+                Direction = "down",
+                Text = "Row 40",
+                Role = "row",
+                TargetText = "Row 40 detail",
+            }
+        );
+        var point = Entry(
+            new RecordedAction
+            {
+                Kind = "tapAt",
+                Point = new E2E.Engine.Point(10, 10),
+                Viewport = new E2E.Engine.TraceViewport(390, 844),
+                Under = new RecordedPointPlace
+                {
+                    Target = new RecordedTarget { Role = "button", Name = "Save" },
+                    Fx = 0.5,
+                    Fy = 0.5,
+                },
+            }
+        );
 
         Assert.NotNull(TraceRead.ReadTraceEntry(atLimit));
         Assert.NotNull(TraceRead.ReadTraceEntry(scroll));
@@ -402,9 +683,23 @@ public sealed class Trace1EntryTests
     [Fact]
     public void Records_a_long_node_text_bounded_to_the_descriptor_budget_so_the_reader_accepts_it()
     {
-        var node = new SemanticNode { Ref = "n1", Role = "button", Name = "Save", Text = new string('x', 350) };
+        var node = new SemanticNode
+        {
+            Ref = "n1",
+            Role = "button",
+            Name = "Save",
+            Text = new string('x', 350),
+        };
         var target = Recorder.DescribeTarget(node, Redactor.None);
-        var entry = Entry(new RecordedAction { Kind = "tap", Role = target.Role, Name = target.Name, Text = target.Text });
+        var entry = Entry(
+            new RecordedAction
+            {
+                Kind = "tap",
+                Role = target.Role,
+                Name = target.Name,
+                Text = target.Text,
+            }
+        );
 
         Assert.True(target.Text?.Length <= Trace.MaxTraceDescriptorChars);
         Assert.NotNull(TraceRead.ReadTraceEntry(entry));
@@ -418,17 +713,52 @@ public sealed class Trace1EntryTests
     [Fact]
     public void Bounds_a_nameless_nodes_label_and_an_anchor_text_and_keeps_the_input_purpose()
     {
-        var nameless = new SemanticNode { Ref = "n2", Role = "textbox", Text = new string('y', 350), InputPurpose = "password" };
+        var nameless = new SemanticNode
+        {
+            Ref = "n2",
+            Role = "textbox",
+            Text = new string('y', 350),
+            InputPurpose = "password",
+        };
         var target = Recorder.DescribeTarget(nameless, Redactor.None);
-        var entry = Entry(new RecordedAction { Kind = "fill", Role = target.Role, Name = target.Name, Value = "x" });
+        var entry = Entry(
+            new RecordedAction
+            {
+                Kind = "fill",
+                Role = target.Role,
+                Name = target.Name,
+                Value = "x",
+            }
+        );
 
         Assert.True(target.Name?.Length <= Trace.MaxTraceDescriptorChars);
         Assert.Equal("password", target.InputPurpose);
         Assert.NotNull(TraceRead.ReadTraceEntry(entry));
 
-        var nodes = new Dictionary<string, SemanticNode> { ["n3"] = new SemanticNode { Ref = "n3", Role = "status", Text = new string('z', 350) } };
+        var nodes = new Dictionary<string, SemanticNode>
+        {
+            ["n3"] = new SemanticNode
+            {
+                Ref = "n3",
+                Role = "status",
+                Text = new string('z', 350),
+            },
+        };
         var anchors = Anchors.Project(nodes, text => text, text => text);
-        var status = new CacheEntry { Route = "/storage", Actions = [new RecordedAction { Kind = "tap", Role = "button", Name = "Save" }], Appeared = [.. anchors.Select(anchor => anchor.Target)] };
+        var status = new CacheEntry
+        {
+            Route = "/storage",
+            Actions =
+            [
+                new RecordedAction
+                {
+                    Kind = "tap",
+                    Role = "button",
+                    Name = "Save",
+                },
+            ],
+            Appeared = [.. anchors.Select(anchor => anchor.Target)],
+        };
         Assert.NotNull(TraceRead.ReadTraceEntry(status));
     }
 
@@ -436,7 +766,15 @@ public sealed class Trace1EntryTests
     [Fact]
     public void Rejects_a_target_text_on_an_action_that_reads_none()
     {
-        var entry = Entry(new RecordedAction { Kind = "tap", Role = "button", Name = "Save", TargetText = "stray" });
+        var entry = Entry(
+            new RecordedAction
+            {
+                Kind = "tap",
+                Role = "button",
+                Name = "Save",
+                TargetText = "stray",
+            }
+        );
 
         Assert.Null(TraceRead.ReadTraceEntry(entry));
     }
@@ -448,7 +786,16 @@ public sealed class Trace1EntryTests
     [Fact]
     public void Keeps_a_scroll_until_target_text_apart_from_the_paged_text()
     {
-        var entry = Entry(new RecordedAction { Kind = "scrollUntil", Direction = "down", Text = "Row 40", Role = "row", TargetText = "Row 40 detail" });
+        var entry = Entry(
+            new RecordedAction
+            {
+                Kind = "scrollUntil",
+                Direction = "down",
+                Text = "Row 40",
+                Role = "row",
+                TargetText = "Row 40 detail",
+            }
+        );
 
         var read = RoundTrip(entry);
 
@@ -464,8 +811,6 @@ public sealed class Trace1EntryTests
 
         public int? Write(string key, CacheEntry written) => 0;
 
-        public void Delete(string key)
-        {
-        }
+        public void Delete(string key) { }
     }
 }

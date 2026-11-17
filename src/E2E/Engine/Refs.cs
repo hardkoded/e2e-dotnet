@@ -152,7 +152,11 @@ internal sealed class RefRegistry
         {
             if (_located.ContainsKey(id))
             {
-                throw new EngineException(EngineErrorCodes.NodeStale, $"node reference {id} is not from an observation", retryable: false);
+                throw new EngineException(
+                    EngineErrorCodes.NodeStale,
+                    $"node reference {id} is not from an observation",
+                    retryable: false
+                );
             }
 
             if (!_observation.TryGetValue(id, out var listed))
@@ -205,7 +209,11 @@ internal sealed class RefRegistry
         {
             if (capture != _capture)
             {
-                throw new EngineException(EngineErrorCodes.NodeStale, "observation capture was superseded", retryable: true);
+                throw new EngineException(
+                    EngineErrorCodes.NodeStale,
+                    "observation capture was superseded",
+                    retryable: true
+                );
             }
 
             if (captured.Snapshot.TreeUnavailable)
@@ -260,9 +268,7 @@ internal sealed class RefRegistry
     {
         public static readonly NoPin Instance = new();
 
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
     }
 
     private string MintIdLocked()

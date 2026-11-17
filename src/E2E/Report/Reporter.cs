@@ -13,7 +13,14 @@ namespace E2E.Reports;
 /// <param name="ProjectRoot">Absolute project root, what the terminal shows paths relative to.</param>
 /// <param name="ReportPath">Where <c>report.json</c> was written.</param>
 /// <param name="ArtifactsRoot">Absolute directory the report's artifact paths are relative to: <c>&lt;output&gt;/results</c>.</param>
-public sealed record FinishedRun(Report Report, ReportRunStatus Status, int ExitCode, string ProjectRoot, string ReportPath, string ArtifactsRoot)
+public sealed record FinishedRun(
+    Report Report,
+    ReportRunStatus Status,
+    int ExitCode,
+    string ProjectRoot,
+    string ReportPath,
+    string ArtifactsRoot
+)
 {
     /// <summary>
     /// The trace page the process wrote for each test that kept a trace, by report result id, as a path from <see cref="ProjectRoot"/>
@@ -57,13 +64,13 @@ public abstract class Reporter
     /// reporter handles the ones it knows and ignores the rest. Events arrive in <see cref="RunEvent.Seq"/> order, one at a time, from whichever thread
     /// emitted them. A retried test emits <see cref="TestStartedEvent"/> and <see cref="TestFinishedEvent"/> once per attempt, the later result holding every attempt so far.
     /// </summary>
-    public virtual void OnEvent(RunEvent runEvent)
-    {
-    }
+    public virtual void OnEvent(RunEvent runEvent) { }
 
     /// <summary>Runs once the report is written; the returned rows print under the run's output. Null prints nothing.</summary>
-    public virtual Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(FinishedRun run, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<ReporterSummaryRow>?>(null);
+    public virtual Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(
+        FinishedRun run,
+        CancellationToken cancellationToken
+    ) => Task.FromResult<IReadOnlyList<ReporterSummaryRow>?>(null);
 }
 
 /// <summary>

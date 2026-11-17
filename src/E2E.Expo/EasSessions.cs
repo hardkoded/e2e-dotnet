@@ -51,7 +51,8 @@ internal sealed record EasSessionState(
     string? DaemonUrl = null,
     string? DaemonToken = null,
     string? OpenPreviewUrl = null,
-    string? EndedStatus = null);
+    string? EndedStatus = null
+);
 
 internal sealed record EasCreatedSession(string Id, string Url);
 
@@ -125,15 +126,23 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
             input[session.Platform.WireName()] = new JsonObject { ["deviceIdentifier"] = session.DeviceIdentifier };
         }
 
-        var data = await GraphqlAsync(Create, new JsonObject { ["input"] = input }, cancellationToken).ConfigureAwait(false);
+        var data = await GraphqlAsync(Create, new JsonObject { ["input"] = input }, cancellationToken)
+            .ConfigureAwait(false);
         var created = Field(Field(data, "deviceRunSession"), "createDeviceRunSession");
         var app = Field(created, "app");
-        if (Text(Field(created, "id")) is not { } id || Text(Field(app, "slug")) is not { } slug || Text(Field(Field(app, "ownerAccount"), "name")) is not { } owner)
+        if (
+            Text(Field(created, "id")) is not { } id
+            || Text(Field(app, "slug")) is not { } slug
+            || Text(Field(Field(app, "ownerAccount"), "name")) is not { } owner
+        )
         {
             throw Unexpected("createDeviceRunSession");
         }
 
-        return new EasCreatedSession(id, $"https://expo.dev/accounts/{Uri.EscapeDataString(owner)}/projects/{Uri.EscapeDataString(slug)}/simulator-sessions/{id}");
+        return new EasCreatedSession(
+            id,
+            $"https://expo.dev/accounts/{Uri.EscapeDataString(owner)}/projects/{Uri.EscapeDataString(slug)}/simulator-sessions/{id}"
+        );
     }
 
     public async Task<EasSessionState> StateAsync(string id, CancellationToken cancellationToken)
@@ -148,10 +157,14 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
         var daemonToken = Field(config, "agentDeviceRemoteSessionToken");
         var previewUrl = Field(config, "webPreviewUrl");
         var previewToken = Field(config, "webPreviewToken");
-        if (status is null
+        if (
+            status is null
             || (jobRun is not null && job is null)
             || (config is not null && config is not JsonObject)
-            || !new[] { daemonUrl, daemonToken, previewUrl, previewToken }.All(value => value is null || Text(value) is not null))
+            || !new[] { daemonUrl, daemonToken, previewUrl, previewToken }.All(value =>
+                value is null || Text(value) is not null
+            )
+        )
         {
             throw Unexpected("deviceRunSessions.byId");
         }
@@ -222,10 +235,12 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
     /// <summary><paramref name="key"/> of a JSON object; <see langword="null"/> for a missing key or a value that is not an object.</summary>
     private static JsonNode? Field(JsonNode? value, string key) => value is JsonObject node ? node[key] : null;
 
-    private static string? Text(JsonNode? value) => value is JsonValue node && node.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? value) =>
+        value is JsonValue node && node.TryGetValue<string>(out var text) ? text : null;
 
     /// <summary>The error for an answer without the fields an operation reads; it names no value, since the answer can hold a daemon token.</summary>
-    private static InvalidOperationException Unexpected(string operation) => new($"Expo: unexpected response to {operation}");
+    private static InvalidOperationException Unexpected(string operation) =>
+        new($"Expo: unexpected response to {operation}");
 
     private static void Set(JsonObject target, string name, string? value)
     {
@@ -248,7 +263,11 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, GraphqlUrl)
         {
-            Content = new StringContent(new JsonObject { ["query"] = query, ["variables"] = variables }.ToJsonString(), Encoding.UTF8, new MediaTypeHeaderValue("application/json")),
+            Content = new StringContent(
+                new JsonObject { ["query"] = query, ["variables"] = variables }.ToJsonString(),
+                Encoding.UTF8,
+                new MediaTypeHeaderValue("application/json")
+            ),
         };
         var (name, value) = credentials.Header;
         request.Headers.TryAddWithoutValidation(name, value);
@@ -267,19 +286,28 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
         catch (JsonException)
         {
             var excerpt = Redact(text.Trim());
-            throw new InvalidOperationException($"Expo: HTTP {status}, {(excerpt.Length > 200 ? excerpt[..200] : excerpt)}");
+            throw new InvalidOperationException(
+                $"Expo: HTTP {status}, {(excerpt.Length > 200 ? excerpt[..200] : excerpt)}"
+            );
         }
 
         if (Field(body, "errors") is JsonArray { Count: > 0 } errors)
         {
             var error = errors[0];
-            throw new EasException(Redact(Text(Field(error, "message")) ?? $"HTTP {status}"), Text(Field(Field(error, "extensions"), "errorCode")));
+            throw new EasException(
+                Redact(Text(Field(error, "message")) ?? $"HTTP {status}"),
+                Text(Field(Field(error, "extensions"), "errorCode"))
+            );
         }
 
-        return !response.IsSuccessStatusCode || Field(body, "data") is not { } data ? throw new InvalidOperationException($"Expo: HTTP {status}, no data") : data;
+        return !response.IsSuccessStatusCode || Field(body, "data") is not { } data
+            ? throw new InvalidOperationException($"Expo: HTTP {status}, no data")
+            : data;
     }
 
     /// <summary>The text with the credential this client sends hidden: Expo's error text can echo a rejected token.</summary>
     private string Redact(string text) =>
-        (credentials.AccessToken ?? credentials.SessionSecret) is { Length: > 0 } secret ? text.Replace(secret, "*****", StringComparison.Ordinal) : text;
+        (credentials.AccessToken ?? credentials.SessionSecret) is { Length: > 0 } secret
+            ? text.Replace(secret, "*****", StringComparison.Ordinal)
+            : text;
 }

@@ -27,45 +27,111 @@ public sealed class SoftLocatorExpect
     /// <summary>Inverts the matcher, as <see cref="LocatorExpect.Not"/>. A failure is still kept, not thrown.</summary>
     public SoftLocatorExpect Not => new(_expect.Not, _failures);
 
-    public Task ToBeVisibleAsync(bool visible = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToBeVisibleAsync(visible, timeout, cancellationToken));
+    public Task ToBeVisibleAsync(
+        bool visible = true,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToBeVisibleAsync(visible, timeout, cancellationToken));
 
-    public Task ToBeHiddenAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToBeHiddenAsync(timeout, cancellationToken));
+    public Task ToBeHiddenAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
+        KeepAsync(_expect.ToBeHiddenAsync(timeout, cancellationToken));
 
-    public Task ToBeAttachedAsync(bool attached = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToBeAttachedAsync(attached, timeout, cancellationToken));
+    public Task ToBeAttachedAsync(
+        bool attached = true,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToBeAttachedAsync(attached, timeout, cancellationToken));
 
-    public Task ToBeEnabledAsync(bool enabled = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToBeEnabledAsync(enabled, timeout, cancellationToken));
+    public Task ToBeEnabledAsync(
+        bool enabled = true,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToBeEnabledAsync(enabled, timeout, cancellationToken));
 
-    public Task ToBeDisabledAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToBeDisabledAsync(timeout, cancellationToken));
+    public Task ToBeDisabledAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
+        KeepAsync(_expect.ToBeDisabledAsync(timeout, cancellationToken));
 
-    public Task ToBeCheckedAsync(bool isChecked = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToBeCheckedAsync(isChecked, timeout, cancellationToken));
+    public Task ToBeCheckedAsync(
+        bool isChecked = true,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToBeCheckedAsync(isChecked, timeout, cancellationToken));
 
-    public Task ToBeSelectedAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToBeSelectedAsync(timeout, cancellationToken));
+    public Task ToBeSelectedAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
+        KeepAsync(_expect.ToBeSelectedAsync(timeout, cancellationToken));
 
-    public Task ToBeExpandedAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToBeExpandedAsync(timeout, cancellationToken));
+    public Task ToBeExpandedAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
+        KeepAsync(_expect.ToBeExpandedAsync(timeout, cancellationToken));
 
-    public Task ToBeFocusedAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToBeFocusedAsync(timeout, cancellationToken));
+    public Task ToBeFocusedAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
+        KeepAsync(_expect.ToBeFocusedAsync(timeout, cancellationToken));
 
-    public Task ToHaveTextAsync(TextMatch expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToHaveTextAsync(expected, ignoreCase, timeout, cancellationToken));
+    public Task ToHaveTextAsync(
+        TextMatch expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToHaveTextAsync(expected, ignoreCase, timeout, cancellationToken));
 
-    public Task ToHaveTextAsync(IReadOnlyList<TextMatch> expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToHaveTextAsync(expected, ignoreCase, timeout, cancellationToken));
+    public Task ToHaveTextAsync(
+        IReadOnlyList<TextMatch> expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToHaveTextAsync(expected, ignoreCase, timeout, cancellationToken));
 
-    public Task ToContainTextAsync(TextMatch expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToContainTextAsync(expected, ignoreCase, timeout, cancellationToken));
+    public Task ToContainTextAsync(
+        TextMatch expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToContainTextAsync(expected, ignoreCase, timeout, cancellationToken));
 
-    public Task ToContainTextAsync(IReadOnlyList<TextMatch> expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToContainTextAsync(expected, ignoreCase, timeout, cancellationToken));
+    public Task ToContainTextAsync(
+        IReadOnlyList<TextMatch> expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToContainTextAsync(expected, ignoreCase, timeout, cancellationToken));
 
-    public Task ToHaveValueAsync(TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToHaveValueAsync(expected, timeout, cancellationToken));
+    public Task ToHaveValueAsync(
+        TextMatch expected,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToHaveValueAsync(expected, timeout, cancellationToken));
 
-    public Task ToHaveAccessibleNameAsync(TextMatch expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToHaveAccessibleNameAsync(expected, ignoreCase, timeout, cancellationToken));
+    public Task ToHaveAccessibleNameAsync(
+        TextMatch expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToHaveAccessibleNameAsync(expected, ignoreCase, timeout, cancellationToken));
 
-    public Task ToHaveAttributeAsync(string name, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToHaveAttributeAsync(name, timeout, cancellationToken));
+    public Task ToHaveAttributeAsync(
+        string name,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToHaveAttributeAsync(name, timeout, cancellationToken));
 
-    public Task ToHaveAttributeAsync(string name, TextMatch value, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToHaveAttributeAsync(name, value, ignoreCase, timeout, cancellationToken));
+    public Task ToHaveAttributeAsync(
+        string name,
+        TextMatch value,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToHaveAttributeAsync(name, value, ignoreCase, timeout, cancellationToken));
 
-    public Task ToHaveScreenshotAsync(string? name = null, ScreenshotOptions? options = null, [CallerFilePath] string? callerFile = null) => KeepAsync(_expect.ToHaveScreenshotAsync(name, options, callerFile));
+    public Task ToHaveScreenshotAsync(
+        string? name = null,
+        ScreenshotOptions? options = null,
+        [CallerFilePath] string? callerFile = null
+    ) => KeepAsync(_expect.ToHaveScreenshotAsync(name, options, callerFile));
 
-    public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null) => KeepAsync(_expect.ToHaveScreenshotAsync(options, callerFile));
+    public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null) =>
+        KeepAsync(_expect.ToHaveScreenshotAsync(options, callerFile));
 
-    public Task ToHaveCountAsync(int count, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToHaveCountAsync(count, timeout, cancellationToken));
+    public Task ToHaveCountAsync(int count, TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
+        KeepAsync(_expect.ToHaveCountAsync(count, timeout, cancellationToken));
 
     private Task KeepAsync(Task matcher) => _failures.KeepAsync(matcher);
 }
@@ -88,9 +154,14 @@ public sealed class SoftScreenExpect
     /// <summary>Inverts the matcher, as <see cref="ScreenExpect.Not"/>. A failure is still kept, not thrown.</summary>
     public SoftScreenExpect Not => new(_expect.Not, _failures);
 
-    public Task ToHaveScreenshotAsync(string? name = null, ScreenshotOptions? options = null, [CallerFilePath] string? callerFile = null) => _failures.KeepAsync(_expect.ToHaveScreenshotAsync(name, options, callerFile));
+    public Task ToHaveScreenshotAsync(
+        string? name = null,
+        ScreenshotOptions? options = null,
+        [CallerFilePath] string? callerFile = null
+    ) => _failures.KeepAsync(_expect.ToHaveScreenshotAsync(name, options, callerFile));
 
-    public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null) => _failures.KeepAsync(_expect.ToHaveScreenshotAsync(options, callerFile));
+    public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null) =>
+        _failures.KeepAsync(_expect.ToHaveScreenshotAsync(options, callerFile));
 }
 
 /// <summary>
@@ -111,13 +182,32 @@ public sealed class SoftBrowserExpect
     /// <summary>Inverts the matcher, as <see cref="BrowserExpect.Not"/>. A failure is still kept, not thrown.</summary>
     public SoftBrowserExpect Not => new(_expect.Not, _failures);
 
-    public Task ToHaveURLAsync(string expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => _failures.KeepAsync(_expect.ToHaveURLAsync(expected, ignoreCase, timeout, cancellationToken));
+    public Task ToHaveURLAsync(
+        string expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => _failures.KeepAsync(_expect.ToHaveURLAsync(expected, ignoreCase, timeout, cancellationToken));
 
-    public Task ToHaveURLAsync(Regex expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => _failures.KeepAsync(_expect.ToHaveURLAsync(expected, ignoreCase, timeout, cancellationToken));
+    public Task ToHaveURLAsync(
+        Regex expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => _failures.KeepAsync(_expect.ToHaveURLAsync(expected, ignoreCase, timeout, cancellationToken));
 
-    public Task ToHaveTitleAsync(TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => _failures.KeepAsync(_expect.ToHaveTitleAsync(expected, timeout, cancellationToken));
+    public Task ToHaveTitleAsync(
+        TextMatch expected,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => _failures.KeepAsync(_expect.ToHaveTitleAsync(expected, timeout, cancellationToken));
 
-    public Task ToHaveClassAsync(Locator target, TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => _failures.KeepAsync(_expect.ToHaveClassAsync(target, expected, timeout, cancellationToken));
+    public Task ToHaveClassAsync(
+        Locator target,
+        TextMatch expected,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => _failures.KeepAsync(_expect.ToHaveClassAsync(target, expected, timeout, cancellationToken));
 }
 
 /// <summary>
@@ -160,9 +250,7 @@ internal sealed class SoftFailures
         {
             await matcher.ConfigureAwait(false);
         }
-        catch (TestException ex) when (ex.Code == "ASSERTION_FAILED" && Keep(ex))
-        {
-        }
+        catch (TestException ex) when (ex.Code == "ASSERTION_FAILED" && Keep(ex)) { }
     }
 
     public bool Keep(TestException error)
@@ -204,11 +292,18 @@ internal sealed class SoftFailures
 
         var lines = new List<string>
         {
-            failures.Length.ToString(CultureInfo.InvariantCulture) + " soft assertion" + (failures.Length == 1 ? "" : "s") + " failed",
+            failures.Length.ToString(CultureInfo.InvariantCulture)
+                + " soft assertion"
+                + (failures.Length == 1 ? "" : "s")
+                + " failed",
         };
         for (var i = 0; i < failures.Length; i++)
         {
-            lines.Add((i + 1).ToString(CultureInfo.InvariantCulture) + ". " + failures[i].Message.Replace("\n", "\n   ", StringComparison.Ordinal));
+            lines.Add(
+                (i + 1).ToString(CultureInfo.InvariantCulture)
+                    + ". "
+                    + failures[i].Message.Replace("\n", "\n   ", StringComparison.Ordinal)
+            );
         }
 
         return ErrorRedaction.Failure("ASSERTION_FAILED", string.Join('\n', lines), failures[0], Redact);
@@ -270,7 +365,8 @@ public sealed class SoftValueExpectation<T>
     public void ToHaveProperty(IReadOnlyList<object> path) => Keep(() => _expect.ToHaveProperty(path));
 
     /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
-    public void ToHaveProperty(IReadOnlyList<object> path, object? expected) => Keep(() => _expect.ToHaveProperty(path, expected));
+    public void ToHaveProperty(IReadOnlyList<object> path, object? expected) =>
+        Keep(() => _expect.ToHaveProperty(path, expected));
 
     /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
     public void ToContain(object? expected) => Keep(() => _expect.ToContain(expected));
@@ -313,8 +409,6 @@ public sealed class SoftValueExpectation<T>
         {
             matcher();
         }
-        catch (TestException ex) when (ex.Code == "ASSERTION_FAILED" && _failures.Keep(ex))
-        {
-        }
+        catch (TestException ex) when (ex.Code == "ASSERTION_FAILED" && _failures.Keep(ex)) { }
     }
 }

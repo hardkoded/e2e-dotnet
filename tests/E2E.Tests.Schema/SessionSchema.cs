@@ -14,7 +14,9 @@ namespace E2E.Tests;
 /// </summary>
 public static class SessionSchema
 {
-    private static readonly Lazy<JsonSchema> Schema = new(() => JsonSchema.FromText(File.ReadAllText(ReportSchema.SchemaPath("session-v1.schema.json"))));
+    private static readonly Lazy<JsonSchema> Schema = new(() =>
+        JsonSchema.FromText(File.ReadAllText(ReportSchema.SchemaPath("session-v1.schema.json")))
+    );
 
     /// <summary>True when the document satisfies the canonical session-1 schema.</summary>
     public static bool IsValid(JsonNode? document) => Evaluate(document).IsValid;
@@ -25,12 +27,19 @@ public static class SessionSchema
         var results = Evaluate(document);
         if (!results.IsValid)
         {
-            var details = (results.Details ?? []).SelectMany(detail => (detail.Errors ?? new Dictionary<string, string>()).Select(error => detail.InstanceLocation + " " + error.Key + ": " + error.Value));
+            var details = (results.Details ?? []).SelectMany(detail =>
+                (detail.Errors ?? new Dictionary<string, string>()).Select(error =>
+                    detail.InstanceLocation + " " + error.Key + ": " + error.Value
+                )
+            );
             throw new InvalidOperationException("session-1 schema violation:\n" + string.Join('\n', details));
         }
     }
 
     private static EvaluationResults Evaluate(JsonNode? document) =>
         // Format is asserted, as upstream's Ajv does with ajv-formats.
-        Schema.Value.Evaluate(JsonSerializer.SerializeToElement(document), new EvaluationOptions { OutputFormat = OutputFormat.List, RequireFormatValidation = true });
+        Schema.Value.Evaluate(
+            JsonSerializer.SerializeToElement(document),
+            new EvaluationOptions { OutputFormat = OutputFormat.List, RequireFormatValidation = true }
+        );
 }

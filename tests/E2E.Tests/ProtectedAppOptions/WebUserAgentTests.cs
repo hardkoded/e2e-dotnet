@@ -16,7 +16,9 @@ public sealed class WebUserAgentTests
         Assert.Equal("INVALID_CONFIG", empty.Code);
         Assert.Contains("non-empty string", empty.Message, StringComparison.Ordinal);
 
-        var control = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { UserAgent = "a\r\nx-injected: 1" }));
+        var control = Assert.Throws<EngineException>(() =>
+            new WebEngine(new WebEngineOptions { UserAgent = "a\r\nx-injected: 1" })
+        );
         Assert.Equal("INVALID_CONFIG", control.Code);
         Assert.Contains("control character", control.Message, StringComparison.Ordinal);
     }
@@ -24,13 +26,23 @@ public sealed class WebUserAgentTests
     [Fact]
     public void Rejects_a_user_agent_header_beside_it_which_would_override_it_on_the_app_site_only()
     {
-        var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions
-        {
-            UserAgent = "playwright",
-            Headers = new Dictionary<string, string> { ["User-Agent"] = "other" },
-        }));
+        var error = Assert.Throws<EngineException>(() =>
+            new WebEngine(
+                new WebEngineOptions
+                {
+                    UserAgent = "playwright",
+                    Headers = new Dictionary<string, string> { ["User-Agent"] = "other" },
+                }
+            )
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("conflict", error.Message, StringComparison.Ordinal);
-        _ = new WebEngine(new WebEngineOptions { UserAgent = "playwright", Headers = new Dictionary<string, string> { ["x-preview"] = "token" } });
+        _ = new WebEngine(
+            new WebEngineOptions
+            {
+                UserAgent = "playwright",
+                Headers = new Dictionary<string, string> { ["x-preview"] = "token" },
+            }
+        );
     }
 }

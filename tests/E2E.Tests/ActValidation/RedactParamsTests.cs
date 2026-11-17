@@ -29,18 +29,29 @@ public sealed class RedactParamsTests
                     ["tags"] = new object[] { Secret, 7 },
                 },
             },
-            "agent.act");
+            "agent.act"
+        );
         Assert.Equal([new ParamTemplate("/account " + Secret + "/name", "E2E " + Secret + " 42")], templates);
 
         var redacted = ActParams.RedactParams(projected!, templates, Redact, "agent.act");
 
-        Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse("{\"note\":\"<secret:probe>\",\"account <secret:probe>\":{\"name\":\"E2E <secret:probe> 42\",\"tags\":[\"<secret:probe>\",7]}}"),
-            redacted.Params));
+        Assert.True(
+            JsonNode.DeepEquals(
+                JsonNode.Parse(
+                    "{\"note\":\"<secret:probe>\",\"account <secret:probe>\":{\"name\":\"E2E <secret:probe> 42\",\"tags\":[\"<secret:probe>\",7]}}"
+                ),
+                redacted.Params
+            )
+        );
         Assert.Equal([new ParamTemplate("/account <secret:probe>/name", "E2E <secret:probe> 42")], redacted.Templates);
-        Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse("{\"note\":\"<secret:probe>\",\"account <secret:probe>\":{\"name\":\"{{param:/account <secret:probe>/name}}\",\"tags\":[\"<secret:probe>\",7]}}"),
-            CacheKeys.TemplateParams(redacted.Params, redacted.Templates)));
+        Assert.True(
+            JsonNode.DeepEquals(
+                JsonNode.Parse(
+                    "{\"note\":\"<secret:probe>\",\"account <secret:probe>\":{\"name\":\"{{param:/account <secret:probe>/name}}\",\"tags\":[\"<secret:probe>\",7]}}"
+                ),
+                CacheKeys.TemplateParams(redacted.Params, redacted.Templates)
+            )
+        );
     }
 
     [Fact]
@@ -48,12 +59,15 @@ public sealed class RedactParamsTests
     {
         var (projected, templates) = ActParams.ValidateParams(
             new Dictionary<string, object?> { ["__proto__"] = Secret, ["note"] = "x" },
-            "agent.act");
+            "agent.act"
+        );
 
         var redacted = ActParams.RedactParams(projected!, templates, Redact, "agent.act");
 
         Assert.True(redacted.Params.ContainsKey("__proto__"));
-        Assert.True(JsonNode.DeepEquals(JsonNode.Parse("{\"__proto__\":\"<secret:probe>\",\"note\":\"x\"}"), redacted.Params));
+        Assert.True(
+            JsonNode.DeepEquals(JsonNode.Parse("{\"__proto__\":\"<secret:probe>\",\"note\":\"x\"}"), redacted.Params)
+        );
     }
 
     [Fact]
@@ -64,11 +78,17 @@ public sealed class RedactParamsTests
             {
                 ["nested"] = new Dictionary<string, object?> { ["id " + Secret] = 1, ["id <secret:probe>"] = 2 },
             },
-            "agent.act");
+            "agent.act"
+        );
 
-        var error = Assert.Throws<TestException>(() => ActParams.RedactParams(projected!, templates, Redact, "agent.act"));
+        var error = Assert.Throws<TestException>(() =>
+            ActParams.RedactParams(projected!, templates, Redact, "agent.act")
+        );
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
-        Assert.Equal("agent.act params has two keys that read \"id <secret:probe>\" once secret values are redacted; a key cannot be told apart by a secret", error.Message);
+        Assert.Equal(
+            "agent.act params has two keys that read \"id <secret:probe>\" once secret values are redacted; a key cannot be told apart by a secret",
+            error.Message
+        );
     }
 }

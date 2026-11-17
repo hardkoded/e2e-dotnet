@@ -16,9 +16,12 @@ namespace E2E.NUnit.Tests.SelectorsFrame;
 /// </summary>
 public sealed class SelectorsFrameTests : PlaywrightTest
 {
-    private static readonly string Iframe2 = Content("<html><button tag=\"iframe2\">Hello nested iframe</button></html>");
+    private static readonly string Iframe2 = Content(
+        "<html><button tag=\"iframe2\">Hello nested iframe</button></html>"
+    );
 
-    private static readonly string Iframe = Content($"""
+    private static readonly string Iframe = Content(
+        $"""
         <html>
           <div>
             <button>Hello iframe</button>
@@ -27,7 +30,8 @@ public sealed class SelectorsFrameTests : PlaywrightTest
           <span>1</span>
           <span>2</span>
         </html>
-        """);
+        """
+    );
 
     private static readonly string Routed = Content($"""<iframe src="{Iframe}"></iframe>""");
 
@@ -60,7 +64,11 @@ public sealed class SelectorsFrameTests : PlaywrightTest
         var element = Browser.FrameLocator("iframe").Locator("button");
         await element.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Attached });
         Assert.That(await element.TextContentAsync(), Is.EqualTo("Hello iframe"));
-        await Browser.FrameLocator("iframe").Locator("span").Nth(1).WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Attached });
+        await Browser
+            .FrameLocator("iframe")
+            .Locator("span")
+            .Nth(1)
+            .WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Attached });
         Assert.That(await Browser.FrameLocator("iframe").Locator("span").CountAsync(), Is.EqualTo(2));
     }
 
@@ -82,7 +90,10 @@ public sealed class SelectorsFrameTests : PlaywrightTest
     public async Task DollarDollarEval_should_not_throw_for_missing_frame()
     {
         await Browser.GotoAsync("/empty.html");
-        Assert.That(await Browser.FrameLocator("iframe").Locator("canvas").AllTextContentsAsync(), Has.Count.EqualTo(0));
+        Assert.That(
+            await Browser.FrameLocator("iframe").Locator("canvas").AllTextContentsAsync(),
+            Has.Count.EqualTo(0)
+        );
     }
 
     [Test]
@@ -98,7 +109,10 @@ public sealed class SelectorsFrameTests : PlaywrightTest
     {
         await Browser.GotoAsync(Routed);
         await Expect.That(Browser.FrameLocator("iframe").Locator("span")).ToHaveCountAsync(2);
-        Assert.That(await Browser.FrameLocator("iframe").Locator("span").AllTextContentsAsync(), Is.EqualTo(new[] { "1", "2" }));
+        Assert.That(
+            await Browser.FrameLocator("iframe").Locator("span").AllTextContentsAsync(),
+            Is.EqualTo(new[] { "1", "2" })
+        );
     }
 
     [Test]
@@ -108,7 +122,9 @@ public sealed class SelectorsFrameTests : PlaywrightTest
         await Browser.GotoAsync("/empty.html");
         var attached = After(500, async () =>
         {
-            await Browser.EvaluateAsync<object>("() => { document.body.appendChild(document.createElement('iframe')); }");
+            await Browser.EvaluateAsync<object>(
+                "() => { document.body.appendChild(document.createElement('iframe')); }"
+            );
             await Task.Delay(500);
             await Browser.EvaluateAsync<object>("(src) => { document.querySelector('iframe').src = src; }", lazy);
         });
@@ -127,7 +143,10 @@ public sealed class SelectorsFrameTests : PlaywrightTest
         var button = Browser.FrameLocator("iframe").Locator("button").Filter(hasText: "Hello nested iframe");
         var promise = button.WaitForAsync();
         await Browser.EvaluateAsync<object>("() => { document.querySelector('iframe').remove(); }");
-        await Browser.EvaluateAsync<object>("(src) => { const iframe = document.createElement('iframe'); iframe.src = src; document.body.appendChild(iframe); }", Iframe2);
+        await Browser.EvaluateAsync<object>(
+            "(src) => { const iframe = document.createElement('iframe'); iframe.src = src; document.body.appendChild(iframe); }",
+            Iframe2
+        );
         await promise;
     }
 
@@ -138,7 +157,10 @@ public sealed class SelectorsFrameTests : PlaywrightTest
         var button = Browser.FrameLocator("iframe").Locator("button").Filter(hasText: "Hello nested iframe");
         var promise = button.TapAsync();
         await Browser.EvaluateAsync<object>("() => { document.querySelector('iframe').remove(); }");
-        await Browser.EvaluateAsync<object>("(src) => { const iframe = document.createElement('iframe'); iframe.src = src; document.body.appendChild(iframe); }", Iframe2);
+        await Browser.EvaluateAsync<object>(
+            "(src) => { const iframe = document.createElement('iframe'); iframe.src = src; document.body.appendChild(iframe); }",
+            Iframe2
+        );
         await promise;
     }
 
@@ -148,7 +170,10 @@ public sealed class SelectorsFrameTests : PlaywrightTest
         await Browser.GotoAsync(Routed);
         var button = Browser.FrameLocator("iframe").Locator("button").Filter(hasText: "Hello nested iframe");
         var promise = button.TapAsync();
-        var navigated = Browser.EvaluateAsync<object>("(src) => { document.querySelector('iframe').src = src; }", Iframe2);
+        var navigated = Browser.EvaluateAsync<object>(
+            "(src) => { document.querySelector('iframe').src = src; }",
+            Iframe2
+        );
         await promise;
         await navigated;
     }

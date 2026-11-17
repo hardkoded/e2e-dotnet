@@ -16,14 +16,17 @@ public sealed class UniqueCacheTests : TestsAgentTest
     {
         var label = $"Cabin {Base36(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())}";
         await App.OpenAsync("/e/saved-addresses");
-        await Agent.ActAsync("add a new address labelled {label} at {line}", new ActOptions
-        {
-            Params = new Dictionary<string, object?>
+        await Agent.ActAsync(
+            "add a new address labelled {label} at {line}",
+            new ActOptions
             {
-                ["label"] = Values.Unique(label),
-                ["line"] = "7 Pine Way, Bend",
-            },
-        });
+                Params = new Dictionary<string, object?>
+                {
+                    ["label"] = Values.Unique(label),
+                    ["line"] = "7 Pine Way, Bend",
+                },
+            }
+        );
         await Expect.That(Screen.GetByTestId("address-list")).ToContainTextAsync(label);
         await Expect.That(Screen.GetByTestId("toast")).ToHaveTextAsync("Address saved");
     }
@@ -37,8 +40,7 @@ public sealed class UniqueCacheTests : TestsAgentTest
         {
             text = digits[(int)(value % 36)] + text;
             value /= 36;
-        }
-        while (value > 0);
+        } while (value > 0);
         return text;
     }
 }

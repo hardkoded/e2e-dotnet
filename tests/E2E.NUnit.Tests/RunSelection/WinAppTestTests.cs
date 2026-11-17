@@ -25,7 +25,13 @@ public sealed class WinAppTestTests
     [Test]
     public void Skips_a_windows_test_the_filters_left_out_before_the_app_is_opened()
     {
-        E2E.NUnit.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutWinAppFixture).FullName}.{nameof(LeftOutWinAppFixture.Windows_test_is_left_out)}"] = "login.cs did not change" });
+        E2E.NUnit.RunSelection.Set(
+            new Dictionary<string, string>
+            {
+                [$"{typeof(LeftOutWinAppFixture).FullName}.{nameof(LeftOutWinAppFixture.Windows_test_is_left_out)}"] =
+                    "login.cs did not change",
+            }
+        );
         try
         {
             var result = NestedRun.Run(nameof(LeftOutWinAppFixture.Windows_test_is_left_out));
@@ -42,8 +48,14 @@ public sealed class WinAppTestTests
     [Test]
     public void Finds_the_tests_of_a_windows_fixture()
     {
-        var found = E2E.NUnit.RunSelection.Discover([typeof(LeftOutWinAppFixture)], typeof(LeftOutWinAppFixture).Assembly);
+        var found = E2E.NUnit.RunSelection.Discover(
+            [typeof(LeftOutWinAppFixture)],
+            typeof(LeftOutWinAppFixture).Assembly
+        );
 
-        Assert.That(found.Select(test => test.Title), Is.EqualTo(new[] { nameof(LeftOutWinAppFixture.Windows_test_is_left_out) }));
+        Assert.That(
+            found.Select(test => test.Title),
+            Is.EqualTo(new[] { nameof(LeftOutWinAppFixture.Windows_test_is_left_out) })
+        );
     }
 }

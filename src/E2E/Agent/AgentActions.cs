@@ -14,7 +14,12 @@ namespace E2E;
 /// container key (<paramref name="Within"/>) and twin <paramref name="Position"/> of that node. The recorder places the point inside the
 /// node's box.
 /// </summary>
-internal sealed record PlacedPoint(Point Point, SemanticNode? Under = null, string? Within = null, TracePosition? Position = null);
+internal sealed record PlacedPoint(
+    Point Point,
+    SemanticNode? Under = null,
+    string? Within = null,
+    TracePosition? Position = null
+);
 
 /// <summary>
 /// Upstream's <c>Placement</c>: where a node sat when it was acted on, for the trace. The container it sat in, and its place among the
@@ -70,7 +75,9 @@ internal static class AgentActions
 
     /// <summary>The project tool an action string names, or null.</summary>
     public static string? ToolNameOf(string action) =>
-        action.StartsWith(ActionNames.ProjectToolEventPrefix, StringComparison.Ordinal) ? action[ActionNames.ProjectToolEventPrefix.Length..] : null;
+        action.StartsWith(ActionNames.ProjectToolEventPrefix, StringComparison.Ordinal)
+            ? action[ActionNames.ProjectToolEventPrefix.Length..]
+            : null;
 
     /// <summary>
     /// Upstream's <c>actionEvent</c>: the <c>onAction</c> event of one committed action. A point action carries its points; a secret fill
@@ -82,15 +89,32 @@ internal static class AgentActions
         return action.Kind switch
         {
             "tapAt" when action.Point is { } point => new TapAtActionEvent(index, action.Kind, summary, source, point),
-            "hoverAt" when action.Point is { } point => new HoverAtActionEvent(index, action.Kind, summary, source, point),
-            "dragAt" when action.From is { Point: { } from } && action.To is { Point: { } to } => new DragAtActionEvent(index, action.Kind, summary, source, from, to),
-            "fill" when action.Value is { } value && value.StartsWith("<secret:", StringComparison.Ordinal) => new ActionEvent(index, action.Kind, summary, source) { ActionName = ActionName.TypeSecret },
+            "hoverAt" when action.Point is { } point => new HoverAtActionEvent(
+                index,
+                action.Kind,
+                summary,
+                source,
+                point
+            ),
+            "dragAt" when action.From is { Point: { } from } && action.To is { Point: { } to } => new DragAtActionEvent(
+                index,
+                action.Kind,
+                summary,
+                source,
+                from,
+                to
+            ),
+            "fill" when action.Value is { } value && value.StartsWith("<secret:", StringComparison.Ordinal) =>
+                new ActionEvent(index, action.Kind, summary, source) { ActionName = ActionName.TypeSecret },
             _ => new ActionEvent(index, action.Kind, summary, source),
         };
     }
 
     /// <summary>Roles whose first text names the thing a control belongs to: a row's key, a list item's title.</summary>
-    private static readonly HashSet<string> ContainerRoles = new(["row", "listitem", "article", "group", "region", "dialog", "tabpanel"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ContainerRoles = new(
+        ["row", "listitem", "article", "group", "region", "dialog", "tabpanel"],
+        StringComparer.Ordinal
+    );
 
     /// <summary>Longest container key kept (upstream's <c>MAX_WITHIN_CHARS</c>).</summary>
     public const int MaxWithinChars = 80;
@@ -104,7 +128,11 @@ internal static class AgentActions
     /// whichever rows are near the viewport, so its first row is a scroll position, not a place. Its own label still keys it. The
     /// text is read redacted, as the model reads it and the trace records it.
     /// </summary>
-    public static string? ContainerKey(SemanticNode node, IReadOnlyDictionary<SemanticNode, SemanticNode> parents, Redactor redactor)
+    public static string? ContainerKey(
+        SemanticNode node,
+        IReadOnlyDictionary<SemanticNode, SemanticNode> parents,
+        Redactor redactor
+    )
     {
         ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(parents);
@@ -115,7 +143,8 @@ internal static class AgentActions
         {
             if (ContainerRoles.Contains(container.Role ?? ""))
             {
-                var key = (NamedAfterTwinOf(container, came, redactor) ? null : FirstLeafText(container, redactor)) ?? OwnLabel(container, redactor);
+                var key = (NamedAfterTwinOf(container, came, redactor) ? null : FirstLeafText(container, redactor))
+                    ?? OwnLabel(container, redactor);
                 var clean = key is null ? "" : TextRules.Bound(TextRules.Collapse(key), MaxWithinChars);
                 return clean.Length == 0 || Squash(clean) == own ? null : clean;
             }
@@ -214,7 +243,12 @@ internal static class AgentActions
     /// the action holds flat; <paramref name="target"/> and <paramref name="destination"/> stand in for the ones a point action sat in, which the
     /// recorder reads off the listed node before it drops an anonymous one.
     /// </summary>
-    public static string DescribeAction(RecordedAction action, Redactor redactor, RecordedTarget? target = null, RecordedTarget? destination = null)
+    public static string DescribeAction(
+        RecordedAction action,
+        Redactor redactor,
+        RecordedTarget? target = null,
+        RecordedTarget? destination = null
+    )
     {
         ArgumentNullException.ThrowIfNull(action);
         ArgumentNullException.ThrowIfNull(redactor);
@@ -246,9 +280,15 @@ internal static class AgentActions
         string Safe(string value) => QuoteText(redactor.Redact(TextRules.SanitizeText(value)));
         var prose = action.Kind switch
         {
-            "tap" or "doubleTap" or "longPress" or "secondaryTap" or "hover" or "scrollTo" =>
-                string.Format(CultureInfo.InvariantCulture, NodeActionProse[action.Kind], where) + (action.Modifiers is { Count: > 0 } held ? " with " + string.Join('+', held) + " held" : ""),
-            "fill" when Trace.IsSecretMarker(action) => "fill secret " + QuoteText(action.Value![8..^1]) + " into " + where,
+            "tap" or "doubleTap" or "longPress" or "secondaryTap" or "hover" or "scrollTo" => string.Format(
+                CultureInfo.InvariantCulture,
+                NodeActionProse[action.Kind],
+                where
+            ) + (action.Modifiers is { Count: > 0 } held ? " with " + string.Join('+', held) + " held" : ""),
+            "fill" when Trace.IsSecretMarker(action) => "fill secret "
+                + QuoteText(action.Value![8..^1])
+                + " into "
+                + where,
             "fill" => "type " + Safe(action.Value ?? "") + " into " + where,
             "clear" => "type " + Safe("") + " into " + where,
             "press" => "press " + Safe(action.Key ?? "") + " on " + where,
@@ -258,17 +298,37 @@ internal static class AgentActions
             "upload" => "upload " + string.Join(", ", (action.Paths ?? []).Select(Safe)) + " to " + where,
             "drag" => "drag " + where + " to " + DescribeForSummary(destination),
             "scroll" => target is null ? "scroll " + action.Direction : "scroll " + action.Direction + " on " + where,
-            "scrollUntil" => "scroll " + action.Direction + (target is null ? "" : " on " + where) + " until " + Safe(action.Text ?? "") + " shows" + PagesTaken(action.Screens),
+            "scrollUntil" => "scroll "
+                + action.Direction
+                + (target is null ? "" : " on " + where)
+                + " until "
+                + Safe(action.Text ?? "")
+                + " shows"
+                + PagesTaken(action.Screens),
             "navigate" => "navigate to " + Safe(action.Url ?? ""),
             "back" => "navigate back",
-            "resize" => "resize the viewport to " + Number(action.Size?.Width ?? 0) + "x" + Number(action.Size?.Height ?? 0),
+            "resize" => "resize the viewport to "
+                + Number(action.Size?.Width ?? 0)
+                + "x"
+                + Number(action.Size?.Height ?? 0),
             "switchTab" => "switch to tab " + Number((action.Tab ?? 0) + 1),
             "closeTab" => "close tab " + Number((action.Tab ?? 0) + 1),
-            "typeText" => "type " + Safe(action.Value ?? "") + " into the focused field" + (action.Replace == true ? ", replacing its value" : ""),
+            "typeText" => "type "
+                + Safe(action.Value ?? "")
+                + " into the focused field"
+                + (action.Replace == true ? ", replacing its value" : ""),
             "pressKey" => "press " + Safe(action.Key ?? "") + " on the focused field",
             "dismissKeyboard" => "dismiss the keyboard",
-            "tapAt" or "hoverAt" => (action.Kind == "tapAt" ? "tap" : "hover over") + " the point " + PointText(action.Point) + (target is null ? "" : " on " + where),
-            "dragAt" => "drag from the point " + PointText(action.From?.Point) + (target is null ? "" : " on " + where) + " to the point " + PointText(action.To?.Point) + (destination is null ? "" : " on " + DescribeForSummary(destination)),
+            "tapAt" or "hoverAt" => (action.Kind == "tapAt" ? "tap" : "hover over")
+                + " the point "
+                + PointText(action.Point)
+                + (target is null ? "" : " on " + where),
+            "dragAt" => "drag from the point "
+                + PointText(action.From?.Point)
+                + (target is null ? "" : " on " + where)
+                + " to the point "
+                + PointText(action.To?.Point)
+                + (destination is null ? "" : " on " + DescribeForSummary(destination)),
             "tool" => "tool " + redactor.Redact(action.Text ?? ""),
             _ => action.Kind,
         };
@@ -277,7 +337,15 @@ internal static class AgentActions
 
     // A descriptor that names nothing is no target (upstream's describeTarget returns undefined for it).
     private static RecordedTarget? Described(RecordedTarget? target) =>
-        target is { } named && (named.Role is not null || named.Name is not null || named.Text is not null || named.TestId is not null || named.Placeholder is not null || named.InputPurpose is not null)
+        target is { } named
+        && (
+            named.Role is not null
+            || named.Name is not null
+            || named.Text is not null
+            || named.TestId is not null
+            || named.Placeholder is not null
+            || named.InputPurpose is not null
+        )
             ? named
             : null;
 
@@ -291,7 +359,9 @@ internal static class AgentActions
 
         var label = RecordedTarget.TargetLabel(target);
         var placed = target.Within is null ? label : label + " in " + QuoteText(target.Within);
-        return target.Position is null ? placed : placed + " (" + Number(target.Position.Index + 1) + " of " + Number(target.Position.Of) + ")";
+        return target.Position is null
+            ? placed
+            : placed + " (" + Number(target.Position.Index + 1) + " of " + Number(target.Position.Of) + ")";
     }
 
     // Upstream's quote: a value bounded to 40 characters, as JSON text.
@@ -299,8 +369,11 @@ internal static class AgentActions
 
     private static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);
 
-    private static string PointText(Point? point) => point is { } at ? "(" + Number(at.X) + ", " + Number(at.Y) + ")" : "(0, 0)";
+    private static string PointText(Point? point) =>
+        point is { } at ? "(" + Number(at.X) + ", " + Number(at.Y) + ")" : "(0, 0)";
 
     private static string PagesTaken(int? screens) =>
-        screens is not { } pages ? "" : " (" + (pages == 0 ? "already there" : Number(pages) + (pages == 1 ? " screen" : " screens")) + ")";
+        screens is not { } pages
+            ? ""
+            : " (" + (pages == 0 ? "already there" : Number(pages) + (pages == 1 ? " screen" : " screens")) + ")";
 }

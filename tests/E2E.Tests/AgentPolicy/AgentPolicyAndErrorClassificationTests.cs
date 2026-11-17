@@ -16,11 +16,14 @@ public sealed class AgentPolicyAndErrorClassificationTests
     [Fact]
     public async Task Reports_an_unconfigured_credential_with_AUTH_CREDENTIAL_UNAVAILABLE()
     {
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/");
-            await ctx.Screen.GetByLabel("Email").FillAsync(Credentials.User("ghost").Password);
-        }, CounterPage.World());
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/");
+                await ctx.Screen.GetByLabel("Email").FillAsync(Credentials.User("ghost").Password);
+            },
+            CounterPage.World()
+        );
 
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", Assert.IsType<TestException>(result.Error).Code);
     }
@@ -32,14 +35,26 @@ public sealed class AgentPolicyAndErrorClassificationTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return ModelResponses.Call("extract", new { data = text.Contains("<previous-attempt-rejected>", StringComparison.Ordinal) ? (object)new { counter = "0" } : "0" });
+            return ModelResponses.Call(
+                "extract",
+                new
+                {
+                    data = text.Contains("<previous-attempt-rejected>", StringComparison.Ordinal)
+                        ? (object)new { counter = "0" }
+                        : "0",
+                }
+            );
         });
         CounterReading? reading = null;
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/");
-            reading = await ctx.Agent.ExtractAsync<CounterReading>("the counter value");
-        }, CounterPage.World(), model);
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/");
+                reading = await ctx.Agent.ExtractAsync<CounterReading>("the counter value");
+            },
+            CounterPage.World(),
+            model
+        );
 
         Assert.Null(result.Error);
         Assert.Equal("0", reading?.Counter);
@@ -55,11 +70,15 @@ public sealed class AgentPolicyAndErrorClassificationTests
         var executor = new TestExecutor("house-brain", (_, _) => Task.FromResult(Passed("unused"))) { Model = brought };
         CounterReading? reading = null;
 
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/");
-            reading = await ctx.Agent.ExtractAsync<CounterReading>("the counter value");
-        }, CounterPage.World(), executor: executor);
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/");
+                reading = await ctx.Agent.ExtractAsync<CounterReading>("the counter value");
+            },
+            CounterPage.World(),
+            executor: executor
+        );
 
         Assert.Null(result.Error);
         Assert.Equal("0", reading?.Counter);
@@ -76,20 +95,45 @@ public sealed class AgentPolicyAndErrorClassificationTests
         {
             var echo = page.Status("Token echo");
             echo.Text = "nothing yet";
-            page.Roots.Add(new DocumentElement { Role = "textbox", Name = "Token", Value = "", Secure = true, InputPurpose = "password", OnFill = value => { filled = value; echo.Text = value; } });
+            page.Roots.Add(
+                new DocumentElement
+                {
+                    Role = "textbox",
+                    Name = "Token",
+                    Value = "",
+                    Secure = true,
+                    InputPurpose = "password",
+                    OnFill = value =>
+                    {
+                        filled = value;
+                        echo.Text = value;
+                    },
+                }
+            );
         });
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "the field has a value"));
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/echo");
-            await ctx.Screen.GetByLabel("Token").FillAsync(Secret.Create("member.password", "hunter2-secret", "password"));
-            await ctx.Agent.AssertAsync("the token echo shows a value");
-        }, world, model);
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/echo");
+                await ctx
+                    .Screen.GetByLabel("Token")
+                    .FillAsync(Secret.Create("member.password", "hunter2-secret", "password"));
+                await ctx.Agent.AssertAsync("the token echo shows a value");
+            },
+            world,
+            model
+        );
 
         Assert.Null(result.Error);
         Assert.Equal("hunter2-secret", filled);
-        var sent = model.Requests.Select(request => System.Text.Json.JsonSerializer.Serialize(request, System.Text.Json.JsonSerializerOptions.Web)).ToList();
-        var judged = sent.Where(text => text.Contains("the token echo shows a value", StringComparison.Ordinal)).ToList();
+        var sent = model
+            .Requests.Select(request =>
+                System.Text.Json.JsonSerializer.Serialize(request, System.Text.Json.JsonSerializerOptions.Web)
+            )
+            .ToList();
+        var judged = sent.Where(text => text.Contains("the token echo shows a value", StringComparison.Ordinal))
+            .ToList();
         Assert.NotEmpty(judged);
         Assert.All(judged, text =>
         {

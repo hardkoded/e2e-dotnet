@@ -57,7 +57,11 @@ public sealed class NavigationStaleOrTests
     [Fact]
     public void Never_reclassifies_an_engine_error_the_capture_already_classified()
     {
-        var original = new EngineException(EngineErrorCodes.EngineFailure, "Execution context was destroyed", retryable: false);
+        var original = new EngineException(
+            EngineErrorCodes.EngineFailure,
+            "Execution context was destroyed",
+            retryable: false
+        );
         Assert.Same(original, WebErrors.NavigationStaleOr(original, "observe"));
     }
 }

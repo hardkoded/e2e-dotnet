@@ -24,7 +24,10 @@ internal static class Paths
     public static string? RelativeToProjectRoot(string projectRoot, string target)
     {
         var relative = Path.GetRelativePath(OnDiskPath(projectRoot), OnDiskPath(target));
-        var inside = relative.Length > 0 && relative != "." && relative != ".."
+        var inside =
+            relative.Length > 0
+            && relative != "."
+            && relative != ".."
             && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
             && !relative.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal)
             && !Path.IsPathRooted(relative);
@@ -43,13 +46,18 @@ internal static class Paths
         (RelativeToProjectRoot(projectRoot, target) ?? target).Replace(Path.DirectorySeparatorChar, '/');
 
     /// <summary>Whether <paramref name="target"/> is a path strictly below the project root; see <see cref="RelativeToProjectRoot"/>.</summary>
-    public static bool InsideProjectRoot(string projectRoot, string target) => RelativeToProjectRoot(projectRoot, target) is not null;
+    public static bool InsideProjectRoot(string projectRoot, string target) =>
+        RelativeToProjectRoot(projectRoot, target) is not null;
 
     private static string RealPathOfExisting(string target, int hops)
     {
         var full = Path.GetFullPath(target);
         var root = Path.GetPathRoot(full) ?? "";
-        var parts = full[root.Length..].Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
+        var parts = full[root.Length..]
+            .Split(
+                [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                StringSplitOptions.RemoveEmptyEntries
+            );
         var current = root;
         for (var index = 0; index < parts.Length; index++)
         {
@@ -67,7 +75,10 @@ internal static class Paths
 
             if (link is not null && hops < MaxLinkHops)
             {
-                return RealPathOfExisting(Path.Combine([Path.GetFullPath(link, current), .. parts[(index + 1)..]]), hops + 1);
+                return RealPathOfExisting(
+                    Path.Combine([Path.GetFullPath(link, current), .. parts[(index + 1)..]]),
+                    hops + 1
+                );
             }
 
             if (!entry.Exists && link is null)
@@ -86,15 +97,23 @@ internal static class Paths
         var full = Path.GetFullPath(target);
         var root = Path.GetPathRoot(full) ?? "";
         var current = root;
-        var parts = full[root.Length..].Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
+        var parts = full[root.Length..]
+            .Split(
+                [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                StringSplitOptions.RemoveEmptyEntries
+            );
         for (var index = 0; index < parts.Length; index++)
         {
             string candidate;
             try
             {
-                var name = Directory.Exists(current) && parts[index].IndexOfAny(['*', '?']) < 0
-                    ? Directory.EnumerateFileSystemEntries(current, parts[index]).Select(Path.GetFileName).FirstOrDefault()
-                    : null;
+                var name =
+                    Directory.Exists(current) && parts[index].IndexOfAny(['*', '?']) < 0
+                        ? Directory
+                            .EnumerateFileSystemEntries(current, parts[index])
+                            .Select(Path.GetFileName)
+                            .FirstOrDefault()
+                        : null;
                 if (name is null)
                 {
                     return Path.Combine([current, .. parts[index..]]);

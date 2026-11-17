@@ -22,10 +22,14 @@ public sealed class InputBoundariesAndAdversarialLoopsTests
             async ctx =>
             {
                 await ctx.App.OpenAsync("/");
-                await ctx.Agent.ActAsync("probe", new ActOptions { Params = new Dictionary<string, object?> { ["blob"] = new string('x', 70_000) } });
+                await ctx.Agent.ActAsync(
+                    "probe",
+                    new ActOptions { Params = new Dictionary<string, object?> { ["blob"] = new string('x', 70_000) } }
+                );
             },
             CounterPage.World(),
-            model);
+            model
+        );
         object value = new Dictionary<string, object?> { ["leaf"] = true };
         for (var level = 0; level < 40; level++)
         {
@@ -36,12 +40,20 @@ public sealed class InputBoundariesAndAdversarialLoopsTests
             async ctx =>
             {
                 await ctx.App.OpenAsync("/");
-                await ctx.Agent.ActAsync("probe", new ActOptions { Params = new Dictionary<string, object?> { ["value"] = value } });
+                await ctx.Agent.ActAsync(
+                    "probe",
+                    new ActOptions { Params = new Dictionary<string, object?> { ["value"] = value } }
+                );
             },
             CounterPage.World(),
-            model);
+            model
+        );
 
-        Assert.Contains("canonical bytes", Assert.IsType<TestException>(oversized.Error).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "canonical bytes",
+            Assert.IsType<TestException>(oversized.Error).Message,
+            StringComparison.Ordinal
+        );
         Assert.Contains("nesting", Assert.IsType<TestException>(tooDeep.Error).Message, StringComparison.Ordinal);
     }
 
@@ -57,11 +69,15 @@ public sealed class InputBoundariesAndAdversarialLoopsTests
                 await ctx.Agent.ActAsync("never conclude", new ActOptions { MaxModelCalls = 6 });
             },
             CounterPage.World(),
-            model);
+            model
+        );
 
         // Any sane terminal code is fine; hanging or passing is not.
         var error = Assert.IsType<AgentException>(result.Error);
-        Assert.Contains(error.Code, new[] { "STEP_NO_CONCLUSION", "MODEL_PROVIDER_FAILED", "MODEL_OUTPUT_INVALID", "STEP_BUDGET_EXHAUSTED" });
+        Assert.Contains(
+            error.Code,
+            new[] { "STEP_NO_CONCLUSION", "MODEL_PROVIDER_FAILED", "MODEL_OUTPUT_INVALID", "STEP_BUDGET_EXHAUSTED" }
+        );
         Assert.Equal(6, model.CallCount);
     }
 
@@ -69,9 +85,11 @@ public sealed class InputBoundariesAndAdversarialLoopsTests
     public async Task Runs_sequential_act_steps_with_fresh_action_budgets_each()
     {
         var results = new List<ActResult>();
-        var model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
-            ? ModelResponses.Done("passed", "tapped once")
-            : ModelResponses.Tap("button", "Increment"));
+        var model = new ScriptedModel(request =>
+            request.Messages.Any(message => message.Role == "tool")
+                ? ModelResponses.Done("passed", "tapped once")
+                : ModelResponses.Tap("button", "Increment")
+        );
         var result = await RunAsync(
             async ctx =>
             {
@@ -84,7 +102,8 @@ public sealed class InputBoundariesAndAdversarialLoopsTests
                 await Expect.That(ctx.Screen.GetByRole("status")).ToHaveTextAsync("3");
             },
             CounterPage.World(),
-            model);
+            model
+        );
 
         Assert.Null(result.Error);
         Assert.Equal(3, results.Count);

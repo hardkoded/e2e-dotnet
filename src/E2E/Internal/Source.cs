@@ -23,10 +23,14 @@ internal static class Source
     public static string? ProjectRelativePath(string projectRoot, string file)
     {
         var relative = Path.GetRelativePath(projectRoot, file);
-        if (relative.Length == 0 || relative == "." || relative == ".."
+        if (
+            relative.Length == 0
+            || relative == "."
+            || relative == ".."
             || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
             || relative.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal)
-            || Path.IsPathRooted(relative))
+            || Path.IsPathRooted(relative)
+        )
         {
             return null;
         }
@@ -56,7 +60,11 @@ internal static class Source
 
             if (ProjectRelativePath(projectRoot, file) is { } relative)
             {
-                return new SourceLocation(relative, Math.Max(1, frame.GetFileLineNumber()), Math.Max(1, frame.GetFileColumnNumber()));
+                return new SourceLocation(
+                    relative,
+                    Math.Max(1, frame.GetFileLineNumber()),
+                    Math.Max(1, frame.GetFileColumnNumber())
+                );
             }
         }
 

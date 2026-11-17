@@ -19,9 +19,7 @@ public sealed record RunEvent(long Seq, DateTimeOffset At, RunEventFact Fact);
 /// <summary>One fact about the run; the emitter wraps it in the <see cref="RunEvent"/> envelope. One record per upstream event type.</summary>
 public abstract record RunEventFact
 {
-    private protected RunEventFact()
-    {
-    }
+    private protected RunEventFact() { }
 }
 
 /// <summary>Upstream's <c>run-started</c> fact.</summary>
@@ -83,9 +81,7 @@ public sealed record OutputEvent(string Target, OutputPair? Pair, OutputStream S
 /// </summary>
 public abstract record SetupStep
 {
-    private protected SetupStep()
-    {
-    }
+    private protected SetupStep() { }
 }
 
 /// <summary>Upstream's <c>{ kind: 'collect' }</c> step.</summary>
@@ -128,7 +124,8 @@ public enum SetupState
 /// Upstream's <c>setup</c> fact: the work before the tests start. Upstream has two members of one type, <c>started</c> and <c>finished</c>; here
 /// <see cref="DurationMs"/> and <see cref="Outcome"/> are set only when <see cref="State"/> is <see cref="SetupState.Finished"/>.
 /// </summary>
-public sealed record SetupEvent(SetupStep Step, SetupState State, long DurationMs = 0, SetupOutcome? Outcome = null) : RunEventFact;
+public sealed record SetupEvent(SetupStep Step, SetupState State, long DurationMs = 0, SetupOutcome? Outcome = null)
+    : RunEventFact;
 
 /// <summary>Who a test is (upstream's <c>TestIdentity</c>, <c>collect/collect.ts</c>).</summary>
 public sealed record TestIdentity(IReadOnlyList<string> TitlePath, string Id, string File, int DeclarationIndex);
@@ -170,13 +167,22 @@ public sealed record RunEventResult
 /// Upstream's <c>test-started</c> fact: a test began executing. A test that runs as several agents, on several targets, or under repeat-each
 /// starts once per pair. <c>SerialId</c> is the test's serial group; the port has no serial groups, so the list reporter does not read it.
 /// </summary>
-public sealed record TestStartedEvent(string TestId, string Agent, int Repeat, string Title, string File, string? SerialId, string Target) : RunEventFact;
+public sealed record TestStartedEvent(
+    string TestId,
+    string Agent,
+    int Repeat,
+    string Title,
+    string File,
+    string? SerialId,
+    string Target
+) : RunEventFact;
 
 /// <summary>
 /// Upstream's <c>step</c> fact: one moment of a running test's step, routed to its pair by test id, agent, target, and repeat. .NET-only name:
 /// <c>StepEvent</c> is the report's model-turn record.
 /// </summary>
-public sealed record StepProgressEvent(string TestId, string Agent, int Repeat, string Target, StepProgress Progress) : RunEventFact;
+public sealed record StepProgressEvent(string TestId, string Agent, int Repeat, string Target, StepProgress Progress)
+    : RunEventFact;
 
 /// <summary>
 /// Upstream's <c>explore</c> fact: one moment of an <c>e2e explore</c> run, the exploration starting as its test begins, the step in progress, each
@@ -218,4 +224,3 @@ public sealed record RunFinishedEvent : RunEventFact
     /// <summary>The trace page written for each test that kept a trace, by report result id, as a path from the project root.</summary>
     public IReadOnlyDictionary<string, string>? Traces { get; init; }
 }
-

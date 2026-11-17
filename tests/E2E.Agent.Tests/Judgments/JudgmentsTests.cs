@@ -76,11 +76,16 @@ public sealed class JudgmentsTests : E2ETest
     public async Task Assert_reads_a_sentence_whole_across_its_inline_link_and_emphasis()
     {
         await App.OpenAsync("/plans");
-        await Expect.That(Screen.GetByText("Read the release notes for what changed this week.", exact: false)).ToBeVisibleAsync();
+        await Expect
+            .That(Screen.GetByText("Read the release notes for what changed this week.", exact: false))
+            .ToBeVisibleAsync();
         await Expect.That(Screen.GetByRole("link", "release notes")).ToBeVisibleAsync();
-        await Expect.That(Screen.GetByText("Plans start at $12 per seat, billed annually, and include the e2e CLI.")).ToBeVisibleAsync();
+        await Expect
+            .That(Screen.GetByText("Plans start at $12 per seat, billed annually, and include the e2e CLI."))
+            .ToBeVisibleAsync();
         await Agent.AssertAsync(
-            "the page says \"Read the release notes for what changed this week.\" and \"Plans start at $12 per seat, billed annually, and include the e2e CLI.\"");
+            "the page says \"Read the release notes for what changed this week.\" and \"Plans start at $12 per seat, billed annually, and include the e2e CLI.\""
+        );
     }
 
     [Test]
@@ -88,7 +93,10 @@ public sealed class JudgmentsTests : E2ETest
     {
         await App.OpenAsync("/network");
         await Screen.GetByRole("button", "Load users").ClickAsync();
-        await Agent.WaitForAsync("the list shows the three users Ada, Grace, and Margaret", new WaitForOptions { Interval = TimeSpan.FromMilliseconds(250) });
+        await Agent.WaitForAsync(
+            "the list shows the three users Ada, Grace, and Margaret",
+            new WaitForOptions { Interval = TimeSpan.FromMilliseconds(250) }
+        );
         await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("loaded 3");
     }
 
@@ -117,7 +125,10 @@ public sealed class JudgmentsTests : E2ETest
     {
         await Browser.GotoAsync("/canvas");
         // The chart exists only as canvas pixels, so the tree alone cannot answer.
-        await Agent.AssertAsync("the bar chart trends upward from left to right", new AssertOptions { Vision = VisionMode.On });
+        await Agent.AssertAsync(
+            "the bar chart trends upward from left to right",
+            new AssertOptions { Vision = VisionMode.On }
+        );
     }
 
     /// <summary>The schema upstream's extract test passes: the todo titles and the remaining count.</summary>

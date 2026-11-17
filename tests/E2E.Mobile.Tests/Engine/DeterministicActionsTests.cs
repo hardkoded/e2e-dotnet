@@ -16,7 +16,8 @@ public sealed class DeterministicActionsTests
     private static Harness WithTransition(int milliseconds) =>
         Harness.Create(options => options with { TransitionMilliseconds = milliseconds });
 
-    private static Task Tap(DeviceSession session, SemanticNode node) => session.PerformAsync(node, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
+    private static Task Tap(DeviceSession session, SemanticNode node) =>
+        session.PerformAsync(node, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
 
     /// <summary>
     /// Taps with the clock stopped. A press that goes out without asking for a delay is one that neither settled nor
@@ -76,7 +77,9 @@ public sealed class DeterministicActionsTests
         // Android reports a sliding modal's frames in flight: the button is first seen below the screen, and lands on
         // it with a new ref by the time the budget has passed.
         JsonObject submit(double y, string reference) =>
-            FakeDeviceClient.SettingsSnapshotWith(Submit(reference, y, type: "android.widget.Button", identifier: "submit"));
+            FakeDeviceClient.SettingsSnapshotWith(
+                Submit(reference, y, type: "android.widget.Button", identifier: "submit")
+            );
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => submit(2000, "@e11"));
         var inFlight = await Observed(session, "Submit");
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => submit(600, "@e42"));
@@ -102,12 +105,17 @@ public sealed class DeterministicActionsTests
         var h = WithTransition(120);
         var session = await OpenAttempt(h);
         await Tap(session, await Observed(session, "Back"));
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshotWith(Submit("@e11", 600, "Chat")));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SettingsSnapshotWith(Submit("@e11", 600, "Chat"))
+        );
         var chat = await Observed(session, "Chat");
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshotWith(
-            N("@e10", index: 10, parentIndex: 0, depth: 1, type: "tab-bar"),
-            N("@e12", index: 11, parentIndex: 10, depth: 2, type: "button", label: "Chat"),
-            N("@e11", index: 12, parentIndex: 10, depth: 2, type: "button", label: "Orders")));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SettingsSnapshotWith(
+                N("@e10", index: 10, parentIndex: 0, depth: 1, type: "tab-bar"),
+                N("@e12", index: 11, parentIndex: 10, depth: 2, type: "button", label: "Chat"),
+                N("@e11", index: 12, parentIndex: 10, depth: 2, type: "button", label: "Orders")
+            )
+        );
         var presses = Presses(h);
         var stale = await Assert.ThrowsAsync<EngineException>(() => Tap(session, chat));
         Assert.Equal("NODE_STALE", stale.Code);
@@ -121,7 +129,9 @@ public sealed class DeterministicActionsTests
     public static TheoryData<string, string> KeyboardOpens()
     {
         var data = new TheoryData<string, string>();
-        foreach (var action in new[] { "tap", "focus", "fill", "clear", "type", "press character", "focused character" })
+        foreach (
+            var action in new[] { "tap", "focus", "fill", "clear", "type", "press character", "focused character" }
+        )
         {
             foreach (var signal in new[] { "measured", "tree" })
             {
@@ -132,25 +142,47 @@ public sealed class DeterministicActionsTests
         return data;
     }
 
-    private static readonly JsonObject VisibleKeyboard = new() { ["kind"] = "visible", ["frame"] = new JsonObject { ["x"] = 0, ["y"] = 580, ["width"] = 390, ["height"] = 264 } };
+    private static readonly JsonObject VisibleKeyboard = new()
+    {
+        ["kind"] = "visible",
+        ["frame"] = new JsonObject
+        {
+            ["x"] = 0,
+            ["y"] = 580,
+            ["width"] = 390,
+            ["height"] = 264,
+        },
+    };
 
     private static readonly JsonObject AbsentKeyboard = new() { ["kind"] = "absent" };
 
     /// <summary>The Settings screen with the About cell moved up to a new ref, as the app lays it out once the keyboard transition ends.</summary>
     private static IEnumerable<RawNode> AboutLanded(IEnumerable<RawNode> nodes) =>
-        nodes.Select(node => node.Identifier == "ABOUT" || node.Label == "About" ? node with { Ref = "@e42", Rect = new Rect(0, 200, 390, 44) } : node);
+        nodes.Select(node =>
+            node.Identifier == "ABOUT" || node.Label == "About"
+                ? node with
+                {
+                    Ref = "@e42",
+                    Rect = new Rect(0, 200, 390, 44),
+                }
+                : node
+        );
 
     [Theory]
     [MemberData(nameof(KeyboardOpens))]
-    public async Task Reobserves_after_action_when_signal_keyboard_state_changes_before_the_control_moves(string action, string signal)
+    public async Task Reobserves_after_action_when_signal_keyboard_state_changes_before_the_control_moves(
+        string action,
+        string signal
+    )
     {
         var h = WithTransition(120);
         var session = await OpenAttempt(h);
         h.Clock.Advance(TimeSpan.FromMilliseconds(150));
         var keyboardNode = N("@keyboard", index: 11, type: "Keyboard", rect: new Rect(0, 580, 390, 264));
-        JsonObject Visible(IEnumerable<RawNode> nodes) => signal == "measured"
-            ? FakeDeviceClient.SnapshotOf(nodes, ("keyboard", VisibleKeyboard.DeepClone()))
-            : FakeDeviceClient.SnapshotOf([.. nodes, keyboardNode]);
+        JsonObject Visible(IEnumerable<RawNode> nodes) =>
+            signal == "measured"
+                ? FakeDeviceClient.SnapshotOf(nodes, ("keyboard", VisibleKeyboard.DeepClone()))
+                : FakeDeviceClient.SnapshotOf([.. nodes, keyboardNode]);
         var search = await Observed(session, "Search");
         switch (action)
         {
@@ -161,19 +193,44 @@ public sealed class DeterministicActionsTests
                 await session.PressAsync("a", CancellationToken.None);
                 break;
             case "press character":
-                await session.PerformAsync(search, new LocatorAction.Press("a"), OperationContext.Test, CancellationToken.None);
+                await session.PerformAsync(
+                    search,
+                    new LocatorAction.Press("a"),
+                    OperationContext.Test,
+                    CancellationToken.None
+                );
                 break;
             case "fill":
-                await session.PerformAsync(search, new LocatorAction.Fill("blue"), OperationContext.Test, CancellationToken.None);
+                await session.PerformAsync(
+                    search,
+                    new LocatorAction.Fill("blue"),
+                    OperationContext.Test,
+                    CancellationToken.None
+                );
                 break;
             case "clear":
-                await session.PerformAsync(search, new LocatorAction.Clear(), OperationContext.Test, CancellationToken.None);
+                await session.PerformAsync(
+                    search,
+                    new LocatorAction.Clear(),
+                    OperationContext.Test,
+                    CancellationToken.None
+                );
                 break;
             case "focus":
-                await session.PerformAsync(search, new LocatorAction.Focus(), OperationContext.Test, CancellationToken.None);
+                await session.PerformAsync(
+                    search,
+                    new LocatorAction.Focus(),
+                    OperationContext.Test,
+                    CancellationToken.None
+                );
                 break;
             default:
-                await session.PerformAsync(search, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
+                await session.PerformAsync(
+                    search,
+                    new LocatorAction.Tap(),
+                    OperationContext.Test,
+                    CancellationToken.None
+                );
                 break;
         }
 
@@ -196,12 +253,19 @@ public sealed class DeterministicActionsTests
         var h = WithTransition(120);
         var session = await OpenAttempt(h);
         h.Clock.Advance(TimeSpan.FromMilliseconds(150));
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(SettingsNodes, ("keyboard", VisibleKeyboard.DeepClone())));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SnapshotOf(SettingsNodes, ("keyboard", VisibleKeyboard.DeepClone()))
+        );
         var search = await Observed(session, "Search");
         switch (action)
         {
             case "Enter":
-                await session.PerformAsync(search, new LocatorAction.Press("Enter"), OperationContext.Test, CancellationToken.None);
+                await session.PerformAsync(
+                    search,
+                    new LocatorAction.Press("Enter"),
+                    OperationContext.Test,
+                    CancellationToken.None
+                );
                 break;
             case "focused Enter":
                 await session.PressAsync("Enter", CancellationToken.None);
@@ -211,9 +275,13 @@ public sealed class DeterministicActionsTests
                 break;
         }
 
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(SettingsNodes, ("keyboard", AbsentKeyboard.DeepClone())));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SnapshotOf(SettingsNodes, ("keyboard", AbsentKeyboard.DeepClone()))
+        );
         var stale = await Observed(session, "About");
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(AboutLanded(SettingsNodes), ("keyboard", AbsentKeyboard.DeepClone())));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SnapshotOf(AboutLanded(SettingsNodes), ("keyboard", AbsentKeyboard.DeepClone()))
+        );
 
         await Tap(session, stale);
 
@@ -231,7 +299,12 @@ public sealed class DeterministicActionsTests
             var h = WithTransition(120);
             var session = await OpenAttempt(h);
             h.Clock.Advance(TimeSpan.FromMilliseconds(150));
-            h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(SettingsNodes, ("keyboard", (visible ? VisibleKeyboard : AbsentKeyboard).DeepClone())));
+            h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+                FakeDeviceClient.SnapshotOf(
+                    SettingsNodes,
+                    ("keyboard", (visible ? VisibleKeyboard : AbsentKeyboard).DeepClone())
+                )
+            );
             var search = await Observed(session, "Search");
             switch (action)
             {
@@ -239,10 +312,20 @@ public sealed class DeterministicActionsTests
                     await session.TypeTextAsync("blue", replace: false);
                     break;
                 case "fill":
-                    await session.PerformAsync(search, new LocatorAction.Fill("blue"), OperationContext.Test, CancellationToken.None);
+                    await session.PerformAsync(
+                        search,
+                        new LocatorAction.Fill("blue"),
+                        OperationContext.Test,
+                        CancellationToken.None
+                    );
                     break;
                 default:
-                    await session.PerformAsync(search, new LocatorAction.Clear(), OperationContext.Test, CancellationToken.None);
+                    await session.PerformAsync(
+                        search,
+                        new LocatorAction.Clear(),
+                        OperationContext.Test,
+                        CancellationToken.None
+                    );
                     break;
             }
 
@@ -256,11 +339,15 @@ public sealed class DeterministicActionsTests
         var h = WithTransition(120);
         var session = await OpenAttempt(h);
         await Tap(session, await Observed(session, "Back"));
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshotWith(Submit("@e11", 600, "Add")));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SettingsSnapshotWith(Submit("@e11", 600, "Add"))
+        );
         var arriving = await Observed(session, "Add");
 
         // A list of rows that each carry an identical Add button: the row the test meant has settled 10 points lower.
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshotWith(Submit("@e20", 200, "Add"), Submit("@e21", 610, "Add", index: 11)));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SettingsSnapshotWith(Submit("@e20", 200, "Add"), Submit("@e21", 610, "Add", index: 11))
+        );
         await Tap(session, arriving);
         JsonAssert.Args("""{"ref":"@e21"}""", h.Fake.LastArgs("interactions.press"));
     }
@@ -271,8 +358,18 @@ public sealed class DeterministicActionsTests
         var h = WithTransition(120);
         var session = await OpenAttempt(h);
         await Tap(session, await Observed(session, "Back"));
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(
-            SettingsNodes.Select(node => node.Identifier == "ABOUT" || node.Label == "About" ? node with { Rect = new Rect(0, 300, 390, 44) } : node)));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SnapshotOf(
+                SettingsNodes.Select(node =>
+                    node.Identifier == "ABOUT" || node.Label == "About"
+                        ? node with
+                        {
+                            Rect = new Rect(0, 300, 390, 44),
+                        }
+                        : node
+                )
+            )
+        );
         var delays = h.Delays.Count;
         await Tap(session, await Observed(session, "About"));
         Assert.True(h.Delays.Skip(delays).Sum(delay => delay.TotalMilliseconds) >= ShortTransition.TotalMilliseconds);
@@ -288,22 +385,55 @@ public sealed class DeterministicActionsTests
         var h = Harness.Create();
         var session = await OpenAttempt(h);
         var search = await Observed(session, "Search");
-        await session.PerformAsync(search, new LocatorAction.Fill("blue"), OperationContext.Test, CancellationToken.None);
+        await session.PerformAsync(
+            search,
+            new LocatorAction.Fill("blue"),
+            OperationContext.Test,
+            CancellationToken.None
+        );
         JsonAssert.Args("""{"ref":"@e7","text":"blue"}""", h.Fake.LastArgs("interactions.fill"));
         await session.BackAsync(OperationContext.Test, CancellationToken.None);
         JsonAssert.Args("{}", h.Fake.LastArgs("command.back"));
         var point = new Point(10, 20);
         await session.PerformAtAsync(point, new PointerAction.Tap(), OperationContext.Test, CancellationToken.None);
         JsonAssert.Args("""{"x":10,"y":20}""", h.Fake.LastArgs("interactions.press"));
-        await session.PerformAtAsync(point, new PointerAction.DoubleTap(), OperationContext.Test, CancellationToken.None);
+        await session.PerformAtAsync(
+            point,
+            new PointerAction.DoubleTap(),
+            OperationContext.Test,
+            CancellationToken.None
+        );
         JsonAssert.Args("""{"x":10,"y":20,"count":2}""", h.Fake.LastArgs("interactions.press"));
-        await session.PerformAtAsync(point, new PointerAction.LongPress(TimeSpan.FromMilliseconds(700)), OperationContext.Test, CancellationToken.None);
+        await session.PerformAtAsync(
+            point,
+            new PointerAction.LongPress(TimeSpan.FromMilliseconds(700)),
+            OperationContext.Test,
+            CancellationToken.None
+        );
         JsonAssert.Args("""{"x":10,"y":20,"durationMs":700}""", h.Fake.LastArgs("interactions.longPress"));
-        await session.PerformAtAsync(point, new PointerAction.LongPress(), OperationContext.Test, CancellationToken.None);
+        await session.PerformAtAsync(
+            point,
+            new PointerAction.LongPress(),
+            OperationContext.Test,
+            CancellationToken.None
+        );
         JsonAssert.Args("""{"x":10,"y":20,"durationMs":1000}""", h.Fake.LastArgs("interactions.longPress"));
-        await session.PerformAtAsync(point, new PointerAction.SwipeTo(new Point(10, 300)), OperationContext.Test, CancellationToken.None);
-        JsonAssert.Args("""{"from":{"x":10,"y":20},"to":{"x":10,"y":300},"postGestureStabilization":false}""", h.Fake.LastArgs("interactions.swipe"));
-        await session.PerformAtAsync(point, new PointerAction.SwipeTo(new Point(10, 300), TimeSpan.FromMilliseconds(400)), OperationContext.Test, CancellationToken.None);
+        await session.PerformAtAsync(
+            point,
+            new PointerAction.SwipeTo(new Point(10, 300)),
+            OperationContext.Test,
+            CancellationToken.None
+        );
+        JsonAssert.Args(
+            """{"from":{"x":10,"y":20},"to":{"x":10,"y":300},"postGestureStabilization":false}""",
+            h.Fake.LastArgs("interactions.swipe")
+        );
+        await session.PerformAtAsync(
+            point,
+            new PointerAction.SwipeTo(new Point(10, 300), TimeSpan.FromMilliseconds(400)),
+            OperationContext.Test,
+            CancellationToken.None
+        );
         JsonAssert.Args("""{"x":10,"y":20,"dx":0,"dy":280,"durationMs":400}""", h.Fake.LastArgs("interactions.pan"));
         Assert.Equal(["tap", "doubleTap", "longPress", "swipeTo"], DeviceActions.PointerActionKinds);
 
@@ -341,7 +471,9 @@ public sealed class DeterministicActionsTests
         var about = await Observed(session, "About");
         using var controller = new CancellationTokenSource();
         controller.CancelAfter(TimeSpan.FromMilliseconds(20));
-        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, controller.Token));
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, controller.Token)
+        );
         Assert.Equal("CANCELLED", cancelled.Code);
         Assert.DoesNotContain("interactions.press", h.Fake.Methods());
     }
@@ -369,13 +501,21 @@ public sealed class DeterministicActionsTests
         h.Clock.Advance(TimeSpan.FromMilliseconds(150));
 
         // Airplane Mode reads unchecked, so uncheck sends nothing.
-        await session.PerformAsync(await Observed(session, "Airplane Mode"), new LocatorAction.Uncheck(), OperationContext.Test, CancellationToken.None);
+        await session.PerformAsync(
+            await Observed(session, "Airplane Mode"),
+            new LocatorAction.Uncheck(),
+            OperationContext.Test,
+            CancellationToken.None
+        );
         Assert.DoesNotContain("interactions.press", h.Fake.Methods());
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshotWith(Submit("@e11", 600, "Save")));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SettingsSnapshotWith(Submit("@e11", 600, "Save"))
+        );
         await TapsAtOnce(h, session, await Observed(session, "Save"), """{"ref":"@e11"}""");
     }
 
-    private static LocatorAction Swipe(ScrollDirection direction = ScrollDirection.Down) => new LocatorAction.Swipe(direction);
+    private static LocatorAction Swipe(ScrollDirection direction = ScrollDirection.Down) =>
+        new LocatorAction.Swipe(direction);
 
     /// <summary>The screen root as a swipe names it, without a look: a swipe of the screen needs only its ref.</summary>
     private static SemanticNode ScreenRoot() => new() { Ref = SnapshotProjection.RootId };
@@ -393,7 +533,10 @@ public sealed class DeterministicActionsTests
         await session.PerformAsync(screen, Swipe(), OperationContext.Agent, CancellationToken.None);
 
         Assert.Equal(startedAt, h.Clock.GetUtcNow());
-        JsonAssert.Args("""{"direction":"down","settle":true,"settleQuietMs":150}""", h.Fake.LastArgs("interactions.scroll"));
+        JsonAssert.Args(
+            """{"direction":"down","settle":true,"settleQuietMs":150}""",
+            h.Fake.LastArgs("interactions.scroll")
+        );
     }
 
     [Fact]
@@ -428,7 +571,9 @@ public sealed class DeterministicActionsTests
         using var controller = new CancellationTokenSource();
         controller.CancelAfter(TimeSpan.FromMilliseconds(20));
 
-        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(screen, Swipe(), OperationContext.Test, controller.Token));
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(screen, Swipe(), OperationContext.Test, controller.Token)
+        );
 
         Assert.Equal("CANCELLED", cancelled.Code);
         Assert.DoesNotContain("interactions.scroll", h.Fake.Methods());
@@ -444,7 +589,9 @@ public sealed class DeterministicActionsTests
         controller.Cancel();
         var startedAt = h.Clock.GetUtcNow();
 
-        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(screen, Swipe(), OperationContext.Test, controller.Token));
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(screen, Swipe(), OperationContext.Test, controller.Token)
+        );
 
         Assert.Equal("CANCELLED", cancelled.Code);
         Assert.Equal(startedAt, h.Clock.GetUtcNow());
@@ -459,7 +606,9 @@ public sealed class DeterministicActionsTests
         var screen = ScreenRoot();
         var startedAt = h.Clock.GetUtcNow();
 
-        var timeout = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(screen, Swipe(), OperationContext.Test, CancellationToken.None));
+        var timeout = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(screen, Swipe(), OperationContext.Test, CancellationToken.None)
+        );
 
         Assert.Equal("OPERATION_TIMEOUT", timeout.Code);
         Assert.Equal(TimeSpan.FromMilliseconds(20), h.Clock.GetUtcNow() - startedAt);
@@ -480,7 +629,9 @@ public sealed class DeterministicActionsTests
         var screen = ScreenRoot();
         var startedAt = h.Clock.GetUtcNow();
 
-        var timeout = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(screen, Swipe(), OperationContext.Test, CancellationToken.None));
+        var timeout = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(screen, Swipe(), OperationContext.Test, CancellationToken.None)
+        );
 
         Assert.Equal("OPERATION_TIMEOUT", timeout.Code);
         Assert.False(timeout.Retryable);
@@ -512,7 +663,9 @@ public sealed class DeterministicActionsTests
         using var controller = new CancellationTokenSource();
         controller.CancelAfter(TimeSpan.FromMilliseconds(10));
 
-        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(screen, Swipe(), OperationContext.Test, controller.Token));
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(screen, Swipe(), OperationContext.Test, controller.Token)
+        );
 
         Assert.Equal("CANCELLED", cancelled.Code);
         Assert.DoesNotContain("interactions.scroll", h.Fake.Methods());
@@ -526,7 +679,9 @@ public sealed class DeterministicActionsTests
         var about = await Observed(session, "About");
         var startedAt = h.Clock.GetUtcNow();
 
-        var timeout = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None));
+        var timeout = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None)
+        );
 
         Assert.Equal("OPERATION_TIMEOUT", timeout.Code);
         Assert.Equal(TimeSpan.FromMilliseconds(20), h.Clock.GetUtcNow() - startedAt);
@@ -537,9 +692,12 @@ public sealed class DeterministicActionsTests
         Harness.Create(options => options with { Settle = false, TransitionMilliseconds = 0 });
 
     private static JsonObject Snapshot(string reference, Func<RawNode, RawNode> change) =>
-        FakeDeviceClient.SnapshotOf([.. RawNodes.SettingsNodes.Select(node => node.Ref == reference ? change(node) : node)]);
+        FakeDeviceClient.SnapshotOf([
+            .. RawNodes.SettingsNodes.Select(node => node.Ref == reference ? change(node) : node),
+        ]);
 
-    private static Rect MovedTo(RawNode node, double y) => new(node.Rect!.Value.X, y, node.Rect.Value.Width, node.Rect.Value.Height);
+    private static Rect MovedTo(RawNode node, double y) =>
+        new(node.Rect!.Value.X, y, node.Rect.Value.Width, node.Rect.Value.Height);
 
     [Fact]
     public async Task Skips_the_post_gesture_stabilization_wait_for_a_test_swipe_and_scroll_and_keeps_it_for_the_agent()
@@ -550,7 +708,10 @@ public sealed class DeterministicActionsTests
         var scroller = Named(root, "Scroller");
 
         await session.PerformAsync(root, Swipe(), OperationContext.Test, CancellationToken.None);
-        JsonAssert.Args("""{"direction":"down","postGestureStabilization":false}""", h.Fake.LastArgs("interactions.scroll"));
+        JsonAssert.Args(
+            """{"direction":"down","postGestureStabilization":false}""",
+            h.Fake.LastArgs("interactions.scroll")
+        );
         await session.PerformAsync(scroller, Swipe(), OperationContext.Test, CancellationToken.None);
         var swipe = h.Fake.LastArgs("interactions.swipe");
         Assert.False(swipe!["postGestureStabilization"]!.GetValue<bool>());
@@ -602,11 +763,19 @@ public sealed class DeterministicActionsTests
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
         {
             reads++;
-            return Snapshot("@e7", node => node with { Enabled = reads == 1 ? node.Enabled : false, Rect = MovedTo(node, 220 + (reads * 10)) });
+            return Snapshot("@e7", node =>
+                node with
+                {
+                    Enabled = reads == 1 ? node.Enabled : false,
+                    Rect = MovedTo(node, 220 + (reads * 10)),
+                }
+            );
         });
 
         await session.PerformAsync(root, Swipe(), OperationContext.Test, CancellationToken.None);
-        var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(search, new LocatorAction.Fill("blue"), OperationContext.Test, CancellationToken.None));
+        var stale = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(search, new LocatorAction.Fill("blue"), OperationContext.Test, CancellationToken.None)
+        );
 
         Assert.Equal("NODE_STALE", stale.Code);
         Assert.True(stale.Retryable);

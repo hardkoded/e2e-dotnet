@@ -45,8 +45,16 @@ public sealed class ClassifyActionErrorTests
 
     [Theory]
     [InlineData("strict mode violation: 2 elements", "NODE_STALE", true)]
-    [InlineData("strict mode violation: 2 elements\nCall log:\n  - move and down action done", "ACTION_MAY_HAVE_COMMITTED", false)]
-    [InlineData("strict mode violation: getByText('performing click action') resolved to 2 elements:\n    1) <p>click action done</p>\nCall log:\n  - waiting for getByText('performing click action')", "NODE_STALE", true)]
+    [InlineData(
+        "strict mode violation: 2 elements\nCall log:\n  - move and down action done",
+        "ACTION_MAY_HAVE_COMMITTED",
+        false
+    )]
+    [InlineData(
+        "strict mode violation: getByText('performing click action') resolved to 2 elements:\n    1) <p>click action done</p>\nCall log:\n  - waiting for getByText('performing click action')",
+        "NODE_STALE",
+        true
+    )]
     [InlineData("element is detached from the DOM", "NODE_STALE", true)]
     [InlineData("Element is not an <input>, <textarea> or [contenteditable] element", "NOT_ACTIONABLE", false)]
     [InlineData("Target page, context or browser has been closed", "ENGINE_FAILURE", false)]
@@ -83,24 +91,37 @@ public sealed class ClassifyActionErrorTests
         ];
         Assert.Equal(
             "tap did not become actionable in time: locator.click: Timeout 5000ms exceeded. <div data-popover=\"true\">…</div> intercepts pointer events",
-            WebErrors.ClassifyAction(PwTimeout(covered), Tap).Message);
+            WebErrors.ClassifyAction(PwTimeout(covered), Tap).Message
+        );
         Assert.Equal(
             "tap did not become actionable in time: locator.click: Timeout 5000ms exceeded. element is not stable",
-            WebErrors.ClassifyAction(PwTimeout(PreDispatchLog), Tap).Message);
+            WebErrors.ClassifyAction(PwTimeout(PreDispatchLog), Tap).Message
+        );
         var compressed = new System.TimeoutException(
-            "locator.click: Timeout 5000ms exceeded.\nCall log:\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n");
+            "locator.click: Timeout 5000ms exceeded.\nCall log:\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n"
+        );
         Assert.Equal(
             "tap did not become actionable in time: locator.click: Timeout 5000ms exceeded. element is not enabled",
-            WebErrors.ClassifyAction(compressed, Tap).Message);
+            WebErrors.ClassifyAction(compressed, Tap).Message
+        );
     }
 
     [Fact]
     public void Keeps_a_not_actionable_timeout_whole_when_its_log_names_no_blocker()
     {
-        foreach (var log in new[] { new[] { "waiting for getByRole('button')" }, new[] { "waiting for getByText('element is not visible')" } })
+        foreach (
+            var log in new[]
+            {
+                new[] { "waiting for getByRole('button')" },
+                new[] { "waiting for getByText('element is not visible')" },
+            }
+        )
         {
             var waiting = PwTimeout(log);
-            Assert.Equal("tap did not become actionable in time: " + waiting.Message, WebErrors.ClassifyAction(waiting, Tap).Message);
+            Assert.Equal(
+                "tap did not become actionable in time: " + waiting.Message,
+                WebErrors.ClassifyAction(waiting, Tap).Message
+            );
         }
     }
 
@@ -146,9 +167,13 @@ public sealed class ClassifyActionErrorTests
     public void Never_echoes_a_sensitive_fill_value_in_the_message_or_through_the_cause()
     {
         const string secret = "hunter2-plaintext";
-        var raw = new PlaywrightException($"locator.fill(\"{secret}\"): Element is not an <input>, <textarea> or [contenteditable] element");
+        var raw = new PlaywrightException(
+            $"locator.fill(\"{secret}\"): Element is not an <input>, <textarea> or [contenteditable] element"
+        );
 
-        var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(raw, new LocatorAction.Fill(secret, Sensitive: true)));
+        var error = Assert.IsType<EngineException>(
+            WebErrors.ClassifyAction(raw, new LocatorAction.Fill(secret, Sensitive: true))
+        );
 
         Assert.Equal("NOT_ACTIONABLE", error.Code);
         Assert.DoesNotContain(secret, error.Message, StringComparison.Ordinal);
@@ -161,7 +186,9 @@ public sealed class ClassifyActionErrorTests
     {
         var raw = new PlaywrightException("Element is not an <input>");
 
-        var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(raw, new LocatorAction.Fill("gamma", Sensitive: false)));
+        var error = Assert.IsType<EngineException>(
+            WebErrors.ClassifyAction(raw, new LocatorAction.Fill("gamma", Sensitive: false))
+        );
 
         Assert.Same(raw, error.InnerException);
     }
@@ -169,6 +196,10 @@ public sealed class ClassifyActionErrorTests
     // Playwright for .NET reports a timeout as a TimeoutException.
     private static System.TimeoutException PwTimeout(IEnumerable<string> callLog)
     {
-        return new System.TimeoutException("locator.click: Timeout 5000ms exceeded.\nCall log:\n" + string.Join('\n', callLog.Select(line => "  - " + line)) + "\n");
+        return new System.TimeoutException(
+            "locator.click: Timeout 5000ms exceeded.\nCall log:\n"
+                + string.Join('\n', callLog.Select(line => "  - " + line))
+                + "\n"
+        );
     }
 }

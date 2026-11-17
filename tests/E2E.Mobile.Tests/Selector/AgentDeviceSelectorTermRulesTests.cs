@@ -13,13 +13,54 @@ public sealed class AgentDeviceSelectorTermRulesTests
     /// <summary>An Android form whose nodes fall on each side of agent-device's term rules.</summary>
     private static readonly IReadOnlyList<ProjectedNode> AndroidForm = Project(
         N("e1", index: 0, depth: 0, type: "android.widget.FrameLayout", rect: R(0, 0, 400, 800)),
-        N("e2", index: 1, parentIndex: 0, depth: 1, type: "android.widget.EditText", identifier: "email", enabled: true, rect: Box),
-        N("e3", index: 2, parentIndex: 0, depth: 1, type: "android.widget.EditText", identifier: "locked", enabled: false, rect: Box),
-        N("e4", index: 3, parentIndex: 0, depth: 1, type: "android.widget.Button", identifier: "Submit", label: "Submit", hittable: true, rect: Box),
-        N("e5", index: 4, parentIndex: 0, depth: 1, type: "android.view.View", identifier: "spacer", rect: R(0, 0, 0, 0))).Index;
+        N(
+            "e2",
+            index: 1,
+            parentIndex: 0,
+            depth: 1,
+            type: "android.widget.EditText",
+            identifier: "email",
+            enabled: true,
+            rect: Box
+        ),
+        N(
+            "e3",
+            index: 2,
+            parentIndex: 0,
+            depth: 1,
+            type: "android.widget.EditText",
+            identifier: "locked",
+            enabled: false,
+            rect: Box
+        ),
+        N(
+            "e4",
+            index: 3,
+            parentIndex: 0,
+            depth: 1,
+            type: "android.widget.Button",
+            identifier: "Submit",
+            label: "Submit",
+            hittable: true,
+            rect: Box
+        ),
+        N(
+            "e5",
+            index: 4,
+            parentIndex: 0,
+            depth: 1,
+            type: "android.view.View",
+            identifier: "spacer",
+            rect: R(0, 0, 0, 0)
+        )
+    ).Index;
 
     private static List<string?> Ids(string selector) =>
-        [.. AgentDeviceSelector.Compile(selector, MobilePlatform.Android)(AndroidForm).Select(entry => entry.Raw.Identifier)];
+        [
+            .. AgentDeviceSelector
+                .Compile(selector, MobilePlatform.Android)(AndroidForm)
+                .Select(entry => entry.Raw.Identifier),
+        ];
 
     [Fact]
     public void Reads_editable_as_a_fillable_type_that_is_enabled()

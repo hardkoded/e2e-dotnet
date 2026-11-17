@@ -17,7 +17,10 @@ public sealed class SessionAndErrorTests
         await client.CallAsync(DeviceMethods.DevicesBoot, """{"platform":"ios"}""");
 
         Assert.Equal(["GET /api/v1/agent/status"], agent.Calls.Select(call => call.Route));
-        Json.AssertEqual("""{"action":"claim","leaseId":"lease-1","holderKind":"e2e","label":"e2e mobileapp slot 1 of 1"}""", Assert.Single(agent.LeaseCalls).Body);
+        Json.AssertEqual(
+            """{"action":"claim","leaseId":"lease-1","holderKind":"e2e","label":"e2e mobileapp slot 1 of 1"}""",
+            Assert.Single(agent.LeaseCalls).Body
+        );
     }
 
     // .NET-only: upstream has no DevFlow client.
@@ -29,7 +32,11 @@ public sealed class SessionAndErrorTests
         var hanging = agent.ScriptHang("GET", "/api/v1/agent/status");
         using var cancel = new CancellationTokenSource();
 
-        var boot = client.CallAsync(DeviceMethods.DevicesBoot, (JsonObject)JsonNode.Parse("""{"platform":"ios"}""")!, cancel.Token);
+        var boot = client.CallAsync(
+            DeviceMethods.DevicesBoot,
+            (JsonObject)JsonNode.Parse("""{"platform":"ios"}""")!,
+            cancel.Token
+        );
         await hanging.WaitAsync(TimeSpan.FromSeconds(10));
         await cancel.CancelAsync();
 
@@ -53,7 +60,10 @@ public sealed class SessionAndErrorTests
     public async Task A_client_without_a_lease_identity_claims_nothing()
     {
         var agent = new FakeAgent();
-        var client = new DevFlowDeviceClient(new DevFlowAgentClient(agent.Http, FakeAgent.Agent, lease: null), MobilePlatform.Ios);
+        var client = new DevFlowDeviceClient(
+            new DevFlowAgentClient(agent.Http, FakeAgent.Agent, lease: null),
+            MobilePlatform.Ios
+        );
 
         await client.CallAsync(DeviceMethods.DevicesBoot, """{"platform":"ios"}""");
         await client.CallAsync(DeviceMethods.CommandBack, "{}");
@@ -106,7 +116,10 @@ public sealed class SessionAndErrorTests
     {
         var (client, agent) = DevFlow.Over();
 
-        var result = await client.CallAsync(DeviceMethods.AppsOpen, $$"""{"app":"{{FakeAgent.PackageId}}","platform":"ios"}""");
+        var result = await client.CallAsync(
+            DeviceMethods.AppsOpen,
+            $$"""{"app":"{{FakeAgent.PackageId}}","platform":"ios"}"""
+        );
 
         Assert.Equal(["GET /api/v1/agent/status"], agent.Calls.Select(call => call.Route));
         Json.AssertEqual($$"""{"appBundleId":"{{FakeAgent.PackageId}}","appName":"MobileApp"}""", result);
@@ -153,7 +166,10 @@ public sealed class SessionAndErrorTests
     {
         var (client, agent) = DevFlow.Over();
 
-        await client.CallAsync(DeviceMethods.SettingsUpdate, """{"setting":"appearance","state":"dark","platform":"ios"}""");
+        await client.CallAsync(
+            DeviceMethods.SettingsUpdate,
+            """{"setting":"appearance","state":"dark","platform":"ios"}"""
+        );
 
         var call = Assert.Single(agent.Calls);
         Assert.Equal("PUT /api/v1/device/app/theme", call.Route);
@@ -175,7 +191,10 @@ public sealed class SessionAndErrorTests
     [InlineData(DeviceMethods.CommandClipboard, """{"action":"read"}""")]
     [InlineData(DeviceMethods.LeasesAllocate, "{}")]
     [InlineData("nonsense.method", "{}")]
-    public async Task Refuses_what_it_does_not_do_as_an_unsupported_capability_without_touching_the_agent(string method, string options)
+    public async Task Refuses_what_it_does_not_do_as_an_unsupported_capability_without_touching_the_agent(
+        string method,
+        string options
+    )
     {
         var (client, agent) = await DevFlow.ReadAsync();
 
@@ -204,7 +223,10 @@ public sealed class SessionAndErrorTests
         var (client, agent) = DevFlow.Over();
         agent.ScriptFailure("PUT", "/api/v1/device/app/theme", HttpStatusCode.NotFound, "Not found");
 
-        var error = await client.FailureAsync(DeviceMethods.SettingsUpdate, """{"setting":"appearance","state":"light"}""");
+        var error = await client.FailureAsync(
+            DeviceMethods.SettingsUpdate,
+            """{"setting":"appearance","state":"light"}"""
+        );
 
         Assert.Equal("UNSUPPORTED_OPERATION", error.Code);
     }

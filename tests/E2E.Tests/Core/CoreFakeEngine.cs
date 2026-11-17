@@ -23,10 +23,25 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
     private readonly List<string> _openedLinks = [];
     private readonly List<(string Method, TimeSpan? Timeout)> _operations = [];
 
-    public CoreFakeEngine(IReadOnlyList<SemanticNode>? scene = null, bool state = false, bool device = false, bool links = false)
+    public CoreFakeEngine(
+        IReadOnlyList<SemanticNode>? scene = null,
+        bool state = false,
+        bool device = false,
+        bool links = false
+    )
     {
-        Scene = scene ?? [new SemanticNode { Ref = "submit", Role = "button", Name = "Submit" }];
-        Capabilities = EngineCapabilities.Observation
+        Scene = scene
+            ??
+            [
+                new SemanticNode
+                {
+                    Ref = "submit",
+                    Role = "button",
+                    Name = "Submit",
+                },
+            ];
+        Capabilities =
+            EngineCapabilities.Observation
             | EngineCapabilities.Actions
             | (state ? EngineCapabilities.State : 0)
             | (device ? EngineCapabilities.PinnedApp : 0)
@@ -82,7 +97,8 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
     public EngineCapabilities Capabilities { get; }
 
     /// <summary>Contributes the <c>gadget</c> fixture. Upstream's <c>fixtures: true</c>.</summary>
-    public CoreFakeFixtures CreateFixtures(IEngineSession session, E2E.Session controls) => new("gadget on " + Platform);
+    public CoreFakeFixtures CreateFixtures(IEngineSession session, E2E.Session controls) =>
+        new("gadget on " + Platform);
 
     public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
@@ -128,7 +144,8 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
             return Task.CompletedTask;
         }
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => Task.FromResult(new Observation { Route = "/", Roots = owner.Scene });
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(new Observation { Route = "/", Roots = owner.Scene });
 
         public Task<Observation> ObserveAsync(OperationContext context, CancellationToken cancellationToken)
         {
@@ -136,13 +153,22 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
             return ObserveAsync(cancellationToken);
         }
 
-        public Task<Observation> ObserveAsync(TimeSpan timeout, OperationContext context, CancellationToken cancellationToken)
+        public Task<Observation> ObserveAsync(
+            TimeSpan timeout,
+            OperationContext context,
+            CancellationToken cancellationToken
+        )
         {
             owner.Record("observe", context, timeout);
             return ObserveAsync(cancellationToken);
         }
 
-        public Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, OperationContext context, CancellationToken cancellationToken)
+        public Task<Observation> ObserveAsync(
+            ObserveOptions? options,
+            TimeSpan timeout,
+            OperationContext context,
+            CancellationToken cancellationToken
+        )
         {
             owner.Record("observe", context, timeout);
             return ObserveAsync(cancellationToken);

@@ -11,7 +11,8 @@ public sealed class SoftSuiteFixture : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     private static readonly TimeSpan SoftTimeout = TimeSpan.FromMilliseconds(200);
 

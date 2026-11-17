@@ -112,7 +112,15 @@ public sealed class DocumentEngine : IEngine
             }
 
             _refs = refs;
-            return Task.FromResult(new Observation { Route = Route, Location = Route, Roots = roots, Viewport = DocumentViewport });
+            return Task.FromResult(
+                new Observation
+                {
+                    Route = Route,
+                    Location = Route,
+                    Roots = roots,
+                    Viewport = DocumentViewport,
+                }
+            );
         }
 
         /// <summary>The viewport every document is laid out in, which an element's <see cref="DocumentElement.Rect"/> is measured against: the web engine's default.</summary>
@@ -122,10 +130,26 @@ public sealed class DocumentEngine : IEngine
 
         /// <summary>The kinds the document takes. It has no pointer, so a secondary tap, a long press, a hover, and a drag are refused before the node is resolved.</summary>
         public IReadOnlyCollection<string> ActionKinds { get; } =
-            ["tap", "doubleTap", "fill", "clear", "press", "check", "uncheck", "focus", "scrollIntoView", "selectOption", "swipe"];
+        [
+            "tap",
+            "doubleTap",
+            "fill",
+            "clear",
+            "press",
+            "check",
+            "uncheck",
+            "focus",
+            "scrollIntoView",
+            "selectOption",
+            "swipe",
+        ];
 
         /// <summary>Resolves a locator against the document as it is now, over the observation it takes. Upstream's <c>locate</c>. <paramref name="timeout"/> is not used: the document answers at once.</summary>
-        public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<SemanticNode>> LocateAsync(
+            LocatorExpression expression,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        )
         {
             ArgumentNullException.ThrowIfNull(expression);
             var observation = await ObserveAsync(cancellationToken).ConfigureAwait(false);
@@ -152,7 +176,9 @@ public sealed class DocumentEngine : IEngine
             {
                 case LocatorAction.Tap:
                     Tap(element);
-                    return element.NavigateTo is null ? Task.CompletedTask : OpenAsync(element.NavigateTo, cancellationToken);
+                    return element.NavigateTo is null
+                        ? Task.CompletedTask
+                        : OpenAsync(element.NavigateTo, cancellationToken);
                 case LocatorAction.DoubleTap:
                     // A browser fires two clicks before dblclick. A link navigates on the first.
                     Tap(element);
@@ -174,8 +200,13 @@ public sealed class DocumentEngine : IEngine
                     Activate(element, press.Key);
                     break;
                 case LocatorAction.Select select:
-                    element.Value = select.Text ?? select.Option?.Label ?? select.Option?.Value
-                        ?? throw new EngineException("NOT_ACTIONABLE", $"{Describe(element)} lists no options to select by index.");
+                    element.Value = select.Text
+                        ?? select.Option?.Label
+                        ?? select.Option?.Value
+                        ?? throw new EngineException(
+                            "NOT_ACTIONABLE",
+                            $"{Describe(element)} lists no options to select by index."
+                        );
                     break;
                 case LocatorAction.Check:
                     element.Checked = true;
@@ -198,7 +229,10 @@ public sealed class DocumentEngine : IEngine
                     element.OnScroll?.Invoke(swipe.Direction);
                     break;
                 default:
-                    throw new EngineException("UNSUPPORTED_CAPABILITY", $"Document engine cannot perform {action.GetType().Name}.");
+                    throw new EngineException(
+                        "UNSUPPORTED_CAPABILITY",
+                        $"Document engine cannot perform {action.GetType().Name}."
+                    );
             }
 
             return Task.CompletedTask;
@@ -223,7 +257,10 @@ public sealed class DocumentEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             if (_focused is null)
             {
-                throw new EngineException(EngineErrorCodes.NotActionable, "nothing that takes keystrokes has focus: the typed text would reach no field. Tap the field first, or type into a listed input by id.");
+                throw new EngineException(
+                    EngineErrorCodes.NotActionable,
+                    "nothing that takes keystrokes has focus: the typed text would reach no field. Tap the field first, or type into a listed input by id."
+                );
             }
 
             RequireText(_focused);
@@ -295,7 +332,8 @@ public sealed class DocumentEngine : IEngine
         private static SemanticNode ToNode(
             DocumentElement element,
             ref int next,
-            Dictionary<string, DocumentElement> refs)
+            Dictionary<string, DocumentElement> refs
+        )
         {
             var id = "e" + next.ToString(System.Globalization.CultureInfo.InvariantCulture);
             next++;
@@ -412,29 +450,53 @@ public sealed class DocumentPage
 
     public DocumentElement Heading(string name, int level = 1)
     {
-        return Add(new DocumentElement { Role = "heading", Name = name, Level = level });
+        return Add(
+            new DocumentElement
+            {
+                Role = "heading",
+                Name = name,
+                Level = level,
+            }
+        );
     }
 
     public DocumentElement Button(string name, Action? onTap = null)
     {
-        return Add(new DocumentElement { Role = "button", Name = name, OnTap = onTap });
+        return Add(
+            new DocumentElement
+            {
+                Role = "button",
+                Name = name,
+                OnTap = onTap,
+            }
+        );
     }
 
     public DocumentElement Status(string name, bool hidden = false)
     {
-        return Add(new DocumentElement { Role = "status", Name = name, Text = name, Hidden = hidden });
+        return Add(
+            new DocumentElement
+            {
+                Role = "status",
+                Name = name,
+                Text = name,
+                Hidden = hidden,
+            }
+        );
     }
 
     public DocumentElement Textbox(string name, string? value = null, bool secure = false)
     {
-        return Add(new DocumentElement
-        {
-            Role = "textbox",
-            Name = name,
-            Value = value,
-            Secure = secure,
-            InputPurpose = secure ? "password" : null,
-        });
+        return Add(
+            new DocumentElement
+            {
+                Role = "textbox",
+                Name = name,
+                Value = value,
+                Secure = secure,
+                InputPurpose = secure ? "password" : null,
+            }
+        );
     }
 
     public DocumentElement Paragraph(string text)
@@ -444,17 +506,38 @@ public sealed class DocumentPage
 
     public DocumentElement Link(string name, string route)
     {
-        return Add(new DocumentElement { Role = "link", Name = name, NavigateTo = route });
+        return Add(
+            new DocumentElement
+            {
+                Role = "link",
+                Name = name,
+                NavigateTo = route,
+            }
+        );
     }
 
     public DocumentElement Checkbox(string name, bool isChecked = false)
     {
-        return Add(new DocumentElement { Role = "checkbox", Name = name, Checked = isChecked });
+        return Add(
+            new DocumentElement
+            {
+                Role = "checkbox",
+                Name = name,
+                Checked = isChecked,
+            }
+        );
     }
 
     public DocumentElement TestId(string testId, string? role = null, string? name = null)
     {
-        return Add(new DocumentElement { Role = role, Name = name, TestId = testId });
+        return Add(
+            new DocumentElement
+            {
+                Role = role,
+                Name = name,
+                TestId = testId,
+            }
+        );
     }
 
     private DocumentElement Add(DocumentElement element)

@@ -23,7 +23,8 @@ public sealed class LooksBeforeTeardownExecutor : ITestExecutor
 
     internal static void Forget(TUnitContext context) => Outcomes.Remove(context);
 
-    internal static TestOutcome? OutcomeOf(TUnitContext context) => Outcomes.TryGetValue(context, out var outcome) ? outcome : null;
+    internal static TestOutcome? OutcomeOf(TUnitContext context) =>
+        Outcomes.TryGetValue(context, out var outcome) ? outcome : null;
 
     public async ValueTask ExecuteTest(TUnitContext context, Func<ValueTask> action)
     {
@@ -38,11 +39,19 @@ public sealed class LooksBeforeTeardownExecutor : ITestExecutor
             var outcome = Outcome(ex);
             // A soft failure outranks a skip, as in the other adapters. TUnit reports a body that threw a skip as skipped, whatever its
             // hooks throw after it, so the failure is thrown here in place of the skip. The session caches the close, so the after-test hook gets the same one.
-            if (outcome.Skipped is not null && context.Metadata.TestDetails.ClassInstance is E2ETest fixture && fixture.CloseSoftFailures() is { } soft)
+            if (
+                outcome.Skipped is not null
+                && context.Metadata.TestDetails.ClassInstance is E2ETest fixture
+                && fixture.CloseSoftFailures() is { } soft
+            )
             {
                 Outcomes.AddOrUpdate(context, new TestOutcome(soft, null));
                 await LookAsync(context, soft).ConfigureAwait(false);
-                throw new TestException(soft.Code, soft.Message + Environment.NewLine + "Skipped: " + outcome.Skipped, ex);
+                throw new TestException(
+                    soft.Code,
+                    soft.Message + Environment.NewLine + "Skipped: " + outcome.Skipped,
+                    ex
+                );
             }
 
             Outcomes.AddOrUpdate(context, outcome);

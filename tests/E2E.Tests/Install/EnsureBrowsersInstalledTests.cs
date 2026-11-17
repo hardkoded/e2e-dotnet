@@ -36,7 +36,10 @@ public sealed class EnsureBrowsersInstalledTests
         Assert.Equal(["--only-shell", "chromium"], WebEngine.InstallArgs([BrowserName.Chromium], headed: false));
         Assert.Equal(["chromium"], WebEngine.InstallArgs([BrowserName.Chromium], headed: true));
         Assert.Equal(["firefox"], WebEngine.InstallArgs([BrowserName.Firefox], headed: false));
-        Assert.Equal(["--only-shell", "chromium", "firefox"], WebEngine.InstallArgs([BrowserName.Chromium, BrowserName.Firefox], headed: false));
+        Assert.Equal(
+            ["--only-shell", "chromium", "firefox"],
+            WebEngine.InstallArgs([BrowserName.Chromium, BrowserName.Firefox], headed: false)
+        );
     }
 
     [Fact]

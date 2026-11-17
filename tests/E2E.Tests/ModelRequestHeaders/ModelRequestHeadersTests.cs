@@ -15,7 +15,9 @@ public sealed class ModelRequestHeadersTests
     {
         return $$"""
             {
-              "choices": [{ "message": { "content": {{System.Text.Json.JsonSerializer.Serialize(json)}} }, "finish_reason": "stop" }],
+              "choices": [{ "message": { "content": {{System.Text.Json.JsonSerializer.Serialize(
+                json
+            )}} }, "finish_reason": "stop" }],
               "usage": { "prompt_tokens": 10, "completion_tokens": 5 }
             }
             """;
@@ -29,7 +31,9 @@ public sealed class ModelRequestHeadersTests
               "choices": [{
                 "message": {
                   "content": null,
-                  "tool_calls": [{ "id": "call_{{tool}}", "type": "function", "function": { "name": "{{tool}}", "arguments": {{System.Text.Json.JsonSerializer.Serialize(arguments)}} } }]
+                  "tool_calls": [{ "id": "call_{{tool}}", "type": "function", "function": { "name": "{{tool}}", "arguments": {{System.Text.Json.JsonSerializer.Serialize(
+                arguments
+            )}} } }]
                 },
                 "finish_reason": "tool_calls"
               }],
@@ -51,7 +55,9 @@ public sealed class ModelRequestHeadersTests
     // The port has no AI SDK; the .NET runtime token takes the place of its user agent.
     public async Task Identifies_e2e_on_a_judgment_call_ahead_of_the_AI_SDK_user_agent()
     {
-        var handler = new RecordingHandler(Answer("""{"protocolVersion":"agent-judgment-2","explanation":"the plan is Free","verdict":"holds"}"""));
+        var handler = new RecordingHandler(
+            Answer("""{"protocolVersion":"agent-judgment-2","explanation":"the plan is Free","verdict":"holds"}""")
+        );
 
         await RunAsync(handler, ctx => ctx.Agent.AssertAsync("the plan is Free"));
 
@@ -63,10 +69,13 @@ public sealed class ModelRequestHeadersTests
     {
         var handler = new RecordingHandler(
             Completion("tap", """{"role":"button","name":"Upgrade to Pro"}"""),
-            Completion("complete_step", """{"status":"passed","summary":"upgraded"}"""));
+            Completion("complete_step", """{"status":"passed","summary":"upgraded"}""")
+        );
 
         ActResult? result = null;
-        await RunAsync(handler, async ctx => result = await ctx.Agent.ActAsync("upgrade the workspace to the Pro plan"));
+        await RunAsync(handler, async ctx =>
+            result = await ctx.Agent.ActAsync("upgrade the workspace to the Pro plan")
+        );
 
         Assert.Equal("upgraded", result!.Summary);
         Assert.Equal(2, handler.Requests.Count);
@@ -76,18 +85,28 @@ public sealed class ModelRequestHeadersTests
     private static async Task RunAsync(RecordingHandler handler, Func<TestContext, Task> step)
     {
         using var http = new HttpClient(handler);
-        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "scripted", ApiKey = "k", BaseUrl = "https://llm.test/v1" }, http);
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(BillingWorld.Create()),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            CacheEnabled = false,
-            TestTitle = "model request headers > case",
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
+        using var model = new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions
+            {
+                Model = "scripted",
+                ApiKey = "k",
+                BaseUrl = "https://llm.test/v1",
+            },
+            http
+        );
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(BillingWorld.Create()),
+                Model = model,
+                BaseUrl = "https://billing.test",
+                CacheEnabled = false,
+                TestTitle = "model request headers > case",
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
 
         await session.Context.App.OpenAsync("/settings/billing");
         await step(session.Context);

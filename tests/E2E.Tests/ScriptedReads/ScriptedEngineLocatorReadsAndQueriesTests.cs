@@ -25,9 +25,13 @@ public sealed class ScriptedEngineLocatorReadsAndQueriesTests
         Assert.Equal("Dashboard", await screen.GetByRole("heading", new RoleOptions { Level = 1 }).TextContentAsync());
         Assert.Null(await screen.GetByRole("image", "Map").TextContentAsync());
         Assert.Equal("hello-value", await screen.GetByLabel("Search").InputValueAsync());
-        var noValue = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("heading", new RoleOptions { Level = 1 }).InputValueAsync());
+        var noValue = await Assert.ThrowsAsync<TestException>(() =>
+            screen.GetByRole("heading", new RoleOptions { Level = 1 }).InputValueAsync()
+        );
         Assert.Equal("ACTION_FAILED", noValue.Code);
-        var noState = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button", "Submit").IsCheckedAsync());
+        var noState = await Assert.ThrowsAsync<TestException>(() =>
+            screen.GetByRole("button", "Submit").IsCheckedAsync()
+        );
         Assert.Equal("ACTION_FAILED", noState.Code);
         Assert.Equal("card active", await screen.GetByTestId("card").GetAttributeAsync("class"));
         Assert.Null(await screen.GetByTestId("card").GetAttributeAsync("missing"));
@@ -58,9 +62,15 @@ public sealed class ScriptedEngineLocatorReadsAndQueriesTests
         Assert.Empty(await screen.GetByTestId("missing").AllAsync());
         Assert.Empty(await screen.GetByTestId("missing").AllTextContentsAsync());
         await screen.GetByRole("button", "Submit").WaitForAsync();
-        await screen.GetByRole("button", "Submit").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible });
-        await screen.GetByText("Hidden content").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
-        await screen.GetByText("Never rendered").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
+        await screen
+            .GetByRole("button", "Submit")
+            .WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible });
+        await screen
+            .GetByText("Hidden content")
+            .WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
+        await screen
+            .GetByText("Never rendered")
+            .WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
 
         // A secure field still answers state reads.
         var password = screen.GetByLabel("Password");
@@ -97,13 +107,20 @@ public sealed class ScriptedEngineLocatorReadsAndQueriesTests
         var todos = scene.Screen.GetByTestId("todo");
         var empty = Assert.Throws<TestException>(() => todos.Filter());
         Assert.Equal("INVALID_LOCATOR", empty.Code);
-        Assert.Contains("filter() requires hasText, hasNotText, has, and/or hasNot", empty.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "filter() requires hasText, hasNotText, has, and/or hasNot",
+            empty.Message,
+            StringComparison.Ordinal
+        );
         Assert.Throws<ArgumentNullException>(() => todos.Filter((TextMatch)null!));
         Assert.Throws<ArgumentOutOfRangeException>(() => todos.Nth(-1));
 
         using var closed = ReferenceScene.Create(open: false);
         var error = await Assert.ThrowsAsync<TestException>(() =>
-            closed.Screen.GetByRole("button", "Submit").TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(200) }));
+            closed
+                .Screen.GetByRole("button", "Submit")
+                .TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(200) })
+        );
         Assert.Equal("APP_NOT_OPEN", error.Code);
         Assert.Contains("no app is open", error.Message, StringComparison.Ordinal);
     }

@@ -59,12 +59,18 @@ internal sealed class CoreAgentBinding(ResolvedAgent agent, AgentCacheContext? c
     {
         if (requested is not null)
         {
-            throw new TestException("INVALID_ARGUMENT", "an E2E core agent takes no Agent option: create another agent for another configuration");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "an E2E core agent takes no Agent option: create another agent for another configuration"
+            );
         }
 
         if (agent.Model is null && agent.Executor is null)
         {
-            throw new AgentException("MODEL_UNAVAILABLE", "the agent has no model: pass one to CreateAgent, an IAgentModel such as CoreAgents.CreateAgent(session, new CreateAgentOptions { Model = model })");
+            throw new AgentException(
+                "MODEL_UNAVAILABLE",
+                "the agent has no model: pass one to CreateAgent, an IAgentModel such as CoreAgents.CreateAgent(session, new CreateAgentOptions { Model = model })"
+            );
         }
 
         return agent;
@@ -97,25 +103,34 @@ public sealed class CoreAgent
     /// <see cref="CachingActOptions.Cache"/> set to <c>false</c>; without one it fails with <c>INVALID_ARGUMENT</c>. On an agent without a cache,
     /// naming either fails with <c>INVALID_ARGUMENT</c>.
     /// </summary>
-    public async Task<ActResult> ActAsync(string instruction, CachingActOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task<ActResult> ActAsync(
+        string instruction,
+        CachingActOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
-        var rest = options is null ? null : new ActOptions
-        {
-            Params = options.Params,
-            Timeout = options.Timeout,
-            MaxSteps = options.MaxSteps,
-            MaxModelCalls = options.MaxModelCalls,
-            Agent = options.Agent,
-            OnAction = options.OnAction,
-            OnBeforeAction = options.OnBeforeAction,
-        };
+        var rest = options is null
+            ? null
+            : new ActOptions
+            {
+                Params = options.Params,
+                Timeout = options.Timeout,
+                MaxSteps = options.MaxSteps,
+                MaxModelCalls = options.MaxModelCalls,
+                Agent = options.Agent,
+                OnAction = options.OnAction,
+                OnBeforeAction = options.OnBeforeAction,
+            };
         var cacheKey = options?.CacheKey;
         var perCall = options?.Cache;
         if (_cacheFor is null)
         {
             if (cacheKey is not null || perCall is not null)
             {
-                throw new TestException("INVALID_ARGUMENT", "ActAsync CacheKey and Cache need an agent created with CreateAgent(session, new CreateAgentOptions { Cache = ... })");
+                throw new TestException(
+                    "INVALID_ARGUMENT",
+                    "ActAsync CacheKey and Cache need an agent created with CreateAgent(session, new CreateAgentOptions { Cache = ... })"
+                );
             }
 
             return await _live.ActAsync(instruction, rest, cancellationToken).ConfigureAwait(false);
@@ -128,21 +143,38 @@ public sealed class CoreAgent
 
         if (string.IsNullOrWhiteSpace(cacheKey) || perCall is not null)
         {
-            throw new TestException("INVALID_ARGUMENT", "ActAsync on an agent with a cache names its recording: pass a CacheKey, or Cache = false to run live");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "ActAsync on an agent with a cache names its recording: pass a CacheKey, or Cache = false to run live"
+            );
         }
 
         var context = _cacheFor(cacheKey);
-        return await new Agent(_scope, new CoreAgentBinding(_resolved, context)).ActAsync(instruction, rest, cancellationToken).ConfigureAwait(false);
+        return await new Agent(_scope, new CoreAgentBinding(_resolved, context))
+            .ActAsync(instruction, rest, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>Checks that the statement holds on the current screen. See <see cref="Agent.AssertAsync"/>.</summary>
-    public Task AssertAsync(string statement, AssertOptions? options = null, CancellationToken cancellationToken = default) => _live.AssertAsync(statement, options, cancellationToken);
+    public Task AssertAsync(
+        string statement,
+        AssertOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) => _live.AssertAsync(statement, options, cancellationToken);
 
     /// <summary>Waits until the statement holds on screen. See <see cref="Agent.WaitForAsync"/>.</summary>
-    public Task WaitForAsync(string statement, WaitForOptions? options = null, CancellationToken cancellationToken = default) => _live.WaitForAsync(statement, options, cancellationToken);
+    public Task WaitForAsync(
+        string statement,
+        WaitForOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) => _live.WaitForAsync(statement, options, cancellationToken);
 
     /// <summary>Reads data off the current screen. See <see cref="Agent.ExtractAsync"/>.</summary>
-    public Task<T> ExtractAsync<T>(string instruction, ExtractOptions? options = null, CancellationToken cancellationToken = default) => _live.ExtractAsync<T>(instruction, options, cancellationToken);
+    public Task<T> ExtractAsync<T>(
+        string instruction,
+        ExtractOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) => _live.ExtractAsync<T>(instruction, options, cancellationToken);
 }
 
 /// <summary><c>createAgent</c> from <c>@e2e-dev/core/agent</c>: the agent over one session, configured in code. Upstream's <c>core/agent.ts</c>.</summary>
@@ -192,7 +224,14 @@ public static class CoreAgents
                         0,
                         CacheProjectId,
                         "core:" + cacheKey,
-                        new CacheTargetIdentity(scope.TargetName, scope.EnginePlatform, scope.EngineName, BuildReport.EngineSpiVersion, scope.AppIdentity));
+                        new CacheTargetIdentity(
+                            scope.TargetName,
+                            scope.EnginePlatform,
+                            scope.EngineName,
+                            BuildReport.EngineSpiVersion,
+                            scope.AppIdentity
+                        )
+                    );
                 }
 
                 return context;
@@ -222,7 +261,8 @@ public static class CoreAgents
     }
 
     private static SessionInternals InternalsOf(Session session) =>
-        session?.Internals ?? throw new TestException("INVALID_ARGUMENT", "CreateAgent takes a session from host.NewSessionAsync()");
+        session?.Internals
+        ?? throw new TestException("INVALID_ARGUMENT", "CreateAgent takes a session from host.NewSessionAsync()");
 
     /// <summary>The cache options as the replay cache reads them: the file store under the project root unless a store replaces it.</summary>
     private static CacheConfig ResolveAgentCache(AgentCacheOptions cache, string projectRoot)

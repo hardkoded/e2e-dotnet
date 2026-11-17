@@ -16,22 +16,36 @@ namespace E2E.TestMu.Tests.Browsers;
 /// </summary>
 public sealed class TestMuBrowsersTests
 {
-    private static readonly IReadOnlyDictionary<string, string?> Credentials = new Dictionary<string, string?> { ["LT_USERNAME"] = "ada", ["LT_ACCESS_KEY"] = "secret key" };
-
-    internal static BrowserRequest Request(IReadOnlyDictionary<string, string?>? env = null, string? attemptId = null, int slot = 0, int slots = 1) => new()
+    private static readonly IReadOnlyDictionary<string, string?> Credentials = new Dictionary<string, string?>
     {
-        RunId = "run-a",
-        TargetName = "web",
-        Slot = slot,
-        Slots = slots,
-        AttemptId = attemptId,
-        Env = env ?? Credentials,
-        Log = _ => { },
+        ["LT_USERNAME"] = "ada",
+        ["LT_ACCESS_KEY"] = "secret key",
     };
+
+    internal static BrowserRequest Request(
+        IReadOnlyDictionary<string, string?>? env = null,
+        string? attemptId = null,
+        int slot = 0,
+        int slots = 1
+    ) =>
+        new()
+        {
+            RunId = "run-a",
+            TargetName = "web",
+            Slot = slot,
+            Slots = slots,
+            AttemptId = attemptId,
+            Env = env ?? Credentials,
+            Log = _ => { },
+        };
 
     internal static JsonObject Capabilities(BrowserLease lease)
     {
-        Assert.StartsWith("wss://cdp.lambdatest.com/playwright?capabilities=", lease.CdpEndpoint, StringComparison.Ordinal);
+        Assert.StartsWith(
+            "wss://cdp.lambdatest.com/playwright?capabilities=",
+            lease.CdpEndpoint,
+            StringComparison.Ordinal
+        );
         var query = HttpUtility.ParseQueryString(new Uri(lease.CdpEndpoint).Query);
         return JsonNode.Parse(query["capabilities"]!)!.AsObject();
     }
@@ -54,25 +68,30 @@ public sealed class TestMuBrowsersTests
         Assert.Equal("e2e-run-a-web-1", (string?)lt["name"]);
         Assert.Equal("ada", (string?)lt["user"]);
         Assert.Equal("secret key", (string?)lt["accessKey"]);
-        Assert.Equal(["platform", "project", "build", "idleTimeout", "name", "user", "accessKey"], lt.Select(pair => pair.Key));
+        Assert.Equal(
+            ["platform", "project", "build", "idleTimeout", "name", "user", "accessKey"],
+            lt.Select(pair => pair.Key)
+        );
     }
 
     [Fact]
     public async Task Sends_the_options_it_was_given()
     {
-        var provider = new TestMuBrowsers(new TestMuBrowsersOptions
-        {
-            BrowserName = "MicrosoftEdge",
-            BrowserVersion = "130",
-            Platform = "Windows 11",
-            Build = "nightly",
-            Video = true,
-            Network = false,
-            Console = true,
-            TunnelName = "office",
-            GeoLocation = "US",
-            Capabilities = new Dictionary<string, JsonNode?> { ["resolution"] = "1920x1080" },
-        });
+        var provider = new TestMuBrowsers(
+            new TestMuBrowsersOptions
+            {
+                BrowserName = "MicrosoftEdge",
+                BrowserVersion = "130",
+                Platform = "Windows 11",
+                Build = "nightly",
+                Video = true,
+                Network = false,
+                Console = true,
+                TunnelName = "office",
+                GeoLocation = "US",
+                Capabilities = new Dictionary<string, JsonNode?> { ["resolution"] = "1920x1080" },
+            }
+        );
 
         var capabilities = Capabilities(await provider.AcquireAsync(Request(), CancellationToken.None));
 
@@ -93,7 +112,9 @@ public sealed class TestMuBrowsersTests
     [Fact]
     public async Task Names_a_per_attempt_session_after_the_attempt()
     {
-        var attempt = Capabilities(await new TestMuBrowsers().AcquireAsync(Request(attemptId: "a-7"), CancellationToken.None));
+        var attempt = Capabilities(
+            await new TestMuBrowsers().AcquireAsync(Request(attemptId: "a-7"), CancellationToken.None)
+        );
 
         Assert.Equal("e2e-run-a-web-attempt-a-7", (string?)attempt["LT:Options"]!["name"]);
     }
@@ -101,9 +122,16 @@ public sealed class TestMuBrowsersTests
     [Fact]
     public async Task Reads_the_credentials_from_the_testmu_names_when_the_lt_names_are_unset()
     {
-        var env = new Dictionary<string, string?> { ["TESTMU_USERNAME"] = "grace", ["TESTMU_ACCESS_KEY"] = "other", ["LT_USERNAME"] = "" };
+        var env = new Dictionary<string, string?>
+        {
+            ["TESTMU_USERNAME"] = "grace",
+            ["TESTMU_ACCESS_KEY"] = "other",
+            ["LT_USERNAME"] = "",
+        };
 
-        var lt = Capabilities(await new TestMuBrowsers().AcquireAsync(Request(env), CancellationToken.None))["LT:Options"]!;
+        var lt = Capabilities(await new TestMuBrowsers().AcquireAsync(Request(env), CancellationToken.None))[
+            "LT:Options"
+        ]!;
 
         Assert.Equal("grace", (string?)lt["user"]);
         Assert.Equal("other", (string?)lt["accessKey"]);
@@ -125,7 +153,9 @@ public sealed class TestMuBrowsersTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new TestMuBrowsers().AcquireAsync(Request(), cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            new TestMuBrowsers().AcquireAsync(Request(), cancelled.Token)
+        );
     }
 
     [Fact]
@@ -135,7 +165,18 @@ public sealed class TestMuBrowsersTests
 
         Assert.Equal("testmu", provider.Name);
         Assert.Equal(BrowserProviderScope.Worker, provider.Scope);
-        Assert.Empty(await provider.SweepAsync(new BrowserReleaseContext { RunId = "r", TargetName = "web", Env = Credentials, Log = _ => { } }, CancellationToken.None));
+        Assert.Empty(
+            await provider.SweepAsync(
+                new BrowserReleaseContext
+                {
+                    RunId = "r",
+                    TargetName = "web",
+                    Env = Credentials,
+                    Log = _ => { },
+                },
+                CancellationToken.None
+            )
+        );
     }
 
     [Fact]
@@ -143,7 +184,13 @@ public sealed class TestMuBrowsersTests
     {
         var provider = new TestMuBrowsers();
         var lease = await provider.AcquireAsync(Request(), CancellationToken.None);
-        var context = new BrowserReleaseContext { RunId = "run-a", TargetName = "web", Env = Credentials, Log = _ => { } };
+        var context = new BrowserReleaseContext
+        {
+            RunId = "run-a",
+            TargetName = "web",
+            Env = Credentials,
+            Log = _ => { },
+        };
 
         await provider.ReleaseAsync(lease, context, CancellationToken.None);
         await provider.ReleaseAsync(lease, context, CancellationToken.None);
@@ -153,11 +200,17 @@ public sealed class TestMuBrowsersTests
     public async Task A_refused_connection_does_not_carry_the_access_key()
     {
         var lease = await new TestMuBrowsers().AcquireAsync(Request(), CancellationToken.None);
-        var refused = lease.CdpEndpoint.Replace("wss://cdp.lambdatest.com", "ws://127.0.0.1:9", StringComparison.Ordinal);
+        var refused = lease.CdpEndpoint.Replace(
+            "wss://cdp.lambdatest.com",
+            "ws://127.0.0.1:9",
+            StringComparison.Ordinal
+        );
         Assert.Contains("secret%20key", refused, StringComparison.Ordinal);
         using var playwright = await Playwright.CreateAsync();
 
-        var error = await Assert.ThrowsAsync<PlaywrightException>(() => playwright.Chromium.ConnectAsync(refused, new BrowserTypeConnectOptions { Timeout = 5000 }));
+        var error = await Assert.ThrowsAsync<PlaywrightException>(() =>
+            playwright.Chromium.ConnectAsync(refused, new BrowserTypeConnectOptions { Timeout = 5000 })
+        );
 
         Assert.DoesNotContain("secret", error.ToString(), StringComparison.OrdinalIgnoreCase);
     }

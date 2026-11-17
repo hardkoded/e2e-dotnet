@@ -38,7 +38,9 @@ public sealed class ToolLoopPrefixOnAnthropicTests
                 rows.Add(page.Paragraph("v1 row " + i + " " + new string('x', 90)));
             }
         });
-        var handler = new RecordingHandler(Answer(1, "observe", new { })).Then(HttpStatusCode.OK, Answer(2, "observe", new { })).Then(HttpStatusCode.OK, Done(3));
+        var handler = new RecordingHandler(Answer(1, "observe", new { }))
+            .Then(HttpStatusCode.OK, Answer(2, "observe", new { }))
+            .Then(HttpStatusCode.OK, Done(3));
         handler.OnRequest = n =>
         {
             if (n == 1)
@@ -49,7 +51,11 @@ public sealed class ToolLoopPrefixOnAnthropicTests
                 }
             }
         };
-        var (error, turns) = await ToolLoopPrefixHelpers.RunAsync(handler, world: big, instruction: "look around twice, then conclude");
+        var (error, turns) = await ToolLoopPrefixHelpers.RunAsync(
+            handler,
+            world: big,
+            instruction: "look around twice, then conclude"
+        );
 
         Assert.Null(error);
         Assert.Equal(3, handler.Requests.Count);
@@ -59,7 +65,12 @@ public sealed class ToolLoopPrefixOnAnthropicTests
         // The third request leaves messages.0 as the second sent it, so the block produced under the elided screen is valid and goes
         // out; the first is still gone.
         Assert.Equal(["messages.3.content.0=sig-2"], ReplayedThinking(handler.Requests[2]));
-        Assert.Contains(turns, turn => turn.Outcome.Contains("message 1 was rewritten, so the reasoning after it is not sent again", StringComparison.Ordinal));
+        Assert.Contains(turns, turn =>
+            turn.Outcome.Contains(
+                "message 1 was rewritten, so the reasoning after it is not sent again",
+                StringComparison.Ordinal
+            )
+        );
     }
 
     [Fact]
@@ -72,9 +83,14 @@ public sealed class ToolLoopPrefixOnAnthropicTests
                 page.Paragraph("row " + i + " " + new string('x', 40));
             }
         });
-        var handler = new RecordingHandler(Answer(1, "tap", new { role = "button", name = "Peek" })).Then(HttpStatusCode.BadRequest, Overflow).Then(HttpStatusCode.OK, Done(2));
+        var handler = new RecordingHandler(Answer(1, "tap", new { role = "button", name = "Peek" }))
+            .Then(HttpStatusCode.BadRequest, Overflow)
+            .Then(HttpStatusCode.OK, Done(2));
         using var http = new HttpClient(handler);
-        using var model = new AnthropicModel(new AnthropicModelOptions { Model = "claude-opus-5.5", ApiKey = "k" }, http);
+        using var model = new AnthropicModel(
+            new AnthropicModelOptions { Model = "claude-opus-5.5", ApiKey = "k" },
+            http
+        );
 
         var attempt = await CoreTests.RunAsync(
             async ctx =>
@@ -83,7 +99,8 @@ public sealed class ToolLoopPrefixOnAnthropicTests
                 await ctx.Agent.ActAsync("read the big output");
             },
             big,
-            model);
+            model
+        );
 
         Assert.Null(attempt.Error);
         Assert.Equal(3, handler.Requests.Count);
@@ -100,23 +117,30 @@ public sealed class ToolLoopPrefixOnAnthropicTests
     public async Task Stops_replaying_the_thinking_from_a_message_an_executor_replaced_and_keeps_the_thinking_produced_after_it()
     {
         var handler = new RecordingHandler(Look(1), Look(2), Done(3));
-        var executor = Looking((messages, turn) =>
-        {
-            // Before the second turn, the opening message is replaced by an edited one.
-            var next = messages.ToList();
-            if (turn.StepNumber == 1)
+        var executor = Looking(
+            (messages, turn) =>
             {
-                next[0] = Copy(next[0], "Execute this test step: look twice, then conclude. [edited]");
-            }
+                // Before the second turn, the opening message is replaced by an edited one.
+                var next = messages.ToList();
+                if (turn.StepNumber == 1)
+                {
+                    next[0] = Copy(next[0], "Execute this test step: look twice, then conclude. [edited]");
+                }
 
-            return next;
-        });
+                return next;
+            }
+        );
 
         var (error, turns) = await RunAsync(handler, executor);
 
         Assert.Null(error);
         Assert.Equal(3, handler.Requests.Count);
-        Assert.Contains(turns, turn => turn.Outcome.Contains("message 1 was rewritten, so the reasoning after it is not sent again", StringComparison.Ordinal));
+        Assert.Contains(turns, turn =>
+            turn.Outcome.Contains(
+                "message 1 was rewritten, so the reasoning after it is not sent again",
+                StringComparison.Ordinal
+            )
+        );
         Assert.Contains("[edited]", handler.Requests[1].Body, StringComparison.Ordinal);
         Assert.Empty(ReplayedThinking(handler.Requests[1]));
         // The third request leaves messages.0 as the second sent it: the block produced under the edited message is valid and goes out.
@@ -127,16 +151,18 @@ public sealed class ToolLoopPrefixOnAnthropicTests
     public async Task Notices_a_message_a_custom_executor_edits_in_place_not_only_one_it_replaces_PARTIAL()
     {
         var handler = new RecordingHandler(Look(1), Look(2), Done(3));
-        var executor = Looking((messages, turn) =>
-        {
-            var next = messages.ToList();
-            if (turn.StepNumber == 2)
+        var executor = Looking(
+            (messages, turn) =>
             {
-                next[0] = Copy(next[0], "Execute this test step: look twice, then conclude. [edited]");
-            }
+                var next = messages.ToList();
+                if (turn.StepNumber == 2)
+                {
+                    next[0] = Copy(next[0], "Execute this test step: look twice, then conclude. [edited]");
+                }
 
-            return next;
-        });
+                return next;
+            }
+        );
 
         var (error, _) = await RunAsync(handler, executor);
 
@@ -158,6 +184,9 @@ public sealed class ToolLoopPrefixOnAnthropicTests
         Assert.Equal(3, handler.Requests.Count);
         Assert.DoesNotContain(turns, turn => turn.Outcome.Contains("was rewritten", StringComparison.Ordinal));
         // Equal content in new objects is no edit: nothing is dropped.
-        Assert.Equal(["messages.1.content.0=sig-1", "messages.3.content.0=sig-2"], ReplayedThinking(handler.Requests[2]));
+        Assert.Equal(
+            ["messages.1.content.0=sig-1", "messages.3.content.0=sig-2"],
+            ReplayedThinking(handler.Requests[2])
+        );
     }
 }

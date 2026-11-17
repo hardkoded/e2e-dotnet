@@ -33,7 +33,11 @@ internal static class LastRunDocuments
     }
 
     /// <summary>Upstream's <c>document</c>: <paramref name="run"/> adds or overrides run fields; a <c>carried</c> there gets the same result defaults.</summary>
-    public static JsonObject Document(IEnumerable<JsonObject> results, IEnumerable<JsonObject>? errors = null, JsonObject? run = null)
+    public static JsonObject Document(
+        IEnumerable<JsonObject> results,
+        IEnumerable<JsonObject>? errors = null,
+        JsonObject? run = null
+    )
     {
         var part = new JsonObject
         {
@@ -49,7 +53,9 @@ internal static class LastRunDocuments
             {
                 var withDefaults = new JsonObject { ["serialGroups"] = new JsonArray(), ["errors"] = new JsonArray() };
                 Spread(withDefaults, carried);
-                withDefaults["results"] = new JsonArray([.. carried["results"]!.AsArray().Select(result => (JsonNode)Row(result!.AsObject()))]);
+                withDefaults["results"] = new JsonArray([
+                    .. carried["results"]!.AsArray().Select(result => (JsonNode)Row(result!.AsObject())),
+                ]);
                 part["carried"] = withDefaults;
             }
         }
@@ -58,8 +64,11 @@ internal static class LastRunDocuments
     }
 
     /// <summary>Upstream's <c>report</c>: <see cref="Document"/> as the text of a report file.</summary>
-    public static string ReportText(IEnumerable<JsonObject> results, IEnumerable<JsonObject>? errors = null, JsonObject? run = null) =>
-        Document(results, errors, run).ToJsonString();
+    public static string ReportText(
+        IEnumerable<JsonObject> results,
+        IEnumerable<JsonObject>? errors = null,
+        JsonObject? run = null
+    ) => Document(results, errors, run).ToJsonString();
 
     /// <summary>The typed form of a document, the way <c>--last-failed</c> reads one.</summary>
     public static Report Typed(JsonObject document) => ReportSerializer.Read(document);
@@ -88,7 +97,12 @@ internal static class LastRunDocuments
 
     /// <summary>A result the run left out with a filter.</summary>
     public static JsonObject LeftOut(string id, string reason = "title does not match --grep") =>
-        Result(("id", id), ("status", "skipped"), ("selected", false), ("skip", Result(("cause", "filtered"), ("reason", reason))));
+        Result(
+            ("id", id),
+            ("status", "skipped"),
+            ("selected", false),
+            ("skip", Result(("cause", "filtered"), ("reason", reason)))
+        );
 
     /// <summary>The id <c>--last-failed</c> names a test on the default target and agent by.</summary>
     public static string IdOf(string testId) => E2E.Internal.Ids.ResultId(testId, "web", "default");

@@ -14,9 +14,11 @@ namespace E2E.Tests.Explore;
 /// </summary>
 public sealed class ExploreRecordingTests
 {
-    private static ExploreModel Finishing() => new(_ => ExploreModel.Finish("Looked."), _ => ExploreModel.Done("passed", "unused"));
+    private static ExploreModel Finishing() =>
+        new(_ => ExploreModel.Finish("Looked."), _ => ExploreModel.Done("passed", "unused"));
 
-    private static IEnumerable<string> Pages(string root) => Files(root).Where(file => Path.GetFileName(file) == "trace.md");
+    private static IEnumerable<string> Pages(string root) =>
+        Files(root).Where(file => Path.GetFileName(file) == "trace.md");
 
     [Fact]
     public async Task Writes_no_trace_page_of_a_passing_exploration_by_default()
@@ -41,12 +43,22 @@ public sealed class ExploreRecordingTests
     {
         var plans = 0;
         var model = new ExploreModel(
-            _ => ++plans == 1 ? ExploreModel.Step("Counter", "Look at the counter") : ExploreModel.Finish("One defect."),
-            call => call.Turn == 1 ? ExploreModel.ReportFinding(ExploreModel.CounterFinding()) : ExploreModel.Done("passed", "Looked"));
+            _ =>
+                ++plans == 1 ? ExploreModel.Step("Counter", "Look at the counter") : ExploreModel.Finish("One defect."),
+            call =>
+                call.Turn == 1
+                    ? ExploreModel.ReportFinding(ExploreModel.CounterFinding())
+                    : ExploreModel.Done("passed", "Looked")
+        );
         var root = TempRoot();
 
         // A page an earlier run left for the same goal is removed, not left as evidence of this one.
-        var earlier = Path.Combine(root, ".e2e", "results", AttemptReport.ResultSegmentOf(E2E.Explore.ExploreFile, "Explore the home page and find bugs"));
+        var earlier = Path.Combine(
+            root,
+            ".e2e",
+            "results",
+            AttemptReport.ResultSegmentOf(E2E.Explore.ExploreFile, "Explore the home page and find bugs")
+        );
         Directory.CreateDirectory(earlier);
         await File.WriteAllTextAsync(Path.Combine(earlier, "trace.md"), "stale");
         var outcome = await Explorer.ExploreAsync(Options(root, model.Model, [], trace: RecordingMode.On));
@@ -64,15 +76,33 @@ public sealed class ExploreRecordingTests
 
         var asked = new List<string>();
         await Explorer.ExploreAsync(Options(TempRoot(), Finishing().Model, asked, video: RecordingMode.On));
-        Assert.Equal(["video records only on targets whose engine can record it; target \"web\" (engine " + ExploreHarness.Engine().Platform + ") records no video"], asked);
+        Assert.Equal(
+            [
+                "video records only on targets whose engine can record it; target \"web\" (engine "
+                    + ExploreHarness.Engine().Platform
+                    + ") records no video",
+            ],
+            asked
+        );
     }
 
     [Fact]
     public void Says_to_pass_trace_on_when_a_retry_mode_would_keep_nothing()
     {
-        var notices = Explorer.RecordingNotices(RecordingMode.OnAllRetries, new ResolvedRecording(RecordingMode.Off, RecordingSource.Default), recordsVideo: true, "web", "web");
+        var notices = Explorer.RecordingNotices(
+            RecordingMode.OnAllRetries,
+            new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
+            recordsVideo: true,
+            "web",
+            "web"
+        );
 
-        Assert.Equal(["trace: 'on-all-retries' records retries only, and explore runs its goal once, so no traces will be recorded; pass --trace on"], notices);
+        Assert.Equal(
+            [
+                "trace: 'on-all-retries' records retries only, and explore runs its goal once, so no traces will be recorded; pass --trace on",
+            ],
+            notices
+        );
     }
 
     [Fact]
@@ -81,6 +111,9 @@ public sealed class ExploreRecordingTests
         var root = TempRoot();
         await Explorer.ExploreAsync(Options(root, Finishing().Model, [], aiTrace: true));
 
-        Assert.Contains(Files(root), file => Path.GetFileName(file).StartsWith("ai-trace-", StringComparison.Ordinal) && file.EndsWith(".json", StringComparison.Ordinal));
+        Assert.Contains(Files(root), file =>
+            Path.GetFileName(file).StartsWith("ai-trace-", StringComparison.Ordinal)
+            && file.EndsWith(".json", StringComparison.Ordinal)
+        );
     }
 }

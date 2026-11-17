@@ -31,7 +31,10 @@ internal static class SessionTests
     {
         if (!File.Exists(assemblyPath))
         {
-            throw new ConfigurationException("INVALID_CONFIG", "testAssembly " + assemblyPath + " does not exist; build the test project first");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "testAssembly " + assemblyPath + " does not exist; build the test project first"
+            );
         }
 
         var context = new TestLoadContext(assemblyPath);
@@ -53,7 +56,8 @@ internal static class SessionTests
     internal static LoadedBytes? BytesOf(Assembly tests) => Loaded.TryGetValue(tests, out var bytes) ? bytes : null;
 
     /// <summary>A test assembly loaded for one open; disposing it unloads its load context.</summary>
-    internal sealed class TestAssembly(Assembly tests, ISessionTestRunner runner, AssemblyLoadContext context) : IDisposable
+    internal sealed class TestAssembly(Assembly tests, ISessionTestRunner runner, AssemblyLoadContext context)
+        : IDisposable
     {
         public Assembly Tests { get; } = tests;
 
@@ -92,27 +96,46 @@ internal static class SessionTests
                             known = [.. Resolvers];
                         }
 
-                        return known.Select(candidate => candidate.ResolveAssemblyToPath(name)).FirstOrDefault(path => path is not null) is { } path ? context.LoadFromAssemblyPath(path) : null;
+                        return
+                            known
+                                .Select(candidate => candidate.ResolveAssemblyToPath(name))
+                                .FirstOrDefault(path => path is not null)
+                                is { } path
+                            ? context.LoadFromAssemblyPath(path)
+                            : null;
                     };
                 }
             }
 
-            foreach (var reference in tests.GetReferencedAssemblies().Where(name => name.Name?.StartsWith("E2E.", StringComparison.Ordinal) == true))
+            foreach (
+                var reference in tests
+                    .GetReferencedAssemblies()
+                    .Where(name => name.Name?.StartsWith("E2E.", StringComparison.Ordinal) == true)
+            )
             {
                 var framework = Assembly.Load(reference);
-                var type = TypesOf(framework).FirstOrDefault(candidate => !candidate.IsAbstract && typeof(ISessionTestRunner).IsAssignableFrom(candidate));
+                var type = TypesOf(framework)
+                    .FirstOrDefault(candidate =>
+                        !candidate.IsAbstract && typeof(ISessionTestRunner).IsAssignableFrom(candidate)
+                    );
                 if (type is not null)
                 {
                     return Runners[assemblyPath] = (ISessionTestRunner)Activator.CreateInstance(type, nonPublic: true)!;
                 }
             }
 
-            throw new ConfigurationException("INVALID_CONFIG", "testAssembly " + assemblyPath + " references no E2E test framework package that can run a test in a session (E2E.NUnit does)");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "testAssembly "
+                    + assemblyPath
+                    + " references no E2E test framework package that can run a test in a session (E2E.NUnit does)"
+            );
         }
     }
 
     /// <summary>Loads the test assembly and what only it ships; everything else, E2E and the test framework included, comes from the default context.</summary>
-    private sealed class TestLoadContext(string assemblyPath) : AssemblyLoadContext("e2e-test:" + assemblyPath, isCollectible: true)
+    private sealed class TestLoadContext(string assemblyPath)
+        : AssemblyLoadContext("e2e-test:" + assemblyPath, isCollectible: true)
     {
         private readonly AssemblyDependencyResolver _resolver = new(assemblyPath);
 
@@ -136,9 +159,14 @@ internal static class SessionTests
             // The tool's own assemblies, the test framework, and what is already loaded are shared: a second copy of E2E or NUnit would not be
             // the one the runner uses. What only the test project ships loads here, so a rebuilt helper is read again on the next open.
             var name = assemblyName.Name ?? string.Empty;
-            var shared = name.StartsWith("E2E.", StringComparison.Ordinal) || name.StartsWith("NUnit", StringComparison.Ordinal)
-                || name.StartsWith("System.", StringComparison.Ordinal) || name.StartsWith("Microsoft.", StringComparison.Ordinal)
-                || Default.Assemblies.Any(loaded => string.Equals(loaded.GetName().Name, name, StringComparison.Ordinal));
+            var shared =
+                name.StartsWith("E2E.", StringComparison.Ordinal)
+                || name.StartsWith("NUnit", StringComparison.Ordinal)
+                || name.StartsWith("System.", StringComparison.Ordinal)
+                || name.StartsWith("Microsoft.", StringComparison.Ordinal)
+                || Default.Assemblies.Any(loaded =>
+                    string.Equals(loaded.GetName().Name, name, StringComparison.Ordinal)
+                );
             if (!shared && _resolver.ResolveAssemblyToPath(assemblyName) is { } path)
             {
                 return LoadFromAssemblyPath(path);
@@ -167,12 +195,22 @@ internal static class SessionTests
     public static string SelectOne(ISessionTestRunner runner, Assembly tests, string name, string assembly)
     {
         ArgumentNullException.ThrowIfNull(runner);
-        var selected = TestLocations.TryParse(name, out var file, out var line) && runner.List(tests) is var all && all.Any(test => test.Method is not null)
-            ? SelectAt(all, file, line, name, assembly)
-            : runner.Select(tests, name);
+        var selected =
+            TestLocations.TryParse(name, out var file, out var line)
+            && runner.List(tests) is var all
+            && all.Any(test => test.Method is not null)
+                ? SelectAt(all, file, line, name, assembly)
+                : runner.Select(tests, name);
         if (selected.Count == 0)
         {
-            throw new ConfigurationException("NO_TESTS", "no test named \"" + name + "\" in " + assembly + "; use the full name, Namespace.Class.Method, or file:line");
+            throw new ConfigurationException(
+                "NO_TESTS",
+                "no test named \""
+                    + name
+                    + "\" in "
+                    + assembly
+                    + "; use the full name, Namespace.Class.Method, or file:line"
+            );
         }
 
         if (selected.Count > 1)
@@ -181,8 +219,18 @@ internal static class SessionTests
             var rest = selected.Count - listed.Count;
             throw new ConfigurationException(
                 "TEST_AMBIGUOUS",
-                "\"" + name + "\" selects " + selected.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " tests, and a session runs one; name it by its full name: "
-                    + string.Join(", ", listed) + (rest > 0 ? ", and " + rest.ToString(System.Globalization.CultureInfo.InvariantCulture) + " more" : string.Empty));
+                "\""
+                    + name
+                    + "\" selects "
+                    + selected.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + " tests, and a session runs one; name it by its full name: "
+                    + string.Join(", ", listed)
+                    + (
+                        rest > 0
+                            ? ", and " + rest.ToString(System.Globalization.CultureInfo.InvariantCulture) + " more"
+                            : string.Empty
+                    )
+            );
         }
 
         if (selected[0].Unsupported is { } reason)
@@ -193,17 +241,38 @@ internal static class SessionTests
         return selected[0].FullName;
     }
 
-    private static IReadOnlyList<SessionTestInfo> SelectAt(IReadOnlyList<SessionTestInfo> all, string file, int line, string name, string assembly)
+    private static IReadOnlyList<SessionTestInfo> SelectAt(
+        IReadOnlyList<SessionTestInfo> all,
+        string file,
+        int line,
+        string name,
+        string assembly
+    )
     {
         var inFile = all.Where(test => TestLocations.Declared(test, file) is not null).ToList();
         var hit = inFile.Where(test => TestLocations.Declared(test, file)!.Contains(line)).ToList();
         if (hit.Count == 0 && inFile.Count > 0)
         {
             var lines = inFile.Select(test => TestLocations.Declared(test, file)!.First).Distinct().Order();
-            throw new ConfigurationException("NO_TESTS", name + " names no test (declared at lines " + string.Join(", ", lines) + "); name the line its attributes or signature is on, not a line inside the test");
+            throw new ConfigurationException(
+                "NO_TESTS",
+                name
+                    + " names no test (declared at lines "
+                    + string.Join(", ", lines)
+                    + "); name the line its attributes or signature is on, not a line inside the test"
+            );
         }
 
-        return hit.Count > 0 ? hit : throw new ConfigurationException("NO_TESTS", "no test in " + file + " in " + assembly + "; name a source file of the test project, with :line on the line its test is declared on");
+        return hit.Count > 0
+            ? hit
+            : throw new ConfigurationException(
+                "NO_TESTS",
+                "no test in "
+                    + file
+                    + " in "
+                    + assembly
+                    + "; name a source file of the test project, with :line on the line its test is declared on"
+            );
     }
 
     private static IEnumerable<Type> TypesOf(Assembly assembly)

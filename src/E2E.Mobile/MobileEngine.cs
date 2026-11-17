@@ -13,23 +13,37 @@ namespace E2E.Mobile;
 /// </remarks>
 public interface IDeviceActions
 {
-    Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, CancellationToken cancellationToken);
+    Task PerformAsync(
+        DeviceSession session,
+        SemanticNode node,
+        LocatorAction action,
+        CancellationToken cancellationToken
+    );
 
     /// <summary>
     /// <see cref="PerformAsync(DeviceSession, SemanticNode, LocatorAction, CancellationToken)"/> with <paramref name="context"/>, who acts
     /// (upstream's <c>operation.origin</c>). The default drops the context (.NET-only), so an implementation that defines only the member
     /// without one keeps compiling.
     /// </summary>
-    Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken) =>
-        PerformAsync(session, node, action, cancellationToken);
+    Task PerformAsync(
+        DeviceSession session,
+        SemanticNode node,
+        LocatorAction action,
+        OperationContext context,
+        CancellationToken cancellationToken
+    ) => PerformAsync(session, node, action, cancellationToken);
 
     Task PressAsync(DeviceSession session, string key, CancellationToken cancellationToken);
 
     Task SwipeAsync(DeviceSession session, ScrollDirection direction, CancellationToken cancellationToken);
 
     /// <summary><see cref="SwipeAsync(DeviceSession, ScrollDirection, CancellationToken)"/> with <paramref name="context"/>. The default drops it, as <see cref="PerformAsync(DeviceSession, SemanticNode, LocatorAction, OperationContext, CancellationToken)"/> does.</summary>
-    Task SwipeAsync(DeviceSession session, ScrollDirection direction, OperationContext context, CancellationToken cancellationToken) =>
-        SwipeAsync(session, direction, cancellationToken);
+    Task SwipeAsync(
+        DeviceSession session,
+        ScrollDirection direction,
+        OperationContext context,
+        CancellationToken cancellationToken
+    ) => SwipeAsync(session, direction, cancellationToken);
 
     Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, CancellationToken cancellationToken);
 
@@ -38,7 +52,11 @@ public interface IDeviceActions
     /// and capture share (upstream's <c>operation.timeoutMs</c>). The default drops the budget (.NET-only), so an implementation that
     /// defines only the member without a timeout keeps compiling.
     /// </summary>
-    Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, TimeSpan timeout, CancellationToken cancellationToken) => ScreenshotAsync(session, cancellationToken);
+    Task<EngineScreenshot> ScreenshotAsync(
+        DeviceSession session,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    ) => ScreenshotAsync(session, cancellationToken);
 }
 
 /// <summary>What a worker's start is given: which target and worker slot it serves, and the environment <c>prepare</c> left.</summary>
@@ -88,12 +106,16 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
     public MobileFixtures CreateFixtures(IEngineSession session, Session controls) =>
         session is DeviceSession device
             ? new MobileFixtures(device.Device)
-            : throw new EngineException("WORKER_PROTOCOL", "a mobile engine builds its fixtures from the device session it started");
+            : throw new EngineException(
+                "WORKER_PROTOCOL",
+                "a mobile engine builds its fixtures from the device session it started"
+            );
 
     private static readonly Dictionary<MobilePlatform, string> LoopbackNotes = new()
     {
         [MobilePlatform.Ios] = "a simulator shares this machine's loopback, and a hosted device cannot reach it at all",
-        [MobilePlatform.Android] = "127.0.0.1 on an Android emulator is the emulator itself (this machine is 10.0.2.2), and a hosted device cannot reach this machine's loopback at all",
+        [MobilePlatform.Android] =
+            "127.0.0.1 on an Android emulator is the emulator itself (this machine is 10.0.2.2), and a hosted device cannot reach this machine's loopback at all",
     };
 
     private readonly DeviceClientFactory _createClient;
@@ -103,9 +125,7 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
     /// run time. A provider that implements <see cref="IDeviceClientSource"/> makes the clients itself instead.
     /// </summary>
     public MobileEngine(MobileOptions options)
-        : this(options, ClientsOf(options))
-    {
-    }
+        : this(options, ClientsOf(options)) { }
 
     /// <summary>Creates the engine over a client of the caller's making: the seam unit tests script.</summary>
     internal MobileEngine(MobileOptions options, DeviceClientFactory createClient)
@@ -248,7 +268,8 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
     }
 
     /// <summary>The wait between two attempts at a sparse snapshot. Tests replace it to spend no time.</summary>
-    internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = static (span, token) => Task.Delay(span, token);
+    internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } =
+        static (span, token) => Task.Delay(span, token);
 
     public string Name => "mobile";
 
@@ -278,10 +299,16 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(info);
         ValidateApp(
-            new MobileApp { BundleId = app.BundleId, AppPath = app.AppPath, LaunchArguments = app.LaunchArguments },
+            new MobileApp
+            {
+                BundleId = app.BundleId,
+                AppPath = app.AppPath,
+                LaunchArguments = app.LaunchArguments,
+            },
             app.Url,
             info.TargetName,
-            Options.Platform);
+            Options.Platform
+        );
     }
 
     /// <summary>The device-app checks of <see cref="IEngine.ValidateApp"/>, over the target's app and URL.</summary>
@@ -293,21 +320,24 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"{where} declares app.url, but a mobile() target cannot open a website in the device's browser yet; test the installed app with app.bundleId or app.appPath. When it lands, note that {LoopbackNotes[platform]}");
+                $"{where} declares app.url, but a mobile() target cannot open a website in the device's browser yet; test the installed app with app.bundleId or app.appPath. When it lands, note that {LoopbackNotes[platform]}"
+            );
         }
 
         if (app.BundleId is null && app.AppPath is null)
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"{where} needs app.bundleId or app.appPath: a mobile() target launches an installed app, targets: [{{ engine: mobile({{ platform }}), app: {{ bundleId: 'com.example.app' }} }}]");
+                $"{where} needs app.bundleId or app.appPath: a mobile() target launches an installed app, targets: [{{ engine: mobile({{ platform }}), app: {{ bundleId: 'com.example.app' }} }}]"
+            );
         }
 
         if (app.BundleId is not null && DeviceLinks.IsLink(app.BundleId))
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"{where} app.bundleId names an app by bundle id, package, or display name, not a link; a test opens a deep link or web link with device.openLink");
+                $"{where} app.bundleId names an app by bundle id, package, or display name, not a link; a test opens a deep link or web link with device.openLink"
+            );
         }
     }
 
@@ -329,26 +359,33 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
         // Together, as upstream's pool finish runs its session closes beside the source release under the one budget: a hung close does
         // not delay the release.
         await Task.WhenAll(
-            DisposeAsync(info.CleanupTimeout, null, cancellationToken),
-            Pool.FinishAsync(info, cancellationToken)).ConfigureAwait(false);
+                DisposeAsync(info.CleanupTimeout, null, cancellationToken),
+                Pool.FinishAsync(info, cancellationToken)
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>The core hook of upstream's <c>prepare</c>: <see cref="PrepareAsync(MobilePrepareInfo, CancellationToken)"/> for this engine's app.</summary>
-    async Task<EnginePrepareResult> IPreparableEngine.PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken)
+    async Task<EnginePrepareResult> IPreparableEngine.PrepareAsync(
+        EnginePrepareInfo info,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(info);
         var prepared = await PrepareAsync(
-            new MobilePrepareInfo
-            {
-                RunId = info.RunId,
-                TargetName = info.TargetName,
-                ProjectRoot = info.ProjectRoot ?? Directory.GetCurrentDirectory(),
-                Slots = info.Slots,
-                Env = info.Env,
-                App = Options.App,
-                Log = info.Log,
-            },
-            cancellationToken).ConfigureAwait(false);
+                new MobilePrepareInfo
+                {
+                    RunId = info.RunId,
+                    TargetName = info.TargetName,
+                    ProjectRoot = info.ProjectRoot ?? Directory.GetCurrentDirectory(),
+                    Slots = info.Slots,
+                    Env = info.Env,
+                    App = Options.App,
+                    Log = info.Log,
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         return new EnginePrepareResult { Workers = prepared.Workers, Env = prepared.Env };
     }
 
@@ -369,8 +406,16 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
     {
         ArgumentNullException.ThrowIfNull(info);
         return FinishAsync(
-            new MobileFinishInfo { RunId = info.RunId, TargetName = info.TargetName, Env = info.Env, Log = info.Log, CleanupTimeout = info.CleanupTimeout },
-            cancellationToken);
+            new MobileFinishInfo
+            {
+                RunId = info.RunId,
+                TargetName = info.TargetName,
+                Env = info.Env,
+                Log = info.Log,
+                CleanupTimeout = info.CleanupTimeout,
+            },
+            cancellationToken
+        );
     }
 
     /// <summary>
@@ -383,18 +428,20 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
         ArgumentNullException.ThrowIfNull(options);
         ValidateApp(Options.App, options.BaseUrl, Options.TargetName, Options.Platform);
         return await StartAsync(
-            new MobileStartInfo
-            {
-                TargetName = Options.TargetName,
-                AttemptId = options.AttemptId ?? Guid.NewGuid().ToString("n"),
-                ProjectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory(),
-                Env = options.Env ?? new Dictionary<string, string?>(),
-                ArtifactsDir = options.ArtifactsDir,
-                Screen = options.Screen,
-                Environment = options.Environment,
-                ActionTimeout = options.ActionTimeout,
-            },
-            cancellationToken).ConfigureAwait(false);
+                new MobileStartInfo
+                {
+                    TargetName = Options.TargetName,
+                    AttemptId = options.AttemptId ?? Guid.NewGuid().ToString("n"),
+                    ProjectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory(),
+                    Env = options.Env ?? new Dictionary<string, string?>(),
+                    ArtifactsDir = options.ArtifactsDir,
+                    Screen = options.Screen,
+                    Environment = options.Environment,
+                    ActionTimeout = options.ActionTimeout,
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>Starts the worker of one slot: boots its device under its session and resumes the app prepare opened there.</summary>
@@ -412,14 +459,16 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
     public async Task EndAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
         // Together, so one budget bounds the lot and one failing close does not leave the others running.
-        await Task.WhenAll(ActiveSessions.Select(session => session.EndAttemptAsync(timeout, cancellationToken))).ConfigureAwait(false);
+        await Task.WhenAll(ActiveSessions.Select(session => session.EndAttemptAsync(timeout, cancellationToken)))
+            .ConfigureAwait(false);
     }
 
     /// <summary>
     /// Closes the sessions this engine started, within the cleanup budget. Upstream's worker-level <c>dispose</c> without reuse. Cold, with no
     /// attempt running, it is a no-op.
     /// </summary>
-    public Task DisposeAsync(TimeSpan timeout, CancellationToken cancellationToken) => DisposeAsync(timeout, null, cancellationToken);
+    public Task DisposeAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+        DisposeAsync(timeout, null, cancellationToken);
 
     /// <summary>
     /// Disposes every worker this engine keeps and ends the attempts still running. Upstream's worker-level <c>dispose</c>: with a <paramref name="reuse"/>
@@ -435,7 +484,20 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
             }
         }
 
-        await Task.WhenAll(TakeWorkers().Select(entry => DeviceSession.DisposeWorkerAsync(this, (entry.Target, entry.Slot), entry.Worker, timeout, reuse, cancellationToken))).ConfigureAwait(false);
+        await Task.WhenAll(
+                TakeWorkers()
+                    .Select(entry =>
+                        DeviceSession.DisposeWorkerAsync(
+                            this,
+                            (entry.Target, entry.Slot),
+                            entry.Worker,
+                            timeout,
+                            reuse,
+                            cancellationToken
+                        )
+                    )
+            )
+            .ConfigureAwait(false);
     }
 
     private static DeviceClientFactory ClientsOf(MobileOptions options)
@@ -450,7 +512,10 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
     {
         if (new object?[] { options.Device, options.Devices, options.Provider }.Count(choice => choice is not null) > 1)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "mobile: set at most one of `Device`, `Devices`, and `Provider`");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "mobile: set at most one of `Device`, `Devices`, and `Provider`"
+            );
         }
 
         if (options.Provider is { } provider && string.IsNullOrWhiteSpace(provider.Name))
@@ -460,13 +525,18 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
 
         if (options.SettleMilliseconds < 0)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "mobile: `settle` must be a non-negative integer of milliseconds, or false");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "mobile: `settle` must be a non-negative integer of milliseconds, or false"
+            );
         }
 
         if (options.TransitionMilliseconds < 0)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "mobile: `transition` must be a non-negative integer of milliseconds");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "mobile: `transition` must be a non-negative integer of milliseconds"
+            );
         }
-
     }
 }

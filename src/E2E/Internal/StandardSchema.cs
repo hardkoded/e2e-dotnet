@@ -12,7 +12,12 @@ internal static class StandardSchema
     /// <summary>One issue as <c>users.0.email: Invalid email</c>, or the bare message for an issue at the root.</summary>
     public static string DescribeIssue(StandardSchemaV1Issue issue)
     {
-        var fieldPath = string.Join('.', (issue.Path ?? []).Select(segment => Convert.ToString(segment, CultureInfo.InvariantCulture) ?? string.Empty));
+        var fieldPath = string.Join(
+            '.',
+            (issue.Path ?? []).Select(segment =>
+                Convert.ToString(segment, CultureInfo.InvariantCulture) ?? string.Empty
+            )
+        );
         return fieldPath.Length == 0 ? issue.Message : $"{fieldPath}: {issue.Message}";
     }
 }

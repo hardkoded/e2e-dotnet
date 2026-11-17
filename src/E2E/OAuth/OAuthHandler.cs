@@ -34,7 +34,12 @@ public sealed class OAuthHandler : DelegatingHandler
     private readonly string _remedy;
     private readonly SharedState _shared;
 
-    public OAuthHandler(IOAuthProvider provider, ICredentialStore store, string? loginHint = null, HttpMessageHandler? inner = null)
+    public OAuthHandler(
+        IOAuthProvider provider,
+        ICredentialStore store,
+        string? loginHint = null,
+        HttpMessageHandler? inner = null
+    )
         : base(inner ?? new HttpClientHandler())
     {
         ArgumentNullException.ThrowIfNull(provider);
@@ -42,15 +47,22 @@ public sealed class OAuthHandler : DelegatingHandler
         _provider = provider;
         _store = store;
         _remedy = loginHint ?? "run `e2e login " + provider.Id + "`";
-        _shared = store is FileCredentialStore file ? ByPath.GetOrAdd(file.FilePath, _ => new SharedState()) : ByStore.GetValue(store, _ => new SharedState());
+        _shared = store is FileCredentialStore file
+            ? ByPath.GetOrAdd(file.FilePath, _ => new SharedState())
+            : ByStore.GetValue(store, _ => new SharedState());
     }
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         // Captured once so the request can be sent again after a refresh.
-        var body = request.Content is null ? null : await request.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        var body = request.Content is null
+            ? null
+            : await request.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
         var contentHeaders = request.Content?.Headers.ToList();
 
         var credentials = await CurrentAsync(cancellationToken).ConfigureAwait(false);
@@ -59,7 +71,8 @@ public sealed class OAuthHandler : DelegatingHandler
             credentials = await RefreshAsync(credentials, cancellationToken).ConfigureAwait(false);
         }
 
-        var response = await AttemptAsync(request, body, contentHeaders, credentials, cancellationToken).ConfigureAwait(false);
+        var response = await AttemptAsync(request, body, contentHeaders, credentials, cancellationToken)
+            .ConfigureAwait(false);
         if (response.StatusCode != HttpStatusCode.Unauthorized)
         {
             return response;
@@ -70,7 +83,10 @@ public sealed class OAuthHandler : DelegatingHandler
         {
             var detail = await TokenEndpoint.DescribeAsync(response, cancellationToken).ConfigureAwait(false);
             response.Dispose();
-            throw new OAuthException(OAuthException.LoginRequired, _provider.Name + " rejected the stored token (" + detail + "); " + _remedy);
+            throw new OAuthException(
+                OAuthException.LoginRequired,
+                _provider.Name + " rejected the stored token (" + detail + "); " + _remedy
+            );
         }
 
         response.Dispose();
@@ -83,7 +99,8 @@ public sealed class OAuthHandler : DelegatingHandler
         byte[]? body,
         List<KeyValuePair<string, IEnumerable<string>>>? contentHeaders,
         OAuthCredentials credentials,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         using var request = new HttpRequestMessage(original.Method, original.RequestUri) { Version = original.Version };
         foreach (var header in original.Headers)
@@ -115,7 +132,10 @@ public sealed class OAuthHandler : DelegatingHandler
     private async Task<OAuthCredentials> CurrentAsync(CancellationToken cancellationToken)
     {
         var stored = await _store.GetAsync(_provider.Id, cancellationToken).ConfigureAwait(false)
-            ?? throw new OAuthException(OAuthException.NotLoggedIn, "no " + _provider.Name + " login is stored; " + _remedy);
+            ?? throw new OAuthException(
+                OAuthException.NotLoggedIn,
+                "no " + _provider.Name + " login is stored; " + _remedy
+            );
 
         // What this process renewed wins over a source that could not keep it.
         return _shared.Renewed.TryGetValue(_provider.Id, out var renewed) ? renewed : stored;
@@ -143,7 +163,8 @@ public sealed class OAuthHandler : DelegatingHandler
                 },
                 CancellationToken.None,
                 TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
+                TaskScheduler.Default
+            );
             return pending.WaitAsync(cancellationToken);
         }
     }
@@ -197,7 +218,8 @@ public sealed class OAuthHandler : DelegatingHandler
 
     private static bool Expiring(OAuthCredentials credentials)
     {
-        return credentials.Expires != 0 && credentials.Expires - RefreshSkewMs <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        return credentials.Expires != 0
+            && credentials.Expires - RefreshSkewMs <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
 
     private sealed class SharedState

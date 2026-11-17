@@ -25,11 +25,17 @@ public sealed class ToolOutputSentToTheModelTests
     [Fact]
     public async Task Partial_Redacts_strings_structured_fields_and_keys_tool_errors_and_engine_errors()
     {
-        var world = new DocumentWorld().Map("/", page => page.Button("Go", () => throw new InvalidOperationException($"engine rejected {Token}")));
+        var world = new DocumentWorld().Map("/", page =>
+            page.Button("Go", () => throw new InvalidOperationException($"engine rejected {Token}"))
+        );
         var turn = 0;
         var model = new ScriptedModel(request =>
         {
-            Assert.DoesNotContain(Token, JsonSerializer.Serialize(request, JsonSerializerOptions.Web), StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                Token,
+                JsonSerializer.Serialize(request, JsonSerializerOptions.Web),
+                StringComparison.Ordinal
+            );
             if (turn++ > 0)
             {
                 return ModelResponses.Done("passed", "checked");
@@ -49,23 +55,38 @@ public sealed class ToolOutputSentToTheModelTests
         var tools = new Dictionary<string, AgentTool>
         {
             ["lookup"] = new AgentTool("lookup", EmptySchema, false, (_, _) => Task.FromResult($"row {Token}")),
-            ["bounded"] = new AgentTool("bounded", EmptySchema, false, (_, _) => Task.FromResult(new string('x', 16120) + Token + new string('x', 300))),
-            ["boom"] = new AgentTool("boom", EmptySchema, false, (_, _) => throw new InvalidOperationException($"tool rejected {Token}")),
+            ["bounded"] = new AgentTool("bounded", EmptySchema, false, (_, _) =>
+                Task.FromResult(new string('x', 16120) + Token + new string('x', 300))
+            ),
+            ["boom"] = new AgentTool("boom", EmptySchema, false, (_, _) =>
+                throw new InvalidOperationException($"tool rejected {Token}")
+            ),
         };
 
         var result = await RunAsync(
             async ctx =>
             {
                 await ctx.App.OpenAsync("/");
-                await ctx.Agent.ActAsync("try the tools", new ActOptions { Params = new Dictionary<string, object?> { ["key"] = Secret.Create("key", Token) } });
+                await ctx.Agent.ActAsync(
+                    "try the tools",
+                    new ActOptions
+                    {
+                        Params = new Dictionary<string, object?> { ["key"] = Secret.Create("key", Token) },
+                    }
+                );
             },
             world,
             model,
-            agentTools: tools);
+            agentTools: tools
+        );
 
         Assert.Null(result.Error);
         Assert.Equal(2, model.CallCount);
-        var outputs = model.Requests[1].Messages.Where(message => message.Role == "tool").Select(message => message.Content ?? "").ToList();
+        var outputs = model
+            .Requests[1]
+            .Messages.Where(message => message.Role == "tool")
+            .Select(message => message.Content ?? "")
+            .ToList();
         var bounded = outputs[1];
         Assert.Matches("^x+", bounded);
         Assert.Contains("<secret:", bounded, StringComparison.Ordinal);
@@ -80,5 +101,10 @@ public sealed class ToolOutputSentToTheModelTests
     }
 
     private static ModelToolCall Call(string name, object arguments) =>
-        new() { Id = "call_" + name, Name = name, Arguments = JsonSerializer.SerializeToElement(arguments) };
+        new()
+        {
+            Id = "call_" + name,
+            Name = name,
+            Arguments = JsonSerializer.SerializeToElement(arguments),
+        };
 }

@@ -37,7 +37,14 @@ internal static class PointerActions
         Touch(new JsonArray(Move(x, y, 0), Down(), Pause(durationMilliseconds), Up()));
 
     /// <summary>A drag from one point to another over <paramref name="durationMilliseconds"/>. <paramref name="holdMilliseconds"/> waits on the first point before it moves.</summary>
-    public static JsonObject Drag(double fromX, double fromY, double toX, double toY, double durationMilliseconds, double holdMilliseconds = 0)
+    public static JsonObject Drag(
+        double fromX,
+        double fromY,
+        double toX,
+        double toY,
+        double durationMilliseconds,
+        double holdMilliseconds = 0
+    )
     {
         var steps = new JsonArray(Move(fromX, fromY, 0), Down());
         if (holdMilliseconds > 0)
@@ -62,35 +69,50 @@ internal static class PointerActions
             steps.Add(new JsonObject { ["type"] = "keyUp", ["value"] = key });
         }
 
-        return new JsonObject { ["actions"] = new JsonArray(new JsonObject { ["type"] = "key", ["id"] = "keyboard", ["actions"] = steps }) };
+        return new JsonObject
+        {
+            ["actions"] = new JsonArray(
+                new JsonObject
+                {
+                    ["type"] = "key",
+                    ["id"] = "keyboard",
+                    ["actions"] = steps,
+                }
+            ),
+        };
     }
 
-    private static JsonObject Touch(JsonArray steps) => new()
-    {
-        ["actions"] = new JsonArray(new JsonObject
+    private static JsonObject Touch(JsonArray steps) =>
+        new()
         {
-            ["type"] = "pointer",
-            ["id"] = "finger",
-            ["parameters"] = new JsonObject { ["pointerType"] = "touch" },
-            ["actions"] = steps,
-        }),
-    };
+            ["actions"] = new JsonArray(
+                new JsonObject
+                {
+                    ["type"] = "pointer",
+                    ["id"] = "finger",
+                    ["parameters"] = new JsonObject { ["pointerType"] = "touch" },
+                    ["actions"] = steps,
+                }
+            ),
+        };
 
     // The spec takes whole pixels.
     private static int Whole(double value) => (int)Math.Round(value, MidpointRounding.AwayFromZero);
 
-    private static JsonObject Move(double x, double y, double durationMilliseconds) => new()
-    {
-        ["type"] = "pointerMove",
-        ["duration"] = Whole(durationMilliseconds),
-        ["origin"] = "viewport",
-        ["x"] = Whole(x),
-        ["y"] = Whole(y),
-    };
+    private static JsonObject Move(double x, double y, double durationMilliseconds) =>
+        new()
+        {
+            ["type"] = "pointerMove",
+            ["duration"] = Whole(durationMilliseconds),
+            ["origin"] = "viewport",
+            ["x"] = Whole(x),
+            ["y"] = Whole(y),
+        };
 
     private static JsonObject Down() => new() { ["type"] = "pointerDown", ["button"] = 0 };
 
     private static JsonObject Up() => new() { ["type"] = "pointerUp", ["button"] = 0 };
 
-    private static JsonObject Pause(double durationMilliseconds) => new() { ["type"] = "pause", ["duration"] = Whole(durationMilliseconds) };
+    private static JsonObject Pause(double durationMilliseconds) =>
+        new() { ["type"] = "pause", ["duration"] = Whole(durationMilliseconds) };
 }

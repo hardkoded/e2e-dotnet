@@ -15,7 +15,10 @@ namespace E2E.Cli;
 internal static partial class Versions
 {
     /// <summary>The version of this tool as upstream's <c>packageVersion</c> reads it: no build metadata, or null when the build carries none.</summary>
-    public static string? RunnerVersion { get; } = typeof(Versions).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0];
+    public static string? RunnerVersion { get; } =
+        typeof(Versions)
+            .Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion.Split('+')[0];
 
     /// <summary>
     /// The NuGet version range init writes for an E2E package: the minor of the version released alongside this tool (upstream's
@@ -41,7 +44,10 @@ internal static partial class Versions
         var patch = int.Parse(match.Groups[3].ValueSpan, CultureInfo.InvariantCulture);
 
         // A caret keeps the leftmost non-zero part: ^1.2.3 stops below 2.0.0, ^0.7.0 below 0.8.0, ^0.0.3 below 0.0.4.
-        var upper = major > 0 ? $"{major + 1}.0.0" : minor > 0 ? $"0.{minor + 1}.0" : $"0.0.{patch + 1}";
+        var upper =
+            major > 0 ? $"{major + 1}.0.0"
+            : minor > 0 ? $"0.{minor + 1}.0"
+            : $"0.0.{patch + 1}";
         return $"[{version},{upper})";
     }
 

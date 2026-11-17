@@ -18,7 +18,16 @@ public sealed class CheckStepTimeoutTests
     [Fact]
     public void Takes_no_timeout_0_and_finite_positive_milliseconds()
     {
-        foreach (var timeout in new TimeSpan?[] { null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1), TimeSpan.FromMilliseconds(2.5), TimeSpan.FromMilliseconds(60_000) })
+        foreach (
+            var timeout in new TimeSpan?[]
+            {
+                null,
+                TimeSpan.Zero,
+                TimeSpan.FromMilliseconds(1),
+                TimeSpan.FromMilliseconds(2.5),
+                TimeSpan.FromMilliseconds(60_000),
+            }
+        )
         {
             InternalTime.CheckStepTimeout(timeout, "tap");
         }
@@ -43,9 +52,18 @@ public sealed class CheckStepTimeoutTests
         var fallback = TimeSpan.FromMilliseconds(30);
 
         Assert.Same(phase, InternalTime.StepDeadline(TimeSpan.Zero, "tap", fallback, phase, clock));
-        Assert.Equal(clock.GetUtcNow().AddMilliseconds(250), InternalTime.StepDeadline(TimeSpan.FromMilliseconds(250), "tap", fallback, phase, clock).EndsAt);
-        Assert.Equal(clock.GetUtcNow().AddMilliseconds(30), InternalTime.StepDeadline(null, "tap", fallback, phase, clock).EndsAt);
-        Assert.Equal(TimeSpan.FromMilliseconds(1000), InternalTime.StepBudget(TimeSpan.Zero, "tap", fallback, phase, clock));
+        Assert.Equal(
+            clock.GetUtcNow().AddMilliseconds(250),
+            InternalTime.StepDeadline(TimeSpan.FromMilliseconds(250), "tap", fallback, phase, clock).EndsAt
+        );
+        Assert.Equal(
+            clock.GetUtcNow().AddMilliseconds(30),
+            InternalTime.StepDeadline(null, "tap", fallback, phase, clock).EndsAt
+        );
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(1000),
+            InternalTime.StepBudget(TimeSpan.Zero, "tap", fallback, phase, clock)
+        );
         Assert.Equal(InternalTime.Never, InternalTime.StepDeadline(TimeSpan.Zero, "tap", fallback, null, clock).EndsAt);
     }
 
@@ -58,7 +76,9 @@ public sealed class CheckStepTimeoutTests
     public async Task Partial_Gives_withTimeout_no_timer_for_the_infinite_budget_of_0()
     {
         var work = new TaskCompletionSource<string>();
-        var pending = InternalTime.WithTimeout(work.Task, Timeout.InfiniteTimeSpan, () => new InvalidOperationException("timed out"));
+        var pending = InternalTime.WithTimeout(work.Task, Timeout.InfiniteTimeSpan, () =>
+            new InvalidOperationException("timed out")
+        );
         work.SetResult("done");
 
         Assert.Equal("done", await pending);

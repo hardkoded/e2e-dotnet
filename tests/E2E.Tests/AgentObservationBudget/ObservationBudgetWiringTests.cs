@@ -38,7 +38,9 @@ public sealed class ObservationBudgetWiringTests
         await using var session = await StartAsync(judge: judge, maxInputTokens: 1);
 
         await session.Context.App.OpenAsync("/");
-        var error = await Assert.ThrowsAsync<AgentException>(() => session.Context.Agent.AssertAsync("a button is on the page"));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            session.Context.Agent.AssertAsync("a button is on the page")
+        );
         session.Complete(error);
 
         Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
@@ -62,26 +64,33 @@ public sealed class ObservationBudgetWiringTests
         Assert.True(session.StepRecords.Single(step => step.Api == "agent.act").ObservationTruncated);
     }
 
-    private static async Task<E2ESession> StartAsync(ScriptedModel? actor = null, ScriptedModel? judge = null, int? maxObservationBytes = null, int? maxInputTokens = null) =>
-        await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(World()),
-            Model = actor,
-            Judge = judge,
-            MaxObservationBytes = maxObservationBytes ?? E2EDefaults.MaxObservationBytes,
-            MaxInputTokens = maxInputTokens ?? E2EDefaults.MaxInputTokens,
-            BaseUrl = "https://app.test",
-            TestTitle = "observation budget",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
+    private static async Task<E2ESession> StartAsync(
+        ScriptedModel? actor = null,
+        ScriptedModel? judge = null,
+        int? maxObservationBytes = null,
+        int? maxInputTokens = null
+    ) =>
+        await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(World()),
+                Model = actor,
+                Judge = judge,
+                MaxObservationBytes = maxObservationBytes ?? E2EDefaults.MaxObservationBytes,
+                MaxInputTokens = maxInputTokens ?? E2EDefaults.MaxInputTokens,
+                BaseUrl = "https://app.test",
+                TestTitle = "observation budget",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
 
     private static DocumentWorld World() => new DocumentWorld().Map("/", page =>
-    {
-        for (var index = 0; index < 300; index++)
         {
-            page.Button("Button number " + index.ToString(CultureInfo.InvariantCulture));
-        }
-    });
+            for (var index = 0; index < 300; index++)
+            {
+                page.Button("Button number " + index.ToString(CultureInfo.InvariantCulture));
+            }
+        });
 }

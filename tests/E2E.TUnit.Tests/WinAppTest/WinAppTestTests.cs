@@ -15,7 +15,8 @@ public sealed class WinAppProbe : E2E.WinApp.TUnit.WinAppTest
     private static readonly E2EConfig ProbeConfig = E2EConfig.Parse(
         """{ "targets": [{ "platform": "windows", "app": { "appPath": "bin/MyApp.exe", "bundleId": "MyApp" } }] }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => ProbeConfig;
 
@@ -29,9 +30,7 @@ public sealed class LeftOutWinAppFixture : E2E.WinApp.TUnit.WinAppTest
 {
     [Test]
     [Skip("only found by reflection")]
-    public void Windows_test_is_left_out()
-    {
-    }
+    public void Windows_test_is_left_out() { }
 }
 
 /// <summary>
@@ -58,7 +57,10 @@ public sealed class WinAppTestTests
     [Test]
     public async Task Opens_the_app_in_a_before_test_hook_of_its_own()
     {
-        var hook = typeof(E2E.WinApp.TUnit.WinAppTest).GetMethod("OpenAppAsync", BindingFlags.Public | BindingFlags.Instance);
+        var hook = typeof(E2E.WinApp.TUnit.WinAppTest).GetMethod(
+            "OpenAppAsync",
+            BindingFlags.Public | BindingFlags.Instance
+        );
 
         await Assert.That(hook).IsNotNull();
         await Assert.That(hook!.GetCustomAttributes<global::TUnit.Core.BeforeAttribute>().Any()).IsTrue();
@@ -66,11 +68,18 @@ public sealed class WinAppTestTests
 
     [Test]
     [NotInParallel("RunSelectionTests")]
-    public async Task Skips_a_windows_test_the_filters_left_out_before_the_app_opens(CancellationToken cancellationToken)
+    public async Task Skips_a_windows_test_the_filters_left_out_before_the_app_opens(
+        CancellationToken cancellationToken
+    )
     {
         var context = TUnitContext.Current!;
         var method = context.Metadata.TestDetails.MethodName;
-        E2E.TUnit.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutWinAppFixture).FullName}.{method}"] = "login.cs did not change" });
+        E2E.TUnit.RunSelection.Set(
+            new Dictionary<string, string>
+            {
+                [$"{typeof(LeftOutWinAppFixture).FullName}.{method}"] = "login.cs did not change",
+            }
+        );
         try
         {
             // The assertions would take the skip for a failure, so the skip is read by hand.
@@ -96,8 +105,13 @@ public sealed class WinAppTestTests
     [Test]
     public async Task Finds_the_tests_of_a_windows_fixture()
     {
-        var found = E2E.TUnit.RunSelection.Discover([typeof(LeftOutWinAppFixture)], typeof(LeftOutWinAppFixture).Assembly);
+        var found = E2E.TUnit.RunSelection.Discover(
+            [typeof(LeftOutWinAppFixture)],
+            typeof(LeftOutWinAppFixture).Assembly
+        );
 
-        await Assert.That(found.Select(test => test.Title).ToArray()).IsEquivalentTo([nameof(LeftOutWinAppFixture.Windows_test_is_left_out)]);
+        await Assert
+            .That(found.Select(test => test.Title).ToArray())
+            .IsEquivalentTo([nameof(LeftOutWinAppFixture.Windows_test_is_left_out)]);
     }
 }

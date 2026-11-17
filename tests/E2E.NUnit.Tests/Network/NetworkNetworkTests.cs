@@ -16,7 +16,8 @@ public sealed class NetworkNetworkTests : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -34,9 +35,15 @@ public sealed class NetworkNetworkTests : E2ETest
     [Test]
     public async Task Loads_users_from_the_real_API()
     {
-        var response = await AllAsync(Browser.WaitForResponseAsync("**/api/users"), Screen.GetByRole("button", "Load users").TapAsync());
+        var response = await AllAsync(
+            Browser.WaitForResponseAsync("**/api/users"),
+            Screen.GetByRole("button", "Load users").TapAsync()
+        );
         Assert.That(response.Status, Is.EqualTo(200));
-        Assert.That(await response.JsonAsync<User[]>(), Is.EqualTo(new User[] { new("Ada"), new("Grace"), new("Margaret") }));
+        Assert.That(
+            await response.JsonAsync<User[]>(),
+            Is.EqualTo(new User[] { new("Ada"), new("Grace"), new("Margaret") })
+        );
         await Expect.That(Screen.GetByRole("status", "Network state")).ToHaveTextAsync("loaded 3");
         await Expect.That(Screen.GetByText("Grace")).ToBeVisibleAsync();
     }
@@ -47,7 +54,8 @@ public sealed class NetworkNetworkTests : E2ETest
         await Screen.GetByRole("button", "Load users").TapAsync();
         await Expect.That(Screen.GetByRole("status", "Network state")).ToHaveTextAsync("loaded 3");
         var names = await Browser.EvaluateAsync<string[]>(
-            "() => Array.from(document.querySelectorAll('#users li')).map((item) => item.textContent)");
+            "() => Array.from(document.querySelectorAll('#users li')).map((item) => item.textContent)"
+        );
         Assert.That(names, Is.EqualTo(new[] { "Ada", "Grace", "Margaret" }));
     }
 }

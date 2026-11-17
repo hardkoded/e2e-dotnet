@@ -29,20 +29,23 @@ internal static class DeviceTargets
     public static IReadOnlyList<Secret> Credentials() => Credentials(Environment.GetEnvironmentVariable);
 
     internal static IReadOnlyList<Secret> Credentials(Func<string, string?> environment) =>
-    [
-        // A value too short to redact safely is the service's problem to refuse, not a reason to rewrite ordinary text.
-        .. CredentialVariables
-            .Select(name => (Name: name, Value: environment(name)))
-            .Where(variable => variable.Value is not null && Secret.Problem(variable.Value) is null)
-            .Select(variable => Secret.Create(variable.Name, variable.Value!)),
-    ];
+        [
+            // A value too short to redact safely is the service's problem to refuse, not a reason to rewrite ordinary text.
+            .. CredentialVariables
+                .Select(name => (Name: name, Value: environment(name)))
+                .Where(variable => variable.Value is not null && Secret.Problem(variable.Value) is null)
+                .Select(variable => Secret.Create(variable.Name, variable.Value!)),
+        ];
 
     private static IDeviceProvider Provider(string name, Func<string, string?> environment)
     {
         try
         {
             return HostedDeviceProviders.Create(name, environment)
-                ?? throw new ConfigurationException("INVALID_CONFIG", $"E2E_MOBILE_PROVIDER must be local, {HostedDeviceProviders.Names}, not {name}");
+                ?? throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"E2E_MOBILE_PROVIDER must be local, {HostedDeviceProviders.Names}, not {name}"
+                );
         }
         catch (InvalidOperationException cause)
         {

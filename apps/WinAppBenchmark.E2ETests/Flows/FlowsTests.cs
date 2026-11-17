@@ -44,7 +44,15 @@ public sealed class FlowsTests : BenchmarkTest
         await OpenScenarioAsync("Modal Flow");
         await Screen.GetByTestId("open-modal-button").TapAsync();
         await Screen.GetByTestId("continue-button").TapAsync();
-        await Screen.GetByRole("button", new System.Text.RegularExpressions.Regex("^confirm$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)).TapAsync();
+        await Screen
+            .GetByRole(
+                "button",
+                new System.Text.RegularExpressions.Regex(
+                    "^confirm$",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                )
+            )
+            .TapAsync();
         await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Flow completed");
     }
 
@@ -87,7 +95,9 @@ public sealed class FlowsTests : BenchmarkTest
         await Screen.GetByTestId("rush-delivery").TapAsync();
         await Expect.That(Screen.GetByTestId("place-order")).ToBeEnabledAsync();
         await Screen.GetByTestId("place-order").TapAsync();
-        await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Order placed: Medium with Cheese, Olives (rush)");
+        await Expect
+            .That(Screen.GetByTestId("success-message"))
+            .ToHaveTextAsync("Order placed: Medium with Cheese, Olives (rush)");
     }
 
     // The results list is replaced by a spinner while the fetch runs, so the result row appears once it loads.

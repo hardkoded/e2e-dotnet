@@ -13,12 +13,13 @@ namespace E2E.Tests.TranscriptCompaction;
 /// </summary>
 public sealed class CompactScreenshotHistoryTests
 {
-    private static ModelMessage OpeningWithImage { get; } = new()
-    {
-        Role = "user",
-        Content = "Goal: tap the pin\n\nScreen (/):\n#e1 document",
-        Images = [TranscriptMessages.Png],
-    };
+    private static ModelMessage OpeningWithImage { get; } =
+        new()
+        {
+            Role = "user",
+            Content = "Goal: tap the pin\n\nScreen (/):\n#e1 document",
+            Images = [TranscriptMessages.Png],
+        };
 
     [Fact]
     public void Keeps_every_screenshot_while_few_are_stale_so_the_request_prefix_stays_cacheable()
@@ -31,15 +32,26 @@ public sealed class CompactScreenshotHistoryTests
     [Fact]
     public void Elides_the_older_screenshots_in_one_batch_keeping_the_newest_two_and_every_text()
     {
-        IReadOnlyList<ModelMessage> messages = [OpeningWithImage, Screenshot("t1"), Screenshot("t2"), Screenshot("t3"), Screenshot("t4")];
+        IReadOnlyList<ModelMessage> messages =
+        [
+            OpeningWithImage,
+            Screenshot("t1"),
+            Screenshot("t2"),
+            Screenshot("t3"),
+            Screenshot("t4"),
+        ];
         var compacted = Compaction.CompactScreenshotHistory(messages);
         Assert.NotSame(messages, compacted);
         Assert.Equal(2, ImageCount(compacted));
         Assert.Equal(
             "Goal: tap the pin\n\nScreen (/):\n#e1 document\n" + Compaction.ScreenshotElidedNotice,
-            compacted[0].Content);
+            compacted[0].Content
+        );
         Assert.Null(compacted[0].Images);
-        Assert.Equal("Screenshot attached to the result of t1.\n" + Compaction.ScreenshotElidedNotice, compacted[1].Content);
+        Assert.Equal(
+            "Screenshot attached to the result of t1.\n" + Compaction.ScreenshotElidedNotice,
+            compacted[1].Content
+        );
         Assert.Null(compacted[1].Images);
         Assert.Same(messages[3], compacted[3]);
         Assert.Same(messages[4], compacted[4]);

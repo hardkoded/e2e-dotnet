@@ -15,7 +15,13 @@ public sealed class FlushPipelineTests
     public async Task Leaves_an_entry_the_same_flow_re_recorded_untouched_and_replaces_it_when_the_actions_change_through_the_pipeline()
     {
         var directory = BillingSession.TempCache();
-        await using (var recording = await BillingSession.StartAsync(directory, new NamedModel(BillingSession.UpgradeModel(() => { }), "test/A"), attempt: 1))
+        await using (
+            var recording = await BillingSession.StartAsync(
+                directory,
+                new NamedModel(BillingSession.UpgradeModel(() => { }), "test/A"),
+                attempt: 1
+            )
+        )
         {
             await BillingSession.UpgradeAsync(recording);
             recording.Complete();
@@ -28,7 +34,13 @@ public sealed class FlushPipelineTests
         File.SetLastWriteTimeUtc(file, stamp);
 
         // A retry under another model runs live and records the same flow again: nothing a replay reads changed.
-        await using (var session = await BillingSession.StartAsync(directory, new NamedModel(BillingSession.UpgradeModel(() => { }), "test/B"), attempt: 2))
+        await using (
+            var session = await BillingSession.StartAsync(
+                directory,
+                new NamedModel(BillingSession.UpgradeModel(() => { }), "test/B"),
+                attempt: 2
+            )
+        )
         {
             await BillingSession.UpgradeAsync(session);
             session.Complete();
@@ -55,27 +67,49 @@ public sealed class FlushPipelineTests
         var directory = BillingSession.TempCache();
         var key = new string('d', 64);
 
-        CacheEntry Recording(DerivedReason? derived) => new()
-        {
-            Test = "tests/a.e2e.ts::a",
-            Instruction = "apply the coupon",
-            Engine = "web",
-            ParamsDigest = new string('d', 64),
-            CallIndex = 0,
-            Agent = "default",
-            Route = "/e/iframe-form",
-            EndRoute = "/e/iframe-form",
-            Actions =
-            [
-                new RecordedAction { Kind = "tool", Text = "type (run-time value)", Derived = derived },
-                new RecordedAction { Kind = "tap", Role = "button", Name = "Apply" },
-            ],
-        };
+        CacheEntry Recording(DerivedReason? derived) =>
+            new()
+            {
+                Test = "tests/a.e2e.ts::a",
+                Instruction = "apply the coupon",
+                Engine = "web",
+                ParamsDigest = new string('d', 64),
+                CallIndex = 0,
+                Agent = "default",
+                Route = "/e/iframe-form",
+                EndRoute = "/e/iframe-form",
+                Actions =
+                [
+                    new RecordedAction
+                    {
+                        Kind = "tool",
+                        Text = "type (run-time value)",
+                        Derived = derived,
+                    },
+                    new RecordedAction
+                    {
+                        Kind = "tap",
+                        Role = "button",
+                        Name = "Apply",
+                    },
+                ],
+            };
 
-        void Flush(DerivedReason? derived) => E2ESession.Flush(
-            new FileStepCache(directory, FileStepCache.MaxCacheWireBytes, true),
-            [new PendingAct { Key = key, StepIndex = 0, Completed = true, Verified = true, Entry = Recording(derived) }],
-            preserve: false);
+        void Flush(DerivedReason? derived) =>
+            E2ESession.Flush(
+                new FileStepCache(directory, FileStepCache.MaxCacheWireBytes, true),
+                [
+                    new PendingAct
+                    {
+                        Key = key,
+                        StepIndex = 0,
+                        Completed = true,
+                        Verified = true,
+                        Entry = Recording(derived),
+                    },
+                ],
+                preserve: false
+            );
 
         // An entry recorded before gaps carried their rule, then live runs whose agent read the value off pixels once and off a node
         // the next time: a replay stops at the gap whatever the rule, so none of them is a new flow.
@@ -103,12 +137,34 @@ public sealed class FlushPipelineTests
             Agent = "default",
             Route = "/",
             EndRoute = "/",
-            Actions = [new RecordedAction { Kind = "tap", Role = "button", Name = "Save" }],
+            Actions =
+            [
+                new RecordedAction
+                {
+                    Kind = "tap",
+                    Role = "button",
+                    Name = "Save",
+                },
+            ],
         };
 
-        CacheWrite? Outcome(int maxBytes) => E2ESession
-            .Flush(new FileStepCache(directory, maxBytes, true), [new PendingAct { Key = key, StepIndex = 0, Completed = true, Verified = true, Entry = recording }], preserve: false)
-            .GetValueOrDefault(0);
+        CacheWrite? Outcome(int maxBytes) =>
+            E2ESession
+                .Flush(
+                    new FileStepCache(directory, maxBytes, true),
+                    [
+                        new PendingAct
+                        {
+                            Key = key,
+                            StepIndex = 0,
+                            Completed = true,
+                            Verified = true,
+                            Entry = recording,
+                        },
+                    ],
+                    preserve: false
+                )
+                .GetValueOrDefault(0);
 
         Assert.Equal(CacheWrite.NotWritten, Outcome(16));
         Assert.Equal(CacheWrite.Saved, Outcome(FileStepCache.MaxCacheWireBytes));
@@ -125,8 +181,12 @@ public sealed class FlushPipelineTests
                 return ModelResponses.Done("passed", "The invoice is prorated.");
             }
 
-            var taps = request.Messages.Count(message => message.Role == "tool" && (message.Content ?? "").StartsWith("Tapped", StringComparison.Ordinal));
-            return taps >= 2 ? ModelResponses.Done("passed", "Upgraded to Pro.") : ModelResponses.Tap("button", "Upgrade to Pro");
+            var taps = request.Messages.Count(message =>
+                message.Role == "tool" && (message.Content ?? "").StartsWith("Tapped", StringComparison.Ordinal)
+            );
+            return taps >= 2
+                ? ModelResponses.Done("passed", "Upgraded to Pro.")
+                : ModelResponses.Tap("button", "Upgrade to Pro");
         });
     }
 }

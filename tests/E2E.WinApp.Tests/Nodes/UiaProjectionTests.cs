@@ -13,13 +13,27 @@ public sealed class UiaProjectionTests
 {
     private static readonly Point Origin = new(100, 50);
 
-    private static ProjectedWindow Project(RawElement root, string? focused = null, double scale = 1, int budget = ObservationLimits.Nodes)
+    private static ProjectedWindow Project(
+        RawElement root,
+        string? focused = null,
+        double scale = 1,
+        int budget = ObservationLimits.Nodes
+    )
     {
         var counter = 0;
-        return UiaProjection.ProjectWindow(root, FakeWindowDriver.MainHandle, Origin, scale, focused, () => $"n{++counter}", new ProjectionBudget(budget));
+        return UiaProjection.ProjectWindow(
+            root,
+            FakeWindowDriver.MainHandle,
+            Origin,
+            scale,
+            focused,
+            () => $"n{++counter}",
+            new ProjectionBudget(budget)
+        );
     }
 
-    private static SemanticNode Find(ProjectedWindow window, string handle) => window.Index.First(entry => entry.Raw.Handle == handle).Node;
+    private static SemanticNode Find(ProjectedWindow window, string handle) =>
+        window.Index.First(entry => entry.Raw.Handle == handle).Node;
 
     [Theory]
     [InlineData("Button", null, "button")]
@@ -70,7 +84,17 @@ public sealed class UiaProjectionTests
         Assert.Equal("textbox", password.Role);
         Assert.Equal("password-input", password.TestId);
 
-        var byClass = Project(RawElements.Window("W", RawElements.TextBox("p", "Pin") with { ClassName = "PasswordBox", IsPassword = null, Value = "1234" }));
+        var byClass = Project(
+            RawElements.Window(
+                "W",
+                RawElements.TextBox("p", "Pin") with
+                {
+                    ClassName = "PasswordBox",
+                    IsPassword = null,
+                    Value = "1234",
+                }
+            )
+        );
         Assert.True(Find(byClass, "p").States.Secure);
         Assert.Null(Find(byClass, "p").Value);
     }
@@ -78,10 +102,18 @@ public sealed class UiaProjectionTests
     [Fact]
     public void The_library_s_lower_case_toggle_and_expand_states_read_the_same_and_a_selected_radio_is_checked()
     {
-        var root = RawElements.Window("W",
-            RawElements.CheckBox("chk", "Terms", checked_: false) with { ToggleState = "on" },
-            RawElements.ComboBox("combo", "Size", expanded: false) with { ExpandState = "expanded" },
-            RawElements.Radio("rad", "Small", selected: true));
+        var root = RawElements.Window(
+            "W",
+            RawElements.CheckBox("chk", "Terms", checked_: false) with
+            {
+                ToggleState = "on",
+            },
+            RawElements.ComboBox("combo", "Size", expanded: false) with
+            {
+                ExpandState = "expanded",
+            },
+            RawElements.Radio("rad", "Small", selected: true)
+        );
         var window = Project(root);
         Assert.True(Find(window, "chk").States.Checked);
         Assert.True(Find(window, "combo").States.Expanded);
@@ -100,7 +132,12 @@ public sealed class UiaProjectionTests
         Assert.True(Find(window, "edit-name").States.Focused);
         Assert.False(Find(window, "btn-save").States.Focused);
         Assert.False(Find(window, "combo-size").States.Expanded);
-        Assert.True(Find(Project(RawElements.Window("W", RawElements.ComboBox("c", "Size", expanded: true))), "c").States.Expanded);
+        Assert.True(
+            Find(
+                Project(RawElements.Window("W", RawElements.ComboBox("c", "Size", expanded: true))),
+                "c"
+            ).States.Expanded
+        );
     }
 
     [Fact]
@@ -126,7 +163,10 @@ public sealed class UiaProjectionTests
     [Fact]
     public void Boxes_are_relative_to_the_window_origin_in_logical_pixels()
     {
-        var window = Project(RawElements.Window("W", RawElements.Button("b", "Go", null, new Rect(300, 250, 200, 100))), scale: 2);
+        var window = Project(
+            RawElements.Window("W", RawElements.Button("b", "Go", null, new Rect(300, 250, 200, 100))),
+            scale: 2
+        );
         var rect = Assert.IsType<BoundingBox>(Find(window, "b").Rect);
         Assert.Equal(new BoundingBox(100, 100, 100, 50), rect);
         Assert.Null(Find(Project(RawElements.Settings()), "btn-off").Rect);
@@ -144,7 +184,13 @@ public sealed class UiaProjectionTests
     [Fact]
     public void Mints_ids_in_document_order_and_binds_each_to_its_element()
     {
-        var window = Project(RawElements.Window("W", RawElements.Button("a", "A"), RawElements.Element("g", "Group", null, null, null, RawElements.Button("b", "B"))));
+        var window = Project(
+            RawElements.Window(
+                "W",
+                RawElements.Button("a", "A"),
+                RawElements.Element("g", "Group", null, null, null, RawElements.Button("b", "B"))
+            )
+        );
         Assert.Equal(["n1", "n2", "n3", "n4"], window.Index.Select(entry => entry.Id));
         Assert.Equal(["root", "a", "g", "b"], window.Index.Select(entry => entry.Raw.Handle));
         Assert.Same(window.Index[0], window.Index[3].Parent!.Parent);
@@ -155,7 +201,10 @@ public sealed class UiaProjectionTests
     [Fact]
     public void Stops_at_the_node_budget_and_says_so()
     {
-        var items = Enumerable.Range(1, 10).Select(index => RawElements.ListItem($"i{index}", $"Item {index}")).ToArray();
+        var items = Enumerable
+            .Range(1, 10)
+            .Select(index => RawElements.ListItem($"i{index}", $"Item {index}"))
+            .ToArray();
         var window = Project(RawElements.Window("W", RawElements.List("l", "Items", items)), budget: 5);
         Assert.True(window.Truncated);
         Assert.Equal(5, window.Index.Count);

@@ -10,13 +10,22 @@ public sealed class JoinLinkTests
     [Fact]
     public void Joins_a_path_to_a_base_with_one_slash_and_none_after_a_bare_scheme()
     {
-        Assert.Equal("https://shop.example.com/orders/42", TargetApps.JoinLink("https://shop.example.com", "/orders/42"));
-        Assert.Equal("https://shop.example.com/app/orders/42", TargetApps.JoinLink("https://shop.example.com/app/", "orders/42"));
+        Assert.Equal(
+            "https://shop.example.com/orders/42",
+            TargetApps.JoinLink("https://shop.example.com", "/orders/42")
+        );
+        Assert.Equal(
+            "https://shop.example.com/app/orders/42",
+            TargetApps.JoinLink("https://shop.example.com/app/", "orders/42")
+        );
         Assert.Equal("shopapp://orders/42", TargetApps.JoinLink("shopapp://", "/orders/42"));
         Assert.Equal("shopapp://shop/orders/42", TargetApps.JoinLink("shopapp://shop", "/orders/42"));
     }
 
     [Fact]
     public void Opens_an_absolute_link_as_given() =>
-        Assert.Equal("https://shop.example.com/verify?token=1", TargetApps.JoinLink("shopapp://", "https://shop.example.com/verify?token=1"));
+        Assert.Equal(
+            "https://shop.example.com/verify?token=1",
+            TargetApps.JoinLink("shopapp://", "https://shop.example.com/verify?token=1")
+        );
 }

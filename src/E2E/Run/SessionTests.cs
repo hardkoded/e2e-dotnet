@@ -27,7 +27,12 @@ internal interface ISessionTestRunner
     /// Runs the test named <paramref name="name"/> in <paramref name="tests"/>; null when no test has that name. <paramref name="host"/> is the
     /// config the host loaded: the test runs on its agent model and its replay cache, not on the fixture's own (see <see cref="SessionHandover.HostConfig"/>).
     /// </summary>
-    Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken, E2EConfig? host = null);
+    Task<SessionTestOutcome?> RunAsync(
+        Assembly tests,
+        string name,
+        CancellationToken cancellationToken,
+        E2EConfig? host = null
+    );
 }
 
 /// <summary>A test <see cref="ISessionTestRunner.Select"/> found: its full name, why a session cannot run it alone (null when it can), and its method.</summary>
@@ -49,7 +54,16 @@ internal enum RunPhase
 /// the test had no session. <see cref="ExpectedFailure"/> is the reason the test is marked as expected to fail (upstream's <c>fail</c> option or
 /// <c>test.fail</c>), null when it is not; the marker is an NUnit property, so the verdict of the run itself is not inverted (see COMPATIBILITY.md).
 /// </summary>
-internal sealed record SessionTestOutcome(string TestName, E2ESession? Session, IEngine? Engine, Exception? Failure, RunPhase Phase = RunPhase.Body, IReadOnlyList<Exception>? Secondary = null, LiveRun? Run = null, string? ExpectedFailure = null) : IAsyncDisposable
+internal sealed record SessionTestOutcome(
+    string TestName,
+    E2ESession? Session,
+    IEngine? Engine,
+    Exception? Failure,
+    RunPhase Phase = RunPhase.Body,
+    IReadOnlyList<Exception>? Secondary = null,
+    LiveRun? Run = null,
+    string? ExpectedFailure = null
+) : IAsyncDisposable
 {
     /// <summary>Closes what the test left: ends its run, then disposes its session. A host that reports the close's failures does both itself.</summary>
     public async ValueTask DisposeAsync()
@@ -98,7 +112,20 @@ internal sealed class LiveRun(string test)
         StrayRejections.Remove(this);
         lock (_late)
         {
-            return [.. _late.Select(cause => (Exception)new TestException("UNHANDLED_REJECTION", "a promise rejected after the test's body ended, most likely left by \"" + Test + "\": " + cause.Message, cause))];
+            return
+            [
+                .. _late.Select(cause =>
+                    (Exception)
+                        new TestException(
+                            "UNHANDLED_REJECTION",
+                            "a promise rejected after the test's body ended, most likely left by \""
+                                + Test
+                                + "\": "
+                                + cause.Message,
+                            cause
+                        )
+                ),
+            ];
         }
     }
 }
@@ -180,7 +207,9 @@ internal static class StrayRejections
             return false;
         }
 
-        Warn("a promise rejected after its session closed, most likely left by test \"" + last + "\": " + cause.Message);
+        Warn(
+            "a promise rejected after its session closed, most likely left by test \"" + last + "\": " + cause.Message
+        );
         return true;
     }
 
@@ -283,9 +312,24 @@ internal static class SessionHandover
         Task<T> turn;
         lock (Gate)
         {
-            turn = _tail.ContinueWith(_ => Turn(work, cancellationToken), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default).Unwrap();
+            turn = _tail
+                .ContinueWith(
+                    _ => Turn(work, cancellationToken),
+                    CancellationToken.None,
+                    TaskContinuationOptions.None,
+                    TaskScheduler.Default
+                )
+                .Unwrap();
             // The queue goes on past a turn that failed or was cancelled, and observes its failure so none is left unobserved.
-            _tail = turn.ContinueWith(static finished => { _ = finished.Exception; }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+            _tail = turn.ContinueWith(
+                static finished =>
+                {
+                    _ = finished.Exception;
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.None,
+                TaskScheduler.Default
+            );
         }
 
         return turn.WaitAsync(cancellationToken);
@@ -373,7 +417,17 @@ internal static class SessionHandover
                 return false;
             }
 
-            return request.Taken.TrySetResult(new SessionTestOutcome(testName, session, engine, failure, RunPhase.Body, null, StrayRejections.Keep(testName)));
+            return request.Taken.TrySetResult(
+                new SessionTestOutcome(
+                    testName,
+                    session,
+                    engine,
+                    failure,
+                    RunPhase.Body,
+                    null,
+                    StrayRejections.Keep(testName)
+                )
+            );
         }
     }
 
@@ -384,7 +438,8 @@ internal static class SessionHandover
         /// <summary>The config the host loaded; see <see cref="SessionHandover.HostConfig"/>.</summary>
         public E2EConfig? Host { get; } = host;
 
-        public TaskCompletionSource<SessionTestOutcome> Taken { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<SessionTestOutcome> Taken { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         /// <summary>The outcome, or null when the test ended without offering a session.</summary>
         public SessionTestOutcome? Outcome => Taken.Task.IsCompletedSuccessfully ? Taken.Task.Result : null;

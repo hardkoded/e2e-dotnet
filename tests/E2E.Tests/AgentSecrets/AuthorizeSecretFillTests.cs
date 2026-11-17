@@ -25,38 +25,49 @@ public sealed class AuthorizeSecretFillTests
     /// An Android password <c>EditText</c> as <c>E2E.Mobile</c> projects it: UIAutomator flags it <c>password</c> while the class stays the
     /// plain one, so the engine derives <c>secure</c> and the purpose from the flag and drops the value.
     /// </summary>
-    private static SemanticNode AndroidPasswordField(bool disabled = false, string role = "textbox", bool secure = true) => new()
-    {
-        Ref = "n3",
-        Role = role,
-        Name = "Password",
-        Text = "Password",
-        InputPurpose = "password",
-        States = new NodeStates { Secure = secure, Disabled = disabled },
-        TestId = "com.example:id/password",
-        Rect = new BoundingBox(0, 270, 390, 44),
-        Selector = "id=com.example:id/password",
-    };
+    private static SemanticNode AndroidPasswordField(
+        bool disabled = false,
+        string role = "textbox",
+        bool secure = true
+    ) =>
+        new()
+        {
+            Ref = "n3",
+            Role = role,
+            Name = "Password",
+            Text = "Password",
+            InputPurpose = "password",
+            States = new NodeStates { Secure = secure, Disabled = disabled },
+            TestId = "com.example:id/password",
+            Rect = new BoundingBox(0, 270, 390, 44),
+            Selector = "id=com.example:id/password",
+        };
 
     /// <summary>The same field as the engine projected it before it read the flag: an open textbox carrying the typed value.</summary>
-    private static SemanticNode AsPlainTextbox() => new()
-    {
-        Ref = "n3",
-        Role = "textbox",
-        Name = "Password",
-        Text = "Password",
-        Value = "hunter2",
-        TestId = "com.example:id/password",
-        Rect = new BoundingBox(0, 270, 390, 44),
-        Selector = "id=com.example:id/password",
-    };
+    private static SemanticNode AsPlainTextbox() =>
+        new()
+        {
+            Ref = "n3",
+            Role = "textbox",
+            Name = "Password",
+            Text = "Password",
+            Value = "hunter2",
+            TestId = "com.example:id/password",
+            Rect = new BoundingBox(0, 270, 390, 44),
+            Selector = "id=com.example:id/password",
+        };
 
     [Fact]
     public async Task Lets_a_credential_password_into_an_Android_password_field_as_the_mobile_engine_projects_it()
     {
         var recorder = new RecordingHost();
 
-        var resolved = await SecretFill.AuthorizeSecretFillAsync(recorder, new Runtime(), Admin.Password, AndroidPasswordField());
+        var resolved = await SecretFill.AuthorizeSecretFillAsync(
+            recorder,
+            new Runtime(),
+            Admin.Password,
+            AndroidPasswordField()
+        );
 
         Assert.Equal("hunter2", resolved.Value);
         Assert.Equal(["secret.fill:allowed"], recorder.Decisions);
@@ -67,7 +78,9 @@ public sealed class AuthorizeSecretFillTests
     {
         var recorder = new RecordingHost();
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => SecretFill.AuthorizeSecretFillAsync(recorder, new Runtime(), Admin.Password, AsPlainTextbox()));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            SecretFill.AuthorizeSecretFillAsync(recorder, new Runtime(), Admin.Password, AsPlainTextbox())
+        );
 
         Assert.Equal("POLICY_DENIED", error.Code);
         Assert.Equal("field purpose none is incompatible with secret purpose password", error.Message);
@@ -81,7 +94,9 @@ public sealed class AuthorizeSecretFillTests
         var recorder = new RecordingHost();
         var runtime = new Runtime();
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => SecretFill.AuthorizeSecretFillAsync(recorder, runtime, claimsGeneric, AsPlainTextbox()));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            SecretFill.AuthorizeSecretFillAsync(recorder, runtime, claimsGeneric, AsPlainTextbox())
+        );
 
         Assert.Equal("POLICY_DENIED", error.Code);
         Assert.Equal("field purpose none is incompatible with secret purpose password", error.Message);
@@ -97,9 +112,15 @@ public sealed class AuthorizeSecretFillTests
         _ = sink;
         var recorder = new RecordingHost();
         var runtime = new Runtime();
-        var node = AndroidPasswordField(disabled: disabled, role: role, secure: !string.Equals(role, "button", StringComparison.Ordinal));
+        var node = AndroidPasswordField(
+            disabled: disabled,
+            role: role,
+            secure: !string.Equals(role, "button", StringComparison.Ordinal)
+        );
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => SecretFill.AuthorizeSecretFillAsync(recorder, runtime, Admin.Password, node));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            SecretFill.AuthorizeSecretFillAsync(recorder, runtime, Admin.Password, node)
+        );
 
         Assert.Equal("POLICY_DENIED", error.Code);
         Assert.Equal(message, error.Message);
@@ -114,7 +135,8 @@ public sealed class AuthorizeSecretFillTests
 
         public Redactor Redactor => Redactor.None;
 
-        public Secret? RegisteredSecret(string name) => string.Equals(name, AdminPassword.Name, StringComparison.Ordinal) ? AdminPassword : null;
+        public Secret? RegisteredSecret(string name) =>
+            string.Equals(name, AdminPassword.Name, StringComparison.Ordinal) ? AdminPassword : null;
 
         public Task<Secret> ResolveAsync(Secret secret, CancellationToken cancellationToken)
         {
@@ -128,6 +150,10 @@ public sealed class AuthorizeSecretFillTests
         public List<string> Decisions { get; } = [];
 
         public void RecordPolicy(string name, PolicyDecision decision, string? code = null) =>
-            Decisions.Add(code is null ? name + ":" + decision.ToString().ToLowerInvariant() : name + ":" + decision.ToString().ToLowerInvariant() + ":" + code);
+            Decisions.Add(
+                code is null
+                    ? name + ":" + decision.ToString().ToLowerInvariant()
+                    : name + ":" + decision.ToString().ToLowerInvariant() + ":" + code
+            );
     }
 }

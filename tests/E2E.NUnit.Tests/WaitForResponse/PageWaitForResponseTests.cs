@@ -22,13 +22,15 @@ public sealed class PageWaitForResponseTests : PlaywrightTest
     {
         await Browser.GotoAsync(EmptyPage);
         var waiting = Browser.WaitForResponseAsync($"{PREFIX}/digits/2.png");
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               void fetch('/digits/1.png');
               void fetch('/digits/2.png');
               void fetch('/digits/3.png');
             }
-            """);
+            """
+        );
         var response = await waiting;
         Assert.That(response.Url, Is.EqualTo($"{PREFIX}/digits/2.png"));
     }
@@ -37,9 +39,13 @@ public sealed class PageWaitForResponseTests : PlaywrightTest
     public async Task Should_log_the_url()
     {
         await Browser.GotoAsync(EmptyPage);
-        var error1 = await Assert.CatchAsync(() => Browser.WaitForResponseAsync("foo.css", TimeSpan.FromMilliseconds(1000)));
+        var error1 = await Assert.CatchAsync(() =>
+            Browser.WaitForResponseAsync("foo.css", TimeSpan.FromMilliseconds(1000))
+        );
         Contain("\"foo.css\"", error1!.Message);
-        var error2 = await Assert.CatchAsync(() => Browser.WaitForResponseAsync(new Regex("foo.css", RegexOptions.IgnoreCase), TimeSpan.FromMilliseconds(1000)));
+        var error2 = await Assert.CatchAsync(() =>
+            Browser.WaitForResponseAsync(new Regex("foo.css", RegexOptions.IgnoreCase), TimeSpan.FromMilliseconds(1000))
+        );
         Contain("/foo.css/i", error2!.Message);
     }
 
@@ -48,13 +54,15 @@ public sealed class PageWaitForResponseTests : PlaywrightTest
     {
         await Browser.GotoAsync(EmptyPage);
         var waiting = Browser.WaitForResponseAsync($"{PREFIX}/digits/2.png", TimeSpan.Zero);
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => setTimeout(() => {
               void fetch('/digits/1.png');
               void fetch('/digits/2.png');
               void fetch('/digits/3.png');
             }, 50) && null
-            """);
+            """
+        );
         var response = await waiting;
         Assert.That(response.Url, Is.EqualTo($"{PREFIX}/digits/2.png"));
     }

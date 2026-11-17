@@ -30,7 +30,13 @@ public sealed class PageNetworkIdleTests : PlaywrightTest
         var aAnswer = Deferred();
         var bRequested = Deferred();
         var bAnswer = Deferred();
-        foreach (var (suffix, requested, answer) in new[] { ("/fetch-request-a.js", aRequested, aAnswer), ("/fetch-request-b.js", bRequested, bAnswer) })
+        foreach (
+            var (suffix, requested, answer) in new[]
+            {
+                ("/fetch-request-a.js", aRequested, aAnswer),
+                ("/fetch-request-b.js", bRequested, bAnswer),
+            }
+        )
         {
             await Browser.RouteAsync($"**{suffix}", async route =>
             {
@@ -63,7 +69,10 @@ public sealed class PageNetworkIdleTests : PlaywrightTest
     [Test]
     public async Task Should_navigate_to_empty_page_with_networkidle()
     {
-        var response = await AllAsync(Browser.WaitForResponseAsync("**/empty.html"), Browser.GotoAsync(EmptyPage, NetworkIdle));
+        var response = await AllAsync(
+            Browser.WaitForResponseAsync("**/empty.html"),
+            Browser.GotoAsync(EmptyPage, NetworkIdle)
+        );
         Assert.That(response.Status, Is.EqualTo(200));
     }
 
@@ -85,7 +94,9 @@ public sealed class PageNetworkIdleTests : PlaywrightTest
     public async Task Should_wait_for_networkidle_in_setContent()
     {
         await Browser.GotoAsync(EmptyPage);
-        await NetworkIdleTestAsync(() => Browser.GotoAsync(Content("<script src='networkidle.js'></script>"), NetworkIdle));
+        await NetworkIdleTestAsync(() =>
+            Browser.GotoAsync(Content("<script src='networkidle.js'></script>"), NetworkIdle)
+        );
     }
 
     [Test]
@@ -93,14 +104,18 @@ public sealed class PageNetworkIdleTests : PlaywrightTest
     {
         await Browser.GotoAsync(EmptyPage);
         await Browser.GotoAsync(Content("<script>fetch('/never');</script>"));
-        await NetworkIdleTestAsync(() => Browser.GotoAsync(Content("<script src='networkidle.js'></script>"), NetworkIdle));
+        await NetworkIdleTestAsync(() =>
+            Browser.GotoAsync(Content("<script src='networkidle.js'></script>"), NetworkIdle)
+        );
     }
 
     [Test]
     public async Task Should_wait_for_networkidle_in_setContent_from_the_child_frame()
     {
         await Browser.GotoAsync(EmptyPage);
-        await NetworkIdleTestAsync(() => Browser.GotoAsync(Content("<iframe src='networkidle.html'></iframe>"), NetworkIdle));
+        await NetworkIdleTestAsync(() =>
+            Browser.GotoAsync(Content("<iframe src='networkidle.html'></iframe>"), NetworkIdle)
+        );
     }
 
     [Test]
@@ -115,15 +130,20 @@ public sealed class PageNetworkIdleTests : PlaywrightTest
         var done = false;
         var promise = Task.Run(async () =>
         {
-            await Browser.GotoAsync(Content($$"""
-                <body>
-                  <script>
-                    const iframe = document.createElement('iframe');
-                    iframe.src = {{System.Text.Json.JsonSerializer.Serialize($"{PREFIX}/never")}};
-                    document.body.appendChild(iframe);
-                  </script>
-                </body>
-                """), NetworkIdle);
+            await Browser.GotoAsync(
+                Content(
+                    $$"""
+                    <body>
+                      <script>
+                        const iframe = document.createElement('iframe');
+                        iframe.src = {{System.Text.Json.JsonSerializer.Serialize($"{PREFIX}/never")}};
+                        document.body.appendChild(iframe);
+                      </script>
+                    </body>
+                    """
+                ),
+                NetworkIdle
+            );
             done = true;
         });
         await Task.Delay(600);
@@ -137,19 +157,23 @@ public sealed class PageNetworkIdleTests : PlaywrightTest
     public async Task Should_work_after_repeated_navigations_in_the_same_page()
     {
         var requestCount = 0;
-        await Browser.RouteAsync("**/empty.html", route => route.FulfillAsync(new RouteFulfillResponse
-        {
-            ContentType = "text/html",
-            Body = """
-                <script>
-                  fetch('http://localhost:8000/sample').then(res => console.log(res.json()))
-                </script>
-                """,
-        }));
+        await Browser.RouteAsync("**/empty.html", route => route.FulfillAsync(
+                new RouteFulfillResponse
+                {
+                    ContentType = "text/html",
+                    Body = """
+                    <script>
+                      fetch('http://localhost:8000/sample').then(res => console.log(res.json()))
+                    </script>
+                    """,
+                }
+            ));
         await Browser.RouteAsync("**/sample", async route =>
         {
             Interlocked.Increment(ref requestCount);
-            await route.FulfillAsync(new RouteFulfillResponse { ContentType = "application/json", Body = """{"content":"sample"}""" });
+            await route.FulfillAsync(
+                new RouteFulfillResponse { ContentType = "application/json", Body = """{"content":"sample"}""" }
+            );
         });
         await Browser.GotoAsync(EmptyPage, NetworkIdle);
         Assert.That(requestCount, Is.EqualTo(1));
@@ -161,7 +185,10 @@ public sealed class PageNetworkIdleTests : PlaywrightTest
     public async Task Should_not_wait_for_an_open_EventSource_connection()
     {
         var page = Content("<script>new EventSource('/sse');</script>");
-        var response = await AllAsync(Browser.WaitForResponseAsync("**/content?**"), Browser.GotoAsync(page, NetworkIdle));
+        var response = await AllAsync(
+            Browser.WaitForResponseAsync("**/content?**"),
+            Browser.GotoAsync(page, NetworkIdle)
+        );
         Assert.That(response.Status, Is.EqualTo(200));
     }
 
@@ -169,14 +196,19 @@ public sealed class PageNetworkIdleTests : PlaywrightTest
     public async Task Should_not_wait_for_an_open_EventSource_connection_in_setContent()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.GotoAsync(Content("""
-            <script>
-              window.__sseOpened = new Promise(resolve => {
-                const es = new EventSource('/sse');
-                es.onmessage = () => resolve();
-              });
-            </script>
-            """), NetworkIdle);
+        await Browser.GotoAsync(
+            Content(
+                """
+                <script>
+                  window.__sseOpened = new Promise(resolve => {
+                    const es = new EventSource('/sse');
+                    es.onmessage = () => resolve();
+                  });
+                </script>
+                """
+            ),
+            NetworkIdle
+        );
         await Browser.EvaluateAsync<object>("() => window['__sseOpened'].then(() => null)");
     }
 }

@@ -63,18 +63,31 @@ public sealed class DecideTraceReplayTests
     {
         var resize = new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) };
         Assert.Equal("replay", Decide.DecideTraceReplay(Entry("/settings", resize, Navigate()), "/elsewhere").Action);
-        Assert.Equal(TraceReplayDecision.Miss("wrong-context"), Decide.DecideTraceReplay(Entry("/settings", resize, Tap()), "/elsewhere"));
+        Assert.Equal(
+            TraceReplayDecision.Miss("wrong-context"),
+            Decide.DecideTraceReplay(Entry("/settings", resize, Tap()), "/elsewhere")
+        );
     }
 
     [Fact]
     public void Requires_a_recorded_start_path_for_a_non_navigating_trace()
     {
-        Assert.Equal(TraceReplayDecision.Miss("wrong-context"), Decide.DecideTraceReplay(Entry(null, Tap()), "/settings"));
+        Assert.Equal(
+            TraceReplayDecision.Miss("wrong-context"),
+            Decide.DecideTraceReplay(Entry(null, Tap()), "/settings")
+        );
     }
 
-    private static RecordedAction Tap() => new() { Kind = "tap", Role = "button", Name = "Save" };
+    private static RecordedAction Tap() =>
+        new()
+        {
+            Kind = "tap",
+            Role = "button",
+            Name = "Save",
+        };
 
     private static RecordedAction Navigate() => new() { Kind = "navigate", Url = "/companies" };
 
-    private static CacheEntry Entry(string? startPath, params RecordedAction[] actions) => new() { Route = startPath, Actions = [.. actions] };
+    private static CacheEntry Entry(string? startPath, params RecordedAction[] actions) =>
+        new() { Route = startPath, Actions = [.. actions] };
 }

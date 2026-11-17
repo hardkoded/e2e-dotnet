@@ -40,7 +40,10 @@ internal static class PixelMatch
                 var delta = a32[y * width + x] == b32[y * width + x] ? 0 : ColorDelta(img1, img2, pos, pos, false);
                 if (Math.Abs(delta) > maxDelta)
                 {
-                    if (Antialiased(img1, x, y, width, height, a32, b32) || Antialiased(img2, x, y, width, height, b32, a32))
+                    if (
+                        Antialiased(img1, x, y, width, height, a32, b32)
+                        || Antialiased(img2, x, y, width, height, b32, a32)
+                    )
                     {
                         Draw(output, pos, 255, 255, 0);
                     }
@@ -80,8 +83,12 @@ internal static class PixelMatch
         var y2 = Math.Min(y1 + 1, height - 1);
         var pos = y1 * width + x1;
         var zeroes = x1 == x0 || x1 == x2 || y1 == y0 || y1 == y2 ? 1 : 0;
-        double min = 0, max = 0;
-        int minX = 0, minY = 0, maxX = 0, maxY = 0;
+        double min = 0,
+            max = 0;
+        int minX = 0,
+            minY = 0,
+            maxX = 0,
+            maxY = 0;
         for (var x = x0; x <= x2; x++)
         {
             for (var y = y0; y <= y2; y++)
@@ -159,8 +166,14 @@ internal static class PixelMatch
     // Squared YIQ distance between two pixels, negative when the second is brighter; the brightness difference alone when yOnly.
     private static double ColorDelta(byte[] img1, byte[] img2, int k, int m, bool yOnly)
     {
-        double r1 = img1[k], g1 = img1[k + 1], b1 = img1[k + 2], a1 = img1[k + 3];
-        double r2 = img2[m], g2 = img2[m + 1], b2 = img2[m + 2], a2 = img2[m + 3];
+        double r1 = img1[k],
+            g1 = img1[k + 1],
+            b1 = img1[k + 2],
+            a1 = img1[k + 3];
+        double r2 = img2[m],
+            g2 = img2[m + 1],
+            b2 = img2[m + 2],
+            a2 = img2[m + 3];
         if (a1 == a2 && r1 == r2 && g1 == g2 && b1 == b2)
         {
             return 0;

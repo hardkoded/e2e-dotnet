@@ -89,7 +89,11 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
     public async Task Shares_the_app_command_sessions_on_fresh_loads_both_declare_whatever_page_each_opens()
     {
         // A fresh load of one config: t0 opens the app's root, t1 a page of it, on one command.
-        IReadOnlyList<(string Name, ResolvedApp App)> Config() => Load(new AppConfig { Url = _url, Command = _command }, new AppConfig { Url = _url + "/m", Command = _command });
+        IReadOnlyList<(string Name, ResolvedApp App)> Config() =>
+            Load(
+                new AppConfig { Url = _url, Command = _command },
+                new AppConfig { Url = _url + "/m", Command = _command }
+            );
         var pool = new SharedPool();
         var first = await Start(pool, Config());
         var second = await Start(pool, Config(), "t1");
@@ -140,7 +144,14 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
     public async Task Aborts_a_hung_start_once_every_attempt_waiting_on_it_gave_up_stopping_the_process_it_started()
     {
         // The server answers, but the readiness probe never does: the start hangs with the process up.
-        var config = Load(new AppConfig { Url = _url, ReadyUrl = "http://127.0.0.1:1/", Command = Command(TimeSpan.FromMilliseconds(600_000)) });
+        var config = Load(
+            new AppConfig
+            {
+                Url = _url,
+                ReadyUrl = "http://127.0.0.1:1/",
+                Command = Command(TimeSpan.FromMilliseconds(600_000)),
+            }
+        );
         var pool = new SharedPool();
         using var cancel = new CancellationTokenSource();
         var opening = Start(pool, config, "t0", cancel.Token);
@@ -216,12 +227,14 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
         var test = new SharedAppProcessesTests();
         try
         {
-            var config = test.Load(new AppConfig
-            {
-                Url = test._url,
-                ReadyUrl = "http://127.0.0.1:1/",
-                Command = test.ShutdownCommand("serve-receipt", receipt, test._dir),
-            });
+            var config = test.Load(
+                new AppConfig
+                {
+                    Url = test._url,
+                    ReadyUrl = "http://127.0.0.1:1/",
+                    Command = test.ShutdownCommand("serve-receipt", receipt, test._dir),
+                }
+            );
             _ = test.Start(new SharedPool(), config);
             await test.Poll(true);
             await test.DisposeAsync();
@@ -241,27 +254,42 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
         }
     }
 
-    private CommandConfig Command(TimeSpan? startupTimeout = null) => new()
-    {
-        Executable = AppProgram.Executable,
-        Args = ["serve-logged", _port.ToString(CultureInfo.InvariantCulture)],
-        StartupTimeout = startupTimeout,
-        InheritEnv = ["DOTNET_ROOT"],
-    };
+    private CommandConfig Command(TimeSpan? startupTimeout = null) =>
+        new()
+        {
+            Executable = AppProgram.Executable,
+            Args = ["serve-logged", _port.ToString(CultureInfo.InvariantCulture)],
+            StartupTimeout = startupTimeout,
+            InheritEnv = ["DOTNET_ROOT"],
+        };
 
     // A server whose SIGTERM handler holds the shutdown (serve-hold) or records its project (serve-receipt).
-    private CommandConfig ShutdownCommand(params string[] mode) => new()
-    {
-        Executable = AppProgram.Executable,
-        Args = [mode[0], _port.ToString(CultureInfo.InvariantCulture), .. mode.Skip(1)],
-        InheritEnv = ["DOTNET_ROOT"],
-    };
+    private CommandConfig ShutdownCommand(params string[] mode) =>
+        new()
+        {
+            Executable = AppProgram.Executable,
+            Args = [mode[0], _port.ToString(CultureInfo.InvariantCulture), .. mode.Skip(1)],
+            InheritEnv = ["DOTNET_ROOT"],
+        };
 
     // One config load, as a live session loads it: one target per declaration, named t0, t1, and so on.
     private IReadOnlyList<(string Name, ResolvedApp App)> Load(params AppConfig[] declared) =>
-        [.. declared.Select((app, index) => ("t" + index.ToString(CultureInfo.InvariantCulture), TargetApps.ResolveTargetApp("t" + index.ToString(CultureInfo.InvariantCulture), app, _dir)))];
+        [
+            .. declared.Select(
+                (app, index) =>
+                    (
+                        "t" + index.ToString(CultureInfo.InvariantCulture),
+                        TargetApps.ResolveTargetApp("t" + index.ToString(CultureInfo.InvariantCulture), app, _dir)
+                    )
+            ),
+        ];
 
-    private async Task<IAppProcesses> Start(SharedPool pool, IReadOnlyList<(string Name, ResolvedApp App)> config, string name = "t0", CancellationToken cancellationToken = default)
+    private async Task<IAppProcesses> Start(
+        SharedPool pool,
+        IReadOnlyList<(string Name, ResolvedApp App)> config,
+        string name = "t0",
+        CancellationToken cancellationToken = default
+    )
     {
         var scope = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _teardown.Token);
         _scopes.Enqueue(scope);
@@ -271,7 +299,8 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
             () => new ManagedProcessHooks { Ci = false },
             new DebugTrace(false),
             scope.Token,
-            new TrackingPool(pool, this));
+            new TrackingPool(pool, this)
+        );
         _starting.Enqueue(opening);
         return await opening;
     }
@@ -279,7 +308,11 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
     // Tracks the pool's actual starts and shares each stop with teardown.
     private sealed class TrackingPool(SharedPool pool, SharedAppProcessesTests test) : IProcessPool
     {
-        public Task<IAppProcesses> AcquireAsync(string key, Func<CancellationToken, Task<IAppProcesses>> start, CancellationToken cancellationToken) =>
+        public Task<IAppProcesses> AcquireAsync(
+            string key,
+            Func<CancellationToken, Task<IAppProcesses>> start,
+            CancellationToken cancellationToken
+        ) =>
             pool.AcquireAsync(
                 key,
                 async scope =>
@@ -290,7 +323,8 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
                     test._started.Enqueue(tracked);
                     return tracked;
                 },
-                cancellationToken);
+                cancellationToken
+            );
     }
 
     private sealed class SharedStop(IAppProcesses processes) : IAppProcesses

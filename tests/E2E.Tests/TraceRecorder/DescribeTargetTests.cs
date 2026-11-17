@@ -17,8 +17,22 @@ public sealed class DescribeTargetTests
     [Fact]
     public void Never_records_the_text_or_the_value_the_target_holds()
     {
-        var button = new SemanticNode { Ref = "n42", Role = "button", Name = "Upgrade", Text = "Upgrade", TestId = "upgrade-cta" };
-        var field = new SemanticNode { Ref = "n7", Role = "textbox", Name = "Password", InputPurpose = "password", Value = "s3cr3t" };
+        var button = new SemanticNode
+        {
+            Ref = "n42",
+            Role = "button",
+            Name = "Upgrade",
+            Text = "Upgrade",
+            TestId = "upgrade-cta",
+        };
+        var field = new SemanticNode
+        {
+            Ref = "n7",
+            Role = "textbox",
+            Name = "Password",
+            InputPurpose = "password",
+            Value = "s3cr3t",
+        };
 
         var described = Recorder.DescribeTarget(field, Redactor.None);
 

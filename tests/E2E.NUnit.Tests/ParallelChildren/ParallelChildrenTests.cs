@@ -55,15 +55,14 @@ public sealed class NonParallelFixture : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
     [Test]
     [Parallelizable(ParallelScope.Self)]
-    public void Runs_in_sequence()
-    {
-    }
+    public void Runs_in_sequence() { }
 }
 
 [Explicit("Run by ParallelChildrenTests")]
@@ -72,15 +71,14 @@ public sealed class ParallelMethodFixture : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
     [Test]
     [Parallelizable(ParallelScope.Self)]
-    public void Opts_in()
-    {
-    }
+    public void Opts_in() { }
 }
 
 [Explicit("Run by ParallelChildrenTests")]
@@ -91,14 +89,13 @@ public sealed class ParallelInstancePerTestFixture : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
     [Test]
-    public void Runs_with_its_own_instance()
-    {
-    }
+    public void Runs_with_its_own_instance() { }
 }
 
 [Explicit("Run by ParallelChildrenTests")]
@@ -108,12 +105,11 @@ public sealed class ParallelChildrenFixture : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
     [Test]
-    public void Runs_in_parallel()
-    {
-    }
+    public void Runs_in_parallel() { }
 }

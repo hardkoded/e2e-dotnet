@@ -17,7 +17,14 @@ namespace E2E;
 /// The identity a saved session is keyed on (upstream's <c>SessionIdentity</c>, <c>run/sessions.ts</c>): the target and the engine and app
 /// it ran against, so a session never restores into another engine, platform, or app.
 /// </summary>
-internal sealed record SessionIdentity(string TargetId, string EngineName, string EngineVersion, int SpiVersion, string Platform, string AppIdentity);
+internal sealed record SessionIdentity(
+    string TargetId,
+    string EngineName,
+    string EngineVersion,
+    int SpiVersion,
+    string Platform,
+    string AppIdentity
+);
 
 /// <summary>The identity-making function of upstream's <c>run/sessions.ts</c>.</summary>
 internal static class Sessions
@@ -40,7 +47,14 @@ internal static class Sessions
         }
 
         identity["environment"] = app.Environment;
-        return new SessionIdentity(targetName, engine.Name, engine.Version, BuildReport.EngineSpiVersion, platform, Ids.CanonicalDigest(identity));
+        return new SessionIdentity(
+            targetName,
+            engine.Name,
+            engine.Version,
+            BuildReport.EngineSpiVersion,
+            platform,
+            Ids.CanonicalDigest(identity)
+        );
     }
 }
 
@@ -101,7 +115,11 @@ internal sealed class SessionStore
 
     private static readonly TimeSpan MaxSessionAge = TimeSpan.FromHours(24);
 
-    private static readonly JsonSerializerOptions EnvelopeOptions = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions EnvelopeOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     private readonly byte[] _key;
 
@@ -147,7 +165,12 @@ internal sealed class SessionStore
     /// beside the state they may be stored in, so the session that restores it redacts them too; the envelope names them in the clear,
     /// authenticated.
     /// </summary>
-    public async Task SaveAsync(string name, SessionIdentity identity, SavedSession saved, CancellationToken cancellationToken = default)
+    public async Task SaveAsync(
+        string name,
+        SessionIdentity identity,
+        SavedSession saved,
+        CancellationToken cancellationToken = default
+    )
     {
         EnsureDirectory();
         var now = _time.GetUtcNow();
@@ -184,7 +207,12 @@ internal sealed class SessionStore
             ["expiresAt"] = Ids.Timestamp(expiresAt),
             ["secrecy"] = new JsonObject
             {
-                ["names"] = new JsonArray([.. saved.Secrets.Select(secret => secret.Name).Distinct(StringComparer.Ordinal).Select(each => (JsonNode)each)]),
+                ["names"] = new JsonArray([
+                    .. saved
+                        .Secrets.Select(secret => secret.Name)
+                        .Distinct(StringComparer.Ordinal)
+                        .Select(each => (JsonNode)each),
+                ]),
             },
             ["state"] = new JsonObject
             {
@@ -198,7 +226,9 @@ internal sealed class SessionStore
         var payload = new JsonObject
         {
             ["data"] = saved.State.Data?.DeepClone(),
-            ["secrets"] = new JsonArray([.. saved.Secrets.Select(secret => (JsonNode)new JsonArray(secret.Name, secret.Value))]),
+            ["secrets"] = new JsonArray([
+                .. saved.Secrets.Select(secret => (JsonNode)new JsonArray(secret.Name, secret.Value)),
+            ]),
         };
         var plaintext = Encoding.UTF8.GetBytes(payload.ToJsonString());
         var ciphertext = new byte[plaintext.Length];
@@ -211,7 +241,14 @@ internal sealed class SessionStore
         var state = envelope["state"]!.AsObject();
         state["tag"] = Convert.ToBase64String(tag);
         state["ciphertext"] = Convert.ToBase64String(ciphertext);
-        await AtomicWrite.WriteFileAtomicAsync(FilePath(identity.TargetId, name), envelope.ToJsonString(EnvelopeOptions) + "\n", UnixFileMode.UserRead | UnixFileMode.UserWrite, cancellationToken).ConfigureAwait(false);
+        await AtomicWrite
+            .WriteFileAtomicAsync(
+                FilePath(identity.TargetId, name),
+                envelope.ToJsonString(EnvelopeOptions) + "\n",
+                UnixFileMode.UserRead | UnixFileMode.UserWrite,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>Whether a file for the session is in the store. It says nothing about the file being valid or unexpired: <see cref="LoadAsync"/> checks that.</summary>
@@ -222,7 +259,11 @@ internal sealed class SessionStore
     /// decrypted state is memoized per store: a worker running many consumers of one session reads and decrypts its file once. Its expiry is
     /// still checked on every load: an immutable state can expire between consumers.
     /// </summary>
-    public async Task<SavedSession> LoadAsync(string name, SessionIdentity identity, CancellationToken cancellationToken = default)
+    public async Task<SavedSession> LoadAsync(
+        string name,
+        SessionIdentity identity,
+        CancellationToken cancellationToken = default
+    )
     {
         var memoKey = identity.TargetId + "\0" + name;
         Task<SavedSession> loading;
@@ -269,7 +310,12 @@ internal sealed class SessionStore
     }
 
     private static bool TryParseTimestamp(string text, out DateTimeOffset value) =>
-        DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out value);
+        DateTimeOffset.TryParse(
+            text,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out value
+        );
 
     /// <summary>Refuses an expired saved session, whether freshly decrypted or already cached.</summary>
     private void AssertSessionNotExpired(string name, string? expiresAt)
@@ -288,7 +334,10 @@ internal sealed class SessionStore
         }
         else
         {
-            Directory.CreateDirectory(_directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            Directory.CreateDirectory(
+                _directory,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+            );
         }
     }
 
@@ -308,7 +357,13 @@ internal sealed class SessionStore
         var part = new StringBuilder();
         foreach (var octet in Encoding.UTF8.GetBytes(value))
         {
-            if (octet is (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'a' and <= (byte)'z') or (>= (byte)'0' and <= (byte)'9') or (byte)'_')
+            if (
+                octet
+                is (>= (byte)'A' and <= (byte)'Z')
+                    or (>= (byte)'a' and <= (byte)'z')
+                    or (>= (byte)'0' and <= (byte)'9')
+                    or (byte)'_'
+            )
             {
                 part.Append((char)octet);
             }
@@ -338,7 +393,14 @@ internal sealed class SessionStore
         {
             return Open(name, identity, envelope);
         }
-        catch (Exception cause) when (cause is JsonException or InvalidOperationException or FormatException or InvalidCastException or ArgumentException)
+        catch (Exception cause)
+            when (cause
+                    is JsonException
+                        or InvalidOperationException
+                        or FormatException
+                        or InvalidCastException
+                        or ArgumentException
+            )
         {
             throw new ConfigurationException("SESSION_INVALID", $"session \"{name}\" has an unexpected shape", cause);
         }
@@ -348,16 +410,21 @@ internal sealed class SessionStore
     {
         var engine = envelope["engine"]!.AsObject();
         var state = envelope["state"]!.AsObject();
-        if (Text(envelope, "schemaVersion") != SchemaVersion
+        if (
+            Text(envelope, "schemaVersion") != SchemaVersion
             || Text(envelope, "runId") != _runId
             || Text(envelope, "targetId") != identity.TargetId
             || Text(engine, "name") != identity.EngineName
             || Text(engine, "version") != identity.EngineVersion
             || (int?)engine["spiVersion"] != identity.SpiVersion
             || Text(envelope, "platform") != identity.Platform
-            || Text(envelope, "appIdentity") != identity.AppIdentity)
+            || Text(envelope, "appIdentity") != identity.AppIdentity
+        )
         {
-            throw new ConfigurationException("SESSION_MISMATCH", $"session \"{name}\" does not match the current run/target/engine identity");
+            throw new ConfigurationException(
+                "SESSION_MISMATCH",
+                $"session \"{name}\" does not match the current run/target/engine identity"
+            );
         }
 
         var expiresAt = Text(envelope, "expiresAt");
@@ -373,7 +440,13 @@ internal sealed class SessionStore
         try
         {
             using var decipher = new AesGcm(_key, TagLength);
-            decipher.Decrypt(nonce, ciphertext, tag, plaintext, Encoding.UTF8.GetBytes(Ids.CanonicalJson(authenticated)));
+            decipher.Decrypt(
+                nonce,
+                ciphertext,
+                tag,
+                plaintext,
+                Encoding.UTF8.GetBytes(Ids.CanonicalJson(authenticated))
+            );
         }
         catch (Exception cause) when (cause is CryptographicException or ArgumentException)
         {
@@ -382,11 +455,18 @@ internal sealed class SessionStore
 
         var payload = ParsePayload(Encoding.UTF8.GetString(plaintext), name);
         return new SavedSession(
-            new EngineState(Text(state, "format"), state["version"]?.GetValue<int>() ?? throw new InvalidOperationException("version is not a number"), payload["data"]?.DeepClone(), expiresAt),
-            [.. payload["secrets"]!.AsArray().Select(entry => ((string)entry![0]!, (string)entry[1]!))]);
+            new EngineState(
+                Text(state, "format"),
+                state["version"]?.GetValue<int>() ?? throw new InvalidOperationException("version is not a number"),
+                payload["data"]?.DeepClone(),
+                expiresAt
+            ),
+            [.. payload["secrets"]!.AsArray().Select(entry => ((string)entry![0]!, (string)entry[1]!))]
+        );
     }
 
-    private static string Text(JsonObject owner, string key) => (string?)owner[key] ?? throw new InvalidOperationException(key + " is not text");
+    private static string Text(JsonObject owner, string key) =>
+        (string?)owner[key] ?? throw new InvalidOperationException(key + " is not text");
 
     /// <summary>Parses an envelope file, classifying a corrupt or truncated one as SESSION_INVALID.</summary>
     private static JsonObject ParseEnvelope(string rawText, string name)
@@ -401,7 +481,11 @@ internal sealed class SessionStore
             throw new ConfigurationException("SESSION_INVALID", $"session \"{name}\" is not valid JSON", cause);
         }
 
-        if (parsed is not JsonObject envelope || envelope["state"] is not JsonObject || envelope["engine"] is not JsonObject)
+        if (
+            parsed is not JsonObject envelope
+            || envelope["state"] is not JsonObject
+            || envelope["engine"] is not JsonObject
+        )
         {
             throw new ConfigurationException("SESSION_INVALID", $"session \"{name}\" has an unexpected shape");
         }
@@ -413,10 +497,15 @@ internal sealed class SessionStore
     private static JsonObject ParsePayload(string text, string name)
     {
         var parsed = JsonNode.Parse(text);
-        if (parsed is not JsonObject payload
+        if (
+            parsed is not JsonObject payload
             || !payload.ContainsKey("data")
             || payload["secrets"] is not JsonArray secrets
-            || !secrets.All(entry => entry is JsonArray { Count: 2 } pair && pair.All(part => part is JsonValue value && value.TryGetValue<string>(out _))))
+            || !secrets.All(entry =>
+                entry is JsonArray { Count: 2 } pair
+                && pair.All(part => part is JsonValue value && value.TryGetValue<string>(out _))
+            )
+        )
         {
             throw new ConfigurationException("SESSION_INVALID", $"session \"{name}\" has an unexpected payload");
         }

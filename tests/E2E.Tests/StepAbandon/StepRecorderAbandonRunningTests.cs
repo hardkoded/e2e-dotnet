@@ -19,7 +19,9 @@ public sealed class StepRecorderAbandonRunningTests
         Assert.Equal(StepStatus.Passed, steps.All()[0].Status);
         var cause = new InvalidOperationException("awaited and failed");
 
-        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => steps.RunAsync(StepKind.App, "app.open", "/", () => Task.FromException(cause)));
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            steps.RunAsync(StepKind.App, "app.open", "/", () => Task.FromException(cause))
+        );
 
         Assert.Same(cause, thrown);
         Assert.False(AbandonedWork.IsRejection(cause));
@@ -37,7 +39,10 @@ public sealed class StepRecorderAbandonRunningTests
 
         Assert.NotNull(failure);
         Assert.Equal("STEP_NOT_AWAITED", failure.Code);
-        Assert.Equal("the test body returned before agent.act \"go to the contact form\" finished; put `await` in front of every step call", failure.Message);
+        Assert.Equal(
+            "the test body returned before agent.act \"go to the contact form\" finished; put `await` in front of every step call",
+            failure.Message
+        );
         var record = steps.All()[0];
         Assert.Equal(StepStatus.Failed, record.Status);
         Assert.Equal("test", record.Error?.Category);
@@ -83,7 +88,13 @@ public sealed class StepRecorderAbandonRunningTests
     {
         var (steps, _) = StepKit.Recorder();
         var body = new Gate();
-        var step = steps.RunAsync(StepKind.Assertion, "expect.toBeVisible", "button \"Save\"", () => body.Task, new StepRunOptions { Verifies = true });
+        var step = steps.RunAsync(
+            StepKind.Assertion,
+            "expect.toBeVisible",
+            "button \"Save\"",
+            () => body.Task,
+            new StepRunOptions { Verifies = true }
+        );
         steps.AbandonRunning();
 
         body.Open();
@@ -105,7 +116,11 @@ public sealed class StepRecorderAbandonRunningTests
         var failure = steps.AbandonRunning();
 
         Assert.Contains("before app.open \"/\" and 1 more finished", failure?.Message, StringComparison.Ordinal);
-        Assert.Contains($"agent.act \"{new string('x', 77)}...\" finished", steps.All()[1].Error?.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            $"agent.act \"{new string('x', 77)}...\" finished",
+            steps.All()[1].Error?.Message,
+            StringComparison.Ordinal
+        );
         first.Open();
         second.Open();
         await Task.WhenAll(a, b);

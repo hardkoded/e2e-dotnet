@@ -13,7 +13,8 @@ namespace E2E.Tests.AgentPointTap;
 /// </summary>
 public sealed class DescribePointActionTests
 {
-    private static readonly PointTap.NodeProse Prose = node => SnapshotText.FormatNode(node, 0, Redactor.None, null).TrimStart();
+    private static readonly PointTap.NodeProse Prose = node =>
+        SnapshotText.FormatNode(node, 0, Redactor.None, null).TrimStart();
 
     [Fact]
     public void Names_the_control_the_point_resolved_to_by_the_line_the_model_already_reads()
@@ -36,7 +37,10 @@ public sealed class DescribePointActionTests
     {
         var paragraph = PointTapScreen.Find("n5");
         var text = PointTap.DescribePointAction("tapAt", new Point(640, 120), null, paragraph, false, Prose);
-        Assert.Equal("Tapped the point (640, 120); no listed control is there (under it: " + Prose(paragraph) + ").", text);
+        Assert.Equal(
+            "Tapped the point (640, 120); no listed control is there (under it: " + Prose(paragraph) + ").",
+            text
+        );
     }
 
     [Fact]

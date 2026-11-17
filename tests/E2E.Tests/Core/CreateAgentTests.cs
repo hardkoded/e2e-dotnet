@@ -45,18 +45,47 @@ public sealed class CreateAgentTests : IAsyncLifetime
 
     /// <summary>Upstream's <c>shop()</c>: a product page whose button leads to a cart with a coupon and a payment button.</summary>
     private static DocumentWorld Shop() => new DocumentWorld().Map("/", page =>
-    {
-        var paid = new DocumentElement { Role = "status", Name = "Paid", Hidden = true };
-        var coupon = new DocumentElement { Role = "checkbox", Name = "Apply coupon SAVE10" };
-        var pay = new DocumentElement { Role = "button", Name = "Pay now", OnTap = () => paid.Hidden = false };
-        var cart = new DocumentElement { Role = "region", Name = "Cart", Hidden = true };
-        cart.Children.Add(coupon);
-        cart.Children.Add(pay);
-        page.Roots.Add(new DocumentElement { Role = "button", Name = "Add to cart", OnTap = () => cart.Hidden = false });
-        page.Roots.Add(new DocumentElement { Role = "paragraph", Text = "39,000", TestId = "sale-price" });
-        page.Roots.Add(cart);
-        page.Roots.Add(paid);
-    });
+        {
+            var paid = new DocumentElement
+            {
+                Role = "status",
+                Name = "Paid",
+                Hidden = true,
+            };
+            var coupon = new DocumentElement { Role = "checkbox", Name = "Apply coupon SAVE10" };
+            var pay = new DocumentElement
+            {
+                Role = "button",
+                Name = "Pay now",
+                OnTap = () => paid.Hidden = false,
+            };
+            var cart = new DocumentElement
+            {
+                Role = "region",
+                Name = "Cart",
+                Hidden = true,
+            };
+            cart.Children.Add(coupon);
+            cart.Children.Add(pay);
+            page.Roots.Add(
+                new DocumentElement
+                {
+                    Role = "button",
+                    Name = "Add to cart",
+                    OnTap = () => cart.Hidden = false,
+                }
+            );
+            page.Roots.Add(
+                new DocumentElement
+                {
+                    Role = "paragraph",
+                    Text = "39,000",
+                    TestId = "sale-price",
+                }
+            );
+            page.Roots.Add(cart);
+            page.Roots.Add(paid);
+        });
 
     /// <summary>Upstream's <c>scripted()</c>: a brain that adds to cart, checks the coupon, and pays.</summary>
     private static (TestExecutor Brain, Func<int> Calls) Scripted()
@@ -70,10 +99,7 @@ public sealed class CreateAgentTests : IAsyncLifetime
             await context.Actions.CheckAsync(TargetFor(observation.Text, "checkbox \"Apply coupon SAVE10\""), true);
             await Tap(context, "button \"Pay now\"");
             return Passed("paid");
-        })
-        {
-            Version = "1",
-        };
+        }) { Version = "1" };
         return (brain, () => Volatile.Read(ref calls));
     }
 
@@ -84,11 +110,21 @@ public sealed class CreateAgentTests : IAsyncLifetime
     }
 
     private static string[] Recordings(string cacheDir) =>
-        Directory.Exists(cacheDir) ? [.. Directory.EnumerateFiles(cacheDir, "*.json", SearchOption.AllDirectories)] : [];
+        Directory.Exists(cacheDir)
+            ? [.. Directory.EnumerateFiles(cacheDir, "*.json", SearchOption.AllDirectories)]
+            : [];
 
     private async Task<Host> HostOf(IEngine engine)
     {
-        var opened = await Launch.LaunchAsync(engine, new LaunchOptions { App = FakeApp, Cwd = _dir, Env = new Dictionary<string, string?>() });
+        var opened = await Launch.LaunchAsync(
+            engine,
+            new LaunchOptions
+            {
+                App = FakeApp,
+                Cwd = _dir,
+                Env = new Dictionary<string, string?>(),
+            }
+        );
         _hosts.Add(opened);
         return opened;
     }
@@ -103,8 +139,18 @@ public sealed class CreateAgentTests : IAsyncLifetime
         {
             var session = await opened.NewSessionAsync();
             await session.App.OpenAsync("/");
-            var agent = CoreAgents.CreateAgent(session, new CreateAgentOptions { Executor = brain, Cache = new AgentCacheOptions { Dir = cacheDir } });
-            var result = await agent.ActAsync("checkout with the coupon", new CachingActOptions { CacheKey = "checkout" });
+            var agent = CoreAgents.CreateAgent(
+                session,
+                new CreateAgentOptions
+                {
+                    Executor = brain,
+                    Cache = new AgentCacheOptions { Dir = cacheDir },
+                }
+            );
+            var result = await agent.ActAsync(
+                "checkout with the coupon",
+                new CachingActOptions { CacheKey = "checkout" }
+            );
             Assert.True(await session.Screen.GetByRole("checkbox").IsCheckedAsync());
             // A check after the step confirms its recording.
             await session.Screen.GetByRole("status", "Paid").WaitForAsync();
@@ -124,10 +170,21 @@ public sealed class CreateAgentTests : IAsyncLifetime
         var opened = await HostOf(new DocumentEngine(Shop()));
         var session = await opened.NewSessionAsync();
         await session.App.OpenAsync("/");
-        var agent = CoreAgents.CreateAgent(session, new CreateAgentOptions { Executor = brain, Cache = new AgentCacheOptions { Dir = cacheDir } });
+        var agent = CoreAgents.CreateAgent(
+            session,
+            new CreateAgentOptions
+            {
+                Executor = brain,
+                Cache = new AgentCacheOptions { Dir = cacheDir },
+            }
+        );
         await agent.ActAsync("checkout with the coupon", new CachingActOptions { CacheKey = "checkout" });
         await session.Screen.GetByRole("button", "Pay now").WaitForAsync();
-        var caught = await Assert.ThrowsAnyAsync<E2EException>(() => session.Screen.GetByRole("button", "Missing").WaitForAsync(new LocatorWaitForOptions { Timeout = TimeSpan.FromMilliseconds(100) }));
+        var caught = await Assert.ThrowsAnyAsync<E2EException>(() =>
+            session
+                .Screen.GetByRole("button", "Missing")
+                .WaitForAsync(new LocatorWaitForOptions { Timeout = TimeSpan.FromMilliseconds(100) })
+        );
         Assert.Equal("LOCATOR_NOT_FOUND", caught.Code);
         await opened.CloseAsync();
 
@@ -138,15 +195,25 @@ public sealed class CreateAgentTests : IAsyncLifetime
     public async Task Drops_only_what_a_caught_agent_failure_found_unconfirmed_and_evicts_nothing_when_a_session_closes_before_its_check()
     {
         var (brain, calls) = Scripted();
-        var flaky = new TestExecutor("scripted", (context, token) => context.Step.Instruction.StartsWith("find", StringComparison.Ordinal)
-            ? Task.FromResult(Failed("there is no sale"))
-            : brain.RunStepAsync(context, token))
+        var flaky = new TestExecutor("scripted", (context, token) =>
+            context.Step.Instruction.StartsWith("find", StringComparison.Ordinal)
+                ? Task.FromResult(Failed("there is no sale"))
+                : brain.RunStepAsync(context, token)
+        )
         {
             Version = "1",
         };
         var cacheDir = Path.Combine(_dir, "cache");
         var opened = await HostOf(new DocumentEngine(Shop()));
-        CoreAgent AgentOn(Session session) => CoreAgents.CreateAgent(session, new CreateAgentOptions { Executor = flaky, Cache = new AgentCacheOptions { Dir = cacheDir } });
+        CoreAgent AgentOn(Session session) =>
+            CoreAgents.CreateAgent(
+                session,
+                new CreateAgentOptions
+                {
+                    Executor = flaky,
+                    Cache = new AgentCacheOptions { Dir = cacheDir },
+                }
+            );
         async Task Round(Func<CoreAgent, Session, Task> steps)
         {
             var session = await opened.NewSessionAsync();
@@ -156,35 +223,70 @@ public sealed class CreateAgentTests : IAsyncLifetime
         }
 
         async Task Fails(CoreAgent agent) =>
-            Assert.Equal("ACTION_FAILED", (await Assert.ThrowsAsync<AgentException>(() => agent.ActAsync("find the sale", new CachingActOptions { CacheKey = "sale" }))).Code);
+            Assert.Equal(
+                "ACTION_FAILED",
+                (
+                    await Assert.ThrowsAsync<AgentException>(() =>
+                        agent.ActAsync("find the sale", new CachingActOptions { CacheKey = "sale" })
+                    )
+                ).Code
+            );
 
         // A recording made after a failure the program caught is confirmed by the check after it.
-        await Round(async (agent, session) =>
-        {
-            await Fails(agent);
-            Assert.Equal("missed", (await agent.ActAsync("checkout with the coupon", new CachingActOptions { CacheKey = "checkout" })).Cache?.Mode);
-            await session.Screen.GetByRole("button", "Pay now").WaitForAsync();
-        });
+        await Round(
+            async (agent, session) =>
+            {
+                await Fails(agent);
+                Assert.Equal(
+                    "missed",
+                    (await agent.ActAsync("checkout with the coupon", new CachingActOptions { CacheKey = "checkout" }))
+                        .Cache
+                        ?.Mode
+                );
+                await session.Screen.GetByRole("button", "Pay now").WaitForAsync();
+            }
+        );
         Assert.Single(Recordings(cacheDir));
         // A session that closes between a replay and its check leaves the recording alone.
-        await Round(async (agent, _) =>
-            Assert.Equal("self-finalized", (await agent.ActAsync("checkout with the coupon", new CachingActOptions { CacheKey = "checkout" })).Cache?.Mode));
+        await Round(
+            async (agent, _) =>
+                Assert.Equal(
+                    "self-finalized",
+                    (await agent.ActAsync("checkout with the coupon", new CachingActOptions { CacheKey = "checkout" }))
+                        .Cache
+                        ?.Mode
+                )
+        );
         Assert.Single(Recordings(cacheDir));
         // So does a replay that a check confirms after a failure.
-        await Round(async (agent, session) =>
-        {
-            await Fails(agent);
-            Assert.Equal("self-finalized", (await agent.ActAsync("checkout with the coupon", new CachingActOptions { CacheKey = "checkout" })).Cache?.Mode);
-            await session.Screen.GetByRole("button", "Pay now").WaitForAsync();
-        });
+        await Round(
+            async (agent, session) =>
+            {
+                await Fails(agent);
+                Assert.Equal(
+                    "self-finalized",
+                    (await agent.ActAsync("checkout with the coupon", new CachingActOptions { CacheKey = "checkout" }))
+                        .Cache
+                        ?.Mode
+                );
+                await session.Screen.GetByRole("button", "Pay now").WaitForAsync();
+            }
+        );
         Assert.Single(Recordings(cacheDir));
         // A recording still unconfirmed when a step fails is dropped, whatever passes later.
-        await Round(async (agent, session) =>
-        {
-            Assert.Equal("missed", (await agent.ActAsync("checkout with the coupon", new CachingActOptions { CacheKey = "again" })).Cache?.Mode);
-            await Fails(agent);
-            await session.Screen.GetByRole("button", "Pay now").WaitForAsync();
-        });
+        await Round(
+            async (agent, session) =>
+            {
+                Assert.Equal(
+                    "missed",
+                    (await agent.ActAsync("checkout with the coupon", new CachingActOptions { CacheKey = "again" }))
+                        .Cache
+                        ?.Mode
+                );
+                await Fails(agent);
+                await session.Screen.GetByRole("button", "Pay now").WaitForAsync();
+            }
+        );
         Assert.Single(Recordings(cacheDir));
         Assert.Equal(2, calls());
     }
@@ -194,18 +296,43 @@ public sealed class CreateAgentTests : IAsyncLifetime
     {
         var opened = await HostOf(new DocumentEngine(Shop()));
         var session = await opened.NewSessionAsync();
-        var caching = CoreAgents.CreateAgent(session, new CreateAgentOptions { Executor = Scripted().Brain, Cache = new AgentCacheOptions { Dir = Path.Combine(_dir, "cache") } });
+        var caching = CoreAgents.CreateAgent(
+            session,
+            new CreateAgentOptions
+            {
+                Executor = Scripted().Brain,
+                Cache = new AgentCacheOptions { Dir = Path.Combine(_dir, "cache") },
+            }
+        );
         // An agent with a cache names its recording.
-        Assert.Equal("INVALID_ARGUMENT", (await Assert.ThrowsAsync<TestException>(() => caching.ActAsync("checkout"))).Code);
+        Assert.Equal(
+            "INVALID_ARGUMENT",
+            (await Assert.ThrowsAsync<TestException>(() => caching.ActAsync("checkout"))).Code
+        );
         var live = CoreAgents.CreateAgent(session, new CreateAgentOptions { Executor = Scripted().Brain });
         // CacheKey needs an agent with a cache.
-        Assert.Equal("INVALID_ARGUMENT", (await Assert.ThrowsAsync<TestException>(() => live.ActAsync("checkout", new CachingActOptions { CacheKey = "checkout" }))).Code);
-        var noModel = await Assert.ThrowsAsync<AgentException>(() => CoreAgents.CreateAgent(session, new CreateAgentOptions()).ActAsync("anything"));
+        Assert.Equal(
+            "INVALID_ARGUMENT",
+            (
+                await Assert.ThrowsAsync<TestException>(() =>
+                    live.ActAsync("checkout", new CachingActOptions { CacheKey = "checkout" })
+                )
+            ).Code
+        );
+        var noModel = await Assert.ThrowsAsync<AgentException>(() =>
+            CoreAgents.CreateAgent(session, new CreateAgentOptions()).ActAsync("anything")
+        );
         Assert.Equal("MODEL_UNAVAILABLE", noModel.Code);
         Assert.Contains("pass one to CreateAgent", noModel.Message, StringComparison.Ordinal);
         // The C# types hold both forms of act, so the runtime refuses the wrong one, as it does for options held in a variable upstream.
-        Assert.Equal("INVALID_ARGUMENT", (await Assert.ThrowsAsync<TestException>(() => caching.ActAsync("checkout", new CachingActOptions()))).Code);
-        Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => CoreAgents.CreateAgent(null!, new CreateAgentOptions())).Code);
+        Assert.Equal(
+            "INVALID_ARGUMENT",
+            (await Assert.ThrowsAsync<TestException>(() => caching.ActAsync("checkout", new CachingActOptions()))).Code
+        );
+        Assert.Equal(
+            "INVALID_ARGUMENT",
+            Assert.Throws<TestException>(() => CoreAgents.CreateAgent(null!, new CreateAgentOptions())).Code
+        );
         await session.CloseAsync();
     }
 }

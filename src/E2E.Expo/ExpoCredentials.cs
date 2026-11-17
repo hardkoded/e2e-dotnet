@@ -13,7 +13,8 @@ internal sealed record ExpoCredentials(string? AccessToken, string? SessionSecre
     public const string TokenVariable = "EXPO_TOKEN";
 
     /// <summary>The header a request authenticates with.</summary>
-    public (string Name, string Value) Header => AccessToken is not null ? ("Authorization", $"Bearer {AccessToken}") : ("expo-session", SessionSecret!);
+    public (string Name, string Value) Header =>
+        AccessToken is not null ? ("Authorization", $"Bearer {AccessToken}") : ("expo-session", SessionSecret!);
 
     /// <summary>The key of the client these credentials make.</summary>
     public string Key => AccessToken is not null ? $"token:{AccessToken}" : $"session:{SessionSecret}";
@@ -24,7 +25,10 @@ internal sealed record ExpoCredentials(string? AccessToken, string? SessionSecre
     /// sessions API is always <c>api.expo.dev</c>, and eas-cli's staging and local logins belong to other hosts.
     /// Null when there is neither.
     /// </summary>
-    public static async Task<ExpoCredentials?> ReadAsync(IReadOnlyDictionary<string, string?> env, CancellationToken cancellationToken)
+    public static async Task<ExpoCredentials?> ReadAsync(
+        IReadOnlyDictionary<string, string?> env,
+        CancellationToken cancellationToken
+    )
     {
         if (EasEnvironment.Value(env, TokenVariable) is { } token)
         {
@@ -54,12 +58,17 @@ internal sealed record ExpoCredentials(string? AccessToken, string? SessionSecre
         catch (JsonException)
         {
             // No cause: a JSON parse error quotes the text around the fault, which can be the secret.
-            throw new InvalidOperationException($"the eas-cli login at {path} is not valid JSON; run `eas login` again, or set {TokenVariable}");
+            throw new InvalidOperationException(
+                $"the eas-cli login at {path} is not valid JSON; run `eas login` again, or set {TokenVariable}"
+            );
         }
 
-        var secret = (state as JsonObject)?["auth"] is JsonObject auth && auth["sessionSecret"] is JsonValue value && value.TryGetValue<string>(out var text2)
-            ? text2.Trim()
-            : "";
+        var secret =
+            (state as JsonObject)?["auth"] is JsonObject auth
+            && auth["sessionSecret"] is JsonValue value
+            && value.TryGetValue<string>(out var text2)
+                ? text2.Trim()
+                : "";
         return secret.Length == 0 ? null : new ExpoCredentials(null, secret);
     }
 

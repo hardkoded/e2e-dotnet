@@ -21,20 +21,20 @@ public sealed class TheExecutorContextAttemptAndMemoryTests : IAsyncLifetime
     {
         _probing = new TestExecutor("context-probe", (context, _) =>
         {
-            _probes.Add(new Probe(
-                context.Step.Instruction,
-                context.Attempt.TestId,
-                context.Attempt.AttemptId,
-                context.Attempt.Index,
-                context.Step.Index,
-                context.Attempt.Memory.TryGetValue("probe", out var before) ? before : null,
-                context.Attempt.CancellationToken));
+            _probes.Add(
+                new Probe(
+                    context.Step.Instruction,
+                    context.Attempt.TestId,
+                    context.Attempt.AttemptId,
+                    context.Attempt.Index,
+                    context.Step.Index,
+                    context.Attempt.Memory.TryGetValue("probe", out var before) ? before : null,
+                    context.Attempt.CancellationToken
+                )
+            );
             context.Attempt.Memory["probe"] = _probes.Count;
             return Task.FromResult(Passed("done: " + context.Step.Instruction));
-        })
-        {
-            Version = "1",
-        };
+        }) { Version = "1" };
     }
 
     public async Task InitializeAsync()
@@ -84,13 +84,15 @@ public sealed class TheExecutorContextAttemptAndMemoryTests : IAsyncLifetime
 
     private async Task RunTestAsync(string title, params string[] steps)
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(CounterPage.World()),
-            AgentExecutor = _probing,
-            BaseUrl = "https://counter.test",
-            TestTitle = title,
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                AgentExecutor = _probing,
+                BaseUrl = "https://counter.test",
+                TestTitle = title,
+            }
+        );
         await session.App.OpenAsync("/");
         foreach (var step in steps)
         {
@@ -100,5 +102,13 @@ public sealed class TheExecutorContextAttemptAndMemoryTests : IAsyncLifetime
         session.Complete();
     }
 
-    private sealed record Probe(string Instruction, string TestId, string AttemptId, int AttemptIndex, int StepIndex, object? MemoryBefore, CancellationToken Token);
+    private sealed record Probe(
+        string Instruction,
+        string TestId,
+        string AttemptId,
+        int AttemptIndex,
+        int StepIndex,
+        object? MemoryBefore,
+        CancellationToken Token
+    );
 }

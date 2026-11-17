@@ -34,13 +34,19 @@ public sealed class ScreenPresenterAndTheOnScreenKeyboardTests
     {
         var presenter = new ScreenPresenter();
         presenter.Initial(Screen("b1", [.. Form, .. Keyboard]));
-        var text = presenter.Update(Screen("b2", Form), new ScreenUpdateOptions { Lead = "Tapped #n7.", ExpectChange = true });
+        var text = presenter.Update(
+            Screen("b2", Form),
+            new ScreenUpdateOptions { Lead = "Tapped #n7.", ExpectChange = true }
+        );
         Assert.Contains("removed #n20 keyboard \"Padding-Left\"", text, StringComparison.Ordinal);
         Assert.Contains("The on-screen keyboard closed with this action.", text, StringComparison.Ordinal);
         Assert.Contains("act on it again now that the keyboard is down", text, StringComparison.Ordinal);
         var keys = Enumerable.Range(0, 40).Select(i => $"  #k{i} key \"{i}\"");
         presenter.Initial(Screen("b3", [.. Form, " #n20 keyboard \"Padding-Left\"", .. keys]));
-        var whole = presenter.Update(Screen("b4", Form), new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true });
+        var whole = presenter.Update(
+            Screen("b4", Form),
+            new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true }
+        );
         Assert.Contains("changed substantially", whole, StringComparison.Ordinal);
         Assert.Contains("The on-screen keyboard closed with this action.", whole, StringComparison.Ordinal);
     }
@@ -52,26 +58,54 @@ public sealed class ScreenPresenterAndTheOnScreenKeyboardTests
         presenter.Initial(Screen("b1", [.. Form, .. Keyboard]));
         Assert.DoesNotContain(
             "keyboard closed",
-            presenter.Update(Screen("b2", Form, truncated: true), new ScreenUpdateOptions { Lead = "Tapped #n7.", ExpectChange = true }),
-            StringComparison.Ordinal);
+            presenter.Update(
+                Screen("b2", Form, truncated: true),
+                new ScreenUpdateOptions { Lead = "Tapped #n7.", ExpectChange = true }
+            ),
+            StringComparison.Ordinal
+        );
         presenter.Initial(Screen("b1", [.. Form, .. Keyboard]));
         Assert.DoesNotContain(
             "keyboard closed",
-            presenter.Update(Screen("b2", Form), new ScreenUpdateOptions { Lead = "Dismissed the keyboard.", KeyboardNote = false }),
-            StringComparison.Ordinal);
+            presenter.Update(
+                Screen("b2", Form),
+                new ScreenUpdateOptions { Lead = "Dismissed the keyboard.", KeyboardNote = false }
+            ),
+            StringComparison.Ordinal
+        );
         presenter.Initial(Screen("b3", Form));
-        Assert.DoesNotContain("keyboard closed", presenter.Update(Screen("b4", [.. Form, .. Keyboard]), new ScreenUpdateOptions { Lead = "Tapped #n2." }), StringComparison.Ordinal);
-        Assert.DoesNotContain("keyboard closed", presenter.Update(Screen("b5", [.. Form, .. Keyboard]), new ScreenUpdateOptions { Lead = "Tapped #n3." }), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "keyboard closed",
+            presenter.Update(Screen("b4", [.. Form, .. Keyboard]), new ScreenUpdateOptions { Lead = "Tapped #n2." }),
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "keyboard closed",
+            presenter.Update(Screen("b5", [.. Form, .. Keyboard]), new ScreenUpdateOptions { Lead = "Tapped #n3." }),
+            StringComparison.Ordinal
+        );
         var grammar = new ScreenPresenter();
         grammar.Open(Screen("b1", [.. Form, .. Keyboard]));
         Assert.DoesNotContain(
             "keyboard closed",
-            grammar.Present(Screen("b2", Form), new ScreenUpdateOptions { Lead = "Dismissed the keyboard.", ExpectChange = false, KeyboardNote = false }).Text,
-            StringComparison.Ordinal);
+            grammar
+                .Present(
+                    Screen("b2", Form),
+                    new ScreenUpdateOptions
+                    {
+                        Lead = "Dismissed the keyboard.",
+                        ExpectChange = false,
+                        KeyboardNote = false,
+                    }
+                )
+                .Text,
+            StringComparison.Ordinal
+        );
         grammar.Present(Screen("b3", [.. Form, .. Keyboard]), new ScreenUpdateOptions { Lead = "Tapped #n3." });
         Assert.Contains(
             "The on-screen keyboard closed with this action.",
             grammar.Present(Screen("b4", Form), new ScreenUpdateOptions { Lead = "Tapped #n7." }).Text,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
     }
 }

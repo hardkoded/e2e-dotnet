@@ -14,7 +14,12 @@ namespace E2E.Tests.LocatorEngine;
 /// </summary>
 public sealed class LocatorEngineReadAllNowContractTests
 {
-    private static readonly SemanticNode Other = new() { Ref = "node-2", Role = "button", Name = "Cancel" };
+    private static readonly SemanticNode Other = new()
+    {
+        Ref = "node-2",
+        Role = "button",
+        Name = "Cancel",
+    };
 
     [Fact]
     public async Task Partial_Reads_every_current_match_in_the_order_the_engine_resolved_them()
@@ -22,7 +27,11 @@ public sealed class LocatorEngineReadAllNowContractTests
         var scripted = ScriptedLocatorEngine.Make([ScriptedLocatorEngine.Nodes(ScriptedLocatorEngine.Node, Other)]);
         var engine = scripted.Engine;
 
-        var nodes = await engine.ReadAllNowAsync(ScriptedLocatorEngine.Expression, CancellationToken.None, engine.Reads(engine.DeadlineFor()));
+        var nodes = await engine.ReadAllNowAsync(
+            ScriptedLocatorEngine.Expression,
+            CancellationToken.None,
+            engine.Reads(engine.DeadlineFor())
+        );
 
         Assert.Equal([ScriptedLocatorEngine.Node.Ref, Other.Ref], nodes.Select(node => node.Ref));
         Assert.Equal(1, scripted.Resolves);
@@ -34,7 +43,13 @@ public sealed class LocatorEngineReadAllNowContractTests
         var scripted = ScriptedLocatorEngine.Make([ScriptedLocatorEngine.Nodes()]);
         var engine = scripted.Engine;
 
-        Assert.Empty(await engine.ReadAllNowAsync(ScriptedLocatorEngine.Expression, CancellationToken.None, engine.Reads(engine.DeadlineFor())));
+        Assert.Empty(
+            await engine.ReadAllNowAsync(
+                ScriptedLocatorEngine.Expression,
+                CancellationToken.None,
+                engine.Reads(engine.DeadlineFor())
+            )
+        );
         Assert.Equal(1, scripted.Resolves);
     }
 }

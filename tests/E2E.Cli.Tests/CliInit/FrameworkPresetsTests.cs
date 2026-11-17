@@ -11,7 +11,11 @@ public sealed class FrameworkPresetsTests
 {
     private static string SampleProject(string name)
     {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        for (
+            var directory = new DirectoryInfo(AppContext.BaseDirectory);
+            directory is not null;
+            directory = directory.Parent
+        )
         {
             var project = Path.Combine(directory.FullName, "samples", name, name + ".csproj");
             if (File.Exists(project))
@@ -29,9 +33,16 @@ public sealed class FrameworkPresetsTests
     [InlineData("tunit", "E2E.TUnit.Sample")]
     public void Pin_the_package_versions_of_the_matching_sample(string id, string sample)
     {
-        var pinned = XDocument.Load(SampleProject(sample)).Descendants("PackageReference")
-            .ToDictionary(reference => (string)reference.Attribute("Include")!, reference => (string)reference.Attribute("Version")!);
-        Assert.All(Frameworks.Get(id).Dependencies, dependency => Assert.Equal(pinned[dependency.Key], dependency.Value));
+        var pinned = XDocument
+            .Load(SampleProject(sample))
+            .Descendants("PackageReference")
+            .ToDictionary(
+                reference => (string)reference.Attribute("Include")!,
+                reference => (string)reference.Attribute("Version")!
+            );
+        Assert.All(Frameworks.Get(id).Dependencies, dependency =>
+            Assert.Equal(pinned[dependency.Key], dependency.Value)
+        );
     }
 
     [Fact]

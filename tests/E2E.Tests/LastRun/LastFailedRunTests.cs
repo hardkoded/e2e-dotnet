@@ -37,12 +37,24 @@ public sealed class LastFailedRunTests : IDisposable
 
     private static string ReportPath(E2EConfig config) => Path.Combine(config.Output, "report.json");
 
-    private static DiscoveredTest Found(string method) => new($"{Namespace}.{Class}.{method}", Namespace, Class, method, []);
+    private static DiscoveredTest Found(string method) =>
+        new($"{Namespace}.{Class}.{method}", Namespace, Class, method, []);
 
     private static string TestIdOf(string method) => E2E.Internal.Ids.TestId($"{Namespace}.{Class}", [method]);
 
-    private static JsonObject Row(E2EConfig config, string method, string status, params (string Name, JsonNode? Value)[] extra) =>
-        Result([("id", method), ("testId", TestIdOf(method)), ("targetId", config.Target.Name), ("status", status), .. extra]);
+    private static JsonObject Row(
+        E2EConfig config,
+        string method,
+        string status,
+        params (string Name, JsonNode? Value)[] extra
+    ) =>
+        Result([
+            ("id", method),
+            ("testId", TestIdOf(method)),
+            ("targetId", config.Target.Name),
+            ("status", status),
+            .. extra,
+        ]);
 
     private static void WritePrevious(E2EConfig config, params JsonObject[] results)
     {
@@ -68,16 +80,36 @@ public sealed class LastFailedRunTests : IDisposable
         var config = Project();
         DiscoveredTest[] tests = [Found("passes"), Found("fails"), Found("also_passes")];
 
-        var missing = await Assert.ThrowsAsync<ConfigurationException>(() => HostTestFilters.ExcludeAsync(config, [], null, tests, _ => { }, CancellationToken.None, lastFailed: true));
+        var missing = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            HostTestFilters.ExcludeAsync(config, [], null, tests, _ => { }, CancellationToken.None, lastFailed: true)
+        );
         Assert.Equal("NO_LAST_RUN", missing.Code);
         Assert.Contains(ReportPath(config), missing.Message, StringComparison.Ordinal);
 
-        WritePrevious(config, Row(config, "passes", "passed"), Row(config, "fails", "failed"), Row(config, "also_passes", "passed"));
-        var selection = await HostTestFilters.ExcludeAsync(config, [], null, tests, _ => { }, CancellationToken.None, lastFailed: true);
+        WritePrevious(
+            config,
+            Row(config, "passes", "passed"),
+            Row(config, "fails", "failed"),
+            Row(config, "also_passes", "passed")
+        );
+        var selection = await HostTestFilters.ExcludeAsync(
+            config,
+            [],
+            null,
+            tests,
+            _ => { },
+            CancellationToken.None,
+            lastFailed: true
+        );
 
         Assert.Equal(
-            new Dictionary<string, string> { [tests[0].Key] = "did not fail in the last run", [tests[2].Key] = "did not fail in the last run" },
-            selection.Excluded);
+            new Dictionary<string, string>
+            {
+                [tests[0].Key] = "did not fail in the last run",
+                [tests[2].Key] = "did not fail in the last run",
+            },
+            selection.Excluded
+        );
         Assert.All(selection.Results, result =>
         {
             Assert.False(result.Selected);
@@ -86,7 +118,13 @@ public sealed class LastFailedRunTests : IDisposable
         });
         Assert.Equal([TestIdOf("passes"), TestIdOf("also_passes")], selection.Results.Select(result => result.TestId));
         // A session that runs the test names its result the same, so a reporter folding the two reports sees one test.
-        Assert.Equal([AttemptReport.ResultId($"{Namespace}.{Class}", "passes"), AttemptReport.ResultId($"{Namespace}.{Class}", "also_passes")], selection.Results.Select(result => result.Id));
+        Assert.Equal(
+            [
+                AttemptReport.ResultId($"{Namespace}.{Class}", "passes"),
+                AttemptReport.ResultId($"{Namespace}.{Class}", "also_passes"),
+            ],
+            selection.Results.Select(result => result.Id)
+        );
     }
 
     /// <summary>Partial: the port has no runner; this asks the host's selection with a filter in the config, which the second run must not call.</summary>
@@ -101,10 +139,25 @@ public sealed class LastFailedRunTests : IDisposable
             config,
             Row(config, "alpha", "passed"),
             Row(config, "beta", "failed"),
-            Row(config, "gamma", "skipped", ("selected", false), ("skip", Result(("cause", "filtered"), ("reason", "Jev: 5% likely affected"), ("filter", "jev")))));
+            Row(
+                config,
+                "gamma",
+                "skipped",
+                ("selected", false),
+                ("skip", Result(("cause", "filtered"), ("reason", "Jev: 5% likely affected"), ("filter", "jev")))
+            )
+        );
         var notices = new List<string>();
 
-        var selection = await HostTestFilters.ExcludeAsync(config, [drifting], "main", tests, notices.Add, CancellationToken.None, lastFailed: true);
+        var selection = await HostTestFilters.ExcludeAsync(
+            config,
+            [drifting],
+            "main",
+            tests,
+            notices.Add,
+            CancellationToken.None,
+            lastFailed: true
+        );
 
         Assert.Equal(0, calls);
         Assert.Equal([tests[0].Key, tests[2].Key], selection.Excluded.Keys);
@@ -119,12 +172,34 @@ public sealed class LastFailedRunTests : IDisposable
         // The run before: one test failed, one passed. Its report is the one the rerun reads.
         var first = Project();
         var target = new ReportTarget(first.Target.Name, 0, first.Target.Platform, BuildReport.DescribeTarget(null));
-        var failed = ReportBuilders.Result(id: new string('a', 64), titlePath: ["fails"], attempts: [ReportBuilders.Attempt(AttemptStatus.Failed)]) with { Status = ResultStatus.Failed, TestId = TestIdOf("fails"), TargetId = target.Id };
-        var passed = ReportBuilders.Result(id: new string('b', 64), titlePath: ["passes"], attempts: [ReportBuilders.Attempt()]) with { TestId = TestIdOf("passes"), TargetId = target.Id };
+        var failed = ReportBuilders.Result(
+            id: new string('a', 64),
+            titlePath: ["fails"],
+            attempts: [ReportBuilders.Attempt(AttemptStatus.Failed)]
+        ) with
+        {
+            Status = ResultStatus.Failed,
+            TestId = TestIdOf("fails"),
+            TargetId = target.Id,
+        };
+        var passed = ReportBuilders.Result(
+            id: new string('b', 64),
+            titlePath: ["passes"],
+            attempts: [ReportBuilders.Attempt()]
+        ) with
+        {
+            TestId = TestIdOf("passes"),
+            TargetId = target.Id,
+        };
         var runBefore = Guid.CreateVersion7().ToString();
         foreach (var result in new[] { failed, passed })
         {
-            await ReportFile.WriteAsync(new Report1Document(new ReportRun(runBefore, "1.0.0", [target], [result])), first.ProjectRoot, Path.Combine(first.Output, "results"), text => text);
+            await ReportFile.WriteAsync(
+                new Report1Document(new ReportRun(runBefore, "1.0.0", [target], [result])),
+                first.ProjectRoot,
+                Path.Combine(first.Output, "results"),
+                text => text
+            );
         }
 
         var config = Project();
@@ -133,7 +208,15 @@ public sealed class LastFailedRunTests : IDisposable
         DiscoveredTest[] tests = [Found("fails"), Found("passes")];
 
         // The rerun starts: the test it owes is carried until a session runs it, and the report stays schema-valid.
-        var selection = await HostTestFilters.ExcludeAsync(config, [], null, tests, _ => { }, CancellationToken.None, lastFailed: true);
+        var selection = await HostTestFilters.ExcludeAsync(
+            config,
+            [],
+            null,
+            tests,
+            _ => { },
+            CancellationToken.None,
+            lastFailed: true
+        );
         await HostTestFilters.WriteReportAsync(config, selection, CancellationToken.None);
         var started = JsonNode.Parse(File.ReadAllText(ReportPath(config)))!;
         ReportSchema.AssertValidReport(started);
@@ -145,7 +228,12 @@ public sealed class LastFailedRunTests : IDisposable
 
         // A session runs it: its own result says so now, and nothing is carried.
         var rerun = failed with { Status = ResultStatus.Passed, Attempts = [ReportBuilders.Attempt()] };
-        await ReportFile.WriteAsync(new Report1Document(new ReportRun(AttemptReport.RunId, "1.0.0", [target], [rerun])), config.ProjectRoot, Path.Combine(config.Output, "results"), text => text);
+        await ReportFile.WriteAsync(
+            new Report1Document(new ReportRun(AttemptReport.RunId, "1.0.0", [target], [rerun])),
+            config.ProjectRoot,
+            Path.Combine(config.Output, "results"),
+            text => text
+        );
         var finishedDocument = JsonNode.Parse(File.ReadAllText(ReportPath(config)))!;
         ReportSchema.AssertValidReport(finishedDocument);
         Assert.Null(finishedDocument["run"]!["carried"]);
@@ -162,7 +250,9 @@ public sealed class LastFailedRunTests : IDisposable
         public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context)
         {
             called();
-            return Task.FromResult(new TestFilterResult { Exclude = tests.ToDictionary(test => test.Id, _ => "Jev: 5% likely affected") });
+            return Task.FromResult(
+                new TestFilterResult { Exclude = tests.ToDictionary(test => test.Id, _ => "Jev: 5% likely affected") }
+            );
         }
     }
 }

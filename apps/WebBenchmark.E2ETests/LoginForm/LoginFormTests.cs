@@ -35,7 +35,9 @@ public sealed class LoginFormTests : BenchmarkTest
         await Screen.GetByPlaceholder("Email").FillAsync(_account.Username);
         await Screen.GetByPlaceholder("Password").FillAsync("short");
         await Screen.GetByRole("button", "Log in").TapAsync();
-        await Expect.That(Screen.GetByTestId("error-message")).ToHaveTextAsync("Password must be at least 8 characters");
+        await Expect
+            .That(Screen.GetByTestId("error-message"))
+            .ToHaveTextAsync("Password must be at least 8 characters");
     }
 
     [Test]

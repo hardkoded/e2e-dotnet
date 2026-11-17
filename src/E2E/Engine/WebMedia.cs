@@ -45,11 +45,8 @@ public sealed record WebMedia
     internal bool IsEmpty => ColorScheme is null && ReducedMotion is null;
 
     /// <summary>The features <paramref name="other"/> sets, over the ones this sets.</summary>
-    internal WebMedia Merge(WebMedia other) => new()
-    {
-        ColorScheme = other.ColorScheme ?? ColorScheme,
-        ReducedMotion = other.ReducedMotion ?? ReducedMotion,
-    };
+    internal WebMedia Merge(WebMedia other) =>
+        new() { ColorScheme = other.ColorScheme ?? ColorScheme, ReducedMotion = other.ReducedMotion ?? ReducedMotion };
 
     /// <summary>
     /// Why a feature's value is refused, naming it the way <paramref name="where"/> does; null for a value the
@@ -59,12 +56,16 @@ public sealed record WebMedia
     {
         if (media.ColorScheme is { } scheme && !Enum.IsDefined(scheme))
         {
-            return where(nameof(ColorScheme)) + " must be Light, Dark, or NoPreference, got " + ((int)scheme).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return where(nameof(ColorScheme))
+                + " must be Light, Dark, or NoPreference, got "
+                + ((int)scheme).ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
 
         if (media.ReducedMotion is { } motion && !Enum.IsDefined(motion))
         {
-            return where(nameof(ReducedMotion)) + " must be Reduce or NoPreference, got " + ((int)motion).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return where(nameof(ReducedMotion))
+                + " must be Reduce or NoPreference, got "
+                + ((int)motion).ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
 
         return null;
@@ -76,7 +77,17 @@ public sealed record WebMedia
         var features = new List<string>(2);
         if (ColorScheme is { } scheme && Enum.IsDefined(scheme))
         {
-            features.Add("colorScheme: " + (scheme switch { WebColorScheme.Light => "light", WebColorScheme.Dark => "dark", _ => "no-preference" }));
+            features.Add(
+                "colorScheme: "
+                    + (
+                        scheme switch
+                        {
+                            WebColorScheme.Light => "light",
+                            WebColorScheme.Dark => "dark",
+                            _ => "no-preference",
+                        }
+                    )
+            );
         }
 
         if (ReducedMotion is { } motion && Enum.IsDefined(motion))

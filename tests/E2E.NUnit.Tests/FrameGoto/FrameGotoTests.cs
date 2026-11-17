@@ -18,9 +18,16 @@ public sealed class FrameGotoTests : PlaywrightTest
     [Test]
     public async Task Should_continue_after_client_redirect()
     {
-        await Browser.RouteAsync("**/frames/script.js", route => route.ContinueAsync(new RouteContinueOverrides { Url = $"{PREFIX}/never" }));
+        await Browser.RouteAsync("**/frames/script.js", route =>
+            route.ContinueAsync(new RouteContinueOverrides { Url = $"{PREFIX}/never" })
+        );
         var url = $"{PREFIX}/frames/child-redirect.html";
-        var error = await Record(() => Browser.GotoAsync(url, new GotoOptions { Timeout = TimeSpan.FromSeconds(5), WaitUntil = GotoWaitUntil.NetworkIdle }));
+        var error = await Record(() =>
+            Browser.GotoAsync(
+                url,
+                new GotoOptions { Timeout = TimeSpan.FromSeconds(5), WaitUntil = GotoWaitUntil.NetworkIdle }
+            )
+        );
         Contain("timed out in browser.goto", error?.Message ?? "no error");
     }
 }

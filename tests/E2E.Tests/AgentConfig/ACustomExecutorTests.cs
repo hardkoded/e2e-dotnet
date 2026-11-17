@@ -17,9 +17,11 @@ namespace E2E.Tests.AgentConfig;
 /// </summary>
 public sealed class ACustomExecutorTests
 {
-    private static TestExecutor Brain() => new("custom-brain", (_, _) => throw new InvalidOperationException("not called")) { Version = "1" };
+    private static TestExecutor Brain() =>
+        new("custom-brain", (_, _) => throw new InvalidOperationException("not called")) { Version = "1" };
 
-    private static AgentTool ReadOnlyTool() => new("looks something up", new JsonObject { ["type"] = "object" }, false, (_, _) => Task.FromResult("found"));
+    private static AgentTool ReadOnlyTool() =>
+        new("looks something up", new JsonObject { ["type"] = "object" }, false, (_, _) => Task.FromResult("found"));
 
     [Fact]
     public void Keeps_the_options_at_defaults_beside_it()
@@ -37,11 +39,20 @@ public sealed class ACustomExecutorTests
     public void Digests_a_custom_agent_by_name_and_version_deterministically()
     {
         var config = E2EConfig.Parse("{}", Path.Combine(Path.GetTempPath(), "e2e-agent-config-project"), _ => null);
-        string Of(IStepExecutor executor) => ResolvedConfig.ComputeConfigDigest(config, new Dictionary<string, AgentOptions> { ["default"] = new() { Executor = executor } });
+        string Of(IStepExecutor executor) =>
+            ResolvedConfig.ComputeConfigDigest(
+                config,
+                new Dictionary<string, AgentOptions> { ["default"] = new() { Executor = executor } }
+            );
         var first = Of(Brain());
         var again = Of(Brain());
         Assert.Equal(first, again);
-        var renamed = Of(new TestExecutor("other-brain", (_, _) => throw new InvalidOperationException("not called")) { Version = "1" });
+        var renamed = Of(
+            new TestExecutor("other-brain", (_, _) => throw new InvalidOperationException("not called"))
+            {
+                Version = "1",
+            }
+        );
         Assert.NotEqual(first, renamed);
     }
 
@@ -51,16 +62,19 @@ public sealed class ACustomExecutorTests
         var model = new NamedModel("gpt-5.4-mini");
         var judge = new NamedModel("gpt-5.4");
 
-        var agent = ResolvedAgent.From("default", new AgentOptions
-        {
-            Executor = Brain(),
-            Model = model,
-            Judge = judge,
-            Context = "Plans are tiers.",
-            MaxModelCalls = 40,
-            JudgmentTimeout = TimeSpan.FromSeconds(60),
-            MaxInputTokens = 8_000,
-        });
+        var agent = ResolvedAgent.From(
+            "default",
+            new AgentOptions
+            {
+                Executor = Brain(),
+                Model = model,
+                Judge = judge,
+                Context = "Plans are tiers.",
+                MaxModelCalls = 40,
+                JudgmentTimeout = TimeSpan.FromSeconds(60),
+                MaxInputTokens = 8_000,
+            }
+        );
 
         Assert.Equal("custom-brain", agent.Executor!.Name);
         Assert.Equal("Plans are tiers.", agent.Context);
@@ -74,24 +88,44 @@ public sealed class ACustomExecutorTests
     [Fact]
     public void Rejects_system_and_tools_which_belong_to_the_built_in_agent()
     {
-        var system = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("default", new AgentOptions { Executor = Brain(), System = "Be careful." }));
+        var system = Assert.Throws<ConfigurationException>(() =>
+            ResolvedAgent.From("default", new AgentOptions { Executor = Brain(), System = "Be careful." })
+        );
         var tools = Assert.Throws<ConfigurationException>(() =>
-            ResolvedAgent.From("ux", new AgentOptions { Executor = Brain(), Tools = new Dictionary<string, AgentTool> { ["lookup"] = ReadOnlyTool() } }));
+            ResolvedAgent.From(
+                "ux",
+                new AgentOptions
+                {
+                    Executor = Brain(),
+                    Tools = new Dictionary<string, AgentTool> { ["lookup"] = ReadOnlyTool() },
+                }
+            )
+        );
 
         Assert.Equal("INVALID_CONFIG", system.Code);
         Assert.Equal(
             "agents.default.system is an option of the built-in agent, and agents.default.executor replaces it: a custom executor brings its own prompt; drop system or drop executor",
-            system.Message);
+            system.Message
+        );
         Assert.Equal(
             "agents.ux.tools is an option of the built-in agent, and agents.ux.executor replaces it: a custom executor brings its own tools; drop tools or drop executor",
-            tools.Message);
+            tools.Message
+        );
     }
 
     /// <summary>Partial: the types keep any value that is no executor out, so the one thing left to reject is an executor with no name.</summary>
     [Fact]
     public void Partial_Rejects_an_executor_value_that_is_not_a_StepExecutor()
     {
-        var error = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("default", new AgentOptions { Executor = new TestExecutor(" ", (_, _) => throw new InvalidOperationException("not called")) }));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            ResolvedAgent.From(
+                "default",
+                new AgentOptions
+                {
+                    Executor = new TestExecutor(" ", (_, _) => throw new InvalidOperationException("not called")),
+                }
+            )
+        );
 
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("agents.default.executor must be a StepExecutor", error.Message, StringComparison.Ordinal);
@@ -103,5 +137,6 @@ internal sealed class NamedModel(string name) : IAgentModel
 {
     public string Name => name;
 
-    public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken) => throw new InvalidOperationException("not called");
+    public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken) =>
+        throw new InvalidOperationException("not called");
 }

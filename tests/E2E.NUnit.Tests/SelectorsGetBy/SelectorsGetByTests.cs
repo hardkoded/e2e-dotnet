@@ -49,7 +49,10 @@ public sealed class SelectorsGetByTests : PlaywrightTest
         Assert.That(await Screen.GetByText(new Regex("e")).TextContentAsync(), Is.EqualTo("ye"));
 
         await Browser.GotoAsync(Content("<div> ye </div><div>ye</div>"));
-        Assert.That(await Screen.GetByText("ye").First().BoundingBoxAsync(), Is.EqualTo(await Browser.Locator("div").First().BoundingBoxAsync()));
+        Assert.That(
+            await Screen.GetByText("ye").First().BoundingBoxAsync(),
+            Is.EqualTo(await Browser.Locator("div").First().BoundingBoxAsync())
+        );
 
         await Browser.GotoAsync(Content("<div>Hello world</div><div>Hello</div>"));
         Assert.That(await Screen.GetByText("Hello").TextContentAsync(), Is.EqualTo("Hello"));
@@ -73,7 +76,9 @@ public sealed class SelectorsGetByTests : PlaywrightTest
         await Expect.That(Screen.GetByLabel("st na", exact: false)).ToHaveAttributeAsync("id", "target");
         await Expect.That(Screen.GetByLabel("Name", exact: false)).ToHaveAttributeAsync("id", "target");
         await Expect.That(Screen.GetByLabel("Last Name")).ToHaveAttributeAsync("id", "target");
-        await Expect.That(Screen.GetByLabel(new Regex(@"Last\s+name", RegexOptions.IgnoreCase))).ToHaveAttributeAsync("id", "target");
+        await Expect
+            .That(Screen.GetByLabel(new Regex(@"Last\s+name", RegexOptions.IgnoreCase)))
+            .ToHaveAttributeAsync("id", "target");
 
         Assert.That(await Screen.GetByLabel("Last").CountAsync(), Is.EqualTo(0));
         Assert.That(await Screen.GetByLabel("last name").CountAsync(), Is.EqualTo(0));
@@ -85,9 +90,14 @@ public sealed class SelectorsGetByTests : PlaywrightTest
     [Test]
     public async Task GetByLabel_should_work_with_multiply_labelled_input()
     {
-        await Browser.GotoAsync(Content("<label for=target>Name</label><input id=target type=text><label for=target>First or Last</label>"));
+        await Browser.GotoAsync(
+            Content("<label for=target>Name</label><input id=target type=text><label for=target>First or Last</label>")
+        );
         Assert.That(await Screen.GetByLabel("Name", exact: false).GetAttributeAsync("id"), Is.EqualTo("target"));
-        Assert.That(await Screen.GetByLabel("First or Last", exact: false).GetAttributeAsync("id"), Is.EqualTo("target"));
+        Assert.That(
+            await Screen.GetByLabel("First or Last", exact: false).GetAttributeAsync("id"),
+            Is.EqualTo("target")
+        );
     }
 
     [Test]
@@ -100,27 +110,37 @@ public sealed class SelectorsGetByTests : PlaywrightTest
     [Test]
     public async Task GetByLabel_should_work_with_ancestor_label_and_for()
     {
-        await Browser.GotoAsync(Content("""
-            <label for=target>Name<input type=text id=nontarget></label>
-            <input type=text id=target>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <label for=target>Name<input type=text id=nontarget></label>
+                <input type=text id=target>
+                """
+            )
+        );
         Assert.That(await Screen.GetByLabel("Name", exact: false).GetAttributeAsync("id"), Is.EqualTo("target"));
     }
 
     [Test]
     public async Task GetByLabel_should_work_with_aria_labelledby()
     {
-        await Browser.GotoAsync(Content("<label id=name-label>Name</label><button aria-labelledby=name-label>Click me</button>"));
+        await Browser.GotoAsync(
+            Content("<label id=name-label>Name</label><button aria-labelledby=name-label>Click me</button>")
+        );
         Assert.That(await Screen.GetByLabel("Name", exact: false).TextContentAsync(), Is.EqualTo("Click me"));
     }
 
     [Test]
     public async Task GetByLabel_should_prioritize_aria_labelledby_over_native_label()
     {
-        await Browser.GotoAsync(Content("""
-            <label id=name-label>Name</label>
-            <label>Wrong<button aria-labelledby=name-label>Click me</button></label>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <label id=name-label>Name</label>
+                <label>Wrong<button aria-labelledby=name-label>Click me</button></label>
+                """
+            )
+        );
         Assert.That(await Screen.GetByLabel("Name", exact: false).TextContentAsync(), Is.EqualTo("Click me"));
     }
 
@@ -141,19 +161,27 @@ public sealed class SelectorsGetByTests : PlaywrightTest
     [Test]
     public async Task GetByLabel_should_prioritize_aria_labelledby_over_aria_label()
     {
-        await Browser.GotoAsync(Content("""<label id=other-label>Other</label><input id=target aria-label="Name" aria-labelledby=other-label>"""));
+        await Browser.GotoAsync(
+            Content(
+                """<label id=other-label>Other</label><input id=target aria-label="Name" aria-labelledby=other-label>"""
+            )
+        );
         Assert.That(await Screen.GetByLabel("Other", exact: false).GetAttributeAsync("id"), Is.EqualTo("target"));
     }
 
     [Test]
     public async Task GetByPlaceholder_should_work()
     {
-        await Browser.GotoAsync(Content("""
-            <div>
-              <input placeholder='Hello'>
-              <input placeholder='Hello World'>
-            </div>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <div>
+                  <input placeholder='Hello'>
+                  <input placeholder='Hello World'>
+                </div>
+                """
+            )
+        );
         await Expect.That(Screen.GetByPlaceholder("hello", exact: false)).ToHaveCountAsync(2);
         await Expect.That(Screen.GetByPlaceholder("Hello")).ToHaveCountAsync(1);
         await Expect.That(Screen.GetByPlaceholder(new Regex("wor", RegexOptions.IgnoreCase))).ToHaveCountAsync(1);
@@ -164,21 +192,30 @@ public sealed class SelectorsGetByTests : PlaywrightTest
     [Test]
     public async Task GetBy_escaping()
     {
-        const string SetAttributes = "(value) => { const input = document.querySelector('input'); for (const name of ['placeholder', 'title', 'alt']) input.setAttribute(name, value); }";
+        const string SetAttributes =
+            "(value) => { const input = document.querySelector('input'); for (const name of ['placeholder', 'title', 'alt']) input.setAttribute(name, value); }";
 
         await Browser.GotoAsync(Content("<label id=label for=control>Hello my\nwo\"rld</label><input id=control />"));
         await Browser.EvaluateAsync<object>(SetAttributes, "hello my\nwo\"rld");
         await Expect.Soft(Screen.GetByText("hello my\nwo\"rld", exact: false)).ToHaveAttributeAsync("id", "label");
-        await Expect.Soft(Screen.GetByText("hello       my     wo\"rld", exact: false)).ToHaveAttributeAsync("id", "label");
+        await Expect
+            .Soft(Screen.GetByText("hello       my     wo\"rld", exact: false))
+            .ToHaveAttributeAsync("id", "label");
         await Expect.Soft(Screen.GetByLabel("hello my\nwo\"rld", exact: false)).ToHaveAttributeAsync("id", "control");
-        await Expect.Soft(Screen.GetByPlaceholder("hello my\nwo\"rld", exact: false)).ToHaveAttributeAsync("id", "control");
+        await Expect
+            .Soft(Screen.GetByPlaceholder("hello my\nwo\"rld", exact: false))
+            .ToHaveAttributeAsync("id", "control");
 
         await Browser.GotoAsync(Content("<label id=label for=control>Hello my\nworld</label><input id=control />"));
         await Browser.EvaluateAsync<object>(SetAttributes, "hello my\nworld");
         await Expect.Soft(Screen.GetByText("hello my\nworld", exact: false)).ToHaveAttributeAsync("id", "label");
-        await Expect.Soft(Screen.GetByText("hello        my    world", exact: false)).ToHaveAttributeAsync("id", "label");
+        await Expect
+            .Soft(Screen.GetByText("hello        my    world", exact: false))
+            .ToHaveAttributeAsync("id", "label");
         await Expect.Soft(Screen.GetByLabel("hello my\nworld", exact: false)).ToHaveAttributeAsync("id", "control");
-        await Expect.Soft(Screen.GetByPlaceholder("hello my\nworld", exact: false)).ToHaveAttributeAsync("id", "control");
+        await Expect
+            .Soft(Screen.GetByPlaceholder("hello my\nworld", exact: false))
+            .ToHaveAttributeAsync("id", "control");
 
         await Browser.GotoAsync(Content("<label for=target>foo &gt;&gt; bar</label><input id=target>"));
         await Browser.EvaluateAsync<object>(SetAttributes, "foo >> bar");
@@ -195,23 +232,45 @@ public sealed class SelectorsGetByTests : PlaywrightTest
     [Test]
     public async Task GetByRole_escaping()
     {
-        await Browser.GotoAsync(Content("""
-            <a href="https://playwright.dev">issues 123</a>
-            <a href="https://playwright.dev">he llo 56</a>
-            <button>Click me</button>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <a href="https://playwright.dev">issues 123</a>
+                <a href="https://playwright.dev">he llo 56</a>
+                <button>Click me</button>
+                """
+            )
+        );
         Assert.That(await Screen.GetByRole("button").AllTextContentsAsync(), Is.EqualTo(new[] { "Click me" }));
-        Assert.That(await Screen.GetByRole("link").AllTextContentsAsync(), Is.EqualTo(new[] { "issues 123", "he llo 56" }));
+        Assert.That(
+            await Screen.GetByRole("link").AllTextContentsAsync(),
+            Is.EqualTo(new[] { "issues 123", "he llo 56" })
+        );
 
-        Assert.That(await Screen.GetByRole("link", "issues 123", exact: false).AllTextContentsAsync(), Is.EqualTo(new[] { "issues 123" }));
-        Assert.That(await Screen.GetByRole("link", "sues", exact: false).AllTextContentsAsync(), Is.EqualTo(new[] { "issues 123" }));
-        Assert.That(await Screen.GetByRole("link", "  he    \n  llo ", exact: false).AllTextContentsAsync(), Is.EqualTo(new[] { "he llo 56" }));
+        Assert.That(
+            await Screen.GetByRole("link", "issues 123", exact: false).AllTextContentsAsync(),
+            Is.EqualTo(new[] { "issues 123" })
+        );
+        Assert.That(
+            await Screen.GetByRole("link", "sues", exact: false).AllTextContentsAsync(),
+            Is.EqualTo(new[] { "issues 123" })
+        );
+        Assert.That(
+            await Screen.GetByRole("link", "  he    \n  llo ", exact: false).AllTextContentsAsync(),
+            Is.EqualTo(new[] { "he llo 56" })
+        );
         Assert.That(await Screen.GetByRole("button", "issues", exact: false).AllTextContentsAsync(), Is.Empty);
 
         Assert.That(await Screen.GetByRole("link", "sues").AllTextContentsAsync(), Is.Empty);
-        Assert.That(await Screen.GetByRole("link", "   he \n llo 56 ").AllTextContentsAsync(), Is.EqualTo(new[] { "he llo 56" }));
+        Assert.That(
+            await Screen.GetByRole("link", "   he \n llo 56 ").AllTextContentsAsync(),
+            Is.EqualTo(new[] { "he llo 56" })
+        );
 
-        Assert.That(await Screen.GetByRole("button", "Click me").AllTextContentsAsync(), Is.EqualTo(new[] { "Click me" }));
+        Assert.That(
+            await Screen.GetByRole("button", "Click me").AllTextContentsAsync(),
+            Is.EqualTo(new[] { "Click me" })
+        );
         Assert.That(await Screen.GetByRole("button", @"Click \me").AllTextContentsAsync(), Is.Empty);
         Assert.That(await Screen.GetByRole("button", @"Click \\me").AllTextContentsAsync(), Is.Empty);
     }
@@ -221,19 +280,27 @@ public sealed class SelectorsGetByTests : PlaywrightTest
     {
         await Browser.GotoAsync(Content("<button>Click me</button><button>Submit</button>"));
         await Expect.That(Screen.GetByRole("button", new Regex("Click me"))).ToHaveCountAsync(1);
-        await Expect.That(Screen.GetByRole("button", new Regex("click me", RegexOptions.IgnoreCase))).ToHaveCountAsync(1);
-        await Expect.That(Screen.GetByRole("button", new Regex("Missing"))).ToHaveCountAsync(0, TimeSpan.FromSeconds(1));
+        await Expect
+            .That(Screen.GetByRole("button", new Regex("click me", RegexOptions.IgnoreCase)))
+            .ToHaveCountAsync(1);
+        await Expect
+            .That(Screen.GetByRole("button", new Regex("Missing")))
+            .ToHaveCountAsync(0, TimeSpan.FromSeconds(1));
     }
 
     [Test]
     public async Task Locators_should_not_be_affected_by_global_and_sticky_regex_flags()
     {
-        await Browser.GotoAsync(Content("""
-            <div>foo</div><div>foo</div><div>foo</div>
-            <label>foo<input></label><label>foo<input></label><label>foo<input></label>
-            <button>foo</button><button>foo</button><button>foo</button>
-            <input placeholder=foo><input placeholder=foo><input placeholder=foo>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <div>foo</div><div>foo</div><div>foo</div>
+                <label>foo<input></label><label>foo<input></label><label>foo<input></label>
+                <button>foo</button><button>foo</button><button>foo</button>
+                <input placeholder=foo><input placeholder=foo><input placeholder=foo>
+                """
+            )
+        );
         var foo = new Regex("foo");
         await Expect.That(Screen.GetByText(foo)).ToHaveCountAsync(9);
         await Expect.That(Screen.GetByText(foo)).ToHaveCountAsync(9);

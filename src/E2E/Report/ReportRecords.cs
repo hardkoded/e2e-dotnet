@@ -23,7 +23,13 @@ internal sealed record Report1Document(ReportRun Run);
 /// <param name="Targets">The targets the run used; a page names a result's target only when there is more than one.</param>
 /// <param name="Results">One per test.</param>
 /// <param name="Explore">What the run explored, when it was an exploration (upstream's <c>run.explore</c>).</param>
-internal sealed record ReportRun(string Id, string RunnerVersion, IReadOnlyList<ReportTarget> Targets, IReadOnlyList<ReportResult> Results, ReportExplore? Explore = null)
+internal sealed record ReportRun(
+    string Id,
+    string RunnerVersion,
+    IReadOnlyList<ReportTarget> Targets,
+    IReadOnlyList<ReportResult> Results,
+    ReportExplore? Explore = null
+)
 {
     /// <summary>How the run ended, once <see cref="BuildReport.DeriveRunStatus"/> has read its results. Null on a run that only a page reads.</summary>
     public ReportRunStatus? Status { get; init; }
@@ -88,7 +94,13 @@ internal enum ResultStatus
 /// <param name="Phase">The hook the error came from (<c>cleanup</c>, say); null for the test body.</param>
 /// <param name="Source">The line the failure unwound through, when the stack named one.</param>
 /// <param name="Details">The structured facts of the error, when the thrower had them.</param>
-internal sealed record ReportError(string Code, string Message, string? Phase = null, SourceLocation? Source = null, ErrorDetails? Details = null)
+internal sealed record ReportError(
+    string Code,
+    string Message,
+    string? Phase = null,
+    SourceLocation? Source = null,
+    ErrorDetails? Details = null
+)
 {
     /// <summary><c>test</c>, <c>configuration</c>, <c>infrastructure</c>, <c>internal</c>, or <c>interrupted</c>.</summary>
     public string Category { get; init; } = "test";
@@ -97,7 +109,12 @@ internal sealed record ReportError(string Code, string Message, string? Phase = 
     public bool Retryable { get; init; }
 
     /// <summary>The report's error for a serialized one.</summary>
-    public static ReportError Of(SerializedError error, string? phase = null) => new(error.Code, error.Message, phase, error.Source, error.Details) { Category = error.Category, Retryable = error.Retryable };
+    public static ReportError Of(SerializedError error, string? phase = null) =>
+        new(error.Code, error.Message, phase, error.Source, error.Details)
+        {
+            Category = error.Category,
+            Retryable = error.Retryable,
+        };
 }
 
 /// <summary>A file or link an attempt kept (upstream's <c>ReportArtifact</c>).</summary>
@@ -110,7 +127,17 @@ internal sealed record ReportError(string Code, string Message, string? Phase = 
 /// <param name="Redaction">What the runner claims for the file when it rewrote it (a text-like download); null leaves the kind to decide.</param>
 /// <param name="Ref">The reference the host's <c>IArtifactStore</c> returned for the artifact; null when there is none.</param>
 /// <param name="Producer">Who made it; a recording a step stopped covers the video only until that step ends.</param>
-internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null, long? Size = null, ArtifactRedaction? Redaction = null, string? Ref = null, ArtifactProducer? Producer = null);
+internal sealed record ReportArtifact(
+    string Id,
+    string Kind,
+    string? Path = null,
+    string? Url = null,
+    DateTimeOffset? StartedAt = null,
+    long? Size = null,
+    ArtifactRedaction? Redaction = null,
+    string? Ref = null,
+    ArtifactProducer? Producer = null
+);
 
 /// <summary>What was seen when a failure landed (upstream's <c>FailureEvidence</c>).</summary>
 internal sealed partial record FailureEvidence
@@ -228,7 +255,13 @@ internal sealed record ReportResult
     /// </summary>
     public ReportSkip? Skip
     {
-        get => field ?? (Status == ResultStatus.Skipped ? Attempts.LastOrDefault(attempt => attempt.Status == AttemptStatus.Skipped)?.Skip : null);
+        get =>
+            field
+            ?? (
+                Status == ResultStatus.Skipped
+                    ? Attempts.LastOrDefault(attempt => attempt.Status == AttemptStatus.Skipped)?.Skip
+                    : null
+            );
         init;
     }
 
@@ -257,7 +290,9 @@ internal static class ReportRecords
 {
     /// <summary>The cleanup-phase secondary errors of attempts whose cleanup failed (upstream's <c>cleanupErrorsOf</c>).</summary>
     public static IEnumerable<ReportError> CleanupErrorsOf(IEnumerable<ReportAttempt> attempts) =>
-        attempts.Where(attempt => attempt.Cleanup == AttemptCleanup.Failed).SelectMany(attempt => attempt.SecondaryErrors.Where(secondary => secondary.Phase == "cleanup"));
+        attempts
+            .Where(attempt => attempt.Cleanup == AttemptCleanup.Failed)
+            .SelectMany(attempt => attempt.SecondaryErrors.Where(secondary => secondary.Phase == "cleanup"));
 }
 
 /// <summary>The engine a target runs on, as the report names it (upstream's <c>engine</c> block of a target).</summary>
@@ -271,7 +306,12 @@ internal sealed record ReportEngine(string Name, string Version, int SpiVersion)
 /// <param name="Capabilities">What the engine can do, sorted.</param>
 /// <param name="ArtifactCapabilities">What the engine can capture: <c>screenshot</c>, <c>video</c>.</param>
 /// <param name="StateCapability">Whether the engine can capture and restore state.</param>
-internal sealed record TargetProvenance(ReportEngine Engine, IReadOnlyList<string> Capabilities, IReadOnlyList<string> ArtifactCapabilities, bool StateCapability);
+internal sealed record TargetProvenance(
+    ReportEngine Engine,
+    IReadOnlyList<string> Capabilities,
+    IReadOnlyList<string> ArtifactCapabilities,
+    bool StateCapability
+);
 
 /// <summary>One target of the run (upstream's <c>ReportTarget</c>).</summary>
 /// <param name="Id">The target's name.</param>
@@ -280,7 +320,14 @@ internal sealed record TargetProvenance(ReportEngine Engine, IReadOnlyList<strin
 /// <param name="Provenance">What its engine declares.</param>
 /// <param name="Environment">What the app is: <c>test</c>, <c>staging</c>, or <c>production</c>.</param>
 /// <param name="BaseOrigin">The origin of the target's app URL; null for a surface without one.</param>
-internal sealed record ReportTarget(string Id, int Index, string Platform, TargetProvenance Provenance, string Environment = "test", string? BaseOrigin = null);
+internal sealed record ReportTarget(
+    string Id,
+    int Index,
+    string Platform,
+    TargetProvenance Provenance,
+    string Environment = "test",
+    string? BaseOrigin = null
+);
 
 /// <summary>The project a run belongs to (upstream's <c>project</c>).</summary>
 /// <param name="Id">The project id.</param>
@@ -300,26 +347,49 @@ internal sealed record ReportProject(string Id, string ConfigDigest)
 internal sealed record ReportEnvironment(bool Ci, bool TrustNoticeShown, string Os, string Arch, string Runtime);
 
 /// <summary>The run's counts by result (upstream's <c>ReportSummary</c>). The status counts are over the selected results and add up to <paramref name="Selected"/>.</summary>
-internal sealed record ReportSummary(int Discovered, int Selected, int Executed, int Passed, int Failed, int Interrupted, int Flaky, int Skipped);
+internal sealed record ReportSummary(
+    int Discovered,
+    int Selected,
+    int Executed,
+    int Passed,
+    int Failed,
+    int Interrupted,
+    int Flaky,
+    int Skipped
+);
 
 /// <summary>The limits the run ran under (upstream's <c>ReportLimits</c>).</summary>
-internal sealed record ReportLimits(int MaxAgentContextBytes, int MaxLedgerBytes, int MaxObservationBytes, int MaxEventsPerStep, int MaxModelTokensPerCall)
+internal sealed record ReportLimits(
+    int MaxAgentContextBytes,
+    int MaxLedgerBytes,
+    int MaxObservationBytes,
+    int MaxEventsPerStep,
+    int MaxModelTokensPerCall
+)
 {
     /// <summary>
     /// Upstream's <c>DEFAULT_LIMITS</c>: the limits of a run no agent config has shaped, which is also what a run that failed before its
     /// config resolved reports.
     /// </summary>
-    public static ReportLimits Default { get; } = new(ResolvedAgent.MaxContextBytes, Ledger.MaxLedgerBytes, E2EDefaults.MaxObservationBytes, 1_000, E2EDefaults.MaxInputTokens);
+    public static ReportLimits Default { get; } =
+        new(
+            ResolvedAgent.MaxContextBytes,
+            Ledger.MaxLedgerBytes,
+            E2EDefaults.MaxObservationBytes,
+            1_000,
+            E2EDefaults.MaxInputTokens
+        );
 
     /// <summary>
     /// The limits of two runs merged: the per-agent ones at the largest either allowed, so the report does not read lower than what a step
     /// could send. The port builds one report per test and merges them into the run's.
     /// </summary>
-    public ReportLimits Max(ReportLimits other) => this with
-    {
-        MaxObservationBytes = Math.Max(MaxObservationBytes, other.MaxObservationBytes),
-        MaxModelTokensPerCall = Math.Max(MaxModelTokensPerCall, other.MaxModelTokensPerCall),
-    };
+    public ReportLimits Max(ReportLimits other) =>
+        this with
+        {
+            MaxObservationBytes = Math.Max(MaxObservationBytes, other.MaxObservationBytes),
+            MaxModelTokensPerCall = Math.Max(MaxModelTokensPerCall, other.MaxModelTokensPerCall),
+        };
 }
 
 /// <summary>What the run used, against <see cref="ReportLimits"/> (upstream's <c>ReportUsage</c>).</summary>
@@ -373,4 +443,10 @@ internal enum FilterOutcome
 /// <param name="Excluded">How many tests the run left out on its word.</param>
 /// <param name="Note">The filter's note, redacted and cut to one line of 1024 characters; for a filter that failed or timed out, the warning saying why.</param>
 /// <param name="Outcome">Set when the filter left nothing out because the call did not answer; null when it answered.</param>
-internal sealed record ReportFilter(string Name, int Candidates, int Excluded, string? Note = null, FilterOutcome? Outcome = null);
+internal sealed record ReportFilter(
+    string Name,
+    int Candidates,
+    int Excluded,
+    string? Note = null,
+    FilterOutcome? Outcome = null
+);

@@ -18,16 +18,27 @@ namespace E2E.Tests.RelocateMintedTestId;
 public sealed class RelocationByTestIdShapeTests
 {
     private static RecordedTarget Alone(string? testId = null, string role = "box") =>
-        new() { Role = role, TestId = testId ?? A, Position = new TracePosition { Index = 0, Of = 1 } };
+        new()
+        {
+            Role = role,
+            TestId = testId ?? A,
+            Position = new TracePosition { Index = 0, Of = 1 },
+        };
 
-    private static void AssertNotFound(RelocationResult result) => Assert.Equal(new RelocationResult.Failed(RelocationFailure.TargetNotFound), result);
+    private static void AssertNotFound(RelocationResult result) =>
+        Assert.Equal(new RelocationResult.Failed(RelocationFailure.TargetNotFound), result);
 
     private static RelocationResult Relocated(RecordedTarget descriptor, params SemanticNode[] nodes) =>
         Relocate.RelocateDescriptor(descriptor, Screen(nodes), Redactor.None);
 
     /// <summary>A named row holding one node: the container key (<c>within</c>) is its label.</summary>
     private static SemanticNode Row(string id, string label, SemanticNode node) =>
-        new() { Ref = id, Role = "row", Children = [new SemanticNode { Ref = id + "-label", Text = label }, node] };
+        new()
+        {
+            Ref = id,
+            Role = "row",
+            Children = [new SemanticNode { Ref = id + "-label", Text = label }, node],
+        };
 
     [Fact]
     public void Still_finds_the_recorded_id_while_it_is_on_screen()
@@ -69,14 +80,28 @@ public sealed class RelocationByTestIdShapeTests
     {
         AssertAmbiguous(Relocated(Alone(), CanvasNode("x", B), CanvasNode("y", C)), "x", "y");
         // Two of a shape with no container are an order, which a replay may render the other way.
-        var ordered = new RecordedTarget { Role = "box", TestId = B, Position = new TracePosition { Index = 1, Of = 2 } };
+        var ordered = new RecordedTarget
+        {
+            Role = "box",
+            TestId = B,
+            Position = new TracePosition { Index = 1, Of = 2 },
+        };
         AssertNotFound(Relocated(ordered, CanvasNode("x", A), CanvasNode("y", C)));
         var recorded = Screen(Row("r1", "Start", CanvasNode("a", A)), Row("r2", "End", CanvasNode("b", B)));
         var b = recorded.Tree[1].Children[1];
         var position = Relocate.DescribePosition(b, "End", recorded, Redactor.None);
         Assert.Equal((0, 1), (position!.Index, position.Of));
-        var end = new RecordedTarget { Role = "box", TestId = B, Within = "End", Position = new TracePosition { Index = 0, Of = 1 } };
-        Assert.Equal(new RelocationResult.Found("d"), Relocated(end, Row("r1", "End", CanvasNode("d", C)), Row("r2", "Start", CanvasNode("c", A))));
+        var end = new RecordedTarget
+        {
+            Role = "box",
+            TestId = B,
+            Within = "End",
+            Position = new TracePosition { Index = 0, Of = 1 },
+        };
+        Assert.Equal(
+            new RelocationResult.Found("d"),
+            Relocated(end, Row("r1", "End", CanvasNode("d", C)), Row("r2", "Start", CanvasNode("c", A)))
+        );
     }
 
     [Fact]

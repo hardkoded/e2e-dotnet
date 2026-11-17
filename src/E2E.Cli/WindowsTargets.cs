@@ -15,7 +15,8 @@ namespace E2E.Cli;
 internal static class WindowsTargets
 {
     /// <summary>Builds the engine of <paramref name="target"/>. The app is launched when the session opens, not here.</summary>
-    public static WinAppEngine Create(TargetConfig target) => Create(target, Environment.GetEnvironmentVariable, OperatingSystem.IsWindows());
+    public static WinAppEngine Create(TargetConfig target) =>
+        Create(target, Environment.GetEnvironmentVariable, OperatingSystem.IsWindows());
 
     internal static WinAppEngine Create(TargetConfig target, Func<string, string?> environment, bool isWindows)
     {
@@ -24,7 +25,8 @@ internal static class WindowsTargets
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"target \"{target.Name}\" has platform windows, which drives a desktop app through Windows UI Automation and runs on Windows only; this host is {RuntimeInformation.OSDescription}");
+                $"target \"{target.Name}\" has platform windows, which drives a desktop app through Windows UI Automation and runs on Windows only; this host is {RuntimeInformation.OSDescription}"
+            );
         }
 
         return WinAppTargetEngine.Create(target, environment);

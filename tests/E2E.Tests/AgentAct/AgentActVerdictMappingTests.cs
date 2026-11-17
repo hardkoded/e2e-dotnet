@@ -23,7 +23,14 @@ public sealed class AgentActVerdictMappingTests
                 await ctx.Agent.ActAsync("log in with the staging account");
             },
             CounterPage.World(),
-            new ScriptedModel(_ => ModelResponses.Done("blocked", "the staging credential is not configured", "AUTH_CREDENTIAL_UNAVAILABLE")));
+            new ScriptedModel(_ =>
+                ModelResponses.Done(
+                    "blocked",
+                    "the staging credential is not configured",
+                    "AUTH_CREDENTIAL_UNAVAILABLE"
+                )
+            )
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
@@ -48,7 +55,8 @@ public sealed class AgentActVerdictMappingTests
                 await ctx.Agent.ActAsync("keep clicking forever", new ActOptions { MaxSteps = 2 });
             },
             CounterPage.World(),
-            model);
+            model
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
@@ -65,10 +73,14 @@ public sealed class AgentActVerdictMappingTests
             async ctx =>
             {
                 await ctx.App.OpenAsync("/");
-                await ctx.Agent.ActAsync("do something eventually", new ActOptions { Timeout = TimeSpan.FromMilliseconds(500) });
+                await ctx.Agent.ActAsync(
+                    "do something eventually",
+                    new ActOptions { Timeout = TimeSpan.FromMilliseconds(500) }
+                );
             },
             CounterPage.World(),
-            new HangingModel());
+            new HangingModel()
+        );
 
         Assert.Equal("STEP_TIMEOUT", Assert.IsType<AgentException>(result.Error).Code);
         // The step settled at its own 500 ms deadline, not the test timeout.
@@ -92,7 +104,8 @@ public sealed class AgentActVerdictMappingTests
                 await ctx.Agent.ActAsync("tap twice", new ActOptions { MaxSteps = 1 });
             },
             CounterPage.World(),
-            model);
+            model
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
@@ -106,7 +119,9 @@ public sealed class AgentActVerdictMappingTests
     public async Task Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
     {
         using var report = new ReportDirectory();
-        var executor = new TestExecutor("blocked-executor", (_, _) => Task.FromResult(Blocked("the staging credential is not configured", "AUTH_CREDENTIAL_UNAVAILABLE")));
+        var executor = new TestExecutor("blocked-executor", (_, _) =>
+            Task.FromResult(Blocked("the staging credential is not configured", "AUTH_CREDENTIAL_UNAVAILABLE"))
+        );
         var result = await RunAsync(
             async ctx =>
             {
@@ -115,7 +130,8 @@ public sealed class AgentActVerdictMappingTests
             },
             CounterPage.World(),
             executor: executor,
-            report: report);
+            report: report
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
@@ -159,7 +175,8 @@ public sealed class AgentActVerdictMappingTests
                 await ctx.Agent.ActAsync("keep clicking forever", new ActOptions { MaxSteps = 2 });
             },
             CounterPage.World(),
-            executor: executor);
+            executor: executor
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
@@ -176,10 +193,14 @@ public sealed class AgentActVerdictMappingTests
             async ctx =>
             {
                 await ctx.App.OpenAsync("/");
-                await ctx.Agent.ActAsync("do something eventually", new ActOptions { Timeout = TimeSpan.FromMilliseconds(500) });
+                await ctx.Agent.ActAsync(
+                    "do something eventually",
+                    new ActOptions { Timeout = TimeSpan.FromMilliseconds(500) }
+                );
             },
             CounterPage.World(),
-            executor: executor);
+            executor: executor
+        );
 
         Assert.Equal("STEP_TIMEOUT", Assert.IsType<AgentException>(result.Error).Code);
         // The step settled at its own deadline, not the test timeout.
@@ -205,7 +226,8 @@ public sealed class AgentActVerdictMappingTests
                 await ctx.Agent.ActAsync("think very hard", new ActOptions { MaxModelCalls = 2 });
             },
             CounterPage.World(),
-            executor: executor);
+            executor: executor
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
@@ -238,7 +260,8 @@ public sealed class AgentActVerdictMappingTests
                 await ctx.Agent.ActAsync("tap twice", new ActOptions { MaxSteps = 1 });
             },
             CounterPage.World(),
-            executor: executor);
+            executor: executor
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
@@ -258,7 +281,9 @@ public sealed class AgentActVerdictMappingTests
             }
 
             var observation = await context.ObserveAsync();
-            return observation.Text.Contains("status \"Counter\" text=\"0\"", StringComparison.Ordinal) ? Passed("the counter reads 0") : Failed("the counter is not zero");
+            return observation.Text.Contains("status \"Counter\" text=\"0\"", StringComparison.Ordinal)
+                ? Passed("the counter reads 0")
+                : Failed("the counter is not zero");
         });
         var result = await RunAsync(
             async ctx =>
@@ -268,7 +293,8 @@ public sealed class AgentActVerdictMappingTests
                 await ctx.Agent.AssertAsync("the checkout page is visible");
             },
             CounterPage.World(),
-            executor: executor);
+            executor: executor
+        );
 
         // The failed assertion maps to ASSERTION_FAILED, not ACTION_FAILED. The first one passed, so the second one ran.
         var error = Assert.IsType<AgentException>(result.Error);
@@ -306,7 +332,10 @@ public sealed class AgentActVerdictMappingTests
             }
             catch (AgentException error)
             {
-                if (error.Code != "POLICY_DENIED" || !error.Message.Contains("was not declared in this step", StringComparison.Ordinal))
+                if (
+                    error.Code != "POLICY_DENIED"
+                    || !error.Message.Contains("was not declared in this step", StringComparison.Ordinal)
+                )
                 {
                     return Failed($"unexpected refusal: {error.Code} {error.Message}");
                 }
@@ -318,17 +347,21 @@ public sealed class AgentActVerdictMappingTests
             async ctx =>
             {
                 await ctx.App.OpenAsync("/");
-                await ctx.Agent.ActAsync("sign in with the given credentials", new ActOptions
-                {
-                    Params = new Dictionary<string, object?>
+                await ctx.Agent.ActAsync(
+                    "sign in with the given credentials",
+                    new ActOptions
                     {
-                        ["username"] = "admin",
-                        ["password"] = Secret.Create("admin.password", "admin-pass", "password"),
-                    },
-                });
+                        Params = new Dictionary<string, object?>
+                        {
+                            ["username"] = "admin",
+                            ["password"] = Secret.Create("admin.password", "admin-pass", "password"),
+                        },
+                    }
+                );
             },
             ExecutorKit.WorldWithAPassword(value => typed = value),
-            executor: executor);
+            executor: executor
+        );
 
         Assert.Null(result.Error);
         Assert.Equal("admin-pass", typed);
@@ -340,12 +373,19 @@ public sealed class AgentActVerdictMappingTests
     {
         var executor = new TestExecutor("api-key-executor", async (context, _) =>
         {
-            if (System.Text.Json.JsonSerializer.Serialize(context.Step.Params).Contains("sk_live_generic", StringComparison.Ordinal))
+            if (
+                System
+                    .Text.Json.JsonSerializer.Serialize(context.Step.Params)
+                    .Contains("sk_live_generic", StringComparison.Ordinal)
+            )
             {
                 return Failed("plaintext leaked into params");
             }
 
-            var declared = string.Join(",", context.Step.Secrets.Select(secret => secret.Name + ":" + secret.Purpose).Order(StringComparer.Ordinal));
+            var declared = string.Join(
+                ",",
+                context.Step.Secrets.Select(secret => secret.Name + ":" + secret.Purpose).Order(StringComparer.Ordinal)
+            );
             if (declared != "admin.password:password,stripe-key:generic-secret")
             {
                 return Failed("unexpected secrets " + declared);
@@ -380,17 +420,21 @@ public sealed class AgentActVerdictMappingTests
             async ctx =>
             {
                 await ctx.App.OpenAsync("/");
-                await ctx.Agent.ActAsync("paste the API key into the focus target field", new ActOptions
-                {
-                    Params = new Dictionary<string, object?>
+                await ctx.Agent.ActAsync(
+                    "paste the API key into the focus target field",
+                    new ActOptions
                     {
-                        ["password"] = Secret.Create("admin.password", "admin-pass", "password"),
-                        ["apiKey"] = Secret.Create("stripe-key", "sk_live_generic_4242", "generic-secret"),
-                    },
-                });
+                        Params = new Dictionary<string, object?>
+                        {
+                            ["password"] = Secret.Create("admin.password", "admin-pass", "password"),
+                            ["apiKey"] = Secret.Create("stripe-key", "sk_live_generic_4242", "generic-secret"),
+                        },
+                    }
+                );
             },
             ExecutorKit.WorldWithAPassword(_ => { }),
-            executor: executor);
+            executor: executor
+        );
 
         Assert.Null(result.Error);
     }
@@ -406,7 +450,8 @@ public sealed class AgentActVerdictMappingTests
                 await ctx.Agent.ActAsync("log in with the staging account");
             },
             CounterPage.World(),
-            executor: executor);
+            executor: executor
+        );
 
         Assert.Equal("MODEL_OUTPUT_INVALID", Assert.IsType<AgentException>(result.Error).Code);
     }

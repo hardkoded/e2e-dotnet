@@ -9,9 +9,7 @@ namespace E2E;
 /// <summary>What the app did on its own, as the session passes it on (upstream's <c>AppEvent</c>): a log line, or where it went.</summary>
 internal abstract record AppEvent
 {
-    private AppEvent()
-    {
-    }
+    private AppEvent() { }
 
     /// <summary>A line the app logged.</summary>
     public sealed record Log(AppLogEntry Entry) : AppEvent;
@@ -52,10 +50,12 @@ internal sealed class AppLogRoute
     /// <summary>Takes one entry from the engine. A malformed one, such as a blank line, is dropped.</summary>
     public void Push(AppLogEntry? entry)
     {
-        if (entry is { Source: var source, Level: var level, Text: { } text }
+        if (
+            entry is { Source: var source, Level: var level, Text: { } text }
             && Enum.IsDefined(source)
             && Enum.IsDefined(level)
-            && !string.IsNullOrWhiteSpace(text))
+            && !string.IsNullOrWhiteSpace(text)
+        )
         {
             Pass(new AppEvent.Log(new AppLogEntry(source, level, text)));
         }

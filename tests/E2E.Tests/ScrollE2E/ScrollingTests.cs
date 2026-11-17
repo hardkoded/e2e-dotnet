@@ -64,7 +64,11 @@ public sealed class ScrollingTests
     public async Task ScrollUntilVisible_pages_the_viewport_until_a_row_far_down_renders()
     {
         using var site = await TinySite.StartAsync(ScrollPage);
-        var session = await WebEngineTests.StartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "unused")), cache: null);
+        var session = await WebEngineTests.StartAsync(
+            site,
+            new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+            cache: null
+        );
         await WebEngineTests.RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -83,7 +87,11 @@ public sealed class ScrollingTests
     public async Task ScrollUntilVisible_on_a_node_pages_that_node_and_leaves_the_page_where_it_was()
     {
         using var site = await TinySite.StartAsync(ScrollPage);
-        var session = await WebEngineTests.StartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "unused")), cache: null);
+        var session = await WebEngineTests.StartAsync(
+            site,
+            new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+            cache: null
+        );
         await WebEngineTests.RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -105,10 +113,17 @@ public sealed class ScrollingTests
     public async Task Partial_A_viewport_swipe_and_a_wheel_gesture_both_move_the_page()
     {
         using var site = await TinySite.StartAsync(ScrollPage);
-        await using var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions(), CancellationToken.None);
+        await using var session = await new WebEngine(headless: true).StartAsync(
+            new EngineStartOptions(),
+            CancellationToken.None
+        );
         await session.OpenAsync(site.Url, CancellationToken.None);
         var page = WebEngine.SurfaceOf(session)!.Page();
-        async Task<int> PositionAsync() => int.Parse(await page.Locator("#pos").TextContentAsync() ?? "-1", System.Globalization.CultureInfo.InvariantCulture);
+        async Task<int> PositionAsync() =>
+            int.Parse(
+                await page.Locator("#pos").TextContentAsync() ?? "-1",
+                System.Globalization.CultureInfo.InvariantCulture
+            );
         async Task SettleAsync(Func<int, bool> reached)
         {
             for (var attempt = 0; attempt < 100 && !reached(await PositionAsync()); attempt++)
@@ -138,12 +153,18 @@ public sealed class ScrollingTests
     public async Task A_node_swipe_scrolls_only_inside_a_scrollable_node()
     {
         using var site = await TinySite.StartAsync(ScrollPage);
-        var session = await WebEngineTests.StartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "unused")), cache: null);
+        var session = await WebEngineTests.StartAsync(
+            site,
+            new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+            cache: null
+        );
         await WebEngineTests.RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
             var screen = session.Screen;
-            await screen.GetByRole("list", "Pane").SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down, Momentum = Momentum.Slow });
+            await screen
+                .GetByRole("list", "Pane")
+                .SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down, Momentum = Momentum.Slow });
             await Expect.That(screen.GetByRole("status", "Pane position")).Not.ToHaveTextAsync("0");
             await Expect.That(screen.GetByRole("status", "Scroll position")).ToHaveTextAsync("0");
         });

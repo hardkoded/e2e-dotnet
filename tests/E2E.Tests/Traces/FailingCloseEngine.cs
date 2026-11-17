@@ -30,12 +30,13 @@ internal sealed class FailingCloseEngine(Exception failure) : IEngine
     {
         internal Exception Failure { get; set; } = new InvalidOperationException();
 
-        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => targetMethod?.Name switch
-        {
-            nameof(IAsyncDisposable.DisposeAsync) => ThrowFailure(),
-            "get_" + nameof(IEngineSession.CanLocate) => false,
-            _ => null,
-        };
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
+            targetMethod?.Name switch
+            {
+                nameof(IAsyncDisposable.DisposeAsync) => ThrowFailure(),
+                "get_" + nameof(IEngineSession.CanLocate) => false,
+                _ => null,
+            };
 
         private ValueTask ThrowFailure() => ValueTask.FromException(Failure);
     }

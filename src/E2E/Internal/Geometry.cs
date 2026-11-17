@@ -44,7 +44,9 @@ internal static class Geometry
 
         var width = Math.Min(box.X + box.Width, viewport.Width) - Math.Max(box.X, 0);
         var height = Math.Min(box.Y + box.Height, viewport.Height) - Math.Max(box.Y, 0);
-        return width <= 0 || height <= 0 ? 0 : Math.Clamp(width * height / ((double)viewport.Width * viewport.Height), 0, 1);
+        return width <= 0 || height <= 0
+            ? 0
+            : Math.Clamp(width * height / ((double)viewport.Width * viewport.Height), 0, 1);
     }
 
     /// <summary>
@@ -65,7 +67,8 @@ internal static class Geometry
         ArgumentNullException.ThrowIfNull(viewport);
         return new Point(
             Math.Clamp(Math.Floor(point.X + 0.5), 0, Math.Max(0, viewport.Width - 1)),
-            Math.Clamp(Math.Floor(point.Y + 0.5), 0, Math.Max(0, viewport.Height - 1)));
+            Math.Clamp(Math.Floor(point.Y + 0.5), 0, Math.Max(0, viewport.Height - 1))
+        );
     }
 
     /// <summary>
@@ -89,7 +92,10 @@ internal static class Geometry
     public static TraceViewport RequireViewportSize(TraceViewport? size) =>
         size is { } viewport && ViewportLimits.Fits(viewport.Width) && ViewportLimits.Fits(viewport.Height)
             ? viewport
-            : throw new TestException("INVALID_ARGUMENT", $"resize requires {{ width, height }} in whole CSS pixels from {ViewportLimits.Min} to {ViewportLimits.Max}");
+            : throw new TestException(
+                "INVALID_ARGUMENT",
+                $"resize requires {{ width, height }} in whole CSS pixels from {ViewportLimits.Min} to {ViewportLimits.Max}"
+            );
 
     /// <summary>Upstream's <c>containsPoint</c>: true when the point lies inside the box, on its top and left edges and short of its bottom and right ones.</summary>
     public static bool ContainsPoint(BoundingBox box, Point point)

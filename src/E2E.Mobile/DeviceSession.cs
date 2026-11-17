@@ -36,7 +36,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     public bool CanDismissKeyboard => true;
 
     /// <summary>The engine's keyboard hook: the dismissal under the input budget the agent's keyboard inputs get (upstream's <c>'keyboard dismiss'</c>).</summary>
-    Task IEngineSession.DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, InputBudget("keyboard dismiss", cancellationToken));
+    Task IEngineSession.DismissKeyboardAsync(CancellationToken cancellationToken) =>
+        DismissKeyboardAsync(cancellationToken, InputBudget("keyboard dismiss", cancellationToken));
 
     private readonly MobileEngine _engine;
     private readonly string _name;
@@ -62,7 +63,14 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     private readonly (string Target, int Slot) _slot;
 
-    private DeviceSession(MobileEngine engine, MobileStartInfo info, SlotBinding? binding, string name, string where, DeviceWorker worker)
+    private DeviceSession(
+        MobileEngine engine,
+        MobileStartInfo info,
+        SlotBinding? binding,
+        string name,
+        string where,
+        DeviceWorker worker
+    )
     {
         _engine = engine;
         _name = name;
@@ -112,7 +120,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// Who acts through this session when a caller does not say: the members that take no <see cref="OperationContext"/> (the ones
     /// <see cref="IEngineSession"/> had before it). The default is the agent's.
     /// </summary>
-    [Obsolete("Every action now carries an OperationContext: call the overload that takes one. Removed in the next release.")]
+    [Obsolete(
+        "Every action now carries an OperationContext: call the overload that takes one. Removed in the next release."
+    )]
     public ActionOrigin Origin
     {
         get => _origin == OperationOrigin.Test ? ActionOrigin.Test : ActionOrigin.Agent;
@@ -121,7 +131,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     private OperationOrigin _origin = OperationOrigin.Agent;
 
-    internal OperationContext DefaultContext => _origin == OperationOrigin.Test ? OperationContext.Test : OperationContext.Agent;
+    internal OperationContext DefaultContext =>
+        _origin == OperationOrigin.Test ? OperationContext.Test : OperationContext.Agent;
 
     /// <summary>The device fixture of this session: deterministic device management for a test.</summary>
     public Device Device => _device ??= new Device(this);
@@ -135,21 +146,26 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     /// <summary>The attempt's fixture context, or <c>INVALID_STATE</c> for a session no test harness started.</summary>
     internal EngineFixtureContext FixtureContext =>
-        _fixtureContext ?? throw DeviceSupport.InvalidState("device.locator needs the attempt's test session: start the engine through a test, not on its own");
+        _fixtureContext
+        ?? throw DeviceSupport.InvalidState(
+            "device.locator needs the attempt's test session: start the engine through a test, not on its own"
+        );
 
     /// <summary>The attempt's fixture context, or null for a session no test harness started, whose fixture calls then run unrecorded.</summary>
     internal EngineFixtureContext? FixtureContextOrNull => _fixtureContext;
 
     /// <summary>The agent-device client of the live session, or <c>INVALID_STATE</c> once it closed.</summary>
-    internal IDeviceClient Client => _worker.Tracked ??= _worker.Client switch
-    {
-        null => throw DeviceSupport.InvalidState("the agent-device engine is not initialized"),
-        ICancellableDeviceClient cancellable => cancellable,
-        var client => new TrackedClient(client, _inflight),
-    };
+    internal IDeviceClient Client =>
+        _worker.Tracked ??= _worker.Client switch
+        {
+            null => throw DeviceSupport.InvalidState("the agent-device engine is not initialized"),
+            ICancellableDeviceClient cancellable => cancellable,
+            var client => new TrackedClient(client, _inflight),
+        };
 
     /// <summary>The agent-device session and the device it runs on; <c>INVALID_STATE</c> before the boot or after the session closed (upstream's <c>boundDevice</c>).</summary>
-    internal BoundDevice BoundDevice => _worker.Bound ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized");
+    internal BoundDevice BoundDevice =>
+        _worker.Bound ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized");
 
     /// <summary>The session and device this worker drives, for the error messages whose recovery is per device.</summary>
     internal string Where => _where;
@@ -172,9 +188,15 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         {
             await inflight.SettleAsync(bound.Token).ConfigureAwait(false);
         }
-        catch (EngineException ex) when (ex.Code == EngineErrorCodes.Cancelled && !cancellationToken.IsCancellationRequested)
+        catch (EngineException ex)
+            when (ex.Code == EngineErrorCodes.Cancelled && !cancellationToken.IsCancellationRequested)
         {
-            throw new EngineException(EngineErrorCodes.EngineFailure, $"device commands an earlier attempt abandoned did not settle within {E2EDefaults.LaunchTimeout.TotalSeconds:0} s", retryable: false, ex);
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"device commands an earlier attempt abandoned did not settle within {E2EDefaults.LaunchTimeout.TotalSeconds:0} s",
+                retryable: false,
+                ex
+            );
         }
     }
 
@@ -183,7 +205,12 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// boots nothing again (upstream's <c>startAttempt</c> on a live surface); a retained recording is finished first, and a start that
     /// cannot finish it fails with the worker kept, so the next attempt tries again.
     /// </summary>
-    internal static async Task<DeviceSession> StartAsync(MobileEngine engine, MobileStartInfo info, DeviceClientFactory createClient, CancellationToken cancellationToken)
+    internal static async Task<DeviceSession> StartAsync(
+        MobileEngine engine,
+        MobileStartInfo info,
+        DeviceClientFactory createClient,
+        CancellationToken cancellationToken
+    )
     {
         engine.ClaimSlot(info.TargetName, info.WorkerSlot);
         DeviceSession started;
@@ -191,7 +218,11 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         try
         {
             var binding = engine.Pool.Binding(info.TargetName, info.WorkerSlot, info.Env);
-            await SettleBeforeStartAsync(engine.InflightOf(info.TargetName, info.WorkerSlot, binding), cancellationToken).ConfigureAwait(false);
+            await SettleBeforeStartAsync(
+                    engine.InflightOf(info.TargetName, info.WorkerSlot, binding),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             var session = engine.Pool.Session(info.TargetName, info.WorkerSlot);
             var label = DeviceBindings.DeviceLabel(binding);
             var where = $"session {session}{(label is null ? "" : $" on {label}")}";
@@ -225,7 +256,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             catch
             {
                 // The boot may have opened the agent-device session. Close it without hiding why the boot failed.
-                await started.CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                await started
+                    .CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None)
+                    .ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
                 throw;
             }
         }
@@ -248,7 +281,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
                 await StopLeaseRecordingAsync(_worker, lease, cancellationToken).ConfigureAwait(false);
                 break;
             case ScreenRecording:
-                await CommandAsync("reset video recording", DeviceMethods.SessionsClose, null, cancellationToken).ConfigureAwait(false);
+                await CommandAsync("reset video recording", DeviceMethods.SessionsClose, null, cancellationToken)
+                    .ConfigureAwait(false);
                 ClearRecording(_worker, _worker.Recording!);
                 ScreenReplaced();
                 break;
@@ -278,17 +312,23 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// Runs one agent-device command under a cancellation token and translates its failure. Fixture methods route
     /// through here too, so none carries its own error mapping.
     /// </summary>
-    public Task<T> CommandAsync<T>(string label, Func<IDeviceClient, CancellationToken, Task<T>> run, CancellationToken cancellationToken)
+    public Task<T> CommandAsync<T>(
+        string label,
+        Func<IDeviceClient, CancellationToken, Task<T>> run,
+        CancellationToken cancellationToken
+    )
     {
         var client = Client;
         return DeviceErrors.RunCommandAsync(label, token => Track(run(client, token)), cancellationToken, _where);
     }
 
     /// <summary>The budget one input runs under. Its device commands stay in flight until they settle. Upstream's <c>inputBudget</c>.</summary>
-    internal InputBudget InputBudget(string label, CancellationToken signal) => InputBudget(label, ActionTimeout, signal);
+    internal InputBudget InputBudget(string label, CancellationToken signal) =>
+        InputBudget(label, ActionTimeout, signal);
 
     /// <summary>The budget of one operation on <paramref name="timeout"/>, such as the <c>timeout</c> a locate gets. Upstream's <c>inputBudget(label, timeoutMs)</c>.</summary>
-    internal InputBudget InputBudget(string label, TimeSpan timeout, CancellationToken signal) => new(label, timeout, pending => Track(pending), _engine.Clock, signal);
+    internal InputBudget InputBudget(string label, TimeSpan timeout, CancellationToken signal) =>
+        new(label, timeout, pending => Track(pending), _engine.Clock, signal);
 
     /// <summary>Registers one device command as in flight until it settles. Upstream's <c>track</c>.</summary>
     internal Task<T> Track<T>(Task<T> pending)
@@ -308,15 +348,29 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     internal Task SettleInflightAsync(CancellationToken cancellationToken) => _inflight.SettleAsync(cancellationToken);
 
     /// <summary>Sends an input under its operation's budget, or directly from a fixture call, which has none. Upstream's <c>sendInput</c>.</summary>
-    internal static Task<T> SendInputAsync<T>(InputBudget? input, Func<Task<T>> dispatch, CancellationToken cancellationToken, TimeSpan? hold = null) =>
-        input is null ? dispatch() : input.SendAsync(_ => dispatch(), cancellationToken, hold);
+    internal static Task<T> SendInputAsync<T>(
+        InputBudget? input,
+        Func<Task<T>> dispatch,
+        CancellationToken cancellationToken,
+        TimeSpan? hold = null
+    ) => input is null ? dispatch() : input.SendAsync(_ => dispatch(), cancellationToken, hold);
 
-    public Task<JsonNode?> CommandAsync(string label, string method, JsonObject? options, CancellationToken cancellationToken) =>
-        CommandAsync(label, (client, token) => client.CallAsync(method, options, token), cancellationToken);
+    public Task<JsonNode?> CommandAsync(
+        string label,
+        string method,
+        JsonObject? options,
+        CancellationToken cancellationToken
+    ) => CommandAsync(label, (client, token) => client.CallAsync(method, options, token), cancellationToken);
 
     private async Task BootAsync(CancellationToken cancellationToken)
     {
-        var booted = await CommandAsync("boot", DeviceMethods.DevicesBoot, DevicePool.BootRequest(Selection), cancellationToken).ConfigureAwait(false);
+        var booted = await CommandAsync(
+                "boot",
+                DeviceMethods.DevicesBoot,
+                DevicePool.BootRequest(Selection),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         _worker.Bound = new BoundDevice(_name, Text(booted?["id"]) ?? "", Text(booted?["device"]) ?? "");
 
         // Nothing is installed here: a device provider that installed the build from appPath says so on the binding,
@@ -328,11 +382,17 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         // A device app has no URL: app.open() is the fresh launch of the pinned app.
         if (DeviceLinks.IsLink(url))
         {
-            return Task.FromException(DeviceSupport.Unsupported("a device app has no URL to open; app.open() launches the pinned app, and a deep link opens with device.openLink"));
+            return Task.FromException(
+                DeviceSupport.Unsupported(
+                    "a device app has no URL to open; app.open() launches the pinned app, and a deep link opens with device.openLink"
+                )
+            );
         }
 
         // A provider whose agent lives inside the running app cannot relaunch it: the open attaches to the app you launched.
-        return Options.Provider is { AttachesToRunningApp: true } ? AttachAsync(cancellationToken) : RestartAsync(cancellationToken);
+        return Options.Provider is { AttachesToRunningApp: true }
+            ? AttachAsync(cancellationToken)
+            : RestartAsync(cancellationToken);
     }
 
     /// <summary>
@@ -343,31 +403,52 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     {
         ArgumentNullException.ThrowIfNull(context);
         var target = DeviceLinks.LinkTarget(url);
-        await OpenLinkAsync(target, null, cancellationToken, InputBudget("open link", context.Timeout ?? ActionTimeout, cancellationToken)).ConfigureAwait(false);
+        await OpenLinkAsync(
+                target,
+                null,
+                cancellationToken,
+                InputBudget("open link", context.Timeout ?? ActionTimeout, cancellationToken)
+            )
+            .ConfigureAwait(false);
     }
 
     private async Task AttachAsync(CancellationToken cancellationToken)
     {
-        var app = PinnedApp ?? throw DeviceSupport.Unsupported($"launching the app needs the target's `app.bundleId`, or {UninstalledBuild}");
+        var app = PinnedApp
+            ?? throw DeviceSupport.Unsupported(
+                $"launching the app needs the target's `app.bundleId`, or {UninstalledBuild}"
+            );
         await OpenAppAsync(app, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Launches the pinned app fresh: the device's "recreate the context".</summary>
     public async Task RestartAsync(CancellationToken cancellationToken)
     {
-        var app = PinnedApp ?? throw DeviceSupport.Unsupported($"launching the app needs the target's `app.bundleId`, or {UninstalledBuild}");
+        var app = PinnedApp
+            ?? throw DeviceSupport.Unsupported(
+                $"launching the app needs the target's `app.bundleId`, or {UninstalledBuild}"
+            );
         await OpenAppAsync(app, new OpenAppOptions { Relaunch = true }, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Clears the pinned app's persisted state and relaunches it: the device equivalent of a fresh context.</summary>
     public async Task ClearStateAsync(CancellationToken cancellationToken)
     {
-        var app = PinnedApp ?? throw DeviceSupport.Unsupported($"app.clearState needs the target's `app.bundleId`, or {UninstalledBuild}");
+        var app = PinnedApp
+            ?? throw DeviceSupport.Unsupported(
+                $"app.clearState needs the target's `app.bundleId`, or {UninstalledBuild}"
+            );
         await CommandAsync(
-            "clear app state",
-            DeviceMethods.SettingsUpdate,
-            Selection.ToArgs(("setting", JsonValue.Create("clear-app-state")), ("state", JsonValue.Create("clear")), ("app", JsonValue.Create(app))),
-            cancellationToken).ConfigureAwait(false);
+                "clear app state",
+                DeviceMethods.SettingsUpdate,
+                Selection.ToArgs(
+                    ("setting", JsonValue.Create("clear-app-state")),
+                    ("state", JsonValue.Create("clear")),
+                    ("app", JsonValue.Create(app))
+                ),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         await OpenAppAsync(app, new OpenAppOptions { Relaunch = true }, cancellationToken).ConfigureAwait(false);
     }
 
@@ -379,35 +460,56 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         var input = InputBudget("back", cancellationToken);
         var before = _latestScreen;
         await CommandAsync(
-            "back",
-            (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.CommandBack, ActionSettle(context), token), token),
-            cancellationToken).ConfigureAwait(false);
+                "back",
+                (client, token) =>
+                    SendInputAsync(
+                        input,
+                        () => client.CallAsync(DeviceMethods.CommandBack, ActionSettle(context), token),
+                        token
+                    ),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         MarkAction(before);
     }
 
     public bool CanLocate => true;
 
-    public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => ObserveAsync(ActionTimeout, cancellationToken);
+    public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+        ObserveAsync(ActionTimeout, cancellationToken);
 
     /// <summary>
     /// Observes the screen within <paramref name="timeout"/>, the operation budget that bounds every device command of the observation:
     /// the snapshot and the viewport probe share it (upstream's <c>observe</c> under <c>inputBudget('observe', operation.timeoutMs)</c>).
     /// </summary>
-    public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) => ObserveAsync(null, timeout, cancellationToken);
+    public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+        ObserveAsync(null, timeout, cancellationToken);
 
     /// <summary>
     /// <see cref="ObserveAsync(TimeSpan, CancellationToken)"/> with <paramref name="options"/>: with <see cref="ObserveOptions.Pixels"/> the
     /// screenshot is taken under the same budget as the snapshot and the viewport probe (upstream's <c>observe(operation, options)</c>).
     /// </summary>
-    public async Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken)
+    public async Task<Observation> ObserveAsync(
+        ObserveOptions? options,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    )
     {
         var budget = InputBudget("observe", timeout, cancellationToken);
-        var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, budget, cancellationToken).ConfigureAwait(false);
+        var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, budget, cancellationToken)
+            .ConfigureAwait(false);
         var projected = Project(raw);
         _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected));
         var viewport = await ViewportForAsync(projected, budget, cancellationToken).ConfigureAwait(false);
-        Route = DeviceSupport.ScreenLocation(raw.AppBundleId ?? raw.AppName ?? _appIdentity, SnapshotProjection.ScreenTitle(projected)) ?? "";
-        var pixels = options?.Pixels == true ? await CapturePixelsAsync(projected, viewport, options.Comparable, budget, cancellationToken).ConfigureAwait(false) : null;
+        Route = DeviceSupport.ScreenLocation(
+            raw.AppBundleId ?? raw.AppName ?? _appIdentity,
+            SnapshotProjection.ScreenTitle(projected)
+        ) ?? "";
+        var pixels =
+            options?.Pixels == true
+                ? await CapturePixelsAsync(projected, viewport, options.Comparable, budget, cancellationToken)
+                    .ConfigureAwait(false)
+                : null;
         return new Observation
         {
             Route = Route,
@@ -422,8 +524,12 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
         PerformAsync(node, action, DefaultContext, cancellationToken);
 
-    public Task PerformAsync(SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken) =>
-        _engine.Actions.PerformAsync(this, node, action, context, cancellationToken);
+    public Task PerformAsync(
+        SemanticNode node,
+        LocatorAction action,
+        OperationContext context,
+        CancellationToken cancellationToken
+    ) => _engine.Actions.PerformAsync(this, node, action, context, cancellationToken);
 
     public Task PressAsync(string key, CancellationToken cancellationToken) =>
         _engine.Actions.PressAsync(this, key, cancellationToken);
@@ -432,10 +538,15 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         SwipeAsync(direction, null, DefaultContext, cancellationToken);
 
     /// <summary>A device has one stride for a viewport swipe, so <paramref name="momentum"/> is dropped.</summary>
-    public Task SwipeAsync(ScrollDirection direction, Momentum? momentum, OperationContext context, CancellationToken cancellationToken) =>
-        _engine.Actions.SwipeAsync(this, direction, context, cancellationToken);
+    public Task SwipeAsync(
+        ScrollDirection direction,
+        Momentum? momentum,
+        OperationContext context,
+        CancellationToken cancellationToken
+    ) => _engine.Actions.SwipeAsync(this, direction, context, cancellationToken);
 
-    public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => ScreenshotAsync(ActionTimeout, cancellationToken);
+    public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
+        ScreenshotAsync(ActionTimeout, cancellationToken);
 
     /// <summary>The masked screenshot within <paramref name="timeout"/>, the operation budget its snapshot and capture share.</summary>
     public Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
@@ -446,15 +557,28 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// secure node's bounds are painted over before the file is kept. An image that cannot be redacted is not written at all (upstream's
     /// <c>screenshot</c> in <c>mobile/src/surface.ts</c>).
     /// </summary>
-    public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) => ScreenshotArtifactAsync(label, ActionTimeout, cancellationToken);
+    public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) =>
+        ScreenshotArtifactAsync(label, ActionTimeout, cancellationToken);
 
     /// <summary><see cref="ScreenshotArtifactAsync(string?, CancellationToken)"/> within <paramref name="timeout"/>, the operation budget its snapshot and capture share.</summary>
-    public async Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, CancellationToken cancellationToken)
+    public async Task<string> ScreenshotArtifactAsync(
+        string? label,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    )
     {
         var artifactsDir = _artifactsDir ?? throw DeviceSupport.InvalidState("screenshot outside an attempt");
-        var masked = await MaskedScreenshotAsync(normalizeStatusBar: false, InputBudget("screenshot", timeout, cancellationToken), cancellationToken).ConfigureAwait(false);
-        var name = Interlocked.Increment(ref _screenshots).ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
-            + "-" + DeviceSupport.SanitizeFilename(label ?? "screenshot") + ".png";
+        var masked = await MaskedScreenshotAsync(
+                normalizeStatusBar: false,
+                InputBudget("screenshot", timeout, cancellationToken),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        var name =
+            Interlocked.Increment(ref _screenshots).ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
+            + "-"
+            + DeviceSupport.SanitizeFilename(label ?? "screenshot")
+            + ".png";
         var directory = Path.Combine(artifactsDir, "screenshots");
         Directory.CreateDirectory(directory);
         var absolute = Path.Combine(directory, name);
@@ -477,9 +601,12 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// session for the next attempt on the slot, as upstream's <c>endAttempt</c> leaves its worker; the run's finish closes it. A device
     /// without a lease closes with its attempt, as it always did.
     /// </summary>
-    public ValueTask DisposeAsync() => new(_worker.Binding?.LeaseId is null
-        ? CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None)
-        : EndAttemptAsync(E2EDefaults.CleanupTimeout, CancellationToken.None));
+    public ValueTask DisposeAsync() =>
+        new(
+            _worker.Binding?.LeaseId is null
+                ? CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None)
+                : EndAttemptAsync(E2EDefaults.CleanupTimeout, CancellationToken.None)
+        );
 
     /// <summary>
     /// Ends this attempt and closes the agent-device session it runs on, within a budget: a close that outlives it is abandoned, as one
@@ -498,11 +625,16 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         try
         {
             // Upstream's endAttempt, then dispose without reuse: a recording still marked is stopped before the session closes.
-            await CleanupBudget.WithinAsync(token => StopDanglingAsync(token), timeout, cancellationToken).ConfigureAwait(false);
-            await CleanupBudget.WithinAsync(
-                token => DisposeWorkerAsync(_engine, _slot, _worker, timeout, reuse: null, token),
-                timeout,
-                cancellationToken).ConfigureAwait(false);
+            await CleanupBudget
+                .WithinAsync(token => StopDanglingAsync(token), timeout, cancellationToken)
+                .ConfigureAwait(false);
+            await CleanupBudget
+                .WithinAsync(
+                    token => DisposeWorkerAsync(_engine, _slot, _worker, timeout, reuse: null, token),
+                    timeout,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
         finally
         {
@@ -521,7 +653,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     {
         try
         {
-            await CleanupBudget.WithinAsync(token => StopDanglingAsync(token), timeout, cancellationToken).ConfigureAwait(false);
+            await CleanupBudget
+                .WithinAsync(token => StopDanglingAsync(token), timeout, cancellationToken)
+                .ConfigureAwait(false);
         }
         finally
         {
@@ -565,7 +699,13 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
                     // absorbed: it surfaces as cancellation.
                 }
 
-                await StopQuietlyAsync(client, Selection.ToArgs(("action", JsonValue.Create("stop"))), video, cancellationToken).ConfigureAwait(false);
+                await StopQuietlyAsync(
+                        client,
+                        Selection.ToArgs(("action", JsonValue.Create("stop"))),
+                        video,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
                 break;
         }
     }
@@ -576,11 +716,21 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// A reuse that is revoked while the worker is disposing closes the session at once. A provider's recording still marked is
     /// stopped within the same budget, and a stop that hangs does not hold the close up.
     /// </summary>
-    internal static async Task DisposeWorkerAsync(MobileEngine engine, (string Target, int Slot) slot, DeviceWorker worker, TimeSpan timeout, CancellationToken? reuse, CancellationToken cancellationToken)
+    internal static async Task DisposeWorkerAsync(
+        MobileEngine engine,
+        (string Target, int Slot) slot,
+        DeviceWorker worker,
+        TimeSpan timeout,
+        CancellationToken? reuse,
+        CancellationToken cancellationToken
+    )
     {
         var client = worker.Client;
         var dangling = worker.Recording;
-        var keep = worker.Binding?.LeaseId is not null && dangling is not ScreenRecording && reuse is { IsCancellationRequested: false };
+        var keep =
+            worker.Binding?.LeaseId is not null
+            && dangling is not ScreenRecording
+            && reuse is { IsCancellationRequested: false };
         worker.Client = null;
         worker.Tracked = null;
         worker.Bound = null;
@@ -605,18 +755,21 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
                 _ = Close();
             }
 
-            await CleanupBudget.WithinAsync(
-                async token =>
-                {
-                    if (dangling is LeaseRecording lease)
+            await CleanupBudget
+                .WithinAsync(
+                    async token =>
                     {
-                        await StopLeaseQuietlyAsync(worker, lease, token).ConfigureAwait(false);
-                    }
+                        if (dangling is LeaseRecording lease)
+                        {
+                            await StopLeaseQuietlyAsync(worker, lease, token).ConfigureAwait(false);
+                        }
 
-                    await (closing ?? Task.CompletedTask).ConfigureAwait(false);
-                },
-                timeout,
-                cancellationToken).ConfigureAwait(false);
+                        await (closing ?? Task.CompletedTask).ConfigureAwait(false);
+                    },
+                    timeout,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
         finally
         {
@@ -641,19 +794,28 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// Snapshot for an observation. Without a pinned app, an observation before anything is open is an empty screen
     /// rather than a fault: the model's next move is the open tool, and failing the step would take that move away.
     /// </summary>
-    private async Task<RawSnapshot> SnapshotOrEmptyAsync(bool interactiveOnly, InputBudget? budget, CancellationToken cancellationToken)
+    private async Task<RawSnapshot> SnapshotOrEmptyAsync(
+        bool interactiveOnly,
+        InputBudget? budget,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
             return await SnapshotAsync(interactiveOnly, budget, cancellationToken).ConfigureAwait(false);
         }
-        catch (EngineException cause) when (_worker.Client is not null && !ManagesApp && cause.Code == EngineErrorCodes.InvalidState)
+        catch (EngineException cause)
+            when (_worker.Client is not null && !ManagesApp && cause.Code == EngineErrorCodes.InvalidState)
         {
             return RawSnapshot.Empty;
         }
     }
 
-    internal async Task<RawSnapshot> SnapshotAsync(bool interactiveOnly, InputBudget? budget, CancellationToken cancellationToken)
+    internal async Task<RawSnapshot> SnapshotAsync(
+        bool interactiveOnly,
+        InputBudget? budget,
+        CancellationToken cancellationToken
+    )
     {
         var last = RawSnapshot.Empty;
         var captured = TimeSpan.Zero;
@@ -694,21 +856,31 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// (a viewport it could not read, a malformed graph). The check is per capture and a capture is a read, so the
     /// retry is safe. A second failure is the runner's and propagates.
     /// </summary>
-    private async Task<RawSnapshot> CaptureAsync(bool interactiveOnly, InputBudget? budget, CancellationToken cancellationToken)
+    private async Task<RawSnapshot> CaptureAsync(
+        bool interactiveOnly,
+        InputBudget? budget,
+        CancellationToken cancellationToken
+    )
     {
-        Task<JsonNode?> Command() => CommandAsync(
-            "snapshot",
-            DeviceMethods.CaptureSnapshot,
-            DeviceArgs.Of(("interactiveOnly", JsonValue.Create(interactiveOnly))),
-            cancellationToken);
+        Task<JsonNode?> Command() =>
+            CommandAsync(
+                "snapshot",
+                DeviceMethods.CaptureSnapshot,
+                DeviceArgs.Of(("interactiveOnly", JsonValue.Create(interactiveOnly))),
+                cancellationToken
+            );
 
-        async Task<RawSnapshot> Take() => RawSnapshot.Read(await (budget is null ? Command() : budget.ReadAsync(Command, cancellationToken)).ConfigureAwait(false));
+        async Task<RawSnapshot> Take() =>
+            RawSnapshot.Read(
+                await (budget is null ? Command() : budget.ReadAsync(Command, cancellationToken)).ConfigureAwait(false)
+            );
 
         try
         {
             return await Take().ConfigureAwait(false);
         }
-        catch (Exception cause) when (!cancellationToken.IsCancellationRequested && DeviceErrors.IsSnapshotPresentationFailure(cause))
+        catch (Exception cause)
+            when (!cancellationToken.IsCancellationRequested && DeviceErrors.IsSnapshotPresentationFailure(cause))
         {
             return await Take().ConfigureAwait(false);
         }
@@ -718,7 +890,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     private static bool SameScreen(ViewportSize a, ViewportSize b)
     {
         static bool Near(double x, double y) => Math.Abs(x - y) < 1;
-        return (Near(a.Width, b.Width) && Near(a.Height, b.Height)) || (Near(a.Width, b.Height) && Near(a.Height, b.Width));
+        return (Near(a.Width, b.Width) && Near(a.Height, b.Height))
+            || (Near(a.Width, b.Height) && Near(a.Height, b.Width));
     }
 
     /// <summary>
@@ -734,7 +907,14 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             () => $"n{++_idCounter}",
             raw.Viewport,
             raw.RefsGeneration,
-            SnapshotProjection.KeyboardBand(raw.Nodes, raw.KeyboardKind, raw.KeyboardFrame, raw.KeyboardProbeVisible, raw.Viewport));
+            SnapshotProjection.KeyboardBand(
+                raw.Nodes,
+                raw.KeyboardKind,
+                raw.KeyboardFrame,
+                raw.KeyboardProbeVisible,
+                raw.Viewport
+            )
+        );
         projected.KeyboardVisible = KeyboardShowing(raw);
         _latestScreen = projected;
         if (projected.Viewport is { } read && (_knownViewport is not { } known || SameScreen(read, known)))
@@ -753,7 +933,11 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// size; on a real device the tree's size is taken as it comes. A device whose size cannot be learned at all fails the
     /// observation: the harness measures every rect and point against the viewport, so an invented one would misplace every tap.
     /// </summary>
-    private async Task<ViewportSize> ViewportForAsync(ProjectedSnapshot projected, InputBudget budget, CancellationToken cancellationToken)
+    private async Task<ViewportSize> ViewportForAsync(
+        ProjectedSnapshot projected,
+        InputBudget budget,
+        CancellationToken cancellationToken
+    )
     {
         if (_knownViewport is { } known)
         {
@@ -762,9 +946,11 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
                 return known;
             }
 
-            if (!SameScreen(read, known)
+            if (
+                !SameScreen(read, known)
                 && await ProbeViewportAsync(budget, cancellationToken).ConfigureAwait(false) is { } device
-                && !SameScreen(read, device))
+                && !SameScreen(read, device)
+            )
             {
                 return known;
             }
@@ -777,22 +963,32 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             ?? throw new EngineException(
                 EngineErrorCodes.EngineFailure,
                 "the device reported no screen geometry: the snapshot has no bounds and the screenshot no logical size, so the viewport is unknown",
-                retryable: false);
+                retryable: false
+            );
         _knownViewport = probed;
         return probed;
     }
 
     /// <summary>The device's logical screen size as its screenshot reports it. Null when it reports none.</summary>
     private Task<ViewportSize?> ProbeViewportAsync(InputBudget budget, CancellationToken cancellationToken) =>
-        CaptureScreenshotAsync((shot, _) => Task.FromResult(DeviceSupport.LogicalScreenSize(shot)), normalizeStatusBar: false, budget, cancellationToken);
+        CaptureScreenshotAsync(
+            (shot, _) => Task.FromResult(DeviceSupport.LogicalScreenSize(shot)),
+            normalizeStatusBar: false,
+            budget,
+            cancellationToken
+        );
 
-    private const string UninstalledBuild = "the build the target's `app.appPath` names installed first with `device.installApp()`";
+    private const string UninstalledBuild =
+        "the build the target's `app.appPath` names installed first with `device.installApp()`";
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     /// <summary>A JSON number, whatever type backs it: one parsed from the daemon's text and one built in code differ.</summary>
     private static double? Number(JsonNode? node) =>
-        node is JsonValue && JsonSerializer.SerializeToElement(node) is { ValueKind: JsonValueKind.Number } element ? element.GetDouble() : null;
+        node is JsonValue && JsonSerializer.SerializeToElement(node) is { ValueKind: JsonValueKind.Number } element
+            ? element.GetDouble()
+            : null;
 
     /// <summary>The snapshot fields this engine reads off agent-device's response.</summary>
     internal sealed record RawSnapshot(
@@ -805,7 +1001,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         string? KeyboardKind = null,
         Rect? KeyboardFrame = null,
         long? RefsGeneration = null,
-        bool? KeyboardProbeVisible = null)
+        bool? KeyboardProbeVisible = null
+    )
     {
         public static RawSnapshot Empty { get; } = new([], false, null, null, false);
 
@@ -823,12 +1020,19 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             }
             catch (JsonException cause)
             {
-                throw new EngineException(EngineErrorCodes.EngineFailure, $"the device returned a snapshot this engine cannot read: {cause.Message}", retryable: false, cause);
+                throw new EngineException(
+                    EngineErrorCodes.EngineFailure,
+                    $"the device returned a snapshot this engine cannot read: {cause.Message}",
+                    retryable: false,
+                    cause
+                );
             }
 
-            ViewportSize? viewport = Number(data["viewport"]?["width"]) is > 0 and var width && Number(data["viewport"]?["height"]) is > 0 and var height
-                ? new ViewportSize(width, height)
-                : null;
+            ViewportSize? viewport =
+                Number(data["viewport"]?["width"]) is > 0 and var width
+                && Number(data["viewport"]?["height"]) is > 0 and var height
+                    ? new ViewportSize(width, height)
+                    : null;
             return new RawSnapshot(
                 nodes,
                 data["truncated"] is JsonValue truncated && truncated.TryGetValue<bool>(out var cut) && cut,
@@ -838,13 +1042,16 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
                 viewport,
                 Text(data["keyboard"]?["kind"]),
                 Number(data["keyboard"]?["frame"]?["x"]) is { } frameX
-                    && Number(data["keyboard"]?["frame"]?["y"]) is { } frameY
-                    && Number(data["keyboard"]?["frame"]?["width"]) is { } frameWidth
-                    && Number(data["keyboard"]?["frame"]?["height"]) is { } frameHeight
+                && Number(data["keyboard"]?["frame"]?["y"]) is { } frameY
+                && Number(data["keyboard"]?["frame"]?["width"]) is { } frameWidth
+                && Number(data["keyboard"]?["frame"]?["height"]) is { } frameHeight
                     ? new Rect(frameX, frameY, frameWidth, frameHeight)
                     : null,
                 Number(data["refsGeneration"]) is { } generation ? (long)generation : null,
-                data["keyboard"]?["visible"] is JsonValue probe && probe.TryGetValue<bool>(out var probed) ? probed : null);
+                data["keyboard"]?["visible"] is JsonValue probe && probe.TryGetValue<bool>(out var probed)
+                    ? probed
+                    : null
+            );
         }
     }
 }
@@ -884,7 +1091,8 @@ internal sealed class InflightCommands
             },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
+            TaskScheduler.Default
+        );
     }
 
     /// <summary>
@@ -900,7 +1108,11 @@ internal sealed class InflightCommands
             {
                 if (_unconfirmedAbort)
                 {
-                    throw new EngineException(EngineErrorCodes.EngineFailure, "an earlier device request was aborted without confirmation that the daemon finished; later attempts on this device are blocked", retryable: false);
+                    throw new EngineException(
+                        EngineErrorCodes.EngineFailure,
+                        "an earlier device request was aborted without confirmation that the daemon finished; later attempts on this device are blocked",
+                        retryable: false
+                    );
                 }
 
                 pending = [.. _pending];
@@ -913,7 +1125,14 @@ internal sealed class InflightCommands
 
             try
             {
-                var settled = pending.Select(task => task.ContinueWith(static _ => { }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default));
+                var settled = pending.Select(task =>
+                    task.ContinueWith(
+                        static _ => { },
+                        CancellationToken.None,
+                        TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default
+                    )
+                );
                 await Task.WhenAll(settled).WaitAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -936,7 +1155,8 @@ internal sealed class InflightCommands
 /// request is aborted as soon as the caller leaves, and that abort does not block later attempts, since agent-device owns the drain of
 /// native work it already accepted.
 /// </summary>
-internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflight, TimeProvider? timeProvider = null) : IDeviceClient
+internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflight, TimeProvider? timeProvider = null)
+    : IDeviceClient
 {
     public Task<JsonNode?> CallAsync(string method, JsonObject? options, CancellationToken cancellationToken)
     {
@@ -948,7 +1168,12 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
             ? cancellationToken.Register(
                 static state =>
                 {
-                    var (source, flag, now) = ((CancellationTokenSource, System.Runtime.CompilerServices.StrongBox<bool>, bool))state!;
+                    var (source, flag, now) = ((
+                        CancellationTokenSource,
+                        System.Runtime.CompilerServices.StrongBox<bool>,
+                        bool
+                    ))
+                        state!;
                     Volatile.Write(ref flag.Value, true);
                     if (now)
                     {
@@ -966,7 +1191,8 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
 
                     source.CancelAfter(E2EDefaults.LaunchTimeout);
                 },
-                (abort, callerLeft, cancellable))
+                (abort, callerLeft, cancellable)
+            )
             : default;
         Task<JsonNode?> pending;
         try
@@ -980,7 +1206,12 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
             throw;
         }
 
-        inflight.Track(pending, settled => Volatile.Read(ref callerLeft.Value) && !settled.IsCompletedSuccessfully && !DaemonAnswered(settled) && !(cancellable && settled.IsCanceled));
+        inflight.Track(pending, settled =>
+            Volatile.Read(ref callerLeft.Value)
+            && !settled.IsCompletedSuccessfully
+            && !DaemonAnswered(settled)
+            && !(cancellable && settled.IsCanceled)
+        );
         _ = pending.ContinueWith(
             static (_, state) =>
             {
@@ -991,12 +1222,14 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
             (left, abort),
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
+            TaskScheduler.Default
+        );
         return pending;
     }
 
     /// <summary>True when the daemon itself answered with a failure: an error it reported, not a transport failure that carries a cause.</summary>
-    private static bool DaemonAnswered(Task settled) => settled.Exception?.InnerException is AgentDeviceError { Reported: true };
+    private static bool DaemonAnswered(Task settled) =>
+        settled.Exception?.InnerException is AgentDeviceError { Reported: true };
 }
 
 /// <summary>The agent-device session a worker drives, and the device agent-device booted for it (upstream's <c>BoundDevice</c>, <c>surface.ts</c>).</summary>

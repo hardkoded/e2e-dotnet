@@ -38,7 +38,13 @@ internal static class RunReport
     /// by the redactors of all its attempts, since a secret one learned shows in the steps it recorded. An attempt that passed or was skipped ends
     /// the test (a retry follows a failure only), so its entry is dropped once the report is built.
     /// </summary>
-    public static (Report1Document Report, bool Traced, Func<string, string> Redact) Add(Report1Document report, string resultsRoot, int attempt, bool kept, Func<string, string> redact)
+    public static (Report1Document Report, bool Traced, Func<string, string> Redact) Add(
+        Report1Document report,
+        string resultsRoot,
+        int attempt,
+        bool kept,
+        Func<string, string> redact
+    )
     {
         var single = report.Run.Results[0];
         var key = resultsRoot + "\n" + single.Id;
@@ -77,7 +83,9 @@ internal static class RunReport
             result = result with { File = where.File, Source = where.Source };
         }
 
-        return (report with { Run = report.Run with { Results = [result] } }, traced, text => redactors.Aggregate(text, (redacted, each) => each(redacted)));
+        return (report with { Run = report.Run with { Results = [result] } }, traced, text =>
+            redactors.Aggregate(text, (redacted, each) => each(redacted))
+        );
     }
 
     /// <summary>

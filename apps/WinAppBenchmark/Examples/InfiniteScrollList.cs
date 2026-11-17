@@ -61,22 +61,30 @@ public sealed class InfiniteScrollList : Component
             columns: [GridSize.Star()],
             rows: [GridSize.Auto, GridSize.Star(), GridSize.Auto],
             Hint($"Scroll down and tap Item {TargetItem} to complete").Padding(16, 12),
-            ScrollView(ItemsRepeater(items, item => item.ToString(), (item, _) =>
-                    Button(TextBlock($"Item {item}"), () =>
-                    {
-                        if (item == TargetItem)
-                        {
-                            setFoundTarget(true);
-                        }
-                    })
-                    .AutomationId($"item-{item}")
-                    .Height(44)
-                    .HAlign(HorizontalAlignment.Stretch)
-                    .CornerRadius(0)))
+            ScrollView(
+                    ItemsRepeater(
+                        items,
+                        item => item.ToString(),
+                        (item, _) =>
+                            Button(TextBlock($"Item {item}"), () =>
+                                {
+                                    if (item == TargetItem)
+                                    {
+                                        setFoundTarget(true);
+                                    }
+                                })
+                                .AutomationId($"item-{item}")
+                                .Height(44)
+                                .HAlign(HorizontalAlignment.Stretch)
+                                .CornerRadius(0)
+                    )
+                )
                 .Ref(scroll)
                 .ViewChanged(ViewChanged)
-                .AutomationName("Items").AutomationId("benchmark-list")
+                .AutomationName("Items")
+                .AutomationId("benchmark-list")
                 .Grid(row: 1),
-            When(loading, () => ProgressRing().AutomationId("list-loading").Padding(12)).Grid(row: 2));
+            When(loading, () => ProgressRing().AutomationId("list-loading").Padding(12)).Grid(row: 2)
+        );
     }
 }

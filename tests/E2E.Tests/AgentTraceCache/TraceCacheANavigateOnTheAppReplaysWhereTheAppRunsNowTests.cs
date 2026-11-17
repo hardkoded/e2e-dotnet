@@ -50,7 +50,9 @@ public sealed class TraceCacheANavigateOnTheAppReplaysWhereTheAppRunsNowTests
         {
             onRun();
             var observation = await context.ObserveAsync(new ExecutorObserveOptions { Tree = true }, token);
-            var href = ExecutorTree.FindNode(observation.Tree, node => node.Role == "link" && node.Name == "About")?.Attributes?["href"];
+            var href = ExecutorTree
+                .FindNode(observation.Tree, node => node.Role == "link" && node.Name == "About")
+                ?.Attributes?["href"];
             if (href is null)
             {
                 return Failed("no About link");
@@ -58,25 +60,24 @@ public sealed class TraceCacheANavigateOnTheAppReplaysWhereTheAppRunsNowTests
 
             await context.Actions.NavigateAsync(href, token);
             return Passed($"opened {href}");
-        })
-        {
-            Version = "test",
-        };
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            AgentExecutor = executor,
-            BaseUrl = appUrl,
-            AppIdentity = AppIdentity,
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            CacheStrict = strict,
-            TestTitle = "opens the about page",
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(30),
-            TestTimeout = TimeSpan.FromSeconds(60),
-        });
+        }) { Version = "test" };
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                AgentExecutor = executor,
+                BaseUrl = appUrl,
+                AppIdentity = AppIdentity,
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                CacheStrict = strict,
+                TestTitle = "opens the about page",
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(30),
+                TestTimeout = TimeSpan.FromSeconds(60),
+            }
+        );
         await session.App.OpenAsync();
         var result = await session.Agent.ActAsync("open the About page");
         await Expect.That(session.Screen.GetByRole("heading", "About")).ToBeVisibleAsync();

@@ -13,14 +13,26 @@ namespace E2E.Tests.ManagedProcessIntegration;
 /// </summary>
 public sealed class ManagedProcessTests
 {
-    private static ManagedProcessUnderTest NodeApp(int port, string? extraArg = null, int startupTimeoutMs = 15_000, bool? reuseExisting = null) =>
+    private static ManagedProcessUnderTest NodeApp(
+        int port,
+        string? extraArg = null,
+        int startupTimeoutMs = 15_000,
+        bool? reuseExisting = null
+    ) =>
         new(
             "app.command",
-            AppProgram.Command(AppProgram.Serve(port, extraArg), TimeSpan.FromMilliseconds(startupTimeoutMs), TimeSpan.FromSeconds(2), reuseExisting: reuseExisting),
+            AppProgram.Command(
+                AppProgram.Serve(port, extraArg),
+                TimeSpan.FromMilliseconds(startupTimeoutMs),
+                TimeSpan.FromSeconds(2),
+                reuseExisting: reuseExisting
+            ),
             Path.GetTempPath(),
-            new Readiness("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/"));
+            new Readiness("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/")
+        );
 
-    private static string UrlOf(int port) => "http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/";
+    private static string UrlOf(int port) =>
+        "http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/";
 
     [Fact]
     public async Task Starts_the_app_waits_for_readiness_and_stops_the_process_group_idempotently_and_safely_before_start()
@@ -63,9 +75,13 @@ public sealed class ManagedProcessTests
         var pidFile = Path.Combine(dir, "child.pid");
         var app = new ManagedProcessUnderTest(
             "app.command",
-            AppProgram.Command(["wrap", pidFile, .. AppProgram.Serve(port, "ignore-sigterm")], shutdownTimeout: TimeSpan.FromMilliseconds(100)),
+            AppProgram.Command(
+                ["wrap", pidFile, .. AppProgram.Serve(port, "ignore-sigterm")],
+                shutdownTimeout: TimeSpan.FromMilliseconds(100)
+            ),
             dir,
-            new Readiness(UrlOf(port)));
+            new Readiness(UrlOf(port))
+        );
         try
         {
             await app.StartAsync();
@@ -99,9 +115,19 @@ public sealed class ManagedProcessTests
         var finished = Path.Combine(dir, "finished");
         var app = new ManagedProcessUnderTest(
             "app.command",
-            AppProgram.Command(["wrap", pidFile, "serve-graceful", port.ToString(System.Globalization.CultureInfo.InvariantCulture), finished], shutdownTimeout: TimeSpan.FromSeconds(1)),
+            AppProgram.Command(
+                [
+                    "wrap",
+                    pidFile,
+                    "serve-graceful",
+                    port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    finished,
+                ],
+                shutdownTimeout: TimeSpan.FromSeconds(1)
+            ),
             dir,
-            new Readiness(UrlOf(port)));
+            new Readiness(UrlOf(port))
+        );
         try
         {
             await app.StartAsync();
@@ -133,10 +159,19 @@ public sealed class ManagedProcessTests
     {
         try
         {
-            using var child = System.Diagnostics.Process.GetProcessById(int.Parse(File.ReadAllText(pidFile), System.Globalization.CultureInfo.InvariantCulture));
+            using var child = System.Diagnostics.Process.GetProcessById(
+                int.Parse(File.ReadAllText(pidFile), System.Globalization.CultureInfo.InvariantCulture)
+            );
             child.Kill();
         }
-        catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException or FormatException or System.ComponentModel.Win32Exception)
+        catch (Exception ex)
+            when (ex
+                    is IOException
+                        or ArgumentException
+                        or InvalidOperationException
+                        or FormatException
+                        or System.ComponentModel.Win32Exception
+            )
         {
             // already gone
         }
@@ -145,7 +180,12 @@ public sealed class ManagedProcessTests
     [Fact]
     public async Task Fails_with_APP_UNREACHABLE_when_the_command_exits_before_becoming_ready()
     {
-        var app = new ManagedProcessUnderTest("app.command", AppProgram.Command(["exit", "3"]), Path.GetTempPath(), new Readiness(UrlOf(AppProgram.FreePort())));
+        var app = new ManagedProcessUnderTest(
+            "app.command",
+            AppProgram.Command(["exit", "3"]),
+            Path.GetTempPath(),
+            new Readiness(UrlOf(AppProgram.FreePort()))
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Equal("APP_UNREACHABLE", failure.Code);
         Assert.Contains("exited with code 3", failure.Message, StringComparison.Ordinal);
@@ -156,9 +196,13 @@ public sealed class ManagedProcessTests
     {
         var app = new ManagedProcessUnderTest(
             "app.command",
-            new CommandConfig { Executable = Path.Combine(Path.GetTempPath(), "definitely", "not", "a", "real", "binary") },
+            new CommandConfig
+            {
+                Executable = Path.Combine(Path.GetTempPath(), "definitely", "not", "a", "real", "binary"),
+            },
             Path.GetTempPath(),
-            new Readiness(UrlOf(AppProgram.FreePort())));
+            new Readiness(UrlOf(AppProgram.FreePort()))
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Equal("APP_UNREACHABLE", failure.Code);
         Assert.Contains("failed to start", failure.Message, StringComparison.Ordinal);
@@ -179,9 +223,14 @@ public sealed class ManagedProcessTests
         var port = AppProgram.FreePort();
         var app = new ManagedProcessUnderTest(
             "app.command",
-            AppProgram.Command(["spawn", port.ToString(System.Globalization.CultureInfo.InvariantCulture)], TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(2)),
+            AppProgram.Command(
+                ["spawn", port.ToString(System.Globalization.CultureInfo.InvariantCulture)],
+                TimeSpan.FromSeconds(15),
+                TimeSpan.FromSeconds(2)
+            ),
             Path.GetTempPath(),
-            new Readiness(UrlOf(port)));
+            new Readiness(UrlOf(port))
+        );
         try
         {
             await app.StartAsync();
@@ -211,7 +260,8 @@ public sealed class ManagedProcessTests
             "app.command",
             AppProgram.Command(["idle"], TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(2)),
             Path.GetTempPath(),
-            new Readiness(held.Url));
+            new Readiness(held.Url)
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Contains("was not reachable", failure.Message, StringComparison.Ordinal);
     }

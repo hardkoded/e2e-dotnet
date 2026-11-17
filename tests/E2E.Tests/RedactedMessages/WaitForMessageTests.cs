@@ -19,7 +19,10 @@ public sealed class WaitForMessageTests
         RedactionSite.Know(session);
 
         var failure = await Assert.ThrowsAsync<TestException>(() =>
-            session.Screen.GetByText("Secret " + RedactionSite.Token).WaitForAsync(new LocatorWaitForOptions { Timeout = TimeSpan.FromMilliseconds(300) }));
+            session
+                .Screen.GetByText("Secret " + RedactionSite.Token)
+                .WaitForAsync(new LocatorWaitForOptions { Timeout = TimeSpan.FromMilliseconds(300) })
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.Contains("<secret:token>", failure.Message, StringComparison.Ordinal);

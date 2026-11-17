@@ -26,7 +26,8 @@ public sealed class DeterministicSpeedFloorTests : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -47,7 +48,9 @@ public sealed class DeterministicSpeedFloorTests : E2ETest
 
         var perTap = (Environment.TickCount64 - started) / (double)Taps;
 
-        await Expect.That(Screen.GetByRole("status", "Count")).ToHaveTextAsync(Taps.ToString(CultureInfo.InvariantCulture));
+        await Expect
+            .That(Screen.GetByRole("status", "Count"))
+            .ToHaveTextAsync(Taps.ToString(CultureInfo.InvariantCulture));
         Assert.That(perTap, Is.LessThanOrEqualTo(Budget(readMs)), Verdict("tap", perTap, readMs));
     }
 

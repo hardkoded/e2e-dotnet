@@ -20,14 +20,18 @@ internal static class StepProgressWire
         return new Reports.StepProgress
         {
             Phase = Enum.Parse<Reports.StepProgressPhase>(progress.Phase.ToString()),
-            Identity = progress.Identity is { } id ? new Reports.StepProgressIdentity(id.AttemptId, id.AttemptIndex, id.StepId, id.StepIndex) : null,
+            Identity = progress.Identity is { } id
+                ? new Reports.StepProgressIdentity(id.AttemptId, id.AttemptIndex, id.StepId, id.StepIndex)
+                : null,
             Api = progress.Api,
             Kind = progress.Kind is { } kind ? Enum.Parse<Reports.StepKind>(kind.ToString()) : null,
             Label = progress.Label,
             Status = progress.Status is { } status ? Enum.Parse<Reports.StepStatus>(status.ToString()) : null,
             DurationMs = progress.DurationMs,
             ModelCalls = progress.ModelCalls,
-            Error = progress.Error is { } error ? Read<Reports.ReportError>(ReportWire.Error(ReportError.Of(error))) : null,
+            Error = progress.Error is { } error
+                ? Read<Reports.ReportError>(ReportWire.Error(ReportError.Of(error)))
+                : null,
             Explanation = progress.Explanation,
             Event = progress.Event is { } stepEvent ? Read<Reports.StepEvent>(ReportWire.Event(stepEvent)) : null,
             Activity = progress.Activity is { } activity ? Enum.Parse<Reports.StepActivity>(activity.ToString()) : null,
@@ -39,5 +43,6 @@ internal static class StepProgressWire
     public static Reports.ReportStep Public(StepRecord step) => Read<Reports.ReportStep>(ReportWire.Step(step));
 
     private static T Read<T>(JsonObject node) =>
-        node.Deserialize<T>(ReportSerializer.Options) ?? throw new InvalidOperationException("The report document is empty.");
+        node.Deserialize<T>(ReportSerializer.Options)
+        ?? throw new InvalidOperationException("The report document is empty.");
 }

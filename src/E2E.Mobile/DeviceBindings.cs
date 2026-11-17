@@ -63,9 +63,15 @@ public static class DeviceBindings
     public const int MaxEnvironmentBytes = 16 * 1024;
 
     /// <summary>Reserved for the engine and the daemon field, where a provider's value would be silently overruled.</summary>
-    private static readonly HashSet<string> ReservedClientKeys = new(["session", "daemonBaseUrl", "daemonAuthToken", "daemonTransport"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ReservedClientKeys = new(
+        ["session", "daemonBaseUrl", "daemonAuthToken", "daemonTransport"],
+        StringComparer.Ordinal
+    );
 
-    private static readonly JsonSerializerOptions Compact = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions Compact = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     /// <summary>What a binding calls its device in progress and error lines: the name, else the id, else nothing.</summary>
     public static string? DeviceLabel(SlotBinding? binding) => binding?.Device ?? binding?.DeviceId;
@@ -82,7 +88,11 @@ public static class DeviceBindings
     /// </summary>
     public static string Variable(string targetName)
     {
-        var readable = new string(targetName.Select(character => char.IsAsciiLetterOrDigit(character) ? char.ToUpperInvariant(character) : '_').ToArray());
+        var readable = new string(
+            targetName
+                .Select(character => char.IsAsciiLetterOrDigit(character) ? char.ToUpperInvariant(character) : '_')
+                .ToArray()
+        );
         var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(targetName)))[..8];
         return $"E2E_AGENT_DEVICE_POOL_{readable}_{digest}";
     }
@@ -93,13 +103,24 @@ public static class DeviceBindings
         var array = new JsonArray();
         foreach (var binding in bindings)
         {
-            array.Add(DeviceArgs.Of(
-                ("device", Text(binding.Device)),
-                ("deviceId", Text(binding.DeviceId)),
-                ("daemon", binding.Daemon is null ? null : DeviceArgs.Of(("baseUrl", Text(binding.Daemon.BaseUrl)), ("authToken", Text(binding.Daemon.AuthToken)))),
-                ("client", binding.Client?.DeepClone()),
-                ("installedApp", Text(binding.InstalledApp)),
-                ("leaseId", Text(binding.LeaseId))));
+            array.Add(
+                DeviceArgs.Of(
+                    ("device", Text(binding.Device)),
+                    ("deviceId", Text(binding.DeviceId)),
+                    (
+                        "daemon",
+                        binding.Daemon is null
+                            ? null
+                            : DeviceArgs.Of(
+                                ("baseUrl", Text(binding.Daemon.BaseUrl)),
+                                ("authToken", Text(binding.Daemon.AuthToken))
+                            )
+                    ),
+                    ("client", binding.Client?.DeepClone()),
+                    ("installedApp", Text(binding.InstalledApp)),
+                    ("leaseId", Text(binding.LeaseId))
+                )
+            );
         }
 
         var encoded = array.ToJsonString(Compact);
@@ -109,7 +130,8 @@ public static class DeviceBindings
             throw new EngineException(
                 EngineErrorCodes.EngineFailure,
                 $"the device bindings take {bytes} bytes; the worker environment carries at most {MaxEnvironmentBytes}",
-                retryable: false);
+                retryable: false
+            );
         }
 
         return encoded;
@@ -157,10 +179,12 @@ public static class DeviceBindings
     private static bool TryRead(JsonObject entry, out SlotBinding binding)
     {
         binding = new SlotBinding();
-        if (!TryString(entry, "device", out var device)
+        if (
+            !TryString(entry, "device", out var device)
             || !TryString(entry, "deviceId", out var deviceId)
             || !TryString(entry, "installedApp", out var installedApp)
-            || !TryString(entry, "leaseId", out var leaseId))
+            || !TryString(entry, "leaseId", out var leaseId)
+        )
         {
             return false;
         }
@@ -168,10 +192,12 @@ public static class DeviceBindings
         DeviceDaemon? daemon = null;
         if (entry["daemon"] is { } daemonNode)
         {
-            if (daemonNode is not JsonObject daemonObject
+            if (
+                daemonNode is not JsonObject daemonObject
                 || !TryString(daemonObject, "baseUrl", out var baseUrl)
                 || baseUrl is null
-                || !TryString(daemonObject, "authToken", out var authToken))
+                || !TryString(daemonObject, "authToken", out var authToken)
+            )
             {
                 return false;
             }
@@ -223,13 +249,14 @@ public static class DeviceBindings
     }
 
     /// <summary>What survives serialization unchanged: a non-finite number would reach the worker as null.</summary>
-    private static bool IsJsonData(JsonNode? node) => node switch
-    {
-        null => true,
-        JsonObject obj => obj.All(pair => IsJsonData(pair.Value)),
-        JsonArray array => array.All(IsJsonData),
-        JsonValue value when value.TryGetValue<double>(out var number) => double.IsFinite(number),
-        JsonValue => true,
-        _ => false,
-    };
+    private static bool IsJsonData(JsonNode? node) =>
+        node switch
+        {
+            null => true,
+            JsonObject obj => obj.All(pair => IsJsonData(pair.Value)),
+            JsonArray array => array.All(IsJsonData),
+            JsonValue value when value.TryGetValue<double>(out var number) => double.IsFinite(number),
+            JsonValue => true,
+            _ => false,
+        };
 }

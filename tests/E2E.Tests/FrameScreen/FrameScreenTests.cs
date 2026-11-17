@@ -32,7 +32,8 @@ public sealed class FrameScreenTests
                     Source = new LocatorExpression { Kind = "selector", Selector = "#drag1" },
                 },
             },
-            inner.Locator("#drag1").Query);
+            inner.Locator("#drag1").Query
+        );
         Assert.Equal(
             new LocatorExpression
             {
@@ -45,7 +46,8 @@ public sealed class FrameScreenTests
                     Source = new LocatorExpression { Kind = "role", Role = "button" },
                 },
             },
-            inner.GetByRole("button").Query);
+            inner.GetByRole("button").Query
+        );
     }
 
     [Fact]
@@ -54,9 +56,21 @@ public sealed class FrameScreenTests
         await using var host = await HostAsync();
         var frame = host.Browser.FrameLocator("#result");
 
-        Assert.Contains("browser.frameLocator() requires a nonempty selector", Assert.Throws<TestException>(() => host.Browser.FrameLocator("")).Message, StringComparison.Ordinal);
-        Assert.StartsWith("locator() requires a nonempty selector", Assert.Throws<TestException>(() => frame.Locator("")).Message, StringComparison.Ordinal);
-        Assert.StartsWith("frameLocator() requires a nonempty selector", Assert.Throws<TestException>(() => frame.FrameLocator("")).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "browser.frameLocator() requires a nonempty selector",
+            Assert.Throws<TestException>(() => host.Browser.FrameLocator("")).Message,
+            StringComparison.Ordinal
+        );
+        Assert.StartsWith(
+            "locator() requires a nonempty selector",
+            Assert.Throws<TestException>(() => frame.Locator("")).Message,
+            StringComparison.Ordinal
+        );
+        Assert.StartsWith(
+            "frameLocator() requires a nonempty selector",
+            Assert.Throws<TestException>(() => frame.FrameLocator("")).Message,
+            StringComparison.Ordinal
+        );
     }
 
     private sealed class Host(IEngineSession session, Browser browser) : IAsyncDisposable
@@ -77,8 +91,19 @@ public sealed class FrameScreenTests
                 () => CancellationToken.None,
                 () => { },
                 TimeSpan.FromSeconds(1),
-                TimeSpan.FromSeconds(1));
-            var browser = new Browser(session, "web", null, Directory.GetCurrentDirectory(), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), () => CancellationToken.None, () => { }, new SoftFailures())
+                TimeSpan.FromSeconds(1)
+            );
+            var browser = new Browser(
+                session,
+                "web",
+                null,
+                Directory.GetCurrentDirectory(),
+                TimeSpan.FromSeconds(1),
+                TimeSpan.FromSeconds(1),
+                () => CancellationToken.None,
+                () => { },
+                new SoftFailures()
+            )
             {
                 Context = new EngineFixtureContext(screen),
             };

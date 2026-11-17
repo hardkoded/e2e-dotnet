@@ -14,7 +14,8 @@ public sealed class CommandLogTests
     private static string Declare(string log) =>
         $$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "log": {{System.Text.Json.JsonSerializer.Serialize(log)}} } }""";
 
-    private static string LogOf(string log, string? root = null) => ResolveConfigTests.Resolved(Declare(log), root).Command!.Log!;
+    private static string LogOf(string log, string? root = null) =>
+        ResolveConfigTests.Resolved(Declare(log), root).Command!.Log!;
 
     [Fact]
     public void Accepts_a_relative_or_absolute_path_inside_the_project_root()
@@ -39,21 +40,33 @@ public sealed class CommandLogTests
         foreach (var log in new[] { "", "  " })
         {
             var error = Assert.Throws<ConfigurationException>(() => ResolveConfigTests.App(Declare(log)));
-            Assert.Contains("target \"web\" app.command.log must be a non-empty path", error.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "target \"web\" app.command.log must be a non-empty path",
+                error.Message,
+                StringComparison.Ordinal
+            );
         }
 
-        var number = Assert.Throws<ConfigurationException>(() => ResolveConfigTests.App("""{ "url": "http://localhost:3000", "command": { "executable": "x", "log": 7 } }"""));
+        var number = Assert.Throws<ConfigurationException>(() =>
+            ResolveConfigTests.App("""{ "url": "http://localhost:3000", "command": { "executable": "x", "log": 7 } }""")
+        );
         Assert.Contains("app.command.log must be a non-empty path", number.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Rejects_a_log_path_that_leaves_the_project_root_or_names_the_root_itself()
     {
-        foreach (var log in new[] { Path.Combine("..", "app.log"), Path.Combine(Path.GetTempPath(), "elsewhere.log"), "." })
+        foreach (
+            var log in new[] { Path.Combine("..", "app.log"), Path.Combine(Path.GetTempPath(), "elsewhere.log"), "." }
+        )
         {
             var error = Assert.Throws<ConfigurationException>(() => ResolveConfigTests.Resolved(Declare(log)));
             Assert.Equal("INVALID_CONFIG", error.Code);
-            Assert.Contains("app.command.log must be a file inside the project root", error.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "app.command.log must be a file inside the project root",
+                error.Message,
+                StringComparison.Ordinal
+            );
         }
     }
 
@@ -85,7 +98,11 @@ public sealed class CommandLogTests
             }
 
             static void Refuses(Action action) =>
-                Assert.Contains("app.command.log must be a file inside the project root", Assert.Throws<ConfigurationException>(action).Message, StringComparison.Ordinal);
+                Assert.Contains(
+                    "app.command.log must be a file inside the project root",
+                    Assert.Throws<ConfigurationException>(action).Message,
+                    StringComparison.Ordinal
+                );
 
             Refuses(() => LogOf(Path.Combine("escape", "app.log"), root));
             Refuses(() => LogOf(Path.Combine("escape", "not", "yet", "created", "app.log"), root));
@@ -94,7 +111,10 @@ public sealed class CommandLogTests
             Assert.Equal(Path.Combine(".e2e", "logs", "app.log"), LogOf(Path.Combine(".e2e", "logs", "app.log"), root));
             var alias = Path.Combine(baseDir, "alias");
             Directory.CreateSymbolicLink(alias, root);
-            Assert.Equal(Path.Combine(".e2e", "logs", "app.log"), LogOf(Path.Combine(".e2e", "logs", "app.log"), alias));
+            Assert.Equal(
+                Path.Combine(".e2e", "logs", "app.log"),
+                LogOf(Path.Combine(".e2e", "logs", "app.log"), alias)
+            );
             Assert.Equal(Path.Combine(alias, "app.log"), LogOf(Path.Combine(alias, "app.log"), alias));
             Refuses(() => LogOf(Path.Combine("escape", "app.log"), alias));
         }

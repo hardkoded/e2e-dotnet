@@ -16,7 +16,8 @@ public sealed class E2eCacheStatsTests : IDisposable
     {
         _cli.Seed(
             (new string('a', 64), CacheCli.Trace(null, null, null, 1)),
-            (new string('b', 64), CacheCli.Trace(null, null, null, 1)));
+            (new string('b', 64), CacheCli.Trace(null, null, null, 1))
+        );
         _cli.Invoke("stats");
         Assert.Contains("directory  " + _cli.Store, _cli.Stdout, StringComparison.Ordinal);
         Assert.Contains("entries    2", _cli.Stdout, StringComparison.Ordinal);

@@ -11,19 +11,35 @@ namespace E2E.Tests.AgentReading;
 public sealed class RowsThatDifferByAClockLikeValueAloneTests
 {
     private static PageReading Slots(params string[] times) =>
-        Reading.ReadPage(IndexOf([.. times.Select((text, at) => Node("s" + at, role: "listitem", text: text, rect: new BoundingBox(0, at * 40, 300, 40)))]));
+        Reading.ReadPage(
+            IndexOf([
+                .. times.Select(
+                    (text, at) =>
+                        Node("s" + at, role: "listitem", text: text, rect: new BoundingBox(0, at * 40, 300, 40))
+                ),
+            ])
+        );
 
-    private static readonly SemanticNode Header = Node("h", role: "heading", name: "Pick a time", rect: new BoundingBox(0, 0, 300, 40));
+    private static readonly SemanticNode Header = Node(
+        "h",
+        role: "heading",
+        name: "Pick a time",
+        rect: new BoundingBox(0, 0, 300, 40)
+    );
 
-    private static SemanticNode Slot(string id, string text, int at) => Node(id, role: "listitem", text: text, rect: new BoundingBox(0, 40 + at * 40, 300, 40));
+    private static SemanticNode Slot(string id, string text, int at) =>
+        Node(id, role: "listitem", text: text, rect: new BoundingBox(0, 40 + at * 40, 300, 40));
 
     [Fact]
     public void Is_a_page_that_moved_a_time_picker_turning_over()
     {
         Assert.True(Reading.PageMoved(Slots("9:00", "9:30", "10:00"), Slots("10:30", "11:00", "11:30")));
-        Assert.True(Reading.PageMoved(
-            Reading.ReadPage(IndexOf(Header, Slot("a", "9:00", 0), Slot("b", "9:30", 1))),
-            Reading.ReadPage(IndexOf(Header, Slot("a", "10:00", 0), Slot("b", "10:30", 1)))));
+        Assert.True(
+            Reading.PageMoved(
+                Reading.ReadPage(IndexOf(Header, Slot("a", "9:00", 0), Slot("b", "9:30", 1))),
+                Reading.ReadPage(IndexOf(Header, Slot("a", "10:00", 0), Slot("b", "10:30", 1)))
+            )
+        );
     }
 
     [Fact]

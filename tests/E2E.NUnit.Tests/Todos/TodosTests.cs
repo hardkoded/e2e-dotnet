@@ -16,7 +16,8 @@ public sealed class TodosTests : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -87,11 +88,13 @@ public sealed class TodosTests : E2ETest
     {
         await AddAsync("Alpha", "Beta", "Gamma");
         await Expect.That(Screen.GetByTestId("todo")).ToContainTextAsync(["Alpha", "Beta", "Gamma"]);
-        await Expect.That(Screen.GetByRole("button", new Regex("^Delete"))).ToHaveTextAsync(
-            ["Delete Alpha", new Regex("Beta$"), "Delete Gamma"]);
+        await Expect
+            .That(Screen.GetByRole("button", new Regex("^Delete")))
+            .ToHaveTextAsync(["Delete Alpha", new Regex("Beta$"), "Delete Gamma"]);
         Assert.That(
             await Screen.GetByRole("button", new Regex("^Delete")).AllTextContentsAsync(),
-            Is.EqualTo(new[] { "Delete Alpha", "Delete Beta", "Delete Gamma" }));
+            Is.EqualTo(new[] { "Delete Alpha", "Delete Beta", "Delete Gamma" })
+        );
 
         foreach (var todo in await Screen.GetByTestId("todo").AllAsync())
         {

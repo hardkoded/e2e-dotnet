@@ -33,7 +33,8 @@ internal sealed record ReportDeps(
     Func<string, CancellationToken, Task<string>> ReadFile,
     HttpClient Http,
     Func<string, string, CancellationToken, Task> AppendFile,
-    Func<string, bool> Exists) : ActionsDeps(Env, ReadFile);
+    Func<string, bool> Exists
+) : ActionsDeps(Env, ReadFile);
 
 /// <summary>
 /// The GitHub reporter (upstream's <c>github()</c>, <c>reporter.ts</c>): list it in the <c>reporters</c> of <c>e2e.config.json</c>: <c>{ "type": "E2E.GitHub.GitHubReporter, E2E.GitHub", "options": { "key": "chromium" } }</c>.
@@ -65,9 +66,7 @@ public class GitHubReporter : Reporter, IConfigurableReporter
     private GitHubOptions? _options;
 
     /// <summary>A reporter whose key comes from the <c>E2E_GITHUB_KEY</c> environment variable. The public constructor the config builds it with.</summary>
-    public GitHubReporter()
-    {
-    }
+    public GitHubReporter() { }
 
     /// <summary>A reporter with these options. For a class that derives from this one and is listed in the config.</summary>
     protected GitHubReporter(GitHubOptions options) => _options = options;
@@ -95,9 +94,10 @@ public class GitHubReporter : Reporter, IConfigurableReporter
                 throw new ArgumentException($"option \"{option.Name}\" is not supported; the only option is \"key\"");
             }
 
-            key = option.Value.ValueKind == JsonValueKind.String
-                ? option.Value.GetString()
-                : throw new ArgumentException("option \"key\" must be a string");
+            key =
+                option.Value.ValueKind == JsonValueKind.String
+                    ? option.Value.GetString()
+                    : throw new ArgumentException("option \"key\" must be a string");
         }
 
         if (key is not null)
@@ -107,7 +107,10 @@ public class GitHubReporter : Reporter, IConfigurableReporter
     }
 
     /// <inheritdoc />
-    public override async Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(FinishedRun run, CancellationToken cancellationToken)
+    public override async Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(
+        FinishedRun run,
+        CancellationToken cancellationToken
+    )
     {
         using var http = new HttpClient();
         var deps = new ReportDeps(
@@ -115,13 +118,27 @@ public class GitHubReporter : Reporter, IConfigurableReporter
             (file, token) => File.ReadAllTextAsync(file, token),
             http,
             (file, text, token) => File.AppendAllTextAsync(file, text, token),
-            path => File.Exists(path) || Directory.Exists(path));
+            path => File.Exists(path) || Directory.Exists(path)
+        );
         return await ReportRunAsync(run, deps, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>The run's report with the options this reporter has, or the key <see cref="KeyVariable"/> names.</summary>
-    internal Task<IReadOnlyList<ReporterSummaryRow>> ReportRunAsync(FinishedRun run, ReportDeps deps, CancellationToken cancellationToken) =>
-        ReportRunAsync(run, _options ?? new GitHubOptions { Key = deps.Env(KeyVariable) is { } key && !string.IsNullOrWhiteSpace(key) ? key.Trim() : null }, deps, cancellationToken);
+    internal Task<IReadOnlyList<ReporterSummaryRow>> ReportRunAsync(
+        FinishedRun run,
+        ReportDeps deps,
+        CancellationToken cancellationToken
+    ) =>
+        ReportRunAsync(
+            run,
+            _options
+                ?? new GitHubOptions
+                {
+                    Key = deps.Env(KeyVariable) is { } key && !string.IsNullOrWhiteSpace(key) ? key.Trim() : null,
+                },
+            deps,
+            cancellationToken
+        );
 
     /// <summary>
     /// One marker field, URI-encoded. A field that fits is the encoded value itself, as it always was, so comments already on open pull requests are
@@ -143,8 +160,12 @@ public class GitHubReporter : Reporter, IConfigurableReporter
 
     /// <summary>JavaScript's <c>encodeURIComponent</c>, which also leaves <c>! ' ( ) *</c> as they are, so a marker reads the same as upstream's.</summary>
     private static string EncodeUriComponent(string value) =>
-        Uri.EscapeDataString(value).Replace("%21", "!", StringComparison.Ordinal).Replace("%27", "'", StringComparison.Ordinal)
-            .Replace("%28", "(", StringComparison.Ordinal).Replace("%29", ")", StringComparison.Ordinal).Replace("%2A", "*", StringComparison.Ordinal);
+        Uri.EscapeDataString(value)
+            .Replace("%21", "!", StringComparison.Ordinal)
+            .Replace("%27", "'", StringComparison.Ordinal)
+            .Replace("%28", "(", StringComparison.Ordinal)
+            .Replace("%29", ")", StringComparison.Ordinal)
+            .Replace("%2A", "*", StringComparison.Ordinal);
 
     /// <summary>
     /// The marker one job's comment carries, so two workflows or jobs each keep their own. Every field is cut the same way on every run, so a rerun
@@ -161,7 +182,9 @@ public class GitHubReporter : Reporter, IConfigurableReporter
             ("kind", run.Report.Run.Explore is null ? null : "explore"),
             ("key", key),
         ];
-        var parts = fields.Where(field => !string.IsNullOrEmpty(field.Value)).Select(field => $"{field.Name}={MarkerField(field.Value!)}");
+        var parts = fields
+            .Where(field => !string.IsNullOrEmpty(field.Value))
+            .Select(field => $"{field.Name}={MarkerField(field.Value!)}");
         return $"<!-- e2e-github {string.Join(' ', parts)} -->";
     }
 
@@ -205,7 +228,11 @@ public class GitHubReporter : Reporter, IConfigurableReporter
 
         var relative = Path.GetRelativePath(CheckoutRoot(workspace, projectRoot, exists), projectRoot);
         var parent = $"..{Path.DirectorySeparatorChar}";
-        if (relative is "." or ".." || relative.StartsWith(parent, StringComparison.Ordinal) || Path.IsPathRooted(relative))
+        if (
+            relative is "." or ".."
+            || relative.StartsWith(parent, StringComparison.Ordinal)
+            || Path.IsPathRooted(relative)
+        )
         {
             return [];
         }
@@ -225,7 +252,12 @@ public class GitHubReporter : Reporter, IConfigurableReporter
             $"{context.ServerUrl}/{context.Repository}/blob/{sha}/{string.Join('/', prefix.Concat(file.Split('/')).Select(EncodeUriComponent))}#L{line}";
     }
 
-    private static async Task<string?> WriteSummaryAsync(ActionsContext context, string text, ReportDeps deps, CancellationToken cancellationToken)
+    private static async Task<string?> WriteSummaryAsync(
+        ActionsContext context,
+        string text,
+        ReportDeps deps,
+        CancellationToken cancellationToken
+    )
     {
         if (context.StepSummaryPath is null)
         {
@@ -247,7 +279,12 @@ public class GitHubReporter : Reporter, IConfigurableReporter
     /// Reports one finished run and returns the summary rows describing what happened (upstream's <c>reportRun</c>). A GitHub failure surfaces as the
     /// one error the runner prints, after the summary is written.
     /// </summary>
-    internal static async Task<IReadOnlyList<ReporterSummaryRow>> ReportRunAsync(FinishedRun run, GitHubOptions options, ReportDeps deps, CancellationToken cancellationToken)
+    internal static async Task<IReadOnlyList<ReporterSummaryRow>> ReportRunAsync(
+        FinishedRun run,
+        GitHubOptions options,
+        ReportDeps deps,
+        CancellationToken cancellationToken
+    )
     {
         var context = await Actions.DetectActionsAsync(deps, cancellationToken).ConfigureAwait(false);
         if (context is null)
@@ -266,24 +303,37 @@ public class GitHubReporter : Reporter, IConfigurableReporter
                 ArtifactsUrl = $"{context.RunUrl}#artifacts",
                 SourceUrl = SourceUrl(context, run.ProjectRoot, deps),
                 Title = options.Key,
-            });
+            }
+        );
         var summary = await WriteSummaryAsync(context, page, deps, cancellationToken).ConfigureAwait(false);
         var marker = CommentMarker(run, context, options.Key);
 
         string lead;
         if (context.PullRequest is not { } pullRequest)
         {
-            lead = $"not posted: {context.EventName} is not a pull request{(summary == "" ? "; written to the job summary" : "")}";
+            lead =
+                $"not posted: {context.EventName} is not a pull request{(summary == "" ? "; written to the job summary" : "")}";
         }
         else if (context.Token is not { } token)
         {
-            lead = $"not posted: set GITHUB_TOKEN in the step's env (GITHUB_TOKEN: ${{{{ github.token }}}}){(summary == "" ? "; written to the job summary" : "")}";
+            lead =
+                $"not posted: set GITHUB_TOKEN in the step's env (GITHUB_TOKEN: ${{{{ github.token }}}}){(summary == "" ? "; written to the job summary" : "")}";
         }
         else
         {
             lead = await Post.UpsertCommentAsync(
-                new PostParams(deps.Http, context.ApiUrl, token, context.Repository, pullRequest, marker, $"{marker}\n{page}"),
-                cancellationToken).ConfigureAwait(false);
+                    new PostParams(
+                        deps.Http,
+                        context.ApiUrl,
+                        token,
+                        context.Repository,
+                        pullRequest,
+                        marker,
+                        $"{marker}\n{page}"
+                    ),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
 
         List<ReporterSummaryRow> rows = [new(SummaryLabel, lead)];

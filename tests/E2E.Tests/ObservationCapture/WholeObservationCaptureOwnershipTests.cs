@@ -31,7 +31,11 @@ public sealed class WholeObservationCaptureOwnershipTests
     {
         await using var fixture = await Fixture.StartAsync(stage);
 
-        var result = await fixture.Session.ObserveAsync(new ObserveOptions { PixelFallback = true }, Operation, CancellationToken.None);
+        var result = await fixture.Session.ObserveAsync(
+            new ObserveOptions { PixelFallback = true },
+            Operation,
+            CancellationToken.None
+        );
 
         Assert.True(result.TreeUnavailable);
         Assert.Equal(1, fixture.Screenshots);
@@ -61,7 +65,9 @@ public sealed class WholeObservationCaptureOwnershipTests
     {
         await using var fixture = await Fixture.StartAsync("metadata");
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => fixture.Session.ObserveAsync(null, Operation, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            fixture.Session.ObserveAsync(null, Operation, CancellationToken.None)
+        );
 
         Assert.Equal(EngineErrorCodes.OperationTimeout, failure.Code);
         Assert.Equal(0, fixture.Screenshots);
@@ -93,7 +99,11 @@ public sealed class WholeObservationCaptureOwnershipTests
         await using var fixture = await Fixture.StartAsync(null);
         fixture.HoldScreenshot = true;
 
-        var snapshot = await fixture.Session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(1), CancellationToken.None);
+        var snapshot = await fixture.Session.ObserveAsync(
+            new ObserveOptions { Pixels = true },
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None
+        );
 
         Assert.False(snapshot.TreeUnavailable);
         Assert.Null(snapshot.Pixels);
@@ -115,7 +125,11 @@ public sealed class WholeObservationCaptureOwnershipTests
 
         try
         {
-            var snapshot = await setup.Session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(1), CancellationToken.None);
+            var snapshot = await setup.Session.ObserveAsync(
+                new ObserveOptions { Pixels = true },
+                TimeSpan.FromSeconds(1),
+                CancellationToken.None
+            );
 
             Assert.False(snapshot.TreeUnavailable);
             Assert.Null(snapshot.Pixels);
@@ -151,7 +165,13 @@ public sealed class WholeObservationCaptureOwnershipTests
         try
         {
             // The budget outlasts the probe wait, so only the explicit cancel can end the call.
-            var failure = Assert.ThrowsAsync<EngineException>(() => setup.Session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(10), controller.Token));
+            var failure = Assert.ThrowsAsync<EngineException>(() =>
+                setup.Session.ObserveAsync(
+                    new ObserveOptions { Pixels = true },
+                    TimeSpan.FromSeconds(10),
+                    controller.Token
+                )
+            );
             await probing.Task.WaitAsync(TimeSpan.FromSeconds(10));
             controller.Cancel();
 
@@ -194,7 +214,9 @@ public sealed class WholeObservationCaptureOwnershipTests
     {
         await using var fixture = await Fixture.StartAsync("elements");
 
-        var failure = Assert.ThrowsAsync<EngineException>(() => fixture.Session.ObserveAsync(null, TimeSpan.FromSeconds(30), CancellationToken.None));
+        var failure = Assert.ThrowsAsync<EngineException>(() =>
+            fixture.Session.ObserveAsync(null, TimeSpan.FromSeconds(30), CancellationToken.None)
+        );
         await Fixture.UntilAsync(() => fixture.Captured.Count == 1 && fixture.Captured[0].Held);
         await WebEngine.SurfaceOf(fixture.Session)!.Page().CloseAsync();
         await fixture.Session.OpenAsync("about:blank", CancellationToken.None);
@@ -238,7 +260,10 @@ public sealed class WholeObservationCaptureOwnershipTests
                 ReadFrame = fixture.ReadAsync,
                 CapturePage = fixture.CaptureAsync,
             };
-            fixture.Session = await engine.StartAsync(new EngineStartOptions { ActionTimeout = Operation }, CancellationToken.None);
+            fixture.Session = await engine.StartAsync(
+                new EngineStartOptions { ActionTimeout = Operation },
+                CancellationToken.None
+            );
             await fixture.Session.OpenAsync("about:blank", CancellationToken.None);
             await WebEngine.SurfaceOf(fixture.Session)!.Page().SetContentAsync("<button>Button</button>");
             return fixture;
@@ -306,7 +331,8 @@ public sealed class WholeObservationCaptureOwnershipTests
     /// The handle the reader returns (upstream's <c>captured</c>), or the in-page array of elements it holds (upstream's <c>elements</c>). Counts
     /// each call, holds the stage's reply once the real call has run, and never finishes disposal on request.
     /// </summary>
-    private sealed class HeldHandle(IJSHandle inner, string? stalled, Task gate, Fixture owner, bool isCaptured) : IJSHandle
+    private sealed class HeldHandle(IJSHandle inner, string? stalled, Task gate, Fixture owner, bool isCaptured)
+        : IJSHandle
     {
         private int _disposals;
         private int _evaluations;
@@ -359,9 +385,11 @@ public sealed class WholeObservationCaptureOwnershipTests
             return isCaptured ? owner.Track(property) : property;
         }
 
-        public Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg = null) => inner.EvaluateAsync(expression, arg);
+        public Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg = null) =>
+            inner.EvaluateAsync(expression, arg);
 
-        public Task<IJSHandle> EvaluateHandleAsync(string expression, object? arg = null) => inner.EvaluateHandleAsync(expression, arg);
+        public Task<IJSHandle> EvaluateHandleAsync(string expression, object? arg = null) =>
+            inner.EvaluateHandleAsync(expression, arg);
 
         public Task<Dictionary<string, IJSHandle>> GetPropertiesAsync() => inner.GetPropertiesAsync();
 

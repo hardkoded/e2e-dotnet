@@ -44,7 +44,9 @@ public static class CredentialStores
     public static ICredentialStore Default()
     {
         var fromEnv = Environment.GetEnvironmentVariable(EnvironmentVariable);
-        return string.IsNullOrEmpty(fromEnv) ? new FileCredentialStore(DefaultPath()) : new EnvironmentCredentialStore(fromEnv);
+        return string.IsNullOrEmpty(fromEnv)
+            ? new FileCredentialStore(DefaultPath())
+            : new EnvironmentCredentialStore(fromEnv);
     }
 
     internal static Dictionary<string, JsonNode?> ParseFile(string text, string source)
@@ -61,7 +63,10 @@ public static class CredentialStores
 
         if (parsed is not JsonObject entries)
         {
-            throw new OAuthException(OAuthException.Misconfigured, source + " must hold an object keyed by provider id");
+            throw new OAuthException(
+                OAuthException.Misconfigured,
+                source + " must hold an object keyed by provider id"
+            );
         }
 
         return entries.ToDictionary(pair => pair.Key, pair => pair.Value?.DeepClone(), StringComparer.Ordinal);
@@ -107,7 +112,10 @@ public sealed class FileCredentialStore : ICredentialStore
 
     public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<string> ids = Read().Where(pair => OAuthCredentials.FromJson(pair.Value) is not null).Select(pair => pair.Key).ToList();
+        IReadOnlyList<string> ids = Read()
+            .Where(pair => OAuthCredentials.FromJson(pair.Value) is not null)
+            .Select(pair => pair.Key)
+            .ToList();
         return Task.FromResult(ids);
     }
 
@@ -159,7 +167,9 @@ public sealed class FileCredentialStore : ICredentialStore
                 await using (var stream = new FileStream(temp, options))
                 await using (var writer = new StreamWriter(stream))
                 {
-                    await writer.WriteAsync(json.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n").ConfigureAwait(false);
+                    await writer
+                        .WriteAsync(json.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n")
+                        .ConfigureAwait(false);
                 }
 
                 File.Move(temp, FilePath, overwrite: true);
@@ -187,9 +197,7 @@ public sealed class FileCredentialStore : ICredentialStore
         {
             try
             {
-                using (new FileStream(lockPath, FileMode.CreateNew, FileAccess.Write))
-                {
-                }
+                using (new FileStream(lockPath, FileMode.CreateNew, FileAccess.Write)) { }
 
                 return;
             }
@@ -218,7 +226,10 @@ public sealed class FileCredentialStore : ICredentialStore
 
                 if (DateTime.UtcNow > deadline)
                 {
-                    throw new OAuthException(OAuthException.Misconfigured, lockPath + " is held by another process; remove it if that process is gone");
+                    throw new OAuthException(
+                        OAuthException.Misconfigured,
+                        lockPath + " is held by another process; remove it if that process is gone"
+                    );
                 }
 
                 await Task.Delay(LockRetry, cancellationToken).ConfigureAwait(false);
@@ -239,7 +250,9 @@ public sealed class EnvironmentCredentialStore : ICredentialStore
 
     public Task<OAuthCredentials?> GetAsync(string providerId, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(_entries.TryGetValue(providerId, out var entry) ? OAuthCredentials.FromJson(entry) : null);
+        return Task.FromResult(
+            _entries.TryGetValue(providerId, out var entry) ? OAuthCredentials.FromJson(entry) : null
+        );
     }
 
     /// <summary>Throws <see cref="OAuthException.Misconfigured"/>: this store never takes a write. Lets a login fail before it starts.</summary>
@@ -260,7 +273,10 @@ public sealed class EnvironmentCredentialStore : ICredentialStore
 
     public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<string> ids = _entries.Where(pair => OAuthCredentials.FromJson(pair.Value) is not null).Select(pair => pair.Key).ToList();
+        IReadOnlyList<string> ids = _entries
+            .Where(pair => OAuthCredentials.FromJson(pair.Value) is not null)
+            .Select(pair => pair.Key)
+            .ToList();
         return Task.FromResult(ids);
     }
 
@@ -268,6 +284,8 @@ public sealed class EnvironmentCredentialStore : ICredentialStore
     {
         return new OAuthException(
             OAuthException.Misconfigured,
-            CredentialStores.EnvironmentVariable + " is set, so logins come from the environment and cannot be changed here; unset it to sign in on this machine");
+            CredentialStores.EnvironmentVariable
+                + " is set, so logins come from the environment and cannot be changed here; unset it to sign in on this machine"
+        );
     }
 }

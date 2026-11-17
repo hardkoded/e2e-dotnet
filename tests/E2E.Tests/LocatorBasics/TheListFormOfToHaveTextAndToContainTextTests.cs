@@ -24,7 +24,9 @@ public sealed class TheListFormOfToHaveTextAndToContainTextTests
     [Fact]
     public async Task Fails_on_a_count_mismatch_and_reports_every_text_it_saw()
     {
-        var error = await FailsWith("ASSERTION_FAILED", () => Expect.That(ListItems()).ToHaveTextAsync(["Item Alpha", "Item Beta"]));
+        var error = await FailsWith("ASSERTION_FAILED", () =>
+            Expect.That(ListItems()).ToHaveTextAsync(["Item Alpha", "Item Beta"])
+        );
         Assert.Contains(AllThree, error.Message, StringComparison.Ordinal);
     }
 
@@ -32,8 +34,14 @@ public sealed class TheListFormOfToHaveTextAndToContainTextTests
     public async Task Fails_when_an_entry_is_out_of_order_or_only_contained()
     {
         var locator = ListItems();
-        var error = await FailsWith("ASSERTION_FAILED", () => Expect.That(locator).ToHaveTextAsync(["Item Beta", "Item Alpha", "Item Gamma"]));
-        Assert.Contains("expected: text [\"Item Beta\", \"Item Alpha\", \"Item Gamma\"]", error.Message, StringComparison.Ordinal);
+        var error = await FailsWith("ASSERTION_FAILED", () =>
+            Expect.That(locator).ToHaveTextAsync(["Item Beta", "Item Alpha", "Item Gamma"])
+        );
+        Assert.Contains(
+            "expected: text [\"Item Beta\", \"Item Alpha\", \"Item Gamma\"]",
+            error.Message,
+            StringComparison.Ordinal
+        );
         await FailsWith("ASSERTION_FAILED", () => Expect.That(locator).ToHaveTextAsync(["Alpha", "Beta", "Gamma"]));
     }
 
@@ -64,7 +72,9 @@ public sealed class TheListFormOfToHaveTextAndToContainTextTests
     [Fact]
     public async Task Negated_toContainText_fails_when_one_entry_is_contained_by_some_match()
     {
-        var error = await FailsWith("ASSERTION_FAILED", () => Expect.That(ListItems()).Not.ToContainTextAsync(["Beta"]));
+        var error = await FailsWith("ASSERTION_FAILED", () =>
+            Expect.That(ListItems()).Not.ToContainTextAsync(["Beta"])
+        );
         Assert.Contains("expected: not text containing [\"Beta\"]", error.Message, StringComparison.Ordinal);
     }
 
@@ -72,9 +82,13 @@ public sealed class TheListFormOfToHaveTextAndToContainTextTests
     public async Task ToContainText_fails_out_of_order_with_more_entries_than_matches_or_on_a_missing_entry()
     {
         var locator = ListItems();
-        var error = await FailsWith("ASSERTION_FAILED", () => Expect.That(locator).ToContainTextAsync(["Gamma", "Alpha"]));
+        var error = await FailsWith("ASSERTION_FAILED", () =>
+            Expect.That(locator).ToContainTextAsync(["Gamma", "Alpha"])
+        );
         Assert.Contains(AllThree, error.Message, StringComparison.Ordinal);
-        await FailsWith("ASSERTION_FAILED", () => Expect.That(locator).ToContainTextAsync(["Item", "Item", "Item", "Item"]));
+        await FailsWith("ASSERTION_FAILED", () =>
+            Expect.That(locator).ToContainTextAsync(["Item", "Item", "Item", "Item"])
+        );
         await FailsWith("ASSERTION_FAILED", () => Expect.That(locator).ToContainTextAsync(["Alpha", "Delta"]));
         await Expect.That(locator).Not.ToContainTextAsync(["Gamma", "Alpha"]);
     }

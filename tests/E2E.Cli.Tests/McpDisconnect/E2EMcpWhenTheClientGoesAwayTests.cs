@@ -19,7 +19,9 @@ public sealed class E2EMcpWhenTheClientGoesAwayTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         _app = FixtureApp.Start();
-        _project = new FixtureProject(new Dictionary<string, string> { ["e2e.config.json"] = FixtureProject.Config(_app.Url) });
+        _project = new FixtureProject(
+            new Dictionary<string, string> { ["e2e.config.json"] = FixtureProject.Config(_app.Url) }
+        );
         _server = RawServer.Start(_project.Directory);
         await _server.InitializeAsync();
     }
@@ -54,13 +56,15 @@ public sealed class E2EMcpWhenTheClientGoesAwayTests : IAsyncLifetime
     public async Task Closes_the_session_and_exits_0_when_the_client_dies_with_a_call_in_flight()
     {
         await OpenSessionAsync();
-        await _server.SendAsync(new
-        {
-            jsonrpc = "2.0",
-            id = 3,
-            method = "tools/call",
-            @params = new { name = "call", arguments = new { tool = "navigate", args = new { url = "/slow" } } },
-        });
+        await _server.SendAsync(
+            new
+            {
+                jsonrpc = "2.0",
+                id = 3,
+                method = "tools/call",
+                @params = new { name = "call", arguments = new { tool = "navigate", args = new { url = "/slow" } } },
+            }
+        );
 
         // A killed client takes every pipe with it: the answer to the call has nowhere to go.
         _server.Abandon();
@@ -69,8 +73,19 @@ public sealed class E2EMcpWhenTheClientGoesAwayTests : IAsyncLifetime
 
     private async Task OpenSessionAsync()
     {
-        await _server.SendAsync(new { jsonrpc = "2.0", id = 2, method = "tools/call", @params = new { name = "open_session", arguments = new { } } });
+        await _server.SendAsync(
+            new
+            {
+                jsonrpc = "2.0",
+                id = 2,
+                method = "tools/call",
+                @params = new { name = "open_session", arguments = new { } },
+            }
+        );
         var opened = await _server.ResponseAsync(2);
-        Assert.False(opened.GetProperty("result").TryGetProperty("isError", out var error) && error.GetBoolean(), RawServer.ResultText(opened));
+        Assert.False(
+            opened.GetProperty("result").TryGetProperty("isError", out var error) && error.GetBoolean(),
+            RawServer.ResultText(opened)
+        );
     }
 }

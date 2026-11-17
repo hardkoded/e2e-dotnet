@@ -17,21 +17,42 @@ public sealed class LocatorEngineVisibleQueriesTests
     /// <summary>A visible node and its hidden twin, as an engine that ignores <c>visible</c> would report them.</summary>
     private static readonly SemanticNode[] Twins =
     [
-        new() { Ref = "shown", Role = "button", Name = "Save", Text = "Save", Placeholder = "Save", Value = "Save", TestId = "save" },
-        new() { Ref = "hidden", Role = "button", Name = "Save", Text = "Save", Placeholder = "Save", Value = "Save", TestId = "save", States = new NodeStates { Hidden = true } },
+        new()
+        {
+            Ref = "shown",
+            Role = "button",
+            Name = "Save",
+            Text = "Save",
+            Placeholder = "Save",
+            Value = "Save",
+            TestId = "save",
+        },
+        new()
+        {
+            Ref = "hidden",
+            Role = "button",
+            Name = "Save",
+            Text = "Save",
+            Placeholder = "Save",
+            Value = "Save",
+            TestId = "save",
+            States = new NodeStates { Hidden = true },
+        },
     ];
 
-    private static Screen ScreenOver(IReadOnlyList<SemanticNode> nodes, List<string> tapped) => new(
-        _ => Task.FromResult(new Observation { Route = "/", Roots = nodes }),
-        (node, _, _) =>
-        {
-            tapped.Add(node.Ref);
-            return Task.CompletedTask;
-        },
-        () => CancellationToken.None,
-        () => { },
-        TimeSpan.FromMilliseconds(300),
-        TimeSpan.FromMilliseconds(300));
+    private static Screen ScreenOver(IReadOnlyList<SemanticNode> nodes, List<string> tapped) =>
+        new(
+            _ => Task.FromResult(new Observation { Route = "/", Roots = nodes }),
+            (node, _, _) =>
+            {
+                tapped.Add(node.Ref);
+                return Task.CompletedTask;
+            },
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromMilliseconds(300),
+            TimeSpan.FromMilliseconds(300)
+        );
 
     private static Locator Query(Screen screen, string kind, bool visible)
     {
@@ -86,10 +107,28 @@ public sealed class LocatorEngineVisibleQueriesTests
     public async Task Names_the_predicate_in_the_ambiguity_message_when_two_visible_nodes_remain()
     {
         var screen = ScreenOver(
-            [new SemanticNode { Ref = "a", Role = "button", Name = "Save", Text = "Save" }, new SemanticNode { Ref = "b", Role = "button", Name = "Save", Text = "Save" }],
-            []);
+            [
+                new SemanticNode
+                {
+                    Ref = "a",
+                    Role = "button",
+                    Name = "Save",
+                    Text = "Save",
+                },
+                new SemanticNode
+                {
+                    Ref = "b",
+                    Role = "button",
+                    Name = "Save",
+                    Text = "Save",
+                },
+            ],
+            []
+        );
 
-        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByText("Save", new TextMatchOptions { Visible = true }).TapAsync());
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            screen.GetByText("Save", new TextMatchOptions { Visible = true }).TapAsync()
+        );
 
         Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
         Assert.Contains("getByText(\"Save\", visible: true)", error.Message, StringComparison.Ordinal);
@@ -99,8 +138,20 @@ public sealed class LocatorEngineVisibleQueriesTests
     public async Task NET_only_a_text_query_resolves_a_shown_label_over_the_zero_sized_control_inside_it()
     {
         // Upstream's web tree lists no box-less node; this one does, so the text query leaves it out of the innermost pick.
-        var control = new SemanticNode { Ref = "input", Role = "textbox", Name = "Click me", Rect = new BoundingBox(68, 8, 0, 0) };
-        var label = new SemanticNode { Ref = "label", Text = "Click me", Rect = new BoundingBox(8, 8, 60, 18), Children = [control] };
+        var control = new SemanticNode
+        {
+            Ref = "input",
+            Role = "textbox",
+            Name = "Click me",
+            Rect = new BoundingBox(68, 8, 0, 0),
+        };
+        var label = new SemanticNode
+        {
+            Ref = "label",
+            Text = "Click me",
+            Rect = new BoundingBox(8, 8, 60, 18),
+            Children = [control],
+        };
         var tapped = new List<string>();
         var screen = ScreenOver([label], tapped);
 
@@ -110,27 +161,47 @@ public sealed class LocatorEngineVisibleQueriesTests
     }
 
     /// <summary>A locator engine over an engine that answers every locate with <paramref name="nodes"/>, and keeps the expressions it was asked.</summary>
-    private static E2E.LocatorEngine EngineAnswering(IReadOnlyList<SemanticNode> nodes, List<LocatorExpression> expressions) => new(new LocatorEngineOptions
-    {
-        Observe = _ => Task.FromResult(new Observation { Route = "/", Roots = [] }),
-        Locate = (expression, _, _) =>
-        {
-            expressions.Add(expression);
-            return Task.FromResult(nodes);
-        },
-        Perform = (_, _, _, _) => Task.CompletedTask,
-        Cancellation = () => CancellationToken.None,
-        ActionTimeout = TimeSpan.FromMilliseconds(1_000),
-        AssertionTimeout = TimeSpan.FromMilliseconds(1_000),
-    });
+    private static E2E.LocatorEngine EngineAnswering(
+        IReadOnlyList<SemanticNode> nodes,
+        List<LocatorExpression> expressions
+    ) =>
+        new(
+            new LocatorEngineOptions
+            {
+                Observe = _ => Task.FromResult(new Observation { Route = "/", Roots = [] }),
+                Locate = (expression, _, _) =>
+                {
+                    expressions.Add(expression);
+                    return Task.FromResult(nodes);
+                },
+                Perform = (_, _, _, _) => Task.CompletedTask,
+                Cancellation = () => CancellationToken.None,
+                ActionTimeout = TimeSpan.FromMilliseconds(1_000),
+                AssertionTimeout = TimeSpan.FromMilliseconds(1_000),
+            }
+        );
 
     [Fact]
     public async Task Keeps_nodes_whose_engine_reports_no_visibility_at_all()
     {
-        var engine = EngineAnswering([new SemanticNode { Ref = "unknown", Role = "button", Name = "Save" }], []);
+        var engine = EngineAnswering(
+            [
+                new SemanticNode
+                {
+                    Ref = "unknown",
+                    Role = "button",
+                    Name = "Save",
+                },
+            ],
+            []
+        );
         var query = ScreenOver([], []).GetByRole("button", new RoleOptions { Name = "Save", Visible = true }).Query;
 
-        var node = await engine.ResolveExactlyOneAsync(query, new Deadline(TimeSpan.FromMilliseconds(5_000), TimeProvider.System), CancellationToken.None);
+        var node = await engine.ResolveExactlyOneAsync(
+            query,
+            new Deadline(TimeSpan.FromMilliseconds(5_000), TimeProvider.System),
+            CancellationToken.None
+        );
 
         Assert.Equal("unknown", node.Ref);
     }

@@ -107,7 +107,11 @@ internal static class SettlePolicy
     /// <summary>The settle policy of one recorded action. A secret fill is recorded as a fill of its placeholder.</summary>
     public static SettleAfter For(RecordedAction action)
     {
-        if (string.Equals(action.Kind, "fill", StringComparison.Ordinal) && action.Value is { } value && value.StartsWith("<secret:", StringComparison.Ordinal))
+        if (
+            string.Equals(action.Kind, "fill", StringComparison.Ordinal)
+            && action.Value is { } value
+            && value.StartsWith("<secret:", StringComparison.Ordinal)
+        )
         {
             return Masked;
         }

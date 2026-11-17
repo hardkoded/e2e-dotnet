@@ -20,7 +20,8 @@ public sealed class E2eCacheLsTests : IDisposable
     {
         _cli.Seed(
             (new string('a', 64), CacheCli.Trace("tests/signup.e2e.ts::signs up", "web", "sign up", 3)),
-            (new string('b', 64), CacheCli.Trace("tests/billing.e2e.ts::upgrades", "safari", "upgrade", 1)));
+            (new string('b', 64), CacheCli.Trace("tests/billing.e2e.ts::upgrades", "safari", "upgrade", 1))
+        );
         _cli.Invoke("ls");
         var lines = Lines();
         Assert.Equal(0, _cli.ExitCode);
@@ -49,13 +50,20 @@ public sealed class E2eCacheLsTests : IDisposable
         const string asciiId = "tests/a.e2e.ts::passes";
         _cli.Seed(
             (new string('a', 64), CacheCli.Trace(asciiId, "web", "first", 1)),
-            (new string('b', 64), CacheCli.Trace(testId, "web", "second", 1)));
+            (new string('b', 64), CacheCli.Trace(testId, "web", "second", 1))
+        );
         _cli.Invoke("ls");
         var lines = Lines();
         Assert.Equal(0, _cli.ExitCode);
         Assert.Equal(3, lines.Length);
-        Assert.Equal(asciiId + new string(' ', asciiPadding) + "web     " + Digest("first") + "  <1m  1", lines.Single(line => line.StartsWith(asciiId, StringComparison.Ordinal)));
-        Assert.Equal(testId + new string(' ', padding) + "web     " + Digest("second") + "  <1m  1", lines.Single(line => line.StartsWith(testId, StringComparison.Ordinal)));
+        Assert.Equal(
+            asciiId + new string(' ', asciiPadding) + "web     " + Digest("first") + "  <1m  1",
+            lines.Single(line => line.StartsWith(asciiId, StringComparison.Ordinal))
+        );
+        Assert.Equal(
+            testId + new string(' ', padding) + "web     " + Digest("second") + "  <1m  1",
+            lines.Single(line => line.StartsWith(testId, StringComparison.Ordinal))
+        );
     }
 
     [Fact]

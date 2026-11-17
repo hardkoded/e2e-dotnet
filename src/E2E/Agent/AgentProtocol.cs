@@ -55,19 +55,31 @@ internal static class AgentProtocol
     /// output in schema order then make the model reason before it decides, and a verdict written first was seen to contradict
     /// the reasoning that followed it.
     /// </summary>
-    public static JsonElement JudgmentSchema { get; } = JsonSerializer.SerializeToElement(
-        new JsonObject
-        {
-            ["type"] = "object",
-            ["additionalProperties"] = false,
-            ["required"] = new JsonArray("protocolVersion", "explanation", "verdict"),
-            ["properties"] = new JsonObject
+    public static JsonElement JudgmentSchema { get; } =
+        JsonSerializer.SerializeToElement(
+            new JsonObject
             {
-                ["protocolVersion"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(JudgmentResponse.ProtocolVersion) },
-                ["explanation"] = new JsonObject { ["type"] = "string", ["maxLength"] = ExplanationMaxLength },
-                ["verdict"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray([.. JudgmentVerdicts.Select(verdict => (JsonNode)JsonValue.Create(verdict)!)]) },
-            },
-        });
+                ["type"] = "object",
+                ["additionalProperties"] = false,
+                ["required"] = new JsonArray("protocolVersion", "explanation", "verdict"),
+                ["properties"] = new JsonObject
+                {
+                    ["protocolVersion"] = new JsonObject
+                    {
+                        ["type"] = "string",
+                        ["enum"] = new JsonArray(JudgmentResponse.ProtocolVersion),
+                    },
+                    ["explanation"] = new JsonObject { ["type"] = "string", ["maxLength"] = ExplanationMaxLength },
+                    ["verdict"] = new JsonObject
+                    {
+                        ["type"] = "string",
+                        ["enum"] = new JsonArray([
+                            .. JudgmentVerdicts.Select(verdict => (JsonNode)JsonValue.Create(verdict)!),
+                        ]),
+                    },
+                },
+            }
+        );
 
     public static ProtocolValidation<JudgmentResponse> ValidateJudgmentResponse(JsonNode? value)
     {
@@ -77,7 +89,13 @@ internal static class AgentProtocol
             return ProtocolValidation<JudgmentResponse>.Fail("response is not an agent-judgment-2 object");
         }
 
-        if (!string.Equals(StringOf(record["protocolVersion"]), JudgmentResponse.ProtocolVersion, StringComparison.Ordinal))
+        if (
+            !string.Equals(
+                StringOf(record["protocolVersion"]),
+                JudgmentResponse.ProtocolVersion,
+                StringComparison.Ordinal
+            )
+        )
         {
             return ProtocolValidation<JudgmentResponse>.Fail("unknown protocolVersion");
         }
@@ -85,7 +103,9 @@ internal static class AgentProtocol
         var index = Array.IndexOf(JudgmentVerdicts, StringOf(record["verdict"]));
         if (index < 0)
         {
-            return ProtocolValidation<JudgmentResponse>.Fail("verdict must be \"holds\", \"fails\", or \"inconclusive\"");
+            return ProtocolValidation<JudgmentResponse>.Fail(
+                "verdict must be \"holds\", \"fails\", or \"inconclusive\""
+            );
         }
 
         var explanation = AsBoundedString(record["explanation"], 0, ExplanationMaxLength);

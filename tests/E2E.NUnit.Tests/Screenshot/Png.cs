@@ -25,7 +25,9 @@ internal static class Png
 
     /// <summary>Whether two colors are the same within <paramref name="slack"/> per channel.</summary>
     public static bool Near((int R, int G, int B) actual, (int R, int G, int B) expected, int slack = 3) =>
-        Math.Abs(actual.R - expected.R) <= slack && Math.Abs(actual.G - expected.G) <= slack && Math.Abs(actual.B - expected.B) <= slack;
+        Math.Abs(actual.R - expected.R) <= slack
+        && Math.Abs(actual.G - expected.G) <= slack
+        && Math.Abs(actual.B - expected.B) <= slack;
 
     /// <summary>The pixels of <paramref name="box"/> cut out of <paramref name="png"/>, rounded out to whole pixels.</summary>
     public static byte[] Crop(RgbaImage png, BoundingBox box)

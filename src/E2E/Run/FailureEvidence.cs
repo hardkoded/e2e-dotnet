@@ -70,12 +70,20 @@ internal sealed partial record FailureEvidence
 
     private const string TruncationMarker = "[observation truncated at the resolved observation byte limit]";
 
-    private const string EngineTruncationMarker = "[observation truncated: the engine stopped listing nodes at its limit]";
+    private const string EngineTruncationMarker =
+        "[observation truncated: the engine stopped listing nodes at its limit]";
 
     // The codes of a locator that matched nothing or too much.
-    private static readonly HashSet<string> LocatorCodes = new(["LOCATOR_NOT_FOUND", "LOCATOR_AMBIGUOUS"], StringComparer.Ordinal);
+    private static readonly HashSet<string> LocatorCodes = new(
+        ["LOCATOR_NOT_FOUND", "LOCATOR_AMBIGUOUS"],
+        StringComparer.Ordinal
+    );
 
-    private static readonly Regex NonWord = new(@"[^\p{L}\p{N}]+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(2));
+    private static readonly Regex NonWord = new(
+        @"[^\p{L}\p{N}]+",
+        RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(2)
+    );
 
     /// <summary>
     /// Captures the evidence of one failed attempt, or as much of it as the session yields within the budget. Null when nothing was
@@ -97,17 +105,25 @@ internal sealed partial record FailureEvidence
 #pragma warning disable CA1031 // Evidence is best effort: the session may be gone with the failure (a crashed page, a closed app).
         catch (Exception)
 #pragma warning restore CA1031
-        {
-        }
+        { }
 
         if (observation is not null)
         {
-            evidence = evidence with { Url = TextRules.TruncateUtf8(options.Redactor.Redact(observation.Route), MaxUrlBytes) };
+            evidence = evidence with
+            {
+                Url = TextRules.TruncateUtf8(options.Redactor.Redact(observation.Route), MaxUrlBytes),
+            };
             var (lines, nodes) = Listing(observation, options.Redactor, options.AppOrigin, options.MaxObservationBytes);
             evidence = evidence with { Nodes = nodes };
             try
             {
-                await WriteReport.WriteTextReportAsync(Path.Combine(options.AttemptDir, ScreenFile), string.Join('\n', lines) + "\n", CancellationToken.None).ConfigureAwait(false);
+                await WriteReport
+                    .WriteTextReportAsync(
+                        Path.Combine(options.AttemptDir, ScreenFile),
+                        string.Join('\n', lines) + "\n",
+                        CancellationToken.None
+                    )
+                    .ConfigureAwait(false);
                 evidence = evidence with { Screen = ScreenArtifactId };
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -134,12 +150,22 @@ internal sealed partial record FailureEvidence
     // The wait ends with the budget even when the engine ignores it. The abandoned call may still fail once the engine closes; nobody reads that.
     private static Task<T> Bounded<T>(Task<T> work, CancellationToken token)
     {
-        _ = work.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        _ = work.ContinueWith(
+            static finished => _ = finished.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default
+        );
         return work.WaitAsync(token);
     }
 
     // A screenshot the engine could not take is not evidence the report claims. One whose masking cannot be proven holds a secret the tree does not.
-    private static async Task<FailureEvidence> WithScreenshotAsync(FailureEvidence evidence, Observation? observation, FailureEvidenceOptions options, CancellationToken token)
+    private static async Task<FailureEvidence> WithScreenshotAsync(
+        FailureEvidence evidence,
+        Observation? observation,
+        FailureEvidenceOptions options,
+        CancellationToken token
+    )
     {
         try
         {
@@ -179,7 +205,12 @@ internal sealed partial record FailureEvidence
 
     // The screen as the agent reads it, one node per line, up to the budget, ending with the marker that says it was cut. A node the page
     // does not show is left out and its children take its place, as the lines the model reads leave it out.
-    internal static (List<string> Lines, int Nodes) Listing(Observation observation, Redactor redactor, string? appOrigin, int maxObservationBytes)
+    internal static (List<string> Lines, int Nodes) Listing(
+        Observation observation,
+        Redactor redactor,
+        string? appOrigin,
+        int maxObservationBytes
+    )
     {
         var lines = new List<string>();
         var bytes = 0;
@@ -238,7 +269,12 @@ internal sealed partial record FailureEvidence
     /// words (or near misses of them) with the one requested, or the test id. Rendered as the screen lists them, so the reader can
     /// rewrite the locator from what is there.
     /// </summary>
-    internal static List<string> LocatorCandidates(Exception error, Observation observation, Redactor redactor, string? appOrigin)
+    internal static List<string> LocatorCandidates(
+        Exception error,
+        Observation observation,
+        Redactor redactor,
+        string? appOrigin
+    )
     {
         if (error is not E2EException { Details: { } details } failure || !LocatorCodes.Contains(failure.Code))
         {
@@ -258,13 +294,27 @@ internal sealed partial record FailureEvidence
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {
             var nodeTestId = node.TestId is null ? null : redactor.Redact(node.TestId);
-            var roleMatched = role is not null && node.Role is { } nodeRole && string.Equals(redactor.Redact(nodeRole), role, StringComparison.OrdinalIgnoreCase);
-            var testIdMatched = testId is not null && nodeTestId is not null && (nodeTestId == testId || nodeTestId.Contains(testId, StringComparison.Ordinal) || testId.Contains(nodeTestId, StringComparison.Ordinal));
-            var placeholder = node.Placeholder ?? (node.Attributes.TryGetValue("placeholder", out var attribute) ? attribute : null);
-            var own = Tokens(redactor.Redact((node.Name ?? "") + " " + (node.Text ?? "") + " " + (placeholder ?? ""))).ToHashSet(StringComparer.Ordinal);
+            var roleMatched =
+                role is not null
+                && node.Role is { } nodeRole
+                && string.Equals(redactor.Redact(nodeRole), role, StringComparison.OrdinalIgnoreCase);
+            var testIdMatched =
+                testId is not null
+                && nodeTestId is not null
+                && (
+                    nodeTestId == testId
+                    || nodeTestId.Contains(testId, StringComparison.Ordinal)
+                    || testId.Contains(nodeTestId, StringComparison.Ordinal)
+                );
+            var placeholder = node.Placeholder
+                ?? (node.Attributes.TryGetValue("placeholder", out var attribute) ? attribute : null);
+            var own = Tokens(redactor.Redact((node.Name ?? "") + " " + (node.Text ?? "") + " " + (placeholder ?? "")))
+                .ToHashSet(StringComparer.Ordinal);
             var exact = words.Count(own.Contains);
             var roleEligible = role is null || roleMatched;
-            var near = roleEligible ? words.Count(word => !own.Contains(word) && own.Any(other => NearWord(word, other))) : 0;
+            var near = roleEligible
+                ? words.Count(word => !own.Contains(word) && own.Any(other => NearWord(word, other)))
+                : 0;
 
             // A request that named the node is answered by nodes of the asked role (any role, when none was asked) sharing a word, or a
             // near miss of one, with the name; a role alone is enough only when no name was asked for; a test id stands on its own either way.
@@ -274,7 +324,8 @@ internal sealed partial record FailureEvidence
                 continue;
             }
 
-            var score = (roleMatched ? 3 : 0)
+            var score =
+                (roleMatched ? 3 : 0)
                 + (testIdMatched ? (nodeTestId == testId ? 6 : 3) : 0)
                 + (exact * 2)
                 + near
@@ -282,10 +333,18 @@ internal sealed partial record FailureEvidence
             scored.Add((score, node));
         }
 
-        return [.. scored
-            .OrderByDescending(entry => entry.Score)
-            .Take(MaxCandidates)
-            .Select(entry => TextRules.TruncateUtf8(SnapshotText.FormatNode(entry.Node, 0, redactor, appOrigin), MaxCandidateBytes))];
+        return
+        [
+            .. scored
+                .OrderByDescending(entry => entry.Score)
+                .Take(MaxCandidates)
+                .Select(entry =>
+                    TextRules.TruncateUtf8(
+                        SnapshotText.FormatNode(entry.Node, 0, redactor, appOrigin),
+                        MaxCandidateBytes
+                    )
+                ),
+        ];
     }
 
     // Whether a word on screen is a near miss for one asked for: a typo or an inflection of it (`Notes` for `Note`, `Submit` for

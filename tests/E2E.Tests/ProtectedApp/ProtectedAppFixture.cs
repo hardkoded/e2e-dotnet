@@ -18,7 +18,8 @@ internal static class ProtectedAppFixture
 
     public const string Password = "secret";
 
-    private static readonly string Authorization = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(Username + ":" + Password));
+    private static readonly string Authorization =
+        "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(Username + ":" + Password));
 
     /// <summary>Starts the app on <paramref name="host"/>: a second instance stands in for another origin, on the same host under another port, and as <c>localhost</c> rather than <c>127.0.0.1</c> for a third-party site.</summary>
     public static async Task<ProtectedFixtureApp> StartAsync(string host = "127.0.0.1")
@@ -29,7 +30,10 @@ internal static class ProtectedAppFixture
     }
 
     /// <summary>A running fixture app. <see cref="Redirects"/>: a request for a key answers <c>302</c> to its value.</summary>
-    public sealed class ProtectedFixtureApp(TinySite site, System.Collections.Concurrent.ConcurrentDictionary<string, string> redirects) : IDisposable
+    public sealed class ProtectedFixtureApp(
+        TinySite site,
+        System.Collections.Concurrent.ConcurrentDictionary<string, string> redirects
+    ) : IDisposable
     {
         public string Url => site.Url;
 
@@ -38,7 +42,10 @@ internal static class ProtectedAppFixture
         public void Dispose() => site.Dispose();
     }
 
-    private static async Task HandleAsync(HttpListenerContext context, System.Collections.Concurrent.ConcurrentDictionary<string, string> redirects)
+    private static async Task HandleAsync(
+        HttpListenerContext context,
+        System.Collections.Concurrent.ConcurrentDictionary<string, string> redirects
+    )
     {
         var request = context.Request;
         if (redirects.TryGetValue(request.Url!.AbsolutePath, out var redirect))
@@ -59,7 +66,10 @@ internal static class ProtectedAppFixture
                 context.Response.Close();
                 return;
             case "/headers":
-                await TinySite.RespondAsync(context, Page("Fixture Headers", request.Headers["x-fixture-header"] ?? "none"));
+                await TinySite.RespondAsync(
+                    context,
+                    Page("Fixture Headers", request.Headers["x-fixture-header"] ?? "none")
+                );
                 return;
             case "/protected":
                 if (request.Headers["Authorization"] == Authorization)

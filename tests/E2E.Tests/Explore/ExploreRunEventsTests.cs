@@ -21,7 +21,9 @@ public sealed class ExploreRunEventsTests
     {
         const string goal = "Explore the home page for the run events test";
         var facts = new ConcurrentQueue<RunEventFact>();
-        using var listening = E2E.RunEvents.Subscribe(new RunEventSubscriber("test", runEvent => facts.Enqueue(runEvent.Fact)));
+        using var listening = E2E.RunEvents.Subscribe(
+            new RunEventSubscriber("test", runEvent => facts.Enqueue(runEvent.Fact))
+        );
         var model = new ExploreModel(_ => ExploreModel.Finish("Looked."), _ => ExploreModel.Done("passed", "unused"));
 
         await Explorer.ExploreAsync(Options(TempRoot(), model.Model, [], goal: goal));
@@ -29,10 +31,16 @@ public sealed class ExploreRunEventsTests
         // Other explorations in the process write to the same events: this one is the one with this goal.
         var started = facts.OfType<TestStartedEvent>().Single(fact => fact.Title == goal);
         Assert.Equal(Explorer.ExploreFile, started.File);
-        var moments = facts.OfType<ExploreEvent>().Select(fact => fact.Progress).SkipWhile(progress => progress is not ExploreProgress.Started { Goal: goal }).ToList();
+        var moments = facts
+            .OfType<ExploreEvent>()
+            .Select(fact => fact.Progress)
+            .SkipWhile(progress => progress is not ExploreProgress.Started { Goal: goal })
+            .ToList();
         Assert.IsType<ExploreProgress.Started>(moments[0]);
         Assert.IsType<ExploreProgress.Finished>(moments.First(progress => progress is ExploreProgress.Finished));
-        Assert.Contains(facts.OfType<TestFinishedEvent>(), fact => fact.Result.Test.File == Explorer.ExploreFile && fact.Result.Test.TitlePath[0] == goal);
+        Assert.Contains(facts.OfType<TestFinishedEvent>(), fact =>
+            fact.Result.Test.File == Explorer.ExploreFile && fact.Result.Test.TitlePath[0] == goal
+        );
     }
 
     [Fact]
@@ -40,7 +48,9 @@ public sealed class ExploreRunEventsTests
     {
         const string goal = "Explore the home page for the run start test";
         var facts = new ConcurrentQueue<RunEventFact>();
-        using var listening = E2E.RunEvents.Subscribe(new RunEventSubscriber("test", runEvent => facts.Enqueue(runEvent.Fact)));
+        using var listening = E2E.RunEvents.Subscribe(
+            new RunEventSubscriber("test", runEvent => facts.Enqueue(runEvent.Fact))
+        );
         var model = new ExploreModel(_ => ExploreModel.Finish("Looked."), _ => ExploreModel.Done("passed", "unused"));
 
         await Explorer.ExploreAsync(Options(TempRoot(), model.Model, [], goal: goal));
@@ -62,7 +72,11 @@ public sealed class ExploreRunEventsTests
     {
         const string value = "step-Secret-9Lm2Qa";
         var moments = new List<ExploreProgress>();
-        var state = new E2E.ExploreState("Explore", new ExploreBudgets(4, TimeSpan.FromMinutes(5)), redactor: E2E.Internal.Redactor.For([Secret.Create("probe", value)]));
+        var state = new E2E.ExploreState(
+            "Explore",
+            new ExploreBudgets(4, TimeSpan.FromMinutes(5)),
+            redactor: E2E.Internal.Redactor.For([Secret.Create("probe", value)])
+        );
         state.Subscribe(moments.Add);
 
         state.BeginStep("Sign in " + value, "Type " + value);

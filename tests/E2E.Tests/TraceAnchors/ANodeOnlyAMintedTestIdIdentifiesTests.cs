@@ -20,9 +20,20 @@ public sealed class ANodeOnlyAMintedTestIdIdentifiesTests
     [Fact]
     public void Is_skipped_while_a_stable_anchor_remains_whatever_minted_the_id()
     {
-        foreach (var testId in new[] { MintedA, "rf__node-cjld2cjxh0000qzrmn831i7rn", "rf__node-652f1c3e9b1e8a0012345678", "rf__node-1697040000000" })
+        foreach (
+            var testId in new[]
+            {
+                MintedA,
+                "rf__node-cjld2cjxh0000qzrmn831i7rn",
+                "rf__node-652f1c3e9b1e8a0012345678",
+                "rf__node-1697040000000",
+            }
+        )
         {
-            Assert.Equal(["status|Node added"], Shapes(Describe([Heading], [Heading, CanvasNode(testId), Added]).Appeared));
+            Assert.Equal(
+                ["status|Node added"],
+                Shapes(Describe([Heading], [Heading, CanvasNode(testId), Added]).Appeared)
+            );
         }
     }
 
@@ -39,7 +50,10 @@ public sealed class ANodeOnlyAMintedTestIdIdentifiesTests
         Assert.Equal(["status|Node added"], Shapes(appeared));
         Assert.Empty(gone);
 
-        var (joinedAppeared, joinedGone) = Describe([Heading, CanvasNode(MintedA)], [Heading, CanvasNode(MintedA), CanvasNode(MintedB)]);
+        var (joinedAppeared, joinedGone) = Describe(
+            [Heading, CanvasNode(MintedA)],
+            [Heading, CanvasNode(MintedA), CanvasNode(MintedB)]
+        );
         Assert.Empty(joinedAppeared);
         Assert.Empty(joinedGone);
     }
@@ -47,7 +61,9 @@ public sealed class ANodeOnlyAMintedTestIdIdentifiesTests
     [Fact]
     public void Leaves_a_test_id_that_only_numbers_its_node_and_a_named_node_as_they_were()
     {
-        var numbered = new[] { "todo-item-12", "rf__node-dndnode_0", "product-trail-mix-1000", "otp-input-5" }.Select(CanvasNode);
+        var numbered = new[] { "todo-item-12", "rf__node-dndnode_0", "product-trail-mix-1000", "otp-input-5" }.Select(
+            CanvasNode
+        );
         var named = Node("button", "Delete", testId: MintedA);
 
         Assert.Equal(6, Describe([Heading], [Heading, .. numbered, named, Added]).Appeared.Count);

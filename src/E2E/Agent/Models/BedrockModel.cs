@@ -66,18 +66,29 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             {
                 // Signed per attempt: a retry after a long wait must not carry the first attempt's x-amz-date.
                 // The credentials are read again too, so a rotated session token is picked up, as the AI SDK resolves them inside each fetch.
-                sign = attempt => SigV4.Sign(attempt, payload, _options.ResolveCredentials() ?? credentials, region, "bedrock", Clock.GetUtcNow());
+                sign = attempt =>
+                    SigV4.Sign(
+                        attempt,
+                        payload,
+                        _options.ResolveCredentials() ?? credentials,
+                        region,
+                        "bedrock",
+                        Clock.GetUtcNow()
+                    );
             }
             else
             {
                 var chain = await ResolveChainAsync(request.Redactor, cancellationToken).ConfigureAwait(false);
 
                 // The chain caches its credentials and refreshes them before they expire, so each attempt asks it again.
-                sign = attempt => SigV4.Sign(attempt, payload, AwsCredentialChain.Read(chain), region, "bedrock", Clock.GetUtcNow());
+                sign = attempt =>
+                    SigV4.Sign(attempt, payload, AwsCredentialChain.Read(chain), region, "bedrock", Clock.GetUtcNow());
             }
         }
 
-        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, sign, request.MaxRetries).ConfigureAwait(false);
+        var body = await ModelHttp
+            .SendAsync(_http, message, request.Redactor, cancellationToken, sign, request.MaxRetries)
+            .ConfigureAwait(false);
         var response = ModelHttp.Parse(body, Parse);
         if (ModelHttp.DowngradesToolChoice(request, Thinks(built)))
         {
@@ -93,7 +104,9 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         try
         {
             // Discovery can probe the instance metadata endpoint synchronously, so it runs off the caller's thread and the wait honors the cancel.
-            var chain = await Task.Run(_options.CredentialChain, CancellationToken.None).WaitAsync(cancellationToken).ConfigureAwait(false);
+            var chain = await Task.Run(_options.CredentialChain, CancellationToken.None)
+                .WaitAsync(cancellationToken)
+                .ConfigureAwait(false);
             await chain.GetCredentialsAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
             return chain;
         }
@@ -102,8 +115,12 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             throw new AgentException(
                 "MODEL_PROVIDER_FAILED",
                 "Amazon Bedrock found no AWS credentials. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, sign in with an AWS profile or SSO, "
-                + "run on an AWS role, or set a Bedrock API key in " + _options.ApiKeyEnv + ". " + redactor.Redact(error.Message),
-                blocked: true);
+                    + "run on an AWS role, or set a Bedrock API key in "
+                    + _options.ApiKeyEnv
+                    + ". "
+                    + redactor.Redact(error.Message),
+                blocked: true
+            );
         }
     }
 
@@ -115,15 +132,17 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         }
     }
 
-    private static bool Thinks(JsonObject payload) => ModelHttp.Thinks(payload["additionalModelRequestFields"]?["thinking"]);
+    private static bool Thinks(JsonObject payload) =>
+        ModelHttp.Thinks(payload["additionalModelRequestFields"]?["thinking"]);
 
     // The AI SDK's mapping for Converse: required is any, a named tool is a tool choice with its name.
-    private static JsonObject ToolChoice(ModelToolChoice choice) => choice switch
-    {
-        { Type: "required" } => new JsonObject { ["any"] = new JsonObject() },
-        { Type: "tool" } => new JsonObject { ["tool"] = new JsonObject { ["name"] = choice.ToolName } },
-        _ => new JsonObject { ["auto"] = new JsonObject() },
-    };
+    private static JsonObject ToolChoice(ModelToolChoice choice) =>
+        choice switch
+        {
+            { Type: "required" } => new JsonObject { ["any"] = new JsonObject() },
+            { Type: "tool" } => new JsonObject { ["tool"] = new JsonObject { ["name"] = choice.ToolName } },
+            _ => new JsonObject { ["auto"] = new JsonObject() },
+        };
 
     internal JsonObject BuildBody(ModelRequest request)
     {
@@ -140,48 +159,64 @@ public sealed class BedrockModel : IAgentModel, IDisposable
 
                 foreach (var call in message.ToolCalls)
                 {
-                    content.Add(new JsonObject
-                    {
-                        ["toolUse"] = new JsonObject
+                    content.Add(
+                        new JsonObject
                         {
-                            ["toolUseId"] = call.Id,
-                            ["name"] = call.Name,
-                            ["input"] = ModelHttp.ArgumentsObject(call.Arguments),
-                        },
-                    });
+                            ["toolUse"] = new JsonObject
+                            {
+                                ["toolUseId"] = call.Id,
+                                ["name"] = call.Name,
+                                ["input"] = ModelHttp.ArgumentsObject(call.Arguments),
+                            },
+                        }
+                    );
                 }
 
                 Append(messages, "assistant", content);
             }
             else if (string.Equals(message.Role, "tool", StringComparison.Ordinal))
             {
-                Append(messages, "user", new JsonArray
-                {
-                    new JsonObject
+                Append(
+                    messages,
+                    "user",
+                    new JsonArray
                     {
-                        ["toolResult"] = new JsonObject
+                        new JsonObject
                         {
-                            ["toolUseId"] = message.ToolCallId,
-                            ["content"] = new JsonArray { new JsonObject { ["text"] = string.IsNullOrEmpty(message.Content) ? "(empty)" : message.Content } },
+                            ["toolResult"] = new JsonObject
+                            {
+                                ["toolUseId"] = message.ToolCallId,
+                                ["content"] = new JsonArray
+                                {
+                                    new JsonObject
+                                    {
+                                        ["text"] = string.IsNullOrEmpty(message.Content) ? "(empty)" : message.Content,
+                                    },
+                                },
+                            },
                         },
-                    },
-                });
+                    }
+                );
             }
             else
             {
                 var role = string.Equals(message.Role, "assistant", StringComparison.Ordinal) ? "assistant" : "user";
                 var content = Reasoning(message);
-                content.Add(new JsonObject { ["text"] = string.IsNullOrEmpty(message.Content) ? "(empty)" : message.Content });
+                content.Add(
+                    new JsonObject { ["text"] = string.IsNullOrEmpty(message.Content) ? "(empty)" : message.Content }
+                );
                 foreach (var image in ModelHttp.UserImages(message))
                 {
-                    content.Add(new JsonObject
-                    {
-                        ["image"] = new JsonObject
+                    content.Add(
+                        new JsonObject
                         {
-                            ["format"] = ModelHttp.ImageFormat(image),
-                            ["source"] = new JsonObject { ["bytes"] = Convert.ToBase64String(image.Data) },
-                        },
-                    });
+                            ["image"] = new JsonObject
+                            {
+                                ["format"] = ModelHttp.ImageFormat(image),
+                                ["source"] = new JsonObject { ["bytes"] = Convert.ToBase64String(image.Data) },
+                            },
+                        }
+                    );
                 }
 
                 Append(messages, role, content);
@@ -191,29 +226,33 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         var tools = new JsonArray();
         foreach (var tool in request.Tools)
         {
-            tools.Add(new JsonObject
-            {
-                ["toolSpec"] = new JsonObject
+            tools.Add(
+                new JsonObject
                 {
-                    ["name"] = tool.Name,
-                    ["description"] = tool.Description,
-                    ["inputSchema"] = new JsonObject { ["json"] = JsonNode.Parse(tool.Parameters.GetRawText()) },
-                },
-            });
+                    ["toolSpec"] = new JsonObject
+                    {
+                        ["name"] = tool.Name,
+                        ["description"] = tool.Description,
+                        ["inputSchema"] = new JsonObject { ["json"] = JsonNode.Parse(tool.Parameters.GetRawText()) },
+                    },
+                }
+            );
         }
 
         // A structured answer is the input of one tool the model is made to call.
         if (request.Schema is { } schema)
         {
-            tools.Add(new JsonObject
-            {
-                ["toolSpec"] = new JsonObject
+            tools.Add(
+                new JsonObject
                 {
-                    ["name"] = ModelHttp.JsonToolName,
-                    ["description"] = ModelHttp.JsonToolDescription(request),
-                    ["inputSchema"] = new JsonObject { ["json"] = JsonNode.Parse(schema.GetRawText()) },
-                },
-            });
+                    ["toolSpec"] = new JsonObject
+                    {
+                        ["name"] = ModelHttp.JsonToolName,
+                        ["description"] = ModelHttp.JsonToolDescription(request),
+                        ["inputSchema"] = new JsonObject { ["json"] = JsonNode.Parse(schema.GetRawText()) },
+                    },
+                }
+            );
         }
 
         var payload = new JsonObject
@@ -243,7 +282,10 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         // Forcing a tool is refused while the model thinks, so a request that thinks only offers the tool.
         if (request.Schema is not null && payload["additionalModelRequestFields"]?["thinking"] is null)
         {
-            payload["toolConfig"]!["toolChoice"] = new JsonObject { ["tool"] = new JsonObject { ["name"] = ModelHttp.JsonToolName } };
+            payload["toolConfig"]!["toolChoice"] = new JsonObject
+            {
+                ["tool"] = new JsonObject { ["name"] = ModelHttp.JsonToolName },
+            };
         }
 
         return payload;
@@ -266,7 +308,11 @@ public sealed class BedrockModel : IAgentModel, IDisposable
 
     private static void Append(JsonArray messages, string role, JsonArray content)
     {
-        if (messages.Count > 0 && messages[^1]?["role"]?.GetValue<string>() == role && messages[^1]?["content"] is JsonArray previous)
+        if (
+            messages.Count > 0
+            && messages[^1]?["role"]?.GetValue<string>() == role
+            && messages[^1]?["content"] is JsonArray previous
+        )
         {
             foreach (var part in content.ToArray())
             {
@@ -288,10 +334,16 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         var reasoningText = new List<string>();
         foreach (var block in root.GetProperty("output").GetProperty("message").GetProperty("content").EnumerateArray())
         {
-            if (block.TryGetProperty("reasoningContent", out var thinking) && thinking.ValueKind == JsonValueKind.Object)
+            if (
+                block.TryGetProperty("reasoningContent", out var thinking)
+                && thinking.ValueKind == JsonValueKind.Object
+            )
             {
                 reasoning.Add(thinking.Clone());
-                if (thinking.TryGetProperty("reasoningText", out var shown) && ModelHttp.OptionalString(shown, "text") is { } thought)
+                if (
+                    thinking.TryGetProperty("reasoningText", out var shown)
+                    && ModelHttp.OptionalString(shown, "text") is { } thought
+                )
                 {
                     reasoningText.Add(thought);
                 }
@@ -302,12 +354,17 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             }
             else if (block.TryGetProperty("toolUse", out var use))
             {
-                calls.Add(new ModelToolCall
-                {
-                    Id = use.GetProperty("toolUseId").GetString() ?? "call_" + calls.Count,
-                    Name = use.GetProperty("name").GetString() ?? "",
-                    Arguments = use.TryGetProperty("input", out var input) && input.ValueKind == JsonValueKind.Object ? input.Clone() : ModelHttp.Arguments(null),
-                });
+                calls.Add(
+                    new ModelToolCall
+                    {
+                        Id = use.GetProperty("toolUseId").GetString() ?? "call_" + calls.Count,
+                        Name = use.GetProperty("name").GetString() ?? "",
+                        Arguments =
+                            use.TryGetProperty("input", out var input) && input.ValueKind == JsonValueKind.Object
+                                ? input.Clone()
+                                : ModelHttp.Arguments(null),
+                    }
+                );
             }
         }
 
@@ -316,7 +373,8 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         {
             usage = new ModelCallUsage
             {
-                InputTokens = ModelHttp.Int(usageElement, "inputTokens")
+                InputTokens =
+                    ModelHttp.Int(usageElement, "inputTokens")
                     + ModelHttp.Int(usageElement, "cacheReadInputTokens")
                     + ModelHttp.Int(usageElement, "cacheWriteInputTokens"),
                 OutputTokens = ModelHttp.Int(usageElement, "outputTokens"),
@@ -377,7 +435,10 @@ public sealed class BedrockModelOptions
 
     public string ResolveRegion()
     {
-        return Region ?? ModelHttp.Environment("AWS_REGION") ?? ModelHttp.Environment("AWS_DEFAULT_REGION") ?? "us-east-1";
+        return Region
+            ?? ModelHttp.Environment("AWS_REGION")
+            ?? ModelHttp.Environment("AWS_DEFAULT_REGION")
+            ?? "us-east-1";
     }
 
     public AwsCredentials? ResolveCredentials()
@@ -402,7 +463,8 @@ public sealed record AwsCredentials(string AccessKeyId, string SecretAccessKey, 
 internal static class AwsCredentialChain
 {
     /// <summary>Environment, shared profile, SSO, container, and instance credentials, in the AWS SDK's own order.</summary>
-    public static AWSCredentials Default() => Amazon.Runtime.Credentials.DefaultAWSCredentialsIdentityResolver.GetCredentials(null);
+    public static AWSCredentials Default() =>
+        Amazon.Runtime.Credentials.DefaultAWSCredentialsIdentityResolver.GetCredentials(null);
 
     public static AwsCredentials Read(AWSCredentials chain)
     {
@@ -410,14 +472,22 @@ internal static class AwsCredentialChain
         return new AwsCredentials(
             credentials.AccessKey,
             credentials.SecretKey,
-            string.IsNullOrEmpty(credentials.Token) ? null : credentials.Token);
+            string.IsNullOrEmpty(credentials.Token) ? null : credentials.Token
+        );
     }
 }
 
 /// <summary>AWS Signature Version 4 for one JSON request.</summary>
 internal static class SigV4
 {
-    public static void Sign(HttpRequestMessage message, string payload, AwsCredentials credentials, string region, string service, DateTimeOffset now)
+    public static void Sign(
+        HttpRequestMessage message,
+        string payload,
+        AwsCredentials credentials,
+        string region,
+        string service,
+        DateTimeOffset now
+    )
     {
         var uri = message.RequestUri!;
         var amzDate = now.UtcDateTime.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
@@ -445,9 +515,16 @@ internal static class SigV4
             CanonicalQuery(uri.Query),
             string.Concat(headers.Select(pair => pair.Key + ":" + pair.Value.Trim() + "\n")),
             signedHeaders,
-            payloadHash);
+            payloadHash
+        );
         var scope = date + "/" + region + "/" + service + "/aws4_request";
-        var toSign = string.Join('\n', "AWS4-HMAC-SHA256", amzDate, scope, Hex(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))));
+        var toSign = string.Join(
+            '\n',
+            "AWS4-HMAC-SHA256",
+            amzDate,
+            scope,
+            Hex(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)))
+        );
 
         var signature = Signature(credentials.SecretAccessKey, date, region, service, toSign);
 
@@ -460,7 +537,15 @@ internal static class SigV4
 
         message.Headers.TryAddWithoutValidation(
             "Authorization",
-            "AWS4-HMAC-SHA256 Credential=" + credentials.AccessKeyId + "/" + scope + ", SignedHeaders=" + signedHeaders + ", Signature=" + signature);
+            "AWS4-HMAC-SHA256 Credential="
+                + credentials.AccessKeyId
+                + "/"
+                + scope
+                + ", SignedHeaders="
+                + signedHeaders
+                + ", Signature="
+                + signature
+        );
     }
 
     /// <summary>The signature of <paramref name="toSign"/> with the key derived for the date, region, and service.</summary>
@@ -488,12 +573,22 @@ internal static class SigV4
             return "";
         }
 
-        return string.Join('&', query.TrimStart('?').Split('&')
-            .Select(pair => pair.Split('=', 2))
-            .Select(parts => (Key: Encode(Uri.UnescapeDataString(parts[0])), Value: parts.Length > 1 ? Encode(Uri.UnescapeDataString(parts[1])) : ""))
-            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
-            .ThenBy(pair => pair.Value, StringComparer.Ordinal)
-            .Select(pair => pair.Key + "=" + pair.Value));
+        return string.Join(
+            '&',
+            query
+                .TrimStart('?')
+                .Split('&')
+                .Select(pair => pair.Split('=', 2))
+                .Select(parts =>
+                    (
+                        Key: Encode(Uri.UnescapeDataString(parts[0])),
+                        Value: parts.Length > 1 ? Encode(Uri.UnescapeDataString(parts[1])) : ""
+                    )
+                )
+                .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .ThenBy(pair => pair.Value, StringComparer.Ordinal)
+                .Select(pair => pair.Key + "=" + pair.Value)
+        );
     }
 
     /// <summary>RFC 3986 encoding: everything but unreserved characters.</summary>

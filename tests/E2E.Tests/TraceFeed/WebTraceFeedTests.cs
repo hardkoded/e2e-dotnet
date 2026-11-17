@@ -28,7 +28,8 @@ public sealed class WebTraceFeedTests
         var screens = new List<Observation>();
         await using var session = await new WebEngine(headless: true).StartAsync(
             new EngineStartOptions { BaseUrl = site.Url, Screen = screens.Add },
-            CancellationToken.None);
+            CancellationToken.None
+        );
         await session.OpenAsync(site.Url, CancellationToken.None);
         var seen = await session.ObserveAsync(CancellationToken.None);
         var save = Flatten(seen).Single(node => node.Name == "Save");
@@ -52,7 +53,8 @@ public sealed class WebTraceFeedTests
         var screens = new List<Observation>();
         await using var session = await new WebEngine(headless: true).StartAsync(
             new EngineStartOptions { BaseUrl = site.Url, Screen = screens.Add },
-            CancellationToken.None);
+            CancellationToken.None
+        );
         await session.OpenAsync(site.Url, CancellationToken.None);
         await session.ObserveAsync(CancellationToken.None);
         var page = WebEngine.SurfaceOf(session)!.Page();
@@ -71,7 +73,10 @@ public sealed class WebTraceFeedTests
     public async Task Acts_as_before_when_the_attempt_gave_no_sink()
     {
         using var site = await TinySite.StartAsync(Page);
-        await using var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { BaseUrl = site.Url }, CancellationToken.None);
+        await using var session = await new WebEngine(headless: true).StartAsync(
+            new EngineStartOptions { BaseUrl = site.Url },
+            CancellationToken.None
+        );
         await session.OpenAsync(site.Url, CancellationToken.None);
         var save = Flatten(await session.ObserveAsync(CancellationToken.None)).Single(node => node.Name == "Save");
 
@@ -85,7 +90,8 @@ public sealed class WebTraceFeedTests
         var told = new List<IReadOnlyDictionary<string, string>>();
         await using var session = await new WebEngine(headless: true).StartAsync(
             new EngineStartOptions { BaseUrl = site.Url, Environment = told.Add },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         await session.OpenAsync(site.Url, CancellationToken.None);
         await WaitUntilAsync(() => told.Count > 0);

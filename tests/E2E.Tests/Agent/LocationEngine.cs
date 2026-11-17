@@ -40,7 +40,8 @@ internal sealed class LocationEngine(IEngine inner, string? before, string? afte
     {
         public string Route => engine.Location is null ? inner.Route : E2E.Internal.Routes.LocationOf(engine.Location);
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+        public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+            inner.OpenAsync(url, cancellationToken);
 
         public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
         {
@@ -60,11 +61,14 @@ internal sealed class LocationEngine(IEngine inner, string? before, string? afte
             };
         }
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => inner.PerformAsync(node, action, cancellationToken);
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+            inner.PerformAsync(node, action, cancellationToken);
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+        public Task PressAsync(string key, CancellationToken cancellationToken) =>
+            inner.PressAsync(key, cancellationToken);
 
-        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => inner.ScreenshotAsync(cancellationToken);
+        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
+            inner.ScreenshotAsync(cancellationToken);
 
         public ValueTask DisposeAsync() => inner.DisposeAsync();
     }

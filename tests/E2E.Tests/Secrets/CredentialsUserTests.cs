@@ -36,7 +36,11 @@ public sealed class CredentialsUserTests
         Assert.Equal("admin@example.com", handle.Username);
         Assert.DoesNotContain("super-secret-password", handle.Password.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("super-secret-password", JsonSerializer.Serialize(handle), StringComparison.Ordinal);
-        Assert.DoesNotContain("super-secret-password", JsonSerializer.Serialize(handle.Password), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "super-secret-password",
+            JsonSerializer.Serialize(handle.Password),
+            StringComparison.Ordinal
+        );
     }
 
     // .NET-only: upstream's credentials.user reads no variable outside a session; the port's fallback maps a name as upstream's envName does.
@@ -56,14 +60,20 @@ public sealed class CredentialsUserTests
     [Fact]
     public async Task A_session_resolves_the_accounts_it_was_given_until_it_is_disposed()
     {
-        var admin = new ResolvedCredential("secrets-test-session", "session@example.com", Secret.Create("secrets-test-session.password", "session-pass", "password"));
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(BillingWorld.Create()),
-            BaseUrl = "https://billing.test",
-            TestTitle = "billing > credentials",
-            Credentials = new Dictionary<string, ResolvedCredential> { [admin.Name] = admin },
-        });
+        var admin = new ResolvedCredential(
+            "secrets-test-session",
+            "session@example.com",
+            Secret.Create("secrets-test-session.password", "session-pass", "password")
+        );
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(BillingWorld.Create()),
+                BaseUrl = "https://billing.test",
+                TestTitle = "billing > credentials",
+                Credentials = new Dictionary<string, ResolvedCredential> { [admin.Name] = admin },
+            }
+        );
 
         Assert.Equal("session@example.com", Credentials.User("secrets-test-session").Username);
         await session.DisposeAsync();
@@ -73,8 +83,16 @@ public sealed class CredentialsUserTests
     [Fact]
     public void Partial_Replacing_the_registry_swaps_the_visible_credential_set()
     {
-        var admin = new ResolvedCredential("secrets-test-admin", "admin@example.com", Secret.Create("secrets-test-admin.password", "super-secret-password", "password"));
-        var viewer = new ResolvedCredential("secrets-test-viewer", "viewer@example.com", Secret.Create("secrets-test-viewer.password", "viewer-pass", "password"));
+        var admin = new ResolvedCredential(
+            "secrets-test-admin",
+            "admin@example.com",
+            Secret.Create("secrets-test-admin.password", "super-secret-password", "password")
+        );
+        var viewer = new ResolvedCredential(
+            "secrets-test-viewer",
+            "viewer@example.com",
+            Secret.Create("secrets-test-viewer.password", "viewer-pass", "password")
+        );
         using (SecretRegistry.Hold(new Dictionary<string, ResolvedCredential> { [admin.Name] = admin }))
         {
             Assert.Equal("admin@example.com", Credentials.User("secrets-test-admin").Username);

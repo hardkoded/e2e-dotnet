@@ -15,8 +15,18 @@ namespace E2E.Tests.FilterOptions;
 /// </summary>
 public sealed class LocatorFilterOptionsTests
 {
-    private static readonly SemanticNode Paid = new() { Ref = "paid", Role = "row", Text = "Invoice 41 Paid" };
-    private static readonly SemanticNode Due = new() { Ref = "due", Role = "row", Text = "Invoice 42 Due" };
+    private static readonly SemanticNode Paid = new()
+    {
+        Ref = "paid",
+        Role = "row",
+        Text = "Invoice 41 Paid",
+    };
+    private static readonly SemanticNode Due = new()
+    {
+        Ref = "due",
+        Role = "row",
+        Text = "Invoice 42 Due",
+    };
 
     [Fact]
     public async Task Keeps_hasText_as_the_only_predicate_when_it_is_the_only_key()
@@ -35,7 +45,11 @@ public sealed class LocatorFilterOptionsTests
         var rows = ScreenFixture.Create(Paid, Due).GetByRole("row");
 
         Assert.Equal(["Invoice 42 Due"], await rows.Filter(hasNotText: "paid").AllTextContentsAsync());
-        Assert.Equal(["Invoice 42 Due"], await rows.Filter(hasText: "invoice", hasNotText: new Regex("paid$", RegexOptions.IgnoreCase)).AllTextContentsAsync());
+        Assert.Equal(
+            ["Invoice 42 Due"],
+            await rows.Filter(hasText: "invoice", hasNotText: new Regex("paid$", RegexOptions.IgnoreCase))
+                .AllTextContentsAsync()
+        );
         Assert.Equal(0, await rows.Filter(hasNotText: new Regex("Invoice")).CountAsync());
         Assert.Equal(2, await rows.Filter(hasNotText: "unrelated").CountAsync());
         Assert.Equal(0, await rows.Filter(hasNotText: "").CountAsync());
@@ -44,14 +58,40 @@ public sealed class LocatorFilterOptionsTests
     [Fact]
     public async Task Drops_rows_whose_subtree_resolves_hasNot_alone_and_beside_hasText()
     {
-        static SemanticNode Badge(string id, string text) => new() { Ref = id, Role = "status", Name = text, Text = text };
+        static SemanticNode Badge(string id, string text) =>
+            new()
+            {
+                Ref = id,
+                Role = "status",
+                Name = text,
+                Text = text,
+            };
         var screen = ScreenFixture.Create(
-            new SemanticNode { Ref = "paid", Role = "row", Text = "Invoice 41 Paid", Children = [Badge("paid-badge", "Paid")] },
-            new SemanticNode { Ref = "due", Role = "row", Text = "Invoice 42 Due", Children = [Badge("due-badge", "Due")] });
+            new SemanticNode
+            {
+                Ref = "paid",
+                Role = "row",
+                Text = "Invoice 41 Paid",
+                Children = [Badge("paid-badge", "Paid")],
+            },
+            new SemanticNode
+            {
+                Ref = "due",
+                Role = "row",
+                Text = "Invoice 42 Due",
+                Children = [Badge("due-badge", "Due")],
+            }
+        );
         var all = screen.GetByRole("row");
 
-        Assert.Equal(["Invoice 42 Due"], await all.Filter(hasNot: screen.GetByRole("status", "Paid")).AllTextContentsAsync());
-        Assert.Equal(["Invoice 41 Paid"], await all.Filter(hasText: "Invoice", hasNot: screen.GetByRole("status", "Due")).AllTextContentsAsync());
+        Assert.Equal(
+            ["Invoice 42 Due"],
+            await all.Filter(hasNot: screen.GetByRole("status", "Paid")).AllTextContentsAsync()
+        );
+        Assert.Equal(
+            ["Invoice 41 Paid"],
+            await all.Filter(hasText: "Invoice", hasNot: screen.GetByRole("status", "Due")).AllTextContentsAsync()
+        );
         Assert.Equal(2, await all.Filter(hasNot: screen.GetByRole("status", "Missing")).CountAsync());
     }
 
