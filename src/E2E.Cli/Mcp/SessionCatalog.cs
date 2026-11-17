@@ -837,6 +837,10 @@ internal sealed class SessionCatalog
         {
             Description = description,
             InputSchema = schema,
+            StripsUndeclared =
+                schema.TryGetProperty("properties", out var declared)
+                && declared.ValueKind == JsonValueKind.Object
+                && !declared.EnumerateObject().Any(),
             Execute = async (args, token) =>
             {
                 var mapped = new JsonObject();

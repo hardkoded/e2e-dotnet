@@ -42,6 +42,12 @@ internal sealed class CatalogTool
     /// <summary>Runs the tool on validated arguments and returns its output; null for a tool that cannot run.</summary>
     public Func<JsonElement, CancellationToken, Task<object?>>? Execute { get; init; }
 
+    /// <summary>
+    /// A grammar tool with no fields (upstream's <c>schemaTool</c> over an empty shape): the call's keys are dropped and it runs. The schema
+    /// a provider receives still sets <c>additionalProperties: false</c>. A value that is not an object still fails validation.
+    /// </summary>
+    public bool StripsUndeclared { get; init; }
+
     /// <summary>Renders the output for a model, given the call's arguments and the output.</summary>
     public Func<JsonElement?, object?, CancellationToken, Task<ToolModelOutput>>? ToModelOutput { get; init; }
 }
@@ -200,7 +206,12 @@ internal static partial class Tools
             );
         }
 
-        var issues = ArgumentSchema.Validate(tool.InputSchema, args);
+        var issues = ArgumentSchema.Validate(
+            tool.InputSchema,
+            tool.StripsUndeclared && args.ValueKind == JsonValueKind.Object
+                ? JsonSerializer.SerializeToElement(new { })
+                : args
+        );
         if (issues.Count > 0)
         {
             throw new ConfigurationException(
