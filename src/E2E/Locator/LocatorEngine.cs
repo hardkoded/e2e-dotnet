@@ -793,6 +793,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                     )
                 {
                     // The node went stale under the action: look again, within the deadline.
+                    pollStarted = Clock.GetTimestamp();
                     continue;
                 }
                 catch (Exception ex) when (!token.IsCancellationRequested)
