@@ -4800,6 +4800,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         private async Task ConfigureAsync(IBrowserContext context)
         {
             await context.AddInitScriptAsync(PageScript.RecordClosedShadowRoots).ConfigureAwait(false);
+            await context.AddInitScriptAsync(PageScript.ModalOrderInitScript).ConfigureAwait(false);
             foreach (var script in _initScripts)
             {
                 await context.AddInitScriptAsync(script).ConfigureAwait(false);
