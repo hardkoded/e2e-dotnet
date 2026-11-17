@@ -581,7 +581,7 @@ public sealed class AgentJudgmentTierTests
     }
 
     [Fact]
-    public async Task Judges_a_change_at_once_instead_of_waiting_out_the_interval()
+    public async Task Judges_a_change_as_soon_as_it_is_seen_not_after_the_interval()
     {
         var engine = new LocationEngine(
             new DocumentEngine(World().Map("/moves", page => page.Heading("Moves"))),
@@ -620,7 +620,7 @@ public sealed class AgentJudgmentTierTests
     }
 
     [Fact]
-    public async Task Judges_a_screen_that_keeps_changing_at_most_once_per_interval()
+    public async Task Judges_a_screen_that_never_holds_still_at_most_once_per_interval()
     {
         // The clock ticks every 200 ms. Its first tick after the opening judgment is judged at once (0.5 s); every later one
         // waits out the 1.5 s interval (2 s), so the wait fits three judgments, not one per poll. The timeout is 3 s here, not upstream's 2.5 s, so a slow first capture
@@ -650,7 +650,7 @@ public sealed class AgentJudgmentTierTests
     }
 
     [Fact]
-    public async Task A_slow_judgment_does_not_count_as_the_screen_holding_still()
+    public async Task Keeps_the_interval_on_a_screen_that_changed_while_a_slow_judgment_ran()
     {
         // Each judgment takes 1.2 s, during which nothing is observed. Counting that as the clock holding still would judge every
         // tick at once (0, 1.7, 3.4, 5.1 s). Only the first tick is judged at once; the next waits out the interval after the
