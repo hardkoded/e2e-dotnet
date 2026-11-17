@@ -207,7 +207,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ValueExpectation&lt;T&gt;](/api/E2E/ValueExpectation-1/) | Synchronous matchers over a plain value, from That&lt;T&gt;. A failure is an ASSERTION_FAILED TestException. The optional message of the call opens every failure, and survives Not. |
 | [Values](/api/E2E/Values/) | Wraps a fresh value so the replay cache can still match the step. |
 | [VerdictTool](/api/E2E/VerdictTool/) | Upstream's VerdictTool: the conclusion tool, the policy that accepts or refuses the verdict a call carries, and the verdict it collected. Made by CreateVerdictTool; the tool loop adds one to every vocabulary, so an executor of its own that drives a model outside the loop is the only caller of Execute(ModelToolCall). |
-| [WaitForOptions](/api/E2E/WaitForOptions/) | agent.waitFor: a judgment at most once per Interval, and only on a changed screen, until Timeout. |
+| [WaitForOptions](/api/E2E/WaitForOptions/) | agent.waitFor: a judgment on each screen change, at most once per Interval while it keeps changing, until Timeout. |
 | [WebResponse](/api/E2E/WebResponse/) | A response WaitForResponseAsync matched. |
 | [WebRoute](/api/E2E/WebRoute/) | One request a RouteAsync handler intercepted. Take exactly one decision. Each validates its options before it decides, so a rejected option leaves the request undecided, and the request is aborted. |
 

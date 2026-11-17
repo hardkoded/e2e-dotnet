@@ -581,6 +581,105 @@ public sealed class AgentJudgmentTierTests
     }
 
     [Fact]
+    public async Task Judges_a_change_as_soon_as_it_is_seen_not_after_the_interval()
+    {
+        var engine = new LocationEngine(
+            new DocumentEngine(World().Map("/moves", page => page.Heading("Moves"))),
+            "https://app.test/moves",
+            "https://app.test/moved"
+        );
+        var judge = new ScriptedModel(request =>
+        {
+            engine.Moved = true;
+            return request.Messages[0].Content!.Contains("Screen (\"/moved\"):", StringComparison.Ordinal)
+                ? ModelResponses.Done("passed", "read the location")
+                : ModelResponses.Done("failed", "read the location");
+        });
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/moves");
+                await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("Moves");
+                // The interval outlasts the timeout: a wait that sat it out before judging the move would time out instead.
+                await ctx.Agent.WaitForAsync(
+                    "the address reads /moved",
+                    new WaitForOptions
+                    {
+                        Interval = TimeSpan.FromSeconds(60),
+                        Timeout = TimeSpan.FromSeconds(5),
+                        MaxModelCalls = 4,
+                    }
+                );
+            },
+            engine,
+            judge: judge
+        );
+
+        Assert.Null(result.Error);
+        Assert.Equal(2, judge.CallCount);
+    }
+
+    [Fact]
+    public async Task Judges_a_screen_that_never_holds_still_at_most_once_per_interval()
+    {
+        // The clock ticks every 200 ms. Its first tick after the opening judgment is judged at once (0.5 s); every later one
+        // waits out the 1.5 s interval (2 s), so the wait fits three judgments, not one per poll. The timeout is 3 s here, not upstream's 2.5 s, so a slow first capture
+        // cannot push the third judgment past it; the fourth would come at 3.5 s.
+        var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "the clock shows a number"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("About");
+                await ctx.Agent.WaitForAsync(
+                    "the clock reads stop",
+                    new WaitForOptions
+                    {
+                        Interval = TimeSpan.FromMilliseconds(1500),
+                        Timeout = TimeSpan.FromMilliseconds(3000),
+                    }
+                );
+            },
+            new TickingEngine(new DocumentEngine(World())),
+            judge: judge
+        );
+
+        var error = Assert.IsType<AgentException>(result.Error);
+        Assert.Equal("STEP_TIMEOUT", error.Code);
+        Assert.Equal(3, judge.CallCount);
+    }
+
+    [Fact]
+    public async Task Keeps_the_interval_on_a_screen_that_changed_while_a_slow_judgment_ran()
+    {
+        // Each judgment takes 1.2 s, during which nothing is observed. Counting that as the clock holding still would judge every
+        // tick at once (0, 1.7, 3.4, 5.1 s). Only the first tick is judged at once; the next waits out the interval after the
+        // judgment returns (0, 1.7, 4.4 s).
+        var judge = new ScriptedModel(_ =>
+        {
+            Thread.Sleep(1200);
+            return ModelResponses.Done("failed", "the clock shows a number");
+        });
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("About");
+                await ctx.Agent.WaitForAsync(
+                    "the slow clock reads stop",
+                    new WaitForOptions { Interval = TimeSpan.FromMilliseconds(1500), Timeout = TimeSpan.FromSeconds(6) }
+                );
+            },
+            new TickingEngine(new DocumentEngine(World())),
+            judge: judge
+        );
+
+        var error = Assert.IsType<AgentException>(result.Error);
+        Assert.Equal("STEP_TIMEOUT", error.Code);
+        Assert.Equal(3, judge.CallCount);
+    }
+
+    [Fact]
     public async Task A_vision_only_wait_does_not_judge_again_on_a_URL_it_is_not_shown()
     {
         var engine = new LocationEngine(

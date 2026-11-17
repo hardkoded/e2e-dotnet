@@ -1,6 +1,6 @@
 ---
 title: "WaitForOptions"
-description: "agent.waitFor: a judgment at most once per Interval, and only on a changed screen, until Timeout."
+description: "agent.waitFor: a judgment on each screen change, at most once per Interval while it keeps changing, until Timeout."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,7 @@ public sealed class WaitForOptions
 ```
 
 
-`agent.waitFor`: a judgment at most once per [Interval](#E2E_WaitForOptions_Interval), and only on a changed screen, until [Timeout](#E2E_WaitForOptions_Timeout).
+`agent.waitFor`: a judgment on each screen change, at most once per [Interval](#E2E_WaitForOptions_Interval) while it keeps changing, until [Timeout](#E2E_WaitForOptions_Timeout).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -53,7 +53,7 @@ public TimeSpan? Interval { get; init; }
 ```
 
 
-Least time between two judgments, 100 ms through 60 s. Defaults to 3 s.
+Least time between two judgments of a screen that keeps changing, 100 ms through 60 s. Defaults to 3 s.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 

@@ -50,8 +50,8 @@ public sealed partial class Agent
     // The most bytes an act instruction may hold.
     private const int MaxInstructionBytes = 8_192;
 
-    // How often waitFor looks for a changed screen once its interval has passed.
-    private static readonly TimeSpan WaitForTick = TimeSpan.FromMilliseconds(250);
+    // How often waitFor looks for a changed screen (upstream's CHANGE_POLL_MS).
+    private static readonly TimeSpan ChangePoll = TimeSpan.FromMilliseconds(500);
 
     // The params line of a judgment, as JSON.stringify writes it: compact, and the text left as typed.
     private static readonly JsonSerializerOptions ParamsJson = new()
@@ -151,8 +151,9 @@ public sealed partial class Agent
     }
 
     /// <summary>
-    /// Waits until the statement holds on screen. It judges at once, then again after each <see cref="WaitForOptions.Interval"/> once the
-    /// screen has changed. A capture that outlives <see cref="WaitForOptions.Timeout"/> fails <c>STEP_TIMEOUT</c>
+    /// Waits until the statement holds on screen. It judges at once, then again whenever the screen changed: as soon as the change is
+    /// seen when the screen had held still for <see cref="WaitForOptions.Interval"/> before it (or had not changed since the wait began),
+    /// and at most once per <see cref="WaitForOptions.Interval"/> while it keeps changing. A capture that outlives <see cref="WaitForOptions.Timeout"/> fails <c>STEP_TIMEOUT</c>
     /// (<c>agent.waitFor exceeded its N ms timeout</c>); once a judgment has been made, the timeout reads
     /// <c>waitFor timed out; last judgment: ...</c> and carries that failure as its cause.
     /// </summary>
@@ -235,6 +236,7 @@ public sealed partial class Agent
         try
         {
             var look = await ObserveAsync().ConfigureAwait(false);
+            var screen = new ScreenChanges { ObservedAt = DateTime.UtcNow };
             while (true)
             {
                 var verdict = await JudgeOnceAsync(
@@ -256,9 +258,14 @@ public sealed partial class Agent
 
                 last = string.IsNullOrWhiteSpace(verdict.Summary) ? last : Explain(verdict, vision);
 
-                // The next judgment waits for the interval and for a screen that changed since the last one.
+                // The next judgment waits for a changed screen. A change is judged as soon as it is seen when the screen was seen
+                // holding still for the interval before it, or had not changed since the wait began (the condition coming true).
+                // Only stillness an observation saw counts: nothing is observed while a judgment runs. A change inside a run of
+                // changes is judged at most once per interval after the previous judgment returned.
                 var judged = look;
                 var judgedAt = DateTime.UtcNow;
+                var shape = judged.Shape;
+                var judgeAtOnce = false;
                 while (true)
                 {
                     if (DateTime.UtcNow >= deadline)
@@ -274,22 +281,29 @@ public sealed partial class Agent
                         );
                     }
 
-                    var untilInterval = interval - (DateTime.UtcNow - judgedAt);
-                    var wait =
-                        untilInterval > TimeSpan.Zero
-                            ? untilInterval
-                            : (interval < WaitForTick ? interval : WaitForTick);
+                    var tick = interval < ChangePoll ? interval : ChangePoll;
                     var remaining = deadline - DateTime.UtcNow;
                     if (remaining > TimeSpan.Zero)
                     {
-                        await Task.Delay(wait < remaining ? wait : remaining, token).ConfigureAwait(false);
+                        await Task.Delay(tick < remaining ? tick : remaining, token).ConfigureAwait(false);
                     }
 
                     look = await ObserveBetweenAsync().ConfigureAwait(false);
-                    if (
-                        DateTime.UtcNow - judgedAt >= interval
-                        && !string.Equals(look.Shape, judged.Shape, StringComparison.Ordinal)
-                    )
+                    var now = DateTime.UtcNow;
+                    if (!string.Equals(look.Shape, shape, StringComparison.Ordinal))
+                    {
+                        judgeAtOnce = screen.ChangedAt is null || screen.ObservedAt - screen.ChangedAt >= interval;
+                        screen.ChangedAt = now;
+                        shape = look.Shape;
+                    }
+
+                    screen.ObservedAt = now;
+                    if (string.Equals(shape, judged.Shape, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (judgeAtOnce || now - judgedAt >= interval)
                     {
                         break;
                     }
@@ -1629,7 +1643,17 @@ public sealed class AssertOptions
     public string? Agent { get; init; }
 }
 
-/// <summary><c>agent.waitFor</c>: a judgment at most once per <see cref="Interval"/>, and only on a changed screen, until <see cref="Timeout"/>.</summary>
+/// <summary>What <c>waitFor</c> has seen the screen do, kept across its rounds.</summary>
+internal sealed class ScreenChanges
+{
+    /// <summary>When an observation last differed from the one before it; null until one does.</summary>
+    public DateTime? ChangedAt { get; set; }
+
+    /// <summary>When the newest observation was taken.</summary>
+    public DateTime ObservedAt { get; set; }
+}
+
+/// <summary><c>agent.waitFor</c>: a judgment on each screen change, at most once per <see cref="Interval"/> while it keeps changing, until <see cref="Timeout"/>.</summary>
 public sealed class WaitForOptions
 {
     /// <summary>
@@ -1641,7 +1665,7 @@ public sealed class WaitForOptions
     /// <summary>Defaults to the agent's <c>JudgmentTimeout</c> (30 s).</summary>
     public TimeSpan? Timeout { get; init; }
 
-    /// <summary>Least time between two judgments, 100 ms through 60 s. Defaults to 3 s.</summary>
+    /// <summary>Least time between two judgments of a screen that keeps changing, 100 ms through 60 s. Defaults to 3 s.</summary>
     public TimeSpan? Interval { get; init; }
 
     /// <summary>Model-call budget. Defaults to the configured <c>MaxModelCalls</c> and can only lower it.</summary>
