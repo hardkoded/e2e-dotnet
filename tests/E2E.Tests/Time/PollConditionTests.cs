@@ -11,8 +11,7 @@ namespace E2E.Tests.Time;
 /// <summary>
 /// Upstream tests <c>pollCondition</c> on fake timers. The port polls inside the
 /// locator matchers, so these run a matcher over a screen whose every read is
-/// scripted, on a fake clock that moves to each timer the poll starts. The port
-/// samples every 50 ms, upstream every 100 ms.
+/// scripted, on a fake clock that moves to each timer the poll starts.
 /// </summary>
 public sealed class PollConditionTests
 {
@@ -35,6 +34,33 @@ public sealed class PollConditionTests
     private readonly SteppingTime _time = new();
 
     [Fact]
+    public async Task Sees_a_state_that_arrives_between_poll_ticks_no_later_than_a_poll_every_tick_would()
+    {
+        var readsAt = new List<double>();
+        var screen = Over(_ =>
+        {
+            readsAt.Add(_time.Elapsed.TotalMilliseconds);
+            return Task.FromResult<SemanticNode[]>(_time.Elapsed >= TimeSpan.FromMilliseconds(290) ? [Shown] : []);
+        });
+        await Drive(Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(1)));
+        Assert.Equal([0, 20, 50, 100, 200, 300], readsAt);
+    }
+
+    [Fact]
+    public async Task Reads_a_poll_tick_apart_when_every_read_outlasts_the_early_reads()
+    {
+        var readsAt = new List<double>();
+        var screen = Over(async token =>
+        {
+            readsAt.Add(_time.Elapsed.TotalMilliseconds);
+            await Task.Delay(TimeSpan.FromMilliseconds(300), _time, token);
+            return readsAt.Count == 3 ? [Shown] : [];
+        });
+        await Drive(Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(2)));
+        Assert.Equal([0, 400, 800], readsAt);
+    }
+
+    [Fact]
     public async Task Throws_the_caller_error_at_the_deadline()
     {
         var screen = Scripted(_ => []);
@@ -48,8 +74,7 @@ public sealed class PollConditionTests
     [Fact]
     public async Task Takes_its_last_read_at_the_deadline_not_a_poll_tick_past_it()
     {
-        // 330 ms is not a multiple of the 50 ms sample: the state arrives just after it.
-        var budget = TimeSpan.FromMilliseconds(330);
+        var budget = TimeSpan.FromMilliseconds(350);
         var readsAt = new List<double>();
         var screen = Over(_ =>
         {
@@ -60,7 +85,8 @@ public sealed class PollConditionTests
             Drive(Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: budget))
         );
         Assert.Equal("ASSERTION_FAILED", error.Code);
-        Assert.Equal([0, 50, 100, 150, 200, 250, 300, 330], readsAt);
+        // Early reads at 20 and 50 ms, then every poll tick from the start.
+        Assert.Equal([0, 20, 50, 100, 200, 300, 350], readsAt);
     }
 
     [Fact]
@@ -130,12 +156,8 @@ public sealed class PollConditionTests
         Assert.Equal(TimeSpan.FromMilliseconds(500), _time.Elapsed);
     }
 
-    /// <summary>
-    /// Partial: upstream counts exactly 5 reads on its 100 ms sample. The port samples every 50 ms, so this checks
-    /// that the poll fails and that its reads stop at the deadline (8 to 11), not the exact count.
-    /// </summary>
     [Fact]
-    public async Task Partial_Negated_a_budget_shorter_than_the_grace_window_still_fails_when_the_positive_state_was_seen()
+    public async Task Negated_a_budget_shorter_than_the_grace_window_still_fails_when_the_positive_state_was_seen()
     {
         var calls = 0;
         var screen = Scripted(call =>
@@ -148,8 +170,8 @@ public sealed class PollConditionTests
         );
         Assert.Equal("ASSERTION_FAILED", error.Code);
 
-        // It decided at the deadline instead of reading past it: one read per 50 ms sample, the last at the deadline.
-        Assert.InRange(calls, 8, 11);
+        // It decided at the deadline instead of reading past it: reads at 0, 20, 50, 100, 200, 300, and 400 ms.
+        Assert.Equal(7, calls);
     }
 
     [Fact]

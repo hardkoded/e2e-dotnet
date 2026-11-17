@@ -98,7 +98,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
     internal TimeProvider Clock { get; } = options.Clock;
 
-    internal TimeSpan PollInterval { get; } = TimeSpan.FromMilliseconds(50);
+    internal TimeSpan PollInterval { get; } = Time.PollInterval;
 
     /// <summary>
     /// The budget the whole diagnostic failure walk shares: best effort, never a wait (upstream's <c>STEP_COUNT_BUDGET_MS</c>). One deadline
@@ -407,6 +407,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
         var query = includeHidden ? expression with { IncludeHidden = true } : expression;
         EngineException? retried = null;
+        var pollStarted = Clock.GetTimestamp();
         while (true)
         {
             try
@@ -437,7 +438,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 when (ex.Retryable && !reads.Deadline.Expired(Clock.GetUtcNow()) && !token.IsCancellationRequested)
             {
                 retried = ex;
-                await Task.Delay(PollInterval, token).ConfigureAwait(false);
+                await Task.Delay(Time.PollDelay(Clock.GetElapsedTime(pollStarted)), Clock, token).ConfigureAwait(false);
             }
             catch (EngineException ex) when (!token.IsCancellationRequested)
             {
@@ -508,6 +509,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         var reads = Reads(new Deadline(deadline));
         var stamp = Stopwatch.GetTimestamp();
         var sampled = false;
+        var pollStarted = Clock.GetTimestamp();
         while (true)
         {
             var node = await ResolveCountedAsync(expression, token, reads, sampled, () =>
@@ -525,7 +527,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 throw await NotFoundAsync(expression, Clock.GetUtcNow() - started, token).ConfigureAwait(false);
             }
 
-            await Task.Delay(PollInterval, token).ConfigureAwait(false);
+            await Task.Delay(Time.PollDelay(Clock.GetElapsedTime(pollStarted)), Clock, token).ConfigureAwait(false);
         }
     }
 
@@ -542,6 +544,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         var started = Clock.GetTimestamp();
         var reads = Reads(deadline);
         var sampled = false;
+        var pollStarted = Clock.GetTimestamp();
         while (true)
         {
             var node = await ResolveCountedAsync(expression, token, reads, sampled, () => Clock.GetElapsedTime(started))
@@ -557,7 +560,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 throw await NotFoundAsync(expression, Clock.GetElapsedTime(started), token).ConfigureAwait(false);
             }
 
-            await Task.Delay(PollInterval, Clock, token).ConfigureAwait(false);
+            await Task.Delay(Time.PollDelay(Clock.GetElapsedTime(pollStarted)), Clock, token).ConfigureAwait(false);
         }
     }
 
@@ -607,6 +610,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         var rounds = 0;
         var stale = 0;
         var reads = Reads(window);
+        var pollStarted = Clock.GetTimestamp();
         while (true)
         {
             var node = await ResolveCountedAsync(expression, token, reads, sampled: rounds > 0, () =>
@@ -639,6 +643,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                     stale++;
                     rounds = 0;
                     resolveStamp = Stopwatch.GetTimestamp();
+                    pollStarted = Clock.GetTimestamp();
                     continue;
                 }
                 catch (Exception ex)
@@ -676,7 +681,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                     );
             }
 
-            await Task.Delay(PollInterval, token).ConfigureAwait(false);
+            await Task.Delay(Time.PollDelay(Clock.GetElapsedTime(pollStarted)), Clock, token).ConfigureAwait(false);
         }
     }
 
@@ -764,6 +769,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         var started = Clock.GetTimestamp();
         var reads = Reads(deadline);
         var sampled = false;
+        var pollStarted = Clock.GetTimestamp();
         while (true)
         {
             var node = await ResolveCountedAsync(expression, token, reads, sampled, () => Clock.GetElapsedTime(started))
@@ -813,7 +819,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                     );
             }
 
-            await Task.Delay(PollInterval, token).ConfigureAwait(false);
+            await Task.Delay(Time.PollDelay(Clock.GetElapsedTime(pollStarted)), Clock, token).ConfigureAwait(false);
         }
     }
 
@@ -857,6 +863,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
         var reads = Reads(deadline);
         var sampled = false;
+        var pollStarted = Clock.GetTimestamp();
         while (true)
         {
             SemanticNode? node;
@@ -883,7 +890,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 throw NotVisible(null);
             }
 
-            await Task.Delay(PollInterval, token).ConfigureAwait(false);
+            await Task.Delay(Time.PollDelay(Clock.GetElapsedTime(pollStarted)), Clock, token).ConfigureAwait(false);
         }
     }
 

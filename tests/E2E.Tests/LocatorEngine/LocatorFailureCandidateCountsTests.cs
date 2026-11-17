@@ -143,7 +143,7 @@ public sealed class LocatorFailureCandidateCountsTests
     [Fact]
     public async Task Bounds_the_whole_walk_by_one_shared_deadline_when_locate_ignores_the_operation_timeout()
     {
-        var clock = new FakeTimeProvider();
+        var clock = new SteppingTime();
         List<string> resolved = [];
         List<TimeSpan> timeouts = [];
         var engine = Engine(
@@ -158,7 +158,9 @@ public sealed class LocatorFailureCandidateCountsTests
             clock
         );
 
-        var failure = await Assert.ThrowsAsync<TestException>(() => engine.ReadAsync(_chain, CancellationToken.None));
+        var reading = engine.ReadAsync(_chain, CancellationToken.None);
+        await clock.RunAsync(reading.ContinueWith(_ => { }, TaskScheduler.Default));
+        var failure = await Assert.ThrowsAsync<TestException>(() => reading);
 
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
 

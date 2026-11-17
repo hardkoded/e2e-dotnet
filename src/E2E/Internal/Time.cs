@@ -244,8 +244,41 @@ public static class Time
             : left;
     }
 
-    /// <summary>Canonical polling cadence for locator and assertion loops.</summary>
+    /// <summary>Canonical polling cadence for locator and assertion loops, and the longest pause between two reads of a wait.</summary>
     public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>
+    /// When a wait reads again after its first read, from its start, before it settles on every <see cref="PollInterval"/>. Most waits end within a
+    /// frame or two of their first miss, so these come sooner (upstream's <c>EARLY_READS_MS</c>).
+    /// </summary>
+    private static readonly long[] EarlyReadsMs = [20, 50];
+
+    /// <summary>The least pause between two reads of one wait (upstream's <c>MIN_POLL_GAP_MS</c>).</summary>
+    private const long MinPollGapMs = 10;
+
+    /// <summary>
+    /// The pause before a wait's next read, <paramref name="elapsed"/> after the wait started (upstream's <c>pollDelay</c>): until the next time on the
+    /// wait's timeline (20 ms, 50 ms, then every multiple of <see cref="PollInterval"/>) at least 10 ms away, and never longer than
+    /// <see cref="PollInterval"/>. The timeline holds every multiple of the interval, so a state that arrives late is seen no later than a wait
+    /// reading every <see cref="PollInterval"/> would see it; an engine whose reads outlast the early times reads as one did.
+    /// </summary>
+    public static TimeSpan PollDelay(TimeSpan elapsed)
+    {
+        var elapsedMs = elapsed.TotalMilliseconds;
+        var earliest = elapsedMs + MinPollGapMs;
+        var interval = PollInterval.TotalMilliseconds;
+        var next = Math.Ceiling(earliest / interval) * interval;
+        foreach (var at in EarlyReadsMs)
+        {
+            if (at >= earliest)
+            {
+                next = at;
+                break;
+            }
+        }
+
+        return TimeSpan.FromMilliseconds(Math.Min(next - elapsedMs, interval));
+    }
 
     /// <summary>How long a negated assertion must hold before it passes.</summary>
     public static readonly TimeSpan NegationGrace = TimeSpan.FromMilliseconds(1000);
@@ -347,7 +380,13 @@ public static class Time
 
             // Rounded up to whole milliseconds, which is what Task.Delay waits, so the capped pause never wakes before the deadline.
             var remaining = TimeSpan.FromMilliseconds(Math.Ceiling(deadline.Remaining(current).TotalMilliseconds));
-            await Task.Delay(remaining < options.Interval ? remaining : options.Interval, clock, token)
+            var pause = PollDelay(current - startedAt);
+            if (pause > options.Interval)
+            {
+                pause = options.Interval;
+            }
+
+            await Task.Delay(remaining < pause ? remaining : pause, clock, token)
                 .ConfigureAwait(false);
 
             // A read past the deadline has no budget left, so a negation decides at the deadline on what it has seen.

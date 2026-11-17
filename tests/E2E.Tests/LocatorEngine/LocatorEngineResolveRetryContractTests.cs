@@ -195,6 +195,7 @@ public sealed class LocatorEngineResolveRetryContractTests
     [Fact]
     public async Task Gives_each_retry_of_a_resolve_what_is_left_of_its_budget_not_the_whole_budget_again()
     {
+        var clock = new SteppingTime();
         var budgets = new List<TimeSpan>();
         var stale = () =>
             Task.FromException<IReadOnlyList<SemanticNode>>(
@@ -203,16 +204,19 @@ public sealed class LocatorEngineResolveRetryContractTests
         var screen = LocatingScreen(
             [_ => stale(), _ => stale(), _ => Task.FromResult<IReadOnlyList<SemanticNode>>([Match])],
             budgets,
-            TimeSpan.FromMilliseconds(1_000)
+            TimeSpan.FromMilliseconds(1_000),
+            clock
         );
 
-        await screen.GetByRole("button").ResolveAsync(CancellationToken.None);
+        var resolving = screen.GetByRole("button").ResolveAsync(CancellationToken.None);
+        await clock.RunAsync(resolving.ContinueWith(_ => { }, TaskScheduler.Default));
+        await resolving;
 
-        // Upstream's budgets are [1000, 900, 800]: its retries pause 100 ms, the port's 50.
-        Assert.Equal(3, budgets.Count);
-        Assert.InRange(budgets[0], TimeSpan.FromMilliseconds(950), TimeSpan.FromMilliseconds(1_000));
-        Assert.True(budgets[1] < budgets[0] - TimeSpan.FromMilliseconds(40), string.Join(", ", budgets));
-        Assert.True(budgets[2] < budgets[1] - TimeSpan.FromMilliseconds(40), string.Join(", ", budgets));
+        // Retries read at 20 and 50 ms.
+        Assert.Equal(
+            [TimeSpan.FromMilliseconds(1_000), TimeSpan.FromMilliseconds(980), TimeSpan.FromMilliseconds(950)],
+            budgets
+        );
     }
 
     [Fact]
