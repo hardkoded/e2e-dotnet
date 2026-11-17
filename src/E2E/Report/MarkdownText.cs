@@ -186,10 +186,17 @@ internal static class ReportFormat
     }
 
     /// <summary>Compact token count: plain under a thousand, <c>12.4k</c>, then <c>4.2M</c> (upstream's <c>formatTokens</c>).</summary>
-    public static string FormatTokens(long count) =>
-        count < 1_000 ? count.ToString(CultureInfo.InvariantCulture)
-        : count < 1_000_000 ? (count / 1_000.0).ToString("F1", CultureInfo.InvariantCulture) + "k"
-        : (count / 1_000_000.0).ToString("F1", CultureInfo.InvariantCulture) + "M";
+    public static string FormatTokens(long count)
+    {
+        if (count < 1_000)
+            return count.ToString(CultureInfo.InvariantCulture);
+
+        // Round before choosing the unit, so 999_950 reads 1.0M and not 1000.0k.
+        var hundreds = (long)Math.Round(count / 100.0, MidpointRounding.AwayFromZero);
+        return hundreds < 10_000
+            ? (hundreds / 10.0).ToString("F1", CultureInfo.InvariantCulture) + "k"
+            : (count / 1_000_000.0).ToString("F1", CultureInfo.InvariantCulture) + "M";
+    }
 
     /// <summary>USD with enough precision for sub-cent model calls (upstream's <c>formatCost</c>).</summary>
     public static string FormatCost(double costUsd) =>
