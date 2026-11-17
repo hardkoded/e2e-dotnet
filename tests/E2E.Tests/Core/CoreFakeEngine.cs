@@ -106,11 +106,11 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
         return Task.FromResult<IEngineSession>(new Session(this, options.ArtifactsDir));
     }
 
-    private void Record(string method, OperationContext context)
+    private void Record(string method, OperationContext context, TimeSpan? timeout = null)
     {
         lock (_operations)
         {
-            _operations.Add((method, context.Timeout));
+            _operations.Add((method, timeout ?? context.Timeout));
         }
     }
 
@@ -146,6 +146,33 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
             Task.FromResult(new Observation { Route = "/", Roots = owner.Scene });
+
+        public Task<Observation> ObserveAsync(OperationContext context, CancellationToken cancellationToken)
+        {
+            owner.Record("observe", context);
+            return ObserveAsync(cancellationToken);
+        }
+
+        public Task<Observation> ObserveAsync(
+            TimeSpan timeout,
+            OperationContext context,
+            CancellationToken cancellationToken
+        )
+        {
+            owner.Record("observe", context, timeout);
+            return ObserveAsync(cancellationToken);
+        }
+
+        public Task<Observation> ObserveAsync(
+            ObserveOptions? options,
+            TimeSpan timeout,
+            OperationContext context,
+            CancellationToken cancellationToken
+        )
+        {
+            owner.Record("observe", context, timeout);
+            return ObserveAsync(cancellationToken);
+        }
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {

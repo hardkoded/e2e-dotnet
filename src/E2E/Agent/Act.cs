@@ -29,7 +29,7 @@ public sealed partial class Agent
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
         CheckInstruction(instruction);
         ActParams.Validate(options?.Params, "agent.act");
-        var agent = _scope.Select(options?.Agent);
+        var agent = Select(options?.Agent);
         return StepAsync("agent.act", instruction, agent, verifies: false, () => DispatchStepAsync(
                 new StepSpec
                 {
@@ -248,24 +248,30 @@ public sealed partial class Agent
             if (
                 spec.Kind == ExecutorStepKind.Act
                 && executor.Cache != ExecutorCache.Off
-                && _scope.CacheEnabled
-                && _scope.Cache is { } cache
+                && (_binding is null ? _scope.ActCache() : _binding.Cache) is { } cache
             )
             {
-                var key = _scope.ClaimKey(instruction, spec.Params, agent, out var callIndex, out var keyContext);
+                var claimed = cache.ClaimKey(instruction, spec.Params, _scope.IdentityOf(agent));
                 session = new StepTraceSession(
                     new ActReplayHost(_scope, feed, budget, dispatcher, token),
                     new StepCacheOptions
                     {
-                        Cache = cache,
+                        Cache = cache.Store,
                         Replaying = active => budget.Replaying(active),
-                        Write = _scope.CacheWrite,
-                        Strict = _scope.CacheStrict,
-                        StrictAdvice = _scope.CacheStrict ? _scope.StrictAdvice : "",
-                        ReplayEligible = _scope.ReplayEligible,
+                        Write = cache.Mode == CacheMode.ReadWrite,
+                        Strict = cache.Strict is not null,
+                        StrictAdvice = cache.Strict?.Advice ?? "",
+                        ReplayEligible = cache.ReplayEligible,
                         Claim = new ClaimedKey(
-                            key,
-                            Provenance(instruction, spec.Params, callIndex, agent.Name, keyContext)
+                            claimed.Key,
+                            Provenance(
+                                cache.TestId,
+                                instruction,
+                                spec.Params,
+                                claimed.CallIndex,
+                                agent.Name,
+                                claimed.Context
+                            )
                         ),
                         StepIndex = _scope.Steps.CurrentStepIndex,
                         Instruction = instruction,
@@ -275,6 +281,13 @@ public sealed partial class Agent
                     }
                 );
                 _scope.Acts.Add(session.Pending);
+                if (cache.Staged is { } staged)
+                {
+                    lock (staged)
+                    {
+                        staged.Add(session.Pending);
+                    }
+                }
             }
 
             // The baseline a recording's delta is read from, the screen a replay starts on, and the built-in agent's first look:
@@ -723,6 +736,7 @@ public sealed partial class Agent
     /// secret value in the test title, instruction, or agent name is masked like any other recorded string.
     /// </summary>
     private CacheEntry Provenance(
+        string testId,
         string instruction,
         IReadOnlyDictionary<string, object?>? parameters,
         int callIndex,
@@ -733,7 +747,7 @@ public sealed partial class Agent
         return new CacheEntry
         {
             Schema = FileStepCache.SchemaVersion,
-            Test = TextRules.Bound(_scope.Redactor.Redact(_scope.TestTitle), Trace.MaxTraceDescriptorChars),
+            Test = TextRules.Bound(_scope.Redactor.Redact(testId), Trace.MaxTraceDescriptorChars),
             TargetId = TextRules.Bound(_scope.Redactor.Redact(_scope.TargetName), Trace.MaxTraceDescriptorChars),
             Instruction = _scope.Redactor.Redact(instruction.Trim()),
             Engine = _scope.EnginePlatform,
