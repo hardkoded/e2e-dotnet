@@ -538,7 +538,8 @@ lines you changed:
   for the screen to settle. A throw fails the step before the action runs,
   with `agent.act onBeforeAction failed: ...` (topic `agent`).
 - End every test that runs an agent goal with a verifying check: a locator
-  matcher (`Expect.That(locator)`), an engine matcher
+  matcher (`Expect.That(locator)`, which reads at 0, 20, and 50 ms, then every
+  100 ms from its start), an engine matcher
   (`Expect.That(Browser).ToHaveURLAsync`), or `Agent.AssertAsync`. A passing
   one confirms every `ActAsync` before it, so they can be recorded and
   replayed without model calls, and so do `locator.WaitForAsync`,

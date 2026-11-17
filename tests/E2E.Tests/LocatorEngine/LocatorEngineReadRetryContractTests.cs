@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using E2E.Engine;
+using E2E.Internal;
 
 namespace E2E.Tests.LocatorEngine;
 
@@ -48,6 +49,50 @@ public sealed class LocatorEngineReadRetryContractTests
 
         Assert.Equal("42", await screen.GetByRole("status").TextContentAsync());
         Assert.Equal(3, observations);
+    }
+
+    [Fact]
+    public async Task Reads_zero_matches_again_at_20_and_50_ms_then_every_poll_tick_from_the_start()
+    {
+        var clock = new SteppingTime();
+        var budgets = new List<TimeSpan>();
+        var node = new SemanticNode
+        {
+            Ref = "node-1",
+            Role = "status",
+            Name = "Total",
+        };
+        var screen = new Screen(
+            _ => Task.FromResult(new Observation { Route = "/", Roots = [] }),
+            (_, _, _) => Task.CompletedTask,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(1),
+            clock: clock,
+            locate: (_, budget, _) =>
+            {
+                budgets.Add(budget);
+                return Task.FromResult<IReadOnlyList<SemanticNode>>(budgets.Count == 5 ? [node] : []);
+            }
+        );
+
+        var resolving = screen
+            .GetByRole("status")
+            .ResolveExactlyOneAsync(new Deadline(TimeSpan.FromSeconds(1), clock), CancellationToken.None);
+        await clock.RunAsync(resolving.ContinueWith(_ => { }, TaskScheduler.Default));
+        await resolving;
+
+        Assert.Equal(
+            [
+                TimeSpan.FromMilliseconds(1_000),
+                TimeSpan.FromMilliseconds(980),
+                TimeSpan.FromMilliseconds(950),
+                TimeSpan.FromMilliseconds(900),
+                TimeSpan.FromMilliseconds(800),
+            ],
+            budgets
+        );
     }
 
     [Fact]

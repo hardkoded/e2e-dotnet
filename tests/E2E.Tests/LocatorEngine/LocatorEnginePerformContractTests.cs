@@ -172,7 +172,7 @@ public sealed class LocatorEnginePerformContractTests
     public async Task Never_sends_an_action_whose_target_resolved_past_the_deadline()
     {
         // The slow resolves move a fake clock, so the deadline passes without any waiting.
-        var clock = new FakeTimeProvider();
+        var clock = new SteppingTime();
         var resolves = 0;
         var performs = 0;
         var target = new SemanticNode
@@ -197,15 +197,15 @@ public sealed class LocatorEnginePerformContractTests
                 SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), ++resolves == 1 ? [] : [target], budget)
         );
 
-        var error = await Assert.ThrowsAsync<TestException>(() =>
-            screen
-                .GetByRole("button")
-                .PerformUntilAsync(
-                    new LocatorAction.Tap(),
-                    new Deadline(TimeSpan.FromMilliseconds(350), screen.Clock),
-                    CancellationToken.None
-                )
-        );
+        var performing = screen
+            .GetByRole("button")
+            .PerformUntilAsync(
+                new LocatorAction.Tap(),
+                new Deadline(TimeSpan.FromMilliseconds(350), screen.Clock),
+                CancellationToken.None
+            );
+        await clock.RunAsync(performing.ContinueWith(_ => { }, TaskScheduler.Default));
+        var error = await Assert.ThrowsAsync<TestException>(() => performing);
 
         Assert.Equal("ACTION_FAILED", error.Code);
         Assert.Contains("before the tap was sent", error.Message, StringComparison.Ordinal);
@@ -217,7 +217,7 @@ public sealed class LocatorEnginePerformContractTests
     public async Task Never_sends_a_positioned_tap_whose_target_became_visible_past_the_deadline()
     {
         // The slow resolves move a fake clock, so the deadline passes without any waiting.
-        var clock = new FakeTimeProvider();
+        var clock = new SteppingTime();
         var visible = new SemanticNode
         {
             Ref = "node-1",
@@ -257,9 +257,9 @@ public sealed class LocatorEnginePerformContractTests
             PointerActionKinds = ["tap"],
         };
 
-        var error = await Assert.ThrowsAsync<TestException>(() =>
-            screen.GetByRole("button").TapAsync(new TapOptions { Position = new Point(5, 5) })
-        );
+        var tapping = screen.GetByRole("button").TapAsync(new TapOptions { Position = new Point(5, 5) });
+        await clock.RunAsync(tapping.ContinueWith(_ => { }, TaskScheduler.Default));
+        var error = await Assert.ThrowsAsync<TestException>(() => tapping);
 
         Assert.Equal("ACTION_FAILED", error.Code);
         Assert.Contains("before the tap was sent", error.Message, StringComparison.Ordinal);

@@ -386,7 +386,8 @@ node under the soft keyboard is hidden, so the scroll goes on (topic `mobile`, "
 
 ## Expect
 
-`Expect.That(locator)` polls until the assertion timeout:
+`Expect.That(locator)` polls until the assertion timeout, reading at 0, 20, and
+50 ms, then every 100 ms from the start:
 `ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToBeAttachedAsync`,
 `ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeCheckedAsync`,
 `ToContainTextAsync`, `ToHaveTextAsync`, `ToHaveValueAsync`,

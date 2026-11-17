@@ -499,7 +499,7 @@ An `OPERATION_TIMEOUT` on a locate or read that started with under one poll tick
 | an action, `WaitForAsync` | `LOCATOR_NOT_FOUND`, with the timeout as its cause |
 | an assertion | `ASSERTION_FAILED`, with the timeout as its cause |
 
-A negated assertion passes there if its negation had held long enough by the time the read was cut off. The harness polls every 50 ms for locators and 100 ms for screenshots, where upstream polls every 100 ms. See [Compatibility](/compatibility/).
+A negated assertion passes there if its negation had held long enough by the time the read was cut off. A wait reads at 0, 20, and 50 ms, then at every multiple of 100 ms from its start. Each read starts at least 10 ms and at most 100 ms after the one before ends. Actions and `WaitForAsync` wait for their node the same way.
 
 #### Harness error classes
 
