@@ -217,6 +217,35 @@ public sealed class ErrorTranslationTests
         Assert.Equal("ENGINE_FAILURE", Engine(DeviceErrors.StaleOr(unknown, "perform tap")).Code);
     }
 
+    // As agent-device 0.21.37 sends it for a ref aimed from a capture without the window's screen origin.
+    [Fact]
+    public void Fails_an_action_agent_device_refused_as_window_origin_unknown_with_NOT_ACTIONABLE_the_offset_bounds_and_the_tapAt_move()
+    {
+        const string text = "Ref @e2 has no established screen-coordinate origin";
+        const string hint =
+            "Take a fresh snapshot after the accessibility channel recovers, or use screenshot to choose screen coordinates.";
+        var refused = new AgentDeviceError(
+            "COMMAND_FAILED",
+            text,
+            Details(("reason", "window-origin-unknown"), ("hint", hint), ("dispatched", "no"))
+        );
+        var failure = Engine(DeviceErrors.StaleOr(refused, "perform tap"));
+        Assert.Equal("NOT_ACTIONABLE", failure.Code);
+        Assert.False(failure.Retryable);
+        Assert.Same(refused, failure.InnerException);
+        // agent-device's hint names its CLI; the failure names the test's move instead.
+        Assert.Equal(
+            $"perform tap failed: {text} Hint: Nothing was sent. The app's window has no known position on the screen, so node bounds, boundingBox() included, may be offset from screen coordinates. For a tap, tap a screen point with screen.tapAt(), not one taken from those bounds.",
+            failure.Message
+        );
+        var unknown = new AgentDeviceError(
+            "COMMAND_FAILED",
+            text,
+            Details(("reason", "window-origin-unknown"), ("hint", hint), ("dispatched", "unknown"))
+        );
+        Assert.Equal("ENGINE_FAILURE", Engine(DeviceErrors.StaleOr(unknown, "perform tap")).Code);
+    }
+
     [Fact]
     public void Maps_the_rest_to_ENGINE_FAILURE_with_the_text_a_ref_named_in_a_message_without_a_stale_reason_included()
     {

@@ -18,6 +18,7 @@ namespace E2E.Mobile;
 /// <item><term>a stale-ref refusal, by <c>details.reason</c> (action paths only)</term><description>NODE_STALE (retryable)</description></item>
 /// <item><term><c>target_still_moving</c> with <c>details.dispatched: no</c></term><description>NODE_STALE (retryable)</description></item>
 /// <item><term>a covered or keyboard-occluded target, <c>dispatched: no</c></term><description>NOT_ACTIONABLE, with the hint</description></item>
+/// <item><term>a target with no screen origin to aim at, <c>dispatched: no</c></term><description>NOT_ACTIONABLE, with the hint</description></item>
 /// <item><term>the iOS runner busy, wedged, or past its watchdog; a snapshot the runner acquired but could not present</term><description>ENGINE_FAILURE, naming the runner and the recovery</description></item>
 /// <item><term>anything else, agent-device's own timeouts included</term><description>ENGINE_FAILURE with the text</description></item>
 /// </list>
@@ -71,11 +72,25 @@ public static partial class DeviceErrors
     ];
 
     /// <summary>
-    /// The <c>details.reason</c> values agent-device refuses an action with when something else is drawn where the touch
-    /// would land: an overlay its occlusion scan found over the target (<c>coveredBy</c> names it), or the soft keyboard
-    /// over the target's touch point. Nothing was sent, and the app is fine; the test has to move the cover or the target first.
+    /// The <c>details.reason</c> values agent-device refuses an action with, nothing sent, on a healthy device, each with
+    /// the hint the failure carries: <c>null</c> keeps agent-device's own, and a string replaces it.
+    /// <list type="bullet">
+    /// <item><c>target_covered</c>, <c>tap_keyboard_occludes_target</c>: an overlay its occlusion scan found over the target
+    /// (<c>coveredBy</c> names it), or the soft keyboard over the target's touch point. The test has to move the cover or
+    /// the target first, and agent-device's hint says how.</item>
+    /// <item><c>window-origin-unknown</c> (0.21.37): the capture the ref came from could not place its window on the
+    /// screen, so its bounds may be offset from screen coordinates by the window's position (a placed iPad window).
+    /// agent-device's hint names its CLI (<c>snapshot</c>, <c>screenshot</c>); a point tap is not aimed from the capture,
+    /// and agent-device takes it, but a point read from <c>BoundingBox()</c> carries the same offset.</item>
+    /// </list>
     /// </summary>
-    private static readonly HashSet<string> OccludedReasons = ["target_covered", "tap_keyboard_occludes_target"];
+    private static readonly Dictionary<string, string?> NotActionableReasons = new()
+    {
+        ["target_covered"] = null,
+        ["tap_keyboard_occludes_target"] = null,
+        ["window-origin-unknown"] =
+            "Nothing was sent. The app's window has no known position on the screen, so node bounds, boundingBox() included, may be offset from screen coordinates. For a tap, tap a screen point with screen.tapAt(), not one taken from those bounds.",
+    };
 
     /// <summary>
     /// What the iOS automation runner reported about itself, by the code agent-device emits for it:
@@ -255,8 +270,8 @@ public static partial class DeviceErrors
     /// instead of failing the action. Existing stale-ref reasons are sufficient on their own: Android dialog
     /// recovery can mark a refused drag as <c>dispatched: unknown</c>. A <c>target_still_moving</c> refusal
     /// additionally requires <c>dispatched: no</c>; missing or unknown dispatch is not retryable.
-    /// A target agent-device refused as covered (<see cref="OccludedReasons"/>) with nothing dispatched is
-    /// <c>NOT_ACTIONABLE</c>: the test's own failure, with the hint that names the cover, never an infrastructure one.
+    /// A target agent-device refused for a reason in <see cref="NotActionableReasons"/> with nothing dispatched is
+    /// <c>NOT_ACTIONABLE</c>, with the move that gets past it: an action failure on a healthy device, never an infrastructure one.
     /// </summary>
     public static Exception StaleOr(Exception cause, string operation, string? where = null)
     {
@@ -283,14 +298,15 @@ public static partial class DeviceErrors
         }
 
         if (
-            details.GetValueOrDefault("reason") is string occluded
-            && OccludedReasons.Contains(occluded)
+            details.GetValueOrDefault("reason") is string refusal
+            && NotActionableReasons.TryGetValue(refusal, out var hint)
             && details.GetValueOrDefault("dispatched") is "no"
         )
         {
+            var text = hint is null ? WithHint(cause, Message(cause)) : $"{Message(cause)} Hint: {hint}";
             return new EngineException(
                 EngineErrorCodes.NotActionable,
-                $"{operation} failed: {WithHint(cause, Message(cause))}",
+                $"{operation} failed: {text}",
                 retryable: false,
                 cause
             );
