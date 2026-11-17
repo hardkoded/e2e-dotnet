@@ -102,6 +102,8 @@ public sealed partial class E2eInitTests : CliInitTestBase
             StringComparison.Ordinal
         );
         Assert.Contains("Next: dotnet test", Output, StringComparison.Ordinal);
+        // Off a terminal, as when an agent runs init, there is no star strip.
+        Assert.DoesNotContain("Star e2e on GitHub", Output, StringComparison.Ordinal);
     }
 
     [Fact]

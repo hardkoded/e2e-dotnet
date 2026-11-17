@@ -83,6 +83,15 @@ internal sealed record InitOptions
     /// <summary>Test seam (.NET-only): the bundled skill, in place of <see cref="Skill.ReadFiles"/>.</summary>
     public Func<IReadOnlyList<SkillFile>>? ReadSkillFiles { get; init; }
 
+    /// <summary>Test seam (.NET-only): whether stdout is a terminal (upstream's <c>process.stdout.isTTY</c>); unset, it is when the output is not redirected. The star strip prints only on a terminal.</summary>
+    public bool? OutputIsTerminal { get; init; }
+
+    /// <summary>Test seam (.NET-only): the width of the terminal (upstream's <c>process.stdout.columns</c>); unset, the console's.</summary>
+    public int? Columns { get; init; }
+
+    /// <summary>Test seam (.NET-only): the environment variables (upstream's <c>process.env</c>); unset, the process's.</summary>
+    public Func<string, string?>? Environment { get; init; }
+
     /// <summary>Test seam (.NET-only): the platform whose quoting <c>cd</c> uses, in place of this machine's.</summary>
     public bool? Windows { get; init; }
 }
@@ -759,7 +768,26 @@ internal static partial class Init
         }
 
         log.Outro("Next: " + string.Join(", then ", [.. before, framework.TestCommand]));
+        var environment = options.Environment ?? System.Environment.GetEnvironmentVariable;
+        if ((options.OutputIsTerminal ?? !Console.IsOutputRedirected) && !E2EConfig.IsCi(environment))
+        {
+            output.Write(Star.InitStarStrip(options.Columns ?? ConsoleColumns(), environment));
+        }
+
         return Done(InitResult.Scaffolded, 0);
+    }
+
+    /// <summary>.NET-only: the width of the console, or <c>null</c> where it cannot be read.</summary>
+    private static int? ConsoleColumns()
+    {
+        try
+        {
+            return Console.WindowWidth;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
