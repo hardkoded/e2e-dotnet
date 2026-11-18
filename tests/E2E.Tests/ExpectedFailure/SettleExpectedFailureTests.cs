@@ -10,18 +10,10 @@ namespace E2E.Tests.ExpectedFailure;
 /// <summary>Upstream's <c>describe('settleExpectedFailure')</c> (<c>tests/unit/expected-failure.test.ts</c>).</summary>
 public sealed class SettleExpectedFailureTests
 {
-    private static ReportError Failure(
-        string category,
-        string code = "ASSERTION_FAILED",
-        string? phase = null
-    ) =>
+    private static ReportError Failure(string category, string code = "ASSERTION_FAILED", string? phase = null) =>
         new(code, "expected 1, got 0", phase) { Category = category };
 
-    private static MarkableAttempt Settle(
-        MarkableAttempt attempt,
-        string? reason,
-        Func<string, string>? redact = null
-    )
+    private static MarkableAttempt Settle(MarkableAttempt attempt, string? reason, Func<string, string>? redact = null)
     {
         redact ??= text => text;
         E2E.ExpectedFailure.SettleExpectedFailure(
@@ -131,7 +123,9 @@ public sealed class SettleExpectedFailureTests
     [Fact]
     public void Does_not_cover_a_test_that_misuses_the_API_or_a_failed_suite_hook()
     {
-        foreach (var code in new[] { "INVALID_ARGUMENT", "INVALID_LOCATOR", "UNSUPPORTED_CAPABILITY", "STEP_NOT_AWAITED" })
+        foreach (
+            var code in new[] { "INVALID_ARGUMENT", "INVALID_LOCATOR", "UNSUPPORTED_CAPABILITY", "STEP_NOT_AWAITED" }
+        )
         {
             Assert.Equal(
                 AttemptStatus.Failed,
@@ -156,11 +150,7 @@ public sealed class SettleExpectedFailureTests
     public void Redacts_and_bounds_the_reason()
     {
         string Redact(string text) => text.Replace("hunter2", "[REDACTED]");
-        var covered = Settle(
-            Attempt(AttemptStatus.Failed, Failure("test")),
-            "token hunter2 leaks",
-            Redact
-        );
+        var covered = Settle(Attempt(AttemptStatus.Failed, Failure("test")), "token hunter2 leaks", Redact);
         Assert.Equal("token [REDACTED] leaks", covered.ExpectedFailure?.Reason);
         var unexpected = Settle(Attempt(AttemptStatus.Passed), "hunter2", Redact);
         Assert.DoesNotContain("hunter2", unexpected.Error?.Message);

@@ -24,7 +24,10 @@ internal sealed class MarkableAttempt
 /// <summary>How an attempt's errors and reason are made safe for the report (upstream's <c>ExpectedFailureSerializer</c>).</summary>
 /// <param name="Serialize">Turns the error into the report's shape.</param>
 /// <param name="Redact">Hides secrets in a text.</param>
-internal sealed record ExpectedFailureSerializer(Func<TestException, ReportError> Serialize, Func<string, string> Redact);
+internal sealed record ExpectedFailureSerializer(
+    Func<TestException, ReportError> Serialize,
+    Func<string, string> Redact
+);
 
 /// <summary>
 /// The verdict of an attempt marked <c>test.fail</c> (upstream's <c>run/expected-failure.ts</c>). A marked attempt that fails with a
@@ -53,21 +56,14 @@ internal static class ExpectedFailure
     /// timeout becomes a pass, its error moved into <see cref="MarkableAttempt.ExpectedFailure"/>, unless an error that is not one
     /// landed beside it outside cleanup. Anything else keeps its verdict and records the mark.
     /// </summary>
-    public static void SettleExpectedFailure(
-        MarkableAttempt record,
-        string? mark,
-        ExpectedFailureSerializer serializer
-    )
+    public static void SettleExpectedFailure(MarkableAttempt record, string? mark, ExpectedFailureSerializer serializer)
     {
         if (mark is null || record.Status == AttemptStatus.Skipped || record.Skip is not null)
         {
             return;
         }
 
-        var reason = TextRules.TruncateUtf8(
-            TextRules.SanitizeRecordedText(serializer.Redact(mark)),
-            MaxReasonBytes
-        );
+        var reason = TextRules.TruncateUtf8(TextRules.SanitizeRecordedText(serializer.Redact(mark)), MaxReasonBytes);
         if (record.Status == AttemptStatus.Passed)
         {
             record.Status = AttemptStatus.Failed;
@@ -86,9 +82,7 @@ internal static class ExpectedFailure
             record.Status is AttemptStatus.Failed or AttemptStatus.TimedOut
             && error is not null
             && IsProductFailure(error)
-            && record.SecondaryErrors.All(secondary =>
-                secondary.Phase == "cleanup" || IsProductFailure(secondary)
-            );
+            && record.SecondaryErrors.All(secondary => secondary.Phase == "cleanup" || IsProductFailure(secondary));
         if (covered)
         {
             record.Status = AttemptStatus.Passed;
