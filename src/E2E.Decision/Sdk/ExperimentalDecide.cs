@@ -52,6 +52,20 @@ public static class ExperimentalDecide
             throw new InvalidArgumentException("maxOutputTokens", "must be an integer >= 1");
         }
 
+        if (model.SpecificationVersion != "v4")
+        {
+            throw new InvalidArgumentException(
+                "model",
+                "got "
+                    + model.Provider
+                    + "/"
+                    + model.ModelId
+                    + ", a "
+                    + model.SpecificationVersion
+                    + " model; only v4 decision models decide"
+            );
+        }
+
         ValidateInput(options.State, options.Questions);
         foreach (var (id, question) in options.Questions)
         {
@@ -102,7 +116,10 @@ public static class ExperimentalDecide
         IReadOnlyDictionary<string, DecisionQuestion>? questions
     )
     {
-        if (state is null || state.Any(part => part is null))
+        if (
+            state is null
+            || state.Any(part => part is null or DecisionJsonPart { Value.ValueKind: JsonValueKind.Undefined })
+        )
         {
             throw new InvalidArgumentException("state", "must be text, a JSON value, or a list of parts");
         }
@@ -128,6 +145,14 @@ public static class ExperimentalDecide
                     if (question.Choices is not { Count: > 0 })
                     {
                         throw new InvalidArgumentException(parameter, "choice criteria must be a nonempty option map");
+                    }
+
+                    if (
+                        question.Choices.Select(choice => choice.Value).Distinct(StringComparer.Ordinal).Count()
+                        != question.Choices.Count
+                    )
+                    {
+                        throw new InvalidArgumentException(parameter, "choice option ids must be unique");
                     }
 
                     break;

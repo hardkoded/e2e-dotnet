@@ -83,15 +83,16 @@ public sealed class DecideTests
     [Fact]
     public async Task Maps_a_missing_key_to_MODEL_UNAVAILABLE_naming_the_variable()
     {
-        using var model = new OpenAIDecisionModel(
-            "gpt-6-luna",
-            new OpenAIDecisionModelOptions { ApiKeyEnv = "E2E_DECISION_TEST_UNSET_KEY" }
+        var model = new ScriptedDecisionModel(_ =>
+            throw new LoadApiKeyException(
+                "OpenAI API key is missing. Pass it using the 'apiKey' parameter or the OPENAI_API_KEY environment variable."
+            )
         );
 
         var error = await Assert.ThrowsAsync<AgentException>(() => Decide.DecideAsync(Context().Ctx, model, Request()));
 
         Assert.Equal("MODEL_UNAVAILABLE", error.Code);
-        Assert.Equal("Set E2E_DECISION_TEST_UNSET_KEY to the decision model API key.", error.Message);
+        Assert.Equal("Set OPENAI_API_KEY to the decision model API key.", error.Message);
     }
 
     [Fact]
@@ -149,6 +150,97 @@ public sealed class DecideTests
     }
 
     [Fact]
+    public async Task Resolves_a_score_tie_to_the_lower_level()
+    {
+        var model = new ScriptedDecisionModel(_ => new DecisionModelResult
+        {
+            Answers = new Dictionary<string, DecisionAnswer>
+            {
+                ["operation"] = new()
+                {
+                    Type = "score",
+                    Score = 1.5,
+                    Probabilities = new Dictionary<string, double>
+                    {
+                        ["2"] = 0.5,
+                        ["1"] = 0.5,
+                        ["0"] = 0,
+                    },
+                },
+            },
+        });
+        var request = new DecisionRequest
+        {
+            State = JsonDocument.Parse("{}").RootElement,
+            Questions = new Dictionary<string, DecisionQuestion>
+            {
+                ["operation"] = DecisionQuestion.Score(null, ["a", "b", "c"]),
+            },
+        };
+
+        var decisions = await Decide.DecideAsync(Context().Ctx, model, request);
+
+        Assert.Equal("1", decisions["operation"].Choice);
+    }
+
+    [Fact]
+    public async Task Maps_a_model_own_timeout_to_MODEL_PROVIDER_FAILED_while_the_attempt_is_live()
+    {
+        var model = new ScriptedDecisionModel(_ => throw new TaskCanceledException("timed out"));
+
+        var error = await Assert.ThrowsAsync<AgentException>(() => Decide.DecideAsync(Context().Ctx, model, Request()));
+
+        Assert.Equal("MODEL_PROVIDER_FAILED", error.Code);
+    }
+
+    [Fact]
+    public async Task Rejects_a_v3_model_a_repeated_choice_id_and_undefined_state_before_dispatch()
+    {
+        var v3 = new ScriptedDecisionModel(_ => Answer(new DecisionAnswer { Type = "choice", Choice = "tap" }))
+        {
+            SpecificationVersion = "v3",
+        };
+        var repeated = new Dictionary<string, DecisionQuestion>
+        {
+            ["operation"] = DecisionQuestion.Choice(null, [new DecisionChoice("tap"), new DecisionChoice("tap")]),
+        };
+        var ok = new ScriptedDecisionModel(_ => Answer(new DecisionAnswer { Type = "choice", Choice = "tap" }));
+
+        await Assert.ThrowsAsync<InvalidArgumentException>(() =>
+            ExperimentalDecide.RunAsync(
+                new DecideOptions
+                {
+                    Model = v3,
+                    State = [new DecisionTextPart("x")],
+                    Questions = Operation,
+                }
+            )
+        );
+        await Assert.ThrowsAsync<InvalidArgumentException>(() =>
+            ExperimentalDecide.RunAsync(
+                new DecideOptions
+                {
+                    Model = ok,
+                    State = [new DecisionTextPart("x")],
+                    Questions = repeated,
+                }
+            )
+        );
+        await Assert.ThrowsAsync<InvalidArgumentException>(() =>
+            ExperimentalDecide.RunAsync(
+                new DecideOptions
+                {
+                    Model = ok,
+                    State = [new DecisionJsonPart(default)],
+                    Questions = Operation,
+                }
+            )
+        );
+        Assert.Empty(v3.Calls);
+        Assert.Empty(ok.Calls);
+    }
+
+    [Fact]
     public async Task Surfaces_a_caller_cancel_as_cancellation()
     {
         using var controller = new CancellationTokenSource();
@@ -162,14 +254,14 @@ public sealed class DecideTests
     }
 
     [Fact]
-    public async Task Refuses_a_question_type_the_model_does_not_answer()
+    public async Task Partial_rejects_unsupported_types_before_deciding_any_answer()
     {
         var model = new ScriptedDecisionModel(_ => Answer(new DecisionAnswer { Type = "choice", Choice = "tap" }))
         {
             SupportedQuestionTypes = ["boolean"],
         };
 
-        await Assert.ThrowsAsync<DecisionUnsupportedQuestionTypeException>(() =>
+        var error = await Assert.ThrowsAsync<DecisionUnsupportedQuestionTypeException>(() =>
             ExperimentalDecide.RunAsync(
                 new DecideOptions
                 {
@@ -179,6 +271,8 @@ public sealed class DecideTests
                 }
             )
         );
+        Assert.Equal("operation", error.QuestionId);
+        Assert.Empty(model.Calls);
     }
 
     [Fact]

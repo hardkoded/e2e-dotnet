@@ -32,6 +32,7 @@ public sealed class OpenAIDecisionModelOptions
 public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
 {
     private const int MaxSafetyIdentifierLength = 128;
+    private const int MaxPromptCacheKeyLength = 64;
     private const int InputJsonMaxDepth = 32;
     private const int InputJsonMaxValues = 10_000;
     private const int InputJsonMaxBytes = 256 * 1024;
@@ -126,11 +127,12 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
         using var document = ParseDocument(text);
         var root = document.RootElement;
         var parsed = ParseAnswers(root);
+        var sent = call.Questions.Keys.ToHashSet(StringComparer.Ordinal);
         var names = parsed.Select(answer => answer.Name).ToList();
         if (
             names.Count != call.Questions.Count
             || names.Distinct(StringComparer.Ordinal).Count() != names.Count
-            || names.Any(name => name is null || !call.Questions.ContainsKey(name))
+            || names.Any(name => name is null || !sent.Contains(name))
         )
         {
             throw new InvalidResponseDataException(
@@ -259,11 +261,16 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                     safetyIdentifier = option.Value.GetString();
                     break;
                 case "promptCacheKey":
-                    if (option.Value.ValueKind != JsonValueKind.String)
+                    if (
+                        option.Value.ValueKind != JsonValueKind.String
+                        || option.Value.GetString()!.Length > MaxPromptCacheKeyLength
+                    )
                     {
                         throw new InvalidArgumentException(
                             "providerOptions",
-                            "invalid openai provider options: promptCacheKey must be a string"
+                            "invalid openai provider options: promptCacheKey must be a string of at most "
+                                + MaxPromptCacheKeyLength.ToString(CultureInfo.InvariantCulture)
+                                + " characters"
                         );
                     }
 
@@ -331,6 +338,10 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                         }
                     );
                     break;
+                default:
+                    throw new NotSupportedException(
+                        "'OpenAI decision state part: " + part.GetType().Name + "' functionality not supported."
+                    );
             }
         }
 
@@ -403,6 +414,14 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                     ["instructions"] = string.Join("\n\n", parts),
                 };
             case "choice":
+                if (question.Choices!.Count is < 2 or > 255)
+                {
+                    throw new InvalidArgumentException(
+                        "questions." + name,
+                        "the OpenAI Decisions API takes 2 to 255 choices"
+                    );
+                }
+
                 var choices = new JsonArray();
                 foreach (var option in question.Choices!)
                 {
@@ -421,7 +440,15 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                     "choices",
                     choices
                 );
-            default:
+            case "score":
+                if (question.Levels!.Count is < 2 or > 10)
+                {
+                    throw new InvalidArgumentException(
+                        "questions." + name,
+                        "the OpenAI Decisions API takes 2 to 10 score levels"
+                    );
+                }
+
                 var levels = new JsonArray();
                 var index = 0;
                 foreach (var description in question.Levels!)
@@ -443,6 +470,8 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                     "levels",
                     levels
                 );
+            default:
+                throw new DecisionUnsupportedQuestionTypeException(name, question.Type, "openai.decision", "openai");
         }
     }
 
@@ -553,10 +582,7 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                         : throw Malformed("score must be a number.");
             }
 
-            if (
-                element.TryGetProperty("confidence", out var confidence)
-                && confidence.ValueKind == JsonValueKind.Number
-            )
+            if (element.TryGetProperty("confidence", out var confidence) && confidence.ValueKind != JsonValueKind.Null)
             {
                 answer.Confidence = Probability(element, "confidence");
             }

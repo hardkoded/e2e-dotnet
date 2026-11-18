@@ -24,7 +24,7 @@ public sealed class DecisionExecutorOptions
     /// <summary>Minimum probability for a selected operation, target, secret, or assertion verdict. Default 0 (off).</summary>
     public double MinProbability { get; init; }
 
-    /// <summary>Minimum provider-reported confidence. Default 0 (off). A model that reports none counts as 0.</summary>
+    /// <summary>Minimum provider-reported confidence. Default 0 (off). A model that reports none counts as 0; a committed choice (an answer without a distribution) keeps the confidence the provider reports for it.</summary>
     public double MinConfidence { get; init; }
 
     /// <summary>

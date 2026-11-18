@@ -125,7 +125,7 @@ public static class Decide
                 })
                 .ConfigureAwait(false);
         }
-        catch (Exception error) when (error is not OperationCanceledException)
+        catch (Exception error)
         {
             signal.ThrowIfCancellationRequested();
             throw DecideError(error);
@@ -171,7 +171,15 @@ public static class Decide
             var nearby = 0.0;
             foreach (var (level, probability) in answer.Probabilities)
             {
-                if (probability > top.Probability)
+                // On a tie the lower level wins, as JavaScript's ascending integer-key order does upstream.
+                if (
+                    probability > top.Probability
+                    || (
+                        probability == top.Probability
+                        && double.Parse(level, CultureInfo.InvariantCulture)
+                            < double.Parse(top.Choice, CultureInfo.InvariantCulture)
+                    )
+                )
                 {
                     top = (level, probability);
                 }
