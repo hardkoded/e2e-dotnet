@@ -89,6 +89,7 @@ public sealed class ActLoopTests
 
         AssertVerdict(verdict, StepVerdictStatus.Passed);
         Assert.Equal(["operation"], requests[0].Questions.Keys.ToList());
+        Assert.Equal("only", Assert.Single(fixture.Actions.Of("tap"))[0]);
     }
 
     [Fact]

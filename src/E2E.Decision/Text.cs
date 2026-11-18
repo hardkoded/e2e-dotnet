@@ -300,9 +300,22 @@ public static class Text
     }
 
     private static Dictionary<string, JsonElement>? ObjectOf(JsonElement value) =>
-        value.ValueKind == JsonValueKind.Object
-            ? value.EnumerateObject().ToDictionary(property => property.Name, property => property.Value)
-            : null;
+        value.ValueKind == JsonValueKind.Object ? ReadProperties(value) : null;
+
+    /// <summary>The properties of an answer object. A repeated name is no valid answer: <c>MODEL_OUTPUT_INVALID</c>, not a provider failure.</summary>
+    private static Dictionary<string, JsonElement> ReadProperties(JsonElement value)
+    {
+        var properties = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        foreach (var property in value.EnumerateObject())
+        {
+            if (!properties.TryAdd(property.Name, property.Value))
+            {
+                throw new InvalidDataException("The answer repeats a property.");
+            }
+        }
+
+        return properties;
+    }
 
     private static bool RequiredString(
         Dictionary<string, JsonElement> record,

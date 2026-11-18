@@ -256,7 +256,7 @@ public sealed partial class DecisionExecutorThroughTheBuiltCliAndRealChromiumTes
             var state = call.State.OfType<DecisionJsonPart>().First().Value;
             lock (requests)
             {
-                requests.Add(state.GetRawText());
+                requests.Add(JsonSerializer.Serialize(new { state, questions = call.Questions }));
                 asked.Add([.. call.Questions.Keys]);
             }
 
@@ -382,7 +382,8 @@ public sealed partial class DecisionExecutorThroughTheBuiltCliAndRealChromiumTes
             var raw = request.Messages.First(message => message.Role == "user").Content ?? "{}";
             lock (requests)
             {
-                requests.Add(raw);
+                requests.AddRange(request.Messages.Select(message => message.Content ?? ""));
+                requests.Add(request.System);
             }
 
             var asked = JsonNode.Parse(raw[raw.IndexOf('{', StringComparison.Ordinal)..])!;

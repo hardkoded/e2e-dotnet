@@ -121,8 +121,16 @@ internal sealed class DecisionStepExecutor(DecisionExecutorOptions options, Gate
 
     public bool Vision => options.Vision;
 
-    public Task<StepVerdict> RunStepAsync(StepExecutorContext context, CancellationToken cancellationToken) =>
-        new DecisionStep(context, options, gates).RunAsync();
+    public async Task<StepVerdict> RunStepAsync(StepExecutorContext context, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        // The step ends with the attempt, and with the runtime's own hard stop (the deadline, a cancelled test).
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+            context.Attempt.CancellationToken,
+            cancellationToken
+        );
+        return await new DecisionStep(context, options, gates, linked.Token).RunAsync().ConfigureAwait(false);
+    }
 }
 
 /// <summary>One look at the app: the path, the action space when the tree had nodes, and the pixels the step may show (upstream's <c>View</c>).</summary>
@@ -194,7 +202,8 @@ internal sealed class DecisionStep
     private readonly bool _locates;
 
     private readonly PointLocator _locator;
-    private CancellationToken Signal => _ctx.Attempt.CancellationToken;
+    private readonly CancellationToken _signal;
+    private CancellationToken Signal => _signal;
     private int _calls;
     private string? _previousFingerprint;
     private string? _origin;
@@ -205,8 +214,9 @@ internal sealed class DecisionStep
     private int _rejectedTerminals;
     private bool _attached;
 
-    public DecisionStep(StepExecutorContext ctx, DecisionExecutorOptions options, Gates gates)
+    public DecisionStep(StepExecutorContext ctx, DecisionExecutorOptions options, Gates gates, CancellationToken signal)
     {
+        _signal = signal;
         _ctx = ctx;
         _options = options;
         _gates = gates;
@@ -757,7 +767,7 @@ internal sealed class DecisionStep
         var entry = new HistoryEntry { Action = prepared.Description, Text = prepared.Typed };
         try
         {
-            var note = await Dispatch.PerformAsync(_ctx, prepared.Action).ConfigureAwait(false);
+            var note = await Dispatch.PerformAsync(_ctx, prepared.Action, Signal).ConfigureAwait(false);
             _history.Add(note is null ? entry : entry with { Note = note });
         }
         catch (OperationCanceledException)

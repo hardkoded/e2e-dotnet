@@ -73,7 +73,7 @@ Probability is the chosen option's share of the answer distribution. Confidence 
 
 ## Vision
 
-`Vision = true` adds a masked screenshot to every observation. Assertions and completion checks see it, so the model can judge drawn content the tree doesn't show. The operation and target questions read the tree only. `AssertAsync(..., new AssertOptions { Vision = VisionMode.On })` and `VisionMode.Only` work too.
+`Vision = true` adds a masked screenshot to every observation. Assertions and completion checks see it, so the model can judge drawn content the tree doesn't show. The operation and target questions read the tree only. `AssertAsync(..., new AssertOptions { Vision = VisionMode.On })` and `VisionMode.Only` also require `Vision = true` on the executor. Without it, the call fails with `UNSUPPORTED_CAPABILITY`.
 
 The model must accept images and answer `score` questions. `OpenAIDecisionModel` does.
 

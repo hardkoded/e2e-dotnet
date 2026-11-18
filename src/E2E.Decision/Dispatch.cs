@@ -35,12 +35,16 @@ public static class Dispatch
     /// Upstream's <c>perform</c>. Performs one action through the runner's grammar: the only place that touches <c>ctx.actions</c>. Resolves
     /// to a note for the model when the engine reports something worth telling it, nothing otherwise.
     /// </summary>
-    public static async Task<string?> PerformAsync(StepExecutorContext ctx, DecisionAction action)
+    public static async Task<string?> PerformAsync(
+        StepExecutorContext ctx,
+        DecisionAction action,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(ctx);
         ArgumentNullException.ThrowIfNull(action);
         var actions = ctx.Actions;
-        var signal = ctx.Attempt.CancellationToken;
+        var signal = cancellationToken.CanBeCanceled ? cancellationToken : ctx.Attempt.CancellationToken;
         if (action.Control is { } control)
         {
             switch (control)
@@ -54,9 +58,11 @@ public static class Dispatch
                 case Control.Back:
                     await actions.BackAsync(signal).ConfigureAwait(false);
                     break;
-                default:
+                case Control.DismissKeyboard:
                     await actions.DismissKeyboardAsync(signal).ConfigureAwait(false);
                     break;
+                default:
+                    throw new ArgumentException("The action names an unknown control.", nameof(action));
             }
 
             return null;
