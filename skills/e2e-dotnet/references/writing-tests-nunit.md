@@ -60,6 +60,7 @@ public sealed class BillingTests : E2ETest
 - `[Category("RealModel")]` marks a test that calls a real model, so CI can
   skip it.
 - `Assert.Ignore(reason)` or `Assume.That(...)` skips a test from inside its body.
+- `[Property("E2E.Fail", "reason")]` marks a test as expected to fail (upstream's `test.fail`; `NUnitSessionTestRunner.ExpectedFailureProperty` is the name). A product failure or a timeout passes the test, and the report keeps the reason and the error under `expectedFailure`. A test that passes fails with `UNEXPECTED_PASS`. A skip, an infrastructure error, a blocked agent verdict, or a hook failure still decides the test, as unmarked. NUnit has no expected-failure outcome, so the run shows the test as passed.
 
 ## Saved sessions
 

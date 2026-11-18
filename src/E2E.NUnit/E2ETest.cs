@@ -160,6 +160,12 @@ public abstract class E2ETest : E2EFixture
             return;
         }
 
+        // A test marked as expected to fail (the NUnit property E2E.Fail) has its verdict settled with the attempt.
+        if (current.Test.Properties.Get(NUnitSessionTestRunner.ExpectedFailureProperty)?.ToString() is { } mark)
+        {
+            session.ExpectedFailure = mark;
+        }
+
         try
         {
             session.Complete(ErrorForCache(current.Result) ?? late, current.CancellationToken);
@@ -167,6 +173,20 @@ public abstract class E2ETest : E2EFixture
         finally
         {
             await session.DisposeAsync().ConfigureAwait(false);
+        }
+
+        if (session.SettledMark is { } settled)
+        {
+            // A product failure the mark covers passes; a pass fails with UNEXPECTED_PASS (upstream's settleExpectedFailure).
+            if (settled.Error is not null)
+            {
+                TestExecutionContext.CurrentContext.CurrentResult.SetResult(ResultState.Success);
+                late = null;
+            }
+            else if (session.SettledError is TestException { Code: "UNEXPECTED_PASS" } unexpected)
+            {
+                ExceptionDispatchInfo.Throw(unexpected);
+            }
         }
 
         // A test that failed already keeps its first failure as the verdict.

@@ -81,7 +81,8 @@ internal static class AttemptReport
         long durationMs,
         ReportExplore? explore = null,
         FailureEvidence? evidence = null,
-        IReadOnlyList<Exception>? cleanupErrors = null
+        IReadOnlyList<Exception>? cleanupErrors = null,
+        ExpectedFailureInfo? expectedFailure = null
     )
     {
         var steps = scope.Steps.All();
@@ -121,6 +122,7 @@ internal static class AttemptReport
         {
             Id = scope.AttemptId,
             StartedAt = scope.StartedAt,
+            ExpectedFailure = expectedFailure,
             Skip =
                 status == AttemptStatus.Skipped
                     ? new ReportSkip(

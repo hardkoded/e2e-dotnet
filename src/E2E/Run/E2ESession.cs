@@ -40,6 +40,7 @@ public sealed class E2ESession : IAsyncDisposable
     // What the teardown threw (a required video that did not finalize, the engine session's close): upstream's secondaryErrors of phase cleanup.
     private readonly List<Exception> _cleanupErrors = [];
     private long _bodyMs;
+    private ExpectedFailureInfo? _expectedFailure;
     private AttemptStatus _status = AttemptStatus.Failed;
     private Lazy<Report>? _report;
     private readonly Lazy<Task<IReadOnlyList<Exception>>> _ending;
@@ -949,6 +950,18 @@ public sealed class E2ESession : IAsyncDisposable
     /// <summary>Whether releasing the session failed: what it left may be unclean, unlike a test outcome in <see cref="CloseAsync"/>'s list.</summary>
     internal bool CleanupFailed { get; private set; }
 
+    /// <summary>
+    /// Why the test is marked as expected to fail (upstream's <c>fail</c> option or <c>test.fail</c>), null when it is not. A host that reads the mark
+    /// from its test framework sets it before <see cref="Complete"/>, which applies it to the attempt (<see cref="E2E.ExpectedFailure.SettleExpectedFailure"/>).
+    /// </summary>
+    internal string? ExpectedFailure { get; set; }
+
+    /// <summary>The mark of the settled attempt: the reason, and the error that made a failed attempt pass. Null when the test is not marked or skipped.</summary>
+    internal ExpectedFailureInfo? SettledMark => _expectedFailure;
+
+    /// <summary>The verdict of the settled attempt: what stopped it, null when it passed.</summary>
+    internal Exception? SettledError => _error;
+
     public async ValueTask DisposeAsync()
     {
         if (_hostedClose is null)
@@ -1355,7 +1368,8 @@ public sealed class E2ESession : IAsyncDisposable
                 _bodyMs,
                 Exploration,
                 _evidence,
-                _cleanupErrors
+                _cleanupErrors,
+                _expectedFailure
             );
             if (_hostedClose is not null)
             {
@@ -1555,6 +1569,45 @@ public sealed class E2ESession : IAsyncDisposable
             : new TestException("TEST_FAILED", error.Message, error);
     }
 
+    /// <summary>
+    /// Applies the test's mark to the attempt once its status is classified, before its recordings are kept or dropped, so they follow the
+    /// verdict (upstream's <c>settleExpectedFailure</c> call in <c>TargetExecutor</c>, <c>run/execute.ts</c>).
+    /// </summary>
+    private void SettleMark()
+    {
+        if (ExpectedFailure is not { } mark)
+        {
+            return;
+        }
+
+        Exception? unexpectedPass = null;
+        var record = new MarkableAttempt
+        {
+            Status = _status,
+            Error = _error is null
+                ? null
+                : ReportError.Of(ErrorSerializer.Serialize(_error, _scope.ProjectRoot, _scope.Redactor.Redact), "body"),
+        };
+        E2E.ExpectedFailure.SettleExpectedFailure(
+            record,
+            mark,
+            new ExpectedFailureSerializer(
+                cause =>
+                {
+                    unexpectedPass = cause;
+                    return ReportError.Of(
+                        ErrorSerializer.Serialize(cause, _scope.ProjectRoot, _scope.Redactor.Redact),
+                        "body"
+                    );
+                },
+                _scope.Redactor.Redact
+            )
+        );
+        _status = record.Status;
+        _error = record.Error is null ? null : unexpectedPass ?? _error;
+        _expectedFailure = record.ExpectedFailure;
+    }
+
     private void Commit(Exception? error, CancellationToken cancellationToken)
     {
         _status = StatusOf(error, cancellationToken);
@@ -1571,6 +1624,9 @@ public sealed class E2ESession : IAsyncDisposable
         }
 
         _bodyMs = (long)System.Diagnostics.Stopwatch.GetElapsedTime(_bodyStarted).TotalMilliseconds;
+
+        // The cache below still settles on what the attempt did, read off `error`.
+        SettleMark();
         if (!_scope.CacheWrite || _scope.Cache is null || cancellationToken.IsCancellationRequested)
         {
             return;

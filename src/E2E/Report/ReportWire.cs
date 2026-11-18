@@ -591,6 +591,13 @@ internal static partial class ReportWire
         }
 
         Put(result, "failure", attempt.Failure is null ? null : Failure(attempt.Failure));
+        if (!skipped && attempt.ExpectedFailure is { } mark)
+        {
+            var marked = Compose(("reason", Clip(mark.Reason, 8192)));
+            Put(marked, "error", mark.Error is null ? null : Error(mark.Error));
+            result["expectedFailure"] = marked;
+        }
+
         result["secondaryErrors"] = new JsonArray([
             .. attempt.SecondaryErrors.Select(error => (JsonNode?)Error(error)),
         ]);
@@ -657,6 +664,11 @@ internal static partial class ReportWire
         {
             var reason = result.Attempts.LastOrDefault(attempt => attempt.Status == AttemptStatus.Skipped);
             wire["skip"] = Skip(result.Skip ?? new ReportSkip("explicit", reason?.Error?.Message ?? "skipped"));
+        }
+
+        if (!skipped && result.Attempts.LastOrDefault()?.ExpectedFailure is { } mark)
+        {
+            wire["expectedFailure"] = Compose(("reason", Clip(mark.Reason, 8192)));
         }
 
         wire["attempts"] = new JsonArray([
