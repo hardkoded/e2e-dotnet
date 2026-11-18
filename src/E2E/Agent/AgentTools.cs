@@ -1205,9 +1205,10 @@ public sealed class GrammarToolsOptions
 
     /// <summary>
     /// Saves a screenshot to a file, given as the caller wrote it, and returns the absolute path. With it, <c>screenshot</c> takes an optional
-    /// <c>path</c>; <c>e2e mcp</c> sets it, the testing agent does not. Upstream's <c>saveScreenshot</c>; the port's takes the call's token too.
+    /// <c>path</c>; <c>e2e mcp</c> sets it, the testing agent does not. Upstream's <c>saveScreenshot</c> (<c>GrammarToolSetup</c>, which the public
+    /// grammar does not take); the port's takes the call's token too.
     /// </summary>
-    public Func<string, CancellationToken, Task<string>>? SaveScreenshot { get; init; }
+    internal Func<string, CancellationToken, Task<string>>? SaveScreenshot { get; init; }
 }
 
 /// <summary>
