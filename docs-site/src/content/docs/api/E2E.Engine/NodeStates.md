@@ -38,7 +38,7 @@ public bool AriaHidden { get; init; }
 ```
 
 
-The node, or an ancestor, is `aria-hidden`. It may still paint, so it can be visible, but role queries and the agent skip it.
+The node, or an ancestor, is `aria-hidden`. It may still paint, so it can be visible, but the tree walk leaves it out: role queries and the agent never see it.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
