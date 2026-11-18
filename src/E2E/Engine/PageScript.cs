@@ -293,9 +293,7 @@ internal static class PageScript
           };
           // A node under an ancestor that hides its subtree is hidden too.
           // parentHidden is that ancestor's verdict, not its own visibility.
-          // parentAria is whether an ancestor is aria-hidden: the node paints
-          // and is visible, but the accessibility tree drops it.
-          const walk = (el, into, parentHidden, parentAria) => {
+          const walk = (el, into, parentHidden) => {
             // aria-hidden removes the node and everything under it from the tree, as upstream's walk does.
             if (!el || skip.has(el.tagName) || el.tagName === "DATALIST" || ariaHidden(el) || isInert(el) || full) return;
             // Outside an open modal dialog everything is inert; the dialog's ancestors are walked to reach it and list nothing.
@@ -303,12 +301,11 @@ internal static class PageScript
             if (place === "outside") return;
             const style = getComputedStyle(el);
             const isHidden = !!parentHidden || hidden(el, style);
-            const isAriaHidden = !!parentAria || ariaHidden(el);
             const childrenHidden = !!parentHidden || hidesSubtree(el, style);
             const role = roleOf(el);
             const isFrame = el.tagName === "IFRAME";
             // A frame the page hides is no boundary of the tree.
-            if (isFrame && (isHidden || isAriaHidden)) return;
+            if (isFrame && isHidden) return;
             if (isBoxlessUndrawn(el)) return;
             if (place !== "ancestor" && listed(el, role)) {
               const textNode = textOnly(el, role);
@@ -318,13 +315,13 @@ internal static class PageScript
                   return;
                 }
                 textCut = true;
-                walkChildren(el, into, childrenHidden, isAriaHidden);
+                walkChildren(el, into, childrenHidden);
                 return;
               }
               if (!textNode && offBudget < max && !inView(el)) {
                 if (offCount >= offBudget) {
                   if (el.tagName === "SELECT") return;
-                  walkChildren(el, into, childrenHidden, isAriaHidden);
+                  walkChildren(el, into, childrenHidden);
                   return;
                 }
                 offCount++;
@@ -332,7 +329,7 @@ internal static class PageScript
               if (textNode) textCount++;
               else count++;
               // What the element reports on its own is the reader's, shared with node mode; the walk adds its own fields.
-              const fields = fieldsOf(el, role, { isHidden, isAriaHidden, focused, testIdAttribute, textLimit });
+              const fields = fieldsOf(el, role, { isHidden, isAriaHidden: false, focused, testIdAttribute, textLimit });
               const secure = fields.secure;
               const ownsChildren = !isLeaf(el, role) && el.tagName !== "SELECT" && !isFrame;
               const node = {
@@ -355,24 +352,24 @@ internal static class PageScript
                   if (!isOfferedOption(option)) continue;
                   offered += 1;
                   const before = node.children.length;
-                  walk(option, node.children, isHidden, isAriaHidden);
+                  walk(option, node.children, isHidden);
                   if (node.children.length > before) node.children[before].hidden = isHidden;
                 }
                 return;
               }
               // Upstream lists every child, so a leaf role lists the nodes it holds too.
-              walkChildren(el, node.children, childrenHidden, isAriaHidden);
+              walkChildren(el, node.children, childrenHidden);
               return;
             }
-            walkChildren(el, into, childrenHidden, isAriaHidden);
+            walkChildren(el, into, childrenHidden);
           };
           // Light children first, then the shadow tree. Slotted elements are
           // light children and the shadow tree holds only their slots, so
           // nothing is listed twice.
-          const walkChildren = (el, into, parentHidden, parentAria) => {
-            for (const child of el.children) walk(child, into, parentHidden, parentAria);
+          const walkChildren = (el, into, parentHidden) => {
+            for (const child of el.children) walk(child, into, parentHidden);
             const shadow = shadowOf(el);
-            if (shadow) for (const child of shadow.children) walk(child, into, parentHidden, parentAria);
+            if (shadow) for (const child of shadow.children) walk(child, into, parentHidden);
           };
           // innerText applies CSS text-transform, but locators match the DOM
           // text, as Playwright's do. The walk runs with text-transform

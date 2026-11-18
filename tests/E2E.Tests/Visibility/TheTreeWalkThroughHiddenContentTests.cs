@@ -19,10 +19,10 @@ public sealed class TheTreeWalkThroughHiddenContentTests(ChromiumPage chromium) 
             """
         );
         var nodes = await chromium.CaptureAsync();
-        // The tree lists a hidden node with its state where upstream leaves it out, so only the shown ones count.
+        // The tree lists a hidden node with its state where upstream leaves it out, so only the shown ones count; the aria-hidden one is not in it.
         Assert.Equal(
             ["Shown child"],
-            nodes.Where(node => node.Role == "button" && !node.Hidden && !node.AriaHidden).Select(node => node.Name)
+            nodes.Where(node => node.Role == "button" && !node.Hidden).Select(node => node.Name)
         );
         var skipping = nodes.Single(node => node.TestId == "skipping");
         Assert.False(skipping.Hidden);

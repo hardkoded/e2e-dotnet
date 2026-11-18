@@ -236,8 +236,8 @@ Members of `E2ETest` in both frameworks:
   `content-visibility: hidden` or a closed `details` are hidden. A child that
   sets `visibility: visible` under a hidden parent is visible, and a
   `display: contents` element is visible when something under it is. An
-  `aria-hidden` node that paints is visible, as upstream, but role queries skip
-  it. Everything inside a hidden `<iframe>` is hidden too, cross-origin frames
+  `aria-hidden` node that paints is visible, as upstream, but the tree leaves
+  it out, so role queries and the agent never see it. Everything inside a hidden `<iframe>` is hidden too, cross-origin frames
   included. Unlike upstream, a box with no size reads as visible.
 - On the web a `contenteditable` editing host, the root a TipTap, ProseMirror,
   Lexical, or Slate editor renders into, is a `textbox` for the agent. Its value is its text as rendered, spaces and newlines kept, so
