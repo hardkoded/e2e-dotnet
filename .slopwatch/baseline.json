@@ -1,0 +1,4040 @@
+{
+  "version": 2,
+  "createdAt": "2026-11-18T15:10:40.8671999+00:00",
+  "updatedAt": "2026-11-18T15:10:40.887152+00:00",
+  "description": "Initial baseline created by 'slopwatch init' on 2026-11-18 15:10:40 UTC",
+  "entries": [
+    {
+      "hash": "f66d629e3722ab3e",
+      "ruleId": "SW005",
+      "filePath": "Directory.Build.props",
+      "lineNumber": 27,
+      "codeSnippet": "<NoWarn>$(NoWarn);CA1014;CA1848;CA2007;CS1591;NU5104;NU1507;IDE0005</NoWarn>",
+      "message": "Adding warnings to NoWarn: CA1014;CA1848;CA2007;CS1591;NU5104;NU1507;IDE0005",
+      "baselinedAt": "2026-11-18T15:10:40.8707117+00:00"
+    },
+    {
+      "hash": "582e0c77c44114b4",
+      "ruleId": "SW005",
+      "filePath": "apps/WebBenchmark/WebBenchmark.csproj",
+      "lineNumber": 6,
+      "codeSnippet": "<NoWarn>$(NoWarn);BL0012;BL0016</NoWarn>",
+      "message": "Adding warnings to NoWarn: BL0012;BL0016",
+      "baselinedAt": "2026-11-18T15:10:40.8709615+00:00"
+    },
+    {
+      "hash": "be70e9e760da2af9",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Components/PortalHost.razor",
+      "lineNumber": 15,
+      "codeSnippet": "catch (Exception exception) when (exception is ObjectDisposedException or OperationCanceledException)\r\n        {\r\n            // The circuit is closing: there is no page left to render into.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8712301+00:00"
+    },
+    {
+      "hash": "95044b4d05094590",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Examples/ControlInventory.razor",
+      "lineNumber": 418,
+      "codeSnippet": "catch (JSDisconnectedException)\r\n        {\r\n            // The circuit is gone, so the window is gone with it.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8712493+00:00"
+    },
+    {
+      "hash": "4712992dc2ae0041",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Examples/DebouncedSearch.razor",
+      "lineNumber": 149,
+      "codeSnippet": "catch (Exception exception) when (exception is OperationCanceledException or JSDisconnectedException)\r\n        {\r\n            // Superseded by a newer keystroke, or the page went away.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8712835+00:00"
+    },
+    {
+      "hash": "5a1c83c2dbce1f70",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Examples/DeferredDialog.razor",
+      "lineNumber": 76,
+      "codeSnippet": "catch (Exception exception) when (exception is OperationCanceledException or JSDisconnectedException)\r\n        {\r\n            // The page went away before the dialog was due.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8713002+00:00"
+    },
+    {
+      "hash": "628b9dddf7215d98",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Examples/FileRoundTrip.razor",
+      "lineNumber": 75,
+      "codeSnippet": "catch (JSDisconnectedException)\r\n        {\r\n            // The circuit went away: there is no page left to download into.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8713127+00:00"
+    },
+    {
+      "hash": "d43e52301c314257",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Examples/FilterDeepLink.razor",
+      "lineNumber": 60,
+      "codeSnippet": "catch (JSDisconnectedException)\r\n        {\r\n            // The circuit went away: there is no page left to address.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.871326+00:00"
+    },
+    {
+      "hash": "3337b24247453f11",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Examples/HoverMenu.razor",
+      "lineNumber": 178,
+      "codeSnippet": "catch (ObjectDisposedException)\r\n        {\r\n            // The circuit went away while the timer ran: nothing is left to close.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8713395+00:00"
+    },
+    {
+      "hash": "d10cc777dda72d2b",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Examples/IframeForm.razor",
+      "lineNumber": 157,
+      "codeSnippet": "catch (JSDisconnectedException)\r\n        {\r\n            // The circuit is gone, so the window is gone with it.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8713528+00:00"
+    },
+    {
+      "hash": "d24c6e8548110382",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Examples/NativeDialogs.razor",
+      "lineNumber": 78,
+      "codeSnippet": "catch (JSDisconnectedException)\r\n        {\r\n            // The circuit went away: there is no page left to ask.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8713644+00:00"
+    },
+    {
+      "hash": "60c8a1831e7c636e",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Examples/NewsletterSignup.razor",
+      "lineNumber": 33,
+      "codeSnippet": "catch (JSDisconnectedException)\r\n        {\r\n            // The circuit went away: there is no console left to write to.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8713774+00:00"
+    },
+    {
+      "hash": "d33cd602034a6940",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Examples/NewTabFlow.razor",
+      "lineNumber": 97,
+      "codeSnippet": "catch (JSDisconnectedException)\r\n        {\r\n            // The circuit went away: there is no window left to write into.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8713886+00:00"
+    },
+    {
+      "hash": "2d072139cfaf3a58",
+      "ruleId": "SW003",
+      "filePath": "apps/WebBenchmark/Examples/VirtualizedTable.razor",
+      "lineNumber": 100,
+      "codeSnippet": "catch (JSDisconnectedException)\r\n        {\r\n            // The circuit is gone, so the viewport and its listener are gone with it.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8714002+00:00"
+    },
+    {
+      "hash": "12c81adadeeaa3e0",
+      "ruleId": "SW005",
+      "filePath": "apps/WinAppBenchmark/WinAppBenchmark.csproj",
+      "lineNumber": 17,
+      "codeSnippet": "<NoWarn>$(NoWarn);REACTOR_A11Y_001;REACTOR_A11Y_003;REACTOR_A11Y_004;REACTOR_THEME_001;REACTOR_HOOKS_013</NoWarn>",
+      "message": "Adding warnings to NoWarn: REACTOR_A11Y_001;REACTOR_A11Y_003;REACTOR_A11Y_004;REACTOR_THEME_001;REACTOR_HOOKS_013",
+      "baselinedAt": "2026-11-18T15:10:40.8714109+00:00"
+    },
+    {
+      "hash": "685da28477936278",
+      "ruleId": "SW005",
+      "filePath": "apps/WinAppBenchmark.E2ETests/WinAppBenchmark.E2ETests.csproj",
+      "lineNumber": 8,
+      "codeSnippet": "<NoWarn>$(NoWarn);NU1701</NoWarn>",
+      "message": "Adding warnings to NoWarn: NU1701",
+      "baselinedAt": "2026-11-18T15:10:40.8714205+00:00"
+    },
+    {
+      "hash": "a37fe9c879276525",
+      "ruleId": "SW004",
+      "filePath": "apps/WinAppBenchmark.E2ETests/Fixtures/BenchmarkTest.cs",
+      "lineNumber": 76,
+      "codeSnippet": "Task.Delay(250)",
+      "message": "Test uses Task.Delay(250) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8714309+00:00"
+    },
+    {
+      "hash": "f257e0dcfda2db9d",
+      "ruleId": "SW005",
+      "filePath": "samples/E2E.XUnit.V3.Sample/E2E.XUnit.V3.Sample.csproj",
+      "lineNumber": 8,
+      "codeSnippet": "<NoWarn>$(NoWarn);xUnit1051</NoWarn>",
+      "message": "Adding warnings to NoWarn: xUnit1051",
+      "baselinedAt": "2026-11-18T15:10:40.8714407+00:00"
+    },
+    {
+      "hash": "7a989ec1141fc921",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Agent/ActContext.cs",
+      "lineNumber": 183,
+      "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\r\n        {\r\n            // The transcript is best-effort debug detail; never fail the step for it, as upstream.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8714614+00:00"
+    },
+    {
+      "hash": "032bf53a789971f5",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Agent/ActTools.cs",
+      "lineNumber": 412,
+      "codeSnippet": "catch (E2EException ex) when (Keyboard && !StepExecutors.IsRuntimeHardStop(ex) && IsNotFillable(ex))\r\n        {\r\n            // The node is no input: the keyboard takes over below.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8714794+00:00"
+    },
+    {
+      "hash": "7ba881b1b386196e",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Agent/CommandTool.cs",
+      "lineNumber": 131,
+      "codeSnippet": "catch (IOException)\r\n            {\r\n                // A command that never reads its input closes the pipe; its exit code says whether it worked.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8715082+00:00"
+    },
+    {
+      "hash": "db5fc4a52a38145b",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Agent/CommandTool.cs",
+      "lineNumber": 178,
+      "codeSnippet": "catch (InvalidOperationException)\r\n        {\r\n            // It exited already.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8715186+00:00"
+    },
+    {
+      "hash": "10901564828c63b4",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Agent/Phases.cs",
+      "lineNumber": 135,
+      "codeSnippet": "catch (Exception)\r\n            {\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8715321+00:00"
+    },
+    {
+      "hash": "6c4a53ae418a9841",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Agent/SampleFiles.cs",
+      "lineNumber": 125,
+      "codeSnippet": "catch (IOException)\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8715427+00:00"
+    },
+    {
+      "hash": "362501c4acdcf8a0",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Agent/SampleFiles.cs",
+      "lineNumber": 128,
+      "codeSnippet": "catch (UnauthorizedAccessException)\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8715544+00:00"
+    },
+    {
+      "hash": "675238530094fd82",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Agent/StepAccounting.cs",
+      "lineNumber": 149,
+      "codeSnippet": "catch (ObjectDisposedException)\r\n            {\r\n                // The step already ended.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8715719+00:00"
+    },
+    {
+      "hash": "7dfc49ed114c740d",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Agent/StepCache.cs",
+      "lineNumber": 248,
+      "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\r\n                {\r\n                    // The cache is disposable: the settlement decides what becomes of the entry.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8715854+00:00"
+    },
+    {
+      "hash": "f9ae3d22954341f9",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Cache/StepCache.cs",
+      "lineNumber": 726,
+      "codeSnippet": "catch (DirectoryNotFoundException)\r\n        {\r\n            // The entry is absent.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8715953+00:00"
+    },
+    {
+      "hash": "31d14cc411ba2fe4",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/AppLog.cs",
+      "lineNumber": 49,
+      "codeSnippet": "catch (Exception)\r\n            {\r\n                // Dropped.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8716066+00:00"
+    },
+    {
+      "hash": "af17ee2ae1ae8eb0",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/AppLog.cs",
+      "lineNumber": 61,
+      "codeSnippet": "catch (Exception)\r\n            {\r\n                // Dropped.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.871622+00:00"
+    },
+    {
+      "hash": "aa959b4c526f5862",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/BrowserProvider.cs",
+      "lineNumber": 683,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // Best effort: a lease that cannot be given back is the sweep's to find.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8716329+00:00"
+    },
+    {
+      "hash": "8190aad73c628772",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/BrowserProvider.cs",
+      "lineNumber": 701,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // Every task has finished; the first failure in order is reported below.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8716441+00:00"
+    },
+    {
+      "hash": "a042dcd191e1503f",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/CdpSelectors.cs",
+      "lineNumber": 52,
+      "codeSnippet": "catch (PlaywrightException ex) when (ex.Message.EndsWith($\"\\\"{name}\\\" selector engine has been already registered\", StringComparison.Ordinal))\r\n            {\r\n                // A version that seeds CDP contexts already has our process-wide registration.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834106+00:00"
+    },
+    {
+      "hash": "985c021d50edc031",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/Dialogs.cs",
+      "lineNumber": 218,
+      "codeSnippet": "catch (PlaywrightException)\r\n        {\r\n            // The dialog is already answered or its page is gone.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834274+00:00"
+    },
+    {
+      "hash": "6cdeb369fc1ab60f",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/Downloads.cs",
+      "lineNumber": 111,
+      "codeSnippet": "catch (PlaywrightException)\r\n        {\r\n            // The target or connection is already gone.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834324+00:00"
+    },
+    {
+      "hash": "a3a4384c6a27d7b6",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/ElementList.cs",
+      "lineNumber": 206,
+      "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\r\n        {\r\n            // The element never arrived or its page is gone: nothing is left to release.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834407+00:00"
+    },
+    {
+      "hash": "72aa8884cab31065",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/FrameDocument.cs",
+      "lineNumber": 55,
+      "codeSnippet": "catch (PlaywrightException)\r\n            {\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834446+00:00"
+    },
+    {
+      "hash": "5ddb5892fd267969",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/TraceFeed.cs",
+      "lineNumber": 79,
+      "codeSnippet": "catch (Exception)\r\n#pragma warning restore CA1031\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834485+00:00"
+    },
+    {
+      "hash": "f0eeb5a40dcc8dd8",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/TraceFeed.cs",
+      "lineNumber": 108,
+      "codeSnippet": "catch (Exception)\r\n            {\r\n                // The browser alone.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834545+00:00"
+    },
+    {
+      "hash": "77c4ad5455a59bed",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/TraceFeed.cs",
+      "lineNumber": 140,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.883458+00:00"
+    },
+    {
+      "hash": "4bb9b11e8c07653e",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/TraceFeed.cs",
+      "lineNumber": 165,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834606+00:00"
+    },
+    {
+      "hash": "02039f97cf8406e1",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/VideoRecorder.cs",
+      "lineNumber": 236,
+      "codeSnippet": "catch (TimeoutException)\r\n        {\r\n            // A page that never repaints ends after the bound, not never.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.883464+00:00"
+    },
+    {
+      "hash": "bcfb10406b23f39d",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 583,
+      "codeSnippet": "catch (Exception)\r\n#pragma warning restore CA1031\r\n                {\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834685+00:00"
+    },
+    {
+      "hash": "77870ecbb9a6618d",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 1180,
+      "codeSnippet": "catch (PlaywrightException)\r\n            {\r\n                // The page closed under the request; nothing waits for it.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834726+00:00"
+    },
+    {
+      "hash": "a9051c348cd1335c",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 1750,
+      "codeSnippet": "catch (Exception ex) when (WebErrors.IsPlaywright(ex) && WebErrors.DispatchedInput(ex) && TabClosed(shown))\r\n            {\r\n                // The input went out and its own tab closed: closing was what it did.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834788+00:00"
+    },
+    {
+      "hash": "0927d106a74aebcb",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 1842,
+      "codeSnippet": "catch (Exception releaseFailure) when (WebErrors.IsPlaywright(releaseFailure))\r\n                {\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834821+00:00"
+    },
+    {
+      "hash": "f5c909851a4ed23a",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 2286,
+      "codeSnippet": "catch (PlaywrightException)\r\n                    {\r\n                        // Best effort: a page that navigated or closed took the handle with it, and the read's own failure is the one to report.\r\n                    }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834864+00:00"
+    },
+    {
+      "hash": "3b88ed3fc83b0196",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 2619,
+      "codeSnippet": "catch (Exception)\r\n            {\r\n                // The download already finished or its page is gone.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.88349+00:00"
+    },
+    {
+      "hash": "e491e8c93086a774",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 2733,
+      "codeSnippet": "catch (Exception) when (page.IsClosed)\r\n                {\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834934+00:00"
+    },
+    {
+      "hash": "c250f4366b443fb6",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 2906,
+      "codeSnippet": "catch (Exception ex) when (WebErrors.IsPlaywright(ex))\r\n                {\r\n                    // A frame that detaches mid-sweep contributes nothing, which can only push a caller toward withholding the image.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8834973+00:00"
+    },
+    {
+      "hash": "fb7b504990164351",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 3038,
+      "codeSnippet": "catch (System.TimeoutException)\r\n                {\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835003+00:00"
+    },
+    {
+      "hash": "fe409d231ca0b49c",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 3132,
+      "codeSnippet": "catch (PlaywrightException ex) when (ex.GetType().Name == \"TargetClosedException\")\r\n            {\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835038+00:00"
+    },
+    {
+      "hash": "130e9d2084a4ac2a",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 4050,
+      "codeSnippet": "catch (PlaywrightException)\r\n            {\r\n                // The connection is already gone.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835069+00:00"
+    },
+    {
+      "hash": "85db3c05562490f7",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 4062,
+      "codeSnippet": "catch (PlaywrightException)\r\n            {\r\n                // The target or connection is already gone.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835103+00:00"
+    },
+    {
+      "hash": "a4874893f0b95535",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 4430,
+      "codeSnippet": "catch (PlaywrightException)\r\n            {\r\n                // The request is already settled, or its page closed.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835132+00:00"
+    },
+    {
+      "hash": "97ddd649e617fdfa",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.cs",
+      "lineNumber": 4992,
+      "codeSnippet": "catch (Exception probe) when (probe is not OperationCanceledException)\r\n        {\r\n            // The main world failed, as the page's own replaced built-in would make it: the case this method classifies.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835171+00:00"
+    },
+    {
+      "hash": "edfc7578b0ca9cd5",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebEngine.Tabs.cs",
+      "lineNumber": 577,
+      "codeSnippet": "catch (Exception)\r\n                {\r\n                    // A page that went away while it was read joins nothing.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835212+00:00"
+    },
+    {
+      "hash": "4c94b4ff0f2f303b",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebSupport.cs",
+      "lineNumber": 97,
+      "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\r\n        {\r\n            // The page or connection is gone, and the handle with it.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835246+00:00"
+    },
+    {
+      "hash": "b3b7834c38903f7f",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebSupport.cs",
+      "lineNumber": 110,
+      "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\r\n        {\r\n            // The read failed: no handle arrived.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835282+00:00"
+    },
+    {
+      "hash": "b6550186a4107750",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Engine/WebSupport.cs",
+      "lineNumber": 189,
+      "codeSnippet": "catch (Exception ex) when (ex is TimeoutException or OperationCanceledException)\r\n            {\r\n                // The budget ended: whatever still runs is reported below.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835314+00:00"
+    },
+    {
+      "hash": "4d39cb3cecd21ac3",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Expect/ScreenshotCapture.cs",
+      "lineNumber": 66,
+      "codeSnippet": "catch (TestException ex) when (ex.Code == \"LOCATOR_NOT_FOUND\")\r\n                    {\r\n                    }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835361+00:00"
+    },
+    {
+      "hash": "bdbec2282b9cb278",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Expect/Soft.cs",
+      "lineNumber": 163,
+      "codeSnippet": "catch (TestException ex) when (ex.Code == \"ASSERTION_FAILED\" && Keep(ex))\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835396+00:00"
+    },
+    {
+      "hash": "0fbd46179275fd5b",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Expect/Soft.cs",
+      "lineNumber": 316,
+      "codeSnippet": "catch (TestException ex) when (ex.Code == \"ASSERTION_FAILED\" && _failures.Keep(ex))\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835433+00:00"
+    },
+    {
+      "hash": "100bea178d15ec5b",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Internal/AtomicWrite.cs",
+      "lineNumber": 80,
+      "codeSnippet": "catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)\r\n            {\r\n                // The write may have failed before the temporary file existed, and the first failure is the one to report.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835472+00:00"
+    },
+    {
+      "hash": "0303209ca51a304f",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Internal/AtomicWrite.cs",
+      "lineNumber": 118,
+      "codeSnippet": "catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)\r\n            {\r\n                // The write may have failed before the temporary file existed, and the first failure is the one to report.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835513+00:00"
+    },
+    {
+      "hash": "a7466ad41dc4399b",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Internal/Git.cs",
+      "lineNumber": 219,
+      "codeSnippet": "catch (Exception error) when (error is InvalidOperationException or Win32Exception)\r\n        {\r\n            // It ended on its own between the check and the kill.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835551+00:00"
+    },
+    {
+      "hash": "5d16aa28809af7ed",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/OAuth/CallbackServer.cs",
+      "lineNumber": 137,
+      "codeSnippet": "catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException or InvalidOperationException or OperationCanceledException)\r\n        {\r\n            // The browser went away or the server stopped; an answer already set still counts.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835594+00:00"
+    },
+    {
+      "hash": "0ee9e35456570465",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/OAuth/CredentialStore.cs",
+      "lineNumber": 211,
+      "codeSnippet": "catch (IOException)\r\n                    {\r\n                        // Another waiter claimed it first; try the lock again.\r\n                    }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835635+00:00"
+    },
+    {
+      "hash": "fc1f02d7da5245ca",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/OAuth/OAuthFlows.cs",
+      "lineNumber": 154,
+      "codeSnippet": "catch (JsonException)\r\n        {\r\n            // Not JSON.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835675+00:00"
+    },
+    {
+      "hash": "a9fea556b1a96ae0",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/OAuth/Providers/CopilotProvider.cs",
+      "lineNumber": 281,
+      "codeSnippet": "catch (InvalidOperationException)\r\n                {\r\n                    // It exited on its own first.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835716+00:00"
+    },
+    {
+      "hash": "5ffaa24b27c73189",
+      "ruleId": "SW002",
+      "filePath": "src/E2E/Report/Reporters.cs",
+      "lineNumber": 52,
+      "codeSnippet": "UnconditionalSuppressMessage(\"Trimming\", \"IL2057\", Justification = \"The config names the reporter type by string.\")",
+      "message": "SuppressMessage attribute suppressing Trimming:IL2057",
+      "baselinedAt": "2026-11-18T15:10:40.8835753+00:00"
+    },
+    {
+      "hash": "44d55a55d6b2c6f2",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Report/TracePages.cs",
+      "lineNumber": 83,
+      "codeSnippet": "catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)\r\n                {\r\n                    // A page that cannot be removed is stale, not a failure of the run.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835796+00:00"
+    },
+    {
+      "hash": "4557e7d690144ebf",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/AppLogRoute.cs",
+      "lineNumber": 128,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // Dropped.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835837+00:00"
+    },
+    {
+      "hash": "8a1794c91ce1d508",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/ArtifactPaths.cs",
+      "lineNumber": 555,
+      "codeSnippet": "catch (Exception) when (!token.IsCancellationRequested)\r\n#pragma warning restore CA1031\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835873+00:00"
+    },
+    {
+      "hash": "ee651af05517e75f",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/ArtifactPaths.cs",
+      "lineNumber": 585,
+      "codeSnippet": "catch (Exception) when (!token.IsCancellationRequested)\r\n#pragma warning restore CA1031\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835908+00:00"
+    },
+    {
+      "hash": "5d706f45eb13ed33",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/Budget.cs",
+      "lineNumber": 68,
+      "codeSnippet": "catch (ObjectDisposedException)\r\n        {\r\n            // The session was released already.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835941+00:00"
+    },
+    {
+      "hash": "49c01521e4ea4f49",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/E2EFixture.cs",
+      "lineNumber": 398,
+      "codeSnippet": "catch (Exception)\r\n#pragma warning restore CA1031\r\n            {\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8835977+00:00"
+    },
+    {
+      "hash": "8fbdef9475f2d5b7",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/E2ESession.cs",
+      "lineNumber": 640,
+      "codeSnippet": "catch (ObjectDisposedException)\r\n            {\r\n                // The session was released already.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836014+00:00"
+    },
+    {
+      "hash": "5144c8737c0be95c",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/E2ESession.cs",
+      "lineNumber": 711,
+      "codeSnippet": "catch (Exception) when (commitFailure is not null)\r\n        {\r\n            // The commit failure is the one to report.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836043+00:00"
+    },
+    {
+      "hash": "f94ca2b9b5844810",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/E2ESession.cs",
+      "lineNumber": 845,
+      "codeSnippet": "catch (ObjectDisposedException)\r\n        {\r\n            // The attempt was released already.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836076+00:00"
+    },
+    {
+      "hash": "5df8df1171167c7e",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/E2ESession.cs",
+      "lineNumber": 849,
+      "codeSnippet": "catch (AggregateException)\r\n        {\r\n            // An executor's own release callback failed. That is its failure to report, and it must not hide the attempt's result.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836106+00:00"
+    },
+    {
+      "hash": "ea6de807a140ff0f",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/E2ESession.cs",
+      "lineNumber": 924,
+      "codeSnippet": "catch (IOException)\r\n        {\r\n            // Nothing reads the table.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836134+00:00"
+    },
+    {
+      "hash": "f18e7e052ffd2712",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/E2ESession.cs",
+      "lineNumber": 1048,
+      "codeSnippet": "catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)\r\n                {\r\n                    // A page that cannot be removed is stale, not a failure of the test.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836172+00:00"
+    },
+    {
+      "hash": "9118c5634fc5904a",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/E2ESession.cs",
+      "lineNumber": 1236,
+      "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\r\n            {\r\n                // The cache is disposable, as a replay's read is: a store that fails here costs the next run a live step.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836209+00:00"
+    },
+    {
+      "hash": "34588b2cccd72542",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/ExecuteVideo.cs",
+      "lineNumber": 145,
+      "codeSnippet": "catch (Exception) when (_recording.Policy == VideoPolicy.BestEffort)\r\n#pragma warning restore CA1031\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836243+00:00"
+    },
+    {
+      "hash": "53929129567ddd3b",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/FailureEvidence.cs",
+      "lineNumber": 98,
+      "codeSnippet": "catch (Exception)\r\n#pragma warning restore CA1031\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836276+00:00"
+    },
+    {
+      "hash": "395e24de0e93afdc",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/FailureEvidence.cs",
+      "lineNumber": 113,
+      "codeSnippet": "catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)\r\n            {\r\n                // An unwritable directory: the tree stays unrecorded.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836316+00:00"
+    },
+    {
+      "hash": "8b2dd03def97bf17",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/ManagedProcess.cs",
+      "lineNumber": 426,
+      "codeSnippet": "catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)\r\n        {\r\n            // no libc to signal through\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.883635+00:00"
+    },
+    {
+      "hash": "e5ea82586519d3e7",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/ManagedProcess.cs",
+      "lineNumber": 439,
+      "codeSnippet": "catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)\r\n        {\r\n            // already gone\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836387+00:00"
+    },
+    {
+      "hash": "2790dc4349c17984",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/ManagedProcess.cs",
+      "lineNumber": 868,
+      "codeSnippet": "catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException)\r\n            {\r\n                // the pipe closed under the read\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836422+00:00"
+    },
+    {
+      "hash": "270f8f5a27da33a5",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/OpenSession.cs",
+      "lineNumber": 360,
+      "codeSnippet": "catch (Exception)\r\n#pragma warning restore CA1031\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836474+00:00"
+    },
+    {
+      "hash": "fb4710fb78208454",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/OpenSession.cs",
+      "lineNumber": 374,
+      "codeSnippet": "catch (Exception)\r\n#pragma warning restore CA1031\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836501+00:00"
+    },
+    {
+      "hash": "a62edb86217b6506",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/ProcessPool.cs",
+      "lineNumber": 122,
+      "codeSnippet": "catch (ObjectDisposedException)\r\n                {\r\n                    // The start settled in the meantime: it has nothing left to cancel.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.883654+00:00"
+    },
+    {
+      "hash": "7e13f755d485b0ba",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/ProcessPool.cs",
+      "lineNumber": 174,
+      "codeSnippet": "catch\r\n        {\r\n            // The earlier stop reported its failure to its own caller.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.883657+00:00"
+    },
+    {
+      "hash": "d131100e6755bd14",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/ProcessPool.cs",
+      "lineNumber": 189,
+      "codeSnippet": "catch\r\n        {\r\n            // The start failed or was cancelled: it stopped what it spawned.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836608+00:00"
+    },
+    {
+      "hash": "fbda7d20a024e0dd",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/SessionScreens.cs",
+      "lineNumber": 33,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // The trace is a reader; it never fails an action.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836642+00:00"
+    },
+    {
+      "hash": "de7660f6d1c8720c",
+      "ruleId": "SW004",
+      "filePath": "src/E2E/Run/SessionTests.cs",
+      "lineNumber": 236,
+      "codeSnippet": "Task.Delay(LookEvery).ConfigureAwait(false)",
+      "message": "Test uses Task.Delay(false) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8836679+00:00"
+    },
+    {
+      "hash": "7bfd685e66f0e55e",
+      "ruleId": "SW004",
+      "filePath": "src/E2E/Run/SessionTests.cs",
+      "lineNumber": 236,
+      "codeSnippet": "Task.Delay(LookEvery)",
+      "message": "Test uses Task.Delay(LookEvery) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8836716+00:00"
+    },
+    {
+      "hash": "f18408c546cf3756",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/Standalone.cs",
+      "lineNumber": 427,
+      "codeSnippet": "catch (Exception)\r\n#pragma warning restore CA1031\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836749+00:00"
+    },
+    {
+      "hash": "810e46c6db75766e",
+      "ruleId": "SW003",
+      "filePath": "src/E2E/Run/Standalone.cs",
+      "lineNumber": 450,
+      "codeSnippet": "catch (Exception)\r\n#pragma warning restore CA1031\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836776+00:00"
+    },
+    {
+      "hash": "1cb312c0a73fd39f",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/AcpExecutor.cs",
+      "lineNumber": 328,
+      "codeSnippet": "catch (Exception) when (turn.IsCompleted)\r\n            {\r\n                // A turn that failed has stopped.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836819+00:00"
+    },
+    {
+      "hash": "08b97aa3c3e7e68e",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/AcpSession.cs",
+      "lineNumber": 457,
+      "codeSnippet": "catch (Exception error) when (error is OperationCanceledException or IOException or ObjectDisposedException or InvalidOperationException)\r\n        {\r\n            // The agent is gone.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836855+00:00"
+    },
+    {
+      "hash": "bb4d49d7e366a011",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/AcpSession.cs",
+      "lineNumber": 469,
+      "codeSnippet": "catch (Exception error) when (error is TimeoutException or OperationCanceledException)\r\n        {\r\n            // Describe the exit with what the agent said so far.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836892+00:00"
+    },
+    {
+      "hash": "a85285fc1824e76d",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/AcpSession.cs",
+      "lineNumber": 499,
+      "codeSnippet": "catch (ObjectDisposedException)\r\n        {\r\n            // Already ended.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836919+00:00"
+    },
+    {
+      "hash": "633b354b3eaf0a1e",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/AcpSession.cs",
+      "lineNumber": 512,
+      "codeSnippet": "catch (Exception error) when (error is IOException or InvalidOperationException or ObjectDisposedException)\r\n            {\r\n                // The pipe is gone.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836957+00:00"
+    },
+    {
+      "hash": "a87ee6037c5dea8b",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/AcpSession.cs",
+      "lineNumber": 521,
+      "codeSnippet": "catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException or AggregateException)\r\n            {\r\n                // Not started, already exited, or part of the tree could not be killed.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8836992+00:00"
+    },
+    {
+      "hash": "bdbb11b627a9549e",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/AcpSession.cs",
+      "lineNumber": 569,
+      "codeSnippet": "catch (Exception error) when (error is OperationCanceledException or InvalidOperationException or ObjectDisposedException)\r\n            {\r\n                // The agent did not exit in time: try anyway.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837029+00:00"
+    },
+    {
+      "hash": "3f19753d2c361a94",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/AcpSession.cs",
+      "lineNumber": 635,
+      "codeSnippet": "catch (Exception error) when (error is InvalidOperationException or KeyNotFoundException or JsonException)\r\n        {\r\n            // Unreadable: refuse.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837057+00:00"
+    },
+    {
+      "hash": "58ebecf9f5d9607a",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/JsonRpcConnection.cs",
+      "lineNumber": 200,
+      "codeSnippet": "catch (OperationCanceledException)\r\n        {\r\n            // Closed while answering.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837095+00:00"
+    },
+    {
+      "hash": "ffb59fffa29e0be9",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/McpToolServer.cs",
+      "lineNumber": 149,
+      "codeSnippet": "catch (InvalidOperationException)\r\n            {\r\n                // The reply already started.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837129+00:00"
+    },
+    {
+      "hash": "498323520d49c325",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/McpToolServer.cs",
+      "lineNumber": 160,
+      "codeSnippet": "catch (Exception error) when (error is HttpListenerException or ObjectDisposedException or InvalidOperationException)\r\n            {\r\n                // The agent hung up.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837167+00:00"
+    },
+    {
+      "hash": "084025427e7f1a12",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Acp/Presets.cs",
+      "lineNumber": 206,
+      "codeSnippet": "catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException or AggregateException)\r\n            {\r\n                // Already exited, or part of the tree could not be killed.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837208+00:00"
+    },
+    {
+      "hash": "40edaee3dd91cbf4",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.BrowserStack/BrowserStackDevices.cs",
+      "lineNumber": 173,
+      "codeSnippet": "catch (Exception)\r\n                    {\r\n                        // The run's log may be closed by now.\r\n                    }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837254+00:00"
+    },
+    {
+      "hash": "02d4dbe7647ed542",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Cli/CacheCommand.cs",
+      "lineNumber": 278,
+      "codeSnippet": "catch (Exception)\r\n            {\r\n                // Not empty, or already gone.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837286+00:00"
+    },
+    {
+      "hash": "575c9e46f93056ba",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Cli/Doctor.cs",
+      "lineNumber": 414,
+      "codeSnippet": "catch (Exception)\r\n#pragma warning restore CA1031\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837323+00:00"
+    },
+    {
+      "hash": "1cf4f6974884096b",
+      "ruleId": "SW005",
+      "filePath": "src/E2E.Cli/E2E.Cli.csproj",
+      "lineNumber": 15,
+      "codeSnippet": "<NoWarn>$(NoWarn);NU5111</NoWarn>",
+      "message": "Adding warnings to NoWarn: NU5111",
+      "baselinedAt": "2026-11-18T15:10:40.8837351+00:00"
+    },
+    {
+      "hash": "73b18bc32d0dfc28",
+      "ruleId": "SW005",
+      "filePath": "src/E2E.Cli/E2E.Cli.csproj",
+      "lineNumber": 23,
+      "codeSnippet": "<NoWarn>$(NoWarn);NU1701</NoWarn>",
+      "message": "Adding warnings to NoWarn: NU1701",
+      "baselinedAt": "2026-11-18T15:10:40.8837377+00:00"
+    },
+    {
+      "hash": "094e3c09e0c0e128",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Cli/Init.cs",
+      "lineNumber": 639,
+      "codeSnippet": "catch (InvalidOperationException)\r\n            {\r\n                // It exited between the cancel and the kill.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837418+00:00"
+    },
+    {
+      "hash": "60ea7c7682088ce4",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Cli/Program.cs",
+      "lineNumber": 491,
+      "codeSnippet": "catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)\r\n        {\r\n            // No opener: the URL is printed above.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837452+00:00"
+    },
+    {
+      "hash": "5a2e3de4d0ce9cb3",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Cli/Init/Examples.cs",
+      "lineNumber": 189,
+      "codeSnippet": "catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)\r\n                {\r\n                    // The copy failed first; a leftover file must not hide that error.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837492+00:00"
+    },
+    {
+      "hash": "c27894d07e7b093d",
+      "ruleId": "SW002",
+      "filePath": "src/E2E.Cli/Mcp/Server.cs",
+      "lineNumber": 12,
+      "codeSnippet": "#pragma warning disable MCP9005",
+      "message": "#pragma warning disable for warnings MCP9005 without matching restore in same scope",
+      "baselinedAt": "2026-11-18T15:10:40.883752+00:00"
+    },
+    {
+      "hash": "889cbe92e1d65fc2",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Cli/Mcp/Server.cs",
+      "lineNumber": 114,
+      "codeSnippet": "catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)\r\n        {\r\n            // A signal: the server shuts down as on a disconnect.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.883755+00:00"
+    },
+    {
+      "hash": "0bd51d8dc83f2688",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Cli/Mcp/SessionRegistry.cs",
+      "lineNumber": 222,
+      "codeSnippet": "catch (Exception)\r\n#pragma warning restore CA1031\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837596+00:00"
+    },
+    {
+      "hash": "f543a750ad6ec845",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Kernel/KernelClient.cs",
+      "lineNumber": 324,
+      "codeSnippet": "catch (JsonException)\r\n        {\r\n            // Not JSON: the text is the message.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837629+00:00"
+    },
+    {
+      "hash": "d99fe17a08f23582",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Limrun/LimrunHeartbeat.cs",
+      "lineNumber": 70,
+      "codeSnippet": "catch (Exception)\r\n                {\r\n                    // Stopped: a renewal cancelled in flight is the expected end.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837682+00:00"
+    },
+    {
+      "hash": "a46dd70b8fe329bc",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Limrun/LimrunHost.cs",
+      "lineNumber": 60,
+      "codeSnippet": "catch (InvalidOperationException)\r\n                {\r\n                    // It exited on its own first.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837717+00:00"
+    },
+    {
+      "hash": "04ceabd3a6a4b118",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Limrun/LimrunSimulators.cs",
+      "lineNumber": 207,
+      "codeSnippet": "catch (LimrunApiException cause) when (cause.Status == HttpStatusCode.NotFound)\r\n            {\r\n                // The regional create can precede the backend read model. The ready budget bounds the wait.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837758+00:00"
+    },
+    {
+      "hash": "38557d5ce9c6c199",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Limrun/LimrunSimulators.cs",
+      "lineNumber": 220,
+      "codeSnippet": "catch (LimrunApiException cause) when (cause.Status == HttpStatusCode.NotFound)\r\n        {\r\n            // An expired or already deleted instance needs no further cleanup.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837792+00:00"
+    },
+    {
+      "hash": "0374d0a3b414cb7e",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/DevicePool.cs",
+      "lineNumber": 276,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // Best effort: a close that fails leaves nothing more to do.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.883783+00:00"
+    },
+    {
+      "hash": "a2020be63b9077fe",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/DeviceProvider.cs",
+      "lineNumber": 367,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // Every task has finished; the first failure in order is reported below.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837867+00:00"
+    },
+    {
+      "hash": "112ad5444231963f",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/DeviceSession.cs",
+      "lineNumber": 271,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // The trace is a reader of the attempt, never a reason it fails.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837927+00:00"
+    },
+    {
+      "hash": "f30b314f01be10ea",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/DeviceSession.cs",
+      "lineNumber": 551,
+      "codeSnippet": "catch (Exception) when (!cancellationToken.IsCancellationRequested)\r\n                {\r\n                    // A command that never settles is abandoned here, as upstream's settle is; the stop goes on. A caller's cancel is not\r\n                    // absorbed: it surfaces as cancellation.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8837987+00:00"
+    },
+    {
+      "hash": "ca3926063527dd01",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/DeviceSession.cs",
+      "lineNumber": 623,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // The session is going away either way.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838028+00:00"
+    },
+    {
+      "hash": "1db729091569d5bc",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/DeviceSession.cs",
+      "lineNumber": 948,
+      "codeSnippet": "catch (AggregateException)\r\n                        {\r\n                            // A callback of the client's own registration threw; the caller is leaving either way.\r\n                        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838095+00:00"
+    },
+    {
+      "hash": "7442f7a39aa267fe",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/DeviceSession.Screen.cs",
+      "lineNumber": 203,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // The trace is a reader of the attempt, never a reason it fails.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838146+00:00"
+    },
+    {
+      "hash": "81fd08cb2acc6aab",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/DeviceSession.Screen.cs",
+      "lineNumber": 735,
+      "codeSnippet": "catch (IOException)\r\n                        {\r\n                            // The capture is best effort and so is its cleanup.\r\n                        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838216+00:00"
+    },
+    {
+      "hash": "893dcaaca3dccaed",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/DeviceSession.Video.cs",
+      "lineNumber": 270,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // The session is going away either way.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838263+00:00"
+    },
+    {
+      "hash": "01cc7cd06755fb80",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/DeviceSession.Video.cs",
+      "lineNumber": 291,
+      "codeSnippet": "catch (Exception) when (!cancellationToken.IsCancellationRequested)\r\n                {\r\n                    // The shared stop failed: it is sent again below.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838326+00:00"
+    },
+    {
+      "hash": "002b5476d68a5733",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/DeviceSession.Video.cs",
+      "lineNumber": 299,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // The session is going away either way.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838371+00:00"
+    },
+    {
+      "hash": "9011c545749a263e",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/Lease/LeaseHeartbeat.cs",
+      "lineNumber": 76,
+      "codeSnippet": "catch (Exception)\r\n                    {\r\n                        // The run's log may be closed by now.\r\n                    }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838447+00:00"
+    },
+    {
+      "hash": "d7476a2388530cfb",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.Mobile/Lease/LeaseHeartbeat.cs",
+      "lineNumber": 81,
+      "codeSnippet": "catch (Exception)\r\n                {\r\n                    // Stopped: a renewal cancelled in flight is the expected end.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838515+00:00"
+    },
+    {
+      "hash": "44ead6b56ac67991",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.NUnit/E2ETest.cs",
+      "lineNumber": 103,
+      "codeSnippet": "catch (OperationCanceledException)\r\n        {\r\n            // The run was cancelled: the test's own result stands.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838568+00:00"
+    },
+    {
+      "hash": "0f542af657894428",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.NUnit/E2ETest.cs",
+      "lineNumber": 125,
+      "codeSnippet": "catch (OperationCanceledException)\r\n            {\r\n                // The run was cancelled: the test's own result stands.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838626+00:00"
+    },
+    {
+      "hash": "9555925c0656f86f",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.NUnit/E2ETest.cs",
+      "lineNumber": 205,
+      "codeSnippet": "catch (OperationCanceledException)\r\n        {\r\n            // The run was cancelled: the test's own result stands.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.883867+00:00"
+    },
+    {
+      "hash": "fc1b0a79662b6d31",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.NUnit/LooksBeforeTeardownAttribute.cs",
+      "lineNumber": 91,
+      "codeSnippet": "catch (OperationCanceledException)\r\n            {\r\n                // The look is a courtesy: the test's own failure is the one to report.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838737+00:00"
+    },
+    {
+      "hash": "2561d1f476bdda8d",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.TestMu.Mobile/AppiumDeviceClient.Input.cs",
+      "lineNumber": 123,
+      "codeSnippet": "catch (WebDriverException failure) when (failure.Error == \"invalid element state\")\r\n            {\r\n                // The focused element takes no text (a button): the keys go to the device.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.883881+00:00"
+    },
+    {
+      "hash": "eca7fc0d317612bb",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.TestMu.Mobile/WebDriverClient.cs",
+      "lineNumber": 85,
+      "codeSnippet": "catch (WebDriverException failure) when (failure.Status == HttpStatusCode.NotFound || failure.Error == \"invalid session id\")\r\n        {\r\n            // Gone already.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8838961+00:00"
+    },
+    {
+      "hash": "2c7f9a280f05288a",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.TUnit/LooksBeforeTeardownExecutor.cs",
+      "lineNumber": 56,
+      "codeSnippet": "catch (OperationCanceledException)\r\n                {\r\n                    // Dropped behind the body's failure.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.883908+00:00"
+    },
+    {
+      "hash": "0044c2b5d6840b48",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.TUnit/LooksBeforeTeardownExecutor.cs",
+      "lineNumber": 130,
+      "codeSnippet": "catch (OperationCanceledException)\r\n        {\r\n            // The look is a courtesy: the test's own failure is the one to report.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8839183+00:00"
+    },
+    {
+      "hash": "bf7ff680aaf5c9da",
+      "ruleId": "SW005",
+      "filePath": "src/E2E.WinApp/E2E.WinApp.csproj",
+      "lineNumber": 14,
+      "codeSnippet": "<NoWarn>$(NoWarn);NU1701</NoWarn>",
+      "message": "Adding warnings to NoWarn: NU1701",
+      "baselinedAt": "2026-11-18T15:10:40.8839264+00:00"
+    },
+    {
+      "hash": "a35bd70275f28872",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.WinApp/UiAutomationDriver.cs",
+      "lineNumber": 366,
+      "codeSnippet": "catch (Exception)\r\n                {\r\n                    // Best effort: the next process is still ended, and the library still released.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8839359+00:00"
+    },
+    {
+      "hash": "09d96b62152cba56",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.WinApp/UiAutomationDriver.cs",
+      "lineNumber": 493,
+      "codeSnippet": "catch (Exception cause) when (cause is not OperationCanceledException)\r\n                {\r\n                    // An element that vanished or has no selection item pattern is not selected as far as the tree can say.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8839484+00:00"
+    },
+    {
+      "hash": "8c1716539ce4e6eb",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.WinApp/WindowActions.cs",
+      "lineNumber": 110,
+      "codeSnippet": "catch (EngineException cause) when (cause.Code == EngineErrorCodes.NotActionable)\r\n                {\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8839612+00:00"
+    },
+    {
+      "hash": "850c31a520a6ef8c",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.WinApp/WindowActions.cs",
+      "lineNumber": 378,
+      "codeSnippet": "catch (WindowDriverException cause) when (cause.Fault == DriverFault.ValueRejected)\r\n        {\r\n            // Fall through to the keyboard.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8839701+00:00"
+    },
+    {
+      "hash": "bd09ac0d4f2af6ce",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.WinApp/WindowProcess.cs",
+      "lineNumber": 145,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // The trace is a reader of the attempt, never a reason it fails.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8839791+00:00"
+    },
+    {
+      "hash": "db1252d81dd19870",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.WinApp/WindowProcess.cs",
+      "lineNumber": 160,
+      "codeSnippet": "catch (InvalidOperationException)\r\n        {\r\n            // Already gone.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8839904+00:00"
+    },
+    {
+      "hash": "c140fa3c8b1ac12d",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.WinApp/WindowProcess.cs",
+      "lineNumber": 171,
+      "codeSnippet": "catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)\r\n        {\r\n            // The budget ran out; the kill was sent and the process is abandoned.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8839986+00:00"
+    },
+    {
+      "hash": "5f5033771dde59a5",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.WinApp/WindowProcess.cs",
+      "lineNumber": 175,
+      "codeSnippet": "catch (InvalidOperationException)\r\n        {\r\n            // Already gone.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8840059+00:00"
+    },
+    {
+      "hash": "2da51c594d05e050",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.WinApp/WindowSession.cs",
+      "lineNumber": 206,
+      "codeSnippet": "catch (Exception)\r\n                {\r\n                    // The app is going away either way.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8840139+00:00"
+    },
+    {
+      "hash": "eb766096520f6769",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.WinApp/WindowSession.cs",
+      "lineNumber": 292,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // The trace is a reader of the attempt, never a reason it fails.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8840198+00:00"
+    },
+    {
+      "hash": "243e27f3b34c26d5",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.WinApp/WindowSession.cs",
+      "lineNumber": 305,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // The trace is a reader of the attempt, never a reason it fails.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8840254+00:00"
+    },
+    {
+      "hash": "ed40b8ebaac23d86",
+      "ruleId": "SW005",
+      "filePath": "src/E2E.WinApp.NUnit/E2E.WinApp.NUnit.csproj",
+      "lineNumber": 12,
+      "codeSnippet": "<NoWarn>$(NoWarn);NU1701</NoWarn>",
+      "message": "Adding warnings to NoWarn: NU1701",
+      "baselinedAt": "2026-11-18T15:10:40.884031+00:00"
+    },
+    {
+      "hash": "558c8e5b0050e621",
+      "ruleId": "SW005",
+      "filePath": "src/E2E.WinApp.TUnit/E2E.WinApp.TUnit.csproj",
+      "lineNumber": 12,
+      "codeSnippet": "<NoWarn>$(NoWarn);NU1701</NoWarn>",
+      "message": "Adding warnings to NoWarn: NU1701",
+      "baselinedAt": "2026-11-18T15:10:40.8840363+00:00"
+    },
+    {
+      "hash": "aa2d8940f58df781",
+      "ruleId": "SW005",
+      "filePath": "src/E2E.WinApp.XUnit.V3/E2E.WinApp.XUnit.V3.csproj",
+      "lineNumber": 12,
+      "codeSnippet": "<NoWarn>$(NoWarn);NU1701</NoWarn>",
+      "message": "Adding warnings to NoWarn: NU1701",
+      "baselinedAt": "2026-11-18T15:10:40.8840417+00:00"
+    },
+    {
+      "hash": "51ca8e87b50866f6",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
+      "lineNumber": 109,
+      "codeSnippet": "catch (OperationCanceledException)\r\n        {\r\n            // The look is a courtesy: the test's own failure is the one to report.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8840482+00:00"
+    },
+    {
+      "hash": "5a14e5439b5c49e4",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
+      "lineNumber": 158,
+      "codeSnippet": "catch (OperationCanceledException)\r\n        {\r\n            // The run was cancelled: the test's own result stands.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8840555+00:00"
+    },
+    {
+      "hash": "f9ce5918a5a67d0d",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.XUnit.V3/E2ETest.cs",
+      "lineNumber": 176,
+      "codeSnippet": "catch (OperationCanceledException)\r\n            {\r\n                // The run was cancelled: the test's own result stands.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8840619+00:00"
+    },
+    {
+      "hash": "3be79009df9a6053",
+      "ruleId": "SW003",
+      "filePath": "src/Shared/MobileAppHost.cs",
+      "lineNumber": 178,
+      "codeSnippet": "catch (Exception)\r\n                {\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8840686+00:00"
+    },
+    {
+      "hash": "a724eab5fce6b0cf",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Acp.Tests/Executor/AcpHarness.cs",
+      "lineNumber": 120,
+      "codeSnippet": "catch (Exception ex) when (ex is HttpListenerException or IOException or ObjectDisposedException)\r\n            {\r\n                // A client that hung up does not stop the site.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.884076+00:00"
+    },
+    {
+      "hash": "7a7d89770e09a749",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Acp.Tests/Executor/AcpHarness.cs",
+      "lineNumber": 58,
+      "codeSnippet": "Thread.Sleep(300)",
+      "message": "Test uses Thread.Sleep(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8840836+00:00"
+    },
+    {
+      "hash": "a0cbb76e4016e30a",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Acp.Tests/Executor/AcpHarness.cs",
+      "lineNumber": 146,
+      "codeSnippet": "Task.Delay(25)",
+      "message": "Test uses Task.Delay(25) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8840894+00:00"
+    },
+    {
+      "hash": "fe1f2916c93b0f26",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Acp.Tests/Executor/AcpTests.cs",
+      "lineNumber": 29,
+      "codeSnippet": "catch (IOException)\r\n        {\r\n            // The scripted agent may still hold its log open.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8840961+00:00"
+    },
+    {
+      "hash": "45928299ae4fd346",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Acp.Tests/Presets/AgentPresetsTests.cs",
+      "lineNumber": 32,
+      "codeSnippet": "catch (IOException)\r\n            {\r\n                // The scripted agent may still hold its log open.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8841034+00:00"
+    },
+    {
+      "hash": "a8f3a90853e166d6",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Acp.Tests.Agent/Program.cs",
+      "lineNumber": 176,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8841097+00:00"
+    },
+    {
+      "hash": "6d4ef9f9a0e1619b",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Acp.Tests.Agent/Program.cs",
+      "lineNumber": 185,
+      "codeSnippet": "Task.Delay(40)",
+      "message": "Test uses Task.Delay(40) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8841157+00:00"
+    },
+    {
+      "hash": "b6bf318b595a8d84",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Acp.Tests.Agent/Program.cs",
+      "lineNumber": 192,
+      "codeSnippet": "Task.Delay(Timeout.Infinite)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8841223+00:00"
+    },
+    {
+      "hash": "c57110436c4822df",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Agent.Tests/PlaywrightRoutes.cs",
+      "lineNumber": 277,
+      "codeSnippet": "catch (Exception ex) when (ex is WebSocketException or OperationCanceledException)\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8841287+00:00"
+    },
+    {
+      "hash": "193ad05a72adb111",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Agent.Tests/PlaywrightRoutes.cs",
+      "lineNumber": 81,
+      "codeSnippet": "Task.Delay(Bounded(query.GetValueOrDefault(\"ms\"), 1000, MaxDelayMs)).ConfigureAwait(false)",
+      "message": "Test uses Task.Delay(false) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.884136+00:00"
+    },
+    {
+      "hash": "e096308e40344164",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Agent.Tests/PlaywrightRoutes.cs",
+      "lineNumber": 81,
+      "codeSnippet": "Task.Delay(Bounded(query.GetValueOrDefault(\"ms\"), 1000, MaxDelayMs))",
+      "message": "Test uses Task.Delay(Bounded(query.GetValueOrDefault(\"ms\"), 1000, MaxDelayMs)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8841426+00:00"
+    },
+    {
+      "hash": "33acb3e3b45f56f9",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Agent.Tests/PlaywrightRoutes.cs",
+      "lineNumber": 430,
+      "codeSnippet": "Task.Delay(HeldRequestLimit)",
+      "message": "Test uses Task.Delay(HeldRequestLimit) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8841476+00:00"
+    },
+    {
+      "hash": "02c4d36058b658c8",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Agent.Tests/Testbed.cs",
+      "lineNumber": 1116,
+      "codeSnippet": "catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException or ObjectDisposedException)\r\n                    {\r\n                        // The client went away.\r\n                    }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8841573+00:00"
+    },
+    {
+      "hash": "db9cfb9b3f0e4902",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Agent.Tests/Testbed.cs",
+      "lineNumber": 1127,
+      "codeSnippet": "catch (Exception inner) when (inner is InvalidOperationException or ObjectDisposedException or System.Net.ProtocolViolationException)\r\n                        {\r\n                            // The response was already sent.\r\n                        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8841671+00:00"
+    },
+    {
+      "hash": "253b37f64e435f81",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Agent.Tests/Testbed.cs",
+      "lineNumber": 1138,
+      "codeSnippet": "catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException or ObjectDisposedException)\r\n                        {\r\n                            // The response was aborted.\r\n                        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8841764+00:00"
+    },
+    {
+      "hash": "7a1b9b252f9c268d",
+      "ruleId": "SW005",
+      "filePath": "tests/E2E.Cli.Tests/E2E.Cli.Tests.csproj",
+      "lineNumber": 7,
+      "codeSnippet": "<NoWarn>$(NoWarn);NU1701</NoWarn>",
+      "message": "Adding warnings to NoWarn: NU1701",
+      "baselinedAt": "2026-11-18T15:10:40.8841815+00:00"
+    },
+    {
+      "hash": "144b2b57ae105f13",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/CliDoctor/DoctorTests.cs",
+      "lineNumber": 36,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8841914+00:00"
+    },
+    {
+      "hash": "02779f40922a6493",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/CliDoctor/DoctorTests.cs",
+      "lineNumber": 40,
+      "codeSnippet": "Task.Delay(200, CancellationToken.None)",
+      "message": "Test uses Task.Delay(200) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.884203+00:00"
+    },
+    {
+      "hash": "d662efebd952427c",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/CliDoctor/E2eDoctorTests.cs",
+      "lineNumber": 78,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.884213+00:00"
+    },
+    {
+      "hash": "8549ae6fa17b44af",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Cli.Tests/CliInit/CliInitTestBase.cs",
+      "lineNumber": 38,
+      "codeSnippet": "catch (Exception error) when (error is IOException or UnauthorizedAccessException)\r\n        {\r\n            // A temp directory left behind is not a test failure.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8842249+00:00"
+    },
+    {
+      "hash": "953955ed20a5c63c",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/Helpers/FixtureApp.cs",
+      "lineNumber": 196,
+      "codeSnippet": "Task.Delay(1_500, cancellationToken)",
+      "message": "Test uses Task.Delay(1_500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8842345+00:00"
+    },
+    {
+      "hash": "4fb6924ad98fb0e7",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Cli.Tests/Helpers/FixtureProject.cs",
+      "lineNumber": 35,
+      "codeSnippet": "catch (IOException)\r\n        {\r\n            // A browser that is still closing may hold a file; a temp directory is not worth a failed test.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8842453+00:00"
+    },
+    {
+      "hash": "c4fb40b0bd605209",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Cli.Tests/Helpers/RawServer.cs",
+      "lineNumber": 143,
+      "codeSnippet": "catch (OperationCanceledException)\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8842542+00:00"
+    },
+    {
+      "hash": "c9f4bc4f4cb65d71",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Cli.Tests/Helpers/RawServer.cs",
+      "lineNumber": 177,
+      "codeSnippet": "catch (Exception ex) when (ex is ObjectDisposedException or IOException or InvalidOperationException)\r\n        {\r\n            // The client end closed under the read: the test abandoned the pipe on purpose.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8842656+00:00"
+    },
+    {
+      "hash": "0e96bd8dcae7d366",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/InitExamples/ExampleArchives.cs",
+      "lineNumber": 158,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8842753+00:00"
+    },
+    {
+      "hash": "3f33acadaa585bf0",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/McpHostedDevice/HostedDeviceSessionTests.cs",
+      "lineNumber": 80,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8842861+00:00"
+    },
+    {
+      "hash": "e6ad268948f03ff1",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/McpHostedDevice/HostedDeviceSessionTests.cs",
+      "lineNumber": 169,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8842988+00:00"
+    },
+    {
+      "hash": "0ec3e41ca3d10488",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/McpHostedDevice/HostedDeviceSessionTests.cs",
+      "lineNumber": 254,
+      "codeSnippet": "Task.Delay(20)",
+      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8843078+00:00"
+    },
+    {
+      "hash": "9c1d70d2f5803707",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/McpRecording/SessionRecorderTests.cs",
+      "lineNumber": 206,
+      "codeSnippet": "Task.Delay(10)",
+      "message": "Test uses Task.Delay(10) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8843188+00:00"
+    },
+    {
+      "hash": "786272d95c6ebe81",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/McpSessionHost/SessionHostTests.cs",
+      "lineNumber": 258,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8843284+00:00"
+    },
+    {
+      "hash": "e4b6be6ebe0db671",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/McpSessionHost/SessionHostTests.cs",
+      "lineNumber": 456,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8843515+00:00"
+    },
+    {
+      "hash": "a63f682f73f0b8c3",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/McpSessionHost/SessionHostTests.cs",
+      "lineNumber": 551,
+      "codeSnippet": "Task.Delay(20)",
+      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8843622+00:00"
+    },
+    {
+      "hash": "cd71920a2557c929",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/McpStdoutBackpressure/E2EMcpStdoutBackpressureTests.cs",
+      "lineNumber": 37,
+      "codeSnippet": "Task.Delay(1_000)",
+      "message": "Test uses Task.Delay(1_000) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8843721+00:00"
+    },
+    {
+      "hash": "780d9e39fdaa0e48",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Cli.Tests/McpUserOutput/E2EMcpRedactsWhatUserCodePrintsTests.cs",
+      "lineNumber": 54,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8843843+00:00"
+    },
+    {
+      "hash": "6b00e77a1ab69097",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Expo.Tests/Eas/ExpoSimulatorsTests.cs",
+      "lineNumber": 668,
+      "codeSnippet": "Task.Delay(20, timeout.Token)",
+      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8843938+00:00"
+    },
+    {
+      "hash": "898b7c1aa37dd2dc",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Limrun.Tests/Heartbeat/LimrunHeartbeatTests.cs",
+      "lineNumber": 108,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8844053+00:00"
+    },
+    {
+      "hash": "ae42a80ecf858d3e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Limrun.Tests/Heartbeat/ManualDelay.cs",
+      "lineNumber": 89,
+      "codeSnippet": "Task.Delay(2).ConfigureAwait(false)",
+      "message": "Test uses Task.Delay(false) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8844154+00:00"
+    },
+    {
+      "hash": "0254f18965b74970",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Limrun.Tests/Heartbeat/ManualDelay.cs",
+      "lineNumber": 89,
+      "codeSnippet": "Task.Delay(2)",
+      "message": "Test uses Task.Delay(2) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8844233+00:00"
+    },
+    {
+      "hash": "ba38fc4effb0edd7",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Limrun.Tests/Live/LimrunLiveTests.cs",
+      "lineNumber": 42,
+      "codeSnippet": "Task.Delay(delay, token)",
+      "message": "Test uses Task.Delay(delay) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8844336+00:00"
+    },
+    {
+      "hash": "0fafd1fd6397fb4b",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Limrun.Tests/Live/LimrunLiveTests.cs",
+      "lineNumber": 88,
+      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(2))",
+      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(2)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8844437+00:00"
+    },
+    {
+      "hash": "da0ce623554a9ef6",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.DevFlow.Tests/Helpers/FakeAgent.cs",
+      "lineNumber": 73,
+      "codeSnippet": "Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.InfiniteTimeSpan) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.884454+00:00"
+    },
+    {
+      "hash": "e4b2a0f057b307d3",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Engine/DeterministicActionsTests.cs",
+      "lineNumber": 339,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8844634+00:00"
+    },
+    {
+      "hash": "18e1e97ebfec087f",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Engine/DeterministicActionsTests.cs",
+      "lineNumber": 425,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8844739+00:00"
+    },
+    {
+      "hash": "39e2b597b7717e80",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Engine/DeterministicActionsTests.cs",
+      "lineNumber": 509,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8844831+00:00"
+    },
+    {
+      "hash": "918376d2da990f36",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Engine/InputFreshnessTests.cs",
+      "lineNumber": 371,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8844926+00:00"
+    },
+    {
+      "hash": "55701af3ad544661",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Engine/ObservationTests.cs",
+      "lineNumber": 630,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8845038+00:00"
+    },
+    {
+      "hash": "64f5c750db6764e6",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Engine/SessionHooksViewportSwipeLocationArtifactsTests.cs",
+      "lineNumber": 157,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8845142+00:00"
+    },
+    {
+      "hash": "b86ee6e1e5b97898",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Engine/SessionHooksViewportSwipeLocationArtifactsTests.cs",
+      "lineNumber": 236,
+      "codeSnippet": "Task.Delay(10)",
+      "message": "Test uses Task.Delay(10) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8845238+00:00"
+    },
+    {
+      "hash": "cd456bb0fc4a35e9",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Engine/VideoTests.cs",
+      "lineNumber": 256,
+      "codeSnippet": "Task.Delay(5)",
+      "message": "Test uses Task.Delay(5) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8845356+00:00"
+    },
+    {
+      "hash": "c3ee9571b96da652",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Helpers/Harness.cs",
+      "lineNumber": 189,
+      "codeSnippet": "Task.Delay(1, give.Token)",
+      "message": "Test uses Task.Delay(1) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8845456+00:00"
+    },
+    {
+      "hash": "b42314f99da30780",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Helpers/ManualDelay.cs",
+      "lineNumber": 89,
+      "codeSnippet": "Task.Delay(2).ConfigureAwait(false)",
+      "message": "Test uses Task.Delay(false) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8845548+00:00"
+    },
+    {
+      "hash": "1f0a3e34653c83ad",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Helpers/ManualDelay.cs",
+      "lineNumber": 89,
+      "codeSnippet": "Task.Delay(2)",
+      "message": "Test uses Task.Delay(2) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8845649+00:00"
+    },
+    {
+      "hash": "376ae4ade330ebb3",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/LeaseHeartbeat/LeaseHeartbeatTests.cs",
+      "lineNumber": 99,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8845769+00:00"
+    },
+    {
+      "hash": "cac6c58d75154fa4",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Support/SupportHelpersTests.cs",
+      "lineNumber": 26,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(200), time)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(200)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.884589+00:00"
+    },
+    {
+      "hash": "d9c56cbac71a5721",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Mobile.Tests/Support/SupportHelpersTests.cs",
+      "lineNumber": 102,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(180), token)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(180)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8845988+00:00"
+    },
+    {
+      "hash": "9bb1da0a3ff25b03",
+      "ruleId": "SW005",
+      "filePath": "tests/E2E.NUnit.Tests/E2E.NUnit.Tests.csproj",
+      "lineNumber": 7,
+      "codeSnippet": "<NoWarn>$(NoWarn);NU1701</NoWarn>",
+      "message": "Adding warnings to NoWarn: NU1701",
+      "baselinedAt": "2026-11-18T15:10:40.8846068+00:00"
+    },
+    {
+      "hash": "6b08377e7ac8658a",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.NUnit.Tests/Dialog/PageDialogTests.cs",
+      "lineNumber": 99,
+      "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\r\n            {\r\n                // Upstream: `.catch(() => {})`.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8846201+00:00"
+    },
+    {
+      "hash": "5c3e35e82cc8c68e",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.NUnit.Tests/Dialog/PageDialogTests.cs",
+      "lineNumber": 127,
+      "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\r\n            {\r\n                // Upstream: `.catch(() => {})`.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8846304+00:00"
+    },
+    {
+      "hash": "21c33f5dd8bf5684",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.NUnit.Tests/Download/DownloadTests.cs",
+      "lineNumber": 67,
+      "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\r\n            {\r\n                // Upstream: `.catch(() => undefined)`.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8846435+00:00"
+    },
+    {
+      "hash": "476e8a5b8b0fe3bc",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/ElementhandleScrollIntoView/ElementhandleScrollIntoViewTests.cs",
+      "lineNumber": 29,
+      "codeSnippet": "Task.Delay(1000)",
+      "message": "Test uses Task.Delay(1000) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8846533+00:00"
+    },
+    {
+      "hash": "f84731a7c5c0be16",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/ExpectSoft/ExpectSoftInARunFixtures.cs",
+      "lineNumber": 53,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, global::NUnit.Framework.TestContext.CurrentContext.CancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.884665+00:00"
+    },
+    {
+      "hash": "9c8a7e8e2763dd09",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/Helpers/Helpers.cs",
+      "lineNumber": 22,
+      "codeSnippet": "Task.Delay(milliseconds).ConfigureAwait(false)",
+      "message": "Test uses Task.Delay(false) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.884674+00:00"
+    },
+    {
+      "hash": "a1a35c648800e94f",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/Helpers/Helpers.cs",
+      "lineNumber": 22,
+      "codeSnippet": "Task.Delay(milliseconds)",
+      "message": "Test uses Task.Delay(milliseconds) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8846827+00:00"
+    },
+    {
+      "hash": "50226ee8e651004e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/LocatorFrame/LocatorFrameTests.cs",
+      "lineNumber": 115,
+      "codeSnippet": "Task.Delay(500)",
+      "message": "Test uses Task.Delay(500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8846953+00:00"
+    },
+    {
+      "hash": "2aeb92e7076ada01",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.NUnit.Tests/LocatorIsVisible/LocatorIsVisibleTests.cs",
+      "lineNumber": 167,
+      "codeSnippet": "catch (Exception ex) when (ex is not OperationCanceledException)\r\n            {\r\n                // Upstream ignores a goto that the navigation interrupts.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8847058+00:00"
+    },
+    {
+      "hash": "842508f011543f90",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/OpenSessionTestOverE2eMcpTests.cs",
+      "lineNumber": 216,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8847175+00:00"
+    },
+    {
+      "hash": "1a2902a6ef6af155",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/OpenSessionTestOverE2eMcpTests.cs",
+      "lineNumber": 237,
+      "codeSnippet": "Task.Delay(250)",
+      "message": "Test uses Task.Delay(250) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8847277+00:00"
+    },
+    {
+      "hash": "2b6bf92133206970",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/OpenSessionTestOverE2eMcpTests.cs",
+      "lineNumber": 397,
+      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(6))",
+      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(6)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8847367+00:00"
+    },
+    {
+      "hash": "80c318c79126604e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/OpenSessionTestOverE2eMcpTests.cs",
+      "lineNumber": 448,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8847476+00:00"
+    },
+    {
+      "hash": "332d1343bff0fe01",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/SessionsSideBySideTests.cs",
+      "lineNumber": 56,
+      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(3))",
+      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(3)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8847577+00:00"
+    },
+    {
+      "hash": "e11db258157ed772",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/SessionsSideBySideTests.cs",
+      "lineNumber": 187,
+      "codeSnippet": "Thread.Sleep(300)",
+      "message": "Test uses Thread.Sleep(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8847664+00:00"
+    },
+    {
+      "hash": "8199ec6fb0523a91",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/SessionsSideBySideTests.cs",
+      "lineNumber": 195,
+      "codeSnippet": "Expect.Poll(async () =>\r\n        {\r\n            await Task.Delay(300);\r\n            return 1;\r\n        }).ToMatchAsync(Is.EqualTo(1))",
+      "message": "Test uses Task.Delay(Is.EqualTo(1)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8847782+00:00"
+    },
+    {
+      "hash": "18d92e0d78e3c3cd",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/SessionsSideBySideTests.cs",
+      "lineNumber": 197,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8847883+00:00"
+    },
+    {
+      "hash": "02ba2fd690e653f0",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/SessionsSideBySideTests.cs",
+      "lineNumber": 221,
+      "codeSnippet": "Expect.Poll(async () =>\r\n        {\r\n            await Task.Delay(300);\r\n            return 1;\r\n        }).ToMatchAsync(Is.EqualTo(1))",
+      "message": "Test uses Task.Delay(Is.EqualTo(1)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8848425+00:00"
+    },
+    {
+      "hash": "122db6b0454864ab",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/McpTestRun/SessionsSideBySideTests.cs",
+      "lineNumber": 223,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8848599+00:00"
+    },
+    {
+      "hash": "03355c612f353087",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/NetworkIdle/PageNetworkIdleTests.cs",
+      "lineNumber": 56,
+      "codeSnippet": "Task.Delay(500)",
+      "message": "Test uses Task.Delay(500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8848723+00:00"
+    },
+    {
+      "hash": "a906b4031df4a1b7",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/NetworkIdle/PageNetworkIdleTests.cs",
+      "lineNumber": 129,
+      "codeSnippet": "Task.Delay(600)",
+      "message": "Test uses Task.Delay(600) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8848819+00:00"
+    },
+    {
+      "hash": "bae53d6ef08975c4",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/RequestContinue/PageRequestContinueTests.cs",
+      "lineNumber": 375,
+      "codeSnippet": "Task.Delay(1000)",
+      "message": "Test uses Task.Delay(1000) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8848921+00:00"
+    },
+    {
+      "hash": "cf9c519fc0ab4646",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/RequestFallback/PageRequestFallbackTests.cs",
+      "lineNumber": 53,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8849045+00:00"
+    },
+    {
+      "hash": "5bec35f128bb1d74",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/Route/PageRouteTests.cs",
+      "lineNumber": 214,
+      "codeSnippet": "Task.Delay(500)",
+      "message": "Test uses Task.Delay(500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8849146+00:00"
+    },
+    {
+      "hash": "f40e7ff6c6ff0616",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/Route/PageRouteTests.cs",
+      "lineNumber": 240,
+      "codeSnippet": "Task.Delay(500)",
+      "message": "Test uses Task.Delay(500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8849232+00:00"
+    },
+    {
+      "hash": "07a46ff788fa7dd4",
+      "ruleId": "SW001",
+      "filePath": "tests/E2E.NUnit.Tests/RunSelection/RunSelectionTests.cs",
+      "lineNumber": 16,
+      "codeSnippet": "Ignore(\"only found by reflection\")",
+      "message": "Test method 'Is_found_by_reflection' is disabled: only found by reflection",
+      "baselinedAt": "2026-11-18T15:10:40.8849348+00:00"
+    },
+    {
+      "hash": "a430db5ec1a859aa",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/Screenshot/PageScreenshotTests.cs",
+      "lineNumber": 51,
+      "codeSnippet": "Task.Delay(150)",
+      "message": "Test uses Task.Delay(150) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8849445+00:00"
+    },
+    {
+      "hash": "409b757ffa3b995e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/Screenshot/PageScreenshotTests.cs",
+      "lineNumber": 95,
+      "codeSnippet": "Task.Delay(150)",
+      "message": "Test uses Task.Delay(150) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8849543+00:00"
+    },
+    {
+      "hash": "e370409c78d2804d",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/Screenshot/PageScreenshotTests.cs",
+      "lineNumber": 154,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8849657+00:00"
+    },
+    {
+      "hash": "af380bc66f0a2dc3",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/SelectOption/PageSelectOptionTests.cs",
+      "lineNumber": 209,
+      "codeSnippet": "Task.Delay(1000)",
+      "message": "Test uses Task.Delay(1000) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8849749+00:00"
+    },
+    {
+      "hash": "1a4df6d8e5434024",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/SelectOption/PageSelectOptionTests.cs",
+      "lineNumber": 240,
+      "codeSnippet": "Task.Delay(1000)",
+      "message": "Test uses Task.Delay(1000) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8849838+00:00"
+    },
+    {
+      "hash": "c1d536ad40e93592",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/SelectOption/PageSelectOptionTests.cs",
+      "lineNumber": 273,
+      "codeSnippet": "Task.Delay(1000)",
+      "message": "Test uses Task.Delay(1000) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8849941+00:00"
+    },
+    {
+      "hash": "361e0ab1fba0f6e1",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/SelectOption/PageSelectOptionTests.cs",
+      "lineNumber": 311,
+      "codeSnippet": "Task.Delay(1000)",
+      "message": "Test uses Task.Delay(1000) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8850032+00:00"
+    },
+    {
+      "hash": "0b570b6c7f14c9a1",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.NUnit.Tests/SelectorsFrame/SelectorsFrameTests.cs",
+      "lineNumber": 112,
+      "codeSnippet": "Task.Delay(500)",
+      "message": "Test uses Task.Delay(500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8850168+00:00"
+    },
+    {
+      "hash": "c6831ccb0309ac02",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.TestMu.Mobile.Tests/Session/WebDriverClientTests.cs",
+      "lineNumber": 177,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8850268+00:00"
+    },
+    {
+      "hash": "c747b2b1a1526f86",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.TestMu.Tests/Live/TestMuLiveTests.cs",
+      "lineNumber": 77,
+      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(3))",
+      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(3)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8850363+00:00"
+    },
+    {
+      "hash": "175fac8641a1a4fe",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/CoreTests.cs",
+      "lineNumber": 108,
+      "codeSnippet": "Task.Delay(80)",
+      "message": "Test uses Task.Delay(80) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8850499+00:00"
+    },
+    {
+      "hash": "0d4c58d9667caee6",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/CoreTests.cs",
+      "lineNumber": 133,
+      "codeSnippet": "Task.Delay(80)",
+      "message": "Test uses Task.Delay(80) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8850612+00:00"
+    },
+    {
+      "hash": "6af46613ad27bebf",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/CoreTests.cs",
+      "lineNumber": 203,
+      "codeSnippet": "Task.Delay(80)",
+      "message": "Test uses Task.Delay(80) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8850729+00:00"
+    },
+    {
+      "hash": "002f8eb91bd84a5d",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/CoreTests.cs",
+      "lineNumber": 428,
+      "codeSnippet": "Task.Delay(delay).ContinueWith(_ => status.Hidden = false, TaskScheduler.Default)",
+      "message": "Test uses Task.Delay(_ => status.Hidden = false) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.885084+00:00"
+    },
+    {
+      "hash": "a347d9f571381b61",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/CoreTests.cs",
+      "lineNumber": 428,
+      "codeSnippet": "Task.Delay(delay)",
+      "message": "Test uses Task.Delay(delay) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8850957+00:00"
+    },
+    {
+      "hash": "624a7ac99615c194",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/CoreTests.cs",
+      "lineNumber": 687,
+      "codeSnippet": "Task.Delay(80)",
+      "message": "Test uses Task.Delay(80) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8851062+00:00"
+    },
+    {
+      "hash": "d677650d3c8153de",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/RemoteChrome.cs",
+      "lineNumber": 151,
+      "codeSnippet": "catch (OperationCanceledException)\r\n        {\r\n            // A helper still holds the pipes; stop waiting and let the profile cleanup below cope.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8851194+00:00"
+    },
+    {
+      "hash": "81d89dccf496559c",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/RemoteChrome.cs",
+      "lineNumber": 155,
+      "codeSnippet": "catch (InvalidOperationException)\r\n        {\r\n            // The process never started.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.885129+00:00"
+    },
+    {
+      "hash": "35a13d4e47cdd068",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/RemoteChrome.cs",
+      "lineNumber": 215,
+      "codeSnippet": "catch (Exception error) when (error is IOException or UnauthorizedAccessException)\r\n                {\r\n                    // Another process removed it, or a leftover Chrome still holds it; the next sweep tries again.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8851414+00:00"
+    },
+    {
+      "hash": "4bb55d7f9b08e59e",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/RemoteChrome.cs",
+      "lineNumber": 221,
+      "codeSnippet": "catch (Exception error) when (error is IOException or UnauthorizedAccessException)\r\n        {\r\n            // The temp root is unreadable; there is nothing to sweep.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8851511+00:00"
+    },
+    {
+      "hash": "b57056e308faf64a",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/RemoteChrome.cs",
+      "lineNumber": 191,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(200 * attempt))",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(200 * attempt)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8851621+00:00"
+    },
+    {
+      "hash": "4ea8351434d25a29",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/SteppingTime.cs",
+      "lineNumber": 44,
+      "codeSnippet": "Task.Delay(1)",
+      "message": "Test uses Task.Delay(1) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8851808+00:00"
+    },
+    {
+      "hash": "55f103bd3a4c88a7",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/WebSemanticsTests.cs",
+      "lineNumber": 269,
+      "codeSnippet": "Task.Delay(700)",
+      "message": "Test uses Task.Delay(700) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8851911+00:00"
+    },
+    {
+      "hash": "7881503c5fa7a72d",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Actions/DispatchLocatorActionTests.cs",
+      "lineNumber": 144,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(300))",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(300)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8852028+00:00"
+    },
+    {
+      "hash": "35115cefb95d2ca4",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Actions/DispatchLocatorActionTests.cs",
+      "lineNumber": 148,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(1500))",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(1500)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8852136+00:00"
+    },
+    {
+      "hash": "0e2904bfc6633442",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Actions/DispatchLocatorActionTests.cs",
+      "lineNumber": 185,
+      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(1))",
+      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(1)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8852256+00:00"
+    },
+    {
+      "hash": "d7c28676e1098d51",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Actions/DispatchLocatorActionTests.cs",
+      "lineNumber": 191,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8852353+00:00"
+    },
+    {
+      "hash": "ab0eacd75fe74809",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Actions/DispatchPointerActionTests.cs",
+      "lineNumber": 144,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8852455+00:00"
+    },
+    {
+      "hash": "a60604d4000f1b30",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Actions/DispatchPointerActionTests.cs",
+      "lineNumber": 152,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.885257+00:00"
+    },
+    {
+      "hash": "69d95637b29a3fa8",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Actions/DispatchPointerActionTests.cs",
+      "lineNumber": 191,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8852657+00:00"
+    },
+    {
+      "hash": "2d3e41e2050e8b95",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Actions/DispatchPointerActionTests.cs",
+      "lineNumber": 207,
+      "codeSnippet": "Task.Delay(10)",
+      "message": "Test uses Task.Delay(10) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8852744+00:00"
+    },
+    {
+      "hash": "9544323f12c0225c",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentAct/AgentActCancellationAndMalformedToolCallsTests.cs",
+      "lineNumber": 146,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8852865+00:00"
+    },
+    {
+      "hash": "2466a76156087c3c",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentAct/AgentActEngineOperationsAreBoundedByActionTimeoutTests.cs",
+      "lineNumber": 17,
+      "codeSnippet": "Task.Delay(Timeout.Infinite)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.885298+00:00"
+    },
+    {
+      "hash": "6335eff07e59976d",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/AgentAct/AgentActVerdictMappingTests.cs",
+      "lineNumber": 227,
+      "codeSnippet": "catch (AgentException)\r\n            {\r\n                // Swallow the budget error and report a bare product failure.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8853119+00:00"
+    },
+    {
+      "hash": "e4e264422f41d360",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/AgentAct/AgentActVerdictMappingTests.cs",
+      "lineNumber": 362,
+      "codeSnippet": "catch (AgentException ex) when (ex.Message.Contains(\"incompatible\", StringComparison.Ordinal))\r\n            {\r\n                // Refused, as it must be.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8853253+00:00"
+    },
+    {
+      "hash": "d5b94949f23f85bf",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentAct/AgentActVerdictMappingTests.cs",
+      "lineNumber": 420,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8853347+00:00"
+    },
+    {
+      "hash": "c8d25dde773f3bf8",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentAct/TheDefaultAgentReadsActionResultsAfterTheirEffectTests.cs",
+      "lineNumber": 26,
+      "codeSnippet": "Task.Delay(700).ContinueWith(\r\n                _ =>\r\n                {\r\n                    next!.Hidden = true;\r\n                    second.Hidden = false;\r\n                },\r\n                TaskScheduler.Default)",
+      "message": "Test uses Task.Delay(_ =>\r\n                {\r\n                    next!.Hidden = true;\r\n                    second.Hidden = false;\r\n                }) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8853527+00:00"
+    },
+    {
+      "hash": "0e0525548f6de225",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentAct/TheDefaultAgentReadsActionResultsAfterTheirEffectTests.cs",
+      "lineNumber": 26,
+      "codeSnippet": "Task.Delay(700)",
+      "message": "Test uses Task.Delay(700) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8853666+00:00"
+    },
+    {
+      "hash": "18b6284883e096d4",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentActOnAction/AgentActOnActionTests.cs",
+      "lineNumber": 245,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8853802+00:00"
+    },
+    {
+      "hash": "516bed7830927536",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/AgentAssertExplore/AgentAssertExploreTests.cs",
+      "lineNumber": 115,
+      "codeSnippet": "catch (AgentException)\r\n            {\r\n                // A hard stop must override a success verdict.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8853939+00:00"
+    },
+    {
+      "hash": "a04d3bbca198e70a",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/AgentAssertExplore/AgentAssertExploreTests.cs",
+      "lineNumber": 150,
+      "codeSnippet": "catch (AgentException)\r\n            {\r\n                // A caught policy failure must still fail the step.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8854075+00:00"
+    },
+    {
+      "hash": "d793f4830955b4c1",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentAssertExplore/AgentAssertExploreTests.cs",
+      "lineNumber": 288,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8854182+00:00"
+    },
+    {
+      "hash": "69db0f431af2fbde",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentConfig/ModelErrorClassificationTests.cs",
+      "lineNumber": 81,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8854279+00:00"
+    },
+    {
+      "hash": "534fdc23e2499c53",
+      "ruleId": "SW001",
+      "filePath": "tests/E2E.Tests/AgentFallbackHandoff/SemanticFallbackHandoffTests.cs",
+      "lineNumber": 197,
+      "codeSnippet": "Fact(Skip = \"The port ends the step when the replay's own look throws; upstream's executor takes a look of its own and passes (see the PR report).\")",
+      "message": "Test method 'Partial_Hands_off_current_evidence_after_replay_with_failed_capture' is disabled: The port ends the step when the replay's own look throws; upstream's executor takes a look of its own and passes (see the PR report).",
+      "baselinedAt": "2026-11-18T15:10:40.8854395+00:00"
+    },
+    {
+      "hash": "5be212b1b5b0655c",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/AgentFallbackHandoff/SemanticFallbackHandoffTests.cs",
+      "lineNumber": 276,
+      "codeSnippet": "catch (E2EException)\r\n                {\r\n                    // Upstream's `.catch(() => undefined)`: a failed scroll leaves the screen as it was.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8854533+00:00"
+    },
+    {
+      "hash": "a15c1f3bf78e6a2a",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentFallbackHandoff/SemanticFallbackHandoffTests.cs",
+      "lineNumber": 113,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(Math.Min(permitted ? 350 : timeout.TotalMilliseconds, timeout.TotalMilliseconds)), token)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(Math.Min(permitted ? 350 : timeout.TotalMilliseconds, timeout.TotalMilliseconds))) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8854648+00:00"
+    },
+    {
+      "hash": "bac103473d9a5d69",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentObservation/SettleObservationTests.cs",
+      "lineNumber": 115,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(400), time, token)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(400)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8854748+00:00"
+    },
+    {
+      "hash": "7b6d0bfc8227a05e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentObservation/SettleObservationTests.cs",
+      "lineNumber": 247,
+      "codeSnippet": "Task.Delay(1)",
+      "message": "Test uses Task.Delay(1) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8854853+00:00"
+    },
+    {
+      "hash": "39115194b453bf77",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentObservationDeadline/SlowCaptureEngine.cs",
+      "lineNumber": 42,
+      "codeSnippet": "Task.Delay(engine._captureTime, cancellationToken).ConfigureAwait(false)",
+      "message": "Test uses Task.Delay(false) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8854956+00:00"
+    },
+    {
+      "hash": "1ebdbc9feab90b43",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentObservationDeadline/SlowCaptureEngine.cs",
+      "lineNumber": 42,
+      "codeSnippet": "Task.Delay(engine._captureTime, cancellationToken)",
+      "message": "Test uses Task.Delay(engine._captureTime) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.885507+00:00"
+    },
+    {
+      "hash": "d0f3287a3909e4e0",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentObservationDeadline/TheActionChangeDeadlineTests.cs",
+      "lineNumber": 43,
+      "codeSnippet": "Task.Delay(Delay)",
+      "message": "Test uses Task.Delay(Delay) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8855187+00:00"
+    },
+    {
+      "hash": "eb0f418715e3b88f",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/AgentPhases/InstrumentPhaseTests.cs",
+      "lineNumber": 30,
+      "codeSnippet": "catch (EngineException)\r\n                {\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8855311+00:00"
+    },
+    {
+      "hash": "44cabb2276676807",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/AgentPhases/InstrumentPhaseTests.cs",
+      "lineNumber": 37,
+      "codeSnippet": "catch (InvalidOperationException)\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8855447+00:00"
+    },
+    {
+      "hash": "a5a143bc60a8480d",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentScrollPages/ScrollPagesKit.cs",
+      "lineNumber": 82,
+      "codeSnippet": "Task.Delay(delay).ConfigureAwait(false)",
+      "message": "Test uses Task.Delay(false) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.885557+00:00"
+    },
+    {
+      "hash": "8e9be230eeef2065",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AgentScrollPages/ScrollPagesKit.cs",
+      "lineNumber": 82,
+      "codeSnippet": "Task.Delay(delay)",
+      "message": "Test uses Task.Delay(delay) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8855672+00:00"
+    },
+    {
+      "hash": "7af1e122bafa2fb8",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AppRecording/AppRecordingsRunTests.cs",
+      "lineNumber": 62,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8855785+00:00"
+    },
+    {
+      "hash": "a43d69a2b7fea0b9",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AttemptSession/AttemptSessionTests.cs",
+      "lineNumber": 287,
+      "codeSnippet": "Task.Delay(10)",
+      "message": "Test uses Task.Delay(10) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8855908+00:00"
+    },
+    {
+      "hash": "7e23d16758fb2cdf",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/AttemptSession/AttemptSessionTests.cs",
+      "lineNumber": 437,
+      "codeSnippet": "Task.Delay(10)",
+      "message": "Test uses Task.Delay(10) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8856001+00:00"
+    },
+    {
+      "hash": "8be1cc499a1e1af7",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/BrowserProvider/PlaywrightProtocolTests.cs",
+      "lineNumber": 58,
+      "codeSnippet": "Task.Delay(50, CancellationToken.None)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8856103+00:00"
+    },
+    {
+      "hash": "039ea8ff84a7f9f2",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/BrowserProvider/WorkerScopeTests.cs",
+      "lineNumber": 295,
+      "codeSnippet": "Task.Delay(10)",
+      "message": "Test uses Task.Delay(10) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8856211+00:00"
+    },
+    {
+      "hash": "b3a95d7a1d80562c",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/CdpHeaders/CdpHeadersTests.cs",
+      "lineNumber": 163,
+      "codeSnippet": "catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException or SocketException)\r\n                {\r\n                    // A client that went away, or the server stopping, ends its own connection.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8856325+00:00"
+    },
+    {
+      "hash": "7657394852e8492d",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/CdpRecovery/CdpSessionRecoveryTests.cs",
+      "lineNumber": 631,
+      "codeSnippet": "catch (EngineException failure) when (actionTimeout is not null && failure.Code == \"OPERATION_TIMEOUT\" && attempt < 3)\r\n                {\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8856458+00:00"
+    },
+    {
+      "hash": "c8b0f418fbbb5bf5",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/CdpRecovery/CdpSessionRecoveryTests.cs",
+      "lineNumber": 350,
+      "codeSnippet": "Task.Delay(10, give.Token)",
+      "message": "Test uses Task.Delay(10) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8856548+00:00"
+    },
+    {
+      "hash": "b8c3f844699625bc",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/CdpRecovery/CdpSessionRecoveryTests.cs",
+      "lineNumber": 656,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.885664+00:00"
+    },
+    {
+      "hash": "abad7a13be5dcfbc",
+      "ruleId": "SW001",
+      "filePath": "tests/E2E.Tests/CheckActions/AControlItsOwnLabelCoversTests.cs",
+      "lineNumber": 171,
+      "codeSnippet": "Theory(Skip = \"Upstream reaches a checkbox with no box that no label draws through the element itself; its walk leaves it out, so an observation names no node to act on here.\")",
+      "message": "Test method 'Waits_for_an_Element_Plus_control_in_a_dialog_that_opens_later' is disabled: Upstream reaches a checkbox with no box that no label draws through the element itself; its walk leaves it out, so an observation names no node to act on here.",
+      "baselinedAt": "2026-11-18T15:10:40.8856762+00:00"
+    },
+    {
+      "hash": "682c2f6e88c0a0a8",
+      "ruleId": "SW001",
+      "filePath": "tests/E2E.Tests/CheckActions/AControlItsOwnLabelCoversTests.cs",
+      "lineNumber": 201,
+      "codeSnippet": "Fact(Skip = \"Upstream reaches a checkbox with no box that no label draws through the element itself; its walk leaves it out, so an observation names no node to act on here.\")",
+      "message": "Test method 'Still_refuses_a_boxless_checkbox_whose_visible_label_has_a_link_at_its_centre' is disabled: Upstream reaches a checkbox with no box that no label draws through the element itself; its walk leaves it out, so an observation names no node to act on here.",
+      "baselinedAt": "2026-11-18T15:10:40.885686+00:00"
+    },
+    {
+      "hash": "0c8fdb59e411e695",
+      "ruleId": "SW001",
+      "filePath": "tests/E2E.Tests/CheckActions/AControlItsOwnLabelCoversTests.cs",
+      "lineNumber": 235,
+      "codeSnippet": "Fact(Skip = \"Upstream reaches a checkbox with no box that no label draws through the element itself; its walk leaves it out, so an observation names no node to act on here.\")",
+      "message": "Test method 'Still_refuses_a_boxless_checkbox_whose_every_label_is_hidden' is disabled: Upstream reaches a checkbox with no box that no label draws through the element itself; its walk leaves it out, so an observation names no node to act on here.",
+      "baselinedAt": "2026-11-18T15:10:40.8856972+00:00"
+    },
+    {
+      "hash": "43b3f41aab9f5e0e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/CheckActions/AControlItsOwnLabelCoversTests.cs",
+      "lineNumber": 267,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8857083+00:00"
+    },
+    {
+      "hash": "68bb66a89ee6ab46",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/CheckActions/ThroughTheElementTargetTests.cs",
+      "lineNumber": 65,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.885718+00:00"
+    },
+    {
+      "hash": "33e481b9b2bfa269",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/DeviceCode/RunDeviceFlowTests.cs",
+      "lineNumber": 81,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8857312+00:00"
+    },
+    {
+      "hash": "36d83afc4dfc1dbd",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Dialogs/ErrorLatchTests.cs",
+      "lineNumber": 54,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8857425+00:00"
+    },
+    {
+      "hash": "4fb1a9b1b652f4c5",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Dialogs/ErrorLatchTests.cs",
+      "lineNumber": 72,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8857546+00:00"
+    },
+    {
+      "hash": "64fc975ded310a2f",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/EngineAuthorHelpers/EngineAuthorHelpersTests.cs",
+      "lineNumber": 133,
+      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(static _ => 1, TaskScheduler.Default)",
+      "message": "Test uses Task.Delay(static _ => 1) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8857656+00:00"
+    },
+    {
+      "hash": "1889dabf2c2635e7",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/EngineAuthorHelpers/EngineAuthorHelpersTests.cs",
+      "lineNumber": 133,
+      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(10))",
+      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(10)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8857778+00:00"
+    },
+    {
+      "hash": "c0f3fc2e506085a5",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/EngineContract/PreparedEnginesRunTests.cs",
+      "lineNumber": 270,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8857876+00:00"
+    },
+    {
+      "hash": "f8903faa17d35c2b",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/EngineContract/RunnerEngineContractTests.cs",
+      "lineNumber": 381,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8857979+00:00"
+    },
+    {
+      "hash": "2efb55c905a3c87a",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/EngineContract/RunnerEngineContractTests.cs",
+      "lineNumber": 447,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false)",
+      "message": "Test uses Task.Delay(false) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8858104+00:00"
+    },
+    {
+      "hash": "7e3fc4ba8a2b4447",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/EngineContract/RunnerEngineContractTests.cs",
+      "lineNumber": 447,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8858204+00:00"
+    },
+    {
+      "hash": "3e5d696ce750f3e6",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/EngineContract/RunnerEngineContractTests.cs",
+      "lineNumber": 451,
+      "codeSnippet": "Task.Delay(stall, CancellationToken.None).ConfigureAwait(false)",
+      "message": "Test uses Task.Delay(false) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8858335+00:00"
+    },
+    {
+      "hash": "6feaffe57e93ff01",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/EngineContract/RunnerEngineContractTests.cs",
+      "lineNumber": 451,
+      "codeSnippet": "Task.Delay(stall, CancellationToken.None)",
+      "message": "Test uses Task.Delay(stall) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8858433+00:00"
+    },
+    {
+      "hash": "7907c6807874bbd8",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ExpectPoll/InsideAnAttemptTests.cs",
+      "lineNumber": 30,
+      "codeSnippet": "Task.Delay(20)",
+      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8858531+00:00"
+    },
+    {
+      "hash": "050c000f4eaf16f1",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ExpectPoll/InsideAnAttemptTests.cs",
+      "lineNumber": 32,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8858637+00:00"
+    },
+    {
+      "hash": "814b96761e4a4918",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/FailureEvidence/FailureEvidenceTests.cs",
+      "lineNumber": 144,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8858749+00:00"
+    },
+    {
+      "hash": "1a85d799fe933d5e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Fetch/CreateOAuthFetchTests.cs",
+      "lineNumber": 185,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8858864+00:00"
+    },
+    {
+      "hash": "0aba7a4a005b3061",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Fetch/OAuthFakes.cs",
+      "lineNumber": 59,
+      "codeSnippet": "Task.Delay(20, cancellationToken)",
+      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8858956+00:00"
+    },
+    {
+      "hash": "4a0496ee7c38e416",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/FixtureRuntime/ProjectToolDispatchTests.cs",
+      "lineNumber": 43,
+      "codeSnippet": "Task.Delay(5)",
+      "message": "Test uses Task.Delay(5) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8859064+00:00"
+    },
+    {
+      "hash": "4be2ca6a0610517c",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/FixtureRuntime/ProjectToolDispatchTests.cs",
+      "lineNumber": 74,
+      "codeSnippet": "Task.Delay(5)",
+      "message": "Test uses Task.Delay(5) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8859202+00:00"
+    },
+    {
+      "hash": "d5cca5bc9b24fdd3",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/HiddenFrames/ThroughAFrameLocatorTests.cs",
+      "lineNumber": 49,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.88593+00:00"
+    },
+    {
+      "hash": "8bb0f5d7cccd43ac",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/HungPage/HungPageSupport.cs",
+      "lineNumber": 58,
+      "codeSnippet": "Task.Delay(Budget + Slack)",
+      "message": "Test uses Task.Delay(Budget + Slack) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8859414+00:00"
+    },
+    {
+      "hash": "01d74fcc86f4ac33",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/HungPage/OperationsOnAHungPageTests.cs",
+      "lineNumber": 37,
+      "codeSnippet": "Task.Delay(Timeout.Infinite)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8859508+00:00"
+    },
+    {
+      "hash": "04c1294cf4674560",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/InitScripts/InitScriptsTests.cs",
+      "lineNumber": 132,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8859596+00:00"
+    },
+    {
+      "hash": "00c5e31749b14224",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Lifecycle/FixtureApp.cs",
+      "lineNumber": 202,
+      "codeSnippet": "Task.Delay(TimeSpan.FromSeconds(5))",
+      "message": "Test uses Task.Delay(TimeSpan.FromSeconds(5)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8859711+00:00"
+    },
+    {
+      "hash": "18201b958d8df3f2",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/Lifecycle/WebEngineLifecycleTests.cs",
+      "lineNumber": 446,
+      "codeSnippet": "catch (IOException)\r\n            {\r\n                // A recording the browser still flushes (Windows) must not hide the test's own result.\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8859821+00:00"
+    },
+    {
+      "hash": "80e23451eb0b8d00",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/LocatorEngine/SlowLocate.cs",
+      "lineNumber": 21,
+      "codeSnippet": "Task.Delay(after).WaitAsync(budget).ConfigureAwait(false)",
+      "message": "Test uses Task.Delay(false) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8859934+00:00"
+    },
+    {
+      "hash": "b674b79a06850419",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/LocatorEngine/SlowLocate.cs",
+      "lineNumber": 21,
+      "codeSnippet": "Task.Delay(after).WaitAsync(budget)",
+      "message": "Test uses Task.Delay(budget) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.886002+00:00"
+    },
+    {
+      "hash": "398c0e2a68d5f39a",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/LocatorEngine/SlowLocate.cs",
+      "lineNumber": 21,
+      "codeSnippet": "Task.Delay(after)",
+      "message": "Test uses Task.Delay(after) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8860112+00:00"
+    },
+    {
+      "hash": "4abae731442c2384",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/ManagedProcess/AppProgram.cs",
+      "lineNumber": 87,
+      "codeSnippet": "catch (IOException)\r\n            {\r\n                // not created yet\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.886023+00:00"
+    },
+    {
+      "hash": "1439729d56ca2a95",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/ManagedProcess/AppProgram.cs",
+      "lineNumber": 151,
+      "codeSnippet": "catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or SocketException)\r\n        {\r\n            // stopped\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8860325+00:00"
+    },
+    {
+      "hash": "56c4cf70ef8d4bad",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/ManagedProcess/AppProgram.cs",
+      "lineNumber": 185,
+      "codeSnippet": "catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException or SocketException)\r\n        {\r\n            // the client or the server went away\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8860531+00:00"
+    },
+    {
+      "hash": "a3b88b05038a9cd7",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ManagedProcess/AppProgram.cs",
+      "lineNumber": 97,
+      "codeSnippet": "Task.Delay(20)",
+      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8860617+00:00"
+    },
+    {
+      "hash": "f195129e21daa100",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ManagedProcess/AppProgram.cs",
+      "lineNumber": 182,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, _stop.Token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8860705+00:00"
+    },
+    {
+      "hash": "83b33d4ebf028765",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/ManagedProcessIntegration/ManagedProcessTests.cs",
+      "lineNumber": 139,
+      "codeSnippet": "catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException or FormatException or System.ComponentModel.Win32Exception)\r\n        {\r\n            // already gone\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8860835+00:00"
+    },
+    {
+      "hash": "916d1bf27b5962e6",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/ManagedProcessIntegration/ManagedProcessTests.cs",
+      "lineNumber": 189,
+      "codeSnippet": "catch (EngineException)\r\n        {\r\n            // The command exited before the app it started answered; the start fails and takes that app down with it.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8860939+00:00"
+    },
+    {
+      "hash": "15fff98ddd215fdc",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ManagedProcessIntegration/ManagedProcessTests.cs",
+      "lineNumber": 127,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8861045+00:00"
+    },
+    {
+      "hash": "835f2f5af9edc7cd",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ManagedProcessIntegration/ManagedProcessTests.cs",
+      "lineNumber": 197,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8861132+00:00"
+    },
+    {
+      "hash": "e9dadc641427c135",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ObservationCapture/WholeObservationCaptureOwnershipTests.cs",
+      "lineNumber": 70,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8861231+00:00"
+    },
+    {
+      "hash": "6969a4647d9cc07e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ObservationCapture/WholeObservationCaptureOwnershipTests.cs",
+      "lineNumber": 103,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8861341+00:00"
+    },
+    {
+      "hash": "e1b9ea8b98d50a09",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ObservationCapture/WholeObservationCaptureOwnershipTests.cs",
+      "lineNumber": 132,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.886143+00:00"
+    },
+    {
+      "hash": "b04af9358df9c601",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ObservationCapture/WholeObservationCaptureOwnershipTests.cs",
+      "lineNumber": 168,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8861524+00:00"
+    },
+    {
+      "hash": "d6fe4338b2ca98d2",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ObservationCapture/WholeObservationCaptureOwnershipTests.cs",
+      "lineNumber": 180,
+      "codeSnippet": "Task.Delay(200)",
+      "message": "Test uses Task.Delay(200) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.886164+00:00"
+    },
+    {
+      "hash": "3ab1616a0aff58af",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ObservationCapture/WholeObservationCaptureOwnershipTests.cs",
+      "lineNumber": 253,
+      "codeSnippet": "Task.Delay(20)",
+      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8861741+00:00"
+    },
+    {
+      "hash": "8567ada5c6b48702",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/Openai/CallbackServerTests.cs",
+      "lineNumber": 131,
+      "codeSnippet": "catch (IOException)\r\n        {\r\n            // The server refused the request and reset the connection instead of closing it; it wrote nothing more.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8861861+00:00"
+    },
+    {
+      "hash": "3a2534d8792e1cf6",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Openai/CodexLoginTests.cs",
+      "lineNumber": 286,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8861963+00:00"
+    },
+    {
+      "hash": "e5444f8bd4c0ac20",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/OpenHostLifecycle/OpenHostLifecycleTests.cs",
+      "lineNumber": 53,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.886207+00:00"
+    },
+    {
+      "hash": "776cd7e7c90b3583",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/OpenSession/HostOpenSessionTests.cs",
+      "lineNumber": 98,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8862193+00:00"
+    },
+    {
+      "hash": "3e9c64b9f5fd30c4",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/PlainStringSecrets/ASecretValuePassedAsAPlainStringTests.cs",
+      "lineNumber": 139,
+      "codeSnippet": "catch (IOException)\r\n            {\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8862299+00:00"
+    },
+    {
+      "hash": "db926a9e220b53a6",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ProviderDownloads/DownloadsThroughAProviderTests.cs",
+      "lineNumber": 183,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8862443+00:00"
+    },
+    {
+      "hash": "37d52a0dd549f8f4",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ProviderDownloads/DownloadsThroughAProviderTests.cs",
+      "lineNumber": 214,
+      "codeSnippet": "Task.Delay(1500)",
+      "message": "Test uses Task.Delay(1500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8862544+00:00"
+    },
+    {
+      "hash": "51bff2fc53ff064e",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/RemoteChromeCleanup/RemoteChromeCleanupTests.cs",
+      "lineNumber": 18,
+      "codeSnippet": "catch (Exception error) when (error is IOException or UnauthorizedAccessException)\r\n        {\r\n            // An indexer or scanner holding a file must not turn a passing test into an error; the temp root is reclaimed later.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8862666+00:00"
+    },
+    {
+      "hash": "5f56f7355dc26adc",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/RemoteChromeCleanup/RemoteChromeCleanupTests.cs",
+      "lineNumber": 73,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8862769+00:00"
+    },
+    {
+      "hash": "29dc2603f2d588a5",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Reporters/RunReportersTests.cs",
+      "lineNumber": 65,
+      "codeSnippet": "Thread.Sleep(2000)",
+      "message": "Test uses Thread.Sleep(2000) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8862883+00:00"
+    },
+    {
+      "hash": "44e5f53e19602149",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Reporters/RunReportersTests.cs",
+      "lineNumber": 76,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8862976+00:00"
+    },
+    {
+      "hash": "6190efde95012206",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/ReportJson/ReportDirectory.cs",
+      "lineNumber": 28,
+      "codeSnippet": "catch (IOException)\r\n        {\r\n            // A file still held open must not hide the failure of the test.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8863074+00:00"
+    },
+    {
+      "hash": "af963990b5eb823c",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/Routes/BrowserRouteDecisionsTests.cs",
+      "lineNumber": 631,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // Checked by the test.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8863181+00:00"
+    },
+    {
+      "hash": "377f9bac1bbc960c",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Routes/BrowserRouteDecisionsTests.cs",
+      "lineNumber": 135,
+      "codeSnippet": "Task.Delay(1500)",
+      "message": "Test uses Task.Delay(1500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8863283+00:00"
+    },
+    {
+      "hash": "889242f9dc7cbcde",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Routes/BrowserRouteDecisionsTests.cs",
+      "lineNumber": 169,
+      "codeSnippet": "Task.Delay(1500)",
+      "message": "Test uses Task.Delay(1500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8863399+00:00"
+    },
+    {
+      "hash": "5bf1d398ddeb59cb",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/RunApps/RunAppsTests.cs",
+      "lineNumber": 51,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8863486+00:00"
+    },
+    {
+      "hash": "96aaaf3dd6161137",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/RunApps/RunAppsTests.cs",
+      "lineNumber": 60,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8863568+00:00"
+    },
+    {
+      "hash": "0946b43423b248f1",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/ScreenshotAssertions/ScreenProject.cs",
+      "lineNumber": 112,
+      "codeSnippet": "catch (IOException)\r\n        {\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8863678+00:00"
+    },
+    {
+      "hash": "865e4f7c6f2c1198",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ScreenshotAssertions/ToHaveScreenshotTests.cs",
+      "lineNumber": 239,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(1100), clock)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(1100)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8863779+00:00"
+    },
+    {
+      "hash": "71fd876b0e30d904",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ScreenshotAssertions/ToHaveScreenshotTests.cs",
+      "lineNumber": 265,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(300), clock)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(300)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8863892+00:00"
+    },
+    {
+      "hash": "5792a2ec0aec85bd",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ScreenshotAssertions/ToHaveScreenshotTests.cs",
+      "lineNumber": 269,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(1200), clock)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(1200)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8863989+00:00"
+    },
+    {
+      "hash": "89cb09c8b70439d1",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ScreenshotAssertions/ToHaveScreenshotTests.cs",
+      "lineNumber": 309,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(300), clock)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(300)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8864096+00:00"
+    },
+    {
+      "hash": "36f62332e807a89c",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ScreenshotAssertions/ToHaveScreenshotTests.cs",
+      "lineNumber": 315,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(300), clock)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(300)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8864208+00:00"
+    },
+    {
+      "hash": "e97604e73f51b239",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ScreenshotNavigation/SurfaceScreenshotWhileNavigatingTests.cs",
+      "lineNumber": 61,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8864337+00:00"
+    },
+    {
+      "hash": "d5778f3d21cbe84a",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ScreenTree/ScreenTreeTests.cs",
+      "lineNumber": 75,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8864453+00:00"
+    },
+    {
+      "hash": "da2bf59e3390d77b",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ScrollE2E/ScrollingTests.cs",
+      "lineNumber": 116,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.886455+00:00"
+    },
+    {
+      "hash": "369bb8c93fe18c62",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ScrollUntilVisible/ScrollScreen.cs",
+      "lineNumber": 63,
+      "codeSnippet": "Task.Delay(Timeout.InfiniteTimeSpan, token)",
+      "message": "Test uses Task.Delay(Timeout.InfiniteTimeSpan) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.886465+00:00"
+    },
+    {
+      "hash": "8a687d59468b4e23",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ScrollUntilVisible/ScrollScreen.cs",
+      "lineNumber": 68,
+      "codeSnippet": "Task.Delay(hang, CancellationToken.None)",
+      "message": "Test uses Task.Delay(hang) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8864762+00:00"
+    },
+    {
+      "hash": "8cfb620bfe2695a8",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/ScrollUntilVisible/ScrollScreen.cs",
+      "lineNumber": 73,
+      "codeSnippet": "Task.Delay(SwipeTime, CancellationToken.None)",
+      "message": "Test uses Task.Delay(SwipeTime) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8864854+00:00"
+    },
+    {
+      "hash": "3242ab308f8cc8c8",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/SemanticFallback/SemanticCaptureFallbackTests.cs",
+      "lineNumber": 93,
+      "codeSnippet": "Task.Delay(Budget, None)",
+      "message": "Test uses Task.Delay(Budget) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8864954+00:00"
+    },
+    {
+      "hash": "0adad83ee2c622cd",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/SharedAppProcesses/SharedAppProcessesTests.cs",
+      "lineNumber": 82,
+      "codeSnippet": "catch (Exception)\r\n        {\r\n            // Like allSettled: a failure is the test's to assert, not teardown's.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8865122+00:00"
+    },
+    {
+      "hash": "fa27a2d5a0502b07",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/SharedAppProcesses/SharedAppProcessesTests.cs",
+      "lineNumber": 322,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8865212+00:00"
+    },
+    {
+      "hash": "eadf380de8676e12",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/SharedAppProcesses/SharedAppProcessesTests.cs",
+      "lineNumber": 334,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8865314+00:00"
+    },
+    {
+      "hash": "a9e7c24984ec22c4",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/StalledFrame/AFrameWhoseNavigationIsHeldTests.cs",
+      "lineNumber": 69,
+      "codeSnippet": "catch (PlaywrightException)\r\n                {\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8865421+00:00"
+    },
+    {
+      "hash": "72076c9fefe36895",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/StandaloneHost/StandaloneHostTests.cs",
+      "lineNumber": 142,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8865528+00:00"
+    },
+    {
+      "hash": "a6793eba5e52e0d1",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/StepAbandon/StepRecorderAbandonRunningTests.cs",
+      "lineNumber": 73,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.886564+00:00"
+    },
+    {
+      "hash": "acd03cd6956ef0aa",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/StepCache/StepCachePipelineTests.cs",
+      "lineNumber": 694,
+      "codeSnippet": "Task.Delay(20)",
+      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8865747+00:00"
+    },
+    {
+      "hash": "0c984f001bfdd199",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/StepCache/StepTraceSessionTests.cs",
+      "lineNumber": 778,
+      "codeSnippet": "Task.Delay(20)",
+      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8865839+00:00"
+    },
+    {
+      "hash": "4048b839bda36ae1",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/StepRecorderCancellation/StepRecorderCancellationTests.cs",
+      "lineNumber": 30,
+      "codeSnippet": "Task.Delay(20)",
+      "message": "Test uses Task.Delay(20) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8865962+00:00"
+    },
+    {
+      "hash": "2b01f7cee83e8be4",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Store/FileCredentialStoreTests.cs",
+      "lineNumber": 83,
+      "codeSnippet": "Task.Delay(150)",
+      "message": "Test uses Task.Delay(150) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8866055+00:00"
+    },
+    {
+      "hash": "1a43295bf20d93d1",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/SurfaceGuard/PlaywrightSurfaceGuardTests.cs",
+      "lineNumber": 95,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, controller.Token)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8866197+00:00"
+    },
+    {
+      "hash": "d8a063bfd2b1dad5",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/SurfaceGuard/PlaywrightSurfaceGuardTests.cs",
+      "lineNumber": 99,
+      "codeSnippet": "Task.Delay(200)",
+      "message": "Test uses Task.Delay(200) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8866319+00:00"
+    },
+    {
+      "hash": "025665939a5fb74e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Tabs/TabsTests.cs",
+      "lineNumber": 91,
+      "codeSnippet": "Task.Delay(1_500)",
+      "message": "Test uses Task.Delay(1_500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.886644+00:00"
+    },
+    {
+      "hash": "efaf1a4319acc804",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Tabs/TabsTests.cs",
+      "lineNumber": 155,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8866527+00:00"
+    },
+    {
+      "hash": "4de4440a5a677924",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Tabs/TabsTests.cs",
+      "lineNumber": 262,
+      "codeSnippet": "Task.Delay(500)",
+      "message": "Test uses Task.Delay(500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8866622+00:00"
+    },
+    {
+      "hash": "257abd13716cd413",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/TestFilters/AFilterPastTheDeadlineTests.cs",
+      "lineNumber": 54,
+      "codeSnippet": "Task.Delay(Timeout.Infinite, context.Signal)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.886675+00:00"
+    },
+    {
+      "hash": "7ac113728c56d690",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/TestFilters/ApplyTestFiltersTests.cs",
+      "lineNumber": 370,
+      "codeSnippet": "Task.Delay(5)",
+      "message": "Test uses Task.Delay(5) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8866845+00:00"
+    },
+    {
+      "hash": "71e0a62293c4f7ae",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/TestFilters/WhatAFilterIsToldTests.cs",
+      "lineNumber": 41,
+      "codeSnippet": "catch (Exception error) when (error is UnauthorizedAccessException or IOException)\r\n        {\r\n            // Windows without the privilege to link.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8866975+00:00"
+    },
+    {
+      "hash": "fbb7167e24a6bf22",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Time/PollConditionTests.cs",
+      "lineNumber": 152,
+      "codeSnippet": "Task.Delay(1)",
+      "message": "Test uses Task.Delay(1) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.886707+00:00"
+    },
+    {
+      "hash": "427da6f0b70939b9",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Time/PollConditionTests.cs",
+      "lineNumber": 197,
+      "codeSnippet": "Task.Delay(rest > TimeSpan.Zero ? rest : TimeSpan.Zero, _time, token)",
+      "message": "Test uses Task.Delay(rest > TimeSpan.Zero ? rest : TimeSpan.Zero) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8867175+00:00"
+    },
+    {
+      "hash": "31a51ddaa3b8d2be",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Time/PollConditionTests.cs",
+      "lineNumber": 249,
+      "codeSnippet": "Task.Delay(rest > TimeSpan.Zero ? rest : TimeSpan.Zero, _time, token)",
+      "message": "Test uses Task.Delay(rest > TimeSpan.Zero ? rest : TimeSpan.Zero) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8867302+00:00"
+    },
+    {
+      "hash": "b5a56922cf55ce81",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Time/PollConditionTests.cs",
+      "lineNumber": 291,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(300), _time)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(300)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8867403+00:00"
+    },
+    {
+      "hash": "c2a4a5ddd6dd5db3",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Time/PollConditionTests.cs",
+      "lineNumber": 404,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(milliseconds), _time)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(milliseconds)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8867494+00:00"
+    },
+    {
+      "hash": "ef062c3dfb3d5817",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Time/PollConditionTests.cs",
+      "lineNumber": 413,
+      "codeSnippet": "Task.Delay(duration, _time).WaitAsync(budget, _time)",
+      "message": "Test uses Task.Delay(budget) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8867605+00:00"
+    },
+    {
+      "hash": "054995919a86efbd",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Time/PollConditionTests.cs",
+      "lineNumber": 413,
+      "codeSnippet": "Task.Delay(duration, _time)",
+      "message": "Test uses Task.Delay(duration) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8867694+00:00"
+    },
+    {
+      "hash": "9d175d82967e1c69",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Time/PollConditionTests.cs",
+      "lineNumber": 441,
+      "codeSnippet": "Task.Delay(TimeSpan.FromMilliseconds(issued.Count == 1 ? first : rest), _time, token)",
+      "message": "Test uses Task.Delay(TimeSpan.FromMilliseconds(issued.Count == 1 ? first : rest)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8867784+00:00"
+    },
+    {
+      "hash": "c4c5923d2aa7fcd0",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/TraceCacheReplay/TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWithoutAModelOnTheSecondTests.cs",
+      "lineNumber": 239,
+      "codeSnippet": "catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)\r\n                {\r\n                    // A temp directory a browser still holds is left for the OS to clear.\r\n                }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8867942+00:00"
+    },
+    {
+      "hash": "207a93912346df38",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/TraceFeed/WebTraceFeedTests.cs",
+      "lineNumber": 93,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8868062+00:00"
+    },
+    {
+      "hash": "c95149c8c2bd24aa",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/TraceFeed/WebTraceFeedTests.cs",
+      "lineNumber": 105,
+      "codeSnippet": "Task.Delay(25)",
+      "message": "Test uses Task.Delay(25) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8868405+00:00"
+    },
+    {
+      "hash": "65d3c36dc2d70429",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/Traces/TracesTests.cs",
+      "lineNumber": 134,
+      "codeSnippet": "catch (E2EException)\r\n            {\r\n                // the banner is optional\r\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8868515+00:00"
+    },
+    {
+      "hash": "64691835e88a9d47",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/UploadPaths/AuthorizeUploadPathsTests.cs",
+      "lineNumber": 36,
+      "codeSnippet": "catch (Exception error) when (error is UnauthorizedAccessException or IOException)\r\n        {\r\n            // Windows without the privilege to link: the symlink entry is left out of the refusal test.\r\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-18T15:10:40.8868642+00:00"
+    },
+    {
+      "hash": "504d716fab5895da",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Video/VideoRecorderTests.cs",
+      "lineNumber": 226,
+      "codeSnippet": "Task.Delay(delay).ContinueWith(\r\n                        _ =>\r\n                        {\r\n                            Events.Enqueue(\"frame\");\r\n                            start.OnFrame?.Invoke(new ScreencastFrame());\r\n                        },\r\n                        TaskScheduler.Default)",
+      "message": "Test uses Task.Delay(_ =>\r\n                        {\r\n                            Events.Enqueue(\"frame\");\r\n                            start.OnFrame?.Invoke(new ScreencastFrame());\r\n                        }) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8868796+00:00"
+    },
+    {
+      "hash": "16f5b36e457520f2",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Video/VideoRecorderTests.cs",
+      "lineNumber": 226,
+      "codeSnippet": "Task.Delay(delay)",
+      "message": "Test uses Task.Delay(delay) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8868897+00:00"
+    },
+    {
+      "hash": "9e3a9849e3f2be17",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/WaitForResponse/BodySite.cs",
+      "lineNumber": 98,
+      "codeSnippet": "Task.Delay(800)",
+      "message": "Test uses Task.Delay(800) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8869004+00:00"
+    },
+    {
+      "hash": "e616dce4ceee360a",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/WaitForResponse/BodySite.cs",
+      "lineNumber": 107,
+      "codeSnippet": "Task.Delay(50)",
+      "message": "Test uses Task.Delay(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8869109+00:00"
+    },
+    {
+      "hash": "082cdb8051a89899",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/WebAppLog/AppLogTests.cs",
+      "lineNumber": 93,
+      "codeSnippet": "Task.Delay(300)",
+      "message": "Test uses Task.Delay(300) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8869206+00:00"
+    },
+    {
+      "hash": "074d13cf325b7aed",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/WebAppLog/AppLogTests.cs",
+      "lineNumber": 152,
+      "codeSnippet": "Task.Delay(25)",
+      "message": "Test uses Task.Delay(25) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8869295+00:00"
+    },
+    {
+      "hash": "661860982d9d597a",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/WebEngineState/WebEngineStateTests.cs",
+      "lineNumber": 75,
+      "codeSnippet": "Task.Delay(100)",
+      "message": "Test uses Task.Delay(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8869416+00:00"
+    },
+    {
+      "hash": "2f2afba4ebee06fa",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/WebPlatform/WebPlatformIntegrationTests.cs",
+      "lineNumber": 58,
+      "codeSnippet": "Task.Delay(200)",
+      "message": "Test uses Task.Delay(200) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8869541+00:00"
+    },
+    {
+      "hash": "90cd6ee0a43b3aba",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/WebReplacedNodes/ReadsOfANodeReplacedEveryFrameTests.cs",
+      "lineNumber": 201,
+      "codeSnippet": "Thread.Sleep(20)",
+      "message": "Test uses Thread.Sleep(20) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8869663+00:00"
+    },
+    {
+      "hash": "73dfe3845f2000d0",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 37,
+      "codeSnippet": "Task.Delay(int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture))",
+      "message": "Test uses Task.Delay(int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture)) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8869764+00:00"
+    },
+    {
+      "hash": "0c6524418c32f1b8",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 58,
+      "codeSnippet": "Task.Delay(Timeout.Infinite)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8870141+00:00"
+    },
+    {
+      "hash": "2e39de198017d20e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 84,
+      "codeSnippet": "Task.Delay(Timeout.Infinite)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8870231+00:00"
+    },
+    {
+      "hash": "750c6e129132aa91",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 97,
+      "codeSnippet": "Task.Delay(Timeout.Infinite)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8870316+00:00"
+    },
+    {
+      "hash": "5f18fecf70e02e17",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 152,
+      "codeSnippet": "Thread.Sleep(50)",
+      "message": "Test uses Thread.Sleep(50) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8870408+00:00"
+    },
+    {
+      "hash": "020852dfdbdcc70d",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 169,
+      "codeSnippet": "Thread.Sleep(10)",
+      "message": "Test uses Thread.Sleep(10) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8870518+00:00"
+    },
+    {
+      "hash": "b47d81f53371da9e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 182,
+      "codeSnippet": "Thread.Sleep(100)",
+      "message": "Test uses Thread.Sleep(100) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.887061+00:00"
+    },
+    {
+      "hash": "9ebe8fb755290b74",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests.App/Program.cs",
+      "lineNumber": 210,
+      "codeSnippet": "Task.Delay(Timeout.Infinite)",
+      "message": "Test uses Task.Delay(Timeout.Infinite) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8870694+00:00"
+    },
+    {
+      "hash": "68f6cbd1bc9f4fac",
+      "ruleId": "SW005",
+      "filePath": "tests/E2E.TUnit.Tests/E2E.TUnit.Tests.csproj",
+      "lineNumber": 8,
+      "codeSnippet": "<NoWarn>$(NoWarn);NU1701</NoWarn>",
+      "message": "Adding warnings to NoWarn: NU1701",
+      "baselinedAt": "2026-11-18T15:10:40.8870794+00:00"
+    },
+    {
+      "hash": "097d1785d9868d9e",
+      "ruleId": "SW005",
+      "filePath": "tests/E2E.WinApp.Tests/E2E.WinApp.Tests.csproj",
+      "lineNumber": 7,
+      "codeSnippet": "<NoWarn>$(NoWarn);NU1701</NoWarn>",
+      "message": "Adding warnings to NoWarn: NU1701",
+      "baselinedAt": "2026-11-18T15:10:40.8870873+00:00"
+    },
+    {
+      "hash": "ba216da2fb52784e",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.WinApp.Tests/Helpers/FakeWindowDriver.cs",
+      "lineNumber": 278,
+      "codeSnippet": "Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken)",
+      "message": "Test uses Task.Delay(Timeout.InfiniteTimeSpan) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-18T15:10:40.8870963+00:00"
+    },
+    {
+      "hash": "9395d897778852a7",
+      "ruleId": "SW005",
+      "filePath": "tests/E2E.XUnit.V3.Tests/E2E.XUnit.V3.Tests.csproj",
+      "lineNumber": 8,
+      "codeSnippet": "<NoWarn>$(NoWarn);xUnit1051;NU1701</NoWarn>",
+      "message": "Adding warnings to NoWarn: xUnit1051;NU1701",
+      "baselinedAt": "2026-11-18T15:10:40.8871037+00:00"
+    },
+    {
+      "hash": "233eda6c79295c9b",
+      "ruleId": "SW001",
+      "filePath": "tests/E2E.XUnit.V3.Tests/RunSelection/MobileAppTestTests.cs",
+      "lineNumber": 12,
+      "codeSnippet": "Fact(Skip = \"only found by reflection\")",
+      "message": "Test method 'Mobile_test_is_left_out' is disabled: only found by reflection",
+      "baselinedAt": "2026-11-18T15:10:40.8871147+00:00"
+    },
+    {
+      "hash": "2974d38203c397db",
+      "ruleId": "SW001",
+      "filePath": "tests/E2E.XUnit.V3.Tests/RunSelection/RunSelectionTests.cs",
+      "lineNumber": 14,
+      "codeSnippet": "Fact(Skip = \"only found by reflection\")",
+      "message": "Test method 'Is_found_by_reflection' is disabled: only found by reflection",
+      "baselinedAt": "2026-11-18T15:10:40.8871235+00:00"
+    },
+    {
+      "hash": "7e91251ebc1e48aa",
+      "ruleId": "SW001",
+      "filePath": "tests/E2E.XUnit.V3.Tests/RunSelection/RunSelectionTests.cs",
+      "lineNumber": 21,
+      "codeSnippet": "Theory(Skip = \"only found by reflection\")",
+      "message": "Test method 'A_theory_is_one_test' is disabled: only found by reflection",
+      "baselinedAt": "2026-11-18T15:10:40.8871325+00:00"
+    },
+    {
+      "hash": "e830578bd35374c9",
+      "ruleId": "SW001",
+      "filePath": "tests/E2E.XUnit.V3.Tests/RunSelection/RunSelectionTests.cs",
+      "lineNumber": 37,
+      "codeSnippet": "Fact(Skip = \"never runs\", SkipUnless = nameof(Never))",
+      "message": "Test method 'Is_judged' is disabled: never runs",
+      "baselinedAt": "2026-11-18T15:10:40.8871411+00:00"
+    },
+    {
+      "hash": "3684ac635b473336",
+      "ruleId": "SW001",
+      "filePath": "tests/E2E.XUnit.V3.Tests/RunSelection/WinAppTestTests.cs",
+      "lineNumber": 12,
+      "codeSnippet": "Fact(Skip = \"only found by reflection\")",
+      "message": "Test method 'Windows_test_is_left_out' is disabled: only found by reflection",
+      "baselinedAt": "2026-11-18T15:10:40.8871517+00:00"
+    }
+  ]
+}

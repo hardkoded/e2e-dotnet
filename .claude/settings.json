@@ -4,5 +4,19 @@
       "RemoteTrigger",
       "mcp__claude-code-remote__add_repo"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "dotnet slopwatch analyze -d . --hook --fail-on error --exclude \"**/node_modules/**,**/bin/**,**/obj/**,.claude/**,.tmp*/**,docs/_site/**,docs/api/**,coverage/**,**/.vs/**\"",
+            "timeout": 60000
+          }
+        ]
+      }
+    ]
   }
 }

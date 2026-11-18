@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  SLOPWATCH_EXCLUDE: "**/node_modules/**,**/bin/**,**/obj/**,.claude/**,.tmp*/**,docs/_site/**,docs/api/**,coverage/**,**/.vs/**"
+
 jobs:
   build:
     name: restore-build-test
@@ -27,6 +30,11 @@ jobs:
 
       - name: Restore
         run: dotnet restore E2E.slnx
+
+      - name: Slopwatch
+        run: |
+          dotnet tool restore
+          dotnet slopwatch analyze -d . --fail-on error --exclude "$SLOPWATCH_EXCLUDE"
 
       - name: Format
         run: dotnet format E2E.slnx --verify-no-changes --no-restore
