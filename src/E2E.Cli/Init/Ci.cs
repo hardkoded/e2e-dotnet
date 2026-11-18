@@ -24,15 +24,69 @@ internal sealed record CiFile(
     string? JobSuffix = null
 );
 
-/// <summary>The jobs a pipeline holds, one per platform (upstream's <c>CiJobs</c>); a platform with no target gets no job.</summary>
-/// <param name="Web">Whether the config has a target that is not on a phone.</param>
-/// <param name="Ios">Whether the config has an iOS target.</param>
-/// <param name="Android">Whether the config has an Android target.</param>
-internal sealed record CiJobs(bool Web, bool Ios, bool Android)
+/// <summary>
+/// How the iOS job builds the app for the simulator (upstream's <c>IosBuild</c>): Expo generates <c>ios/</c> and builds it, a bare
+/// React Native app builds its workspace with <c>xcodebuild</c>, and anything else gets a step that fails until it is replaced.
+/// </summary>
+internal abstract record IosBuild
+{
+    private IosBuild() { }
+
+    /// <summary>An Expo app.</summary>
+    internal sealed record Expo : IosBuild;
+
+    /// <summary>A bare React Native app.</summary>
+    /// <param name="Workspace">The name of the <c>.xcworkspace</c> under <c>ios/</c>, without its extension.</param>
+    /// <param name="Bundler">Whether the app has a <c>Gemfile</c>, so the pods install through Bundler.</param>
+    internal sealed record ReactNative(string Workspace, bool Bundler) : IosBuild;
+
+    /// <summary>Any other app.</summary>
+    internal sealed record Custom : IosBuild;
+}
+
+/// <summary>How the Android job builds a release APK (upstream's <c>AndroidBuild</c>).</summary>
+internal abstract record AndroidBuild
+{
+    private AndroidBuild() { }
+
+    /// <summary>An Expo app.</summary>
+    /// <param name="Prebuild">Whether Expo still has to generate <c>android/</c>.</param>
+    internal sealed record Expo(bool Prebuild) : AndroidBuild;
+
+    /// <summary>A bare React Native app.</summary>
+    internal sealed record ReactNative : AndroidBuild;
+
+    /// <summary>Any other app.</summary>
+    internal sealed record Custom : AndroidBuild;
+}
+
+/// <summary>A phone job: the targets it runs and how it builds the app (the <c>ios</c> and <c>android</c> members of upstream's <c>CiJobs</c>).</summary>
+/// <typeparam name="TBuild">The build kind of the platform.</typeparam>
+/// <param name="Targets">The names of the targets the job runs.</param>
+/// <param name="Build">How the app is built.</param>
+internal sealed record CiPhoneJob<TBuild>(IReadOnlyList<string> Targets, TBuild Build);
+
+/// <summary>
+/// The jobs a pipeline holds, one per platform (upstream's <c>CiJobs</c>). <c>Web</c> runs every target that is not on a phone: its
+/// names when the config has phone targets too, or null for every target of the config (upstream's <c>'all'</c>). A platform
+/// with no targets gets no job.
+/// </summary>
+/// <param name="Web">The web job: its target names, or null for all of them; <c>Web</c> itself is null for no job.</param>
+/// <param name="Ios">The iOS job.</param>
+/// <param name="Android">The Android job.</param>
+internal sealed record CiJobs(
+    CiWebJob? Web = null,
+    CiPhoneJob<IosBuild>? Ios = null,
+    CiPhoneJob<AndroidBuild>? Android = null
+)
 {
     /// <summary>Whether the pipeline has any job.</summary>
-    public bool Any => Web || Ios || Android;
+    public bool Any => Web is not null || Ios is not null || Android is not null;
 }
+
+/// <summary>The web job of <see cref="CiJobs"/>.</summary>
+/// <param name="Targets">The names of the targets it runs; null for every target of the config.</param>
+internal sealed record CiWebJob(IReadOnlyList<string>? Targets = null);
 
 /// <summary>A target as the pipeline sees it: its name and the platform its engine drives (upstream's <c>CiTarget</c>).</summary>
 /// <param name="Name">The target's name.</param>
@@ -40,17 +94,27 @@ internal sealed record CiJobs(bool Web, bool Ios, bool Android)
 internal sealed record CiTarget(string Name, string Platform);
 
 /// <summary>What the workflow is rendered from (upstream's <c>WorkflowContext</c>); every path is POSIX and relative to the repository root.</summary>
-/// <param name="ProjectFile">The test project's file, such as <c>tests/MyApp.E2E/MyApp.E2E.csproj</c>.</param>
-/// <param name="DotnetVersion">The SDK version the project targets, such as <c>10.0</c>.</param>
+/// <param name="ProjectFile">The test project's file.</param>
+/// <param name="DotnetVersion">The SDK version to set up.</param>
 /// <param name="Secrets">Environment variables the run reads from secrets of the same name.</param>
 /// <param name="Jobs">The jobs to write.</param>
 /// <param name="JobSuffix">Appended to every GitLab job name.</param>
+/// <param name="AppDir">The folder of the Expo or React Native app, <c>''</c> for the repository root (upstream's <c>projectDir</c>, which is where its <c>package.json</c> is).</param>
+/// <param name="Manager">The app's package manager: <c>npm</c>, <c>pnpm</c>, <c>yarn</c>, or <c>bun</c> (upstream's <c>manager</c>).</param>
+/// <param name="YarnBerry">Yarn 2 or later, whose frozen install is <c>--immutable</c> (upstream's <c>yarnBerry</c>).</param>
+/// <param name="NpmLockfile">Whether an npm lockfile is committed, which <c>npm ci</c> needs; without one the install is <c>npm install</c>.</param>
+/// <param name="Junit">Whether the test project writes a JUnit report with the <c>junit</c> logger (upstream's <c>--reporter list,junit</c>).</param>
 internal sealed record WorkflowContext(
     string ProjectFile,
     string DotnetVersion,
     IReadOnlyList<string> Secrets,
     CiJobs Jobs,
-    string? JobSuffix = null
+    string? JobSuffix = null,
+    string AppDir = "",
+    string Manager = "npm",
+    bool YarnBerry = false,
+    bool Junit = true,
+    bool NpmLockfile = true
 );
 
 /// <summary>One CI service <c>e2e init --ci</c> writes a pipeline for (upstream's <c>CiService</c>).</summary>
@@ -90,6 +154,18 @@ internal static partial class Ci
 
     /// <summary>Where the Android job installs the APK from.</summary>
     private const string Apk = "android/app/build/outputs/apk/release/app-release.apk";
+
+    /// <summary>.NET-only: the package that gives <c>dotnet test</c> the <c>junit</c> logger, which stands for upstream's <c>--reporter junit</c>.</summary>
+    public const string JunitLogger = "JunitXml.TestLogger";
+
+    /// <summary>.NET-only: the version of <see cref="JunitLogger"/> init adds to a project.</summary>
+    public const string JunitLoggerVersion = "8.1.0";
+
+    /// <summary>Words YAML reads as a boolean or null, which a name must not be left bare as.</summary>
+    private static readonly string[] YamlReserved = ["true", "false", "yes", "no", "on", "off", "null", "y", "n"];
+
+    /// <summary>Phone platforms run in their own job, on a runner with a simulator or an emulator.</summary>
+    private static readonly string[] Phones = ["ios", "android"];
 
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
 
@@ -282,14 +358,247 @@ internal static partial class Ci
 
     /// <summary>
     /// The jobs for a config's targets (upstream's <c>ciJobs</c>). iOS and Android targets get a job each; the rest, web
-    /// and HTTP-only alike, run in the web job.
+    /// and HTTP-only alike, run in the web job, which names them only when the config has phone targets too.
     /// </summary>
-    internal static CiJobs GetCiJobs(IReadOnlyList<CiTarget> targets) =>
-        new(
-            targets.Any(target => target.Platform is not ("ios" or "android")),
-            targets.Any(target => target.Platform == "ios"),
-            targets.Any(target => target.Platform == "android")
+    internal static CiJobs GetCiJobs(IReadOnlyList<CiTarget> targets, IosBuild ios, AndroidBuild android)
+    {
+        List<string> Named(string platform) =>
+            [.. targets.Where(target => target.Platform == platform).Select(target => target.Name)];
+        List<string> others =
+        [
+            .. targets.Where(target => !Phones.Contains(target.Platform)).Select(target => target.Name),
+        ];
+        var phones = targets.Any(target => Phones.Contains(target.Platform));
+        var (iosTargets, androidTargets) = (Named("ios"), Named("android"));
+        return new CiJobs(
+            others.Count == 0 ? null : new CiWebJob(phones ? others : null),
+            iosTargets.Count == 0 ? null : new CiPhoneJob<IosBuild>(iosTargets, ios),
+            androidTargets.Count == 0 ? null : new CiPhoneJob<AndroidBuild>(androidTargets, android)
         );
+    }
+
+    /// <summary>
+    /// The app build for each phone platform, from the app's <c>package.json</c> and native folders (upstream's
+    /// <c>detectMobileBuilds</c>): Expo when it depends on <c>expo</c>, bare React Native when it depends on
+    /// <c>react-native</c> and has the native project, else custom.
+    /// </summary>
+    internal static (IosBuild Ios, AndroidBuild Android) DetectMobileBuilds(string appDir, Func<string, bool> dependsOn)
+    {
+        var ios = Path.Combine(appDir, "ios");
+        var workspace = Directory.Exists(ios)
+            ? Directory
+                .GetFileSystemEntries(ios)
+                .Select(Path.GetFileName)
+                .Order(StringComparer.Ordinal)
+                .FirstOrDefault(name =>
+                    name!.EndsWith(".xcworkspace", StringComparison.Ordinal) && name != "Pods.xcworkspace"
+                )
+            : null;
+        var gradle = System.IO.File.Exists(Path.Combine(appDir, "android", "gradlew"));
+        if (dependsOn("expo"))
+        {
+            return (new IosBuild.Expo(), new AndroidBuild.Expo(!gradle));
+        }
+
+        if (dependsOn("react-native"))
+        {
+            return (
+                workspace is null
+                    ? new IosBuild.Custom()
+                    : new IosBuild.ReactNative(
+                        workspace[..^".xcworkspace".Length],
+                        System.IO.File.Exists(Path.Combine(appDir, "Gemfile"))
+                    ),
+                gradle ? new AndroidBuild.ReactNative() : new AndroidBuild.Custom()
+            );
+        }
+
+        return (new IosBuild.Custom(), new AndroidBuild.Custom());
+    }
+
+    /// <summary>
+    /// .NET-only: the folder of the JavaScript app the phone jobs build, which upstream finds as its project's own folder: the
+    /// nearest directory at or above <paramref name="projectDir"/>, up to <paramref name="repositoryRoot"/>, with a
+    /// <c>package.json</c>. Null when there is none.
+    /// </summary>
+    internal static string? FindAppDir(string projectDir, string repositoryRoot)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
+        for (
+            var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectDir));
+            ;
+            current = Path.GetDirectoryName(current)!
+        )
+        {
+            if (System.IO.File.Exists(Path.Combine(current, "package.json")))
+            {
+                return current;
+            }
+
+            if (
+                string.Equals(current, root, StringComparison.OrdinalIgnoreCase)
+                || Path.GetDirectoryName(current) is null
+            )
+            {
+                return null;
+            }
+        }
+    }
+
+    /// <summary>.NET-only: whether the <c>package.json</c> in <paramref name="appDir"/> lists <paramref name="name"/> among its dependencies.</summary>
+    internal static bool DependsOn(string appDir, string name)
+    {
+        try
+        {
+            var document = JsonNode.Parse(
+                System.IO.File.ReadAllText(Path.Combine(appDir, "package.json")),
+                documentOptions: new JsonDocumentOptions
+                {
+                    CommentHandling = JsonCommentHandling.Skip,
+                    AllowTrailingCommas = true,
+                }
+            );
+            return new[] { "dependencies", "devDependencies" }.Any(section =>
+                (document?[section] as JsonObject)?.ContainsKey(name) == true
+            );
+        }
+        catch (Exception cause)
+            when (cause is JsonException or IOException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>.NET-only: whether an npm lockfile is committed in <paramref name="appDir"/> or a folder above it, up to <paramref name="repositoryRoot"/>, which <c>npm ci</c> needs.</summary>
+    internal static bool HasNpmLockfile(string appDir, string repositoryRoot)
+    {
+        var stop = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
+        for (
+            var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(appDir));
+            ;
+            current = Path.GetDirectoryName(current)!
+        )
+        {
+            if (
+                System.IO.File.Exists(Path.Combine(current, "package-lock.json"))
+                || System.IO.File.Exists(Path.Combine(current, "npm-shrinkwrap.json"))
+            )
+            {
+                return true;
+            }
+
+            if (
+                string.Equals(current, stop, StringComparison.OrdinalIgnoreCase)
+                || Path.GetDirectoryName(current) is null
+            )
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>Whether an MSBuild file sets <c>ManagePackageVersionsCentrally</c> to <c>true</c>, whatever its attributes (a <c>Condition</c> may hold any character, <c>&gt;</c> included).</summary>
+    private static bool SetsCentralVersions(string text)
+    {
+        try
+        {
+            return System
+                .Xml.Linq.XDocument.Parse(text)
+                .Descendants()
+                .Any(element =>
+                    element.Name.LocalName == "ManagePackageVersionsCentrally"
+                    && string.Equals(element.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase)
+                );
+        }
+        catch (System.Xml.XmlException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// .NET-only: whether the project takes its package versions from a <c>Directory.Packages.props</c> (central package
+    /// management), where a <c>PackageReference</c> with a <c>Version</c> fails the restore with NU1008. Looks in the project file and in every folder up to
+    /// <paramref name="repositoryRoot"/>.
+    /// </summary>
+    internal static bool UsesCentralPackageVersions(string projectText, string projectDir, string repositoryRoot)
+    {
+        if (SetsCentralVersions(projectText))
+        {
+            return true;
+        }
+
+        var stop = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
+        for (
+            var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectDir));
+            ;
+            current = Path.GetDirectoryName(current)!
+        )
+        {
+            foreach (var name in new[] { "Directory.Packages.props", "Directory.Build.props" })
+            {
+                var file = Path.Combine(current, name);
+                if (System.IO.File.Exists(file) && SetsCentralVersions(System.IO.File.ReadAllText(file)))
+                {
+                    return true;
+                }
+            }
+
+            if (
+                string.Equals(current, stop, StringComparison.OrdinalIgnoreCase)
+                || Path.GetDirectoryName(current) is null
+            )
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>.NET-only: the package manager of the app in <paramref name="appDir"/>, from its lockfile (upstream reads <c>packageManager</c> and the lockfile); npm when there is none.</summary>
+    internal static (string Manager, bool YarnBerry) DetectManager(string appDir, string? repositoryRoot = null)
+    {
+        // A workspace app keeps its lockfile at the workspace root: the nearest folder up to the repository with one.
+        var stop = repositoryRoot is null ? null : Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
+        var found = appDir;
+        for (
+            var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(appDir));
+            ;
+            current = Path.GetDirectoryName(current)!
+        )
+        {
+            if (
+                new[] { "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "package-lock.json" }.Any(file =>
+                    System.IO.File.Exists(Path.Combine(current, file))
+                )
+            )
+            {
+                found = current;
+                break;
+            }
+
+            if (
+                stop is null
+                || string.Equals(current, stop, StringComparison.OrdinalIgnoreCase)
+                || Path.GetDirectoryName(current) is null
+            )
+            {
+                break;
+            }
+        }
+
+        bool Has(string file) => System.IO.File.Exists(Path.Combine(found, file));
+        if (Has("pnpm-lock.yaml"))
+        {
+            return ("pnpm", false);
+        }
+
+        if (Has("yarn.lock"))
+        {
+            return ("yarn", Has(".yarnrc.yml"));
+        }
+
+        return Has("bun.lock") || Has("bun.lockb") ? ("bun", false) : ("npm", false);
+    }
 
     /// <summary>The SDK version a project file targets, such as <c>10.0</c> for <c>net10.0</c>; the default when it names none.</summary>
     internal static string DotnetVersionOf(string? project)
@@ -407,19 +716,49 @@ internal static partial class Ci
     internal static string RenderGithubWorkflow(WorkflowContext context)
     {
         var jobs = new List<string>();
-        if (context.Jobs.Web)
+        if (context.Jobs.Web is { } web)
         {
-            jobs.Add(GithubJob("web", "ubuntu-latest", 30, context, GithubWebSteps));
+            jobs.Add(GithubJob("web", "ubuntu-latest", 30, context, GithubWebSteps, web.Targets));
         }
 
-        if (context.Jobs.Ios)
+        if (context.Jobs.Ios is { } ios)
         {
-            jobs.Add(GithubJob("ios", "macos-26", 90, context, GithubIosSteps));
+            jobs.Add(
+                GithubJob(
+                    "ios",
+                    "macos-26",
+                    90,
+                    context,
+                    GithubIosSteps.Replace(
+                        "@APPBUILD@",
+                        GithubBuildSteps(context, IosBuildOf(context, ios.Build), ios.Build is IosBuild.Custom),
+                        StringComparison.Ordinal
+                    ),
+                    ios.Targets
+                )
+            );
         }
 
-        if (context.Jobs.Android)
+        if (context.Jobs.Android is { } android)
         {
-            jobs.Add(GithubJob("android", "ubuntu-latest", 60, context, GithubAndroidSteps));
+            jobs.Add(
+                GithubJob(
+                    "android",
+                    "ubuntu-latest",
+                    60,
+                    context,
+                    GithubAndroidSteps.Replace(
+                        "@APPBUILD@",
+                        GithubBuildSteps(
+                            context,
+                            AndroidBuildOf(context, android.Build),
+                            android.Build is AndroidBuild.Custom
+                        ),
+                        StringComparison.Ordinal
+                    ),
+                    android.Targets
+                )
+            );
         }
 
         const string Header = """
@@ -445,7 +784,14 @@ internal static partial class Ci
         return Header + string.Join("\n\n", jobs) + "\n";
     }
 
-    private static string GithubJob(string name, string runner, int minutes, WorkflowContext context, string steps)
+    private static string GithubJob(
+        string name,
+        string runner,
+        int minutes,
+        WorkflowContext context,
+        string steps,
+        IReadOnlyList<string>? targets
+    )
     {
         const string Template = """
               @NAME@:
@@ -466,6 +812,7 @@ internal static partial class Ci
                       name: e2e-@NAME@
                       path: |
                         .e2e/report.json
+                        .e2e/junit.xml@J@
                         .e2e/results
                       # .e2e is a hidden directory, which upload-artifact skips when it expands a folder.
                       include-hidden-files: true
@@ -474,25 +821,33 @@ internal static partial class Ci
             """;
         var secrets = string.Join(
             "\n",
-            context.Secrets.Select(secret => "    " + secret + ": ${{ secrets." + secret + " }}")
+            [
+                .. context.Secrets.Select(secret => "    " + secret + ": ${{ secrets." + secret + " }}"),
+                .. TargetEnv(targets).Select(line => "    " + line),
+            ]
         );
         var expanded = steps
-            .Replace("@ENV@", context.Secrets.Count == 0 ? "" : "\n  env:\n" + secrets, StringComparison.Ordinal)
+            .Replace("@ENV@", secrets.Length == 0 ? "" : "\n  env:\n" + secrets, StringComparison.Ordinal)
             .Replace("@SECRETS@\n", secrets.Length == 0 ? "" : secrets + "\n", StringComparison.Ordinal)
             .Replace("@BUILD@", BuildCommand(context), StringComparison.Ordinal)
             .Replace("@TEST@", GithubTestCommand(context), StringComparison.Ordinal)
             .Replace("@PLAYWRIGHT@", PlaywrightScript(context), StringComparison.Ordinal)
-            .Replace("@APK@", Apk, StringComparison.Ordinal);
-        return Template
-            .Replace("@STEPS@", Indent(expanded, 6), StringComparison.Ordinal)
-            .Replace("@NAME@", name, StringComparison.Ordinal)
-            .Replace("@RUNNER@", runner, StringComparison.Ordinal)
-            .Replace(
-                "@MINUTES@",
-                minutes.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                StringComparison.Ordinal
-            )
-            .Replace("@DOTNET@", context.DotnetVersion, StringComparison.Ordinal);
+            .Replace("@APK@", Quote(ApkPath(context)), StringComparison.Ordinal)
+            .Replace("@BUILDDIRTEXT@", Join(context.AppDir, "build"), StringComparison.Ordinal)
+            .Replace("@BUILDDIR@", Quote(Join(context.AppDir, "build")), StringComparison.Ordinal);
+        return Junit(
+            Template
+                .Replace("@STEPS@", Indent(expanded, 6), StringComparison.Ordinal)
+                .Replace("@NAME@", name, StringComparison.Ordinal)
+                .Replace("@RUNNER@", runner, StringComparison.Ordinal)
+                .Replace(
+                    "@MINUTES@",
+                    minutes.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    StringComparison.Ordinal
+                )
+                .Replace("@DOTNET@", context.DotnetVersion, StringComparison.Ordinal),
+            context.Junit
+        );
     }
 
     private const string GithubRunStep = """
@@ -516,11 +871,7 @@ internal static partial class Ci
 
     private const string GithubIosSteps =
         """
-            # Replace this step with your app's Release build for the iOS simulator, with the .app under build/.
-            - name: Build the app
-              run: |
-                echo "Replace this step with your app's build for the simulator, with the .app under build/" >&2
-                exit 1
+            @APPBUILD@
             - name: Build the tests
               run: @BUILD@
             # Boots the image's own iPhone 17 Pro on a pinned runtime: a simulator made with `simctl create`
@@ -539,9 +890,9 @@ internal static partial class Ci
                 fi
                 xcrun simctl boot "$UDID"
                 xcrun simctl bootstatus "$UDID"
-                APP=$(find build -maxdepth 5 -name '*.app' -type d | head -n 1)
+                APP=$(find @BUILDDIR@ -maxdepth 5 -name '*.app' -type d | head -n 1)
                 if [ -z "$APP" ]; then
-                  echo "::error::No .app under build/"
+                  echo "::error::No .app under @BUILDDIRTEXT@/"
                   exit 1
                 fi
                 xcrun simctl install "$UDID" "$APP"
@@ -561,11 +912,7 @@ internal static partial class Ci
             echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
             sudo udevadm control --reload-rules
             sudo udevadm trigger --name-match=kvm
-        # Replace this step with your app's release build, an APK at @APK@.
-        - name: Build the app
-          run: |
-            echo "Replace this step with your app's build, an APK at @APK@" >&2
-            exit 1
+        @APPBUILD@
         - name: Build the tests
           run: @BUILD@
         - name: Run e2e
@@ -587,10 +934,163 @@ internal static partial class Ci
         """;
 
     private static string GithubTestCommand(WorkflowContext context) =>
-        $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}";
+        $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}"
+        + (context.Junit ? " --logger \"junit;LogFilePath=${{ github.workspace }}/.e2e/junit.xml\"" : "");
+
+    /// <summary>
+    /// The env lines that point a job's run at its one target: <c>E2E_TARGET</c>, the port's counterpart of upstream's
+    /// <c>--target</c> (one name). A job with several targets sets none and every test uses the config's own choice.
+    /// </summary>
+    private static string[] TargetEnv(IReadOnlyList<string>? targets) =>
+        targets is { Count: 1 } ? ["E2E_TARGET: " + YamlScalar(targets[0])] : [];
+
+    /// <summary>A target name as a YAML value: bare when it is plain, else double-quoted.</summary>
+    private static string YamlScalar(string value) =>
+        value.Length > 0
+        && char.IsAsciiLetter(value[0])
+        && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.')
+        && !YamlReserved.Contains(value, StringComparer.OrdinalIgnoreCase)
+            ? value
+            : System.Text.Json.JsonSerializer.Serialize(value);
+
+    /// <summary>The lines of <paramref name="text"/> that end in the <c>@J@</c> marker: kept without it when the JUnit report is on, else dropped.</summary>
+    private static string Junit(string text, bool on) =>
+        string.Join(
+            "\n",
+            text.Split('\n')
+                .Where(line => on || !line.EndsWith("@J@", StringComparison.Ordinal))
+                .Select(line => line.EndsWith("@J@", StringComparison.Ordinal) ? line[..^3] : line)
+        );
+
+    /// <summary>`dir/file`, or `file` at the root (upstream's <c>join</c>).</summary>
+    private static string Join(string dir, string file) => dir.Length == 0 ? file : dir + "/" + file;
+
+    /// <summary>Where every build writes the APK the Android job installs.</summary>
+    private static string ApkPath(WorkflowContext context) => Join(context.AppDir, Apk);
 
     private static string BuildCommand(WorkflowContext context) =>
         $"dotnet build -c Release {Quote(context.ProjectFile)}";
+
+    /// <summary>The comment lines above an app build and its commands (upstream's <c>{ comment, lines }</c>).</summary>
+    private sealed record AppBuild(string[] Comment, string[] Lines);
+
+    /// <summary>The package manager's bin runner in a pipeline file (upstream's <c>exec</c>): the short forms the CI docs use.</summary>
+    private static string Exec(WorkflowContext context, string command) =>
+        context.Manager switch
+        {
+            "pnpm" => "pnpm exec " + command,
+            "yarn" => "yarn " + command,
+            "bun" => "bunx " + command,
+            _ => "npx " + command,
+        };
+
+    /// <summary>The commands that set up the package manager and install the app's dependencies without touching the lockfile.</summary>
+    private static string[] InstallLines(WorkflowContext context) =>
+        context.Manager switch
+        {
+            "pnpm" =>
+            [
+                "command -v corepack || npm install --global corepack",
+                "corepack enable",
+                "pnpm install --frozen-lockfile",
+            ],
+            "yarn" when context.YarnBerry =>
+            [
+                "command -v corepack || npm install --global corepack",
+                "corepack enable",
+                "yarn install --immutable",
+            ],
+            "yarn" => ["command -v yarn || npm install --global yarn", "yarn install --frozen-lockfile"],
+            "bun" => ["npm install --global bun", "bun install --frozen-lockfile"],
+            _ when context.NpmLockfile => ["npm ci"],
+            // `npm ci` needs a committed lockfile.
+            _ => ["npm install"],
+        };
+
+    /// <summary>The iOS build's commands and the comment above them (upstream's <c>iosBuild</c>); every build leaves the <c>.app</c> under <c>build/</c>.</summary>
+    private static AppBuild IosBuildOf(WorkflowContext context, IosBuild build) =>
+        build switch
+        {
+            IosBuild.Expo => new(
+                [
+                    "Expo generates ios/ (CNG): expo run:ios prebuilds it, installs the pods, and builds without a simulator.",
+                ],
+                [Exec(context, "expo run:ios --configuration Release --device generic --no-bundler --output build/ios")]
+            ),
+            IosBuild.ReactNative native => new(
+                ["Installs the pods, then builds the workspace for the simulator into build/."],
+                [
+                    .. native.Bundler
+                        ? new[] { "bundle install", "(cd ios && bundle exec pod install)" }
+                        : ["(cd ios && pod install)"],
+                    $"xcodebuild -workspace ios/{native.Workspace}.xcworkspace -scheme {native.Workspace} -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build",
+                ]
+            ),
+            _ => new(
+                [
+                    $"Replace this step with your app's Release build for the iOS simulator, with the .app under {Join(context.AppDir, "build")}/.",
+                ],
+                [
+                    $"echo \"Replace this step with your app's build for the simulator, with the .app under {Join(context.AppDir, "build")}/\" >&2",
+                    "exit 1",
+                ]
+            ),
+        };
+
+    /// <summary>The Android build's commands and the comment above them (upstream's <c>androidBuild</c>); every build writes the APK at <see cref="Apk"/>.</summary>
+    private static AppBuild AndroidBuildOf(WorkflowContext context, AndroidBuild build)
+    {
+        const string Gradle = "(cd android && ./gradlew :app:assembleRelease -PreactNativeArchitectures=x86_64)";
+        string[] abi = ["Only the emulator's ABI: building all four takes about 25 minutes longer."];
+        return build switch
+        {
+            AndroidBuild.Expo expo => new(
+                ["Expo generates android/ (CNG) and signs release builds with the debug keystore.", .. abi],
+                [
+                    .. expo.Prebuild ? new[] { Exec(context, "expo prebuild --platform android --no-install") } : [],
+                    Gradle,
+                ]
+            ),
+            AndroidBuild.ReactNative => new(abi, [Gradle]),
+            _ => new(
+                [$"Replace this step with your app's release build, an APK at {ApkPath(context)}."],
+                [$"echo \"Replace this step with your app's build, an APK at {ApkPath(context)}\" >&2", "exit 1"]
+            ),
+        };
+    }
+
+    /// <summary>
+    /// A phone job's app steps for GitHub: for an Expo or React Native app, Node and the install, then the build in the app's
+    /// folder; for any other app, the build step that fails until it is replaced.
+    /// </summary>
+    private static string GithubBuildSteps(WorkflowContext context, AppBuild build, bool custom)
+    {
+        var steps = new List<string>();
+        var directory = context.AppDir.Length == 0 ? "" : "  working-directory: " + Quote(context.AppDir) + "\n";
+        if (!custom)
+        {
+            steps.Add(
+                "- uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0\n  with:\n    node-version: 24\n"
+                    + "- name: Install JavaScript dependencies\n"
+                    + directory
+                    + "  run: "
+                    + RunValue(InstallLines(context))
+            );
+        }
+
+        steps.Add(
+            string.Concat(build.Comment.Select(line => "# " + line + "\n"))
+                + "- name: Build the app\n"
+                + (custom ? "" : directory)
+                + "  run: "
+                + RunValue(build.Lines)
+        );
+        return string.Join("\n", steps);
+    }
+
+    /// <summary>The value of a <c>run:</c> key at the step's own indentation: one command inline, several as a block.</summary>
+    private static string RunValue(string[] lines) =>
+        lines.Length == 1 ? lines[0] : "|\n" + string.Join("\n", lines.Select(line => "    " + line));
 
     /// <summary>A path as one shell word: quoted when it holds a space or a character the shell or YAML reads.</summary>
     private static string Quote(string path) =>
@@ -615,24 +1115,46 @@ internal static partial class Ci
     internal static string RenderGitlabPipeline(WorkflowContext context)
     {
         var parts = new List<string>();
-        if (context.Jobs.Web)
+        if (context.Jobs.Web is { } web)
         {
-            parts.Add(GitlabWeb);
+            parts.Add(
+                GitlabWeb.Replace(
+                    "    @TARGETVAR@\n",
+                    string.Concat(TargetEnv(web.Targets).Select(line => "    " + line + "\n")),
+                    StringComparison.Ordinal
+                )
+            );
         }
 
-        if (context.Jobs.Ios || context.Jobs.Android)
+        if (context.Jobs.Ios is not null || context.Jobs.Android is not null)
         {
             parts.Add(GitlabMobile);
         }
 
-        if (context.Jobs.Ios)
+        if (context.Jobs.Ios is { } ios)
         {
-            parts.Add(GitlabIos);
+            parts.Add(
+                GitlabPhone(
+                    GitlabIos,
+                    ios.Targets,
+                    GitlabBuildItems(context, IosBuildOf(context, ios.Build), ios.Build is IosBuild.Custom)
+                )
+            );
         }
 
-        if (context.Jobs.Android)
+        if (context.Jobs.Android is { } android)
         {
-            parts.Add(GitlabAndroid);
+            parts.Add(
+                GitlabPhone(
+                    GitlabAndroid,
+                    android.Targets,
+                    GitlabBuildItems(
+                        context,
+                        AndroidBuildOf(context, android.Build),
+                        android.Build is AndroidBuild.Custom
+                    )
+                )
+            );
         }
 
         const string Header = """
@@ -642,18 +1164,51 @@ internal static partial class Ci
             """;
         return Header
             + "\n"
-            + string.Join("\n\n", parts)
-                .Replace("@SUFFIX@", context.JobSuffix ?? "", StringComparison.Ordinal)
-                .Replace("@DOTNET@", context.DotnetVersion, StringComparison.Ordinal)
-                .Replace("@BUILD@", BuildCommand(context), StringComparison.Ordinal)
-                .Replace("@PLAYWRIGHT@", PlaywrightScript(context), StringComparison.Ordinal)
-                .Replace(
-                    "@TEST@",
-                    $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}",
-                    StringComparison.Ordinal
-                )
-                .Replace("@APK@", Apk, StringComparison.Ordinal)
+            + Junit(
+                string.Join("\n\n", parts)
+                    .Replace("@SUFFIX@", context.JobSuffix ?? "", StringComparison.Ordinal)
+                    .Replace("@DOTNET@", context.DotnetVersion, StringComparison.Ordinal)
+                    .Replace("@BUILD@", BuildCommand(context), StringComparison.Ordinal)
+                    .Replace("@PLAYWRIGHT@", PlaywrightScript(context), StringComparison.Ordinal)
+                    .Replace(
+                        "@TEST@",
+                        $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}"
+                            + (context.Junit ? " --logger \"junit;LogFilePath=$CI_PROJECT_DIR/.e2e/junit.xml\"" : ""),
+                        StringComparison.Ordinal
+                    )
+                    .Replace("@APK@", Quote(ApkPath(context)), StringComparison.Ordinal)
+                    .Replace("@BUILDDIR@", Quote(Join(context.AppDir, "build")), StringComparison.Ordinal),
+                context.Junit
+            )
             + "\n";
+    }
+
+    /// <summary>A phone job: its <c>E2E_TARGET</c> variable when it runs one target, and the app's build items.</summary>
+    private static string GitlabPhone(string job, IReadOnlyList<string> targets, string items) =>
+        job.Replace(
+                "  @TARGETVARS@\n",
+                TargetEnv(targets) is [var line] ? "  variables:\n    " + line + "\n" : "",
+                StringComparison.Ordinal
+            )
+            .Replace("    @APPBUILD@\n", items, StringComparison.Ordinal);
+
+    /// <summary>
+    /// A phone job's app build as script items on a self-managed shell runner: for an Expo or React Native app the install and the
+    /// build in the app's folder, then back to the project; for any other app the step that fails until it is replaced.
+    /// </summary>
+    private static string GitlabBuildItems(WorkflowContext context, AppBuild build, bool custom)
+    {
+        var comment = string.Concat(build.Comment.Select(line => "    # " + line + "\n"));
+        if (custom)
+        {
+            return comment + "    - " + string.Join(" && ", build.Lines) + "\n";
+        }
+
+        var enter = context.AppDir.Length == 0 ? [] : new[] { $"cd \"$CI_PROJECT_DIR/{context.AppDir}\"" };
+        string[] leave = context.AppDir.Length == 0 ? [] : ["cd \"$CI_PROJECT_DIR\""];
+        return string.Concat(enter.Concat(InstallLines(context)).Select(line => "    - " + line + "\n"))
+            + comment
+            + string.Concat(build.Lines.Concat(leave).Select(line => "    - " + line + "\n"));
     }
 
     private const string GitlabWeb = """
@@ -668,6 +1223,7 @@ internal static partial class Ci
             # GitLab caches only paths inside the project.
             NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget
             PLAYWRIGHT_BROWSERS_PATH: $CI_PROJECT_DIR/.cache/ms-playwright
+            @TARGETVAR@
           cache:
             key:
               files:
@@ -684,7 +1240,10 @@ internal static partial class Ci
             expire_in: 7 days
             paths:
               - .e2e/report.json
+              - .e2e/junit.xml@J@
               - .e2e/results/
+            reports:@J@
+              junit: .e2e/junit.xml@J@
         """;
 
     private const string GitlabMobile = """
@@ -702,24 +1261,27 @@ internal static partial class Ci
             expire_in: 7 days
             paths:
               - .e2e/report.json
+              - .e2e/junit.xml@J@
               - .e2e/results/
               # The Android job's emulator output, for a boot that fails.
               - .e2e/emulator.log
+            reports:@J@
+              junit: .e2e/junit.xml@J@
         """;
 
     private const string GitlabIos = """
         e2e-ios@SUFFIX@:
           extends: .e2e-mobile@SUFFIX@
           tags: [macos]
+          @TARGETVARS@
           script:
-            # Replace this step with your app's Release build for the iOS simulator, with the .app under build/.
-            - echo "Replace this step with your app's build for the simulator, with the .app under build/" >&2 && exit 1
+            @APPBUILD@
             - @BUILD@
             # A simulator of the job's own on a pinned runtime, so the run never drives a device another job left booted.
             - export E2E_DEVICE=$(xcrun simctl create "e2e-$CI_JOB_ID" "iPhone 17 Pro" com.apple.CoreSimulator.SimRuntime.iOS-26-5)
             - echo "$E2E_DEVICE" > "$CI_PROJECT_DIR/.simulator-udid"
             - xcrun simctl bootstatus "$E2E_DEVICE" -b
-            - xcrun simctl install "$E2E_DEVICE" "$(find build -maxdepth 5 -name '*.app' -type d | head -n 1)"
+            - xcrun simctl install "$E2E_DEVICE" "$(find @BUILDDIR@ -maxdepth 5 -name '*.app' -type d | head -n 1)"
             - @TEST@
           after_script:
             # after_script starts a new shell in the project directory, after a failed script too, but not after a timeout.
@@ -730,9 +1292,9 @@ internal static partial class Ci
         e2e-android@SUFFIX@:
           extends: .e2e-mobile@SUFFIX@
           tags: [linux-kvm]
+          @TARGETVARS@
           script:
-            # Replace this step with your app's release build, an APK at @APK@.
-            - echo "Replace this step with your app's build, an APK at @APK@" >&2 && exit 1
+            @APPBUILD@
             - @BUILD@
             # An emulator of the job's own: the port comes from CI_CONCURRENT_ID, so parallel jobs on one runner don't share one.
             # It boots an AVD named e2e that you create on the runner.

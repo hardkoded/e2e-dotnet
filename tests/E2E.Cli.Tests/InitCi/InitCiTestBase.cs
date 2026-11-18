@@ -16,9 +16,24 @@ public abstract class InitCiTestBase : IDisposable
 
     /// <summary>The web job alone, for a project at the repository root, with the model key from secrets.</summary>
     private protected static WorkflowContext Base { get; } =
-        new("MyApp.E2E/MyApp.E2E.csproj", "10.0", ["AI_GATEWAY_API_KEY"], new CiJobs(true, false, false));
+        new("MyApp.E2E/MyApp.E2E.csproj", "10.0", ["AI_GATEWAY_API_KEY"], new CiJobs(new CiWebJob()));
 
-    private protected static readonly CiJobs AllJobs = new(true, true, true);
+    /// <summary>Expo on both phones beside a web target: upstream's <c>expoJobs</c>.</summary>
+    private protected static readonly CiJobs AllJobs = new(
+        new CiWebJob(["web"]),
+        new CiPhoneJob<IosBuild>(["ios"], new IosBuild.Expo()),
+        new CiPhoneJob<AndroidBuild>(["android"], new AndroidBuild.Expo(true))
+    );
+
+    /// <summary>The phone jobs with a build of their own to write: upstream's <c>kind: 'custom'</c>.</summary>
+    private protected static readonly CiJobs CustomJobs = new(
+        null,
+        new CiPhoneJob<IosBuild>(["ios"], new IosBuild.Custom()),
+        new CiPhoneJob<AndroidBuild>(["android"], new AndroidBuild.Custom())
+    );
+
+    /// <summary>The phone jobs of <see cref="AllJobs"/> alone, for a mobile-only config.</summary>
+    private protected static readonly CiJobs PhoneJobs = AllJobs with { Web = null };
 
     public void Dispose()
     {

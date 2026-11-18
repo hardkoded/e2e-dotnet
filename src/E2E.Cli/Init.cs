@@ -576,7 +576,7 @@ internal static partial class Init
 
         // What the project declared before init adds the engine's packages: an existing config's engines.
         var declared = Package.DeclaredDependencies(pkg);
-        var additions = Package.AddDependencies(pkg, scaffold.Dependencies);
+        IReadOnlyList<KeyValuePair<string, string>> additions = Package.AddDependencies(pkg, scaffold.Dependencies);
         if (example is null && additions.Count > 0)
         {
             log.Info(
@@ -652,6 +652,29 @@ internal static partial class Init
         }
 
         var writesCi = ciService is not null && ciFile is not null && !ciFile.Existing && ciLink is null;
+
+        // The pipelines write a JUnit report with the junit logger, which `dotnet test` takes from this package. A TUnit project runs on
+        // Microsoft.Testing.Platform, which has no VSTest loggers; an example keeps the project it has.
+        var junit =
+            writesCi
+            && example is null
+            && !Package
+                .DeclaredDependencies(pkg)
+                .Any(name => name.StartsWith("TUnit", StringComparison.OrdinalIgnoreCase))
+            // A PackageReference with a Version fails the restore under central package management (NU1008).
+            && !Ci.UsesCentralPackageVersions(pkg.Original ?? Package.SerializePackage(pkg), cwd, repositoryRoot);
+        if (junit)
+        {
+            var added = Package.AddDependencies(pkg, [new(Ci.JunitLogger, Ci.JunitLoggerVersion)]);
+            if (added.Count > 0)
+            {
+                additions = [.. additions, .. added];
+                log.Info(
+                    "Add package references: "
+                        + string.Join(", ", added.Select(addition => addition.Key + "@" + addition.Value))
+                );
+            }
+        }
 
         // An example's project, config, and tests stay as the example has them.
         var files = new List<PlannedFile>();
@@ -816,6 +839,7 @@ internal static partial class Init
                 existingConfig ? File.ReadAllText(Path.Combine(cwd, E2EConfig.FileName)) : null,
                 [.. engines.Select(id => Engines.GetEnginePreset(id).Target())],
                 declared,
+                junit,
                 log
             );
         }
@@ -884,23 +908,34 @@ internal static partial class Init
         string? existingConfigText,
         IReadOnlyList<JsonObject> newTargets,
         IReadOnlyList<string> declared,
+        bool junit,
         InitLog log
     )
     {
         var config = existingConfigText is null ? null : Ci.ReadConfig(existingConfigText);
+        // upstream's `detectMobileBuilds(cwd, dependsOn)`: the app is the nearest folder above the test project with a package.json.
+        var appFolder = Ci.FindAppDir(cwd, repositoryRoot);
+        var (ios, android) = appFolder is null
+            ? (new IosBuild.Custom(), (AndroidBuild)new AndroidBuild.Custom())
+            : Ci.DetectMobileBuilds(appFolder, name => Ci.DependsOn(appFolder, name));
+        var (manager, yarnBerry) = appFolder is null ? ("npm", false) : Ci.DetectManager(appFolder, repositoryRoot);
+        IReadOnlyList<CiTarget> ciTargets = [];
         CiJobs jobs;
         if (existingConfigText is null)
         {
-            jobs = Ci.GetCiJobs([
+            ciTargets =
+            [
                 .. newTargets.Select(target => new CiTarget(
                     target["name"]!.GetValue<string>(),
                     target["platform"]!.GetValue<string>()
                 )),
-            ]);
+            ];
+            jobs = Ci.GetCiJobs(ciTargets, ios, android);
         }
         else if (config is not null)
         {
-            jobs = Ci.GetCiJobs(Ci.ConfigTargets(config));
+            ciTargets = Ci.ConfigTargets(config);
+            jobs = Ci.GetCiJobs(ciTargets, ios, android);
         }
         else if (
             declared.Contains("E2E", StringComparer.OrdinalIgnoreCase)
@@ -912,7 +947,7 @@ internal static partial class Init
                     + E2EConfig.FileName
                     + " reads to split them"
             );
-            jobs = new CiJobs(true, false, false);
+            jobs = new CiJobs(new CiWebJob());
         }
         else
         {
@@ -939,12 +974,21 @@ internal static partial class Init
                 : Ci.GatewaysInConfig(config);
         var secrets = gateways.SelectMany(gateway => gateway.Keys?.Take(1) ?? []).ToList();
         var absoluteProject = Path.Combine(cwd, projectFile);
+        var appDir =
+            appFolder is null || (ios is IosBuild.Custom && android is AndroidBuild.Custom)
+                ? ""
+                : Ci.PosixRelative(repositoryRoot, appFolder);
         var context = new WorkflowContext(
             Ci.PosixRelative(repositoryRoot, absoluteProject),
             Ci.DotnetVersionOf(projectText),
             secrets,
             jobs,
-            file.JobSuffix
+            file.JobSuffix,
+            appDir,
+            manager,
+            yarnBerry,
+            junit,
+            appFolder is null || manager != "npm" || Ci.HasNpmLockfile(appFolder, repositoryRoot)
         );
         var absolute = Path.Combine(repositoryRoot, file.File);
         System.IO.Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
@@ -977,14 +1021,22 @@ internal static partial class Init
         }
 
         foreach (
-            var (enabled, label, artifact) in new[]
+            var (custom, label, artifact) in new[]
             {
-                (jobs.Ios, "iOS", "a .app for the simulator under build/"),
-                (jobs.Android, "Android", "an APK at android/app/build/outputs/apk/release/app-release.apk"),
+                (
+                    jobs.Ios?.Build is IosBuild.Custom,
+                    "iOS",
+                    $"a .app for the simulator under {(appDir.Length == 0 ? "" : appDir + "/")}build/"
+                ),
+                (
+                    jobs.Android?.Build is AndroidBuild.Custom,
+                    "Android",
+                    $"an APK at {(appDir.Length == 0 ? "" : appDir + "/")}android/app/build/outputs/apk/release/app-release.apk"
+                ),
             }
         )
         {
-            if (enabled)
+            if (custom)
             {
                 log.Warn(
                     "The "
@@ -997,7 +1049,7 @@ internal static partial class Init
             }
         }
 
-        if (service.Id == "gitlab" && (jobs.Ios || jobs.Android))
+        if (service.Id == "gitlab" && (jobs.Ios is not null || jobs.Android is not null))
         {
             log.Warn(
                 "GitLab's hosted runners can't run a simulator or an emulator: the mobile jobs need self-managed runners; set their tags in "
@@ -1026,17 +1078,36 @@ internal static partial class Init
             );
         }
 
-        if (jobs.Web && !(config is not null && Ci.ConfigStartsApp(config)))
+        if (jobs.Web is not null && !(config is not null && Ci.ConfigStartsApp(config)))
         {
             log.Warn(
                 "Nothing starts the app in CI: set app.command in " + E2EConfig.FileName + " so the runner starts it"
             );
         }
 
-        if ((jobs.Ios || jobs.Android) && (jobs.Web || (jobs.Ios && jobs.Android)))
+        var webTargets = jobs.Web?.Targets?.Count
+            ?? ciTargets.Count(target => target.Platform is not ("ios" or "android"));
+        if (webTargets > 1 || jobs.Ios?.Targets.Count > 1 || jobs.Android?.Targets.Count > 1)
         {
             log.Warn(
-                "The port selects a target by overriding E2EFixture.TargetName, not by a flag, so every job runs the whole test project; give each job a --filter for its tests"
+                "A job that runs several targets does not name one: the port takes one target per run, from E2E_TARGET, so set it per job or let the tests choose the target (E2EFixture.TargetName)"
+            );
+        }
+
+        if (
+            jobs.Web is not null && (jobs.Ios is not null || jobs.Android is not null)
+            || jobs.Ios is not null && jobs.Android is not null
+        )
+        {
+            log.Warn(
+                "Each job runs the whole test project on its target (E2E_TARGET): give each job a --filter for the tests of its platform if they differ"
+            );
+        }
+
+        if (!junit)
+        {
+            log.Warn(
+                "The pipeline writes no JUnit report: the junit logger comes from the JunitXml.TestLogger package, which init adds to a VSTest project that sets its package versions inline. Add the package yourself, and --logger \"junit;LogFilePath=...\" to the test command, if you want one"
             );
         }
     }

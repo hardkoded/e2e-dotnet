@@ -7,11 +7,10 @@ using System.Text.RegularExpressions;
 namespace E2E.Cli.Tests.CliInit;
 
 /// <summary>
-/// Upstream's <c>describe('with a CI workflow')</c> of <c>tests/unit/cli-init.test.ts</c>. The port has no Expo or React
-/// Native build, no package manager, and no workspace, and reads its JSON config without running it, so these
-/// <c>it</c>s are not ported: "builds an Expo app in the phone jobs", "installs a workspace member at the workspace root
-/// with the workspace manager", and "loads an existing config only after the changes are confirmed and the dependencies
-/// installed". "Writes the iOS and Android jobs alone for a mobile-only project" runs on the host, which picks the platform.
+/// Upstream's <c>describe('with a CI workflow')</c> of <c>tests/unit/cli-init.test.ts</c>. The port has no workspace and
+/// reads its JSON config without running it, so these <c>it</c>s are not ported: "installs a workspace member at the
+/// workspace root with the workspace manager", and "loads an existing config only after the changes are confirmed and the
+/// dependencies installed". "Writes the iOS and Android jobs alone for a mobile-only project" runs on the host, which picks the platform.
 /// </summary>
 public sealed class WithACiWorkflowTests : CliInitTestBase
 {
@@ -144,7 +143,64 @@ public sealed class WithACiWorkflowTests : CliInitTestBase
             ["web", "ios"],
             Regex.Matches(workflow, @"^  (web|ios|android):$", RegexOptions.Multiline).Select(m => m.Groups[1].Value)
         );
-        Assert.Contains("every job runs the whole test project", Output, StringComparison.Ordinal);
+        // Each job names the one target it runs.
+        Assert.Contains("E2E_TARGET: web\n", workflow, StringComparison.Ordinal);
+        Assert.Contains("E2E_TARGET: ios\n", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("runs several targets", Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // Partial: the host picks the phone platform, where upstream mocks it; the app is a package.json above the test project.
+    public async Task Partial_Builds_an_Expo_app_in_the_phone_jobs()
+    {
+        await File.WriteAllTextAsync(Path_("package.json"), """{ "dependencies": { "expo": "*" } }""");
+        await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Engines = ["mobile"],
+                Ci = "github-actions",
+            }
+        );
+        var workflow = Read(Workflow);
+        Assert.Contains(
+            OperatingSystem.IsMacOS()
+                ? "npx expo run:ios --configuration Release"
+                : "npx expo prebuild --platform android --no-install",
+            workflow,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("placeholder", Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // .NET-only: upstream's --reporter list,junit is the junit logger, from the JunitXml.TestLogger package init adds.
+    public async Task Writes_a_JUnit_report_with_the_junit_logger_and_adds_its_package()
+    {
+        await RunInitAsync(new InitOptions { Yes = true, Ci = "github-actions" });
+        Assert.Contains(
+            "--logger \"junit;LogFilePath=${{ github.workspace }}/.e2e/junit.xml\"",
+            Read(Workflow),
+            StringComparison.Ordinal
+        );
+        Assert.Contains("JunitXml.TestLogger", Read(ProjectFile()), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // .NET-only: a TUnit project runs on Microsoft.Testing.Platform, which has no VSTest loggers.
+    public async Task Writes_no_JUnit_report_for_a_TUnit_project()
+    {
+        await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Ci = "github-actions",
+                Framework = "tunit",
+            }
+        );
+        Assert.DoesNotContain("junit", Read(Workflow), StringComparison.Ordinal);
+        Assert.DoesNotContain("JunitXml.TestLogger", Read(ProjectFile()), StringComparison.Ordinal);
+        Assert.Contains("The pipeline writes no JUnit report", Output, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -322,7 +378,8 @@ public sealed class WithACiWorkflowTests : CliInitTestBase
     }
 
     [Fact]
-    public async Task Reads_the_target_names_and_platforms_from_an_existing_config()
+    // Partial: the JSON config's platforms stand in for upstream's engine declarations, and each job names its target with E2E_TARGET.
+    public async Task Partial_Reads_the_target_names_and_platforms_from_an_existing_config()
     {
         await File.WriteAllTextAsync(Path_(ProjectFile()), EngineProject);
         await File.WriteAllTextAsync(
@@ -335,6 +392,10 @@ public sealed class WithACiWorkflowTests : CliInitTestBase
             ["web", "ios", "android"],
             Regex.Matches(workflow, @"^  (web|ios|android):$", RegexOptions.Multiline).Select(m => m.Groups[1].Value)
         );
+        // Each job keeps the name the config gave its target.
+        Assert.Contains("E2E_TARGET: chromium\n", workflow, StringComparison.Ordinal);
+        Assert.Contains("E2E_TARGET: iphone\n", workflow, StringComparison.Ordinal);
+        Assert.Contains("E2E_TARGET: pixel\n", workflow, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -465,5 +526,31 @@ public sealed class WithACiWorkflowTests : CliInitTestBase
             Output,
             StringComparison.Ordinal
         );
+    }
+
+    [Fact]
+    // .NET-only: a project with central package versions cannot take a PackageReference that sets a Version (NU1008).
+    public async Task Adds_no_logger_package_to_a_project_with_central_package_versions()
+    {
+        await File.WriteAllTextAsync(
+            Path_("Directory.Packages.props"),
+            "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup></Project>"
+        );
+        await RunInitAsync(new InitOptions { Yes = true, Ci = "github-actions" });
+        Assert.DoesNotContain("JunitXml.TestLogger", Read(ProjectFile()), StringComparison.Ordinal);
+        Assert.DoesNotContain("junit", Read(Workflow), StringComparison.Ordinal);
+        Assert.Contains("The pipeline writes no JUnit report", Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // .NET-only: the property may carry an attribute, such as a Condition.
+    public async Task Reads_central_package_versions_set_with_a_conditioned_property()
+    {
+        await File.WriteAllTextAsync(
+            Path_("Directory.Build.props"),
+            "<Project><PropertyGroup><ManagePackageVersionsCentrally Condition=\"'1' >= '1'\">true</ManagePackageVersionsCentrally></PropertyGroup></Project>"
+        );
+        await RunInitAsync(new InitOptions { Yes = true, Ci = "github-actions" });
+        Assert.DoesNotContain("JunitXml.TestLogger", Read(ProjectFile()), StringComparison.Ordinal);
     }
 }

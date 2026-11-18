@@ -79,6 +79,7 @@ The test host has no `e2e run` command, so these variables stand in for upstream
 | Variable | Example | Reading | Effect |
 | --- | --- | --- | --- |
 | `E2E_AGENT` | `E2E_AGENT=fast` | value | The name of the agent (from `agents` in the config) the run uses, upstream's `--agent`. A test's own pin wins. An unknown name fails when the config loads, with `INVALID_CONFIG`, and `E2EConfig.AgentNames` and `E2EConfig.Agent` follow it |
+| `E2E_TARGET` | `E2E_TARGET=ios` | value | The name of the target (from `targets` in the config) the run is on, upstream's `--target` with one name. Without it, a config that declares several targets throws `TARGET_REQUIRED` unless a fixture overrides `E2EFixture.TargetName`. An unknown name throws `UNKNOWN_TARGET`. `e2e init --ci` sets it in each job that runs one target. The port has no list form (`--target a,b`) |
 | `E2E_CHANGED_SINCE` | `E2E_CHANGED_SINCE=origin/main` | value | The base ref of `--changed-since`, when the host gives none. See [Test filters](/docs/test-filters/) |
 | `E2E_LAST_FAILED` | `E2E_LAST_FAILED=1` | flag | Reruns only the tests the last report failed, upstream's `--last-failed` |
 | `E2E_TRACE` | `E2E_TRACE=on` | value | Which attempts write `trace.md`, upstream's `--trace`. See [Caching and self-healing](/features/caching/) |
