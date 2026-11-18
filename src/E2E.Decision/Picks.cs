@@ -68,13 +68,8 @@ public static class Picks
         {
             return new Chosen<T>
             {
-                Blocked = "The decision model chose "
-                    + operation
-                    + " but no "
-                    + what
-                    + " for it ("
-                    + Describe(answer)
-                    + ").",
+                Blocked =
+                    "The decision model chose " + operation + " but no " + what + " for it (" + Describe(answer) + ").",
             };
         }
 

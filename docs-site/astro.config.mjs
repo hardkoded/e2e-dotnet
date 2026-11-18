@@ -82,6 +82,7 @@ export default defineConfig({
                         { label: "Authentication", slug: "features/signing-in" },
                         { label: "Caching & self-healing", slug: "features/caching" },
                         { label: "Test filters", slug: "docs/test-filters" },
+                        { label: "Decision models", slug: "docs/decision-models" },
                         { label: "Exploring", slug: "docs/explore" },
                         { label: "Driving without a test runner", slug: "docs/core" },
                         { label: "Bug bashes", slug: "docs/bug-bash" },

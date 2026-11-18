@@ -19,7 +19,11 @@ public static partial class Executor
         "pass a decision model, e.g. DecisionExecutor(new DecisionExecutorOptions { Model = new OpenAIDecisionModel(...) })";
 
     /// <summary>The handle in the runner's secret-fill summary: <c>fill secret "&lt;json string&gt;"</c> at the start (upstream's <c>SECRET_FILL</c>).</summary>
-    [GeneratedRegex("^fill secret \"(?:[^\"\\\\]|\\\\.)*\"", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
+    [GeneratedRegex(
+        "^fill secret \"(?:[^\"\\\\]|\\\\.)*\"",
+        RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 2000
+    )]
     internal static partial Regex SecretFill();
 
     /// <summary>Upstream's <c>decisionExecutor</c>. Builds a step executor that acts through a decision model and an optional text model.</summary>
@@ -66,7 +70,14 @@ public static partial class Executor
             .ToList();
         if (prefix.UncertainAction is { } uncertain)
         {
-            seeded.Add(new HistoryEntry { Action = Redact(uncertain), Replayed = true, Uncertain = true });
+            seeded.Add(
+                new HistoryEntry
+                {
+                    Action = Redact(uncertain),
+                    Replayed = true,
+                    Uncertain = true,
+                }
+            );
         }
 
         return seeded;
@@ -223,13 +234,13 @@ internal sealed class DecisionStep
     /// <summary>A fresh look: the tree, and masked pixels when allowed. <paramref name="typing"/> keeps a filled field's row for verdict views.</summary>
     private async Task<View> ViewAsync(bool typing)
     {
-        var observation = await _ctx
-            .ObserveAsync(new ExecutorObserveOptions { Tree = true, Pixels = _vision }, Signal)
+        var observation = await _ctx.ObserveAsync(new ExecutorObserveOptions { Tree = true, Pixels = _vision }, Signal)
             .ConfigureAwait(false);
         var path = observation.Path ?? "";
-        Screenshot? screenshot = _vision && observation.Pixels is { } pixels
-            ? new Screenshot(pixels.Data, pixels.MediaType, pixels.Width, pixels.Height, pixels.Scale)
-            : null;
+        Screenshot? screenshot =
+            _vision && observation.Pixels is { } pixels
+                ? new Screenshot(pixels.Data, pixels.MediaType, pixels.Width, pixels.Height, pixels.Scale)
+                : null;
         var tree = observation.Tree;
         if (observation.TreeUnavailable || tree is null || EmptyTree(observation))
         {
@@ -468,8 +479,7 @@ internal sealed class DecisionStep
             };
         }
 
-        var operation =
-            space.OperationNamed(op.Choice)
+        var operation = space.OperationNamed(op.Choice)
             ?? throw Picks.Invalid("The decision model chose an unavailable operation.");
         if (operation == Operation.TapAt)
         {
@@ -488,9 +498,10 @@ internal sealed class DecisionStep
 
         // The target depends on the operation: its own request, after the operation settled.
         var request = Questions.TargetRequest(_ctx, space, operation, _history, view.Path);
-        var answers = request.Questions.Count == 0
-            ? new Dictionary<string, Decision>()
-            : await AskAsync(request).ConfigureAwait(false);
+        var answers =
+            request.Questions.Count == 0
+                ? new Dictionary<string, Decision>()
+                : await AskAsync(request).ConfigureAwait(false);
         if (answers is null)
         {
             return Finish(Executor.Blocked(BudgetMessage()));
@@ -509,7 +520,13 @@ internal sealed class DecisionStep
         Next Prepare(DecisionAction action, string? typed = null) =>
             new()
             {
-                Prepared = new Prepared(action, CallLabel(element, operation, target, typed), target.Description, chosen.Answer, typed),
+                Prepared = new Prepared(
+                    action,
+                    CallLabel(element, operation, target, typed),
+                    target.Description,
+                    chosen.Answer,
+                    typed
+                ),
             };
 
         switch (operation)
@@ -709,7 +726,10 @@ internal sealed class DecisionStep
 
         if (located.Uncertain is not null)
         {
-            return new PointFound(null, Finish(Executor.Blocked("The tap point is uncertain (" + located.Uncertain + ").")));
+            return new PointFound(
+                null,
+                Finish(Executor.Blocked("The tap point is uncertain (" + located.Uncertain + ")."))
+            );
         }
 
         var point = located.Point!.Value;
@@ -767,9 +787,7 @@ internal sealed class DecisionStep
             return RejectClaim(claim, "incomplete observation");
         }
 
-        var answers = await AskAsync(
-                Questions.CompletionRequest(_ctx, space, _history, path, screenshot, _origin)
-            )
+        var answers = await AskAsync(Questions.CompletionRequest(_ctx, space, _history, path, screenshot, _origin))
             .ConfigureAwait(false);
         if (answers is null)
         {
@@ -780,10 +798,7 @@ internal sealed class DecisionStep
         var settled = Picks.VerdictOf(answers.GetValueOrDefault("verdict"), _gates);
         if (claim == "done" && settled == Verdict.Holds)
         {
-            return new StepVerdict(
-                StepVerdictStatus.Passed,
-                "The screen shows the step is done (" + evidence + ")."
-            );
+            return new StepVerdict(StepVerdictStatus.Passed, "The screen shows the step is done (" + evidence + ").");
         }
 
         if (claim == "failed" && settled == Verdict.Fails)
@@ -795,13 +810,16 @@ internal sealed class DecisionStep
             );
         }
 
-        return RejectClaim(claim, settled switch
-        {
-            Verdict.Holds => "holds",
-            Verdict.Fails => "fails",
-            Verdict.Inconclusive => "inconclusive",
-            _ => "below gate",
-        });
+        return RejectClaim(
+            claim,
+            settled switch
+            {
+                Verdict.Holds => "holds",
+                Verdict.Fails => "fails",
+                Verdict.Inconclusive => "inconclusive",
+                _ => "below gate",
+            }
+        );
     }
 
     /// <summary>
@@ -846,7 +864,14 @@ internal sealed class DecisionStep
         }
 
         var value = text is null ? "" : " = " + JsonText.Quote(text);
-        return WireNames.Of(operation) + " [" + element.Index + "] " + element.Role + " " + JsonText.Quote(element.Label) + value;
+        return WireNames.Of(operation)
+            + " ["
+            + element.Index
+            + "] "
+            + element.Role
+            + " "
+            + JsonText.Quote(element.Label)
+            + value;
     }
 
     /// <summary>One transcript line: the request without its pixels, which are named by size.</summary>
@@ -879,11 +904,7 @@ internal sealed class DecisionStep
             questions[id] = record;
         }
 
-        var line = new JsonObject
-        {
-            ["state"] = JsonNode.Parse(request.State.GetRawText()),
-            ["questions"] = questions,
-        };
+        var line = new JsonObject { ["state"] = JsonNode.Parse(request.State.GetRawText()), ["questions"] = questions };
         if (request.Screenshot is { } screenshot)
         {
             line["screenshot"] =

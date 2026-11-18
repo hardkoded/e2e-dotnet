@@ -9,9 +9,9 @@ using static E2E.Decision.Tests.Helpers;
 namespace E2E.Decision.Tests.DecisionModels;
 
 /// <summary>
-/// .NET-only: the decide call (<c>ExperimentalDecide</c>, the AI SDK's <c>experimental_decide</c>), <c>Decide.DecideAsync</c>, and
-/// <c>Model.CheckModel</c>. Upstream covers them only through the decision executor and filter, which wait for #1770 and #1786; these
-/// stand in until those tests port.
+/// .NET-only: the parts of the decide call (<c>ExperimentalDecide</c>, the AI SDK's <c>experimental_decide</c>) and <c>Decide.DecideAsync</c> that no
+/// upstream <c>it</c> covers through the decision executor: the transport retries, score answers and their ties, the SDK's input validation, and a
+/// model's own timeout. What the executor tests cover (committed choices, refusals, a missing key, abort, the config checks) is ported there.
 /// </summary>
 public sealed class DecideTests
 {
@@ -57,62 +57,6 @@ public sealed class DecideTests
         Assert.Equal(3, model.Calls[0].MaxRetries);
         var call = Assert.Single(usage);
         Assert.Equal(("scripted", 10, 2), (call.Provider, call.InputTokens, call.OutputTokens));
-    }
-
-    [Fact]
-    public async Task Counts_an_answer_without_a_distribution_as_a_committed_choice()
-    {
-        var model = new ScriptedDecisionModel(_ => Answer(new DecisionAnswer { Type = "choice", Choice = "done" }));
-
-        var decisions = await Decide.DecideAsync(Context().Ctx, model, Request());
-
-        Assert.Equal(new Decision("done", 1, 0), decisions["operation"]);
-    }
-
-    [Fact]
-    public async Task Names_a_refusal_as_MODEL_OUTPUT_INVALID()
-    {
-        var model = new ScriptedDecisionModel(_ => Answer(new DecisionAnswer { Type = "refusal" }));
-
-        var error = await Assert.ThrowsAsync<AgentException>(() => Decide.DecideAsync(Context().Ctx, model, Request()));
-
-        Assert.Equal("MODEL_OUTPUT_INVALID", error.Code);
-        Assert.Equal("The decision model refused to answer \"operation\".", error.Message);
-    }
-
-    [Fact]
-    public async Task Maps_a_missing_key_to_MODEL_UNAVAILABLE_naming_the_variable()
-    {
-        var model = new ScriptedDecisionModel(_ =>
-            throw new LoadApiKeyException(
-                "OpenAI API key is missing. Pass it using the 'apiKey' parameter or the OPENAI_API_KEY environment variable."
-            )
-        );
-
-        var error = await Assert.ThrowsAsync<AgentException>(() => Decide.DecideAsync(Context().Ctx, model, Request()));
-
-        Assert.Equal("MODEL_UNAVAILABLE", error.Code);
-        Assert.Equal("Set OPENAI_API_KEY to the decision model API key.", error.Message);
-    }
-
-    [Fact]
-    public async Task Rejects_an_answer_that_breaks_its_distribution_without_echoing_it()
-    {
-        var model = new ScriptedDecisionModel(_ =>
-            Answer(
-                new DecisionAnswer
-                {
-                    Type = "choice",
-                    Choice = "tap",
-                    Probabilities = new Dictionary<string, double> { ["tap"] = 0.2, ["done"] = 0.2 },
-                }
-            )
-        );
-
-        var error = await Assert.ThrowsAsync<AgentException>(() => Decide.DecideAsync(Context().Ctx, model, Request()));
-
-        Assert.Equal("MODEL_OUTPUT_INVALID", error.Code);
-        Assert.Equal("The decision model returned an invalid answer.", error.Message);
     }
 
     [Fact]
@@ -241,19 +185,6 @@ public sealed class DecideTests
     }
 
     [Fact]
-    public async Task Surfaces_a_caller_cancel_as_cancellation()
-    {
-        using var controller = new CancellationTokenSource();
-        await controller.CancelAsync();
-        var model = new ScriptedDecisionModel(_ => Answer(new DecisionAnswer { Type = "choice", Choice = "tap" }));
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            Decide.DecideAsync(Context(controller.Token).Ctx, model, Request())
-        );
-        Assert.Empty(model.Calls);
-    }
-
-    [Fact]
     public async Task Partial_rejects_unsupported_types_before_deciding_any_answer()
     {
         var model = new ScriptedDecisionModel(_ => Answer(new DecisionAnswer { Type = "choice", Choice = "tap" }))
@@ -273,63 +204,5 @@ public sealed class DecideTests
         );
         Assert.Equal("operation", error.QuestionId);
         Assert.Empty(model.Calls);
-    }
-
-    [Fact]
-    public void Checks_a_model_at_config_load_naming_the_fix()
-    {
-        var needs = new ModelNeeds("DecisionExecutor", "choice", "e.g. new OpenAIDecisionModel(\"gpt-6-luna\")");
-        var booleans = new ScriptedDecisionModel(_ => Answer(new DecisionAnswer { Type = "refusal" }))
-        {
-            SupportedQuestionTypes = ["boolean"],
-        };
-        var v3 = new ScriptedDecisionModel(_ => Answer(new DecisionAnswer { Type = "refusal" }))
-        {
-            SpecificationVersion = "v3",
-        };
-
-        Model.CheckModel(new ScriptedDecisionModel(_ => Answer(new DecisionAnswer { Type = "refusal" })), needs);
-        Assert.Equal(
-            "DecisionExecutor({ model }) got the string \"gpt-6-luna\"; e.g. new OpenAIDecisionModel(\"gpt-6-luna\")",
-            Assert.Throws<ConfigurationException>(() => Model.CheckModel("gpt-6-luna", needs)).Message
-        );
-        Assert.Equal(
-            "DecisionExecutor({ model }) got scripted/scripted-decision, which does not answer choice questions",
-            Assert.Throws<ConfigurationException>(() => Model.CheckModel(booleans, needs)).Message
-        );
-        Assert.Equal(
-            "DecisionExecutor({ model }) got scripted/scripted-decision, a v3 model; the decision call decides with v4 decision models",
-            Assert.Throws<ConfigurationException>(() => Model.CheckModel(v3, needs)).Message
-        );
-        Assert.All(
-            new Action[]
-            {
-                () => Model.CheckModel(null, needs),
-                () => Model.CheckModel(new object(), needs),
-                () => Model.CheckModel((Func<int>)(() => 1), needs),
-            },
-            check => Assert.Equal("INVALID_CONFIG", Assert.Throws<ConfigurationException>(check).Code)
-        );
-    }
-
-    [Fact]
-    public void Checks_provider_options_map_provider_names_to_objects()
-    {
-        Model.CheckProviderOptions(null, "DecisionExecutor");
-        Model.CheckProviderOptions(
-            new Dictionary<string, JsonElement>
-            {
-                ["gateway"] = JsonDocument.Parse("""{"zeroDataRetention":true}""").RootElement,
-            },
-            "DecisionExecutor"
-        );
-
-        var error = Assert.Throws<ConfigurationException>(() =>
-            Model.CheckProviderOptions(
-                new Dictionary<string, JsonElement> { ["gateway"] = JsonDocument.Parse("true").RootElement },
-                "DecisionExecutor"
-            )
-        );
-        Assert.Equal("INVALID_CONFIG", error.Code);
     }
 }

@@ -10,7 +10,10 @@ namespace E2E.Decision;
 /// <summary>.NET-only: <c>JSON.stringify</c> of a string for prose, which writes non-ASCII text and quotes as the page showed them.</summary>
 internal static class JsonText
 {
-    private static readonly JsonSerializerOptions Options = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     public static string Quote(string text) => JsonSerializer.Serialize(text, Options);
 

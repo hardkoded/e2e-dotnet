@@ -97,7 +97,9 @@ public static class Text
                 JsonOnly("\"paths\", set to that list of strings")
             ),
             Lead = "File input to fill, as JSON:",
-            Schema = Schema(("paths", "{\"type\":\"array\",\"maxItems\":50,\"items\":{\"type\":\"string\",\"maxLength\":500}}")),
+            Schema = Schema(
+                ("paths", "{\"type\":\"array\",\"maxItems\":50,\"items\":{\"type\":\"string\",\"maxLength\":500}}")
+            ),
             Parse = value =>
             {
                 if (
@@ -204,42 +206,37 @@ public static class Text
         try
         {
             output = await Budget
-                .RecordedAsync(
-                    ctx,
-                    provider,
-                    modelId,
-                    async () =>
+                .RecordedAsync(ctx, provider, modelId, async () =>
+                {
+                    var response = await model
+                        .CompleteAsync(
+                            new ModelRequest
+                            {
+                                System = spec.System,
+                                Messages =
+                                [
+                                    new ModelMessage
+                                    {
+                                        Role = "user",
+                                        Content = spec.Lead + "\n" + JsonText.Stringify(Wire(input)),
+                                    },
+                                ],
+                                Tools = [],
+                                ProviderOptions = ctx.ProviderOptions,
+                                Schema = spec.Schema,
+                                SchemaName = "field_text",
+                                MaxRetries = MaxRetries,
+                            },
+                            signal
+                        )
+                        .ConfigureAwait(false);
+                    return new Recorded<T?>
                     {
-                        var response = await model
-                            .CompleteAsync(
-                                new ModelRequest
-                                {
-                                    System = spec.System,
-                                    Messages =
-                                    [
-                                        new ModelMessage
-                                        {
-                                            Role = "user",
-                                            Content = spec.Lead + "\n" + JsonText.Stringify(Wire(input)),
-                                        },
-                                    ],
-                                    Tools = [],
-                                    ProviderOptions = ctx.ProviderOptions,
-                                    Schema = spec.Schema,
-                                    SchemaName = "field_text",
-                                    MaxRetries = MaxRetries,
-                                },
-                                signal
-                            )
-                            .ConfigureAwait(false);
-                        return new Recorded<T?>
-                        {
-                            Value = Answer(response.Content, spec),
-                            InputTokens = response.Usage?.InputTokens,
-                            OutputTokens = response.Usage?.OutputTokens,
-                        };
-                    }
-                )
+                        Value = Answer(response.Content, spec),
+                        InputTokens = response.Usage?.InputTokens,
+                        OutputTokens = response.Usage?.OutputTokens,
+                    };
+                })
                 .ConfigureAwait(false);
         }
         catch (Exception error)
@@ -351,7 +348,12 @@ public static class Text
     /// <summary>The input as <c>JSON.stringify</c> writes it: its keys in order, an absent field left out.</summary>
     private static JsonObject Wire(FieldInput input)
     {
-        var wire = new JsonObject { ["goal"] = input.Goal, ["context"] = input.Context, ["params"] = JsonNode.Parse(input.Params.ToJsonString()) };
+        var wire = new JsonObject
+        {
+            ["goal"] = input.Goal,
+            ["context"] = input.Context,
+            ["params"] = JsonNode.Parse(input.Params.ToJsonString()),
+        };
         if (input.Field is { } field)
         {
             var described = new JsonObject { ["label"] = field.Label, ["role"] = field.Role };

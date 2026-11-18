@@ -10,8 +10,9 @@ using E2E.Decision.Sdk;
 namespace E2E.Decision.Tests.DecisionModels;
 
 /// <summary>
-/// .NET-only: the OpenAI Decisions API provider (<c>OpenAIDecisionModel</c>) has no upstream <c>it</c> that runs without the decision
-/// executor, so these check its wire shape and answer parsing directly. Upstream's <c>openai.test.ts</c> waits for the executor (#1770).
+/// .NET-only: the OpenAI Decisions API provider (<c>OpenAIDecisionModel</c>) checked directly: the wire shape of a request over a boolean
+/// question, the screenshot part, an unanswered question, and a missing key. Upstream's <c>openai.test.ts</c> covers the provider through the
+/// decision executor, and is ported in <c>Openai/</c>.
 /// </summary>
 public sealed class OpenAIDecisionModelTests
 {

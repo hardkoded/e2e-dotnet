@@ -153,7 +153,10 @@ public static class Overlay
             }
         }
 
-        return screenshot with { Data = Png.EncodeRgba(png) };
+        return screenshot with
+        {
+            Data = Png.EncodeRgba(png),
+        };
     }
 
     /// <summary>JavaScript's <c>Math.round</c>: halves round up.</summary>

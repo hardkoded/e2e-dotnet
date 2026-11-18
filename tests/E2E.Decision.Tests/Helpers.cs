@@ -34,23 +34,38 @@ internal static class Helpers
 
     /// <summary>Upstream's <c>BUTTONS</c>: two buttons, the smallest screen with a target question.</summary>
     public static IReadOnlyList<ExecutorNode> Buttons { get; } =
-        [
-            new ExecutorNode { Id = "save", Role = "button", Name = "Save" },
-            new ExecutorNode { Id = "cancel", Role = "button", Name = "Cancel" },
-        ];
+    [
+        new ExecutorNode
+        {
+            Id = "save",
+            Role = "button",
+            Name = "Save",
+        },
+        new ExecutorNode
+        {
+            Id = "cancel",
+            Role = "button",
+            Name = "Cancel",
+        },
+    ];
 
     /// <summary>Upstream's <c>FIELD</c>: a field and a button, the smallest screen that types.</summary>
     public static IReadOnlyList<ExecutorNode> Field { get; } =
-        [
-            new ExecutorNode
-            {
-                Id = "name",
-                Role = "textbox",
-                Name = "Name",
-                Value = "",
-            },
-            new ExecutorNode { Id = "save", Role = "button", Name = "Save" },
-        ];
+    [
+        new ExecutorNode
+        {
+            Id = "name",
+            Role = "textbox",
+            Name = "Name",
+            Value = "",
+        },
+        new ExecutorNode
+        {
+            Id = "save",
+            Role = "button",
+            Name = "Save",
+        },
+    ];
 
     /// <summary>Upstream's <c>invalidConfig</c>: asserts the <c>ConfigurationException</c> a factory throws at config load.</summary>
     public static void AssertInvalidConfig(Action factory, string message)
@@ -176,20 +191,19 @@ internal static class Helpers
                         .ToList();
                     questions[id] = new QuestionRecord("score", question.Instructions, null, question.Levels);
                     var answer = resolve(id, levels, index);
-                    var score = answer.Score ?? double.Parse(answer.Choice, System.Globalization.CultureInfo.InvariantCulture);
+                    var score = answer.Score
+                        ?? double.Parse(answer.Choice, System.Globalization.CultureInfo.InvariantCulture);
                     var low = (int)Math.Floor(score);
                     var high = Math.Min(levels.Count - 1, low + 1);
                     var weightHigh = score - low;
-                    var probabilities =
-                        answer.Probabilities
+                    var probabilities = answer.Probabilities
                         ?? levels.ToDictionary(
                             level => level,
                             level =>
                                 level == low.ToString(System.Globalization.CultureInfo.InvariantCulture)
                                     ? 1 - weightHigh
-                                    : level == high.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                                        ? weightHigh
-                                        : 0.0
+                                : level == high.ToString(System.Globalization.CultureInfo.InvariantCulture) ? weightHigh
+                                : 0.0
                         );
                     answers[id] = new DecisionAnswer
                     {
@@ -219,7 +233,8 @@ internal static class Helpers
                     Choice = chosen.Choice,
                     Probabilities = chosen.Bare
                         ? null
-                        : chosen.Probabilities ?? keys.ToDictionary(key => key, key => key == chosen.Choice ? 1.0 : 0.0),
+                        : chosen.Probabilities
+                            ?? keys.ToDictionary(key => key, key => key == chosen.Choice ? 1.0 : 0.0),
                 };
                 if (chosen.Confidence is { } choiceConfidence)
                 {
@@ -261,7 +276,12 @@ internal static class Helpers
         public List<ModelRequest> Requests { get; } = [];
 
         /// <summary>The request texts, as one string, for a test that checks what the model was shown.</summary>
-        public string Prompts => string.Concat(Requests.Select(request => request.System + "\n" + string.Join('\n', request.Messages.Select(message => message.Content))));
+        public string Prompts =>
+            string.Concat(
+                Requests.Select(request =>
+                    request.System + "\n" + string.Join('\n', request.Messages.Select(message => message.Content))
+                )
+            );
 
         /// <summary>Raised by the next call, when set.</summary>
         public Exception? Throws { get; set; }
@@ -328,7 +348,17 @@ internal static class Helpers
     {
         internal Fixture(ContextOptions options)
         {
-            var tree = options.Tree ?? [new ExecutorNode { Id = "name", Role = "textbox", Name = "Name", Value = "" }];
+            var tree = options.Tree
+                ??
+                [
+                    new ExecutorNode
+                    {
+                        Id = "name",
+                        Role = "textbox",
+                        Name = "Name",
+                        Value = "",
+                    },
+                ];
             ObserveWith = look =>
             {
                 var observation = new ExecutorObservation("#name textbox")
@@ -378,7 +408,8 @@ internal static class Helpers
         /// <summary>What a point tap answers; the default is a tap that found nothing listed.</summary>
         public Func<Point, PointTapResult>? TapAtResult { get; set; }
 
-        public IEnumerable<object?[]> Of(string verb) => Calls.Where(call => call.Verb == verb).Select(call => call.Args);
+        public IEnumerable<object?[]> Of(string verb) =>
+            Calls.Where(call => call.Verb == verb).Select(call => call.Args);
 
         public int Count(string verb) => Calls.Count(call => call.Verb == verb);
 
@@ -389,43 +420,89 @@ internal static class Helpers
             return Fail?.Invoke(verb, nth) is { } error ? Task.FromException(error) : Task.CompletedTask;
         }
 
-        public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Record("tap", target.Id);
+        public Task TapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => Record("tap", target.Id);
 
-        public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Record("doubleTap", target.Id);
+        public Task DoubleTapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => Record("doubleTap", target.Id);
 
-        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Record("longPress", target.Id);
+        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            Record("longPress", target.Id);
 
-        public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Record("secondaryTap", target.Id);
+        public Task SecondaryTapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => Record("secondaryTap", target.Id);
 
-        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Record("hover", target.Id);
+        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            Record("hover", target.Id);
 
-        public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default) => Record("drag", source.Id, destination.Id);
+        public Task DragAsync(
+            ExecutorTarget source,
+            ExecutorTarget destination,
+            CancellationToken cancellationToken = default
+        ) => Record("drag", source.Id, destination.Id);
 
-        public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => Record("type", target.Id, value);
+        public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>
+            Record("type", target.Id, value);
 
-        public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default) => Record("typeSecret", target.Id, secretName);
+        public Task TypeSecretAsync(
+            ExecutorTarget target,
+            string secretName,
+            CancellationToken cancellationToken = default
+        ) => Record("typeSecret", target.Id, secretName);
 
-        public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Record("clear", target.Id);
+        public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            Record("clear", target.Id);
 
-        public Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default) => Record("press", target?.Id, key);
+        public Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default) =>
+            Record("press", target?.Id, key);
 
-        public Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default) => Record("typeText", value);
+        public Task TypeTextAsync(
+            string value,
+            TypeTextOptions? options = null,
+            CancellationToken cancellationToken = default
+        ) => Record("typeText", value);
 
         public Task PressKeyAsync(string key, CancellationToken cancellationToken = default) => Record("pressKey", key);
 
         public Task DismissKeyboardAsync(CancellationToken cancellationToken = default) => Record("dismissKeyboard");
 
-        public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => Record("select", target.Id, value);
+        public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>
+            Record("select", target.Id, value);
 
-        public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) => Record("check", target.Id, check);
+        public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) =>
+            Record("check", target.Id, check);
 
-        public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default) => Record("upload", target.Id, paths);
+        public Task UploadAsync(
+            ExecutorTarget target,
+            IReadOnlyList<string> paths,
+            CancellationToken cancellationToken = default
+        ) => Record("upload", target.Id, paths);
 
-        public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Record("scrollTo", target.Id);
+        public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            Record("scrollTo", target.Id);
 
-        public Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default) => Record("scrollUntil", text, direction);
+        public Task ScrollUntilAsync(
+            string text,
+            ScrollDirection direction,
+            ExecutorTarget? list = null,
+            CancellationToken cancellationToken = default
+        ) => Record("scrollUntil", text, direction);
 
-        public Task ScrollAsync(ExecutorTarget? list, ScrollDirection direction, int times = 1, CancellationToken cancellationToken = default) => Record("scroll", direction, times);
+        public Task ScrollAsync(
+            ExecutorTarget? list,
+            ScrollDirection direction,
+            int times = 1,
+            CancellationToken cancellationToken = default
+        ) => Record("scroll", direction, times);
 
         public Task NavigateAsync(string url, CancellationToken cancellationToken = default) => Record("navigate", url);
 
@@ -443,7 +520,11 @@ internal static class Helpers
             return new PointTapResult(point, null, "hover");
         }
 
-        public async Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default)
+        public async Task<PointDragResult> DragAtAsync(
+            Point from,
+            Point to,
+            CancellationToken cancellationToken = default
+        )
         {
             await Record("dragAt", from, to);
             return new PointDragResult(from, to, null, null, "drag");
@@ -493,7 +574,10 @@ internal static class Helpers
             Budgets = new FixtureBudgets(fixture.Usage, options.MaxModelCalls);
         }
 
-        public override Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default)
+        public override Task<ExecutorObservation> ObserveAsync(
+            ExecutorObserveOptions? options = null,
+            CancellationToken cancellationToken = default
+        )
         {
             _fixture.Looks.Add(options ?? new ExecutorObserveOptions());
             return Task.FromResult(_fixture.ObserveWith(_looks++));
@@ -503,7 +587,11 @@ internal static class Helpers
 
         public override void AttachTurns(IReadOnlyList<StepTurn> turns) => _fixture.Turns.AddRange(turns);
 
-        public override Task<string> AttachScreenshotAsync(ExecutorPixels pixels, string label, CancellationToken cancellationToken = default) => Task.FromResult("screenshot");
+        public override Task<string> AttachScreenshotAsync(
+            ExecutorPixels pixels,
+            string label,
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult("screenshot");
     }
 
     private sealed class FixtureBudgets(List<ExecutorModelCall> usage, int maxModelCalls) : IExecutorBudgets

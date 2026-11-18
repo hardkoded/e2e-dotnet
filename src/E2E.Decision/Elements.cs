@@ -213,7 +213,8 @@ public sealed class ActionSpace
             return null;
         }
 
-        return Targets.ContainsKey(operation)
+        return
+            Targets.ContainsKey(operation)
             || (TapAt && operation == Operation.TapAt)
             || (TypeAt && operation == Operation.TypeAt)
             ? operation
@@ -332,7 +333,9 @@ public static partial class Elements
                 var fileInput = node.Attributes is { } attributes && attributes.GetValueOrDefault("type") == "file";
                 var inViewport = Intersects(node, observation.Viewport);
                 var pressable =
-                    Tappable.Contains(role) && !Checkable.Contains(role) && !(role == "option" && childSelect)
+                    Tappable.Contains(role)
+                    && !Checkable.Contains(role)
+                    && !(role == "option" && childSelect)
                     && !fileInput;
                 var field = Typable.Contains(role) && !nativeSelect;
                 // A tap on a field focuses it and opens what the app attaches there: a date picker, a suggestion list.
