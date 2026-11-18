@@ -35,7 +35,7 @@ public static class CrosscheckExpectations
     public static Dictionary<string, string> ReadExpectations(string file)
     {
         var expected = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var line in File.ReadAllText(file).Split('\n'))
+        foreach (var line in File.ReadAllText(file).Split('\n').Select(line => line.TrimEnd('\r')))
         {
             if (line.Trim().Length == 0 || line.StartsWith('#'))
             {

@@ -174,15 +174,23 @@ public static partial class Crosscheck
     public static async Task<IPage> OpenCheckPageAsync(IBrowser browser)
     {
         var context = await browser.NewContextAsync();
-        await context.AddInitScriptAsync(PageScript.RecordClosedShadowRoots);
-        await context.AddInitScriptAsync(PageScript.ModalOrderInitScript);
-        var start = DateTime.UtcNow;
-        await context.Clock.InstallAsync(new ClockInstallOptions { TimeDate = start });
-        await context.Clock.PauseAtAsync(start);
-        var page = await context.NewPageAsync();
-        // The init scripts run on a navigation; setContent alone is none (.NET-only: Playwright for .NET attaches them to the context the same way).
-        await page.GotoAsync("about:blank");
-        return page;
+        try
+        {
+            await context.AddInitScriptAsync(PageScript.RecordClosedShadowRoots);
+            await context.AddInitScriptAsync(PageScript.ModalOrderInitScript);
+            var start = DateTime.UtcNow;
+            await context.Clock.InstallAsync(new ClockInstallOptions { TimeDate = start });
+            await context.Clock.PauseAtAsync(start);
+            var page = await context.NewPageAsync();
+            // The init scripts run on a navigation; setContent alone is none (.NET-only: Playwright for .NET attaches them to the context the same way).
+            await page.GotoAsync("about:blank");
+            return page;
+        }
+        catch
+        {
+            await context.CloseAsync();
+            throw;
+        }
     }
 
     /// <summary>One capture through the engine's own reader, with the facts of the element behind each node id (upstream's <c>captureTagged</c>).</summary>

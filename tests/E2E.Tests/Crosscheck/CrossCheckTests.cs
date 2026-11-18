@@ -113,17 +113,31 @@ public sealed class CheckPage : IAsyncLifetime
     {
         await E2E.Engine.WebEngine.EnsureChromiumAsync(headed: false, CancellationToken.None);
         _playwright = await Playwright.CreateAsync();
-        _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
-        Page = await Crosscheck.OpenCheckPageAsync(_browser);
+        try
+        {
+            _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
+            Page = await Crosscheck.OpenCheckPageAsync(_browser);
+        }
+        catch
+        {
+            // xUnit does not call DisposeAsync when InitializeAsync throws.
+            await DisposeAsync();
+            throw;
+        }
     }
 
     public async Task DisposeAsync()
     {
-        if (_browser is not null)
+        try
         {
-            await _browser.CloseAsync();
+            if (_browser is not null)
+            {
+                await _browser.CloseAsync();
+            }
         }
-
-        _playwright?.Dispose();
+        finally
+        {
+            _playwright?.Dispose();
+        }
     }
 }
