@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>E2E.HtmlReporter</RootNamespace>
+    <AssemblyName>E2E.HtmlReporter</AssemblyName>
+    <Description>HTML reporter for the community .NET port of the e2e agentic testing framework: one self-contained page per run. Not an official TesterArmy product.</Description>
+    <PackageId>E2E.HtmlReporter</PackageId>
+    <PackageTags>e2e;testing;agent;reporter;html-report</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <AppDir>$(MSBuildThisFileDirectory)</AppDir>
+    <AppTemplate>$(AppDir)obj/app/index.html</AppTemplate>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\E2E\E2E.csproj" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="NOTICE" Pack="true" PackagePath="\" />
+    <None Include="app/fonts/*-OFL.txt" Pack="true" PackagePath="\" />
+    <None Include="app/Lucide-LICENSE.txt" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="E2E.HtmlReporter.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <AppInputs Include="app/**" Exclude="app/fonts/*-OFL.txt" />
+    <AppInputs Include="package.json;package-lock.json;vite.config.ts;tsconfig.base.json" />
+  </ItemGroup>
+  <!-- The page is upstream's React app, built by Vite into one HTML file with the payload placeholder in it (upstream's `vite build`). -->
+  <Target
+    Name="BuildReportPage"
+    BeforeTargets="BeforeBuild;AssignTargetPaths"
+    Inputs="@(AppInputs)"
+    Outputs="$(AppTemplate)"
+  >
+    <Exec
+      Command="npm ci --legacy-peer-deps --no-audit --no-fund"
+      WorkingDirectory="$(AppDir)"
+      Condition="!Exists('$(AppDir)node_modules')"
+    />
+    <Exec Command="npm run build" WorkingDirectory="$(AppDir)" />
+  </Target>
+  <Target Name="EmbedReportPage" BeforeTargets="AssignTargetPaths" DependsOnTargets="BuildReportPage">
+    <ItemGroup>
+      <EmbeddedResource Include="$(AppTemplate)" LogicalName="app/index.html" />
+    </ItemGroup>
+  </Target>
+</Project>

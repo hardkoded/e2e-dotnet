@@ -39,6 +39,12 @@ public sealed record FinishedRun(
     /// run replaced it. A reporter can fold the two into one view of the suite. Null for any other run. Upstream's <c>lastRun</c>.
     /// </summary>
     public Report? LastRun { get; init; }
+
+    /// <summary>
+    /// Replaces every fixed-value secret and credential password the process knows in <c>text</c>, and any run of 8 or more consecutive characters of one.
+    /// The report is redacted already; this is for text a reporter adds from elsewhere, such as lines of a test file. Upstream's <c>redact</c>.
+    /// </summary>
+    public Func<string, string> Redact { get; init; } = static text => text;
 }
 
 /// <summary>One row a reporter hands back for the terminal summary: a label and its text, a URL or a path (upstream's <c>ReporterSummary</c> element).</summary>

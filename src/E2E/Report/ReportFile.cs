@@ -512,6 +512,7 @@ internal static class ReportFile
                         Traces = traces,
                         AiTracePath = AiTrace.WrittenPath(Path.GetDirectoryName(resultsRoot)!),
                         LastRun = state.Previous?.Report,
+                        Redact = OpenSession.Redact,
                     }
                 );
             }

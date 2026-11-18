@@ -1,0 +1,47 @@
+---
+title: HTML report
+description: The HtmlReporter writes the run as one page you open in a browser, with each test's steps, screenshots, and video.
+---
+
+`E2E.HtmlReporter` writes the run as one page you open in a browser: the tests by file with status tabs and a search box, and for each test its attempts, error, steps, screenshots, and video. It ports upstream's `@e2e-dev/html-reporter` (`docs/reference/reporters.mdx`).
+
+## Setup
+
+```bash
+dotnet add package E2E.HtmlReporter
+```
+
+List the reporter in the `reporters` of `e2e.config.json`. The run fixture calls it when the last test is done (`E2ERunFixture` of `E2E.NUnit`, `E2E.XUnit.V3`, or `E2E.TUnit`), so add the fixture too: without it no reporter runs.
+
+```json
+{
+  "reporters": [
+    "list",
+    { "type": "E2E.HtmlReporter.HtmlReporter, E2E.HtmlReporter", "options": { "media": "embed" } }
+  ]
+}
+```
+
+## What it writes
+
+- It writes `report.html` beside the report (`.e2e/report.html`), with the report document embedded. The page opens from disk with no server.
+- `media` decides what happens to screenshots, videos, and downloads:
+
+  | `media` | The page | To share it |
+  |---|---|---|
+  | `"link"` (default) | links them from `<output>/results/` by relative path | keep the output directory together, as one CI artifact |
+  | `"embed"` | holds them, so the one file is the whole report | send the file; device videos make it tens of megabytes per minute |
+  | `"none"` | leaves them out and shows text only | send the file |
+
+  A download link saves the file instead of opening it. A download the runner could not scan for secrets, such as a PDF or a zip, stays out of an embedded page, and a video a hosted browser or device service keeps stays a link to it.
+- `outputFile` puts the page elsewhere, as a path from the project root.
+- The tests list as a tree: each file, its describe blocks, then their tests, failures first.
+- Each step shows where it starts in the attempt's video; selecting the time plays the video from there. The video's speed button steps from 0.25x to 4x.
+- A failed assertion that reports expected and received values shows them with the characters that differ marked. When the test file is in the project, the failure shows the code around the failing call, and each step opens to the code that ran it. The page keeps a few lines of the test files around each step for this, redacted, so a shared report shows them too.
+- **copy prompt** on a failed attempt's error copies the failure for a coding agent: the error, the steps, what the failed step did, and the paths of whichever of its trace page, screen tree, screenshot, and video exist, from the project root.
+- Agent steps show their explanation, the actions they took, the model, tokens and cost, whether the step replayed from the cache, and their last turns.
+- The page follows the system's light or dark theme.
+
+## Build
+
+`dotnet build` of the package builds the page with Node 22 or later (`npm ci`, then Vite), so a machine that builds `E2E.HtmlReporter` from source needs Node. The NuGet package carries the built page.

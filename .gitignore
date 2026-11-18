@@ -62,3 +62,6 @@ log.txt
 
 ## e2e runs
 .e2e/
+
+## E2E.HtmlReporter page build
+src/E2E.HtmlReporter/node_modules/

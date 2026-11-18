@@ -48,6 +48,11 @@ jobs:
             10.0.x
             11.0.x
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Restore
         run: dotnet restore E2E.slnx
 
@@ -79,6 +84,12 @@ jobs:
         run: |
           dotnet run --project tests/E2E.TUnit.Tests --no-build -c Release -- --treenode-filter "/*/*/*/*[Category!=RealModel]" --timeout 15m
 
+      - name: Test the report page
+        run: |
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          npm test
+        working-directory: src/E2E.HtmlReporter
+
       - name: Pack
         run: |
           dotnet pack src/E2E/E2E.csproj -c Release --no-build -o artifacts --nologo
@@ -89,6 +100,7 @@ jobs:
           dotnet pack src/E2E.Mobile/E2E.Mobile.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Expo/E2E.Expo.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.GitHub/E2E.GitHub.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.HtmlReporter/E2E.HtmlReporter.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.TestMu/E2E.TestMu.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Kernel/E2E.Kernel.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Acp/E2E.Acp.csproj -c Release --no-build -o artifacts --nologo

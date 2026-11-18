@@ -303,6 +303,14 @@ and in CI.
   token it posts nothing and says why in one row. Set `E2E_GITHUB_KEY` (.NET-only)
   or the entry's `"options": { "key": "chromium" }` (the only option; an unknown
   option or a non-string `key` is `INVALID_CONFIG`) to tell matrix jobs apart. With `FinishedRun.LastRun` set it folds the rerun into the run it selected from, so the comment shows the whole suite.
+  To get one page to open in a browser instead, add the `E2E.HtmlReporter` package and list
+  `"E2E.HtmlReporter.HtmlReporter, E2E.HtmlReporter"` in `reporters` (upstream's `htmlReporter()` of
+  `@e2e-dev/html-reporter`). It writes `<output>/report.html` (`.e2e/` by default), one page that opens from
+  disk, with each test's steps, screenshots, and video. It links media from `<output>/results/`; the entry's
+  `"options": { "media": "embed" }` puts it in the page, one file to share, except downloads the runner could
+  not scan for secrets, and `"media": "none"` leaves it out. `"outputFile"` writes the page elsewhere, as a
+  path from the project root. An unknown option or a value of the wrong type is `INVALID_CONFIG`.
+  `FinishedRun.Redact` (upstream's `redact`) redacts text a reporter adds from elsewhere, such as test file lines.
   It returns text and does not write or post it. The text stays under what a
   GitHub comment accepts, and every title, label, and message in it is escaped.
 - A `command` is `executable`, `args`, `cwd` (from the config's directory),

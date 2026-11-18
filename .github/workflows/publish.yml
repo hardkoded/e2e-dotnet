@@ -27,6 +27,11 @@ jobs:
             10.0.x
             11.0.x
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Pack
         run: |
           dotnet pack src/E2E/E2E.csproj -c Release -o artifacts --nologo
@@ -37,6 +42,7 @@ jobs:
           dotnet pack src/E2E.Mobile/E2E.Mobile.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Expo/E2E.Expo.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.GitHub/E2E.GitHub.csproj -c Release -o artifacts --nologo
+          dotnet pack src/E2E.HtmlReporter/E2E.HtmlReporter.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.TestMu/E2E.TestMu.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Kernel/E2E.Kernel.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Acp/E2E.Acp.csproj -c Release -o artifacts --nologo

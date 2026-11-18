@@ -1,0 +1,32 @@
+{
+  "name": "e2e-dotnet-html-reporter-app",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The report page of E2E.HtmlReporter: upstream's @e2e-dev/html-reporter app, built into one HTML file",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "typecheck": "tsc --noEmit --project app/tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "json-schema-to-typescript": "^16.0.0",
+    "lucide-react": "1.74.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tailwindcss": "4.3.5",
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "vite-plugin-singlefile": "2.3.4",
+    "vitest": "5.1.0"
+  },
+  "engines": {
+    "node": "^22.22.3 || >=24.8.0"
+  }
+}
