@@ -96,6 +96,6 @@ That needs the .NET 11 SDK. It runs DocFX metadata, then writes Markdown into `d
 
 ## Release
 
-Push a version tag such as `v0.1.0` (previews use `v0.1.0-preview.1`). `.github/workflows/publish.yml` tests, packs `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, `E2E.TUnit`, `E2E.Cli`, `E2E.Mobile`, `E2E.Mobile.DevFlow`, `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, `E2E.Mobile.TUnit`, `E2E.Limrun`, `E2E.BrowserStack`, `E2E.Expo`, `E2E.GitHub`, `E2E.TestMu`, `E2E.Kernel`, `E2E.Acp`, and `E2E.Decision`, and pushes them to nuget.org with trusted publishing. The policy is repository owner `hardkoded`, repository `e2e-dotnet`, workflow file `publish.yml`. The workflow has to be on the default branch before the tag is pushed.
+Push a version tag such as `v0.1.0` (previews use `v0.1.0-preview.1`). `.github/workflows/publish.yml` packs `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, `E2E.TUnit`, `E2E.Cli`, `E2E.Mobile`, `E2E.Mobile.DevFlow`, `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, `E2E.Mobile.TUnit`, `E2E.Limrun`, `E2E.BrowserStack`, `E2E.Expo`, `E2E.GitHub`, `E2E.TestMu`, `E2E.Kernel`, `E2E.Acp`, and `E2E.Decision`, and pushes them to nuget.org with trusted publishing. The workflow runs no tests, so run the test projects before you push the tag. The policy is repository owner `hardkoded`, repository `e2e-dotnet`, workflow file `publish.yml`. The workflow has to be on the default branch before the tag is pushed.
 
 Docs are not published by the tag. Vercel publishes them on push to `main`. See [Documentation](#documentation).
