@@ -755,7 +755,7 @@ public sealed class AgentJudgmentTierTests
         Assert.Null(result.Error);
         Assert.Contains(
             "The screen's location is the address of the screen: it is evidence only for a statement about the address or route, never for or against what the screen shows.",
-            judge.Requests[0].System,
+            judge.Requests[0].Messages[0].Content!,
             StringComparison.Ordinal
         );
     }

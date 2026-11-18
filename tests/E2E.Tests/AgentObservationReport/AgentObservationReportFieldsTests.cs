@@ -51,7 +51,7 @@ public sealed class AgentObservationReportFieldsTests
         try
         {
             var model = new ScriptedModel(request =>
-                request.Messages[0].Content?.StartsWith("Statement:", StringComparison.Ordinal) == true
+                request.Messages[0].Content?.Contains("Statement:", StringComparison.Ordinal) == true
                     ? ModelResponses.Done("passed", "the Save button is visible")
                     : ModelResponses.Done("passed", "the result is visible")
             );
