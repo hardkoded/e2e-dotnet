@@ -124,7 +124,10 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
         await second.Agent.AssertAsync("the plan is downgraded");
         second.Complete();
 
-        var (firstPrompt, secondPrompt) = (model.Requests[0].Messages[0].Content!, model.Requests[1].Messages[0].Content!);
+        var (firstPrompt, secondPrompt) = (
+            model.Requests[0].Messages[0].Content!,
+            model.Requests[1].Messages[0].Content!
+        );
         Assert.Matches(@"\n\nTest: billing > upgrades the plan\n\nStatement: ", firstPrompt);
         // Two tests share every line before their titles, so a provider can cache them.
         Assert.Equal(

@@ -560,7 +560,11 @@ public sealed partial class Agent
                 Role = "user",
                 Content =
                     _scope.Redactor.Redact(
-                        JudgmentRequest + "\n\n" + TitleOpening() + WithParameters("Statement: " + statement, parameters) + "\n\n"
+                        JudgmentRequest
+                            + "\n\n"
+                            + TitleOpening()
+                            + WithParameters("Statement: " + statement, parameters)
+                            + "\n\n"
                     ) + look.Text,
                 Images = look.Images,
             },
