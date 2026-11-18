@@ -207,7 +207,7 @@ public static class Text
         try
         {
             output = await Budget
-                .RecordedAsync(ctx, provider, modelId, async () =>
+                .RecordedAsync(ctx, provider, modelId, signal, async () =>
                 {
                     var response = await model
                         .CompleteAsync(
