@@ -98,7 +98,7 @@ internal sealed partial class ActTools(
         }
 
         // screenshot looks too: it attaches the viewport's pixels, and from then on every result carries a fresh one.
-        if (string.Equals(call.Name, AgentTools.ScreenshotName, StringComparison.Ordinal) && !_session)
+        if (string.Equals(call.Name, AgentTools.ScreenshotName, StringComparison.Ordinal))
         {
             try
             {
@@ -117,7 +117,9 @@ internal sealed partial class ActTools(
                     }
                 }
 
-                var shown = Outcome(await DescribeAsync(null, token, pixels: true).ConfigureAwait(false));
+                var shown = _session
+                    ? await SessionScreenshotAsync(token).ConfigureAwait(false)
+                    : Outcome(await DescribeAsync(null, token, pixels: true).ConfigureAwait(false));
                 if (file is null)
                 {
                     return shown;
@@ -1312,6 +1314,35 @@ internal sealed partial class ActTools(
             .ConfigureAwait(false);
         var output = _screen.Present(view, options);
         return new ScreenText(output.Text, output.Pixels);
+    }
+
+    // A session's `screenshot`: the masked viewport attached as an image, noted on the screen so a point tool reads its coordinates against it.
+    private async Task<ToolOutcome> SessionScreenshotAsync(CancellationToken token)
+    {
+        var shot = await _scope.Session.ScreenshotAsync(token).ConfigureAwait(false);
+        var (width, height) =
+            shot.Png.Length < 24
+                ? (0, 0)
+                : (
+                    System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(shot.Png.AsSpan(16)),
+                    System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(shot.Png.AsSpan(20))
+                );
+        var pixels = new ExecutorPixels(shot.Png, "image/png", width, height, shot.Scale, shot.MaskedRegionCount ?? 0);
+        var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+        _screen.Attach(pixels, observation.Viewport);
+        return new ToolOutcome
+        {
+            Content =
+                "Screenshot attached: "
+                + width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " by "
+                + height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " pixels ("
+                + shot.Scale.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
+                + " per CSS pixel).",
+            Pixels = pixels,
+            Succeeded = true,
+        };
     }
 
     // A session's `observe`: the whole screen, every time. The presenter takes it as the baseline for the changes that follow.

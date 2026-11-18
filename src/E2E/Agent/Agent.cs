@@ -1072,13 +1072,14 @@ public sealed partial class Agent
         string name,
         JsonElement arguments,
         CancellationToken token,
-        ScreenPresenter screen
+        ScreenPresenter screen,
+        Func<string, CancellationToken, Task<string>>? saveScreenshot = null
     )
     {
         ArgumentNullException.ThrowIfNull(screen);
         var budget = new StepAccounting(int.MaxValue, int.MaxValue);
         return _scope.Track(
-            new ActTools(_scope, _feed, screen, session: true).ExecuteAsync(
+            new ActTools(_scope, _feed, screen, session: true, saveScreenshot).ExecuteAsync(
                 new ModelToolCall
                 {
                     Id = name,
