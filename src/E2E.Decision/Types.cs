@@ -11,7 +11,7 @@ public sealed class DecisionExecutorOptions
 {
     /// <summary>
     /// A decision model that answers <c>choice</c> questions with a probability distribution, such as an <see cref="OpenAIDecisionModel"/>.
-    /// An answer without <see cref="DecisionAnswer.Probabilities"/> counts as a committed choice: probability 1, confidence 0.
+    /// An answer without <see cref="DecisionAnswer.Probabilities"/> counts as a committed choice: probability 1, and the provider-reported confidence, which is 0 only when the provider reports none.
     /// </summary>
     public required IDecisionModel Model { get; init; }
 
