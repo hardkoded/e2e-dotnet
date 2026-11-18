@@ -85,7 +85,40 @@ public sealed class ChromiumPage : IAsyncLifetime
     {
         var nodes = await CaptureAsync();
         var reference = await locator.EvaluateAsync<string?>(PageScript.RefOf);
-        return nodes.FirstOrDefault(node => node.Ref == reference);
+        return nodes.FirstOrDefault(node => node.Ref == reference) ?? await ReadElementAsync(locator);
+    }
+
+    // The walk leaves an aria-hidden subtree out of the tree, as upstream's does; the reader's node mode still reads that element on
+    // its own (upstream's `read(element, { mode: 'node' })`), which is how the visibility of such a node is read.
+    private static async Task<ReadNode?> ReadElementAsync(ILocator locator)
+    {
+        var read = await locator.EvaluateAsync<JsonElement>(
+            $$"""
+            (el) => {
+            {{ReadSemantics.Prelude}}
+            {{ReadSemantics.NodeMode}}
+              return nodeOf(el, "data-testid");
+            }
+            """
+        );
+        return new ReadNode(
+            "",
+            StringOf(read, "role"),
+            StringOf(read, "name"),
+            StringOf(read, "text"),
+            StringOf(read, "value"),
+            StringOf(read, "selection"),
+            StringOf(read, "testId"),
+            read.GetProperty("focused").GetBoolean(),
+            read.GetProperty("secure").GetBoolean(),
+            read.GetProperty("hidden").GetBoolean(),
+            read.GetProperty("ariaHidden").GetBoolean(),
+            read.GetProperty("selected").GetBoolean(),
+            read.GetProperty("checked").GetBoolean(),
+            read.GetProperty("disabled").GetBoolean(),
+            new Dictionary<string, string>(),
+            null
+        );
     }
 
     private static void Flatten(JsonElement list, List<ReadNode> into)

@@ -296,7 +296,8 @@ internal static class PageScript
           // parentAria is whether an ancestor is aria-hidden: the node paints
           // and is visible, but the accessibility tree drops it.
           const walk = (el, into, parentHidden, parentAria) => {
-            if (!el || skip.has(el.tagName) || el.tagName === "DATALIST" || isInert(el) || full) return;
+            // aria-hidden removes the node and everything under it from the tree, as upstream's walk does.
+            if (!el || skip.has(el.tagName) || el.tagName === "DATALIST" || ariaHidden(el) || isInert(el) || full) return;
             // Outside an open modal dialog everything is inert; the dialog's ancestors are walked to reach it and list nothing.
             const place = modal === undefined ? "inside" : modal.placeOf(el);
             if (place === "outside") return;
