@@ -50,7 +50,10 @@ public abstract class ProviderRecording
     /// <summary>When the recording started. Its first frame is at or just after it.</summary>
     public abstract DateTimeOffset StartedAt { get; }
 
-    public abstract Task<ProviderRecordingResult> StopAsync(ProviderRecordingStopContext context, CancellationToken cancellationToken);
+    public abstract Task<ProviderRecordingResult> StopAsync(
+        ProviderRecordingStopContext context,
+        CancellationToken cancellationToken
+    );
 }
 
 /// <summary>Where the attempt's recording lands and who made it, for <see cref="ProviderRecordings.StopProviderRecordingAsync"/>.</summary>
@@ -111,7 +114,11 @@ public static class ProviderRecordings
     /// is kept in its parsed form and the start time as an ISO timestamp, the shapes the report schema admits. Every
     /// failure names the provider and the lease.
     /// </summary>
-    public static async Task<VideoSegment> StopProviderRecordingAsync(ProviderRecording recording, ProviderRecordingTarget target, CancellationToken cancellationToken)
+    public static async Task<VideoSegment> StopProviderRecordingAsync(
+        ProviderRecording recording,
+        ProviderRecordingTarget target,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(recording);
         ArgumentNullException.ThrowIfNull(target);
@@ -123,20 +130,35 @@ public static class ProviderRecordings
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            throw new EngineException(EngineErrorCodes.EngineFailure, $"{what} has no video directory to write into, {dir}: {ex.Message}", retryable: false, ex);
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"{what} has no video directory to write into, {dir}: {ex.Message}",
+                retryable: false,
+                ex
+            );
         }
 
         ProviderRecordingResult? result;
         try
         {
-            result = await recording.StopAsync(new ProviderRecordingStopContext { Dir = dir }, cancellationToken).ConfigureAwait(false);
+            result = await recording
+                .StopAsync(new ProviderRecordingStopContext { Dir = dir }, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            throw new EngineException(EngineErrorCodes.EngineFailure, $"{what} could not finish: {ex.Message}", retryable: false, ex);
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"{what} could not finish: {ex.Message}",
+                retryable: false,
+                ex
+            );
         }
 
-        var startedAt = recording.StartedAt.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
+        var startedAt = recording.StartedAt.UtcDateTime.ToString(
+            "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
+            CultureInfo.InvariantCulture
+        );
         if (IsWrittenFile(result, dir))
         {
             return new VideoFile { Path = "video/" + result!.File, StartedAt = startedAt };
@@ -144,10 +166,19 @@ public static class ProviderRecordings
 
         if (IsLink(result))
         {
-            return new VideoLink { Url = HostedVideoUrl(result!.Url)!, MediaType = result.MediaType!.Trim(), StartedAt = startedAt };
+            return new VideoLink
+            {
+                Url = HostedVideoUrl(result!.Url)!,
+                MediaType = result.MediaType!.Trim(),
+                StartedAt = startedAt,
+            };
         }
 
-        throw new EngineException(EngineErrorCodes.EngineFailure, $"{what} finished without naming a file it wrote into {dir} or an http(s) URL with a media type", retryable: false);
+        throw new EngineException(
+            EngineErrorCodes.EngineFailure,
+            $"{what} finished without naming a file it wrote into {dir} or an http(s) URL with a media type",
+            retryable: false
+        );
     }
 
     /// <summary>
@@ -161,7 +192,8 @@ public static class ProviderRecordings
             return null;
         }
 
-        var hosted = (parsed.Scheme == Uri.UriSchemeHttps || parsed.Scheme == Uri.UriSchemeHttp) && parsed.Host.Length > 0;
+        var hosted =
+            (parsed.Scheme == Uri.UriSchemeHttps || parsed.Scheme == Uri.UriSchemeHttp) && parsed.Host.Length > 0;
         return hosted && parsed.AbsoluteUri.Length <= MaxVideoUrlChars ? parsed.AbsoluteUri : null;
     }
 
@@ -169,7 +201,11 @@ public static class ProviderRecordings
     private static bool IsWrittenFile(ProviderRecordingResult? result, string dir)
     {
         var file = result?.File;
-        if (string.IsNullOrEmpty(file) || file is "." or ".." || !string.Equals(file, Path.GetFileName(file), StringComparison.Ordinal))
+        if (
+            string.IsNullOrEmpty(file)
+            || file is "." or ".."
+            || !string.Equals(file, Path.GetFileName(file), StringComparison.Ordinal)
+        )
         {
             return false;
         }

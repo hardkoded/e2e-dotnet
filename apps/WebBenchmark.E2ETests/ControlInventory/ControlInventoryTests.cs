@@ -56,7 +56,9 @@ public sealed class ControlInventoryTests : BenchmarkTest
     {
         var row = Screen.GetByText("report.pdf");
         await row.TapAsync();
-        await Expect.That(Screen.GetByLabel("File state")).ToHaveTextAsync("a click selects nothing; the menu opens on right-click");
+        await Expect
+            .That(Screen.GetByLabel("File state"))
+            .ToHaveTextAsync("a click selects nothing; the menu opens on right-click");
         await row.SecondaryTapAsync();
         await Expect.That(Screen.GetByLabel("File state")).ToHaveTextAsync("menu open for report.pdf");
         await Screen.GetByRole("menuitem", "Rename").TapAsync();
@@ -96,7 +98,9 @@ public sealed class ControlInventoryTests : BenchmarkTest
         await Screen.GetByLabel("Agree to terms").CheckAsync();
         await Screen.GetByRole("radio", "Medium").CheckAsync();
         await Screen.GetByRole("radio", "Express").CheckAsync();
-        await Screen.GetByRole("button", "Hold me").LongPressAsync(new LongPressOptions { Duration = TimeSpan.FromMilliseconds(700) });
+        await Screen
+            .GetByRole("button", "Hold me")
+            .LongPressAsync(new LongPressOptions { Duration = TimeSpan.FromMilliseconds(700) });
         await Screen.GetByRole("button", "Double-click me").DoubleTapAsync();
         await Screen.GetByText("report.pdf").SecondaryTapAsync();
         await Screen.GetByRole("menuitem", "Rename").TapAsync();

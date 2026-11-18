@@ -20,6 +20,13 @@ internal static class Config
         }
 
         return E2EConfig.Find(cwd)
-            ?? throw new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one, or pass config to open_session");
+            ?? throw new ConfigurationException(
+                "CONFIG_NOT_FOUND",
+                "no "
+                    + E2EConfig.FileName
+                    + " found from "
+                    + cwd
+                    + " upward; create one, or pass config to open_session"
+            );
     }
 }

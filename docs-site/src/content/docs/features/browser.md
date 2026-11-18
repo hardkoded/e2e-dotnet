@@ -18,6 +18,15 @@ Inside a frame, `Locator(css)` takes a CSS or XPath selector, and `FrameLocator(
 
 The agent's observation shows a frame from another site, such as a hosted card field, as an `iframe` node with none of its content. A frame is from another site when its document is not on the app's site (the registrable domain of the app's URL). Frames inside the app's own site, and `about:blank` and `srcdoc` documents, are read as part of the page. The agent reaches an off-site frame's content through script steps with `Browser.FrameLocator`, or through pixels: judge its content with `Vision = VisionMode.On`. A frame from another site does not count toward the observation's node budget, and its absence is not truncation. An `Agent.ActAsync` whose only change is in that frame records no replay, so it runs live on every run.
 
+## Inert content
+
+The agent doesn't see inert content, so it never aims at a control that takes no input:
+
+- An element with the `inert` attribute, and everything under it.
+- Everything outside a modal `<dialog>`, opened with `showModal()` or a `show-modal` command. With several open, only the one shown last stays. When e2e can't tell which one that is, it leaves out nothing.
+
+Locators still find inert content, and `ToBeVisibleAsync` still passes, as in Playwright.
+
 ## Recovering a CDP transport
 
 `WebConnectOptions.ReconnectEndpoint` opts into recovery of the same remote browser after its CDP transport disconnects. This mode uses the browser's persistent default context, because Chrome deletes ordinary Playwright contexts when their transport detaches.

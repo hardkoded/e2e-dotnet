@@ -19,7 +19,9 @@ public sealed class CdpSelectorsTests
     public async Task Refuses_an_unsupported_context_before_any_locator_or_capture_can_run()
     {
         var context = DispatchProxy.Create<IBrowserContext, UnsupportedContext>();
-        var failure = await Assert.ThrowsAsync<EngineException>(() => E2E.Engine.CdpSelectors.RegisterCdpSelectorsAsync(context, Budget, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            E2E.Engine.CdpSelectors.RegisterCdpSelectorsAsync(context, Budget, CancellationToken.None)
+        );
         Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
         Assert.Matches("locators and secure-field masks", failure.Message);
     }
@@ -37,7 +39,9 @@ public sealed class CdpSelectorsTests
         channel.Rejections.Enqueue("\"other\" selector engine has been already registered");
         var context = DispatchProxy.Create<IBrowserContext, UnsupportedContext>();
         await E2E.Engine.CdpSelectors.RegisterCdpSelectorsAsync(context, channel, Budget, CancellationToken.None);
-        var failure = await Assert.ThrowsAsync<PlaywrightException>(() => E2E.Engine.CdpSelectors.RegisterCdpSelectorsAsync(context, channel, Budget, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<PlaywrightException>(() =>
+            E2E.Engine.CdpSelectors.RegisterCdpSelectorsAsync(context, channel, Budget, CancellationToken.None)
+        );
         Assert.Contains("\"other\"", failure.Message);
     }
 
@@ -68,13 +72,22 @@ public sealed class CdpSelectorsTests
     {
         public Queue<string> Rejections { get; } = new();
 
-        public Task RegisterSelectorEngineAsync(string name, string source, bool contentScript, TimeSpan timeout, CancellationToken cancellationToken) =>
-            Rejections.TryDequeue(out var message) ? Task.FromException(new PlaywrightException(message)) : Task.CompletedTask;
+        public Task RegisterSelectorEngineAsync(
+            string name,
+            string source,
+            bool contentScript,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        ) =>
+            Rejections.TryDequeue(out var message)
+                ? Task.FromException(new PlaywrightException(message))
+                : Task.CompletedTask;
     }
 
     /// <summary>A context with no message channel to send through.</summary>
     public class UnsupportedContext : DispatchProxy
     {
-        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => throw new NotSupportedException();
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
+            throw new NotSupportedException();
     }
 }

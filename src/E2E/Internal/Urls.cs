@@ -15,6 +15,27 @@ internal sealed record NormalizedBaseUrl(string Href, string Origin, string Base
 /// <summary>URL normalization and origin policy helpers.</summary>
 public static partial class Urls
 {
+    /// <summary>The schemes a device link may not take: the ones that read local content or inline a document, and the browser wrappers that carry one inside. Upstream's <c>REFUSED_LINK_SCHEMES</c>.</summary>
+    private static readonly HashSet<string> RefusedLinkSchemes =
+    [
+        "file:",
+        "data:",
+        "javascript:",
+        "view-source:",
+        "blob:",
+        "filesystem:",
+    ];
+
+    /// <summary>
+    /// Whether a link's scheme (with its colon, as <c>Uri.Scheme + ":"</c>) is one no app link may take, in any case. A device link is any app's
+    /// custom scheme, so links are checked against this list rather than the http(s) rule navigation follows. Upstream's <c>isRefusedLinkScheme</c>.
+    /// </summary>
+    public static bool IsRefusedLinkScheme(string protocol)
+    {
+        ArgumentNullException.ThrowIfNull(protocol);
+        return RefusedLinkSchemes.Contains(protocol.ToLowerInvariant());
+    }
+
     /// <summary>
     /// Parses and normalizes the app base URL. Rejects userinfo, query, and fragment. <see cref="Uri"/> handles
     /// IDNA ASCII hosts, dot segments, and default-port removal. A URL without a scheme gets <c>https://</c>, or
@@ -26,7 +47,9 @@ public static partial class Urls
         var explicitScheme = HasExplicitScheme(text);
         if (!Uri.TryCreate(WithScheme(text), UriKind.Absolute, out var url))
         {
-            throw Invalid(explicitScheme && !IsHttp(text) ? "app URL must be http(s): " + raw : "invalid app URL: " + raw);
+            throw Invalid(
+                explicitScheme && !IsHttp(text) ? "app URL must be http(s): " + raw : "invalid app URL: " + raw
+            );
         }
 
         if (url.UserInfo.Length > 0)
@@ -56,7 +79,10 @@ public static partial class Urls
 
         if (url.Port == 0 && !IsLoopbackAddress(url.Host))
         {
-            throw Invalid("port 0 asks the run for a free port and takes only the loopback address the command will bind, 127.0.0.1 or [::1]; a name like localhost may resolve to another one: " + raw);
+            throw Invalid(
+                "port 0 asks the run for a free port and takes only the loopback address the command will bind, 127.0.0.1 or [::1]; a name like localhost may resolve to another one: "
+                    + raw
+            );
         }
 
         return Describe(url);
@@ -71,7 +97,11 @@ public static partial class Urls
         var url = NormalizeBaseUrl(raw);
         if (RequestsFreePort(url))
         {
-            throw new ConfigurationException("INVALID_CONFIG", where + " asks for a free port (port 0), which only app.command can start an app on: give the URL the app is served on");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                where
+                    + " asks for a free port (port 0), which only app.command can start an app on: give the URL the app is served on"
+            );
         }
 
         return url;
@@ -102,7 +132,8 @@ public static partial class Urls
 
     /// <summary>True for loopback hosts where plain HTTP is allowed.</summary>
     public static bool IsLoopbackHost(string hostname) =>
-        hostname == "localhost" || hostname.EndsWith(".localhost", StringComparison.Ordinal)
+        hostname == "localhost"
+        || hostname.EndsWith(".localhost", StringComparison.Ordinal)
         || hostname is "::1" or "[::1]"
         || IsLoopbackV4(hostname);
 
@@ -154,20 +185,31 @@ public static partial class Urls
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(expected);
         ArgumentNullException.ThrowIfNull(baseHref);
-        if (!Uri.TryCreate(baseHref, UriKind.Absolute, out var baseUri) || !Uri.TryCreate(baseUri, expected, out var expectedUrl))
+        if (
+            !Uri.TryCreate(baseHref, UriKind.Absolute, out var baseUri)
+            || !Uri.TryCreate(baseUri, expected, out var expectedUrl)
+        )
         {
             return false;
         }
 
         var actual = SerializeForComparison(current);
-        return string.Equals(actual, expectedUrl.AbsoluteUri, ignoreCase == true ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        return string.Equals(
+            actual,
+            expectedUrl.AbsoluteUri,
+            ignoreCase == true ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal
+        );
     }
 
     /// <summary>
     /// True when <paramref name="current"/> matches <paramref name="expected"/>: a regular expression tests the whole serialized URL, with
     /// <paramref name="ignoreCase"/> as Playwright's (true adds the <c>i</c> flag, false removes it).
     /// </summary>
-    public static bool UrlMatches(string current, System.Text.RegularExpressions.Regex expected, bool? ignoreCase = null)
+    public static bool UrlMatches(
+        string current,
+        System.Text.RegularExpressions.Regex expected,
+        bool? ignoreCase = null
+    )
     {
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(expected);
@@ -177,7 +219,9 @@ public static partial class Urls
             false => expected.Options & ~System.Text.RegularExpressions.RegexOptions.IgnoreCase,
             null => expected.Options,
         };
-        return new System.Text.RegularExpressions.Regex(expected.ToString(), options).IsMatch(SerializeForComparison(current));
+        return new System.Text.RegularExpressions.Regex(expected.ToString(), options).IsMatch(
+            SerializeForComparison(current)
+        );
     }
 
     private static string SerializeForComparison(string url) =>
@@ -195,7 +239,8 @@ public static partial class Urls
         new(url.AbsoluteUri, url.GetLeftPart(UriPartial.Authority), url.AbsolutePath);
 
     private static bool IsHttp(string raw) =>
-        raw.StartsWith("http:", StringComparison.OrdinalIgnoreCase) || raw.StartsWith("https:", StringComparison.OrdinalIgnoreCase);
+        raw.StartsWith("http:", StringComparison.OrdinalIgnoreCase)
+        || raw.StartsWith("https:", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// A <c>scheme:</c> prefix counts as explicit only when what follows the colon is not a port: <c>localhost:3000/app</c>

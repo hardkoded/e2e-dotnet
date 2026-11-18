@@ -62,28 +62,20 @@ public sealed record ErrorDetails
 public sealed class TestException : E2EException
 {
     public TestException(string code, string message)
-        : base(code, message)
-    {
-    }
+        : base(code, message) { }
 
     public TestException(string code, string message, Exception inner)
-        : base(code, message, inner)
-    {
-    }
+        : base(code, message, inner) { }
 }
 
 /// <summary>An agent step failed, was blocked, or could not talk to its model.</summary>
 public sealed class AgentException : E2EException
 {
     public AgentException(string code, string message)
-        : base(code, message)
-    {
-    }
+        : base(code, message) { }
 
     public AgentException(string code, string message, Exception inner)
-        : base(code, message, inner)
-    {
-    }
+        : base(code, message, inner) { }
 
     public AgentException(string code, string message, bool blocked)
         : base(code, message)
@@ -132,14 +124,10 @@ public sealed class AgentException : E2EException
 public sealed class EngineException : E2EException
 {
     public EngineException(string code, string message)
-        : base(code, message)
-    {
-    }
+        : base(code, message) { }
 
     public EngineException(string code, string message, Exception inner)
-        : base(code, message, inner)
-    {
-    }
+        : base(code, message, inner) { }
 
     /// <summary>
     /// Creates an engine error that may claim to be retryable. Only <see cref="EngineErrorCodes.NodeStale"/> and
@@ -208,21 +196,15 @@ public static class EngineErrorCodes
 public sealed class SkipException : E2EException
 {
     public SkipException(string reason)
-        : base("SKIPPED", reason)
-    {
-    }
+        : base("SKIPPED", reason) { }
 }
 
 /// <summary><c>e2e.config.json</c> is invalid. The code is <c>INVALID_CONFIG</c>.</summary>
 public sealed class ConfigurationException : E2EException
 {
     public ConfigurationException(string code, string message)
-        : base(code, message)
-    {
-    }
+        : base(code, message) { }
 
     public ConfigurationException(string code, string message, Exception inner)
-        : base(code, message, inner)
-    {
-    }
+        : base(code, message, inner) { }
 }

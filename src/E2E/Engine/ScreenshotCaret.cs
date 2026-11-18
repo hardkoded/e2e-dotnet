@@ -89,10 +89,14 @@ internal static class ScreenshotCaret
         }
 
         _ = work.ContinueWith(
-            late => late.Status == TaskStatus.RanToCompletion ? UndoAsync(late.Result).ContinueWith(failed => _ = failed.Exception, TaskScheduler.Default) : Task.FromResult(late.Exception),
+            late =>
+                late.Status == TaskStatus.RanToCompletion
+                    ? UndoAsync(late.Result).ContinueWith(failed => _ = failed.Exception, TaskScheduler.Default)
+                    : Task.FromResult(late.Exception),
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
+            TaskScheduler.Default
+        );
         return null;
     }
 
@@ -109,13 +113,16 @@ internal static class ScreenshotCaret
         }
         finally
         {
-            await Task.WhenAll(undos.Select(async undo =>
-            {
-                if (undo is not null)
-                {
-                    await InFrameAsync(UndoAsync(undo)).ConfigureAwait(false);
-                }
-            })).ConfigureAwait(false);
+            await Task.WhenAll(
+                    undos.Select(async undo =>
+                    {
+                        if (undo is not null)
+                        {
+                            await InFrameAsync(UndoAsync(undo)).ConfigureAwait(false);
+                        }
+                    })
+                )
+                .ConfigureAwait(false);
         }
     }
 }

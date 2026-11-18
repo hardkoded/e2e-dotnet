@@ -19,7 +19,10 @@ public sealed class ArtifactPathsTests : IDisposable
     [Fact]
     public async Task Writes_a_server_chosen_download_name_as_one_counted_file_inside_the_attempt_downloads_folder()
     {
-        var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { ArtifactsDir = _directory }, CancellationToken.None);
+        var session = await new WebEngine(headless: true).StartAsync(
+            new EngineStartOptions { ArtifactsDir = _directory },
+            CancellationToken.None
+        );
         try
         {
             var surface = WebEngine.SurfaceOf(session)!;
@@ -31,7 +34,13 @@ public sealed class ArtifactPathsTests : IDisposable
                 var file = Path.GetFileName(absolute);
                 Assert.Equal($"downloads/{file}", relative);
                 Assert.Equal(folder, Path.GetDirectoryName(absolute));
-                Assert.True(Regex.IsMatch(file, $"^{(index + 1).ToString("D3", CultureInfo.InvariantCulture)}-[A-Za-z0-9._-]{{1,64}}\\z"), name);
+                Assert.True(
+                    Regex.IsMatch(
+                        file,
+                        $"^{(index + 1).ToString("D3", CultureInfo.InvariantCulture)}-[A-Za-z0-9._-]{{1,64}}\\z"
+                    ),
+                    name
+                );
             }
         }
         finally

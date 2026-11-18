@@ -14,9 +14,7 @@ public sealed class DiscoveredFixture : E2ETest
     [Test]
     [Category("Slow")]
     [Ignore("only found by reflection")]
-    public void Is_found_by_reflection()
-    {
-    }
+    public void Is_found_by_reflection() { }
 }
 
 /// <summary>The test a nested run starts, which the filters left out.</summary>
@@ -42,7 +40,11 @@ public sealed class RunSelectionTests
     [Test]
     public void Finds_the_tests_of_the_assembly_with_their_categories_and_skip_reason()
     {
-        var found = E2E.NUnit.RunSelection.Discover(typeof(RunSelectionTests).Assembly).Single(test => test.Key == $"{typeof(DiscoveredFixture).FullName}.{nameof(DiscoveredFixture.Is_found_by_reflection)}");
+        var found = E2E
+            .NUnit.RunSelection.Discover(typeof(RunSelectionTests).Assembly)
+            .Single(test =>
+                test.Key == $"{typeof(DiscoveredFixture).FullName}.{nameof(DiscoveredFixture.Is_found_by_reflection)}"
+            );
 
         Assert.That(found.Namespace, Is.EqualTo("E2E.NUnit.Tests.RunSelection"));
         Assert.That(found.TypeName, Is.EqualTo(nameof(DiscoveredFixture)));
@@ -64,7 +66,9 @@ public sealed class RunSelectionTests
         E2E.NUnit.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutFixture).FullName}.A"] = "one" });
         try
         {
-            E2E.NUnit.RunSelection.Add(new Dictionary<string, string> { [$"{typeof(LeftOutFixture).FullName}.B"] = "two" });
+            E2E.NUnit.RunSelection.Add(
+                new Dictionary<string, string> { [$"{typeof(LeftOutFixture).FullName}.B"] = "two" }
+            );
 
             Assert.That(E2E.NUnit.RunSelection.ReasonFor(typeof(LeftOutFixture), "A"), Is.EqualTo("one"));
             Assert.That(E2E.NUnit.RunSelection.ReasonFor(typeof(LeftOutFixture), "B"), Is.EqualTo("two"));
@@ -78,7 +82,12 @@ public sealed class RunSelectionTests
     [Test]
     public void Ignores_a_test_the_filters_left_out_with_their_reason_and_never_starts_it()
     {
-        E2E.NUnit.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutFixture).FullName}.{nameof(LeftOutFixture.Is_left_out)}"] = "login.cs did not change" });
+        E2E.NUnit.RunSelection.Set(
+            new Dictionary<string, string>
+            {
+                [$"{typeof(LeftOutFixture).FullName}.{nameof(LeftOutFixture.Is_left_out)}"] = "login.cs did not change",
+            }
+        );
         try
         {
             var result = NestedRun.Run(nameof(LeftOutFixture.Is_left_out));
@@ -99,8 +108,13 @@ public sealed class RunSelectionTests
         {
             public string Name => "all";
 
-            public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) =>
-                Task.FromResult(new TestFilterResult { Exclude = tests.ToDictionary(test => test.Id, _ => "left out") });
+            public Task<TestFilterResult> FilterAsync(
+                IReadOnlyList<TestFilterCandidate> tests,
+                TestFilterContext context
+            ) =>
+                Task.FromResult(
+                    new TestFilterResult { Exclude = tests.ToDictionary(test => test.Id, _ => "left out") }
+                );
         }
 
         protected override IReadOnlyList<ITestFilter> Filters => [new All()];
@@ -121,7 +135,18 @@ public sealed class RunSelectionTests
 
             // The control: without a session request the filter leaves the test out.
             await fixture.SelectTestsAsync();
-            Assert.That(E2E.NUnit.RunSelection.ReasonFor(key, nameof(ControlInventory.Agent.ControlInventoryTests.Check_picks_a_radio_the_pick_replaces_with_its_summary)), Is.EqualTo("left out"));
+            Assert.That(
+                E2E.NUnit.RunSelection.ReasonFor(
+                    key,
+                    nameof(
+                        ControlInventory
+                            .Agent
+                            .ControlInventoryTests
+                            .Check_picks_a_radio_the_pick_replaces_with_its_summary
+                    )
+                ),
+                Is.EqualTo("left out")
+            );
 
             E2E.NUnit.RunSelection.Set(new Dictionary<string, string>());
             using (SessionHandover.Begin("any test"))
@@ -129,7 +154,18 @@ public sealed class RunSelectionTests
                 await fixture.SelectTestsAsync();
             }
 
-            Assert.That(E2E.NUnit.RunSelection.ReasonFor(key, nameof(ControlInventory.Agent.ControlInventoryTests.Check_picks_a_radio_the_pick_replaces_with_its_summary)), Is.Null);
+            Assert.That(
+                E2E.NUnit.RunSelection.ReasonFor(
+                    key,
+                    nameof(
+                        ControlInventory
+                            .Agent
+                            .ControlInventoryTests
+                            .Check_picks_a_radio_the_pick_replaces_with_its_summary
+                    )
+                ),
+                Is.Null
+            );
         }
         finally
         {

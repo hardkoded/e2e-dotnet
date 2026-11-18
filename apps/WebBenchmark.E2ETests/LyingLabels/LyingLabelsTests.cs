@@ -26,7 +26,10 @@ public sealed class LyingLabelsTests : BenchmarkTest
     public async Task A_text_match_for_Pay_now_catches_the_decoy_phrase_too()
     {
         var error = await Support.FailureAsync(() => Screen.GetByText(PayNow).TapAsync());
-        Assert.That(error, Is.InstanceOf<E2EException>().And.Property(nameof(E2EException.Code)).EqualTo("LOCATOR_AMBIGUOUS"));
+        Assert.That(
+            error,
+            Is.InstanceOf<E2EException>().And.Property(nameof(E2EException.Code)).EqualTo("LOCATOR_AMBIGUOUS")
+        );
         await Expect.That(Screen.GetByTestId("error-message")).ToBeHiddenAsync();
     }
 
@@ -36,7 +39,8 @@ public sealed class LyingLabelsTests : BenchmarkTest
         await ButtonReading("Pay now").TapAsync();
         await Screen.GetByLabel("Amount").FillAsync("42.50");
         await Screen.GetByText("Submit payment").TapAsync();
-        await Expect.That(Screen.GetByTestId("error-message"))
+        await Expect
+            .That(Screen.GetByTestId("error-message"))
             .ToHaveTextAsync("Type 42.50 into the field visibly labeled Amount, leave Reference empty");
     }
 

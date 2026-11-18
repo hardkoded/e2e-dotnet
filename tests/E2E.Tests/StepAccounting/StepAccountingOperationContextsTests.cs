@@ -36,8 +36,17 @@ public sealed class StepAccountingOperationContextsTests
     {
         var accounting = new E2E.StepAccounting(maxActions: 5, maxModelCalls: 5);
 
-        Assert.Equal(TimeSpan.FromSeconds(15), accounting.ActionOperation(OperationContext.Agent, TimeSpan.FromMinutes(1)).Timeout);
-        Assert.Equal(TimeSpan.FromSeconds(10), accounting.ActionOperation(OperationContext.Agent, TimeSpan.FromSeconds(10)).Timeout);
-        Assert.Equal(TimeSpan.FromMinutes(1), accounting.Operation(OperationContext.Agent, TimeSpan.FromMinutes(1)).Timeout);
+        Assert.Equal(
+            TimeSpan.FromSeconds(15),
+            accounting.ActionOperation(OperationContext.Agent, TimeSpan.FromMinutes(1)).Timeout
+        );
+        Assert.Equal(
+            TimeSpan.FromSeconds(10),
+            accounting.ActionOperation(OperationContext.Agent, TimeSpan.FromSeconds(10)).Timeout
+        );
+        Assert.Equal(
+            TimeSpan.FromMinutes(1),
+            accounting.Operation(OperationContext.Agent, TimeSpan.FromMinutes(1)).Timeout
+        );
     }
 }

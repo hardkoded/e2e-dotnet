@@ -102,6 +102,24 @@ internal static class FixtureApp
         </html>
         """;
 
+    // What toHaveRole reads: roles from markup and from ARIA, and the one the
+    // vocabulary spells its own way (ARIA's img is image).
+    public const string RoleMatcher = """
+        <!doctype html>
+        <html>
+        <head><title>Role matcher</title></head>
+        <body>
+          <input aria-label="Name" />
+          <input aria-label="Secret" type="password" value="marker-7c1f" />
+          <button role="switch" aria-checked="true">Wi-Fi</button>
+          <img data-testid="logo" alt="Logo" src="/fixture.png" />
+          <h2 data-testid="title">Title</h2>
+          <h1 contenteditable="true" data-testid="doc">Untitled</h1>
+          <div data-testid="plain">Plain</div>
+        </body>
+        </html>
+        """;
+
     private const string About = """
         <!doctype html>
         <html>
@@ -275,28 +293,31 @@ internal static class FixtureApp
 
     public static Task<TinySite> StartAsync()
     {
-        return TinySite.StartAsync(context => context.Request.Url!.AbsolutePath switch
-        {
-            "/downloads" => TinySite.RespondAsync(context, Downloads),
-            "/wrappers" => TinySite.RespondAsync(context, Wrappers),
-            "/crowded" => TinySite.RespondAsync(context, Crowded),
-            "/exports" => TinySite.RespondAsync(context, Exports),
-            "/echo.csv" => RespondEchoCsvAsync(context),
-            "/dialog" => TinySite.RespondAsync(context, Dialog),
-            "/report.csv" => RespondCsvAsync(context),
-            "/" => TinySite.RespondAsync(context, Home),
-            "/about" => TinySite.RespondAsync(context, About),
-            "/classes" => TinySite.RespondAsync(context, Classes),
-            "/frame" => TinySite.RespondAsync(context, Frame),
-            "/frame-nested" => TinySite.RespondAsync(context, FrameNested),
-            "/child" => TinySite.RespondAsync(context, Child),
-            "/script-flags" => TinySite.RespondAsync(context, ScriptFlags),
-            "/flags" => TinySite.RespondAsync(context, Flags),
-            "/api/flags" => RespondJsonAsync(context, """{"betaBoard":false}"""),
-            "/editor" => TinySite.RespondAsync(context, Editor),
-            "/value-attributes" => TinySite.RespondAsync(context, ValueAttributes),
-            _ => NotFoundAsync(context),
-        });
+        return TinySite.StartAsync(context =>
+            context.Request.Url!.AbsolutePath switch
+            {
+                "/downloads" => TinySite.RespondAsync(context, Downloads),
+                "/wrappers" => TinySite.RespondAsync(context, Wrappers),
+                "/crowded" => TinySite.RespondAsync(context, Crowded),
+                "/exports" => TinySite.RespondAsync(context, Exports),
+                "/echo.csv" => RespondEchoCsvAsync(context),
+                "/dialog" => TinySite.RespondAsync(context, Dialog),
+                "/report.csv" => RespondCsvAsync(context),
+                "/" => TinySite.RespondAsync(context, Home),
+                "/about" => TinySite.RespondAsync(context, About),
+                "/classes" => TinySite.RespondAsync(context, Classes),
+                "/frame" => TinySite.RespondAsync(context, Frame),
+                "/frame-nested" => TinySite.RespondAsync(context, FrameNested),
+                "/child" => TinySite.RespondAsync(context, Child),
+                "/script-flags" => TinySite.RespondAsync(context, ScriptFlags),
+                "/flags" => TinySite.RespondAsync(context, Flags),
+                "/api/flags" => RespondJsonAsync(context, """{"betaBoard":false}"""),
+                "/editor" => TinySite.RespondAsync(context, Editor),
+                "/value-attributes" => TinySite.RespondAsync(context, ValueAttributes),
+                "/role-matcher" => TinySite.RespondAsync(context, RoleMatcher),
+                _ => NotFoundAsync(context),
+            }
+        );
     }
 
     private static async Task RespondCsvAsync(HttpListenerContext context)

@@ -20,8 +20,23 @@ public sealed class ProjectTreeTests
             Role = "document",
             Children =
             [
-                new SemanticNode { Ref = "n1", Role = "textbox", Name = "Password", Value = "hunter2", Selection = "hunter2", Selector = "input[name=password]", States = new NodeStates { Secure = true, Focused = true } },
-                new SemanticNode { Ref = "n3", Role = "textbox", Value = "hunter2 stays", Selection = "hunter2" },
+                new SemanticNode
+                {
+                    Ref = "n1",
+                    Role = "textbox",
+                    Name = "Password",
+                    Value = "hunter2",
+                    Selection = "hunter2",
+                    Selector = "input[name=password]",
+                    States = new NodeStates { Secure = true, Focused = true },
+                },
+                new SemanticNode
+                {
+                    Ref = "n3",
+                    Role = "textbox",
+                    Value = "hunter2 stays",
+                    Selection = "hunter2",
+                },
                 new SemanticNode
                 {
                     Ref = "n2",
@@ -74,7 +89,15 @@ public sealed class ProjectTreeTests
         Assert.Equal(rect, link.Rect);
         Assert.Null(link.Value);
         Assert.Null(link.Selection);
-        Assert.DoesNotContain("hunter2", System.Text.Json.JsonSerializer.Serialize(projected), StringComparison.Ordinal);
-        Assert.DoesNotContain("selector", System.Text.Json.JsonSerializer.Serialize(projected), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "hunter2",
+            System.Text.Json.JsonSerializer.Serialize(projected),
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "selector",
+            System.Text.Json.JsonSerializer.Serialize(projected),
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 }

@@ -15,7 +15,12 @@ public sealed class LocatorFailureCandidateCountsTests
 {
     private const string Heading = "candidates left after each filter step, counted after the failure";
 
-    private static readonly SemanticNode Ref = new() { Ref = "node-1", Role = "listitem", Name = "Order 1042" };
+    private static readonly SemanticNode Ref = new()
+    {
+        Ref = "node-1",
+        Role = "listitem",
+        Name = "Order 1042",
+    };
 
     private readonly Screen _screen = ScreenFixture.Create();
     private readonly LocatorExpression _base;
@@ -36,7 +41,9 @@ public sealed class LocatorFailureCandidateCountsTests
     {
         var counting = Counting(Answers((_chain, Nodes(0)), (_base, Nodes(6)), (_texted, Nodes(1))));
 
-        var failure = await Assert.ThrowsAsync<TestException>(() => counting.Engine.ReadAsync(_chain, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            counting.Engine.ReadAsync(_chain, CancellationToken.None)
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.Contains(Heading, failure.Message, StringComparison.Ordinal);
@@ -52,7 +59,9 @@ public sealed class LocatorFailureCandidateCountsTests
         Assert.InRange(counting.Timeouts[0], TimeSpan.FromTicks(1), TimeSpan.FromMilliseconds(20));
         var diagnostic = counting.Timeouts.TakeLast(3).ToList();
         Assert.Equal(3, diagnostic.Count);
-        Assert.All(diagnostic, timeout => Assert.InRange(timeout, TimeSpan.FromTicks(1), TimeSpan.FromMilliseconds(500)));
+        Assert.All(diagnostic, timeout =>
+            Assert.InRange(timeout, TimeSpan.FromTicks(1), TimeSpan.FromMilliseconds(500))
+        );
     }
 
     [Fact]
@@ -60,7 +69,9 @@ public sealed class LocatorFailureCandidateCountsTests
     {
         var counting = Counting(Answers((_base, Nodes(0))));
 
-        var failure = await Assert.ThrowsAsync<TestException>(() => counting.Engine.ReadAsync(_base, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            counting.Engine.ReadAsync(_base, CancellationToken.None)
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.DoesNotContain("counted after the failure", failure.Message, StringComparison.Ordinal);
@@ -72,9 +83,16 @@ public sealed class LocatorFailureCandidateCountsTests
     [Fact]
     public async Task Keeps_the_plain_failure_when_the_diagnostic_pass_cannot_read()
     {
-        var counting = Counting(Answers((_chain, Nodes(0)), (_base, new EngineException(EngineErrorCodes.EngineFailure, "engine died", retryable: false))));
+        var counting = Counting(
+            Answers(
+                (_chain, Nodes(0)),
+                (_base, new EngineException(EngineErrorCodes.EngineFailure, "engine died", retryable: false))
+            )
+        );
 
-        var failure = await Assert.ThrowsAsync<TestException>(() => counting.Engine.ReadAsync(_chain, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            counting.Engine.ReadAsync(_chain, CancellationToken.None)
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.DoesNotContain("counted after the failure", failure.Message, StringComparison.Ordinal);
@@ -88,7 +106,9 @@ public sealed class LocatorFailureCandidateCountsTests
     {
         var counting = Counting(Answers((_chain, Nodes(2)), (_base, Nodes(6)), (_texted, Nodes(3))));
 
-        var failure = await Assert.ThrowsAsync<TestException>(() => counting.Engine.ReadAsync(_chain, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            counting.Engine.ReadAsync(_chain, CancellationToken.None)
+        );
 
         Assert.Equal("LOCATOR_AMBIGUOUS", failure.Code);
         Assert.Equal(2, failure.Details?.Matches);
@@ -101,9 +121,13 @@ public sealed class LocatorFailureCandidateCountsTests
     {
         var indexed = new Locator(_screen, _texted).First().Query;
         var chained = new Locator(_screen, indexed).Filter("1042").Query;
-        var counting = Counting(Answers((chained, Nodes(0)), (_base, Nodes(2)), (_texted, Nodes(1)), (indexed, Nodes(1))));
+        var counting = Counting(
+            Answers((chained, Nodes(0)), (_base, Nodes(2)), (_texted, Nodes(1)), (indexed, Nodes(1)))
+        );
 
-        var failure = await Assert.ThrowsAsync<TestException>(() => counting.Engine.ReadAsync(chained, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            counting.Engine.ReadAsync(chained, CancellationToken.None)
+        );
 
         Assert.Contains($"{_base.Describe()}: 2", failure.Message, StringComparison.Ordinal);
         Assert.Contains($"{_texted.Describe()}: 1", failure.Message, StringComparison.Ordinal);
@@ -119,7 +143,7 @@ public sealed class LocatorFailureCandidateCountsTests
     [Fact]
     public async Task Bounds_the_whole_walk_by_one_shared_deadline_when_locate_ignores_the_operation_timeout()
     {
-        var clock = new FakeTimeProvider();
+        var clock = new SteppingTime();
         List<string> resolved = [];
         List<TimeSpan> timeouts = [];
         var engine = Engine(
@@ -131,16 +155,21 @@ public sealed class LocatorFailureCandidateCountsTests
                 return Task.FromResult<IReadOnlyList<SemanticNode>>([]);
             },
             () => CancellationToken.None,
-            clock);
+            clock
+        );
 
-        var failure = await Assert.ThrowsAsync<TestException>(() => engine.ReadAsync(_chain, CancellationToken.None));
+        var reading = engine.ReadAsync(_chain, CancellationToken.None);
+        await clock.RunAsync(reading.ContinueWith(_ => { }, TaskScheduler.Default));
+        var failure = await Assert.ThrowsAsync<TestException>(() => reading);
 
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
 
         // The failing resolve polls once, then the walk resolves two of the three prefixes inside the shared budget and refuses the third.
         Assert.Equal([_chain.Describe(), _base.Describe(), _texted.Describe()], resolved);
         Assert.Contains("walk stopped after 2 of 3 steps", failure.Message, StringComparison.Ordinal);
-        Assert.All(timeouts.Skip(1), timeout => Assert.InRange(timeout, TimeSpan.FromTicks(1), TimeSpan.FromMilliseconds(500)));
+        Assert.All(timeouts.Skip(1), timeout =>
+            Assert.InRange(timeout, TimeSpan.FromTicks(1), TimeSpan.FromMilliseconds(500))
+        );
     }
 
     [Fact]
@@ -160,7 +189,8 @@ public sealed class LocatorFailureCandidateCountsTests
                 return Task.FromResult<IReadOnlyList<SemanticNode>>([]);
             },
             () => cancellation.Token,
-            TimeProvider.System);
+            TimeProvider.System
+        );
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => engine.ReadAsync(_chain, cancellation.Token));
     }
@@ -168,9 +198,17 @@ public sealed class LocatorFailureCandidateCountsTests
     [Fact]
     public async Task Drops_the_counts_when_a_later_prefix_cannot_be_read()
     {
-        var counting = Counting(Answers((_chain, Nodes(0)), (_base, Nodes(1)), (_texted, new EngineException(EngineErrorCodes.EngineFailure, "engine died", retryable: false))));
+        var counting = Counting(
+            Answers(
+                (_chain, Nodes(0)),
+                (_base, Nodes(1)),
+                (_texted, new EngineException(EngineErrorCodes.EngineFailure, "engine died", retryable: false))
+            )
+        );
 
-        var failure = await Assert.ThrowsAsync<TestException>(() => counting.Engine.ReadAsync(_chain, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            counting.Engine.ReadAsync(_chain, CancellationToken.None)
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.DoesNotContain("counted after the failure", failure.Message, StringComparison.Ordinal);
@@ -184,17 +222,23 @@ public sealed class LocatorFailureCandidateCountsTests
     private static Dictionary<string, object> Answers(params (LocatorExpression Expression, object Answer)[] entries) =>
         entries.ToDictionary(entry => entry.Expression.Describe(), entry => entry.Answer);
 
-    private static E2E.LocatorEngine Engine(Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>> locate, Func<CancellationToken> cancellation, TimeProvider clock) =>
-        new(new LocatorEngineOptions
-        {
-            Observe = _ => Task.FromResult(new Observation { Route = "/", Roots = [] }),
-            Locate = locate,
-            Perform = (_, _, _, _) => throw new InvalidOperationException("unexpected perform"),
-            Cancellation = cancellation,
-            ActionTimeout = TimeSpan.FromMilliseconds(20),
-            AssertionTimeout = TimeSpan.FromMilliseconds(1_000),
-            Clock = clock,
-        });
+    private static E2E.LocatorEngine Engine(
+        Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>> locate,
+        Func<CancellationToken> cancellation,
+        TimeProvider clock
+    ) =>
+        new(
+            new LocatorEngineOptions
+            {
+                Observe = _ => Task.FromResult(new Observation { Route = "/", Roots = [] }),
+                Locate = locate,
+                Perform = (_, _, _, _) => throw new InvalidOperationException("unexpected perform"),
+                Cancellation = cancellation,
+                ActionTimeout = TimeSpan.FromMilliseconds(20),
+                AssertionTimeout = TimeSpan.FromMilliseconds(1_000),
+                Clock = clock,
+            }
+        );
 
     /// <summary>An engine over <paramref name="answers"/>, keyed by the described locator: nodes to answer, or an exception to throw.</summary>
     private static CountingEngine Counting(Dictionary<string, object> answers)
@@ -208,11 +252,14 @@ public sealed class LocatorFailureCandidateCountsTests
                 resolved.Add(key);
                 timeouts.Add(budget);
                 return answers.TryGetValue(key, out var answer)
-                    ? answer is Exception failure ? Task.FromException<IReadOnlyList<SemanticNode>>(failure) : Task.FromResult((IReadOnlyList<SemanticNode>)answer)
+                    ? answer is Exception failure
+                        ? Task.FromException<IReadOnlyList<SemanticNode>>(failure)
+                        : Task.FromResult((IReadOnlyList<SemanticNode>)answer)
                     : throw new InvalidOperationException("unexpected locate: " + key);
             },
             () => CancellationToken.None,
-            TimeProvider.System);
+            TimeProvider.System
+        );
         return new CountingEngine(engine, resolved, timeouts);
     }
 

@@ -114,6 +114,7 @@ To open a session from your own runner, set `OpenHostOptions.EngineFactory` (see
 | --- | --- |
 | `Observation` + `ObserveAsync` | Agent observations and the replay cache |
 | `Actions` + `PerformAsync` + `ActionKinds` | Node actions of the declared kinds |
+| `ComputedStyle` + `ReadStyleAsync` | Allow-listed computed styles of an observed node for a read-only project tool's `AgentToolContext.ReadAsync`. Declare `Observation` with it |
 | `Scroll` + `SwipeAsync` | The viewport swipe, `LocatorAction.Swipe`, and `LocatorAction.ScrollIntoView`; the agent's `scroll` and `scroll_to` tools |
 | `CanLocate` + `LocateAsync` | Queries resolved by the engine. Declare `Location` with it; the report lists it |
 | `History` + `BackAsync` | `App.BackAsync()` and the agent's `back` verb |

@@ -13,7 +13,11 @@ public static class PollExpectationExtensions
     /// Re-reads the value until <paramref name="constraint"/> holds, such as
     /// <c>Is.GreaterThan(3)</c> or <c>Has.Count.EqualTo(2)</c>.
     /// </summary>
-    public static Task ToMatchAsync<T>(this PollExpectation<T> poll, IResolveConstraint constraint, CancellationToken cancellationToken = default)
+    public static Task ToMatchAsync<T>(
+        this PollExpectation<T> poll,
+        IResolveConstraint constraint,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(poll);
         ArgumentNullException.ThrowIfNull(constraint);

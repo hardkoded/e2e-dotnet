@@ -41,19 +41,27 @@ internal static class Testbed
 
     private static readonly Dictionary<string, (string Title, string Body)> Pages = new(StringComparer.Ordinal)
     {
-        ["/"] = ("Playground", """
+        ["/"] = (
+            "Playground",
+            """
             <h1>Playground</h1>
                    <p>A tiny app exercised by the e2e dogfood suite.</p>
-            """),
+            """
+        ),
 
         // Copy with inline links and emphasis, unlisted in the nav.
-        ["/plans"] = ("Plans", """
+        ["/plans"] = (
+            "Plans",
+            """
             <h1>Plans</h1>
                    <p>We ship every week. Read the <a href="/release-notes">release notes</a> for what changed this week.</p>
                    <p>Plans start at <strong>$12</strong> per seat, billed <em>annually</em>, and include the <code>e2e</code> CLI.</p>
-            """),
+            """
+        ),
 
-        ["/todos"] = ("Todos", """
+        ["/todos"] = (
+            "Todos",
+            """
             <h1>Todos</h1>
                    <label for="new-todo">New todo</label>
                    <input id="new-todo" placeholder="What needs doing?" />
@@ -135,11 +143,14 @@ internal static class Testbed
                      }
                      render();
                    </script>
-            """),
+            """
+        ),
 
         // Planted bug: the pay button keeps the total from page load, so after a
         // quantity change the summary and the button show different totals.
-        ["/checkout"] = ("Checkout", """
+        ["/checkout"] = (
+            "Checkout",
+            """
             <h1>Checkout</h1>
                    <table aria-label="Cart">
                      <thead><tr><th>Item</th><th>Price</th><th>Quantity</th><th>Line total</th></tr></thead>
@@ -177,9 +188,12 @@ internal static class Testbed
                        });
                      }
                    </script>
-            """),
+            """
+        ),
 
-        ["/network"] = ("Network", """
+        ["/network"] = (
+            "Network",
+            """
             <h1>Network</h1>
                    <button id="load">Load users</button>
                    <ul id="users"></ul>
@@ -206,9 +220,12 @@ internal static class Testbed
                        }
                      });
                    </script>
-            """),
+            """
+        ),
 
-        ["/forms"] = ("Forms", """
+        ["/forms"] = (
+            "Forms",
+            """
             <h1>Forms</h1>
                    <form id="profile">
                      <label for="name">Full name</label>
@@ -264,12 +281,15 @@ internal static class Testbed
                        }
                      });
                    </script>
-            """),
+            """
+        ),
 
         // The browser fixture's own surface: navigation with a delay, the viewport
         // size, the media its own @media rules see, the cookies the page sees, and
         // a load counter for reload.
-        ["/browser"] = ("Browser", """
+        ["/browser"] = (
+            "Browser",
+            """
             <h1>Browser</h1>
                    <button id="go-about">Go to about, soon</button>
                    <output aria-label="Viewport"></output>
@@ -312,13 +332,16 @@ internal static class Testbed
                      document.querySelector('output[aria-label="Loads"]').textContent = 'loads: ' + loads;
                      document.querySelector('output[aria-label="Random"]').textContent = 'random: ' + (Math.random() === 0.5 ? 'seeded' : 'unseeded');
                    </script>
-            """),
+            """
+        ),
 
         // Solid blocks with no text, so a screenshot of one renders the same on every operating system:
         // what toHaveScreenshot is tested against, with one stored file per system. The noise block takes
         // a new color on every load and is only ever compared masked; the far block sits below the fold;
         // the framed block is measured through the iframe.
-        ["/swatches"] = ("Swatches", """
+        ["/swatches"] = (
+            "Swatches",
+            """
             <h1>Swatches</h1>
                    <div data-testid="palette" style="display:flex;gap:8px;padding:8px;width:max-content;background:#ffffff">
                      <div style="width:40px;height:40px;background:#d92b2b"></div>
@@ -331,13 +354,19 @@ internal static class Testbed
                      document.querySelector('[data-testid="noise"]').style.background =
                        '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
                    </script>
-            """),
+            """
+        ),
 
-        ["/swatches/frame"] = ("Swatch frame", """
+        ["/swatches/frame"] = (
+            "Swatch frame",
+            """
             <div data-testid="framed" style="position:fixed;left:10px;top:10px;width:30px;height:20px;background:#9333ea"></div>
-            """),
+            """
+        ),
 
-        ["/wizard"] = ("Wizard", """
+        ["/wizard"] = (
+            "Wizard",
+            """
             <h1>Workspace wizard</h1>
                    <section id="step-1">
                      <h2>Step 1: Name</h2>
@@ -374,9 +403,12 @@ internal static class Testbed
                          'Created "' + name + '" on the ' + plan + ' plan';
                      });
                    </script>
-            """),
+            """
+        ),
 
-        ["/pointer"] = ("Pointer", """
+        ["/pointer"] = (
+            "Pointer",
+            """
             <h1>Pointer</h1>
                    <div id="pad" role="img" aria-label="Pointer pad" style="width: 320px; height: 200px; background: #e5e7eb; touch-action: none;"></div>
                    <output aria-label="Pad state">untouched</output>
@@ -420,11 +452,14 @@ internal static class Testbed
                        if (!swiped) padState.textContent = 'tapped at ' + local(event);
                      });
                    </script>
-            """),
+            """
+        ),
 
         // A canvas surface with no accessibility semantics whatsoever: the pins and the bar chart exist only as pixels.
         // Nothing here is reachable through the semantic tree, so this page is what the vision judgment is run against.
-        ["/canvas"] = ("Canvas map", """
+        ["/canvas"] = (
+            "Canvas map",
+            """
             <h1>Canvas map</h1>
                    <p>Every control below is drawn, not marked up.</p>
                    <canvas id="map" width="480" height="260"></canvas>
@@ -462,9 +497,12 @@ internal static class Testbed
                          : 'missed at ' + Math.round(x) + ',' + Math.round(y);
                      });
                    </script>
-            """),
+            """
+        ),
 
-        ["/canvas-flow"] = ("Drawn keypad", """
+        ["/canvas-flow"] = (
+            "Drawn keypad",
+            """
             <h1>Drawn keypad</h1>
             <p>Everything below is painted on a canvas; nothing is marked up.</p>
             <canvas id="pad" width="420" height="560"></canvas>
@@ -513,9 +551,12 @@ internal static class Testbed
                 draw();
               });
             </script>
-            """),
+            """
+        ),
 
-        ["/canvas-wizard"] = ("Drawn wizard", """
+        ["/canvas-wizard"] = (
+            "Drawn wizard",
+            """
             <h1>Drawn wizard</h1>
             <p>Eight drawn screens; nothing below is marked up.</p>
             <canvas id="wiz" width="520" height="420"></canvas>
@@ -594,9 +635,12 @@ internal static class Testbed
                 if (hit >= 0) { picked = arranged[hit].key; draw(); }
               });
             </script>
-            """),
+            """
+        ),
 
-        ["/canvas-form"] = ("Drawn form", """
+        ["/canvas-form"] = (
+            "Drawn form",
+            """
             <h1>Drawn form</h1>
             <p>Two fields and a button, all painted; nothing below is marked up.</p>
             <canvas id="form" width="480" height="300" tabindex="0" style="outline:none"></canvas>
@@ -670,9 +714,12 @@ internal static class Testbed
               });
               canvas.addEventListener('blur', () => { active = -1; draw(); });
             </script>
-            """),
+            """
+        ),
 
-        ["/board"] = ("Board", """
+        ["/board"] = (
+            "Board",
+            """
             <h1>Board</h1>
 
                    <div id="card-menu">Card actions</div>
@@ -707,9 +754,12 @@ internal static class Testbed
                          event.target.files[0] ? event.target.files[0].name : 'none';
                      });
                    </script>
-            """),
+            """
+        ),
 
-        ["/controls"] = ("Controls", """
+        ["/controls"] = (
+            "Controls",
+            """
             <h1>Controls</h1>
 
                    <ul aria-label="Files">
@@ -867,9 +917,12 @@ internal static class Testbed
                        footnoteState.textContent = entries[0].isIntersecting ? 'in view' : 'out of view';
                      }).observe(document.getElementById('footnote'));
                    </script>
-            """),
+            """
+        ),
 
-        ["/speed"] = ("Speed", """
+        ["/speed"] = (
+            "Speed",
+            """
             <h1>Speed</h1>
                    <button id="increment">Increment</button>
                    <output role="status" aria-label="Count">0</output>
@@ -886,15 +939,21 @@ internal static class Testbed
                        document.querySelector('output[aria-label="Echoed"]').textContent = event.target.value;
                      });
                    </script>
-            """),
+            """
+        ),
 
-        ["/about"] = ("About page", """
+        ["/about"] = (
+            "About page",
+            """
             <h1>About</h1>
                    <p>The playground, described.</p>
-            """),
+            """
+        ),
 
         // A native confirm, and a link to a file download. Both are unlisted in the nav, so the agent tests see the nav they always did.
-        ["/dialogs"] = ("Dialogs", """
+        ["/dialogs"] = (
+            "Dialogs",
+            """
             <h1>Dialogs</h1>
                    <button id="confirm">Delete everything</button>
                    <output role="status" aria-label="Decision"></output>
@@ -904,20 +963,29 @@ internal static class Testbed
                        document.querySelector('output').textContent = accepted ? 'deleted' : 'kept';
                      });
                    </script>
-            """),
+            """
+        ),
 
-        ["/downloads"] = ("Downloads", """
+        ["/downloads"] = (
+            "Downloads",
+            """
             <h1>Downloads</h1>
                    <a href="/files/report.csv" download>Download report</a>
-            """),
+            """
+        ),
 
         // An iframe with an editor in it, and that editor's own page. Both are unlisted in the nav, as the pages above.
-        ["/frames"] = ("Frames", """
+        ["/frames"] = (
+            "Frames",
+            """
             <h1>Frames</h1>
                    <iframe id="editor" src="/frames/child" title="editor"></iframe>
-            """),
+            """
+        ),
 
-        ["/frames/child"] = ("Editor frame", """
+        ["/frames/child"] = (
+            "Editor frame",
+            """
             <h2>Embedded editor</h2>
                    <label for="note">Note</label>
                    <input id="note" />
@@ -929,11 +997,14 @@ internal static class Testbed
                          'saved: ' + document.getElementById('note').value;
                      });
                    </script>
-            """),
+            """
+        ),
 
         // A scroll pane of its own and a long page, each reporting its scroll offset: what scroll_to by text works against. Rows paint only
         // once scrolled into their scroll root, as a windowed list renders. Unlisted in the nav, as the pages above.
-        ["/scroll"] = ("Scroll", $$"""
+        ["/scroll"] = (
+            "Scroll",
+            $$"""
             <h1>Scroll</h1>
                    <output role="status" aria-label="Scroll position">0</output>
                    <output role="status" aria-label="Pane position">0</output>
@@ -973,12 +1044,18 @@ internal static class Testbed
                      reveal(pane, pane);
                      reveal(document.querySelector('ul[aria-label="Rows"]'), null);
                    </script>
-            """),
+            """
+        ),
     };
 
     // `count` fixed-height list slots labelled `label 1..count`; the scroll page's script paints each one's button once it is scrolled into view.
     private static string Slots(int count, string label, int height) =>
-        string.Join("\n", Enumerable.Range(0, count).Select(index => $"<li style=\"height: {height}px\" data-row=\"{label} {index + 1}\"></li>"));
+        string.Join(
+            "\n",
+            Enumerable
+                .Range(0, count)
+                .Select(index => $"<li style=\"height: {height}px\" data-row=\"{label} {index + 1}\"></li>")
+        );
 
     private static readonly Lazy<string> Server = new(Start, LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -1028,7 +1105,8 @@ internal static class Testbed
                 listener.Prefixes.Add("http://localhost:" + port.ToString(CultureInfo.InvariantCulture) + "/");
                 crossOrigin = true;
             }
-            catch (Exception ex) when (ex is HttpListenerException or System.Net.Sockets.SocketException or ArgumentException)
+            catch (Exception ex)
+                when (ex is HttpListenerException or System.Net.Sockets.SocketException or ArgumentException)
             {
                 crossOrigin = false;
             }
@@ -1085,11 +1163,16 @@ internal static class Testbed
             {
                 if (context.Request.Cookies["session"]?.Value == "admin")
                 {
-                    await WriteHtmlAsync(response, "Dashboard", """
-                        <h1>Dashboard</h1>
-                               <p role="status" aria-label="Greeting">Welcome back, admin!</p>
-                               <a href="/logout">Sign out</a>
-                        """).ConfigureAwait(false);
+                    await WriteHtmlAsync(
+                            response,
+                            "Dashboard",
+                            """
+                            <h1>Dashboard</h1>
+                                   <p role="status" aria-label="Greeting">Welcome back, admin!</p>
+                                   <a href="/logout">Sign out</a>
+                            """
+                        )
+                        .ConfigureAwait(false);
                 }
                 else
                 {
@@ -1113,7 +1196,13 @@ internal static class Testbed
                     {
                         await PlaywrightRoutes.HandleAsync(context).ConfigureAwait(false);
                     }
-                    catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException or ObjectDisposedException)
+                    catch (Exception ex)
+                        when (ex
+                                is HttpListenerException
+                                    or InvalidOperationException
+                                    or IOException
+                                    or ObjectDisposedException
+                        )
                     {
                         // The client went away.
                     }
@@ -1124,7 +1213,12 @@ internal static class Testbed
                         {
                             response.StatusCode = 500;
                         }
-                        catch (Exception inner) when (inner is InvalidOperationException or ObjectDisposedException or System.Net.ProtocolViolationException)
+                        catch (Exception inner)
+                            when (inner
+                                    is InvalidOperationException
+                                        or ObjectDisposedException
+                                        or System.Net.ProtocolViolationException
+                            )
                         {
                             // The response was already sent.
                         }
@@ -1135,7 +1229,13 @@ internal static class Testbed
                         {
                             response.Close();
                         }
-                        catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException or ObjectDisposedException)
+                        catch (Exception ex)
+                            when (ex
+                                    is HttpListenerException
+                                        or InvalidOperationException
+                                        or IOException
+                                        or ObjectDisposedException
+                            )
                         {
                             // The response was aborted.
                         }
@@ -1169,23 +1269,25 @@ internal static class Testbed
         var form = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var pair in body.Split('&', StringSplitOptions.RemoveEmptyEntries).Select(pair => pair.Split('=', 2)))
         {
-            form[Uri.UnescapeDataString(pair[0].Replace('+', ' '))] = pair.Length > 1 ? Uri.UnescapeDataString(pair[1].Replace('+', ' ')) : "";
+            form[Uri.UnescapeDataString(pair[0].Replace('+', ' '))] =
+                pair.Length > 1 ? Uri.UnescapeDataString(pair[1].Replace('+', ' ')) : "";
         }
 
         return form;
     }
 
-    private static string LoginBody(bool failed) => $"""
-        <h1>Sign in</h1>
-        {(failed ? "<p role=\"alert\">Invalid credentials</p>" : "")}
-        <form method="post" action="/login">
-          <label for="username">Username</label>
-          <input id="username" name="username" autocomplete="username" />
-          <label for="password">Password</label>
-          <input id="password" name="password" type="password" autocomplete="current-password" />
-          <button type="submit">Sign in</button>
-        </form>
-        """;
+    private static string LoginBody(bool failed) =>
+        $"""
+            <h1>Sign in</h1>
+            {(failed ? "<p role=\"alert\">Invalid credentials</p>" : "")}
+            <form method="post" action="/login">
+              <label for="username">Username</label>
+              <input id="username" name="username" autocomplete="username" />
+              <label for="password">Password</label>
+              <input id="password" name="password" type="password" autocomplete="current-password" />
+              <button type="submit">Sign in</button>
+            </form>
+            """;
 
     // The document shell every playground page shares: the stylesheet and the nav.
     private static string Layout(string title, string body)

@@ -20,7 +20,10 @@ public sealed class MarkersTests
     public void Leaves_a_marker_whole_when_another_value_is_a_substring_of_it_or_of_the_word_secret()
     {
         var ledger = Ledger.Of(("long", "longvalue"), ("word", "secret"), ("apiKey", "api"), ("k", "Key"));
-        Assert.Equal("<secret:long> <secret:apiKey> <secret:k> <secret:word>", ledger.Redact("longvalue api Key secret"));
+        Assert.Equal(
+            "<secret:long> <secret:apiKey> <secret:k> <secret:word>",
+            ledger.Redact("longvalue api Key secret")
+        );
     }
 
     [Fact]

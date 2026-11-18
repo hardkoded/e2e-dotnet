@@ -43,12 +43,16 @@ public sealed class ExpectPollTests
         await Expect.Poll(() => ++reads > 2 ? new[] { "a", "b" } : ["a"], Every(5)).ToMatchAsync(Has.Length.EqualTo(2));
         Assert.That(reads, Is.EqualTo(3));
 
-        var running = await Assert.ThrowsAsync<TestException>(() => Expect.Poll(() => "running", Within(60, 10)).ToMatchAsync(Is.EqualTo("done")));
+        var running = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.Poll(() => "running", Within(60, 10)).ToMatchAsync(Is.EqualTo("done"))
+        );
         Assert.That(running!.Code, Is.EqualTo("ASSERTION_FAILED"));
         Assert.That(running.Message, Does.StartWith("expect.poll(...).toSatisfy(...) timed out after 60 ms"));
         Assert.That(running.Message, Does.Contain("last: received \"running\", which does not satisfy"));
 
-        var held = await Assert.ThrowsAsync<TestException>(() => Expect.Poll(() => 1, Within(60, 10)).Not.ToMatchAsync(Is.EqualTo(1)));
+        var held = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.Poll(() => 1, Within(60, 10)).Not.ToMatchAsync(Is.EqualTo(1))
+        );
         Assert.That(held!.Message, Does.StartWith("expect.poll(...).not.toSatisfy(...) timed out after 60 ms"));
         Assert.That(held.Message, Does.Contain("last: received 1, which does satisfy"));
     }

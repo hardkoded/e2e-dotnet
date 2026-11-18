@@ -18,7 +18,8 @@ public sealed class AuthSetupTests : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" }, "credentials": { "admin": { "username": "admin", "password": "admin-pass" } } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -44,7 +45,15 @@ public sealed class AuthSetupTests : E2ETest
     public async Task Authenticate_as_admin_with_a_cookie()
     {
         await App.OpenAsync("/");
-        await Browser.SetCookiesAsync([new BrowserCookie { Name = "session", Value = "admin", Url = await Browser.UrlAsync(), HttpOnly = true }]);
+        await Browser.SetCookiesAsync([
+            new BrowserCookie
+            {
+                Name = "session",
+                Value = "admin",
+                Url = await Browser.UrlAsync(),
+                HttpOnly = true,
+            },
+        ]);
         await App.OpenAsync("/dashboard");
 
         await Expect.That(Browser).ToHaveURLAsync("/dashboard");

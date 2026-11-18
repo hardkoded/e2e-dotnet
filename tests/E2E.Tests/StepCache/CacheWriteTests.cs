@@ -15,7 +15,8 @@ namespace E2E.Tests.StepCache;
 /// </summary>
 public sealed class CacheWriteTests
 {
-    private static CacheWrite? WriteOf(E2ESession session) => Assert.Single(session.StepRecords, step => step.Api == "agent.act").CacheWrite;
+    private static CacheWrite? WriteOf(E2ESession session) =>
+        Assert.Single(session.StepRecords, step => step.Api == "agent.act").CacheWrite;
 
     [Fact]
     public async Task Saves_a_recording_a_later_check_confirmed_and_keeps_it_when_the_next_run_replays_it()
@@ -57,7 +58,11 @@ public sealed class CacheWriteTests
         await using var session = await BillingSession.StartAsync(directory, () => { }, attempt: 1);
         await session.App.OpenAsync("/settings/billing");
         await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
-        var error = await Assert.ThrowsAsync<TestException>(() => Expect.That(session.Screen.GetByRole("status", "Enterprise")).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(100)));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Expect
+                .That(session.Screen.GetByRole("status", "Enterprise"))
+                .ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(100))
+        );
         session.Complete(error);
 
         Assert.Equal(CacheWrite.Evicted, WriteOf(session));
@@ -73,19 +78,18 @@ public sealed class CacheWriteTests
             var observation = await context.ObserveAsync();
             await context.Actions.TapAsync(TargetFor(observation.Text, "button \"Nothing\""), token);
             return Passed("tapped");
-        })
-        {
-            Version = "1",
-        };
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(world),
-            AgentExecutor = executor,
-            BaseUrl = "https://nothing.test",
-            Cache = new FileStepCache(BillingSession.TempCache()),
-            CacheEnabled = true,
-            TestTitle = "changes nothing",
-        });
+        }) { Version = "1" };
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(world),
+                AgentExecutor = executor,
+                BaseUrl = "https://nothing.test",
+                Cache = new FileStepCache(BillingSession.TempCache()),
+                CacheEnabled = true,
+                TestTitle = "changes nothing",
+            }
+        );
         await session.App.OpenAsync("/");
         await session.Agent.ActAsync("tap the button that does nothing");
         session.Complete();
@@ -112,8 +116,6 @@ public sealed class CacheWriteTests
 
         public int? Write(string key, CacheEntry entry) => throw new IOException("the store is full");
 
-        public void Delete(string key)
-        {
-        }
+        public void Delete(string key) { }
     }
 }

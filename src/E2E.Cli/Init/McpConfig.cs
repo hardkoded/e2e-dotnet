@@ -51,13 +51,19 @@ internal static partial class McpConfig
     private static readonly JsonDocumentOptions Strict = new();
 
     /// <summary>The line that registers the server by hand, for a project that skipped it.</summary>
-    public const string RegisterCommand = "e2e init --yes --skills none --mcp .codex/config.toml,.mcp.json,.cursor/mcp.json";
+    public const string RegisterCommand =
+        "e2e init --yes --skills none --mcp .codex/config.toml,.mcp.json,.cursor/mcp.json";
 
     private const string ServerCommand = "e2e";
 
     private static readonly string[] ServerArgs = ["mcp"];
 
-    private static JsonObject ServerEntry() => new() { ["command"] = ServerCommand, ["args"] = new JsonArray([.. ServerArgs.Select(arg => (JsonNode?)JsonValue.Create(arg))]) };
+    private static JsonObject ServerEntry() =>
+        new()
+        {
+            ["command"] = ServerCommand,
+            ["args"] = new JsonArray([.. ServerArgs.Select(arg => (JsonNode?)JsonValue.Create(arg))]),
+        };
 
     private static bool IsToml(string file) => file.EndsWith(".toml", StringComparison.Ordinal);
 
@@ -73,21 +79,31 @@ internal static partial class McpConfig
         var toml = IsToml(absolute);
         try
         {
-            parsed = toml ? CodexConfig.ReadCodexConfig(text) : text.Trim().Length == 0 ? new JsonObject() : JsonNode.Parse(text, null, Strict);
+            parsed =
+                toml ? CodexConfig.ReadCodexConfig(text)
+                : text.Trim().Length == 0 ? new JsonObject()
+                : JsonNode.Parse(text, null, Strict);
         }
         catch (Exception cause) when (cause is JsonException or InvalidOperationException or Tomlyn.TomlException)
         {
-            throw new InvalidOperationException(absolute + " is not valid " + (toml ? "TOML" : "JSON") + "; fix it or remove it before registering the MCP server", cause);
+            throw new InvalidOperationException(
+                absolute
+                    + " is not valid "
+                    + (toml ? "TOML" : "JSON")
+                    + "; fix it or remove it before registering the MCP server",
+                cause
+            );
         }
 
-        return parsed as JsonObject ?? throw new InvalidOperationException(absolute + " must hold a JSON object with a \"mcpServers\" map");
+        return parsed as JsonObject
+            ?? throw new InvalidOperationException(absolute + " must hold a JSON object with a \"mcpServers\" map");
     }
 
     /// <summary>
     /// The first symlink between the project root and <paramref name="target"/>, or null when every existing component is a
     /// plain entry. A component past the link is not inspected: it lives wherever the link points.
     /// </summary>
-    private static McpLink? LinkOnPath(string cwd, string target)
+    internal static McpLink? LinkOnPath(string cwd, string target)
     {
         var current = cwd;
         foreach (var segment in Path.GetRelativePath(cwd, target).Split(Path.DirectorySeparatorChar))
@@ -115,22 +131,29 @@ internal static partial class McpConfig
 
     /// <summary>Known config files that already register the e2e server. A file reached through a symlink is not read.</summary>
     public static List<string> FindRegisteredMcpFiles(string cwd) =>
-        [.. McpLocations.Select(location => location.File).Where(file =>
-        {
-            if (LinkOnPath(cwd, Path.Combine(cwd, file)) is not null)
-            {
-                return false;
-            }
+        [
+            .. McpLocations
+                .Select(location => location.File)
+                .Where(file =>
+                {
+                    if (LinkOnPath(cwd, Path.Combine(cwd, file)) is not null)
+                    {
+                        return false;
+                    }
 
-            try
-            {
-                return ReadDocument(Path.Combine(cwd, file))?[IsToml(file) ? "mcp_servers" : "mcpServers"] is JsonObject servers && servers.ContainsKey(McpServerName);
-            }
-            catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException)
-            {
-                return false;
-            }
-        })];
+                    try
+                    {
+                        return ReadDocument(Path.Combine(cwd, file))?[IsToml(file) ? "mcp_servers" : "mcpServers"]
+                                is JsonObject servers
+                            && servers.ContainsKey(McpServerName);
+                    }
+                    catch (Exception error)
+                        when (error is InvalidOperationException or IOException or UnauthorizedAccessException)
+                    {
+                        return false;
+                    }
+                }),
+        ];
 
     /// <summary>
     /// Plans the writes for the given files. A file without the entry gets it merged in; one whose entry already matches needs
@@ -179,7 +202,16 @@ internal static partial class McpConfig
             mergedServers[McpServerName] = entry;
             merged["mcpServers"] = mergedServers;
             var original = File.Exists(absolute) ? File.ReadAllText(absolute) : null;
-            registrations.Add(new McpRegistration(file, original is not null, absolute, IsToml(file) ? CodexConfig.UpdateCodexConfig(original ?? "", ServerCommand, ServerArgs) : Serialize(merged, original) + "\n"));
+            registrations.Add(
+                new McpRegistration(
+                    file,
+                    original is not null,
+                    absolute,
+                    IsToml(file)
+                        ? CodexConfig.UpdateCodexConfig(original ?? "", ServerCommand, ServerArgs)
+                        : Serialize(merged, original) + "\n"
+                )
+            );
         }
 
         return new McpPlan(registrations, links);
@@ -188,8 +220,16 @@ internal static partial class McpConfig
     /// <summary>The document as <c>JSON.stringify</c> writes it, indented the way the file already was.</summary>
     private static string Serialize(JsonObject merged, string? original)
     {
-        var indent = original is null ? "  " : Indentation().Match(original) is { Success: true } match ? match.Groups[1].Value : "  ";
-        var options = new JsonWriterOptions { Indented = true, NewLine = "\n", Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+        var indent =
+            original is null ? "  "
+            : Indentation().Match(original) is { Success: true } match ? match.Groups[1].Value
+            : "  ";
+        var options = new JsonWriterOptions
+        {
+            Indented = true,
+            NewLine = "\n",
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        };
         if (indent.All(character => character == indent[0]) && indent[0] is ' ' or '\t')
         {
             options.IndentCharacter = indent[0];

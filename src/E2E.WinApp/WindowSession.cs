@@ -15,7 +15,14 @@ namespace E2E.WinApp;
 /// <param name="Node">The node as it was reported.</param>
 /// <param name="Raw">The element as the driver read it.</param>
 /// <param name="Role">The node's role.</param>
-public sealed record NodeBinding(string Id, string Handle, long WindowHandle, SemanticNode Node, RawElement Raw, string? Role);
+public sealed record NodeBinding(
+    string Id,
+    string Handle,
+    long WindowHandle,
+    SemanticNode Node,
+    RawElement Raw,
+    string? Role
+);
 
 /// <summary>
 /// One attempt's session with a Windows app, driven through an <see cref="IWindowDriver"/> and exposed to the runner as the
@@ -73,13 +80,16 @@ public sealed partial class WindowSession : IEngineSession
     public string? AppPath => Options.App.AppPath is null ? null : Path.GetFullPath(Options.App.AppPath, _projectRoot);
 
     /// <summary>The process name the target names, which an attach finds the app by and <c>open_app</c> knows it as.</summary>
-    public string? AppName => Options.App.BundleId ?? (Options.App.AppPath is null ? null : Path.GetFileNameWithoutExtension(Options.App.AppPath));
+    public string? AppName =>
+        Options.App.BundleId
+        ?? (Options.App.AppPath is null ? null : Path.GetFileNameWithoutExtension(Options.App.AppPath));
 
     /// <summary>The driver of the live session, or <c>INVALID_STATE</c> once it closed.</summary>
     internal IWindowDriver Driver => _driver ?? throw WinAppSupport.InvalidState("the Windows app session is closed");
 
     /// <summary>The window actions, keys, and screenshots go to: the window the launch found, or the largest window of the app when that one is gone.</summary>
-    internal long MainWindow => _mainWindow ?? throw WinAppSupport.InvalidState("no app window is open; call app.open()");
+    internal long MainWindow =>
+        _mainWindow ?? throw WinAppSupport.InvalidState("no app window is open; call app.open()");
 
     /// <summary>Physical pixels per device-independent pixel of the main window's monitor, as the last observation measured it.</summary>
     internal double Scale => _scale;
@@ -87,7 +97,12 @@ public sealed partial class WindowSession : IEngineSession
     /// <summary>The main window's logical size, as the last observation measured it.</summary>
     internal ViewportSize? Viewport => _viewport;
 
-    internal static async Task<WindowSession> StartAsync(WinAppEngine engine, Func<IWindowDriver> createDriver, EngineStartOptions options, CancellationToken cancellationToken)
+    internal static async Task<WindowSession> StartAsync(
+        WinAppEngine engine,
+        Func<IWindowDriver> createDriver,
+        EngineStartOptions options,
+        CancellationToken cancellationToken
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
         var driver = createDriver();
@@ -98,14 +113,22 @@ public sealed partial class WindowSession : IEngineSession
     }
 
     /// <summary>Runs one driver call under a cancellation token and translates its failure. Fixture methods route through here too.</summary>
-    public Task<T> CommandAsync<T>(string label, Func<IWindowDriver, CancellationToken, Task<T>> run, CancellationToken cancellationToken)
+    public Task<T> CommandAsync<T>(
+        string label,
+        Func<IWindowDriver, CancellationToken, Task<T>> run,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(run);
         var driver = Driver;
         return WinAppErrors.RunAsync(label, token => run(driver, token), cancellationToken);
     }
 
-    public Task CommandAsync(string label, Func<IWindowDriver, CancellationToken, Task> run, CancellationToken cancellationToken)
+    public Task CommandAsync(
+        string label,
+        Func<IWindowDriver, CancellationToken, Task> run,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(run);
         var driver = Driver;
@@ -118,7 +141,11 @@ public sealed partial class WindowSession : IEngineSession
         ArgumentNullException.ThrowIfNull(url);
         if (Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme is "http" or "https" or "file")
         {
-            return Task.FromException(WinAppSupport.Unsupported("a Windows app has no URL to open; app.open() launches the app the target names"));
+            return Task.FromException(
+                WinAppSupport.Unsupported(
+                    "a Windows app has no URL to open; app.open() launches the app the target names"
+                )
+            );
         }
 
         return RestartAsync(cancellationToken);
@@ -126,7 +153,14 @@ public sealed partial class WindowSession : IEngineSession
 
     /// <summary>Launches the app fresh: ends the one this session started, starts the executable, and waits for its window. An attach-only target attaches instead.</summary>
     public Task RestartAsync(CancellationToken cancellationToken) =>
-        OpenAppAsync(AppName ?? throw WinAppSupport.Unsupported("launching the app needs the target's `app.appPath` or `app.bundleId`"), new OpenAppOptions { Relaunch = true }, cancellationToken);
+        OpenAppAsync(
+            AppName
+                ?? throw WinAppSupport.Unsupported(
+                    "launching the app needs the target's `app.appPath` or `app.bundleId`"
+                ),
+            new OpenAppOptions { Relaunch = true },
+            cancellationToken
+        );
 
     /// <summary>
     /// Relaunches the app. A Windows app keeps its state where it chooses (its local app data, the registry, a file), and the engine
@@ -156,8 +190,11 @@ public sealed partial class WindowSession : IEngineSession
     {
         var artifactsDir = _artifactsDir ?? throw WinAppSupport.InvalidState("screenshot outside an attempt");
         var masked = await ScreenshotAsync(cancellationToken).ConfigureAwait(false);
-        var name = Interlocked.Increment(ref _screenshots).ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
-            + "-" + WebSupport.SanitizeFilename(label ?? "screenshot") + ".png";
+        var name =
+            Interlocked.Increment(ref _screenshots).ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
+            + "-"
+            + WebSupport.SanitizeFilename(label ?? "screenshot")
+            + ".png";
         var directory = Path.Combine(artifactsDir, "screenshots");
         Directory.CreateDirectory(directory);
         var absolute = Path.Combine(directory, name);
@@ -193,28 +230,31 @@ public sealed partial class WindowSession : IEngineSession
             return;
         }
 
-        await CleanupBudget.WithinAsync(
-            async token =>
-            {
-                try
+        await CleanupBudget
+            .WithinAsync(
+                async token =>
                 {
-                    if (app is { Owned: true })
+                    try
                     {
-                        await driver.CloseAsync(app, timeout, token).ConfigureAwait(false);
+                        if (app is { Owned: true })
+                        {
+                            await driver.CloseAsync(app, timeout, token).ConfigureAwait(false);
+                        }
                     }
-                }
-                catch (Exception)
-                {
-                    // The app is going away either way.
-                }
-                finally
-                {
-                    await driver.DisposeAsync().ConfigureAwait(false);
-                }
-            },
-            timeout,
-            cancellationToken,
-            _engine.Clock).ConfigureAwait(false);
+                    catch (Exception)
+                    {
+                        // The app is going away either way.
+                    }
+                    finally
+                    {
+                        await driver.DisposeAsync().ConfigureAwait(false);
+                    }
+                },
+                timeout,
+                cancellationToken,
+                _engine.Clock
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>Waits the settle delay after an input, when the options ask for one.</summary>
@@ -231,16 +271,32 @@ public sealed partial class WindowSession : IEngineSession
         {
             return _bindings.TryGetValue(node.Ref, out var entry)
                 ? entry
-                : throw new EngineException(EngineErrorCodes.NodeStale, $"node {node.Ref} is not part of the newest observation", retryable: true);
+                : throw new EngineException(
+                    EngineErrorCodes.NodeStale,
+                    $"node {node.Ref} is not part of the newest observation",
+                    retryable: true
+                );
         }
     }
 
     private readonly HashSet<string> _toggled = [];
 
     /// <summary>Whether a check or uncheck changed the node since the last observation, which makes its snapshot state stale.</summary>
-    internal bool Toggled(string id) { lock (_bindingsLock) { return _toggled.Contains(id); } }
+    internal bool Toggled(string id)
+    {
+        lock (_bindingsLock)
+        {
+            return _toggled.Contains(id);
+        }
+    }
 
-    internal void MarkToggled(string id) { lock (_bindingsLock) { _toggled.Add(id); } }
+    internal void MarkToggled(string id)
+    {
+        lock (_bindingsLock)
+        {
+            _toggled.Add(id);
+        }
+    }
 
     /// <summary>The bindings of the last observation, in document order.</summary>
     internal IReadOnlyList<NodeBinding> Latest { get; private set; } = [];

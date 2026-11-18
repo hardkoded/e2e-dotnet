@@ -15,7 +15,10 @@ public sealed class StepRecorderProgressIdentityTests
     public async Task Keeps_every_nested_phase_attached_to_its_report_step_and_the_shared_retry_attempt()
     {
         var heard = new List<Progress>();
-        var steps = new StepRecorder("member-attempt", new StepRecorderOptions { Attempt = ("group-attempt", 1), OnProgress = heard.Add });
+        var steps = new StepRecorder(
+            "member-attempt",
+            new StepRecorderOptions { Attempt = ("group-attempt", 1), OnProgress = heard.Add }
+        );
 
         await steps.RunAsync(StepKind.Agent, "agent.act", "outer", async () =>
         {
@@ -23,7 +26,9 @@ public sealed class StepRecorderProgressIdentityTests
             await steps.RunAsync(StepKind.Agent, "agent.act", "inner", () =>
             {
                 steps.Activity(StepActivity.Observe);
-                steps.RecordEvent(new StepEvent { Kind = StepEventKind.Observation, StartedAt = DateTimeOffset.UtcNow });
+                steps.RecordEvent(
+                    new StepEvent { Kind = StepEventKind.Observation, StartedAt = DateTimeOffset.UtcNow }
+                );
                 return Task.CompletedTask;
             });
             steps.Replaying(false);
@@ -43,13 +48,20 @@ public sealed class StepRecorderProgressIdentityTests
     public async Task Publishes_the_redacted_error_as_the_step_ends(string code, bool blocked, string status)
     {
         var heard = new List<Progress>();
-        var steps = new StepRecorder("attempt", new StepRecorderOptions { OnProgress = heard.Add, Redact = text => text.Replace("private-value", "[REDACTED]", StringComparison.Ordinal) });
+        var steps = new StepRecorder(
+            "attempt",
+            new StepRecorderOptions
+            {
+                OnProgress = heard.Add,
+                Redact = text => text.Replace("private-value", "[REDACTED]", StringComparison.Ordinal),
+            }
+        );
 
         await Assert.ThrowsAsync<AgentException>(() => steps.RunAsync(StepKind.Agent, "agent.act", "login", () =>
-        {
-            steps.AttachAgentDetails(new StepAgentDetails { Explanation = "private-value is unavailable" });
-            throw new AgentException(code, "private-value is unavailable", blocked);
-        }));
+            {
+                steps.AttachAgentDetails(new StepAgentDetails { Explanation = "private-value is unavailable" });
+                throw new AgentException(code, "private-value is unavailable", blocked);
+            }));
 
         var end = heard[^1];
         Assert.Equal(StepProgressPhase.End, end.Phase);
@@ -66,7 +78,14 @@ public sealed class StepRecorderProgressIdentityTests
     public async Task Records_and_publishes_a_label_with_a_secret_the_test_spelled_into_it_redacted()
     {
         var heard = new List<Progress>();
-        var steps = new StepRecorder("attempt", new StepRecorderOptions { OnProgress = heard.Add, Redact = text => text.Replace("private-value", "[REDACTED]", StringComparison.Ordinal) });
+        var steps = new StepRecorder(
+            "attempt",
+            new StepRecorderOptions
+            {
+                OnProgress = heard.Add,
+                Redact = text => text.Replace("private-value", "[REDACTED]", StringComparison.Ordinal),
+            }
+        );
 
         await steps.RunAsync(StepKind.Agent, "agent.act", "inspect private-value", () => Task.CompletedTask);
 

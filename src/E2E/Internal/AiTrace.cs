@@ -128,18 +128,32 @@ internal sealed record AiTraceScope
 
 internal sealed record AiTraceStartEvent(string CallId, string OperationId, string? FunctionId = null);
 
-internal sealed record AiTraceStepStartEvent(string CallId, int StepNumber, string? Provider, string ModelId, object? Instructions, IReadOnlyList<object?> Messages, object? ToolChoice = null);
+internal sealed record AiTraceStepStartEvent(
+    string CallId,
+    int StepNumber,
+    string? Provider,
+    string ModelId,
+    object? Instructions,
+    IReadOnlyList<object?> Messages,
+    object? ToolChoice = null
+);
 
 internal sealed record AiTraceModelCallStartEvent(
     string CallId,
     object? Instructions = null,
     IReadOnlyList<object?>? Messages = null,
     IReadOnlyList<IReadOnlyDictionary<string, object?>>? Tools = null,
-    object? ToolChoice = null);
+    object? ToolChoice = null
+);
 
 internal sealed record AiTraceModelCallEndEvent(string CallId, double? ResponseTimeMs = null);
 
-internal sealed record AiTraceResponse(string? Id = null, string? ModelId = null, object? Timestamp = null, IReadOnlyList<object?>? Messages = null);
+internal sealed record AiTraceResponse(
+    string? Id = null,
+    string? ModelId = null,
+    object? Timestamp = null,
+    IReadOnlyList<object?>? Messages = null
+);
 
 internal sealed record AiTraceStepEndEvent(
     string CallId,
@@ -148,7 +162,8 @@ internal sealed record AiTraceStepEndEvent(
     object? FinishReason,
     object? Usage,
     AiTraceResponse Response,
-    object? ProviderMetadata = null);
+    object? ProviderMetadata = null
+);
 
 internal sealed record AiTraceEndEvent(string CallId);
 
@@ -269,7 +284,10 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
         {
             if (_calls.TryGetValue(callId, out var state))
             {
-                ancestry = new ToolAncestry(state.RunId, state.OpenSteps.Count == 0 ? null : state.OpenSteps.Values.Last().Id);
+                ancestry = new ToolAncestry(
+                    state.RunId,
+                    state.OpenSteps.Count == 0 ? null : state.OpenSteps.Values.Last().Id
+                );
             }
         }
 
@@ -285,7 +303,10 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
 
     public void OnStart(AiTraceStartEvent start)
     {
-        if (!string.Equals(start.OperationId, "ai.generateText", StringComparison.Ordinal) && !string.Equals(start.OperationId, "ai.streamText", StringComparison.Ordinal))
+        if (
+            !string.Equals(start.OperationId, "ai.generateText", StringComparison.Ordinal)
+            && !string.Equals(start.OperationId, "ai.streamText", StringComparison.Ordinal)
+        )
         {
             return;
         }
@@ -316,15 +337,17 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
             }
 
             _calls[start.CallId] = new CallState(run.RunId, run);
-            _runs.Add(new AiTraceRun
-            {
-                Id = run.RunId,
-                StartedAt = Now(),
-                ParentRunId = parent?.RunId,
-                ParentStepId = parent?.StepId,
-                FunctionId = RunName(safeScope, start.FunctionId) is { } name ? _redact(name) : null,
-                E2e = safeScope,
-            });
+            _runs.Add(
+                new AiTraceRun
+                {
+                    Id = run.RunId,
+                    StartedAt = Now(),
+                    ParentRunId = parent?.RunId,
+                    ParentStepId = parent?.StepId,
+                    FunctionId = RunName(safeScope, start.FunctionId) is { } name ? _redact(name) : null,
+                    E2e = safeScope,
+                }
+            );
         }
     }
 
@@ -399,7 +422,11 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
     {
         lock (_gate)
         {
-            if (_disposed || !_calls.TryGetValue(end.CallId, out var state) || !state.OpenSteps.Remove(end.StepNumber, out var open))
+            if (
+                _disposed
+                || !_calls.TryGetValue(end.CallId, out var state)
+                || !state.OpenSteps.Remove(end.StepNumber, out var open)
+            )
             {
                 return;
             }
@@ -407,7 +434,11 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
             var response = new Dictionary<string, object?>(StringComparer.Ordinal);
             AddIfSet(response, "id", end.Response.Id);
             AddIfSet(response, "modelId", end.Response.ModelId);
-            AddIfSet(response, "timestamp", end.Response.Timestamp is DateTimeOffset at ? Iso(at) : end.Response.Timestamp);
+            AddIfSet(
+                response,
+                "timestamp",
+                end.Response.Timestamp is DateTimeOffset at ? Iso(at) : end.Response.Timestamp
+            );
             AddIfSet(response, "messages", end.Response.Messages is null ? null : TraceMessages(end.Response.Messages));
             var output = new Dictionary<string, object?>(StringComparer.Ordinal)
             {
@@ -471,7 +502,8 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
     private static string Now() => Iso(DateTimeOffset.UtcNow);
 
     /// <summary>The instant as JavaScript's <c>toISOString</c> writes it, which sorts as text in time order.</summary>
-    internal static string Iso(DateTimeOffset at) => at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
+    internal static string Iso(DateTimeOffset at) =>
+        at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
 
     private static void AddIfSet(Dictionary<string, object?> target, string key, object? value)
     {
@@ -483,7 +515,10 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
 
     private static Dictionary<string, object?> ToolDefinition(IReadOnlyDictionary<string, object?> tool)
     {
-        var definition = new Dictionary<string, object?>(StringComparer.Ordinal) { ["name"] = tool.GetValueOrDefault("name") };
+        var definition = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["name"] = tool.GetValueOrDefault("name"),
+        };
         if (tool.TryGetValue("description", out var description) && description is not null)
         {
             definition["description"] = description;
@@ -529,7 +564,9 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
         switch (instructions)
         {
             case string text:
-                prompt.Add(new Dictionary<string, object?>(StringComparer.Ordinal) { ["role"] = "system", ["content"] = text });
+                prompt.Add(
+                    new Dictionary<string, object?>(StringComparer.Ordinal) { ["role"] = "system", ["content"] = text }
+                );
                 break;
             case IReadOnlyList<object?> parts:
                 prompt.AddRange(parts);
@@ -544,15 +581,18 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
     }
 
     // Redacts attribution before the run name truncates its label.
-    private static AiTraceScope? RedactScope(AiTraceScope? scope, Func<string, string> redact) => scope is null ? null : scope with
-    {
-        Test = redact(scope.Test),
-        TestId = redact(scope.TestId),
-        Target = redact(scope.Target),
-        Agent = redact(scope.Agent),
-        Api = scope.Api is null ? null : redact(scope.Api),
-        Label = scope.Label is null ? null : redact(scope.Label),
-    };
+    private static AiTraceScope? RedactScope(AiTraceScope? scope, Func<string, string> redact) =>
+        scope is null
+            ? null
+            : scope with
+            {
+                Test = redact(scope.Test),
+                TestId = redact(scope.TestId),
+                Target = redact(scope.Target),
+                Agent = redact(scope.Agent),
+                Api = scope.Api is null ? null : redact(scope.Api),
+                Label = scope.Label is null ? null : redact(scope.Label),
+            };
 
     private static string? RunName(AiTraceScope? scope, string? functionId)
     {
@@ -576,27 +616,36 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
 
         if (scope.Api is not null)
         {
-            var label = string.IsNullOrEmpty(scope.Label) ? "" : " " + JsonSerializer.Serialize(Truncate(scope.Label), AiTrace.Options);
+            var label = string.IsNullOrEmpty(scope.Label)
+                ? ""
+                : " " + JsonSerializer.Serialize(Truncate(scope.Label), AiTrace.Options);
             parts.Add(scope.Api + label);
         }
 
         return string.Join(" · ", parts);
     }
 
-    private static string Truncate(string text) => text.Length <= AiTrace.MaxLabelChars ? text : text[..AiTrace.MaxLabelChars] + "…";
+    private static string Truncate(string text) =>
+        text.Length <= AiTrace.MaxLabelChars ? text : text[..AiTrace.MaxLabelChars] + "…";
 
     /// <summary>Copies messages with inline media omitted, without inspecting user JSON.</summary>
     internal static List<object?>? TraceMessages(IReadOnlyList<object?>? messages)
     {
-        return messages?.Select(message =>
-        {
-            if (AsObject(message) is not { } record || !record.TryGetValue("role", out var role) || role is not ("user" or "assistant" or "tool"))
+        return messages
+            ?.Select(message =>
             {
-                return message;
-            }
+                if (
+                    AsObject(message) is not { } record
+                    || !record.TryGetValue("role", out var role)
+                    || role is not ("user" or "assistant" or "tool")
+                )
+                {
+                    return message;
+                }
 
-            return With(record, "content", TraceContent(record.GetValueOrDefault("content")));
-        }).ToList();
+                return With(record, "content", TraceContent(record.GetValueOrDefault("content")));
+            })
+            .ToList();
     }
 
     // Omits encoded media only in content parts and structured tool outputs.
@@ -607,44 +656,67 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
             return content;
         }
 
-        return parts.Select(part =>
-        {
-            if (AsObject(part) is not { } record)
+        return parts
+            .Select(part =>
             {
-                return part;
-            }
-
-            switch (record.GetValueOrDefault("type") as string)
-            {
-                case "image":
-                    return With(record, "image", OmitInlineData(record.GetValueOrDefault("image")));
-                case "file" or "reasoning-file":
-                    var data = AsObject(record.GetValueOrDefault("data"));
-                    return (data?.GetValueOrDefault("type") as string) switch
-                    {
-                        "data" => With(record, "data", With(data!, "data", OmitInlineData(data!.GetValueOrDefault("data")))),
-                        "url" => With(record, "data", With(data!, "url", OmitDataUrl(data!.GetValueOrDefault("url")))),
-                        _ => With(record, "data", OmitInlineData(record.GetValueOrDefault("data"))),
-                    };
-                case "image-data" or "file-data":
-                    return With(record, "data", OmitInlineData(record.GetValueOrDefault("data")));
-                case "image-url" or "file-url":
-                    return With(record, "url", OmitDataUrl(record.GetValueOrDefault("url")));
-                case "tool-result":
-                    var output = AsObject(record.GetValueOrDefault("output"));
-                    return string.Equals(output?.GetValueOrDefault("type") as string, "content", StringComparison.Ordinal)
-                        ? With(record, "output", With(output!, "value", TraceContent(output!.GetValueOrDefault("value"))))
-                        : part;
-                default:
+                if (AsObject(part) is not { } record)
+                {
                     return part;
-            }
-        }).ToList();
+                }
+
+                switch (record.GetValueOrDefault("type") as string)
+                {
+                    case "image":
+                        return With(record, "image", OmitInlineData(record.GetValueOrDefault("image")));
+                    case "file" or "reasoning-file":
+                        var data = AsObject(record.GetValueOrDefault("data"));
+                        return (data?.GetValueOrDefault("type") as string) switch
+                        {
+                            "data" => With(
+                                record,
+                                "data",
+                                With(data!, "data", OmitInlineData(data!.GetValueOrDefault("data")))
+                            ),
+                            "url" => With(
+                                record,
+                                "data",
+                                With(data!, "url", OmitDataUrl(data!.GetValueOrDefault("url")))
+                            ),
+                            _ => With(record, "data", OmitInlineData(record.GetValueOrDefault("data"))),
+                        };
+                    case "image-data" or "file-data":
+                        return With(record, "data", OmitInlineData(record.GetValueOrDefault("data")));
+                    case "image-url" or "file-url":
+                        return With(record, "url", OmitDataUrl(record.GetValueOrDefault("url")));
+                    case "tool-result":
+                        var output = AsObject(record.GetValueOrDefault("output"));
+                        return string.Equals(
+                            output?.GetValueOrDefault("type") as string,
+                            "content",
+                            StringComparison.Ordinal
+                        )
+                            ? With(
+                                record,
+                                "output",
+                                With(output!, "value", TraceContent(output!.GetValueOrDefault("value")))
+                            )
+                            : part;
+                    default:
+                        return part;
+                }
+            })
+            .ToList();
     }
 
     // The object fields needed to read a content part.
-    private static IReadOnlyDictionary<string, object?>? AsObject(object? value) => value as IReadOnlyDictionary<string, object?>;
+    private static IReadOnlyDictionary<string, object?>? AsObject(object? value) =>
+        value as IReadOnlyDictionary<string, object?>;
 
-    private static Dictionary<string, object?> With(IReadOnlyDictionary<string, object?> record, string key, object? value)
+    private static Dictionary<string, object?> With(
+        IReadOnlyDictionary<string, object?> record,
+        string key,
+        object? value
+    )
     {
         var copy = new Dictionary<string, object?>(record, StringComparer.Ordinal) { [key] = value };
         return copy;
@@ -701,7 +773,8 @@ internal sealed partial class AiTraceRecorder(Func<string, string>? redact = nul
     }
 
     // The existing devtools-compatible marker for omitted media.
-    private static string BinaryNote(int bytes) => "[binary " + bytes.ToString(CultureInfo.InvariantCulture) + " bytes omitted]";
+    private static string BinaryNote(int bytes) =>
+        "[binary " + bytes.ToString(CultureInfo.InvariantCulture) + " bytes omitted]";
 
     [GeneratedRegex(@"^data:[^,]*;base64,", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Base64DataPrefix();
@@ -838,7 +911,10 @@ internal static class AiTrace
     /// project), so each writes its own file instead of racing for <c>ai-trace.json</c>.
     /// </summary>
     public static string PathFor(string outputDirectory) =>
-        Path.Combine(outputDirectory, "ai-trace-" + Environment.ProcessId.ToString(CultureInfo.InvariantCulture) + ".json");
+        Path.Combine(
+            outputDirectory,
+            "ai-trace-" + Environment.ProcessId.ToString(CultureInfo.InvariantCulture) + ".json"
+        );
 
     /// <summary>
     /// The trace file of this process under <paramref name="outputDirectory"/> once it exists, else null. Only a file this process collected into counts: the name
@@ -977,23 +1053,33 @@ internal static class AiTrace
 
     private sealed class BinaryNoteConverter : JsonConverter<byte[]>
     {
-        public override byte[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotSupportedException();
+        public override byte[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            throw new NotSupportedException();
 
         public override void Write(Utf8JsonWriter writer, byte[] value, JsonSerializerOptions options) =>
-            writer.WriteStringValue("[binary " + value.Length.ToString(CultureInfo.InvariantCulture) + " bytes omitted]");
+            writer.WriteStringValue(
+                "[binary " + value.Length.ToString(CultureInfo.InvariantCulture) + " bytes omitted]"
+            );
     }
 
     private sealed class MemoryNoteConverter : JsonConverter<ReadOnlyMemory<byte>>
     {
-        public override ReadOnlyMemory<byte> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotSupportedException();
+        public override ReadOnlyMemory<byte> Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options
+        ) => throw new NotSupportedException();
 
         public override void Write(Utf8JsonWriter writer, ReadOnlyMemory<byte> value, JsonSerializerOptions options) =>
-            writer.WriteStringValue("[binary " + value.Length.ToString(CultureInfo.InvariantCulture) + " bytes omitted]");
+            writer.WriteStringValue(
+                "[binary " + value.Length.ToString(CultureInfo.InvariantCulture) + " bytes omitted]"
+            );
     }
 
     private sealed class BigIntegerConverter : JsonConverter<BigInteger>
     {
-        public override BigInteger Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotSupportedException();
+        public override BigInteger Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            throw new NotSupportedException();
 
         public override void Write(Utf8JsonWriter writer, BigInteger value, JsonSerializerOptions options) =>
             writer.WriteStringValue(value.ToString(CultureInfo.InvariantCulture));

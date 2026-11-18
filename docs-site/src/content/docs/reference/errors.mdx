@@ -51,18 +51,18 @@ The codes an agent step may end with, from upstream's `AGENT_CODE_TABLE`. `block
 | --- | --- | --- | ---: |
 | `AUTH_CREDENTIAL_UNAVAILABLE` | A `Secret` or `Credentials.User(name)` names a credential the config does not declare, or `E2E_USER_<NAME>_USERNAME` or `_PASSWORD` is not set, or the password's provider returned no string of at least 6 characters (code points) | configuration | 2 |
 | `AUTH_CREDENTIAL_INVALID` | The application rejected a configured credential (blocked: credentials) | configuration | 2 |
-| `SECRET_UNAVAILABLE` | A `Secret` or `Secrets.Get` names a secret the config does not declare, or the secret's provider returned no string of at least 6 characters (code points) | configuration | 2 |
+| `SECRET_UNAVAILABLE` | A `Secret` or `Secrets.Get` names a secret the config does not declare, `Host.Secret(name)` names a secret that was not passed to `Launch.LaunchAsync`, or the secret's provider returned no string of at least 6 characters (code points) | configuration | 2 |
 | `ENVIRONMENT_UNAVAILABLE` | The environment under test is down or unreachable beyond the app itself (blocked: environment) | infrastructure | 3 |
 | `SEED_DATA_MISSING` | Data the step depends on does not exist in the environment (blocked: seed_data) | configuration | 2 |
 | `TEST_SETUP_FAILED` | Test prerequisites outside the product failed to arrange (blocked: test_setup) | configuration | 2 |
 | `AUTOMATION_UNSUPPORTED` | The step needs an interaction the available toolset cannot perform, such as a right-click on a device (blocked: automation) | test | 1 |
 | `MODEL_UNAVAILABLE` | No model configured, or GitHub Copilot does not serve the configured model to this account (`model_not_supported`) | configuration | 2 |
-| `POLICY_DENIED` | The security policy refused an operation: a denied destination, a forbidden fill, a read from a secure field, or an action that changes the screen during an assertion | configuration | 2 |
+| `POLICY_DENIED` | The security policy refused an operation: a denied destination, a link with a `file:`, `data:`, `javascript:`, `view-source:`, `blob:`, or `filesystem:` scheme given to `App.OpenAsync` on a device with `app.linkBase`, a forbidden fill, a read from a secure field, or an action that changes the screen during an assertion. An unknown tool or an undeclared field on a built-in tool that declares fields goes back to the model as the call's result, never as this code | configuration | 2 |
 | `APP_UNREACHABLE` | The app URL could not be reached, or an app command exited early or exceeded `startupTimeout`. With a `log`, the startup error quotes the log's output since the command started, `command.env` values redacted, or says there was none. A long log keeps its first and last 20 lines, with `[startup output omitted]` between them. Under the agent, also any engine fault with no more specific code | infrastructure | 3 |
 | `APP_ALREADY_RUNNING` | The ready URL answered before the target's app command was spawned | infrastructure | 3 |
 | `BROWSER_INSTALL_FAILED` | Browser provisioning failed: the first-launch Playwright install exited non-zero. The message names the exit code | infrastructure | 3 |
 | `MODEL_PROVIDER_FAILED` | Provider transport failure (network error, 5xx, rate limit, or no response within 120 s) after the adapter's transport retries | infrastructure | 3 |
-| `CANCELLED` | The runner cancelled the operation without a process signal | infrastructure | 3 |
+| `CANCELLED` | The runner cancelled the operation without a process signal. In a core `Host`, an operation a token aborted, or one on a closed session | infrastructure | 3 |
 | `MODEL_OUTPUT_INVALID` | Structured output still failed validation after the repair budget was spent | test | 1 |
 | `APP_NOT_OPEN` | An operation needed an open app: `App.OpenAsync()` had not run, or the engine reported invalid state | test | 1 |
 | `LOCATOR_NOT_FOUND` | No matching node within the deadline, or an agent action refers to a node that is no longer available | test | 1 |
@@ -84,9 +84,9 @@ These come from the saved sessions of `SaveSessionAsync` and `[E2ESession]` (see
 
 | Code | When it happens | Class | Exit |
 | --- | --- | --- | ---: |
-| `SESSION_MISMATCH` | A stored session does not match the current run, target, engine, platform, or app identity | configuration | 2 |
-| `SESSION_EXPIRED` | A stored session is past its expiry at restore time (configuration, exit 2), or a setup test saved state whose expiry is not after its creation (test, exit 1) | configuration or test | 2 or 1 |
-| `SESSION_INVALID` | A stored session failed authentication, or its file is corrupt | configuration | 2 |
+| `SESSION_MISMATCH` | A stored session, or a `SessionState` given to `Host.NewSessionAsync`, does not match the current run, target, engine, platform, or app identity | configuration | 2 |
+| `SESSION_EXPIRED` | A stored session, or an imported or restored `SessionState`, is past its expiry at restore time (configuration, exit 2), or a setup test saved state whose expiry is not after its creation (test, exit 1) | configuration or test | 2 or 1 |
+| `SESSION_INVALID` | A stored session failed authentication, or its file is corrupt; or a `SessionState.ImportAsync` document is not `session-state-1` or failed authentication under the key | configuration | 2 |
 | `SESSION_UNAVAILABLE` | A test requires a session no selected setup test produced | configuration | 2 |
 | `SESSION_CONTRACT` | A setup test saved a session twice, saved an undeclared name, or finished without saving a declared one | test | 1 |
 

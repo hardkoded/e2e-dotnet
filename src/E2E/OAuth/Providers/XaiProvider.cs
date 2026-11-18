@@ -27,7 +27,12 @@ public sealed class XaiProvider : IOAuthProvider
     /// <param name="referrer">The <c>referrer</c> the device request names: your product.</param>
     /// <param name="issuer">Test seam.</param>
     /// <param name="modelsUrl">Test seam.</param>
-    public XaiProvider(HttpClient? http = null, string referrer = "e2e", string issuer = "https://auth.x.ai", string modelsUrl = ApiUrl + "/language-models")
+    public XaiProvider(
+        HttpClient? http = null,
+        string referrer = "e2e",
+        string issuer = "https://auth.x.ai",
+        string modelsUrl = ApiUrl + "/language-models"
+    )
     {
         _http = http ?? OAuthHttp.Shared;
         _referrer = referrer;
@@ -39,50 +44,76 @@ public sealed class XaiProvider : IOAuthProvider
 
     public string Name => "SpaceXAI";
 
-    public async Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken)
+    public async Task<OAuthCredentials> LoginAsync(
+        OAuthLoginCallbacks callbacks,
+        OAuthLoginOptions options,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(callbacks);
-        var tokens = await DeviceFlow.Rfc8628Async(
-            _http,
-            Name,
-            _issuer + "/oauth2/device/code",
-            _issuer + "/oauth2/token",
-            ClientId,
-            new Dictionary<string, string>(StringComparer.Ordinal) { ["scope"] = Scope, ["referrer"] = _referrer },
-            callbacks,
-            cancellationToken).ConfigureAwait(false);
+        var tokens = await DeviceFlow
+            .Rfc8628Async(
+                _http,
+                Name,
+                _issuer + "/oauth2/device/code",
+                _issuer + "/oauth2/token",
+                ClientId,
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["scope"] = Scope, ["referrer"] = _referrer },
+                callbacks,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         return ToCredentials(tokens, "");
     }
 
     public async Task<OAuthCredentials> RefreshAsync(OAuthCredentials credentials, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(credentials);
-        var tokens = await TokenEndpoint.RequestAsync(
-            _http,
-            Name,
-            _issuer + "/oauth2/token",
-            new Dictionary<string, string>(StringComparer.Ordinal) { ["grant_type"] = "refresh_token", ["refresh_token"] = credentials.Refresh, ["client_id"] = ClientId },
-            OAuthException.LoginRequired,
-            cancellationToken).ConfigureAwait(false);
+        var tokens = await TokenEndpoint
+            .RequestAsync(
+                _http,
+                Name,
+                _issuer + "/oauth2/token",
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["grant_type"] = "refresh_token",
+                    ["refresh_token"] = credentials.Refresh,
+                    ["client_id"] = ClientId,
+                },
+                OAuthException.LoginRequired,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         return ToCredentials(tokens, credentials.Refresh);
     }
 
-    public Task PrepareAsync(HttpRequestMessage request, OAuthCredentials credentials, CancellationToken cancellationToken)
+    public Task PrepareAsync(
+        HttpRequestMessage request,
+        OAuthCredentials credentials,
+        CancellationToken cancellationToken
+    )
     {
         return Task.CompletedTask;
     }
 
     /// <summary>The language models the token reaches; aliases are listed with their target.</summary>
-    public async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(HttpClient http, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+        HttpClient http,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(http);
         var payload = await OAuthHttp.GetJsonAsync(http, _modelsUrl, Name, cancellationToken).ConfigureAwait(false);
         var models = payload["models"] as JsonArray ?? payload["data"] as JsonArray ?? [];
-        return models.OfType<JsonObject>()
+        return models
+            .OfType<JsonObject>()
             .Where(model => !string.IsNullOrEmpty(TokenEndpoint.Text(model, "id")))
             .Select(model =>
             {
-                var aliases = (model["aliases"] as JsonArray ?? []).Select(alias => alias?.ToString()).OfType<string>().ToList();
+                var aliases = (model["aliases"] as JsonArray ?? [])
+                    .Select(alias => alias?.ToString())
+                    .OfType<string>()
+                    .ToList();
                 var vision = (model["input_modalities"] as JsonArray ?? []).Any(kind => kind?.ToString() == "image");
                 var detail = new List<string>();
                 if (vision)
@@ -95,7 +126,11 @@ public sealed class XaiProvider : IOAuthProvider
                     detail.Add("also " + string.Join(", ", aliases));
                 }
 
-                return new SubscriptionModel(TokenEndpoint.Text(model, "id")!, null, detail.Count == 0 ? null : string.Join("; ", detail));
+                return new SubscriptionModel(
+                    TokenEndpoint.Text(model, "id")!,
+                    null,
+                    detail.Count == 0 ? null : string.Join("; ", detail)
+                );
             })
             .ToList();
     }
@@ -105,6 +140,11 @@ public sealed class XaiProvider : IOAuthProvider
     {
         var exp = Jwt.Claims(tokens.AccessToken) is { } claims ? TokenEndpoint.Number(claims, "exp") : null;
         var expires = exp is > 0 ? (long)(exp.Value * 1000) : TokenEndpoint.ExpiryFrom(tokens.ExpiresIn);
-        return new OAuthCredentials { Access = tokens.AccessToken, Refresh = tokens.RefreshToken ?? previousRefresh, Expires = expires };
+        return new OAuthCredentials
+        {
+            Access = tokens.AccessToken,
+            Refresh = tokens.RefreshToken ?? previousRefresh,
+            Expires = expires,
+        };
     }
 }

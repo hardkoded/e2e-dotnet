@@ -40,7 +40,13 @@ internal static class ActParams
         var bytes = Encoding.UTF8.GetByteCount(projected?.ToJsonString(Json) ?? "null");
         if (bytes > MaxBytes)
         {
-            throw Invalid(api + " params are " + bytes.ToString(CultureInfo.InvariantCulture) + " canonical bytes; the maximum is " + MaxBytes.ToString(CultureInfo.InvariantCulture));
+            throw Invalid(
+                api
+                    + " params are "
+                    + bytes.ToString(CultureInfo.InvariantCulture)
+                    + " canonical bytes; the maximum is "
+                    + MaxBytes.ToString(CultureInfo.InvariantCulture)
+            );
         }
     }
 
@@ -52,10 +58,16 @@ internal static class ActParams
     /// Upstream's <c>validateParams</c> result: the params as the model reads them, and the JSON Pointer (RFC 6901) and value of every
     /// <see cref="UniqueValue"/> at any depth, in the order the walk meets them.
     /// </summary>
-    public static (JsonObject? Projected, List<ParamTemplate> Templates) ValidateParams(IReadOnlyDictionary<string, object?>? parameters, string api)
+    public static (JsonObject? Projected, List<ParamTemplate> Templates) ValidateParams(
+        IReadOnlyDictionary<string, object?>? parameters,
+        string api
+    )
     {
         List<ParamTemplate> templates = [];
-        var projected = parameters is null ? null : Project(parameters, 0, new HashSet<object>(ReferenceEqualityComparer.Instance), null, api, "", templates) as JsonObject;
+        var projected = parameters is null
+            ? null
+            : Project(parameters, 0, new HashSet<object>(ReferenceEqualityComparer.Instance), null, api, "", templates)
+                as JsonObject;
         return (projected, templates);
     }
 
@@ -65,15 +77,35 @@ internal static class ActParams
     /// value is redacted as the leaf is, so the trace cache slots what the params hold. Two keys of one object that redact alike
     /// are <c>INVALID_ARGUMENT</c>. <c>api</c> names the call in error messages.
     /// </summary>
-    public static (JsonObject Params, List<ParamTemplate> Templates) RedactParams(JsonObject parameters, IReadOnlyList<ParamTemplate> templates, Func<string, string> redact, string api)
+    public static (JsonObject Params, List<ParamTemplate> Templates) RedactParams(
+        JsonObject parameters,
+        IReadOnlyList<ParamTemplate> templates,
+        Func<string, string> redact,
+        string api
+    )
     {
         Dictionary<string, string> pointers = new(StringComparer.Ordinal);
         var redacted = (JsonObject)RedactJson(parameters, redact, "", "", pointers, api)!;
-        return (redacted, [.. templates.Select(template => new ParamTemplate(pointers.GetValueOrDefault(template.Pointer, template.Pointer), redact(template.Value)))]);
+        return (
+            redacted,
+            [
+                .. templates.Select(template => new ParamTemplate(
+                    pointers.GetValueOrDefault(template.Pointer, template.Pointer),
+                    redact(template.Value)
+                )),
+            ]
+        );
     }
 
     // The node with `redact` applied to every string in it. Records in `pointers` where each node's pointer (`from`) lands once its keys are redacted (`to`).
-    private static JsonNode? RedactJson(JsonNode? node, Func<string, string> redact, string from, string to, Dictionary<string, string> pointers, string api)
+    private static JsonNode? RedactJson(
+        JsonNode? node,
+        Func<string, string> redact,
+        string from,
+        string to,
+        Dictionary<string, string> pointers,
+        string api
+    )
     {
         pointers[from] = to;
         switch (node)
@@ -87,10 +119,22 @@ internal static class ActParams
                     var clean = redact(key);
                     if (cleaned.ContainsKey(clean))
                     {
-                        throw Invalid(api + " params has two keys that read \"" + clean + "\" once secret values are redacted; a key cannot be told apart by a secret");
+                        throw Invalid(
+                            api
+                                + " params has two keys that read \""
+                                + clean
+                                + "\" once secret values are redacted; a key cannot be told apart by a secret"
+                        );
                     }
 
-                    cleaned[clean] = RedactJson(entry, redact, CacheKeys.ParamPointer(from, key), CacheKeys.ParamPointer(to, clean), pointers, api);
+                    cleaned[clean] = RedactJson(
+                        entry,
+                        redact,
+                        CacheKeys.ParamPointer(from, key),
+                        CacheKeys.ParamPointer(to, clean),
+                        pointers,
+                        api
+                    );
                 }
 
                 return cleaned;
@@ -98,7 +142,16 @@ internal static class ActParams
                 var items = new JsonArray();
                 for (var index = 0; index < list.Count; index++)
                 {
-                    items.Add(RedactJson(list[index], redact, CacheKeys.ParamPointer(from, index), CacheKeys.ParamPointer(to, index), pointers, api));
+                    items.Add(
+                        RedactJson(
+                            list[index],
+                            redact,
+                            CacheKeys.ParamPointer(from, index),
+                            CacheKeys.ParamPointer(to, index),
+                            pointers,
+                            api
+                        )
+                    );
                 }
 
                 return items;
@@ -119,11 +172,21 @@ internal static class ActParams
         return [.. found.Values];
     }
 
-    private static JsonNode? Project(object? value, int depth, HashSet<object> ancestors, Dictionary<(string Name, string Value), Secret>? found, string api, string pointer = "", List<ParamTemplate>? templates = null)
+    private static JsonNode? Project(
+        object? value,
+        int depth,
+        HashSet<object> ancestors,
+        Dictionary<(string Name, string Value), Secret>? found,
+        string api,
+        string pointer = "",
+        List<ParamTemplate>? templates = null
+    )
     {
         if (depth > MaxDepth)
         {
-            throw Invalid(api + " params exceeds " + MaxDepth.ToString(CultureInfo.InvariantCulture) + " levels of nesting");
+            throw Invalid(
+                api + " params exceeds " + MaxDepth.ToString(CultureInfo.InvariantCulture) + " levels of nesting"
+            );
         }
 
         switch (value)
@@ -183,7 +246,15 @@ internal static class ActParams
                     var map = new JsonObject();
                     foreach (var (key, entry) in Entries((IEnumerable)value))
                     {
-                        map[key] = Project(entry, depth + 1, ancestors, found, api, CacheKeys.ParamPointer(pointer, key), templates);
+                        map[key] = Project(
+                            entry,
+                            depth + 1,
+                            ancestors,
+                            found,
+                            api,
+                            CacheKeys.ParamPointer(pointer, key),
+                            templates
+                        );
                     }
 
                     return map;
@@ -191,7 +262,17 @@ internal static class ActParams
                     var list = new JsonArray();
                     foreach (var entry in (IEnumerable)value)
                     {
-                        list.Add(Project(entry, depth + 1, ancestors, found, api, CacheKeys.ParamPointer(pointer, list.Count), templates));
+                        list.Add(
+                            Project(
+                                entry,
+                                depth + 1,
+                                ancestors,
+                                found,
+                                api,
+                                CacheKeys.ParamPointer(pointer, list.Count),
+                                templates
+                            )
+                        );
                     }
 
                     return list;
@@ -201,7 +282,15 @@ internal static class ActParams
                     {
                         if (property.Get is { } get)
                         {
-                            shape[property.Name] = Project(get(value), depth + 1, ancestors, found, api, CacheKeys.ParamPointer(pointer, property.Name), templates);
+                            shape[property.Name] = Project(
+                                get(value),
+                                depth + 1,
+                                ancestors,
+                                found,
+                                api,
+                                CacheKeys.ParamPointer(pointer, property.Name),
+                                templates
+                            );
                         }
                     }
 
@@ -218,7 +307,9 @@ internal static class ActParams
     {
         if (depth > MaxDepth)
         {
-            throw Invalid(api + " params exceeds " + MaxDepth.ToString(CultureInfo.InvariantCulture) + " levels of nesting");
+            throw Invalid(
+                api + " params exceeds " + MaxDepth.ToString(CultureInfo.InvariantCulture) + " levels of nesting"
+            );
         }
 
         switch (element.ValueKind)
@@ -262,7 +353,10 @@ internal static class ActParams
         {
             var type = item!.GetType();
             var key = type.GetProperty("Key")?.GetValue(item);
-            yield return (Convert.ToString(key, CultureInfo.InvariantCulture) ?? "", type.GetProperty("Value")?.GetValue(item));
+            yield return (
+                Convert.ToString(key, CultureInfo.InvariantCulture) ?? "",
+                type.GetProperty("Value")?.GetValue(item)
+            );
         }
     }
 

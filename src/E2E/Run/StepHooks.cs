@@ -71,7 +71,10 @@ internal static class StepHooks
     private static Role RoleOf(MethodBase frameMethod)
     {
         var method = Declared(frameMethod);
-        var marks = method.GetCustomAttributes(inherit: true).SelectMany(static mark => Lineage(mark.GetType())).ToHashSet(StringComparer.Ordinal);
+        var marks = method
+            .GetCustomAttributes(inherit: true)
+            .SelectMany(static mark => Lineage(mark.GetType()))
+            .ToHashSet(StringComparer.Ordinal);
         if (marks.Contains("NUnit.Framework.SetUpAttribute"))
         {
             return Role.BeforeEach;
@@ -82,13 +85,28 @@ internal static class StepHooks
             return Role.AfterEach;
         }
 
-        if (new[] { "NUnit.Framework.TestAttribute", "NUnit.Framework.TestCaseAttribute", "NUnit.Framework.TestCaseSourceAttribute", "NUnit.Framework.TheoryAttribute", "Xunit.FactAttribute" }.Any(marks.Contains))
+        if (
+            new[]
+            {
+                "NUnit.Framework.TestAttribute",
+                "NUnit.Framework.TestCaseAttribute",
+                "NUnit.Framework.TestCaseSourceAttribute",
+                "NUnit.Framework.TheoryAttribute",
+                "Xunit.FactAttribute",
+            }.Any(marks.Contains)
+        )
         {
             return Role.Body;
         }
 
         // An xUnit test class sets up and tears down through IAsyncLifetime, which no attribute marks.
-        if (method.DeclaringType is { } type && (typeof(E2EFixture).IsAssignableFrom(type) || type.GetInterfaces().Any(static contract => contract.FullName == "Xunit.IAsyncLifetime")))
+        if (
+            method.DeclaringType is { } type
+            && (
+                typeof(E2EFixture).IsAssignableFrom(type)
+                || type.GetInterfaces().Any(static contract => contract.FullName == "Xunit.IAsyncLifetime")
+            )
+        )
         {
             return method.Name switch
             {
@@ -104,10 +122,23 @@ internal static class StepHooks
     // The method the compiler built a state machine for, when the frame is the state machine's.
     private static MethodBase Declared(MethodBase frameMethod)
     {
-        if (frameMethod.DeclaringType is { DeclaringType: { } owner } machine && typeof(IAsyncStateMachine).IsAssignableFrom(machine))
+        if (
+            frameMethod.DeclaringType is { DeclaringType: { } owner } machine
+            && typeof(IAsyncStateMachine).IsAssignableFrom(machine)
+        )
         {
-            const BindingFlags all = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
-            return owner.GetMethods(all).FirstOrDefault(candidate => candidate.GetCustomAttribute<AsyncStateMachineAttribute>()?.StateMachineType == machine) ?? frameMethod;
+            const BindingFlags all =
+                BindingFlags.Public
+                | BindingFlags.NonPublic
+                | BindingFlags.Instance
+                | BindingFlags.Static
+                | BindingFlags.DeclaredOnly;
+            return owner
+                .GetMethods(all)
+                .FirstOrDefault(candidate =>
+                    candidate.GetCustomAttribute<AsyncStateMachineAttribute>()?.StateMachineType == machine
+                )
+                ?? frameMethod;
         }
 
         return frameMethod;

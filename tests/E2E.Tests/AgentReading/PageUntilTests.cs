@@ -17,22 +17,30 @@ public sealed class PageUntilTests
     public async Task Pages_inside_the_list_it_is_given_and_the_whole_screen_without_one()
     {
         static DocumentWorld World() => new DocumentWorld().Map("/ledger", page =>
-        {
-            page.Button("Jump to Row 333");
-            var list = new DocumentElement { Role = "list", Name = "Ledger" };
-            list.Children.Add(new DocumentElement { Role = "listitem", Text = "Row 1" });
-            list.Children.Add(new DocumentElement { Role = "listitem", Text = "Row 2" });
-            list.OnScroll = _ =>
             {
-                if (list.Children.Count == 2)
+                page.Button("Jump to Row 333");
+                var list = new DocumentElement { Role = "list", Name = "Ledger" };
+                list.Children.Add(new DocumentElement { Role = "listitem", Text = "Row 1" });
+                list.Children.Add(new DocumentElement { Role = "listitem", Text = "Row 2" });
+                list.OnScroll = _ =>
                 {
-                    list.Children.Add(new DocumentElement { Role = "listitem", Text = "Row 333" });
-                }
-            };
-            page.Roots.Add(list);
-        });
+                    if (list.Children.Count == 2)
+                    {
+                        list.Children.Add(new DocumentElement { Role = "listitem", Text = "Row 333" });
+                    }
+                };
+                page.Roots.Add(list);
+            });
 
-        var inList = await ScrollToAsync(World(), new { text = "Row 333", role = "list", name = "Ledger" });
+        var inList = await ScrollToAsync(
+            World(),
+            new
+            {
+                text = "Row 333",
+                role = "list",
+                name = "Ledger",
+            }
+        );
         Assert.Equal(["Row 333"], inList.ScrolledIntoView);
         Assert.True(inList.ListSwipes >= 1);
 
@@ -57,8 +65,18 @@ public sealed class PageUntilTests
     {
         var engine = new ScrollLogEngine(world);
         var calls = 0;
-        var model = new ScriptedModel(_ => calls++ == 0 ? ModelResponses.Call("scroll_to", arguments) : ModelResponses.Done("passed", "scrolled"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = engine, Model = model, BaseUrl = "https://ledger.test", TestTitle = "reading" });
+        var model = new ScriptedModel(_ =>
+            calls++ == 0 ? ModelResponses.Call("scroll_to", arguments) : ModelResponses.Done("passed", "scrolled")
+        );
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                Model = model,
+                BaseUrl = "https://ledger.test",
+                TestTitle = "reading",
+            }
+        );
         await session.App.OpenAsync("/ledger");
         await session.Agent.ActAsync("reach Row 333");
         session.Complete();
@@ -70,7 +88,12 @@ public sealed class PageUntilTests
         var swipes = 0;
         var world = new DocumentWorld().Map("/products", page =>
         {
-            var row = new DocumentElement { Role = "listitem", Name = "Product", Text = "Product 1" };
+            var row = new DocumentElement
+            {
+                Role = "listitem",
+                Name = "Product",
+                Text = "Product 1",
+            };
             page.Roots.Add(row);
             page.OnScroll = _ =>
             {
@@ -93,7 +116,15 @@ public sealed class PageUntilTests
             result = request.Messages.Last(message => message.Role == "tool").Content;
             return ModelResponses.Done("passed", "gave up");
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = new ScrollLogEngine(world), Model = model, BaseUrl = "https://shop.test", TestTitle = "reading shape" });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new ScrollLogEngine(world),
+                Model = model,
+                BaseUrl = "https://shop.test",
+                TestTitle = "reading shape",
+            }
+        );
         await session.App.OpenAsync("/products");
         await session.Agent.ActAsync("reach the golden product");
         session.Complete();

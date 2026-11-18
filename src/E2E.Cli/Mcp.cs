@@ -71,22 +71,25 @@ internal static class McpCommand
         AppDomain.CurrentDomain.UnhandledException += OnUnhandled;
         try
         {
-            var code = await Server.ServeAsync(
-                new ServeOptions
-                {
-                    Cwd = Environment.CurrentDirectory,
-                    ConfigPath = options.Config,
-                    Target = options.Target,
-                    Headed = options.Headed,
-                    MaxSessions = options.MaxSessions,
-                    Version = ModelHttp.PackageVersion(),
-                    Stdin = stdin,
-                    Stdout = protocol,
-                    Log = line => output.Log("e2e mcp: " + line),
-                    Output = output,
-                    Secrets = ledger,
-                },
-                stop.Token).ConfigureAwait(false);
+            var code = await Server
+                .ServeAsync(
+                    new ServeOptions
+                    {
+                        Cwd = Environment.CurrentDirectory,
+                        ConfigPath = options.Config,
+                        Target = options.Target,
+                        Headed = options.Headed,
+                        MaxSessions = options.MaxSessions,
+                        Version = ModelHttp.PackageVersion(),
+                        Stdin = stdin,
+                        Stdout = protocol,
+                        Log = line => output.Log("e2e mcp: " + line),
+                        Output = output,
+                        Secrets = ledger,
+                    },
+                    stop.Token
+                )
+                .ConfigureAwait(false);
             return crashed ? 1 : code;
         }
 #pragma warning disable CA1031 // An uncaught error is reported on stderr and ends the server with exit code 1.

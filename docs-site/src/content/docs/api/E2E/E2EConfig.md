@@ -325,8 +325,9 @@ public TargetConfig Target { get; }
 ```
 
 
-The only target the config declares. .NET-only: a fixture, a host, or a command with no target of its own reads it. With several
-targets it throws `TARGET_REQUIRED` (upstream's `selectTarget`): name one from [Targets](#E2E_E2EConfig_Targets).
+The target the run is on: the one `E2E_TARGET` names (the port's counterpart of `e2e run --target`, one name), else the only
+one the config declares. .NET-only: a fixture, a host, or a command with no target of its own reads it. With several
+targets and no `E2E_TARGET` it throws `TARGET_REQUIRED` (upstream's `selectTarget`): set `E2E_TARGET` or name one from [Targets](#E2E_E2EConfig_Targets).
 
 **Value:** [TargetConfig](/api/E2E/TargetConfig/)
 

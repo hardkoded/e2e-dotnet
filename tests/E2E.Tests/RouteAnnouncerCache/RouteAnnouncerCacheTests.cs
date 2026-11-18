@@ -43,10 +43,16 @@ public sealed class RouteAnnouncerCacheTests
     [InlineData("announced", "silent", true)]
     [InlineData("silent", "announced", true)]
     [InlineData("announced", "app-alert", false)]
-    public async Task Partial_records_a_variant_with_a_scripted_tap_and_replays_another_without_counting_executor_runs(string recordVariant, string replayVariant, bool passes)
+    public async Task Partial_records_a_variant_with_a_scripted_tap_and_replays_another_without_counting_executor_runs(
+        string recordVariant,
+        string replayVariant,
+        bool passes
+    )
     {
         var variant = recordVariant;
-        using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(context, Page.Replace("__VARIANT__", variant, StringComparison.Ordinal)));
+        using var site = await TinySite.StartAsync(context =>
+            TinySite.RespondAsync(context, Page.Replace("__VARIANT__", variant, StringComparison.Ordinal))
+        );
         var directory = CoreTests.TempCache();
         var calls = 0;
 
@@ -57,7 +63,11 @@ public sealed class RouteAnnouncerCacheTests
         }
 
         Assert.True(calls > 0);
-        var entry = Assert.IsType<CacheEntry>(new FileStepCache(directory).Read(Path.GetFileNameWithoutExtension(Assert.Single(Directory.GetFiles(directory, "*.json")))).Entry);
+        var entry = Assert.IsType<CacheEntry>(
+            new FileStepCache(directory)
+                .Read(Path.GetFileNameWithoutExtension(Assert.Single(Directory.GetFiles(directory, "*.json"))))
+                .Entry
+        );
         Assert.Equal("/library", entry.EndRoute);
         Assert.Contains(entry.Appeared, anchor => anchor is { Text: "Meeting notes", TestId: "notes" });
         Assert.Contains(entry.Gone, anchor => anchor is { Text: "Draft notes", TestId: "draft" });
@@ -95,26 +105,29 @@ public sealed class RouteAnnouncerCacheTests
 
     private static Task<E2ESession> StartAsync(TinySite site, string directory, bool strict, Action onAct)
     {
-        return E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = new ScriptedModel(request =>
+        return E2ESession.StartAsync(
+            new E2ESessionOptions
             {
-                onAct();
-                return string.Join('\n', request.Messages.Select(message => message.Content)).Contains("Tapped", StringComparison.Ordinal)
-                    ? ModelResponses.Done("passed", "Library opened")
-                    : ModelResponses.Tap("link", "Library");
-            }),
-            BaseUrl = site.Url,
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            CacheStrict = strict,
-            TestTitle = Title,
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(20),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+                Engine = new WebEngine(headless: true),
+                Model = new ScriptedModel(request =>
+                {
+                    onAct();
+                    return string.Join('\n', request.Messages.Select(message => message.Content))
+                        .Contains("Tapped", StringComparison.Ordinal)
+                        ? ModelResponses.Done("passed", "Library opened")
+                        : ModelResponses.Tap("link", "Library");
+                }),
+                BaseUrl = site.Url,
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                CacheStrict = strict,
+                TestTitle = Title,
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(20),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
     }
 }

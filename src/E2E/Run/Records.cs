@@ -5,7 +5,11 @@
 namespace E2E;
 
 /// <summary>The failure a runtime skip followed, with the evidence its attempt captured (upstream's <c>FailureBeforeSkip</c>, <c>run/records.ts</c>).</summary>
-internal sealed record FailureBeforeSkip(ReportError Error, FailureEvidence? Failure, IReadOnlyList<ReportArtifact> Artifacts);
+internal sealed record FailureBeforeSkip(
+    ReportError Error,
+    FailureEvidence? Failure,
+    IReadOnlyList<ReportArtifact> Artifacts
+);
 
 /// <summary>Reads over a result's records (upstream's <c>run/records.ts</c>).</summary>
 internal static class Records

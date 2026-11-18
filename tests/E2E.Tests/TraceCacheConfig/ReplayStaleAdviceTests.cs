@@ -17,13 +17,16 @@ public sealed class ReplayStaleAdviceTests
         Assert.Null(AdviceFor("{}"));
         Assert.Equal(
             "re-record it with a read-write run without --strict-cache and commit the changed entry under .e2e/cache",
-            AdviceFor("{}", new CliOverrides { CacheStrict = true }));
+            AdviceFor("{}", new CliOverrides { CacheStrict = true })
+        );
         Assert.Equal(
             "re-record it with a read-write run with cache.strict set to false and commit the changed entry under recordings/replays",
-            AdviceFor("""{ "cache": { "strict": true, "dir": "recordings/replays" } }"""));
+            AdviceFor("""{ "cache": { "strict": true, "dir": "recordings/replays" } }""")
+        );
         Assert.Contains(
             "without --strict-cache and with cache.strict set to false",
-            AdviceFor("""{ "cache": { "strict": true } }""", new CliOverrides { CacheStrict = true }));
+            AdviceFor("""{ "cache": { "strict": true } }""", new CliOverrides { CacheStrict = true })
+        );
     }
 
     [Fact]
@@ -31,8 +34,10 @@ public sealed class ReplayStaleAdviceTests
     {
         var outside = Path.GetFullPath("/shared/e2e");
         Assert.Equal(
-            "re-record it with a read-write run without --strict-cache; the run writes the new entry under " + outside.Replace(Path.DirectorySeparatorChar, '/'),
-            AdviceFor("{}", new CliOverrides { CacheStrict = true, CacheDir = outside }));
+            "re-record it with a read-write run without --strict-cache; the run writes the new entry under "
+                + outside.Replace(Path.DirectorySeparatorChar, '/'),
+            AdviceFor("{}", new CliOverrides { CacheStrict = true, CacheDir = outside })
+        );
     }
 
     [Fact]
@@ -40,10 +45,16 @@ public sealed class ReplayStaleAdviceTests
     {
         Assert.Equal(
             "re-record it with a read-write run with cache.strict set to false; the run writes the new entry to the configured cache.store",
-            AdviceFor("""{ "cache": { "strict": true } }""", store: new EmptyStore()));
+            AdviceFor("""{ "cache": { "strict": true } }""", store: new EmptyStore())
+        );
     }
 
-    private static string? AdviceFor(string json, CliOverrides? cli = null, Func<string, string?>? environment = null, IStepCache? store = null)
+    private static string? AdviceFor(
+        string json,
+        CliOverrides? cli = null,
+        Func<string, string?>? environment = null,
+        IStepCache? store = null
+    )
     {
         var config = E2EConfig.Parse(json, Root, environment ?? Env(), cli ?? new CliOverrides());
         if (store is not null)
@@ -69,8 +80,6 @@ public sealed class ReplayStaleAdviceTests
 
         public int? Write(string key, CacheEntry entry) => 0;
 
-        public void Delete(string key)
-        {
-        }
+        public void Delete(string key) { }
     }
 }

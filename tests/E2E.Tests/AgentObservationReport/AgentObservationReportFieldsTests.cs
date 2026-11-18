@@ -39,28 +39,38 @@ public sealed class AgentObservationReportFieldsTests
         Assert.NotNull(report.Read());
     }
 
-    private static Task InspectAsync(E2ESession session) => session.Context.Agent.ActAsync("inspect the visible result");
+    private static Task InspectAsync(E2ESession session) =>
+        session.Context.Agent.ActAsync("inspect the visible result");
 
-    private static Task JudgeAsync(E2ESession session) => session.Context.Agent.AssertAsync("the Save button is visible");
+    private static Task JudgeAsync(E2ESession session) =>
+        session.Context.Agent.AssertAsync("the Save button is visible");
 
     private static async Task<ReportDirectory> RunAsync(string title, Func<E2ESession, Task> calls)
     {
         var report = new ReportDirectory();
         try
         {
-            var model = new ScriptedModel(request => request.Messages[0].Content?.StartsWith("Statement:", StringComparison.Ordinal) == true
-                ? ModelResponses.Done("passed", "the Save button is visible")
-                : ModelResponses.Done("passed", "the result is visible"));
-            var engine = new TruncatedEngine(new DocumentEngine(new DocumentWorld().Map("/result", page => page.Paragraph("Save"))));
-            await using (var session = await E2ESession.StartAsync(new E2ESessionOptions
-            {
-                Engine = engine,
-                Model = model,
-                BaseUrl = "https://fixture.test",
-                CacheEnabled = false,
-                ResultsDirectory = report.Results,
-                TestTitle = title,
-            }))
+            var model = new ScriptedModel(request =>
+                request.Messages[0].Content?.Contains("Statement:", StringComparison.Ordinal) == true
+                    ? ModelResponses.Done("passed", "the Save button is visible")
+                    : ModelResponses.Done("passed", "the result is visible")
+            );
+            var engine = new TruncatedEngine(
+                new DocumentEngine(new DocumentWorld().Map("/result", page => page.Paragraph("Save")))
+            );
+            await using (
+                var session = await E2ESession.StartAsync(
+                    new E2ESessionOptions
+                    {
+                        Engine = engine,
+                        Model = model,
+                        BaseUrl = "https://fixture.test",
+                        CacheEnabled = false,
+                        ResultsDirectory = report.Results,
+                        TestTitle = title,
+                    }
+                )
+            )
             {
                 await session.Context.App.OpenAsync("/result");
                 await calls(session);
@@ -92,25 +102,35 @@ public sealed class AgentObservationReportFieldsTests
         {
             public string Route => session.Route;
 
-            public Task OpenAsync(string url, CancellationToken cancellationToken) => session.OpenAsync(url, cancellationToken);
+            public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+                session.OpenAsync(url, cancellationToken);
 
             public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
             {
                 var observation = await session.ObserveAsync(cancellationToken).ConfigureAwait(false);
-                return new Observation { Route = observation.Route, Roots = observation.Roots, Truncated = true };
+                return new Observation
+                {
+                    Route = observation.Route,
+                    Roots = observation.Roots,
+                    Truncated = true,
+                };
             }
 
-            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => session.PerformAsync(node, action, cancellationToken);
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+                session.PerformAsync(node, action, cancellationToken);
 
-            public Task PressAsync(string key, CancellationToken cancellationToken) => session.PressAsync(key, cancellationToken);
+            public Task PressAsync(string key, CancellationToken cancellationToken) =>
+                session.PressAsync(key, cancellationToken);
 
-            public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => session.SwipeAsync(direction, cancellationToken);
+            public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
+                session.SwipeAsync(direction, cancellationToken);
 
             public Task BackAsync(CancellationToken cancellationToken) => session.BackAsync(cancellationToken);
 
             public Task RestartAsync(CancellationToken cancellationToken) => session.RestartAsync(cancellationToken);
 
-            public Task ClearStateAsync(CancellationToken cancellationToken) => session.ClearStateAsync(cancellationToken);
+            public Task ClearStateAsync(CancellationToken cancellationToken) =>
+                session.ClearStateAsync(cancellationToken);
 
             public ValueTask DisposeAsync() => session.DisposeAsync();
         }

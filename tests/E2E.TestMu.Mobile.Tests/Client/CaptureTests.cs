@@ -19,11 +19,17 @@ public sealed class CaptureTests : IDisposable
         var (client, hub, _) = Appium.Over();
         var path = Path.Combine(_directory, "shot.png");
 
-        var result = await client.CallAsync(DeviceMethods.CaptureScreenshot, $$"""{"path":{{JsonValue.Create(path)!.ToJsonString()}},"normalizeStatusBar":true}""");
+        var result = await client.CallAsync(
+            DeviceMethods.CaptureScreenshot,
+            $$"""{"path":{{JsonValue.Create(path)!.ToJsonString()}},"normalizeStatusBar":true}"""
+        );
 
         Assert.Equal(["GET screenshot", "GET window/rect"], hub.Calls.Select(call => $"{call.Method} {call.Command}"));
         Assert.Equal(Convert.FromBase64String(FakeAppium.PngBase64(780, 1688)), await File.ReadAllBytesAsync(path));
-        Json.AssertEqual($$"""{"path":{{JsonValue.Create(path)!.ToJsonString()}},"logicalWidth":390,"logicalHeight":844,"width":780,"height":1688,"pixelDensity":2}""", result);
+        Json.AssertEqual(
+            $$"""{"path":{{JsonValue.Create(path)!.ToJsonString()}},"logicalWidth":390,"logicalHeight":844,"width":780,"height":1688,"pixelDensity":2}""",
+            result
+        );
     }
 
     [Fact]
@@ -41,7 +47,10 @@ public sealed class CaptureTests : IDisposable
         var (client, hub, _) = Appium.Over();
         hub.ScriptValue("GET", "screenshot", "not base64!");
 
-        var error = await client.FailureAsync(DeviceMethods.CaptureScreenshot, $$"""{"path":{{JsonValue.Create(Path.Combine(_directory, "x.png"))!.ToJsonString()}}}""");
+        var error = await client.FailureAsync(
+            DeviceMethods.CaptureScreenshot,
+            $$"""{"path":{{JsonValue.Create(Path.Combine(_directory, "x.png"))!.ToJsonString()}}}"""
+        );
 
         Assert.Equal("COMMAND_FAILED", error.Code);
     }
@@ -52,7 +61,10 @@ public sealed class CaptureTests : IDisposable
         var (client, hub, _) = Appium.Over();
         hub.ScriptValue("GET", "window/rect", new JsonObject());
 
-        var error = await client.FailureAsync(DeviceMethods.CaptureScreenshot, $$"""{"path":{{JsonValue.Create(Path.Combine(_directory, "x.png"))!.ToJsonString()}}}""");
+        var error = await client.FailureAsync(
+            DeviceMethods.CaptureScreenshot,
+            $$"""{"path":{{JsonValue.Create(Path.Combine(_directory, "x.png"))!.ToJsonString()}}}"""
+        );
 
         Assert.Equal("COMMAND_FAILED", error.Code);
     }
@@ -86,7 +98,8 @@ public sealed class CaptureTests : IDisposable
     public async Task A_ref_of_an_older_snapshot_is_stale_once_a_newer_one_drops_it()
     {
         var (client, hub, converter) = await Appium.ReadAsync();
-        converter.Snapshot = (JsonObject)JsonNode.Parse("""{"nodes":[{"ref":"e1","rect":{"x":0,"y":0,"width":10,"height":10}}]}""")!;
+        converter.Snapshot = (JsonObject)
+            JsonNode.Parse("""{"nodes":[{"ref":"e1","rect":{"x":0,"y":0,"width":10,"height":10}}]}""")!;
         await client.CallAsync(DeviceMethods.CaptureSnapshot);
         hub.Calls.Clear();
 
@@ -101,9 +114,15 @@ public sealed class CaptureTests : IDisposable
     public async Task A_ref_before_any_snapshot_is_stale_and_so_is_one_with_no_bounds()
     {
         var (client, _, _) = Appium.Over(screen: (JsonObject)JsonNode.Parse("""{"nodes":[{"ref":"e1"}]}""")!);
-        Assert.Equal("ref_not_found", (await client.FailureAsync(DeviceMethods.InteractionsPress, """{"ref":"@e1"}""")).Details!["reason"]);
+        Assert.Equal(
+            "ref_not_found",
+            (await client.FailureAsync(DeviceMethods.InteractionsPress, """{"ref":"@e1"}""")).Details!["reason"]
+        );
 
         await client.CallAsync(DeviceMethods.CaptureSnapshot);
-        Assert.Equal("ref_not_found", (await client.FailureAsync(DeviceMethods.InteractionsPress, """{"ref":"@e1"}""")).Details!["reason"]);
+        Assert.Equal(
+            "ref_not_found",
+            (await client.FailureAsync(DeviceMethods.InteractionsPress, """{"ref":"@e1"}""")).Details!["reason"]
+        );
     }
 }

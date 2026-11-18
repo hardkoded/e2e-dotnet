@@ -11,8 +11,22 @@ namespace E2E.Cli.Tests.McpSession;
 /// <summary><c>locate</c> tells the agent which outcome a test using the locator would have, and shows no secret.</summary>
 public sealed class DescribeLocateTests
 {
-    private static SemanticNode Node(string role, string name, string? value = null, string? text = null, NodeStates? states = null) =>
-        new() { Ref = "l1", Role = role, Name = name, Value = value, Text = text, States = states ?? new NodeStates() };
+    private static SemanticNode Node(
+        string role,
+        string name,
+        string? value = null,
+        string? text = null,
+        NodeStates? states = null
+    ) =>
+        new()
+        {
+            Ref = "l1",
+            Role = role,
+            Name = name,
+            Value = value,
+            Text = text,
+            States = states ?? new NodeStates(),
+        };
 
     [Fact]
     public void Tells_the_agent_which_test_outcome_the_locator_would_have()
@@ -20,9 +34,19 @@ public sealed class DescribeLocateTests
         var query = SessionCatalog.LocateQuery(new LocateArgs { Role = "button", Name = "Save" });
         Assert.Equal(
             "1 node matches getByRole(\"button\", \"Save\").\nUse: Screen.GetByRole(\"button\", \"Save\")\n- button \"Save\"",
-            SessionCatalog.DescribeLocate(query, 1, [Node("button", "Save")], Redactor.None));
-        Assert.Contains("LOCATOR_NOT_FOUND", SessionCatalog.DescribeLocate(query, 0, [], Redactor.None), StringComparison.Ordinal);
-        var ambiguous = SessionCatalog.DescribeLocate(query, 12, [Node("button", "Save", states: new NodeStates { Disabled = true })], Redactor.None);
+            SessionCatalog.DescribeLocate(query, 1, [Node("button", "Save")], Redactor.None)
+        );
+        Assert.Contains(
+            "LOCATOR_NOT_FOUND",
+            SessionCatalog.DescribeLocate(query, 0, [], Redactor.None),
+            StringComparison.Ordinal
+        );
+        var ambiguous = SessionCatalog.DescribeLocate(
+            query,
+            12,
+            [Node("button", "Save", states: new NodeStates { Disabled = true })],
+            Redactor.None
+        );
         Assert.Contains("12 nodes match", ambiguous, StringComparison.Ordinal);
         Assert.Contains("LOCATOR_AMBIGUOUS", ambiguous, StringComparison.Ordinal);
         Assert.Contains("- button \"Save\" [disabled]", ambiguous, StringComparison.Ordinal);
@@ -32,19 +56,59 @@ public sealed class DescribeLocateTests
     [Fact]
     public void On_no_match_for_a_role_name_points_at_the_text_a_status_shows_in_observe_instead_of_retrying_it_as_a_name()
     {
-        var exact = SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "status", Name = "Saved." }), 0, [], Redactor.None);
+        var exact = SessionCatalog.DescribeLocate(
+            SessionCatalog.LocateQuery(new LocateArgs { Role = "status", Name = "Saved." }),
+            0,
+            [],
+            Redactor.None
+        );
         Assert.Contains("LOCATOR_NOT_FOUND", exact, StringComparison.Ordinal);
         Assert.Contains("Screen.GetByRole(\"status\").Filter(\"Saved.\")", exact, StringComparison.Ordinal);
         Assert.Contains("Screen.GetByText(\"Saved.\")", exact, StringComparison.Ordinal);
         Assert.Contains("observe shows a status by its text", exact, StringComparison.Ordinal);
         Assert.DoesNotContain("Check the accessible name in the observation", exact, StringComparison.Ordinal);
-        var loose = SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "status", Name = "Saved.", Exact = false }), 0, [], Redactor.None);
+        var loose = SessionCatalog.DescribeLocate(
+            SessionCatalog.LocateQuery(
+                new LocateArgs
+                {
+                    Role = "status",
+                    Name = "Saved.",
+                    Exact = false,
+                }
+            ),
+            0,
+            [],
+            Redactor.None
+        );
         Assert.Contains("Screen.GetByRole(\"status\").Filter(\"Saved.\")", loose, StringComparison.Ordinal);
         Assert.Contains("Screen.GetByText(\"Saved.\", exact: false)", loose, StringComparison.Ordinal);
         Assert.DoesNotContain("loosen", loose, StringComparison.Ordinal);
-        Assert.Contains("observe shows an alert by its text", SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "alert", Name = "Failed" }), 0, [], Redactor.None), StringComparison.Ordinal);
-        Assert.Contains("observe shows a listitem by its text", SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "listitem", Name = "Milk" }), 0, [], Redactor.None), StringComparison.Ordinal);
-        var button = SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "button", Name = "Submitt" }), 0, [], Redactor.None);
+        Assert.Contains(
+            "observe shows an alert by its text",
+            SessionCatalog.DescribeLocate(
+                SessionCatalog.LocateQuery(new LocateArgs { Role = "alert", Name = "Failed" }),
+                0,
+                [],
+                Redactor.None
+            ),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "observe shows a listitem by its text",
+            SessionCatalog.DescribeLocate(
+                SessionCatalog.LocateQuery(new LocateArgs { Role = "listitem", Name = "Milk" }),
+                0,
+                [],
+                Redactor.None
+            ),
+            StringComparison.Ordinal
+        );
+        var button = SessionCatalog.DescribeLocate(
+            SessionCatalog.LocateQuery(new LocateArgs { Role = "button", Name = "Submitt" }),
+            0,
+            [],
+            Redactor.None
+        );
         Assert.Contains("Check the accessible name in the observation", button, StringComparison.Ordinal);
         Assert.DoesNotContain("Filter", button, StringComparison.Ordinal);
     }
@@ -52,15 +116,38 @@ public sealed class DescribeLocateTests
     [Fact]
     public void On_no_match_offers_exact_false_only_when_the_query_is_still_exact()
     {
-        Assert.Contains("loosen the match with exact: false", SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Text = "Saved" }), 0, [], Redactor.None), StringComparison.Ordinal);
-        Assert.DoesNotContain("loosen", SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Text = "Saved", Exact = false }), 0, [], Redactor.None), StringComparison.Ordinal);
+        Assert.Contains(
+            "loosen the match with exact: false",
+            SessionCatalog.DescribeLocate(
+                SessionCatalog.LocateQuery(new LocateArgs { Text = "Saved" }),
+                0,
+                [],
+                Redactor.None
+            ),
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "loosen",
+            SessionCatalog.DescribeLocate(
+                SessionCatalog.LocateQuery(new LocateArgs { Text = "Saved", Exact = false }),
+                0,
+                [],
+                Redactor.None
+            ),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public void Never_shows_the_value_of_a_secure_node()
     {
         var query = SessionCatalog.LocateQuery(new LocateArgs { Label = "Password" });
-        var text = SessionCatalog.DescribeLocate(query, 1, [Node("textbox", "Password", value: "hunter2", states: new NodeStates { Secure = true })], Redactor.None);
+        var text = SessionCatalog.DescribeLocate(
+            query,
+            1,
+            [Node("textbox", "Password", value: "hunter2", states: new NodeStates { Secure = true })],
+            Redactor.None
+        );
         Assert.DoesNotContain("hunter2", text, StringComparison.Ordinal);
     }
 

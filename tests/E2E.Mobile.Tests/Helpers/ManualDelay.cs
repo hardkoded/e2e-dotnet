@@ -53,7 +53,11 @@ internal sealed class ManualDelay
             TaskCompletionSource due;
             lock (_waiters)
             {
-                var next = _waiters.Where(waiter => waiter.Due <= target).OrderBy(waiter => waiter.Due).Cast<(long Due, TaskCompletionSource Source)?>().FirstOrDefault();
+                var next = _waiters
+                    .Where(waiter => waiter.Due <= target)
+                    .OrderBy(waiter => waiter.Due)
+                    .Cast<(long Due, TaskCompletionSource Source)?>()
+                    .FirstOrDefault();
                 if (next is null)
                 {
                     _now = target;

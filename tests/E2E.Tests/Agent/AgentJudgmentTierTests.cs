@@ -29,10 +29,19 @@ public sealed class AgentJudgmentTierTests
                 await ctx.App.OpenAsync("/about");
                 await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("About");
                 seen = engine.Observations;
-                await ctx.Agent.WaitForAsync("a checkout button is on the About page", new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100), Timeout = TimeSpan.FromSeconds(3), MaxModelCalls = 4 });
+                await ctx.Agent.WaitForAsync(
+                    "a checkout button is on the About page",
+                    new WaitForOptions
+                    {
+                        Interval = TimeSpan.FromMilliseconds(100),
+                        Timeout = TimeSpan.FromSeconds(3),
+                        MaxModelCalls = 4,
+                    }
+                );
             },
             engine,
-            judge: judge);
+            judge: judge
+        );
 
         Assert.Equal("STEP_TIMEOUT", Assert.IsType<AgentException>(result.Error).Code);
         Assert.Equal(1, judge.CallCount);
@@ -46,21 +55,28 @@ public sealed class AgentJudgmentTierTests
     public async Task Repairs_a_malformed_judgment_with_a_second_model_call()
     {
         // A reasoning model that ran out of output mid-answer: no verdict.
-        var judge = new ScriptedModel(request => request.Messages.Count == 1
-            ? new ModelResponse { Content = "thinking" }
-            : ModelResponses.Judgment("holds", "the Home heading is visible"));
+        var judge = new ScriptedModel(request =>
+            request.Messages.Count == 1
+                ? new ModelResponse { Content = "thinking" }
+                : ModelResponses.Judgment("holds", "the Home heading is visible")
+        );
         var result = await RunAsync(
             async ctx =>
             {
                 await ctx.App.OpenAsync("/about");
                 await ctx.Agent.AssertAsync("the About heading is visible after a malformed first answer");
             },
-            judge: judge);
+            judge: judge
+        );
 
         Assert.Null(result.Error);
         Assert.Equal(2, judge.CallCount);
         Assert.Equal(2, result.ModelCalls);
-        Assert.Contains("Statement: the About heading is visible after a malformed first answer", judge.Requests[1].Messages[0].Content, StringComparison.Ordinal);
+        Assert.Contains(
+            "Statement: the About heading is visible after a malformed first answer",
+            judge.Requests[1].Messages[0].Content,
+            StringComparison.Ordinal
+        );
         var repair = judge.Requests[1].Messages[^1].Content;
         Assert.Contains("<previous-attempt-rejected>", repair, StringComparison.Ordinal);
         Assert.Contains("previous response: thinking", repair, StringComparison.Ordinal);
@@ -80,11 +96,16 @@ public sealed class AgentJudgmentTierTests
                 await ctx.App.OpenAsync("/about");
                 await ctx.Agent.AssertAsync("the About heading is visible, answered without a verdict twice");
             },
-            judge: judge);
+            judge: judge
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("MODEL_OUTPUT_INVALID", error.Code);
-        Assert.StartsWith("The judge did not answer with an agent-judgment-2 object: ", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith(
+            "The judge did not answer with an agent-judgment-2 object: ",
+            error.Message,
+            StringComparison.Ordinal
+        );
         // One judgment plus one repair round is the whole budget: no third call, no guessed verdict.
         Assert.Equal(2, judge.CallCount);
         var step = result.Steps!.Single(candidate => candidate.Api == "agent.assert");
@@ -96,7 +117,10 @@ public sealed class AgentJudgmentTierTests
     public async Task Sends_provider_options_with_the_judgment()
     {
         var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the observation supports the assertion"));
-        var options = new Dictionary<string, JsonElement> { ["fake"] = JsonSerializer.SerializeToElement(new { reasoningEffort = "low" }) };
+        var options = new Dictionary<string, JsonElement>
+        {
+            ["fake"] = JsonSerializer.SerializeToElement(new { reasoningEffort = "low" }),
+        };
         var result = await RunAsync(
             async ctx =>
             {
@@ -104,7 +128,8 @@ public sealed class AgentJudgmentTierTests
                 await ctx.Agent.AssertAsync("the About heading is visible");
             },
             judge: judge,
-            providerOptions: options);
+            providerOptions: options
+        );
 
         Assert.Null(result.Error);
         Assert.Equal("{\"reasoningEffort\":\"low\"}", judge.Requests[0].ProviderOptions!["fake"].GetRawText());
@@ -113,14 +138,17 @@ public sealed class AgentJudgmentTierTests
     [Fact]
     public async Task Fails_the_test_with_ASSERTION_FAILED_on_a_false_judgment()
     {
-        var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "the observation shows the Home page, not checkout"));
+        var judge = new ScriptedModel(_ =>
+            ModelResponses.Done("failed", "the observation shows the Home page, not checkout")
+        );
         var result = await RunAsync(
             async ctx =>
             {
                 await ctx.App.OpenAsync("/");
                 await ctx.Agent.AssertAsync("the checkout page is visible");
             },
-            judge: judge);
+            judge: judge
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("ASSERTION_FAILED", error.Code);
@@ -132,7 +160,9 @@ public sealed class AgentJudgmentTierTests
     public async Task Fails_with_ASSERTION_INCONCLUSIVE_and_the_explanation_when_the_screen_shows_too_little_to_judge()
     {
         // A judge that cannot see the evidence must not pass the step: a guess in either direction is how a broken flow stays green.
-        var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "no order total or line items are on this screen", "ASSERTION_INCONCLUSIVE"));
+        var judge = new ScriptedModel(_ =>
+            ModelResponses.Done("failed", "no order total or line items are on this screen", "ASSERTION_INCONCLUSIVE")
+        );
         var result = await RunAsync(
             async ctx =>
             {
@@ -140,7 +170,8 @@ public sealed class AgentJudgmentTierTests
                 await ctx.Agent.AssertAsync("the order total equals the sum of the line items");
             },
             new ScreenshotEngine(World()),
-            judge: judge);
+            judge: judge
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
@@ -153,18 +184,28 @@ public sealed class AgentJudgmentTierTests
     [Fact]
     public async Task Names_vision_outright_once_a_step_of_the_attempt_has_received_pixels()
     {
-        var judge = new ScriptedModel(request => request.Messages[0].Content!.Contains("Statement: the Home heading is visible", StringComparison.Ordinal)
-            ? ModelResponses.Done("passed", "the Home heading is listed")
-            : ModelResponses.Done("failed", "no order total or line items are on this screen", "ASSERTION_INCONCLUSIVE"));
+        var judge = new ScriptedModel(request =>
+            request.Messages[0].Content!.Contains("Statement: the Home heading is visible", StringComparison.Ordinal)
+                ? ModelResponses.Done("passed", "the Home heading is listed")
+                : ModelResponses.Done(
+                    "failed",
+                    "no order total or line items are on this screen",
+                    "ASSERTION_INCONCLUSIVE"
+                )
+        );
         var result = await RunAsync(
             async ctx =>
             {
                 await ctx.App.OpenAsync("/");
-                await ctx.Agent.AssertAsync("the Home heading is visible", new AssertOptions { Vision = VisionMode.On });
+                await ctx.Agent.AssertAsync(
+                    "the Home heading is visible",
+                    new AssertOptions { Vision = VisionMode.On }
+                );
                 await ctx.Agent.AssertAsync("the order total equals the sum of the line items");
             },
             new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()),
-            judge: judge);
+            judge: judge
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Single(judge.Requests[0].Messages[0].Images!);
@@ -176,15 +217,21 @@ public sealed class AgentJudgmentTierTests
     [Fact]
     public async Task Leaves_the_vision_hint_off_an_inconclusive_judgment_that_already_saw_pixels()
     {
-        var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "no order total or line items are on this screen", "ASSERTION_INCONCLUSIVE"));
+        var judge = new ScriptedModel(_ =>
+            ModelResponses.Done("failed", "no order total or line items are on this screen", "ASSERTION_INCONCLUSIVE")
+        );
         var result = await RunAsync(
             async ctx =>
             {
                 await ctx.App.OpenAsync("/");
-                await ctx.Agent.AssertAsync("the order total equals the sum of the line items", new AssertOptions { Vision = VisionMode.On });
+                await ctx.Agent.AssertAsync(
+                    "the order total equals the sum of the line items",
+                    new AssertOptions { Vision = VisionMode.On }
+                );
             },
             new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()),
-            judge: judge);
+            judge: judge
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
@@ -195,20 +242,34 @@ public sealed class AgentJudgmentTierTests
     [Fact]
     public async Task Points_a_waitFor_timeout_at_vision_when_its_last_round_was_inconclusive()
     {
-        var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "no order total is on the About page", "ASSERTION_INCONCLUSIVE"));
+        var judge = new ScriptedModel(_ =>
+            ModelResponses.Done("failed", "no order total is on the About page", "ASSERTION_INCONCLUSIVE")
+        );
         var result = await RunAsync(
             async ctx =>
             {
                 await ctx.App.OpenAsync("/about");
                 await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("About");
-                await ctx.Agent.WaitForAsync("the order total on the About page adds up", new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100), Timeout = TimeSpan.FromMilliseconds(1500) });
+                await ctx.Agent.WaitForAsync(
+                    "the order total on the About page adds up",
+                    new WaitForOptions
+                    {
+                        Interval = TimeSpan.FromMilliseconds(100),
+                        Timeout = TimeSpan.FromMilliseconds(1500),
+                    }
+                );
             },
             new ScreenshotEngine(World()),
-            judge: judge);
+            judge: judge
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("STEP_TIMEOUT", error.Code);
-        Assert.Contains("last judgment: no order total is on the About page; " + Vision.HintUnproven, error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "last judgment: no order total is on the About page; " + Vision.HintUnproven,
+            error.Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -227,11 +288,15 @@ public sealed class AgentJudgmentTierTests
             {
                 await ctx.App.OpenAsync("/");
                 await ctx.Agent.AssertAsync("the Home heading is visible");
-                await ctx.Agent.WaitForAsync("the counter is on screen", new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100) });
+                await ctx.Agent.WaitForAsync(
+                    "the counter is on screen",
+                    new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100) }
+                );
                 await ctx.Agent.ExtractAsync<CounterReading>("the counter value");
             },
             actor: actor,
-            judge: judge);
+            judge: judge
+        );
 
         Assert.Null(result.Error);
         Assert.Equal(3, judge.CallCount);
@@ -249,13 +314,21 @@ public sealed class AgentJudgmentTierTests
             {
                 await ctx.App.OpenAsync("/");
                 await ctx.Agent.AssertAsync("the Home heading is visible");
-                await ctx.Agent.WaitForAsync("the Late arrival button exists", new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100) });
+                await ctx.Agent.WaitForAsync(
+                    "the Late arrival button exists",
+                    new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100) }
+                );
             },
-            judge: judge);
+            judge: judge
+        );
 
         Assert.Null(result.Error);
         var polled = judge.Requests[1];
-        Assert.Contains("Statement: the Late arrival button exists", polled.Messages[0].Content, StringComparison.Ordinal);
+        Assert.Contains(
+            "Statement: the Late arrival button exists",
+            polled.Messages[0].Content,
+            StringComparison.Ordinal
+        );
         var everything = polled.System + "\n" + string.Join('\n', polled.Messages.Select(message => message.Content));
         Assert.DoesNotContain("<ledger>", everything, StringComparison.Ordinal);
         Assert.DoesNotContain("the Home heading is visible", everything, StringComparison.Ordinal);
@@ -274,7 +347,8 @@ public sealed class AgentJudgmentTierTests
                 await ctx.Agent.AssertAsync("the Home heading is visible");
             },
             judge: judge,
-            context: Context);
+            context: Context
+        );
 
         Assert.Null(result.Error);
         var system = judge.Requests[0].System;
@@ -286,11 +360,12 @@ public sealed class AgentJudgmentTierTests
     [Fact]
     public async Task Sends_the_semantic_tree_with_ids_and_a_secure_field_without_its_value()
     {
-        var world = World().Map("/login", page =>
-        {
-            page.Button("Increment");
-            page.Textbox("Password", "hunter2-secret", secure: true);
-        });
+        var world = World()
+            .Map("/login", page =>
+            {
+                page.Button("Increment");
+                page.Textbox("Password", "hunter2-secret", secure: true);
+            });
         var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the field has a value"));
         var result = await RunAsync(
             async ctx =>
@@ -299,7 +374,8 @@ public sealed class AgentJudgmentTierTests
                 await ctx.Agent.AssertAsync("the password field has a value");
             },
             new ObservationCountingEngine(world),
-            judge: judge);
+            judge: judge
+        );
 
         Assert.Null(result.Error);
         var observation = judge.Requests[0].Messages[0].Content!;
@@ -315,16 +391,18 @@ public sealed class AgentJudgmentTierTests
     {
         var world = World().Map("/reset", page => page.Button("Increment"));
         var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the reset page is open"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(world),
-            Judge = judge,
-            BaseUrl = "https://app.test",
-            TestTitle = "agent judgment route",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(world),
+                Judge = judge,
+                BaseUrl = "https://app.test",
+                TestTitle = "agent judgment route",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         session.Remember([Secret.Create("reset.token", "hunter2-secret", "password")]);
         await session.Context.App.OpenAsync("/reset?token=hunter2-secret");
         await session.Context.Agent.AssertAsync("the reset page is open");
@@ -338,16 +416,19 @@ public sealed class AgentJudgmentTierTests
     [Fact]
     public async Task A_judgment_reads_the_current_path()
     {
-        var judge = new ScriptedModel(request => request.Messages[0].Content!.Contains("Screen (\"/about\"):", StringComparison.Ordinal)
-            ? ModelResponses.Done("passed", "the location is /about")
-            : ModelResponses.Done("failed", "the judge was not shown the location"));
+        var judge = new ScriptedModel(request =>
+            request.Messages[0].Content!.Contains("Screen (\"/about\"):", StringComparison.Ordinal)
+                ? ModelResponses.Done("passed", "the location is /about")
+                : ModelResponses.Done("failed", "the judge was not shown the location")
+        );
         var result = await RunAsync(
             async ctx =>
             {
                 await ctx.App.OpenAsync("/about");
                 await ctx.Agent.AssertAsync("the URL path is /about");
             },
-            judge: judge);
+            judge: judge
+        );
 
         Assert.Null(result.Error);
     }
@@ -357,9 +438,11 @@ public sealed class AgentJudgmentTierTests
     {
         // A path on another site would read as the app's own route, so the judge is shown the whole address.
         var engine = new LocationEngine(new DocumentEngine(World()), "https://idp.test/login");
-        var judge = new ScriptedModel(request => request.Messages[0].Content!.Contains("Screen (\"https://idp.test/login\"):", StringComparison.Ordinal)
-            ? ModelResponses.Done("passed", "the judge read the whole address")
-            : ModelResponses.Done("failed", "the origin was lost"));
+        var judge = new ScriptedModel(request =>
+            request.Messages[0].Content!.Contains("Screen (\"https://idp.test/login\"):", StringComparison.Ordinal)
+                ? ModelResponses.Done("passed", "the judge read the whole address")
+                : ModelResponses.Done("failed", "the origin was lost")
+        );
         var result = await RunAsync(
             async ctx =>
             {
@@ -367,7 +450,8 @@ public sealed class AgentJudgmentTierTests
                 await ctx.Agent.AssertAsync("the screen is at the identity provider's login page");
             },
             engine,
-            judge: judge);
+            judge: judge
+        );
 
         Assert.Null(result.Error);
     }
@@ -377,16 +461,18 @@ public sealed class AgentJudgmentTierTests
     {
         var engine = new LocationEngine(new DocumentEngine(World()), "https://idp.test/cb?code=hunter2-secret#done");
         var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the callback page is open"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            Judge = judge,
-            BaseUrl = "https://app.test",
-            TestTitle = "agent judgment address",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                Judge = judge,
+                BaseUrl = "https://app.test",
+                TestTitle = "agent judgment address",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         session.Remember([Secret.Create("reset.token", "hunter2-secret", "password")]);
         await session.Context.App.OpenAsync("/about");
         await session.Context.Agent.AssertAsync("the callback page is open");
@@ -403,16 +489,18 @@ public sealed class AgentJudgmentTierTests
         // The secret holds a space and an @, which the address spells as %20 and %40. The raw value is not in the URL at all.
         var engine = new LocationEngine(new DocumentEngine(World()), "https://idp.test/cb?user=p%40ss%20word#done");
         var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the callback page is open"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            Judge = judge,
-            BaseUrl = "https://app.test",
-            TestTitle = "agent judgment encoded address",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                Judge = judge,
+                BaseUrl = "https://app.test",
+                TestTitle = "agent judgment encoded address",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         session.Remember([Secret.Create("login.password", "p@ss word", "password")]);
         await session.Context.App.OpenAsync("/about");
         await session.Context.Agent.AssertAsync("the callback page is open");
@@ -429,7 +517,18 @@ public sealed class AgentJudgmentTierTests
     {
         var engine = new LocationEngine(new DocumentEngine(World()), "https://idp.test/cb?k=%68unter2");
         var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "ok"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = engine, Judge = judge, BaseUrl = "https://app.test", TestTitle = "agent judgment escaped letter", AssertionTimeout = TimeSpan.FromSeconds(2), TestTimeout = TimeSpan.FromSeconds(10), StepTimeout = TimeSpan.FromSeconds(5) });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                Judge = judge,
+                BaseUrl = "https://app.test",
+                TestTitle = "agent judgment escaped letter",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         session.Remember([Secret.Create("login.password", "hunter2", "password")]);
         await session.Context.App.OpenAsync("/about");
         await session.Context.Agent.AssertAsync("the callback page is open");
@@ -442,7 +541,11 @@ public sealed class AgentJudgmentTierTests
     [Fact]
     public async Task Judges_again_when_only_the_URL_changed()
     {
-        var engine = new LocationEngine(new DocumentEngine(World().Map("/moves", page => page.Heading("Moves"))), "https://app.test/moves", "https://app.test/moved");
+        var engine = new LocationEngine(
+            new DocumentEngine(World().Map("/moves", page => page.Heading("Moves"))),
+            "https://app.test/moves",
+            "https://app.test/moved"
+        );
         var judge = new ScriptedModel(request =>
         {
             if (request.Messages[0].Content!.Contains("Screen (\"/moved\"):", StringComparison.Ordinal))
@@ -459,19 +562,131 @@ public sealed class AgentJudgmentTierTests
             {
                 await ctx.App.OpenAsync("/moves");
                 await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("Moves");
-                await ctx.Agent.WaitForAsync("the URL path is /moved", new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100), Timeout = TimeSpan.FromSeconds(3), MaxModelCalls = 4 });
+                await ctx.Agent.WaitForAsync(
+                    "the URL path is /moved",
+                    new WaitForOptions
+                    {
+                        Interval = TimeSpan.FromMilliseconds(100),
+                        Timeout = TimeSpan.FromSeconds(3),
+                        MaxModelCalls = 4,
+                    }
+                );
             },
             engine,
-            judge: judge);
+            judge: judge
+        );
 
         Assert.Null(result.Error);
         Assert.Equal(2, judge.CallCount);
     }
 
     [Fact]
+    public async Task Judges_a_change_as_soon_as_it_is_seen_not_after_the_interval()
+    {
+        var engine = new LocationEngine(
+            new DocumentEngine(World().Map("/moves", page => page.Heading("Moves"))),
+            "https://app.test/moves",
+            "https://app.test/moved"
+        );
+        var judge = new ScriptedModel(request =>
+        {
+            engine.Moved = true;
+            return request.Messages[0].Content!.Contains("Screen (\"/moved\"):", StringComparison.Ordinal)
+                ? ModelResponses.Done("passed", "read the location")
+                : ModelResponses.Done("failed", "read the location");
+        });
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/moves");
+                await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("Moves");
+                // The interval outlasts the timeout: a wait that sat it out before judging the move would time out instead.
+                await ctx.Agent.WaitForAsync(
+                    "the address reads /moved",
+                    new WaitForOptions
+                    {
+                        Interval = TimeSpan.FromSeconds(60),
+                        Timeout = TimeSpan.FromSeconds(5),
+                        MaxModelCalls = 4,
+                    }
+                );
+            },
+            engine,
+            judge: judge
+        );
+
+        Assert.Null(result.Error);
+        Assert.Equal(2, judge.CallCount);
+    }
+
+    [Fact]
+    public async Task Judges_a_screen_that_never_holds_still_at_most_once_per_interval()
+    {
+        // The clock ticks every 200 ms. Its first tick after the opening judgment is judged at once (0.5 s); every later one
+        // waits out the 1.5 s interval (2 s), so the wait fits three judgments, not one per poll. The timeout is 3 s here, not upstream's 2.5 s, so a slow first capture
+        // cannot push the third judgment past it; the fourth would come at 3.5 s.
+        var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "the clock shows a number"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("About");
+                await ctx.Agent.WaitForAsync(
+                    "the clock reads stop",
+                    new WaitForOptions
+                    {
+                        Interval = TimeSpan.FromMilliseconds(1500),
+                        Timeout = TimeSpan.FromMilliseconds(3000),
+                    }
+                );
+            },
+            new TickingEngine(new DocumentEngine(World())),
+            judge: judge
+        );
+
+        var error = Assert.IsType<AgentException>(result.Error);
+        Assert.Equal("STEP_TIMEOUT", error.Code);
+        Assert.Equal(3, judge.CallCount);
+    }
+
+    [Fact]
+    public async Task Keeps_the_interval_on_a_screen_that_changed_while_a_slow_judgment_ran()
+    {
+        // Each judgment takes 1.2 s, during which nothing is observed. Counting that as the clock holding still would judge every
+        // tick at once (0, 1.7, 3.4, 5.1 s). Only the first tick is judged at once; the next waits out the interval after the
+        // judgment returns (0, 1.7, 4.4 s).
+        var judge = new ScriptedModel(_ =>
+        {
+            Thread.Sleep(1200);
+            return ModelResponses.Done("failed", "the clock shows a number");
+        });
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("About");
+                await ctx.Agent.WaitForAsync(
+                    "the slow clock reads stop",
+                    new WaitForOptions { Interval = TimeSpan.FromMilliseconds(1500), Timeout = TimeSpan.FromSeconds(6) }
+                );
+            },
+            new TickingEngine(new DocumentEngine(World())),
+            judge: judge
+        );
+
+        var error = Assert.IsType<AgentException>(result.Error);
+        Assert.Equal("STEP_TIMEOUT", error.Code);
+        Assert.Equal(3, judge.CallCount);
+    }
+
+    [Fact]
     public async Task A_vision_only_wait_does_not_judge_again_on_a_URL_it_is_not_shown()
     {
-        var engine = new LocationEngine(new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()), "https://app.test/about", "https://app.test/moved");
+        var engine = new LocationEngine(
+            new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()),
+            "https://app.test/about",
+            "https://app.test/moved"
+        );
         var judge = new ScriptedModel(_ =>
         {
             // The address moves after the judgment is asked. A vision-only wait is not shown the address, so the move ends nothing.
@@ -483,10 +698,20 @@ public sealed class AgentJudgmentTierTests
             {
                 await ctx.App.OpenAsync("/about");
                 await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("About");
-                await ctx.Agent.WaitForAsync("the chart moved", new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100), Timeout = TimeSpan.FromMilliseconds(1500), MaxModelCalls = 4, Vision = VisionMode.Only });
+                await ctx.Agent.WaitForAsync(
+                    "the chart moved",
+                    new WaitForOptions
+                    {
+                        Interval = TimeSpan.FromMilliseconds(100),
+                        Timeout = TimeSpan.FromMilliseconds(1500),
+                        MaxModelCalls = 4,
+                        Vision = VisionMode.Only,
+                    }
+                );
             },
             engine,
-            judge: judge);
+            judge: judge
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("STEP_TIMEOUT", error.Code);
@@ -506,7 +731,8 @@ public sealed class AgentJudgmentTierTests
                 await ctx.Agent.AssertAsync("the About page is open");
             },
             engine,
-            judge: judge);
+            judge: judge
+        );
 
         Assert.Null(result.Error);
         Assert.Contains("Screen (\"/about\"):", judge.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
@@ -523,10 +749,15 @@ public sealed class AgentJudgmentTierTests
                 await ctx.App.OpenAsync("/about");
                 await ctx.Agent.AssertAsync("the About heading is visible");
             },
-            judge: judge);
+            judge: judge
+        );
 
         Assert.Null(result.Error);
-        Assert.Contains("The screen's location is the address of the screen: it is evidence only for a statement about the address or route, never for or against what the screen shows.", judge.Requests[0].System, StringComparison.Ordinal);
+        Assert.Contains(
+            "The screen's location is the address of the screen: it is evidence only for a statement about the address or route, never for or against what the screen shows.",
+            judge.Requests[0].Messages[0].Content!,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -542,7 +773,8 @@ public sealed class AgentJudgmentTierTests
                 await ctx.Agent.AssertAsync("the chart is visible", new AssertOptions { Vision = VisionMode.Only });
             },
             engine,
-            judge: judge);
+            judge: judge
+        );
 
         Assert.Null(result.Error);
         Assert.DoesNotContain("Screen (", judge.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
@@ -556,21 +788,24 @@ public sealed class AgentJudgmentTierTests
         ScriptedModel? actor = null,
         ScriptedModel? judge = null,
         string? context = null,
-        IReadOnlyDictionary<string, JsonElement>? providerOptions = null)
+        IReadOnlyDictionary<string, JsonElement>? providerOptions = null
+    )
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine ?? new DocumentEngine(World()),
-            Model = actor,
-            Judge = judge,
-            AgentContext = context,
-            ProviderOptions = providerOptions,
-            BaseUrl = "https://app.test",
-            TestTitle = "agent judgment tier",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine ?? new DocumentEngine(World()),
+                Model = actor,
+                Judge = judge,
+                AgentContext = context,
+                ProviderOptions = providerOptions,
+                BaseUrl = "https://app.test",
+                TestTitle = "agent judgment tier",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         Exception? error = null;
         try
         {
@@ -582,7 +817,13 @@ public sealed class AgentJudgmentTierTests
         }
 
         session.Complete(error);
-        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed, Steps: session.StepRecords);
+        return new CoreTests.Attempt(
+            error,
+            session.ModelCalls,
+            session.Replayed,
+            session.Missed,
+            Steps: session.StepRecords
+        );
     }
 
     private sealed class CounterReading

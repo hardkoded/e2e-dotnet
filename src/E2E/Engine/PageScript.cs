@@ -184,6 +184,75 @@ internal static class PageScript
             for (let node = slot; node && node !== shadow; node = node.parentNode) if (node.inert) return true;
             return false;
           };
+          // Upstream's modalOrder: the order the context's init script (ModalOrderInitScript) saw each modal dialog shown in.
+          const modalOrder = globalThis[Symbol.for("e2e.modalDialogOrder")];
+          // Upstream's isOpenModalDialog: dialog:modal, not :modal, which a fullscreen element matches too.
+          const isOpenModalDialog = (el) => {
+            if (el.localName !== "dialog") return false;
+            try {
+              return el.matches("dialog:modal");
+            } catch {
+              return false;
+            }
+          };
+          // Upstream's openModalDialogsIn: every open modal dialog under root, in tree order, through open and closed shadow roots.
+          const openModalDialogsIn = (root, found = []) => {
+            for (const el of Array.from(root.querySelectorAll("*"))) {
+              if (isOpenModalDialog(el)) found.push(el);
+              const shadow = shadowOf(el);
+              if (shadow !== null) openModalDialogsIn(shadow, found);
+            }
+            return found;
+          };
+          // Upstream's slotOf: assignedSlot, else the tracked closed root's own slots.
+          const slotOf = (el) => {
+            if (el.assignedSlot !== null) return el.assignedSlot;
+            const host = el.parentElement;
+            const shadow = host === null ? undefined : closedRoots?.get(host);
+            if (shadow === undefined) return null;
+            for (const slot of Array.from(shadow.querySelectorAll("slot"))) {
+              if (slot.assignedElements().indexOf(el) !== -1) return slot;
+            }
+            return null;
+          };
+          // Upstream's flatParentOf: an element's parent in the flat tree.
+          const flatParentOf = memoized((el) => slotOf(el) ?? parentOrHostOf(el));
+          const isInFlatTree = (el, container) => {
+            for (let current = el; current !== null; current = flatParentOf(current)) {
+              if (current === container) return true;
+            }
+            return false;
+          };
+          // Upstream's topModalOf: the innermost modal dialog holding focus, else the one shown last; none when the record never saw one.
+          const topModalOf = (dialogs) => {
+            if (dialogs.length <= 1) return dialogs[0];
+            const open = new Set(dialogs);
+            for (let current = focused; current !== null; current = flatParentOf(current)) {
+              if (open.has(current)) return current;
+            }
+            let top;
+            let topOrder = 0;
+            for (const dialog of dialogs) {
+              const order = modalOrder?.get(dialog);
+              if (order === undefined) return undefined;
+              if (order > topOrder) {
+                top = dialog;
+                topOrder = order;
+              }
+            }
+            return top;
+          };
+          // Upstream's modalScopeOf: everything outside the modal dialog on top is inert. placeOf answers "inside" the dialog's flat tree,
+          // an "ancestor" the dialog sits under (walked, never listed), or "outside". Undefined when no modal dialog is on top.
+          const modalScopeOf = (doc) => {
+            const dialog = topModalOf(openModalDialogsIn(doc));
+            if (dialog === undefined) return undefined;
+            const ancestors = new Set();
+            for (let up = parentOrHostOf(dialog); up !== null; up = parentOrHostOf(up)) ancestors.add(up);
+            return { placeOf: (el) => (ancestors.has(el) ? "ancestor" : isInFlatTree(el, dialog) ? "inside" : "outside") };
+          };
+          // Read before the walk: the page behind a modal dialog comes first in tree order and would spend the node budget the dialog needs.
+          const modal = modalScopeOf(document);
           // A closed select has no option boxes; explicit exclusions still remove choices it does not offer.
           const isOfferedOption = (option) => {
             for (let current = option; current && current.tagName !== "SELECT"; current = parentOrHostOf(current)) {
@@ -194,10 +263,12 @@ internal static class PageScript
           };
           const tally = (el, visible) => {
             if (!el || skip.has(el.tagName) || isInert(el)) return 0;
+            const place = modal === undefined ? "inside" : modal.placeOf(el);
+            if (place === "outside") return 0;
             if (el.tagName === "IFRAME" && (ariaHidden(el) || hidden(el))) return 0;
             let n = 0;
             const role = roleOf(el);
-            if (listed(el, role) && !textOnly(el, role) && !isBoxlessUndrawn(el)) {
+            if (place !== "ancestor" && listed(el, role) && !textOnly(el, role) && !isBoxlessUndrawn(el)) {
               const counted = !visible || inView(el);
               if (counted) n++;
               if (el.tagName === "SELECT") {
@@ -205,11 +276,14 @@ internal static class PageScript
                 let offered = 0;
                 for (const option of el.options) {
                   if (offered >= maxSelectOptions) break;
-                  if (isOfferedOption(option)) offered += 1;
+                  if (!isOfferedOption(option)) continue;
+                  offered += 1;
+                  for (const child of option.children) n += tally(child, visible);
+                  const optionShadow = shadowOf(option);
+                  if (optionShadow) for (const child of optionShadow.children) n += tally(child, visible);
                 }
                 return n + offered;
               }
-              if (isLeaf(el, role)) return n;
             }
             for (const child of el.children) n += tally(child, visible);
             const shadow = shadowOf(el);
@@ -222,6 +296,9 @@ internal static class PageScript
           // and is visible, but the accessibility tree drops it.
           const walk = (el, into, parentHidden, parentAria) => {
             if (!el || skip.has(el.tagName) || isInert(el) || full) return;
+            // Outside an open modal dialog everything is inert; the dialog's ancestors are walked to reach it and list nothing.
+            const place = modal === undefined ? "inside" : modal.placeOf(el);
+            if (place === "outside") return;
             const style = getComputedStyle(el);
             const isHidden = !!parentHidden || hidden(el, style);
             const isAriaHidden = !!parentAria || ariaHidden(el);
@@ -231,7 +308,7 @@ internal static class PageScript
             // A frame the page hides is no boundary of the tree.
             if (isFrame && (isHidden || isAriaHidden)) return;
             if (isBoxlessUndrawn(el)) return;
-            if (listed(el, role)) {
+            if (place !== "ancestor" && listed(el, role)) {
               const textNode = textOnly(el, role);
               if (textNode ? textCount >= max : count >= max) {
                 if (!textNode) {
@@ -244,7 +321,7 @@ internal static class PageScript
               }
               if (!textNode && offBudget < max && !inView(el)) {
                 if (offCount >= offBudget) {
-                  if (isLeaf(el, role) || el.tagName === "SELECT") return;
+                  if (el.tagName === "SELECT") return;
                   walkChildren(el, into, childrenHidden, isAriaHidden);
                   return;
                 }
@@ -281,7 +358,7 @@ internal static class PageScript
                 }
                 return;
               }
-              if (isLeaf(el, role)) return;
+              // Upstream lists every child, so a leaf role lists the nodes it holds too.
               walkChildren(el, node.children, childrenHidden, isAriaHidden);
               return;
             }
@@ -440,6 +517,17 @@ internal static class PageScript
         }
         """;
 
+    // The computed values of the requested properties of one element, or null when it left its document (upstream's readStyle in
+    // web/src/surface.ts). The owning document's view computes them, so an element of a frame or a shadow root reads its own.
+    public const string ComputedStyle = """
+        (element, names) => {
+          const view = element.ownerDocument.defaultView;
+          if (!element.isConnected || view === null) return null;
+          const computed = view.getComputedStyle(element);
+          return Object.fromEntries(names.map((name) => [name, computed.getPropertyValue(name)]));
+        }
+        """;
+
     // The ref an iframe element carries, so the host can hang that frame's
     // observation under the iframe node.
     public const string RefOf = """
@@ -526,6 +614,42 @@ internal static class PageScript
               roots.count += 1;
             }
             return root;
+          };
+        })();
+        """;
+
+    // Upstream's MODAL_ORDER_INIT_SCRIPT (modal-dialogs.ts): numbers each opening of a dialog showModal() has shown, in a WeakMap under
+    // Symbol.for("e2e.modalDialogOrder"), so the highest number among the open modal dialogs is the one on top. A dialog a show-modal
+    // command reopens is numbered from its beforetoggle; a browser that fires none is numbered by the call. A call on a dialog already
+    // open records nothing.
+    public const string ModalOrderInitScript = """
+        (() => {
+          const key = Symbol.for("e2e.modalDialogOrder");
+          if (Object.prototype.hasOwnProperty.call(globalThis, key)) return;
+          if (typeof HTMLDialogElement === "undefined" || typeof HTMLDialogElement.prototype.showModal !== "function") return;
+          const order = new WeakMap();
+          const watched = new WeakSet();
+          let opened = 0;
+          Object.defineProperty(globalThis, key, { value: order, enumerable: false, configurable: false, writable: false });
+          const listen = EventTarget.prototype.addEventListener;
+          const number = (dialog) => {
+            opened += 1;
+            order.set(dialog, opened);
+          };
+          const showModal = HTMLDialogElement.prototype.showModal;
+          HTMLDialogElement.prototype.showModal = function () {
+            const dialog = this;
+            if (!watched.has(dialog)) {
+              watched.add(dialog);
+              listen.call(dialog, "beforetoggle", (event) => {
+                if (event.newState === "open") number(dialog);
+              });
+            }
+            const opens = !dialog.open;
+            const before = order.get(dialog);
+            const result = showModal.call(dialog);
+            if (opens && order.get(dialog) === before) number(dialog);
+            return result;
           };
         })();
         """;

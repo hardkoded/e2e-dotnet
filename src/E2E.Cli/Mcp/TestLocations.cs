@@ -24,7 +24,10 @@ internal static partial class TestLocations
         public bool Contains(int line) => line >= First && line <= Last;
     }
 
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<MethodInfo, Dictionary<string, Span>> Known = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<
+        MethodInfo,
+        Dictionary<string, Span>
+    > Known = new();
 
     [GeneratedRegex(@"^(?<file>.+\.[A-Za-z]+):(?<line>[0-9]+)\z", RegexOptions.CultureInvariant)]
     private static partial Regex FileLine();
@@ -35,7 +38,8 @@ internal static partial class TestLocations
         var match = FileLine().Match(name);
         file = match.Success ? match.Groups["file"].Value : string.Empty;
         line = 0;
-        return match.Success && int.TryParse(match.Groups["line"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out line);
+        return match.Success
+            && int.TryParse(match.Groups["line"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out line);
     }
 
     /// <summary>The lines <paramref name="test"/> is declared on in the source file <paramref name="file"/> names, or null when it is declared elsewhere.</summary>
@@ -50,7 +54,10 @@ internal static partial class TestLocations
         foreach (var (document, span) in Spans(method))
         {
             var path = Normalize(document);
-            if (string.Equals(path, wanted, StringComparison.OrdinalIgnoreCase) || path.EndsWith("/" + wanted.TrimStart('/'), StringComparison.OrdinalIgnoreCase))
+            if (
+                string.Equals(path, wanted, StringComparison.OrdinalIgnoreCase)
+                || path.EndsWith("/" + wanted.TrimStart('/'), StringComparison.OrdinalIgnoreCase)
+            )
             {
                 return span;
             }
@@ -81,7 +88,17 @@ internal static partial class TestLocations
             var points = PointsOf(reader, method.MetadataToken);
 
             // An async or iterator method's body is its state machine's MoveNext.
-            if (points.IsEmpty && method.GetCustomAttributes<System.Runtime.CompilerServices.StateMachineAttribute>().FirstOrDefault()?.StateMachineType.GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) is { } moveNext)
+            if (
+                points.IsEmpty
+                && method
+                    .GetCustomAttributes<System.Runtime.CompilerServices.StateMachineAttribute>()
+                    .FirstOrDefault()
+                    ?.StateMachineType.GetMethod(
+                        "MoveNext",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+                    )
+                    is { } moveNext
+            )
             {
                 points = PointsOf(reader, moveNext.MetadataToken);
             }
@@ -108,7 +125,12 @@ internal static partial class TestLocations
     }
 
     private static ImmutableArray<SequencePoint> PointsOf(MetadataReader reader, int token) =>
-        [.. reader.GetMethodDebugInformation(MetadataTokens.MethodDefinitionHandle(token).ToDebugInformationHandle()).GetSequencePoints().Where(point => !point.IsHidden)];
+        [
+            .. reader
+                .GetMethodDebugInformation(MetadataTokens.MethodDefinitionHandle(token).ToDebugInformationHandle())
+                .GetSequencePoints()
+                .Where(point => !point.IsHidden),
+        ];
 
     // The first sequence point is the body's opening brace or expression: the signature is the line of the method's name above it, and the
     // attributes sit on the lines above that.
@@ -125,7 +147,14 @@ internal static partial class TestLocations
         }
 
         var name = Math.Min(bodyLine, lines.Length);
-        while (name > 1 && (lines[name - 1].TrimStart().StartsWith('[') || !lines[name - 1].Contains(methodName + "(", StringComparison.Ordinal)) && bodyLine - name < 12)
+        while (
+            name > 1
+            && (
+                lines[name - 1].TrimStart().StartsWith('[')
+                || !lines[name - 1].Contains(methodName + "(", StringComparison.Ordinal)
+            )
+            && bodyLine - name < 12
+        )
         {
             name--;
         }

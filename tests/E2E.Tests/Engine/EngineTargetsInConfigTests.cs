@@ -18,7 +18,16 @@ public sealed class EngineTargetsInConfigTests
     public void Rejects_an_empty_platform_declaration()
     {
         var error = Assert.Throws<ConfigurationException>(() =>
-            EngineManifest.DefineEngine(new EngineSpec { Name = "x", Version = "1", SpiVersion = 1, Platform = " " }));
+            EngineManifest.DefineEngine(
+                new EngineSpec
+                {
+                    Name = "x",
+                    Version = "1",
+                    SpiVersion = 1,
+                    Platform = " ",
+                }
+            )
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("platform must be a non-empty string when declared", error.Message, StringComparison.Ordinal);
     }
@@ -38,7 +47,10 @@ public sealed class EngineTargetsInConfigTests
     public void Accepts_a_video_mode_on_a_target_without_an_engine_the_runner_grades_it_later()
     {
         var config = E2EConfig.Parse("""{ "targets": [{ "name": "ios", "platform": "ios", "video": "on" }] }""", Root);
-        Assert.Equal(new ResolvedRecording(RecordingMode.On, RecordingSource.Target), config.Targets.Single(item => item.Name == "ios").Video);
+        Assert.Equal(
+            new ResolvedRecording(RecordingMode.On, RecordingSource.Target),
+            config.Targets.Single(item => item.Name == "ios").Video
+        );
     }
 
     /// <summary>
@@ -49,7 +61,15 @@ public sealed class EngineTargetsInConfigTests
     public void Partial_Accepts_agent_options_alongside_an_executor()
     {
         var executor = new CustomBrain();
-        var agent = ResolvedAgent.From("default", new AgentOptions { Executor = executor, MaxModelCalls = 40, Context = "device hints" });
+        var agent = ResolvedAgent.From(
+            "default",
+            new AgentOptions
+            {
+                Executor = executor,
+                MaxModelCalls = 40,
+                Context = "device hints",
+            }
+        );
         Assert.Same(executor, agent.Executor);
         Assert.Equal(40, agent.MaxModelCalls);
         Assert.Equal("device hints", agent.Context);
@@ -65,7 +85,8 @@ public sealed class EngineTargetsInConfigTests
 
         public EngineCapabilities Capabilities => EngineCapabilities.None;
 
-        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class CustomBrain : IStepExecutor

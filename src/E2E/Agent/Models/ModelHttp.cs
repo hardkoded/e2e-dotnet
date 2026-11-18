@@ -16,14 +16,17 @@ namespace E2E.Internal;
 internal static class ModelHttp
 {
     /// <summary><c>e2e-dotnet/&lt;version&gt; (&lt;platform&gt;; &lt;arch&gt;)</c>: what every vendor request identifies as. Never another client's name.</summary>
-    public static readonly string UserAgent = "e2e-dotnet/" + PackageVersion() + " (" + Platform() + "; " + Arch() + ")";
+    public static readonly string UserAgent =
+        "e2e-dotnet/" + PackageVersion() + " (" + Platform() + "; " + Arch() + ")";
 
     /// <summary>
     /// Sent with every model call, whichever provider serves it, replacing the same headers set on the client.
     /// The .NET runtime follows our user agent, as the AI SDK appends its own upstream; <c>HTTP-Referer</c> and
     /// <c>X-Title</c> are the app attribution the Vercel AI Gateway and OpenRouter read, and others ignore.
     /// </summary>
-    public static readonly IReadOnlyDictionary<string, string> RequestHeaders = new Dictionary<string, string>(StringComparer.Ordinal)
+    public static readonly IReadOnlyDictionary<string, string> RequestHeaders = new Dictionary<string, string>(
+        StringComparer.Ordinal
+    )
     {
         ["User-Agent"] = UserAgent + " runtime/dotnet/" + System.Environment.Version,
         ["HTTP-Referer"] = "https://github.com/hardkoded/e2e-dotnet",
@@ -37,7 +40,8 @@ internal static class ModelHttp
         string.Equals(message.Role, "user", StringComparison.Ordinal) ? message.Images ?? [] : [];
 
     /// <summary>An image as a <c>data:</c> URL, the form the OpenAI endpoints take.</summary>
-    public static string DataUrl(ModelImage image) => "data:" + image.MediaType + ";base64," + Convert.ToBase64String(image.Data);
+    public static string DataUrl(ModelImage image) =>
+        "data:" + image.MediaType + ";base64," + Convert.ToBase64String(image.Data);
 
     /// <summary>The image format name Bedrock's Converse API takes: <c>png</c> for <c>image/png</c>, <c>jpeg</c> for <c>image/jpg</c>.</summary>
     public static string ImageFormat(ModelImage image)
@@ -58,7 +62,11 @@ internal static class ModelHttp
 
     /// <summary>A string property of <paramref name="element"/>, or null when it holds none.</summary>
     internal static string? OptionalString(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     /// <summary>The reasoning text of a turn (upstream's <c>StepResult.reasoningText</c>): its parts joined, or null when it has none.</summary>
     internal static string? ReasoningText(IEnumerable<string> parts)
@@ -77,7 +85,9 @@ internal static class ModelHttp
     internal static AgentException ModelRefusalError(string model, string? rawFinishReason, Redactor redactor)
     {
         // Redact first and cut after, so no prefix of a secret survives the cut.
-        var reason = string.IsNullOrWhiteSpace(rawFinishReason) ? ModelResponse.ContentFilter : redactor.Redact(rawFinishReason);
+        var reason = string.IsNullOrWhiteSpace(rawFinishReason)
+            ? ModelResponse.ContentFilter
+            : redactor.Redact(rawFinishReason);
         if (reason.Length > MaxFinishReasonChars)
         {
             reason = reason[..MaxFinishReasonChars];
@@ -92,13 +102,18 @@ internal static class ModelHttp
     /// </summary>
     internal static AgentException ErrorFinishError(string? rawFinishReason, Redactor redactor)
     {
-        var reason = string.IsNullOrWhiteSpace(rawFinishReason) ? ModelResponse.ErrorFinish : redactor.Redact(rawFinishReason);
+        var reason = string.IsNullOrWhiteSpace(rawFinishReason)
+            ? ModelResponse.ErrorFinish
+            : redactor.Redact(rawFinishReason);
         if (reason.Length > MaxFinishReasonChars)
         {
             reason = reason[..MaxFinishReasonChars];
         }
 
-        return new AgentException("MODEL_PROVIDER_FAILED", "model provider failed: the call ended on an error finish (raw finish reason: " + reason + ")");
+        return new AgentException(
+            "MODEL_PROVIDER_FAILED",
+            "model provider failed: the call ended on an error finish (raw finish reason: " + reason + ")"
+        );
     }
 
     /// <summary>The most response body bytes a failure message quotes.</summary>
@@ -114,12 +129,21 @@ internal static class ModelHttp
     /// the body, redacted with <paramref name="redactor"/> and cut at 1 KB. <paramref name="sign"/> runs on each attempt's copy just before
     /// it is sent, so a request that carries a timestamp (Bedrock's SigV4) is signed again for every retry, as the AI SDK signs inside each fetch.
     /// </summary>
-    public static async Task<string> SendAsync(HttpClient http, HttpRequestMessage message, Redactor redactor, CancellationToken cancellationToken, Action<HttpRequestMessage>? sign = null, int? maxRetries = null)
+    public static async Task<string> SendAsync(
+        HttpClient http,
+        HttpRequestMessage message,
+        Redactor redactor,
+        CancellationToken cancellationToken,
+        Action<HttpRequestMessage>? sign = null,
+        int? maxRetries = null
+    )
     {
         var retries = maxRetries ?? TransportRetries;
         ModelEndpoint.AddHeaders(message, RequestHeaders);
         // A request message can be sent once, so each attempt sends a copy of the same bytes.
-        var payload = message.Content is null ? null : await message.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        var payload = message.Content is null
+            ? null
+            : await message.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
         var backoff = InitialRetryDelay;
         var attempts = new List<Exception>();
         for (var retry = 0; ; retry++)
@@ -133,7 +157,10 @@ internal static class ModelHttp
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                throw new AgentException("MODEL_PROVIDER_FAILED", "The model request got no response within 120 seconds.");
+                throw new AgentException(
+                    "MODEL_PROVIDER_FAILED",
+                    "The model request got no response within 120 seconds."
+                );
             }
             catch (HttpRequestException ex)
             {
@@ -146,12 +173,20 @@ internal static class ModelHttp
                     continue;
                 }
 
-                throw Spent(new AgentException("MODEL_PROVIDER_FAILED", "The model provider could not be reached.", ex), attempts);
+                throw Spent(
+                    new AgentException("MODEL_PROVIDER_FAILED", "The model provider could not be reached.", ex),
+                    attempts
+                );
             }
             catch (OAuth.OAuthException ex)
             {
                 // A missing or rejected subscription login stops the step; signing in again is the remedy.
-                throw new AgentException("MODEL_PROVIDER_FAILED", "The subscription login failed (" + ex.Code + "): " + ex.Message, blocked: true, ex);
+                throw new AgentException(
+                    "MODEL_PROVIDER_FAILED",
+                    "The subscription login failed (" + ex.Code + "): " + ex.Message,
+                    blocked: true,
+                    ex
+                );
             }
 
             using (response)
@@ -173,7 +208,11 @@ internal static class ModelHttp
                 // A request too big is not an outage: the step's observations are what must shrink, and the code says so.
                 if (ContextOverflow.DescribesOverflow((int)response.StatusCode, null, body))
                 {
-                    throw new AgentException("CONTEXT_OVERFLOW", OverflowMessage + ": " + FailureText(response, body, redactor), blocked: true);
+                    throw new AgentException(
+                        "CONTEXT_OVERFLOW",
+                        OverflowMessage + ": " + FailureText(response, body, redactor),
+                        blocked: true
+                    );
                 }
 
                 throw Spent(ProviderFailed(response, body, redactor), attempts);
@@ -201,7 +240,10 @@ internal static class ModelHttp
             return last;
         }
 
-        var chain = new RetryError("Failed after " + (attempts.Count + 1) + " attempts. Last error: " + last.Message, [.. attempts, last]);
+        var chain = new RetryError(
+            "Failed after " + (attempts.Count + 1) + " attempts. Last error: " + last.Message,
+            [.. attempts, last]
+        );
         return new AgentException(last.Code, last.Message, chain)
         {
             ProviderStatus = last.ProviderStatus,
@@ -231,7 +273,15 @@ internal static class ModelHttp
     private static TimeSpan RetryDelay(HttpResponseMessage response, TimeSpan backoff)
     {
         double? retryAfterMs = null;
-        if (response.Headers.TryGetValues("retry-after-ms", out var millis) && double.TryParse(millis.FirstOrDefault(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedMs))
+        if (
+            response.Headers.TryGetValues("retry-after-ms", out var millis)
+            && double.TryParse(
+                millis.FirstOrDefault(),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var parsedMs
+            )
+        )
         {
             retryAfterMs = parsedMs;
         }
@@ -249,14 +299,19 @@ internal static class ModelHttp
             }
         }
 
-        return retryAfterMs is { } ms && double.IsFinite(ms) && ms >= 0 && (ms < 60_000 || ms < backoff.TotalMilliseconds)
+        return
+            retryAfterMs is { } ms && double.IsFinite(ms) && ms >= 0 && (ms < 60_000 || ms < backoff.TotalMilliseconds)
             ? TimeSpan.FromMilliseconds(ms)
             : backoff;
     }
 
     private static HttpRequestMessage CopyRequest(HttpRequestMessage message, byte[]? payload)
     {
-        var copy = new HttpRequestMessage(message.Method, message.RequestUri) { Version = message.Version, VersionPolicy = message.VersionPolicy };
+        var copy = new HttpRequestMessage(message.Method, message.RequestUri)
+        {
+            Version = message.Version,
+            VersionPolicy = message.VersionPolicy,
+        };
         foreach (var header in message.Headers)
         {
             copy.Headers.TryAddWithoutValidation(header.Key, header.Value);
@@ -284,7 +339,9 @@ internal static class ModelHttp
     {
         try
         {
-            var code = (JsonNode.Parse(body) as JsonObject)?["error"] is JsonObject error ? error["code"] as JsonValue : null;
+            var code = (JsonNode.Parse(body) as JsonObject)?["error"] is JsonObject error
+                ? error["code"] as JsonValue
+                : null;
             return code is not null && code.TryGetValue<string>(out var text) && text.Length <= 128 ? text : null;
         }
         catch (Exception ex) when (ex is JsonException or ArgumentException)
@@ -312,7 +369,9 @@ internal static class ModelHttp
     {
         var status = "HTTP " + ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture);
         var trimmed = body.Trim();
-        var redacted = redactor.Redact(trimmed.Length > MaxRedactedBodyChars ? trimmed[..MaxRedactedBodyChars] : trimmed);
+        var redacted = redactor.Redact(
+            trimmed.Length > MaxRedactedBodyChars ? trimmed[..MaxRedactedBodyChars] : trimmed
+        );
         if (redacted.Length == 0)
         {
             return status;
@@ -349,9 +408,20 @@ internal static class ModelHttp
             using var document = JsonDocument.Parse(body);
             return parse(document.RootElement);
         }
-        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or IndexOutOfRangeException or FormatException)
+        catch (Exception ex)
+            when (ex
+                    is JsonException
+                        or KeyNotFoundException
+                        or InvalidOperationException
+                        or IndexOutOfRangeException
+                        or FormatException
+            )
         {
-            throw new AgentException("MODEL_OUTPUT_INVALID", "The model provider returned JSON that could not be read.", ex);
+            throw new AgentException(
+                "MODEL_OUTPUT_INVALID",
+                "The model provider returned JSON that could not be read.",
+                ex
+            );
         }
     }
 
@@ -361,7 +431,8 @@ internal static class ModelHttp
     /// </summary>
     public const string JsonToolName = "json";
 
-    public static string JsonToolDescription(ModelRequest request) => "Respond with a JSON object" + (request.SchemaName is null ? "." : " named " + request.SchemaName + ".");
+    public static string JsonToolDescription(ModelRequest request) =>
+        "Respond with a JSON object" + (request.SchemaName is null ? "." : " named " + request.SchemaName + ".");
 
     /// <summary>
     /// A structured answer given as the forced <see cref="JsonToolName"/> tool call, as the content of the turn: the arguments, as text.
@@ -369,7 +440,9 @@ internal static class ModelHttp
     /// </summary>
     public static ModelResponse StructuredAnswer(ModelResponse response)
     {
-        var call = response.ToolCalls.FirstOrDefault(item => string.Equals(item.Name, JsonToolName, StringComparison.Ordinal));
+        var call = response.ToolCalls.FirstOrDefault(item =>
+            string.Equals(item.Name, JsonToolName, StringComparison.Ordinal)
+        );
         if (call is null)
         {
             return response;
@@ -388,7 +461,8 @@ internal static class ModelHttp
     }
 
     /// <summary>Whether a <c>thinking</c> provider option turns thinking on (present and not <c>disabled</c>).</summary>
-    public static bool Thinks(JsonNode? thinking) => thinking is not null && (string?)(thinking as JsonObject)?["type"] != "disabled";
+    public static bool Thinks(JsonNode? thinking) =>
+        thinking is not null && (string?)(thinking as JsonObject)?["type"] != "disabled";
 
     /// <summary>
     /// Whether a provider that refuses a forced tool while the model thinks (Anthropic, Bedrock) sends <c>auto</c> in place of the
@@ -400,7 +474,11 @@ internal static class ModelHttp
     /// <summary>The call warning for a forced tool choice sent as <c>auto</c> (upstream's <c>unsupported</c> <c>toolChoice</c> warning).</summary>
     public static ModelResponse WithToolChoiceDowngrade(ModelResponse response, ModelToolChoice asked)
     {
-        var warning = new ModelWarning("unsupported", "toolChoice", "toolChoice '" + asked.Type + "' is not supported while the model thinks. Using 'auto' instead.");
+        var warning = new ModelWarning(
+            "unsupported",
+            "toolChoice",
+            "toolChoice '" + asked.Type + "' is not supported while the model thinks. Using 'auto' instead."
+        );
         return new ModelResponse
         {
             Content = response.Content,
@@ -455,7 +533,12 @@ internal static class ModelHttp
     /// Adds the agent's provider options under <paramref name="provider"/> to <paramref name="payload"/>, as
     /// given. They cannot replace a field the client itself sets.
     /// </summary>
-    public static void MergeProviderOptions(JsonObject payload, ModelRequest request, string provider, params string[] reserved)
+    public static void MergeProviderOptions(
+        JsonObject payload,
+        ModelRequest request,
+        string provider,
+        params string[] reserved
+    )
     {
         if (request.ProviderOptions is null || !request.ProviderOptions.TryGetValue(provider, out var extra))
         {
@@ -464,14 +547,20 @@ internal static class ModelHttp
 
         if (extra.ValueKind != JsonValueKind.Object)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "providerOptions." + provider + " must be an object of provider options");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "providerOptions." + provider + " must be an object of provider options"
+            );
         }
 
         foreach (var field in extra.EnumerateObject())
         {
             if (reserved.Contains(field.Name, StringComparer.Ordinal))
             {
-                throw new ConfigurationException("INVALID_CONFIG", "providerOptions." + provider + "." + field.Name + " cannot replace a field the client sets");
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    "providerOptions." + provider + "." + field.Name + " cannot replace a field the client sets"
+                );
             }
 
             payload[field.Name] = JsonNode.Parse(field.Value.GetRawText());
@@ -515,7 +604,10 @@ internal static class ModelHttp
     /// <summary>The package version MinVer stamps, without its build metadata.</summary>
     internal static string PackageVersion()
     {
-        var version = typeof(ModelHttp).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
+        var version = typeof(ModelHttp)
+            .Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion
+            ?? "0.0.0";
         return version.Split('+')[0];
     }
 
@@ -544,13 +636,26 @@ internal static class ModelHttp
     /// <summary>A token count the provider may leave out: null when the property is missing or not a count.</summary>
     public static int? OptionalInt(JsonElement element, string name)
     {
-        return element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number) && number >= 0 ? number : null;
+        return
+            element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out var number)
+            && number >= 0
+            ? number
+            : null;
     }
 
     /// <summary>A cost in US dollars the provider may leave out: null when the property is missing or not a finite, non-negative number.</summary>
     public static double? OptionalCost(JsonElement element, string name)
     {
-        return element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var cost) && double.IsFinite(cost) && cost >= 0 ? cost : null;
+        return
+            element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetDouble(out var cost)
+            && double.IsFinite(cost)
+            && cost >= 0
+            ? cost
+            : null;
     }
 
     /// <summary>The object property <paramref name="name"/> of <paramref name="element"/>, or null when it is missing or not an object.</summary>
@@ -561,6 +666,11 @@ internal static class ModelHttp
 
     public static int Int(JsonElement element, string name)
     {
-        return element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number) ? number : 0;
+        return
+            element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out var number)
+            ? number
+            : 0;
     }
 }

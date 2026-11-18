@@ -20,12 +20,14 @@ public sealed class LateHandlerFixture : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     private static readonly Lazy<string> Site = new(StartSite);
 
     /// <summary>Where the fixture's attempt writes its evidence; the run's report.json goes beside it.</summary>
-    public static string Results { get; } = Path.Combine(Path.GetTempPath(), "e2e-web-platform-" + Guid.NewGuid().ToString("N"), "results");
+    public static string Results { get; } =
+        Path.Combine(Path.GetTempPath(), "e2e-web-platform-" + Guid.NewGuid().ToString("N"), "results");
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -49,7 +51,10 @@ public sealed class LateHandlerFixture : E2ETest
             // The port has no value matcher (upstream's expect(value).toBe), so the assertion throws the ASSERTION_FAILED it would.
             if (!string.Equals(route.Request.Method, "POST", StringComparison.Ordinal))
             {
-                throw new TestException("ASSERTION_FAILED", "expect(received).toBe(expected)\nExpected: \"POST\"\nReceived: \"" + route.Request.Method + "\"");
+                throw new TestException(
+                    "ASSERTION_FAILED",
+                    "expect(received).toBe(expected)\nExpected: \"POST\"\nReceived: \"" + route.Request.Method + "\""
+                );
             }
         });
         await App.OpenAsync("/script-flags");
@@ -93,7 +98,8 @@ public sealed class LateHandlerFixture : E2ETest
                 var context = await http.GetContextAsync();
                 var html = context.Request.Url!.AbsolutePath switch
                 {
-                    "/script-flags" => "<!doctype html><html><head><title>Flags</title><script src=\"/api/flags.js\"></script></head><body><h1>Flags</h1></body></html>",
+                    "/script-flags" =>
+                        "<!doctype html><html><head><title>Flags</title><script src=\"/api/flags.js\"></script></head><body><h1>Flags</h1></body></html>",
                     "/" => "<!doctype html><html><head><title>Home</title></head><body><h1>Home</h1></body></html>",
                     _ => null,
                 };

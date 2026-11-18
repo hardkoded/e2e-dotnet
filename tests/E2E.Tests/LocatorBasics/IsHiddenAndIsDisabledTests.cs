@@ -26,9 +26,19 @@ public sealed class IsHiddenAndIsDisabledTests
     [Fact]
     public async Task IsDisabled_mirrors_isEnabled_secure_fields_included()
     {
-        Assert.True(await ScreenFixture.Create(Item("x", "x", new NodeStates { Disabled = true })).GetByRole("listitem").IsDisabledAsync());
+        Assert.True(
+            await ScreenFixture
+                .Create(Item("x", "x", new NodeStates { Disabled = true }))
+                .GetByRole("listitem")
+                .IsDisabledAsync()
+        );
         Assert.False(await ScreenFixture.Create(Shown).GetByRole("listitem").IsDisabledAsync());
-        Assert.True(await ScreenFixture.Create(Item("pw", "", new NodeStates { Secure = true, Disabled = true })).GetByRole("listitem").IsDisabledAsync());
+        Assert.True(
+            await ScreenFixture
+                .Create(Item("pw", "", new NodeStates { Secure = true, Disabled = true }))
+                .GetByRole("listitem")
+                .IsDisabledAsync()
+        );
     }
 
     [Fact]

@@ -43,7 +43,8 @@ public sealed class NamesWithCssGeneratedContentTests
         using var site = await TinySite.StartAsync(Page);
         await using var engine = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         var observation = await engine.ObserveAsync(CancellationToken.None);
-        var read = WebSemanticsTests.Flatten(observation.Roots)
+        var read = WebSemanticsTests
+            .Flatten(observation.Roots)
             .Where(node => node.Role is "button" or "link")
             .Select(node => (node.Role, node.Name))
             .ToList();
@@ -56,7 +57,8 @@ public sealed class NamesWithCssGeneratedContentTests
                 ("link", null),
                 ("button", "Log out"),
             ],
-            read);
+            read
+        );
     }
 
     [Fact]
@@ -90,8 +92,16 @@ public sealed class NamesWithCssGeneratedContentTests
         await WithScreenAsync(async screen =>
         {
             Assert.Equal([quoted], await NamesAsync(screen.GetByRole("heading", quoted).First()));
-            Assert.Equal([quoted], await NamesAsync(screen.GetByRole("heading", "don't \"QUOTE\"", exact: false).First()));
-            Assert.Equal([quoted], await NamesAsync(screen.GetByRole("heading", "Don't", new RoleOptions { Exact = false, Visible = true })));
+            Assert.Equal(
+                [quoted],
+                await NamesAsync(screen.GetByRole("heading", "don't \"QUOTE\"", exact: false).First())
+            );
+            Assert.Equal(
+                [quoted],
+                await NamesAsync(
+                    screen.GetByRole("heading", "Don't", new RoleOptions { Exact = false, Visible = true })
+                )
+            );
             Assert.Equal([quoted], await NamesAsync(screen.GetByText(new Regex(Regex.Escape(quoted))).First()));
             Assert.Equal([quoted], await NamesAsync(screen.GetByText(new Regex("""[']t "quote" a >>""")).First()));
             Assert.Equal([quoted], await NamesAsync(screen.GetByTestId(new Regex("^don't$")).First()));

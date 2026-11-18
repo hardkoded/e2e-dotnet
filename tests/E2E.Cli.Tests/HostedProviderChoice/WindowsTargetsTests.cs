@@ -9,7 +9,12 @@ namespace E2E.Cli.Tests.HostedProviderChoice;
 /// <summary>.NET-only: upstream has no desktop engine, so it has no code that makes one from a config target.</summary>
 public sealed class WindowsTargetsTests
 {
-    private static readonly TargetConfig Target = new() { Name = "desk", Platform = "windows", App = new AppConfig { AppPath = "bin/Desk.exe", BundleId = "Desk" } };
+    private static readonly TargetConfig Target = new()
+    {
+        Name = "desk",
+        Platform = "windows",
+        App = new AppConfig { AppPath = "bin/Desk.exe", BundleId = "Desk" },
+    };
 
     private static Func<string, string?> Environment(params (string Name, string Value)[] variables) =>
         name => variables.Where(variable => variable.Name == name).Select(variable => variable.Value).FirstOrDefault();
@@ -34,7 +39,9 @@ public sealed class WindowsTargetsTests
     [Fact]
     public void Refuses_a_windows_target_on_another_host_as_a_config_error()
     {
-        var error = Assert.Throws<ConfigurationException>(() => Targets.Create(Target, Environment(), isWindows: false));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            Targets.Create(Target, Environment(), isWindows: false)
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("runs on Windows only", error.Message, StringComparison.Ordinal);
     }
@@ -42,7 +49,12 @@ public sealed class WindowsTargetsTests
     [Fact]
     public void Refuses_a_windows_target_without_an_app()
     {
-        var target = new TargetConfig { Name = "desk", Platform = "windows", App = new AppConfig() };
+        var target = new TargetConfig
+        {
+            Name = "desk",
+            Platform = "windows",
+            App = new AppConfig(),
+        };
         var error = Assert.Throws<ConfigurationException>(() => Targets.Create(target, Environment(), isWindows: true));
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("needs app.appPath or app.bundleId", error.Message, StringComparison.Ordinal);

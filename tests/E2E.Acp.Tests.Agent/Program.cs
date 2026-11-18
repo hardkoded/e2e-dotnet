@@ -31,11 +31,21 @@ void Log(JsonNode entry)
 }
 
 Log(new JsonObject { ["pid"] = Environment.ProcessId });
-Log(new JsonObject
-{
-    ["env"] = new JsonArray(Environment.GetEnvironmentVariables().Keys.Cast<string>().Where(name => name.StartsWith("E2E_", StringComparison.OrdinalIgnoreCase)).Order(StringComparer.Ordinal).Select(name => (JsonNode)name).ToArray()),
-    ["codexConfig"] = Environment.GetEnvironmentVariable("CODEX_CONFIG"),
-});
+Log(
+    new JsonObject
+    {
+        ["env"] = new JsonArray(
+            Environment
+                .GetEnvironmentVariables()
+                .Keys.Cast<string>()
+                .Where(name => name.StartsWith("E2E_", StringComparison.OrdinalIgnoreCase))
+                .Order(StringComparer.Ordinal)
+                .Select(name => (JsonNode)name)
+                .ToArray()
+        ),
+        ["codexConfig"] = Environment.GetEnvironmentVariable("CODEX_CONFIG"),
+    }
+);
 
 var output = new StreamWriter(Console.OpenStandardOutput(), new UTF8Encoding(false)) { AutoFlush = true };
 var writeGate = new object();
@@ -55,11 +65,25 @@ async Task<JsonNode?> Ask(string method, JsonNode parameters)
     var id = Interlocked.Increment(ref nextRequest);
     var waiting = new TaskCompletionSource<JsonNode?>(TaskCreationOptions.RunContinuationsAsynchronously);
     pending[id] = waiting;
-    Send(new JsonObject { ["id"] = id, ["method"] = method, ["params"] = parameters });
+    Send(
+        new JsonObject
+        {
+            ["id"] = id,
+            ["method"] = method,
+            ["params"] = parameters,
+        }
+    );
     return await waiting.Task;
 }
 
-void Notify(JsonNode update) => Send(new JsonObject { ["method"] = "session/update", ["params"] = new JsonObject { ["sessionId"] = "s1", ["update"] = update } });
+void Notify(JsonNode update) =>
+    Send(
+        new JsonObject
+        {
+            ["method"] = "session/update",
+            ["params"] = new JsonObject { ["sessionId"] = "s1", ["update"] = update },
+        }
+    );
 
 using var http = new HttpClient();
 string? mcpUrl = null;
@@ -77,7 +101,10 @@ async Task<JsonNode?> Mcp(string method, JsonNode? parameters, bool notification
         body["id"] = Interlocked.Increment(ref mcpCalls);
     }
 
-    using var request = new HttpRequestMessage(HttpMethod.Post, mcpUrl) { Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json") };
+    using var request = new HttpRequestMessage(HttpMethod.Post, mcpUrl)
+    {
+        Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"),
+    };
     request.Headers.Accept.ParseAdd("application/json, text/event-stream");
     using var response = await http.SendAsync(request);
     var text = await response.Content.ReadAsStringAsync();
@@ -87,7 +114,8 @@ async Task<JsonNode?> Mcp(string method, JsonNode? parameters, bool notification
 var turn = 0;
 var cancelRequested = false;
 var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-var usage = Environment.GetEnvironmentVariable("ACP_USAGE") ?? """{"totalTokens":15,"inputTokens":10,"outputTokens":5,"cachedReadTokens":4}""";
+var usage = Environment.GetEnvironmentVariable("ACP_USAGE")
+    ?? """{"totalTokens":15,"inputTokens":10,"outputTokens":5,"cachedReadTokens":4}""";
 
 JsonArray MovesFor(string prompt, int index)
 {
@@ -109,7 +137,12 @@ JsonArray MovesFor(string prompt, int index)
 
 async Task<JsonNode> Prompt(JsonNode parameters)
 {
-    var text = string.Join("\n", parameters["prompt"]!.AsArray().Select(block => block!["type"]!.GetValue<string>() == "text" ? block["text"]!.GetValue<string>() : ""));
+    var text = string.Join(
+        "\n",
+        parameters["prompt"]!
+            .AsArray()
+            .Select(block => block!["type"]!.GetValue<string>() == "text" ? block["text"]!.GetValue<string>() : "")
+    );
     Log(new JsonObject { ["prompt"] = text });
     cancelRequested = false;
     var number = ++turn;
@@ -118,7 +151,13 @@ async Task<JsonNode> Prompt(JsonNode parameters)
         var node = move!.AsObject();
         if (node.ContainsKey("say"))
         {
-            Notify(new JsonObject { ["sessionUpdate"] = "agent_message_chunk", ["content"] = new JsonObject { ["type"] = "text", ["text"] = node["say"]!.DeepClone() } });
+            Notify(
+                new JsonObject
+                {
+                    ["sessionUpdate"] = "agent_message_chunk",
+                    ["content"] = new JsonObject { ["type"] = "text", ["text"] = node["say"]!.DeepClone() },
+                }
+            );
         }
         else if (node.ContainsKey("fail"))
         {
@@ -144,8 +183,19 @@ async Task<JsonNode> Prompt(JsonNode parameters)
                 ["sessionId"] = "s1",
                 ["toolCall"] = toolCall,
                 ["options"] = new JsonArray(
-                    new JsonObject { ["optionId"] = "yes", ["name"] = "Allow", ["kind"] = "allow_once" },
-                    new JsonObject { ["optionId"] = "no", ["name"] = "Reject", ["kind"] = "reject_once" }),
+                    new JsonObject
+                    {
+                        ["optionId"] = "yes",
+                        ["name"] = "Allow",
+                        ["kind"] = "allow_once",
+                    },
+                    new JsonObject
+                    {
+                        ["optionId"] = "no",
+                        ["name"] = "Reject",
+                        ["kind"] = "reject_once",
+                    }
+                ),
             };
             if (node["requestMeta"] is { } requestMeta)
             {
@@ -156,7 +206,14 @@ async Task<JsonNode> Prompt(JsonNode parameters)
             Log(new JsonObject { ["permission"] = title, ["outcome"] = answer?["outcome"]?.DeepClone() });
             if (node["status"] is { } status)
             {
-                Notify(new JsonObject { ["sessionUpdate"] = "tool_call_update", ["toolCallId"] = toolCall["toolCallId"]!.DeepClone(), ["status"] = status.DeepClone() });
+                Notify(
+                    new JsonObject
+                    {
+                        ["sessionUpdate"] = "tool_call_update",
+                        ["toolCallId"] = toolCall["toolCallId"]!.DeepClone(),
+                        ["status"] = status.DeepClone(),
+                    }
+                );
             }
         }
         else if (node.ContainsKey("ran"))
@@ -165,10 +222,26 @@ async Task<JsonNode> Prompt(JsonNode parameters)
             var title = node["ran"]!.GetValue<string>();
             var id = $"ran-{number}-{title}";
             var status = node["status"]?.GetValue<string>();
-            Notify(new JsonObject { ["sessionUpdate"] = "tool_call", ["toolCallId"] = id, ["title"] = title, ["kind"] = node["kind"]?.GetValue<string>() ?? "read", ["status"] = "in_progress" });
+            Notify(
+                new JsonObject
+                {
+                    ["sessionUpdate"] = "tool_call",
+                    ["toolCallId"] = id,
+                    ["title"] = title,
+                    ["kind"] = node["kind"]?.GetValue<string>() ?? "read",
+                    ["status"] = "in_progress",
+                }
+            );
             if (status != "in_progress")
             {
-                Notify(new JsonObject { ["sessionUpdate"] = "tool_call_update", ["toolCallId"] = id, ["status"] = status ?? "completed" });
+                Notify(
+                    new JsonObject
+                    {
+                        ["sessionUpdate"] = "tool_call_update",
+                        ["toolCallId"] = id,
+                        ["status"] = status ?? "completed",
+                    }
+                );
             }
 
             Log(new JsonObject { ["ran"] = title });
@@ -203,7 +276,16 @@ async Task<JsonNode> Prompt(JsonNode parameters)
                 // Logged first: the executor stops this agent as soon as it reports the tool.
                 var title = ran.GetValue<string>();
                 Log(new JsonObject { ["ran"] = title });
-                Notify(new JsonObject { ["sessionUpdate"] = "tool_call", ["toolCallId"] = $"ran-{number}-{title}", ["title"] = title, ["kind"] = "read", ["status"] = "in_progress" });
+                Notify(
+                    new JsonObject
+                    {
+                        ["sessionUpdate"] = "tool_call",
+                        ["toolCallId"] = $"ran-{number}-{title}",
+                        ["title"] = title,
+                        ["kind"] = "read",
+                        ["status"] = "in_progress",
+                    }
+                );
             }
 
             return new JsonObject { ["stopReason"] = "cancelled" };
@@ -214,13 +296,26 @@ async Task<JsonNode> Prompt(JsonNode parameters)
         }
     }
 
-    Notify(new JsonObject { ["sessionUpdate"] = "usage_update", ["used"] = 100, ["size"] = 1000, ["cost"] = new JsonObject { ["amount"] = 0.01 * number, ["currency"] = "USD" } });
+    Notify(
+        new JsonObject
+        {
+            ["sessionUpdate"] = "usage_update",
+            ["used"] = 100,
+            ["size"] = 1000,
+            ["cost"] = new JsonObject { ["amount"] = 0.01 * number, ["currency"] = "USD" },
+        }
+    );
     return new JsonObject { ["stopReason"] = "end_turn", ["usage"] = JsonNode.Parse(usage) };
 }
 
 async Task<JsonNode> CallTool(string name, JsonNode? arguments)
 {
-    var result = (await Mcp("tools/call", new JsonObject { ["name"] = name, ["arguments"] = arguments?.DeepClone() ?? new JsonObject() }))!;
+    var result = (
+        await Mcp(
+            "tools/call",
+            new JsonObject { ["name"] = name, ["arguments"] = arguments?.DeepClone() ?? new JsonObject() }
+        )
+    )!;
     Log(new JsonObject { ["call"] = name, ["result"] = result.DeepClone() });
     return result;
 }
@@ -229,47 +324,59 @@ async Task<JsonNode?> NewSession(JsonNode parameters)
 {
     var server = parameters["mcpServers"]![0]!;
     mcpUrl = server["url"]!.GetValue<string>();
-    await Mcp("initialize", new JsonObject
-    {
-        ["protocolVersion"] = "2025-06-18",
-        ["capabilities"] = new JsonObject(),
-        ["clientInfo"] = new JsonObject { ["name"] = "scripted-agent", ["version"] = "1" },
-    });
+    await Mcp(
+        "initialize",
+        new JsonObject
+        {
+            ["protocolVersion"] = "2025-06-18",
+            ["capabilities"] = new JsonObject(),
+            ["clientInfo"] = new JsonObject { ["name"] = "scripted-agent", ["version"] = "1" },
+        }
+    );
     await Mcp("notifications/initialized", null, notification: true);
     var listed = (await Mcp("tools/list", null))!["tools"]!.AsArray();
     var tools = listed.Select(tool => (JsonNode)tool!["name"]!.GetValue<string>()).ToArray();
-    var readOnly = listed.Where(tool => tool!["annotations"]?["readOnlyHint"]?.GetValue<bool>() == true).Select(tool => (JsonNode)tool!["name"]!.GetValue<string>()).ToArray();
-    Log(new JsonObject
-    {
-        ["session"] = new JsonObject
+    var readOnly = listed
+        .Where(tool => tool!["annotations"]?["readOnlyHint"]?.GetValue<bool>() == true)
+        .Select(tool => (JsonNode)tool!["name"]!.GetValue<string>())
+        .ToArray();
+    Log(
+        new JsonObject
         {
-            ["cwd"] = parameters["cwd"]!.DeepClone(),
-            ["server"] = server["name"]!.DeepClone(),
-            ["meta"] = parameters["_meta"]?.DeepClone(),
-            ["tools"] = new JsonArray(tools),
-            ["readOnly"] = new JsonArray(readOnly),
-        },
-    });
+            ["session"] = new JsonObject
+            {
+                ["cwd"] = parameters["cwd"]!.DeepClone(),
+                ["server"] = server["name"]!.DeepClone(),
+                ["meta"] = parameters["_meta"]?.DeepClone(),
+                ["tools"] = new JsonArray(tools),
+                ["readOnly"] = new JsonArray(readOnly),
+            },
+        }
+    );
     return new JsonObject
     {
         ["sessionId"] = "s1",
-        ["configOptions"] = new JsonArray(new JsonObject
-        {
-            ["id"] = "model",
-            ["name"] = "Model",
-            ["category"] = "model",
-            ["type"] = "select",
-            ["currentValue"] = "fast",
-            ["options"] = new JsonArray(
-                new JsonObject { ["value"] = "fast", ["name"] = "Fast" },
-                new JsonObject { ["value"] = "slow", ["name"] = "Slow" }),
-        }),
+        ["configOptions"] = new JsonArray(
+            new JsonObject
+            {
+                ["id"] = "model",
+                ["name"] = "Model",
+                ["category"] = "model",
+                ["type"] = "select",
+                ["currentValue"] = "fast",
+                ["options"] = new JsonArray(
+                    new JsonObject { ["value"] = "fast", ["name"] = "Fast" },
+                    new JsonObject { ["value"] = "slow", ["name"] = "Slow" }
+                ),
+            }
+        ),
         ["modes"] = new JsonObject
         {
             ["currentModeId"] = "default",
             ["availableModes"] = new JsonArray(
                 new JsonObject { ["id"] = "default", ["name"] = "Default" },
-                new JsonObject { ["id"] = "read-only", ["name"] = "Read only" }),
+                new JsonObject { ["id"] = "read-only", ["name"] = "Read only" }
+            ),
         },
     };
 }
@@ -286,14 +393,27 @@ async Task Handle(JsonObject message)
                 ? new JsonObject
                 {
                     ["protocolVersion"] = 1,
-                    ["agentCapabilities"] = new JsonObject { ["mcpCapabilities"] = new JsonObject { ["http"] = true }, ["sessionCapabilities"] = new JsonObject { ["close"] = new JsonObject() } },
+                    ["agentCapabilities"] = new JsonObject
+                    {
+                        ["mcpCapabilities"] = new JsonObject { ["http"] = true },
+                        ["sessionCapabilities"] = new JsonObject { ["close"] = new JsonObject() },
+                    },
                     ["agentInfo"] = new JsonObject { ["name"] = "scripted-agent", ["version"] = "1" },
                     ["authMethods"] = new JsonArray(),
                 }
                 : await new TaskCompletionSource<JsonNode?>().Task,
             "session/new" => await NewSession(parameters),
             "session/set_mode" => LogAndAnswer(new JsonObject { ["mode"] = parameters["modeId"]!.DeepClone() }),
-            "session/set_config_option" => LogAndAnswer(new JsonObject { ["config"] = new JsonObject { [parameters["configId"]!.GetValue<string>()] = parameters["value"]!.DeepClone() } }, new JsonObject { ["configOptions"] = new JsonArray() }),
+            "session/set_config_option" => LogAndAnswer(
+                new JsonObject
+                {
+                    ["config"] = new JsonObject
+                    {
+                        [parameters["configId"]!.GetValue<string>()] = parameters["value"]!.DeepClone(),
+                    },
+                },
+                new JsonObject { ["configOptions"] = new JsonArray() }
+            ),
             "authenticate" => new JsonObject(),
             "session/close" => LogAndAnswer(new JsonObject { ["closed"] = true }),
             "session/prompt" => await Prompt(parameters),
@@ -303,7 +423,18 @@ async Task Handle(JsonObject message)
     }
     catch (RpcFailure failure)
     {
-        Send(new JsonObject { ["id"] = id, ["error"] = new JsonObject { ["code"] = failure.Code, ["message"] = failure.Message, ["data"] = failure.Details } });
+        Send(
+            new JsonObject
+            {
+                ["id"] = id,
+                ["error"] = new JsonObject
+                {
+                    ["code"] = failure.Code,
+                    ["message"] = failure.Message,
+                    ["data"] = failure.Details,
+                },
+            }
+        );
     }
 }
 

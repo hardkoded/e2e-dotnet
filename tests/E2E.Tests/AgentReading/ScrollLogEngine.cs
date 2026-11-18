@@ -33,9 +33,11 @@ internal sealed class ScrollLogEngine(DocumentWorld world) : IEngine
     {
         public string Route => inner.Route;
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+        public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+            inner.OpenAsync(url, cancellationToken);
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => inner.ObserveAsync(cancellationToken);
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            inner.ObserveAsync(cancellationToken);
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {
@@ -52,7 +54,8 @@ internal sealed class ScrollLogEngine(DocumentWorld world) : IEngine
             return inner.PerformAsync(node, action, cancellationToken);
         }
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+        public Task PressAsync(string key, CancellationToken cancellationToken) =>
+            inner.PressAsync(key, cancellationToken);
 
         public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken)
         {

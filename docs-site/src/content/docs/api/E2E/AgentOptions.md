@@ -15,7 +15,7 @@ Namespace: [E2E](/api/E2E/)
 
 
 ```csharp
-public sealed class AgentOptions
+public class AgentOptions
 ```
 
 
@@ -23,6 +23,8 @@ One named agent, as upstream `agents.<name>`. Each entry starts from the built-i
 defaults; no agent inherits another's values. A call picks one with its `Agent` option.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
+
+**Derived:** [CreateAgentOptions](/api/E2E/CreateAgentOptions/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 

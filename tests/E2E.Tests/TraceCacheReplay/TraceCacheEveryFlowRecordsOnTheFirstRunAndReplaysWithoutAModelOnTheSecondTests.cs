@@ -14,8 +14,9 @@ namespace E2E.Tests.TraceCacheReplay;
 /// has no runner and no report, so each flow is one session over one cache directory, and the steps are read from the session.
 /// </summary>
 [Collection(BrowserCollection.Name)]
-public sealed partial class TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWithoutAModelOnTheSecondTests(TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWithoutAModelOnTheSecondTests.Runs runs)
-    : IClassFixture<TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWithoutAModelOnTheSecondTests.Runs>
+public sealed partial class TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWithoutAModelOnTheSecondTests(
+    TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWithoutAModelOnTheSecondTests.Runs runs
+) : IClassFixture<TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWithoutAModelOnTheSecondTests.Runs>
 {
     /// <summary>One entry per act step every flow makes.</summary>
     private static readonly int EntryCount = Flows.Sum(flow => flow.Actions.Count);
@@ -24,8 +25,14 @@ public sealed partial class TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWit
     [Fact]
     public void Partial_passes_every_flow_on_both_runs_and_reports_both_in_the_schema()
     {
-        Assert.Equal([], runs.Recorded.Where(flow => flow.Error is not null).Select(flow => flow.Title + ": " + flow.Error!.Message));
-        Assert.Equal([], runs.Replayed.Where(flow => flow.Error is not null).Select(flow => flow.Title + ": " + flow.Error!.Message));
+        Assert.Equal(
+            [],
+            runs.Recorded.Where(flow => flow.Error is not null).Select(flow => flow.Title + ": " + flow.Error!.Message)
+        );
+        Assert.Equal(
+            [],
+            runs.Replayed.Where(flow => flow.Error is not null).Select(flow => flow.Title + ": " + flow.Error!.Message)
+        );
     }
 
     // Upstream's schemaVersion 'trace-1' is the entry's Schema 1 here.
@@ -39,7 +46,10 @@ public sealed partial class TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWit
             Assert.Equal(flow.Actions.Count, steps.Count);
             foreach (var step in steps)
             {
-                Assert.Equal(("missed", "no-entry", 0), (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions));
+                Assert.Equal(
+                    ("missed", "no-entry", 0),
+                    (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions)
+                );
                 Assert.True(step.Metrics?.ModelCalls > 0, flow.Title);
             }
 
@@ -121,7 +131,9 @@ public sealed partial class TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWit
     public void Records_the_start_path_with_the_minted_id_the_recording_run_opened_a_replay_under_another_id_leaves_the_entry_as_recorded()
     {
         Assert.Equal("/records/1a2b3c4d5e6f", runs.RecordedArchive.Route);
-        Assert.Contains(runs.RecordedArchive.Appeared, anchor => anchor is { Role: "status", Name: "Record state", Text: "archived" });
+        Assert.Contains(runs.RecordedArchive.Appeared, anchor =>
+            anchor is { Role: "status", Name: "Record state", Text: "archived" }
+        );
         var afterReplay = Assert.Single(EntriesFor(runs.Directory, "archives a record"));
         Assert.Equal(JsonSerializer.Serialize(runs.RecordedArchive), JsonSerializer.Serialize(afterReplay));
     }
@@ -132,15 +144,24 @@ public sealed partial class TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWit
         var entry = Assert.Single(EntriesFor(runs.Directory, "fills the twins form"));
         var actions = entry.Actions;
         Assert.Equal(("textbox", "Nickname", "Nickname"), (actions[0].Role, actions[0].Name, actions[0].Placeholder));
-        Assert.Equal(("textbox", "Codenames", 0, 2), (actions[2].Role, actions[2].Within, actions[2].Position?.Index, actions[2].Position?.Of));
-        Assert.Equal(("textbox", "Codenames", 1, 2), (actions[3].Role, actions[3].Within, actions[3].Position?.Index, actions[3].Position?.Of));
+        Assert.Equal(
+            ("textbox", "Codenames", 0, 2),
+            (actions[2].Role, actions[2].Within, actions[2].Position?.Index, actions[2].Position?.Of)
+        );
+        Assert.Equal(
+            ("textbox", "Codenames", 1, 2),
+            (actions[3].Role, actions[3].Within, actions[3].Position?.Index, actions[3].Position?.Of)
+        );
         foreach (var anonymous in new[] { actions[2], actions[3] })
         {
             Assert.Null(anonymous.Name);
             Assert.Null(anonymous.Placeholder);
         }
 
-        Assert.Equal(("button", "Add", 1, 3), (actions[4].Role, actions[4].Name, actions[4].Position?.Index, actions[4].Position?.Of));
+        Assert.Equal(
+            ("button", "Add", 1, 3),
+            (actions[4].Role, actions[4].Name, actions[4].Position?.Index, actions[4].Position?.Of)
+        );
     }
 
     [Fact]
@@ -148,18 +169,25 @@ public sealed partial class TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWit
     {
         var entry = Assert.Single(EntriesFor(runs.Directory, "reserves offer B"));
         var action = entry.Actions[0];
-        Assert.Equal(("tap", "button", "Reserve now", "Offer B"), (action.Kind, action.Role, action.Name, action.Within));
+        Assert.Equal(
+            ("tap", "button", "Reserve now", "Offer B"),
+            (action.Kind, action.Role, action.Name, action.Within)
+        );
     }
 
     [Fact]
     public void Keeps_the_two_entries_of_the_mixed_test_apart_and_re_stages_both_after_the_replay()
     {
         var entries = EntriesFor(runs.Directory, "mixes deterministic and agent steps");
-        var anchors = entries.Select(entry => entry.Appeared.FirstOrDefault(anchor => anchor.Name == "Counter")?.Text).Order(StringComparer.Ordinal).ToList();
+        var anchors = entries
+            .Select(entry => entry.Appeared.FirstOrDefault(anchor => anchor.Name == "Counter")?.Text)
+            .Order(StringComparer.Ordinal)
+            .ToList();
         Assert.Equal(["1", "3"], anchors);
     }
 
-    private static List<StepRecord> ActSteps(List<FlowOutcome> outcomes, string title) => [.. outcomes.Single(outcome => outcome.Title == title).ActSteps];
+    private static List<StepRecord> ActSteps(List<FlowOutcome> outcomes, string title) =>
+        [.. outcomes.Single(outcome => outcome.Title == title).ActSteps];
 
     [GeneratedRegex(@"\d+ results")]
     private static partial Regex Results();

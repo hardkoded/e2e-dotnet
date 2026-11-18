@@ -31,14 +31,40 @@ internal sealed record PreviousRun(Report Report, JsonObject Document)
         var before = run["carried"] as JsonObject;
         return new JsonObject
         {
-            ["results"] = new JsonArray([.. carried.Results.Select(result => Locate(result, Report.Run.Results, run["results"]!.AsArray(), Report.Run.Carried?.Results, before?["results"]?.AsArray()))]),
+            ["results"] = new JsonArray([
+                .. carried.Results.Select(result =>
+                    Locate(
+                        result,
+                        Report.Run.Results,
+                        run["results"]!.AsArray(),
+                        Report.Run.Carried?.Results,
+                        before?["results"]?.AsArray()
+                    )
+                ),
+            ]),
             ["serialGroups"] = new JsonArray(),
-            ["errors"] = new JsonArray([.. carried.Errors.Select(error => Locate(error, Report.Run.Errors, run["errors"]!.AsArray(), Report.Run.Carried?.Errors, before?["errors"]?.AsArray()))]),
+            ["errors"] = new JsonArray([
+                .. carried.Errors.Select(error =>
+                    Locate(
+                        error,
+                        Report.Run.Errors,
+                        run["errors"]!.AsArray(),
+                        Report.Run.Carried?.Errors,
+                        before?["errors"]?.AsArray()
+                    )
+                ),
+            ]),
         };
     }
 
     // The node at the place the item has in the typed list; the lists were read from the document in order.
-    private static JsonNode? Locate<T>(T item, IReadOnlyList<T> list, JsonArray nodes, IReadOnlyList<T>? carriedList, JsonArray? carriedNodes)
+    private static JsonNode? Locate<T>(
+        T item,
+        IReadOnlyList<T> list,
+        JsonArray nodes,
+        IReadOnlyList<T>? carriedList,
+        JsonArray? carriedNodes
+    )
         where T : class
     {
         for (var index = 0; index < list.Count; index++)
@@ -83,15 +109,17 @@ internal static class LastRun
     private static string RerunId(ReportResult result) => Ids.ResultId(result.TestId, result.TargetId, result.Agent);
 
     /// <summary>Whether a run error is a failed <c>beforeAll</c> or <c>afterAll</c>, the failures <c>--last-failed</c> runs the scope of again.</summary>
-    private static bool IsSuiteHookFailure(ReportError error) => error.Phase is ErrorPhase.BeforeAll or ErrorPhase.AfterAll;
+    private static bool IsSuiteHookFailure(ReportError error) =>
+        error.Phase is ErrorPhase.BeforeAll or ErrorPhase.AfterAll;
 
     /// <summary>Whether a result is one <c>--last-failed</c> runs again: it did not pass, or the run never got to it.</summary>
-    private static bool DidNotPass(ReportResult result) => result.Status switch
-    {
-        ResultStatus.Failed or ResultStatus.TimedOut or ResultStatus.Interrupted => true,
-        ResultStatus.Skipped => result.Skip is { } skip && UndeliveredSkips.Contains(skip.Cause),
-        _ => false,
-    };
+    private static bool DidNotPass(ReportResult result) =>
+        result.Status switch
+        {
+            ResultStatus.Failed or ResultStatus.TimedOut or ResultStatus.Interrupted => true,
+            ResultStatus.Skipped => result.Skip is { } skip && UndeliveredSkips.Contains(skip.Cause),
+            _ => false,
+        };
 
     /// <summary>
     /// Whether a failed suite hook covered a result: same file and target, and declared inside the hook's describe. A hook failure is a run
@@ -100,23 +128,32 @@ internal static class LastRun
     /// </summary>
     private static bool InHookScope(ReportResult result, ReportError error) =>
         error.Scope is not { } scope
-        || (result.File == scope.File
+        || (
+            result.File == scope.File
             && result.TargetId == scope.TargetId
             && result.TitlePath.Count > scope.TitlePath.Count
-            && scope.TitlePath.Select((title, index) => result.TitlePath[index] == title).All(same => same));
+            && scope.TitlePath.Select((title, index) => result.TitlePath[index] == title).All(same => same)
+        );
 
     private static ConfigurationException NoLastRun(string message, Exception? cause = null) =>
-        cause is null ? new ConfigurationException("NO_LAST_RUN", message) : new ConfigurationException("NO_LAST_RUN", message, cause);
+        cause is null
+            ? new ConfigurationException("NO_LAST_RUN", message)
+            : new ConfigurationException("NO_LAST_RUN", message, cause);
 
     /// <summary>
     /// The previous run's report, read from where this run will write its own. It is what <c>--last-failed</c> selects from, and reporters receive it as
     /// <see cref="FinishedRun.LastRun"/> so one can fold the rerun into it. A missing or unreadable report is <c>NO_LAST_RUN</c>.
     /// </summary>
-    public static async Task<Report> ReadLastRunAsync(string reportPath, CancellationToken cancellationToken = default) =>
-        (await ReadPreviousRunAsync(reportPath, cancellationToken).ConfigureAwait(false)).Report;
+    public static async Task<Report> ReadLastRunAsync(
+        string reportPath,
+        CancellationToken cancellationToken = default
+    ) => (await ReadPreviousRunAsync(reportPath, cancellationToken).ConfigureAwait(false)).Report;
 
     /// <summary><see cref="ReadLastRunAsync"/> with the document it read (.NET-only, see <see cref="PreviousRun"/>).</summary>
-    public static async Task<PreviousRun> ReadPreviousRunAsync(string reportPath, CancellationToken cancellationToken = default)
+    public static async Task<PreviousRun> ReadPreviousRunAsync(
+        string reportPath,
+        CancellationToken cancellationToken = default
+    )
     {
         string text;
         try
@@ -125,11 +162,16 @@ internal static class LastRun
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
-            throw NoLastRun($"--last-failed needs the report of a previous run, and none is at {reportPath}; run once without the flag first");
+            throw NoLastRun(
+                $"--last-failed needs the report of a previous run, and none is at {reportPath}; run once without the flag first"
+            );
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            throw NoLastRun($"--last-failed could not read the previous run's report at {reportPath}: {ex.Message}", ex);
+            throw NoLastRun(
+                $"--last-failed could not read the previous run's report at {reportPath}: {ex.Message}",
+                ex
+            );
         }
 
         JsonNode? document;
@@ -142,7 +184,8 @@ internal static class LastRun
             throw NoLastRun($"--last-failed found no report in {reportPath}: {ex.Message}", ex);
         }
 
-        var holdsSomethingElse = $"--last-failed needs a report-1 document at {reportPath}, which holds something else; run once without the flag to write one";
+        var holdsSomethingElse =
+            $"--last-failed needs a report-1 document at {reportPath}, which holds something else; run once without the flag to write one";
         if (document is not JsonObject root || !IsReport(root))
         {
             throw NoLastRun(holdsSomethingElse);
@@ -152,7 +195,8 @@ internal static class LastRun
         {
             return new PreviousRun(ReportSerializer.Read(root), root);
         }
-        catch (Exception ex) when (ex is JsonException or InvalidOperationException or NotSupportedException or FormatException)
+        catch (Exception ex)
+            when (ex is JsonException or InvalidOperationException or NotSupportedException or FormatException)
         {
             throw NoLastRun(holdsSomethingElse, ex);
         }
@@ -168,7 +212,8 @@ internal static class LastRun
     public static IReadOnlySet<string> LastFailedIds(Report document)
     {
         var hookFailures = document.Run.Errors.Where(IsSuiteHookFailure).ToList();
-        bool Rerun(ReportResult result) => DidNotPass(result) || (result.Selected && hookFailures.Exists(error => InHookScope(result, error)));
+        bool Rerun(ReportResult result) =>
+            DidNotPass(result) || (result.Selected && hookFailures.Exists(error => InHookScope(result, error)));
         var ids = new HashSet<string>(document.Run.Results.Where(Rerun).Select(RerunId), StringComparer.Ordinal);
         foreach (var result in document.Run.Carried?.Results ?? [])
         {
@@ -187,8 +232,13 @@ internal static class LastRun
         ArgumentNullException.ThrowIfNull(document);
         var results = document.Run.Results.Concat(document.Run.Carried?.Results ?? []);
         return new HashSet<string>(
-            results.SelectMany(result => result.Attempts).SelectMany(attempt => attempt.Artifacts).Select(artifact => artifact.Path).OfType<string>(),
-            StringComparer.Ordinal);
+            results
+                .SelectMany(result => result.Attempts)
+                .SelectMany(attempt => attempt.Artifacts)
+                .Select(artifact => artifact.Path)
+                .OfType<string>(),
+            StringComparer.Ordinal
+        );
     }
 
     /// <summary>Whether two suite hook failures are the same hook's: one phase, one scope.</summary>
@@ -204,7 +254,9 @@ internal static class LastRun
             return a.Scope is null && b.Scope is null;
         }
 
-        return a.Scope.File == b.Scope.File && a.Scope.TargetId == b.Scope.TargetId && a.Scope.TitlePath.SequenceEqual(b.Scope.TitlePath);
+        return a.Scope.File == b.Scope.File
+            && a.Scope.TargetId == b.Scope.TargetId
+            && a.Scope.TitlePath.SequenceEqual(b.Scope.TitlePath);
     }
 
     /// <summary>
@@ -220,27 +272,41 @@ internal static class LastRun
     /// </summary>
     public static ReportCarried? CarryForward(Report lastRun, Report current, RerunCollection collected)
     {
-        var selected = new HashSet<string>(current.Run.Results.Where(result => result.Selected).Select(RerunId), StringComparer.Ordinal);
+        var selected = new HashSet<string>(
+            current.Run.Results.Where(result => result.Selected).Select(RerunId),
+            StringComparer.Ordinal
+        );
         var targets = new HashSet<string>(current.Run.Targets.Select(target => target.Id), StringComparer.Ordinal);
-        bool StillThere(ReportResult result) => collected.TestIds.Contains(result.TestId) || collected.UncollectedFiles.Contains(result.File);
-        bool NotRun(ReportResult result) => !selected.Contains(RerunId(result)) && StillThere(result) && targets.Contains(result.TargetId);
+        bool StillThere(ReportResult result) =>
+            collected.TestIds.Contains(result.TestId) || collected.UncollectedFiles.Contains(result.File);
+        bool NotRun(ReportResult result) =>
+            !selected.Contains(RerunId(result)) && StillThere(result) && targets.Contains(result.TargetId);
 
         var failedAgain = current.Run.Errors.Where(IsSuiteHookFailure).ToList();
         var hooks = lastRun.Run.Errors.Where(IsSuiteHookFailure).Concat(lastRun.Run.Carried?.Errors ?? []).ToList();
         bool ReportedAgain(ReportError error) => failedAgain.Exists(again => SameHook(again, error));
         bool PassedAgain(ReportError error) =>
-            !ReportedAgain(error) && current.Run.Results.Any(result => result.Selected && result.Status != ResultStatus.Skipped && InHookScope(result, error));
+            !ReportedAgain(error)
+            && current.Run.Results.Any(result =>
+                result.Selected && result.Status != ResultStatus.Skipped && InHookScope(result, error)
+            );
         var unresolved = hooks.Where(error => !PassedAgain(error)).ToList();
 
         // A test the run before left out is known by the row it carried, not by its filtered one.
         var history = lastRun.Run.Results.Where(result => result.Selected).Concat(lastRun.Run.Carried?.Results ?? []);
-        var results = history.Where(result => NotRun(result) && (DidNotPass(result) || unresolved.Exists(error => InHookScope(result, error)))).ToList();
+        var results = history
+            .Where(result =>
+                NotRun(result) && (DidNotPass(result) || unresolved.Exists(error => InHookScope(result, error)))
+            )
+            .ToList();
         if (results.Count == 0)
         {
             return null;
         }
 
-        var errors = unresolved.Where(error => !ReportedAgain(error) && results.Exists(result => InHookScope(result, error))).ToList();
+        var errors = unresolved
+            .Where(error => !ReportedAgain(error) && results.Exists(result => InHookScope(result, error)))
+            .ToList();
         return new ReportCarried { Results = results, Errors = errors };
     }
 
@@ -264,12 +330,17 @@ internal static class LastRun
         && groups.All(group => group is JsonObject row && HasAttempts(row));
 
     // Whether a result or serial group lists its attempts, each with its artifacts, the way a rerun reads them.
-    private static bool HasAttempts(JsonObject value) => value["attempts"] is JsonArray attempts && attempts.All(attempt => attempt is JsonObject row && HasArtifacts(row));
+    private static bool HasAttempts(JsonObject value) =>
+        value["attempts"] is JsonArray attempts
+        && attempts.All(attempt => attempt is JsonObject row && HasArtifacts(row));
 
     // Whether an attempt lists its artifacts as records whose path, when there is one, is a string.
     private static bool HasArtifacts(JsonObject attempt) =>
         attempt["artifacts"] is JsonArray artifacts
-        && artifacts.All(artifact => artifact is JsonObject row && (!row.ContainsKey("path") || row["path"] is JsonValue { } path && path.TryGetValue<string>(out _)));
+        && artifacts.All(artifact =>
+            artifact is JsonObject row
+            && (!row.ContainsKey("path") || row["path"] is JsonValue { } path && path.TryGetValue<string>(out _))
+        );
 
     private static bool IsResult(JsonObject result) =>
         Text(result, "id") is not null
@@ -281,9 +352,17 @@ internal static class LastRun
 
     private static bool IsError(JsonObject error) =>
         (!error.ContainsKey("phase") || Text(error, "phase") is not null)
-        && (!error.ContainsKey("scope")
-            || (error["scope"] is JsonObject scope && Text(scope, "file") is not null && Text(scope, "targetId") is not null && scope["titlePath"] is JsonArray));
+        && (
+            !error.ContainsKey("scope")
+            || (
+                error["scope"] is JsonObject scope
+                && Text(scope, "file") is not null
+                && Text(scope, "targetId") is not null
+                && scope["titlePath"] is JsonArray
+            )
+        );
 
     // The string a property holds; null when it is absent or holds something else.
-    private static string? Text(JsonObject node, string name) => node[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonObject node, string name) =>
+        node[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 }

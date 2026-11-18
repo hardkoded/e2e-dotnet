@@ -29,7 +29,7 @@ Install `E2E.Mobile.NUnit` (or `E2E.Mobile.XUnit.V3` or `E2E.Mobile.TUnit`) and 
       "platform": "ios",
       "app": {
         "bundleId": "dev.hardkoded.e2e.mobileapp",
-        "appPath": "../MobileApp/bin/Debug/net10.0-ios/iossimulator-arm64/MobileApp.app"
+        "appPath": "../MobileApp/bin/Debug/net11.0-ios/iossimulator-arm64/MobileApp.app"
       }
     }
   ]
@@ -61,10 +61,10 @@ public sealed class GreetingTests : MobileAppTest
 }
 ```
 
-- A device target takes `app.bundleId` and `app.appPath`, not `app.url`. A web target takes only `app.url`. The `appPath` is relative to the folder of `e2e.config.json`. `app.launchArguments` (an array of strings) and `app.permissions` (permission name to `grant`, `deny`, or `reset`, for example `{ "camera": "grant" }`) ride every fresh launch of the app: the arguments reach the app process (iOS) or `am start` (Android), and the permissions are set before the launch, so no system prompt appears. A permission name the device does not know is `INVALID_CONFIG`, naming the nearest one. `app.identity` and `app.environment` key the replay cache (topic `setup`).
+- A device target takes `app.bundleId` and `app.appPath`, not `app.url`. A web target takes only `app.url`. The `appPath` is relative to the folder of `e2e.config.json`. `app.launchArguments` (an array of strings) and `app.permissions` (permission name to `grant`, `deny`, or `reset`, for example `{ "camera": "grant" }`) ride every fresh launch of the app: the arguments reach the app process (iOS) or `am start` (Android), and the permissions are set before the launch, so no system prompt appears. A permission name the device does not know is `INVALID_CONFIG`, naming the nearest one. `app.identity` and `app.environment` key the replay cache (topic `setup`). `app.linkBase` (`https://shop.example.com` or a bare scheme such as `shopapp://`, with no query or fragment) makes `App.OpenAsync("/orders/42")` open `shopapp://orders/42` in the pinned app; an absolute link opens as given, a `file:`, `data:`, `javascript:`, `view-source:`, `blob:`, or `filesystem:` link is `POLICY_DENIED`, and a path without `linkBase` is `APP_URL_REQUIRED`. A bad `linkBase` is `INVALID_CONFIG` at load.
 - `Device.SetPermissionAsync` changes one permission for the pinned app, before its launch. It takes the enums (`DevicePermission`, `PermissionState`), or the wire names as strings (`SetPermissionAsync("camera", "grant")`), for a name read from outside the code. A name or state the device does not set is `INVALID_ARGUMENT` before any device command: a misspelled name names the one it means (`"camra"` gives `did you mean "camera"?`), and a `null` name or state is `undefined`.
 - A target with an `appPath` and no `bundleId` has no app to launch (unless a device provider installed the build and supplied its identity) until `Device.InstallAppAsync()` installs its build. Before that, `App.OpenAsync()`, `App.RestartAsync()`, and `App.ClearStateAsync()` fail with `UNSUPPORTED_CAPABILITY`. `Device.InstallAppAsync()` with no path and no `appPath` fails with `APP_NOT_OPEN` (the engine's `INVALID_STATE`, which a test's fixture reports under that code), and so does `Reinstall` with no `App` passed and no app pinned.
-- `MobileAppTest` installs the build once per run (`Device.InstallAppAsync()`), launches the app fresh before each test, gives the agent `MobileTools`, and sets the step timeout to 90 seconds. A device target has no URL, so `App.OpenAsync()` takes no path: it launches the pinned app fresh, and `MobileAppTest` already does that before each test.
+- `MobileAppTest` installs the build once per run (`Device.InstallAppAsync()`), launches the app fresh before each test, gives the agent `MobileTools`, and sets the step timeout to 90 seconds. A device target has no URL, so `App.OpenAsync()` takes no path unless the target declares `app.linkBase`: it launches the pinned app fresh, and `MobileAppTest` already does that before each test.
 - To set a value in code, override `AppId`, `AppPath`, or `Platform`. Override `CreateMobileOptions(IDeviceProvider?)` to change the `MobileOptions`.
 - `Device` is the device fixture of the test's session: `HomeAsync`, `OpenAppAsync`, `ForegroundAppAsync`, appearance, and the other controls. `Device.Locator(selector)` is a `Locator` from an agent-device selector (`"id=SW_VERSION_SPECIFIER"`, `"role=text label=\"26.2\""`), for nodes the `Screen` queries cannot name. It polls and is strict like any locator, and it needs the test's session (a test class derived from `MobileAppTest` has one). A selector agent-device cannot parse fails when the locator resolves, as `ENGINE_FAILURE`.
 - `AttachesToRunningApp` is true with `E2E_MOBILE_PROVIDER=devflow`. Use it in `Assume.That` for a test that needs a relaunch.
@@ -104,10 +104,10 @@ In a NativeScript app, `testID` and `accessibilityIdentifier` set the same id: `
     public async Task The_agent_gets_a_greeting()
     {
         // The agent works out which field and button to use.
-        await Agent.ActAsync("get the app to greet {name}", new ActOptions
-        {
-            Params = new Dictionary<string, object?> { ["name"] = "Grace" },
-        });
+        await Agent.ActAsync(
+            "get the app to greet {name}",
+            new ActOptions { Params = new Dictionary<string, object?> { ["name"] = "Grace" } }
+        );
 
         // Each agent step is paired with a check that does not call the model.
         await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, Grace!");
@@ -283,9 +283,25 @@ var provider = new DevFlowAgents(new DevFlowAgentsOptions { AppName = "MobileApp
 Launch the Debug build of the app on a simulator or emulator yourself, then run the tests. The provider finds the agent through the DevFlow broker when one runs (`maui devflow list` shows it), else on port 9223; `DevFlowAgentsOptions.Port` names a port outright. It waits up to `ConnectTimeout` (60 seconds) for the agent, checks that it runs the target's platform and app, and holds the agent's mutation lease while the run lasts. The sample turns this on with `E2E_MOBILE_PROVIDER=devflow`:
 
 ```bash
-dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64 -t:Run
+# In one terminal: build, install, and launch the app, and leave it running.
+# Run it from the project folder: from another folder, `--project` fails with MT0069.
+(cd samples/MobileApp && dotnet run -f net11.0-ios --device <UDID>)
+# `dotnet run -f net11.0-ios --list-devices` lists the ids. In another terminal:
 E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/MobileApp.E2ETests
 ```
+
+To change the app while you fix a test, start the app with `dotnet watch` in place of `dotnet run`. Hot reload applies each edit to the running app, with no reinstall and no relaunch:
+
+```bash
+# Terminal 1, from the app's folder: build, install, launch, and apply each edit.
+(cd samples/MobileApp && dotnet watch -f net11.0-ios --device <UDID>)
+# Terminal 2: run one test against the running app.
+E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/MobileApp.E2ETests --filter "FullyQualifiedName~<Class>.<Method>"
+```
+
+Edit the app. When `dotnet watch` prints `C# and Razor changes applied` (it prints this for a XAML edit too), run terminal 2 again. A coding agent can start `dotnet watch` with `--non-interactive`, so it never waits for a key. If `dotnet watch` says it cannot apply an edit, restart it.
+
+Hot reload does not reset the app. It is the same process, so the screen, the typed text, and the counters stay as the last test left them, and the next test starts from that state. A test that needs a clean start must navigate there itself, or you restart `dotnet watch`. The device tests that background or relaunch the app stay inconclusive, as above.
 
 `e2e explore` and `e2e mcp` also run with `E2E_MOBILE_PROVIDER=devflow`. Their first launch of the pinned app attaches to the running app instead of relaunching it, and the session holds the agent's mutation lease until it closes.
 

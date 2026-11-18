@@ -47,12 +47,16 @@ internal static class ValueEquality
 
             var left = Convert.ToDouble(actual, CultureInfo.InvariantCulture);
             var right = Convert.ToDouble(expected, CultureInfo.InvariantCulture);
-            return double.IsNaN(left) ? double.IsNaN(right) : BitConverter.DoubleToInt64Bits(left) == BitConverter.DoubleToInt64Bits(right);
+            return double.IsNaN(left)
+                ? double.IsNaN(right)
+                : BitConverter.DoubleToInt64Bits(left) == BitConverter.DoubleToInt64Bits(right);
         }
 
         if (actual is string || actual.GetType().IsValueType)
         {
-            return actual.GetType() == expected.GetType() ? actual.Equals(expected) : IsNumber(actual.GetType()) && IsNumber(expected.GetType()) && CompareIntegral(actual, expected);
+            return actual.GetType() == expected.GetType()
+                ? actual.Equals(expected)
+                : IsNumber(actual.GetType()) && IsNumber(expected.GetType()) && CompareIntegral(actual, expected);
         }
 
         return ReferenceEquals(actual, expected);
@@ -61,8 +65,19 @@ internal static class ValueEquality
     public static bool IsNumber(Type type)
     {
         type = Nullable.GetUnderlyingType(type) ?? type;
-        return Type.GetTypeCode(type) is TypeCode.SByte or TypeCode.Byte or TypeCode.Int16 or TypeCode.UInt16 or TypeCode.Int32 or TypeCode.UInt32
-            or TypeCode.Int64 or TypeCode.UInt64 or TypeCode.Single or TypeCode.Double or TypeCode.Decimal && !type.IsEnum;
+        return Type.GetTypeCode(type)
+                is TypeCode.SByte
+                    or TypeCode.Byte
+                    or TypeCode.Int16
+                    or TypeCode.UInt16
+                    or TypeCode.Int32
+                    or TypeCode.UInt32
+                    or TypeCode.Int64
+                    or TypeCode.UInt64
+                    or TypeCode.Single
+                    or TypeCode.Double
+                    or TypeCode.Decimal
+            && !type.IsEnum;
     }
 
     public static bool IsNumber(object? value) => value is not null && IsNumber(value.GetType());
@@ -75,7 +90,13 @@ internal static class ValueEquality
             value = read();
             return true;
         }
-        catch (Exception ex) when (ex is TargetInvocationException or AmbiguousMatchException or InvalidOperationException or NotSupportedException)
+        catch (Exception ex)
+            when (ex
+                    is TargetInvocationException
+                        or AmbiguousMatchException
+                        or InvalidOperationException
+                        or NotSupportedException
+            )
         {
             value = null;
             return false;
@@ -102,7 +123,10 @@ internal static class ValueEquality
         {
             foreach (var entry in Pairs(dictionary))
             {
-                yield return new(Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty, entry.Value);
+                yield return new(
+                    Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty,
+                    entry.Value
+                );
             }
 
             yield break;
@@ -173,7 +197,10 @@ internal static class ValueEquality
             return true;
         }
 
-        if (holder is string text && int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var position))
+        if (
+            holder is string text
+            && int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var position)
+        )
         {
             if (position >= text.Length)
             {
@@ -235,7 +262,12 @@ internal static class ValueEquality
     /// </summary>
     public static bool Subset(object? actual, object? expected) => Equal(actual, expected, subset: true, []);
 
-    private static bool Equal(object? actual, object? expected, bool subset, List<(object Actual, object Expected)> path)
+    private static bool Equal(
+        object? actual,
+        object? expected,
+        bool subset,
+        List<(object Actual, object Expected)> path
+    )
     {
         if (expected is AsymmetricMatcher expectedMatcher)
         {
@@ -297,9 +329,13 @@ internal static class ValueEquality
             case Kind.Value:
                 return actual.GetType() == expected.GetType() && actual.Equals(expected);
             case Kind.Regex:
-                return actual is Regex left && expected is Regex right && left.ToString() == right.ToString() && left.Options == right.Options;
+                return actual is Regex left
+                    && expected is Regex right
+                    && left.ToString() == right.ToString()
+                    && left.Options == right.Options;
             case Kind.Error:
-                return actual.GetType() == expected.GetType() && ((Exception)actual).Message == ((Exception)expected).Message;
+                return actual.GetType() == expected.GetType()
+                    && ((Exception)actual).Message == ((Exception)expected).Message;
         }
 
         path.Add((actual, expected));
@@ -323,16 +359,25 @@ internal static class ValueEquality
     {
         if (actual is double or float || expected is double or float)
         {
-            return ObjectIs(Convert.ToDouble(actual, CultureInfo.InvariantCulture), Convert.ToDouble(expected, CultureInfo.InvariantCulture));
+            return ObjectIs(
+                Convert.ToDouble(actual, CultureInfo.InvariantCulture),
+                Convert.ToDouble(expected, CultureInfo.InvariantCulture)
+            );
         }
 
         return CompareIntegral(actual, expected);
     }
 
     private static bool CompareIntegral(object actual, object expected) =>
-        Convert.ToDecimal(actual, CultureInfo.InvariantCulture) == Convert.ToDecimal(expected, CultureInfo.InvariantCulture);
+        Convert.ToDecimal(actual, CultureInfo.InvariantCulture)
+        == Convert.ToDecimal(expected, CultureInfo.InvariantCulture);
 
-    private static bool SequencesEqual(object actual, object expected, bool subset, List<(object Actual, object Expected)> path)
+    private static bool SequencesEqual(
+        object actual,
+        object expected,
+        bool subset,
+        List<(object Actual, object Expected)> path
+    )
     {
         var left = ((IEnumerable)actual).Cast<object?>().ToList();
         var right = ((IEnumerable)expected).Cast<object?>().ToList();
@@ -357,18 +402,34 @@ internal static class ValueEquality
         var left = ((IEnumerable)actual).Cast<object?>().ToList();
         var right = ((IEnumerable)expected).Cast<object?>().ToList();
         // Jest's Set rule: every actual entry needs some structurally equal expected entry, and one expected entry may serve several.
-        return left.Count == right.Count && left.All(item => right.Any(candidate => Equal(item, candidate, subset: false, path)));
+        return left.Count == right.Count
+            && left.All(item => right.Any(candidate => Equal(item, candidate, subset: false, path)));
     }
 
-    private static bool MapsEqual(object actual, object expected, bool subset, List<(object Actual, object Expected)> path)
+    private static bool MapsEqual(
+        object actual,
+        object expected,
+        bool subset,
+        List<(object Actual, object Expected)> path
+    )
     {
         var left = Entries(actual)!;
         var right = Entries(expected)!;
         return left.Count == right.Count
-            && left.All(entry => right.Any(candidate => Equal(entry.Key, candidate.Key, subset: false, path) && Equal(entry.Value, candidate.Value, subset, path)));
+            && left.All(entry =>
+                right.Any(candidate =>
+                    Equal(entry.Key, candidate.Key, subset: false, path)
+                    && Equal(entry.Value, candidate.Value, subset, path)
+                )
+            );
     }
 
-    private static bool BagsEqual(object actual, object expected, bool subset, List<(object Actual, object Expected)> path)
+    private static bool BagsEqual(
+        object actual,
+        object expected,
+        bool subset,
+        List<(object Actual, object Expected)> path
+    )
     {
         var left = new Dictionary<string, object?>(StringComparer.Ordinal);
         foreach (var member in Members(actual))
@@ -382,7 +443,8 @@ internal static class ValueEquality
             // Jest's toEqual: a member that holds undefined is the same as a member that is absent.
             if (left.Values.Any(value => value is UndefinedValue))
             {
-                left = left.Where(member => member.Value is not UndefinedValue).ToDictionary(member => member.Key, member => member.Value, StringComparer.Ordinal);
+                left = left.Where(member => member.Value is not UndefinedValue)
+                    .ToDictionary(member => member.Key, member => member.Value, StringComparer.Ordinal);
             }
 
             right.RemoveAll(member => member.Value is UndefinedValue);
@@ -457,7 +519,16 @@ internal static class ValueEquality
             return Kind.Error;
         }
 
-        if (type.IsPrimitive || type.IsEnum || type.IsValueType && type.Namespace is not null && type.Namespace.StartsWith("System", StringComparison.Ordinal) && !type.Name.StartsWith("ValueTuple", StringComparison.Ordinal) && !type.Name.StartsWith("KeyValuePair", StringComparison.Ordinal) || value is Uri or Type or Delegate)
+        if (
+            type.IsPrimitive
+            || type.IsEnum
+            || type.IsValueType
+                && type.Namespace is not null
+                && type.Namespace.StartsWith("System", StringComparison.Ordinal)
+                && !type.Name.StartsWith("ValueTuple", StringComparison.Ordinal)
+                && !type.Name.StartsWith("KeyValuePair", StringComparison.Ordinal)
+            || value is Uri or Type or Delegate
+        )
         {
             return Kind.Value;
         }
@@ -467,7 +538,13 @@ internal static class ValueEquality
             return Kind.Map;
         }
 
-        if (type.GetInterfaces().Any(contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(ISet<>) || contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IReadOnlySet<>)))
+        if (
+            type.GetInterfaces()
+                .Any(contract =>
+                    contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(ISet<>)
+                    || contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IReadOnlySet<>)
+                )
+        )
         {
             return Kind.Set;
         }
@@ -488,8 +565,15 @@ internal static class ValueEquality
             return [.. Pairs(dictionary).Select(entry => new KeyValuePair<object?, object?>(entry.Key, entry.Value))];
         }
 
-        var pair = value.GetType().GetInterfaces()
-            .FirstOrDefault(contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IEnumerable<>) && contract.GetGenericArguments()[0] is { IsGenericType: true } item && item.GetGenericTypeDefinition() == typeof(KeyValuePair<,>));
+        var pair = value
+            .GetType()
+            .GetInterfaces()
+            .FirstOrDefault(contract =>
+                contract.IsGenericType
+                && contract.GetGenericTypeDefinition() == typeof(IEnumerable<>)
+                && contract.GetGenericArguments()[0] is { IsGenericType: true } item
+                && item.GetGenericTypeDefinition() == typeof(KeyValuePair<,>)
+            );
         if (pair is null)
         {
             return null;

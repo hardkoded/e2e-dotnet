@@ -57,7 +57,12 @@ internal static class StepScreens
         var after = next.Lines;
         if (previous is not { } before)
         {
-            return new StepScreen { Location = next.Location, Nodes = after.Count, Changes = [] };
+            return new StepScreen
+            {
+                Location = next.Location,
+                Nodes = after.Count,
+                Changes = [],
+            };
         }
 
         var changes = DiffLines(before.Screen.Lines, after);

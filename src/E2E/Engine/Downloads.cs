@@ -14,7 +14,10 @@ namespace E2E.Engine;
 internal static class Downloads
 {
     /// <summary>One browser-level CDP session per connection: a download behavior lives as long as the session that set it.</summary>
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IBrowser, Lazy<Task<ICDPSession>>> BrowserSessions = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<
+        IBrowser,
+        Lazy<Task<ICDPSession>>
+    > BrowserSessions = new();
 
     /// <summary>
     /// Has the browser behind <paramref name="page"/> save the downloads of the page's context under <paramref name="dir"/> on its own
@@ -24,12 +27,18 @@ internal static class Downloads
     public static async Task SaveDownloadsToAsync(IPage page, string dir, CancellationToken cancellationToken = default)
     {
         var context = page.Context;
-        var browser = context.Browser ?? throw new EngineException(EngineErrorCodes.InvalidState, "the page has no browser to set a download directory on");
+        var browser = context.Browser
+            ?? throw new EngineException(
+                EngineErrorCodes.InvalidState,
+                "the page has no browser to set a download directory on"
+            );
         var pageSession = await context.NewCDPSessionAsync(page).ConfigureAwait(false);
         string? browserContextId;
         try
         {
-            var info = (await pageSession.SendAsync("Target.getTargetInfo").ConfigureAwait(false))!.Value.GetProperty("targetInfo");
+            var info = (await pageSession.SendAsync("Target.getTargetInfo").ConfigureAwait(false))!.Value.GetProperty(
+                "targetInfo"
+            );
             browserContextId = info.TryGetProperty("browserContextId", out var id) ? id.GetString() : null;
         }
         finally
@@ -38,7 +47,9 @@ internal static class Downloads
         }
 
         // A session that failed to open is not kept, so the next download opens another.
-        var entry = BrowserSessions.GetValue(browser, static candidate => new Lazy<Task<ICDPSession>>(candidate.NewBrowserCDPSessionAsync));
+        var entry = BrowserSessions.GetValue(browser, static candidate => new Lazy<Task<ICDPSession>>(
+            candidate.NewBrowserCDPSessionAsync
+        ));
         ICDPSession session;
         try
         {
@@ -70,7 +81,12 @@ internal static class Downloads
     /// directory, named by its download id, as <see cref="SaveDownloadsToAsync"/> had the browser name it. A download that failed or
     /// was canceled fails with the browser's reason (upstream's <c>saveFromBrowser</c>).
     /// </summary>
-    public static async Task SaveFromBrowserAsync(IDownload download, LeaseDownloads downloads, string file, CancellationToken cancellationToken)
+    public static async Task SaveFromBrowserAsync(
+        IDownload download,
+        LeaseDownloads downloads,
+        string file,
+        CancellationToken cancellationToken
+    )
     {
         var failure = await download.FailureAsync().ConfigureAwait(false);
         if (failure is not null)
@@ -80,8 +96,15 @@ internal static class Downloads
 
         // Playwright names its own record of the file by the same download id.
         // The provider's machine may not share the runner's separator, so the directory keeps its own.
-        var separator = downloads.Dir.Contains('\\', StringComparison.Ordinal) && !downloads.Dir.Contains('/', StringComparison.Ordinal) ? '\\' : '/';
-        var saved = downloads.Dir.TrimEnd('/', '\\') + separator + Path.GetFileName(await download.PathAsync().ConfigureAwait(false));
+        var separator =
+            downloads.Dir.Contains('\\', StringComparison.Ordinal)
+            && !downloads.Dir.Contains('/', StringComparison.Ordinal)
+                ? '\\'
+                : '/';
+        var saved =
+            downloads.Dir.TrimEnd('/', '\\')
+            + separator
+            + Path.GetFileName(await download.PathAsync().ConfigureAwait(false));
         var bytes = await downloads.ReadAsync(saved, cancellationToken).ConfigureAwait(false);
         await File.WriteAllBytesAsync(file, bytes, cancellationToken).ConfigureAwait(false);
     }
@@ -98,7 +121,12 @@ internal static class Downloads
         }
         catch (Exception cause) when (unserved is not null && WebErrors.IsPlaywright(cause))
         {
-            throw new EngineException(EngineErrorCodes.EngineFailure, $"download failed: {WebErrors.Message(cause)}; {unserved}", retryable: false, cause);
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"download failed: {WebErrors.Message(cause)}; {unserved}",
+                retryable: false,
+                cause
+            );
         }
     }
 

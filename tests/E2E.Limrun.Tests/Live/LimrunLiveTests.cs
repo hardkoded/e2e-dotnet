@@ -39,7 +39,12 @@ public sealed class LimrunLiveTests
             ["HOME"] = Environment.GetEnvironmentVariable("HOME"),
         };
         using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        var provider = new LimrunSimulators(new LimrunSimulatorsOptions { HardTimeout = "10m" }, LimrunHost.Instance, http, static (delay, token) => Task.Delay(delay, token));
+        var provider = new LimrunSimulators(
+            new LimrunSimulatorsOptions { HardTimeout = "10m" },
+            LimrunHost.Instance,
+            http,
+            static (delay, token) => Task.Delay(delay, token)
+        );
         var screenshot = Path.Combine(Path.GetTempPath(), $"e2e-limrun-live-{Guid.NewGuid():N}.png");
         using var budget = new CancellationTokenSource(TimeSpan.FromMinutes(8));
         DeviceLease? lease = null;
@@ -59,14 +64,23 @@ public sealed class LimrunLiveTests
                     Env = env,
                     Log = _ => { },
                 },
-                budget.Token);
+                budget.Token
+            );
 
             // Every one of these fails with UNAUTHORIZED when the command's meta leaves out part of the lease scope.
             var client = DeviceClientConfig.For("e2e-live-0", new DeviceConnection { Client = lease.Client }).Connect();
-            await client.CallAsync(DeviceMethods.DevicesBoot, new JsonObject { ["platform"] = "ios", ["udid"] = lease.DeviceId }, budget.Token);
+            await client.CallAsync(
+                DeviceMethods.DevicesBoot,
+                new JsonObject { ["platform"] = "ios", ["udid"] = lease.DeviceId },
+                budget.Token
+            );
             var snapshot = await client.CallAsync(DeviceMethods.CaptureSnapshot, new JsonObject(), budget.Token);
             Assert.NotEmpty(Assert.IsType<JsonObject>(snapshot)["nodes"]!.AsArray());
-            await client.CallAsync(DeviceMethods.CaptureScreenshot, new JsonObject { ["path"] = screenshot }, budget.Token);
+            await client.CallAsync(
+                DeviceMethods.CaptureScreenshot,
+                new JsonObject { ["path"] = screenshot },
+                budget.Token
+            );
             Assert.True(new FileInfo(screenshot).Length > 0);
         }
         finally
@@ -76,7 +90,17 @@ public sealed class LimrunLiveTests
             if (lease is not null)
             {
                 using var cleanup = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-                await provider.ReleaseAsync(lease, new DeviceReleaseContext { RunId = "live", TargetName = "live", Env = env, Log = _ => { } }, cleanup.Token);
+                await provider.ReleaseAsync(
+                    lease,
+                    new DeviceReleaseContext
+                    {
+                        RunId = "live",
+                        TargetName = "live",
+                        Env = env,
+                        Log = _ => { },
+                    },
+                    cleanup.Token
+                );
             }
         }
 

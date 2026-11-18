@@ -27,15 +27,18 @@ internal static class LeaseHeartbeat
         DeviceClientFactory connect,
         Action<string> log,
         Func<TimeSpan, CancellationToken, Task> delay,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        var leaseId = scope["leaseId"] is JsonValue value && value.TryGetValue<string>(out var id) && id.Length > 0
-            ? id
-            : throw new InvalidOperationException("The lease scope has no lease id");
+        var leaseId =
+            scope["leaseId"] is JsonValue value && value.TryGetValue<string>(out var id) && id.Length > 0
+                ? id
+                : throw new InvalidOperationException("The lease scope has no lease id");
 
-        var stateDirectory = scope["stateDir"] is JsonValue directory && directory.TryGetValue<string>(out var path) && path.Length > 0
-            ? path
-            : throw new InvalidOperationException("The lease scope has no state directory");
+        var stateDirectory =
+            scope["stateDir"] is JsonValue directory && directory.TryGetValue<string>(out var path) && path.Length > 0
+                ? path
+                : throw new InvalidOperationException("The lease scope has no state directory");
 
         // The lease's own stateDir selects the local daemon, whatever remote daemon the environment names.
         var client = connect(LeaseSessions.LeaseSession(stateDirectory), new DeviceConnection { Client = scope });
@@ -45,7 +48,13 @@ internal static class LeaseHeartbeat
         {
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(outer, stopping.Token);
             linked.CancelAfter(BeatTimeout);
-            await client.CallAsync(DeviceMethods.LeasesHeartbeat, new JsonObject { ["leaseId"] = leaseId, ["ttlMs"] = LeaseTtlMilliseconds }, linked.Token).ConfigureAwait(false);
+            await client
+                .CallAsync(
+                    DeviceMethods.LeasesHeartbeat,
+                    new JsonObject { ["leaseId"] = leaseId, ["ttlMs"] = LeaseTtlMilliseconds },
+                    linked.Token
+                )
+                .ConfigureAwait(false);
         }
 
         try

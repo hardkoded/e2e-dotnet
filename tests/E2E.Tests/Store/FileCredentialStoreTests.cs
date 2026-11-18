@@ -37,7 +37,10 @@ public sealed class FileCredentialStoreTests : IDisposable
         if (!OperatingSystem.IsWindows())
         {
             Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file));
-            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, File.GetUnixFileMode(Path.GetDirectoryName(file)!));
+            Assert.Equal(
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+                File.GetUnixFileMode(Path.GetDirectoryName(file)!)
+            );
         }
 
         var read = await store.GetAsync("spacexai");
@@ -55,7 +58,10 @@ public sealed class FileCredentialStoreTests : IDisposable
         var file = Path.Combine(_directory, "nested", "oauth.json");
         var store = new FileCredentialStore(file);
         await store.SetAsync("x", Creds);
-        await File.WriteAllTextAsync(file, """{"x":{"access":"a","refresh":"r","expires":123,"accountId":"acct"},"broken":{"access":1},"nan":{"access":"a","refresh":"r","expires":null}}""");
+        await File.WriteAllTextAsync(
+            file,
+            """{"x":{"access":"a","refresh":"r","expires":123,"accountId":"acct"},"broken":{"access":1},"nan":{"access":"a","refresh":"r","expires":null}}"""
+        );
         Assert.Equal(["x"], await store.ListAsync());
         Assert.Null(await store.GetAsync("broken"));
     }
@@ -66,7 +72,11 @@ public sealed class FileCredentialStoreTests : IDisposable
         var file = Path.Combine(_directory, "nested", "oauth.json");
         var a = new FileCredentialStore(file);
         var b = new FileCredentialStore(file);
-        await Task.WhenAll(a.SetAsync("a", Creds), b.SetAsync("b", With(Creds, "b")), a.SetAsync("c", With(Creds, "c")));
+        await Task.WhenAll(
+            a.SetAsync("a", Creds),
+            b.SetAsync("b", With(Creds, "b")),
+            a.SetAsync("c", With(Creds, "c"))
+        );
         Assert.Equal(["a", "b", "c"], (await a.ListAsync()).Order(StringComparer.Ordinal));
         Assert.Equal("b", (await b.GetAsync("b"))?.Access);
     }
@@ -101,7 +111,10 @@ public sealed class FileCredentialStoreTests : IDisposable
         await File.WriteAllTextAsync(file, "{}");
         File.SetUnixFileMode(file, (UnixFileMode)Convert.ToInt32("644", 8));
         await new FileCredentialStore(file).SetAsync("x", Creds);
-        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, File.GetUnixFileMode(Path.GetDirectoryName(file)!));
+        Assert.Equal(
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+            File.GetUnixFileMode(Path.GetDirectoryName(file)!)
+        );
         Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file));
     }
 
@@ -127,10 +140,20 @@ public sealed class FileCredentialStoreTests : IDisposable
 
         using (ProcessEnvironment.Set("XDG_CONFIG_HOME", null))
         {
-            Assert.EndsWith(Path.Combine(".config", "e2e", "oauth.json"), CredentialStores.DefaultPath(), StringComparison.Ordinal);
+            Assert.EndsWith(
+                Path.Combine(".config", "e2e", "oauth.json"),
+                CredentialStores.DefaultPath(),
+                StringComparison.Ordinal
+            );
         }
     }
 
     private static OAuthCredentials With(OAuthCredentials credentials, string access) =>
-        new() { Access = access, Refresh = credentials.Refresh, Expires = credentials.Expires, Extra = credentials.Extra };
+        new()
+        {
+            Access = access,
+            Refresh = credentials.Refresh,
+            Expires = credentials.Expires,
+            Extra = credentials.Extra,
+        };
 }

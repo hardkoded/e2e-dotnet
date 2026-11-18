@@ -58,13 +58,24 @@ public sealed class RecordingTests : IAsyncLifetime
     {
         var cloud = new RecordingCloud
         {
-            Stop = _ => Task.FromResult(new ProviderRecordingResult { Url = "https://recordings.example/r1.mp4", MediaType = "video/mp4" }),
+            Stop = _ =>
+                Task.FromResult(
+                    new ProviderRecordingResult { Url = "https://recordings.example/r1.mp4", MediaType = "video/mp4" }
+                ),
         };
         var (session, artifactsDir) = await RecordingWorker(cloud);
         await session.StartVideoAsync(None);
         Assert.Equal(
-            [new VideoLink { Url = "https://recordings.example/r1.mp4", MediaType = "video/mp4", StartedAt = "2026-09-28T10:00:00.000Z" }],
-            await session.StopVideoAsync(None));
+            [
+                new VideoLink
+                {
+                    Url = "https://recordings.example/r1.mp4",
+                    MediaType = "video/mp4",
+                    StartedAt = "2026-09-28T10:00:00.000Z",
+                },
+            ],
+            await session.StopVideoAsync(None)
+        );
         Assert.False(File.Exists(Path.Combine(artifactsDir, "video", "video.webm")));
         await session.DisposeAsync();
     }
@@ -75,7 +86,10 @@ public sealed class RecordingTests : IAsyncLifetime
         var (session, artifactsDir) = await RecordingWorker(new ToyCloud());
         await session.StartVideoAsync(None);
         var segments = await session.StopVideoAsync(None);
-        Assert.Equal(["video/video.webm"], segments.Select(segment => segment is VideoFile file ? file.Path : ((VideoLink)segment).Url));
+        Assert.Equal(
+            ["video/video.webm"],
+            segments.Select(segment => segment is VideoFile file ? file.Path : ((VideoLink)segment).Url)
+        );
         Assert.True(File.Exists(Path.Combine(artifactsDir, "video", "video.webm")));
         await session.DisposeAsync();
     }
@@ -115,14 +129,23 @@ public sealed class RecordingTests : IAsyncLifetime
     [Fact]
     public async Task Reports_a_recording_that_failed_to_start_once_the_attempt_was_cancelled_as_CANCELLED_not_a_provider_failure()
     {
-        var cancelling = new ToyCloud { OnRecord = (lease, context, token) => throw new InvalidOperationException("aborted by the signal") };
+        var cancelling = new ToyCloud
+        {
+            OnRecord = (lease, context, token) => throw new InvalidOperationException("aborted by the signal"),
+        };
         var (_, env) = await Runner.PreparedAsync(cancelling, 1);
         var leases = new LeasedBrowsers(cancelling);
         leases.Init(Runner.InitInfo(0, env));
         using var controller = new CancellationTokenSource();
         await controller.CancelAsync();
-        Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => leases.Recorder("a1")(controller.Token))).Code);
-        Assert.Equal("ENGINE_FAILURE", (await Assert.ThrowsAsync<EngineException>(() => leases.Recorder("a1")(None))).Code);
+        Assert.Equal(
+            "CANCELLED",
+            (await Assert.ThrowsAsync<EngineException>(() => leases.Recorder("a1")(controller.Token))).Code
+        );
+        Assert.Equal(
+            "ENGINE_FAILURE",
+            (await Assert.ThrowsAsync<EngineException>(() => leases.Recorder("a1")(None))).Code
+        );
     }
 
     [Fact]
@@ -161,7 +184,11 @@ public sealed class RecordingTests : IAsyncLifetime
     public async Task Keeps_a_recording_whose_stop_failed_so_ending_the_attempt_stops_it_once_more()
     {
         var failures = 1;
-        var cloud = new RecordingCloud { BeforeStop = () => failures-- > 0 ? throw new InvalidOperationException("download interrupted") : Task.CompletedTask };
+        var cloud = new RecordingCloud
+        {
+            BeforeStop = () =>
+                failures-- > 0 ? throw new InvalidOperationException("download interrupted") : Task.CompletedTask,
+        };
         var (session, _) = await RecordingWorker(cloud);
         await session.StartVideoAsync(None);
         var failed = await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(None));
@@ -176,7 +203,11 @@ public sealed class RecordingTests : IAsyncLifetime
         var (failing, _) = await RecordingWorker(new RecordingCloud { FailStart = true });
         var refused = await Assert.ThrowsAsync<EngineException>(() => failing.StartVideoAsync(None));
         Assert.Equal("ENGINE_FAILURE", refused.Code);
-        Assert.Contains("browser provider \"toy-cloud\" could not start recording browser lease-0: recordings unavailable", refused.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "browser provider \"toy-cloud\" could not start recording browser lease-0: recordings unavailable",
+            refused.Message,
+            StringComparison.Ordinal
+        );
         await failing.DisposeAsync();
 
         foreach (var report in new[] { "../escape.mp4", "missing.mp4" })
@@ -185,7 +216,11 @@ public sealed class RecordingTests : IAsyncLifetime
             await session.StartVideoAsync(None);
             var error = await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(None));
             Assert.Equal("ENGINE_FAILURE", error.Code);
-            Assert.Contains("browser provider \"toy-cloud\" recording lease lease-0 finished without naming a file it wrote", error.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "browser provider \"toy-cloud\" recording lease lease-0 finished without naming a file it wrote",
+                error.Message,
+                StringComparison.Ordinal
+            );
             await session.DisposeAsync();
         }
     }
@@ -193,14 +228,23 @@ public sealed class RecordingTests : IAsyncLifetime
     /// <summary>A worker holding slot 0's lease on the real browser, and attempt <c>a1</c> started in a fresh artifact directory.</summary>
     private async Task<(IEngineSession Session, string ArtifactsDir)> RecordingWorker(ToyCloud cloud)
     {
-        cloud.OnAcquire = (request, token) => Task.FromResult<BrowserLease>(new ToyLease { Id = "lease-0", CdpEndpoint = _remote.Endpoint });
+        cloud.OnAcquire = (request, token) =>
+            Task.FromResult<BrowserLease>(new ToyLease { Id = "lease-0", CdpEndpoint = _remote.Endpoint });
         var worker = new WebEngine(new WebEngineOptions { Browser = cloud });
         _workers.Add(worker);
         var prepared = await worker.PrepareAsync(Runner.PrepareInfo(1), None);
         worker.Init(Runner.InitInfo(0, Runner.Widen(prepared.Env)));
         var artifactsDir = Directory.CreateTempSubdirectory("e2e-provider-recording-").FullName;
         _made.Add(artifactsDir);
-        var session = await worker.StartAsync(new EngineStartOptions { AttemptId = "a1", ArtifactsDir = artifactsDir, ActionTimeout = TimeSpan.FromSeconds(10) }, None);
+        var session = await worker.StartAsync(
+            new EngineStartOptions
+            {
+                AttemptId = "a1",
+                ArtifactsDir = artifactsDir,
+                ActionTimeout = TimeSpan.FromSeconds(10),
+            },
+            None
+        );
         return (session, artifactsDir);
     }
 

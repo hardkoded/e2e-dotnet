@@ -52,9 +52,20 @@ public sealed class AiTraceRecorderTests
 
         // The model-call view (after the history is prepared) supersedes the step-start one.
         Assert.Contains("(compacted)", (string?)prompt[1]!["content"], StringComparison.Ordinal);
-        Assert.True(JsonNode.DeepEquals(
-            Json(A(O(("name", "tap"), ("description", "Tap or click one node."), ("parameters", O(("type", "object"), ("properties", O(("target", O(("type", "string"))))))))))
-            , input["tools"]));
+        Assert.True(
+            JsonNode.DeepEquals(
+                Json(
+                    A(
+                        O(
+                            ("name", "tap"),
+                            ("description", "Tap or click one node."),
+                            ("parameters", O(("type", "object"), ("properties", O(("target", O(("type", "string")))))))
+                        )
+                    )
+                ),
+                input["tools"]
+            )
+        );
         Assert.True(JsonNode.DeepEquals(Json(O(("type", "required"))), input["toolChoice"]));
     }
 
@@ -77,11 +88,27 @@ public sealed class AiTraceRecorderTests
     {
         const string body = """{"detail":"Unsupported service_tier: fast"}""";
         using var http = new HttpClient(new RejectingHandler(HttpStatusCode.BadRequest, body));
-        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "fake-model", ApiKey = "key", BaseUrl = "https://provider.test/v1" }, http);
+        using var model = new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions
+            {
+                Model = "fake-model",
+                ApiKey = "key",
+                BaseUrl = "https://provider.test/v1",
+            },
+            http
+        );
         var recorder = new AiTraceRecorder();
-        var request = new ModelRequest { System = "rules", Messages = [new ModelMessage { Role = "user", Content = "hi" }], Tools = [], Redactor = Redactor.None };
+        var request = new ModelRequest
+        {
+            System = "rules",
+            Messages = [new ModelMessage { Role = "user", Content = "hi" }],
+            Tools = [],
+            Redactor = Redactor.None,
+        };
 
-        await Assert.ThrowsAsync<AgentException>(() => AiTraceModel.CompleteAsync(recorder, model, request, CancellationToken.None));
+        await Assert.ThrowsAsync<AgentException>(() =>
+            AiTraceModel.CompleteAsync(recorder, model, request, CancellationToken.None)
+        );
 
         Assert.Equal("The model provider failed: HTTP 400: " + body, recorder.Drain().Steps[0].Error);
     }
@@ -92,7 +119,9 @@ public sealed class AiTraceRecorderTests
         var recorder = new AiTraceRecorder();
         recorder.OnStart(new AiTraceStartEvent("x", "ai.generateText", "my-agent"));
         recorder.OnEnd(new AiTraceEndEvent("x"));
-        await InScope(Scope with { Attempt = 1 }, () => Step("agent.assert", new string('a', 200), () => Generation(recorder, "y")));
+        await InScope(Scope with { Attempt = 1 }, () =>
+            Step("agent.assert", new string('a', 200), () => Generation(recorder, "y"))
+        );
         var names = recorder.Drain().Runs.Select(run => run.FunctionId).ToList();
 
         Assert.Equal("my-agent", names[0]);
@@ -120,8 +149,14 @@ public sealed class AiTraceRecorderTests
         var (runs, steps) = Drained(recorder);
 
         Assert.Equal(
-            ["todos › adds one · agent.waitFor \"users appear\"", "todos › adds one · agent.assert \"saved\"", null, null],
-            runs.Select(run => run.FunctionId));
+            [
+                "todos › adds one · agent.waitFor \"users appear\"",
+                "todos › adds one · agent.assert \"saved\"",
+                null,
+                null,
+            ],
+            runs.Select(run => run.FunctionId)
+        );
         Assert.Equal([1, 2], steps.Where(step => step.RunId == runs[0].Id).Select(step => step.StepNumber));
         Assert.Equal([1], steps.Where(step => step.RunId == runs[1].Id).Select(step => step.StepNumber));
         Assert.Equal(5, steps.Count);
@@ -132,25 +167,27 @@ public sealed class AiTraceRecorderTests
     {
         var recorder = new AiTraceRecorder();
         void Start(string callId) => recorder.OnStart(new AiTraceStartEvent(callId, "ai.generateText"));
-        void StepStart(string callId, int stepNumber) => recorder.OnStepStart(new AiTraceStepStartEvent(callId, stepNumber, "p", "m", "s", []));
-        void StepEnd(string callId, int stepNumber) => recorder.OnStepEnd(new AiTraceStepEndEvent(callId, stepNumber, A(), "stop", O(), new AiTraceResponse()));
+        void StepStart(string callId, int stepNumber) =>
+            recorder.OnStepStart(new AiTraceStepStartEvent(callId, stepNumber, "p", "m", "s", []));
+        void StepEnd(string callId, int stepNumber) =>
+            recorder.OnStepEnd(new AiTraceStepEndEvent(callId, stepNumber, A(), "stop", O(), new AiTraceResponse()));
         await InScope(Scope, () => Step("agent.act", "parallel brain", () =>
-        {
-            // A custom executor firing two multi-step generations at once.
-            Start("a");
-            Start("b");
-            StepStart("a", 0);
-            StepStart("b", 0);
-            StepEnd("a", 0);
-            StepStart("a", 1);
-            StepEnd("b", 0);
-            StepStart("b", 1);
-            StepEnd("a", 1);
-            StepEnd("b", 1);
-            recorder.OnEnd(new AiTraceEndEvent("a"));
-            recorder.OnEnd(new AiTraceEndEvent("b"));
-            return Task.CompletedTask;
-        }));
+            {
+                // A custom executor firing two multi-step generations at once.
+                Start("a");
+                Start("b");
+                StepStart("a", 0);
+                StepStart("b", 0);
+                StepEnd("a", 0);
+                StepStart("a", 1);
+                StepEnd("b", 0);
+                StepStart("b", 1);
+                StepEnd("a", 1);
+                StepEnd("b", 1);
+                recorder.OnEnd(new AiTraceEndEvent("a"));
+                recorder.OnEnd(new AiTraceEndEvent("b"));
+                return Task.CompletedTask;
+            }));
         var (runs, steps) = Drained(recorder);
 
         Assert.Single(runs);
@@ -170,13 +207,11 @@ public sealed class AiTraceRecorderTests
         }
 
         // Tool A starts first but its nested generation lands after tool B's.
-        await Task.WhenAll(
-            recorder.ExecuteTool("A", async () =>
+        await Task.WhenAll(recorder.ExecuteTool("A", async () =>
             {
                 await innerBDone.Task;
                 await Generation(recorder, "innerA");
-            }),
-            recorder.ExecuteTool("B", async () =>
+            }), recorder.ExecuteTool("B", async () =>
             {
                 await Generation(recorder, "innerB");
                 innerBDone.SetResult();
@@ -234,11 +269,16 @@ public sealed class AiTraceRecorderTests
 
     private sealed class RejectingHandler(HttpStatusCode status, string body) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(status)
-            {
-                ReasonPhrase = "",
-                Content = new StringContent(body, Encoding.UTF8, "application/json"),
-            });
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        ) =>
+            Task.FromResult(
+                new HttpResponseMessage(status)
+                {
+                    ReasonPhrase = "",
+                    Content = new StringContent(body, Encoding.UTF8, "application/json"),
+                }
+            );
     }
 }

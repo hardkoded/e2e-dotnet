@@ -10,12 +10,18 @@ namespace E2E.Tests.TraceCacheConfig;
 /// </summary>
 public sealed class CacheDirOverrideVariableTests
 {
-    private static readonly string Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "e2e-cache-override-tests"));
+    private static readonly string Root = Path.GetFullPath(
+        Path.Combine(Path.GetTempPath(), "e2e-cache-override-tests")
+    );
 
     [Fact]
     public void Wins_over_E2E_CACHE_DIR_and_cache_dir_and_names_the_flag_as_the_source()
     {
-        var config = Parse("""{ "cache": { "dir": "configured" } }""", ("E2E_CACHE_DIR", "variable"), ("E2E_CACHE_DIR_OVERRIDE", "flag"));
+        var config = Parse(
+            """{ "cache": { "dir": "configured" } }""",
+            ("E2E_CACHE_DIR", "variable"),
+            ("E2E_CACHE_DIR_OVERRIDE", "flag")
+        );
         Assert.Equal(Path.Combine(Root, "flag"), config.Cache.Directory);
         Assert.Equal("--cache-dir", config.Cache.DirectorySource);
     }
@@ -23,12 +29,24 @@ public sealed class CacheDirOverrideVariableTests
     [Fact]
     public void Is_ignored_when_empty_and_refused_when_blank_or_beside_a_cache_store()
     {
-        Assert.Equal(Path.Combine(Root, "variable"), Parse("{}", ("E2E_CACHE_DIR", "variable"), ("E2E_CACHE_DIR_OVERRIDE", "")).Cache.Directory);
-        Assert.Contains("--cache-dir must be a non-empty path", Assert.Throws<ConfigurationException>(() => Parse("{}", ("E2E_CACHE_DIR_OVERRIDE", " "))).Message, StringComparison.Ordinal);
+        Assert.Equal(
+            Path.Combine(Root, "variable"),
+            Parse("{}", ("E2E_CACHE_DIR", "variable"), ("E2E_CACHE_DIR_OVERRIDE", "")).Cache.Directory
+        );
+        Assert.Contains(
+            "--cache-dir must be a non-empty path",
+            Assert.Throws<ConfigurationException>(() => Parse("{}", ("E2E_CACHE_DIR_OVERRIDE", " "))).Message,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "--cache-dir names a file store directory",
-            Assert.Throws<ConfigurationException>(() => Parse("{}", ("E2E_CACHE_DIR_OVERRIDE", "flag")).WithCacheStore(new EmptyStore())).Message,
-            StringComparison.Ordinal);
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    Parse("{}", ("E2E_CACHE_DIR_OVERRIDE", "flag")).WithCacheStore(new EmptyStore())
+                )
+                .Message,
+            StringComparison.Ordinal
+        );
     }
 
     private static E2EConfig Parse(string json, params (string Name, string Value)[] values)
@@ -45,8 +63,6 @@ public sealed class CacheDirOverrideVariableTests
 
         public int? Write(string key, CacheEntry entry) => 0;
 
-        public void Delete(string key)
-        {
-        }
+        public void Delete(string key) { }
     }
 }

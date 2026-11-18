@@ -15,7 +15,9 @@ public sealed class DebugTraceTests
         var trace = new DebugTrace(true);
         var value = await trace.Time("ok", () => Task.FromResult(42));
         Assert.Equal(42, value);
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => trace.Time<int>("fails", () => Task.FromException<int>(new InvalidOperationException("boom"))));
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            trace.Time<int>("fails", () => Task.FromException<int>(new InvalidOperationException("boom")))
+        );
         Assert.Equal("boom", failure.Message);
         var summary = trace.Summary();
         Assert.Contains("ok", summary, StringComparison.Ordinal);

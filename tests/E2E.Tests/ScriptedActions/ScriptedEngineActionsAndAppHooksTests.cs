@@ -44,7 +44,9 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         await screen.GetByLabel("City").PressSequentiallyAsync("Wa");
         await Expect.That(screen.GetByLabel("City")).ToHaveValueAsync("Wa");
         await Expect.That(screen.GetByLabel("City")).ToBeFocusedAsync();
-        await screen.GetByLabel("City").PressSequentiallyAsync("rs", new PressSequentiallyOptions { Delay = TimeSpan.FromMilliseconds(10) });
+        await screen
+            .GetByLabel("City")
+            .PressSequentiallyAsync("rs", new PressSequentiallyOptions { Delay = TimeSpan.FromMilliseconds(10) });
         await Expect.That(screen.GetByLabel("City")).ToHaveValueAsync("Wars");
         await screen.GetByLabel("City").PressAsync("Backspace");
         await Expect.That(screen.GetByLabel("City")).ToHaveValueAsync("War");
@@ -54,7 +56,9 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         await screen.GetByRole("checkbox", "Notifications").CheckAsync();
         await Expect.That(screen.GetByRole("checkbox", "Notifications")).ToBeCheckedAsync();
         await screen.GetByRole("checkbox", "Notifications").UncheckAsync();
-        await Expect.That(screen.GetByRole("checkbox", "Notifications")).Not.ToBeCheckedAsync(timeout: TimeSpan.FromMilliseconds(500));
+        await Expect
+            .That(screen.GetByRole("checkbox", "Notifications"))
+            .Not.ToBeCheckedAsync(timeout: TimeSpan.FromMilliseconds(500));
         await screen.GetByLabel("Plan").SelectOptionAsync("Pro");
         await Expect.That(screen.GetByLabel("Plan")).ToHaveValueAsync("pro");
         await screen.GetByLabel("Plan").SelectOptionAsync("team");
@@ -71,13 +75,17 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         await submit.HoverAsync();
         await screen.GetByTestId("drag").DragToAsync(screen.GetByTestId("drop"));
         await submit.ScrollIntoViewAsync();
-        await screen.GetByRole("list", "Feed").SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down, Momentum = Momentum.Slow });
+        await screen
+            .GetByRole("list", "Feed")
+            .SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down, Momentum = Momentum.Slow });
         await screen.GetByRole("list", "Feed").SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Left });
         await screen.GetByRole("button", "Increment").TapAsync();
         await screen.GetByRole("button", "Increment").TapAsync();
         await Expect.That(screen.GetByRole("status", "Count")).ToHaveTextAsync("2");
         await screen.GetByRole("button", "Bold").TapAsync();
-        await Expect.That(screen.GetByRole("button", new RoleOptions { Name = "Bold", Pressed = true })).ToBeVisibleAsync();
+        await Expect
+            .That(screen.GetByRole("button", new RoleOptions { Name = "Bold", Pressed = true }))
+            .ToBeVisibleAsync();
 
         var dragged = Assert.Single(scene.Performs, performed => performed.Action is LocatorAction.DragTo);
         var dropNode = ((LocatorAction.DragTo)dragged.Action).Target;
@@ -116,7 +124,8 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
                 ("increment", new LocatorAction.Tap()),
                 ("bold", new LocatorAction.Tap()),
             },
-            scene.Performs);
+            scene.Performs
+        );
         Assert.Equal([("Wa", false), ("r", false), ("s", false)], scene.Typed);
         session.Complete();
         await session.DisposeAsync();
@@ -124,8 +133,27 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         var steps = report.LastAttempt()["steps"]!.AsArray();
         var apis = steps.Select(each => (string)each!["api"]!).ToList();
         Assert.All(
-            new[] { "locator.tap", "locator.doubleTap", "locator.secondaryTap", "locator.longPress", "locator.hover", "locator.dragTo", "locator.swipe", "locator.fill", "locator.clear", "locator.pressSequentially", "locator.press", "locator.check", "locator.uncheck", "locator.selectOption", "locator.focus", "locator.scrollIntoView" },
-            api => Assert.Contains(api, apis));
+            new[]
+            {
+                "locator.tap",
+                "locator.doubleTap",
+                "locator.secondaryTap",
+                "locator.longPress",
+                "locator.hover",
+                "locator.dragTo",
+                "locator.swipe",
+                "locator.fill",
+                "locator.clear",
+                "locator.pressSequentially",
+                "locator.press",
+                "locator.check",
+                "locator.uncheck",
+                "locator.selectOption",
+                "locator.focus",
+                "locator.scrollIntoView",
+            },
+            api => Assert.Contains(api, apis)
+        );
         Assert.Equal("getByLabel(\"Email\")", (string)report.Step("locator.fill")["label"]!);
         Assert.Equal("getByLabel(\"City\")", (string)report.Step("locator.pressSequentially")["label"]!);
     }
@@ -144,23 +172,40 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         await session.App.ClearStateAsync();
         await Expect.That(session.Screen.GetByRole("button", "Submit")).ToBeVisibleAsync();
         Assert.Equal(
-            ["open " + BaseUrl + "/", "open " + BaseUrl + "/settings", "back", "restart", "open " + BaseUrl + "/", "reset", "open " + BaseUrl + "/"],
-            engine.SessionCalls);
+            [
+                "open " + BaseUrl + "/",
+                "open " + BaseUrl + "/settings",
+                "back",
+                "restart",
+                "open " + BaseUrl + "/",
+                "reset",
+                "open " + BaseUrl + "/",
+            ],
+            engine.SessionCalls
+        );
         session.Complete();
         await session.DisposeAsync();
 
-        Assert.Equal(["app.open", "app.open", "app.back", "app.restart", "app.clearState"], report.LastAttempt()["steps"]!.AsArray().Select(each => (string)each!["api"]!).Where(api => api.StartsWith("app.", StringComparison.Ordinal)));
+        Assert.Equal(
+            ["app.open", "app.open", "app.back", "app.restart", "app.clearState"],
+            report.LastAttempt()["steps"]!
+                .AsArray()
+                .Select(each => (string)each!["api"]!)
+                .Where(api => api.StartsWith("app.", StringComparison.Ordinal))
+        );
     }
 
     private static Task<E2ESession> StartAsync(ScriptedEngine engine, ReportDirectory report)
     {
-        return E2ESession.StartAsync(new E2ESessionOptions
-        {
-            ResultsDirectory = report.Results,
-            Engine = engine,
-            BaseUrl = BaseUrl,
-            TestTitle = "scripted actions",
-            CacheEnabled = false,
-        });
+        return E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                ResultsDirectory = report.Results,
+                Engine = engine,
+                BaseUrl = BaseUrl,
+                TestTitle = "scripted actions",
+                CacheEnabled = false,
+            }
+        );
     }
 }

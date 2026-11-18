@@ -37,7 +37,8 @@ internal sealed class CopyOptions
 internal sealed class ExampleDownloadError(string message, Exception? inner = null) : Exception(message, inner);
 
 /// <summary>Thrown when the caller's signal stopped the copy, such as Ctrl-C; the partial copy is already removed (upstream's <c>ExampleCopyCancelled</c>).</summary>
-internal sealed class ExampleCopyCancelled(CancellationToken token) : OperationCanceledException("the example download was cancelled", token);
+internal sealed class ExampleCopyCancelled(CancellationToken token)
+    : OperationCanceledException("the example download was cancelled", token);
 
 /// <summary>
 /// Upstream's <c>cli/init/examples.ts</c>: the <c>e2e init --example</c> step, which copies one of the repository's
@@ -81,7 +82,8 @@ internal static class Examples
 
     /// <summary>Whether <paramref name="dir"/> is missing or holds nothing an example could collide with.</summary>
     public static bool IsEmptyDirectory(string dir) =>
-        !Directory.Exists(dir) || Directory.EnumerateFileSystemEntries(dir).All(entry => IgnoredEntries.Contains(Path.GetFileName(entry)));
+        !Directory.Exists(dir)
+        || Directory.EnumerateFileSystemEntries(dir).All(entry => IgnoredEntries.Contains(Path.GetFileName(entry)));
 
     /// <summary>
     /// Downloads the tarball and writes <c>samples/&lt;id&gt;/</c> into <paramref name="destination"/>, which must be empty or
@@ -90,7 +92,11 @@ internal static class Examples
     /// </summary>
     /// <exception cref="ExampleDownloadError">The download or the archive failed.</exception>
     /// <exception cref="ExampleCopyCancelled"><paramref name="options"/> signal stopped the copy.</exception>
-    public static async Task<ExampleCopy> CopyExampleAsync(ExamplePreset example, string destination, CopyOptions options)
+    public static async Task<ExampleCopy> CopyExampleAsync(
+        ExamplePreset example,
+        string destination,
+        CopyOptions options
+    )
     {
         ArgumentNullException.ThrowIfNull(example);
         ArgumentNullException.ThrowIfNull(options);
@@ -126,7 +132,9 @@ internal static class Examples
         var tag = "v" + version;
         using var idle = CancellationTokenSource.CreateLinkedTokenSource(options.Signal);
         idle.CancelAfter(IdleTimeout);
-        using var http = options.Handler is null ? new HttpClient() : new HttpClient(options.Handler, disposeHandler: false);
+        using var http = options.Handler is null
+            ? new HttpClient()
+            : new HttpClient(options.Handler, disposeHandler: false);
         http.Timeout = Timeout.InfiniteTimeSpan;
         http.DefaultRequestHeaders.UserAgent.ParseAdd("E2E.Cli/" + version);
         var succeeded = false;
@@ -146,7 +154,9 @@ internal static class Examples
             {
                 if (!response.IsSuccessStatusCode)
                 {
-                    throw new ExampleDownloadError($"GitHub answered {(int)response.StatusCode} for {Repository}@{reference}");
+                    throw new ExampleDownloadError(
+                        $"GitHub answered {(int)response.StatusCode} for {Repository}@{reference}"
+                    );
                 }
 
                 Directory.CreateDirectory(destination);
@@ -155,7 +165,14 @@ internal static class Examples
                 await using var gunzip = new GZipStream(watched, CompressionMode.Decompress);
 
                 // Extraction stops reading once it passed the folder; the rest of the download is dropped.
-                var files = await ExtractFolderAsync(gunzip, $"samples/{example.Id}/", destination, top => written.Add(top), idle.Token).ConfigureAwait(false);
+                var files = await ExtractFolderAsync(
+                        gunzip,
+                        $"samples/{example.Id}/",
+                        destination,
+                        top => written.Add(top),
+                        idle.Token
+                    )
+                    .ConfigureAwait(false);
                 if (files == 0)
                 {
                     throw new ExampleDownloadError($"{Repository}@{reference} has no samples/{example.Id}");
@@ -166,7 +183,12 @@ internal static class Examples
             succeeded = true;
             return new ExampleCopy(reference, Remove);
         }
-        catch (Exception cause) when (cause is not ExampleDownloadError and not OperationCanceledException and (HttpRequestException or IOException or InvalidDataException or XmlException))
+        catch (Exception cause)
+            when (cause
+                    is not ExampleDownloadError
+                        and not OperationCanceledException
+                        and (HttpRequestException or IOException or InvalidDataException or XmlException)
+            )
         {
             throw new ExampleDownloadError(cause.Message, cause);
         }
@@ -195,10 +217,18 @@ internal static class Examples
     }
 
     /// <summary>Requests the repository tarball for one ref.</summary>
-    private static Task<HttpResponseMessage> Download(string reference, HttpClient http, CancellationToken cancellationToken)
+    private static Task<HttpResponseMessage> Download(
+        string reference,
+        HttpClient http,
+        CancellationToken cancellationToken
+    )
     {
         var encoded = string.Join('/', reference.Split('/').Select(Uri.EscapeDataString));
-        return http.GetAsync(new Uri($"https://codeload.github.com/{Repository}/tar.gz/{encoded}"), HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        return http.GetAsync(
+            new Uri($"https://codeload.github.com/{Repository}/tar.gz/{encoded}"),
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken
+        );
     }
 
     /// <summary>
@@ -218,23 +248,44 @@ internal static class Examples
         var original = File.ReadAllText(projects[0]);
         var document = XDocument.Parse(original, LoadOptions.PreserveWhitespace);
         var range = Versions.DependencyRange(Versions.RunnerVersion);
-        foreach (var reference in document.Descendants().Where(element => element.Name.LocalName == "ProjectReference").ToList())
+        foreach (
+            var reference in document
+                .Descendants()
+                .Where(element => element.Name.LocalName == "ProjectReference")
+                .ToList()
+        )
         {
             var include = ((string?)reference.Attribute("Include") ?? "").Replace('\\', '/');
-            if (include.Contains("/src/", StringComparison.Ordinal) || include.StartsWith("src/", StringComparison.Ordinal))
+            if (
+                include.Contains("/src/", StringComparison.Ordinal)
+                || include.StartsWith("src/", StringComparison.Ordinal)
+            )
             {
-                reference.ReplaceWith(new XElement(reference.Name.Namespace + "PackageReference", new XAttribute("Include", Path.GetFileNameWithoutExtension(include)), new XAttribute("Version", range)));
+                reference.ReplaceWith(
+                    new XElement(
+                        reference.Name.Namespace + "PackageReference",
+                        new XAttribute("Include", Path.GetFileNameWithoutExtension(include)),
+                        new XAttribute("Version", range)
+                    )
+                );
             }
         }
 
         var properties = document.Descendants().FirstOrDefault(element => element.Name.LocalName == "PropertyGroup");
         if (properties is not null)
         {
-            foreach (var (name, value) in InheritedProperties.Where(entry => !document.Descendants().Any(element => element.Name.LocalName == entry.Key)))
+            foreach (
+                var (name, value) in InheritedProperties.Where(entry =>
+                    !document.Descendants().Any(element => element.Name.LocalName == entry.Key)
+                )
+            )
             {
                 var property = new XElement(properties.Name.Namespace + name, value);
                 var last = properties.Elements().LastOrDefault();
-                var spacing = last?.PreviousNode is XText { Value: var text } && string.IsNullOrWhiteSpace(text) ? text : "\n    ";
+                var spacing =
+                    last?.PreviousNode is XText { Value: var text } && string.IsNullOrWhiteSpace(text)
+                        ? text
+                        : "\n    ";
                 if (last is null)
                 {
                     properties.Add(new XText(spacing), property);
@@ -246,7 +297,12 @@ internal static class Examples
             }
         }
 
-        File.WriteAllText(projects[0], document.Declaration is null ? document.Root!.ToString(SaveOptions.DisableFormatting) + "\n" : document.ToString(SaveOptions.DisableFormatting) + "\n");
+        File.WriteAllText(
+            projects[0],
+            document.Declaration is null
+                ? document.Root!.ToString(SaveOptions.DisableFormatting) + "\n"
+                : document.ToString(SaveOptions.DisableFormatting) + "\n"
+        );
     }
 
     /// <summary>
@@ -256,7 +312,13 @@ internal static class Examples
     /// files were written. Upstream hand-parses ustar, pax, and GNU headers; <see cref="TarReader"/> reads them here.
     /// </summary>
     /// <exception cref="ExampleDownloadError">An entry's path leaves <paramref name="destination"/>.</exception>
-    public static async Task<int> ExtractFolderAsync(Stream source, string folder, string destination, Action<string> onTopLevel, CancellationToken cancellationToken = default)
+    public static async Task<int> ExtractFolderAsync(
+        Stream source,
+        string folder,
+        string destination,
+        Action<string> onTopLevel,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(onTopLevel);
@@ -286,7 +348,11 @@ internal static class Examples
             }
 
             var segments = inner.Split('/');
-            if (segments.Any(segment => segment is "" or "." or "..") || Path.IsPathRooted(inner) || inner.Contains('\\', StringComparison.Ordinal))
+            if (
+                segments.Any(segment => segment is "" or "." or "..")
+                || Path.IsPathRooted(inner)
+                || inner.Contains('\\', StringComparison.Ordinal)
+            )
             {
                 throw new ExampleDownloadError("the archive holds an unsafe path: " + entry.Name);
             }
@@ -297,7 +363,10 @@ internal static class Examples
             {
                 Directory.CreateDirectory(absolute);
             }
-            else if (entry.EntryType is TarEntryType.RegularFile or TarEntryType.V7RegularFile && entry.DataStream is { } data)
+            else if (
+                entry.EntryType is TarEntryType.RegularFile or TarEntryType.V7RegularFile
+                && entry.DataStream is { } data
+            )
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
                 await using (var file = new FileStream(absolute, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -307,7 +376,15 @@ internal static class Examples
 
                 if (!OperatingSystem.IsWindows())
                 {
-                    File.SetUnixFileMode(absolute, (entry.Mode & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) == 0 ? (UnixFileMode)0b110_100_100 : (UnixFileMode)0b111_101_101);
+                    File.SetUnixFileMode(
+                        absolute,
+                        (
+                            entry.Mode
+                            & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)
+                        ) == 0
+                            ? (UnixFileMode)0b110_100_100
+                            : (UnixFileMode)0b111_101_101
+                    );
                 }
 
                 files++;
@@ -334,7 +411,10 @@ internal static class Examples
             set => throw new NotSupportedException();
         }
 
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default
+        )
         {
             var read = await inner.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
             idle.CancelAfter(limit);
@@ -350,9 +430,7 @@ internal static class Examples
 
         public override ValueTask DisposeAsync() => inner.DisposeAsync();
 
-        public override void Flush()
-        {
-        }
+        public override void Flush() { }
 
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 

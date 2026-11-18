@@ -21,11 +21,19 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     private static string EmptyPage => $"{PREFIX}/empty.html";
 
     /// <summary>The request the server received for the page now open, which <c>/cors-echo</c> printed as its text.</summary>
-    private async Task<Served> ServedAsync() => Served.Parse((await Browser.EvaluateAsync<string>("document.body.textContent"))!);
+    private async Task<Served> ServedAsync() =>
+        Served.Parse((await Browser.EvaluateAsync<string>("document.body.textContent"))!);
 
     /// <summary>The request the server received for a page <c>fetch</c> to <paramref name="url"/> with <paramref name="init"/>, which <c>/cors-echo</c> answered with.</summary>
     private async Task<Served> FetchedAsync(string url, string init = "{}") =>
-        Served.Parse((await Browser.EvaluateAsync<string>($"(url) => fetch(url, {init}).then((response) => response.text())", url))!);
+        Served.Parse(
+            (
+                await Browser.EvaluateAsync<string>(
+                    $"(url) => fetch(url, {init}).then((response) => response.text())",
+                    url
+                )
+            )!
+        );
 
     [Test]
     public async Task Should_work()
@@ -37,7 +45,11 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     [Test]
     public async Task Should_amend_HTTP_headers()
     {
-        await Browser.RouteAsync("**/*", route => route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("FOO", "bar")) }));
+        await Browser.RouteAsync("**/*", route =>
+            route.ContinueAsync(
+                new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("FOO", "bar")) }
+            )
+        );
         await Browser.GotoAsync(EmptyPage);
         var request = await FetchedAsync("/cors-echo");
         Assert.That(request.Header("foo"), Is.EqualTo("bar"));
@@ -46,7 +58,14 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     [Test]
     public async Task Should_not_allow_to_override_unsafe_HTTP_headers()
     {
-        await Browser.RouteAsync("**/*", route => route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("host", "bar"), ("trailer", "baz")) }));
+        await Browser.RouteAsync("**/*", route =>
+            route.ContinueAsync(
+                new RouteContinueOverrides
+                {
+                    Headers = WithHeaders(route.Request.Headers, ("host", "bar"), ("trailer", "baz")),
+                }
+            )
+        );
         await Browser.GotoAsync("/cors-echo");
         var serverRequest = await ServedAsync();
         Assert.That(serverRequest.Header("trailer"), Is.Null);
@@ -57,7 +76,9 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     public async Task Should_delete_header_with_undefined_value()
     {
         await Browser.GotoAsync("/empty.html");
-        await Browser.RouteAsync($"{PREFIX}/cors-echo", route => route.ContinueAsync(new RouteContinueOverrides { Headers = route.Request.Headers, DropHeaders = ["foo"] }));
+        await Browser.RouteAsync($"{PREFIX}/cors-echo", route =>
+            route.ContinueAsync(new RouteContinueOverrides { Headers = route.Request.Headers, DropHeaders = ["foo"] })
+        );
         var serverRequest = await FetchedAsync($"{PREFIX}/cors-echo", "{ headers: { foo: 'a', bar: 'b' } }");
         Assert.That(serverRequest.Method, Is.EqualTo("GET"));
         Assert.That(serverRequest.Header("foo"), Is.Null);
@@ -76,8 +97,13 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     [Test]
     public async Task Should_override_request_url()
     {
-        await Browser.RouteAsync("**/foo", route => route.ContinueAsync(new RouteContinueOverrides { Url = $"{PREFIX}/global-var.html" }));
-        var response = await AllAsync(Browser.WaitForResponseAsync(new Regex(@"/(foo|global-var\.html)$")), Browser.GotoAsync($"{PREFIX}/foo"));
+        await Browser.RouteAsync("**/foo", route =>
+            route.ContinueAsync(new RouteContinueOverrides { Url = $"{PREFIX}/global-var.html" })
+        );
+        var response = await AllAsync(
+            Browser.WaitForResponseAsync(new Regex(@"/(foo|global-var\.html)$")),
+            Browser.GotoAsync($"{PREFIX}/foo")
+        );
         Assert.That(response.Url, Is.EqualTo($"{PREFIX}/global-var.html"));
         Assert.That(await Browser.EvaluateAsync<int>("() => window['globalVar']"), Is.EqualTo(123));
     }
@@ -118,14 +144,20 @@ public sealed class PageRequestContinueTests : PlaywrightTest
             await route.ContinueAsync();
         });
         await Browser.GotoAsync(EmptyPage);
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             (url) => {
               globalThis.controller = new AbortController();
               globalThis.failure = fetch(url, { signal: globalThis.controller.signal }).then(() => 'loaded', (error) => error.name);
             }
-            """, $"{PREFIX}/data.json");
+            """,
+            $"{PREFIX}/data.json"
+        );
         await routed.Task;
-        Assert.That(await Browser.EvaluateAsync<string>("() => { globalThis.controller.abort(); return globalThis.failure; }"), Is.EqualTo("AbortError"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => { globalThis.controller.abort(); return globalThis.failure; }"),
+            Is.EqualTo("AbortError")
+        );
         release.TrySetResult();
         await Browser.EvaluateAsync<object>("() => new Promise((resolve) => setTimeout(resolve, 100))");
     }
@@ -133,7 +165,9 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     [Test]
     public async Task Should_override_method_along_with_url()
     {
-        await Browser.RouteAsync("**/foo", route => route.ContinueAsync(new RouteContinueOverrides { Url = $"{PREFIX}/cors-echo", Method = "POST" }));
+        await Browser.RouteAsync("**/foo", route =>
+            route.ContinueAsync(new RouteContinueOverrides { Url = $"{PREFIX}/cors-echo", Method = "POST" })
+        );
         await Browser.GotoAsync($"{PREFIX}/foo");
         Assert.That((await ServedAsync()).Method, Is.EqualTo("POST"));
     }
@@ -171,20 +205,28 @@ public sealed class PageRequestContinueTests : PlaywrightTest
         await Browser.RouteAsync("**/one-style.css", async route =>
         {
             intercepted = true;
-            await route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("custom", "value")) });
+            await route.ContinueAsync(
+                new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("custom", "value")) }
+            );
         });
         await Browser.GotoAsync("/preload.html");
-        await Browser.EvaluateAsync<bool>("() => new Promise((resolve) => { const check = () => window.preloadedStyles ? resolve(true) : setTimeout(check, 20); check(); })");
+        await Browser.EvaluateAsync<bool>(
+            "() => new Promise((resolve) => { const check = () => window.preloadedStyles ? resolve(true) : setTimeout(check, 20); check(); })"
+        );
         Assert.That(intercepted, Is.True);
         // preload.html sets the flag before switching the link to a stylesheet, which applies a task later.
-        await Expect.Poll(() => Browser.EvaluateAsync<string>("() => window.getComputedStyle(document.body).backgroundColor")).ToMatchAsync(Is.EqualTo("rgb(255, 192, 203)"));
+        await Expect
+            .Poll(() => Browser.EvaluateAsync<string>("() => window.getComputedStyle(document.body).backgroundColor"))
+            .ToMatchAsync(Is.EqualTo("rgb(255, 192, 203)"));
     }
 
     [Test]
     public async Task Should_respect_set_cookie_in_redirect_response()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.RouteAsync("**/bounce?**", route => route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers) }));
+        await Browser.RouteAsync("**/bounce?**", route =>
+            route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers) })
+        );
         await Browser.GotoAsync($"/bounce?cookie={Uri.EscapeDataString("foo=bar;  max-age=36000")}&to=/cors-echo");
         Assert.That((await ServedAsync()).Header("cookie"), Is.EqualTo("foo=bar"));
         Assert.That(await Browser.EvaluateAsync<string>("() => document.cookie"), Is.EqualTo("foo=bar"));
@@ -195,7 +237,11 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     {
         await Browser.GotoAsync("/set-cookie?cookie=foo=bar;");
         Assert.That(await Browser.EvaluateAsync<string>("() => document.cookie"), Is.EqualTo("foo=bar"));
-        await Browser.RouteAsync("**/redirect?**", route => route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("cookie", "override")) }));
+        await Browser.RouteAsync("**/redirect?**", route =>
+            route.ContinueAsync(
+                new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("cookie", "override")) }
+            )
+        );
         await Browser.GotoAsync($"/redirect?to={Uri.EscapeDataString($"{PREFIX}/cors-echo")}");
         Assert.That((await ServedAsync()).Header("cookie"), Is.EqualTo("foo=bar"));
     }
@@ -205,7 +251,14 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     {
         await Browser.GotoAsync("/set-cookie?cookie=foo=bar;");
         Assert.That(await Browser.EvaluateAsync<string>("() => document.cookie"), Is.EqualTo("foo=bar"));
-        await Browser.RouteAsync("**", route => route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("cookie", "override"), ("custom", "value")) }));
+        await Browser.RouteAsync("**", route =>
+            route.ContinueAsync(
+                new RouteContinueOverrides
+                {
+                    Headers = WithHeaders(route.Request.Headers, ("cookie", "override"), ("custom", "value")),
+                }
+            )
+        );
         await Browser.GotoAsync("/cors-echo");
         var serverRequest = await ServedAsync();
         Assert.That(serverRequest.Header("cookie"), Is.EqualTo("foo=bar"));
@@ -219,7 +272,14 @@ public sealed class PageRequestContinueTests : PlaywrightTest
         Assert.That(await Browser.EvaluateAsync<string>("() => document.cookie"), Is.EqualTo("foo=v1"));
         await Browser.RouteAsync("**/cors-echo", async route =>
         {
-            await Browser.SetCookiesAsync([new BrowserCookie { Name = "foo", Value = "v2", Url = PREFIX }]);
+            await Browser.SetCookiesAsync([
+                new BrowserCookie
+                {
+                    Name = "foo",
+                    Value = "v2",
+                    Url = PREFIX,
+                },
+            ]);
             await route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers) });
         });
         await Browser.GotoAsync("/cors-echo");
@@ -231,8 +291,12 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     {
         await Browser.GotoAsync("/set-cookie?cookie=foo=v1;");
         Assert.That(await Browser.EvaluateAsync<string>("() => document.cookie"), Is.EqualTo("foo=v1"));
-        await Browser.RouteAsync("**/bounce?**", route => route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers) }));
-        await Browser.GotoAsync($"/bounce?cookie={Uri.EscapeDataString("foo=v2;")}&to={Uri.EscapeDataString($"{PREFIX}/cors-echo")}");
+        await Browser.RouteAsync("**/bounce?**", route =>
+            route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers) })
+        );
+        await Browser.GotoAsync(
+            $"/bounce?cookie={Uri.EscapeDataString("foo=v2;")}&to={Uri.EscapeDataString($"{PREFIX}/cors-echo")}"
+        );
         Assert.That((await ServedAsync()).Header("cookie"), Is.EqualTo("foo=v2"));
     }
 
@@ -241,8 +305,12 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     {
         await Browser.GotoAsync("/set-cookie?cookie=foo=bar;");
         Assert.That(await Browser.EvaluateAsync<string>("() => document.cookie"), Is.EqualTo("foo=bar"));
-        await Browser.RouteAsync("**/redirect?**", route => route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers) }));
-        await Browser.GotoAsync($"/redirect?to={Uri.EscapeDataString($"/set-cookie?cookie={Uri.EscapeDataString("foo=bar; expires=Thu, 01 Jan 1970 00:00:00 GMT")}")}");
+        await Browser.RouteAsync("**/redirect?**", route =>
+            route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers) })
+        );
+        await Browser.GotoAsync(
+            $"/redirect?to={Uri.EscapeDataString($"/set-cookie?cookie={Uri.EscapeDataString("foo=bar; expires=Thu, 01 Jan 1970 00:00:00 GMT")}")}"
+        );
         await Browser.GotoAsync("/cors-echo");
         Assert.That((await ServedAsync()).Header("cookie"), Is.Null.Or.Empty);
     }
@@ -250,7 +318,11 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     [Test]
     public async Task Continue_should_propagate_headers_to_redirects()
     {
-        await Browser.RouteAsync("**/redirect?**", route => route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("custom", "value")) }));
+        await Browser.RouteAsync("**/redirect?**", route =>
+            route.ContinueAsync(
+                new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("custom", "value")) }
+            )
+        );
         await Browser.GotoAsync("/redirect?to=/cors-echo");
         Assert.That((await ServedAsync()).Header("custom"), Is.EqualTo("value"));
     }
@@ -259,7 +331,11 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     public async Task Continue_should_drop_content_length_on_redirects()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.RouteAsync("**/redirect?**", route => route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("custom", "value")) }));
+        await Browser.RouteAsync("**/redirect?**", route =>
+            route.ContinueAsync(
+                new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("custom", "value")) }
+            )
+        );
         var serverRequest = await FetchedAsync($"{PREFIX}/redirect?to=/cors-echo", "{ method: 'POST', body: 'foo' }");
         Assert.That(serverRequest.Method, Is.EqualTo("GET"));
         Assert.That(serverRequest.Header("content-length"), Is.Null);
@@ -271,7 +347,9 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     public async Task Continue_should_delete_headers_on_redirects()
     {
         await Browser.GotoAsync("/empty.html");
-        await Browser.RouteAsync("**/redirect?**", route => route.ContinueAsync(new RouteContinueOverrides { Headers = route.Request.Headers, DropHeaders = ["foo"] }));
+        await Browser.RouteAsync("**/redirect?**", route =>
+            route.ContinueAsync(new RouteContinueOverrides { Headers = route.Request.Headers, DropHeaders = ["foo"] })
+        );
         var serverRequest = await FetchedAsync($"{PREFIX}/redirect?to=/cors-echo", "{ headers: { foo: 'a' } }");
         Assert.That(serverRequest.Method, Is.EqualTo("GET"));
         Assert.That(serverRequest.Header("foo"), Is.Null);
@@ -284,7 +362,8 @@ public sealed class PageRequestContinueTests : PlaywrightTest
         await Browser.EvaluateAsync<object>("() => { document.cookie = 'a=b'; }");
         var serverRequest = await FetchedAsync(
             $"{PREFIX}/redirect?to={Uri.EscapeDataString("/cors-echo?preflight")}",
-            "{ headers: { authorization: 'credentials', custom: 'foo' }, credentials: 'include' }");
+            "{ headers: { authorization: 'credentials', custom: 'foo' }, credentials: 'include' }"
+        );
         Assert.That(serverRequest.Header("authorization"), Is.EqualTo("credentials"));
         Assert.That(serverRequest.Header("cookie"), Is.EqualTo("a=b"));
         Assert.That(serverRequest.Header("custom"), Is.EqualTo("foo"));
@@ -296,7 +375,8 @@ public sealed class PageRequestContinueTests : PlaywrightTest
         await Browser.GotoAsync("/empty.html");
         var serverRequest = await FetchedAsync(
             $"{CROSS}/cors-echo?preflight",
-            "{ headers: { authorization: 'credentials', custom: 'foo' }, credentials: 'include' }");
+            "{ headers: { authorization: 'credentials', custom: 'foo' }, credentials: 'include' }"
+        );
         Assert.That(serverRequest.Header("authorization"), Is.EqualTo("credentials"));
         Assert.That(serverRequest.Header("custom"), Is.EqualTo("foo"));
     }
@@ -308,7 +388,8 @@ public sealed class PageRequestContinueTests : PlaywrightTest
         await Browser.EvaluateAsync<object>("() => { document.cookie = 'a=b'; }");
         var serverRequest = await FetchedAsync(
             $"{PREFIX}/bounce?status=301&to={Uri.EscapeDataString($"{CROSS}/cors-echo?preflight")}",
-            "{ headers: { authorization: 'credentials', custom: 'foo' }, credentials: 'include' }");
+            "{ headers: { authorization: 'credentials', custom: 'foo' }, credentials: 'include' }"
+        );
         Assert.That(serverRequest.Header("authorization"), Is.Null.Or.Empty);
         Assert.That(serverRequest.Header("cookie"), Is.Null.Or.Empty);
         Assert.That(serverRequest.Header("custom"), Is.EqualTo("foo"));
@@ -319,10 +400,18 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     {
         await Browser.GotoAsync("/empty.html");
         await Browser.EvaluateAsync<object>("() => { document.cookie = 'a=b'; }");
-        await Browser.RouteAsync("**/bounce?**", route => route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("authorization", "credentials"), ("custom", "foo")) }));
+        await Browser.RouteAsync("**/bounce?**", route =>
+            route.ContinueAsync(
+                new RouteContinueOverrides
+                {
+                    Headers = WithHeaders(route.Request.Headers, ("authorization", "credentials"), ("custom", "foo")),
+                }
+            )
+        );
         var serverRequest = await FetchedAsync(
             $"{PREFIX}/bounce?status=301&to={Uri.EscapeDataString($"{CROSS}/cors-echo?preflight")}",
-            "{ headers: { authorization: 'none' }, credentials: 'include' }");
+            "{ headers: { authorization: 'none' }, credentials: 'include' }"
+        );
         Assert.That(serverRequest.Header("authorization"), Is.EqualTo("credentials"));
         Assert.That(serverRequest.Header("cookie"), Is.Null.Or.Empty);
         Assert.That(serverRequest.Header("custom"), Is.EqualTo("foo"));
@@ -333,11 +422,15 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     {
         var final = $"{PREFIX}{Content("<!doctype html><title>final</title><p>ok</p>")}";
         await Browser.GotoAsync("/empty.html");
-        await Browser.GotoAsync(Content($"""
-            <form id="f" method="POST" action="{CROSS}/bounce?status=307&to={Uri.EscapeDataString(final)}">
-              <input type="submit">
-            </form>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                $"""
+                <form id="f" method="POST" action="{CROSS}/bounce?status=307&to={Uri.EscapeDataString(final)}">
+                  <input type="submit">
+                </form>
+                """
+            )
+        );
         await Browser.RouteAsync("**/*", route => route.ContinueAsync());
         var navigation = Browser.WaitForURLAsync(final);
         await Browser.Locator("input").TapAsync();
@@ -356,20 +449,24 @@ public sealed class PageRequestContinueTests : PlaywrightTest
             intercepted.TrySetResult();
             await route.ContinueAsync();
         });
-        await Browser.GotoAsync(Content("""
-            <style>
-              @keyframes JNDzq {
-                0% { background-position: 0 0 }
-                to { background-position: 100 0 }
-              }
-              div {
-                --background: url(/pptr.png);
-                background-image: var(--background);
-                animation: JNDzq 1s linear infinite;
-              }
-            </style>
-            <div>Yo!</div>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>
+                  @keyframes JNDzq {
+                    0% { background-position: 0 0 }
+                    to { background-position: 100 0 }
+                  }
+                  div {
+                    --background: url(/pptr.png);
+                    background-image: var(--background);
+                    animation: JNDzq 1s linear infinite;
+                  }
+                </style>
+                <div>Yo!</div>
+                """
+            )
+        );
         Assert.That(await Browser.Locator("div").TextContentAsync(), Is.EqualTo("Yo!"));
         await intercepted.Task;
         await Task.Delay(1000);
@@ -383,7 +480,8 @@ public sealed class PageRequestContinueTests : PlaywrightTest
 
         async Task<string> SendFormData()
         {
-            var result = await Browser.EvaluateAsync<JsonElement>("""
+            var result = await Browser.EvaluateAsync<JsonElement>(
+                """
                 async () => {
                   const newFile = new File(['file content'], 'file.txt');
                   const formData = new FormData();
@@ -391,7 +489,8 @@ public sealed class PageRequestContinueTests : PlaywrightTest
                   const response = await fetch('/cors-echo', { method: 'POST', credentials: 'include', body: formData });
                   return [response.status, (await response.json()).body];
                 }
-                """);
+                """
+            );
             Assert.That(result[0].GetInt32(), Is.EqualTo(200));
             return result[1].GetString()!;
         }
@@ -405,7 +504,8 @@ public sealed class PageRequestContinueTests : PlaywrightTest
             "Content-Type: application/octet-stream",
             "",
             "file content",
-            "------");
+            "------"
+        );
         Assert.That(reqBefore, Does.Contain(fileContent));
         Assert.That(reqAfter, Does.Contain(fileContent));
     }
@@ -421,7 +521,8 @@ public sealed class PageRequestContinueTests : PlaywrightTest
         });
         var response = await AllAsync(
             Browser.WaitForResponseAsync("**/cors-echo"),
-            Browser.GotoAsync($"{PREFIX}/bounce?to={Uri.EscapeDataString($"{CROSS}/cors-echo")}"));
+            Browser.GotoAsync($"{PREFIX}/bounce?to={Uri.EscapeDataString($"{CROSS}/cors-echo")}")
+        );
         Assert.That(response.Status, Is.EqualTo(200));
         Assert.That((await ServedAsync()).Header("host"), Is.EqualTo(new Uri(CROSS).Authority));
     }

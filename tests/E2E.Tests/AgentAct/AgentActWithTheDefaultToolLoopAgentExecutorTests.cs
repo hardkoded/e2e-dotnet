@@ -25,7 +25,8 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
                 await Expect.That(ctx.Screen.GetByRole("status")).ToHaveTextAsync("1");
             },
             CounterPage.World(),
-            IncrementThenConclude());
+            IncrementThenConclude()
+        );
 
         Assert.Null(result.Error);
     }
@@ -35,7 +36,12 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
     {
         using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(context, CounterSitePage));
         var model = IncrementThenConclude();
-        await using var session = await GesturesSession.StartAsync(site, model, new FileStepCache(TempCache()), "default toolset");
+        await using var session = await GesturesSession.StartAsync(
+            site,
+            model,
+            new FileStepCache(TempCache()),
+            "default toolset"
+        );
         await GesturesSession.RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -44,15 +50,49 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
 
         Assert.True(model.CallCount >= 2);
         Assert.Equal(
-            ["back", "check", "close_tab", "complete_step", "double_tap", "drag", "drag_at", "hover", "hover_at", "long_press", "navigate", "observe", "press", "press_at", "resize_viewport", "right_click", "screenshot", "scroll", "scroll_to", "select", "select_at", "switch_tab", "tap", "tap_at", "type", "type_at", "upload"],
-            model.Requests[0].Tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+            [
+                "back",
+                "check",
+                "close_tab",
+                "complete_step",
+                "double_tap",
+                "drag",
+                "drag_at",
+                "hover",
+                "hover_at",
+                "long_press",
+                "navigate",
+                "observe",
+                "press",
+                "press_at",
+                "resize_viewport",
+                "right_click",
+                "screenshot",
+                "scroll",
+                "scroll_to",
+                "select",
+                "select_at",
+                "switch_tab",
+                "tap",
+                "tap_at",
+                "type",
+                "type_at",
+                // Offered on a step without secrets too, so every step sends the same tools.
+                "type_secret",
+                "upload",
+            ],
+            model.Requests[0].Tools.Select(tool => tool.Name).Order(StringComparer.Ordinal)
+        );
         var opening = model.Requests[0].Messages[0].Content!;
         Assert.Contains("increment the counter once", opening, StringComparison.Ordinal);
         Assert.Matches(@"Current screen \(revision b\d+, path /, \d+ nodes\):", opening);
         // The result reports the change since the opening screen, not the tree again.
         var result = CounterPage.ToolResults(model)[0];
         Assert.Contains("Screen changes since revision", result, StringComparison.Ordinal);
-        Assert.Matches(@"changed #\S+ status ""Counter"" text=""1"" \(was: #\S+ status ""Counter"" text=""0""\)", result);
+        Assert.Matches(
+            @"changed #\S+ status ""Counter"" text=""1"" \(was: #\S+ status ""Counter"" text=""0""\)",
+            result
+        );
         Assert.DoesNotContain("button \"Increment\"", result, StringComparison.Ordinal);
     }
 
@@ -66,10 +106,16 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
         var model = new NamedModel(
             new ScriptedModel(request => new ModelResponse
             {
-                ToolCalls = request.Messages.Any(message => message.Content?.Contains("Statement:", StringComparison.Ordinal) == true) || request.Messages.Any(message => message.Role == "tool") ? ModelResponses.Done("passed", "upgraded").ToolCalls : ModelResponses.Tap("button", "Upgrade to Pro").ToolCalls,
+                ToolCalls =
+                    request.Messages.Any(message =>
+                        message.Content?.Contains("Statement:", StringComparison.Ordinal) == true
+                    ) || request.Messages.Any(message => message.Role == "tool")
+                        ? ModelResponses.Done("passed", "upgraded").ToolCalls
+                        : ModelResponses.Tap("button", "Upgrade to Pro").ToolCalls,
                 Usage = new ModelCallUsage { InputTokens = 11, OutputTokens = 3 },
             }),
-            "fake-loop/scripted-loop");
+            "fake-loop/scripted-loop"
+        );
         var result = await RunAsync(
             async ctx =>
             {
@@ -79,7 +125,8 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
             },
             model: model,
             cacheDirectory: directory,
-            report: report);
+            report: report
+        );
         var second = await RunAsync(
             async ctx =>
             {
@@ -88,7 +135,8 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
                 await ctx.Agent.AssertAsync("the invoice preview shows a prorated amount");
             },
             model: model,
-            cacheDirectory: directory);
+            cacheDirectory: directory
+        );
 
         Assert.Null(result.Error);
         Assert.Null(second.Error);
@@ -104,7 +152,15 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
         var calls = (int)step["metrics"]!["modelCalls"]!;
         Assert.True(calls >= 2);
         Assert.Equal(1, (int)step["metrics"]!["actionSteps"]!);
-        Assert.Equal(("fake-loop", "scripted-loop", "provider", calls), ((string)step["model"]!["provider"]!, (string)step["model"]!["model"]!, (string)step["model"]!["tokenAccounting"]!, (int)step["model"]!["calls"]!));
+        Assert.Equal(
+            ("fake-loop", "scripted-loop", "provider", calls),
+            (
+                (string)step["model"]!["provider"]!,
+                (string)step["model"]!["model"]!,
+                (string)step["model"]!["tokenAccounting"]!,
+                (int)step["model"]!["calls"]!
+            )
+        );
         Assert.True((int)step["model"]!["inputTokens"]! > 0);
         Assert.Equal(calls, step["events"]!.AsArray().Count(each => (string)each!["kind"]! == "model"));
     }

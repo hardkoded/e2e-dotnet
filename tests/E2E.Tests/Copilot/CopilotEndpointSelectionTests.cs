@@ -11,8 +11,11 @@ namespace E2E.Tests.Copilot;
 public sealed class CopilotEndpointSelectionTests
 {
     private static string Entry(string[] supported, string? policy = null) =>
-        "{ \"id\": \"m\"" + (policy is null ? "" : ", \"policy\": { \"state\": \"" + policy + "\" }")
-        + ", \"supported_endpoints\": [" + string.Join(", ", supported.Select(endpoint => "\"" + endpoint + "\"")) + "] }";
+        "{ \"id\": \"m\""
+        + (policy is null ? "" : ", \"policy\": { \"state\": \"" + policy + "\" }")
+        + ", \"supported_endpoints\": ["
+        + string.Join(", ", supported.Select(endpoint => "\"" + endpoint + "\""))
+        + "] }";
 
     private static HttpClient Listing(string data, HttpStatusCode status = HttpStatusCode.OK) =>
         new(new FakeApi(_ => (status, "{ \"data\": " + data + " }")));
@@ -49,13 +52,35 @@ public sealed class CopilotEndpointSelectionTests
     [Fact]
     public async Task Answers_undefined_when_the_listing_cannot_be_read_so_nothing_is_remembered()
     {
-        Assert.Null(await ProtocolForAsync(Listing("[" + Entry(["/responses"]) + "]", HttpStatusCode.InternalServerError)));
-        Assert.Null(await ProtocolForAsync(new HttpClient(new Replying((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("not json") })))));
-        Assert.Null(await ProtocolForAsync(new HttpClient(new Replying((_, _) => throw new HttpRequestException("offline")))));
+        Assert.Null(
+            await ProtocolForAsync(Listing("[" + Entry(["/responses"]) + "]", HttpStatusCode.InternalServerError))
+        );
+        Assert.Null(
+            await ProtocolForAsync(
+                new HttpClient(
+                    new Replying(
+                        (_, _) =>
+                            Task.FromResult(
+                                new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("not json") }
+                            )
+                    )
+                )
+            )
+        );
+        Assert.Null(
+            await ProtocolForAsync(new HttpClient(new Replying((_, _) => throw new HttpRequestException("offline"))))
+        );
 
         using var aborted = new CancellationTokenSource();
         await aborted.CancelAsync();
-        Assert.Null(await ProtocolForAsync(new HttpClient(new Replying((_, token) => new TaskCompletionSource<HttpResponseMessage>().Task.WaitAsync(token))), aborted.Token));
+        Assert.Null(
+            await ProtocolForAsync(
+                new HttpClient(
+                    new Replying((_, token) => new TaskCompletionSource<HttpResponseMessage>().Task.WaitAsync(token))
+                ),
+                aborted.Token
+            )
+        );
     }
 
     [Fact]
@@ -72,22 +97,43 @@ public sealed class CopilotEndpointSelectionTests
             }
 
             return request.Uri.AbsolutePath == "/chat/completions"
-                ? (HttpStatusCode.BadRequest, """{ "error": { "message": "model \"m\" is not accessible via the /chat/completions endpoint", "code": "unsupported_api_for_model" } }""")
-                : (HttpStatusCode.OK, """
+                ? (
+                    HttpStatusCode.BadRequest,
+                    """{ "error": { "message": "model \"m\" is not accessible via the /chat/completions endpoint", "code": "unsupported_api_for_model" } }"""
+                )
+                : (
+                    HttpStatusCode.OK,
+                    """
                     { "id": "resp_1", "created_at": 1, "model": "m",
                       "output": [{ "type": "message", "id": "msg_1", "role": "assistant", "content": [{ "type": "output_text", "text": "ok", "annotations": [] }] }],
                       "usage": { "input_tokens": 1, "output_tokens": 1, "total_tokens": 2 } }
-                    """);
+                    """
+                );
         });
-        var store = new MemoryCredentialStore(new() { ["github-copilot"] = new OAuthCredentials { Access = "gho_x", Refresh = "", Expires = 0 } });
+        var store = new MemoryCredentialStore(
+            new()
+            {
+                ["github-copilot"] = new OAuthCredentials
+                {
+                    Access = "gho_x",
+                    Refresh = "",
+                    Expires = 0,
+                },
+            }
+        );
         using var model = new CopilotModel("m", Subscriptions.Client(new CopilotProvider(), store, inner: api));
 
-        var failure = await Assert.ThrowsAsync<AgentException>(() => model.CompleteAsync(Request(), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<AgentException>(() =>
+            model.CompleteAsync(Request(), CancellationToken.None)
+        );
         Assert.Contains("not accessible", failure.Message, StringComparison.Ordinal);
         Assert.Equal("ok", (await model.CompleteAsync(Request(), CancellationToken.None)).Content);
         Assert.Equal("ok", (await model.CompleteAsync(Request(), CancellationToken.None)).Content);
 
-        Assert.Equal(["/models", "/chat/completions", "/models", "/responses", "/responses"], api.Requests.Select(request => request.Uri.AbsolutePath));
+        Assert.Equal(
+            ["/models", "/chat/completions", "/models", "/responses", "/responses"],
+            api.Requests.Select(request => request.Uri.AbsolutePath)
+        );
     }
 
     [Fact]
@@ -96,22 +142,41 @@ public sealed class CopilotEndpointSelectionTests
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var listing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var listings = 0;
-        var api = new Replying(async (request, token) =>
-        {
-            if (request.RequestUri!.AbsolutePath == "/models")
+        var api = new Replying(
+            async (request, token) =>
             {
-                Interlocked.Increment(ref listings);
-                listing.TrySetResult();
-                await release.Task.WaitAsync(token);
-                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{ "data": [{ "id": "m", "supported_endpoints": ["/chat/completions"] }] }""") };
-            }
+                if (request.RequestUri!.AbsolutePath == "/models")
+                {
+                    Interlocked.Increment(ref listings);
+                    listing.TrySetResult();
+                    await release.Task.WaitAsync(token);
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(
+                            """{ "data": [{ "id": "m", "supported_endpoints": ["/chat/completions"] }] }"""
+                        ),
+                    };
+                }
 
-            return new HttpResponseMessage(HttpStatusCode.OK)
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """{ "id": "c", "object": "chat.completion", "created": 1, "model": "m", "choices": [{ "index": 0, "message": { "role": "assistant", "content": "ok" }, "finish_reason": "stop" }] }"""
+                    ),
+                };
+            }
+        );
+        var store = new MemoryCredentialStore(
+            new()
             {
-                Content = new StringContent("""{ "id": "c", "object": "chat.completion", "created": 1, "model": "m", "choices": [{ "index": 0, "message": { "role": "assistant", "content": "ok" }, "finish_reason": "stop" }] }"""),
-            };
-        });
-        var store = new MemoryCredentialStore(new() { ["github-copilot"] = new OAuthCredentials { Access = "gho_x", Refresh = "", Expires = 0 } });
+                ["github-copilot"] = new OAuthCredentials
+                {
+                    Access = "gho_x",
+                    Refresh = "",
+                    Expires = 0,
+                },
+            }
+        );
         using var model = new CopilotModel("m", Subscriptions.Client(new CopilotProvider(), store, inner: api));
         using var quitter = new CancellationTokenSource();
 
@@ -126,12 +191,22 @@ public sealed class CopilotEndpointSelectionTests
         Assert.Equal(1, listings);
     }
 
-    private static ModelRequest Request() => new() { System = "", Tools = [], Messages = [new ModelMessage { Role = "user", Content = "x" }] };
+    private static ModelRequest Request() =>
+        new()
+        {
+            System = "",
+            Tools = [],
+            Messages = [new ModelMessage { Role = "user", Content = "x" }],
+        };
 
     /// <summary>A handler that answers each request as its callback says.</summary>
-    private sealed class Replying(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> reply) : HttpMessageHandler
+    private sealed class Replying(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> reply)
+        : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
         {
             cancellationToken.ThrowIfCancellationRequested();
             return reply(request, cancellationToken);

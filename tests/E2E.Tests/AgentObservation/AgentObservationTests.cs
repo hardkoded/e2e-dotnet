@@ -18,7 +18,10 @@ public sealed class AgentObservationTests
     private static async Task<(ObservationFeed Feed, PixelsEngine Engine)> FeedAsync(bool pixelsAllowed)
     {
         var engine = new PixelsEngine(new DocumentEngine(CounterPage.World()));
-        var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = "https://billing.test" }, CancellationToken.None);
+        var session = await engine.StartAsync(
+            new EngineStartOptions { BaseUrl = "https://billing.test" },
+            CancellationToken.None
+        );
         await session.OpenAsync("https://billing.test/", CancellationToken.None);
         var scope = new AttemptScope
         {

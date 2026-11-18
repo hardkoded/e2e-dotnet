@@ -10,13 +10,15 @@ namespace E2E.Mobile.Tests.Engine;
 
 public sealed class DeviceFixtureTests
 {
-    private static Task Tap(DeviceSession session, SemanticNode node) => session.PerformAsync(node, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
+    private static Task Tap(DeviceSession session, SemanticNode node) =>
+        session.PerformAsync(node, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
 
     private static Harness Android(string? bundleId = null, bool pinned = true) =>
         Harness.Create(
             options => options with { Platform = MobilePlatform.Android },
             pinned,
-            app => bundleId is null ? app : app with { BundleId = bundleId });
+            app => bundleId is null ? app : app with { BundleId = bundleId }
+        );
 
     // .NET-only: upstream's engine.test.ts has no `it` for device.locator. The attempt's context reaches the fixture through IEngineFixtureHost,
     // which upstream has as EngineFixtureContext handed to the engine's fixture factory.
@@ -34,7 +36,8 @@ public sealed class DeviceFixtureTests
             () => { },
             TimeSpan.FromSeconds(5),
             TimeSpan.FromSeconds(5),
-            locate: session.LocateAsync);
+            locate: session.LocateAsync
+        );
         ((IEngineFixtureHost)session).CreateFixtures(new EngineFixtureContext(screen));
 
         var about = session.Device.Locator("id=ABOUT").First();
@@ -57,10 +60,18 @@ public sealed class DeviceFixtureTests
         var screen = await RootOf(session);
         h.Clock.Advance(TimeSpan.FromMilliseconds(30));
 
-        await session.PerformAsync(screen, new LocatorAction.Swipe(ScrollDirection.Down), OperationContext.Test, CancellationToken.None);
+        await session.PerformAsync(
+            screen,
+            new LocatorAction.Swipe(ScrollDirection.Down),
+            OperationContext.Test,
+            CancellationToken.None
+        );
 
         Assert.Equal(TimeSpan.FromMilliseconds(120), h.Clock.GetUtcNow() - dismissedAt);
-        JsonAssert.Args("""{"direction":"down","postGestureStabilization":false}""", h.Fake.LastArgs("interactions.scroll"));
+        JsonAssert.Args(
+            """{"direction":"down","postGestureStabilization":false}""",
+            h.Fake.LastArgs("interactions.scroll")
+        );
     }
 
     [Fact]
@@ -123,23 +134,46 @@ public sealed class DeviceFixtureTests
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
-        h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject { ["app"] = "./b/App.app", ["appPath"] = "/b/App.app", ["platform"] = "ios", ["bundleId"] = "com.example.app" });
-        h.Fake.Respond(DeviceMethods.AppsReinstall, args => new JsonObject { ["app"] = args?["app"]?.DeepClone(), ["appPath"] = "/b/App.app", ["platform"] = "ios" });
+        h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject
+        {
+            ["app"] = "./b/App.app",
+            ["appPath"] = "/b/App.app",
+            ["platform"] = "ios",
+            ["bundleId"] = "com.example.app",
+        });
+        h.Fake.Respond(DeviceMethods.AppsReinstall, args => new JsonObject
+        {
+            ["app"] = args?["app"]?.DeepClone(),
+            ["appPath"] = "/b/App.app",
+            ["platform"] = "ios",
+        });
         var device = session.Device;
         var before = h.Fake.Calls.Count;
-        Assert.Equal(new InstalledApp("com.example.app", "com.example.app"), await device.InstallAppAsync("./b/App.app"));
-        Assert.Equal(new InstalledApp("Settings"), await device.InstallAppAsync("/b/App.app", new InstallAppOptions { Reinstall = true }));
-        Assert.Equal(new InstalledApp("com.other"), await device.InstallAppAsync("/b/App.app", new InstallAppOptions { App = "com.other", Reinstall = true }));
+        Assert.Equal(
+            new InstalledApp("com.example.app", "com.example.app"),
+            await device.InstallAppAsync("./b/App.app")
+        );
+        Assert.Equal(
+            new InstalledApp("Settings"),
+            await device.InstallAppAsync("/b/App.app", new InstallAppOptions { Reinstall = true })
+        );
+        Assert.Equal(
+            new InstalledApp("com.other"),
+            await device.InstallAppAsync("/b/App.app", new InstallAppOptions { App = "com.other", Reinstall = true })
+        );
         JsonAssert.Calls(
             h.Fake.Calls,
             before,
             ("apps.install", """{"platform":"ios","appPath":"/project/b/App.app"}"""),
             ("apps.reinstall", """{"platform":"ios","app":"Settings","appPath":"/b/App.app"}"""),
-            ("apps.reinstall", """{"platform":"ios","app":"com.other","appPath":"/b/App.app"}"""));
+            ("apps.reinstall", """{"platform":"ios","app":"com.other","appPath":"/b/App.app"}""")
+        );
 
         var free = Harness.Create(pinned: false);
         var freeSession = await OpenAttempt(free);
-        var refused = await Assert.ThrowsAsync<EngineException>(() => freeSession.Device.InstallAppAsync("/b/App.app", new InstallAppOptions { Reinstall = true }));
+        var refused = await Assert.ThrowsAsync<EngineException>(() =>
+            freeSession.Device.InstallAppAsync("/b/App.app", new InstallAppOptions { Reinstall = true })
+        );
         Assert.Equal("INVALID_STATE", refused.Code);
         Assert.Equal(["devices.boot"], free.Fake.Methods());
     }
@@ -149,9 +183,17 @@ public sealed class DeviceFixtureTests
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
-        h.Fake.Respond(DeviceMethods.CommandAppState, _ => new JsonObject { ["platform"] = "ios", ["appName"] = "Settings", ["appBundleId"] = "com.apple.Preferences" });
+        h.Fake.Respond(DeviceMethods.CommandAppState, _ => new JsonObject
+        {
+            ["platform"] = "ios",
+            ["appName"] = "Settings",
+            ["appBundleId"] = "com.apple.Preferences",
+        });
         h.Fake.Respond(DeviceMethods.CommandClipboard, args =>
-            args?["action"]?.GetValue<string>() == "read" ? new JsonObject { ["action"] = "read", ["text"] = "pasted" } : new JsonObject { ["action"] = "write", ["textLength"] = 1 });
+            args?["action"]?.GetValue<string>() == "read"
+                ? new JsonObject { ["action"] = "read", ["text"] = "pasted" }
+                : new JsonObject { ["action"] = "write", ["textLength"] = 1 }
+        );
         var device = session.Device;
         var before = h.Fake.Calls.Count;
         await device.SetPermissionAsync(DevicePermission.Camera, PermissionState.Grant);
@@ -175,8 +217,14 @@ public sealed class DeviceFixtureTests
         JsonAssert.Calls(
             h.Fake.Calls,
             before,
-            ("settings.update", """{"setting":"permission","permission":"camera","state":"grant","platform":"ios","app":"Settings"}"""),
-            ("settings.update", """{"platform":"ios","setting":"location","state":"set","latitude":37.3349,"longitude":-122.009}"""),
+            (
+                "settings.update",
+                """{"setting":"permission","permission":"camera","state":"grant","platform":"ios","app":"Settings"}"""
+            ),
+            (
+                "settings.update",
+                """{"platform":"ios","setting":"location","state":"set","latitude":37.3349,"longitude":-122.009}"""
+            ),
             ("settings.update", """{"platform":"ios","setting":"location","state":"off"}"""),
             ("settings.update", """{"platform":"ios","setting":"appearance","state":"dark"}"""),
             ("command.orientation", """{"platform":"ios","orientation":"landscape-left"}"""),
@@ -185,7 +233,6 @@ public sealed class DeviceFixtureTests
             ("settings.update", """{"platform":"ios","setting":"fingerprint","state":"nonmatch"}"""),
             ("settings.update", """{"platform":"ios","setting":"touchid","state":"enroll"}"""),
             ("apps.open", """{"app":"Reminders","platform":"ios","relaunch":true}"""),
-
             // The close names the app the session observed, so agent-device terminates it before the session ends.
             ("apps.close", """{"platform":"ios","app":"com.apple.Preferences"}"""),
             ("command.appState", "{}"),
@@ -194,7 +241,8 @@ public sealed class DeviceFixtureTests
             ("command.alert", """{"platform":"ios","action":"accept"}"""),
             ("command.keyboard", """{"action":"dismiss"}"""),
             ("command.clipboard", """{"platform":"ios","action":"read"}"""),
-            ("command.clipboard", """{"platform":"ios","action":"write","text":"x"}"""));
+            ("command.clipboard", """{"platform":"ios","action":"write","text":"x"}""")
+        );
     }
 
     [Fact]
@@ -212,10 +260,17 @@ public sealed class DeviceFixtureTests
         JsonAssert.Calls(
             h.Fake.Calls,
             before,
-            ("settings.update", """{"setting":"permission","permission":"microphone","state":"reset","platform":"ios","device":"iPhone 16e","app":"Settings"}"""),
+            (
+                "settings.update",
+                """{"setting":"permission","permission":"microphone","state":"reset","platform":"ios","device":"iPhone 16e","app":"Settings"}"""
+            ),
             ("apps.open", """{"app":"com.other","platform":"ios","device":"iPhone 16e","relaunch":true}"""),
             ("apps.close", """{"platform":"ios","device":"iPhone 16e","app":"com.apple.Preferences"}"""),
-            ("settings.update", """{"setting":"permission","permission":"camera","state":"grant","platform":"ios","device":"iPhone 16e","app":"Settings"}"""));
+            (
+                "settings.update",
+                """{"setting":"permission","permission":"camera","state":"grant","platform":"ios","device":"iPhone 16e","app":"Settings"}"""
+            )
+        );
     }
 
     [Fact]
@@ -225,7 +280,11 @@ public sealed class DeviceFixtureTests
         var session = await OpenAttempt(h);
         var before = h.Fake.Calls.Count;
         await session.Device.SetPermissionAsync(DevicePermission.Camera, PermissionState.Deny);
-        JsonAssert.Calls(h.Fake.Calls, before, ("settings.update", """{"setting":"permission","permission":"camera","state":"deny","platform":"ios"}"""));
+        JsonAssert.Calls(
+            h.Fake.Calls,
+            before,
+            ("settings.update", """{"setting":"permission","permission":"camera","state":"deny","platform":"ios"}""")
+        );
     }
 
     [Fact]
@@ -233,8 +292,16 @@ public sealed class DeviceFixtureTests
     {
         var h = Android("com.android.settings");
         var session = await OpenAttempt(h);
-        h.Fake.Respond(DeviceMethods.CommandAppState, _ => new JsonObject { ["platform"] = "android", ["package"] = "com.android.settings", ["activity"] = ".Main" });
-        Assert.Equal(new ForegroundApp("com.android.settings", "com.android.settings"), await session.Device.ForegroundAppAsync());
+        h.Fake.Respond(DeviceMethods.CommandAppState, _ => new JsonObject
+        {
+            ["platform"] = "android",
+            ["package"] = "com.android.settings",
+            ["activity"] = ".Main",
+        });
+        Assert.Equal(
+            new ForegroundApp("com.android.settings", "com.android.settings"),
+            await session.Device.ForegroundAppAsync()
+        );
         var before = h.Fake.Calls.Count;
         var device = session.Device;
         await device.SetLocationAsync(new Coordinates(52.2297, 21.0122));
@@ -243,8 +310,12 @@ public sealed class DeviceFixtureTests
             h.Fake.Calls,
             before,
             ("settings.update", """{"platform":"android","setting":"location","state":"on"}"""),
-            ("settings.update", """{"platform":"android","setting":"location","state":"set","latitude":52.2297,"longitude":21.0122}"""),
-            ("settings.update", """{"platform":"android","setting":"location","state":"off"}"""));
+            (
+                "settings.update",
+                """{"platform":"android","setting":"location","state":"set","latitude":52.2297,"longitude":21.0122}"""
+            ),
+            ("settings.update", """{"platform":"android","setting":"location","state":"off"}""")
+        );
     }
 
     [Fact]
@@ -252,7 +323,12 @@ public sealed class DeviceFixtureTests
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
-        h.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject { ["session"] = "s", ["appName"] = "Benchmark", ["appBundleId"] = "dev.e2e.benchmark" });
+        h.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject
+        {
+            ["session"] = "s",
+            ["appName"] = "Benchmark",
+            ["appBundleId"] = "dev.e2e.benchmark",
+        });
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly(RawNodes.SettingsNodes));
         var device = session.Device;
         var before = h.Fake.Calls.Count;
@@ -262,8 +338,41 @@ public sealed class DeviceFixtureTests
             h.Fake.Calls,
             before,
             ("apps.open", """{"platform":"ios","app":"Settings","url":"e2e-benchmark://orders/42?token=abc"}"""),
-            ("apps.open", """{"platform":"ios","app":"com.apple.mobilesafari","url":"https://example.com/verify"}"""));
+            ("apps.open", """{"platform":"ios","app":"com.apple.mobilesafari","url":"https://example.com/verify"}""")
+        );
         Assert.Equal("dev.e2e.benchmark / General", (await session.ObserveAsync(CancellationToken.None)).Route);
+    }
+
+    [Fact]
+    public async Task Opens_app_open_path_links_on_a_target_with_app_linkBase_in_the_pinned_app_through_session_openLink()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject
+        {
+            ["session"] = "s",
+            ["appName"] = "Benchmark",
+            ["appBundleId"] = "dev.e2e.benchmark",
+        });
+        var before = h.Fake.Calls.Count;
+        await ((IEngineSession)session).OpenLinkAsync(
+            "e2e-benchmark://orders/42",
+            OperationContext.Test,
+            CancellationToken.None
+        );
+        JsonAssert.Calls(
+            h.Fake.Calls,
+            before,
+            ("apps.open", """{"platform":"ios","app":"Settings","url":"e2e-benchmark://orders/42"}""")
+        );
+        var refused = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            ((IEngineSession)session).OpenLinkAsync(
+                "javascript:alert(1)",
+                OperationContext.Test,
+                CancellationToken.None
+            )
+        );
+        Assert.Equal("POLICY_DENIED", refused.Code);
     }
 
     [Fact]
@@ -272,11 +381,20 @@ public sealed class DeviceFixtureTests
         var android = Android(pinned: false);
         var androidSession = await OpenAttempt(android);
         android.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly(RawNodes.SettingsNodes));
-        android.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject { ["session"] = "s", ["appName"] = "myapp://orders/42" });
+        android.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject
+        {
+            ["session"] = "s",
+            ["appName"] = "myapp://orders/42",
+        });
         await androidSession.Device.OpenLinkAsync("myapp://orders/42");
         JsonAssert.Args("""{"platform":"android","app":"myapp://orders/42"}""", android.Fake.LastArgs("apps.open"));
         Assert.Equal("General", (await androidSession.ObserveAsync(CancellationToken.None)).Route);
-        android.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject { ["session"] = "s", ["appName"] = "https://example.com", ["appBundleId"] = "com.android.chrome" });
+        android.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject
+        {
+            ["session"] = "s",
+            ["appName"] = "https://example.com",
+            ["appBundleId"] = "com.android.chrome",
+        });
         await androidSession.Device.OpenLinkAsync("https://example.com");
         Assert.Equal("com.android.chrome / General", (await androidSession.ObserveAsync(CancellationToken.None)).Route);
 
@@ -298,20 +416,44 @@ public sealed class DeviceFixtureTests
         var session = await OpenAttempt(h);
         var device = session.Device;
         var before = h.Fake.Calls.Count;
-        foreach (var denied in new[] { "file:///etc/passwd", "data:text/html,hi", "javascript:alert(1)", "view-source:file:///etc/passwd" })
+        foreach (
+            var denied in new[]
+            {
+                "file:///etc/passwd",
+                "data:text/html,hi",
+                "javascript:alert(1)",
+                "view-source:file:///etc/passwd",
+            }
+        )
         {
-            Assert.Equal("POLICY_DENIED", (await Assert.ThrowsAsync<ConfigurationException>(() => device.OpenLinkAsync(denied))).Code);
-            Assert.Equal("POLICY_DENIED", (await Assert.ThrowsAsync<ConfigurationException>(() => device.OpenAppAsync(denied))).Code);
+            Assert.Equal(
+                "POLICY_DENIED",
+                (await Assert.ThrowsAsync<ConfigurationException>(() => device.OpenLinkAsync(denied))).Code
+            );
+            Assert.Equal(
+                "POLICY_DENIED",
+                (await Assert.ThrowsAsync<ConfigurationException>(() => device.OpenAppAsync(denied))).Code
+            );
         }
 
         foreach (var malformed in new[] { "orders/42", "", "https://" })
         {
-            Assert.Equal("INVALID_ARGUMENT", (await Assert.ThrowsAsync<TestException>(() => device.OpenLinkAsync(malformed))).Code);
+            Assert.Equal(
+                "INVALID_ARGUMENT",
+                (await Assert.ThrowsAsync<TestException>(() => device.OpenLinkAsync(malformed))).Code
+            );
         }
 
         foreach (var link in new[] { "https://example.com/verify", "myapp://orders/42" })
         {
-            Assert.Equal("INVALID_ARGUMENT", (await Assert.ThrowsAsync<TestException>(() => device.OpenAppAsync(link, new OpenAppOptions { Relaunch = true }))).Code);
+            Assert.Equal(
+                "INVALID_ARGUMENT",
+                (
+                    await Assert.ThrowsAsync<TestException>(() =>
+                        device.OpenAppAsync(link, new OpenAppOptions { Relaunch = true })
+                    )
+                ).Code
+            );
         }
 
         Assert.Equal(before, h.Fake.Calls.Count);
@@ -320,20 +462,40 @@ public sealed class DeviceFixtureTests
     }
 
     [Theory]
-    [InlineData("ios", "73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6", """{"platform":"ios","udid":"73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6"}""")]
+    [InlineData(
+        "ios",
+        "73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6",
+        """{"platform":"ios","udid":"73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6"}"""
+    )]
     [InlineData("android", "emulator-5554", """{"platform":"android","serial":"emulator-5554"}""")]
     [InlineData("ios", "iPhone 17 Pro", """{"platform":"ios","device":"iPhone 17 Pro"}""")]
     [InlineData("ios", null, """{"platform":"ios"}""")]
-    public async Task Keeps_device_commands_on_the_selected_platform_device_after_closeApp_ends_the_previous_session(string platformName, string? device, string selectionJson)
+    public async Task Keeps_device_commands_on_the_selected_platform_device_after_closeApp_ends_the_previous_session(
+        string platformName,
+        string? device,
+        string selectionJson
+    )
     {
         var platform = platformName == "android" ? MobilePlatform.Android : MobilePlatform.Ios;
         var selection = JsonNode.Parse(selectionJson)!.AsObject();
-        var h = Harness.Create(options => options with { Platform = platform, Device = device }, app: app => app with { BundleId = "com.example.app" });
+        var h = Harness.Create(
+            options => options with { Platform = platform, Device = device },
+            app: app => app with { BundleId = "com.example.app" }
+        );
         await h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None);
         var session = await OpenAttempt(h);
-        h.Fake.Respond(DeviceMethods.CommandAppState, _ => new JsonObject { ["platform"] = platformName, ["appName"] = "Example", ["appBundleId"] = "com.example.app", ["package"] = platform == MobilePlatform.Android ? "com.example.app" : null });
+        h.Fake.Respond(DeviceMethods.CommandAppState, _ => new JsonObject
+        {
+            ["platform"] = platformName,
+            ["appName"] = "Example",
+            ["appBundleId"] = "com.example.app",
+            ["package"] = platform == MobilePlatform.Android ? "com.example.app" : null,
+        });
         h.Fake.Respond(DeviceMethods.CommandClipboard, args =>
-            args?["action"]?.GetValue<string>() == "read" ? new JsonObject { ["action"] = "read", ["text"] = "pasted" } : new JsonObject { ["action"] = "write", ["textLength"] = 1 });
+            args?["action"]?.GetValue<string>() == "read"
+                ? new JsonObject { ["action"] = "read", ["text"] = "pasted" }
+                : new JsonObject { ["action"] = "write", ["textLength"] = 1 }
+        );
         var selected = session.Device;
         await selected.HomeAsync();
         JsonAssert.Args(selectionJson, h.Fake.LastArgs("command.home"));
@@ -349,15 +511,22 @@ public sealed class DeviceFixtureTests
             () => selected.SetAppearanceAsync(Appearance.Dark),
             () => selected.SetOrientationAsync(DeviceOrientation.LandscapeLeft),
             () => selected.FoldAsync(FoldPose.HalfOpen),
-            () => selected.SetBiometricsAsync(platform == MobilePlatform.Ios ? BiometricSensor.FaceId : BiometricSensor.Fingerprint, BiometricResult.Match),
+            () =>
+                selected.SetBiometricsAsync(
+                    platform == MobilePlatform.Ios ? BiometricSensor.FaceId : BiometricSensor.Fingerprint,
+                    BiometricResult.Match
+                ),
             () => selected.AlertAsync(AlertAction.Accept),
             () => selected.ClipboardAsync(),
             () => selected.SetClipboardAsync("x"),
             () => selected.SetPermissionAsync(DevicePermission.Camera, PermissionState.Grant),
-
             // iOS refuses going offline before any command, so the radios are Android's.
             .. platform == MobilePlatform.Ios
-                ? new Func<Task>[] { () => selected.EnrollBiometricsAsync(BiometricSensor.TouchId, true), () => selected.ClearKeychainAsync() }
+                ? new Func<Task>[]
+                {
+                    () => selected.EnrollBiometricsAsync(BiometricSensor.TouchId, true),
+                    () => selected.ClearKeychainAsync(),
+                }
                 : [() => selected.SetNetworkAsync(NetworkState.Offline), () => selected.SetAirplaneModeAsync(true)],
         ];
         foreach (var command in commands)
@@ -376,7 +545,12 @@ public sealed class DeviceFixtureTests
 
         await selected.CloseAppAsync();
         await session.ClearStateAsync(CancellationToken.None);
-        var reset = new JsonObject { ["setting"] = "clear-app-state", ["state"] = "clear", ["app"] = "com.example.app" };
+        var reset = new JsonObject
+        {
+            ["setting"] = "clear-app-state",
+            ["state"] = "clear",
+            ["app"] = "com.example.app",
+        };
         var open = new JsonObject { ["app"] = "com.example.app", ["relaunch"] = true };
         foreach (var (key, value) in selection)
         {
@@ -392,7 +566,10 @@ public sealed class DeviceFixtureTests
     {
         foreach (var (key, value) in selection)
         {
-            Assert.True(JsonNode.DeepEquals(value, args?[key]), $"expected {key} {value} in {args?.ToJsonString() ?? "null"}");
+            Assert.True(
+                JsonNode.DeepEquals(value, args?[key]),
+                $"expected {key} {value} in {args?.ToJsonString() ?? "null"}"
+            );
         }
     }
 
@@ -402,7 +579,12 @@ public sealed class DeviceFixtureTests
         const string udid = "2BBF3F07-AF66-4F95-82AB-BF442506FC89";
         var h = Harness.Create(options => options with { Device = udid });
         await h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None);
-        h.Fake.Respond(DeviceMethods.CommandAppState, _ => new JsonObject { ["platform"] = "ios", ["appName"] = "Settings", ["appBundleId"] = "com.apple.Preferences" });
+        h.Fake.Respond(DeviceMethods.CommandAppState, _ => new JsonObject
+        {
+            ["platform"] = "ios",
+            ["appName"] = "Settings",
+            ["appBundleId"] = "com.apple.Preferences",
+        });
         var session = await OpenAttempt(h);
         var device = session.Device;
         var before = h.Fake.Calls.Count;
@@ -424,24 +606,38 @@ public sealed class DeviceFixtureTests
             ("apps.close", "{" + selection + ",\"app\":\"com.apple.Preferences\"}"),
             ("settings.update", "{" + selection + ",\"setting\":\"reset-keychain\",\"state\":\"clear\"}"),
             ("settings.update", "{" + selection + ",\"setting\":\"appearance\",\"state\":\"dark\"}"),
-            ("settings.update", "{" + selection + ",\"setting\":\"clear-app-state\",\"state\":\"clear\",\"app\":\"Settings\"}"),
+            (
+                "settings.update",
+                "{" + selection + ",\"setting\":\"clear-app-state\",\"state\":\"clear\",\"app\":\"Settings\"}"
+            ),
             ("apps.open", "{" + selection + ",\"app\":\"Settings\",\"relaunch\":true}"),
             ("command.appState", "{}"),
             ("capture.snapshot", """{"interactiveOnly":false}"""),
-            ("sessions.close", "null"));
+            ("sessions.close", "null")
+        );
     }
 
     [Fact]
     public async Task Presets_the_configured_permissions_and_passes_the_launch_arguments_on_every_fresh_launch_of_the_pinned_app_and_on_no_other_open()
     {
-        var h = Harness.Create(
-            app: app => app with
+        var h = Harness.Create(app: app =>
+            app with
             {
                 BundleId = "com.example.app",
                 LaunchArguments = ["-e2e", "YES"],
-                Permissions = new Dictionary<DevicePermission, PermissionState> { [DevicePermission.Camera] = PermissionState.Grant, [DevicePermission.Location] = PermissionState.Deny },
-            });
-        h.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject { ["session"] = "s", ["appName"] = "Example", ["appBundleId"] = "com.example.app" });
+                Permissions = new Dictionary<DevicePermission, PermissionState>
+                {
+                    [DevicePermission.Camera] = PermissionState.Grant,
+                    [DevicePermission.Location] = PermissionState.Deny,
+                },
+            }
+        );
+        h.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject
+        {
+            ["session"] = "s",
+            ["appName"] = "Example",
+            ["appBundleId"] = "com.example.app",
+        });
         var session = await h.Boot();
         var device = session.Device;
         var before = h.Fake.Calls.Count;
@@ -455,12 +651,14 @@ public sealed class DeviceFixtureTests
 
         static (string Method, string Args) Open(string extra) => ("apps.open", "{\"platform\":\"ios\"," + extra + "}");
         static (string Method, string Args) Permission(string name, string state) =>
-            ("settings.update", $$"""{"setting":"permission","permission":"{{name}}","state":"{{state}}","platform":"ios","app":"com.example.app"}""");
+            (
+                "settings.update",
+                $$"""{"setting":"permission","permission":"{{name}}","state":"{{state}}","platform":"ios","app":"com.example.app"}"""
+            );
         var fresh = Open("\"app\":\"com.example.app\",\"relaunch\":true,\"launchArgs\":[\"-e2e\",\"YES\"]");
         JsonAssert.Calls(
             h.Fake.Calls,
             before,
-
             // The permissions name the app, so they go in before the first launch with no open to bind the session.
             Permission("camera", "grant"),
             Permission("location", "deny"),
@@ -468,20 +666,22 @@ public sealed class DeviceFixtureTests
             Permission("camera", "grant"),
             Permission("location", "deny"),
             fresh,
-
             // A state clear resets the permissions with the data. They are put back before the relaunch.
-            ("settings.update", """{"platform":"ios","setting":"clear-app-state","state":"clear","app":"com.example.app"}"""),
+            (
+                "settings.update",
+                """{"platform":"ios","setting":"clear-app-state","state":"clear","app":"com.example.app"}"""
+            ),
             Permission("camera", "grant"),
             Permission("location", "deny"),
             fresh,
-
             // A foreground-only open, and another app, take none of the engine's options.
             Open("\"app\":\"com.example.app\""),
             Open("\"app\":\"com.other\",\"relaunch\":true"),
             ("apps.close", """{"platform":"ios","app":"com.example.app"}"""),
             Permission("camera", "grant"),
             Permission("location", "deny"),
-            fresh);
+            fresh
+        );
     }
 
     [Fact]
@@ -497,22 +697,47 @@ public sealed class DeviceFixtureTests
             {
                 Relaunch = true,
                 LaunchArguments = ["--reset-onboarding"],
-                Permissions = new Dictionary<DevicePermission, PermissionState> { [DevicePermission.Photos] = PermissionState.Reset },
-            });
+                Permissions = new Dictionary<DevicePermission, PermissionState>
+                {
+                    [DevicePermission.Photos] = PermissionState.Reset,
+                },
+            }
+        );
 
         // No arguments and an empty map send nothing.
         await device.OpenAppAsync(
             "com.other",
-            new OpenAppOptions { LaunchArguments = [], Permissions = new Dictionary<DevicePermission, PermissionState> { [DevicePermission.Photos] = PermissionState.Reset } });
-        await device.OpenAppAsync("com.other", new OpenAppOptions { Permissions = new Dictionary<DevicePermission, PermissionState>() });
+            new OpenAppOptions
+            {
+                LaunchArguments = [],
+                Permissions = new Dictionary<DevicePermission, PermissionState>
+                {
+                    [DevicePermission.Photos] = PermissionState.Reset,
+                },
+            }
+        );
+        await device.OpenAppAsync(
+            "com.other",
+            new OpenAppOptions { Permissions = new Dictionary<DevicePermission, PermissionState>() }
+        );
         JsonAssert.Calls(
             h.Fake.Calls,
             before,
-            ("settings.update", """{"setting":"permission","permission":"photos","state":"reset","platform":"ios","app":"com.other"}"""),
-            ("apps.open", """{"platform":"ios","app":"com.other","relaunch":true,"launchArgs":["--reset-onboarding"]}"""),
-            ("settings.update", """{"setting":"permission","permission":"photos","state":"reset","platform":"ios","app":"com.other"}"""),
+            (
+                "settings.update",
+                """{"setting":"permission","permission":"photos","state":"reset","platform":"ios","app":"com.other"}"""
+            ),
+            (
+                "apps.open",
+                """{"platform":"ios","app":"com.other","relaunch":true,"launchArgs":["--reset-onboarding"]}"""
+            ),
+            (
+                "settings.update",
+                """{"setting":"permission","permission":"photos","state":"reset","platform":"ios","app":"com.other"}"""
+            ),
             ("apps.open", """{"platform":"ios","app":"com.other"}"""),
-            ("apps.open", """{"platform":"ios","app":"com.other"}"""));
+            ("apps.open", """{"platform":"ios","app":"com.other"}""")
+        );
     }
 
     // Partial: upstream passes the name `notification` as a string key. DevicePermission is a closed enum, so the name is a cast number (`42`) here, which the
@@ -524,9 +749,19 @@ public sealed class DeviceFixtureTests
         var session = await OpenAttempt(h);
         var device = session.Device;
         var before = h.Fake.Calls.Count;
-        var refused = await Assert.ThrowsAsync<TestException>(() => device.OpenAppAsync(
-            "com.other",
-            new OpenAppOptions { Relaunch = true, Permissions = new Dictionary<DevicePermission, PermissionState> { [(DevicePermission)42] = PermissionState.Grant } }));
+        var refused = await Assert.ThrowsAsync<TestException>(() =>
+            device.OpenAppAsync(
+                "com.other",
+                new OpenAppOptions
+                {
+                    Relaunch = true,
+                    Permissions = new Dictionary<DevicePermission, PermissionState>
+                    {
+                        [(DevicePermission)42] = PermissionState.Grant,
+                    },
+                }
+            )
+        );
         Assert.Equal("INVALID_ARGUMENT", refused.Code);
         Assert.Contains("device.openApp({ permissions }) has unknown key \"42\"", refused.Message);
         Assert.Equal(before, h.Fake.Calls.Count);
@@ -540,10 +775,17 @@ public sealed class DeviceFixtureTests
         var device = session.Device;
         var before = h.Fake.Calls.Count;
         // The non-string name: a cast number on the enum overload, as the typed API has no other way to pass one.
-        var number = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync((DevicePermission)42, PermissionState.Grant));
+        var number = await Assert.ThrowsAsync<TestException>(() =>
+            device.SetPermissionAsync((DevicePermission)42, PermissionState.Grant)
+        );
         Assert.Equal("INVALID_ARGUMENT", number.Code);
-        Assert.Matches(@"^device\.setPermission permission must be one of camera, .*, got type number\z", number.Message);
-        var cast = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync(DevicePermission.Camera, (PermissionState)42));
+        Assert.Matches(
+            @"^device\.setPermission permission must be one of camera, .*, got type number\z",
+            number.Message
+        );
+        var cast = await Assert.ThrowsAsync<TestException>(() =>
+            device.SetPermissionAsync(DevicePermission.Camera, (PermissionState)42)
+        );
         Assert.Equal("INVALID_ARGUMENT", cast.Code);
         Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got 42", cast.Message);
         var typo = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync("camra", "grant"));
@@ -554,9 +796,15 @@ public sealed class DeviceFixtureTests
         Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got \"allow\"", allow.Message);
         var undefinedState = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync("camera", null));
         Assert.Equal("INVALID_ARGUMENT", undefinedState.Code);
-        Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got undefined", undefinedState.Message);
+        Assert.Equal(
+            "device.setPermission.camera must be one of grant, deny, reset, got undefined",
+            undefinedState.Message
+        );
         var undefinedName = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync(null, "grant"));
-        Assert.Equal("device.setPermission permission must be one of camera, microphone, photos, contacts, notifications, calendar, location, reminders, motion, siri, media-library, got type undefined", undefinedName.Message);
+        Assert.Equal(
+            "device.setPermission permission must be one of camera, microphone, photos, contacts, notifications, calendar, location, reminders, motion, siri, media-library, got type undefined",
+            undefinedName.Message
+        );
         Assert.Equal(before, h.Fake.Calls.Count);
         await device.SetPermissionAsync("camera", "deny");
         Assert.Equal(["settings.update"], h.Fake.Methods().Skip(before));
@@ -594,7 +842,8 @@ public sealed class DeviceFixtureTests
             ("settings.update", """{"platform":"android","setting":"wifi","state":"off"}"""),
             ("settings.update", """{"platform":"android","setting":"wifi","state":"on"}"""),
             ("settings.update", """{"platform":"android","setting":"airplane","state":"on"}"""),
-            ("settings.update", """{"platform":"android","setting":"airplane","state":"off"}"""));
+            ("settings.update", """{"platform":"android","setting":"airplane","state":"off"}""")
+        );
     }
 
     [Fact]
@@ -604,7 +853,11 @@ public sealed class DeviceFixtureTests
         var iosSession = await OpenAttempt(ios);
         var before = ios.Fake.Calls.Count;
         await iosSession.Device.ClearKeychainAsync();
-        JsonAssert.Calls(ios.Fake.Calls, before, ("settings.update", """{"platform":"ios","setting":"reset-keychain","state":"clear"}"""));
+        JsonAssert.Calls(
+            ios.Fake.Calls,
+            before,
+            ("settings.update", """{"platform":"ios","setting":"reset-keychain","state":"clear"}""")
+        );
 
         var android = Android("com.example.app");
         var androidSession = await OpenAttempt(android);
@@ -619,7 +872,12 @@ public sealed class DeviceFixtureTests
     {
         var ios = Harness.Create();
         var iosSession = await OpenAttempt(ios);
-        ios.Fake.Respond(DeviceMethods.CommandFold, _ => throw new AgentDeviceError("UNSUPPORTED_OPERATION", "fold requires a foldable iOS simulator such as iPhone Duo"));
+        ios.Fake.Respond(DeviceMethods.CommandFold, _ =>
+            throw new AgentDeviceError(
+                "UNSUPPORTED_OPERATION",
+                "fold requires a foldable iOS simulator such as iPhone Duo"
+            )
+        );
         var hingeless = await Assert.ThrowsAsync<EngineException>(() => iosSession.Device.FoldAsync(FoldPose.Open));
         Assert.Equal("UNSUPPORTED_CAPABILITY", hingeless.Code);
 
@@ -644,7 +902,8 @@ public sealed class DeviceFixtureTests
             () => { },
             TimeSpan.FromSeconds(5),
             TimeSpan.FromSeconds(5),
-            locate: session.LocateAsync)
+            locate: session.LocateAsync
+        )
         {
             Steps = new StepRecorder("attempt"),
         };
@@ -667,10 +926,19 @@ public sealed class DeviceFixtureTests
             return screen.Steps!.All()[^1].Label;
         }
 
-        Assert.Equal("<link>", await LabelOf(() => device.OpenAppAsync("https://user:pw@app.example.com/magic?token=s3cret#frag"), "INVALID_ARGUMENT"));
+        Assert.Equal(
+            "<link>",
+            await LabelOf(
+                () => device.OpenAppAsync("https://user:pw@app.example.com/magic?token=s3cret#frag"),
+                "INVALID_ARGUMENT"
+            )
+        );
         Assert.Equal("com.apple.Preferences", await LabelOf(() => device.OpenAppAsync("com.apple.Preferences")));
         Assert.Equal("myapp://orders/42", await LabelOf(() => device.OpenLinkAsync("myapp://orders/42?ref=mail")));
-        Assert.Equal("https://app.example.com/magic", await LabelOf(() => device.OpenLinkAsync("https://user:pw@app.example.com/magic?token=s3cret#frag")));
+        Assert.Equal(
+            "https://app.example.com/magic",
+            await LabelOf(() => device.OpenLinkAsync("https://user:pw@app.example.com/magic?token=s3cret#frag"))
+        );
         Assert.Equal("<link>", await LabelOf(() => device.OpenLinkAsync("verify?token=s3cret"), "INVALID_ARGUMENT"));
         // Clipboard text is often a code or token the test copied, never a configured secret the ledger would redact.
         Assert.Equal("6 chars", await LabelOf(() => device.SetClipboardAsync("482913")));

@@ -14,6 +14,8 @@ Text a model, a report, or a log would carry is redacted: a configured secret's 
 - video: it masks nothing and is labeled `redaction: "incomplete"`,
 - in an `e2e explore --changed-since` brief, a run of fewer than 8 characters of a value, such as a short last line of a multiline key that git prints on a line of its own.
 
+Error messages and skip reasons in a report only lose their ANSI escapes, and each control character other than tab, newline, and the `\r` of a `\r\n` line break becomes U+FFFD (a lone `\r` included), so treat them as untrusted. A reason from a test filter also has its whitespace collapsed, so its `\r\n` becomes a space.
+
 ## MCP and explore
 
 | Entry point | Rule |
@@ -21,3 +23,10 @@ Text a model, a report, or a log would carry is redacted: a configured secret's 
 | `e2e mcp` | Uses stdio and the same action authorization as a test run. A secret value never leaves the server: every output shows it as its marker. |
 | `e2e explore` | Offers every configured credential to every step. The explorer sees account names and usernames. Passwords stay handles and are filled by secret. |
 | `e2e explore --changed-since` | Sends the commit messages, the changed files' names, and the committed patches since the base to the model, cut to fit its context. A file no commit changed, such as one CI wrote, and a committed file's later local edits go by name only, never read. Secret values the config gives as strings, and runs of 8 or more of their characters, are redacted. A secret provider's value, and a secret committed to the repository that the config doesn't name, reach the model. |
+
+## Tool calls
+
+- Built-in tools have closed schemas and appear only when the engine supports them. A tool that declares fields rejects a key it does not declare. A tool with no fields (`observe`, `back`, `dismiss_keyboard`, `screenshot`) drops extra keys and runs; a value that is not an object still fails.
+- A project tool keeps the schema given to it, so whether it strips or rejects an undeclared key is up to that schema.
+- A call to a tool the step doesn't offer, or with an undeclared argument on a built-in tool that declares fields, never runs. The model reads the refusal as the call's result and tries again.
+- Over `e2e mcp`, `back` and `dismiss_keyboard` take no arguments: they drop any they are given and run. `observe` stays strict.

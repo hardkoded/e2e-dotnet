@@ -20,11 +20,12 @@ internal static class PointTap
     public delegate string NodeProse(SemanticNode node);
 
     /// <summary>Upstream's <c>POINT_VERBS</c>: the node verb each point verb resolves onto on an engine without the bare-point kind, and how each reads back to the model.</summary>
-    public static IReadOnlyDictionary<string, (string Node, string Did)> PointVerbs { get; } = new Dictionary<string, (string, string)>(StringComparer.Ordinal)
-    {
-        ["tapAt"] = ("tap", "Tapped"),
-        ["hoverAt"] = ("hover", "Hovered over"),
-    };
+    public static IReadOnlyDictionary<string, (string Node, string Did)> PointVerbs { get; } =
+        new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+        {
+            ["tapAt"] = ("tap", "Tapped"),
+            ["hoverAt"] = ("hover", "Hovered over"),
+        };
 
     /// <summary>
     /// Upstream's <c>imagePointToViewport</c>: scales a point read off a screenshot into the observation's CSS pixels and clamps it to the
@@ -38,8 +39,10 @@ internal static class PointTap
         return Geometry.ClampToViewport(
             new Point(
                 Math.Clamp(point.X, 0, Math.Max(0, pixels.Width - 1)) / scale,
-                Math.Clamp(point.Y, 0, Math.Max(0, pixels.Height - 1)) / scale),
-            viewport);
+                Math.Clamp(point.Y, 0, Math.Max(0, pixels.Height - 1)) / scale
+            ),
+            viewport
+        );
     }
 
     /// <summary>Upstream's <c>HitTest</c>: what the newest observation lists at a viewport point.</summary>
@@ -61,14 +64,21 @@ internal static class PointTap
         }
 
         return new Hit(
-            InnermostAt(observation, point, node => AgentObservation.InteractiveRoles.Contains(node.Role ?? "") && !node.States.Disabled),
-            InnermostAt(observation, point, _ => true));
+            InnermostAt(observation, point, node =>
+                AgentObservation.InteractiveRoles.Contains(node.Role ?? "") && !node.States.Disabled
+            ),
+            InnermostAt(observation, point, _ => true)
+        );
     }
 
     // The innermost listed node whose box contains the point, among those accept admits: deepest in the tree, then the smallest box. Hidden
     // nodes and nodes without a box are skipped. Every box is in the top-level viewport's CSS pixels, nested documents included, so a node
     // inside an iframe is found like any other.
-    private static SemanticNode? InnermostAt(PreparedObservation observation, Point point, Func<SemanticNode, bool> accept)
+    private static SemanticNode? InnermostAt(
+        PreparedObservation observation,
+        Point point,
+        Func<SemanticNode, bool> accept
+    )
     {
         SemanticNode? best = null;
         var bestDepth = -1;
@@ -76,7 +86,12 @@ internal static class PointTap
 
         void Visit(SemanticNode node, int depth)
         {
-            if (node.Rect is { Width: > 0, Height: > 0 } rect && !node.States.Hidden && Geometry.ContainsPoint(rect, point) && accept(node))
+            if (
+                node.Rect is { Width: > 0, Height: > 0 } rect
+                && !node.States.Hidden
+                && Geometry.ContainsPoint(rect, point)
+                && accept(node)
+            )
             {
                 var area = rect.Width * rect.Height;
                 if (best is null || depth > bestDepth || (depth == bestDepth && area < bestArea))
@@ -130,29 +145,60 @@ internal static class PointTap
     /// <param name="under">The innermost listed node at the point.</param>
     /// <param name="byId">Whether the control was acted on by id rather than at the bare point.</param>
     /// <param name="prose">How a node reads.</param>
-    public static string DescribePointAction(string verb, Point point, SemanticNode? control, SemanticNode? under, bool byId, NodeProse prose)
+    public static string DescribePointAction(
+        string verb,
+        Point point,
+        SemanticNode? control,
+        SemanticNode? under,
+        bool byId,
+        NodeProse prose
+    )
     {
         ArgumentNullException.ThrowIfNull(prose);
         var did = PointVerbs[verb].Did;
         var at = At(point);
         if (control is not null)
         {
-            return byId ? did + " " + prose(control) + ", the control at " + at + "." : did + " the point " + at + " inside " + prose(control) + ".";
+            return byId
+                ? did + " " + prose(control) + ", the control at " + at + "."
+                : did + " the point " + at + " inside " + prose(control) + ".";
         }
 
-        return did + " the point " + at + "; no listed control is there" + (under is null ? "" : " (under it: " + prose(under) + ")") + ".";
+        return did
+            + " the point "
+            + at
+            + "; no listed control is there"
+            + (under is null ? "" : " (under it: " + prose(under) + ")")
+            + ".";
     }
 
     /// <summary>
     /// Upstream's <c>describePointDrag</c>: what one point drag did, for the model that named the points: the two controls it joined by id, or
     /// the bare points with what each sits on.
     /// </summary>
-    public static string DescribePointDrag(Point from, Point to, SemanticNode? source, SemanticNode? destination, SemanticNode? fromUnder, SemanticNode? toUnder, bool byId, NodeProse prose)
+    public static string DescribePointDrag(
+        Point from,
+        Point to,
+        SemanticNode? source,
+        SemanticNode? destination,
+        SemanticNode? fromUnder,
+        SemanticNode? toUnder,
+        bool byId,
+        NodeProse prose
+    )
     {
         ArgumentNullException.ThrowIfNull(prose);
         if (byId && source is not null && destination is not null)
         {
-            return "Dragged " + prose(source) + ", the control at " + At(from) + ", onto " + prose(destination) + ", the control at " + At(to) + ".";
+            return "Dragged "
+                + prose(source)
+                + ", the control at "
+                + At(from)
+                + ", onto "
+                + prose(destination)
+                + ", the control at "
+                + At(to)
+                + ".";
         }
 
         string End(Point point, SemanticNode? control, SemanticNode? under) =>
@@ -174,6 +220,8 @@ internal static class PointTap
             return prose(control) + ", the control at " + at;
         }
 
-        return under is not null ? "no control is listed at " + at + "; under it: " + prose(under) : "nothing the screen lists is at " + at;
+        return under is not null
+            ? "no control is listed at " + at + "; under it: " + prose(under)
+            : "nothing the screen lists is at " + at;
     }
 }

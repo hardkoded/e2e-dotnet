@@ -25,13 +25,16 @@ public sealed class AsyncStates : Component
         var (claimed, setClaimed) = UseState(false);
         var lifetime = UseRef<CancellationTokenSource?>(null);
 
-        UseEffect(() =>
-        {
-            var cts = new CancellationTokenSource();
-            lifetime.Current = cts;
-            After(InitialLoadMilliseconds, cts.Token, () => setLoading(false));
-            return () => cts.Cancel();
-        }, Array.Empty<object>());
+        UseEffect(
+            () =>
+            {
+                var cts = new CancellationTokenSource();
+                lifetime.Current = cts;
+                After(InitialLoadMilliseconds, cts.Token, () => setLoading(false));
+                return () => cts.Cancel();
+            },
+            Array.Empty<object>()
+        );
 
         var token = lifetime.Current?.Token ?? CancellationToken.None;
 
@@ -60,32 +63,37 @@ public sealed class AsyncStates : Component
 
         if (loading)
         {
-            return VStack(12,
-                ProgressRing().AutomationId("initial-loading"),
-                Hint("Loading…"))
-                .Padding(24);
+            return VStack(12, ProgressRing().AutomationId("initial-loading"), Hint("Loading…")).Padding(24);
         }
 
-        Element content = claimed
-            ? Success("Reward claimed")
-            : rewardVisible
-                ? Button("Claim reward", Claim).AutomationId("claim-button")
-                : Hint("Refresh to reveal your reward");
+        Element content =
+            claimed ? Success("Reward claimed")
+            : rewardVisible ? Button("Claim reward", Claim).AutomationId("claim-button")
+            : Hint("Refresh to reveal your reward");
 
         return Grid(
             columns: [GridSize.Star()],
             rows: [GridSize.Auto, GridSize.Star()],
-            HStack(12,
-                Button("Refresh", Refresh).IsEnabled(!refreshing).AutomationId("refresh-button"),
-                When(refreshing, () => ProgressRing().AutomationId("refreshing")))
+            HStack(
+                    12,
+                    Button("Refresh", Refresh).IsEnabled(!refreshing).AutomationId("refresh-button"),
+                    When(refreshing, () => ProgressRing().AutomationId("refreshing"))
+                )
                 .Padding(24, 16),
-            ScrollView(VStack(12, content).Padding(24)).AutomationName("Reward area").AutomationId("reward-scroll").Grid(row: 1),
-            When(toastVisible, () => Border(Body("Claiming reward…").Foreground("#ffffff").Padding(16, 12))
-                .Background("#cc222222")
-                .CornerRadius(8)
-                .HAlign(HorizontalAlignment.Center)
-                .VAlign(VerticalAlignment.Bottom)
-                .Margin(0, 0, 0, 24)
-                .AutomationId("toast")).Grid(row: 1));
+            ScrollView(VStack(12, content).Padding(24))
+                .AutomationName("Reward area")
+                .AutomationId("reward-scroll")
+                .Grid(row: 1),
+            When(toastVisible, () =>
+                    Border(Body("Claiming reward…").Foreground("#ffffff").Padding(16, 12))
+                        .Background("#cc222222")
+                        .CornerRadius(8)
+                        .HAlign(HorizontalAlignment.Center)
+                        .VAlign(VerticalAlignment.Bottom)
+                        .Margin(0, 0, 0, 24)
+                        .AutomationId("toast")
+                )
+                .Grid(row: 1)
+        );
     }
 }

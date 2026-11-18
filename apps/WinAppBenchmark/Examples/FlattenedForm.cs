@@ -14,7 +14,13 @@ namespace WinAppBenchmark.Examples;
 /// </summary>
 public sealed class FlattenedForm : Component
 {
-    private enum Field { FirstName, LastName, Email, Password }
+    private enum Field
+    {
+        FirstName,
+        LastName,
+        Email,
+        Password,
+    }
 
     private static readonly (Field Key, string Label, bool Secure)[] Fields =
     [
@@ -24,13 +30,14 @@ public sealed class FlattenedForm : Component
         (Field.Password, "Set password", true),
     ];
 
-    private static string ErrorOf(Field key) => key switch
-    {
-        Field.FirstName => "Please enter your first name",
-        Field.LastName => "Please enter your last name",
-        Field.Email => "Please enter a valid email address",
-        _ => "Password must be at least 8 characters",
-    };
+    private static string ErrorOf(Field key) =>
+        key switch
+        {
+            Field.FirstName => "Please enter your first name",
+            Field.LastName => "Please enter your last name",
+            Field.Email => "Please enter a valid email address",
+            _ => "Password must be at least 8 characters",
+        };
 
     // Validates one field the same way on every run so failures are deterministic: names must be
     // non-empty, the email needs an "@", and the password needs at least 8 characters.
@@ -61,32 +68,53 @@ public sealed class FlattenedForm : Component
 
         if (done)
         {
-            return VStack(TextBlock("Account created").SemiBold().FontSize(20).AccessibilityView(AccessibilityView.Raw)).Padding(24);
+            return VStack(TextBlock("Account created").SemiBold().FontSize(20).AccessibilityView(AccessibilityView.Raw))
+                .Padding(24);
         }
 
-        var filler = "Passwords must contain a minimum of 8 characters. By signing up you confirm you have read the benchmark terms. This filler paragraph exists so the form spans roughly two screens and the scroll indicator reports multiple pages, matching the production app this scenario was distilled from.";
-        var trailer = "More filler content below the primary action: support links, privacy policy, and terms and conditions would normally live here. It pads the scroll extent so off-screen estimation has something to measure.";
+        var filler =
+            "Passwords must contain a minimum of 8 characters. By signing up you confirm you have read the benchmark terms. This filler paragraph exists so the form spans roughly two screens and the scroll indicator reports multiple pages, matching the production app this scenario was distilled from.";
+        var trailer =
+            "More filler content below the primary action: support links, privacy policy, and terms and conditions would normally live here. It pads the scroll extent so off-screen estimation has something to measure.";
 
-        return ScrollView(VStack(16, [
-            Subtitle("Create your benchmark account").AccessibilityView(AccessibilityView.Raw),
-            .. Fields.Select(field => VStack(6,
-                    Caption(field.Label).AccessibilityView(AccessibilityView.Raw),
-                    field.Secure
-                        ? PasswordBox(ValueOf(field.Key), value => SetValue(field.Key, value)).AccessibilityView(AccessibilityView.Raw)
-                        : TextBox(ValueOf(field.Key), value => SetValue(field.Key, value)).AccessibilityView(AccessibilityView.Raw),
-                    When(submitted && !IsValid(field.Key, ValueOf(field.Key)), () => Body(ErrorOf(field.Key)).Foreground("#b00020").AccessibilityView(AccessibilityView.Raw)))
-                .Margin(0, 0, 0, 24)
-                .WithKey(field.Key.ToString())),
-            Body(filler).TextWrapping().Margin(0, 0, 0, 120).AccessibilityView(AccessibilityView.Raw),
-            Button("CREATE ACCOUNT", () =>
-            {
-                setSubmitted(true);
-                if (Fields.All(field => IsValid(field.Key, ValueOf(field.Key))))
-                {
-                    setDone(true);
-                }
-            }).HAlign(HorizontalAlignment.Stretch).AccessibilityView(AccessibilityView.Raw),
-            Body(trailer).TextWrapping().Margin(0, 120, 0, 0).AccessibilityView(AccessibilityView.Raw),
-        ]).Padding(24));
+        return ScrollView(
+            VStack(
+                    16,
+                    [
+                        Subtitle("Create your benchmark account").AccessibilityView(AccessibilityView.Raw),
+                        .. Fields.Select(field =>
+                            VStack(
+                                    6,
+                                    Caption(field.Label).AccessibilityView(AccessibilityView.Raw),
+                                    field.Secure
+                                        ? PasswordBox(ValueOf(field.Key), value => SetValue(field.Key, value))
+                                            .AccessibilityView(AccessibilityView.Raw)
+                                        : TextBox(ValueOf(field.Key), value => SetValue(field.Key, value))
+                                            .AccessibilityView(AccessibilityView.Raw),
+                                    When(submitted && !IsValid(field.Key, ValueOf(field.Key)), () =>
+                                        Body(ErrorOf(field.Key))
+                                            .Foreground("#b00020")
+                                            .AccessibilityView(AccessibilityView.Raw)
+                                    )
+                                )
+                                .Margin(0, 0, 0, 24)
+                                .WithKey(field.Key.ToString())
+                        ),
+                        Body(filler).TextWrapping().Margin(0, 0, 0, 120).AccessibilityView(AccessibilityView.Raw),
+                        Button("CREATE ACCOUNT", () =>
+                            {
+                                setSubmitted(true);
+                                if (Fields.All(field => IsValid(field.Key, ValueOf(field.Key))))
+                                {
+                                    setDone(true);
+                                }
+                            })
+                            .HAlign(HorizontalAlignment.Stretch)
+                            .AccessibilityView(AccessibilityView.Raw),
+                        Body(trailer).TextWrapping().Margin(0, 120, 0, 0).AccessibilityView(AccessibilityView.Raw),
+                    ]
+                )
+                .Padding(24)
+        );
     }
 }

@@ -32,24 +32,27 @@ public sealed class AgentAssertExploreTests
         int? maxSteps = null,
         int? maxModelCalls = null,
         string? system = null,
-        Action<PixelsEngine>? setup = null)
+        Action<PixelsEngine>? setup = null
+    )
     {
         var engine = new PixelsEngine(new DocumentEngine(world ?? CounterPage.World()));
         setup?.Invoke(engine);
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            Model = model,
-            AgentExecutor = executor,
-            AgentSystem = system,
-            MaxSteps = maxSteps ?? E2EDefaults.MaxSteps,
-            MaxModelCalls = maxModelCalls ?? E2EDefaults.MaxModelCalls,
-            BaseUrl = "https://billing.test",
-            TestTitle = "explores",
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                Model = model,
+                AgentExecutor = executor,
+                AgentSystem = system,
+                MaxSteps = maxSteps ?? E2EDefaults.MaxSteps,
+                MaxModelCalls = maxModelCalls ?? E2EDefaults.MaxModelCalls,
+                BaseUrl = "https://billing.test",
+                TestTitle = "explores",
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         Exception? error = null;
         try
         {
@@ -69,19 +72,25 @@ public sealed class AgentAssertExploreTests
 
     private static int Images(ModelRequest request) => request.Messages.Sum(message => message.Images?.Count ?? 0);
 
-    private static string LastToolResult(ModelRequest request) => request.Messages.Last(message => message.Role == "tool").Content ?? "";
+    private static string LastToolResult(ModelRequest request) =>
+        request.Messages.Last(message => message.Role == "tool").Content ?? "";
 
     [Fact]
     public async Task Routes_built_in_exploring_asserts_through_a_scroll_only_loop_with_pixels_alone()
     {
-        var model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
-            ? ModelResponses.Done("passed", "observed across viewports")
-            : ModelResponses.Call("scroll", new { direction = "down" }));
+        var model = new ScriptedModel(request =>
+            request.Messages.Any(message => message.Role == "tool")
+                ? ModelResponses.Done("passed", "observed across viewports")
+                : ModelResponses.Call("scroll", new { direction = "down" })
+        );
         var run = await AssertAsync(new AssertOptions { Explore = true, Vision = VisionMode.Only }, model);
 
         Assert.Null(run.Error);
         Assert.Equal(2, model.CallCount);
-        Assert.Equal(["complete_step", "observe", "screenshot", "scroll", "scroll_to"], model.Requests[0].Tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["complete_step", "observe", "screenshot", "scroll", "scroll_to"],
+            model.Requests[0].Tools.Select(tool => tool.Name).Order(StringComparer.Ordinal)
+        );
         Assert.True(Images(model.Requests[0]) > 0);
         Assert.DoesNotContain("Increment", model.Requests[0].Messages[0].Content, StringComparison.Ordinal);
         Assert.DoesNotContain("Completed steps", model.Requests[0].Messages[0].Content, StringComparison.Ordinal);
@@ -97,7 +106,15 @@ public sealed class AgentAssertExploreTests
     public async Task Partial_Rejects_invalid_exploration_options(bool explore, int? maxSteps, int? maxModelCalls)
     {
         var executor = new TestExecutor("unused", (_, _) => throw new InvalidOperationException("must not run"));
-        var run = await AssertAsync(new AssertOptions { Explore = explore, MaxSteps = maxSteps, MaxModelCalls = maxModelCalls }, executor: executor);
+        var run = await AssertAsync(
+            new AssertOptions
+            {
+                Explore = explore,
+                MaxSteps = maxSteps,
+                MaxModelCalls = maxModelCalls,
+            },
+            executor: executor
+        );
 
         Assert.Equal("INVALID_ARGUMENT", CodeOf(run));
     }
@@ -178,7 +195,12 @@ public sealed class AgentAssertExploreTests
             budgets = [context.Budgets.MaxActions, context.Budgets.MaxModelCalls];
             return Task.FromResult(Passed("observed"));
         });
-        var run = await AssertAsync(new AssertOptions { Explore = true }, executor: executor, maxSteps: 2, maxModelCalls: 3);
+        var run = await AssertAsync(
+            new AssertOptions { Explore = true },
+            executor: executor,
+            maxSteps: 2,
+            maxModelCalls: 3
+        );
 
         Assert.Null(run.Error);
         Assert.Equal([2, 3], budgets);
@@ -202,10 +224,20 @@ public sealed class AgentAssertExploreTests
     public async Task Retains_every_viewport_image_for_assertions_spanning_more_than_four_screenshots()
     {
         var turn = 0;
-        var model = new ScriptedModel(_ => turn++ < 5
-            ? ModelResponses.Call("scroll", new { direction = turn % 2 == 1 ? "down" : "up" })
-            : ModelResponses.Done("passed", "combined all viewport evidence"));
-        var run = await AssertAsync(new AssertOptions { Explore = true, Vision = VisionMode.Only, MaxModelCalls = 8 }, model);
+        var model = new ScriptedModel(_ =>
+            turn++ < 5
+                ? ModelResponses.Call("scroll", new { direction = turn % 2 == 1 ? "down" : "up" })
+                : ModelResponses.Done("passed", "combined all viewport evidence")
+        );
+        var run = await AssertAsync(
+            new AssertOptions
+            {
+                Explore = true,
+                Vision = VisionMode.Only,
+                MaxModelCalls = 8,
+            },
+            model
+        );
 
         Assert.Null(run.Error);
         Assert.Equal(6, model.CallCount);
@@ -223,7 +255,11 @@ public sealed class AgentAssertExploreTests
             }
 
             Assert.Equal(2, Images(request));
-            throw new AgentException("CONTEXT_OVERFLOW", "The model request exceeded the context window: context_length_exceeded", blocked: true);
+            throw new AgentException(
+                "CONTEXT_OVERFLOW",
+                "The model request exceeded the context window: context_length_exceeded",
+                blocked: true
+            );
         });
         var run = await AssertAsync(new AssertOptions { Explore = true, Vision = VisionMode.Only }, model);
 
@@ -247,7 +283,10 @@ public sealed class AgentAssertExploreTests
     [InlineData(VisionMode.Off, false)]
     [InlineData(VisionMode.On, true)]
     [InlineData(VisionMode.Only, true)]
-    public async Task Lets_a_vision_capable_custom_executor_choose_tree_only_or_pixel_evidence_with(VisionMode vision, bool explore)
+    public async Task Lets_a_vision_capable_custom_executor_choose_tree_only_or_pixel_evidence_with(
+        VisionMode vision,
+        bool explore
+    )
     {
         var text = "";
         ExecutorPixels? treeOnlyPixels = null;
@@ -259,10 +298,7 @@ public sealed class AgentAssertExploreTests
             treeOnlyPixels = observation.Pixels;
             requestedPixels = (await context.ObserveAsync(new ExecutorObserveOptions { Pixels = true }, token)).Pixels;
             return Passed("read the supplied observation");
-        })
-        {
-            Vision = true,
-        };
+        }) { Vision = true };
         var run = await AssertAsync(new AssertOptions { Explore = explore, Vision = vision }, executor: executor);
 
         Assert.Null(run.Error);
@@ -290,7 +326,15 @@ public sealed class AgentAssertExploreTests
 
             return Passed("must not pass");
         });
-        var run = await AssertAsync(new AssertOptions { Explore = true, MaxSteps = 1, Timeout = stop == "timeout" ? TimeSpan.FromMilliseconds(100) : null }, executor: executor);
+        var run = await AssertAsync(
+            new AssertOptions
+            {
+                Explore = true,
+                MaxSteps = 1,
+                Timeout = stop == "timeout" ? TimeSpan.FromMilliseconds(100) : null,
+            },
+            executor: executor
+        );
 
         Assert.Equal("ASSERTION_INCONCLUSIVE", CodeOf(run));
     }
@@ -323,13 +367,15 @@ public sealed class AgentAssertExploreTests
     public async Task Drops_an_inconclusive_code_an_act_verdict_sends_so_the_act_fails_with_its_own_code()
     {
         var model = new ScriptedModel(_ => ModelResponses.Done("failed", "no Save button", "ASSERTION_INCONCLUSIVE"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new PixelsEngine(new DocumentEngine(CounterPage.World())),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            TestTitle = "explores",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new PixelsEngine(new DocumentEngine(CounterPage.World())),
+                Model = model,
+                BaseUrl = "https://billing.test",
+                TestTitle = "explores",
+            }
+        );
         await session.Context.App.OpenAsync("/");
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Context.Agent.ActAsync("save the form"));
 
@@ -341,7 +387,9 @@ public sealed class AgentAssertExploreTests
     public async Task Refuses_fallback_pixels_when_a_built_in_exploring_assertion_requests_semantic_evidence()
     {
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "must not see pixels"));
-        var run = await AssertAsync(new AssertOptions { Explore = true, Screenshot = false }, model, setup: engine => (engine.TreeUnavailable, engine.IgnoresPixelFallback) = (true, true));
+        var run = await AssertAsync(new AssertOptions { Explore = true, Screenshot = false }, model, setup: engine =>
+            (engine.TreeUnavailable, engine.IgnoresPixelFallback) = (true, true)
+        );
 
         Assert.Equal("POLICY_DENIED", CodeOf(run));
         Assert.Equal(0, model.CallCount);
@@ -350,7 +398,11 @@ public sealed class AgentAssertExploreTests
     [Theory]
     [InlineData("opening", "POLICY_DENIED", 0)]
     [InlineData("later", "ASSERTION_INCONCLUSIVE", 2)]
-    public async Task Handles_a_vision_only_exploring_assertion_whose_look_has_no_pixels(string look, string code, int modelCalls)
+    public async Task Handles_a_vision_only_exploring_assertion_whose_look_has_no_pixels(
+        string look,
+        string code,
+        int modelCalls
+    )
     {
         var results = new List<string>();
         var model = new ScriptedModel(request =>
@@ -367,14 +419,19 @@ public sealed class AgentAssertExploreTests
         var run = await AssertAsync(
             new AssertOptions { Explore = true, Vision = VisionMode.Only },
             model,
-            setup: engine => engine.ShotsBeforeLoss = look == "opening" ? 0 : 1);
+            setup: engine => engine.ShotsBeforeLoss = look == "opening" ? 0 : 1
+        );
 
         Assert.Equal(code, CodeOf(run));
         Assert.Equal(modelCalls, model.CallCount);
         if (look == "later")
         {
             // A later look goes back to the model as the tool's error, without the tree.
-            Assert.Contains("vision: 'only' requires available pixel evidence", results.Single(), StringComparison.Ordinal);
+            Assert.Contains(
+                "vision: 'only' requires available pixel evidence",
+                results.Single(),
+                StringComparison.Ordinal
+            );
             Assert.DoesNotContain("Counter", results.Single(), StringComparison.Ordinal);
         }
     }

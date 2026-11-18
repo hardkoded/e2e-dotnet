@@ -39,18 +39,15 @@ public sealed class PinnedFixture : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
     [Test]
     [Agent("method-pin")]
-    public void Method_pinned_to_a_missing_agent()
-    {
-    }
+    public void Method_pinned_to_a_missing_agent() { }
 
     [Test]
-    public void Method_without_a_pin()
-    {
-    }
+    public void Method_without_a_pin() { }
 }

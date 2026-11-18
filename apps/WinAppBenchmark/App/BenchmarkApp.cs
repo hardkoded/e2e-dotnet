@@ -22,14 +22,20 @@ public sealed class BenchmarkApp : Component
             columns: [GridSize.Star()],
             rows: [GridSize.Auto, GridSize.Star()],
             When(headerShown, () => Header(nav, route)),
-            NavigationHost(nav, name => name == Examples.HomeTitle
-                ? Component<HomeList>()
-                : Examples.Find(name)?.Component() ?? TextBlock("Not found")).Grid(row: 1));
+            NavigationHost(nav, name =>
+                    name == Examples.HomeTitle
+                        ? Component<HomeList>()
+                        : Examples.Find(name)?.Component() ?? TextBlock("Not found")
+                )
+                .Grid(row: 1)
+        );
     }
 
     private static Element Header(NavigationHandle<string> nav, string title) =>
-        HStack(8,
-            When(nav.CanGoBack, () => Button("Back", () => nav.GoBack()).AutomationId("back")),
-            Subtitle(title).AutomationId("screen-title").VAlign(VerticalAlignment.Center))
-        .Padding(12, 8);
+        HStack(
+                8,
+                When(nav.CanGoBack, () => Button("Back", () => nav.GoBack()).AutomationId("back")),
+                Subtitle(title).AutomationId("screen-title").VAlign(VerticalAlignment.Center)
+            )
+            .Padding(12, 8);
 }

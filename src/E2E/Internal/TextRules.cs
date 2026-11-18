@@ -32,9 +32,10 @@ public static partial class TextRules
         }
 
         var text = Normalize(expected.Text ?? "");
-        return exact ? string.Equals(subject, text, StringComparison.Ordinal) : subject.Contains(text, StringComparison.OrdinalIgnoreCase);
+        return exact
+            ? string.Equals(subject, text, StringComparison.Ordinal)
+            : subject.Contains(text, StringComparison.OrdinalIgnoreCase);
     }
-
 
     /// <summary>
     /// App text as one line, as upstream's <c>collapseText</c> reads it: whitespace collapsed, and a control
@@ -108,7 +109,16 @@ public static partial class TextRules
     /// control character except tab and newline becomes U+FFFD. Libraries color their own messages; left in, the color codes
     /// reach a report as literal text.
     /// </summary>
-    public static string SanitizeText(string text) => ControlCharacters().Replace(AnsiSequences().Replace(text, ""), "�");
+    public static string SanitizeText(string text) =>
+        ControlCharacters().Replace(AnsiSequences().Replace(text, ""), "�");
+
+    /// <summary>
+    /// Upstream's <c>sanitizeRecordedText</c> (<c>internal/errors.ts</c>): <see cref="SanitizeText"/> that keeps <c>\r\n</c> line breaks, for
+    /// text the run records (serialized errors and skip reasons). A lone <c>\r</c> still becomes U+FFFD, since on a terminal it rewinds the
+    /// line and the text after it overwrites the text before.
+    /// </summary>
+    public static string SanitizeRecordedText(string text) =>
+        RecordedControlCharacters().Replace(AnsiSequences().Replace(text, ""), "�");
 
     /// <summary>Upstream's <c>truncateUtf8</c>: cuts the text so its UTF-8 encoding fits <paramref name="maxBytes"/>, never inside a character.</summary>
     public static string TruncateUtf8(string text, int maxBytes)
@@ -123,7 +133,8 @@ public static partial class TextRules
         while (end < text.Length)
         {
             // A surrogate pair is one character: the cut never lands between its halves.
-            var width = char.IsHighSurrogate(text[end]) && end + 1 < text.Length && char.IsLowSurrogate(text[end + 1]) ? 2 : 1;
+            var width =
+                char.IsHighSurrogate(text[end]) && end + 1 < text.Length && char.IsLowSurrogate(text[end + 1]) ? 2 : 1;
             var size = Encoding.UTF8.GetByteCount(text.AsSpan(end, width));
             if (bytes + size > maxBytes)
             {
@@ -152,9 +163,15 @@ public static partial class TextRules
         return text + (text.Contains('\n', StringComparison.Ordinal) ? "\n" : "; ") + hint;
     }
 
-    [GeneratedRegex("\\u001B\\[[0-?]*[ -/]*[@-~]|\\u001B\\][^\\u0007\\u001B]*(?:\\u0007|\\u001B\\\\)|\\u009B[0-?]*[ -/]*[@-~]|\\u001B[@-Z\\\\-_]")]
+    [GeneratedRegex(
+        "\\u001B\\[[0-?]*[ -/]*[@-~]|\\u001B\\][^\\u0007\\u001B]*(?:\\u0007|\\u001B\\\\)|\\u009B[0-?]*[ -/]*[@-~]|\\u001B[@-Z\\\\-_]"
+    )]
     private static partial Regex AnsiSequences();
 
     [GeneratedRegex("[\\u0000-\\u0008\\u000b-\\u001f\\u007f-\\u009f]")]
     private static partial Regex ControlCharacters();
+
+    // C0/C1 control characters except tab, newline, and a carriage return that starts a \r\n.
+    [GeneratedRegex("[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f]|\\r(?!\\n)")]
+    private static partial Regex RecordedControlCharacters();
 }

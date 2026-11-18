@@ -81,6 +81,11 @@ internal static class FixtureApp
     /// <summary>Starts the app: <c>/closed-form</c> and <c>/closed-order</c>.</summary>
     public static Task<TinySite> StartAsync()
     {
-        return TinySite.StartAsync(context => TinySite.RespondAsync(context, context.Request.Url!.AbsolutePath == "/closed-order" ? ClosedOrder : ClosedForm));
+        return TinySite.StartAsync(context =>
+            TinySite.RespondAsync(
+                context,
+                context.Request.Url!.AbsolutePath == "/closed-order" ? ClosedOrder : ClosedForm
+            )
+        );
     }
 }

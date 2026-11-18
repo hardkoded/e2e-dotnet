@@ -20,7 +20,7 @@ Migrate this project's TesterArmy saved tests to e2e, one group at a time. Docs:
 6. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
 7. Port the project into the e2e config with the guide's "Port the project" table. TesterArmy never returns passwords. Name each credential in credentials, read its password from an environment variable, and ask me to set it.
 8. List the groups and their tests, and ask me which group to move first. Suggest a small one, or the one with the preparation test the others need.
-9. For each test, read it with `get_test` and write a test method, one awaited call per enabled step, with the guide's "Map each step" table. Turn a preparation or login test into an [E2ESetup] test that saves a session. Where the guide says "Not yet" or "No equivalent", leave that test in TesterArmy and tell me why.
+9. For each test, read it with `get_test` and write a test method, one awaited call per enabled step, with the guide's "Map each step" table. Turn a preparation or login test into an [E2ESetup] test that saves a session. Where a step, credential, or project setting is listed under "What e2e doesn't have yet", use the workaround in its row ("Use today" or "Use instead"). When the row has none, leave that test in TesterArmy and tell me why.
 10. After the last Agent.AssertAsync of each test, add a locator assertion on the same end state when a label or test id names it.
 11. Run the new classes with `dotnet test --filter` and fix them until they pass. Keep the TesterArmy tests until I confirm they can go.
 12. Summarize which tests moved, which stayed in TesterArmy, and why.
@@ -51,16 +51,11 @@ Install e2e and configure a model with the [web guide](/get-started/web/). Agent
 | static environments (Staging, QA) | one `e2e.config.json` per environment, or `BaseUrl` on the test class. The port runs one target, so run the suite once per environment |
 | PR preview environment | a CI job that sets the app URL to the preview URL (`BaseUrl`, or a generated `e2e.config.json`) |
 | `login` credential | a `credentials` entry. TesterArmy never returns the password or TOTP secret, so read it from `E2E_USER_<NAME>_PASSWORD`, see [Authentication](/features/signing-in/) |
-| credential `totpSecret` | Not yet. The config holds named secrets, not code that computes a value |
 | credential environment overrides | one `credentials` entry, with `E2E_USER_<NAME>_PASSWORD` set per environment |
-| `inbox` credential | Not yet. Call your own test inbox from a helper in the test project |
 | `agentInstructions` | `system` on the agent in `agents.default`, see the `agent` topic of the e2e skill |
 | memories | `context` on the agent |
 | project files | files in the repository, such as `tests/fixtures/receipt.jpg` |
 | test `viewport` setting | `WebEngineOptions.Viewport`, one run per size |
-| `browserRegion`, `simulatorRegion` | No equivalent. The browser runs where `dotnet test` runs, or on a [hosted provider](/features/browser/#hosted-browsers) |
-| `webSearchEnabled` | No equivalent |
-| `accessibilityAuditEnabled` | Not yet |
 | PR testing | an e2e job on each pull request. The port has no GitHub reporter |
 | group schedule | a scheduled CI workflow |
 
@@ -125,12 +120,9 @@ For xUnit v3, use `E2E.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealMod
 | `act` step | `Agent.ActAsync("...")`, or a locator call when the step opens a known route or acts on one named control |
 | `assert` step | `Agent.AssertAsync("...")`, then a locator assertion when a label or test id names the end state |
 | `login` step | an `[E2ESetup]` test that signs in and calls `SaveSessionAsync()`, and `[E2ESession]` on each test, see [Authentication](/features/signing-in/) |
-| `login` with `temporaryEmail` | Not yet |
 | `files` step, `@receipt.jpg` in a step, on web | the file's repository path in the goal: `Agent.ActAsync("attach tests/fixtures/receipt.jpg")`, or `locator.SetInputFilesAsync()` |
-| `files` step on mobile (photo library) | Not yet as a native step. On an iOS simulator, add the photo with `xcrun simctl addmedia` before `App.OpenAsync()`, then pick it in the system picker; Android is unchecked. See [Photos for a picker test](/get-started/mobile/#photos-for-a-picker-test) |
 | `screenshot` step | `App.ScreenshotAsync("label")` |
 | `javascript` step | `Browser.EvaluateAsync<T>()`. It fails only when the code throws, so check a `{ success: false }` return with an assertion |
-| `microphone` step | Not yet |
 | step with `disabled: true` | leave it out |
 | disabled test | `[Ignore]` (NUnit) or `[Fact(Skip = "...")]` (xUnit) |
 | group | a test class with `[Category("<group>")]`, run with `dotnet test --filter "TestCategory=<group>"` |
@@ -140,6 +132,32 @@ For xUnit v3, use `E2E.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealMod
 | `run_test`, `run_group` | `dotnet test --filter "FullyQualifiedName~<Class>"`, `dotnet test --filter "TestCategory=<group>"` |
 
 Keep the agent for a step that reads the screen to decide, spans several screens, or names no stable control. Before you swap a step for a locator, find the control's exact name, and check the same end state.
+
+## What e2e doesn't have yet
+
+Planned is on the roadmap. Not yet has no date. Not planned is left out on purpose. Use the workaround, or keep the test in TesterArmy.
+
+### Planned
+
+| TesterArmy | Use today |
+| --- | --- |
+| `inbox` credential, `login` with `temporaryEmail` | Call your own test inbox from a helper in the test project |
+| `files` step on mobile (photo library) | On an iOS simulator, `xcrun simctl addmedia` before `App.OpenAsync()`, then pick the photo in the system picker; Android is unchecked. See [Photos for a picker test](/get-started/mobile/#photos-for-a-picker-test) |
+| `accessibilityAuditEnabled` | - |
+
+### Not yet
+
+| TesterArmy | Use today |
+| --- | --- |
+| `microphone` step | - |
+| credential `totpSecret` (the port holds named secrets, not code that computes a value) | Compute the code in a helper in the test project |
+
+### Not planned
+
+| TesterArmy | Use instead |
+| --- | --- |
+| `browserRegion`, `simulatorRegion` | The browser runs where `dotnet test` runs, or on a [hosted provider](/features/browser/#hosted-browsers) |
+| `webSearchEnabled` | Put what the agent must know in `context` on the agent |
 
 ## What differs on purpose
 

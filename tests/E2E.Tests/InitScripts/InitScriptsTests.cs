@@ -44,9 +44,15 @@ public sealed class InitScriptsTests : IDisposable
             string[] expected = ["source", "file", "function"];
             await session.App.OpenAsync("/framed");
             Assert.Equal(expected, await SeenAtBootAsync(session));
-            Assert.Equal(expected, await PollAsync(session, "document.querySelector('iframe').contentWindow.seenAtBoot ?? null"));
+            Assert.Equal(
+                expected,
+                await PollAsync(session, "document.querySelector('iframe').contentWindow.seenAtBoot ?? null")
+            );
 
-            await session.Browser.EvaluateAsync<object>("(target) => { window.tab = window.open(target); return null; }", site.Url);
+            await session.Browser.EvaluateAsync<object>(
+                "(target) => { window.tab = window.open(target); return null; }",
+                site.Url
+            );
             Assert.Equal(expected, await PollAsync(session, "window.tab.seenAtBoot ?? null"));
 
             await session.App.ClearStateAsync();
@@ -62,15 +68,21 @@ public sealed class InitScriptsTests : IDisposable
         await AttemptAsync(site, ["(window.trail ??= []).push('config');"], async session =>
         {
             await session.App.OpenAsync("/");
-            await session.Browser.AddInitScriptAsync(WebInitScript.FromFunction("(wallet) => { (window.trail ??= []).push(`wallet:${wallet.address}`); }"), new { address = "0xabc" });
+            await session.Browser.AddInitScriptAsync(
+                WebInitScript.FromFunction("(wallet) => { (window.trail ??= []).push(`wallet:${wallet.address}`); }"),
+                new { address = "0xabc" }
+            );
             Assert.Equal(["config"], await SeenAtBootAsync(session));
             await session.Browser.ReloadAsync();
             Assert.Equal(["config", "wallet:0xabc"], await SeenAtBootAsync(session));
 
             var arg = System.Text.Json.JsonDocument.Parse("""{"__proto__":{"own":true}}""").RootElement;
             await session.Browser.AddInitScriptAsync(
-                WebInitScript.FromFunction("(value) => { (window.trail ??= []).push(`own __proto__:${String(Object.hasOwn(value, '__proto__'))}`); }"),
-                arg);
+                WebInitScript.FromFunction(
+                    "(value) => { (window.trail ??= []).push(`own __proto__:${String(Object.hasOwn(value, '__proto__'))}`); }"
+                ),
+                arg
+            );
             await session.Browser.AddInitScriptAsync(WebInitScript.FromPath(FromFile));
             await session.App.ClearStateAsync();
             await session.App.OpenAsync("/");
@@ -89,13 +101,22 @@ public sealed class InitScriptsTests : IDisposable
         using var site = await StartSiteAsync();
         await AttemptAsync(site, null, async session =>
         {
-            var argument = await Assert.ThrowsAsync<TestException>(() => session.Browser.AddInitScriptAsync("window.x = 1", 3));
+            var argument = await Assert.ThrowsAsync<TestException>(() =>
+                session.Browser.AddInitScriptAsync("window.x = 1", 3)
+            );
             Assert.Equal("INVALID_ARGUMENT", argument.Code);
             Assert.Matches("only with a function", argument.Message);
-            var missing = await Assert.ThrowsAsync<TestException>(() => session.Browser.AddInitScriptAsync(WebInitScript.FromPath("missing.js")));
+            var missing = await Assert.ThrowsAsync<TestException>(() =>
+                session.Browser.AddInitScriptAsync(WebInitScript.FromPath("missing.js"))
+            );
             Assert.Equal("INVALID_ARGUMENT", missing.Code);
             Assert.Matches(@"missing\.js \(ENOENT\)", missing.Message);
-            var secret = await Assert.ThrowsAsync<TestException>(() => session.Browser.AddInitScriptAsync(WebInitScript.FromFunction("() => undefined"), Secret.Create("key", "s3cret-value")));
+            var secret = await Assert.ThrowsAsync<TestException>(() =>
+                session.Browser.AddInitScriptAsync(
+                    WebInitScript.FromFunction("() => undefined"),
+                    Secret.Create("key", "s3cret-value")
+                )
+            );
             Assert.Equal("POLICY_DENIED", secret.Code);
         });
     }
@@ -103,21 +124,35 @@ public sealed class InitScriptsTests : IDisposable
     [Fact]
     public async Task Fails_the_run_and_a_worker_with_INVALID_CONFIG_when_a_configured_file_cannot_be_read()
     {
-        var engine = new WebEngine(new WebEngineOptions { Headless = true, InitScripts = [WebInitScript.FromPath(Path.Combine(_directory, "nope.js"))] });
-        var error = await Assert.ThrowsAsync<EngineException>(() => engine.StartAsync(new EngineStartOptions(), CancellationToken.None));
+        var engine = new WebEngine(
+            new WebEngineOptions
+            {
+                Headless = true,
+                InitScripts = [WebInitScript.FromPath(Path.Combine(_directory, "nope.js"))],
+            }
+        );
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            engine.StartAsync(new EngineStartOptions(), CancellationToken.None)
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Matches(@"^initScripts\[0\] path cannot be read: .*nope\.js \(ENOENT\)$", error.Message);
     }
 
     private static Task<TinySite> StartSiteAsync()
     {
-        return TinySite.StartAsync(context => TinySite.RespondAsync(context, context.Request.Url!.AbsolutePath == "/framed"
-            ? "<!doctype html><html><head>" + Boot + "</head><body><iframe src=\"/\"></iframe></body></html>"
-            : "<!doctype html><html><head>" + Boot + "</head><body><h1>Home</h1></body></html>"));
+        return TinySite.StartAsync(context =>
+            TinySite.RespondAsync(
+                context,
+                context.Request.Url!.AbsolutePath == "/framed"
+                    ? "<!doctype html><html><head>" + Boot + "</head><body><iframe src=\"/\"></iframe></body></html>"
+                    : "<!doctype html><html><head>" + Boot + "</head><body><h1>Home</h1></body></html>"
+            )
+        );
     }
 
     private static async Task<string[]> SeenAtBootAsync(E2ESession session) =>
-        await session.Browser.EvaluateAsync<string[]>("window.seenAtBoot ?? null") ?? throw new InvalidOperationException("The boot script did not run.");
+        await session.Browser.EvaluateAsync<string[]>("window.seenAtBoot ?? null")
+        ?? throw new InvalidOperationException("The boot script did not run.");
 
     // A frame or tab loads on its own schedule; read it once its boot script ran.
     private static async Task<string[]> PollAsync(E2ESession session, string expression)
@@ -135,18 +170,24 @@ public sealed class InitScriptsTests : IDisposable
         throw new InvalidOperationException("The boot script did not run: " + expression);
     }
 
-    private static async Task AttemptAsync(TinySite site, IReadOnlyList<WebInitScript>? initScripts, Func<E2ESession, Task> body)
+    private static async Task AttemptAsync(
+        TinySite site,
+        IReadOnlyList<WebInitScript>? initScripts,
+        Func<E2ESession, Task> body
+    )
     {
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(new WebEngineOptions { Headless = true, InitScripts = initScripts }),
-            BaseUrl = site.Url,
-            TestTitle = "web > init scripts",
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(20),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(new WebEngineOptions { Headless = true, InitScripts = initScripts }),
+                BaseUrl = site.Url,
+                TestTitle = "web > init scripts",
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(20),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         await using (session)
         {
             Exception? error = null;

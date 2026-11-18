@@ -24,7 +24,8 @@ public static class AgentTools
           },
           "required": ["target"]
         }
-        """);
+        """
+    );
 
     /// <summary>Screens one scroll call may move.</summary>
     internal const int MaxScrollTimes = 20;
@@ -74,73 +75,106 @@ public static class AgentTools
         "POLICY_DENIED",
     ];
 
-    private static readonly JsonElement Done = VerdictSchema(["passed", "failed", "blocked"], ModelErrorCodes, "Why the step failed or what blocked it. Only with status failed or blocked; a passed step carries none.");
+    private static readonly JsonElement Done = VerdictSchema(
+        ["passed", "failed", "blocked"],
+        ModelErrorCodes,
+        "Why the step failed or what blocked it. Only with status failed or blocked; a passed step carries none."
+    );
 
-    private static readonly JsonElement JudgeDone = VerdictSchema(["passed", "failed"], ["ASSERTION_FAILED", "ASSERTION_INCONCLUSIVE"]);
+    private static readonly JsonElement JudgeDone = VerdictSchema(
+        ["passed", "failed"],
+        ["ASSERTION_FAILED", "ASSERTION_INCONCLUSIVE"]
+    );
 
     private static readonly ModelTool Observe = Tool(
         "observe",
         "Look at the screen again. Action results already include the screen, so call this only after waiting for something in progress, never right after an action.",
-        Parse("""{ "type": "object", "properties": {} }"""));
+        Parse("""{ "type": "object", "properties": {} }""")
+    );
 
-    private const string ScrollToTextDescription = "The visible text of the node to reach, or a distinctive part of it, e.g. \"Row 4322\". The list is paged screen by screen until a node reading it is in view; the node need not be listed yet.";
+    private const string ScrollToTextDescription =
+        "The visible text of the node to reach, or a distinctive part of it, e.g. \"Row 4322\". The list is paged screen by screen until a node reading it is in view; the node need not be listed yet.";
 
     // scroll_to reaches a node the screen lists (scrollTo) or one it does not list yet (scrollUntil, paging a list screen by screen). One tool,
     // each form offered only with its verb (upstream's createGrammarTools). With text, the target is the list to page.
     private static ModelTool ScrollToTool(bool byNode, bool byText)
     {
-        var textProperty = $$"""{ "type": "string", "minLength": 1, "maxLength": {{MaxScrollToText}}, "description": {{JsonSerializer.Serialize(ScrollToTextDescription)}} }""";
-        var directionProperty = $$"""{ "type": "string", "enum": ["up", "down", "left", "right"], "description": "Which way to page for text; down by default." }""";
+        var textProperty =
+            $$"""{ "type": "string", "minLength": 1, "maxLength": {{MaxScrollToText}}, "description": {{JsonSerializer.Serialize(ScrollToTextDescription)}} }""";
+        var directionProperty =
+            $$"""{ "type": "string", "enum": ["up", "down", "left", "right"], "description": "Which way to page for text; down by default." }""";
         if (byNode && byText)
         {
             return Tool(
                 "scroll_to",
                 "Scroll until a node is inside the viewport. With target alone, one listed node the screen shows above or below the fold (a button past the fold, a row far down the page). With text, a node the screen does not list yet: the list named by target (or the viewport) is paged screen by screen until a node reading that text shows, as one action however far, for a row deep in a long or windowed list. Prefer either to blind scrolling.",
-                WithOptionalTarget(Extend(Target, $$"""{ "text": {{textProperty}}, "direction": {{directionProperty}} }""")));
+                WithOptionalTarget(
+                    Extend(Target, $$"""{ "text": {{textProperty}}, "direction": {{directionProperty}} }""")
+                )
+            );
         }
 
         return byNode
             ? Tool(
                 "scroll_to",
                 "Scroll until one listed node is inside the viewport: for a target the screen lists but that sits above or below what is shown (a button past the fold, a row far down a long page). Prefer it to blind scrolling whenever the node has an id.",
-                Target)
+                Target
+            )
             : Tool(
                 "scroll_to",
                 "Scroll until a node reading the given text is inside the viewport: the list named by target (or the viewport) is paged screen by screen until it shows, as one action however far, for a row deep in a long or windowed list the screen does not list yet. Prefer it to blind scrolling whenever you know what the target reads.",
-                WithOptionalTarget(Extend(Target, $$"""{ "text": {{textProperty}}, "direction": {{directionProperty}} }""", "text")));
+                WithOptionalTarget(
+                    Extend(Target, $$"""{ "text": {{textProperty}}, "direction": {{directionProperty}} }""", "text")
+                )
+            );
     }
 
     private static ModelTool ScrollTool(bool withTarget)
     {
-        var times = $$"""{ "type": "integer", "minimum": 1, "maximum": {{MaxScrollTimes}}, "description": "How many screens to scroll in this one call, 1 to {{MaxScrollTimes}}; default 1. Use more to move far down a long list or feed." }""";
+        var times =
+            $$"""{ "type": "integer", "minimum": 1, "maximum": {{MaxScrollTimes}}, "description": "How many screens to scroll in this one call, 1 to {{MaxScrollTimes}}; default 1. Use more to move far down a long list or feed." }""";
         return withTarget
             ? Tool(
                 "scroll",
                 "Scroll the viewport, or one scrollable node when target is given, by a screen or a few. The result reports the rows that came into or left the tree. For a row far down a long or windowed list, prefer scroll_to with the row's text: it pages until the row shows, as one action.",
-                WithOptionalTarget(Extend(Target, $$"""{ "direction": {{Directions}}, "times": {{times}} }""", "direction")))
+                WithOptionalTarget(
+                    Extend(Target, $$"""{ "direction": {{Directions}}, "times": {{times}} }""", "direction")
+                )
+            )
             : Tool(
                 "scroll",
                 "Scroll the viewport by a screen or a few. The result reports the rows that came into or left the tree. For a row far down a long list, prefer scroll_to with the row's text: it pages until the row shows, as one action.",
-                Parse($$"""{ "type": "object", "properties": { "direction": {{Directions}}, "times": {{times}} }, "required": ["direction"] }"""));
+                Parse(
+                    $$"""{ "type": "object", "properties": { "direction": {{Directions}}, "times": {{times}} }, "required": ["direction"] }"""
+                )
+            );
     }
 
     private static readonly ModelTool Upload = Tool(
         "upload",
-        "Attach one or more files to a file input node, or to a control that opens a file chooser when clicked (an upload button). " +
-        "Use the project-relative paths the step gives you; when it names none, attach a sample: " +
-        string.Join(", ", SampleFiles.SampleNames.Select(name => SampleFiles.SamplePrefix + name)) + ". " +
-        "Any other file outside the project, a hidden one, or one that does not exist is refused.",
-        Extend(Target, """{ "files": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 } }""", "files"));
+        "Attach one or more files to a file input node, or to a control that opens a file chooser when clicked (an upload button). "
+            + "Use the project-relative paths the step gives you; when it names none, attach a sample: "
+            + string.Join(", ", SampleFiles.SampleNames.Select(name => SampleFiles.SamplePrefix + name))
+            + ". "
+            + "Any other file outside the project, a hidden one, or one that does not exist is refused.",
+        Extend(
+            Target,
+            """{ "files": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 } }""",
+            "files"
+        )
+    );
 
     private static readonly ModelTool Back = Tool(
         "back",
         "Go back one step in the browser history. The result shows the screen you return to.",
-        Parse("""{ "type": "object", "properties": {} }"""));
+        Parse("""{ "type": "object", "properties": {} }""")
+    );
 
     /// <summary>Upstream's <c>resize_viewport</c> tool (<c>agent/primitives.ts</c>), offered where the engine can resize its viewport.</summary>
     internal const string ResizeViewportName = "resize_viewport";
 
-    internal const string ResizeViewportDescription = "Resize the viewport to check how the page lays out at another screen size, e.g. 1440x900 desktop, 768x1024 tablet, 390x844 phone. It stays at that size until resized again. The result shows the screen at the new size; take a screenshot to check the layout itself (overflow, overlap, clipped or hidden content).";
+    internal const string ResizeViewportDescription =
+        "Resize the viewport to check how the page lays out at another screen size, e.g. 1440x900 desktop, 768x1024 tablet, 390x844 phone. It stays at that size until resized again. The result shows the screen at the new size; take a screenshot to check the layout itself (overflow, overlap, clipped or hidden content).";
 
     private static readonly ModelTool ResizeViewport = Tool(
         ResizeViewportName,
@@ -155,17 +189,21 @@ public static class AgentTools
               },
               "required": ["width", "height"]
             }
-            """));
+            """
+        )
+    );
 
     /// <summary>Upstream's <c>switch_tab</c> tool (<c>agent/primitives.ts</c>), offered where the engine can show another tab.</summary>
     internal const string SwitchTabName = "switch_tab";
 
-    internal const string SwitchTabDescription = "Show another open tab. When more than one tab is open, the screen header says which tab you are on and how many there are, numbered from 1 in the order they opened. A tab the app opens stays in the background until you switch to it.";
+    internal const string SwitchTabDescription =
+        "Show another open tab. When more than one tab is open, the screen header says which tab you are on and how many there are, numbered from 1 in the order they opened. A tab the app opens stays in the background until you switch to it.";
 
     /// <summary>Upstream's <c>close_tab</c> tool (<c>agent/primitives.ts</c>), offered where the engine can close a tab.</summary>
     internal const string CloseTabName = "close_tab";
 
-    internal const string CloseTabDescription = "Close an open tab, numbered as switch_tab counts them. Closing the tab on screen shows the tab that opened it, else the tab shown before it. The last open tab cannot be closed.";
+    internal const string CloseTabDescription =
+        "Close an open tab, numbered as switch_tab counts them. Closing the tab on screen shows the tab that opened it, else the tab shown before it. The last open tab cannot be closed.";
 
     private static readonly JsonElement TabSchema = Parse(
         """
@@ -176,7 +214,8 @@ public static class AgentTools
           },
           "required": ["tab"]
         }
-        """);
+        """
+    );
 
     private static readonly ModelTool SwitchTab = Tool(SwitchTabName, SwitchTabDescription, TabSchema);
 
@@ -185,12 +224,14 @@ public static class AgentTools
     /// <summary>Upstream's <c>dismiss_keyboard</c> tool (<c>agent/primitives.ts</c>), offered where the engine can hide its keyboard.</summary>
     internal const string DismissKeyboardName = "dismiss_keyboard";
 
-    internal const string DismissKeyboardDescription = "Hide the on-screen keyboard when it covers what you need to reach.";
+    internal const string DismissKeyboardDescription =
+        "Hide the on-screen keyboard when it covers what you need to reach.";
 
     private static readonly ModelTool DismissKeyboard = Tool(
         DismissKeyboardName,
         DismissKeyboardDescription,
-        Parse("""{ "type": "object", "properties": {} }"""));
+        Parse("""{ "type": "object", "properties": {} }""")
+    );
 
     /// <summary>
     /// The pixel fallback of the grammar (upstream's <c>screenshot</c> tool, offered while pixels may reach the model): a masked viewport
@@ -200,9 +241,31 @@ public static class AgentTools
 
     private static readonly ModelTool Screenshot = Tool(
         ScreenshotName,
-        "Attach a screenshot of the current viewport. Use it when the screen lists too little to act on (a canvas, a map, an image, a game, a system sheet) or contradicts what you expect. " +
-        "From then on every action result carries a fresh screenshot too, so you can see what each action did.",
-        Parse("""{ "type": "object", "properties": {} }"""));
+        "Attach a screenshot of the current viewport. Use it when the screen lists too little to act on (a canvas, a map, an image, a game, a system sheet) or contradicts what you expect. "
+            + "From then on every action result carries a fresh screenshot too, so you can see what each action did.",
+        Parse("""{ "type": "object", "properties": {} }""")
+    );
+
+    // With saveScreenshot (upstream's grammarTools option), screenshot also takes an optional PNG path and saves the masked screenshot there.
+    private static readonly ModelTool ScreenshotWithPath = Tool(
+        ScreenshotName,
+        Screenshot.Description
+            + " With path, also saves the masked full-resolution screenshot as a PNG file and returns its absolute path.",
+        Parse(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "pattern": "\\.[pP][nN][gG]$",
+                  "description": "PNG file to save it to, inside the project and relative to its root, e.g. \"screenshots/checkout.png\""
+                }
+              }
+            }
+            """
+        )
+    );
 
     private static readonly JsonElement PointXY = Parse(
         """
@@ -214,83 +277,125 @@ public static class AgentTools
           },
           "required": ["x", "y"]
         }
-        """);
+        """
+    );
 
     /// <summary>
     /// Upstream's <c>POINT_TOOLS</c> (<c>agent/primitives.ts</c>): the point verbs that take only a point, one tool each. <c>Bare</c> is the
     /// verb the engine's pointer kind unlocks, <c>Node</c> the node verb the point falls back to, <c>Does</c> what the tool does up to the
     /// clause about a bare point, <c>ById</c> the node verb the last-resort advice names. A point tool is offered with either verb.
     /// </summary>
-    private static readonly (string Tool, ExecutorVerb Bare, ExecutorVerb Node, string Does, string ById)[] PointTools =
+    private static readonly (
+        string Tool,
+        ExecutorVerb Bare,
+        ExecutorVerb Node,
+        string Does,
+        string ById
+    )[] PointTools =
     [
         (
             "tap_at",
             ExecutorVerb.TapAt,
             ExecutorVerb.Tap,
             "Tap a point in the latest screenshot, given as pixel coordinates in that image (x from the left edge, y from the top edge). Aim for the center of the target. The bare point is tapped",
-            "tap it by id"),
+            "tap it by id"
+        ),
         (
             "hover_at",
             ExecutorVerb.HoverAt,
             ExecutorVerb.Hover,
             "Move the pointer to a point in the latest screenshot without clicking, for a hover target the screen does not list (a drawn control, a region of an image). The bare point is hovered",
-            "hover it by id"),
+            "hover it by id"
+        ),
     ];
 
     private static readonly ModelTool[] Verbs =
     [
         Tool("tap", "Activate a control.", Target),
-        Tool("double_tap", "Double-click a control. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Target),
+        Tool(
+            "double_tap",
+            "Double-click a control. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.",
+            Target
+        ),
         Tool("type", "Replace the text in a field.", WithValue(Target, "value")),
         Tool(
             "press",
-            "Press a key such as Enter, Escape, or Tab. Omit target to press the focused control. " +
-            "Shift with an arrow key extends the selection in a field one step per press, and the screen then shows the selected text as selection=\"...\".",
+            "Press a key such as Enter, Escape, or Tab. Omit target to press the focused control. "
+                + "Shift with an arrow key extends the selection in a field one step per press, and the screen then shows the selected text as selection=\"...\".",
             Extend(
                 WithValue(Target, "key"),
                 $$"""{ "times": { "type": "integer", "minimum": 1, "maximum": {{MaxPressTimes}}, "description": "Press the key this many times in this one call, 1 to {{MaxPressTimes}}; default 1. Use more to extend a selection or move a caret several steps at once." } }""",
-                "key")),
+                "key"
+            )
+        ),
         Tool("select", "Choose an option in a combobox.", WithValue(Target, "value")),
         Tool(
             "check",
             "Set a checkbox, switch, or radio to a state: checked true (the default) or false. Unlike tap it never flips a control already in that state, so use it whenever the step names the state to end in.",
-            Extend(Target, """{ "checked": { "type": "boolean", "description": "The state to end in; default true" } }""")),
+            Extend(
+                Target,
+                """{ "checked": { "type": "boolean", "description": "The state to end in; default true" } }"""
+            )
+        ),
     ];
 
     /// <summary>
-    /// Upstream's <c>type_secret</c> tool (<c>agent/primitives.ts</c>). Offered only when the step
-    /// declared secrets and the engine can fill: its description lists each as <c>"name" (purpose)</c>. It takes <c>target</c> and the
-    /// secret's <c>name</c>, as upstream.
+    /// Upstream's <c>type_secret</c> tool (<c>agent/primitives.ts</c>). Offered when the engine can fill: its description lists each secret the
+    /// step declared as <c>"name" (purpose)</c>, or, when the caller lists them in its own message (<paramref name="listedByCaller"/>), names
+    /// none, so the description stays the same across steps. It takes <c>target</c> and the secret's <c>name</c>, as upstream.
     /// </summary>
-    private static ModelTool FillSecret(IReadOnlyList<ExecutorSecret> secrets) => Tool(
-        "type_secret",
-        "Fill one declared secret into an input by its name; the plaintext never passes through you. A password fills only a password field; a generic-secret fills any editable input. Available: " +
-        string.Join(", ", secrets.Select(secret => "\"" + secret.Name + "\"" + (secret.Purpose is null ? "" : " (" + secret.Purpose + ")"))) +
-        ".",
-        WithValue(Target, "name"));
+    private static ModelTool FillSecret(IReadOnlyList<ExecutorSecret> secrets, bool listedByCaller) =>
+        Tool(
+            "type_secret",
+            "Fill one declared secret into an input by its name; the plaintext never passes through you. A password fills only a password field; a generic-secret fills any editable input. "
+                + (
+                    listedByCaller
+                        ? "The step message lists the secrets it declares."
+                        : "Available: "
+                            + string.Join(
+                                ", ",
+                                secrets.Select(secret =>
+                                    "\""
+                                    + secret.Name
+                                    + "\""
+                                    + (secret.Purpose is null ? "" : " (" + secret.Purpose + ")")
+                                )
+                            )
+                            + "."
+                ),
+            WithValue(Target, "name")
+        );
 
     private static readonly ModelTool LongPress = Tool(
         "long_press",
         "Press one node and hold: only for a control with a long-press menu or action. Anything else takes tap.",
-        Target);
+        Target
+    );
 
     private static readonly ModelTool RightClick = Tool(
         "right_click",
-        "Right-click one node to open its context menu, and only for that. The menu items it opens, and every button, link, or field, take tap. " +
-        "When nothing opens, the app has no context menu there: look for a menu button or another path instead.",
-        Target);
+        "Right-click one node to open its context menu, and only for that. The menu items it opens, and every button, link, or field, take tap. "
+            + "When nothing opens, the app has no context menu there: look for a menu button or another path instead.",
+        Target
+    );
 
     private static readonly ModelTool Hover = Tool(
         "hover",
-        "Move the pointer over one node without clicking: opens what reacts to the pointer resting on it, such as a menu, a flyout, a tooltip, or a control revealed on mouse-over. " +
-        "The result reports what appeared. In a nested menu, hover each level in turn and then tap the item while it is open.",
-        Target);
+        "Move the pointer over one node without clicking: opens what reacts to the pointer resting on it, such as a menu, a flyout, a tooltip, or a control revealed on mouse-over. "
+            + "The result reports what appeared. In a nested menu, hover each level in turn and then tap the item while it is open.",
+        Target
+    );
 
     // The drop target is a second node, named like the first.
     private static readonly ModelTool Drag = Tool(
         "drag",
         "Drag one node and drop it on another: reorder a list, move a card to a column, drop an item into a zone. The result reports what moved.",
-        Extend(Target, """{ "to": { "type": "string", "minLength": 1, "description": "Node id of the drop target" } }""", "to"));
+        Extend(
+            Target,
+            """{ "to": { "type": "string", "minLength": 1, "description": "Node id of the drop target" } }""",
+            "to"
+        )
+    );
 
     /// <summary>
     /// The pointer verbs the grammar adds when the engine declares their locator action kind (<see cref="IEngineSession.ActionKinds"/>), by
@@ -305,7 +410,9 @@ public static class AgentTools
     ];
 
     /// <summary>The tool of each pointer verb, with the locator action kind the engine declares for it.</summary>
-    internal static readonly IReadOnlyDictionary<string, string> PointerToolKinds = new Dictionary<string, string>(StringComparer.Ordinal)
+    internal static readonly IReadOnlyDictionary<string, string> PointerToolKinds = new Dictionary<string, string>(
+        StringComparer.Ordinal
+    )
     {
         ["long_press"] = "longPress",
         ["right_click"] = "secondaryTap",
@@ -318,7 +425,10 @@ public static class AgentTools
     /// upstream's <c>createGrammarTools</c> and <c>createPointTools</c>): a tool whose verbs the engine's declarations do not unlock is absent
     /// from the toolset. <c>type</c> and <c>press</c> are also offered by the keyboard alone, without a target.
     /// </summary>
-    internal static readonly IReadOnlyDictionary<string, ExecutorVerb[]> ToolVerbs = new Dictionary<string, ExecutorVerb[]>(StringComparer.Ordinal)
+    internal static readonly IReadOnlyDictionary<string, ExecutorVerb[]> ToolVerbs = new Dictionary<
+        string,
+        ExecutorVerb[]
+    >(StringComparer.Ordinal)
     {
         ["tap"] = [ExecutorVerb.Tap],
         ["double_tap"] = [ExecutorVerb.DoubleTap],
@@ -352,12 +462,19 @@ public static class AgentTools
         {
             "type" when typeText && !verbs.Contains(ExecutorVerb.Type) => WithoutTarget(
                 FillFocused,
-                "Type a plain-text value into whatever has focus. After tap_at on a field the screen does not list, call type: the value is inserted at the caret of the focused field; set replace to clear it first. Several fields can be typed in one turn."),
+                "Type a plain-text value into whatever has focus. After tap_at on a field the screen does not list, call type: the value is inserted at the caret of the focused field; set replace to clear it first. Several fields can be typed in one turn."
+            ),
             "type" when typeText => FillFocused,
             "press" when verbs.Contains(ExecutorVerb.PressKey) && !verbs.Contains(ExecutorVerb.Press) => WithoutTarget(
                 verb,
-                "Press a key such as Enter, Escape, or Tab on whatever has focus. Shift with an arrow key extends the selection in a field one step per press, and the screen then shows the selected text as selection=\"...\"."),
-            "press" when verbs.Contains(ExecutorVerb.PressKey) => new ModelTool { Name = verb.Name, Description = verb.Description, Parameters = WithOptionalTarget(verb.Parameters) },
+                "Press a key such as Enter, Escape, or Tab on whatever has focus. Shift with an arrow key extends the selection in a field one step per press, and the screen then shows the selected text as selection=\"...\"."
+            ),
+            "press" when verbs.Contains(ExecutorVerb.PressKey) => new ModelTool
+            {
+                Name = verb.Name,
+                Description = verb.Description,
+                Parameters = WithOptionalTarget(verb.Parameters),
+            },
             _ => verb,
         };
     }
@@ -371,29 +488,50 @@ public static class AgentTools
             properties.Remove(name);
         }
 
-        parameters = JsonNode.Parse(WithOptionalTarget(JsonSerializer.SerializeToElement(parameters)).GetRawText())!.AsObject();
+        parameters = JsonNode
+            .Parse(WithOptionalTarget(JsonSerializer.SerializeToElement(parameters)).GetRawText())!
+            .AsObject();
 
-        return new ModelTool { Name = tool.Name, Description = description, Parameters = JsonSerializer.SerializeToElement(parameters) };
+        return new ModelTool
+        {
+            Name = tool.Name,
+            Description = description,
+            Parameters = JsonSerializer.SerializeToElement(parameters),
+        };
     }
 
     /// <summary>The <c>modifiers</c> property of a tap-family tool: the keys held while the pointer clicks.</summary>
-    internal static JsonObject ModifiersSchema() => new()
-    {
-        ["type"] = "array",
-        ["items"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray([.. KeyModifiers.Names.Select(name => (JsonNode)name)]) },
-        ["description"] = "Keys held while the pointer clicks. A Shift-click extends a selection, a Control-click (Meta on macOS) toggles one item",
-    };
+    internal static JsonObject ModifiersSchema() =>
+        new()
+        {
+            ["type"] = "array",
+            ["items"] = new JsonObject
+            {
+                ["type"] = "string",
+                ["enum"] = new JsonArray([.. KeyModifiers.Names.Select(name => (JsonNode)name)]),
+            },
+            ["description"] =
+                "Keys held while the pointer clicks. A Shift-click extends a selection, a Control-click (Meta on macOS) toggles one item",
+        };
 
-    internal const string ReplaceDescription = "Select all and delete before typing, for a field that visibly holds text you must remove; default false. Leave it off for an empty field.";
+    internal const string ReplaceDescription =
+        "Select all and delete before typing, for a field that visibly holds text you must remove; default false. Leave it off for an empty field.";
 
     // With a keyboard, a fill with no target types into whatever has focus (upstream's type with typeText): how a field the tree does not
     // list gets its text after a tap_at gave it focus.
     private static readonly ModelTool FillFocused = Tool(
         "type",
-        "Type a plain-text value into one input node, or into whatever has focus when target is omitted. With target the value replaces the node's value. " +
-        "After tap_at on a field the screen does not list, call type with NO target (not the document or a container id): the value is inserted at the caret of the focused field; set replace to clear it first. " +
-        "Several fields can be typed in one turn.",
-        WithOptionalTarget(Extend(Target, $$"""{ "value": { "type": "string" }, "replace": { "type": "boolean", "description": "Without target: {{ReplaceDescription}}" } }""", "value")));
+        "Type a plain-text value into one input node, or into whatever has focus when target is omitted. With target the value replaces the node's value. "
+            + "After tap_at on a field the screen does not list, call type with NO target (not the document or a container id): the value is inserted at the caret of the focused field; set replace to clear it first. "
+            + "Several fields can be typed in one turn.",
+        WithOptionalTarget(
+            Extend(
+                Target,
+                $$"""{ "value": { "type": "string" }, "replace": { "type": "boolean", "description": "Without target: {{ReplaceDescription}}" } }""",
+                "value"
+            )
+        )
+    );
 
     // The tap family names the keys it holds for the click, on an engine that declares them.
     private static ModelTool HoldingModifiers(ModelTool verb) =>
@@ -402,11 +540,17 @@ public static class AgentTools
             {
                 Name = verb.Name,
                 Description = verb.Description + " Pass modifiers to hold keys for the click.",
-                Parameters = Closed(Extend(Target, new JsonObject { ["modifiers"] = ModifiersSchema() }.ToJsonString())),
+                Parameters = Closed(
+                    Extend(Target, new JsonObject { ["modifiers"] = ModifiersSchema() }.ToJsonString())
+                ),
             }
             : verb;
 
-    private static readonly ModelTool Navigate = Tool("navigate", "Open a path or URL.", Parse("""{ "type": "object", "properties": { "url": { "type": "string" } }, "required": ["url"] }"""));
+    private static readonly ModelTool Navigate = Tool(
+        "navigate",
+        "Open a path or URL.",
+        Parse("""{ "type": "object", "properties": { "url": { "type": "string" } }, "required": ["url"] }""")
+    );
 
     /// <summary>
     /// Upstream's <c>VERDICT_RULES</c>: the guidance for <see cref="VerdictTool"/>. The tool loop appends it to the instructions of every
@@ -414,9 +558,9 @@ public static class AgentTools
     /// The tool is <c>complete_step</c>, and it takes an <c>errorCode</c>, as upstream's.
     /// </summary>
     public const string VerdictRules =
-        "Finish with complete_step when the step's goal is achieved, or you are certain it cannot be. " +
-        "complete_step status is passed, failed, or blocked. " +
-        "blocked means credentials, the environment, or test setup prevented a verdict, and requires an errorCode.";
+        "Finish with complete_step when the step's goal is achieved, or you are certain it cannot be. "
+        + "complete_step status is passed, failed, or blocked. "
+        + "blocked means credentials, the environment, or test setup prevented a verdict, and requires an errorCode.";
 
     /// <summary>
     /// Upstream's <c>createVerdictTool</c>: the <c>complete_step</c> tool with the closed blocked-code policy, and the verdict it collected. Make a
@@ -436,54 +580,86 @@ public static class AgentTools
     /// authorized, counted, recorded, and replayed from the cache. The context must be one the runtime opened for a step, as the built-in
     /// agent's is. The screen presenter and the failure causes stay internal, as upstream's do.
     /// </summary>
-    public static IReadOnlyList<ToolLoopTool> CreateGrammarTools(StepExecutorContext context, GrammarToolsOptions? options = null) =>
-        GrammarTools(context, null, options);
+    public static IReadOnlyList<ToolLoopTool> CreateGrammarTools(
+        StepExecutorContext context,
+        GrammarToolsOptions? options = null
+    ) => GrammarTools(context, null, options);
 
     // Upstream's grammarTools: createGrammarTools for the package's own callers, which also offer the project's tools.
-    internal static IReadOnlyList<ToolLoopTool> GrammarTools(StepExecutorContext context, IReadOnlyDictionary<string, AgentTool>? tools, GrammarToolsOptions? options = null)
+    internal static IReadOnlyList<ToolLoopTool> GrammarTools(
+        StepExecutorContext context,
+        IReadOnlyDictionary<string, AgentTool>? tools,
+        GrammarToolsOptions? options = null
+    )
     {
         ArgumentNullException.ThrowIfNull(context);
         var host = context.Host
-            ?? throw new InvalidOperationException("The grammar tools drive the context of a step the runtime opened; they cannot run on a context built by hand.");
+            ?? throw new InvalidOperationException(
+                "The grammar tools drive the context of a step the runtime opened; they cannot run on a context built by hand."
+            );
         var asserting = (options?.Kind ?? context.Step.Kind) == ExecutorStepKind.Assert;
         // An assertion offers the project tools that read the app, and none that change it (upstream's projectTools).
         var project = tools is null
             ? new Dictionary<string, AgentTool>()
-            : tools.Where(pair => pair.Value.AppliesTo(context.Target.Platform) && (!asserting || !pair.Value.Mutates)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            : tools
+                .Where(pair => pair.Value.AppliesTo(context.Target.Platform) && (!asserting || !pair.Value.Mutates))
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var offered = project.Select(pair => Project(pair.Key, pair.Value)).ToList();
         var guard = options?.Guard;
-        var act = new ActTools(host.Scope, host.Feed, DefaultAgent.PresenterFor(context));
-        return GrammarToolDefinitions(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds, host.Scope.Session.PointerActionKinds, host.Scope.Session.CanDismissKeyboard, options?.Secrets ?? context.Step.Secrets)
+        var act = new ActTools(
+            host.Scope,
+            host.Feed,
+            DefaultAgent.PresenterFor(context),
+            saveScreenshot: options?.SaveScreenshot
+        );
+        return GrammarToolDefinitions(
+                host.Scope.EngineCapabilities,
+                offered,
+                host.Scope.ActionKinds,
+                host.Scope.Session.PointerActionKinds,
+                host.Scope.Session.CanDismissKeyboard,
+                options?.Secrets ?? context.Step.Secrets,
+                options?.SecretsListedByCaller == true,
+                options?.SaveScreenshot is not null
+            )
             .Where(definition => !asserting || AssertionOffers(definition.Name, project, context.Step.Vision))
-            .Select(definition => new ToolLoopTool(
-                definition,
-                async (call, token) =>
+            .Select(definition => new ToolLoopTool(definition, async (call, token) =>
+            {
+                // Upstream's schemaTool closes the schema of every grammar tool; a project tool's schema is the author's own.
+                if (!project.ContainsKey(definition.Name) && SchemaTool(definition, call) is { } refusal)
                 {
-                    // Upstream's schemaTool closes the schema of every grammar tool; a project tool's schema is the author's own.
-                    if (!project.ContainsKey(definition.Name) && SchemaTool(definition, call) is { } refusal)
-                    {
-                        return new ToolLoopResult(refusal, Failed: true, ErrorText: true);
-                    }
+                    return new ToolLoopResult(refusal, Failed: true, ErrorText: true);
+                }
 
-                    ToolOutcome? outcome = null;
-                    async Task<string> Body()
-                    {
-                        outcome = await act.ExecuteAsync(call, context.Actions, host.Accounting, project, token, context).ConfigureAwait(false);
-                        return outcome.Content;
-                    }
+                ToolOutcome? outcome = null;
+                async Task<string> Body()
+                {
+                    outcome = await act.ExecuteAsync(call, context.Actions, host.Accounting, project, token, context)
+                        .ConfigureAwait(false);
+                    return outcome.Content;
+                }
 
-                    var content = guard is null ? await Body().ConfigureAwait(false) : await guard(Body).ConfigureAwait(false);
+                var content = guard is null
+                    ? await Body().ConfigureAwait(false)
+                    : await guard(Body).ConfigureAwait(false);
 
-                    // A guard that answered in the body's place (the step is concluding) leaves no outcome: a failed call. Text the guard
-                    // changed on a body that ran keeps the body's result and its screenshot.
-                    return outcome is null ? new ToolLoopResult(content, Failed: true, ErrorText: true) : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels, outcome.ErrorText);
-                }))
+                // A guard that answered in the body's place (the step is concluding) leaves no outcome: a failed call. Text the guard
+                // changed on a body that ran keeps the body's result and its screenshot.
+                return outcome is null
+                    ? new ToolLoopResult(content, Failed: true, ErrorText: true)
+                    : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels, outcome.ErrorText);
+            }))
             .ToList();
     }
 
     // An assertion only looks: the read-only tools, the project tools that read, and no screenshot when it asked for the tree alone.
-    private static bool AssertionOffers(string name, IReadOnlyDictionary<string, AgentTool> project, VisionMode? vision) =>
-        project.ContainsKey(name) || (ActionNames.ReadOnlyGrammar.ContainsKey(name) && (name != "screenshot" || vision != VisionMode.Off));
+    private static bool AssertionOffers(
+        string name,
+        IReadOnlyDictionary<string, AgentTool> project,
+        VisionMode? vision
+    ) =>
+        project.ContainsKey(name)
+        || (ActionNames.ReadOnlyGrammar.ContainsKey(name) && (name != "screenshot" || vision != VisionMode.Off));
 
     /// <summary>
     /// Upstream's <c>schemaTool</c>: the schema of a grammar tool and of the verdict tool is closed, so a field it does not declare fails validation and the call never runs.
@@ -492,41 +668,119 @@ public static class AgentTools
     /// </summary>
     internal static string? SchemaTool(ModelTool definition, ModelToolCall call)
     {
-        if (call.Arguments.ValueKind != JsonValueKind.Object
-            || !definition.Parameters.TryGetProperty("properties", out var declared)
-            || declared.ValueKind != JsonValueKind.Object)
+        var hasDeclared =
+            definition.Parameters.TryGetProperty("properties", out var declared)
+            && declared.ValueKind == JsonValueKind.Object;
+        // A tool with no fields reads a plain object as {} (upstream's z.preprocess): some models pad a no-input call and resend the
+        // refusal until the step budget ends. Anything that is not an object still fails validation.
+        if (hasDeclared && !declared.EnumerateObject().Any())
+        {
+            if (call.Arguments.ValueKind == JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            var received = call.Arguments.ValueKind switch
+            {
+                JsonValueKind.Null or JsonValueKind.Undefined => "null",
+                JsonValueKind.Array => "array",
+                JsonValueKind.String => "string",
+                JsonValueKind.Number => "number",
+                _ => "boolean",
+            };
+            var invalid = JsonSerializer.Serialize(
+                new object[]
+                {
+                    new Dictionary<string, object>
+                    {
+                        ["expected"] = "object",
+                        ["code"] = "invalid_type",
+                        ["path"] = Array.Empty<string>(),
+                        ["message"] = "Invalid input: expected object, received " + received,
+                    },
+                }
+            );
+            return "failed: Invalid input for tool "
+                + definition.Name
+                + ": Type validation failed: Value: "
+                + (call.Arguments.ValueKind == JsonValueKind.Undefined ? "null" : call.Arguments.GetRawText())
+                + ".\nError message: "
+                + invalid;
+        }
+
+        if (call.Arguments.ValueKind != JsonValueKind.Object || !hasDeclared)
         {
             return null;
         }
 
-        var keys = call.Arguments.EnumerateObject().Select(property => property.Name).Where(name => !declared.TryGetProperty(name, out _)).ToList();
+        var keys = call
+            .Arguments.EnumerateObject()
+            .Select(property => property.Name)
+            .Where(name => !declared.TryGetProperty(name, out _))
+            .ToList();
         if (keys.Count == 0)
         {
             return null;
         }
 
-        var issue = JsonSerializer.Serialize(new object[]
-        {
-            new Dictionary<string, object>
+        var issue = JsonSerializer.Serialize(
+            new object[]
             {
-                ["code"] = "unrecognized_keys",
-                ["keys"] = keys,
-                ["path"] = Array.Empty<string>(),
-                ["message"] = "Unrecognized key" + (keys.Count > 1 ? "s" : "") + ": " + string.Join(", ", keys.Select(key => "\"" + key + "\"")),
-            },
-        });
-        return "failed: Invalid input for tool " + definition.Name + ": Type validation failed: Value: " + call.Arguments.GetRawText() + ".\nError message: " + issue;
+                new Dictionary<string, object>
+                {
+                    ["code"] = "unrecognized_keys",
+                    ["keys"] = keys,
+                    ["path"] = Array.Empty<string>(),
+                    ["message"] =
+                        "Unrecognized key"
+                        + (keys.Count > 1 ? "s" : "")
+                        + ": "
+                        + string.Join(", ", keys.Select(key => "\"" + key + "\"")),
+                },
+            }
+        );
+        return "failed: Invalid input for tool "
+            + definition.Name
+            + ": Type validation failed: Value: "
+            + call.Arguments.GetRawText()
+            + ".\nError message: "
+            + issue;
     }
 
     /// <summary>
     /// The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability,
     /// and the pointer verbs (<c>long_press</c>, <c>right_click</c>, <c>hover</c>, <c>drag</c>) the locator action kind the engine declares for them.
     /// </summary>
-    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool dismissKeyboard = false, IReadOnlyList<ExecutorSecret>? secrets = null) =>
-        GrammarToolDefinitions(ActContext.VerbsOf(capabilities, actionKinds, pointerKinds ?? [], dismissKeyboard), capabilities.HasFlag(EngineCapabilities.TapModifiers), actionKinds, project, secrets);
+    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(
+        EngineCapabilities capabilities,
+        IReadOnlyList<ModelTool>? project = null,
+        IReadOnlyCollection<string>? actionKinds = null,
+        IReadOnlyCollection<string>? pointerKinds = null,
+        bool dismissKeyboard = false,
+        IReadOnlyList<ExecutorSecret>? secrets = null,
+        bool secretsListedByCaller = false,
+        bool saveScreenshot = false
+    ) =>
+        GrammarToolDefinitions(
+            ActContext.VerbsOf(capabilities, actionKinds, pointerKinds ?? [], dismissKeyboard),
+            capabilities.HasFlag(EngineCapabilities.TapModifiers),
+            actionKinds,
+            project,
+            secrets,
+            secretsListedByCaller,
+            saveScreenshot
+        );
 
     /// <summary>The same over the verbs the engine's declarations unlock (upstream's <c>verbs</c> of <c>createGrammarTools</c>): each tool is shaped by them.</summary>
-    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(IReadOnlySet<ExecutorVerb> verbs, bool tapModifiers = false, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyList<ModelTool>? project = null, IReadOnlyList<ExecutorSecret>? secrets = null)
+    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(
+        IReadOnlySet<ExecutorVerb> verbs,
+        bool tapModifiers = false,
+        IReadOnlyCollection<string>? actionKinds = null,
+        IReadOnlyList<ModelTool>? project = null,
+        IReadOnlyList<ExecutorSecret>? secrets = null,
+        bool secretsListedByCaller = false,
+        bool saveScreenshot = false
+    )
     {
         var tools = new List<ModelTool> { Observe };
         var pointer = new List<ModelTool>();
@@ -534,16 +788,28 @@ public static class AgentTools
         {
             if (actionKinds?.Contains(kind) == true)
             {
-                pointer.Add(name switch { "long_press" => LongPress, "right_click" => RightClick, "hover" => Hover, _ => Drag });
+                pointer.Add(
+                    name switch
+                    {
+                        "long_press" => LongPress,
+                        "right_click" => RightClick,
+                        "hover" => Hover,
+                        _ => Drag,
+                    }
+                );
             }
         }
 
         var keyboard = verbs.Contains(ExecutorVerb.TypeText) || verbs.Contains(ExecutorVerb.PressKey);
         var grammar = Verbs.Where(verb => OffersVerb(verb.Name, verbs)).Select(verb => NodeTool(verb, verbs)).ToList();
-        // Offered only when the step declared secrets and the engine can fill: an empty vocabulary is better than a tool the model can only be rejected on.
-        if (verbs.Contains(ExecutorVerb.TypeSecret) && secrets is { Count: > 0 })
+        // Offered only when the engine can fill, and otherwise only when the step declared secrets: an empty vocabulary is better than a tool the
+        // model can only be rejected on. A caller that lists the secrets itself takes the refusal for a tool set that stays the same across steps.
+        if (verbs.Contains(ExecutorVerb.TypeSecret) && (secretsListedByCaller || secrets is { Count: > 0 }))
         {
-            grammar.Insert(grammar.FindIndex(verb => verb.Name == "type") + 1, FillSecret(secrets));
+            grammar.Insert(
+                grammar.FindIndex(verb => verb.Name == "type") + 1,
+                FillSecret(secrets ?? [], secretsListedByCaller)
+            );
         }
 
         tools.AddRange(tapModifiers ? grammar.Concat(pointer).Select(HoldingModifiers) : [.. grammar, .. pointer]);
@@ -594,7 +860,7 @@ public static class AgentTools
             tools.Add(DismissKeyboard);
         }
 
-        tools.Add(Screenshot);
+        tools.Add(saveScreenshot ? ScreenshotWithPath : Screenshot);
         tools.AddRange(CreatePointTools(verbs, keyboard));
         if (project is not null)
         {
@@ -622,62 +888,102 @@ public static class AgentTools
                 continue;
             }
 
-            tools.Add(Tool(
-                tool,
-                does + (bare ? "." : ", which this engine cannot do: the point must land on a listed control.") + " Last resort: when the screen lists the target, " + byId + ".",
-                PointXY));
+            tools.Add(
+                Tool(
+                    tool,
+                    does
+                        + (bare ? "." : ", which this engine cannot do: the point must land on a listed control.")
+                        + " Last resort: when the screen lists the target, "
+                        + byId
+                        + ".",
+                    PointXY
+                )
+            );
         }
 
         var bareDrag = verbs.Contains(ExecutorVerb.DragAt);
         if (bareDrag || verbs.Contains(ExecutorVerb.Drag))
         {
-            tools.Add(Tool(
-                "drag_at",
-                "Drag from one point in the latest screenshot to another, for a drag the screen does not list: a shape on a canvas, a pin on a map, a card dropped on an empty spot. Both points are pixel coordinates in that image (x from the left edge, y from the top edge). Start on the center of what you drag. The bare points are dragged" +
-                (bareDrag ? "." : ", which this engine cannot do: the points must land on two different listed controls.") +
-                " Last resort: when the screen lists what you drag and where it goes, use drag by id.",
-                Extend(
-                    PointXY,
-                    """
-                    {
-                      "to_x": { "type": "number", "description": "x of the drop point in the latest screenshot, pixels from the left edge" },
-                      "to_y": { "type": "number", "description": "y of the drop point in the latest screenshot, pixels from the top edge" }
-                    }
-                    """,
-                    "x",
-                    "y",
-                    "to_x",
-                    "to_y")));
+            tools.Add(
+                Tool(
+                    "drag_at",
+                    "Drag from one point in the latest screenshot to another, for a drag the screen does not list: a shape on a canvas, a pin on a map, a card dropped on an empty spot. Both points are pixel coordinates in that image (x from the left edge, y from the top edge). Start on the center of what you drag. The bare points are dragged"
+                        + (
+                            bareDrag
+                                ? "."
+                                : ", which this engine cannot do: the points must land on two different listed controls."
+                        )
+                        + " Last resort: when the screen lists what you drag and where it goes, use drag by id.",
+                    Extend(
+                        PointXY,
+                        """
+                        {
+                          "to_x": { "type": "number", "description": "x of the drop point in the latest screenshot, pixels from the left edge" },
+                          "to_y": { "type": "number", "description": "y of the drop point in the latest screenshot, pixels from the top edge" }
+                        }
+                        """,
+                        "x",
+                        "y",
+                        "to_x",
+                        "to_y"
+                    )
+                )
+            );
         }
 
         if (verbs.Contains(ExecutorVerb.Type) || keyboard)
         {
-            tools.Add(Tool(
-                "type_at",
-                keyboard
-                    ? "Type a plain-text value into the field at a point in the latest screenshot, for a field the screen does not list. A listed input under the point is filled by id, replacing its value; anything else is tapped to focus it and typed into through the keyboard, inserting at the caret unless replace is set. Last resort: when the screen lists the field, type by id."
-                    : "Type a plain-text value into the input at a point in the latest screenshot, replacing its value. Aim at the field itself; a point on nothing listed fails. Last resort: when the screen lists the field, type by id.",
-                keyboard
-                    ? Extend(PointXY, $$"""{ "value": { "type": "string" }, "replace": { "type": "boolean", "description": "{{ReplaceDescription}}" } }""", "x", "y", "value")
-                    : Extend(PointXY, """{ "value": { "type": "string" } }""", "x", "y", "value")));
+            tools.Add(
+                Tool(
+                    "type_at",
+                    keyboard
+                        ? "Type a plain-text value into the field at a point in the latest screenshot, for a field the screen does not list. A listed input under the point is filled by id, replacing its value; anything else is tapped to focus it and typed into through the keyboard, inserting at the caret unless replace is set. Last resort: when the screen lists the field, type by id."
+                        : "Type a plain-text value into the input at a point in the latest screenshot, replacing its value. Aim at the field itself; a point on nothing listed fails. Last resort: when the screen lists the field, type by id.",
+                    keyboard
+                        ? Extend(
+                            PointXY,
+                            $$"""{ "value": { "type": "string" }, "replace": { "type": "boolean", "description": "{{ReplaceDescription}}" } }""",
+                            "x",
+                            "y",
+                            "value"
+                        )
+                        : Extend(PointXY, """{ "value": { "type": "string" } }""", "x", "y", "value")
+                )
+            );
         }
 
         if (verbs.Contains(ExecutorVerb.Press) || verbs.Contains(ExecutorVerb.PressKey))
         {
-            tools.Add(Tool(
-                "press_at",
-                "Send one key (e.g. \"Enter\", \"Escape\", \"Tab\") to the control at a point in the latest screenshot, for a control the screen does not list." +
-                (keyboard ? " A listed control under the point gets the key by id; anything else is tapped to focus it and the key goes through the keyboard." : "") +
-                " Last resort: when the screen lists the control, press by id.",
-                Extend(PointXY, """{ "key": { "type": "string", "minLength": 1, "maxLength": 64 } }""", "x", "y", "key")));
+            tools.Add(
+                Tool(
+                    "press_at",
+                    "Send one key (e.g. \"Enter\", \"Escape\", \"Tab\") to the control at a point in the latest screenshot, for a control the screen does not list."
+                        + (
+                            keyboard
+                                ? " A listed control under the point gets the key by id; anything else is tapped to focus it and the key goes through the keyboard."
+                                : ""
+                        )
+                        + " Last resort: when the screen lists the control, press by id.",
+                    Extend(
+                        PointXY,
+                        """{ "key": { "type": "string", "minLength": 1, "maxLength": 64 } }""",
+                        "x",
+                        "y",
+                        "key"
+                    )
+                )
+            );
         }
 
         if (verbs.Contains(ExecutorVerb.Select))
         {
-            tools.Add(Tool(
-                "select_at",
-                "Pick one option, by its visible label, from the select-like control at a point in the latest screenshot. Last resort: when the screen lists the select, use select by id.",
-                Extend(PointXY, """{ "value": { "type": "string", "minLength": 1 } }""", "x", "y", "value")));
+            tools.Add(
+                Tool(
+                    "select_at",
+                    "Pick one option, by its visible label, from the select-like control at a point in the latest screenshot. Last resort: when the screen lists the select, use select by id.",
+                    Extend(PointXY, """{ "value": { "type": "string", "minLength": 1 } }""", "x", "y", "value")
+                )
+            );
         }
 
         return tools;
@@ -690,7 +996,9 @@ public static class AgentTools
     /// replaced there, so the name is refused. Upstream's <c>HARNESS_TOOL_NAMES</c>; the port's other harness tool, <c>complete_step</c>,
     /// is reserved with the grammar's names.
     /// </summary>
-    internal static readonly IReadOnlyDictionary<string, string> HarnessToolNames = new Dictionary<string, string>(StringComparer.Ordinal)
+    internal static readonly IReadOnlyDictionary<string, string> HarnessToolNames = new Dictionary<string, string>(
+        StringComparer.Ordinal
+    )
     {
         ["complete_step"] = "every agent step",
         [ExploreExecutor.FindingToolName] = "e2e explore",
@@ -703,7 +1011,21 @@ public static class AgentTools
 
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
     internal static bool IsReserved(string name) =>
-        GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Resize | EngineCapabilities.SwitchTab | EngineCapabilities.CloseTab | EngineCapabilities.Upload | EngineCapabilities.Keyboard, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"], dismissKeyboard: true, secrets: [new ExecutorSecret("secret", "password")]).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
+        GrammarToolDefinitions(
+                EngineCapabilities.Scroll
+                    | EngineCapabilities.History
+                    | EngineCapabilities.Resize
+                    | EngineCapabilities.SwitchTab
+                    | EngineCapabilities.CloseTab
+                    | EngineCapabilities.Upload
+                    | EngineCapabilities.Keyboard,
+                null,
+                EngineActionKinds.Locator,
+                ["tap", "hover", "dragTo"],
+                dismissKeyboard: true,
+                secrets: [new ExecutorSecret("secret", "password")]
+            )
+            .Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
     internal static ModelTool Project(string name, AgentTool tool) =>
@@ -727,12 +1049,18 @@ public static class AgentTools
 
     // Upstream's schemaTool: the schema of every grammar tool and of the verdict tool is closed, so a provider receives
     // additionalProperties: false and refuses a field the tool does not declare.
-    private static ModelTool Tool(string name, string description, JsonElement parameters) => Open(name, description, Closed(parameters));
+    private static ModelTool Tool(string name, string description, JsonElement parameters) =>
+        Open(name, description, Closed(parameters));
 
     // A tool whose schema is not the grammar's to close: a project tool's is the author's own, and the extract tools' are upstream's own.
     private static ModelTool Open(string name, string description, JsonElement parameters)
     {
-        return new ModelTool { Name = name, Description = description, Parameters = parameters };
+        return new ModelTool
+        {
+            Name = name,
+            Description = description,
+            Parameters = parameters,
+        };
     }
 
     private static JsonElement Closed(JsonElement schema)
@@ -762,7 +1090,8 @@ public static class AgentTools
               },
               "required": ["status", "summary"]
             }
-            """);
+            """
+        );
     }
 
     private static JsonElement WithValue(JsonElement target, string property)
@@ -775,12 +1104,14 @@ public static class AgentTools
         }
 
         properties[property] = new Dictionary<string, string> { ["type"] = "string" };
-        return JsonSerializer.SerializeToElement(new Dictionary<string, object?>
-        {
-            ["type"] = "object",
-            ["properties"] = properties,
-            ["required"] = BaseRequired(target).Append(property).ToArray(),
-        });
+        return JsonSerializer.SerializeToElement(
+            new Dictionary<string, object?>
+            {
+                ["type"] = "object",
+                ["properties"] = properties,
+                ["required"] = BaseRequired(target).Append(property).ToArray(),
+            }
+        );
     }
 
     private static JsonElement Extend(JsonElement target, string properties, params string[] required)
@@ -807,7 +1138,9 @@ public static class AgentTools
     }
 
     private static IEnumerable<string> BaseRequired(JsonElement schema) =>
-        schema.TryGetProperty("required", out var required) ? required.EnumerateArray().Select(item => item.GetString()!) : [];
+        schema.TryGetProperty("required", out var required)
+            ? required.EnumerateArray().Select(item => item.GetString()!)
+            : [];
 
     // Upstream's `target.optional()`: the node is named, or the call acts on the viewport or whatever has focus.
     private static JsonElement WithOptionalTarget(JsonElement schema)
@@ -815,7 +1148,10 @@ public static class AgentTools
         var parameters = JsonNode.Parse(schema.GetRawText())!.AsObject();
         if (parameters["required"] is JsonArray required)
         {
-            var kept = required.Where(item => item?.GetValue<string>() != "target").Select(item => item!.DeepClone()).ToArray();
+            var kept = required
+                .Where(item => item?.GetValue<string>() != "target")
+                .Select(item => item!.DeepClone())
+                .ToArray();
             if (kept.Length == 0)
             {
                 parameters.Remove("required");
@@ -858,6 +1194,21 @@ public sealed class GrammarToolsOptions
     /// (upstream's <c>listing</c> builds a context with a secret by <c>Object.create</c>, which the port has no counterpart of). .NET-only.
     /// </summary>
     internal IReadOnlyList<ExecutorSecret>? Secrets { get; init; }
+
+    /// <summary>
+    /// Offers <c>type_secret</c> on every step the surface can fill a secret on, with a description that names no secret, so every act step of
+    /// a target sends the same tools and a provider's prompt cache serves them. The caller lists the step's secrets in its own message; a call
+    /// on a step that declares none fails like any undeclared name. Without it the tool is offered only to a step that declares secrets, and its
+    /// description names them. Upstream's <c>secretsListedByCaller</c> (<c>GrammarToolSetup</c>, which the public grammar does not take).
+    /// </summary>
+    internal bool SecretsListedByCaller { get; init; }
+
+    /// <summary>
+    /// Saves a screenshot to a file, given as the caller wrote it, and returns the absolute path. With it, <c>screenshot</c> takes an optional
+    /// <c>path</c>; <c>e2e mcp</c> sets it, the testing agent does not. Upstream's <c>saveScreenshot</c> (<c>GrammarToolSetup</c>, which the public
+    /// grammar does not take); the port's takes the call's token too.
+    /// </summary>
+    internal Func<string, CancellationToken, Task<string>>? SaveScreenshot { get; init; }
 }
 
 /// <summary>
@@ -911,14 +1262,15 @@ public sealed class VerdictTool
             }
 
             _verdict = new StepVerdict(
-            outcome.Status switch
-            {
-                "passed" => StepVerdictStatus.Passed,
-                "blocked" => StepVerdictStatus.Blocked,
-                _ => StepVerdictStatus.Failed,
-            },
-            outcome.Summary ?? "",
-            outcome.Code);
+                outcome.Status switch
+                {
+                    "passed" => StepVerdictStatus.Passed,
+                    "blocked" => StepVerdictStatus.Blocked,
+                    _ => StepVerdictStatus.Failed,
+                },
+                outcome.Summary ?? "",
+                outcome.Code
+            );
         }
 
         return new ToolLoopResult(outcome.Content);
@@ -930,7 +1282,12 @@ public sealed class VerdictTool
         // The verdict tool's schema is closed too (upstream's schemaTool): a field it does not declare refuses the call.
         if (AgentTools.SchemaTool(Tool, call) is { } refusal)
         {
-            return new ToolOutcome { Content = refusal, Succeeded = false, ErrorText = true };
+            return new ToolOutcome
+            {
+                Content = refusal,
+                Succeeded = false,
+                ErrorText = true,
+            };
         }
 
         var status = Args.String(call.Arguments, "status");
@@ -944,17 +1301,28 @@ public sealed class VerdictTool
         if (string.IsNullOrWhiteSpace(summary) || summary.Length > AgentTools.MaxVerdictSummaryChars)
         {
             return ToolOutcome.Reject(
-                "complete_step summary must be a non-empty string of at most " + AgentTools.MaxVerdictSummaryChars.ToString(System.Globalization.CultureInfo.InvariantCulture) +
-                " characters: what you did and what the screen shows now.");
+                "complete_step summary must be a non-empty string of at most "
+                    + AgentTools.MaxVerdictSummaryChars.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + " characters: what you did and what the screen shows now."
+            );
         }
 
         var code = Args.String(call.Arguments, "errorCode");
         // Upstream's schema makes errorCode an enum, so the note names only a code from the closed set; any other code is ignored without being echoed.
-        var assertionOnly = _kind == ExecutorStepKind.Act && string.Equals(code, "ASSERTION_INCONCLUSIVE", StringComparison.Ordinal) && !string.Equals(status, "passed", StringComparison.Ordinal);
-        var dropped = string.Equals(status, "passed", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(code)
-            ? (AgentTools.ModelErrorCodes.Contains(code) ? code : "")
-            : assertionOnly ? code : null;
-        if (string.Equals(status, "passed", StringComparison.Ordinal) || assertionOnly || !AgentTools.ModelErrorCodes.Contains(code))
+        var assertionOnly =
+            _kind == ExecutorStepKind.Act
+            && string.Equals(code, "ASSERTION_INCONCLUSIVE", StringComparison.Ordinal)
+            && !string.Equals(status, "passed", StringComparison.Ordinal);
+        var dropped =
+            string.Equals(status, "passed", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(code)
+                ? (AgentTools.ModelErrorCodes.Contains(code) ? code : "")
+            : assertionOnly ? code
+            : null;
+        if (
+            string.Equals(status, "passed", StringComparison.Ordinal)
+            || assertionOnly
+            || !AgentTools.ModelErrorCodes.Contains(code)
+        )
         {
             code = null;
         }
@@ -962,8 +1330,11 @@ public sealed class VerdictTool
         if (string.Equals(status, "blocked", StringComparison.Ordinal) && !AgentTools.BlockableCodes.Contains(code))
         {
             return ToolOutcome.Reject(
-                "a blocked verdict requires errorCode naming what blocked you (one of " + string.Join(", ", AgentTools.BlockableCodes) + "). " +
-                "If the application itself misbehaved, use status failed instead.");
+                "a blocked verdict requires errorCode naming what blocked you (one of "
+                    + string.Join(", ", AgentTools.BlockableCodes)
+                    + "). "
+                    + "If the application itself misbehaved, use status failed instead."
+            );
         }
 
         return ToolOutcome.Finish(status, summary, code, dropped, assertionOnly);
@@ -981,7 +1352,10 @@ internal static class Args
 
         foreach (var property in element.EnumerateObject())
         {
-            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String)
+            if (
+                string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase)
+                && property.Value.ValueKind == JsonValueKind.String
+            )
             {
                 return property.Value.GetString();
             }
@@ -1000,7 +1374,12 @@ internal static class Args
 
         foreach (var property in element.EnumerateObject())
         {
-            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetDouble(out var number) && double.IsFinite(number))
+            if (
+                string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase)
+                && property.Value.ValueKind == JsonValueKind.Number
+                && property.Value.TryGetDouble(out var number)
+                && double.IsFinite(number)
+            )
             {
                 return number;
             }
@@ -1019,7 +1398,10 @@ internal static class Args
 
         foreach (var property in element.EnumerateObject())
         {
-            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            if (
+                string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase)
+                && property.Value.ValueKind is JsonValueKind.True or JsonValueKind.False
+            )
             {
                 return property.Value.GetBoolean();
             }
@@ -1047,7 +1429,15 @@ internal static class Args
                 return number;
             }
 
-            if (property.Value.ValueKind == JsonValueKind.String && int.TryParse(property.Value.GetString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out number))
+            if (
+                property.Value.ValueKind == JsonValueKind.String
+                && int.TryParse(
+                    property.Value.GetString(),
+                    System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out number
+                )
+            )
             {
                 return number;
             }

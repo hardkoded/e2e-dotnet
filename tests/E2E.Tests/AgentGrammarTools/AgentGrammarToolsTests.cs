@@ -20,18 +20,26 @@ public sealed class AgentGrammarToolsTests
 {
     private static JsonElement Call(object arguments) => JsonSerializer.SerializeToElement(arguments);
 
-    private static async Task<(Exception? Error, PixelsEngine Engine)> AssertAsync(DocumentWorld world, AssertOptions options, IAgentModel model, IReadOnlyDictionary<string, AgentTool>? tools = null, string path = "/")
+    private static async Task<(Exception? Error, PixelsEngine Engine)> AssertAsync(
+        DocumentWorld world,
+        AssertOptions options,
+        IAgentModel model,
+        IReadOnlyDictionary<string, AgentTool>? tools = null,
+        string path = "/"
+    )
     {
         var engine = new PixelsEngine(new DocumentEngine(world));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            Model = model,
-            AgentTools = tools,
-            BaseUrl = "https://billing.test",
-            TestTitle = "grammar",
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                Model = model,
+                AgentTools = tools,
+                BaseUrl = "https://billing.test",
+                TestTitle = "grammar",
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+            }
+        );
         Exception? error = null;
         try
         {
@@ -67,16 +75,30 @@ public sealed class AgentGrammarToolsTests
         IReadOnlyList<string> offered = [];
         var executor = new TestExecutor("offers", (context, _) =>
         {
-            offered = [.. AgentTools.CreateGrammarTools(context).Select(tool => tool.Definition.Name).Order(StringComparer.Ordinal)];
+            offered =
+            [
+                .. AgentTools
+                    .CreateGrammarTools(context)
+                    .Select(tool => tool.Definition.Name)
+                    .Order(StringComparer.Ordinal),
+            ];
             return Task.FromResult(Passed("listed"));
-        })
-        {
-            Vision = true,
-        };
+        }) { Vision = true };
         var engine = new PixelsEngine(new DocumentEngine(CounterPage.World()));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = engine, AgentExecutor = executor, BaseUrl = "https://billing.test", TestTitle = "grammar" });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                AgentExecutor = executor,
+                BaseUrl = "https://billing.test",
+                TestTitle = "grammar",
+            }
+        );
         await session.Context.App.OpenAsync("/");
-        await session.Context.Agent.AssertAsync("the counter shows zero", new AssertOptions { Explore = true, Vision = VisionMode.On });
+        await session.Context.Agent.AssertAsync(
+            "the counter shows zero",
+            new AssertOptions { Explore = true, Vision = VisionMode.On }
+        );
 
         Assert.Equal(["observe", "screenshot", "scroll", "scroll_to"], offered);
     }
@@ -91,34 +113,71 @@ public sealed class AgentGrammarToolsTests
             ["write_status"] = new AgentTool("writes", schema, mutates: true, (_, _) => Task.FromResult("wrote")),
         };
         var asserting = new ScriptedModel(_ => ModelResponses.Done("passed", "read the status"));
-        var (assertError, _) = await AssertAsync(CounterPage.World(), new AssertOptions { Explore = true }, asserting, tools);
+        var (assertError, _) = await AssertAsync(
+            CounterPage.World(),
+            new AssertOptions { Explore = true },
+            asserting,
+            tools
+        );
         var acting = new ScriptedModel(_ => ModelResponses.Done("passed", "did the step"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = new DocumentEngine(CounterPage.World()), Model = acting, AgentTools = tools, BaseUrl = "https://billing.test", TestTitle = "grammar" });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                Model = acting,
+                AgentTools = tools,
+                BaseUrl = "https://billing.test",
+                TestTitle = "grammar",
+            }
+        );
         await session.Context.App.OpenAsync("/");
         await session.Context.Agent.ActAsync("update the status");
 
         Assert.Null(assertError);
-        var assertTools = asserting.Requests[0].Tools.Select(tool => tool.Name).Where(name => name.EndsWith("_status", StringComparison.Ordinal));
+        var assertTools = asserting
+            .Requests[0]
+            .Tools.Select(tool => tool.Name)
+            .Where(name => name.EndsWith("_status", StringComparison.Ordinal));
         Assert.Equal(["read_status"], assertTools);
-        var actTools = acting.Requests[0].Tools.Select(tool => tool.Name).Where(name => name.EndsWith("_status", StringComparison.Ordinal)).Order(StringComparer.Ordinal);
+        var actTools = acting
+            .Requests[0]
+            .Tools.Select(tool => tool.Name)
+            .Where(name => name.EndsWith("_status", StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal);
         Assert.Equal(["read_status", "write_status"], actTools);
     }
 
     [Fact]
     public void Drops_an_inconclusive_code_from_an_act_verdict_and_keeps_it_on_an_assertion()
     {
-        var arguments = Call(new { status = "failed", summary = "no evidence", errorCode = "ASSERTION_INCONCLUSIVE" });
-        var call = new ModelToolCall { Id = "verdict", Name = VerdictTool.Name, Arguments = arguments };
+        var arguments = Call(
+            new
+            {
+                status = "failed",
+                summary = "no evidence",
+                errorCode = "ASSERTION_INCONCLUSIVE",
+            }
+        );
+        var call = new ModelToolCall
+        {
+            Id = "verdict",
+            Name = VerdictTool.Name,
+            Arguments = arguments,
+        };
 
         var act = AgentTools.CreateVerdictTool(ExecutorStepKind.Act);
         Assert.Contains("ASSERTION_INCONCLUSIVE", act.Tool.Parameters.GetRawText(), StringComparison.Ordinal);
         Assert.Equal(
             "Step concluded as failed; the errorCode ASSERTION_INCONCLUSIVE you sent applies only to assertions and was ignored.",
-            act.Execute(call).Content);
+            act.Execute(call).Content
+        );
         Assert.Equal(new StepVerdict(StepVerdictStatus.Failed, "no evidence"), act.Verdict);
 
         var assertion = AgentTools.CreateVerdictTool(ExecutorStepKind.Assert);
         Assert.Equal("Step concluded.", assertion.Execute(call).Content);
-        Assert.Equal(new StepVerdict(StepVerdictStatus.Failed, "no evidence", "ASSERTION_INCONCLUSIVE"), assertion.Verdict);
+        Assert.Equal(
+            new StepVerdict(StepVerdictStatus.Failed, "no evidence", "ASSERTION_INCONCLUSIVE"),
+            assertion.Verdict
+        );
     }
 }

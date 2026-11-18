@@ -148,12 +148,25 @@ internal sealed partial class ListReporter
     /// <summary>The target the exploration's test started on, kept past the test's end for the record.</summary>
     private string? _exploredTarget;
 
-    public ListReporter(IListReporterOutput? output = null, ListReporterOptions? options = null, TimeProvider? timeProvider = null)
+    public ListReporter(
+        IListReporterOutput? output = null,
+        ListReporterOptions? options = null,
+        TimeProvider? timeProvider = null
+    )
     {
         _output = output ?? DefaultOutput;
         _time = timeProvider ?? TimeProvider.System;
         _live = (options?.Live ?? !Console.IsOutputRedirected) && _output.Raw is not null;
-        _pc = new Colors(options?.Colors ?? (_live || (!Console.IsOutputRedirected && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")))));
+        _pc = new Colors(
+            options?.Colors
+                ?? (
+                    _live
+                    || (
+                        !Console.IsOutputRedirected
+                        && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR"))
+                    )
+                )
+        );
         _separator = _pc.Dim(" > ");
         _launchedAt = _time.GetLocalNow();
         _tree = new RunningTree(_pc, Badge);
@@ -208,8 +221,11 @@ internal sealed partial class ListReporter
                 RunInterrupted(interrupted);
                 break;
             case RunStoppedEvent stopped:
-                Print(_pc.Yellow(
-                    $"stopped after {stopped.Failures} {(stopped.Failures == 1 ? "failure" : "failures")} (--max-failures {stopped.Limit}): the running tests end as interrupted, the rest are skipped"));
+                Print(
+                    _pc.Yellow(
+                        $"stopped after {stopped.Failures} {(stopped.Failures == 1 ? "failure" : "failures")} (--max-failures {stopped.Limit}): the running tests end as interrupted, the rest are skipped"
+                    )
+                );
                 break;
             case RunFinishedEvent finished:
                 RunFinished(finished);
@@ -222,7 +238,9 @@ internal sealed partial class ListReporter
     {
         lock (_gate)
         {
-            PrintBlock([.. rows.Select(row => Format.PadTitle(_pc, Format.Bounded(row.Label)) + Format.Bounded(row.Text))]);
+            PrintBlock([
+                .. rows.Select(row => Format.PadTitle(_pc, Format.Bounded(row.Label)) + Format.Bounded(row.Text)),
+            ]);
             PrintBlock(_closingRows);
             _closingRows = [];
         }
@@ -275,9 +293,13 @@ internal sealed partial class ListReporter
     /// </summary>
     private void TestOutput(OutputEvent output)
     {
-        var pair = output.Pair is { } writer ? PairKey(writer.TestId, writer.Agent, output.Target, writer.Repeat) : null;
+        var pair = output.Pair is { } writer
+            ? PairKey(writer.TestId, writer.Agent, output.Target, writer.Repeat)
+            : null;
         var running = pair is null ? null : _pairs.GetValueOrDefault(pair);
-        var source = running is null ? Badge(output.Target) : $"{Badge(running.Group.Target)} {Format.Bounded(running.Group.File)}{_separator}{running.Title}";
+        var source = running is null
+            ? Badge(output.Target)
+            : $"{Badge(running.Group.Target)} {Format.Bounded(running.Group.File)}{_separator}{running.Title}";
         SourcedOutput(output.Stream, source, pair, output.Text);
     }
 
@@ -369,7 +391,8 @@ internal sealed partial class ListReporter
     /// The identity of one pair across <c>test-started</c>, <c>step</c>, and <c>test-finished</c>: a test runs once per agent it is pinned to, on
     /// each target, and once per <c>--repeat-each</c> run (upstream's <c>pairKey</c>).
     /// </summary>
-    private static string PairKey(string testId, string agent, string target, int repeat) => $"{testId}@{agent}@{target}@{repeat}";
+    private static string PairKey(string testId, string agent, string target, int repeat) =>
+        $"{testId}@{agent}@{target}@{repeat}";
 
     private string TitledAs(string title, string agent, int repeat)
     {
@@ -406,7 +429,9 @@ internal sealed partial class ListReporter
     /// <summary>A path relative to the project root when inside it, else as given.</summary>
     private string DisplayPath(string target)
     {
-        var inside = _projectRoot is not null && target.StartsWith(_projectRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+        var inside =
+            _projectRoot is not null
+            && target.StartsWith(_projectRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal);
         return Format.Bounded(inside ? Path.GetRelativePath(_projectRoot!, target) : target);
     }
 
@@ -428,14 +453,23 @@ internal sealed partial class ListReporter
         _artifactsRoot = started.ArtifactsRoot;
         _targets = started.Targets;
         _launchedAt = _time.GetLocalNow();
-        _configuredModel = started.Model is { } configured ? new ConfiguredModel(configured, started.Agents?.FirstOrDefault() ?? "default") : null;
-        var version = typeof(ListReporter).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.0.0";
+        _configuredModel = started.Model is { } configured
+            ? new ConfiguredModel(configured, started.Agents?.FirstOrDefault() ?? "default")
+            : null;
+        var version = typeof(ListReporter)
+            .Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion.Split('+')[0]
+            ?? "0.0.0";
         Print(string.Empty);
-        Print($"{_pc.Bold(_pc.Black(_pc.Cyan(" RUN ")))} {_pc.Cyan($"e2e v{version}")} {_pc.Gray(started.ProjectRoot)}");
+        Print(
+            $"{_pc.Bold(_pc.Black(_pc.Cyan(" RUN ")))} {_pc.Cyan($"e2e v{version}")} {_pc.Gray(started.ProjectRoot)}"
+        );
         List<string> details = [$"run {started.RunId}", $"targets: {string.Join(", ", started.Targets)}"];
         if (started.Agents is { } agents)
         {
-            details.Add($"{(agents.Count == 1 ? "agent" : "agents")}: {string.Join(", ", agents.Select(Format.Bounded))}");
+            details.Add(
+                $"{(agents.Count == 1 ? "agent" : "agents")}: {string.Join(", ", agents.Select(Format.Bounded))}"
+            );
         }
 
         if (started.Ci)
@@ -479,12 +513,13 @@ internal sealed partial class ListReporter
     {
         _interrupted = true;
         var during = _inFlight is null ? null : $"{_inFlight.Verb} {_inFlight.Subject}";
-        Print(_pc.Yellow(
-            interrupted.Mode == InterruptMode.Forced
-                ? "interrupted again: tearing every worker down now"
-                : during is null
-                    ? "interrupted: stopping the running test and tearing down (interrupt again to force)"
-                    : $"interrupted while {during}: tearing down (interrupt again to force)"));
+        Print(
+            _pc.Yellow(
+                interrupted.Mode == InterruptMode.Forced ? "interrupted again: tearing every worker down now"
+                : during is null ? "interrupted: stopping the running test and tearing down (interrupt again to force)"
+                : $"interrupted while {during}: tearing down (interrupt again to force)"
+            )
+        );
     }
 
     /// <summary>
@@ -518,7 +553,9 @@ internal sealed partial class ListReporter
         var time = Format.FormatTime(TimeSpan.FromMilliseconds(setup.DurationMs));
         if (setup.Outcome is { } outcome and not SetupOutcome.Reused)
         {
-            Print($" {_pc.Yellow(Format.Cross)} {subject} {_pc.Yellow($"{(outcome == SetupOutcome.TimedOut ? "timed out" : "failed")} {time}")}");
+            Print(
+                $" {_pc.Yellow(Format.Cross)} {subject} {_pc.Yellow($"{(outcome == SetupOutcome.TimedOut ? "timed out" : "failed")} {time}")}"
+            );
             return;
         }
 
@@ -526,15 +563,26 @@ internal sealed partial class ListReporter
     }
 
     /// <summary>How one setup step is phrased (upstream's <c>setupWording</c>): the verb and subject while it runs, and the word for its completion.</summary>
-    private static (string Verb, string Subject, string Done) SetupWording(SetupStep step) => step switch
-    {
-        CollectSetupStep => ("collecting", "tests", "collected"),
-        FilterSetupStep filter => ("running", $"filter \"{Format.Bounded(filter.Name)}\"", "done"),
-        PrepareSetupStep prepare => ("preparing", $"{Format.Bounded(prepare.Engine)} engine for target \"{Format.Bounded(prepare.Target)}\"", "prepared"),
-        ServiceSetupStep service => ("starting", Format.Bounded(service.Label), "ready"),
-        AppSetupStep app => ("starting", app.Url is null ? Format.Bounded(app.Label) : $"{Format.Bounded(app.Label)} at {Format.Bounded(app.Url)}", "ready"),
-        _ => throw new ArgumentOutOfRangeException(nameof(step)),
-    };
+    private static (string Verb, string Subject, string Done) SetupWording(SetupStep step) =>
+        step switch
+        {
+            CollectSetupStep => ("collecting", "tests", "collected"),
+            FilterSetupStep filter => ("running", $"filter \"{Format.Bounded(filter.Name)}\"", "done"),
+            PrepareSetupStep prepare => (
+                "preparing",
+                $"{Format.Bounded(prepare.Engine)} engine for target \"{Format.Bounded(prepare.Target)}\"",
+                "prepared"
+            ),
+            ServiceSetupStep service => ("starting", Format.Bounded(service.Label), "ready"),
+            AppSetupStep app => (
+                "starting",
+                app.Url is null
+                    ? Format.Bounded(app.Label)
+                    : $"{Format.Bounded(app.Label)} at {Format.Bounded(app.Url)}",
+                "ready"
+            ),
+            _ => throw new ArgumentOutOfRangeException(nameof(step)),
+        };
 
     /// <summary>
     /// Upstream's <c>passingRunSteps</c>: the steps a passed or flaky result counts as not saved, its latest passing run's, since a retry
@@ -544,21 +592,50 @@ internal sealed partial class ListReporter
         passed ? runs.LastOrDefault(run => run.Status == E2E.Internal.AttemptStatus.Passed)?.Steps ?? [] : [];
 
     /// <summary>A finished test as the list reporter reads it: the event's identity and the port's own record of the result.</summary>
-    private sealed record Finished(TestIdentity Test, (string Name, string Platform) Target, string ResultId, string Agent, int Repeat, ResultStatus Status, ReportSkip? Skip, IReadOnlyList<ReportAttempt> Attempts, ReportResult Record);
+    private sealed record Finished(
+        TestIdentity Test,
+        (string Name, string Platform) Target,
+        string ResultId,
+        string Agent,
+        int Repeat,
+        ResultStatus Status,
+        ReportSkip? Skip,
+        IReadOnlyList<ReportAttempt> Attempts,
+        ReportResult Record
+    );
 
     private static Finished Recorded(RunEventResult published)
     {
-        var record = published.Recorded ?? throw new ArgumentException("The list reporter renders the port's own record of a result, which only a producer in this process sets.", nameof(published));
-        return new Finished(published.Test, published.Target, published.ResultId, published.Agent, published.Repeat, record.Status, record.Skip, record.Attempts, record);
+        var record = published.Recorded
+            ?? throw new ArgumentException(
+                "The list reporter renders the port's own record of a result, which only a producer in this process sets.",
+                nameof(published)
+            );
+        return new Finished(
+            published.Test,
+            published.Target,
+            published.ResultId,
+            published.Agent,
+            published.Repeat,
+            record.Status,
+            record.Skip,
+            record.Attempts,
+            record
+        );
     }
 
     /// <summary>The details of an ordinary result: summed over its attempts, the error from the told one.</summary>
-    private static ResultDetails DetailsOf(IReadOnlyList<ReportAttempt> attempts, bool passed, ConfiguredModel? configured)
+    private static ResultDetails DetailsOf(
+        IReadOnlyList<ReportAttempt> attempts,
+        bool passed,
+        ConfiguredModel? configured
+    )
     {
         var steps = attempts.Select(attempt => (IEnumerable<StepRecord>)attempt.Steps).ToList();
 
         // A retry the run interrupted tells nothing; the failure before it is the verdict.
-        var told = attempts.LastOrDefault(attempt => attempt.Status != E2E.Internal.AttemptStatus.Interrupted) ?? attempts.LastOrDefault();
+        var told = attempts.LastOrDefault(attempt => attempt.Status != E2E.Internal.AttemptStatus.Interrupted)
+            ?? attempts.LastOrDefault();
         return new ResultDetails
         {
             DurationMs = attempts.Sum(attempt => attempt.DurationMs),
@@ -585,17 +662,29 @@ internal sealed partial class ListReporter
 
     /// <summary>Where each video these attempts kept is, in order: a report-relative path, or the URL of one a hosted service keeps (upstream's <c>videoPaths</c>).</summary>
     private static List<string> VideoPaths(IReadOnlyList<ReportAttempt> attempts) =>
-        [.. attempts.SelectMany(attempt => attempt.Artifacts).Where(artifact => artifact.Kind == "video").Select(artifact => artifact.Url ?? artifact.Path).OfType<string>()];
+        [
+            .. attempts
+                .SelectMany(attempt => attempt.Artifacts)
+                .Where(artifact => artifact.Kind == "video")
+                .Select(artifact => artifact.Url ?? artifact.Path)
+                .OfType<string>(),
+        ];
 
     /// <summary>The report path of the screen text a failure's evidence points at (upstream's <c>failureOf</c>).</summary>
     private static string? ScreenPathOf(FailureEvidence? failure, IReadOnlyList<ReportArtifact>? artifacts) =>
         failure?.Screen is { } screenId ? artifacts?.FirstOrDefault(artifact => artifact.Id == screenId)?.Path : null;
 
     /// <summary>Report-relative paths of the screenshots the <c>app.screenshot</c> steps among <paramref name="steps"/> attached, in step order (upstream's <c>requestedScreenshots</c>).</summary>
-    private static IEnumerable<string> RequestedScreenshots(IReadOnlyList<StepRecord> steps, IReadOnlyList<ReportArtifact> artifacts) =>
-        steps.Where(step => step.Api == "app.screenshot")
+    private static IEnumerable<string> RequestedScreenshots(
+        IReadOnlyList<StepRecord> steps,
+        IReadOnlyList<ReportArtifact> artifacts
+    ) =>
+        steps
+            .Where(step => step.Api == "app.screenshot")
             .SelectMany(step => step.Artifacts)
-            .Select(id => artifacts.FirstOrDefault(artifact => artifact.Id == id && artifact.Kind == "screenshot")?.Path)
+            .Select(id =>
+                artifacts.FirstOrDefault(artifact => artifact.Id == id && artifact.Kind == "screenshot")?.Path
+            )
             .OfType<string>();
 
     /// <summary>What went wrong in the app log, or null when nothing did (upstream's <c>appLogSummary</c>).</summary>
@@ -622,7 +711,12 @@ internal sealed partial class ListReporter
     private void TestStarted(TestStartedEvent started)
     {
         var key = PairKey(started.TestId, started.Agent, started.Target, started.Repeat);
-        _pairs[key] = new RunningTest(Group(started.File, started.Target), TitledAs(started.Title, started.Agent, started.Repeat), NowMs(), _pairs.GetValueOrDefault(key)?.Steps ?? []);
+        _pairs[key] = new RunningTest(
+            Group(started.File, started.Target),
+            TitledAs(started.Title, started.Agent, started.Repeat),
+            NowMs(),
+            _pairs.GetValueOrDefault(key)?.Steps ?? []
+        );
         _window.Redraw();
     }
 
@@ -643,37 +737,41 @@ internal sealed partial class ListReporter
         switch (progress.Phase)
         {
             case Reports.StepProgressPhase.Start:
-                running.Current = new CurrentStep(progress.Api, progress.Label ?? string.Empty, progress.Kind ?? Reports.StepKind.Agent);
+                running.Current = new CurrentStep(
+                    progress.Api,
+                    progress.Label ?? string.Empty,
+                    progress.Kind ?? Reports.StepKind.Agent
+                );
                 _window.Redraw();
                 break;
             case Reports.StepProgressPhase.Event:
+            {
+                if (progress.Event is { } counted)
                 {
-                    if (progress.Event is { } counted)
-                    {
-                        _explore?.Action(counted);
-                    }
+                    _explore?.Action(counted);
+                }
 
-                    if (running.Current is not { } current)
-                    {
-                        break;
-                    }
-
-                    // The event ends whatever was announced; until the next announcement the model has the turn.
-                    var announced = current.Activity is not null;
-                    current.Activity = null;
-                    var shown = progress.Event is { } stepEvent && ListModel.IsShownEvent(stepEvent);
-                    if (shown)
-                    {
-                        current.Events.Add(progress.Event!);
-                    }
-
-                    if (shown || announced)
-                    {
-                        _window.Redraw();
-                    }
-
+                if (running.Current is not { } current)
+                {
                     break;
                 }
+
+                // The event ends whatever was announced; until the next announcement the model has the turn.
+                var announced = current.Activity is not null;
+                current.Activity = null;
+                var shown = progress.Event is { } stepEvent && ListModel.IsShownEvent(stepEvent);
+                if (shown)
+                {
+                    current.Events.Add(progress.Event!);
+                }
+
+                if (shown || announced)
+                {
+                    _window.Redraw();
+                }
+
+                break;
+            }
 
             case Reports.StepProgressPhase.Activity:
                 if (running.Current is { } announcing)
@@ -692,39 +790,52 @@ internal sealed partial class ListReporter
 
                 break;
             case Reports.StepProgressPhase.End:
+            {
+                running.Current = null;
+                if (progress.Kind != Reports.StepKind.Agent)
                 {
-                    running.Current = null;
-                    if (progress.Kind != Reports.StepKind.Agent)
-                    {
-                        _window.Redraw();
-                        break;
-                    }
-
-                    // An exploration's planner and charter steps show as the exploration's own rows.
-                    if (_explore is not null)
-                    {
-                        break;
-                    }
-
-                    var finished = new FinishedStep(progress.Api, progress.Label ?? string.Empty, progress.Status is { } status ? Enum.Parse<StepStatus>(status.ToString()) : StepStatus.Passed, progress.DurationMs, progress.ModelCalls);
-                    if (_live)
-                    {
-                        running.Steps.Add(finished);
-                        _window.Redraw();
-                    }
-                    else
-                    {
-                        Print(TestIndent + ListSteps.StepLine(_pc, finished, _pc.Dim(running.Title) + _separator));
-                    }
-
+                    _window.Redraw();
                     break;
                 }
+
+                // An exploration's planner and charter steps show as the exploration's own rows.
+                if (_explore is not null)
+                {
+                    break;
+                }
+
+                var finished = new FinishedStep(
+                    progress.Api,
+                    progress.Label ?? string.Empty,
+                    progress.Status is { } status ? Enum.Parse<StepStatus>(status.ToString()) : StepStatus.Passed,
+                    progress.DurationMs,
+                    progress.ModelCalls
+                );
+                if (_live)
+                {
+                    running.Steps.Add(finished);
+                    _window.Redraw();
+                }
+                else
+                {
+                    Print(TestIndent + ListSteps.StepLine(_pc, finished, _pc.Dim(running.Title) + _separator));
+                }
+
+                break;
+            }
         }
     }
 
     /// <summary>The error a <c>run-error</c> event carries, as the banner reads it: the code, the message, the phase, and the category, in the report's spelling.</summary>
     private static ReportError ErrorOf(Reports.ReportError error) =>
-        new(error.Code, error.Message, error.Phase is { } phase ? JsonNamingPolicy.CamelCase.ConvertName(phase.ToString()) : null) { Category = error.Category.ToString().ToLowerInvariant() };
+        new(
+            error.Code,
+            error.Message,
+            error.Phase is { } phase ? JsonNamingPolicy.CamelCase.ConvertName(phase.ToString()) : null
+        )
+        {
+            Category = error.Category.ToString().ToLowerInvariant(),
+        };
 
     private void TestFinished(RunEventResult published)
     {
@@ -749,7 +860,11 @@ internal sealed partial class ListReporter
         var group = Group(result.Test.File, result.Target.Name);
         var skippedAfter = Records.FailureBeforeSkip(result.Record);
         var configured = _configuredModel?.Agent == result.Agent ? _configuredModel : null;
-        var details = DetailsOf(result.Attempts, result.Status is ResultStatus.Passed or ResultStatus.Flaky, configured);
+        var details = DetailsOf(
+            result.Attempts,
+            result.Status is ResultStatus.Passed or ResultStatus.Flaky,
+            configured
+        );
         _screenshots.AddRange(details.Screenshots);
         Format.AddUsage(_runUsage, details.Usage);
         Format.AddModelTally(_runModels, details.Models);
@@ -765,10 +880,32 @@ internal sealed partial class ListReporter
         if (_explore is not null)
         {
             // The exploration's verdict is its findings; any other error is a failure of its own, unless the run stopped it.
-            _explore.Result(result.Attempts.SelectMany(attempt => attempt.Artifacts).Select(artifact => (artifact.Id, artifact.Path)));
-            if (details.Error is { } error && result.Status != ResultStatus.Interrupted && !_explore.IsVerdict(error.Code))
+            _explore.Result(
+                result
+                    .Attempts.SelectMany(attempt => attempt.Artifacts)
+                    .Select(artifact => (artifact.Id, artifact.Path))
+            );
+            if (
+                details.Error is { } error
+                && result.Status != ResultStatus.Interrupted
+                && !_explore.IsVerdict(error.Code)
+            )
             {
-                _failures.Add(new Failure(result.ResultId, group, title, declaredLine, result.Status, error, details.Failure, details.ScreenPath, details.AppLog, details.SkipReason, details.Videos));
+                _failures.Add(
+                    new Failure(
+                        result.ResultId,
+                        group,
+                        title,
+                        declaredLine,
+                        result.Status,
+                        error,
+                        details.Failure,
+                        details.ScreenPath,
+                        details.AppLog,
+                        details.SkipReason,
+                        details.Videos
+                    )
+                );
             }
 
             _window.Redraw();
@@ -796,20 +933,57 @@ internal sealed partial class ListReporter
             PrintTestRows(line, $"{Badge(group.Target)} {Format.Bounded(group.File)}{_separator}");
         }
 
-        _runs.Add((
-            $"{result.Test.Id}@{result.Agent}@{result.Target.Name}",
-            $"{Badge(group.Target)} {Format.Bounded(group.File)}{_separator}{TitledAs(string.Join(" > ", result.Test.TitlePath), result.Agent, 0)}",
-
-            // A flaky run's final attempt passed; the code is the one its retry recovered from.
-            new RepeatRun(result.Repeat, StatusName(result.Status), details.Error?.Code ?? result.Attempts.LastOrDefault(attempt => attempt.Status != E2E.Internal.AttemptStatus.Passed)?.Error?.Code)));
+        _runs.Add(
+            (
+                $"{result.Test.Id}@{result.Agent}@{result.Target.Name}",
+                $"{Badge(group.Target)} {Format.Bounded(group.File)}{_separator}{TitledAs(string.Join(" > ", result.Test.TitlePath), result.Agent, 0)}",
+                // A flaky run's final attempt passed; the code is the one its retry recovered from.
+                new RepeatRun(
+                    result.Repeat,
+                    StatusName(result.Status),
+                    details.Error?.Code
+                        ?? result
+                            .Attempts.LastOrDefault(attempt => attempt.Status != E2E.Internal.AttemptStatus.Passed)
+                            ?.Error?.Code
+                )
+            )
+        );
         if (Format.StatusBucket(result.Status) == "failed")
         {
-            _failures.Add(new Failure(result.ResultId, group, title, declaredLine, result.Status, details.Error, details.Failure, details.ScreenPath, details.AppLog, details.SkipReason, details.Videos));
+            _failures.Add(
+                new Failure(
+                    result.ResultId,
+                    group,
+                    title,
+                    declaredLine,
+                    result.Status,
+                    details.Error,
+                    details.Failure,
+                    details.ScreenPath,
+                    details.AppLog,
+                    details.SkipReason,
+                    details.Videos
+                )
+            );
         }
 
         if (skippedAfter is not null)
         {
-            _skippedFailures.Add(new Failure(result.ResultId, group, title, declaredLine, result.Status, skippedAfter.Error, skippedAfter.Failure, ScreenPathOf(skippedAfter.Failure, skippedAfter.Artifacts), null, null, details.Videos));
+            _skippedFailures.Add(
+                new Failure(
+                    result.ResultId,
+                    group,
+                    title,
+                    declaredLine,
+                    result.Status,
+                    skippedAfter.Error,
+                    skippedAfter.Failure,
+                    ScreenPathOf(skippedAfter.Failure, skippedAfter.Artifacts),
+                    null,
+                    null,
+                    details.Videos
+                )
+            );
         }
 
         if (group.Planned is { } planned && group.Lines.Count >= planned)
@@ -908,7 +1082,11 @@ internal sealed partial class ListReporter
         }
 
         Print(string.Join(" ", parts));
-        var verbose = counts.Failed > 0 || counts.Interrupted > 0 || counts.Flaky > 0 || _groups.Count == 1
+        var verbose =
+            counts.Failed > 0
+            || counts.Interrupted > 0
+            || counts.Flaky > 0
+            || _groups.Count == 1
             || group.Lines.Any(line => line.Replays.Count > 0)
             || group.Lines.Any(line => line.CleanupErrors.Count > 0)
             || (_live && group.Lines.Any(line => line.Steps.Count > 0));
@@ -954,38 +1132,50 @@ internal sealed partial class ListReporter
             case ResultStatus.Passed:
                 return [$"   {_pc.Green(Format.Check)} {title} {duration}{ai}", .. CleanupLines(line)];
             case ResultStatus.Flaky:
-                return [$"   {_pc.Yellow(Format.Check)} {title} {_pc.Yellow("(flaky)")} {duration}{ai}", .. CleanupLines(line)];
+                return
+                [
+                    $"   {_pc.Yellow(Format.Check)} {title} {_pc.Yellow("(flaky)")} {duration}{ai}",
+                    .. CleanupLines(line),
+                ];
             case ResultStatus.Skipped:
-                {
-                    // `test.skip` without a message records the bare word; repeating it adds nothing.
-                    var reason = line.SkipReason is null or "skipped" ? string.Empty : _pc.Dim(_pc.Gray($" [{line.SkipReason}]"));
-                    return [$"   {_pc.Dim(_pc.Gray(FDown))} {title}{reason}"];
-                }
+            {
+                // `test.skip` without a message records the bare word; repeating it adds nothing.
+                var reason = line.SkipReason is null or "skipped"
+                    ? string.Empty
+                    : _pc.Dim(_pc.Gray($" [{line.SkipReason}]"));
+                return [$"   {_pc.Dim(_pc.Gray(FDown))} {title}{reason}"];
+            }
 
             case ResultStatus.Interrupted:
                 return [$"   {_pc.Yellow(Format.Cross)} {title} {_pc.Yellow("(interrupted)")} {duration}{ai}"];
             default:
+            {
+                var status =
+                    line.Status == ResultStatus.Failed ? string.Empty : _pc.Red($" ({StatusName(line.Status)})");
+                List<string> rows = [$"   {_pc.Red($"{Format.Cross} {title}")}{status} {duration}{ai}"];
+                if (line.FirstErrorLine is { } first)
                 {
-                    var status = line.Status == ResultStatus.Failed ? string.Empty : _pc.Red($" ({StatusName(line.Status)})");
-                    List<string> rows = [$"   {_pc.Red($"{Format.Cross} {title}")}{status} {duration}{ai}"];
-                    if (line.FirstErrorLine is { } first)
-                    {
-                        // A glance line; the `Failed Tests` section carries the whole message.
-                        var glance = Format.FitColumns(first, Format.TerminalColumns() - ErrorGlanceIndent);
-                        rows.Add($"     {_pc.Red($"{FRight} {glance}")}");
-                    }
-
-                    return rows;
+                    // A glance line; the `Failed Tests` section carries the whole message.
+                    var glance = Format.FitColumns(first, Format.TerminalColumns() - ErrorGlanceIndent);
+                    rows.Add($"     {_pc.Red($"{FRight} {glance}")}");
                 }
+
+                return rows;
+            }
         }
     }
 
     /// <summary>One yellow glance line per cleanup failure under the test (upstream's <c>cleanupLines</c>).</summary>
     private List<string> CleanupLines(TestLine line) =>
-        [.. line.CleanupErrors.Select(error => $"     {_pc.Yellow($"{FRight} cleanup failed: {Format.Bounded(error.Code)}: {Format.Bounded(error.Message).Split('\n')[0]}")}")];
+        [
+            .. line.CleanupErrors.Select(error =>
+                $"     {_pc.Yellow($"{FRight} cleanup failed: {Format.Bounded(error.Code)}: {Format.Bounded(error.Message).Split('\n')[0]}")}"
+            ),
+        ];
 
     /// <summary>A result status as the report spells it: <c>timed-out</c> for a timeout.</summary>
-    private static string StatusName(ResultStatus status) => status == ResultStatus.TimedOut ? "timed-out" : status.ToString().ToLowerInvariant();
+    private static string StatusName(ResultStatus status) =>
+        status == ResultStatus.TimedOut ? "timed-out" : status.ToString().ToLowerInvariant();
 
     /// <summary>
     /// vitest's padded summary, shared by the live window and the final report: files, tests, model usage, the trace cache's part, run errors,
@@ -996,14 +1186,19 @@ internal sealed partial class ListReporter
     {
         var files = FileCounters();
         var tests = TestCounters();
-        List<string> rows =
-            _explore is not null
-                ? [.. _explore.SummaryRows()]
-                :
-                [
-                    Format.PadTitle(_pc, "Test Files") + (files.Total == 0 ? EmptyState("no test files", "none started") : Format.StateString(_pc, files)),
-                    Format.PadTitle(_pc, "Tests") + (tests.Total == 0 ? EmptyState("no tests executed", "none executed") : Format.StateString(_pc, tests)),
-                ];
+        List<string> rows = _explore is not null
+            ? [.. _explore.SummaryRows()]
+            :
+            [
+                Format.PadTitle(_pc, "Test Files")
+                    + (files.Total == 0 ? EmptyState("no test files", "none started") : Format.StateString(_pc, files)),
+                Format.PadTitle(_pc, "Tests")
+                    + (
+                        tests.Total == 0
+                            ? EmptyState("no tests executed", "none executed")
+                            : Format.StateString(_pc, tests)
+                    ),
+            ];
         if (LeftOutText() is { } leftOut)
         {
             rows.Add(Format.PadTitle(_pc, "Left out") + leftOut);
@@ -1012,7 +1207,10 @@ internal sealed partial class ListReporter
         if (Format.UsageText(_runUsage) is { } ai)
         {
             var models = Format.ModelsText(_runModels) ?? _models;
-            rows.Add(Format.PadTitle(_pc, "AI") + $"{ai} · {_runUsage.Calls} model calls{(models is null ? string.Empty : " · " + models)}");
+            rows.Add(
+                Format.PadTitle(_pc, "AI")
+                    + $"{ai} · {_runUsage.Calls} model calls{(models is null ? string.Empty : " · " + models)}"
+            );
         }
 
         if (Format.CacheText(_pc, _runCache) is { } cache)
@@ -1032,21 +1230,32 @@ internal sealed partial class ListReporter
 
         if (_errors.Count > 0)
         {
-            rows.Add(Format.PadTitle(_pc, "Errors") + _pc.Bold(_pc.Red($"{_errors.Count} error{(_errors.Count == 1 ? string.Empty : "s")}")));
+            rows.Add(
+                Format.PadTitle(_pc, "Errors")
+                    + _pc.Bold(_pc.Red($"{_errors.Count} error{(_errors.Count == 1 ? string.Empty : "s")}"))
+            );
         }
 
         if (final && _cleanupFailures.Count > 0)
         {
             var (first, rest) = (_cleanupFailures[0], _cleanupFailures.Count - 1);
             var message = Format.Bounded(first.Error.Message).Split('\n')[0];
-            rows.Add(Format.PadTitle(_pc, "Cleanup") + _pc.Yellow($"{_cleanupFailures.Count} cleanup failure{(_cleanupFailures.Count == 1 ? string.Empty : "s")}: {Format.Bounded(first.Error.Code)}: {message}{(rest == 0 ? string.Empty : $" (+{rest} more)")}"));
+            rows.Add(
+                Format.PadTitle(_pc, "Cleanup")
+                    + _pc.Yellow(
+                        $"{_cleanupFailures.Count} cleanup failure{(_cleanupFailures.Count == 1 ? string.Empty : "s")}: {Format.Bounded(first.Error.Code)}: {message}{(rest == 0 ? string.Empty : $" (+{rest} more)")}"
+                    )
+            );
         }
 
         DateTimeOffset? clockStart = _startedAt ?? (final ? _launchedAt : null);
         if (clockStart is { } startedAt)
         {
             rows.Add(Format.PadTitle(_pc, "Start at") + Format.FormatClock(startedAt));
-            rows.Add(Format.PadTitle(_pc, "Duration") + Format.DurationText(_pc, _time.GetLocalNow() - startedAt, TimeSpan.FromMilliseconds(_startupMs)));
+            rows.Add(
+                Format.PadTitle(_pc, "Duration")
+                    + Format.DurationText(_pc, _time.GetLocalNow() - startedAt, TimeSpan.FromMilliseconds(_startupMs))
+            );
         }
 
         return rows;
@@ -1058,7 +1267,10 @@ internal sealed partial class ListReporter
     /// </summary>
     private string? LeftOutText()
     {
-        var counts = LeftOut.LeftOutTests(_leftOut).Select(pair => (Name: Format.Bounded(pair.Key), Count: pair.Value)).ToList();
+        var counts = LeftOut
+            .LeftOutTests(_leftOut)
+            .Select(pair => (Name: Format.Bounded(pair.Key), Count: pair.Value))
+            .ToList();
         return counts.Count switch
         {
             0 => null,
@@ -1080,19 +1292,34 @@ internal sealed partial class ListReporter
         }
 
         // A test is listed when it missed a run: a flake first, then one the run cut short.
-        var missed = groups.Where(group => group.Passed < group.Runs.Count).OrderByDescending(group => group.Unstable).ToList();
+        var missed = groups
+            .Where(group => group.Passed < group.Runs.Count)
+            .OrderByDescending(group => group.Unstable)
+            .ToList();
         var summary = Repeats.RepeatSummary(groups);
         return
         [
-            Format.PadTitle(_pc, "Repeats") + (missed.Any(group => group.Unstable) ? _pc.Yellow(summary) : _pc.Green(summary)),
-            .. missed.Select(group => $"{Format.PadTitle(_pc, string.Empty)}{(group.Unstable ? _pc.Yellow(Format.Cross) : _pc.Dim(_pc.Gray(FDown)))} {group.Label}  {_pc.Dim(Repeats.RepeatLine(group))}"),
+            Format.PadTitle(_pc, "Repeats")
+                + (missed.Any(group => group.Unstable) ? _pc.Yellow(summary) : _pc.Green(summary)),
+            .. missed.Select(group =>
+                $"{Format.PadTitle(_pc, string.Empty)}{(group.Unstable ? _pc.Yellow(Format.Cross) : _pc.Dim(_pc.Gray(FDown)))} {group.Label}  {_pc.Dim(Repeats.RepeatLine(group))}"
+            ),
         ];
     }
 
     /// <summary>The block's rows for <paramref name="room"/> screen rows under the permanent log: the running tree, then the summary (upstream's <c>renderWindow</c>).</summary>
     private List<string> RenderWindow(int room) =>
         _explore is not null
-            ? [.. _explore.LiveRows(ExploreBadge(), _pairs.Values.FirstOrDefault()?.Current?.Events, SummaryRows(false), NowMs(), room)]
+            ?
+            [
+                .. _explore.LiveRows(
+                    ExploreBadge(),
+                    _pairs.Values.FirstOrDefault()?.Current?.Events,
+                    SummaryRows(false),
+                    NowMs(),
+                    room
+                ),
+            ]
             : _tree.Render([.. _pairs.Values], SummaryRows(false), NowMs(), room, _inFlight);
 
     /// <summary>
@@ -1158,17 +1385,26 @@ internal sealed partial class ListReporter
             return;
         }
 
-        foreach (var line in view.Record(ExploreBadge(), _live).Concat(view.FindingsSection(DisplayPath, _artifactsRoot)).Concat(view.Assessment()))
+        foreach (
+            var line in view.Record(ExploreBadge(), _live)
+                .Concat(view.FindingsSection(DisplayPath, _artifactsRoot))
+                .Concat(view.Assessment())
+        )
         {
             Print(line);
         }
     }
 
     /// <summary>A zero counter's label: the plain text, or the interrupt when that is why nothing is counted.</summary>
-    private string EmptyState(string none, string cut) => _interrupted ? _pc.Yellow($"{cut} (interrupted)") : _pc.Dim(none);
+    private string EmptyState(string none, string cut) =>
+        _interrupted ? _pc.Yellow($"{cut} (interrupted)") : _pc.Dim(none);
 
     /// <summary>vitest's <c>Failed Tests</c> section: a banner, then each failure with its evidence.</summary>
-    private void PrintFailures(string heading, IReadOnlyList<Failure> failures, IReadOnlyDictionary<string, string> pages)
+    private void PrintFailures(
+        string heading,
+        IReadOnlyList<Failure> failures,
+        IReadOnlyDictionary<string, string> pages
+    )
     {
         if (failures.Count == 0)
         {
@@ -1181,7 +1417,9 @@ internal sealed partial class ListReporter
         for (var index = 0; index < failures.Count; index++)
         {
             var failure = failures[index];
-            Print($"{_pc.Bold(_pc.BgRed(failure.Status == ResultStatus.Skipped ? " SKIP " : " FAIL "))} {Badge(failure.Group.Target)} {Format.Bounded(failure.Group.File)}{_separator}{failure.Title}");
+            Print(
+                $"{_pc.Bold(_pc.BgRed(failure.Status == ResultStatus.Skipped ? " SKIP " : " FAIL "))} {Badge(failure.Group.Target)} {Format.Bounded(failure.Group.File)}{_separator}{failure.Title}"
+            );
             if (failure.Error is null)
             {
                 Print(_pc.Red($"{_pc.Bold(StatusName(failure.Status))}: no error was recorded"));
@@ -1269,7 +1507,9 @@ internal sealed partial class ListReporter
         foreach (var video in videos)
         {
             var hosted = HostedUrl().IsMatch(video);
-            var shown = hosted ? Format.Bounded(video) : DisplayPath(_artifactsRoot is null ? video : Path.Combine(_artifactsRoot, video));
+            var shown = hosted
+                ? Format.Bounded(video)
+                : DisplayPath(_artifactsRoot is null ? video : Path.Combine(_artifactsRoot, video));
             Print(_pc.Cyan($" {_pc.Dim(Format.Pointer)} {_pc.Dim("video")} {shown}"));
         }
     }
@@ -1291,12 +1531,20 @@ internal sealed partial class ListReporter
         // Upstream's `userFrame` takes only frames inside the project root; a location outside it is not framed.
         var file = Path.GetFullPath(source.File, _projectRoot);
         var relative = Path.GetRelativePath(_projectRoot, file);
-        if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
+        if (
+            relative == ".."
+            || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            || Path.IsPathRooted(relative)
+        )
         {
             return;
         }
 
-        Print(_pc.Cyan($" {_pc.Dim(Format.Pointer)} {Format.Bounded(DisplayPath(file))}:{_pc.Dim($"{source.Line}:{source.Column}")}"));
+        Print(
+            _pc.Cyan(
+                $" {_pc.Dim(Format.Pointer)} {Format.Bounded(DisplayPath(file))}:{_pc.Dim($"{source.Line}:{source.Column}")}"
+            )
+        );
         foreach (var line in CodeFrame.Render(file, source.Line, source.Column, _pc))
         {
             Print("    " + line);
@@ -1320,7 +1568,9 @@ internal sealed partial class ListReporter
         foreach (var error in _errors)
         {
             var phase = error.Phase is null ? string.Empty : _pc.Dim($" ({Format.Bounded(error.Phase)})");
-            Print($"{_pc.Bold(_pc.BgRed(" ERROR "))} {Format.Bounded(error.Category)} error {_pc.Dim(Format.Bounded(error.Code))}{phase}");
+            Print(
+                $"{_pc.Bold(_pc.BgRed(" ERROR "))} {Format.Bounded(error.Category)} error {_pc.Dim(Format.Bounded(error.Code))}{phase}"
+            );
             foreach (var line in Format.Bounded(error.Message).Split('\n'))
             {
                 Print(_pc.Red(line));
@@ -1367,8 +1617,12 @@ internal sealed partial class ListReporter
         {
             // A page is `<results>/<test>/trace.md`; the row names the results directory.
             var page = pages.Values.First().Replace('\\', '/');
-            var dir = Path.GetDirectoryName(Path.GetDirectoryName(page) ?? string.Empty)?.Replace('\\', '/') ?? string.Empty;
-            Print(Format.PadTitle(_pc, "Traces") + $"{Format.Bounded(dir)}/ {_pc.Dim($"({pages.Count} {(pages.Count == 1 ? "page" : "pages")}, trace.md in each test's directory)")}");
+            var dir = Path.GetDirectoryName(Path.GetDirectoryName(page) ?? string.Empty)?.Replace('\\', '/')
+                ?? string.Empty;
+            Print(
+                Format.PadTitle(_pc, "Traces")
+                    + $"{Format.Bounded(dir)}/ {_pc.Dim($"({pages.Count} {(pages.Count == 1 ? "page" : "pages")}, trace.md in each test's directory)")}"
+            );
         }
 
         PrintScreenshots();
@@ -1394,12 +1648,19 @@ internal sealed partial class ListReporter
             var failure = _failures[index];
 
             // The failing line when the test file itself threw, else the test's declaration.
-            var line = failure.Error?.Source is { } source && source.File == failure.Group.File ? source.Line : failure.DeclaredLine;
+            var line =
+                failure.Error?.Source is { } source && source.File == failure.Group.File
+                    ? source.Line
+                    : failure.DeclaredLine;
             var location = Format.Bounded(failure.Group.File) + (line is { } number ? $":{number}" : string.Empty);
-            rows.Add($"{Format.PadTitle(_pc, index == 0 ? "Failed" : string.Empty)}{_pc.Red(Format.Cross)} {Badge(failure.Group.Target)} {location}{_separator}{failure.Title}");
+            rows.Add(
+                $"{Format.PadTitle(_pc, index == 0 ? "Failed" : string.Empty)}{_pc.Red(Format.Cross)} {Badge(failure.Group.Target)} {location}{_separator}{failure.Title}"
+            );
             if (failure.Error is { } error)
             {
-                rows.Add($"{Format.PadTitle(_pc, string.Empty)}  {_pc.Red($"{Format.Bounded(error.Code)}: {Format.Bounded(error.Message).Split('\n')[0]}")}");
+                rows.Add(
+                    $"{Format.PadTitle(_pc, string.Empty)}  {_pc.Red($"{Format.Bounded(error.Code)}: {Format.Bounded(error.Message).Split('\n')[0]}")}"
+                );
             }
 
             if (pages.GetValueOrDefault(failure.Id) is { } page)
@@ -1414,7 +1675,10 @@ internal sealed partial class ListReporter
     /// <summary>The <c>Screenshots</c> row: each <c>app.screenshot</c> file, so a caller never has to search the results directory.</summary>
     private void PrintScreenshots()
     {
-        var shown = _screenshots.Take(ShownScreenshots).Select(relative => DisplayPath(_artifactsRoot is null ? relative : Path.Combine(_artifactsRoot, relative))).ToList();
+        var shown = _screenshots
+            .Take(ShownScreenshots)
+            .Select(relative => DisplayPath(_artifactsRoot is null ? relative : Path.Combine(_artifactsRoot, relative)))
+            .ToList();
         for (var index = 0; index < shown.Count; index++)
         {
             Print(Format.PadTitle(_pc, index == 0 ? "Screenshots" : string.Empty) + shown[index]);
@@ -1472,7 +1736,19 @@ internal sealed partial class ListReporter
     private sealed record AppLogSummary(string Tally, FailureText.AppErrors Errors);
 
     /// <summary>One failed pair, held for the <c>Failed Tests</c> section. <c>DeclaredLine</c> is the line the test is declared on, where its file's run names it.</summary>
-    private sealed record Failure(string Id, FileGroup Group, string Title, int? DeclaredLine, ResultStatus Status, ReportError? Error, FailureEvidence? Evidence, string? ScreenPath, AppLogSummary? AppLog, string? SkipReason, IReadOnlyList<string> Videos);
+    private sealed record Failure(
+        string Id,
+        FileGroup Group,
+        string Title,
+        int? DeclaredLine,
+        ResultStatus Status,
+        ReportError? Error,
+        FailureEvidence? Evidence,
+        string? ScreenPath,
+        AppLogSummary? AppLog,
+        string? SkipReason,
+        IReadOnlyList<string> Videos
+    );
 
     /// <summary>Upstream's <c>DEFAULT_OUTPUT</c>: a line to stdout. A C# interface needs a class to implement it, hence <see cref="StdoutOutput"/>.</summary>
     private static readonly IListReporterOutput DefaultOutput = new StdoutOutput();

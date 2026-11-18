@@ -16,13 +16,31 @@ public sealed class CacheStrictKeyChangedPipelineTests
         Rekey(directory, entry => { });
 
         var calls = 0;
-        await using (var session = await ConfigTests.StartAsync(directory, CacheMode.ReadOnly, strict: true, "Upgrade to Pro", () => calls++))
+        await using (
+            var session = await ConfigTests.StartAsync(
+                directory,
+                CacheMode.ReadOnly,
+                strict: true,
+                "Upgrade to Pro",
+                () => calls++
+            )
+        )
         {
             await session.App.OpenAsync("/settings/billing");
-            var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("upgrade the workspace to the Pro plan"));
+            var error = await Assert.ThrowsAsync<AgentException>(() =>
+                session.Agent.ActAsync("upgrade the workspace to the Pro plan")
+            );
             Assert.Equal("REPLAY_STALE", error.Code);
-            Assert.Contains("holds it under another cache key (" + OldKey + ".json)", error.Message, StringComparison.Ordinal);
-            Assert.Contains("re-record it with a read-write run with cache.strict set to false", error.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "holds it under another cache key (" + OldKey + ".json)",
+                error.Message,
+                StringComparison.Ordinal
+            );
+            Assert.Contains(
+                "re-record it with a read-write run with cache.strict set to false",
+                error.Message,
+                StringComparison.Ordinal
+            );
             Assert.Equal(1, session.Missed);
             session.Complete(error);
         }
@@ -38,7 +56,15 @@ public sealed class CacheStrictKeyChangedPipelineTests
         Rekey(directory, entry => { });
 
         var calls = 0;
-        await using (var session = await ConfigTests.StartAsync(directory, CacheMode.ReadOnly, strict: false, "Upgrade to Pro", () => calls++))
+        await using (
+            var session = await ConfigTests.StartAsync(
+                directory,
+                CacheMode.ReadOnly,
+                strict: false,
+                "Upgrade to Pro",
+                () => calls++
+            )
+        )
         {
             await session.App.OpenAsync("/settings/billing");
             var result = await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
@@ -72,7 +98,9 @@ public sealed class CacheStrictKeyChangedPipelineTests
     [InlineData("agent")]
     [InlineData("test")]
     [InlineData("engine")]
-    public async Task Runs_live_a_step_the_store_holds_no_recording_of_another_instruction_params_occurrence_agent_test_or_target_through_the_pipeline(string change)
+    public async Task Runs_live_a_step_the_store_holds_no_recording_of_another_instruction_params_occurrence_agent_test_or_target_through_the_pipeline(
+        string change
+    )
     {
         var directory = ConfigTests.TempCache();
         await RecordAsync(directory);
@@ -136,20 +164,43 @@ public sealed class CacheStrictKeyChangedPipelineTests
         const string title = "billing > logs in with hunter2pw";
         var parameters = new Dictionary<string, object?> { ["password"] = Secret.Create("password", "hunter2pw") };
         var directory = ConfigTests.TempCache();
-        await using (var session = await ConfigTests.StartAsync(directory, CacheMode.ReadWrite, strict: false, "Upgrade to Pro", () => { }, title))
+        await using (
+            var session = await ConfigTests.StartAsync(
+                directory,
+                CacheMode.ReadWrite,
+                strict: false,
+                "Upgrade to Pro",
+                () => { },
+                title
+            )
+        )
         {
             await session.App.OpenAsync("/settings/billing");
-            await session.Agent.ActAsync("upgrade the workspace to the Pro plan", new ActOptions { Params = parameters });
+            await session.Agent.ActAsync(
+                "upgrade the workspace to the Pro plan",
+                new ActOptions { Params = parameters }
+            );
             await session.Agent.AssertAsync("the invoice preview shows a prorated amount");
             session.Complete();
         }
 
         Rekey(directory, entry => Assert.DoesNotContain("hunter2pw", entry.Test, StringComparison.Ordinal));
 
-        await using (var session = await ConfigTests.StartAsync(directory, CacheMode.ReadOnly, strict: true, "Upgrade to Pro", () => { }, title))
+        await using (
+            var session = await ConfigTests.StartAsync(
+                directory,
+                CacheMode.ReadOnly,
+                strict: true,
+                "Upgrade to Pro",
+                () => { },
+                title
+            )
+        )
         {
             await session.App.OpenAsync("/settings/billing");
-            var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("upgrade the workspace to the Pro plan", new ActOptions { Params = parameters }));
+            var error = await Assert.ThrowsAsync<AgentException>(() =>
+                session.Agent.ActAsync("upgrade the workspace to the Pro plan", new ActOptions { Params = parameters })
+            );
             Assert.Equal("REPLAY_STALE", error.Code);
             Assert.DoesNotContain("hunter2pw", error.Message, StringComparison.Ordinal);
         }

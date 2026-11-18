@@ -18,17 +18,29 @@ public sealed class SerialSessionTests
     public void Members_keep_one_session_and_the_later_ones_skip_after_a_failure()
     {
         var results = Task.Run(() =>
-        {
-            var runner = new NUnitTestAssemblyRunner(new DefaultTestAssemblyBuilder());
-            runner.Load(typeof(SerialFixture).Assembly, new Dictionary<string, object>());
-            var run = runner.Run(TestListener.NULL, TestFilter.FromXml($"<filter><class>{typeof(SerialFixture).FullName}</class></filter>"));
-            return Leaves(run).ToDictionary(result => result.Test.MethodName!);
-        }).GetAwaiter().GetResult();
+            {
+                var runner = new NUnitTestAssemblyRunner(new DefaultTestAssemblyBuilder());
+                runner.Load(typeof(SerialFixture).Assembly, new Dictionary<string, object>());
+                var run = runner.Run(
+                    TestListener.NULL,
+                    TestFilter.FromXml($"<filter><class>{typeof(SerialFixture).FullName}</class></filter>")
+                );
+                return Leaves(run).ToDictionary(result => result.Test.MethodName!);
+            })
+            .GetAwaiter()
+            .GetResult();
 
         Assert.That(results[nameof(SerialFixture.A_opens_the_page)].ResultState.Status, Is.EqualTo(TestStatus.Passed));
-        Assert.That(results[nameof(SerialFixture.B_sees_the_page_the_first_opened)].ResultState.Status, Is.EqualTo(TestStatus.Passed), results[nameof(SerialFixture.B_sees_the_page_the_first_opened)].Message);
+        Assert.That(
+            results[nameof(SerialFixture.B_sees_the_page_the_first_opened)].ResultState.Status,
+            Is.EqualTo(TestStatus.Passed),
+            results[nameof(SerialFixture.B_sees_the_page_the_first_opened)].Message
+        );
         Assert.That(results[nameof(SerialFixture.C_fails)].ResultState.Status, Is.EqualTo(TestStatus.Failed));
-        Assert.That(results[nameof(SerialFixture.D_is_skipped_after_the_failure)].ResultState.Status, Is.EqualTo(TestStatus.Skipped));
+        Assert.That(
+            results[nameof(SerialFixture.D_is_skipped_after_the_failure)].ResultState.Status,
+            Is.EqualTo(TestStatus.Skipped)
+        );
         Assert.That(SerialFixture.DRan, Is.False);
     }
 
@@ -43,7 +55,8 @@ public sealed class SerialFixture : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     public static bool DRan;
 

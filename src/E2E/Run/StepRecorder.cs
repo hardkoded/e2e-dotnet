@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using E2E.Internal;
 
 namespace E2E;
@@ -31,9 +32,14 @@ internal sealed class StepRecorder
     private readonly CancellationToken _cancellation;
     private readonly Func<CancellationToken>? _signal;
     private readonly AiTraceScope? _aiTrace;
+    private readonly bool _redactThrown;
+    private readonly int? _retainSteps;
     private readonly Lock _gate = new();
     private readonly List<StepRecord> _steps = [];
     private readonly AsyncLocal<StepRecord?> _scope = new();
+
+    // Steps opened so far, the next step's index: _steps may have dropped its oldest.
+    private int _opened;
 
     // IDs of steps whose bodies are still executing.
     private readonly HashSet<string> _running = [];
@@ -78,6 +84,8 @@ internal sealed class StepRecorder
         _cancellation = options.Cancellation;
         _signal = options.Signal;
         _aiTrace = options.AiTrace;
+        _redactThrown = options.RedactThrown;
+        _retainSteps = options.RetainSteps;
     }
 
     /// <summary>
@@ -117,7 +125,13 @@ internal sealed class StepRecorder
     }
 
     /// <summary>Runs one public API call as a recorded top-level step.</summary>
-    public Task<T> RunAsync<T>(StepKind kind, string api, string rawLabel, Func<Task<T>> body, StepRunOptions? options = null)
+    public Task<T> RunAsync<T>(
+        StepKind kind,
+        string api,
+        string rawLabel,
+        Func<Task<T>> body,
+        StepRunOptions? options = null
+    )
     {
         options ??= new StepRunOptions();
 
@@ -139,7 +153,7 @@ internal sealed class StepRecorder
         StepRecord record;
         lock (_gate)
         {
-            var index = _steps.Count;
+            var index = _opened++;
             record = new StepRecord
             {
                 Id = _attemptId + ":" + index.ToString(CultureInfo.InvariantCulture),
@@ -153,11 +167,32 @@ internal sealed class StepRecorder
                 Phase = phase,
             };
             _steps.Add(record);
+
+            // Only a finished step is dropped, and only from the front, so a long-running one keeps its record.
+            while (
+                _retainSteps is { } retain
+                && _steps.Count > retain
+                && !ReferenceEquals(_steps[0], record)
+                && !_running.Contains(_steps[0].Id)
+            )
+            {
+                _steps.RemoveAt(0);
+            }
+
             _running.Add(record.Id);
         }
 
         FileEarlyNavigations(record);
-        Publish(record, new StepProgress { Phase = StepProgressPhase.Start, Api = api, Kind = kind, Label = label });
+        Publish(
+            record,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Api = api,
+                Kind = kind,
+                Label = label,
+            }
+        );
         var task = ExecuteAsync(record, body, options);
         lock (_gate)
         {
@@ -173,11 +208,17 @@ internal sealed class StepRecorder
 
     /// <inheritdoc cref="RunAsync{T}(StepKind, string, string, Func{Task{T}}, StepRunOptions?)"/>
     public Task RunAsync(StepKind kind, string api, string rawLabel, Func<Task> body, StepRunOptions? options = null) =>
-        RunAsync(kind, api, rawLabel, async () =>
-        {
-            await body().ConfigureAwait(false);
-            return true;
-        }, options);
+        RunAsync(
+            kind,
+            api,
+            rawLabel,
+            async () =>
+            {
+                await body().ConfigureAwait(false);
+                return true;
+            },
+            options
+        );
 
     private async Task<T> ExecuteAsync<T>(StepRecord record, Func<Task<T>> body, StepRunOptions options)
     {
@@ -188,7 +229,9 @@ internal sealed class StepRecorder
             _scope.Value = record;
             // Model calls made inside the body are attributed to this step.
             var work = _aiTrace is { } attempt
-                ? AiTraceScopes.WithAiTraceScope(attempt with { Agent = options.Agent ?? attempt.Agent }, () => AiTraceScopes.WithAiTraceStep(record.Api, record.Label, body))
+                ? AiTraceScopes.WithAiTraceScope(attempt with { Agent = options.Agent ?? attempt.Agent }, () =>
+                    AiTraceScopes.WithAiTraceStep(record.Api, record.Label, body)
+                )
                 : body();
             var result = await CutAsync(work, record).ConfigureAwait(false);
             if (IsAbandoned(record))
@@ -215,11 +258,32 @@ internal sealed class StepRecorder
             record.DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
             // A blocked verdict is a distinct outcome, not a product failure: the step's error names what stood in the way, and the report says so.
-            record.Status = string.Equals(ErrorSerializer.Classify(cause).Code, ErrorSerializer.Cancelled, StringComparison.Ordinal)
-                ? StepStatus.Cancelled
-                : cause is AgentException { Blocked: true } ? StepStatus.Blocked : StepStatus.Failed;
+            record.Status =
+                string.Equals(ErrorSerializer.Classify(cause).Code, ErrorSerializer.Cancelled, StringComparison.Ordinal)
+                    ? StepStatus.Cancelled
+                : cause is AgentException { Blocked: true } ? StepStatus.Blocked
+                : StepStatus.Failed;
             record.Error = ErrorSerializer.Serialize(cause, _projectRoot, _redact);
-            throw;
+            if (!_redactThrown || _redact is null || record.Status == StepStatus.Cancelled)
+            {
+                throw;
+            }
+
+            // A .NET exception's message is read-only, so one that carries a secret is rebuilt with the redacted text, keeping its type and code.
+            var safe = ErrorRedaction.Cause(cause, _redact)!;
+            if (ReferenceEquals(safe, cause))
+            {
+                // Classified too: an error with no code is a test failure with code ERROR, as ErrorSerializer.Classify reads it.
+                if (cause is E2EException or OperationCanceledException)
+                {
+                    throw;
+                }
+
+                safe = new TestException(record.Error.Code, cause.Message, cause);
+            }
+
+            ExceptionDispatchInfo.Throw(safe);
+            throw safe;
         }
         finally
         {
@@ -280,10 +344,17 @@ internal sealed class StepRecorder
         TestException? first = null;
         foreach (var step in running)
         {
-            var more = first is null && running.Count > 1 ? " and " + (running.Count - 1).ToString(CultureInfo.InvariantCulture) + " more" : "";
+            var more =
+                first is null && running.Count > 1
+                    ? " and " + (running.Count - 1).ToString(CultureInfo.InvariantCulture) + " more"
+                    : "";
             var error = new TestException(
                 "STEP_NOT_AWAITED",
-                TextRules.WithHint("the test body returned before " + step.Api + " " + Quoted(step.Label) + more + " finished", "put `await` in front of every step call"));
+                TextRules.WithHint(
+                    "the test body returned before " + step.Api + " " + Quoted(step.Label) + more + " finished",
+                    "put `await` in front of every step call"
+                )
+            );
             first ??= error;
             Task? task;
             lock (_gate)
@@ -393,7 +464,10 @@ internal sealed class StepRecorder
                 var info = entry.Level == AppLogLevel.Info;
                 lock (_gate)
                 {
-                    if ((info ? _loggedInfo : _loggedErrorsAndWarnings) >= (info ? AppLogLimits.Info : AppLogLimits.ErrorsAndWarnings))
+                    if (
+                        (info ? _loggedInfo : _loggedErrorsAndWarnings)
+                        >= (info ? AppLogLimits.Info : AppLogLimits.ErrorsAndWarnings)
+                    )
                     {
                         return;
                     }
@@ -439,7 +513,16 @@ internal sealed class StepRecorder
     }
 
     private void FileNavigation(StepRecord target, string line, DateTimeOffset at) =>
-        Push(target, new StepEvent { Kind = StepEventKind.Navigation, StartedAt = at, Status = StepEventStatus.Passed, Detail = TextRules.Normalize(line) });
+        Push(
+            target,
+            new StepEvent
+            {
+                Kind = StepEventKind.Navigation,
+                StartedAt = at,
+                Status = StepEventStatus.Passed,
+                Detail = TextRules.Normalize(line),
+            }
+        );
 
     /// <summary>
     /// Tells reporters the trace cache has the running step (<c>true</c>), or has handed it to the model (<c>false</c>). Nothing is
@@ -449,7 +532,15 @@ internal sealed class StepRecorder
     {
         if (Current() is { } current)
         {
-            Publish(current, new StepProgress { Phase = StepProgressPhase.Replay, Api = current.Api, Active = active });
+            Publish(
+                current,
+                new StepProgress
+                {
+                    Phase = StepProgressPhase.Replay,
+                    Api = current.Api,
+                    Active = active,
+                }
+            );
         }
     }
 
@@ -461,7 +552,15 @@ internal sealed class StepRecorder
     {
         if (Current() is { } current)
         {
-            Publish(current, new StepProgress { Phase = StepProgressPhase.Activity, Api = current.Api, Activity = activity });
+            Publish(
+                current,
+                new StepProgress
+                {
+                    Phase = StepProgressPhase.Activity,
+                    Api = current.Api,
+                    Activity = activity,
+                }
+            );
         }
     }
 
@@ -473,10 +572,14 @@ internal sealed class StepRecorder
             return;
         }
 
-
         // The step keeps the largest observation it read, whichever of the two carries it.
         var largest = Math.Max(current.Metrics?.ObservationBytes ?? 0, details.ObservationBytes ?? 0);
-        current.Metrics = details.Metrics is { } metrics ? metrics with { ObservationBytes = Math.Max(metrics.ObservationBytes, largest) }
+        current.Metrics =
+            details.Metrics is { } metrics
+                ? metrics with
+                {
+                    ObservationBytes = Math.Max(metrics.ObservationBytes, largest),
+                }
             : details.ObservationBytes is null ? current.Metrics
             : (current.Metrics ?? new StepMetrics()) with { ObservationBytes = largest };
         current.ObservationRevision = details.ObservationRevision ?? current.ObservationRevision;
@@ -526,12 +629,18 @@ internal sealed class StepRecorder
                 call?.OutputTokens,
                 call?.CacheReadTokens,
                 call?.CacheWriteTokens,
-                EstimatedCostUsd: call?.EstimatedCostUsd);
+                EstimatedCostUsd: call?.EstimatedCostUsd
+            );
             tokens = current.Usage.Record(usage);
             fields = ModelUsage.TokenFields(usage);
             current.Model = current.Usage.Report(
-                new StepModelInfo { Provider = call?.Provider ?? before?.Provider, Model = call?.ModelId ?? before?.Model },
-                (before?.Calls ?? 0) + 1);
+                new StepModelInfo
+                {
+                    Provider = call?.Provider ?? before?.Provider,
+                    Model = call?.ModelId ?? before?.Model,
+                },
+                (before?.Calls ?? 0) + 1
+            );
         }
 
         Push(
@@ -546,7 +655,8 @@ internal sealed class StepRecorder
                 InputTokens = fields.InputTokens,
                 OutputTokens = fields.OutputTokens,
                 Reasoning = ModelUsage.ReasoningField(call?.Reasoning, RedactText),
-            });
+            }
+        );
     }
 
     /// <summary>
@@ -612,7 +722,12 @@ internal sealed class StepRecorder
     private void Push(StepRecord step, StepEvent stepEvent)
     {
         // Redacted before it is cut, so no cut leaves the head of a secret behind.
-        var redacted = stepEvent.Detail is null ? stepEvent : stepEvent with { Detail = TextRules.Bound(RedactText(stepEvent.Detail), MaxEventDetailChars) };
+        var redacted = stepEvent.Detail is null
+            ? stepEvent
+            : stepEvent with
+            {
+                Detail = TextRules.Bound(RedactText(stepEvent.Detail), MaxEventDetailChars),
+            };
         lock (_gate)
         {
             if (step.Events.Count >= _maxEventsPerStep)
@@ -623,7 +738,15 @@ internal sealed class StepRecorder
             step.Events.Add(redacted);
         }
 
-        Publish(step, new StepProgress { Phase = StepProgressPhase.Event, Api = step.Api, Event = redacted });
+        Publish(
+            step,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Event,
+                Api = step.Api,
+                Event = redacted,
+            }
+        );
     }
 
     private StepRecord? Current()
@@ -646,29 +769,42 @@ internal sealed class StepRecorder
     }
 
     private void PublishEnd(StepRecord record) =>
-        Publish(record, new StepProgress
-        {
-            Phase = StepProgressPhase.End,
-            Api = record.Api,
-            Kind = record.Kind,
-            Label = record.Label,
-            Status = record.Status,
-            DurationMs = record.DurationMs,
-            ModelCalls = record.Events.Count(item => item.Kind == StepEventKind.Model),
-            Error = record.Error,
-            Explanation = record.Explanation,
-        });
+        Publish(
+            record,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.End,
+                Api = record.Api,
+                Kind = record.Kind,
+                Label = record.Label,
+                Status = record.Status,
+                DurationMs = record.DurationMs,
+                ModelCalls = record.Events.Count(item => item.Kind == StepEventKind.Model),
+                Error = record.Error,
+                Explanation = record.Explanation,
+            }
+        );
 
     // Publishes a phase with the owning record's identity, including nested and finishing steps.
     private void Publish(StepRecord record, StepProgress progress) =>
-        _onProgress?.Invoke(progress with { Identity = new StepProgressIdentity(_attempt.Id, _attempt.Index, record.Id, record.Index) });
+        _onProgress?.Invoke(
+            progress with
+            {
+                Identity = new StepProgressIdentity(_attempt.Id, _attempt.Index, record.Id, record.Index),
+            }
+        );
 
     private static string Quoted(string label) =>
         "\"" + (label.Length > MaxQuotedLabelChars ? label[..(MaxQuotedLabelChars - 3)] + "..." : label) + "\"";
 
     // A task nobody awaits must not fault unobserved.
     private static void Observe(Task task) =>
-        _ = task.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        _ = task.ContinueWith(
+            static finished => _ = finished.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default
+        );
 
     private static void InterlockedMax(ref int target, int value)
     {
@@ -676,7 +812,6 @@ internal sealed class StepRecorder
         do
         {
             seen = Volatile.Read(ref target);
-        }
-        while (value > seen && Interlocked.CompareExchange(ref target, value, seen) != seen);
+        } while (value > seen && Interlocked.CompareExchange(ref target, value, seen) != seen);
     }
 }

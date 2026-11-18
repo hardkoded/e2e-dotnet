@@ -13,7 +13,13 @@ namespace E2E;
 /// <param name="Entry">The agent as configured. Null is the built-in agent with no options.</param>
 /// <param name="Resolved">The same entry resolved, whose models a replaced custom executor's own ones are read from.</param>
 /// <param name="Notice">Told when a custom executor is replaced.</param>
-internal sealed record ExplorerOptions(ExploreState State, string AgentName, AgentOptions? Entry, ResolvedAgent Resolved, Action<string> Notice);
+internal sealed record ExplorerOptions(
+    ExploreState State,
+    string AgentName,
+    AgentOptions? Entry,
+    ResolvedAgent Resolved,
+    Action<string> Notice
+);
 
 /// <summary>
 /// The explorer: the built-in agent with exploration guidance appended to the project's and one tool added to the project's
@@ -29,15 +35,17 @@ public static class ExploreExecutor
     /// Appended to the project's own guidance; the goal travels as the test title (<c>Test: &lt;goal&gt;</c>). Upstream's text.
     /// </summary>
     private const string ExploreRules =
-        "Exploration mode: this run has no scripted test. Each step is an exploration charter the planner wrote toward the goal on the Test: line.\n" +
-        "- Think like a curious first-time user hunting for bugs: exercise the flow the charter names end to end, with realistic inputs and edge cases. Interact, do not just look: fill forms with obviously made-up test data and submit them, save and come back to check what was kept, sign in with made-up credentials when none are configured, and when a list has several items act on one that is not the first and check that the right one changed.\n" +
-        "- On every screen, sanity-check beyond \"it renders\": totals equal the sum of their parts and quantities multiply; counts match the items listed; nothing is negative that cannot be; dates are plausible and in order, not an epoch default; copy has no template tokens, placeholders, or misspellings; every control does what its name says; what a screen claims happened (saved, added, removed) is true on the next screen; a password is never shown as you type it.\n" +
-        "- Bugs hide at the edges, so push on them: whitespace-only, duplicate, very long unbroken, accented, emoji, and special-character input (%, _, quotes, <tags>); boundary numbers and dates (0, negative, huge, far past, far future); submitting twice quickly; deleting or renaming a record you created this run that other screens refer to. Combine controls: apply a filter, then sort, search, page, or switch a tab, and check the earlier choices are kept; check a sort really orders the list; check a count of one reads in the singular and a count matches the items it links to. After a save, reload or revisit and check what was kept. Read each screen as text too: a raw error, stack trace, or JSON dump is a defect. An edge input is a defect when the app mangles, loses, or contradicts it (stored differently than shown, a crash, a raw error, a broken layout), or when a required field accepts blank or whitespace-only input.\n" +
-        "- Report every defect with " + FindingToolName + " the moment the evidence is on screen, one call per distinct defect: what you expected, what the screen shows, and the actions that reach it. Do not save findings for the conclusion: a defect that appears only in a summary is lost, since the report reads the tool, not the prose. Findings listed under \"reportedFindings\" in the step parameters are already recorded: never report them again and spend no actions re-confirming them. The same defect on another screen is a new finding: when one screen gets something wrong, try the same control or data on the other screens that offer it (another list, scope, or page showing the same records), and report each kind of screen where it reproduces, naming that screen in the title. The same defect on another record of the same screen (another user, item, or row) is not new.\n" +
-        "- Accounts listed under \"credentials\" in the step parameters are yours to sign in with: type the username as text and fill the password with type_secret by the name of its password secret. Never type a password as text, and never ask for one. If no type_secret tool is offered, this engine cannot fill a password securely: skip signing in, note it in the step summary, and explore what is reachable without it.\n" +
-        "- Report defects, not wishes. A defect is something the screen breaks or contradicts: a wrong value, a dead control, a navigation that lands wrong, a claim that turns out false, leaked template text, a misspelling. A missing feature, a design choice, a form the browser refuses to submit while a required field is empty, or something you merely expected is not a defect unless the screen or the goal promised it. A failed tool call, a refused action, or a limit of this harness is not a product defect either.\n" +
-        "- Stay inside the application under test. Do not destroy data that existed before this run (deleting accounts, wiping lists) unless the goal asks for it; creating and editing your own data is fine.\n" +
-        "- When the charter is covered, or nothing new is reachable within it, call complete_step. \"passed\" means you carried the charter out, however many defects you reported on the way: reported findings never make a step fail. \"failed\" is only for a charter the application would not let you carry out at all: a flow that cannot be completed, a page that cannot be reached. Keep to the charter: a step is one flow, not the whole app. The summary is read by the planner of the next step: say what was covered, what was found, and what looks worth exploring next.";
+        "Exploration mode: this run has no scripted test. Each step is an exploration charter the planner wrote toward the goal on the Test: line.\n"
+        + "- Think like a curious first-time user hunting for bugs: exercise the flow the charter names end to end, with realistic inputs and edge cases. Interact, do not just look: fill forms with obviously made-up test data and submit them, save and come back to check what was kept, sign in with made-up credentials when none are configured, and when a list has several items act on one that is not the first and check that the right one changed.\n"
+        + "- On every screen, sanity-check beyond \"it renders\": totals equal the sum of their parts and quantities multiply; counts match the items listed; nothing is negative that cannot be; dates are plausible and in order, not an epoch default; copy has no template tokens, placeholders, or misspellings; every control does what its name says; what a screen claims happened (saved, added, removed) is true on the next screen; a password is never shown as you type it.\n"
+        + "- Bugs hide at the edges, so push on them: whitespace-only, duplicate, very long unbroken, accented, emoji, and special-character input (%, _, quotes, <tags>); boundary numbers and dates (0, negative, huge, far past, far future); submitting twice quickly; deleting or renaming a record you created this run that other screens refer to. Combine controls: apply a filter, then sort, search, page, or switch a tab, and check the earlier choices are kept; check a sort really orders the list; check a count of one reads in the singular and a count matches the items it links to. After a save, reload or revisit and check what was kept. Read each screen as text too: a raw error, stack trace, or JSON dump is a defect. An edge input is a defect when the app mangles, loses, or contradicts it (stored differently than shown, a crash, a raw error, a broken layout), or when a required field accepts blank or whitespace-only input.\n"
+        + "- Report every defect with "
+        + FindingToolName
+        + " the moment the evidence is on screen, one call per distinct defect: what you expected, what the screen shows, and the actions that reach it. Do not save findings for the conclusion: a defect that appears only in a summary is lost, since the report reads the tool, not the prose. Findings listed under \"reportedFindings\" in the step parameters are already recorded: never report them again and spend no actions re-confirming them. The same defect on another screen is a new finding: when one screen gets something wrong, try the same control or data on the other screens that offer it (another list, scope, or page showing the same records), and report each kind of screen where it reproduces, naming that screen in the title. The same defect on another record of the same screen (another user, item, or row) is not new.\n"
+        + "- Accounts listed under \"credentials\" in the step parameters are yours to sign in with: type the username as text and fill the password with type_secret by the name of its password secret. Never type a password as text, and never ask for one. If no type_secret tool is offered, this engine cannot fill a password securely: skip signing in, note it in the step summary, and explore what is reachable without it.\n"
+        + "- Report defects, not wishes. A defect is something the screen breaks or contradicts: a wrong value, a dead control, a navigation that lands wrong, a claim that turns out false, leaked template text, a misspelling. A missing feature, a design choice, a form the browser refuses to submit while a required field is empty, or something you merely expected is not a defect unless the screen or the goal promised it. A failed tool call, a refused action, or a limit of this harness is not a product defect either.\n"
+        + "- Stay inside the application under test. Do not destroy data that existed before this run (deleting accounts, wiping lists) unless the goal asks for it; creating and editing your own data is fine.\n"
+        + "- When the charter is covered, or nothing new is reachable within it, call complete_step. \"passed\" means you carried the charter out, however many defects you reported on the way: reported findings never make a step fail. \"failed\" is only for a charter the application would not let you carry out at all: a flow that cannot be completed, a page that cannot be reached. Keep to the charter: a step is one flow, not the whole app. The summary is read by the planner of the next step: say what was covered, what was found, and what looks worth exploring next.";
 
     private const int MinTitleChars = 4;
     private const int MaxTitleChars = 200;
@@ -60,8 +68,13 @@ public static class ExploreExecutor
         if (entry.Executor is { } executor)
         {
             options.Notice(
-                "agents." + options.AgentName + " is a custom executor (\"" + executor.Name + "\"); explore runs the built-in agent instead"
-                + (executor.Model is null ? "" : ", with the model that executor brought"));
+                "agents."
+                    + options.AgentName
+                    + " is a custom executor (\""
+                    + executor.Name
+                    + "\"); explore runs the built-in agent instead"
+                    + (executor.Model is null ? "" : ", with the model that executor brought")
+            );
             model = options.Resolved.Model;
             judge = options.Resolved.Judge;
         }
@@ -70,7 +83,10 @@ public static class ExploreExecutor
         {
             Model = model,
             Judge = judge,
-            System = string.Join("\n\n", new[] { entry.System, ExploreRules }.Where(part => !string.IsNullOrWhiteSpace(part))),
+            System = string.Join(
+                "\n\n",
+                new[] { entry.System, ExploreRules }.Where(part => !string.IsNullOrWhiteSpace(part))
+            ),
             // The goal reaches every prompt as the test's title (`Test: <goal>`).
             Context = entry.Context,
             MaxSteps = entry.MaxSteps,
@@ -87,7 +103,10 @@ public static class ExploreExecutor
     internal static AgentOptions WithFindingTool(AgentOptions explorer, ExploreState state)
     {
         ArgumentNullException.ThrowIfNull(explorer);
-        var tools = new Dictionary<string, AgentTool>(explorer.Tools ?? new Dictionary<string, AgentTool>(), StringComparer.Ordinal)
+        var tools = new Dictionary<string, AgentTool>(
+            explorer.Tools ?? new Dictionary<string, AgentTool>(),
+            StringComparer.Ordinal
+        )
         {
             [FindingToolName] = CreateFindingTool(state),
         };
@@ -125,17 +144,40 @@ public static class ExploreExecutor
             {
                 var report = ReadFinding(input);
                 var label = "finding-" + Interlocked.Increment(ref reported).ToString(CultureInfo.InvariantCulture);
-                var observation = await TryAsync(() => context.ObserveAsync(new ExecutorObserveOptions { Pixels = true }, cancellationToken), cancellationToken).ConfigureAwait(false);
+                var observation = await TryAsync(
+                        () => context.ObserveAsync(new ExecutorObserveOptions { Pixels = true }, cancellationToken),
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
 
                 // Evidence is worth keeping, never worth failing the finding for. It is saved first, so the finding is announced
                 // complete, evidence included.
                 var artifactId = observation?.Pixels is { } pixels
-                    ? await TryAsync(() => context.AttachScreenshotAsync(pixels, label, cancellationToken), cancellationToken).ConfigureAwait(false)
+                    ? await TryAsync(
+                            () => context.AttachScreenshotAsync(pixels, label, cancellationToken),
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false)
                     : null;
-                var finding = state.AddFinding(report with { Path = observation?.Path, ObservationRevision = observation?.Revision, ArtifactId = artifactId });
-                return "Finding " + (finding.Index + 1).ToString(CultureInfo.InvariantCulture) + " recorded (" + (finding.Kind == ReportExploreFindingKind.Issue ? "issue" : "warning")
-                    + ", severity " + finding.Severity.ToString(CultureInfo.InvariantCulture) + "): " + finding.Title + ". Do not report it again; continue the charter or conclude the step.";
-            })
+                var finding = state.AddFinding(
+                    report with
+                    {
+                        Path = observation?.Path,
+                        ObservationRevision = observation?.Revision,
+                        ArtifactId = artifactId,
+                    }
+                );
+                return "Finding "
+                    + (finding.Index + 1).ToString(CultureInfo.InvariantCulture)
+                    + " recorded ("
+                    + (finding.Kind == ReportExploreFindingKind.Issue ? "issue" : "warning")
+                    + ", severity "
+                    + finding.Severity.ToString(CultureInfo.InvariantCulture)
+                    + "): "
+                    + finding.Title
+                    + ". Do not report it again; continue the charter or conclude the step.";
+            }
+        )
         {
             IsHarness = true,
         };
@@ -171,59 +213,71 @@ public static class ExploreExecutor
             return whole;
         }
 
-        return value.TryGetValue<double>(out var number) && number is >= 1 and <= 5 && number == Math.Floor(number) ? (int)number : 0;
+        return value.TryGetValue<double>(out var number) && number is >= 1 and <= 5 && number == Math.Floor(number)
+            ? (int)number
+            : 0;
     }
 
-    private static JsonObject FindingSchema() => new()
-    {
-        ["type"] = "object",
-        ["properties"] = new JsonObject
+    private static JsonObject FindingSchema() =>
+        new()
         {
-            ["title"] = new JsonObject
+            ["type"] = "object",
+            ["properties"] = new JsonObject
             {
-                ["type"] = "string",
-                ["minLength"] = MinTitleChars,
-                ["maxLength"] = MaxTitleChars,
-                ["description"] = "A specific headline for the defect under 80 characters, e.g. \"Checkout total shows $0.00 with two items in the cart\".",
+                ["title"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["minLength"] = MinTitleChars,
+                    ["maxLength"] = MaxTitleChars,
+                    ["description"] =
+                        "A specific headline for the defect under 80 characters, e.g. \"Checkout total shows $0.00 with two items in the cart\".",
+                },
+                ["kind"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["enum"] = new JsonArray("issue", "warning"),
+                    ["description"] =
+                        "issue = a defect a user would hit: a broken flow, wrong data, a dead control, a navigation that lands wrong. warning = cosmetic or polish; blocks no task.",
+                },
+                ["severity"] = new JsonObject
+                {
+                    ["type"] = "integer",
+                    ["enum"] = new JsonArray(1, 2, 3, 4, 5),
+                    ["description"] =
+                        "5: a core journey is impossible, data is lost, or money or security is wrong. 4: a core feature is broken but a workaround exists, or wrong money or quantity values are shown. 3: a secondary feature is broken, or wrong non-monetary content. 2: a cosmetic or layout defect that blocks nothing. 1: a trivial polish item (usually a warning).",
+                },
+                ["expected"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["minLength"] = 1,
+                    ["maxLength"] = MaxDetailChars,
+                    ["description"] = "What a user would expect here, in one sentence.",
+                },
+                ["actual"] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["minLength"] = 1,
+                    ["maxLength"] = MaxDetailChars,
+                    ["description"] = "What the screen shows instead, in one sentence, quoting the text on screen.",
+                },
+                ["reproduction"] = new JsonObject
+                {
+                    ["type"] = "array",
+                    ["minItems"] = 1,
+                    ["maxItems"] = MaxReproductionSteps,
+                    ["items"] = new JsonObject
+                    {
+                        ["type"] = "string",
+                        ["minLength"] = 1,
+                        ["maxLength"] = MaxReproductionChars,
+                    },
+                    ["description"] =
+                        "The actions that reach the defect from the start of the app, one short imperative per entry, e.g. \"Open the cart\".",
+                },
             },
-            ["kind"] = new JsonObject
-            {
-                ["type"] = "string",
-                ["enum"] = new JsonArray("issue", "warning"),
-                ["description"] = "issue = a defect a user would hit: a broken flow, wrong data, a dead control, a navigation that lands wrong. warning = cosmetic or polish; blocks no task.",
-            },
-            ["severity"] = new JsonObject
-            {
-                ["type"] = "integer",
-                ["enum"] = new JsonArray(1, 2, 3, 4, 5),
-                ["description"] = "5: a core journey is impossible, data is lost, or money or security is wrong. 4: a core feature is broken but a workaround exists, or wrong money or quantity values are shown. 3: a secondary feature is broken, or wrong non-monetary content. 2: a cosmetic or layout defect that blocks nothing. 1: a trivial polish item (usually a warning).",
-            },
-            ["expected"] = new JsonObject
-            {
-                ["type"] = "string",
-                ["minLength"] = 1,
-                ["maxLength"] = MaxDetailChars,
-                ["description"] = "What a user would expect here, in one sentence.",
-            },
-            ["actual"] = new JsonObject
-            {
-                ["type"] = "string",
-                ["minLength"] = 1,
-                ["maxLength"] = MaxDetailChars,
-                ["description"] = "What the screen shows instead, in one sentence, quoting the text on screen.",
-            },
-            ["reproduction"] = new JsonObject
-            {
-                ["type"] = "array",
-                ["minItems"] = 1,
-                ["maxItems"] = MaxReproductionSteps,
-                ["items"] = new JsonObject { ["type"] = "string", ["minLength"] = 1, ["maxLength"] = MaxReproductionChars },
-                ["description"] = "The actions that reach the defect from the start of the app, one short imperative per entry, e.g. \"Open the cart\".",
-            },
-        },
-        ["required"] = new JsonArray("title", "kind", "severity", "expected", "actual", "reproduction"),
-        ["additionalProperties"] = false,
-    };
+            ["required"] = new JsonArray("title", "kind", "severity", "expected", "actual", "reproduction"),
+            ["additionalProperties"] = false,
+        };
 
     // The AI SDK checks a tool's input against its schema before the tool runs; the port's loop does not, so the tool does.
     private static FindingInput ReadFinding(JsonObject input)
@@ -247,7 +301,9 @@ public static class ExploreExecutor
         var reproduction = new List<string>();
         if (input["reproduction"] is not JsonArray steps || steps.Count is < 1 or > MaxReproductionSteps)
         {
-            issues.Add("reproduction: must be 1 to " + MaxReproductionSteps.ToString(CultureInfo.InvariantCulture) + " entries");
+            issues.Add(
+                "reproduction: must be 1 to " + MaxReproductionSteps.ToString(CultureInfo.InvariantCulture) + " entries"
+            );
         }
         else
         {
@@ -256,7 +312,11 @@ public static class ExploreExecutor
                 var text = (step as JsonValue)?.TryGetValue<string>(out var entry) == true ? entry : null;
                 if (text is null || text.Length is < 1 or > MaxReproductionChars)
                 {
-                    issues.Add("reproduction: every entry must be 1 to " + MaxReproductionChars.ToString(CultureInfo.InvariantCulture) + " characters");
+                    issues.Add(
+                        "reproduction: every entry must be 1 to "
+                            + MaxReproductionChars.ToString(CultureInfo.InvariantCulture)
+                            + " characters"
+                    );
                     break;
                 }
 
@@ -266,10 +326,20 @@ public static class ExploreExecutor
 
         if (issues.Count > 0)
         {
-            throw new TestException("INVALID_ARGUMENT", FindingToolName + " input is invalid: " + string.Join("; ", issues));
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                FindingToolName + " input is invalid: " + string.Join("; ", issues)
+            );
         }
 
-        return new FindingInput(kind == "issue" ? ReportExploreFindingKind.Issue : ReportExploreFindingKind.Warning, severity, title, expected, actual, reproduction);
+        return new FindingInput(
+            kind == "issue" ? ReportExploreFindingKind.Issue : ReportExploreFindingKind.Warning,
+            severity,
+            title,
+            expected,
+            actual,
+            reproduction
+        );
     }
 
     private static string Text(JsonObject input, string name, int min, int max, List<string> issues)
@@ -277,7 +347,14 @@ public static class ExploreExecutor
         var text = (input[name] as JsonValue)?.TryGetValue<string>(out var value) == true ? value : null;
         if (text is null || text.Length < min || text.Length > max)
         {
-            issues.Add(name + ": must be " + min.ToString(CultureInfo.InvariantCulture) + " to " + max.ToString(CultureInfo.InvariantCulture) + " characters");
+            issues.Add(
+                name
+                    + ": must be "
+                    + min.ToString(CultureInfo.InvariantCulture)
+                    + " to "
+                    + max.ToString(CultureInfo.InvariantCulture)
+                    + " characters"
+            );
             return "";
         }
 

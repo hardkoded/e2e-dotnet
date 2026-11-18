@@ -13,7 +13,10 @@ namespace E2E.Cli.Mcp;
 internal sealed record TestLineCredential(string Name, string Username, string Password);
 
 /// <summary>The names a test fills values from, as the config declares them (upstream's <c>TestLineFills</c>).</summary>
-internal sealed record TestLineFills(IReadOnlyList<TestLineCredential> Credentials, IReadOnlyCollection<string> Secrets);
+internal sealed record TestLineFills(
+    IReadOnlyList<TestLineCredential> Credentials,
+    IReadOnlyCollection<string> Secrets
+);
 
 /// <summary>What a session's test lines need of the session around them. Upstream's <c>TestLineOptions</c>.</summary>
 internal sealed class TestLineOptions
@@ -25,7 +28,9 @@ internal sealed class TestLineOptions
     /// Starts the resolving of the locators tried for one action, which share one look at the live screen when the engine does not
     /// locate. The function it returns lists every node a locator matches; tests count the tries through it.
     /// </summary>
-    public required Func<Func<LocatorExpression, CancellationToken, Task<IReadOnlyList<SemanticNode>>>> Resolve { get; init; }
+    public required Func<
+        Func<LocatorExpression, CancellationToken, Task<IReadOnlyList<SemanticNode>>>
+    > Resolve { get; init; }
 
     /// <summary>The attempt's secret ledger, for what a node says before it goes into a line.</summary>
     public required Func<string, string> Redact { get; init; }
@@ -67,20 +72,92 @@ internal sealed class SessionTestLines(TestLineOptions options)
     /// <summary>The roles <c>GetByRole</c> takes, so a node read as <c>generic</c> never becomes a role query.</summary>
     private static readonly HashSet<string> Roles = new(
         [
-            "button", "link", "textbox", "searchbox", "combobox", "listbox", "option", "checkbox",
-            "radio", "radiogroup", "switch", "slider", "spinbutton", "progressbar", "meter", "image",
-            "heading", "tab", "tablist", "tabpanel", "menu", "menubar", "menuitem", "menuitemcheckbox",
-            "menuitemradio", "toolbar", "tooltip", "tree", "treeitem", "list", "listitem", "table",
-            "grid", "row", "rowgroup", "rowheader", "cell", "gridcell", "columnheader", "separator",
-            "group", "article", "figure", "form", "status", "alert", "dialog", "alertdialog", "main",
-            "navigation", "banner", "contentinfo", "complementary", "region",
+            "button",
+            "link",
+            "textbox",
+            "searchbox",
+            "combobox",
+            "listbox",
+            "option",
+            "checkbox",
+            "radio",
+            "radiogroup",
+            "switch",
+            "slider",
+            "spinbutton",
+            "progressbar",
+            "meter",
+            "image",
+            "heading",
+            "tab",
+            "tablist",
+            "tabpanel",
+            "menu",
+            "menubar",
+            "menuitem",
+            "menuitemcheckbox",
+            "menuitemradio",
+            "toolbar",
+            "tooltip",
+            "tree",
+            "treeitem",
+            "list",
+            "listitem",
+            "table",
+            "grid",
+            "row",
+            "rowgroup",
+            "rowheader",
+            "cell",
+            "gridcell",
+            "columnheader",
+            "separator",
+            "group",
+            "article",
+            "figure",
+            "form",
+            "status",
+            "alert",
+            "dialog",
+            "alertdialog",
+            "main",
+            "navigation",
+            "banner",
+            "contentinfo",
+            "complementary",
+            "region",
         ],
-        StringComparer.Ordinal);
+        StringComparer.Ordinal
+    );
 
     /// <summary>The grammar tools that print a line or say why they print none.</summary>
     private static readonly HashSet<string> LineTools = new(
-        ["tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "upload", "scroll", "scroll_to", "navigate", "back", "resize_viewport", "switch_tab", "close_tab", "dismiss_keyboard"],
-        StringComparer.Ordinal);
+        [
+            "tap",
+            "double_tap",
+            "long_press",
+            "right_click",
+            "hover",
+            "drag",
+            "type",
+            "type_secret",
+            "press",
+            "select",
+            "check",
+            "uncheck",
+            "clear",
+            "upload",
+            "scroll",
+            "scroll_to",
+            "navigate",
+            "back",
+            "resize_viewport",
+            "switch_tab",
+            "close_tab",
+            "dismiss_keyboard",
+        ],
+        StringComparer.Ordinal
+    );
 
     /// <summary>The locator method each node verb's tool repeats as.</summary>
     private static readonly Dictionary<string, string> NodeMethods = new(StringComparer.Ordinal)
@@ -133,8 +210,16 @@ internal sealed class SessionTestLines(TestLineOptions options)
     {
         return new CatalogTool
         {
-            Description = "Every test line this session's actions printed so far, in order, as a draft test body: the Screen.* and App.* calls that repeat each action, with a comment where an action has none. Paste it into a test, then add the assertions.",
-            InputSchema = JsonSerializer.SerializeToElement(new { type = "object", properties = new { }, additionalProperties = false }),
+            Description =
+                "Every test line this session's actions printed so far, in order, as a draft test body: the Screen.* and App.* calls that repeat each action, with a comment where an action has none. Paste it into a test, then add the assertions.",
+            InputSchema = JsonSerializer.SerializeToElement(
+                new
+                {
+                    type = "object",
+                    properties = new { },
+                    additionalProperties = false,
+                }
+            ),
             Execute = (_, _) => Task.FromResult<object?>(Draft()),
         };
     }
@@ -148,21 +233,22 @@ internal sealed class SessionTestLines(TestLineOptions options)
         }
 
         var body = _entries.Select(entry => entry.Line ?? "// " + entry.Tool + ": no test line: " + entry.Reason);
-        var count = "in order (" + _entries.Count(entry => entry.Line is not null).ToString(CultureInfo.InvariantCulture) + " lines):";
+        var count =
+            "in order ("
+            + _entries.Count(entry => entry.Line is not null).ToString(CultureInfo.InvariantCulture)
+            + " lines):";
 
         // A session that ran a test holds only what came after it: the test's own lines are in its file.
         var (lead, place) = _options.TestRan is { } ran
-            ? ("Test lines from this session's actions after test " + ran + " stopped, " + count, "Put them in that test where it stopped, in place of the line that failed or after its last line,")
+            ? (
+                "Test lines from this session's actions after test " + ran + " stopped, " + count,
+                "Put them in that test where it stopped, in place of the line that failed or after its last line,"
+            )
             : ("Draft test body from this session's actions, " + count, "Paste it into a test method,");
         return string.Join(
             '\n',
-            [
-                lead,
-                "",
-                .. body,
-                "",
-                place + " and add an Expect after each step that should change the screen.",
-            ]);
+            [lead, "", .. body, "", place + " and add an Expect after each step that should change the screen."]
+        );
     }
 
     /// <summary>
@@ -232,7 +318,9 @@ internal sealed class SessionTestLines(TestLineOptions options)
         // A type whose node took the value through the keyboard has no line, whatever the plan found (upstream's annotate).
         if (tool == "type" && ActTools.TypedThroughKeyboard(text))
         {
-            plan = LinePlan.None("the node is not an input and took the value through the keyboard, which no locator line repeats");
+            plan = LinePlan.None(
+                "the node is not an input and took the value through the keyboard, which no locator line repeats"
+            );
         }
 
         _entries.Add(new Entry(tool, plan.Line, plan.Reason));
@@ -261,7 +349,12 @@ internal sealed class SessionTestLines(TestLineOptions options)
         var target = Field(args, "target");
         if (NodeMethods.TryGetValue(name, out var method))
         {
-            if (name is "tap" or "double_tap" or "right_click" && args.TryGetProperty("modifiers", out var held) && held.ValueKind == JsonValueKind.Array && held.GetArrayLength() > 0)
+            if (
+                name is "tap" or "double_tap" or "right_click"
+                && args.TryGetProperty("modifiers", out var held)
+                && held.ValueKind == JsonValueKind.Array
+                && held.GetArrayLength() > 0
+            )
             {
                 return LinePlan.None("a locator " + name.Replace('_', ' ') + " takes no modifier keys");
             }
@@ -272,55 +365,87 @@ internal sealed class SessionTestLines(TestLineOptions options)
         switch (name)
         {
             case "type":
+            {
+                // A value the ledger rewrites is a secret: the line would fill the placeholder, not the secret.
+                var text = Field(args, "text") ?? "";
+                if (target is null)
                 {
-                    // A value the ledger rewrites is a secret: the line would fill the placeholder, not the secret.
-                    var text = Field(args, "text") ?? "";
-                    if (target is null)
-                    {
-                        return LinePlan.None("the value went to the focused field; type into a listed node by id for a line");
-                    }
-
-                    return _options.Redact(text) != text
-                        ? LinePlan.None("the text holds a secret value; fill it with type_secret for a line")
-                        : await OnTargetAsync(target, locator => locator + ".FillAsync(" + Typed(text) + ")", token).ConfigureAwait(false);
+                    return LinePlan.None(
+                        "the value went to the focused field; type into a listed node by id for a line"
+                    );
                 }
+
+                return _options.Redact(text) != text
+                    ? LinePlan.None("the text holds a secret value; fill it with type_secret for a line")
+                    : await OnTargetAsync(target, locator => locator + ".FillAsync(" + Typed(text) + ")", token)
+                        .ConfigureAwait(false);
+            }
 
             case "type_secret":
-                {
-                    return SecretExpression(Field(args, "name") ?? "") is { } secret
-                        ? await OnTargetAsync(target, locator => locator + ".FillAsync(" + secret + ")", token).ConfigureAwait(false)
-                        : LinePlan.None("the secret is neither a credential password nor a config secret");
-                }
+            {
+                return SecretExpression(Field(args, "name") ?? "") is { } secret
+                    ? await OnTargetAsync(target, locator => locator + ".FillAsync(" + secret + ")", token)
+                        .ConfigureAwait(false)
+                    : LinePlan.None("the secret is neither a credential password nor a config secret");
+            }
 
             case "press":
                 if (target is null)
                 {
-                    return LinePlan.None("the key went to whatever had focus; press it on a listed node by ref for a line");
+                    return LinePlan.None(
+                        "the key went to whatever had focus; press it on a listed node by ref for a line"
+                    );
                 }
 
                 // A key pressed several times in one call has no one-line equivalent (upstream's press case).
-                if (args.ValueKind == JsonValueKind.Object && args.TryGetProperty("times", out var times) && times.ValueKind == JsonValueKind.Number && times.TryGetInt32(out var count) && count > 1)
+                if (
+                    args.ValueKind == JsonValueKind.Object
+                    && args.TryGetProperty("times", out var times)
+                    && times.ValueKind == JsonValueKind.Number
+                    && times.TryGetInt32(out var count)
+                    && count > 1
+                )
                 {
-                    return LinePlan.None("a key pressed several times in one call has no one-line equivalent; press it once per call for lines");
+                    return LinePlan.None(
+                        "a key pressed several times in one call has no one-line equivalent; press it once per call for lines"
+                    );
                 }
 
-                return await OnTargetAsync(target, locator => locator + ".PressAsync(" + SessionCatalog.Quote(Field(args, "key") ?? "Enter") + ")", token).ConfigureAwait(false);
+                return await OnTargetAsync(
+                        target,
+                        locator => locator + ".PressAsync(" + SessionCatalog.Quote(Field(args, "key") ?? "Enter") + ")",
+                        token
+                    )
+                    .ConfigureAwait(false);
             case "select":
-                return await OnTargetAsync(target, locator => locator + ".SelectOptionAsync(" + SessionCatalog.Quote(Field(args, "value") ?? "") + ")", token).ConfigureAwait(false);
+                return await OnTargetAsync(
+                        target,
+                        locator =>
+                            locator + ".SelectOptionAsync(" + SessionCatalog.Quote(Field(args, "value") ?? "") + ")",
+                        token
+                    )
+                    .ConfigureAwait(false);
             case "upload":
+            {
+                var files = Strings(args, "files");
+                if (files.Any(file => file.StartsWith(SampleFiles.SamplePrefix, StringComparison.Ordinal)))
                 {
-                    var files = Strings(args, "files");
-                    if (files.Any(file => file.StartsWith(SampleFiles.SamplePrefix, StringComparison.Ordinal)))
-                    {
-                        return LinePlan.None("a sample file exists only for the agent; save a file in the project and upload its path for a line");
-                    }
-
-                    var paths = files.Count == 1 ? SessionCatalog.Quote(files[0]) : "[" + string.Join(", ", files.Select(SessionCatalog.Quote)) + "]";
-                    return await OnTargetAsync(target, locator => locator + ".SetInputFilesAsync(" + paths + ")", token).ConfigureAwait(false);
+                    return LinePlan.None(
+                        "a sample file exists only for the agent; save a file in the project and upload its path for a line"
+                    );
                 }
+
+                var paths =
+                    files.Count == 1
+                        ? SessionCatalog.Quote(files[0])
+                        : "[" + string.Join(", ", files.Select(SessionCatalog.Quote)) + "]";
+                return await OnTargetAsync(target, locator => locator + ".SetInputFilesAsync(" + paths + ")", token)
+                    .ConfigureAwait(false);
+            }
             case "scroll_to":
                 return target is not null && Field(args, "text") is null
-                    ? await OnTargetAsync(target, locator => locator + ".ScrollIntoViewAsync()", token).ConfigureAwait(false)
+                    ? await OnTargetAsync(target, locator => locator + ".ScrollIntoViewAsync()", token)
+                        .ConfigureAwait(false)
                     : LinePlan.None("scrolling to a text has none; a test action brings its node into view");
             case "scroll":
                 return LinePlan.None("a test action brings its node into view itself");
@@ -333,7 +458,13 @@ internal sealed class SessionTestLines(TestLineOptions options)
             case "back":
                 return LinePlan.Of("await App.BackAsync();");
             case "resize_viewport":
-                return LinePlan.None("set " + Side(args, "width") + "x" + Side(args, "height") + " with the engine fixture's viewport call");
+                return LinePlan.None(
+                    "set "
+                        + Side(args, "width")
+                        + "x"
+                        + Side(args, "height")
+                        + " with the engine fixture's viewport call"
+                );
             case "switch_tab":
                 return LinePlan.None("show tab " + Side(args, "tab") + " with the engine fixture's tab call");
             case "close_tab":
@@ -359,14 +490,23 @@ internal sealed class SessionTestLines(TestLineOptions options)
         }
 
         var comments = new[] { from.Comment, to.Comment }.Where(comment => comment is not null).ToList();
-        return LinePlan.Of("await " + from.Code + ".DragToAsync(" + to.Code + ");" + (comments.Count == 0 ? "" : " // " + string.Join("; ", comments)));
+        return LinePlan.Of(
+            "await "
+                + from.Code
+                + ".DragToAsync("
+                + to.Code
+                + ");"
+                + (comments.Count == 0 ? "" : " // " + string.Join("; ", comments))
+        );
     }
 
     /// <summary>A typed value as the line spells it: a credential's username by its name, anything else as written (upstream's <c>typed</c>).</summary>
     private string Typed(string value)
     {
         var credential = _options.Fills?.Credentials.FirstOrDefault(candidate => candidate.Username == value);
-        return credential is null ? SessionCatalog.Quote(value) : "Credentials.User(" + SessionCatalog.Quote(credential.Name) + ").Username";
+        return credential is null
+            ? SessionCatalog.Quote(value)
+            : "Credentials.User(" + SessionCatalog.Quote(credential.Name) + ").Username";
     }
 
     /// <summary>How a test names a secret <c>type_secret</c> filled: a credential's password, or a config secret (upstream's <c>secretExpression</c>).</summary>
@@ -378,7 +518,9 @@ internal sealed class SessionTestLines(TestLineOptions options)
             return "Credentials.User(" + SessionCatalog.Quote(credential.Name) + ").Password";
         }
 
-        return _options.Fills?.Secrets.Contains(name) == true ? "Secrets.Get(" + SessionCatalog.Quote(name) + ")" : null;
+        return _options.Fills?.Secrets.Contains(name) == true
+            ? "Secrets.Get(" + SessionCatalog.Quote(name) + ")"
+            : null;
     }
 
     /// <summary>A line acting on one target, or why there is none.</summary>
@@ -447,16 +589,24 @@ internal sealed class SessionTestLines(TestLineOptions options)
         {
             if (tries <= 0)
             {
-                return Found.None("no locator found it alone within " + MaxTries.ToString(CultureInfo.InvariantCulture) + " tries; try locate");
+                return Found.None(
+                    "no locator found it alone within "
+                        + MaxTries.ToString(CultureInfo.InvariantCulture)
+                        + " tries; try locate"
+                );
             }
 
             return Found.None(
                 queries.Count == 0
                     ? "the node has no name, text, placeholder, or test id to find it by"
-                    : "no locator from its role and name, label, placeholder, text, or test id finds it on the live screen; try locate");
+                    : "no locator from its role and name, label, placeholder, text, or test id finds it on the live screen; try locate"
+            );
         }
 
-        if (VisibleOnly(best.Located) is { } visible && (await Attempt(visible.Expression).ConfigureAwait(false)) is { Count: 1, Index: 0 })
+        if (
+            VisibleOnly(best.Located) is { } visible
+            && (await Attempt(visible.Expression).ConfigureAwait(false)) is { Count: 1, Index: 0 }
+        )
         {
             return Found.Of(visible);
         }
@@ -468,7 +618,8 @@ internal sealed class SessionTestLines(TestLineOptions options)
                 break;
             }
 
-            var probe = await Attempt(child with { Parent = scope.Located.Expression }, scope.Within).ConfigureAwait(false);
+            var probe = await Attempt(child with { Parent = scope.Located.Expression }, scope.Within)
+                .ConfigureAwait(false);
             if (probe is null)
             {
                 break;
@@ -476,7 +627,15 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
             if (probe.Count == 1 && probe.Index == 0)
             {
-                return Found.Of(new Located(child with { Parent = scope.Located.Expression }, scope.Located.Code + best.Located.Code["Screen".Length..]));
+                return Found.Of(
+                    new Located(
+                        child with
+                        {
+                            Parent = scope.Located.Expression,
+                        },
+                        scope.Located.Code + best.Located.Code["Screen".Length..]
+                    )
+                );
             }
         }
 
@@ -485,13 +644,32 @@ internal sealed class SessionTestLines(TestLineOptions options)
         // A position is only as good as the evidence for it: a box from the observation may have moved onto a twin since.
         if (!certain)
         {
-            return Found.None("it shares " + best.Located.Code + " with " + (count - 1).ToString(CultureInfo.InvariantCulture) + " other nodes, and nothing on the screen tells it apart for certain");
+            return Found.None(
+                "it shares "
+                    + best.Located.Code
+                    + " with "
+                    + (count - 1).ToString(CultureInfo.InvariantCulture)
+                    + " other nodes, and nothing on the screen tells it apart for certain"
+            );
         }
 
         return new Found(
-            new Located(new LocatorExpression { Kind = "index", Source = best.Located.Expression, Index = index }, best.Located.Code + (index == 0 ? ".First()" : ".Nth(" + index.ToString(CultureInfo.InvariantCulture) + ")")),
-            (index + 1).ToString(CultureInfo.InvariantCulture) + " of " + count.ToString(CultureInfo.InvariantCulture) + " matches, by position; a unique name or test id holds up better",
-            null);
+            new Located(
+                new LocatorExpression
+                {
+                    Kind = "index",
+                    Source = best.Located.Expression,
+                    Index = index,
+                },
+                best.Located.Code
+                    + (index == 0 ? ".First()" : ".Nth(" + index.ToString(CultureInfo.InvariantCulture) + ")")
+            ),
+            (index + 1).ToString(CultureInfo.InvariantCulture)
+                + " of "
+                + count.ToString(CultureInfo.InvariantCulture)
+                + " matches, by position; a unique name or test id holds up better",
+            null
+        );
     }
 
     /// <summary>
@@ -501,13 +679,22 @@ internal sealed class SessionTestLines(TestLineOptions options)
     /// shadow roots), the one still in its box. Otherwise it is the one match centered in its box from the observation, as an
     /// inner text element sits inside the button it names, and the place is not certain.
     /// </summary>
-    private async Task<Probe> ProbeOf(Func<LocatorExpression, CancellationToken, Task<IReadOnlyList<SemanticNode>>> resolve, LocatorExpression expression, ListedNode listed, IReadOnlyList<SemanticNode> within, CancellationToken token)
+    private async Task<Probe> ProbeOf(
+        Func<LocatorExpression, CancellationToken, Task<IReadOnlyList<SemanticNode>>> resolve,
+        LocatorExpression expression,
+        ListedNode listed,
+        IReadOnlyList<SemanticNode> within,
+        CancellationToken token
+    )
     {
         var matches = await resolve(expression, token).ConfigureAwait(false);
         var count = matches.Count;
         var target = listed.Node;
         var self = Identity(target, _options.Redact);
-        var alike = Enumerable.Range(0, count).Where(index => Identity(matches[index], _options.Redact) == self).ToList();
+        var alike = Enumerable
+            .Range(0, count)
+            .Where(index => Identity(matches[index], _options.Redact) == self)
+            .ToList();
         var twins = TwinsOf(within, target, _options.Redact);
         if (alike.Count == twins.Count)
         {
@@ -596,7 +783,9 @@ internal sealed class SessionTestLines(TestLineOptions options)
             var name = Clean(ancestor.Name, _options.Redact);
             if (name is not null)
             {
-                scopes.Add((Located.Of(SessionCatalog.LocateQuery(new LocateArgs { Role = role, Name = name })), [ancestor]));
+                scopes.Add(
+                    (Located.Of(SessionCatalog.LocateQuery(new LocateArgs { Role = role, Name = name })), [ancestor])
+                );
             }
 
             var text = FirstText(ancestor, listed.Node) ?? Clean(ancestor.Text, _options.Redact);
@@ -604,7 +793,20 @@ internal sealed class SessionTestLines(TestLineOptions options)
             {
                 var root = SessionCatalog.LocateQuery(new LocateArgs { Role = role });
                 TextMatch? hasText = text;
-                scopes.Add((new Located(new LocatorExpression { Kind = "filter", Source = root.Query, HasText = hasText }, root.Code + ".Filter(" + SessionCatalog.Quote(text) + ")"), [ancestor]));
+                scopes.Add(
+                    (
+                        new Located(
+                            new LocatorExpression
+                            {
+                                Kind = "filter",
+                                Source = root.Query,
+                                HasText = hasText,
+                            },
+                            root.Code + ".Filter(" + SessionCatalog.Quote(text) + ")"
+                        ),
+                        [ancestor]
+                    )
+                );
             }
         }
 
@@ -647,13 +849,22 @@ internal sealed class SessionTestLines(TestLineOptions options)
     private static Located? VisibleOnly(Located located)
     {
         var (expression, code) = (located.Expression, located.Code);
-        if (expression is not { Kind: not ("filter" or "index"), Parent: null } || code.Contains('{', StringComparison.Ordinal))
+        if (
+            expression is not { Kind: not ("filter" or "index"), Parent: null }
+            || code.Contains('{', StringComparison.Ordinal)
+        )
         {
             return null;
         }
 
         var options = expression.Kind == "role" ? "RoleOptions" : "TextMatchOptions";
-        return new Located(expression with { Visible = true }, code[..^1] + ", new " + options + " { Visible = true })");
+        return new Located(
+            expression with
+            {
+                Visible = true,
+            },
+            code[..^1] + ", new " + options + " { Visible = true })"
+        );
     }
 
     /// <summary>Whether a live node sits with its center inside the target's box from the observation.</summary>
@@ -666,7 +877,10 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
         var x = found.X + (found.Width / 2);
         var y = found.Y + (found.Height / 2);
-        return x >= box.X - BoxSlack && x <= box.X + box.Width + BoxSlack && y >= box.Y - BoxSlack && y <= box.Y + box.Height + BoxSlack;
+        return x >= box.X - BoxSlack
+            && x <= box.X + box.Width + BoxSlack
+            && y >= box.Y - BoxSlack
+            && y <= box.Y + box.Height + BoxSlack;
     }
 
     /// <summary>What a node reads as: its role, name, text, and placeholder, in the one-line form, through the ledger.</summary>
@@ -677,7 +891,11 @@ internal sealed class SessionTestLines(TestLineOptions options)
     }
 
     /// <summary>The nodes under <paramref name="roots"/> that read like the target, in the observation's order, the target among them.</summary>
-    private static List<SemanticNode> TwinsOf(IEnumerable<SemanticNode> roots, SemanticNode target, Func<string, string> redact)
+    private static List<SemanticNode> TwinsOf(
+        IEnumerable<SemanticNode> roots,
+        SemanticNode target,
+        Func<string, string> redact
+    )
     {
         var self = Identity(target, redact);
         var twins = new List<SemanticNode>();
@@ -753,17 +971,31 @@ internal sealed class SessionTestLines(TestLineOptions options)
     }
 
     private static string? Field(JsonElement args, string name) =>
-        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        args.ValueKind == JsonValueKind.Object
+        && args.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     // The string items of a list field, as upload's files: the ones that are not strings are left out, as the policy never sees them.
     private static List<string> Strings(JsonElement args, string name) =>
-        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array
-            ? [.. value.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()!)]
+        args.ValueKind == JsonValueKind.Object
+        && args.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.Array
+            ?
+            [
+                .. value
+                    .EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString()!),
+            ]
             : [];
 
     // A viewport side or a tab number as the model sent it, for the reason a resize or a tab call has no line.
     private static string Side(JsonElement args, string name) =>
-        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) ? value.ToString() : "undefined";
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value)
+            ? value.ToString()
+            : "undefined";
 
     /// <summary>One recorded action: its line, or why it has none.</summary>
     private sealed record Entry(string Tool, string? Line, string? Reason);
@@ -793,7 +1025,11 @@ internal sealed class SessionTestLines(TestLineOptions options)
     }
 
     /// <summary>A node the newest observation listed, with its ancestors, nearest first, and the screen's roots.</summary>
-    private sealed record ListedNode(SemanticNode Node, IReadOnlyList<SemanticNode> Ancestors, IReadOnlyList<SemanticNode> Roots);
+    private sealed record ListedNode(
+        SemanticNode Node,
+        IReadOnlyList<SemanticNode> Ancestors,
+        IReadOnlyList<SemanticNode> Roots
+    );
 
     /// <summary>What one locator matched: how many nodes, which of them is the target (-1 when none is placed as it), and whether that place is certain.</summary>
     private sealed record Probe(int Count, int Index, bool Certain);

@@ -21,46 +21,61 @@ namespace E2E.Tests.ClearCookies;
 public sealed class BrowserClearCookiesTests
 {
     [Fact]
-    public Task Combines_filters() => WithCookiesAsync(async browser =>
-    {
-        await browser.ClearCookiesAsync(new CookieFilter { Name = "session", Path = "/admin" });
-        Assert.Equal(["language=en", "session-id=x", "session=root"], await RemainingAsync(browser));
-    });
+    public Task Combines_filters() =>
+        WithCookiesAsync(async browser =>
+        {
+            await browser.ClearCookiesAsync(new CookieFilter { Name = "session", Path = "/admin" });
+            Assert.Equal(["language=en", "session-id=x", "session=root"], await RemainingAsync(browser));
+        });
 
     [Fact]
-    public Task Matches_a_string_exactly() => WithCookiesAsync(async browser =>
-    {
-        await browser.ClearCookiesAsync(new CookieFilter { Name = "session" });
-        Assert.Equal(["language=en", "session-id=x"], await RemainingAsync(browser));
-    });
+    public Task Matches_a_string_exactly() =>
+        WithCookiesAsync(async browser =>
+        {
+            await browser.ClearCookiesAsync(new CookieFilter { Name = "session" });
+            Assert.Equal(["language=en", "session-id=x"], await RemainingAsync(browser));
+        });
 
     [Fact]
-    public Task Matches_a_RegExp() => WithCookiesAsync(async browser =>
-    {
-        await browser.ClearCookiesAsync(new CookieFilter { Name = new Regex("^session") });
-        Assert.Equal(["language=en"], await RemainingAsync(browser));
-    });
+    public Task Matches_a_RegExp() =>
+        WithCookiesAsync(async browser =>
+        {
+            await browser.ClearCookiesAsync(new CookieFilter { Name = new Regex("^session") });
+            Assert.Equal(["language=en"], await RemainingAsync(browser));
+        });
 
     [Fact]
-    public Task Clears_HttpOnly_cookies_by_domain() => WithCookiesAsync(async browser =>
-    {
-        // Playwright hands the pattern's source to the browser, which reads it as JavaScript: no \z there.
-        await browser.ClearCookiesAsync(new CookieFilter { Domain = "127.0.0.1", Path = new Regex(@"^/admin$") });
-        Assert.Equal(["language=en", "session-id=x", "session=root"], await RemainingAsync(browser));
-    });
+    public Task Clears_HttpOnly_cookies_by_domain() =>
+        WithCookiesAsync(async browser =>
+        {
+            // Playwright hands the pattern's source to the browser, which reads it as JavaScript: no \z there.
+            await browser.ClearCookiesAsync(new CookieFilter { Domain = "127.0.0.1", Path = new Regex(@"^/admin$") });
+            Assert.Equal(["language=en", "session-id=x", "session=root"], await RemainingAsync(browser));
+        });
 
     [Fact]
-    public Task Clears_every_cookie_without_options_and_keeps_page_storage() => WithCookiesAsync(async browser =>
-    {
-        await browser.EvaluateAsync<object?>("() => { localStorage.setItem('preference', 'kept'); sessionStorage.setItem('tab', 'kept'); }");
-        await browser.ClearCookiesAsync();
-        Assert.Empty(await RemainingAsync(browser));
-        Assert.Equal(new[] { "kept", "kept" }, await browser.EvaluateAsync<string[]>("() => [localStorage.getItem('preference'), sessionStorage.getItem('tab')]"));
-    });
+    public Task Clears_every_cookie_without_options_and_keeps_page_storage() =>
+        WithCookiesAsync(async browser =>
+        {
+            await browser.EvaluateAsync<object?>(
+                "() => { localStorage.setItem('preference', 'kept'); sessionStorage.setItem('tab', 'kept'); }"
+            );
+            await browser.ClearCookiesAsync();
+            Assert.Empty(await RemainingAsync(browser));
+            Assert.Equal(
+                new[] { "kept", "kept" },
+                await browser.EvaluateAsync<string[]>(
+                    "() => [localStorage.getItem('preference'), sessionStorage.getItem('tab')]"
+                )
+            );
+        });
 
     /// <summary>The remaining cookies as sorted <c>name=value</c> pairs.</summary>
     private static async Task<string[]> RemainingAsync(Browser browser) =>
-        (await browser.CookiesAsync()).Select(cookie => cookie.Name + "=" + cookie.Value).Order(StringComparer.Ordinal).ToArray();
+        (await browser.CookiesAsync())
+            .Select(cookie => cookie.Name + "=" + cookie.Value)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
 
     /// <summary>Opens an empty page on a local site and sets the four cookies every test starts from.</summary>
     private static async Task WithCookiesAsync(Func<Browser, Task> body)
@@ -69,24 +84,51 @@ public sealed class BrowserClearCookiesTests
         var projectRoot = Directory.CreateTempSubdirectory("e2e-clear-cookies-").FullName;
         try
         {
-            var session = await E2ESession.StartAsync(new E2ESessionOptions
-            {
-                Engine = new WebEngine(new WebEngineOptions { Headless = true }),
-                BaseUrl = site.Url,
-                ProjectRoot = projectRoot,
-                TestTitle = "browser.clearCookies",
-                ActionTimeout = TimeSpan.FromSeconds(10),
-                TestTimeout = TimeSpan.FromSeconds(30),
-            });
+            var session = await E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = new WebEngine(new WebEngineOptions { Headless = true }),
+                    BaseUrl = site.Url,
+                    ProjectRoot = projectRoot,
+                    TestTitle = "browser.clearCookies",
+                    ActionTimeout = TimeSpan.FromSeconds(10),
+                    TestTimeout = TimeSpan.FromSeconds(30),
+                }
+            );
             await WebEngineTests.RunAsync(session, async () =>
             {
                 await session.App.OpenAsync("/");
-                await session.Browser.SetCookiesAsync(
-                [
-                    new BrowserCookie { Name = "session", Value = "root", Domain = "127.0.0.1", Path = "/", HttpOnly = true },
-                    new BrowserCookie { Name = "session", Value = "admin", Domain = "127.0.0.1", Path = "/admin", HttpOnly = true },
-                    new BrowserCookie { Name = "session-id", Value = "x", Domain = "127.0.0.1", Path = "/" },
-                    new BrowserCookie { Name = "language", Value = "en", Domain = "127.0.0.1", Path = "/" },
+                await session.Browser.SetCookiesAsync([
+                    new BrowserCookie
+                    {
+                        Name = "session",
+                        Value = "root",
+                        Domain = "127.0.0.1",
+                        Path = "/",
+                        HttpOnly = true,
+                    },
+                    new BrowserCookie
+                    {
+                        Name = "session",
+                        Value = "admin",
+                        Domain = "127.0.0.1",
+                        Path = "/admin",
+                        HttpOnly = true,
+                    },
+                    new BrowserCookie
+                    {
+                        Name = "session-id",
+                        Value = "x",
+                        Domain = "127.0.0.1",
+                        Path = "/",
+                    },
+                    new BrowserCookie
+                    {
+                        Name = "language",
+                        Value = "en",
+                        Domain = "127.0.0.1",
+                        Path = "/",
+                    },
                 ]);
                 await body(session.Browser);
             });

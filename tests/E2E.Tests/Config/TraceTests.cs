@@ -15,7 +15,10 @@ public sealed class TraceTests
     [Fact]
     public void Defaults_and_a_target_inherits_the_config_mode_as_a_run_wide_one()
     {
-        Assert.Equal(new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Default), E2EConfig.Parse("{}", Root).Target.Trace);
+        Assert.Equal(
+            new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Default),
+            E2EConfig.Parse("{}", Root).Target.Trace
+        );
         var inherited = E2EConfig.Parse("""{ "trace": "retain-on-failure" }""", Root);
         Assert.Equal(new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Run), inherited.Target.Trace);
     }
@@ -26,7 +29,11 @@ public sealed class TraceTests
     {
         var own = E2EConfig.Parse("""{ "targets": [{ "trace": "on-all-retries" }], "trace": "on" }""", Root);
         Assert.Equal(new ResolvedRecording(RecordingMode.OnAllRetries, RecordingSource.Target), own.Target.Trace);
-        var flagged = E2EConfig.Parse("""{ "targets": [{ "trace": "off" }], "trace": "off" }""", Root, Env(("E2E_TRACE", "on")));
+        var flagged = E2EConfig.Parse(
+            """{ "targets": [{ "trace": "off" }], "trace": "off" }""",
+            Root,
+            Env(("E2E_TRACE", "on"))
+        );
         Assert.Equal(new ResolvedRecording(RecordingMode.On, RecordingSource.Run), flagged.Target.Trace);
         var off = E2EConfig.Parse("""{ "trace": "on" }""", Root, Env(("E2E_TRACE", "off")));
         Assert.Equal(new ResolvedRecording(RecordingMode.Off, RecordingSource.Run), off.Target.Trace);
@@ -36,9 +43,20 @@ public sealed class TraceTests
     public void A_CliOverrides_mode_wins_over_a_target_the_config_and_the_variable()
     {
         var cli = new CliOverrides { Trace = RecordingMode.On };
-        var flagged = E2EConfig.Parse("""{ "targets": [{ "trace": "off" }], "trace": "off" }""", Root, Env(("E2E_TRACE", "off")), cli);
+        var flagged = E2EConfig.Parse(
+            """{ "targets": [{ "trace": "off" }], "trace": "off" }""",
+            Root,
+            Env(("E2E_TRACE", "off")),
+            cli
+        );
         Assert.Equal(new ResolvedRecording(RecordingMode.On, RecordingSource.Run), flagged.Target.Trace);
-        Assert.StartsWith("E2E_TRACE must be one of", Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("{}", Root, Env(("E2E_TRACE", "every")), cli)).Message, StringComparison.Ordinal);
+        Assert.StartsWith(
+            "E2E_TRACE must be one of",
+            Assert
+                .Throws<ConfigurationException>(() => E2EConfig.Parse("{}", Root, Env(("E2E_TRACE", "every")), cli))
+                .Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -46,7 +64,13 @@ public sealed class TraceTests
     {
         const string Plain = """{ "targets": [{ "name": "web", "platform": "web" }] }""";
         var plain = ResolveConfigTests.Digest(Plain, Env());
-        Assert.Equal(plain, ResolveConfigTests.Digest("""{ "targets": [{ "name": "web", "platform": "web", "trace": "on" }], "trace": "retain-on-failure" }""", Env()));
+        Assert.Equal(
+            plain,
+            ResolveConfigTests.Digest(
+                """{ "targets": [{ "name": "web", "platform": "web", "trace": "on" }], "trace": "retain-on-failure" }""",
+                Env()
+            )
+        );
         Assert.Equal(plain, ResolveConfigTests.Digest(Plain, Env(), new CliOverrides { Trace = RecordingMode.On }));
         Assert.Equal(plain, ResolveConfigTests.Digest(Plain, Env(("E2E_TRACE", "on"))));
     }
@@ -57,10 +81,21 @@ public sealed class TraceTests
     {
         const string Modes = "off, on, retain-on-failure, on-first-retry, on-all-retries";
         Assert.Equal($"trace must be one of {Modes}, got true", Refusal("""{ "trace": true }"""));
-        Assert.Equal($"targets[0].trace must be one of {Modes}, got \"sometimes\"", Refusal("""{ "targets": [{ "trace": "sometimes" }] }"""));
+        Assert.Equal(
+            $"targets[0].trace must be one of {Modes}, got \"sometimes\"",
+            Refusal("""{ "targets": [{ "trace": "sometimes" }] }""")
+        );
         // The variable wins over a target's mode, but never hides a mistake in it.
-        Assert.StartsWith("targets[0].trace must be one of", Refusal("""{ "targets": [{ "trace": "retain_on_failure" }] }""", Env(("E2E_TRACE", "on"))), StringComparison.Ordinal);
-        Assert.StartsWith("E2E_TRACE must be one of", Refusal("{}", Env(("E2E_TRACE", "every"))), StringComparison.Ordinal);
+        Assert.StartsWith(
+            "targets[0].trace must be one of",
+            Refusal("""{ "targets": [{ "trace": "retain_on_failure" }] }""", Env(("E2E_TRACE", "on"))),
+            StringComparison.Ordinal
+        );
+        Assert.StartsWith(
+            "E2E_TRACE must be one of",
+            Refusal("{}", Env(("E2E_TRACE", "every"))),
+            StringComparison.Ordinal
+        );
     }
 
     private static string Refusal(string json, Func<string, string?>? environment = null)

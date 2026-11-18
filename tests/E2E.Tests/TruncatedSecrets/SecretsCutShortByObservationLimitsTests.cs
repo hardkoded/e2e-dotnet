@@ -61,7 +61,10 @@ public sealed class SecretsCutShortByObservationLimitsTests
         var (model, error) = await RunAsync(report: null, tapMissingButton: false);
 
         Assert.Null(error);
-        var observation = string.Join('\n', model.Requests.SelectMany(request => request.Messages.Select(message => message.Content)));
+        var observation = string.Join(
+            '\n',
+            model.Requests.SelectMany(request => request.Messages.Select(message => message.Content))
+        );
         Assert.Contains(ControlKept + "\"", observation, StringComparison.Ordinal);
         Assert.DoesNotContain(Fragment, observation, StringComparison.Ordinal);
         Assert.DoesNotContain(UpperFragment, observation, StringComparison.Ordinal);
@@ -85,7 +88,10 @@ public sealed class SecretsCutShortByObservationLimitsTests
         // The echo is on the screen, as the marker where the cut value stood, once for each of the three echoes: without it the absence checks below would prove nothing.
         Assert.True(Regex.Matches(screenText, "<secret:member>\"").Count >= 3);
         var document = await File.ReadAllTextAsync(Path.Combine(report.Output, "report.json"));
-        var files = Directory.EnumerateFiles(report.Output, "*", SearchOption.AllDirectories).Where(file => Path.GetExtension(file) is not (".png" or ".webm" or ".mp4")).ToList();
+        var files = Directory
+            .EnumerateFiles(report.Output, "*", SearchOption.AllDirectories)
+            .Where(file => Path.GetExtension(file) is not (".png" or ".webm" or ".mp4"))
+            .ToList();
         foreach (var fragment in new[] { Fragment, UpperFragment })
         {
             Assert.DoesNotContain(fragment, screenText, StringComparison.Ordinal);
@@ -97,46 +103,63 @@ public sealed class SecretsCutShortByObservationLimitsTests
         }
     }
 
-    private static async Task<(ScriptedModel Model, Exception? Error)> RunAsync(ReportDirectory? report, bool tapMissingButton)
+    private static async Task<(ScriptedModel Model, Exception? Error)> RunAsync(
+        ReportDirectory? report,
+        bool tapMissingButton
+    )
     {
         using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(context, Page));
         var model = new ScriptedModel(request =>
         {
             var last = request.Messages[^1];
-            if (request.Messages[0].Content?.StartsWith("Statement:", StringComparison.Ordinal) == true)
+            if (request.Messages[0].Content?.Contains("Statement:", StringComparison.Ordinal) == true)
             {
                 return ModelResponses.Done("passed", "the echo is shown");
             }
 
             return last.Role == "tool"
                 ? ModelResponses.Done("passed", "filled")
-                : ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Source\""), name = "member" });
+                : ModelResponses.Call(
+                    "type_secret",
+                    new
+                    {
+                        target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Source\""),
+                        name = "member",
+                    }
+                );
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = model,
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            ResultsDirectory = report?.Results,
-            TestTitle = "echoes a secret across the observation limits",
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(20),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = model,
+                BaseUrl = site.Url,
+                CacheEnabled = false,
+                ResultsDirectory = report?.Results,
+                TestTitle = "echoes a secret across the observation limits",
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(20),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         Exception? error = null;
         try
         {
             await session.Context.App.OpenAsync("/");
-            await session.Context.Agent.ActAsync("fill the source with {password}", new ActOptions
-            {
-                Params = new Dictionary<string, object?> { ["password"] = E2E.Secret.Create("member", Secret) },
-            });
+            await session.Context.Agent.ActAsync(
+                "fill the source with {password}",
+                new ActOptions
+                {
+                    Params = new Dictionary<string, object?> { ["password"] = E2E.Secret.Create("member", Secret) },
+                }
+            );
             await session.Context.Agent.AssertAsync("the echo is on screen");
             if (tapMissingButton)
             {
-                await session.Context.Screen.GetByRole("button", "Not on this page").TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) });
+                await session
+                    .Context.Screen.GetByRole("button", "Not on this page")
+                    .TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) });
             }
         }
         catch (Exception ex)

@@ -45,7 +45,11 @@ public sealed class AcpTests : IDisposable
     public async Task Acts_through_ctx_actions_and_passes_on_done()
     {
         var page = new TodoPage();
-        var agent = Scripted(_directory, Turns([Fill("Title", "Buy milk"), Tap("Add"), Pass]), new AcpOptions { Model = "slow" });
+        var agent = Scripted(
+            _directory,
+            Turns([Fill("Title", "Buy milk"), Tap("Add"), Pass]),
+            new AcpOptions { Model = "slow" }
+        );
         await using var session = await StartAsync(agent.Executor, page.World());
 
         var result = await session.Agent.ActAsync("add a todo");
@@ -62,8 +66,28 @@ public sealed class AcpTests : IDisposable
         Assert.Equal("e2e_step", offered["server"]!.GetValue<string>());
         // The built-in agent's tools for the target's verbs, plus complete_step.
         Assert.Equal(
-            ["back", "check", "complete_step", "double_tap", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type", "type_at", "type_secret"],
-            offered["tools"]!.AsArray().Select(tool => tool!.GetValue<string>()).Order(StringComparer.Ordinal));
+            [
+                "back",
+                "check",
+                "complete_step",
+                "double_tap",
+                "navigate",
+                "observe",
+                "press",
+                "press_at",
+                "screenshot",
+                "scroll",
+                "scroll_to",
+                "select",
+                "select_at",
+                "tap",
+                "tap_at",
+                "type",
+                "type_at",
+                "type_secret",
+            ],
+            offered["tools"]!.AsArray().Select(tool => tool!.GetValue<string>()).Order(StringComparer.Ordinal)
+        );
         Assert.Contains("Typed into", agent.ResultOf("type"), StringComparison.Ordinal);
         Assert.Contains("Tapped", agent.ResultOf("tap"), StringComparison.Ordinal);
         // The step's first screen is whole, in the message.
@@ -74,7 +98,8 @@ public sealed class AcpTests : IDisposable
     public async Task Counts_cached_tokens_into_the_input_when_the_agent_reports_them_apart()
     {
         // The Claude adapter's shape: its total adds the cache to input and output.
-        var usage = """{"totalTokens":24,"inputTokens":5,"outputTokens":5,"cachedReadTokens":10,"cachedWriteTokens":4}""";
+        var usage =
+            """{"totalTokens":24,"inputTokens":5,"outputTokens":5,"cachedReadTokens":10,"cachedWriteTokens":4}""";
         var agent = Scripted(_directory, Turns([Pass]), env: new Dictionary<string, string> { ["ACP_USAGE"] = usage });
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
@@ -90,7 +115,10 @@ public sealed class AcpTests : IDisposable
         var agent = Scripted(_directory, Turns([Pass], [Pass]));
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
-        await session.Agent.ActAsync("add a todo", new ActOptions { Params = new Dictionary<string, object?> { ["title"] = "Buy milk" } });
+        await session.Agent.ActAsync(
+            "add a todo",
+            new ActOptions { Params = new Dictionary<string, object?> { ["title"] = "Buy milk" } }
+        );
         await session.Agent.ActAsync("add another");
 
         var prompts = agent.Prompts();
@@ -185,7 +213,14 @@ public sealed class AcpTests : IDisposable
         // Partial: upstream also has the assertion call hover and sees it refused; the document engine has no pointer, so there is no hover to
         // refuse, and the read-only tool here is scroll.
         var page = new TodoPage();
-        var agent = Scripted(_directory, Turns([Tap("Add"), Call("scroll", new { direction = "down" }), Call("complete_step", new { status = "failed", summary = "no todo" })]));
+        var agent = Scripted(
+            _directory,
+            Turns([
+                Tap("Add"),
+                Call("scroll", new { direction = "down" }),
+                Call("complete_step", new { status = "failed", summary = "no todo" }),
+            ])
+        );
         await using var session = await StartAsync(agent.Executor, page.World());
 
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the list shows a todo"));
@@ -212,7 +247,10 @@ public sealed class AcpTests : IDisposable
         Assert.Equal(0, page.Adds);
         Assert.Contains("this step is an assertion", agent.ResultOf("tap"), StringComparison.Ordinal);
         var served = Assert.Single(agent.Sessions())["session"]!;
-        Assert.Equal(["complete_step", "observe", "screenshot", "scroll", "scroll_to"], served["readOnly"]!.AsArray().Select(name => name!.GetValue<string>()).Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["complete_step", "observe", "screenshot", "scroll", "scroll_to"],
+            served["readOnly"]!.AsArray().Select(name => name!.GetValue<string>()).Order(StringComparer.Ordinal)
+        );
     }
 
     [Fact]
@@ -233,16 +271,30 @@ public sealed class AcpTests : IDisposable
     [Fact]
     public async Task Drops_an_inconclusive_code_from_an_act_verdict_and_keeps_it_on_an_assertion_in_one_attempt()
     {
-        var inconclusive = Call("complete_step", new { status = "failed", summary = "not enough evidence", errorCode = "ASSERTION_INCONCLUSIVE" });
+        var inconclusive = Call(
+            "complete_step",
+            new
+            {
+                status = "failed",
+                summary = "not enough evidence",
+                errorCode = "ASSERTION_INCONCLUSIVE",
+            }
+        );
         var agent = Scripted(_directory, Turns([inconclusive], [inconclusive]));
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
         var act = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("add a todo"));
-        var assertion = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the list shows a todo"));
+        var assertion = await Assert.ThrowsAsync<AgentException>(() =>
+            session.Agent.AssertAsync("the list shows a todo")
+        );
 
         Assert.Equal("ACTION_FAILED", act.Code);
         Assert.Equal("ASSERTION_INCONCLUSIVE", assertion.Code);
-        Assert.Contains("the errorCode ASSERTION_INCONCLUSIVE you sent applies only to assertions and was ignored.", string.Join(' ', agent.Log().Select(entry => entry.ToJsonString())), StringComparison.Ordinal);
+        Assert.Contains(
+            "the errorCode ASSERTION_INCONCLUSIVE you sent applies only to assertions and was ignored.",
+            string.Join(' ', agent.Log().Select(entry => entry.ToJsonString())),
+            StringComparison.Ordinal
+        );
         Assert.Single(agent.Sessions());
     }
 
@@ -250,18 +302,33 @@ public sealed class AcpTests : IDisposable
     public async Task Concludes_through_the_built_in_agents_done_blocked_needs_a_code()
     {
         var page = new TodoPage();
-        var agent = Scripted(_directory, Turns([
-            Call("complete_step", new { status = "blocked", summary = "the app is down" }),
-            Call("complete_step", new { status = "blocked", summary = "the app is down", errorCode = "APP_UNREACHABLE" }),
-            Tap("Add"),
-        ]));
+        var agent = Scripted(
+            _directory,
+            Turns([
+                Call("complete_step", new { status = "blocked", summary = "the app is down" }),
+                Call(
+                    "complete_step",
+                    new
+                    {
+                        status = "blocked",
+                        summary = "the app is down",
+                        errorCode = "APP_UNREACHABLE",
+                    }
+                ),
+                Tap("Add"),
+            ])
+        );
         await using var session = await StartAsync(agent.Executor, page.World());
 
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("add a todo"));
 
         Assert.Equal("APP_UNREACHABLE", error.Code);
         Assert.Contains("the app is down", error.Message, StringComparison.Ordinal);
-        var answers = agent.Log().Where(entry => entry["call"]?.GetValue<string>() == "complete_step").Select(entry => entry["result"]!.ToJsonString()).ToList();
+        var answers = agent
+            .Log()
+            .Where(entry => entry["call"]?.GetValue<string>() == "complete_step")
+            .Select(entry => entry["result"]!.ToJsonString())
+            .ToList();
         Assert.Contains("blocked", answers[0], StringComparison.Ordinal);
         Assert.Contains("isError", answers[0], StringComparison.Ordinal);
         Assert.Contains("Step concluded. Wait for the next instruction.", answers[1], StringComparison.Ordinal);
@@ -282,7 +349,10 @@ public sealed class AcpTests : IDisposable
 
         Assert.Equal("added", result.Summary);
         Assert.Equal(0, page.Adds);
-        Assert.Contains(agent.Log(), entry => entry["call"]?.GetValue<string>() == "tap" && entry["result"]!.ToJsonString().Contains("The step has ended.", StringComparison.Ordinal));
+        Assert.Contains(agent.Log(), entry =>
+            entry["call"]?.GetValue<string>() == "tap"
+            && entry["result"]!.ToJsonString().Contains("The step has ended.", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -290,12 +360,24 @@ public sealed class AcpTests : IDisposable
     {
         var root = Path.Combine(_directory, "project");
         var agent = Scripted(_directory, Turns([new { own = "Bash: ls ~", kind = "execute" }, Pass]));
-        await using var session = await StartAsync(agent.Executor, new TodoPage().World(), debug: true, projectRoot: root);
+        await using var session = await StartAsync(
+            agent.Executor,
+            new TodoPage().World(),
+            debug: true,
+            projectRoot: root
+        );
 
         await session.Agent.ActAsync("add a todo");
 
-        Assert.Contains(agent.Log(), entry => entry["permission"]?.GetValue<string>() == "Bash: ls ~" && entry["outcome"]!["optionId"]!.GetValue<string>() == "no");
-        Assert.Contains("rejected tools of the agent's own: Bash: ls ~", Transcripts(root, session), StringComparison.Ordinal);
+        Assert.Contains(agent.Log(), entry =>
+            entry["permission"]?.GetValue<string>() == "Bash: ls ~"
+            && entry["outcome"]!["optionId"]!.GetValue<string>() == "no"
+        );
+        Assert.Contains(
+            "rejected tools of the agent's own: Bash: ls ~",
+            Transcripts(root, session),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -303,7 +385,10 @@ public sealed class AcpTests : IDisposable
     {
         var root = Path.Combine(_directory, "project");
         var page = new TodoPage();
-        var agent = Scripted(_directory, Turns([new { ran = "Read ~/.env", kind = "read" }, Fill("Title", "leaked"), Pass]));
+        var agent = Scripted(
+            _directory,
+            Turns([new { ran = "Read ~/.env", kind = "read" }, Fill("Title", "leaked"), Pass])
+        );
         await using var session = await StartAsync(agent.Executor, page.World(), debug: true, projectRoot: root);
 
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("add a todo"));
@@ -312,18 +397,25 @@ public sealed class AcpTests : IDisposable
         Assert.Contains("Read ~/.env", error.Message, StringComparison.Ordinal);
         Assert.NotEqual("leaked", page.Title!.Value);
         Assert.Contains(agent.Log(), entry => entry.ContainsKey("cancelled"));
-        Assert.Contains("tools of the agent's own that ran without asking: Read ~/.env", Transcripts(root, session), StringComparison.Ordinal);
+        Assert.Contains(
+            "tools of the agent's own that ran without asking: Read ~/.env",
+            Transcripts(root, session),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public async Task Starts_a_fresh_agent_for_the_next_step_after_a_tool_of_the_agents_own_ran()
     {
         // Keyed by step: the fresh agent starts its script over.
-        var agent = Scripted(_directory, new Dictionary<string, object>
-        {
-            ["Step: add a todo"] = new object[] { new { ran = "Read ~/.env", kind = "read" }, Pass },
-            ["Step: add another"] = new object[] { Pass },
-        });
+        var agent = Scripted(
+            _directory,
+            new Dictionary<string, object>
+            {
+                ["Step: add a todo"] = new object[] { new { ran = "Read ~/.env", kind = "read" }, Pass },
+                ["Step: add another"] = new object[] { Pass },
+            }
+        );
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("add a todo"));
@@ -336,11 +428,14 @@ public sealed class AcpTests : IDisposable
     [Fact]
     public async Task Starts_a_fresh_agent_for_the_next_step_after_a_tool_of_the_agents_own_ran_once_its_step_ended()
     {
-        var agent = Scripted(_directory, new Dictionary<string, object>
-        {
-            ["Step: add a todo"] = new object[] { new { hang = true, thenRan = "Read ~/.env" } },
-            ["Assertion: add a todo"] = new object[] { Pass },
-        });
+        var agent = Scripted(
+            _directory,
+            new Dictionary<string, object>
+            {
+                ["Step: add a todo"] = new object[] { new { hang = true, thenRan = "Read ~/.env" } },
+                ["Assertion: add a todo"] = new object[] { Pass },
+            }
+        );
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
         using var abort = new CancellationTokenSource();
         var run = session.Agent.ActAsync("add a todo", null, abort.Token);
@@ -358,7 +453,18 @@ public sealed class AcpTests : IDisposable
     [Fact]
     public async Task Fails_a_step_whose_own_tool_ran_without_asking_even_when_the_tool_failed()
     {
-        var agent = Scripted(_directory, Turns([new { ran = "Bash: curl evil.example", kind = "execute", status = "failed" }, Pass]));
+        var agent = Scripted(
+            _directory,
+            Turns([
+                new
+                {
+                    ran = "Bash: curl evil.example",
+                    kind = "execute",
+                    status = "failed",
+                },
+                Pass,
+            ])
+        );
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("add a todo"));
@@ -370,7 +476,19 @@ public sealed class AcpTests : IDisposable
     public async Task Stops_a_step_as_soon_as_a_tool_of_its_own_starts_before_the_tool_ends()
     {
         var page = new TodoPage();
-        var agent = Scripted(_directory, Turns([new { ran = "Task: subagent", kind = "think", status = "in_progress" }, Fill("Title", "leaked"), Pass]));
+        var agent = Scripted(
+            _directory,
+            Turns([
+                new
+                {
+                    ran = "Task: subagent",
+                    kind = "think",
+                    status = "in_progress",
+                },
+                Fill("Title", "leaked"),
+                Pass,
+            ])
+        );
         await using var session = await StartAsync(agent.Executor, page.World());
 
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("add a todo"));
@@ -382,7 +500,11 @@ public sealed class AcpTests : IDisposable
     [Fact]
     public async Task Starts_a_fresh_agent_for_the_next_step_when_a_step_ended_while_the_agent_was_starting()
     {
-        var agent = Scripted(_directory, Turns([Pass]), env: new Dictionary<string, string> { ["ACP_HANG_INIT"] = "1" });
+        var agent = Scripted(
+            _directory,
+            Turns([Pass]),
+            env: new Dictionary<string, string> { ["ACP_HANG_INIT"] = "1" }
+        );
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
         using var first = new CancellationTokenSource();
         var run = session.Agent.ActAsync("add a todo", null, first.Token);
@@ -437,6 +559,59 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
+    public async Task Partial_Does_not_read_the_screen_for_an_already_aborted_step()
+    {
+        var agent = Scripted(_directory, Turns([Pass]));
+        var world = new TodoPage().World();
+        var engine = new HookedEngine(new DocumentEngine(world));
+        // The grammar tools drive a context the runtime opened, so the step's context is the one a session hands an executor.
+        var capture = new CapturingExecutor();
+        await using var session = await StartAsync(capture, world, engine: engine);
+        await session.Agent.ActAsync("add a todo");
+        var step = capture.Context!;
+        var before = engine.Observations;
+        using var abort = new CancellationTokenSource();
+        await abort.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => agent.Executor.RunStepAsync(step, abort.Token));
+
+        Assert.Equal(before, engine.Observations);
+    }
+
+    [Fact]
+    public async Task Ends_a_cancelled_step_without_waiting_for_its_opening_screen()
+    {
+        var agent = Scripted(_directory, Turns([Pass], [Pass]));
+        var world = new TodoPage().World();
+        var engine = new HookedEngine(new DocumentEngine(world));
+        await using var session = await StartAsync(agent.Executor, world, engine: engine);
+        await session.Agent.ActAsync("add a todo");
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var before = engine.Observations;
+        engine.Hold = release.Task;
+        var run = session.Agent.ActAsync("add a todo", new ActOptions { Timeout = TimeSpan.FromMilliseconds(500) });
+        try
+        {
+            await EventuallyAsync(() => Assert.True(engine.Observations > before));
+            var reason = await Assert.ThrowsAsync<AgentException>(() => run.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Equal("STEP_TIMEOUT", reason.Code);
+            Assert.Single(agent.Prompts());
+            engine.Hold = null;
+            var result = await session.Agent.ActAsync("add a todo");
+            Assert.Equal("added", result.Summary);
+            Assert.Single(agent.Sessions());
+        }
+        finally
+        {
+            release.TrySetResult();
+            await Task.WhenAny(run);
+            await run.ContinueWith(_ => { }, TaskScheduler.Default);
+        }
+
+        Assert.Equal(2, agent.Prompts().Count);
+    }
+
+    [Fact]
     public async Task Gives_up_on_a_session_whose_agent_never_stops_the_turn_of_a_step_that_ended()
     {
         var agent = Scripted(_directory, Turns([new { ignoreCancel = true }], [Pass]));
@@ -454,36 +629,117 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
+    public async Task Preserves_cancellation_while_waiting_for_the_previous_turn_to_stop()
+    {
+        var agent = Scripted(_directory, Turns([new { ignoreCancel = true }], [Pass]));
+        var world = new TodoPage().World();
+        var engine = new HookedEngine(new DocumentEngine(world));
+        await using var session = await StartAsync(agent.Executor, world, engine: engine);
+        var run = session.Agent.ActAsync("add a todo", new ActOptions { Timeout = TimeSpan.FromSeconds(1) });
+        await EventuallyAsync(() => Assert.Single(agent.Prompts()));
+        var firstError = await Assert.ThrowsAsync<AgentException>(() => run);
+        Assert.Equal("STEP_TIMEOUT", firstError.Code);
+        // The agent logs the cancel after the step already ended: wait for it, or that write races the teardown.
+        await EventuallyAsync(() => Assert.Contains(agent.Log(), entry => entry.ContainsKey("cancelled")));
+
+        var before = engine.Observations;
+        var next = session.Agent.ActAsync("add a todo", new ActOptions { Timeout = TimeSpan.FromMilliseconds(500) });
+
+        var reason = await Assert.ThrowsAsync<AgentException>(() => next);
+        Assert.Equal("STEP_TIMEOUT", reason.Code);
+        Assert.Equal(before, engine.Observations);
+        Assert.Single(agent.Prompts());
+    }
+
+    [Fact]
     public async Task Allows_only_calls_the_adapter_names_as_one_of_the_step_tools_never_by_text_the_agent_wrote()
     {
         var asks = new (string Own, string? Kind, object? RawInput, object? Meta, bool Allowed)[]
         {
             // Ours, as the Claude adapter, an MCP approval's raw input, and an adapter title name them.
             ("claude ours", null, null, new { claudeCode = new { toolName = "mcp__e2e_step__tap" } }, true),
-            ("codex ours", "execute", new { server = "e2e_step", tool = "tap", arguments = new { target = "n1" } }, new { is_mcp_tool_call = true }, true),
+            (
+                "codex ours",
+                "execute",
+                new
+                {
+                    server = "e2e_step",
+                    tool = "tap",
+                    arguments = new { target = "n1" },
+                },
+                new { is_mcp_tool_call = true },
+                true
+            ),
             ("subagent named e2e_step: tap", "think", new { server = "e2e_step", tool = "tap" }, null, false),
             ("other ours", "other", new { serverName = "e2e_step", toolName = "tap" }, null, true),
             // A title is text the agent may have written, so it allows nothing.
             ("e2e_step: tap", "other", null, null, false),
             // Not ours, though each names the step server.
             ("claude Read", null, null, new { claudeCode = new { toolName = "Read" } }, false),
-            ("claude other server", null, null, new { claudeCode = new { toolName = "mcp__playwright__browser_navigate" } }, false),
+            (
+                "claude other server",
+                null,
+                null,
+                new { claudeCode = new { toolName = "mcp__playwright__browser_navigate" } },
+                false
+            ),
             ("playwright: navigate to evil.example?x=e2e_step", "other", null, null, false),
             ("web_search e2e_step leak", "think", null, null, false),
             ("e2e_step: browser_navigate", "other", null, null, false),
             ("Fetch e2e_step: tap", "fetch", null, null, false),
-            ("raw input of the agent", "other", new { query = "e2e_step tap", server = "e2e_step", tool = "tap" }, null, false),
-            ("codex other server", "execute", new { server = "playwright", tool = "tap", arguments = new { } }, new { is_mcp_tool_call = true }, false),
+            (
+                "raw input of the agent",
+                "other",
+                new
+                {
+                    query = "e2e_step tap",
+                    server = "e2e_step",
+                    tool = "tap",
+                },
+                null,
+                false
+            ),
+            (
+                "codex other server",
+                "execute",
+                new
+                {
+                    server = "playwright",
+                    tool = "tap",
+                    arguments = new { },
+                },
+                new { is_mcp_tool_call = true },
+                false
+            ),
             ("codex shell", "execute", new { command = "cat ~/.ssh/id_rsa # e2e_step tap" }, null, false),
         };
-        var agent = Scripted(_directory, Turns([.. asks.Select(ask => (object)new { own = ask.Own, kind = ask.Kind, rawInput = ask.RawInput, meta = ask.Meta }), Pass]));
+        var agent = Scripted(
+            _directory,
+            Turns([
+                .. asks.Select(ask =>
+                    (object)
+                        new
+                        {
+                            own = ask.Own,
+                            kind = ask.Kind,
+                            rawInput = ask.RawInput,
+                            meta = ask.Meta,
+                        }
+                ),
+                Pass,
+            ])
+        );
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
         await session.Agent.ActAsync("add a todo");
 
-        var outcomes = agent.Log()
+        var outcomes = agent
+            .Log()
             .Where(entry => entry.ContainsKey("permission"))
-            .ToDictionary(entry => entry["permission"]!.GetValue<string>(), entry => entry["outcome"]!["optionId"]!.GetValue<string>() == "yes");
+            .ToDictionary(
+                entry => entry["permission"]!.GetValue<string>(),
+                entry => entry["outcome"]!["optionId"]!.GetValue<string>() == "yes"
+            );
         Assert.Equal(asks.ToDictionary(ask => ask.Own, ask => ask.Allowed), outcomes);
     }
 
@@ -495,7 +751,12 @@ public sealed class AcpTests : IDisposable
         {
             own = "e2e_step.tap",
             kind = "execute",
-            rawInput = new { server = "e2e_step", tool = "tap", arguments = new { target = "n2" } },
+            rawInput = new
+            {
+                server = "e2e_step",
+                tool = "tap",
+                arguments = new { target = "n2" },
+            },
             requestMeta = new { is_mcp_tool_approval = true },
             status = "completed",
         };
@@ -505,7 +766,10 @@ public sealed class AcpTests : IDisposable
         var result = await session.Agent.ActAsync("add a todo");
 
         Assert.Equal("added", result.Summary);
-        Assert.Contains(agent.Log(), entry => entry["permission"]?.GetValue<string>() == "e2e_step.tap" && entry["outcome"]!["optionId"]!.GetValue<string>() == "yes");
+        Assert.Contains(agent.Log(), entry =>
+            entry["permission"]?.GetValue<string>() == "e2e_step.tap"
+            && entry["outcome"]!["optionId"]!.GetValue<string>() == "yes"
+        );
     }
 
     [Fact]
@@ -520,14 +784,28 @@ public sealed class AcpTests : IDisposable
         try
         {
             // Named in the executor's own env too, they still do not reach the agent.
-            var agent = Scripted(_directory, Turns([Pass]), env: new Dictionary<string, string> { ["E2E_SECRET_OTHER"] = "also-secret", ["E2E_ACP_TEST_KEPT"] = "1" });
+            var agent = Scripted(
+                _directory,
+                Turns([Pass]),
+                env: new Dictionary<string, string>
+                {
+                    ["E2E_SECRET_OTHER"] = "also-secret",
+                    ["E2E_ACP_TEST_KEPT"] = "1",
+                }
+            );
             await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
             await session.Agent.ActAsync("add a todo");
 
-            var env = Assert.Single(agent.Log(), entry => entry.ContainsKey("env"))["env"]!.AsArray().Select(name => name!.GetValue<string>()).ToList();
+            var env = Assert.Single(agent.Log(), entry => entry.ContainsKey("env"))["env"]!
+                .AsArray()
+                .Select(name => name!.GetValue<string>())
+                .ToList();
             Assert.Contains("E2E_ACP_TEST_KEPT", env);
-            Assert.DoesNotContain(env, name => name.StartsWith("E2E_SECRET_", StringComparison.OrdinalIgnoreCase) || name.StartsWith("E2E_USER_", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(env, name =>
+                name.StartsWith("E2E_SECRET_", StringComparison.OrdinalIgnoreCase)
+                || name.StartsWith("E2E_USER_", StringComparison.OrdinalIgnoreCase)
+            );
         }
         finally
         {
@@ -553,7 +831,10 @@ public sealed class AcpTests : IDisposable
     [Fact]
     public async Task Reports_what_the_agent_said_about_a_turn_it_failed()
     {
-        var agent = Scripted(_directory, Turns([new { fail = "Quota exceeded. Check your plan and billing details." }]));
+        var agent = Scripted(
+            _directory,
+            Turns([new { fail = "Quota exceeded. Check your plan and billing details." }])
+        );
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("add a todo"));
@@ -571,9 +852,12 @@ public sealed class AcpTests : IDisposable
         var agent = Scripted(_directory, Turns([Tap("Add"), new { hang = true }]));
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync(
-            "add a todo",
-            new ActOptions { OnAction = _ => throw new InvalidOperationException("hook failed") }));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            session.Agent.ActAsync(
+                "add a todo",
+                new ActOptions { OnAction = _ => throw new InvalidOperationException("hook failed") }
+            )
+        );
 
         Assert.Contains("onAction failed: hook failed", error.Message, StringComparison.Ordinal);
         Assert.Contains(agent.Log(), entry => entry.ContainsKey("cancelled"));
@@ -597,26 +881,52 @@ public sealed class AcpTests : IDisposable
     {
         // type_secret is listed for every step, and a step that declares no secrets is told so. The web engine takes the screenshot.
         using var site = PixelSite.Start("<!doctype html><title>t</title><h1>Hello</h1>");
-        var agent = Scripted(_directory, Turns([Call("screenshot"), Call("type_secret", new { target = "e1", name = "admin.password" }), Pass], [Pass]));
-        await using var session = await StartAsync(agent.Executor, new TodoPage().World(), engine: new WebEngine(headless: true), baseUrl: site.Url);
+        var agent = Scripted(
+            _directory,
+            Turns(
+                [Call("screenshot"), Call("type_secret", new { target = "e1", name = "admin.password" }), Pass],
+                [Pass]
+            )
+        );
+        await using var session = await StartAsync(
+            agent.Executor,
+            new TodoPage().World(),
+            engine: new WebEngine(headless: true),
+            baseUrl: site.Url
+        );
 
         await session.Agent.ActAsync("add a todo");
         await session.Agent.ActAsync("add a todo");
 
-        var offered = Assert.Single(agent.Sessions())["session"]!["tools"]!.AsArray().Select(tool => tool!.GetValue<string>()).ToList();
+        var offered = Assert.Single(agent.Sessions())["session"]!["tools"]!
+            .AsArray()
+            .Select(tool => tool!.GetValue<string>())
+            .ToList();
         Assert.Contains("type_secret", offered);
-        Assert.Contains("Not offered in this step: type_secret (this step declares no secrets).", agent.Prompts()[0], StringComparison.Ordinal);
+        Assert.Contains(
+            "Not offered in this step: type_secret (this step declares no secrets).",
+            agent.Prompts()[0],
+            StringComparison.Ordinal
+        );
         Assert.Contains("this step declares no secrets", agent.ResultOf("type_secret"), StringComparison.Ordinal);
         // A screenshot reaches the agent as an MCP image.
-        var shot = agent.Log().First(entry => entry["call"]?.GetValue<string>() == "screenshot")["result"]!["content"]!.AsArray();
-        Assert.Contains(shot, part => part?["type"]?.GetValue<string>() == "image" && part["mimeType"]?.GetValue<string>() == "image/png");
+        var shot = agent.Log().First(entry => entry["call"]?.GetValue<string>() == "screenshot")["result"]![
+            "content"
+        ]!.AsArray();
+        Assert.Contains(shot, part =>
+            part?["type"]?.GetValue<string>() == "image" && part["mimeType"]?.GetValue<string>() == "image/png"
+        );
     }
 
     [Fact]
     public async Task Launches_the_agent_from_the_project_directory_and_opens_the_session_in_an_empty_one()
     {
         // A relative command resolves against the project, as `npx` finds a locally installed adapter.
-        var agent = Scripted(_directory, Turns([Pass]), command: Path.GetRelativePath(Environment.CurrentDirectory, AgentExecutable));
+        var agent = Scripted(
+            _directory,
+            Turns([Pass]),
+            command: Path.GetRelativePath(Environment.CurrentDirectory, AgentExecutable)
+        );
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
         await session.Agent.ActAsync("add a todo");
@@ -630,7 +940,11 @@ public sealed class AcpTests : IDisposable
     {
         var first = Scripted(_directory, Turns([Pass]), new AcpOptions { Model = "fast" });
         var second = Scripted(_directory, Turns([Pass]), new AcpOptions { Model = "slow" });
-        await using var session = await StartAsync(first.Executor, new TodoPage().World(), agents: new Dictionary<string, AgentOptions> { ["second"] = new() { Executor = second.Executor } });
+        await using var session = await StartAsync(
+            first.Executor,
+            new TodoPage().World(),
+            agents: new Dictionary<string, AgentOptions> { ["second"] = new() { Executor = second.Executor } }
+        );
 
         await session.Agent.ActAsync("add a todo");
         await session.Agent.ActAsync("add a todo", new ActOptions { Agent = "second" });
@@ -644,7 +958,11 @@ public sealed class AcpTests : IDisposable
     public async Task Partial_Stops_an_agent_that_hangs_at_startup_when_the_attempt_ends()
     {
         // Partial: the port's step ends with its attempt, so the step reports the end of the attempt rather than the agent's start failing.
-        var agent = Scripted(_directory, Turns([Pass]), env: new Dictionary<string, string> { ["ACP_HANG_INIT"] = "1" });
+        var agent = Scripted(
+            _directory,
+            Turns([Pass]),
+            env: new Dictionary<string, string> { ["ACP_HANG_INIT"] = "1" }
+        );
         var session = await StartAsync(agent.Executor, new TodoPage().World());
         var run = session.Agent.ActAsync("add a todo");
         await EventuallyAsync(() => Assert.Single(agent.Pids()));
@@ -660,10 +978,16 @@ public sealed class AcpTests : IDisposable
     [Fact]
     public async Task Ends_a_step_that_times_out_while_the_agent_is_still_starting()
     {
-        var agent = Scripted(_directory, Turns([Pass]), env: new Dictionary<string, string> { ["ACP_HANG_INIT"] = "1" });
+        var agent = Scripted(
+            _directory,
+            Turns([Pass]),
+            env: new Dictionary<string, string> { ["ACP_HANG_INIT"] = "1" }
+        );
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("add a todo", new ActOptions { Timeout = TimeSpan.FromSeconds(1) }));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            session.Agent.ActAsync("add a todo", new ActOptions { Timeout = TimeSpan.FromSeconds(1) })
+        );
 
         Assert.Equal("STEP_TIMEOUT", error.Code);
     }
@@ -682,7 +1006,14 @@ public sealed class AcpTests : IDisposable
     private static object Call(string tool, object? args = null) => new { call = tool, args = args ?? new { } };
 
     // The ids the document world's screen lists, in the order the page declares them.
-    private static string IdOf(string name) => name switch { "Title" => "e1", "Add" => "e2", "Slow" => "e3", _ => throw new ArgumentOutOfRangeException(nameof(name)) };
+    private static string IdOf(string name) =>
+        name switch
+        {
+            "Title" => "e1",
+            "Add" => "e2",
+            "Slow" => "e3",
+            _ => throw new ArgumentOutOfRangeException(nameof(name)),
+        };
 
     private static object Tap(string name) => Call("tap", new { target = IdOf(name) });
 
@@ -695,6 +1026,23 @@ public sealed class AcpTests : IDisposable
     private static string Transcripts(string root, E2ESession session)
     {
         session.Complete();
-        return string.Join('\n', Directory.GetFiles(root, "transcript-*.txt", SearchOption.AllDirectories).Select(File.ReadAllText));
+        return string.Join(
+            '\n',
+            Directory.GetFiles(root, "transcript-*.txt", SearchOption.AllDirectories).Select(File.ReadAllText)
+        );
+    }
+
+    /// <summary>An executor that passes every step and keeps the context it was given.</summary>
+    private sealed class CapturingExecutor : IStepExecutor
+    {
+        public string Name => "capture";
+
+        public StepExecutorContext? Context { get; private set; }
+
+        public Task<StepVerdict> RunStepAsync(StepExecutorContext context, CancellationToken cancellationToken)
+        {
+            Context = context;
+            return Task.FromResult(new StepVerdict(StepVerdictStatus.Passed, "added"));
+        }
     }
 }

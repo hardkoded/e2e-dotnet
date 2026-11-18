@@ -26,14 +26,23 @@ public sealed class ApplyPostStepsTests
     {
         PostStep[] built =
         [
-            .. steps.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(step => Index(step switch
-            {
-                "first" => 0,
-                "last" => LocatorExpression.LastIndex,
-                _ => int.Parse(step, System.Globalization.CultureInfo.InvariantCulture),
-            })),
+            .. steps
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(step =>
+                    Index(
+                        step switch
+                        {
+                            "first" => 0,
+                            "last" => LocatorExpression.LastIndex,
+                            _ => int.Parse(step, System.Globalization.CultureInfo.InvariantCulture),
+                        }
+                    )
+                ),
         ];
-        Assert.Equal(expected.Split(' ', StringSplitOptions.RemoveEmptyEntries), await WebLocators.ApplyPostSteps(Matches, built, Never));
+        Assert.Equal(
+            expected.Split(' ', StringSplitOptions.RemoveEmptyEntries),
+            await WebLocators.ApplyPostSteps(Matches, built, Never)
+        );
     }
 
     [Fact]
@@ -48,7 +57,8 @@ public sealed class ApplyPostStepsTests
             {
                 asked.Add($"{match}:{options.HasText}");
                 return Task.FromResult(match == "c");
-            });
+            }
+        );
         Assert.Equal(["c"], kept);
         Assert.Equal(["c:x"], asked);
         Assert.Empty(await WebLocators.ApplyPostSteps(Matches, [Index(0), filter], Never));

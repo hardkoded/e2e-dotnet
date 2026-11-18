@@ -10,7 +10,8 @@ namespace E2E.Expo;
 /// <summary>The clock and sleep the provider polls with: a test swaps them so a run of minutes takes no time.</summary>
 internal sealed record EasClock(Func<long> NowMilliseconds, Func<TimeSpan, CancellationToken, Task> Delay)
 {
-    public static EasClock Real { get; } = new(() => Environment.TickCount64, (delay, token) => Task.Delay(delay, token));
+    public static EasClock Real { get; } =
+        new(() => Environment.TickCount64, (delay, token) => Task.Delay(delay, token));
 }
 
 /// <summary>
@@ -62,9 +63,7 @@ public sealed class ExpoSimulators : IDeviceProvider
     private readonly ConcurrentDictionary<string, EasSessions> _clients = new(StringComparer.Ordinal);
 
     public ExpoSimulators(ExpoSimulatorsOptions? options = null)
-        : this(options, SharedHttp, EasClock.Real)
-    {
-    }
+        : this(options, SharedHttp, EasClock.Real) { }
 
     internal ExpoSimulators(ExpoSimulatorsOptions? options, HttpClient http, EasClock clock)
     {
@@ -73,26 +72,42 @@ public sealed class ExpoSimulators : IDeviceProvider
         _clock = clock;
         if (_options.MaxIdleTimeMinutes < 0)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "expoSimulators: `maxIdleTimeMinutes` must be a non-negative integer");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "expoSimulators: `maxIdleTimeMinutes` must be a non-negative integer"
+            );
         }
 
         if (_options.MaxDurationMinutes < 0)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "expoSimulators: `maxDurationMinutes` must be a non-negative integer");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "expoSimulators: `maxDurationMinutes` must be a non-negative integer"
+            );
         }
 
         if (_options.BuildId is not null && _options.ApplicationArchiveUrl is not null)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "expoSimulators: pass `buildId` or `applicationArchiveUrl`, not both");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "expoSimulators: pass `buildId` or `applicationArchiveUrl`, not both"
+            );
         }
 
         if (_options.MaxIdleTimeMinutes is { } idle && _options.MaxDurationMinutes is { } duration && idle >= duration)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "expoSimulators: `maxIdleTimeMinutes` must be below `maxDurationMinutes`, as Expo requires");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "expoSimulators: `maxIdleTimeMinutes` must be below `maxDurationMinutes`, as Expo requires"
+            );
         }
 
         var idleMinutes = _options.MaxIdleTimeMinutes
-            ?? (_options.MaxDurationMinutes is { } limit ? Math.Min(DefaultMaxIdleTimeMinutes, limit - 1) : DefaultMaxIdleTimeMinutes);
+            ?? (
+                _options.MaxDurationMinutes is { } limit
+                    ? Math.Min(DefaultMaxIdleTimeMinutes, limit - 1)
+                    : DefaultMaxIdleTimeMinutes
+            );
 
         // Expo takes no idle limit of zero; a session that short runs to its duration.
         _maxIdleTimeMinutes = idleMinutes >= 1 ? idleMinutes : null;
@@ -111,7 +126,9 @@ public sealed class ExpoSimulators : IDeviceProvider
         cancellationToken.ThrowIfCancellationRequested();
         if (request.AppPath is not null && (_options.BuildId is not null || _options.ApplicationArchiveUrl is not null))
         {
-            throw new InvalidOperationException("Expo installs the app from `buildId` or `applicationArchiveUrl`; leave the target's `app.appPath` out");
+            throw new InvalidOperationException(
+                "Expo installs the app from `buildId` or `applicationArchiveUrl`; leave the target's `app.appPath` out"
+            );
         }
 
         var appId = await ProjectIdAsync(request, cancellationToken).ConfigureAwait(false);
@@ -122,21 +139,24 @@ public sealed class ExpoSimulators : IDeviceProvider
         // The 60 s bound can still fire after Expo created it. No id is known then and the client cannot list sessions, so
         // that session is left to Expo's idle and duration limits.
         using var createTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        var created = await client.CreateAsync(
-            new EasSessionParams
-            {
-                AppId = appId,
-                Platform = request.Platform,
-                Name = $"e2e {request.TargetName} {request.Slot + 1} of {request.Slots}",
-                Tags = [.. _options.Tags, "e2e", $"e2e-run:{request.RunId}", $"e2e-target:{request.TargetName}"],
-                BuildId = _options.BuildId,
-                ApplicationArchiveUrl = _options.ApplicationArchiveUrl,
-                DeviceIdentifier = _options.Device,
-                MaxIdleTimeMinutes = _maxIdleTimeMinutes,
-                MaxRunTimeMinutes = _options.MaxDurationMinutes,
-                PackageVersion = _options.AgentDeviceVersion ?? request.AgentDeviceVersion,
-            },
-            createTimeout.Token).ConfigureAwait(false);
+        var created = await client
+            .CreateAsync(
+                new EasSessionParams
+                {
+                    AppId = appId,
+                    Platform = request.Platform,
+                    Name = $"e2e {request.TargetName} {request.Slot + 1} of {request.Slots}",
+                    Tags = [.. _options.Tags, "e2e", $"e2e-run:{request.RunId}", $"e2e-target:{request.TargetName}"],
+                    BuildId = _options.BuildId,
+                    ApplicationArchiveUrl = _options.ApplicationArchiveUrl,
+                    DeviceIdentifier = _options.Device,
+                    MaxIdleTimeMinutes = _maxIdleTimeMinutes,
+                    MaxRunTimeMinutes = _options.MaxDurationMinutes,
+                    PackageVersion = _options.AgentDeviceVersion ?? request.AgentDeviceVersion,
+                },
+                createTimeout.Token
+            )
+            .ConfigureAwait(false);
         request.Log($"simulator session {created.Id}, {created.Url}");
         try
         {
@@ -183,13 +203,18 @@ public sealed class ExpoSimulators : IDeviceProvider
             }
 
             var reason = cancellationToken.IsCancellationRequested ? "cancelled" : cause.Message;
-            throw new InvalidOperationException($"simulator session {created.Id} did not become ready: {reason}; {outcome}, {created.Url}", cause);
+            throw new InvalidOperationException(
+                $"simulator session {created.Id} did not become ready: {reason}; {outcome}, {created.Url}",
+                cause
+            );
         }
     }
 
     public async Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken)
     {
-        foreach (var key in ProjectIds.Keys.Where(key => key.StartsWith($"{context.RunId}\0", StringComparison.Ordinal)))
+        foreach (
+            var key in ProjectIds.Keys.Where(key => key.StartsWith($"{context.RunId}\0", StringComparison.Ordinal))
+        )
         {
             ProjectIds.TryRemove(key, out _);
         }
@@ -206,7 +231,9 @@ public sealed class ExpoSimulators : IDeviceProvider
             }
         }
 
-        var client = lease is EasLease own ? own.Sessions : await ClientForAsync(context.Env, cancellationToken).ConfigureAwait(false);
+        var client = lease is EasLease own
+            ? own.Sessions
+            : await ClientForAsync(context.Env, cancellationToken).ConfigureAwait(false);
         await client.StopAsync(lease.Id, cancellationToken).ConfigureAwait(false);
     }
 
@@ -218,7 +245,9 @@ public sealed class ExpoSimulators : IDeviceProvider
         }
 
         var key = $"{request.RunId}\0{request.ProjectRoot}";
-        var resolved = ProjectIds.GetOrAdd(key, _ => ExpoProject.ProjectIdAsync(request.ProjectRoot, request.Env, cancellationToken));
+        var resolved = ProjectIds.GetOrAdd(key, _ =>
+            ExpoProject.ProjectIdAsync(request.ProjectRoot, request.Env, cancellationToken)
+        );
         try
         {
             return await resolved.ConfigureAwait(false);
@@ -231,10 +260,15 @@ public sealed class ExpoSimulators : IDeviceProvider
         }
     }
 
-    private async Task<EasSessions> ClientForAsync(IReadOnlyDictionary<string, string?> env, CancellationToken cancellationToken)
+    private async Task<EasSessions> ClientForAsync(
+        IReadOnlyDictionary<string, string?> env,
+        CancellationToken cancellationToken
+    )
     {
         var credentials = await ExpoCredentials.ReadAsync(env, cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException($"{ExpoCredentials.TokenVariable} is not set and eas-cli is not logged in; run `eas login` or set {ExpoCredentials.TokenVariable}");
+            ?? throw new InvalidOperationException(
+                $"{ExpoCredentials.TokenVariable} is not set and eas-cli is not logged in; run `eas login` or set {ExpoCredentials.TokenVariable}"
+            );
         return _clients.GetOrAdd(credentials.Key, _ => new EasSessions(credentials, _http));
     }
 
@@ -244,7 +278,12 @@ public sealed class ExpoSimulators : IDeviceProvider
     /// waits, ends, or the API fails several polls in a row. The idle clock counts from ready: warm-up commands may reset
     /// it at Expo, so the give up can come that much early, never late.
     /// </summary>
-    private async Task<EasSessionState> ReadyAsync(EasSessions client, string id, DeviceRequest request, CancellationToken cancellationToken)
+    private async Task<EasSessionState> ReadyAsync(
+        EasSessions client,
+        string id,
+        DeviceRequest request,
+        CancellationToken cancellationToken
+    )
     {
         var queuedSince = _clock.NowMilliseconds();
         long? startedAt = null;
@@ -284,13 +323,16 @@ public sealed class ExpoSimulators : IDeviceProvider
                 if (EarliestIdleDeadline(request.RunId) is { } deadline && now >= deadline)
                 {
                     throw new InvalidOperationException(
-                        "still queued while another session of this run idled to its `maxIdleTimeMinutes`, where Expo stops it; lower `workers` or raise `maxIdleTimeMinutes`");
+                        "still queued while another session of this run idled to its `maxIdleTimeMinutes`, where Expo stops it; lower `workers` or raise `maxIdleTimeMinutes`"
+                    );
                 }
 
                 if (!noticed && now - queuedSince >= QueueNotice.TotalMilliseconds)
                 {
                     noticed = true;
-                    request.Log("still queued at Expo after two minutes; tests start once every worker has a simulator");
+                    request.Log(
+                        "still queued at Expo after two minutes; tests start once every worker has a simulator"
+                    );
                 }
             }
             else

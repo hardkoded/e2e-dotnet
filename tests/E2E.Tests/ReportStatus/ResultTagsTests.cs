@@ -17,6 +17,9 @@ public sealed class ResultTagsTests
 
         var document = Build([plain, tagged]);
 
-        Assert.Equal(new string[][] { [], ["smoke", "billing"] }, document.Run.Results.Select(result => result.Tags.ToArray()));
+        Assert.Equal(
+            new string[][] { [], ["smoke", "billing"] },
+            document.Run.Results.Select(result => result.Tags.ToArray())
+        );
     }
 }

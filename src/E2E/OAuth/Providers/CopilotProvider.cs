@@ -25,7 +25,11 @@ public sealed partial class CopilotProvider : IOAuthProvider
     /// <param name="http">Sends the login's own requests. Unset, a shared client.</param>
     /// <param name="githubUrl">Test seam: the GitHub host the device flow talks to.</param>
     /// <param name="githubCliToken">Test seam: how the GitHub CLI's token is read for a host.</param>
-    public CopilotProvider(HttpClient? http = null, string? githubUrl = null, Func<string?, CancellationToken, Task<string?>>? githubCliToken = null)
+    public CopilotProvider(
+        HttpClient? http = null,
+        string? githubUrl = null,
+        Func<string?, CancellationToken, Task<string?>>? githubCliToken = null
+    )
     {
         _http = http ?? OAuthHttp.Shared;
         _githubUrl = githubUrl;
@@ -36,7 +40,11 @@ public sealed partial class CopilotProvider : IOAuthProvider
 
     public string Name => "GitHub Copilot";
 
-    public async Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken)
+    public async Task<OAuthCredentials> LoginAsync(
+        OAuthLoginCallbacks callbacks,
+        OAuthLoginOptions options,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(callbacks);
         ArgumentNullException.ThrowIfNull(options);
@@ -50,24 +58,40 @@ public sealed partial class CopilotProvider : IOAuthProvider
         if (options.ClientId is not null && !options.FromGitHubCli)
         {
             var github = _githubUrl ?? "https://" + (enterprise ?? "github.com");
-            var tokens = await DeviceFlow.Rfc8628Async(
-                _http,
-                "GitHub",
-                github + "/login/device/code",
-                github + "/login/oauth/access_token",
-                options.ClientId,
-                new Dictionary<string, string>(StringComparer.Ordinal) { ["scope"] = "read:user" },
-                callbacks,
-                cancellationToken).ConfigureAwait(false);
-            return new OAuthCredentials { Access = tokens.AccessToken, Refresh = "", Expires = 0, Extra = extra };
+            var tokens = await DeviceFlow
+                .Rfc8628Async(
+                    _http,
+                    "GitHub",
+                    github + "/login/device/code",
+                    github + "/login/oauth/access_token",
+                    options.ClientId,
+                    new Dictionary<string, string>(StringComparer.Ordinal) { ["scope"] = "read:user" },
+                    callbacks,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            return new OAuthCredentials
+            {
+                Access = tokens.AccessToken,
+                Refresh = "",
+                Expires = 0,
+                Extra = extra,
+            };
         }
 
         var token = await _cliToken(enterprise, cancellationToken).ConfigureAwait(false)
             ?? throw new OAuthException(
                 OAuthException.Misconfigured,
-                "GitHub Copilot login needs either the GitHub CLI signed in (gh auth login) or the client id of a GitHub OAuth App with the device flow enabled");
+                "GitHub Copilot login needs either the GitHub CLI signed in (gh auth login) or the client id of a GitHub OAuth App with the device flow enabled"
+            );
         callbacks.OnProgress?.Invoke("Using the GitHub CLI token");
-        return new OAuthCredentials { Access = token, Refresh = "", Expires = 0, Extra = extra };
+        return new OAuthCredentials
+        {
+            Access = token,
+            Refresh = "",
+            Expires = 0,
+            Extra = extra,
+        };
     }
 
     public Task<OAuthCredentials> RefreshAsync(OAuthCredentials credentials, CancellationToken cancellationToken)
@@ -76,18 +100,27 @@ public sealed partial class CopilotProvider : IOAuthProvider
     }
 
     /// <summary>Routes an enterprise login at its host and adds Copilot's headers: who initiated the turn, and that images are present.</summary>
-    public async Task PrepareAsync(HttpRequestMessage request, OAuthCredentials credentials, CancellationToken cancellationToken)
+    public async Task PrepareAsync(
+        HttpRequestMessage request,
+        OAuthCredentials credentials,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(credentials);
-        if (credentials.Get("enterpriseUrl") is { Length: > 0 } enterprise && request.RequestUri is { } uri
-            && string.Equals(uri.GetLeftPart(UriPartial.Authority), ApiUrl, StringComparison.OrdinalIgnoreCase))
+        if (
+            credentials.Get("enterpriseUrl") is { Length: > 0 } enterprise
+            && request.RequestUri is { } uri
+            && string.Equals(uri.GetLeftPart(UriPartial.Authority), ApiUrl, StringComparison.OrdinalIgnoreCase)
+        )
         {
             request.RequestUri = new UriBuilder(uri) { Host = new Uri(BaseUrl(enterprise)).Host }.Uri;
         }
 
         request.Headers.TryAddWithoutValidation("openai-intent", "conversation-edits");
-        var text = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var text = request.Content is null
+            ? null
+            : await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         var (initiator, vision) = Turn(text);
         request.Headers.TryAddWithoutValidation("x-initiator", initiator);
         if (vision)
@@ -100,13 +133,21 @@ public sealed partial class CopilotProvider : IOAuthProvider
     /// The chat models the plan serves. A model it cannot call is listed but marked: one the plan has not enabled,
     /// or one Copilot serves only over APIs these clients do not speak.
     /// </summary>
-    public async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(HttpClient http, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+        HttpClient http,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(http);
-        var payload = await OAuthHttp.GetJsonAsync(http, ApiUrl + "/models", Name, cancellationToken).ConfigureAwait(false);
-        return (payload["data"] as JsonArray ?? []).OfType<JsonObject>()
-            .Where(model => !string.IsNullOrEmpty(TokenEndpoint.Text(model, "id"))
-                && (model["capabilities"]?["type"] is null || model["capabilities"]?["type"]?.ToString() == "chat"))
+        var payload = await OAuthHttp
+            .GetJsonAsync(http, ApiUrl + "/models", Name, cancellationToken)
+            .ConfigureAwait(false);
+        return (payload["data"] as JsonArray ?? [])
+            .OfType<JsonObject>()
+            .Where(model =>
+                !string.IsNullOrEmpty(TokenEndpoint.Text(model, "id"))
+                && (model["capabilities"]?["type"] is null || model["capabilities"]?["type"]?.ToString() == "chat")
+            )
             .Select(model =>
             {
                 var supports = model["capabilities"]?["supports"];
@@ -116,13 +157,18 @@ public sealed partial class CopilotProvider : IOAuthProvider
                     IsTrue(supports?["tool_calls"]) ? "tools" : null,
                     IsTrue(supports?["vision"]) ? "vision" : null,
                     IsTrue(model["preview"]) ? "preview" : null,
-                    model["policy"]?["state"] is JsonValue state && state.ToString() != "enabled" ? "not enabled" : null,
+                    model["policy"]?["state"] is JsonValue state && state.ToString() != "enabled"
+                        ? "not enabled"
+                        : null,
                     Protocol(model) is null ? "no chat or responses" : null,
-                }.OfType<string>().ToList();
+                }
+                    .OfType<string>()
+                    .ToList();
                 return new SubscriptionModel(
                     TokenEndpoint.Text(model, "id")!,
                     TokenEndpoint.Text(model, "name") is { Length: > 0 } name ? name : null,
-                    detail.Count == 0 ? null : string.Join(", ", detail));
+                    detail.Count == 0 ? null : string.Join(", ", detail)
+                );
             })
             .ToList();
     }
@@ -132,17 +178,27 @@ public sealed partial class CopilotProvider : IOAuthProvider
     /// listing. Null when the listing could not be read, so the caller asks again next time. A model the listing
     /// does not name is chat; the vendor's own error then explains it.
     /// </summary>
-    internal static async Task<string?> ProtocolForAsync(string modelId, HttpClient http, CancellationToken cancellationToken)
+    internal static async Task<string?> ProtocolForAsync(
+        string modelId,
+        HttpClient http,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            using var response = await http.GetAsync(new Uri(ApiUrl + "/models"), cancellationToken).ConfigureAwait(false);
+            using var response = await http.GetAsync(new Uri(ApiUrl + "/models"), cancellationToken)
+                .ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 return null;
             }
 
-            if (JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false))?["data"] is not JsonArray data)
+            if (
+                JsonNode
+                    .Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false))
+                    ?["data"]
+                is not JsonArray data
+            )
             {
                 return null;
             }
@@ -159,7 +215,9 @@ public sealed partial class CopilotProvider : IOAuthProvider
     /// <summary>Why <paramref name="modelId"/> cannot be used, as the error reads it, once Copilot answered <c>model_not_supported</c>.</summary>
     internal static string Refusal(string modelId)
     {
-        return "GitHub Copilot does not serve " + modelId + " to this account: the plan does not include it, it is turned off in Copilot settings on GitHub, or Copilot lists no such id; `e2e models github-copilot` lists the ids, and the listing cannot see plan limits";
+        return "GitHub Copilot does not serve "
+            + modelId
+            + " to this account: the plan does not include it, it is turned off in Copilot settings on GitHub, or Copilot lists no such id; `e2e models github-copilot` lists the ids, and the listing cannot see plan limits";
     }
 
     /// <summary>True for a 4xx whose body code is <c>model_not_supported</c>; a wrong endpoint (<c>unsupported_api_for_model</c>) is not this.</summary>
@@ -181,13 +239,23 @@ public sealed partial class CopilotProvider : IOAuthProvider
     public static string EnterpriseHost(string value)
     {
         ArgumentNullException.ThrowIfNull(value);
-        var refusal = new OAuthException(OAuthException.Misconfigured, value + " is not a GitHub Enterprise host; pass the hostname, e.g. github.example.com");
-        if (!Uri.TryCreate(value.Contains("://", StringComparison.Ordinal) ? value : "https://" + value, UriKind.Absolute, out var url))
+        var refusal = new OAuthException(
+            OAuthException.Misconfigured,
+            value + " is not a GitHub Enterprise host; pass the hostname, e.g. github.example.com"
+        );
+        if (
+            !Uri.TryCreate(
+                value.Contains("://", StringComparison.Ordinal) ? value : "https://" + value,
+                UriKind.Absolute,
+                out var url
+            )
+        )
         {
             throw refusal;
         }
 
-        var plain = url.Scheme == "https"
+        var plain =
+            url.Scheme == "https"
             && url.UserInfo.Length == 0
             && url.IsDefaultPort
             && url.AbsolutePath is "/" or ""
@@ -212,7 +280,9 @@ public sealed partial class CopilotProvider : IOAuthProvider
             var turns = (responses ? body?["input"] : body?["messages"]) as JsonArray ?? [];
             var part = responses ? "input_image" : "image_url";
             var last = turns.Count == 0 ? null : turns[^1]?["role"]?.ToString();
-            var vision = turns.Any(turn => turn?["content"] is JsonArray content && content.Any(item => item?["type"]?.ToString() == part));
+            var vision = turns.Any(turn =>
+                turn?["content"] is JsonArray content && content.Any(item => item?["type"]?.ToString() == part)
+            );
             return (last == "user" ? "user" : "agent", vision);
         }
         catch (JsonException)
@@ -247,7 +317,12 @@ public sealed partial class CopilotProvider : IOAuthProvider
     {
         try
         {
-            var start = new ProcessStartInfo("gh") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+            var start = new ProcessStartInfo("gh")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
             start.ArgumentList.Add("auth");
             start.ArgumentList.Add("token");
             if (hostname is not null)

@@ -49,7 +49,10 @@ public sealed class JudgmentParamsThroughACustomExecutorTests
             var observation = await context.ObserveAsync();
             try
             {
-                await context.Actions.TypeSecretAsync(TargetFor(observation.Text, "textbox \"Password\""), "member.password");
+                await context.Actions.TypeSecretAsync(
+                    TargetFor(observation.Text, "textbox \"Password\""),
+                    "member.password"
+                );
             }
             catch (Exception ex)
             {
@@ -57,17 +60,16 @@ public sealed class JudgmentParamsThroughACustomExecutorTests
             }
 
             return Passed("checked");
-        })
-        {
-            Version = "1",
-        };
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(WorldWithAPassword(_ => { })),
-            AgentExecutor = probing,
-            BaseUrl = "https://app.test",
-            TestTitle = "judgment params through a custom executor",
-        });
+        }) { Version = "1" };
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(WorldWithAPassword(_ => { })),
+                AgentExecutor = probing,
+                BaseUrl = "https://app.test",
+                TestTitle = "judgment params through a custom executor",
+            }
+        );
         await session.App.OpenAsync("/");
         await session.Agent.AssertAsync(
             "the table shows company {name}",
@@ -78,7 +80,8 @@ public sealed class JudgmentParamsThroughACustomExecutorTests
                     ["name"] = Values.Unique("acme-9902"),
                     ["password"] = Secret.Create("member.password", SecretValue, "password"),
                 },
-            });
+            }
+        );
         return (seen!, fillErrors);
     }
 }

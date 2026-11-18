@@ -11,9 +11,7 @@ namespace E2E.Internal;
 public sealed class Deadline(DateTimeOffset endsAt)
 {
     public Deadline(TimeSpan timeout, TimeProvider clock)
-        : this(clock.GetUtcNow() + timeout)
-    {
-    }
+        : this(clock.GetUtcNow() + timeout) { }
 
     public DateTimeOffset EndsAt { get; } = endsAt;
 
@@ -55,11 +53,14 @@ internal sealed class ReadWindow
         var capped = _cap.Remaining(now);
         var budget = capped < left ? capped : left;
         var least = TimeSpan.FromMilliseconds(1);
-        return budget > Time.Unbounded ? Time.Unbounded : budget > least ? budget : least;
+        return budget > Time.Unbounded ? Time.Unbounded
+            : budget > least ? budget
+            : least;
     }
 
     /// <summary>Marks a read starting now: the one <see cref="CutOff"/> judges until the next starts.</summary>
-    public void Starting(DateTimeOffset? now = null) => _lastStartedWith = Deadline.Remaining(now ?? _clock.GetUtcNow());
+    public void Starting(DateTimeOffset? now = null) =>
+        _lastStartedWith = Deadline.Remaining(now ?? _clock.GetUtcNow());
 
     /// <summary>Runs one engine read on <see cref="Timeout"/>, timing it when it answers.</summary>
     public async Task<T> ReadAsync<T>(Func<TimeSpan, Task<T>> call)
@@ -84,7 +85,8 @@ internal sealed class ReadWindow
     /// failure. Reads the engine error a locator failure wraps as well as a bare one.
     /// </summary>
     public bool CutOff(Exception cause) =>
-        _lastStartedWith < (Time.PollInterval > _slowest ? Time.PollInterval : _slowest) && Time.IsOperationTimeout(cause);
+        _lastStartedWith < (Time.PollInterval > _slowest ? Time.PollInterval : _slowest)
+        && Time.IsOperationTimeout(cause);
 }
 
 /// <summary>What <see cref="Time.PollReadsAsync"/> polls, and how it ends.</summary>
@@ -178,7 +180,10 @@ public static class Time
     public static readonly TimeSpan Unbounded = TimeSpan.FromDays(1);
 
     /// <summary><paramref name="value"/> held between <paramref name="least"/> and <paramref name="most"/> (.NET-only helper for upstream's <c>Math.max(1, ms)</c>).</summary>
-    public static TimeSpan Between(TimeSpan value, TimeSpan least, TimeSpan most) => value < least ? least : value > most ? most : value;
+    public static TimeSpan Between(TimeSpan value, TimeSpan least, TimeSpan most) =>
+        value < least ? least
+        : value > most ? most
+        : value;
 
     /// <summary>
     /// Refuses a per-call step timeout below zero as <c>INVALID_ARGUMENT</c> (upstream's <c>checkStepTimeout</c>; a <see cref="TimeSpan"/> is
@@ -189,7 +194,12 @@ public static class Time
     {
         if (timeout is { } given && given < TimeSpan.Zero)
         {
-            throw new TestException("INVALID_ARGUMENT", api + " timeout must be a finite number of milliseconds, 0 or more; got " + ((long)given.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                api
+                    + " timeout must be a finite number of milliseconds, 0 or more; got "
+                    + ((long)given.TotalMilliseconds).ToString(CultureInfo.InvariantCulture)
+            );
         }
     }
 
@@ -198,7 +208,13 @@ public static class Time
     /// <c>Deadline.min</c> does): the timeout, or <paramref name="fallback"/> when none is given, from now. Zero sets no deadline of its
     /// own, so <paramref name="phase"/> alone bounds it; with no phase it is <see cref="Never"/>.
     /// </summary>
-    public static Deadline StepDeadline(TimeSpan? timeout, string api, TimeSpan fallback, Deadline? phase, TimeProvider clock)
+    public static Deadline StepDeadline(
+        TimeSpan? timeout,
+        string api,
+        TimeSpan fallback,
+        Deadline? phase,
+        TimeProvider clock
+    )
     {
         CheckStepTimeout(timeout, api);
         return timeout == TimeSpan.Zero ? phase ?? new Deadline(Never) : new Deadline(timeout ?? fallback, clock);
@@ -208,7 +224,13 @@ public static class Time
     /// <see cref="StepDeadline"/> as a budget, for a call that hands one to the engine: what is left of the deadline, at least 1 ms and
     /// at most <see cref="Unbounded"/>.
     /// </summary>
-    public static TimeSpan StepBudget(TimeSpan? timeout, string api, TimeSpan fallback, Deadline? phase, TimeProvider clock)
+    public static TimeSpan StepBudget(
+        TimeSpan? timeout,
+        string api,
+        TimeSpan fallback,
+        Deadline? phase,
+        TimeProvider clock
+    )
     {
         if (timeout != TimeSpan.Zero)
         {
@@ -217,18 +239,54 @@ public static class Time
         }
 
         var left = StepDeadline(timeout, api, fallback, phase, clock).Remaining(clock.GetUtcNow());
-        return left < TimeSpan.FromMilliseconds(1) ? TimeSpan.FromMilliseconds(1) : left > Unbounded ? Unbounded : left;
+        return left < TimeSpan.FromMilliseconds(1) ? TimeSpan.FromMilliseconds(1)
+            : left > Unbounded ? Unbounded
+            : left;
     }
 
-    /// <summary>Canonical polling cadence for locator and assertion loops.</summary>
+    /// <summary>Canonical polling cadence for locator and assertion loops, and the longest pause between two reads of a wait.</summary>
     public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>
+    /// When a wait reads again after its first read, from its start, before it settles on every <see cref="PollInterval"/>. Most waits end within a
+    /// frame or two of their first miss, so these come sooner (upstream's <c>EARLY_READS_MS</c>).
+    /// </summary>
+    private static readonly long[] EarlyReadsMs = [20, 50];
+
+    /// <summary>The least pause between two reads of one wait (upstream's <c>MIN_POLL_GAP_MS</c>).</summary>
+    private const long MinPollGapMs = 10;
+
+    /// <summary>
+    /// The pause before a wait's next read, <paramref name="elapsed"/> after the wait started (upstream's <c>pollDelay</c>): until the next time on the
+    /// wait's timeline (20 ms, 50 ms, then every multiple of <see cref="PollInterval"/>) at least 10 ms away, and never longer than
+    /// <see cref="PollInterval"/>. The timeline holds every multiple of the interval, so a state that arrives late is seen no later than a wait
+    /// reading every <see cref="PollInterval"/> would see it; an engine whose reads outlast the early times reads as one did.
+    /// </summary>
+    public static TimeSpan PollDelay(TimeSpan elapsed)
+    {
+        var elapsedMs = elapsed.TotalMilliseconds;
+        var earliest = elapsedMs + MinPollGapMs;
+        var interval = PollInterval.TotalMilliseconds;
+        var next = Math.Ceiling(earliest / interval) * interval;
+        foreach (var at in EarlyReadsMs)
+        {
+            if (at >= earliest)
+            {
+                next = at;
+                break;
+            }
+        }
+
+        return TimeSpan.FromMilliseconds(Math.Min(next - elapsedMs, interval));
+    }
 
     /// <summary>How long a negated assertion must hold before it passes.</summary>
     public static readonly TimeSpan NegationGrace = TimeSpan.FromMilliseconds(1000);
 
     /// <summary>Whether <paramref name="cause"/> is the engine's <c>OPERATION_TIMEOUT</c>, bare or wrapped by the locator failure it was translated into (upstream's <c>isOperationTimeout</c>).</summary>
     public static bool IsOperationTimeout(Exception cause) =>
-        (cause as EngineException ?? cause.InnerException as EngineException) is { Code: EngineErrorCodes.OperationTimeout };
+        (cause as EngineException ?? cause.InnerException as EngineException)
+            is { Code: EngineErrorCodes.OperationTimeout };
 
     /// <summary>
     /// Polls a condition until it holds (or, when negated, until its negation has held continuously for the negation
@@ -241,17 +299,19 @@ public static class Time
     /// nothing: the poll ends there, and a negation passes if it had held long enough by then.
     /// </summary>
     public static Task PollConditionAsync(PollConditionOptions options) =>
-        PollReadsAsync(new PollReadsOptions
-        {
-            Deadline = options.Deadline,
-            Reads = new ReadWindow(options.Deadline, options.Clock),
-            Clock = options.Clock,
-            Token = options.Token,
-            Negated = options.Negated,
-            Interval = options.Interval,
-            Evaluate = _ => options.Evaluate(),
-            OnTimeout = options.OnTimeout,
-        });
+        PollReadsAsync(
+            new PollReadsOptions
+            {
+                Deadline = options.Deadline,
+                Reads = new ReadWindow(options.Deadline, options.Clock),
+                Clock = options.Clock,
+                Token = options.Token,
+                Negated = options.Negated,
+                Interval = options.Interval,
+                Evaluate = _ => options.Evaluate(),
+                OnTimeout = options.OnTimeout,
+            }
+        );
 
     /// <summary>
     /// <see cref="PollConditionAsync"/> with its reads run through <c>options.Reads</c>: a window with a cap lets the last read run past
@@ -260,7 +320,13 @@ public static class Time
     /// </summary>
     internal static async Task PollReadsAsync(PollReadsOptions options)
     {
-        var (deadline, reads, clock, token, negated) = (options.Deadline, options.Reads, options.Clock, options.Token, options.Negated);
+        var (deadline, reads, clock, token, negated) = (
+            options.Deadline,
+            options.Reads,
+            options.Clock,
+            options.Token,
+            options.Negated
+        );
         var startedAt = clock.GetUtcNow();
         var grace = deadline.Remaining(startedAt) < NegationGrace ? deadline.Remaining(startedAt) : NegationGrace;
         var readAt = startedAt;
@@ -314,7 +380,13 @@ public static class Time
 
             // Rounded up to whole milliseconds, which is what Task.Delay waits, so the capped pause never wakes before the deadline.
             var remaining = TimeSpan.FromMilliseconds(Math.Ceiling(deadline.Remaining(current).TotalMilliseconds));
-            await Task.Delay(remaining < options.Interval ? remaining : options.Interval, clock, token).ConfigureAwait(false);
+            var pause = PollDelay(current - startedAt);
+            if (pause > options.Interval)
+            {
+                pause = options.Interval;
+            }
+
+            await Task.Delay(remaining < pause ? remaining : pause, clock, token).ConfigureAwait(false);
 
             // A read past the deadline has no budget left, so a negation decides at the deadline on what it has seen.
             readAt = clock.GetUtcNow();
@@ -396,7 +468,12 @@ public static class Time
 
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(abort);
         budget.CancelAfter(timeout < TimeSpan.Zero ? TimeSpan.Zero : timeout);
-        var settled = work.ContinueWith(static _ => { }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+        var settled = work.ContinueWith(
+            static _ => { },
+            CancellationToken.None,
+            TaskContinuationOptions.None,
+            TaskScheduler.Default
+        );
         var stop = Task.Delay(Timeout.Infinite, budget.Token);
         try
         {

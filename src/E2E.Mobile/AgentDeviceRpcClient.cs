@@ -26,7 +26,17 @@ public sealed class AgentDeviceRpcClient : IDeviceClient
     /// The client settings the daemon reads as the lease scope of a command, from <c>meta</c> only: agent-device's own
     /// client sends exactly these, and without the backend and provider it scopes a command to the default backend.
     /// </summary>
-    private static readonly string[] LeaseMetaKeys = ["tenant", "runId", "leaseId", "leaseBackend", "leaseProvider", "deviceKey", "clientId", "sessionIsolation"];
+    private static readonly string[] LeaseMetaKeys =
+    [
+        "tenant",
+        "runId",
+        "leaseId",
+        "leaseBackend",
+        "leaseProvider",
+        "deviceKey",
+        "clientId",
+        "sessionIsolation",
+    ];
 
     private readonly string _session;
     private readonly JsonObject _settings;
@@ -38,7 +48,12 @@ public sealed class AgentDeviceRpcClient : IDeviceClient
     /// <param name="settings">The client configuration of a lease (<see cref="DeviceConnection.Client"/>): flags every command carries.</param>
     /// <param name="endpoint">Resolves the daemon, once, on the first call: a local daemon may need starting.</param>
     /// <param name="http">The transport. Its timeout must be infinite: the daemon and the caller's token bound each command.</param>
-    public AgentDeviceRpcClient(string session, JsonObject? settings, Func<CancellationToken, Task<DaemonEndpoint>> endpoint, HttpClient http)
+    public AgentDeviceRpcClient(
+        string session,
+        JsonObject? settings,
+        Func<CancellationToken, Task<DaemonEndpoint>> endpoint,
+        HttpClient http
+    )
     {
         _session = session;
         _settings = settings is null ? new JsonObject() : (JsonObject)settings.DeepClone();
@@ -79,7 +94,9 @@ public sealed class AgentDeviceRpcClient : IDeviceClient
             {
                 ["session"] = _session,
                 ["command"] = command.Name,
-                ["positionals"] = new JsonArray([.. command.Positionals.Select(text => (JsonNode?)JsonValue.Create(text))]),
+                ["positionals"] = new JsonArray([
+                    .. command.Positionals.Select(text => (JsonNode?)JsonValue.Create(text)),
+                ]),
             };
             if (command.Input is { } input)
             {
@@ -97,7 +114,10 @@ public sealed class AgentDeviceRpcClient : IDeviceClient
             ["method"] = command.RpcMethod,
             ["params"] = parameters,
         };
-        using var message = new HttpRequestMessage(HttpMethod.Post, new Uri(endpoint.BaseUrl.AbsoluteUri.TrimEnd('/') + "/rpc"))
+        using var message = new HttpRequestMessage(
+            HttpMethod.Post,
+            new Uri(endpoint.BaseUrl.AbsoluteUri.TrimEnd('/') + "/rpc")
+        )
         {
             Content = new StringContent(request.ToJsonString(), Encoding.UTF8, "application/json"),
         };
@@ -123,8 +143,12 @@ public sealed class AgentDeviceRpcClient : IDeviceClient
             throw ToError(error["data"] as JsonObject, error["message"]?.GetValue<string>());
         }
 
-        var result = response?["result"] as JsonObject
-            ?? throw new AgentDeviceError("COMMAND_FAILED", "Daemon returned a response with neither a result nor an error.");
+        var result =
+            response?["result"] as JsonObject
+            ?? throw new AgentDeviceError(
+                "COMMAND_FAILED",
+                "Daemon returned a response with neither a result nor an error."
+            );
         if (result["ok"] is JsonValue ok && ok.TryGetValue<bool>(out var succeeded) && !succeeded)
         {
             throw ToError(result["error"] as JsonObject, null);
@@ -135,7 +159,8 @@ public sealed class AgentDeviceRpcClient : IDeviceClient
         {
             DeviceMethods.DevicesList => (data as JsonObject)?["devices"] as JsonArray ?? [],
             DeviceMethods.SessionsList => (data as JsonObject)?["sessions"] as JsonArray ?? [],
-            DeviceMethods.LeasesAllocate or DeviceMethods.LeasesHeartbeat => (data as JsonObject)?["lease"] as JsonObject
+            DeviceMethods.LeasesAllocate or DeviceMethods.LeasesHeartbeat => (data as JsonObject)?["lease"]
+                as JsonObject
                 ?? throw new AgentDeviceError("COMMAND_FAILED", "Invalid lease response from daemon"),
             _ => data ?? new JsonObject(),
         };
@@ -169,15 +194,17 @@ public sealed class AgentDeviceRpcClient : IDeviceClient
         return new AgentDeviceError(code, message, details) { Reported = true };
     }
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     /// <summary>A JSON value as the plain object a details bag holds: strings, numbers, booleans stay, anything nested stays a node.</summary>
-    private static object? Plain(JsonNode? node) => node switch
-    {
-        null => null,
-        JsonValue value when value.TryGetValue<string>(out var text) => text,
-        JsonValue value when value.TryGetValue<bool>(out var flag) => flag,
-        JsonValue value when value.TryGetValue<double>(out var number) => number,
-        _ => node,
-    };
+    private static object? Plain(JsonNode? node) =>
+        node switch
+        {
+            null => null,
+            JsonValue value when value.TryGetValue<string>(out var text) => text,
+            JsonValue value when value.TryGetValue<bool>(out var flag) => flag,
+            JsonValue value when value.TryGetValue<double>(out var number) => number,
+            _ => node,
+        };
 }

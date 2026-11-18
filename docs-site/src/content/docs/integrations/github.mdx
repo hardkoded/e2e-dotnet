@@ -5,6 +5,8 @@ description: The GitHubReporter posts one comment per run from GitHub Actions an
 
 `E2E.GitHub` is a reporter that posts the test results as a pull request comment from GitHub Actions, and writes them to the job summary. A rerun updates the same comment. It ports upstream's `@e2e-dev/github` (`docs/github.mdx`).
 
+`e2e init --ci github-actions` writes a workflow that runs the tests and keeps the report; see [CI pipeline](/coding-agents/#ci-pipeline).
+
 ## Setup
 
 ```bash

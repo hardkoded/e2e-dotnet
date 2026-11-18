@@ -8,12 +8,13 @@ namespace E2E.Tests.SecretLedger;
 
 public sealed class NearMissesTests
 {
-    public static TheoryData<string, string> Values => new()
-    {
-        { "letters", "abcdefghijklmnopqrstuvwxyzABCDEFG" },
-        { "whitespace runs", string.Join(' ', Enumerable.Range(0, 13).Select(index => "w" + index)) },
-        { "accented letters", new string('é', 31) },
-    };
+    public static TheoryData<string, string> Values =>
+        new()
+        {
+            { "letters", "abcdefghijklmnopqrstuvwxyzABCDEFG" },
+            { "whitespace runs", string.Join(' ', Enumerable.Range(0, 13).Select(index => "w" + index)) },
+            { "accented letters", new string('é', 31) },
+        };
 
     [Theory]
     [MemberData(nameof(Values))]

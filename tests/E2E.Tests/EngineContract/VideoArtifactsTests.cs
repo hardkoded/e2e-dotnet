@@ -17,7 +17,10 @@ namespace E2E.Tests.EngineContract;
 public sealed class VideoArtifactsTests : IDisposable
 {
     // The output directory holds the results and the run's report.json beside them.
-    private readonly string _results = Path.Combine(Directory.CreateTempSubdirectory("e2e-video-artifacts-").FullName, "results");
+    private readonly string _results = Path.Combine(
+        Directory.CreateTempSubdirectory("e2e-video-artifacts-").FullName,
+        "results"
+    );
 
     public void Dispose() => Directory.Delete(Path.GetDirectoryName(_results)!, recursive: true);
 
@@ -56,7 +59,11 @@ public sealed class VideoArtifactsTests : IDisposable
         Assert.Equal(Reports.ResultStatus.Passed, result.Status);
         var attempt = Assert.Single(result.Attempts);
         Assert.Equal(Reports.AttemptCleanup.Failed, attempt.Cleanup);
-        Assert.Contains("video finalization exploded", Assert.Single(attempt.SecondaryErrors, error => error.Phase == Reports.ErrorPhase.Cleanup).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "video finalization exploded",
+            Assert.Single(attempt.SecondaryErrors, error => error.Phase == Reports.ErrorPhase.Cleanup).Message,
+            StringComparison.Ordinal
+        );
         Assert.Equal(3, report.Run.ExitCode);
     }
 
@@ -68,23 +75,41 @@ public sealed class VideoArtifactsTests : IDisposable
         Assert.Empty(await RunAsync(fake, "taps a node", retain, passes: true));
 
         // The passing attempt's recording was written, then removed with its verdict.
-        Assert.Empty(Directory.GetFiles(Path.Combine(_results, AttemptReport.ResultSegmentOf(null, "taps a node")), "fake.webm", SearchOption.AllDirectories));
-        var kept = Assert.IsType<VideoFile>(Assert.Single(await RunAsync(fake, "fails on purpose", retain, passes: false)));
-        Assert.True(File.Exists(Path.Combine(_results, AttemptReport.ResultSegmentOf(null, "fails on purpose"), "attempt-1", kept.Path)));
+        Assert.Empty(
+            Directory.GetFiles(
+                Path.Combine(_results, AttemptReport.ResultSegmentOf(null, "taps a node")),
+                "fake.webm",
+                SearchOption.AllDirectories
+            )
+        );
+        var kept = Assert.IsType<VideoFile>(
+            Assert.Single(await RunAsync(fake, "fails on purpose", retain, passes: false))
+        );
+        Assert.True(
+            File.Exists(
+                Path.Combine(_results, AttemptReport.ResultSegmentOf(null, "fails on purpose"), "attempt-1", kept.Path)
+            )
+        );
     }
 
     [Fact]
     public async Task Fails_the_cleanup_on_an_engine_link_that_is_not_http_s_and_still_keeps_its_other_recordings_PARTIAL_a_session_stands_for_the_run_and_the_videos_are_read_from_the_session()
     {
         var fake = new FakeVideoEngine(links: ["file:///tmp/r.mp4", "https://recordings.example/r.mp4"]);
-        var session = await StartAsync(fake, "taps a node", new ResolvedRecording(RecordingMode.On, RecordingSource.Target), attempt: 1);
+        var session = await StartAsync(
+            fake,
+            "taps a node",
+            new ResolvedRecording(RecordingMode.On, RecordingSource.Target),
+            attempt: 1
+        );
         session.Complete();
         var failure = await Assert.ThrowsAsync<EngineException>(() => session.DisposeAsync().AsTask());
         Assert.Equal("ENGINE_FAILURE", failure.Code);
         Assert.Contains("\"file:///tmp/r.mp4\"", failure.Message, StringComparison.Ordinal);
         Assert.Equal(
             ["https://recordings.example/r.mp4", "video/fake.webm"],
-            session.Videos.Select(segment => segment is VideoFile file ? file.Path : ((VideoLink)segment).Url));
+            session.Videos.Select(segment => segment is VideoFile file ? file.Path : ((VideoLink)segment).Url)
+        );
 
         var attempt = Assert.Single(Assert.Single(session.Report()!.Run.Results).Attempts);
         Assert.Equal(Reports.AttemptCleanup.Failed, attempt.Cleanup);
@@ -107,9 +132,23 @@ public sealed class VideoArtifactsTests : IDisposable
     public async Task Lets_a_tests_own_video_win_over_video_and_a_targets_win_over_the_config_PARTIAL_the_modes_are_resolved_before_the_session_and_tested_in_Config()
     {
         var fake = new FakeVideoEngine();
-        Assert.Empty(await RunAsync(fake, "keeps quiet", new ResolvedRecording(RecordingMode.Off, RecordingSource.Test), passes: true));
+        Assert.Empty(
+            await RunAsync(
+                fake,
+                "keeps quiet",
+                new ResolvedRecording(RecordingMode.Off, RecordingSource.Test),
+                passes: true
+            )
+        );
         Assert.Single(await RunAsync(fake, "follows the run", Run(RecordingMode.On), passes: true));
-        Assert.Empty(await RunAsync(fake, "by target", new ResolvedRecording(RecordingMode.Off, RecordingSource.Target), passes: true));
+        Assert.Empty(
+            await RunAsync(
+                fake,
+                "by target",
+                new ResolvedRecording(RecordingMode.Off, RecordingSource.Target),
+                passes: true
+            )
+        );
     }
 
     [Fact]
@@ -117,35 +156,75 @@ public sealed class VideoArtifactsTests : IDisposable
     {
         var fake = new FakeVideoEngine(video: false);
         var byTest = await Assert.ThrowsAsync<ConfigurationException>(() =>
-            StartAsync(fake, "checkout > records", new ResolvedRecording(RecordingMode.On, RecordingSource.Test), attempt: 1));
+            StartAsync(
+                fake,
+                "checkout > records",
+                new ResolvedRecording(RecordingMode.On, RecordingSource.Test),
+                attempt: 1
+            )
+        );
         Assert.Equal("UNSUPPORTED_ARTIFACT", byTest.Code);
-        Assert.Equal("target \"fake\" (engine fake) cannot record video, and test \"checkout > records\" sets video: 'on'", byTest.Message);
+        Assert.Equal(
+            "target \"fake\" (engine fake) cannot record video, and test \"checkout > records\" sets video: 'on'",
+            byTest.Message
+        );
 
         // A mode a target sets is required of its engine, like a test's.
         var byTarget = await Assert.ThrowsAsync<ConfigurationException>(() =>
-            StartAsync(fake, "taps a node", new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target), attempt: 1));
-        Assert.Equal("target \"fake\" (engine fake) cannot record video, and the target sets video: 'retain-on-failure'", byTarget.Message);
+            StartAsync(
+                fake,
+                "taps a node",
+                new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+                attempt: 1
+            )
+        );
+        Assert.Equal(
+            "target \"fake\" (engine fake) cannot record video, and the target sets video: 'retain-on-failure'",
+            byTarget.Message
+        );
         Assert.Equal(0, fake.Started);
 
         // on-first-retry never records the first attempt, and a test that opts out asks nothing.
-        Assert.Empty(await RunAsync(fake, "taps a node", new ResolvedRecording(RecordingMode.OnFirstRetry, RecordingSource.Target), passes: true));
-        Assert.Empty(await RunAsync(fake, "taps a node", new ResolvedRecording(RecordingMode.Off, RecordingSource.Test), passes: true));
+        Assert.Empty(
+            await RunAsync(
+                fake,
+                "taps a node",
+                new ResolvedRecording(RecordingMode.OnFirstRetry, RecordingSource.Target),
+                passes: true
+            )
+        );
+        Assert.Empty(
+            await RunAsync(
+                fake,
+                "taps a node",
+                new ResolvedRecording(RecordingMode.Off, RecordingSource.Test),
+                passes: true
+            )
+        );
     }
 
     private static ResolvedRecording Run(RecordingMode mode) => new(mode, RecordingSource.Run);
 
     private Task<E2ESession> StartAsync(FakeVideoEngine fake, string title, ResolvedRecording video, int attempt) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = fake,
-            TestTitle = title,
-            Video = video,
-            Attempt = attempt,
-            ResultsDirectory = _results,
-            ProjectRoot = _results,
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = fake,
+                TestTitle = title,
+                Video = video,
+                Attempt = attempt,
+                ResultsDirectory = _results,
+                ProjectRoot = _results,
+            }
+        );
 
-    private async Task<IReadOnlyList<VideoSegment>> RunAsync(FakeVideoEngine fake, string title, ResolvedRecording video, bool passes, int attempt = 1)
+    private async Task<IReadOnlyList<VideoSegment>> RunAsync(
+        FakeVideoEngine fake,
+        string title,
+        ResolvedRecording video,
+        bool passes,
+        int attempt = 1
+    )
     {
         var session = await StartAsync(fake, title, video, attempt);
         session.Complete(passes ? null : new TestException("TEST_FAILED", "nope"));
@@ -154,7 +233,11 @@ public sealed class VideoArtifactsTests : IDisposable
     }
 
     /// <summary>An engine whose session records <c>video/fake.webm</c> into the attempt's directory, and can hand back links.</summary>
-    private sealed class FakeVideoEngine(bool video = true, IReadOnlyList<string>? links = null, string? stopFailure = null) : IEngine
+    private sealed class FakeVideoEngine(
+        bool video = true,
+        IReadOnlyList<string>? links = null,
+        string? stopFailure = null
+    ) : IEngine
     {
         public int Started { get; private set; }
 
@@ -164,7 +247,8 @@ public sealed class VideoArtifactsTests : IDisposable
 
         public string Version => "test";
 
-        public EngineCapabilities Capabilities => video ? EngineCapabilities.Observation | EngineCapabilities.Video : EngineCapabilities.Observation;
+        public EngineCapabilities Capabilities =>
+            video ? EngineCapabilities.Observation | EngineCapabilities.Video : EngineCapabilities.Observation;
 
         public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
         {
@@ -200,14 +284,24 @@ public sealed class VideoArtifactsTests : IDisposable
                     Operations.Add("stopVideo");
                     if (StopFailure is not null)
                     {
-                        return Task.FromException<IReadOnlyList<VideoSegment>>(new InvalidOperationException(StopFailure));
+                        return Task.FromException<IReadOnlyList<VideoSegment>>(
+                            new InvalidOperationException(StopFailure)
+                        );
                     }
 
                     Directory.CreateDirectory(Path.Combine(ArtifactsDir, "video"));
                     File.WriteAllText(Path.Combine(ArtifactsDir, "video", "fake.webm"), "fake-vid");
                     IReadOnlyList<VideoSegment> segments =
                     [
-                        .. Links.Select(url => (VideoSegment)new VideoLink { Url = url, MediaType = "video/mp4", StartedAt = "2026-09-28T10:00:00.000Z" }),
+                        .. Links.Select(url =>
+                            (VideoSegment)
+                                new VideoLink
+                                {
+                                    Url = url,
+                                    MediaType = "video/mp4",
+                                    StartedAt = "2026-09-28T10:00:00.000Z",
+                                }
+                        ),
                         new VideoFile { Path = "video/fake.webm", StartedAt = "2026-09-28T10:00:00.000Z" },
                     ];
                     return Task.FromResult(segments);

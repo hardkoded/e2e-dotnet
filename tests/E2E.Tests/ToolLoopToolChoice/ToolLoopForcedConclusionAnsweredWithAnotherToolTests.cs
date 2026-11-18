@@ -22,18 +22,40 @@ public sealed class ToolLoopForcedConclusionAnsweredWithAnotherToolTests
         var turn = 0;
         List<string?> results = [];
         List<IReadOnlyDictionary<string, JsonElement>?> toolCallOptions = [];
-        var signed = new Dictionary<string, JsonElement> { ["google"] = JsonSerializer.SerializeToElement(new { thoughtSignature = "sig-2" }) };
+        var signed = new Dictionary<string, JsonElement>
+        {
+            ["google"] = JsonSerializer.SerializeToElement(new { thoughtSignature = "sig-2" }),
+        };
         var model = new ScriptedModel(request =>
         {
             if (++turn != 3)
             {
                 var call = ModelResponses.Call("peek", new { }).ToolCalls[0];
-                return new ModelResponse { ToolCalls = [turn == 2 ? new ModelToolCall { Id = call.Id, Name = call.Name, Arguments = call.Arguments, ProviderMetadata = signed } : call] };
+                return new ModelResponse
+                {
+                    ToolCalls =
+                    [
+                        turn == 2
+                            ? new ModelToolCall
+                            {
+                                Id = call.Id,
+                                Name = call.Name,
+                                Arguments = call.Arguments,
+                                ProviderMetadata = signed,
+                            }
+                            : call,
+                    ],
+                };
             }
 
             // The history is kept by reference, so it is read as the third request sees it.
             results = [.. request.Messages.Where(message => message.Role == "tool").Select(message => message.Content)];
-            toolCallOptions = [.. request.Messages.SelectMany(message => message.ToolCalls ?? []).Select(call => call.ProviderMetadata)];
+            toolCallOptions =
+            [
+                .. request
+                    .Messages.SelectMany(message => message.ToolCalls ?? [])
+                    .Select(call => call.ProviderMetadata),
+            ];
             return ModelResponses.Done("passed", "Done.");
         });
         ActResult? result = null;
@@ -46,10 +68,16 @@ public sealed class ToolLoopForcedConclusionAnsweredWithAnotherToolTests
             },
             Page(),
             model,
-            agentTools: ToolLoopForcedToolChoiceTests.Peek());
+            agentTools: ToolLoopForcedToolChoiceTests.Peek()
+        );
 
         Assert.Null(attempt.Error);
-        Assert.Equal(["required", "tool:complete_step", "tool:complete_step"], model.Requests.Select(request => request.ToolChoice!.Type == "tool" ? "tool:" + request.ToolChoice.ToolName : request.ToolChoice.Type));
+        Assert.Equal(
+            ["required", "tool:complete_step", "tool:complete_step"],
+            model.Requests.Select(request =>
+                request.ToolChoice!.Type == "tool" ? "tool:" + request.ToolChoice.ToolName : request.ToolChoice.Type
+            )
+        );
         // The first turn offers every tool; the last two are the forced-conclusion turns, which offer only done.
         Assert.Contains(model.Requests[0].Tools, tool => tool.Name == "peek");
         Assert.Equal(["complete_step"], model.Requests[1].Tools.Select(tool => tool.Name));
@@ -76,7 +104,8 @@ public sealed class ToolLoopForcedConclusionAnsweredWithAnotherToolTests
             },
             Page(),
             model,
-            agentTools: ToolLoopForcedToolChoiceTests.Peek());
+            agentTools: ToolLoopForcedToolChoiceTests.Peek()
+        );
 
         Assert.Equal("STEP_NO_CONCLUSION", Assert.IsType<AgentException>(attempt.Error).Code);
         Assert.Equal(3, model.CallCount);

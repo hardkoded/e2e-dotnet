@@ -34,12 +34,32 @@ internal sealed class ScrollScript
 /// </summary>
 internal sealed class ScrollScreen
 {
-    public static readonly SemanticNode Target = new() { Ref = "target", Role = "button", Name = "Accept", Text = "Accept" };
+    public static readonly SemanticNode Target = new()
+    {
+        Ref = "target",
+        Role = "button",
+        Name = "Accept",
+        Text = "Accept",
+    };
 
-    public static readonly SemanticNode HiddenTarget = new() { Ref = "target", Role = "button", Name = "Accept", Text = "Accept", States = new NodeStates { Hidden = true } };
+    public static readonly SemanticNode HiddenTarget = new()
+    {
+        Ref = "target",
+        Role = "button",
+        Name = "Accept",
+        Text = "Accept",
+        States = new NodeStates { Hidden = true },
+    };
 
     /// <summary>The scroll container every screen shows, with whatever it has scrolled to as its children.</summary>
-    public static SemanticNode Feed(params SemanticNode[] children) => new() { Ref = "feed", Role = "list", Name = "Feed", Children = children };
+    public static SemanticNode Feed(params SemanticNode[] children) =>
+        new()
+        {
+            Ref = "feed",
+            Role = "list",
+            Name = "Feed",
+            Children = children,
+        };
 
     private static readonly TimeSpan SwipeTime = TimeSpan.FromMilliseconds(16);
 
@@ -66,7 +86,11 @@ internal sealed class ScrollScreen
             if (script.HangFor is { } hang)
             {
                 await Task.Delay(hang, CancellationToken.None);
-                throw new EngineException(EngineErrorCodes.OperationTimeout, "swipe exceeded " + hang.TotalMilliseconds + " ms", retryable: false);
+                throw new EngineException(
+                    EngineErrorCodes.OperationTimeout,
+                    "swipe exceeded " + hang.TotalMilliseconds + " ms",
+                    retryable: false
+                );
             }
 
             // A swipe resolves once the scroll it caused is on screen, a frame or more later.
@@ -94,7 +118,8 @@ internal sealed class ScrollScreen
             script.ActionTimeout,
             swipe: script.Swipeable
                 ? (direction, momentum, token) => Swipe("viewport", direction, momentum, token)
-                : null)
+                : null
+        )
         {
             Steps = Steps,
         };

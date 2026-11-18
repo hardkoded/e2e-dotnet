@@ -21,9 +21,27 @@ public delegate IReadOnlyList<ProjectedNode> CompiledSelector(IReadOnlyList<Proj
 /// </summary>
 public static partial class AgentDeviceSelector
 {
-    private static readonly HashSet<string> TextKeys = ["id", "role", "text", "label", "value", "appname", "windowtitle"];
+    private static readonly HashSet<string> TextKeys =
+    [
+        "id",
+        "role",
+        "text",
+        "label",
+        "value",
+        "appname",
+        "windowtitle",
+    ];
 
-    private static readonly HashSet<string> FlagKeys = ["visible", "hidden", "editable", "selected", "focused", "enabled", "hittable"];
+    private static readonly HashSet<string> FlagKeys =
+    [
+        "visible",
+        "hidden",
+        "editable",
+        "selected",
+        "focused",
+        "enabled",
+        "hittable",
+    ];
 
     /// <summary>
     /// Compiles one selector string for a platform. Alternatives (agent-device's fallback chain) are tried
@@ -43,14 +61,17 @@ public static partial class AgentDeviceSelector
                 EngineErrorCodes.EngineFailure,
                 $"invalid agent-device selector {JsonText.Quote(raw)}: {DeviceErrors.Message(cause)}",
                 retryable: false,
-                cause);
+                cause
+            );
         }
 
         return entries =>
         {
             foreach (var alternative in chain)
             {
-                var matches = entries.Where(entry => alternative.All(term => MatchesTerm(entry.Raw, term, platform))).ToList();
+                var matches = entries
+                    .Where(entry => alternative.All(term => MatchesTerm(entry.Raw, term, platform)))
+                    .ToList();
                 if (matches.Count > 0)
                 {
                     return matches;
@@ -187,7 +208,9 @@ public static partial class AgentDeviceSelector
         if (equals == -1)
         {
             var bare = text.ToLowerInvariant();
-            return FlagKeys.Contains(bare) ? new Term(bare, "true", true) : throw Invalid($"Invalid selector term \"{raw}\", expected key=value");
+            return FlagKeys.Contains(bare)
+                ? new Term(bare, "true", true)
+                : throw Invalid($"Invalid selector term \"{raw}\", expected key=value");
         }
 
         var key = text[..equals].Trim().ToLowerInvariant();
@@ -265,7 +288,9 @@ public static partial class AgentDeviceSelector
 
             if (next == 'u' && position + 6 <= text.Length && HexQuad().IsMatch(text.AsSpan(position + 2, 4)))
             {
-                result.Append((char)int.Parse(text.AsSpan(position + 2, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture));
+                result.Append(
+                    (char)int.Parse(text.AsSpan(position + 2, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture)
+                );
                 position += 6;
                 continue;
             }
@@ -278,7 +303,9 @@ public static partial class AgentDeviceSelector
     }
 
     private static char? ToggleQuote(char? current, char character) =>
-        current is null ? character : current == character ? null : current;
+        current is null ? character
+        : current == character ? null
+        : current;
 
     /// <summary>True when an odd number of backslashes precede the character.</summary>
     private static bool IsEscaped(string text, int position)
@@ -295,7 +322,14 @@ public static partial class AgentDeviceSelector
     private static AgentDeviceError Invalid(string message) => new("INVALID_ARGS", message);
 
     private static readonly string[] PackagePrefixes =
-        ["android.widget.", "android.view.", "android.webkit.", "androidx.", "com.google.android.", "com.android."];
+    [
+        "android.widget.",
+        "android.view.",
+        "android.webkit.",
+        "androidx.",
+        "com.google.android.",
+        "com.android.",
+    ];
 
     /// <summary>agent-device's presented role for each platform type, the <c>kind</c> it publishes on a node.</summary>
     private static readonly Dictionary<string, string> PresentedKinds = new(StringComparer.Ordinal)
@@ -389,7 +423,10 @@ public static partial class AgentDeviceSelector
 
     /// <summary>The first non-empty of label, value, and identifier, trimmed.</summary>
     private static string FirstText(RawNode node) =>
-        new[] { node.Label, node.Value, node.Identifier }.Select(text => text?.Trim() ?? "").FirstOrDefault(text => text.Length > 0) ?? "";
+        new[] { node.Label, node.Value, node.Identifier }
+            .Select(text => text?.Trim() ?? "")
+            .FirstOrDefault(text => text.Length > 0)
+        ?? "";
 
     private static bool IsVisible(RawNode node) =>
         node.Hittable == true || (node.Rect is { } rect && rect.Width > 0 && rect.Height > 0);
@@ -421,7 +458,8 @@ public static partial class AgentDeviceSelector
         }
 
         return platform == MobilePlatform.Android
-            ? text.Contains("edittext", StringComparison.Ordinal) || text.Contains("autocompletetextview", StringComparison.Ordinal)
+            ? text.Contains("edittext", StringComparison.Ordinal)
+                || text.Contains("autocompletetextview", StringComparison.Ordinal)
             : text.Contains("textfield", StringComparison.Ordinal)
                 || text.Contains("searchfield", StringComparison.Ordinal)
                 || text.Contains("textview", StringComparison.Ordinal)
@@ -432,8 +470,13 @@ public static partial class AgentDeviceSelector
     /// <summary>The role agent-device presents for a platform type, when the node carries no <c>kind</c> of its own.</summary>
     private static string TypeKind(string type)
     {
-        var android = type.Contains('.', StringComparison.Ordinal)
-            && (type.StartsWith("android.", StringComparison.Ordinal) || type.StartsWith("androidx.", StringComparison.Ordinal) || type.StartsWith("com.", StringComparison.Ordinal));
+        var android =
+            type.Contains('.', StringComparison.Ordinal)
+            && (
+                type.StartsWith("android.", StringComparison.Ordinal)
+                || type.StartsWith("androidx.", StringComparison.Ordinal)
+                || type.StartsWith("com.", StringComparison.Ordinal)
+            );
         var text = XcuiPrefix().Replace(type, "").ToLowerInvariant();
         if (text.Contains('.', StringComparison.Ordinal))
         {
@@ -457,7 +500,9 @@ public static partial class AgentDeviceSelector
             return android ? "text" : "text-view";
         }
 
-        return PresentedKinds.TryGetValue(text, out var kind) ? kind : text.Length > 0 ? text : "element";
+        return PresentedKinds.TryGetValue(text, out var kind) ? kind
+            : text.Length > 0 ? text
+            : "element";
     }
 
     [GeneratedRegex("XCUIElementType", RegexOptions.IgnoreCase)]

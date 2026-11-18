@@ -52,7 +52,9 @@ internal static class SampleFiles
 
         var size = (objects.Length + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
         var start = body.Length;
-        body.Append($"xref\n0 {size}\n0000000000 65535 f \n{table}trailer\n<< /Size {size} /Root 1 0 R >>\nstartxref\n{start}\n%%EOF\n");
+        body.Append(
+            $"xref\n0 {size}\n0000000000 65535 f \n{table}trailer\n<< /Size {size} /Root 1 0 R >>\nstartxref\n{start}\n%%EOF\n"
+        );
         return Encoding.UTF8.GetBytes(body.ToString());
     }
 
@@ -63,7 +65,11 @@ internal static class SampleFiles
         ("photo.jpg", () => Convert.FromBase64String(Jpeg)),
         ("document.pdf", Pdf),
         ("notes.txt", () => Encoding.UTF8.GetBytes("e2e sample text\nSecond line: café, 東京, 🙂\n")),
-        ("table.csv", () => Encoding.UTF8.GetBytes("name,email,amount\nAda Lovelace,ada@example.test,42\n\"Hopper, Grace\",grace@example.test,7.5\nZoë Ångström,zoe@example.test,0\n")),
+        ("table.csv", () =>
+            Encoding.UTF8.GetBytes(
+                "name,email,amount\nAda Lovelace,ada@example.test,42\n\"Hopper, Grace\",grace@example.test,7.5\nZoë Ångström,zoe@example.test,0\n"
+            )
+        ),
         ("empty.txt", () => []),
     ];
 
@@ -122,11 +128,7 @@ internal static class SampleFiles
         {
             Directory.Delete(directory, recursive: true);
         }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 }

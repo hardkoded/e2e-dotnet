@@ -54,7 +54,8 @@ public sealed class FakeWindowDriver : IWindowDriver
     public HashSet<string> Vanished { get; } = [];
 
     /// <summary>What <see cref="ScreenshotAsync"/> answers. Default: a 4x2 image of one colour.</summary>
-    public RawScreenshot Screenshot { get; set; } = new(Enumerable.Repeat(new byte[] { 10, 20, 30, 255 }, 8).SelectMany(pixel => pixel).ToArray(), 4, 2);
+    public RawScreenshot Screenshot { get; set; } =
+        new(Enumerable.Repeat(new byte[] { 10, 20, 30, 255 }, 8).SelectMany(pixel => pixel).ToArray(), 4, 2);
 
     /// <summary>The failure to throw from the next call whose label starts with the key.</summary>
     public Dictionary<string, Exception> Faults { get; } = [];
@@ -78,14 +79,26 @@ public sealed class FakeWindowDriver : IWindowDriver
         Trees[handle] = tree;
     }
 
-    public Task<LaunchedApp> LaunchAsync(string executable, IReadOnlyList<string> arguments, string workingDirectory, TimeSpan timeout, Action<AppLogEntry>? log, CancellationToken cancellationToken)
+    public Task<LaunchedApp> LaunchAsync(
+        string executable,
+        IReadOnlyList<string> arguments,
+        string workingDirectory,
+        TimeSpan timeout,
+        Action<AppLogEntry>? log,
+        CancellationToken cancellationToken
+    )
     {
-        Record($"launch {Path.GetFileName(executable)}{(arguments.Count == 0 ? "" : " " + string.Join(' ', arguments))}");
+        Record(
+            $"launch {Path.GetFileName(executable)}{(arguments.Count == 0 ? "" : " " + string.Join(' ', arguments))}"
+        );
         Fault("launch");
         switch (Launch)
         {
             case LaunchBehavior.Fail:
-                throw new WindowDriverException(DriverFault.Launch, $"{Path.GetFileName(executable)} exited with code 1 before it showed a window");
+                throw new WindowDriverException(
+                    DriverFault.Launch,
+                    $"{Path.GetFileName(executable)} exited with code 1 before it showed a window"
+                );
             case LaunchBehavior.Hang:
                 return HangAsync(cancellationToken);
         }
@@ -97,12 +110,36 @@ public sealed class FakeWindowDriver : IWindowDriver
             // A fresh process gets the windows and trees scripted for the main handle.
             var handle = MainHandle;
             var template = Windows.Values.SelectMany(list => list).FirstOrDefault(window => window.Handle == handle);
-            var title = Trees.TryGetValue(handle, out var scripted) && scripted.Name is { Length: > 0 } named ? named : Path.GetFileNameWithoutExtension(executable);
-            Windows[pid] = [template is null ? new WindowInfo(handle, pid, title, new Rect(100, 50, 800, 600), 1) : template with { ProcessId = pid }];
-            Trees.TryAdd(handle, new RawElement { Handle = "root", Type = "Window", Name = Path.GetFileNameWithoutExtension(executable) });
+            var title =
+                Trees.TryGetValue(handle, out var scripted) && scripted.Name is { Length: > 0 } named
+                    ? named
+                    : Path.GetFileNameWithoutExtension(executable);
+            Windows[pid] =
+            [
+                template is null
+                    ? new WindowInfo(handle, pid, title, new Rect(100, 50, 800, 600), 1)
+                    : template with
+                    {
+                        ProcessId = pid,
+                    },
+            ];
+            Trees.TryAdd(
+                handle,
+                new RawElement
+                {
+                    Handle = "root",
+                    Type = "Window",
+                    Name = Path.GetFileNameWithoutExtension(executable),
+                }
+            );
         }
 
-        LastLaunched = new LaunchedApp(pid, Windows[pid][0].Handle, Path.GetFileNameWithoutExtension(executable), Owned: true);
+        LastLaunched = new LaunchedApp(
+            pid,
+            Windows[pid][0].Handle,
+            Path.GetFileNameWithoutExtension(executable),
+            Owned: true
+        );
         return Task.FromResult(LastLaunched);
     }
 
@@ -128,14 +165,20 @@ public sealed class FakeWindowDriver : IWindowDriver
     {
         Record($"windows {processId}");
         Fault("windows");
-        return Task.FromResult<IReadOnlyList<WindowInfo>>(Windows.TryGetValue(processId, out var windows) ? [.. windows] : []);
+        return Task.FromResult<IReadOnlyList<WindowInfo>>(
+            Windows.TryGetValue(processId, out var windows) ? [.. windows] : []
+        );
     }
 
     public Task<RawElement> InspectAsync(long windowHandle, CancellationToken cancellationToken)
     {
         Record($"inspect {windowHandle}");
         Fault("inspect");
-        return Task.FromResult(Trees.TryGetValue(windowHandle, out var tree) ? tree : new RawElement { Handle = $"w{windowHandle}", Type = "Window" });
+        return Task.FromResult(
+            Trees.TryGetValue(windowHandle, out var tree)
+                ? tree
+                : new RawElement { Handle = $"w{windowHandle}", Type = "Window" }
+        );
     }
 
     public Task<string?> FocusedAsync(long windowHandle, CancellationToken cancellationToken)
@@ -260,7 +303,10 @@ public sealed class FakeWindowDriver : IWindowDriver
     {
         if (Vanished.Contains(handle))
         {
-            throw new WindowDriverException(DriverFault.ElementVanished, $"element {handle} is not part of the newest observation");
+            throw new WindowDriverException(
+                DriverFault.ElementVanished,
+                $"element {handle} is not part of the newest observation"
+            );
         }
     }
 

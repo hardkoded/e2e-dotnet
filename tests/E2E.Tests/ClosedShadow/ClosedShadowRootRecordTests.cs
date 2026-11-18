@@ -30,7 +30,8 @@ public sealed class ClosedShadowRootRecordTests(ChromiumPage chromium) : IClassF
               const closed = closedHost.attachShadow({ mode: "closed" });
               return [record instanceof WeakMap, before, open.mode, afterOpen, record.has(openHost), record.get(closedHost) === closed, record.count].join(",");
             }
-            """);
+            """
+        );
         Assert.Equal("true,0,open,0,false,true,1", recorded);
 
         // Installed once per document: a second run leaves the record and the wrapper alone.
@@ -44,7 +45,8 @@ public sealed class ClosedShadowRootRecordTests(ChromiumPage chromium) : IClassF
               return globalThis[key] === record && Element.prototype.attachShadow === attachShadow;
             }
             """,
-            PageScript.RecordClosedShadowRoots);
+            PageScript.RecordClosedShadowRoots
+        );
         Assert.True(unchanged);
     }
 
@@ -80,15 +82,15 @@ public sealed class ClosedShadowRootRecordTests(ChromiumPage chromium) : IClassF
               return `${first},${second}`;
             }
             """,
-            PageScript.SearchRootsSelectorEngineSource);
+            PageScript.SearchRootsSelectorEngineSource
+        );
         Assert.Equal("true,true", answered);
     }
 
     [Fact]
     public async Task Lets_the_mask_engine_find_nothing_without_walking_while_no_closed_root_was_attached_and_refuses_an_untracked_document()
     {
-        const string Probe =
-            """
+        const string Probe = """
             (source) => {
               const engine = (0, eval)(`(${source})()`);
               let walks = 0;
@@ -112,7 +114,11 @@ public sealed class ClosedShadowRootRecordTests(ChromiumPage chromium) : IClassF
         await using var untrackedContext = await NewContextAsync();
         var untracked = await untrackedContext.NewPageAsync();
         await untracked.GotoAsync("about:blank");
-        Assert.Contains("tracking is unavailable", await untracked.EvaluateAsync<string>(Probe, PageScript.ClosedShadowSelectorEngineSource), StringComparison.Ordinal);
+        Assert.Contains(
+            "tracking is unavailable",
+            await untracked.EvaluateAsync<string>(Probe, PageScript.ClosedShadowSelectorEngineSource),
+            StringComparison.Ordinal
+        );
         // The roots engine answers as Playwright alone would: the document is the one root.
         Assert.Equal(
             "1,0",
@@ -126,7 +132,9 @@ public sealed class ClosedShadowRootRecordTests(ChromiumPage chromium) : IClassF
                   return `${found.length === 1 && found[0] === document ? 1 : 0},${walks}`;
                 }
                 """,
-                PageScript.SearchRootsSelectorEngineSource));
+                PageScript.SearchRootsSelectorEngineSource
+            )
+        );
     }
 
     [Fact]
@@ -151,7 +159,8 @@ public sealed class ClosedShadowRootRecordTests(ChromiumPage chromium) : IClassF
               return matches.length + "," + (matches[0] === field);
             }
             """,
-            PageScript.ClosedShadowSelectorEngineSource);
+            PageScript.ClosedShadowSelectorEngineSource
+        );
         Assert.Equal("1,true", found);
         Assert.True(await page.EvaluateAsync<bool>(PageScript.TracksClosedShadowRoots));
     }

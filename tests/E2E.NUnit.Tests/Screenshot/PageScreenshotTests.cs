@@ -33,15 +33,19 @@ public sealed class PageScreenshotTests : ScreenshotTest
     [Test]
     public async Task Should_not_capture_blinking_caret_by_default()
     {
-        await Browser.GotoAsync(Content($$"""
-            <link rel=stylesheet href="{{CROSS}}/injectedstyle.css">
-            <style>
-              div {
-                caret-color: #000 !important;
-              }
-            </style>
-            <div contenteditable="true"></div>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                $$"""
+                <link rel=stylesheet href="{{CROSS}}/injectedstyle.css">
+                <style>
+                  div {
+                    caret-color: #000 !important;
+                  }
+                </style>
+                <div contenteditable="true"></div>
+                """
+            )
+        );
         var div = Browser.Locator("div");
         await div.PressSequentiallyAsync("foo bar");
         var box = (await div.BoundingBoxAsync())!;
@@ -58,7 +62,8 @@ public sealed class PageScreenshotTests : ScreenshotTest
     public async Task Should_capture_blinking_caret_in_shadow_dom()
     {
         await Browser.GotoAsync("/empty.html");
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               class CustomElementContainer extends HTMLElement {
                 #shadowRoot;
@@ -82,7 +87,8 @@ public sealed class PageScreenshotTests : ScreenshotTest
               const container = document.createElement('custom-element-container');
               document.body.appendChild(container);
             }
-            """);
+            """
+        );
 
         var input = Browser.Locator("input");
         await input.FocusAsync();
@@ -117,13 +123,15 @@ public sealed class PageScreenshotTests : ScreenshotTest
     public async Task Should_capture_canvas_changes()
     {
         await Browser.GotoAsync(Content("<canvas></canvas>"));
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               const canvas = document.querySelector('canvas');
               canvas.width = 600;
               canvas.height = 600;
             }
-            """);
+            """
+        );
 
         // Draws the horizontal line of step, 100 pixels below the one before.
         async Task AddLine(int step) =>
@@ -139,7 +147,8 @@ public sealed class PageScreenshotTests : ScreenshotTest
                   ctx.stroke();
                 }
                 """,
-                step);
+                step
+            );
 
         // Whether the line of step shows in screenshot: the canvas sits at the body margin, 8 pixels in.
         static bool HasLine(Internal.RgbaImage screenshot, int step)
@@ -199,7 +208,9 @@ public sealed class PageScreenshotTests : ScreenshotTest
     public async Task Should_not_issue_resize_event()
     {
         await Browser.GotoAsync("/grid.html");
-        await Browser.EvaluateAsync<object>("() => { window.__resized = false; window.addEventListener('resize', () => { window.__resized = true; }); }");
+        await Browser.EvaluateAsync<object>(
+            "() => { window.__resized = false; window.addEventListener('resize', () => { window.__resized = true; }); }"
+        );
         await App.ScreenshotAsync();
         Assert.That(await Browser.EvaluateAsync<bool>("window.__resized"), Is.False);
     }

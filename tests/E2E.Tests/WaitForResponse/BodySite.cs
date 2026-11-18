@@ -26,7 +26,9 @@ internal sealed class BodySite : IDisposable
     private BodySite(TcpListener listener)
     {
         _listener = listener;
-        Origin = "http://127.0.0.1:" + ((IPEndPoint)listener.LocalEndpoint).Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Origin =
+            "http://127.0.0.1:"
+            + ((IPEndPoint)listener.LocalEndpoint).Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>The site's origin, with no trailing slash.</summary>
@@ -78,7 +80,12 @@ internal sealed class BodySite : IDisposable
             switch (path)
             {
                 case "/":
-                    await EndAsync(client, "200 OK", "content-type: text/html\r\n", "<!doctype html><title>Bodies</title><h1>Bodies</h1>");
+                    await EndAsync(
+                        client,
+                        "200 OK",
+                        "content-type: text/html\r\n",
+                        "<!doctype html><title>Bodies</title><h1>Bodies</h1>"
+                    );
                     return;
                 case "/api/full":
                     await EndAsync(client, "200 OK", "content-type: application/json\r\n", "{\"ok\":true}");
@@ -94,16 +101,25 @@ internal sealed class BodySite : IDisposable
                     await EndAsync(client, "302 Found", "location: /api/full\r\ncontent-type: text/plain\r\n", "moved");
                     return;
                 case "/api/slow":
-                    await WriteAsync(stream, "HTTP/1.1 200 OK\r\ncontent-type: text/plain\r\nconnection: close\r\n\r\n");
+                    await WriteAsync(
+                        stream,
+                        "HTTP/1.1 200 OK\r\ncontent-type: text/plain\r\nconnection: close\r\n\r\n"
+                    );
                     await Task.Delay(800);
                     await WriteAsync(stream, "slow-body");
                     client.Close();
                     return;
                 case "/api/endless":
-                    await WriteAsync(stream, "HTTP/1.1 200 OK\r\ncontent-type: text/plain\r\nconnection: close\r\n\r\na first chunk and never the rest");
+                    await WriteAsync(
+                        stream,
+                        "HTTP/1.1 200 OK\r\ncontent-type: text/plain\r\nconnection: close\r\n\r\na first chunk and never the rest"
+                    );
                     return;
                 case "/api/cut":
-                    await WriteAsync(stream, "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 1000\r\nconnection: close\r\n\r\n{\"partial\":");
+                    await WriteAsync(
+                        stream,
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 1000\r\nconnection: close\r\n\r\n{\"partial\":"
+                    );
                     await Task.Delay(50);
                     client.Close();
                     return;
@@ -139,7 +155,17 @@ internal sealed class BodySite : IDisposable
     private static async Task EndAsync(TcpClient client, string status, string headers, string body)
     {
         var length = Encoding.UTF8.GetByteCount(body).ToString(System.Globalization.CultureInfo.InvariantCulture);
-        await WriteAsync(client.GetStream(), "HTTP/1.1 " + status + "\r\n" + headers + "content-length: " + length + "\r\nconnection: close\r\n\r\n" + body);
+        await WriteAsync(
+            client.GetStream(),
+            "HTTP/1.1 "
+                + status
+                + "\r\n"
+                + headers
+                + "content-length: "
+                + length
+                + "\r\nconnection: close\r\n\r\n"
+                + body
+        );
         client.Close();
     }
 

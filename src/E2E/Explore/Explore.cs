@@ -178,7 +178,8 @@ public static class Explore
     public static ExploreBounds<int> StepBounds { get; } = new(1, 100, 8);
 
     /// <summary>The run's wall clock: three minutes to two hours.</summary>
-    public static ExploreBounds<TimeSpan> TimeoutBounds { get; } = new(TimeSpan.FromMinutes(3), TimeSpan.FromHours(2), TimeSpan.FromMinutes(10));
+    public static ExploreBounds<TimeSpan> TimeoutBounds { get; } =
+        new(TimeSpan.FromMinutes(3), TimeSpan.FromHours(2), TimeSpan.FromMinutes(10));
 
     /// <summary>
     /// Runs one exploration and returns the outcome with the exploration record. The config is resolved once here, with the agent
@@ -187,7 +188,10 @@ public static class Explore
     /// as a bad flag is. A step the app or the model fails is not thrown: it ends the run, and the outcome carries the error. A failure of closing the attempt (the engine's finish hook) is not thrown either: it joins the outcome as a cleanup error, and its exit code (3 for an engine failure) outranks a verdict's 1, as a run's run errors do.
     /// A cancelled <paramref name="cancellationToken"/> throws <see cref="OperationCanceledException"/>; the run's own timeout ends it as an outcome whose error is <c>CANCELLED</c>.
     /// </summary>
-    public static async Task<ExploreOutcome> ExploreAsync(ExploreOptions options, CancellationToken cancellationToken = default)
+    public static async Task<ExploreOutcome> ExploreAsync(
+        ExploreOptions options,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(options);
         var notice = options.Notice ?? (static _ => { });
@@ -195,20 +199,28 @@ public static class Explore
         Changes.ValidateChangedSince(options.ChangedSince);
         var budgets = new ExploreBudgets(
             ResolveBounded(options.MaxSteps, StepBounds, "maxSteps", value => value),
-            ResolveBounded(options.Timeout, TimeoutBounds, "timeout", value => (int)value.TotalMilliseconds));
+            ResolveBounded(options.Timeout, TimeoutBounds, "timeout", value => (int)value.TotalMilliseconds)
+        );
 
         var config = LoadConfig(options);
-        var projectRoot = options.RawConfig is null ? config.ProjectRoot : Path.GetFullPath(options.Cwd ?? config.ProjectRoot);
+        var projectRoot = options.RawConfig is null
+            ? config.ProjectRoot
+            : Path.GetFullPath(options.Cwd ?? config.ProjectRoot);
         var target = PickTarget(config.Targets, options.Target, notice);
         var credentials = NormalizeCredentials(ConfiguredAccounts(config, options.Credentials));
         CheckCredentialInventory(credentials);
         var secrets = config.AllSecrets.Concat(credentials.Values.Select(credential => credential.Password)).ToList();
         var redactor = Redactor.For(secrets);
-        var change = await ExploreChangeAsync(options.ChangedSince, projectRoot, redactor, notice, cancellationToken).ConfigureAwait(false);
+        var change = await ExploreChangeAsync(options.ChangedSince, projectRoot, redactor, notice, cancellationToken)
+            .ConfigureAwait(false);
         var goal = givenGoal ?? (change is null ? DefaultGoal : DefaultChangeGoal);
 
         // An exploration runs as exactly one agent: the one named, else `default`.
-        var entries = config.Agents.ToDictionary(pair => pair.Key, pair => pair.Value.CreateOptions(), StringComparer.Ordinal);
+        var entries = config.Agents.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value.CreateOptions(),
+            StringComparer.Ordinal
+        );
         foreach (var pair in options.Agents ?? new Dictionary<string, AgentOptions>())
         {
             entries[pair.Key] = pair.Value;
@@ -217,7 +229,14 @@ public static class Explore
         var agentName = options.Agent ?? "default";
         if (!entries.TryGetValue(agentName, out var entry))
         {
-            throw new ConfigurationException("INVALID_CONFIG", "unknown agent \"" + agentName + "\"; configured: " + string.Join(", ", entries.Keys) + Suggestions.DidYouMean(agentName, [.. entries.Keys]));
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "unknown agent \""
+                    + agentName
+                    + "\"; configured: "
+                    + string.Join(", ", entries.Keys)
+                    + Suggestions.DidYouMean(agentName, [.. entries.Keys])
+            );
         }
 
         if (!string.Equals(agentName, "default", StringComparison.Ordinal))
@@ -235,7 +254,11 @@ public static class Explore
         state.Subscribe(progress => RunEvents.Emit(new ExploreEvent(progress)));
 
         var resolved = ResolvedAgent.From(agentName, entry);
-        var explorer = WithStepBudgets(ExploreExecutor.ExplorerAgent(new ExplorerOptions(state, agentName, entry, resolved, notice)), options.Session, change?.Brief);
+        var explorer = WithStepBudgets(
+            ExploreExecutor.ExplorerAgent(new ExplorerOptions(state, agentName, entry, resolved, notice)),
+            options.Session,
+            change?.Brief
+        );
         var resolvedExplorer = ResolvedAgent.From(agentName, explorer);
 
         // Every exploration step calls the model, a custom executor's included, since the built-in agent replaces it: no model is a
@@ -248,10 +271,28 @@ public static class Explore
         // The explorer replaces the agent for the exploration alone. The exploration pins no retries and runs with the cache off.
         entries[agentName] = ExploreExecutor.WithFindingTool(explorer, state);
         var defaultAgent = entries["default"];
-        var engine = options.Engine ?? TargetEngines.Create(target, options.Headed ? false : null, options.CreateMobileEngine, options.CreateWindowsEngine);
-        var trace = options.Trace is { } traceFlag ? new ResolvedRecording(traceFlag, RecordingSource.Run) : target.Trace;
-        var video = options.Video is { } videoFlag ? new ResolvedRecording(videoFlag, RecordingSource.Run) : target.Video;
-        foreach (var message in RecordingNotices(trace.Mode, video, (engine.Capabilities & EngineCapabilities.Video) != 0, target.Name, engine.Platform))
+        var engine = options.Engine
+            ?? TargetEngines.Create(
+                target,
+                options.Headed ? false : null,
+                options.CreateMobileEngine,
+                options.CreateWindowsEngine
+            );
+        var trace = options.Trace is { } traceFlag
+            ? new ResolvedRecording(traceFlag, RecordingSource.Run)
+            : target.Trace;
+        var video = options.Video is { } videoFlag
+            ? new ResolvedRecording(videoFlag, RecordingSource.Run)
+            : target.Video;
+        foreach (
+            var message in RecordingNotices(
+                trace.Mode,
+                video,
+                (engine.Capabilities & EngineCapabilities.Video) != 0,
+                target.Name,
+                engine.Platform
+            )
+        )
         {
             notice(message);
         }
@@ -260,7 +301,9 @@ public static class Explore
         HostRun.Started(config, [target.Name], agentName);
 
         // The target's app command starts before the session opens, and the URL is on the port it was started on.
-        var (appTarget, appProcesses) = await RunApps.AcquireAsync(config, target, notice, cancellationToken).ConfigureAwait(false);
+        var (appTarget, appProcesses) = await RunApps
+            .AcquireAsync(config, target, notice, cancellationToken)
+            .ConfigureAwait(false);
         target = appTarget;
         RunEvents.Emit(new PlanEvent(1, [(ExploreFile, target.Name, 1)]));
         var appFailures = new List<Exception>();
@@ -286,7 +329,9 @@ public static class Explore
                 MaxObservationBytes = defaultAgent.MaxObservationBytes,
                 MaxInputTokens = defaultAgent.MaxInputTokens,
                 ProviderOptions = defaultAgent.ProviderOptions,
-                Agents = entries.Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
+                Agents = entries
+                    .Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal))
+                    .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
                 BaseUrl = target.App.Url,
                 Permissions = target.App.Permissions,
                 ProjectRoot = projectRoot,
@@ -330,18 +375,27 @@ public static class Explore
                 session.Register(secret.Name, secret.Value);
             }
 
-            var body = ExploreBody.Create(new ExploreBodyOptions(
-                state,
-                StepTimeout,
-                target.App.Url is not null || TargetEngines.LaunchesPinnedApp(target, engine),
-                credentials,
-                string.Equals(agentName, "default", StringComparison.Ordinal) ? null : agentName,
-                Session: options.Session,
-                // A goal someone wrote asks for exploration: only the default one may be skipped.
-                Change: change is null ? null : new PlanChange(change.Brief.Complete && givenGoal is null)));
+            var body = ExploreBody.Create(
+                new ExploreBodyOptions(
+                    state,
+                    StepTimeout,
+                    target.App.Url is not null || TargetEngines.LaunchesPinnedApp(target, engine),
+                    credentials,
+                    string.Equals(agentName, "default", StringComparison.Ordinal) ? null : agentName,
+                    Session: options.Session,
+                    // A goal someone wrote asks for exploration: only the default one may be skipped.
+                    Change: change is null ? null : new PlanChange(change.Brief.Complete && givenGoal is null)
+                )
+            );
             try
             {
-                await body(new ExploreFixtures(new SessionAgent(session.Agent), token => session.App.OpenAsync(null, token)), cancellationToken).ConfigureAwait(false);
+                await body(
+                        new ExploreFixtures(new SessionAgent(session.Agent), token =>
+                            session.App.OpenAsync(null, token)
+                        ),
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
             }
             catch (E2EException ex)
             {
@@ -374,11 +428,20 @@ public static class Explore
         }
 
         var cleanupErrors = cleanup
-            .Select(failure => ErrorSerializer.TranslateProvisioningError(failure, " while closing the exploration", CancellationToken.None))
+            .Select(failure =>
+                ErrorSerializer.TranslateProvisioningError(
+                    failure,
+                    " while closing the exploration",
+                    CancellationToken.None
+                )
+            )
             .Select(failure => (E2EException)ErrorRedaction.Cause(failure, redactor.Redact)!)
             .ToList();
         var exitCode = ErrorSerializer.CombineExitCodes(
-            cleanupErrors.Select(failure => ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)).Append(Runner.ExitCodeOf(error)));
+            cleanupErrors
+                .Select(failure => ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category))
+                .Append(Runner.ExitCodeOf(error))
+        );
         var status = cleanupErrors.Count > 0 ? RunStatus.Failed : Runner.StatusOf(error);
         return new ExploreOutcome(status, exitCode, error ?? cleanupErrors.FirstOrDefault(), record)
         {
@@ -392,12 +455,22 @@ public static class Explore
     /// notice says to pass the flag. A video notice is made only when the engine can record one. Upstream's <c>recordingNotices</c> in
     /// <c>run/provision.ts</c>, for <c>explore</c>.
     /// </summary>
-    internal static IEnumerable<string> RecordingNotices(RecordingMode trace, ResolvedRecording video, bool recordsVideo, string target, string engine)
+    internal static IEnumerable<string> RecordingNotices(
+        RecordingMode trace,
+        ResolvedRecording video,
+        bool recordsVideo,
+        string target,
+        string engine
+    )
     {
         // A run-wide video mode asked of an engine that cannot record it is skipped, and says so.
         if (!recordsVideo && video.Source == RecordingSource.Run && RecordingModes.RecordsOnSomeAttempt(video.Mode, 0))
         {
-            yield return "video records only on targets whose engine can record it; target \"" + target + "\" (engine " + engine + ") records no video";
+            yield return "video records only on targets whose engine can record it; target \""
+                + target
+                + "\" (engine "
+                + engine
+                + ") records no video";
         }
 
         if (RecordingModes.IsRetryMode(trace))
@@ -412,7 +485,14 @@ public static class Explore
     }
 
     private static string RetryOnlyNotice(string kind, RecordingMode mode) =>
-        kind + ": '" + RecordingModes.Name(mode) + "' records retries only, and explore runs its goal once, so no " + kind + "s will be recorded; pass --" + kind + " on";
+        kind
+        + ": '"
+        + RecordingModes.Name(mode)
+        + "' records retries only, and explore runs its goal once, so no "
+        + kind
+        + "s will be recorded; pass --"
+        + kind
+        + " on";
 
     private static E2EConfig LoadConfig(ExploreOptions options)
     {
@@ -425,14 +505,20 @@ public static class Explore
         var path = options.ConfigPath is null ? E2EConfig.Find(cwd) : Path.GetFullPath(options.ConfigPath, cwd);
         if (path is null)
         {
-            throw new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one");
+            throw new ConfigurationException(
+                "CONFIG_NOT_FOUND",
+                "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one"
+            );
         }
 
         if (!File.Exists(path))
         {
             throw options.ConfigPath is { } explicitPath
                 ? E2EConfig.ExplicitConfigNotFound(cwd, explicitPath, path)
-                : new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one");
+                : new ConfigurationException(
+                    "CONFIG_NOT_FOUND",
+                    "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one"
+                );
         }
 
         return E2EConfig.Load(path);
@@ -443,20 +529,30 @@ public static class Explore
     /// does. Every text git gives is redacted of the config's secrets, fragments included, before the brief cuts it. No change since the
     /// base is a notice; the brief says so. Upstream's <c>exploreChange</c> (<c>explore/index.ts</c>).
     /// </summary>
-    private static async Task<ExploreChange?> ExploreChangeAsync(string? changedSince, string projectRoot, Redactor redactor, Action<string> notice, CancellationToken cancellationToken)
+    private static async Task<ExploreChange?> ExploreChangeAsync(
+        string? changedSince,
+        string projectRoot,
+        Redactor redactor,
+        Action<string> notice,
+        CancellationToken cancellationToken
+    )
     {
         if (changedSince is null)
         {
             return null;
         }
 
-        var change = await ExploreChanges.ReadExploreChangeAsync(new ReadExploreChangeOptions
-        {
-            Cwd = projectRoot,
-            ChangedSince = changedSince,
-            CancellationToken = cancellationToken,
-            Redact = redactor.RedactFragments,
-        }).ConfigureAwait(false);
+        var change = await ExploreChanges
+            .ReadExploreChangeAsync(
+                new ReadExploreChangeOptions
+                {
+                    Cwd = projectRoot,
+                    ChangedSince = changedSince,
+                    CancellationToken = cancellationToken,
+                    Redact = redactor.RedactFragments,
+                }
+            )
+            .ConfigureAwait(false);
         if (change.Report.Files == 0)
         {
             notice("no files changed since " + changedSince);
@@ -475,7 +571,13 @@ public static class Explore
         }
 
         return trimmed.Length > MaxGoalChars
-            ? throw new ConfigurationException("INVALID_CONFIG", "the goal must be at most " + MaxGoalChars.ToString(CultureInfo.InvariantCulture) + " characters, got " + trimmed.Length.ToString(CultureInfo.InvariantCulture))
+            ? throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "the goal must be at most "
+                    + MaxGoalChars.ToString(CultureInfo.InvariantCulture)
+                    + " characters, got "
+                    + trimmed.Length.ToString(CultureInfo.InvariantCulture)
+            )
             : trimmed;
     }
 
@@ -490,7 +592,11 @@ public static class Explore
         return redacted.Length > MaxGoalChars
             ? throw new ConfigurationException(
                 "INVALID_CONFIG",
-                "the goal must be at most " + MaxGoalChars.ToString(CultureInfo.InvariantCulture) + " characters with its secret values redacted, got " + redacted.Length.ToString(CultureInfo.InvariantCulture))
+                "the goal must be at most "
+                    + MaxGoalChars.ToString(CultureInfo.InvariantCulture)
+                    + " characters with its secret values redacted, got "
+                    + redacted.Length.ToString(CultureInfo.InvariantCulture)
+            )
             : redacted;
     }
 
@@ -506,15 +612,25 @@ public static class Explore
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                label + " must be an integer from " + number(bounds.Min).ToString(CultureInfo.InvariantCulture) + " through " + number(bounds.Max).ToString(CultureInfo.InvariantCulture)
-                + ", got " + number(given).ToString(CultureInfo.InvariantCulture));
+                label
+                    + " must be an integer from "
+                    + number(bounds.Min).ToString(CultureInfo.InvariantCulture)
+                    + " through "
+                    + number(bounds.Max).ToString(CultureInfo.InvariantCulture)
+                    + ", got "
+                    + number(given).ToString(CultureInfo.InvariantCulture)
+            );
         }
 
         return given;
     }
 
     /// <summary>The target to explore: the one <see cref="ExploreOptions.Target"/> names (an unknown one is <c>UNKNOWN_TARGET</c>), else the first configured.</summary>
-    private static TargetConfig PickTarget(IReadOnlyList<TargetConfig> targets, string? requested, Action<string> notice)
+    private static TargetConfig PickTarget(
+        IReadOnlyList<TargetConfig> targets,
+        string? requested,
+        Action<string> notice
+    )
     {
         if (requested is null)
         {
@@ -530,43 +646,66 @@ public static class Explore
         return targets.FirstOrDefault(target => string.Equals(target.Name, requested, StringComparison.Ordinal))
             ?? throw new ConfigurationException(
                 "UNKNOWN_TARGET",
-                "unknown target ID \"" + requested + "\"; the config declares " + string.Join(", ", names.Select(name => "\"" + name + "\"")) + Suggestions.DidYouMean(requested, names));
+                "unknown target ID \""
+                    + requested
+                    + "\"; the config declares "
+                    + string.Join(", ", names.Select(name => "\"" + name + "\""))
+                    + Suggestions.DidYouMean(requested, names)
+            );
     }
 
     /// <summary>
     /// The explorer's agent with per-step budgets that default higher than a scripted step's, a charter being longer. An agent that
     /// left a budget out has set none, whatever number it would default to.
     /// </summary>
-    internal static AgentOptions WithStepBudgets(AgentOptions explorer, string? session = null, ChangeBrief? change = null) => new()
-    {
-        Model = explorer.Model,
-        Judge = explorer.Judge,
-        System = explorer.System,
+    internal static AgentOptions WithStepBudgets(
+        AgentOptions explorer,
+        string? session = null,
+        ChangeBrief? change = null
+    ) =>
+        new()
+        {
+            Model = explorer.Model,
+            Judge = explorer.Judge,
+            System = explorer.System,
 
-        // The change rides in the trusted context, never in a step's label: the planner reads it, the explorer judges against it, and the
-        // report and the trace page never copy it.
-        Context = session is null && change is null
-            ? explorer.Context
-            : string.Join(
-                '\n',
-                new[] { explorer.Context, session is null ? null : ExplorePlan.SignedInContext(session), change is null ? null : ExploreChanges.ChangeContext(change.Text) }
-                    .Where(part => !string.IsNullOrWhiteSpace(part))),
-        MaxSteps = explorer.MaxSteps ?? DefaultStepBudget,
-        MaxModelCalls = explorer.MaxModelCalls ?? DefaultStepBudget,
-        JudgmentTimeout = explorer.JudgmentTimeout,
-        MaxObservationBytes = explorer.MaxObservationBytes,
-        MaxInputTokens = explorer.MaxInputTokens,
-        ProviderOptions = explorer.ProviderOptions,
-        Tools = explorer.Tools,
-    };
+            // The change rides in the trusted context, never in a step's label: the planner reads it, the explorer judges against it, and the
+            // report and the trace page never copy it.
+            Context =
+                session is null && change is null
+                    ? explorer.Context
+                    : string.Join(
+                        '\n',
+                        new[]
+                        {
+                            explorer.Context,
+                            session is null ? null : ExplorePlan.SignedInContext(session),
+                            change is null ? null : ExploreChanges.ChangeContext(change.Text),
+                        }.Where(part => !string.IsNullOrWhiteSpace(part))
+                    ),
+            MaxSteps = explorer.MaxSteps ?? DefaultStepBudget,
+            MaxModelCalls = explorer.MaxModelCalls ?? DefaultStepBudget,
+            JudgmentTimeout = explorer.JudgmentTimeout,
+            MaxObservationBytes = explorer.MaxObservationBytes,
+            MaxInputTokens = explorer.MaxInputTokens,
+            ProviderOptions = explorer.ProviderOptions,
+            Tools = explorer.Tools,
+        };
 
     /// <summary>
     /// The config's <c>credentials</c>, which are every account upstream's exploration carries (<c>credentialAccounts(resolved.credentials)</c>),
     /// then the accounts <see cref="ExploreOptions.Credentials"/> adds. .NET-only: an added account replaces a configured one of its name.
     /// </summary>
-    private static Dictionary<string, UserCredential> ConfiguredAccounts(E2EConfig config, IReadOnlyDictionary<string, UserCredential>? added)
+    private static Dictionary<string, UserCredential> ConfiguredAccounts(
+        E2EConfig config,
+        IReadOnlyDictionary<string, UserCredential>? added
+    )
     {
-        var accounts = config.Credentials.ToDictionary(pair => pair.Key, pair => new UserCredential(pair.Value.Username, pair.Value.Password), StringComparer.Ordinal);
+        var accounts = config.Credentials.ToDictionary(
+            pair => pair.Key,
+            pair => new UserCredential(pair.Value.Username, pair.Value.Password),
+            StringComparer.Ordinal
+        );
         foreach (var (name, credential) in added ?? new Dictionary<string, UserCredential>())
         {
             accounts[name] = credential;
@@ -576,15 +715,19 @@ public static class Explore
     }
 
     /// <summary>Each account's password as the secret <c>&lt;name&gt;.password</c> for a password field, as upstream's registry names it.</summary>
-    private static Dictionary<string, UserCredential> NormalizeCredentials(IReadOnlyDictionary<string, UserCredential>? credentials) =>
+    private static Dictionary<string, UserCredential> NormalizeCredentials(
+        IReadOnlyDictionary<string, UserCredential>? credentials
+    ) =>
         (credentials ?? new Dictionary<string, UserCredential>()).ToDictionary(
             pair => pair.Key,
             pair => new UserCredential(
                 pair.Value.Username,
                 pair.Value.Password.Provider is { } provider
                     ? Secret.Create(pair.Key + ".password", provider, "password")
-                    : Secret.Create(pair.Key + ".password", pair.Value.Password.Value, "password")),
-            StringComparer.Ordinal);
+                    : Secret.Create(pair.Key + ".password", pair.Value.Password.Value, "password")
+            ),
+            StringComparer.Ordinal
+        );
 
     /// <summary>
     /// The accounts every charter carries, bounded to what a step parameter holds. Measured as the step sees them: the usernames and
@@ -598,7 +741,12 @@ public static class Explore
             carried[name] = new JsonObject
             {
                 ["username"] = credential.Username,
-                ["password"] = new JsonObject { ["kind"] = "secret", ["name"] = credential.Password.Name, ["purpose"] = "password" },
+                ["password"] = new JsonObject
+                {
+                    ["kind"] = "secret",
+                    ["name"] = credential.Password.Name,
+                    ["purpose"] = "password",
+                },
             };
         }
 
@@ -607,8 +755,14 @@ public static class Explore
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                "explore carries every configured credential into each step: " + credentials.Count.ToString(CultureInfo.InvariantCulture) + " account(s) serialize to "
-                + bytes.ToString(CultureInfo.InvariantCulture) + " bytes, the maximum is " + MaxCredentialBytes.ToString(CultureInfo.InvariantCulture) + "; explore with fewer credentials");
+                "explore carries every configured credential into each step: "
+                    + credentials.Count.ToString(CultureInfo.InvariantCulture)
+                    + " account(s) serialize to "
+                    + bytes.ToString(CultureInfo.InvariantCulture)
+                    + " bytes, the maximum is "
+                    + MaxCredentialBytes.ToString(CultureInfo.InvariantCulture)
+                    + "; explore with fewer credentials"
+            );
         }
     }
 
@@ -618,7 +772,10 @@ public static class Explore
         public Task<ActResult> ActAsync(string instruction, ActOptions? options, CancellationToken cancellationToken) =>
             agent.ActAsync(instruction, options, cancellationToken);
 
-        public Task<T> ExtractAsync<T>(string instruction, ExtractOptions? options, CancellationToken cancellationToken) =>
-            agent.ExtractAsync<T>(instruction, options, cancellationToken);
+        public Task<T> ExtractAsync<T>(
+            string instruction,
+            ExtractOptions? options,
+            CancellationToken cancellationToken
+        ) => agent.ExtractAsync<T>(instruction, options, cancellationToken);
     }
 }

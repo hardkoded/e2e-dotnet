@@ -41,8 +41,9 @@ it), registers the MCP server in `.mcp.json`, `.cursor/mcp.json`, and `.codex/co
 updates `.gitignore`. A flag per question overrides one default: `--engine`
 (`web` or `mobile`), `--gateway` (`vercel`, `openrouter`, `openai-compatible`,
 `chatgpt`, `copilot`, `opencode-console`, `grok`, or `none`), `--endpoint`,
-`--skills`, `--mcp` (comma-separated locations, or `none`); `e2e init --help`
-lists the values. `--engine`, `--gateway`, and `--endpoint` apply to a new
+`--skills`, `--mcp` (comma-separated locations, or `none`), `--ci github-actions`,
+`--ci gitlab`, or `--ci none` (a pipeline with a job per platform; `--yes` writes
+none); `e2e init --help` lists the values. `--engine`, `--gateway`, and `--endpoint` apply to a new
 config only. Init leaves an existing config alone, refreshes the skill and MCP
 entries on a re-run, and never writes through a symlink. A subscription
 gateway needs its sign-in before the first run (`e2e login <provider>`).
@@ -159,7 +160,7 @@ unknown key fails with `INVALID_CONFIG`.
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, or `windows`), and `app.url` (a web target; port `0` takes a free port) with an optional `app.command` and `app.readyUrl` that start the app (below), or `app.appPath` and `app.bundleId` (a device or Windows target). Any target takes `app.identity` and `app.environment` (below); a device or Windows target takes `app.launchArguments`, and a device or web target `app.permissions` (below). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only. |
+| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, or `windows`), and `app.url` (a web target; port `0` takes a free port) with an optional `app.command` and `app.readyUrl` that start the app (below), or `app.appPath` and `app.bundleId` (a device or Windows target). Any target takes `app.identity` and `app.environment` (below); a device target takes `app.linkBase`, the base `App.OpenAsync(path)` joins a path to (see topic `mobile`); a device or Windows target takes `app.launchArguments`, and a device or web target `app.permissions` (below). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only on a browser target; a device target with `app.linkBase` also opens a path, joined to that base. |
 | `timeout` | `120000` | Per test, ms. |
 | `launchTimeout` | `60000` | Engine start, ms. |
 | `actionTimeout` | `30000` | Each locator action and engine operation, ms. |

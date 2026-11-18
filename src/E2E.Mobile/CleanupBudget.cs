@@ -8,7 +8,12 @@ namespace E2E.Mobile;
 internal static class CleanupBudget
 {
     /// <summary>Runs the work under a token that is cancelled when the budget or the caller's token runs out, and waits no longer than that. <paramref name="time"/> is the clock the budget runs on; a test moves it where upstream uses fake timers.</summary>
-    public static async Task WithinAsync(Func<CancellationToken, Task> work, TimeSpan timeout, CancellationToken cancellationToken, TimeProvider? time = null)
+    public static async Task WithinAsync(
+        Func<CancellationToken, Task> work,
+        TimeSpan timeout,
+        CancellationToken cancellationToken,
+        TimeProvider? time = null
+    )
     {
         var budget = timeout < TimeSpan.Zero ? TimeSpan.Zero : timeout;
         using var elapsed = new CancellationTokenSource(budget, time ?? TimeProvider.System);
@@ -19,4 +24,3 @@ internal static class CleanupBudget
         await Task.WhenAny(finished, expired.Task).ConfigureAwait(false);
     }
 }
-

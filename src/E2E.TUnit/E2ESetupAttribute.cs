@@ -32,7 +32,9 @@ public sealed class E2ESetupAttribute : Attribute, ISessionSetup, ITestDiscovery
     /// <summary>Creates a setup test named <paramref name="title"/>.</summary>
     public E2ESetupAttribute(string title)
     {
-        Title = string.IsNullOrWhiteSpace(title) ? throw new ArgumentException("a setup test needs a title", nameof(title)) : title;
+        Title = string.IsNullOrWhiteSpace(title)
+            ? throw new ArgumentException("a setup test needs a title", nameof(title))
+            : title;
     }
 
     /// <summary>The test's name.</summary>

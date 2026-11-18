@@ -18,7 +18,10 @@ namespace E2E;
 public sealed class E2ESessionAttribute(string name) : Attribute
 {
     /// <summary>The name a setup test saved the session under.</summary>
-    public string Name { get; } = string.IsNullOrWhiteSpace(name) ? throw new ArgumentException("session must be the name of a saved session", nameof(name)) : name;
+    public string Name { get; } =
+        string.IsNullOrWhiteSpace(name)
+            ? throw new ArgumentException("session must be the name of a saved session", nameof(name))
+            : name;
 }
 
 /// <summary>

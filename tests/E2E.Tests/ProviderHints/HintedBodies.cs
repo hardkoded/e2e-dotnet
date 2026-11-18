@@ -15,18 +15,25 @@ internal static class HintedBodies
 {
     public const string ChatAnswer = """{ "choices": [{ "message": { "content": "ok" } }] }""";
 
-    public const string ResponsesAnswer = """{ "output": [{ "type": "message", "content": [{ "type": "output_text", "text": "ok" }] }] }""";
+    public const string ResponsesAnswer =
+        """{ "output": [{ "type": "message", "content": [{ "type": "output_text", "text": "ok" }] }] }""";
 
     public const string AnthropicAnswer = """{ "content": [{ "type": "text", "text": "ok" }] }""";
 
-    public static ModelRequest Request(string system = "rules", IReadOnlyDictionary<string, JsonElement>? providerOptions = null, bool markLatest = false, params ModelMessage[] messages) => new()
-    {
-        System = system,
-        Tools = ModelProviderTests.Tools(),
-        Messages = messages.Length == 0 ? [new ModelMessage { Role = "user", Content = "step" }] : messages,
-        MarkLatest = markLatest,
-        ProviderOptions = providerOptions,
-    };
+    public static ModelRequest Request(
+        string system = "rules",
+        IReadOnlyDictionary<string, JsonElement>? providerOptions = null,
+        bool markLatest = false,
+        params ModelMessage[] messages
+    ) =>
+        new()
+        {
+            System = system,
+            Tools = ModelProviderTests.Tools(),
+            Messages = messages.Length == 0 ? [new ModelMessage { Role = "user", Content = "step" }] : messages,
+            MarkLatest = markLatest,
+            ProviderOptions = providerOptions,
+        };
 
     public static IReadOnlyDictionary<string, JsonElement> Options(string provider, string json) =>
         new Dictionary<string, JsonElement> { [provider] = JsonDocument.Parse(json).RootElement.Clone() };
@@ -45,7 +52,10 @@ internal static class HintedBodies
         return await SendAsync(model, handler, request ?? Request());
     }
 
-    public static async Task<JsonObject> ResponsesAsync(OpenAiResponsesModelOptions options, ModelRequest? request = null)
+    public static async Task<JsonObject> ResponsesAsync(
+        OpenAiResponsesModelOptions options,
+        ModelRequest? request = null
+    )
     {
         var handler = new RecordingHandler(ResponsesAnswer);
         using var http = new HttpClient(handler);

@@ -17,22 +17,29 @@ public sealed class ModelCallRetriesTests
     {
         public int Requests { get; private set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
         {
             Requests++;
-            var response = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("overloaded") };
+            var response = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+            {
+                Content = new StringContent("overloaded"),
+            };
             response.Headers.TryAddWithoutValidation("retry-after-ms", "0");
             return Task.FromResult(response);
         }
     }
 
-    private static ModelRequest Request(int? maxRetries) => new()
-    {
-        System = "s",
-        Messages = [new ModelMessage { Role = "user", Content = "hi" }],
-        Tools = [],
-        MaxRetries = maxRetries,
-    };
+    private static ModelRequest Request(int? maxRetries) =>
+        new()
+        {
+            System = "s",
+            Messages = [new ModelMessage { Role = "user", Content = "hi" }],
+            Tools = [],
+            MaxRetries = maxRetries,
+        };
 
     [Theory]
     [InlineData(1, 2)]
@@ -42,9 +49,14 @@ public sealed class ModelCallRetriesTests
     {
         var handler = new Overloaded();
         using var http = new HttpClient(handler);
-        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "gpt", ApiKey = "k" }, http);
+        using var model = new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions { Model = "gpt", ApiKey = "k" },
+            http
+        );
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => model.CompleteAsync(Request(maxRetries), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            model.CompleteAsync(Request(maxRetries), CancellationToken.None)
+        );
 
         Assert.Equal("MODEL_PROVIDER_FAILED", error.Code);
         Assert.Equal(sent, handler.Requests);
@@ -55,9 +67,14 @@ public sealed class ModelCallRetriesTests
     {
         var handler = new Overloaded();
         using var http = new HttpClient(handler);
-        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "gpt", ApiKey = "k" }, http);
+        using var model = new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions { Model = "gpt", ApiKey = "k" },
+            http
+        );
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => model.CompleteAsync(Request(1), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            model.CompleteAsync(Request(1), CancellationToken.None)
+        );
 
         Assert.Equal(503, error.ProviderStatus);
         var chain = Assert.IsType<E2E.Internal.RetryError>(error.InnerException);

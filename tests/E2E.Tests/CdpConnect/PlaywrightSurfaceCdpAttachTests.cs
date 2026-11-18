@@ -17,12 +17,20 @@ public sealed class PlaywrightSurfaceCdpAttachTests
     [Fact]
     public async Task Fails_init_with_ENGINE_FAILURE_when_the_endpoint_resolves_empty_or_the_resolver_throws_without_touching_a_browser()
     {
-        var empty = await Assert.ThrowsAsync<EngineException>(() => StartAsync(_ => Task.FromResult<CdpTarget>("   "), CancellationToken.None));
+        var empty = await Assert.ThrowsAsync<EngineException>(() =>
+            StartAsync(_ => Task.FromResult<CdpTarget>("   "), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", empty.Code);
         Assert.False(empty.Retryable);
-        Assert.Contains("connect.cdpEndpoint resolved to an empty CDP endpoint", empty.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "connect.cdpEndpoint resolved to an empty CDP endpoint",
+            empty.Message,
+            StringComparison.Ordinal
+        );
 
-        var throwing = await Assert.ThrowsAsync<EngineException>(() => StartAsync(_ => throw new InvalidOperationException("vault down"), CancellationToken.None));
+        var throwing = await Assert.ThrowsAsync<EngineException>(() =>
+            StartAsync(_ => throw new InvalidOperationException("vault down"), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", throwing.Code);
         Assert.Contains("vault down", throwing.Message, StringComparison.Ordinal);
     }
@@ -38,7 +46,8 @@ public sealed class PlaywrightSurfaceCdpAttachTests
                 seen.SetResult(token);
                 return new TaskCompletionSource<CdpTarget>().Task;
             },
-            cancel.Token);
+            cancel.Token
+        );
         var signal = await seen.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.False(signal.IsCancellationRequested);
         await cancel.CancelAsync();
@@ -52,19 +61,27 @@ public sealed class PlaywrightSurfaceCdpAttachTests
         using var cancel = new CancellationTokenSource();
         await cancel.CancelAsync();
         var resolved = 0;
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => StartAsync(
-            _ =>
-            {
-                resolved++;
-                return Task.FromResult<CdpTarget>("ws://localhost:0");
-            },
-            cancel.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            StartAsync(
+                _ =>
+                {
+                    resolved++;
+                    return Task.FromResult<CdpTarget>("ws://localhost:0");
+                },
+                cancel.Token
+            )
+        );
         Assert.Equal(0, resolved);
     }
 
-    private static Task<IEngineSession> StartAsync(Func<CancellationToken, Task<CdpTarget>> cdpEndpoint, CancellationToken cancellationToken)
+    private static Task<IEngineSession> StartAsync(
+        Func<CancellationToken, Task<CdpTarget>> cdpEndpoint,
+        CancellationToken cancellationToken
+    )
     {
-        var engine = new WebEngine(new WebEngineOptions { Connect = new WebConnectOptions { CdpEndpoint = cdpEndpoint } })
+        var engine = new WebEngine(
+            new WebEngineOptions { Connect = new WebConnectOptions { CdpEndpoint = cdpEndpoint } }
+        )
         {
             CreatePlaywright = FakeRemote.Playwright,
             ConnectCdp = (_, _, _, _) => throw new InvalidOperationException("no browser should be dialed"),

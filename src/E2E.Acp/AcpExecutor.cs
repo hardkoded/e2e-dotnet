@@ -17,9 +17,9 @@ public static class AcpExecutor
 {
     /// <summary>What the session is, before the built-in agent's rules for the same tools.</summary>
     private const string SessionRules =
-        "This conversation drives a real application for an end-to-end test, one step per message: an action to perform, or an assertion to judge, with the current screen.\n" +
-        "Use only the tools of this conversation. You have no access to the application's source, files, shell, or network.\n" +
-        "The rules below are for each step. A step ends when you call complete_step; then wait for the next message. For an assertion, judge the condition from the screen without changing anything.";
+        "This conversation drives a real application for an end-to-end test, one step per message: an action to perform, or an assertion to judge, with the current screen.\n"
+        + "Use only the tools of this conversation. You have no access to the application's source, files, shell, or network.\n"
+        + "The rules below are for each step. A step ends when you call complete_step; then wait for the next message. For an assertion, judge the condition from the screen without changing anything.";
 
     private static readonly string Rules = $"{SessionRules}\n\n{DefaultAgent.BaseRules}\n\n{AgentTools.VerdictRules}";
 
@@ -39,11 +39,21 @@ public static class AcpExecutor
     {
         if (string.IsNullOrWhiteSpace(command))
         {
-            throw new ConfigurationException("INVALID_CONFIG", "AcpExecutor.Create takes a command and its args, e.g. AcpExecutor.Create(\"agent\", [\"acp\"])");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "AcpExecutor.Create takes a command and its args, e.g. AcpExecutor.Create(\"agent\", [\"acp\"])"
+            );
         }
 
         options ??= new AcpOptions();
-        var launch = new AgentLaunch(command, args ?? [], options.Env, options.Model, options.Mode, options.SessionMeta);
+        var launch = new AgentLaunch(
+            command,
+            args ?? [],
+            options.Env,
+            options.Model,
+            options.Mode,
+            options.SessionMeta
+        );
         return Build(options.Name ?? "acp", options, _ => Task.FromResult(launch));
     }
 
@@ -74,7 +84,11 @@ public static class AcpExecutor
     }
 
     /// <summary>Upstream's <c>executor</c>: the step executor over how to start an agent.</summary>
-    internal static IStepExecutor Build(string name, AcpAgentOptions options, Func<CancellationToken, Task<AgentLaunch>> launch) => new Runner(name, options, launch);
+    internal static IStepExecutor Build(
+        string name,
+        AcpAgentOptions options,
+        Func<CancellationToken, Task<AgentLaunch>> launch
+    ) => new Runner(name, options, launch);
 
     private sealed class Held
     {
@@ -91,7 +105,8 @@ public static class AcpExecutor
         public Task<TurnReport>? Turn { get; set; }
     }
 
-    private sealed class Runner(string name, AcpAgentOptions options, Func<CancellationToken, Task<AgentLaunch>> launch) : IStepExecutor
+    private sealed class Runner(string name, AcpAgentOptions options, Func<CancellationToken, Task<AgentLaunch>> launch)
+        : IStepExecutor
     {
         // Where an attempt's session lives in the attempt's memory: one key per executor, so two ACP agents never share a session.
         private readonly string _memoryKey = "E2E.Acp.session." + Guid.NewGuid().ToString("N");
@@ -105,8 +120,16 @@ public static class AcpExecutor
         public async Task<StepVerdict> RunStepAsync(StepExecutorContext context, CancellationToken cancellationToken)
         {
             var (held, session) = await ReadyAsync(context, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             var active = new ActiveStep(context);
-            var text = await StepMessageAsync(active, held.Tools, held.Introduced ? null : [Rules, options.System, context.AgentContext], cancellationToken).ConfigureAwait(false);
+            var text = await StepMessageAsync(
+                    active,
+                    held.Tools,
+                    held.Introduced ? null : [Rules, options.System, context.AgentContext],
+                    cancellationToken
+                )
+                .WaitAsync(cancellationToken)
+                .ConfigureAwait(false);
 
             // A step that ended while its screen was read sends no prompt, which no cancel would reach.
             cancellationToken.ThrowIfCancellationRequested();
@@ -130,7 +153,11 @@ public static class AcpExecutor
 
                 session.Close();
                 context.Attempt.Memory.Remove(_memoryKey);
-                throw new AgentException("MODEL_PROVIDER_FAILED", $"The ACP agent session failed: {Redact(context, error.Message)}", error);
+                throw new AgentException(
+                    "MODEL_PROVIDER_FAILED",
+                    $"The ACP agent session failed: {Redact(context, error.Message)}",
+                    error
+                );
             }
             finally
             {
@@ -164,7 +191,10 @@ public static class AcpExecutor
         }
 
         /// <summary>The attempt's session once the turn of the step before it stopped, or a fresh one when that turn's end closed it.</summary>
-        private async Task<(Held Held, AcpSession Session)> ReadyAsync(StepExecutorContext context, CancellationToken token)
+        private async Task<(Held Held, AcpSession Session)> ReadyAsync(
+            StepExecutorContext context,
+            CancellationToken token
+        )
         {
             while (true)
             {
@@ -184,14 +214,21 @@ public static class AcpExecutor
                         throw;
                     }
 
-                    throw new AgentException("MODEL_PROVIDER_FAILED", $"The ACP agent did not start: {Redact(context, error.Message)}", error);
+                    throw new AgentException(
+                        "MODEL_PROVIDER_FAILED",
+                        $"The ACP agent did not start: {Redact(context, error.Message)}",
+                        error
+                    );
                 }
 
                 if (!await SettledAsync(held.Turn, LastTurnGrace, token).ConfigureAwait(false))
                 {
                     session.Close();
                     context.Attempt.Memory.Remove(_memoryKey);
-                    throw new AgentException("MODEL_PROVIDER_FAILED", "The ACP agent did not stop the turn of a step that already ended");
+                    throw new AgentException(
+                        "MODEL_PROVIDER_FAILED",
+                        "The ACP agent did not stop the turn of a step that already ended"
+                    );
                 }
 
                 // A tool of the agent's own that ran as that turn stopped closed the session and dropped it from the attempt.
@@ -246,7 +283,10 @@ public static class AcpExecutor
             async Task<AcpSession> StartAsync()
             {
                 // The first step's end stops a startup still in progress; an open session lives until the attempt ends.
-                using var startup = CancellationTokenSource.CreateLinkedTokenSource(context.Attempt.CancellationToken, token);
+                using var startup = CancellationTokenSource.CreateLinkedTokenSource(
+                    context.Attempt.CancellationToken,
+                    token
+                );
                 var how = await launch(startup.Token).ConfigureAwait(false);
                 var started = await AcpSession.StartAsync(how, tools, startup.Token, OwnTool).ConfigureAwait(false);
                 lock (gate)
@@ -261,8 +301,18 @@ public static class AcpExecutor
                 return started;
             }
 
-            held = new Held { Slot = slot, Tools = tools, Session = StartAsync() };
-            _ = held.Session.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            held = new Held
+            {
+                Slot = slot,
+                Tools = tools,
+                Session = StartAsync(),
+            };
+            _ = held.Session.ContinueWith(
+                static task => _ = task.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default
+            );
             context.Attempt.Memory[_memoryKey] = held;
             context.Attempt.CancellationToken.Register(() =>
             {
@@ -282,18 +332,20 @@ public static class AcpExecutor
         private static void RecordTurn(StepExecutorContext context, AcpSession session, TurnReport report)
         {
             var usage = report.Usage;
-            context.Budgets.RecordModelCall(new ExecutorModelCall
-            {
-                StartedAt = report.StartedAt,
-                DurationMs = report.DurationMs,
-                Provider = session.AgentName,
-                ModelId = session.ModelId,
-                InputTokens = usage is null ? null : InputTokens(usage),
-                OutputTokens = usage is null ? null : Clamp(usage.OutputTokens),
-                CacheReadTokens = usage?.CachedReadTokens is { } read ? Clamp(read) : null,
-                CacheWriteTokens = usage?.CachedWriteTokens is { } write ? Clamp(write) : null,
-                EstimatedCostUsd = report.CostUsd,
-            });
+            context.Budgets.RecordModelCall(
+                new ExecutorModelCall
+                {
+                    StartedAt = report.StartedAt,
+                    DurationMs = report.DurationMs,
+                    Provider = session.AgentName,
+                    ModelId = session.ModelId,
+                    InputTokens = usage is null ? null : InputTokens(usage),
+                    OutputTokens = usage is null ? null : Clamp(usage.OutputTokens),
+                    CacheReadTokens = usage?.CachedReadTokens is { } read ? Clamp(read) : null,
+                    CacheWriteTokens = usage?.CachedWriteTokens is { } write ? Clamp(write) : null,
+                    EstimatedCostUsd = report.CostUsd,
+                }
+            );
         }
 
         /// <summary>
@@ -334,7 +386,12 @@ public static class AcpExecutor
         }
 
         /// <summary>The message for one step: the rules on the first, then the step, what already ran, and the screen. Upstream's <c>stepMessage</c>.</summary>
-        private static async Task<string> StepMessageAsync(ActiveStep active, IReadOnlyList<ServedTool> tools, string?[]? introduction, CancellationToken token)
+        private static async Task<string> StepMessageAsync(
+            ActiveStep active,
+            IReadOnlyList<ServedTool> tools,
+            string?[]? introduction,
+            CancellationToken token
+        )
         {
             var context = active.Context;
             var parts = new List<string>();
@@ -352,7 +409,9 @@ public static class AcpExecutor
 
             if (step.Secrets.Count > 0)
             {
-                parts.Add($"Secrets to fill with type_secret, by name: {string.Join(", ", step.Secrets.Select(secret => secret.Purpose is null ? secret.Name : $"{secret.Name} ({secret.Purpose})"))}");
+                parts.Add(
+                    $"Secrets to fill with type_secret, by name: {string.Join(", ", step.Secrets.Select(secret => secret.Purpose is null ? secret.Name : $"{secret.Name} ({secret.Purpose})"))}"
+                );
             }
 
             var missing = StepTools.MissingTools(active, tools);
@@ -363,15 +422,21 @@ public static class AcpExecutor
 
             if (context.Ledger != "")
             {
-                parts.Add($"Steps completed so far in this test, including any replayed without you:\n{context.Ledger}");
+                parts.Add(
+                    $"Steps completed so far in this test, including any replayed without you:\n{context.Ledger}"
+                );
             }
 
             if (context.ReplayedPrefix is { } prefix)
             {
-                parts.Add($"A cached replay already performed these actions for this step: {string.Join("; ", prefix.ReplayedActions)}. It stopped ({ReplayHandOffReasons.Name(prefix.StopReason)}). Continue from the current screen; do not redo them.");
+                parts.Add(
+                    $"A cached replay already performed these actions for this step: {string.Join("; ", prefix.ReplayedActions)}. It stopped ({ReplayHandOffReasons.Name(prefix.StopReason)}). Continue from the current screen; do not redo them."
+                );
                 if (prefix.UncertainAction is not null)
                 {
-                    parts.Add($"This replayed action may have taken effect although it failed: {prefix.UncertainAction}. Check the screen before doing anything like it again.");
+                    parts.Add(
+                        $"This replayed action may have taken effect although it failed: {prefix.UncertainAction}. Check the screen before doing anything like it again."
+                    );
                 }
             }
 
@@ -380,21 +445,30 @@ public static class AcpExecutor
         }
 
         /// <summary>The params without secret placeholders, which are listed by name instead.</summary>
-        private static Dictionary<string, JsonElement>? PlainParams(IReadOnlyDictionary<string, JsonElement>? parameters)
+        private static Dictionary<string, JsonElement>? PlainParams(
+            IReadOnlyDictionary<string, JsonElement>? parameters
+        )
         {
-            var plain = parameters?.Where(pair => !IsSecretPlaceholder(pair.Value)).ToDictionary(pair => pair.Key, pair => pair.Value);
+            var plain = parameters
+                ?.Where(pair => !IsSecretPlaceholder(pair.Value))
+                .ToDictionary(pair => pair.Key, pair => pair.Value);
             return plain is { Count: > 0 } ? plain : null;
         }
 
         /// <summary>A secret in the params, as the runner projects it: <c>{ "kind": "secret", "name", "purpose" }</c>.</summary>
         private static bool IsSecretPlaceholder(JsonElement value) =>
-            value.ValueKind == JsonValueKind.Object && value.TryGetProperty("kind", out var kind) && kind.ValueKind == JsonValueKind.String && kind.GetString() == "secret";
+            value.ValueKind == JsonValueKind.Object
+            && value.TryGetProperty("kind", out var kind)
+            && kind.ValueKind == JsonValueKind.String
+            && kind.GetString() == "secret";
 
         /// <summary>The verdict of a step where the agent acted with a tool of its own, which the runner neither saw nor recorded. Upstream's <c>ownToolUsed</c>.</summary>
-        private static StepVerdict OwnToolUsed(string title) => new(
-            StepVerdictStatus.Failed,
-            $"The agent ran a tool of its own without asking ({title}); only the step tools may act, so the step was stopped.",
-            "POLICY_DENIED");
+        private static StepVerdict OwnToolUsed(string title) =>
+            new(
+                StepVerdictStatus.Failed,
+                $"The agent ran a tool of its own without asking ({title}); only the step tools may act, so the step was stopped.",
+                "POLICY_DENIED"
+            );
 
         private static StepVerdict NoConclusion(StepExecutorContext context, TurnReport report)
         {
@@ -403,7 +477,8 @@ public static class AcpExecutor
             return new StepVerdict(
                 StepVerdictStatus.Failed,
                 $"The agent ended its turn ({report.StopReason}) without complete_step{(said == "" ? "" : $": {said}")}",
-                "STEP_NO_CONCLUSION");
+                "STEP_NO_CONCLUSION"
+            );
         }
 
         private static string Transcript(string prompt, ActiveStep active, TurnReport report) =>
@@ -412,13 +487,19 @@ public static class AcpExecutor
                 [
                     $"> {prompt}",
                     $"tools: {(active.Calls.Count == 0 ? "none" : string.Join(", ", active.Calls))}",
-                    .. report.Rejected.Count == 0 ? (string[])[] : [$"rejected tools of the agent's own: {string.Join(", ", report.Rejected)}"],
-                    .. report.Ran.Count == 0 ? (string[])[] : [$"tools of the agent's own that ran without asking: {string.Join(", ", report.Ran)}"],
+                    .. report.Rejected.Count == 0
+                        ? (string[])[]
+                        : [$"rejected tools of the agent's own: {string.Join(", ", report.Rejected)}"],
+                    .. report.Ran.Count == 0
+                        ? (string[])[]
+                        : [$"tools of the agent's own that ran without asking: {string.Join(", ", report.Ran)}"],
                     $"stop: {report.StopReason}",
                     report.Text,
-                ]);
+                ]
+            );
 
         /// <summary>Text from the agent or its process goes through the step's redactor before it reaches an error or a verdict.</summary>
-        private static string Redact(StepExecutorContext context, string text) => context.Host?.Scope.Redactor.Redact(text) ?? text;
+        private static string Redact(StepExecutorContext context, string text) =>
+            context.Host?.Scope.Redactor.Redact(text) ?? text;
     }
 }

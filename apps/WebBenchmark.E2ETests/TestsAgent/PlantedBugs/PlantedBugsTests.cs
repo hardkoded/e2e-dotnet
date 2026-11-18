@@ -30,7 +30,10 @@ public sealed class PlantedBugsTests : TestsAgentTest
         // The Blazor page renders its content once the circuit connects, after App.OpenAsync returns, so wait for the greeting before the judge reads the screen.
         await Expect.That(Screen.GetByTestId("checkout-greeting")).ToBeVisibleAsync();
         var caught = await CaughtTheBugAsync(() =>
-            Agent.AssertAsync("the greeting addresses the customer by a real first name and the delivery estimate names a date"));
+            Agent.AssertAsync(
+                "the greeting addresses the customer by a real first name and the delivery estimate names a date"
+            )
+        );
         Assert.That(caught, Is.True);
     }
 

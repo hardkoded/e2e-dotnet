@@ -39,14 +39,21 @@ internal sealed class OriginRecordingEngine(IEngine inner) : IEngine
     {
         public string Route => inner.Route;
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+        public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+            inner.OpenAsync(url, cancellationToken);
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => inner.ObserveAsync(cancellationToken);
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            inner.ObserveAsync(cancellationToken);
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
             inner.PerformAsync(node, action, cancellationToken);
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken)
+        public Task PerformAsync(
+            SemanticNode node,
+            LocatorAction action,
+            OperationContext context,
+            CancellationToken cancellationToken
+        )
         {
             lock (engine._origins)
             {
@@ -56,7 +63,8 @@ internal sealed class OriginRecordingEngine(IEngine inner) : IEngine
             return inner.PerformAsync(node, action, cancellationToken);
         }
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+        public Task PressAsync(string key, CancellationToken cancellationToken) =>
+            inner.PressAsync(key, cancellationToken);
 
         public ValueTask DisposeAsync() => inner.DisposeAsync();
     }

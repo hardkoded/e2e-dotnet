@@ -19,17 +19,23 @@ public sealed class ReportedModelUsageTests
 {
     private static async Task<E2ESession> JudgeAsync(ModelCallUsage usage, params string[] statements)
     {
-        var model = new ScriptedModel(_ => new ModelResponse { ToolCalls = ModelResponses.Done("passed", "ready").ToolCalls, Usage = usage });
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
+        var model = new ScriptedModel(_ => new ModelResponse
         {
-            Engine = new DocumentEngine(CounterPage.World()),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            TestTitle = "usage > case",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
+            ToolCalls = ModelResponses.Done("passed", "ready").ToolCalls,
+            Usage = usage,
         });
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                Model = model,
+                BaseUrl = "https://billing.test",
+                TestTitle = "usage > case",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         try
         {
             await session.Context.App.OpenAsync("/");
@@ -51,7 +57,16 @@ public sealed class ReportedModelUsageTests
     [Fact]
     public async Task Partial_Keeps_run_totals_representable_when_separate_steps_overflow_their_sum()
     {
-        await using var session = await JudgeAsync(new ModelCallUsage { InputTokens = 1, OutputTokens = 0, EstimatedCostUsd = double.MaxValue }, "ready", "still ready");
+        await using var session = await JudgeAsync(
+            new ModelCallUsage
+            {
+                InputTokens = 1,
+                OutputTokens = 0,
+                EstimatedCostUsd = double.MaxValue,
+            },
+            "ready",
+            "still ready"
+        );
 
         var steps = session.StepRecords.Where(step => step.Api == "agent.assert").ToList();
         Assert.Equal([double.MaxValue, double.MaxValue], steps.Select(step => step.Model?.EstimatedCostUsd).ToArray());
@@ -60,7 +75,10 @@ public sealed class ReportedModelUsageTests
             step.Model = step.Model! with { InputTokens = E2E.ModelUsage.MaxSafeInteger };
         }
 
-        var usage = BuildReport.ComputeUsage([ReportBuilders.Result(attempts: [ReportBuilders.Attempt(steps: steps)])], 1);
+        var usage = BuildReport.ComputeUsage(
+            [ReportBuilders.Result(attempts: [ReportBuilders.Attempt(steps: steps)])],
+            1
+        );
 
         Assert.Equal(E2E.ModelUsage.MaxSafeInteger, usage.ModelTokens);
         Assert.Null(usage.EstimatedCostUsd);
@@ -69,7 +87,15 @@ public sealed class ReportedModelUsageTests
     [Fact]
     public async Task Partial_Sanitizes_malformed_judgment_counters_before_recording_events()
     {
-        await using var session = await JudgeAsync(new ModelCallUsage { InputTokens = -1, OutputTokens = 3, EstimatedCostUsd = 0.25 }, "ready");
+        await using var session = await JudgeAsync(
+            new ModelCallUsage
+            {
+                InputTokens = -1,
+                OutputTokens = 3,
+                EstimatedCostUsd = 0.25,
+            },
+            "ready"
+        );
 
         var step = session.StepRecords.Single(item => item.Api == "agent.assert");
         var modelEvent = step.Events.First(item => item.Kind == StepEventKind.Model);
@@ -87,6 +113,12 @@ public sealed class ReportedModelUsageTests
         var wire = ReportWire.Step(step)["model"]!;
         Assert.Equal("adapter-upper-bound", (string?)wire["tokenAccounting"]);
         Assert.Equal(3, (long?)wire["peakTokensPerCall"]);
-        Assert.Equal(3, (long?)ReportWire.Step(step)["events"]!.AsArray().Single(item => (string?)item!["kind"] == "model")!["outputTokens"]);
+        Assert.Equal(
+            3,
+            (long?)
+                ReportWire.Step(step)["events"]!.AsArray().Single(item => (string?)item!["kind"] == "model")![
+                    "outputTokens"
+                ]
+        );
     }
 }

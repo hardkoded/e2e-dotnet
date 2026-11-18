@@ -57,12 +57,16 @@ public sealed class PageWaitForNavigationTests : PlaywrightTest
     public async Task Should_work_with_history_pushState()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.GotoAsync(Content("""
-            <a onclick='javascript:pushState()'>SPA</a>
-            <script>
-              function pushState() { history.pushState({}, '', 'wow.html') }
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <a onclick='javascript:pushState()'>SPA</a>
+                <script>
+                  function pushState() { history.pushState({}, '', 'wow.html') }
+                </script>
+                """
+            )
+        );
         var navigation = Browser.WaitForURLAsync("/wow.html");
         await Browser.Locator("a").TapAsync();
         await navigation;
@@ -73,12 +77,16 @@ public sealed class PageWaitForNavigationTests : PlaywrightTest
     public async Task Should_work_with_history_replaceState()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.GotoAsync(Content("""
-            <a onclick='javascript:replaceState()'>SPA</a>
-            <script>
-              function replaceState() { history.replaceState({}, '', '/replaced.html') }
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <a onclick='javascript:replaceState()'>SPA</a>
+                <script>
+                  function replaceState() { history.replaceState({}, '', '/replaced.html') }
+                </script>
+                """
+            )
+        );
         var navigation = Browser.WaitForURLAsync("/replaced.html");
         await Browser.Locator("a").TapAsync();
         await navigation;
@@ -89,16 +97,20 @@ public sealed class PageWaitForNavigationTests : PlaywrightTest
     public async Task Should_work_with_DOM_history_back_history_forward()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.GotoAsync(Content("""
-            <a id=back onclick='javascript:goBack()'>back</a>
-            <a id=forward onclick='javascript:goForward()'>forward</a>
-            <script>
-              function goBack() { history.back(); }
-              function goForward() { history.forward(); }
-              history.pushState({}, '', '/first.html');
-              history.pushState({}, '', '/second.html');
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <a id=back onclick='javascript:goBack()'>back</a>
+                <a id=forward onclick='javascript:goForward()'>forward</a>
+                <script>
+                  function goBack() { history.back(); }
+                  function goForward() { history.forward(); }
+                  history.pushState({}, '', '/first.html');
+                  history.pushState({}, '', '/second.html');
+                </script>
+                """
+            )
+        );
         Assert.That(await Browser.UrlAsync(), Is.EqualTo($"{PREFIX}/second.html"));
         var back = Browser.WaitForURLAsync("/first.html");
         await Browser.Locator("a#back").TapAsync();

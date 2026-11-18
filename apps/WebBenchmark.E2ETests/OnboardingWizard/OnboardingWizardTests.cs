@@ -64,7 +64,9 @@ public sealed class OnboardingWizardTests : BenchmarkTest
         await CompleteProfileAsync();
         await CompletePreferencesAsync();
 
-        await Expect.That(Screen.GetByText("Maria Novak · maria.novak@example.com · +48 601 222 333")).ToBeVisibleAsync();
+        await Expect
+            .That(Screen.GetByText("Maria Novak · maria.novak@example.com · +48 601 222 333"))
+            .ToBeVisibleAsync();
         await Expect.That(Screen.GetByText("Krucza 12, 00-585 Warsaw, Poland")).ToBeVisibleAsync();
         await Expect.That(Screen.GetByText("Born March 14, 1990 · Product designer · 7 years")).ToBeVisibleAsync();
         await Expect.That(Screen.GetByText("Plan: Studio")).ToBeVisibleAsync();

@@ -28,7 +28,13 @@ internal class ToyCloud : IBrowserProvider
 {
     private int _sequence;
 
-    public ToyCloud(BrowserProviderScope scope = BrowserProviderScope.Worker, int? failSlot = null, bool failRelease = false, bool reconnect = false, ToySweep sweep = ToySweep.None)
+    public ToyCloud(
+        BrowserProviderScope scope = BrowserProviderScope.Worker,
+        int? failSlot = null,
+        bool failRelease = false,
+        bool reconnect = false,
+        ToySweep sweep = ToySweep.None
+    )
     {
         Scope = scope;
         FailSlot = failSlot;
@@ -63,7 +69,12 @@ internal class ToyCloud : IBrowserProvider
     public Func<BrowserRequest, CancellationToken, Task<BrowserLease>>? OnAcquire { get; set; }
 
     /// <summary>Replaces the answer to <see cref="RecordAsync"/>, which is that the provider does not record.</summary>
-    public Func<BrowserLease, ProviderRecordContext, CancellationToken, Task<E2E.Engine.ProviderRecording?>>? OnRecord { get; set; }
+    public Func<
+        BrowserLease,
+        ProviderRecordContext,
+        CancellationToken,
+        Task<E2E.Engine.ProviderRecording?>
+    >? OnRecord { get; set; }
 
     /// <summary>Replaces the answer to <see cref="CdpHeadersAsync"/>, which is that the provider sends no headers.</summary>
     public Func<BrowserLease, BrowserRequest, Task<IReadOnlyDictionary<string, string>?>>? OnCdpHeaders { get; set; }
@@ -120,14 +131,26 @@ internal class ToyCloud : IBrowserProvider
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyDictionary<string, string>?> CdpHeadersAsync(BrowserLease lease, BrowserRequest context, CancellationToken cancellationToken)
+    public Task<IReadOnlyDictionary<string, string>?> CdpHeadersAsync(
+        BrowserLease lease,
+        BrowserRequest context,
+        CancellationToken cancellationToken
+    )
     {
         CdpHeadersCalls.Add((lease, context));
-        return OnCdpHeaders is { } headers ? headers(lease, context) : Task.FromResult<IReadOnlyDictionary<string, string>?>(null);
+        return OnCdpHeaders is { } headers
+            ? headers(lease, context)
+            : Task.FromResult<IReadOnlyDictionary<string, string>?>(null);
     }
 
-    public Task<E2E.Engine.ProviderRecording?> RecordAsync(BrowserLease lease, ProviderRecordContext context, CancellationToken cancellationToken) =>
-        OnRecord is { } record ? record(lease, context, cancellationToken) : Task.FromResult<E2E.Engine.ProviderRecording?>(null);
+    public Task<E2E.Engine.ProviderRecording?> RecordAsync(
+        BrowserLease lease,
+        ProviderRecordContext context,
+        CancellationToken cancellationToken
+    ) =>
+        OnRecord is { } record
+            ? record(lease, context, cancellationToken)
+            : Task.FromResult<E2E.Engine.ProviderRecording?>(null);
 
     public Task<IReadOnlyList<string>> SweepAsync(BrowserReleaseContext context, CancellationToken cancellationToken)
     {
@@ -149,11 +172,16 @@ internal class ToyCloud : IBrowserProvider
 }
 
 /// <summary>A recording that starts at a fixed time and ends by running the test's own stop.</summary>
-internal sealed class ToyRecording(string startedAt, Func<string, Task<ProviderRecordingResult>> stop) : E2E.Engine.ProviderRecording
+internal sealed class ToyRecording(string startedAt, Func<string, Task<ProviderRecordingResult>> stop)
+    : E2E.Engine.ProviderRecording
 {
-    public override DateTimeOffset StartedAt { get; } = DateTimeOffset.Parse(startedAt, System.Globalization.CultureInfo.InvariantCulture);
+    public override DateTimeOffset StartedAt { get; } =
+        DateTimeOffset.Parse(startedAt, System.Globalization.CultureInfo.InvariantCulture);
 
-    public override Task<ProviderRecordingResult> StopAsync(ProviderRecordingStopContext context, CancellationToken cancellationToken) => stop(context.Dir);
+    public override Task<ProviderRecordingResult> StopAsync(
+        ProviderRecordingStopContext context,
+        CancellationToken cancellationToken
+    ) => stop(context.Dir);
 }
 
 /// <summary>What a test needs to run the hooks a runner would: the run's infos, and an engine whose CDP attach is the fakes'.</summary>
@@ -163,16 +191,47 @@ internal static class Runner
 
     public const string TargetName = "web";
 
-    public static readonly IReadOnlyDictionary<string, string?> Token = new Dictionary<string, string?> { ["BROWSER_TOKEN"] = "t" };
+    public static readonly IReadOnlyDictionary<string, string?> Token = new Dictionary<string, string?>
+    {
+        ["BROWSER_TOKEN"] = "t",
+    };
 
-    public static EnginePrepareInfo PrepareInfo(int slots, Action<string>? log = null, IReadOnlyDictionary<string, string?>? env = null) =>
-        new() { RunId = RunId, TargetName = TargetName, Slots = slots, Env = env ?? Token, Log = log ?? (_ => { }) };
+    public static EnginePrepareInfo PrepareInfo(
+        int slots,
+        Action<string>? log = null,
+        IReadOnlyDictionary<string, string?>? env = null
+    ) =>
+        new()
+        {
+            RunId = RunId,
+            TargetName = TargetName,
+            Slots = slots,
+            Env = env ?? Token,
+            Log = log ?? (_ => { }),
+        };
 
     public static EngineFinishInfo FinishInfo(Action<string>? log = null) =>
-        new() { RunId = RunId, TargetName = TargetName, Env = Token, Log = log ?? (_ => { }) };
+        new()
+        {
+            RunId = RunId,
+            TargetName = TargetName,
+            Env = Token,
+            Log = log ?? (_ => { }),
+        };
 
-    public static EngineInitInfo InitInfo(int workerSlot, IReadOnlyDictionary<string, string?>? env = null, Action<string>? log = null) =>
-        new() { RunId = RunId, TargetName = TargetName, WorkerSlot = workerSlot, Env = env ?? new Dictionary<string, string?>(), Log = log ?? (_ => { }) };
+    public static EngineInitInfo InitInfo(
+        int workerSlot,
+        IReadOnlyDictionary<string, string?>? env = null,
+        Action<string>? log = null
+    ) =>
+        new()
+        {
+            RunId = RunId,
+            TargetName = TargetName,
+            WorkerSlot = workerSlot,
+            Env = env ?? new Dictionary<string, string?>(),
+            Log = log ?? (_ => { }),
+        };
 
     public static IReadOnlyDictionary<string, string?> Widen(IReadOnlyDictionary<string, string> env) =>
         env.ToDictionary(pair => pair.Key, pair => (string?)pair.Value, StringComparer.Ordinal);
@@ -181,15 +240,24 @@ internal static class Runner
     public static string LeasesVariableIn(IEnumerable<string> names)
     {
         var list = names.ToList();
-        return list.FirstOrDefault(name => System.Text.RegularExpressions.Regex.IsMatch(name, "^E2E_WEB_BROWSERS_WEB_[0-9A-F]{8}$"))
-            ?? throw new InvalidOperationException("no leases variable in " + string.Join(", ", list));
+        return list.FirstOrDefault(name =>
+            System.Text.RegularExpressions.Regex.IsMatch(name, "^E2E_WEB_BROWSERS_WEB_[0-9A-F]{8}$")
+        ) ?? throw new InvalidOperationException("no leases variable in " + string.Join(", ", list));
     }
 
     public static EngineStartOptions Attempt(string attemptId) =>
-        new() { AttemptId = attemptId, BaseUrl = "http://app.test/", ActionTimeout = TimeSpan.FromSeconds(1) };
+        new()
+        {
+            AttemptId = attemptId,
+            BaseUrl = "http://app.test/",
+            ActionTimeout = TimeSpan.FromSeconds(1),
+        };
 
     /// <summary>Runs <c>PrepareAsync</c> on the runner's engine and returns it with the environment it left for the workers.</summary>
-    public static async Task<(WebEngine Runner, Dictionary<string, string?> Env)> PreparedAsync(IBrowserProvider cloud, int slots)
+    public static async Task<(WebEngine Runner, Dictionary<string, string?> Env)> PreparedAsync(
+        IBrowserProvider cloud,
+        int slots
+    )
     {
         var runner = new WebEngine(new WebEngineOptions { Browser = cloud });
         var result = await runner.PrepareAsync(PrepareInfo(slots), CancellationToken.None);
@@ -211,7 +279,8 @@ internal sealed class InlineProvider(string name, Func<BrowserRequest, Task<Brow
 
     public List<BrowserLease> Released { get; } = [];
 
-    public Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancellationToken) => acquire(request);
+    public Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancellationToken) =>
+        acquire(request);
 
     public Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken)
     {
@@ -245,10 +314,18 @@ internal sealed class Dialer
     /// <summary>The engine of a provider, attaching to the fakes this dialer hands out.</summary>
     public WebEngine Engine(IBrowserProvider provider, IReadOnlyList<WebInitScript>? initScripts = null)
     {
-        return new WebEngine(new WebEngineOptions { Browser = provider, Viewport = new WebViewport(320, 200), InitScripts = initScripts })
+        return new WebEngine(
+            new WebEngineOptions
+            {
+                Browser = provider,
+                Viewport = new WebViewport(320, 200),
+                InitScripts = initScripts,
+            }
+        )
         {
             CreatePlaywright = FakeRemote.Playwright,
-            ConnectCdp = (playwright, target, timeout, cancellationToken) => DialAsync(provider, target.Endpoint, target: target),
+            ConnectCdp = (playwright, target, timeout, cancellationToken) =>
+                DialAsync(provider, target.Endpoint, target: target),
             RegisterCdpSelectors = (_, _, _) => Task.CompletedTask,
             ConnectPlaywright = (playwright, endpoint, timeout, cancellationToken) =>
             {
@@ -259,7 +336,12 @@ internal sealed class Dialer
         };
     }
 
-    private Task<IBrowser> DialAsync(IBrowserProvider provider, string endpoint, bool record = true, CdpTarget? target = null)
+    private Task<IBrowser> DialAsync(
+        IBrowserProvider provider,
+        string endpoint,
+        bool record = true,
+        CdpTarget? target = null
+    )
     {
         if (record)
         {
@@ -274,7 +356,11 @@ internal sealed class Dialer
 
         // A per-attempt lease rides the browser's persistent default context; a shared browser gets a context per attempt.
         var fake = _create?.Invoke(endpoint)
-            ?? (provider.Scope == BrowserProviderScope.Attempt ? FakeBrowser.Persistent($"context-{endpoint}") : FakeBrowser.Ordinary());
+            ?? (
+                provider.Scope == BrowserProviderScope.Attempt
+                    ? FakeBrowser.Persistent($"context-{endpoint}")
+                    : FakeBrowser.Ordinary()
+            );
         Browsers.Add(fake);
         return Task.FromResult(fake.Browser);
     }

@@ -29,7 +29,12 @@ public sealed class ANodeInsideAHiddenFrameTests : IAsyncLifetime
 
     private static readonly LocatorExpression RoleButton = new() { Kind = "role", Role = "button" };
 
-    private static readonly LocatorExpression VisibleButton = new() { Kind = "role", Role = "button", Visible = true };
+    private static readonly LocatorExpression VisibleButton = new()
+    {
+        Kind = "role",
+        Role = "button",
+        Visible = true,
+    };
 
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
 
@@ -42,14 +47,25 @@ public sealed class ANodeInsideAHiddenFrameTests : IAsyncLifetime
         await _session.OpenAsync("about:blank", CancellationToken.None);
         _page = WebEngine.SurfaceOf(_session)!.Page();
         await _page.SetContentAsync(Document);
-        await _page.FrameLocator("#outer").FrameLocator("#inner").GetByRole(AriaRole.Button).WaitForAsync(new() { State = WaitForSelectorState.Attached });
+        await _page
+            .FrameLocator("#outer")
+            .FrameLocator("#inner")
+            .GetByRole(AriaRole.Button)
+            .WaitForAsync(new() { State = WaitForSelectorState.Attached });
     }
 
     public async Task DisposeAsync() => await _session.DisposeAsync();
 
     /// <summary>Wraps <paramref name="source"/> in <c>frame</c> scopes, outermost first, as a <c>Browser.FrameLocator</c> chain does.</summary>
     private static LocatorExpression WithinFrames(string[] selectors, LocatorExpression source) =>
-        selectors.Reverse().Aggregate(source, (inner, selector) => new LocatorExpression { Kind = "frame", Selector = selector, Source = inner });
+        selectors
+            .Reverse()
+            .Aggregate(source, (inner, selector) => new LocatorExpression
+                {
+                    Kind = "frame",
+                    Selector = selector,
+                    Source = inner,
+                });
 
     private Task<IReadOnlyList<SemanticNode>> LocateAsync(string[] frames, LocatorExpression source) =>
         _session.LocateAsync(WithinFrames(frames, source), Timeout, CancellationToken.None);
@@ -78,7 +94,12 @@ public sealed class ANodeInsideAHiddenFrameTests : IAsyncLifetime
         var expressions = new Func<string, LocatorExpression>[]
         {
             frame => WithinFrames([frame], VisibleButton),
-            frame => new LocatorExpression { Kind = "index", Source = WithinFrames([frame], VisibleButton), Index = 0 },
+            frame => new LocatorExpression
+            {
+                Kind = "index",
+                Source = WithinFrames([frame], VisibleButton),
+                Index = 0,
+            },
             frame => WithinFrames([frame], RoleButton),
         };
         foreach (var expression in expressions)

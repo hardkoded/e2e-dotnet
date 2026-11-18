@@ -38,7 +38,11 @@ public sealed class StaleDomTests : BenchmarkTest
     private static async Task WaitForRebuildAsync(Locator target)
     {
         var before = (await target.BoundingBoxAsync())?.Y;
-        await Expect.Poll(async () => (await target.BoundingBoxAsync())?.Y, new PollOptions { Timeout = TimeSpan.FromSeconds(5) })
+        await Expect
+            .Poll(
+                async () => (await target.BoundingBoxAsync())?.Y,
+                new PollOptions { Timeout = TimeSpan.FromSeconds(5) }
+            )
             .Not.ToBeAsync(before);
     }
 }

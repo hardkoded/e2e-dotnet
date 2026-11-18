@@ -101,14 +101,18 @@ public sealed class PageDialogTests : PlaywrightTest
                 // Upstream: `.catch(() => {})`.
             }
         });
-        await Browser.GotoAsync(Content("""
-            <p>Hello World</p>
-            <script>
-              alert('Please dismiss this dialog');
-              alert('Please dismiss this dialog');
-              alert('Please dismiss this dialog');
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <p>Hello World</p>
+                <script>
+                  alert('Please dismiss this dialog');
+                  alert('Please dismiss this dialog');
+                  alert('Please dismiss this dialog');
+                </script>
+                """
+            )
+        );
         Assert.That(await Browser.Locator("p").TextContentAsync(), Is.EqualTo("Hello World"));
         Assert.That(Volatile.Read(ref seen), Is.EqualTo(3));
     }
@@ -129,14 +133,18 @@ public sealed class PageDialogTests : PlaywrightTest
                 // Upstream: `.catch(() => {})`.
             }
         });
-        await Browser.GotoAsync(Content("""
-            <p>Hello World</p>
-            <script>
-              confirm('Please confirm me?');
-              confirm('Please confirm me?');
-              confirm('Please confirm me?');
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <p>Hello World</p>
+                <script>
+                  confirm('Please confirm me?');
+                  confirm('Please confirm me?');
+                  confirm('Please confirm me?');
+                </script>
+                """
+            )
+        );
         Assert.That(await Browser.Locator("p").TextContentAsync(), Is.EqualTo("Hello World"));
         Assert.That(Volatile.Read(ref seen), Is.EqualTo(3));
     }

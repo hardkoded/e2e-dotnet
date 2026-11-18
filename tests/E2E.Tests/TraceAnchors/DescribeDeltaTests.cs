@@ -16,7 +16,10 @@ public sealed class DescribeDeltaTests
     public void Keeps_what_appeared_and_what_vanished_compared_by_descriptor_rather_than_by_id()
     {
         // Same heading, freshly minted ref: not a delta.
-        var (appeared, gone) = Describe([Heading, EmptyMarker], [Node("heading", "Playbooks"), SavedMarker, Row, Toast]);
+        var (appeared, gone) = Describe(
+            [Heading, EmptyMarker],
+            [Node("heading", "Playbooks"), SavedMarker, Row, Toast]
+        );
 
         Assert.Equal(["status|Marker~saved", "link|PB-Twin-Alpha", "|~Playbook saved"], Shapes(appeared));
         Assert.Equal(["status|Marker~empty"], Shapes(gone));
@@ -51,16 +54,26 @@ public sealed class DescribeDeltaTests
     public void Strips_the_structural_selector_and_drops_nodes_nothing_could_relocate()
     {
         // The icon button carries a structural selector on its node; an anchor leaves it out, so it is a button with nothing else.
-        var (appeared, _) = Describe([], [Row, Node("button", selector: "[data-testid=\"icon\"] > svg"), Node("generic")]);
+        var (appeared, _) = Describe(
+            [],
+            [Row, Node("button", selector: "[data-testid=\"icon\"] > svg"), Node("generic")]
+        );
 
         Assert.Equal(["link|PB-Twin-Alpha"], Shapes(appeared));
-        Assert.DoesNotContain("selector", JsonSerializer.Serialize(appeared, JsonDefaults.Options), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "selector",
+            JsonSerializer.Serialize(appeared, JsonDefaults.Options),
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     [Fact]
     public void Deduplicates_repeated_descriptors_and_caps_each_side_at_the_anchor_limit_in_document_order()
     {
-        var list = Enumerable.Range(0, Anchors.Max + 4).Select(index => Node("listitem", text: "Row " + index)).ToList();
+        var list = Enumerable
+            .Range(0, Anchors.Max + 4)
+            .Select(index => Node("listitem", text: "Row " + index))
+            .ToList();
         var end = list.Append(Node("listitem", text: "Row 0")).ToList();
 
         var (appeared, _) = Describe([], end);
@@ -74,7 +87,8 @@ public sealed class DescribeDeltaTests
     [Fact]
     public void Records_the_value_a_step_typed_into_a_field_redacted_and_never_a_secure_fields()
     {
-        static string Redact(string value) => value.Replace("tok_9f8e7d6c5b4a3210", "<secret:token>", StringComparison.Ordinal);
+        static string Redact(string value) =>
+            value.Replace("tok_9f8e7d6c5b4a3210", "<secret:token>", StringComparison.Ordinal);
         var empty = Node("textbox", "Email");
         var typed = Node("textbox", "Email", value: "ada@example.test");
         var leaked = Node("textbox", "Key", value: "tok_9f8e7d6c5b4a3210");
@@ -103,8 +117,11 @@ public sealed class DescribeDeltaTests
     {
         // Ten list items, each a container over one text leaf, plus a status line after the list:
         // 21 new nodes for a cap of 8.
-        var roots = Enumerable.Range(0, 10)
-            .Select(index => Node("listitem", "Todo " + index + "Delete Todo " + index, children: [Node(text: "Todo " + index)]))
+        var roots = Enumerable
+            .Range(0, 10)
+            .Select(index =>
+                Node("listitem", "Todo " + index + "Delete Todo " + index, children: [Node(text: "Todo " + index)])
+            )
             .Append(Node("status", text: "Report ready"))
             .ToList();
 
@@ -152,7 +169,10 @@ public sealed class DescribeDeltaTests
     [Fact]
     public void Keeps_volatile_anchors_when_nothing_stable_appeared_so_the_replay_hands_off_rather_than_passing_blind()
     {
-        Assert.Equal(["|~sk_b1bccf4e03c5_..."], Shapes(Describe([Heading], [Heading, Node(text: "sk_b1bccf4e03c5_...")]).Appeared));
+        Assert.Equal(
+            ["|~sk_b1bccf4e03c5_..."],
+            Shapes(Describe([Heading], [Heading, Node(text: "sk_b1bccf4e03c5_...")]).Appeared)
+        );
     }
 
     [Fact]
@@ -169,7 +189,10 @@ public sealed class DescribeDeltaTests
     [Fact]
     public void Keeps_every_alert_whatever_its_text_since_a_replay_is_checked_for_alerts_it_raised()
     {
-        var (appeared, _) = Describe([Heading], [Heading, Node("alert", text: "Session expires at 17:42"), Node(text: "Release pipeline")]);
+        var (appeared, _) = Describe(
+            [Heading],
+            [Heading, Node("alert", text: "Session expires at 17:42"), Node(text: "Release pipeline")]
+        );
 
         Assert.Equal(["alert|~Session expires at 17:42", "|~Release pipeline"], Shapes(appeared));
     }
@@ -179,7 +202,18 @@ public sealed class DescribeDeltaTests
     {
         var (appeared, _) = Describe(
             [Heading],
-            [Heading, Node(text: "3 / 30 steps"), Node(text: "v2.2.1"), Node(text: "E2E workspace 00d8365e"), Node("status", "Counter", text: "1"), Node(text: "Marketing 12"), Node(text: "Mayor 3"), Node(text: "Augusta 3"), Node(text: "12 Marketing")]);
+            [
+                Heading,
+                Node(text: "3 / 30 steps"),
+                Node(text: "v2.2.1"),
+                Node(text: "E2E workspace 00d8365e"),
+                Node("status", "Counter", text: "1"),
+                Node(text: "Marketing 12"),
+                Node(text: "Mayor 3"),
+                Node(text: "Augusta 3"),
+                Node(text: "12 Marketing"),
+            ]
+        );
 
         Assert.Equal(8, appeared.Count);
     }
@@ -187,14 +221,28 @@ public sealed class DescribeDeltaTests
     [Fact]
     public void Keeps_a_count_the_step_made_appear_which_is_its_result_and_skips_one_that_only_moved_or_that_came_with_another_route_which_is_the_data()
     {
-        SemanticNode[] imported = [Heading, Node("status", text: "3 records imported"), Node(text: "Showing 1 to 9 of 9 results")];
-        Assert.Equal(["status|~3 records imported", "|~Showing 1 to 9 of 9 results"], Shapes(Describe([Heading], imported).Appeared));
+        SemanticNode[] imported =
+        [
+            Heading,
+            Node("status", text: "3 records imported"),
+            Node(text: "Showing 1 to 9 of 9 results"),
+        ];
+        Assert.Equal(
+            ["status|~3 records imported", "|~Showing 1 to 9 of 9 results"],
+            Shapes(Describe([Heading], imported).Appeared)
+        );
 
         // The same screen opened by a link: its counts are what the list holds today.
-        Assert.Equal(["|~Imported records"], Shapes(Describe([Heading], [.. imported, Node(text: "Imported records")], routeMoved: true).Appeared));
+        Assert.Equal(
+            ["|~Imported records"],
+            Shapes(Describe([Heading], [.. imported, Node(text: "Imported records")], routeMoved: true).Appeared)
+        );
 
         // A tally that was there before the step and reads another number after it grows with every run's leftovers.
-        var (appeared, gone) = Describe([Heading, Node(text: "41 items")], [Heading, Node(text: "42 items"), Node(text: "Item added")]);
+        var (appeared, gone) = Describe(
+            [Heading, Node(text: "41 items")],
+            [Heading, Node(text: "42 items"), Node(text: "Item added")]
+        );
         Assert.Equal(["|~Item added"], Shapes(appeared));
         Assert.Equal(["|~41 items"], Shapes(gone));
     }

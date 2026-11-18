@@ -13,7 +13,13 @@ namespace E2E.Tests.ExpectMissingFrame;
 /// </summary>
 public sealed class WholeSetMatchersOnAMissingFrameTests : IDisposable
 {
-    private static readonly SemanticNode Pay = new() { Ref = "pay", Role = "button", Name = "Pay", Text = "Pay" };
+    private static readonly SemanticNode Pay = new()
+    {
+        Ref = "pay",
+        Role = "button",
+        Name = "Pay",
+        Text = "Pay",
+    };
 
     private readonly List<Timer> _timers = [];
 
@@ -41,9 +47,15 @@ public sealed class WholeSetMatchersOnAMissingFrameTests : IDisposable
             () => { },
             TimeSpan.FromSeconds(5),
             TimeSpan.FromSeconds(5),
-            locate: (_, _, _) => Volatile.Read(ref frame.Value)
-                ? Task.FromResult<IReadOnlyList<SemanticNode>>([Pay])
-                : throw new EngineException(EngineErrorCodes.FrameNotFound, "no frame matches #checkout", retryable: true));
+            locate: (_, _, _) =>
+                Volatile.Read(ref frame.Value)
+                    ? Task.FromResult<IReadOnlyList<SemanticNode>>([Pay])
+                    : throw new EngineException(
+                        EngineErrorCodes.FrameNotFound,
+                        "no frame matches #checkout",
+                        retryable: true
+                    )
+        );
         return screen.GetByRole("button");
     }
 
@@ -62,7 +74,9 @@ public sealed class WholeSetMatchersOnAMissingFrameTests : IDisposable
     [Fact]
     public async Task Fail_a_positive_count_as_a_count_mismatch_not_a_missing_locator()
     {
-        var failure = await Assert.ThrowsAsync<TestException>(() => Expect.That(ClosedFrame()).ToHaveCountAsync(1, TimeSpan.FromMilliseconds(300)));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.That(ClosedFrame()).ToHaveCountAsync(1, TimeSpan.FromMilliseconds(300))
+        );
         Assert.Equal("ASSERTION_FAILED", failure.Code);
         Assert.Contains("observed: count 0", failure.Message);
         Assert.Equal("count 0", failure.Details?.Observed);
@@ -71,7 +85,11 @@ public sealed class WholeSetMatchersOnAMissingFrameTests : IDisposable
     [Fact]
     public async Task Fail_a_text_list_as_a_text_mismatch_not_a_missing_locator()
     {
-        var failure = await Assert.ThrowsAsync<TestException>(() => Expect.That(ClosedFrame()).ToHaveTextAsync(new TextMatch[] { "Pay" }, timeout: TimeSpan.FromMilliseconds(300)));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            Expect
+                .That(ClosedFrame())
+                .ToHaveTextAsync(new TextMatch[] { "Pay" }, timeout: TimeSpan.FromMilliseconds(300))
+        );
         Assert.Equal("ASSERTION_FAILED", failure.Code);
         Assert.Contains("observed: text []", failure.Message);
         Assert.Equal("text []", failure.Details?.Observed);

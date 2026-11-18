@@ -24,8 +24,18 @@ internal static class WebSupport
             return new ViewportSize { Width = emulated.Width, Height = emulated.Height };
         }
 
-        var size = await budget.WithinAsync(page.EvaluateAsync<System.Text.Json.JsonElement>("() => ({ width: window.innerWidth, height: window.innerHeight })")).ConfigureAwait(false);
-        return new ViewportSize { Width = size.GetProperty("width").GetInt32(), Height = size.GetProperty("height").GetInt32() };
+        var size = await budget
+            .WithinAsync(
+                page.EvaluateAsync<System.Text.Json.JsonElement>(
+                    "() => ({ width: window.innerWidth, height: window.innerHeight })"
+                )
+            )
+            .ConfigureAwait(false);
+        return new ViewportSize
+        {
+            Width = size.GetProperty("width").GetInt32(),
+            Height = size.GetProperty("height").GetInt32(),
+        };
     }
 
     /// <summary>Constrains a caller-supplied artifact label to a safe filename (upstream's <c>sanitizeFilename</c>).</summary>
@@ -37,7 +47,9 @@ internal static class WebSupport
             for (var i = 0; i < source.Length; i++)
             {
                 var c = source[i];
-                span[i] = c is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or (>= '0' and <= '9') or '.' or '_' or '-' ? c : '_';
+                span[i] = c is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or (>= '0' and <= '9') or '.' or '_' or '-'
+                    ? c
+                    : '_';
             }
         });
         if (safe.Length > MaxFilenameLength)
@@ -85,7 +97,8 @@ internal static class WebSupport
             },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
+            TaskScheduler.Default
+        );
     }
 
     private static async Task DisposeQuietlyAsync(IAsyncDisposable handle)
@@ -162,7 +175,8 @@ internal sealed class ErrorLatch
 
                 tracked.SetResult();
             },
-            TaskScheduler.Default);
+            TaskScheduler.Default
+        );
     }
 
     /// <summary>
@@ -194,7 +208,14 @@ internal sealed class ErrorLatch
             string[] kinds;
             lock (_gate)
             {
-                kinds = [.. waited.Where(_running.ContainsKey).Select(path => _running[path]).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+                kinds =
+                [
+                    .. waited
+                        .Where(_running.ContainsKey)
+                        .Select(path => _running[path])
+                        .Distinct(StringComparer.Ordinal)
+                        .Order(StringComparer.Ordinal),
+                ];
                 if (kinds.Length > 0)
                 {
                     _running.Clear();
@@ -207,7 +228,8 @@ internal sealed class ErrorLatch
                 ThrowPending();
                 throw new EngineException(
                     "CLEANUP_TIMEOUT",
-                    $"a {string.Join(" and ", kinds)} handler was still running when the cleanup budget ended; anything it throws now is dropped");
+                    $"a {string.Join(" and ", kinds)} handler was still running when the cleanup budget ended; anything it throws now is dropped"
+                );
             }
         }
 
@@ -248,4 +270,3 @@ internal sealed record LocatorTarget(ILocator Locator) : ActionTarget;
 
 /// <summary>An action target that is already an element handle (upstream's <c>{ kind: 'element' }</c>).</summary>
 internal sealed record ElementTarget(IElementHandle Element) : ActionTarget;
-

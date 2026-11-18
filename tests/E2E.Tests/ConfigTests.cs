@@ -13,7 +13,8 @@ public sealed class ConfigTests
     [Fact]
     public void Parses_the_upstream_shape()
     {
-        var config = Parse("""
+        var config = Parse(
+            """
             {
               "targets": [{ "name": "site", "platform": "web", "app": { "url": "http://127.0.0.1:4173" } }],
               "timeout": 90000,
@@ -26,7 +27,8 @@ public sealed class ConfigTests
               "cache": { "mode": "read-only", "dir": "recordings", "strict": true },
               "secrets": { "stripe-key": "sk_test_123456" }
             }
-            """);
+            """
+        );
 
         Assert.Equal("site", config.Target.Name);
         Assert.Equal("http://127.0.0.1:4173/", config.Target.App.Url);
@@ -50,7 +52,8 @@ public sealed class ConfigTests
     [Fact]
     public void Reads_named_agents_with_every_ported_key()
     {
-        var config = Parse("""
+        var config = Parse(
+            """
             {
               "agents": {
                 "default": { "model": "gpt-4.1-mini" },
@@ -66,7 +69,8 @@ public sealed class ConfigTests
                 }
               }
             }
-            """);
+            """
+        );
 
         var careful = config.Agents["careful"];
         Assert.Equal("gpt-4.1", careful.Model);
@@ -134,38 +138,98 @@ public sealed class ConfigTests
 
     [Theory]
     [InlineData("""{ "timeot": 1000 }""", "unknown config key \"timeot\"; did you mean \"timeout\"?")]
-    [InlineData("""{ "app": { "url": "http://x" } }""", "unknown config key \"app\"; the app under test is declared on its target")]
+    [InlineData(
+        """{ "app": { "url": "http://x" } }""",
+        "unknown config key \"app\"; the app under test is declared on its target"
+    )]
     [InlineData("""{ "agent": { "model": "m" } }""", "unknown config key \"agent\"; agents are named")]
-    [InlineData("""{ "timeouts": { "testMs": 1 } }""", "unknown config key \"timeouts\"; timeouts are top-level milliseconds")]
+    [InlineData(
+        """{ "timeouts": { "testMs": 1 } }""",
+        "unknown config key \"timeouts\"; timeouts are top-level milliseconds"
+    )]
     [InlineData("""{ "workers": 2 }""", "config key \"workers\" is not supported by the .NET port")]
     [InlineData("""{ "cache": { "mod": "off" } }""", "unknown cache config key \"mod\"; did you mean \"mode\"?")]
     [InlineData("""{ "cache": { "mode": "on" } }""", "cache.mode must be \"off\", \"read-only\", or \"read-write\"")]
     [InlineData("""{ "cache": { "strict": "yes" } }""", "cache.strict must be a boolean")]
     [InlineData("""{ "targets": [] }""", "targets must be a non-empty array")]
-    [InlineData("""{ "targets": [{ "app": { "url": "https://x", "port": 1 } }] }""", "unknown targets[0].app key \"port\"")]
+    [InlineData(
+        """{ "targets": [{ "app": { "url": "https://x", "port": 1 } }] }""",
+        "unknown targets[0].app key \"port\""
+    )]
     [InlineData("""{ "targets": [{ "platform": "tvos" }] }""", "targets[0].platform \"tvos\" is not supported")]
-    [InlineData("""{ "targets": [{ "platform": "ios", "app": { "url": "https://x" } }] }""", "unknown targets[0].app key \"url\"")]
-    [InlineData("""{ "targets": [{ "platform": "web", "app": { "bundleId": "dev.x" } }] }""", "unknown targets[0].app key \"bundleId\"")]
-    [InlineData("""{ "targets": [{ "platform": "android", "app": { "appPath": "" } }] }""", "targets[0].app.appPath must be a non-empty string")]
-    [InlineData("""{ "agents": { "default": { "modle": "m" } } }""", "unknown agents.default key \"modle\"; did you mean \"model\"?")]
-    [InlineData("""{ "agents": { "default": { "maxInputTokens": 0 } } }""", "agents.default.maxInputTokens must be an integer from 1 through 1000000")]
-    [InlineData("""{ "agents": { "default": { "maxObservationBytes": 1023 } } }""", "agents.default.maxObservationBytes must be an integer from 1024 through 16777216")]
-    [InlineData("""{ "agents": { "default": { "tools": 5 } } }""", "agents.default.tools must be an object of tools by name")]
-    [InlineData("""{ "agents": { "default": { "tools": { "t": { "mutates": false, "command": ["x"] } } } } }""", "agents.default.tools.t.description must be a non-empty string")]
-    [InlineData("""{ "agents": { "default": { "tools": { "t": { "description": "d", "mutates": false, "command": [] } } } } }""", "agents.default.tools.t.command must be a non-empty array of strings: the program, then its arguments")]
-    [InlineData("""{ "agents": { "default": { "tools": { "t": { "description": "d", "command": ["x"] } } } } }""", "agents.default.tools.t.mutates must be true or false: whether running the tool can change the application")]
-    [InlineData("""{ "agents": { "default": { "tools": { "t": { "description": "d", "mutates": false, "command": ["x"], "run": 1 } } } } }""", "agents.default.tools.t has an unknown key \"run\"")]
-    [InlineData("""{ "agents": { "default": { "executor": {} } } }""", "agents.default key \"executor\" is not supported by the .NET port: an executor is code, so set AgentOptions.Executor")]
-    [InlineData("""{ "agents": { "default": { "maxSteps": 101 } } }""", "agents.default.maxSteps must be an integer from 1 through 100")]
-    [InlineData("""{ "agents": { "fast": { "maxModelCalls": 0 } } }""", "agents.fast.maxModelCalls must be an integer from 1 through 100")]
-    [InlineData("""{ "agents": { "default": { "judgmentTimeout": 0 } } }""", "agents.default.judgmentTimeout must be a positive safe integer of milliseconds, got 0")]
+    [InlineData(
+        """{ "targets": [{ "platform": "ios", "app": { "url": "https://x" } }] }""",
+        "unknown targets[0].app key \"url\""
+    )]
+    [InlineData(
+        """{ "targets": [{ "platform": "web", "app": { "bundleId": "dev.x" } }] }""",
+        "unknown targets[0].app key \"bundleId\""
+    )]
+    [InlineData(
+        """{ "targets": [{ "platform": "android", "app": { "appPath": "" } }] }""",
+        "targets[0].app.appPath must be a non-empty string"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "modle": "m" } } }""",
+        "unknown agents.default key \"modle\"; did you mean \"model\"?"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "maxInputTokens": 0 } } }""",
+        "agents.default.maxInputTokens must be an integer from 1 through 1000000"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "maxObservationBytes": 1023 } } }""",
+        "agents.default.maxObservationBytes must be an integer from 1024 through 16777216"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "tools": 5 } } }""",
+        "agents.default.tools must be an object of tools by name"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "tools": { "t": { "mutates": false, "command": ["x"] } } } } }""",
+        "agents.default.tools.t.description must be a non-empty string"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "tools": { "t": { "description": "d", "mutates": false, "command": [] } } } } }""",
+        "agents.default.tools.t.command must be a non-empty array of strings: the program, then its arguments"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "tools": { "t": { "description": "d", "command": ["x"] } } } } }""",
+        "agents.default.tools.t.mutates must be true or false: whether running the tool can change the application"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "tools": { "t": { "description": "d", "mutates": false, "command": ["x"], "run": 1 } } } } }""",
+        "agents.default.tools.t has an unknown key \"run\""
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "executor": {} } } }""",
+        "agents.default key \"executor\" is not supported by the .NET port: an executor is code, so set AgentOptions.Executor"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "maxSteps": 101 } } }""",
+        "agents.default.maxSteps must be an integer from 1 through 100"
+    )]
+    [InlineData(
+        """{ "agents": { "fast": { "maxModelCalls": 0 } } }""",
+        "agents.fast.maxModelCalls must be an integer from 1 through 100"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "judgmentTimeout": 0 } } }""",
+        "agents.default.judgmentTimeout must be a positive safe integer of milliseconds, got 0"
+    )]
     [InlineData("""{ "agents": { "default": { "system": 3 } } }""", "agents.default.system must be a string")]
-    [InlineData("""{ "agents": { "default": { "providerOptions": { "openai": 1 } } } }""", "agents.default.providerOptions.openai must be an object of provider options")]
+    [InlineData(
+        """{ "agents": { "default": { "providerOptions": { "openai": 1 } } } }""",
+        "agents.default.providerOptions.openai must be an object of provider options"
+    )]
     [InlineData("""{ "timeout": 0 }""", "timeout must be a positive safe integer of milliseconds, got 0")]
     [InlineData("""{ "retries": 11 }""", "retries must be an integer from 0 through 10")]
     [InlineData("""{ "secrets": { "pin": "12345" } }""", "secret \"pin\" must be at least 6 characters")]
     [InlineData("""{ "secrets": { "token": null } }""", "secret \"token\" has no value; set E2E_SECRET_TOKEN")]
-    [InlineData("""{ "secrets": { "api-key": "aaaaaa", "api_key": "bbbbbb" } }""", "share the override variable E2E_SECRET_API_KEY")]
+    [InlineData(
+        """{ "secrets": { "api-key": "aaaaaa", "api_key": "bbbbbb" } }""",
+        "share the override variable E2E_SECRET_API_KEY"
+    )]
     [InlineData("""[]""", "the config must be a JSON object")]
     public void Rejects_an_invalid_config(string json, string message)
     {
@@ -177,7 +241,9 @@ public sealed class ConfigTests
     [Fact]
     public void A_device_target_names_its_app_by_bundle_id_and_build_path()
     {
-        var config = Parse("""{ "targets": [{ "platform": "android", "app": { "bundleId": "dev.x.app", "appPath": "build/app.apk" } }] }""");
+        var config = Parse(
+            """{ "targets": [{ "platform": "android", "app": { "bundleId": "dev.x.app", "appPath": "build/app.apk" } }] }"""
+        );
 
         Assert.Equal("android", config.Target.Platform);
         Assert.Equal("dev.x.app", config.Target.App.BundleId);
@@ -189,7 +255,9 @@ public sealed class ConfigTests
     [Fact]
     public void A_windows_target_names_its_app_by_process_name_and_executable()
     {
-        var config = Parse("""{ "targets": [{ "platform": "windows", "app": { "bundleId": "Desk", "appPath": "bin/Desk.exe" } }] }""");
+        var config = Parse(
+            """{ "targets": [{ "platform": "windows", "app": { "bundleId": "Desk", "appPath": "bin/Desk.exe" } }] }"""
+        );
 
         Assert.Equal("windows", config.Target.Platform);
         Assert.Equal("windows", config.Target.Name);
@@ -203,13 +271,12 @@ public sealed class ConfigTests
     {
         var config = Parse(
             """{ "secrets": { "stripe-key": "from-config", "token": null } }""",
-            Env(("E2E_SECRET_STRIPE_KEY", "from-environment"), ("E2E_SECRET_TOKEN", "token-value")));
+            Env(("E2E_SECRET_STRIPE_KEY", "from-environment"), ("E2E_SECRET_TOKEN", "token-value"))
+        );
 
         Assert.Equal("E2E_SECRET_STRIPE_KEY", E2E.Secrets.EnvironmentVariable("stripe-key"));
         Assert.Equal("E2E_SECRET_A_B_C", E2E.Secrets.EnvironmentVariable("a.b c"));
-        Assert.Equal(
-            ["stripe-key", "token"],
-            config.Secrets.Names.Order(StringComparer.Ordinal).ToArray());
+        Assert.Equal(["stripe-key", "token"], config.Secrets.Names.Order(StringComparer.Ordinal).ToArray());
         var error = Assert.Throws<TestException>(() => config.Secrets.Get("missing"));
         Assert.Equal("SECRET_UNAVAILABLE", error.Code);
     }
@@ -224,7 +291,10 @@ public sealed class ConfigTests
         {
             Assert.Null(E2EConfig.Find(nested));
             var path = Path.Combine(root, E2EConfig.FileName);
-            File.WriteAllText(path, """{ "targets": [{ "app": { "url": "https://app.test" } }], "cache": { "dir": "cache" } }""");
+            File.WriteAllText(
+                path,
+                """{ "targets": [{ "app": { "url": "https://app.test" } }], "cache": { "dir": "cache" } }"""
+            );
 
             Assert.Equal(path, E2EConfig.Find(Path.Combine(root, "missing-first"), nested));
             var config = E2EConfig.Load(path, Env());
@@ -244,7 +314,11 @@ public sealed class ConfigTests
     {
         var directory = TempCache();
         var calls = 0;
-        await using (var session = await StartAsync(directory, CacheMode.ReadOnly, strict: false, "Upgrade to Pro", () => calls++))
+        await using (
+            var session = await StartAsync(directory, CacheMode.ReadOnly, strict: false, "Upgrade to Pro", () =>
+                calls++
+            )
+        )
         {
             await UpgradeAsync(session);
             session.Complete();
@@ -253,7 +327,9 @@ public sealed class ConfigTests
         Assert.True(calls > 0);
         Assert.False(Directory.Exists(directory));
 
-        await using (var session = await StartAsync(directory, CacheMode.ReadWrite, strict: false, "Upgrade to Pro", () => { }))
+        await using (
+            var session = await StartAsync(directory, CacheMode.ReadWrite, strict: false, "Upgrade to Pro", () => { })
+        )
         {
             await UpgradeAsync(session);
             session.Complete();
@@ -261,7 +337,11 @@ public sealed class ConfigTests
 
         var recorded = Directory.GetFiles(directory).Length;
         calls = 0;
-        await using (var session = await StartAsync(directory, CacheMode.ReadOnly, strict: false, "Upgrade to Pro", () => calls++))
+        await using (
+            var session = await StartAsync(directory, CacheMode.ReadOnly, strict: false, "Upgrade to Pro", () =>
+                calls++
+            )
+        )
         {
             await session.App.OpenAsync("/settings/billing");
             await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
@@ -278,17 +358,23 @@ public sealed class ConfigTests
     {
         var directory = TempCache();
         // A strict run never writes, so the recording comes from a lenient one.
-        await using (var session = await StartAsync(directory, CacheMode.ReadWrite, strict: false, "Upgrade to Pro", () => { }))
+        await using (
+            var session = await StartAsync(directory, CacheMode.ReadWrite, strict: false, "Upgrade to Pro", () => { })
+        )
         {
             await UpgradeAsync(session);
             session.Complete();
         }
 
         var calls = 0;
-        await using (var session = await StartAsync(directory, CacheMode.ReadWrite, strict: true, "Upgrade now", () => calls++))
+        await using (
+            var session = await StartAsync(directory, CacheMode.ReadWrite, strict: true, "Upgrade now", () => calls++)
+        )
         {
             await session.App.OpenAsync("/settings/billing");
-            var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("upgrade the workspace to the Pro plan"));
+            var error = await Assert.ThrowsAsync<AgentException>(() =>
+                session.Agent.ActAsync("upgrade the workspace to the Pro plan")
+            );
             Assert.Equal("REPLAY_STALE", error.Code);
             session.Complete(error);
         }
@@ -302,7 +388,12 @@ public sealed class ConfigTests
     [InlineData("localhost:3000/app", "http://localhost:3000/app")]
     public void Normalizes_the_app_URL(string url, string expected)
     {
-        Assert.Equal(expected, Parse("""{ "targets": [{ "app": { "url": "%URL%" } }] }""".Replace("%URL%", url, StringComparison.Ordinal)).Target.App.Url);
+        Assert.Equal(
+            expected,
+            Parse(
+                """{ "targets": [{ "app": { "url": "%URL%" } }] }""".Replace("%URL%", url, StringComparison.Ordinal)
+            ).Target.App.Url
+        );
     }
 
     [Theory]
@@ -311,7 +402,9 @@ public sealed class ConfigTests
     [InlineData("ftp://example.test", "app URL must be http(s): ftp://example.test")]
     public void Rejects_an_invalid_app_URL(string url, string message)
     {
-        var error = Assert.Throws<ConfigurationException>(() => Parse("""{ "targets": [{ "app": { "url": "%URL%" } }] }""".Replace("%URL%", url, StringComparison.Ordinal)));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            Parse("""{ "targets": [{ "app": { "url": "%URL%" } }] }""".Replace("%URL%", url, StringComparison.Ordinal))
+        );
         Assert.Equal("INVALID_APP_URL", error.Code);
         Assert.Equal(message, error.Message);
     }
@@ -319,19 +412,26 @@ public sealed class ConfigTests
     [Fact]
     public async Task Rejects_a_base_URL_override_that_the_config_would_reject()
     {
-        var error = await Assert.ThrowsAsync<ConfigurationException>(() => E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new E2E.Tests.EngineContract.RunnerEngineContractTests.HangingEngine(),
-            TestTitle = "base url",
-            BaseUrl = "http://example.test",
-        }));
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = new E2E.Tests.EngineContract.RunnerEngineContractTests.HangingEngine(),
+                    TestTitle = "base url",
+                    BaseUrl = "http://example.test",
+                }
+            )
+        );
         Assert.Equal("INVALID_APP_URL", error.Code);
     }
 
     [Fact]
     public void Resolves_testAssembly_from_the_config_directory()
     {
-        Assert.Equal(Path.GetFullPath("bin/Tests.dll", Root), Parse("""{ "testAssembly": "bin/Tests.dll" }""").TestAssembly);
+        Assert.Equal(
+            Path.GetFullPath("bin/Tests.dll", Root),
+            Parse("""{ "testAssembly": "bin/Tests.dll" }""").TestAssembly
+        );
         Assert.Null(Parse("{}").TestAssembly);
     }
 
@@ -361,37 +461,50 @@ public sealed class ConfigTests
         await session.Agent.AssertAsync("the invoice preview shows a prorated amount");
     }
 
-    internal static Task<E2ESession> StartAsync(string directory, CacheMode mode, bool strict, string button, Action onAct, string title = "billing > upgrades", string? context = null, int attempt = 1, string? targetName = null)
+    internal static Task<E2ESession> StartAsync(
+        string directory,
+        CacheMode mode,
+        bool strict,
+        string button,
+        Action onAct,
+        string title = "billing > upgrades",
+        string? context = null,
+        int attempt = 1,
+        string? targetName = null
+    )
     {
-        return E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(BillingWorld.Create(button)),
-            Model = new ScriptedModel(request =>
+        return E2ESession.StartAsync(
+            new E2ESessionOptions
             {
-                var text = string.Join('\n', request.Messages.Select(message => message.Content));
-                if (text.Contains("Statement:", StringComparison.Ordinal))
+                Engine = new DocumentEngine(BillingWorld.Create(button)),
+                Model = new ScriptedModel(request =>
                 {
-                    return text.Contains("Prorated", StringComparison.Ordinal)
-                        ? ModelResponses.Done("passed", "The invoice is prorated.")
-                        : ModelResponses.Done("failed", "No prorated amount.", "ASSERTION_FAILED");
-                }
+                    var text = string.Join('\n', request.Messages.Select(message => message.Content));
+                    if (text.Contains("Statement:", StringComparison.Ordinal))
+                    {
+                        return text.Contains("Prorated", StringComparison.Ordinal)
+                            ? ModelResponses.Done("passed", "The invoice is prorated.")
+                            : ModelResponses.Done("failed", "No prorated amount.", "ASSERTION_FAILED");
+                    }
 
-                onAct();
-                return text.Contains("Tapped", StringComparison.Ordinal)
-                    ? ModelResponses.Done("passed", "Upgraded to Pro.")
-                    : ModelResponses.Tap("button", button);
-            }),
-            BaseUrl = "https://billing.test",
-            Cache = new FileStepCache(directory),
-            CacheMode = mode,
-            CacheStrict = strict,
-            Attempt = attempt,
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            TestTitle = title,
-            AgentContext = context,
-            TargetName = targetName,
-        });
+                    onAct();
+                    return text.Contains("Tapped", StringComparison.Ordinal)
+                        ? ModelResponses.Done("passed", "Upgraded to Pro.")
+                        : ModelResponses.Tap("button", button);
+                }),
+                BaseUrl = "https://billing.test",
+                Cache = new FileStepCache(directory),
+                CacheMode = mode,
+                CacheStrict = strict,
+                Attempt = attempt,
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                TestTitle = title,
+                AgentContext = context,
+                TargetName = targetName,
+            }
+        );
     }
 
-    internal static string TempCache() => Path.Combine(Path.GetTempPath(), "e2e-config-cache", Guid.NewGuid().ToString("n"));
+    internal static string TempCache() =>
+        Path.Combine(Path.GetTempPath(), "e2e-config-cache", Guid.NewGuid().ToString("n"));
 }

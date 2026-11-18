@@ -21,7 +21,16 @@ public sealed class LocatorPressSequentiallyTests
 {
     private static ScriptedScene CityScene(bool keyboard = true, IReadOnlyCollection<string>? actions = null)
     {
-        var scene = new ScriptedScene(_ => [new ScriptedNode { Id = "city", Role = "textbox", Name = "City" }]);
+        var scene = new ScriptedScene(_ =>
+            [
+                new ScriptedNode
+                {
+                    Id = "city",
+                    Role = "textbox",
+                    Name = "City",
+                },
+            ]
+        );
         scene.Open();
         scene.Screen.Steps = new StepRecorder("attempt");
         scene.Screen.Capabilities = keyboard ? EngineCapabilities.Keyboard : EngineCapabilities.None;
@@ -38,7 +47,10 @@ public sealed class LocatorPressSequentiallyTests
 
         Assert.Equal(["focus:city", "type:Warsaw"], scene.Log);
         var step = Assert.Single(scene.Screen.Steps!.All());
-        Assert.Equal((StepKind.Locator, "locator.pressSequentially", "getByLabel(\"City\")", StepStatus.Passed), (step.Kind, step.Api, step.Label, step.Status));
+        Assert.Equal(
+            (StepKind.Locator, "locator.pressSequentially", "getByLabel(\"City\")", StepStatus.Passed),
+            (step.Kind, step.Api, step.Label, step.Status)
+        );
     }
 
     [Fact]
@@ -47,7 +59,9 @@ public sealed class LocatorPressSequentiallyTests
         using var scene = CityScene();
         var started = Stopwatch.GetTimestamp();
 
-        await scene.Screen.GetByLabel("City").PressSequentiallyAsync("Wa", new PressSequentiallyOptions { Delay = TimeSpan.FromMilliseconds(60) });
+        await scene
+            .Screen.GetByLabel("City")
+            .PressSequentiallyAsync("Wa", new PressSequentiallyOptions { Delay = TimeSpan.FromMilliseconds(60) });
 
         Assert.Equal(["focus:city", "type:W", "type:a"], scene.Log);
         // A timer may fire a hair early, so the bound is a little under the 60 ms asked for.
@@ -61,7 +75,17 @@ public sealed class LocatorPressSequentiallyTests
         var started = Stopwatch.GetTimestamp();
 
         var error = await Assert.ThrowsAsync<TestException>(() =>
-            scene.Screen.GetByLabel("City").PressSequentiallyAsync("ab", new PressSequentiallyOptions { Delay = TimeSpan.FromSeconds(1), Timeout = TimeSpan.FromMilliseconds(100) }));
+            scene
+                .Screen.GetByLabel("City")
+                .PressSequentiallyAsync(
+                    "ab",
+                    new PressSequentiallyOptions
+                    {
+                        Delay = TimeSpan.FromSeconds(1),
+                        Timeout = TimeSpan.FromMilliseconds(100),
+                    }
+                )
+        );
 
         Assert.Equal("ACTION_FAILED", error.Code);
         Assert.Contains("typing 1 of 2 characters", error.Message, StringComparison.Ordinal);
@@ -75,7 +99,9 @@ public sealed class LocatorPressSequentiallyTests
     {
         using var scene = CityScene();
 
-        await scene.Screen.GetByLabel("City").PressSequentiallyAsync("a\U0001F600", new PressSequentiallyOptions { Delay = TimeSpan.Zero });
+        await scene
+            .Screen.GetByLabel("City")
+            .PressSequentiallyAsync("a\U0001F600", new PressSequentiallyOptions { Delay = TimeSpan.Zero });
 
         Assert.Equal(["focus:city", "type:a", "type:\U0001F600"], scene.Log);
     }
@@ -85,7 +111,9 @@ public sealed class LocatorPressSequentiallyTests
     {
         using var scene = CityScene(keyboard: false);
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => scene.Screen.GetByLabel("City").PressSequentiallyAsync("W"));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            scene.Screen.GetByLabel("City").PressSequentiallyAsync("W")
+        );
 
         Assert.Equal(EngineErrorCodes.UnsupportedCapability, error.Code);
         Assert.Contains("no keyboard", error.Message, StringComparison.Ordinal);
@@ -98,7 +126,9 @@ public sealed class LocatorPressSequentiallyTests
     {
         using var scene = CityScene(actions: [.. EngineActionKinds.Locator.Where(kind => kind != "focus")]);
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => scene.Screen.GetByLabel("City").PressSequentiallyAsync("W"));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            scene.Screen.GetByLabel("City").PressSequentiallyAsync("W")
+        );
 
         Assert.Equal(EngineErrorCodes.UnsupportedCapability, error.Code);
         Assert.Contains("\"focus\" action", error.Message, StringComparison.Ordinal);
@@ -113,7 +143,9 @@ public sealed class LocatorPressSequentiallyTests
         var city = scene.Screen.GetByLabel("City");
 
         await Assert.ThrowsAsync<ArgumentNullException>(() => city.PressSequentiallyAsync(null!));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => city.PressSequentiallyAsync("W", new PressSequentiallyOptions { Delay = TimeSpan.FromMilliseconds(-1) }));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            city.PressSequentiallyAsync("W", new PressSequentiallyOptions { Delay = TimeSpan.FromMilliseconds(-1) })
+        );
         Assert.Equal(0, scene.Observations);
         Assert.Empty(scene.Log);
     }

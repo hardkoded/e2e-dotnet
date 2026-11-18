@@ -61,32 +61,32 @@ internal static class FallbackRun
 
         public int? Write(string key, CacheEntry written) => 1;
 
-        public void Delete(string key)
-        {
-        }
+        public void Delete(string key) { }
     }
 
     /// <summary>Starts a session on the setup, runs <paramref name="body"/> in it, and returns the error and the step records it wrote.</summary>
     public static async Task<FallbackOutcome> RunAsync(FallbackSetup setup, Func<E2ESession, Task> body)
     {
         var directory = Path.Combine(Path.GetTempPath(), "e2e-fallback-" + Guid.NewGuid().ToString("N"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = setup.Engine,
-            Model = setup.Model,
-            Judge = setup.Judge,
-            AgentExecutor = setup.Executor,
-            BaseUrl = "https://fixture.test",
-            Cache = setup.Cache ?? new FileStepCache(directory),
-            CacheEnabled = setup.CacheEnabled,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "semantic fallback handoff",
-            ActionTimeout = setup.ActionTimeout ?? TimeSpan.FromSeconds(5),
-            AssertionTimeout = TimeSpan.FromSeconds(4),
-            StepTimeout = TimeSpan.FromSeconds(10),
-            TestTimeout = TimeSpan.FromSeconds(60),
-            ResultsDirectory = Path.Combine(directory, "results"),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = setup.Engine,
+                Model = setup.Model,
+                Judge = setup.Judge,
+                AgentExecutor = setup.Executor,
+                BaseUrl = "https://fixture.test",
+                Cache = setup.Cache ?? new FileStepCache(directory),
+                CacheEnabled = setup.CacheEnabled,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "semantic fallback handoff",
+                ActionTimeout = setup.ActionTimeout ?? TimeSpan.FromSeconds(5),
+                AssertionTimeout = TimeSpan.FromSeconds(4),
+                StepTimeout = TimeSpan.FromSeconds(10),
+                TestTimeout = TimeSpan.FromSeconds(60),
+                ResultsDirectory = Path.Combine(directory, "results"),
+            }
+        );
         Exception? error = null;
         try
         {
@@ -111,5 +111,10 @@ internal static class FallbackRun
 
     /// <summary>Runs the one instruction the fallback tests give the default agent, as upstream's suite does.</summary>
     public static Task<FallbackOutcome> ActAsync(FallbackSetup setup, TimeSpan? timeout = null) =>
-        RunAsync(setup, session => session.Agent.ActAsync("inspect the current result", new ActOptions { Timeout = timeout ?? TimeSpan.FromSeconds(1.5) }));
+        RunAsync(setup, session =>
+            session.Agent.ActAsync(
+                "inspect the current result",
+                new ActOptions { Timeout = timeout ?? TimeSpan.FromSeconds(1.5) }
+            )
+        );
 }

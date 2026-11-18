@@ -52,7 +52,9 @@ internal sealed class ScreenRefs
             throw AppiumErrors.StaleReference(reference);
         }
 
-        return RectOf(node) is { } rect ? (rect.X + (rect.Width / 2), rect.Y + (rect.Height / 2)) : throw AppiumErrors.StaleReference(reference);
+        return RectOf(node) is { } rect
+            ? (rect.X + (rect.Width / 2), rect.Y + (rect.Height / 2))
+            : throw AppiumErrors.StaleReference(reference);
     }
 
     /// <summary>
@@ -61,7 +63,9 @@ internal sealed class ScreenRefs
     /// </summary>
     public (double X, double Y)? NavigationBarBackButton()
     {
-        var byIndex = Nodes.Where(node => Number(Read(node, "index")) is not null).ToDictionary(node => (int)Number(Read(node, "index"))!.Value);
+        var byIndex = Nodes
+            .Where(node => Number(Read(node, "index")) is not null)
+            .ToDictionary(node => (int)Number(Read(node, "index"))!.Value);
         var bar = Nodes.FirstOrDefault(node => Kind(node) == "navigationbar");
         if (bar is null || Number(Read(bar, "index")) is not { } barIndex)
         {
@@ -98,10 +102,20 @@ internal sealed class ScreenRefs
 
     /// <summary>The node's kind or type, lower-case without dashes: <c>navigation-bar</c> and <c>NavigationBar</c> are one.</summary>
     private static string Kind(JsonObject node) =>
-        ((Read(node, "kind") ?? Read(node, "type")) is JsonValue value && value.TryGetValue<string>(out var text) ? text : "").Replace("-", "", StringComparison.Ordinal).ToLowerInvariant();
+        (
+            (Read(node, "kind") ?? Read(node, "type")) is JsonValue value && value.TryGetValue<string>(out var text)
+                ? text
+                : ""
+        )
+            .Replace("-", "", StringComparison.Ordinal)
+            .ToLowerInvariant();
 
     private static Rect? RectOf(JsonObject node) =>
-        Read(node, "rect") is JsonObject rect && Number(Read(rect, "x")) is { } x && Number(Read(rect, "y")) is { } y && Number(Read(rect, "width")) is { } width && Number(Read(rect, "height")) is { } height
+        Read(node, "rect") is JsonObject rect
+        && Number(Read(rect, "x")) is { } x
+        && Number(Read(rect, "y")) is { } y
+        && Number(Read(rect, "width")) is { } width
+        && Number(Read(rect, "height")) is { } height
             ? new Rect(x, y, width, height)
             : null;
 
@@ -110,5 +124,7 @@ internal sealed class ScreenRefs
         node.FirstOrDefault(pair => string.Equals(pair.Key, name, StringComparison.OrdinalIgnoreCase)).Value;
 
     private static double? Number(JsonNode? node) =>
-        node is JsonValue && JsonSerializer.SerializeToElement(node) is { ValueKind: JsonValueKind.Number } element ? element.GetDouble() : null;
+        node is JsonValue && JsonSerializer.SerializeToElement(node) is { ValueKind: JsonValueKind.Number } element
+            ? element.GetDouble()
+            : null;
 }

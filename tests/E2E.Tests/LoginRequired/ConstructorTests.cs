@@ -23,11 +23,30 @@ public sealed class ConstructorTests
     /// </summary>
     [Theory]
     [InlineData("openai", "/oauth/token", "ChatGPT token request failed (401: invalid_grant); run `e2e login openai`")]
-    [InlineData("spacexai", "/oauth2/token", "SpaceXAI token request failed (401: invalid_grant); run `e2e login spacexai`")]
-    [InlineData("opencode-console", "/console/auth/device/token", "OpenCode Console token request failed (401: invalid_grant); run `e2e login opencode-console` or set OPENCODE_API_KEY")]
-    public async Task Rejected_refresh_from_a_fake_token_endpoint_fails_with_LOGIN_REQUIRED_naming_the_login_command(string id, string tokenPath, string message)
+    [InlineData(
+        "spacexai",
+        "/oauth2/token",
+        "SpaceXAI token request failed (401: invalid_grant); run `e2e login spacexai`"
+    )]
+    [InlineData(
+        "opencode-console",
+        "/console/auth/device/token",
+        "OpenCode Console token request failed (401: invalid_grant); run `e2e login opencode-console` or set OPENCODE_API_KEY"
+    )]
+    public async Task Rejected_refresh_from_a_fake_token_endpoint_fails_with_LOGIN_REQUIRED_naming_the_login_command(
+        string id,
+        string tokenPath,
+        string message
+    )
     {
-        var issuer = new FakeApi(request => (request.Uri.AbsolutePath == tokenPath ? HttpStatusCode.Unauthorized : HttpStatusCode.InternalServerError, """{ "error": "invalid_grant" }"""));
+        var issuer = new FakeApi(request =>
+            (
+                request.Uri.AbsolutePath == tokenPath
+                    ? HttpStatusCode.Unauthorized
+                    : HttpStatusCode.InternalServerError,
+                """{ "error": "invalid_grant" }"""
+            )
+        );
         IOAuthProvider provider = id switch
         {
             "openai" => new CodexProvider(new HttpClient(issuer), issuer: "https://auth.test"),
@@ -35,10 +54,17 @@ public sealed class ConstructorTests
             _ => new OpenCodeConsoleProvider(new HttpClient(issuer), consoleUrl: "https://console.test/console"),
         };
         // A login whose token lapses inside the refresh skew, so the first call refreshes before it sends anything.
-        var store = new MemoryCredentialStore(new Dictionary<string, OAuthCredentials>
-        {
-            [id] = new() { Access = "stale", Refresh = "rt-0", Expires = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 1_000 },
-        });
+        var store = new MemoryCredentialStore(
+            new Dictionary<string, OAuthCredentials>
+            {
+                [id] = new()
+                {
+                    Access = "stale",
+                    Refresh = "rt-0",
+                    Expires = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 1_000,
+                },
+            }
+        );
         using var noKey = ProcessEnvironment.Set("OPENCODE_API_KEY", null);
         var (source, hint) = OAuthProviders.CredentialSource(provider, store);
         using var client = Subscriptions.Client(provider, source, hint);

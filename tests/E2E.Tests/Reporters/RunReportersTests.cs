@@ -21,15 +21,31 @@ public sealed class RunReportersTests
         Console.SetError(stderr);
         try
         {
-            var finished = new FinishedRun(new Report(), ReportRunStatus.Passed, 0, "/p", "/p/report.json", "/p/results");
-            await Runner.RunReportersAsync([new HonoringReporter()], finished, TimeSpan.FromMilliseconds(100), CancellationToken.None);
+            var finished = new FinishedRun(
+                new Report(),
+                ReportRunStatus.Passed,
+                0,
+                "/p",
+                "/p/report.json",
+                "/p/results"
+            );
+            await Runner.RunReportersAsync(
+                [new HonoringReporter()],
+                finished,
+                TimeSpan.FromMilliseconds(100),
+                CancellationToken.None
+            );
         }
         finally
         {
             Console.SetError(original);
         }
 
-        Assert.Contains("e2e: reporter \"honoring\" did not finish within 100ms", stderr.ToString(), StringComparison.Ordinal);
+        Assert.Contains(
+            "e2e: reporter \"honoring\" did not finish within 100ms",
+            stderr.ToString(),
+            StringComparison.Ordinal
+        );
         Assert.True(AbandonedWork.LeftWorkBehind);
     }
 
@@ -43,8 +59,20 @@ public sealed class RunReportersTests
         var started = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            var finished = new FinishedRun(new Report(), ReportRunStatus.Passed, 0, "/p", "/p/report.json", "/p/results");
-            await Runner.RunReportersAsync([new BlockingReporter()], finished, TimeSpan.FromMilliseconds(100), CancellationToken.None);
+            var finished = new FinishedRun(
+                new Report(),
+                ReportRunStatus.Passed,
+                0,
+                "/p",
+                "/p/report.json",
+                "/p/results"
+            );
+            await Runner.RunReportersAsync(
+                [new BlockingReporter()],
+                finished,
+                TimeSpan.FromMilliseconds(100),
+                CancellationToken.None
+            );
         }
         finally
         {
@@ -52,7 +80,11 @@ public sealed class RunReportersTests
         }
 
         Assert.True(started.Elapsed < TimeSpan.FromSeconds(1.5), started.Elapsed.ToString());
-        Assert.Contains("e2e: reporter \"blocking\" did not finish within 100ms", stderr.ToString(), StringComparison.Ordinal);
+        Assert.Contains(
+            "e2e: reporter \"blocking\" did not finish within 100ms",
+            stderr.ToString(),
+            StringComparison.Ordinal
+        );
         Assert.True(AbandonedWork.LeftWorkBehind);
     }
 
@@ -60,7 +92,10 @@ public sealed class RunReportersTests
     {
         public override string Name => "blocking";
 
-        public override Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(FinishedRun run, CancellationToken cancellationToken)
+        public override Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(
+            FinishedRun run,
+            CancellationToken cancellationToken
+        )
         {
             Thread.Sleep(2000);
             return Task.FromResult<IReadOnlyList<ReporterSummaryRow>?>(null);
@@ -71,7 +106,10 @@ public sealed class RunReportersTests
     {
         public override string Name => "honoring";
 
-        public override async Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(FinishedRun run, CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(
+            FinishedRun run,
+            CancellationToken cancellationToken
+        )
         {
             await Task.Delay(Timeout.Infinite, cancellationToken);
             return null;

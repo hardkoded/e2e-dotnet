@@ -2,6 +2,20 @@
   "version": 1,
   "isRoot": true,
   "tools": {
+    "csharpier": {
+      "version": "1.4.0",
+      "commands": [
+        "csharpier"
+      ],
+      "rollForward": false
+    },
+    "husky": {
+      "version": "0.9.1",
+      "commands": [
+        "husky"
+      ],
+      "rollForward": false
+    },
     "slopwatch.cmd": {
       "version": "0.5.0",
       "commands": [

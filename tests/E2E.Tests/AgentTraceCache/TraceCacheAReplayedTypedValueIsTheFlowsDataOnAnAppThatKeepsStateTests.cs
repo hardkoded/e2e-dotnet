@@ -21,8 +21,7 @@ public sealed class TraceCacheAReplayedTypedValueIsTheFlowsDataOnAnAppThatKeepsS
 {
     // Types a todo it composes itself, "Buy milk", then taps Add: the shape of a model that made up the flow's data. The value is in
     // neither the instruction nor the params, so only the screen could make it look derived. No model.
-    private static TestExecutor TodoExecutor(Action onRun) =>
-        new("todo-executor", async (context, token) =>
+    private static TestExecutor TodoExecutor(Action onRun) => new("todo-executor", async (context, token) =>
         {
             onRun();
             var observation = await context.ObserveAsync(cancellationToken: token);
@@ -32,27 +31,30 @@ public sealed class TraceCacheAReplayedTypedValueIsTheFlowsDataOnAnAppThatKeepsS
             return Regex.IsMatch(observation.Text, "status \"Result\"[^\n]*text=\"added\"")
                 ? Passed("the list shows Buy milk")
                 : Failed("the todo was not added");
-        })
-        {
-            Version = "test",
-        };
+        }) { Version = "test" };
 
-    private static async Task<(ActResult Result, StepRecord Step)> RunAsync(string directory, string appUrl, Action onRun)
+    private static async Task<(ActResult Result, StepRecord Step)> RunAsync(
+        string directory,
+        string appUrl,
+        Action onRun
+    )
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            AgentExecutor = TodoExecutor(onRun),
-            BaseUrl = appUrl,
-            AppIdentity = "fixture-app",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "adds a todo",
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(30),
-            TestTimeout = TimeSpan.FromSeconds(60),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                AgentExecutor = TodoExecutor(onRun),
+                BaseUrl = appUrl,
+                AppIdentity = "fixture-app",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "adds a todo",
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(30),
+                TestTimeout = TimeSpan.FromSeconds(60),
+            }
+        );
         await session.App.OpenAsync("/todos");
         var result = await session.Agent.ActAsync("add a todo for groceries");
         await Expect.That(session.Screen.GetByRole("list", "Todos")).ToContainTextAsync("Buy milk");
@@ -80,7 +82,10 @@ public sealed class TraceCacheAReplayedTypedValueIsTheFlowsDataOnAnAppThatKeepsS
             var (result, step) = await RunAsync(directory, pages.Url, () => runs++);
 
             Assert.Equal(0, runs);
-            Assert.Equal(("self-finalized", 2, 2), (result.Cache?.Mode, result.Cache?.ReplayedActions, result.Cache?.TotalActions));
+            Assert.Equal(
+                ("self-finalized", 2, 2),
+                (result.Cache?.Mode, result.Cache?.ReplayedActions, result.Cache?.TotalActions)
+            );
             Assert.Equal(0, step.Metrics!.ModelCalls);
             var restaged = TwoTapCounter.OnlyEntry(directory).Actions;
             Assert.Equal(Serialized(recorded), Serialized(restaged));

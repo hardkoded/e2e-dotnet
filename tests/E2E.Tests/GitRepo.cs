@@ -12,7 +12,12 @@ internal static class GitRepo
     /// <summary>Runs git in <paramref name="cwd"/> with the user's config shut out, returning trimmed stdout.</summary>
     public static string RunGit(string cwd, params string[] args)
     {
-        var info = new ProcessStartInfo("git") { WorkingDirectory = cwd, RedirectStandardOutput = true, RedirectStandardError = true };
+        var info = new ProcessStartInfo("git")
+        {
+            WorkingDirectory = cwd,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
         foreach (var arg in new[] { "-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main" }.Concat(args))
         {
             info.ArgumentList.Add(arg);
@@ -39,7 +44,9 @@ internal static class GitRepo
             throw new TimeoutException("git " + string.Join(' ', args) + " did not finish in 30 s");
         }
 
-        return process.ExitCode == 0 ? stdout.Result.Trim() : throw new InvalidOperationException("git " + string.Join(' ', args) + " failed: " + stderr.Result);
+        return process.ExitCode == 0
+            ? stdout.Result.Trim()
+            : throw new InvalidOperationException("git " + string.Join(' ', args) + " failed: " + stderr.Result);
     }
 
     /// <summary>Initializes <paramref name="dir"/> as a repository on <c>main</c> with one commit of <c>file.txt</c>, and returns that commit.</summary>

@@ -30,38 +30,38 @@ public static class DefaultAgent
     /// which the tool loop adds itself.
     /// </summary>
     public const string BaseRules =
-        "You are an e2e test agent. Act only by calling tools. " +
-        "The screen is a tree of nodes with stable ids like \"n42\", listed one per line as #id role \"name\": a node keeps its id for as long as it exists, across every screen and change in this conversation. " +
-        "Target a node by its id (ref), with or without the #. Never invent ids. " +
-        "The first screen is sent whole. Every action result and every observe then reports what changed since the screen you last received, one line per node: " +
-        "\"added\" (a new node), \"changed\" (with what it read before), or \"removed\" (the node is gone; never target it again). A node not listed as removed is still there under the id you have. " +
-        "When most of the screen changed, the result sends the whole new screen instead, headed \"Current screen\", and it replaces what you had: target only the ids it lists. " +
-        "Every action result already waited for the effect and contains the changes, so do not call observe after an action. Call observe only after waiting for something the last result showed in progress. " +
-        "Conclude passed only when the latest result shows the outcome the step asked for. A result that reports no change, or only the keyboard closing, means the decisive action did not land: act again or conclude failed. " +
-        "A result that says only that no listed node changed has not ruled out a drawn change: take a screenshot, when offered, before deciding. Never describe an unchanged screen as the outcome. " +
-        "Never type a secret value. Call type_secret with the secret name. " +
-        "A secret looks like <secret:name>. " +
-        "If what you need is not on the screen, scroll to it. " +
-        "screenshot attaches the viewport's pixels when the tree lacks what you need (a shape on a canvas, a pin on a map, a region of an image, a control inside a system sheet) or contradicts what you expect; " +
-        "once you have one, every action result carries a fresh screenshot so you can see what the action did. " +
-        "tap_at, hover_at, drag_at, type_at, press_at, and select_at act at a point in the latest screenshot's pixel coordinates. " +
-        "tap_at, hover_at, and drag_at act on the bare points where the engine can, and on the listed controls under them by id where it cannot; " +
-        "type_at, press_at, and select_at act on a listed control under the point by its id. " +
-        "Prefer ids: tap, type, press, and select by id whenever the screen lists the target, " +
-        "use the point tools only for a target the screen does not list, " +
-        "and take a screenshot before guessing a point rather than aiming from memory or from what you expect to be drawn.";
+        "You are an e2e test agent. Act only by calling tools. "
+        + "The screen is a tree of nodes with stable ids like \"n42\", listed one per line as #id role \"name\": a node keeps its id for as long as it exists, across every screen and change in this conversation. "
+        + "Target a node by its id (ref), with or without the #. Never invent ids. "
+        + "The first screen is sent whole. Every action result and every observe then reports what changed since the screen you last received, one line per node: "
+        + "\"added\" (a new node), \"changed\" (with what it read before), or \"removed\" (the node is gone; never target it again). A node not listed as removed is still there under the id you have. "
+        + "When most of the screen changed, the result sends the whole new screen instead, headed \"Current screen\", and it replaces what you had: target only the ids it lists. "
+        + "Every action result already waited for the effect and contains the changes, so do not call observe after an action. Call observe only after waiting for something the last result showed in progress. "
+        + "Conclude passed only when the latest result shows the outcome the step asked for. A result that reports no change, or only the keyboard closing, means the decisive action did not land: act again or conclude failed. "
+        + "A result that says only that no listed node changed has not ruled out a drawn change: take a screenshot, when offered, before deciding. Never describe an unchanged screen as the outcome. "
+        + "Never type a secret value. Call type_secret with the secret name. "
+        + "A secret looks like <secret:name>. "
+        + "If what you need is not on the screen, scroll to it. "
+        + "screenshot attaches the viewport's pixels when the tree lacks what you need (a shape on a canvas, a pin on a map, a region of an image, a control inside a system sheet) or contradicts what you expect; "
+        + "once you have one, every action result carries a fresh screenshot so you can see what the action did. "
+        + "tap_at, hover_at, drag_at, type_at, press_at, and select_at act at a point in the latest screenshot's pixel coordinates. "
+        + "tap_at, hover_at, and drag_at act on the bare points where the engine can, and on the listed controls under them by id where it cannot; "
+        + "type_at, press_at, and select_at act on a listed control under the point by its id. "
+        + "Prefer ids: tap, type, press, and select by id whenever the screen lists the target, "
+        + "use the point tools only for a target the screen does not list, "
+        + "and take a screenshot before guessing a point rather than aiming from memory or from what you expect to be drawn.";
 
     /// <summary>
     /// Assertion-specific rules (upstream's <c>ASSERT_RULES</c>): they allow evidence gathered across several viewports. The verdict tool is <c>complete_step</c>,
     /// which takes <c>errorCode</c>.
     /// </summary>
     public const string AssertRules =
-        "You are judging exactly one assertion against the current application screen.\n" +
-        "- Use only the observation, scrolling, and read-only project tools offered to you. Do not tap, type, navigate, or change application state.\n" +
-        "- Combine evidence from every observation in this step. Items need not fit in one viewport. Scroll only to inspect the assertion's subject, and stop when you have enough evidence.\n" +
-        "- Node ids belong to the observed tree. Never invent ids; use scroll_to for a listed node or scroll to inspect more of the current screen.\n" +
-        "- Each scroll result contains a fresh observation. When screenshots are shown, each result includes fresh pixels too.\n" +
-        "- Conclude passed when the collected evidence establishes the assertion, failed with errorCode ASSERTION_FAILED when it contradicts the assertion, and failed with errorCode ASSERTION_INCONCLUSIVE when the available evidence or remaining budget cannot establish an answer.";
+        "You are judging exactly one assertion against the current application screen.\n"
+        + "- Use only the observation, scrolling, and read-only project tools offered to you. Do not tap, type, navigate, or change application state.\n"
+        + "- Combine evidence from every observation in this step. Items need not fit in one viewport. Scroll only to inspect the assertion's subject, and stop when you have enough evidence.\n"
+        + "- Node ids belong to the observed tree. Never invent ids; use scroll_to for a listed node or scroll to inspect more of the current screen.\n"
+        + "- Each scroll result contains a fresh observation. When screenshots are shown, each result includes fresh pixels too.\n"
+        + "- Conclude passed when the collected evidence establishes the assertion, failed with errorCode ASSERTION_FAILED when it contradicts the assertion, and failed with errorCode ASSERTION_INCONCLUSIVE when the available evidence or remaining budget cannot establish an answer.";
 
     /// <summary>
     /// Builds the built-in step executor: the model loop with the grammar tools of the target's engine and the project
@@ -95,28 +95,42 @@ public static class DefaultAgent
 
     // The act loop: the whole grammar, the prior-step ledger, and a compacted history.
     private static IStepExecutor CreateActLoop(BuiltInAgentOptions options) =>
-        ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
-        {
-            Name = BuiltInAgent.Name,
-            Version = BuiltInAgent.Version,
-            System = _ => Rules(BaseRules, options.System),
-            PrepareMessages = (messages, _) => new PreparedMessages(TranscriptCompaction.CompactScreenshotHistory(TranscriptCompaction.CompactScreenHistory(messages))),
-            Tools = (context, _) => AgentTools.GrammarTools(context, options.Tools),
-            BuildMessages = Opening,
-        });
+        ToolLoop.CreateToolLoopExecutor(
+            new ToolLoopExecutorOptions
+            {
+                Name = BuiltInAgent.Name,
+                Version = BuiltInAgent.Version,
+                System = _ => Rules(BaseRules, options.System),
+                PrepareMessages = (messages, _) =>
+                    new PreparedMessages(
+                        TranscriptCompaction.CompactScreenshotHistory(
+                            TranscriptCompaction.CompactScreenHistory(messages)
+                        )
+                    ),
+                Tools = (context, _) =>
+                    AgentTools.GrammarTools(
+                        context,
+                        options.Tools,
+                        new GrammarToolsOptions { SecretsListedByCaller = true }
+                    ),
+                BuildMessages = Opening,
+            }
+        );
 
     // The exploring assertion loop: the read-only grammar, its own rules, no prior-step ledger, and the whole history kept, since an
     // earlier viewport is still evidence after a scroll. Every look follows the call's vision.
     private static IStepExecutor CreateAssertionLoop(BuiltInAgentOptions options) =>
-        ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
-        {
-            Name = BuiltInAgent.Name,
-            Version = BuiltInAgent.Version,
-            System = _ => Rules(AssertRules, options.System),
-            InconclusiveOnOverflow = true,
-            Tools = (context, _) => AgentTools.GrammarTools(context, options.Tools),
-            BuildMessages = Opening,
-        });
+        ToolLoop.CreateToolLoopExecutor(
+            new ToolLoopExecutorOptions
+            {
+                Name = BuiltInAgent.Name,
+                Version = BuiltInAgent.Version,
+                System = _ => Rules(AssertRules, options.System),
+                InconclusiveOnOverflow = true,
+                Tools = (context, _) => AgentTools.GrammarTools(context, options.Tools),
+                BuildMessages = Opening,
+            }
+        );
 
     // A loop's rules, then the agents entry's `system` when it has one.
     private static string Rules(string baseRules, string? system) =>
@@ -125,7 +139,22 @@ public static class DefaultAgent
     // One presenter per dispatched step, shared by the opening prompt and the tools that follow it (upstream's presenterFor).
     private static readonly ConditionalWeakTable<StepExecutorContext, ScreenPresenter> Presenters = [];
 
-    internal static ScreenPresenter PresenterFor(StepExecutorContext context) => Presenters.GetValue(context, static _ => new ScreenPresenter());
+    internal static ScreenPresenter PresenterFor(StepExecutorContext context) =>
+        Presenters.GetValue(context, static _ => new ScreenPresenter());
+
+    // Upstream's secretsLine: the step's declared secrets, which type_secret fills, when the surface can fill one. They are listed here rather than
+    // in the tool's description, so the tools stay the same across steps and a provider's prompt cache serves them.
+    private static string? SecretsLine(StepExecutorContext context) =>
+        !context.Target.Verbs.Contains(ExecutorVerb.TypeSecret) || context.Step.Secrets.Count == 0
+            ? null
+            : "Secrets to fill with type_secret, by name: "
+                + string.Join(
+                    ", ",
+                    context.Step.Secrets.Select(secret =>
+                        "\"" + secret.Name + "\"" + (secret.Purpose is null ? "" : " (" + secret.Purpose + ")")
+                    )
+                )
+                + ".";
 
     // Upstream's formatReplayedPrefix: the mid-step hand-off notice. The agent continues from live state; redoing a replayed
     // action would double-commit a mutation.
@@ -137,15 +166,21 @@ public static class DefaultAgent
             lines.Add($"{index + 1}. {prefix.ReplayedActions[index]}");
         }
 
-        lines.Add($"Replay stopped ({ReplayHandOffReasons.Name(prefix.StopReason)}) after {prefix.ReplayedActions.Count} of {prefix.TotalActions} recorded actions.");
+        lines.Add(
+            $"Replay stopped ({ReplayHandOffReasons.Name(prefix.StopReason)}) after {prefix.ReplayedActions.Count} of {prefix.TotalActions} recorded actions."
+        );
         if (prefix.StopReason == ReplayHandOffReason.EndMismatch)
         {
-            lines.Add("Every recorded action ran, but the screen does not show the recorded end state. Check whether the step actually took effect before doing anything — the recorded flow may have silently failed to commit.");
+            lines.Add(
+                "Every recorded action ran, but the screen does not show the recorded end state. Check whether the step actually took effect before doing anything — the recorded flow may have silently failed to commit."
+            );
         }
 
         if (prefix.UncertainAction is not null)
         {
-            lines.Add($"WARNING: the next action ({prefix.UncertainAction}) failed with an UNKNOWN commit state — its input may have reached the app. Verify the current state before doing anything like it again.");
+            lines.Add(
+                $"WARNING: the next action ({prefix.UncertainAction}) failed with an UNKNOWN commit state — its input may have reached the app. Verify the current state before doing anything like it again."
+            );
         }
 
         lines.Add("Continue the step from the CURRENT screen state shown below — do NOT redo the actions above.");
@@ -155,7 +190,9 @@ public static class DefaultAgent
     private static async Task<IReadOnlyList<ModelMessage>> Opening(StepExecutorContext context)
     {
         var host = context.Host
-            ?? throw new InvalidOperationException("The built-in agent drives the context of a step the runtime opened; it cannot run on a context built by hand.");
+            ?? throw new InvalidOperationException(
+                "The built-in agent drives the context of a step the runtime opened; it cannot run on a context built by hand."
+            );
         var asserting = context.Step.Kind == ExecutorStepKind.Assert;
         var builder = new StringBuilder();
         if (Prompts.TestTitleLine(context.Attempt.TitlePath) is { } title)
@@ -163,14 +200,22 @@ public static class DefaultAgent
             builder.Append(title).Append("\n\n");
         }
 
-        // An assertion has no replay behind it and no prior steps to continue from.
+        // An assertion has no replay behind it, no secrets to fill, and no prior steps to continue from.
+        if (!asserting && SecretsLine(context) is { } secrets)
+        {
+            builder.Append(secrets).Append("\n\n");
+        }
+
         if (!asserting && context.ReplayedPrefix is { } prefix)
         {
             builder.Append(FormatReplayedPrefix(prefix)).Append("\n\n");
         }
 
         var parameters = host.Params;
-        builder.Append(asserting ? "Judge whether this assertion holds: " : "Goal: ").Append(Interpolate(context.Step.Instruction, parameters)).Append('\n');
+        builder
+            .Append(asserting ? "Judge whether this assertion holds: " : "Goal: ")
+            .Append(Interpolate(context.Step.Instruction, parameters))
+            .Append('\n');
         if (parameters is { Count: > 0 })
         {
             builder.Append("\nParams:\n");
@@ -185,7 +230,9 @@ public static class DefaultAgent
             builder.Append("\nCompleted steps:\n").Append(context.Ledger).Append('\n');
         }
 
-        var screen = asserting ? await AssertionLookAsync(context).ConfigureAwait(false) : await ActLookAsync(context).ConfigureAwait(false);
+        var screen = asserting
+            ? await AssertionLookAsync(context).ConfigureAwait(false)
+            : await ActLookAsync(context).ConfigureAwait(false);
         var opening = PresenterFor(context).Open(screen);
         builder.Append('\n').Append(opening.Text);
         return
@@ -194,7 +241,9 @@ public static class DefaultAgent
             {
                 Role = "user",
                 Content = host.Scope.Redactor.Redact(builder.ToString()),
-                Images = opening.Pixels is { } shot ? [new ModelImage(shot.Data, shot.MediaType, shot.Width, shot.Height)] : null,
+                Images = opening.Pixels is { } shot
+                    ? [new ModelImage(shot.Data, shot.MediaType, shot.Width, shot.Height)]
+                    : null,
             },
         ];
     }
@@ -225,7 +274,10 @@ public static class DefaultAgent
             return context.Start ?? await context.ObserveAsync().ConfigureAwait(false);
         }
 
-        return ScreenPresenter.ForVision(await context.ObserveAsync(new ExecutorObserveOptions { Pixels = true }).ConfigureAwait(false), vision);
+        return ScreenPresenter.ForVision(
+            await context.ObserveAsync(new ExecutorObserveOptions { Pixels = true }).ConfigureAwait(false),
+            vision
+        );
     }
 
     private static string Interpolate(string instruction, IReadOnlyDictionary<string, object?>? parameters)

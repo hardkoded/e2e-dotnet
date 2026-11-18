@@ -10,7 +10,14 @@ namespace E2E.Tests.SessionEnvelope;
 /// <summary>The helpers of <c>tests/unit/session-envelope.test.ts</c>: one identity, a temp-dir list the cases clean up, and <c>saveEnvelope</c>.</summary>
 public abstract class SessionEnvelopeKit : IDisposable
 {
-    internal static readonly SessionIdentity Identity = new("web", "playwright", "1.61.1", 1, "web", new string('a', 64));
+    internal static readonly SessionIdentity Identity = new(
+        "web",
+        "playwright",
+        "1.61.1",
+        1,
+        "web",
+        new string('a', 64)
+    );
 
     protected const string SecretValue = "provider-minted-token-7391";
 
@@ -20,7 +27,8 @@ public abstract class SessionEnvelopeKit : IDisposable
     internal static IReadOnlyList<(string Name, string Value)> NoSecrets => [];
 
     /// <summary>The state every case saves.</summary>
-    internal static EngineState Cookies() => new("playwright-state", 1, JsonNode.Parse("""{"cookies":[{"name":"sid","value":"abc"}]}"""));
+    internal static EngineState Cookies() =>
+        new("playwright-state", 1, JsonNode.Parse("""{"cookies":[{"name":"sid","value":"abc"}]}"""));
 
     public void Dispose()
     {
@@ -41,7 +49,10 @@ public abstract class SessionEnvelopeKit : IDisposable
     }
 
     /// <summary>Saves one state and returns the parsed envelope, its raw text, its file, and its store.</summary>
-    internal async Task<(SessionStore Store, string Raw, string File, JsonObject Envelope)> SaveEnvelope(IReadOnlyList<(string Name, string Value)>? secrets = null, FakeTimeProvider? time = null)
+    internal async Task<(SessionStore Store, string Raw, string File, JsonObject Envelope)> SaveEnvelope(
+        IReadOnlyList<(string Name, string Value)>? secrets = null,
+        FakeTimeProvider? time = null
+    )
     {
         var root = TempRoot();
         var runId = Guid.CreateVersion7().ToString();

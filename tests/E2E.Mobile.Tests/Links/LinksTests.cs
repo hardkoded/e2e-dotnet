@@ -32,23 +32,43 @@ public sealed class LinksTests
         ];
         foreach (var link in denied)
         {
-            Assert.Equal("POLICY_DENIED", Assert.Throws<ConfigurationException>(() => DeviceLinks.LinkTarget(link)).Code);
+            Assert.Equal(
+                "POLICY_DENIED",
+                Assert.Throws<ConfigurationException>(() => DeviceLinks.LinkTarget(link)).Code
+            );
             var unpadded = string.Concat(link.Where(character => !char.IsWhiteSpace(character)));
-            Assert.Equal("POLICY_DENIED", Assert.Throws<ConfigurationException>(() => DeviceLinks.AssertAppId(unpadded)).Code);
+            Assert.Equal(
+                "POLICY_DENIED",
+                Assert.Throws<ConfigurationException>(() => DeviceLinks.AssertAppId(unpadded)).Code
+            );
         }
     }
 
     [Fact]
     public void Lets_an_app_id_through_to_openApp_and_refuses_a_link_forbidden_schemes_first()
     {
-        foreach (var app in new[] { "Settings", "com.apple.Preferences", "com.android.settings", "Notes: Pro", " Clock " })
+        foreach (
+            var app in new[] { "Settings", "com.apple.Preferences", "com.android.settings", "Notes: Pro", " Clock " }
+        )
         {
             DeviceLinks.AssertAppId(app);
         }
 
-        foreach (var denied in new[] { "file:///etc/passwd", "data:text/html,hi", "javascript:alert(1)", "FILE:x", " data:,x " })
+        foreach (
+            var denied in new[]
+            {
+                "file:///etc/passwd",
+                "data:text/html,hi",
+                "javascript:alert(1)",
+                "FILE:x",
+                " data:,x ",
+            }
+        )
         {
-            Assert.Equal("POLICY_DENIED", Assert.Throws<ConfigurationException>(() => DeviceLinks.AssertAppId(denied)).Code);
+            Assert.Equal(
+                "POLICY_DENIED",
+                Assert.Throws<ConfigurationException>(() => DeviceLinks.AssertAppId(denied)).Code
+            );
         }
 
         foreach (var link in new[] { "myapp://orders/42", "https://example.com/verify?token=s3cret", "myapp:orders" })

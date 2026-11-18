@@ -40,7 +40,8 @@ public sealed class SessionRecorderTests : IDisposable
         using var recordings = Recorder();
         Assert.Equal(
             "Recording 1 \"login\" started. Act as usual; stop_recording saves the video, and close_session saves one still running.",
-            await recordings.StartAsync("login"));
+            await recordings.StartAsync("login")
+        );
         Assert.True(recordings.IsRecording);
         var first = await recordings.StopAsync();
         await recordings.StartAsync(null);
@@ -61,7 +62,10 @@ public sealed class SessionRecorderTests : IDisposable
         using var recordings = Recorder();
         Assert.Null(await recordings.StopAsync());
         await recordings.StartAsync("demo");
-        Assert.Matches(@"^Recording 1 ""demo"" is already running since \S+; stop_recording ends it\.$", await recordings.StartAsync("other"));
+        Assert.Matches(
+            @"^Recording 1 ""demo"" is already running since \S+; stop_recording ends it\.$",
+            await recordings.StartAsync("other")
+        );
         Assert.Equal(["start"], _calls);
     }
 
@@ -72,10 +76,20 @@ public sealed class SessionRecorderTests : IDisposable
         using var recordings = Recorder();
         await recordings.StartAsync("checkout");
         var recording = await recordings.StopAsync();
-        Assert.Equal([Path.Combine(_outDir, "1-checkout.webm"), Path.Combine(_outDir, "1-checkout-part2.webm")], recording!.Files);
+        Assert.Equal(
+            [Path.Combine(_outDir, "1-checkout.webm"), Path.Combine(_outDir, "1-checkout-part2.webm")],
+            recording!.Files
+        );
         var text = SessionRecorder.Describe(recording);
-        Assert.Matches(@"^Recording 1 ""checkout"" stopped after \d+\.\d s\.\n2 files, one per page the surface showed; they play in this order:\n", text);
-        Assert.EndsWith("\n- " + Path.Combine(_outDir, "1-checkout.webm") + "\n- " + Path.Combine(_outDir, "1-checkout-part2.webm"), text, StringComparison.Ordinal);
+        Assert.Matches(
+            @"^Recording 1 ""checkout"" stopped after \d+\.\d s\.\n2 files, one per page the surface showed; they play in this order:\n",
+            text
+        );
+        Assert.EndsWith(
+            "\n- " + Path.Combine(_outDir, "1-checkout.webm") + "\n- " + Path.Combine(_outDir, "1-checkout-part2.webm"),
+            text,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -86,7 +100,10 @@ public sealed class SessionRecorderTests : IDisposable
         await recordings.StartAsync(null);
         var recording = await recordings.StopAsync();
         Assert.Empty(recording!.Files);
-        Assert.Matches(@"^Recording 1 stopped after \d+\.\d s\.\nThe engine wrote no video: nothing was shown while it ran\.$", SessionRecorder.Describe(recording));
+        Assert.Matches(
+            @"^Recording 1 stopped after \d+\.\d s\.\nThe engine wrote no video: nothing was shown while it ran\.$",
+            SessionRecorder.Describe(recording)
+        );
     }
 
     [Fact]
@@ -124,7 +141,11 @@ public sealed class SessionRecorderTests : IDisposable
         _tainted = true;
         var recording = await recordings.StopAsync();
         Assert.True(recording!.Tainted);
-        Assert.EndsWith("\nA secret was filled in this session and videos are not masked: check it is not on screen before sharing.", SessionRecorder.Describe(recording), StringComparison.Ordinal);
+        Assert.EndsWith(
+            "\nA secret was filled in this session and videos are not masked: check it is not on screen before sharing.",
+            SessionRecorder.Describe(recording),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -140,7 +161,10 @@ public sealed class SessionRecorderTests : IDisposable
         Assert.True(recordings.IsRecording);
         Directory.Delete(Path.Combine(_outDir, "1-demo-part2.webm"), recursive: true);
         var recording = await recordings.StopAsync();
-        Assert.Equal([Path.Combine(_outDir, "1-demo.webm"), Path.Combine(_outDir, "1-demo-part2.webm")], recording!.Files);
+        Assert.Equal(
+            [Path.Combine(_outDir, "1-demo.webm"), Path.Combine(_outDir, "1-demo-part2.webm")],
+            recording!.Files
+        );
         Assert.Equal("2:1", await File.ReadAllTextAsync(recording.Files[1]));
         Assert.Equal(["start", "stop"], _calls);
     }
@@ -183,19 +207,30 @@ public sealed class SessionRecorderTests : IDisposable
                     throw new InvalidOperationException("device lost the recording");
                 }
 
-                IReadOnlyList<VideoSegment> segments = [.. _written.Select((relative, index) =>
-                {
-                    var file = Path.Combine(_attemptDir, relative);
-                    Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-                    File.WriteAllText(file, $"{_calls.Count}:{index}");
-                    return (VideoSegment)new VideoFile { Path = relative, StartedAt = DateTimeOffset.UtcNow.AddSeconds(-2).ToString("O") };
-                })];
+                IReadOnlyList<VideoSegment> segments =
+                [
+                    .. _written.Select(
+                        (relative, index) =>
+                        {
+                            var file = Path.Combine(_attemptDir, relative);
+                            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                            File.WriteAllText(file, $"{_calls.Count}:{index}");
+                            return (VideoSegment)
+                                new VideoFile
+                                {
+                                    Path = relative,
+                                    StartedAt = DateTimeOffset.UtcNow.AddSeconds(-2).ToString("O"),
+                                };
+                        }
+                    ),
+                ];
                 return Task.FromResult(segments);
             },
             _attemptDir,
             _outDir,
             TimeSpan.FromSeconds(1),
-            () => _tainted);
+            () => _tainted
+        );
 
     private static async Task UntilAsync(Func<bool> condition)
     {

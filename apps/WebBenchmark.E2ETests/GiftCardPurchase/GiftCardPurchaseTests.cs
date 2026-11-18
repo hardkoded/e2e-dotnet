@@ -39,7 +39,9 @@ public sealed class GiftCardPurchaseTests : BenchmarkTest
         await Expect.That(Screen.GetByTestId("total-amount")).ToHaveTextAsync("$25.00");
         await Screen.GetByPlaceholder("friend@example.com").FillAsync("friend@example.com");
         await Screen.GetByTestId("buy-button").TapAsync();
-        await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Gift card sent to friend@example.com");
+        await Expect
+            .That(Screen.GetByTestId("success-message"))
+            .ToHaveTextAsync("Gift card sent to friend@example.com");
         await Expect.That(Screen.GetByText("A $25.00 gift card is on its way.")).ToBeVisibleAsync();
     }
 }

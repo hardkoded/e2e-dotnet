@@ -38,32 +38,39 @@ public sealed class Gestures : Component
 
         Element target = step switch
         {
-            0 => VStack(12,
+            0 => VStack(
+                12,
                 Hint("Long-press the button below (hold ~1 second)"),
                 Button("Hold me", null)
                     .OnLongPress(() => setStep(1), LongPressDuration, enableMouseEmulation: true)
-                    .AutomationId("long-press-target")),
-            1 => VStack(12,
+                    .AutomationId("long-press-target")
+            ),
+            1 => VStack(
+                12,
                 Hint("Swipe the card below to the left"),
                 Border(Body("Swipe me left").AutomationId("swipe-target").Padding(24, 32))
                     .Background(Theme.CardBackground)
                     .WithBorder(Theme.CardStroke)
                     .CornerRadius(12)
-                    .OnPan(_ => { }, onEnded: gesture =>
-                    {
-                        if (gesture.Translation.X < SwipeThreshold)
+                    .OnPan(
+                        _ => { },
+                        onEnded: gesture =>
                         {
-                            setStep(2);
-                        }
-                    }, axis: PanAxis.Horizontal)),
-            _ => VStack(12,
+                            if (gesture.Translation.X < SwipeThreshold)
+                            {
+                                setStep(2);
+                            }
+                        },
+                        axis: PanAxis.Horizontal
+                    )
+            ),
+            _ => VStack(
+                12,
                 Hint("Double-tap the button below"),
-                Button("Double-tap me", DoubleTapCandidate).AutomationId("double-tap-target")),
+                Button("Double-tap me", DoubleTapCandidate).AutomationId("double-tap-target")
+            ),
         };
 
-        return VStack(16,
-            Caption($"Step {step + 1} of 3"),
-            target)
-            .Padding(24);
+        return VStack(16, Caption($"Step {step + 1} of 3"), target).Padding(24);
     }
 }

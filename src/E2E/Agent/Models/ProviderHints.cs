@@ -21,7 +21,11 @@ internal static partial class ProviderHints
     /// and a reply that was only reasoning goes. Dropping thinking from the end of a history is allowed, dropping it from the middle
     /// is not, which is why everything after the edit goes. Returns the input list when nothing is dropped.
     /// </summary>
-    public static IReadOnlyList<ModelMessage> AfterEdit(IAgentModel? model, IReadOnlyList<ModelMessage> messages, int index)
+    public static IReadOnlyList<ModelMessage> AfterEdit(
+        IAgentModel? model,
+        IReadOnlyList<ModelMessage> messages,
+        int index
+    )
     {
         ArgumentNullException.ThrowIfNull(messages);
         return SpeaksAnthropic(model) ? WithoutReasoningFrom(messages, index) : messages;
@@ -34,7 +38,8 @@ internal static partial class ProviderHints
     /// names no model and is not recognized, as upstream. The port has no Vertex or OpenRouter client that replays Anthropic thinking.
     /// </summary>
     private static bool SpeaksAnthropic(IAgentModel? model) =>
-        model is AnthropicModel || (model is BedrockModel && BedrockAnthropicId().IsMatch(model.Name.ToLowerInvariant()));
+        model is AnthropicModel
+        || (model is BedrockModel && BedrockAnthropicId().IsMatch(model.Name.ToLowerInvariant()));
 
     [GeneratedRegex(@"(?:^|\.)anthropic\.claude")]
     private static partial Regex BedrockAnthropicId();
@@ -58,7 +63,17 @@ internal static partial class ProviderHints
                 continue;
             }
 
-            next.Add(new ModelMessage { Role = message.Role, Content = message.Content, ToolCalls = message.ToolCalls, ToolCallId = message.ToolCallId, Name = message.Name, Images = message.Images });
+            next.Add(
+                new ModelMessage
+                {
+                    Role = message.Role,
+                    Content = message.Content,
+                    ToolCalls = message.ToolCalls,
+                    ToolCallId = message.ToolCallId,
+                    Name = message.Name,
+                    Images = message.Images,
+                }
+            );
         }
 
         return changed ? next : messages;

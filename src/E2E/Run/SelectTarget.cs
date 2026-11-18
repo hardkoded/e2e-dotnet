@@ -18,14 +18,20 @@ internal static class SelectTarget
         if (name is not null)
         {
             return targets.FirstOrDefault(candidate => string.Equals(candidate.Name, name, StringComparison.Ordinal))
-                ?? throw new ConfigurationException("UNKNOWN_TARGET", "unknown target \"" + name + "\"; the config declares " + names);
+                ?? throw new ConfigurationException(
+                    "UNKNOWN_TARGET",
+                    "unknown target \"" + name + "\"; the config declares " + names
+                );
         }
 
         return targets.Count switch
         {
             0 => throw new ConfigurationException("INVALID_CONFIG", "the config declares no targets"),
             1 => targets[0],
-            _ => throw new ConfigurationException("TARGET_REQUIRED", "the config declares several targets (" + names + "); " + howToName),
+            _ => throw new ConfigurationException(
+                "TARGET_REQUIRED",
+                "the config declares several targets (" + names + "); " + howToName
+            ),
         };
     }
 }

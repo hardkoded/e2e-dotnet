@@ -27,7 +27,9 @@ public sealed class IsContextOverflowTests
     [InlineData("The input (300000 tokens) is longer than the model's context length (262144 tokens).")]
     [InlineData("the request exceeds the available context size, try increasing it")]
     [InlineData("prompt token count of 200000 exceeds the limit of 128000")]
-    [InlineData("Prompt contains 300000 tokens and 0 draft tokens, too large for model with 262144 maximum context length")]
+    [InlineData(
+        "Prompt contains 300000 tokens and 0 draft tokens, too large for model with 262144 maximum context length"
+    )]
     [InlineData("context_length_exceeded")]
     [InlineData("model_context_window_exceeded")]
     [InlineData("Range of input length should be [1, 129024]")]
@@ -53,22 +55,40 @@ public sealed class IsContextOverflowTests
     {
         Assert.True(ContextOverflow.DescribesOverflow(413, "Bad Request", null));
         Assert.False(ContextOverflow.DescribesOverflow(400, "Bad Request", null));
-        Assert.True(ContextOverflow.DescribesOverflow(400, "Bad Request", """{"error":{"message":"prompt is too long: 250000 tokens > 200000 maximum"}}"""));
+        Assert.True(
+            ContextOverflow.DescribesOverflow(
+                400,
+                "Bad Request",
+                """{"error":{"message":"prompt is too long: 250000 tokens > 200000 maximum"}}"""
+            )
+        );
     }
 
     [Fact]
     public void Vetoes_per_field_a_throttling_message_does_not_hide_an_overflow_in_the_body_and_413_stands_alone()
     {
-        Assert.True(ContextOverflow.DescribesOverflow(400, "Rate limit reached", """{"error":{"message":"prompt is too long: 250000 tokens > 200000 maximum"}}"""));
+        Assert.True(
+            ContextOverflow.DescribesOverflow(
+                400,
+                "Rate limit reached",
+                """{"error":{"message":"prompt is too long: 250000 tokens > 200000 maximum"}}"""
+            )
+        );
         Assert.True(ContextOverflow.DescribesOverflow(413, "Too many requests", null));
-        Assert.True(ContextOverflow.DescribesOverflow(null, "prompt is too long", "ThrottlingException: Too many tokens"));
+        Assert.True(
+            ContextOverflow.DescribesOverflow(null, "prompt is too long", "ThrottlingException: Too many tokens")
+        );
     }
 
     [Fact]
     public void Looks_through_a_cause_chain()
     {
         Assert.True(ContextOverflow.IsContextOverflow(new Exception("gateway failed", new Exception(Overflow))));
-        Assert.False(ContextOverflow.IsContextOverflow(new Exception("outer", new Exception("middle", new Exception("rate limit")))));
+        Assert.False(
+            ContextOverflow.IsContextOverflow(
+                new Exception("outer", new Exception("middle", new Exception("rate limit")))
+            )
+        );
     }
 
     [Fact]

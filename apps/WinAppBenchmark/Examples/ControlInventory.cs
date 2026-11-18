@@ -26,24 +26,38 @@ public sealed class ControlInventory : Component
         {
             "Toggles" => Component<TogglesSection>(),
             "Gestures" => Component<GesturesSection>(),
-            "Device" => VStack(8,
-                Body($"{Math.Round(width)}x{Math.Round(height)}").AutomationId("window-size")),
+            "Device" => VStack(8, Body($"{Math.Round(width)}x{Math.Round(height)}").AutomationId("window-size")),
             _ => Component<FieldsSection>(),
         };
 
-        return ScrollView(VStack(8,
-            Body("Plain controls, every state exposed").AutomationName("Inventory heading").AutomationId("inventory-header"),
-            Body($"scheme: {scheme.ToString().ToLowerInvariant()}").AutomationId("color-scheme"),
-            Body($"orientation: {(width > height ? "landscape" : "portrait")}").AutomationId("orientation"),
-            HStack(8, [.. Sections.Select(name =>
-                Button(name, () => setSection(name))
-                    .AutomationName(name)
-                    .AutomationId($"tab-{name.ToLowerInvariant()}")
-                    .IsEnabled(name != section)
-                    .WithKey(name))]).AutomationName("Sections").AutomationId("section-tabs"),
-            body)
-            .Padding(24))
-            .AutomationName("Inventory").AutomationId("inventory-scroll");
+        return ScrollView(
+                VStack(
+                        8,
+                        Body("Plain controls, every state exposed")
+                            .AutomationName("Inventory heading")
+                            .AutomationId("inventory-header"),
+                        Body($"scheme: {scheme.ToString().ToLowerInvariant()}").AutomationId("color-scheme"),
+                        Body($"orientation: {(width > height ? "landscape" : "portrait")}").AutomationId("orientation"),
+                        HStack(
+                                8,
+                                [
+                                    .. Sections.Select(name =>
+                                        Button(name, () => setSection(name))
+                                            .AutomationName(name)
+                                            .AutomationId($"tab-{name.ToLowerInvariant()}")
+                                            .IsEnabled(name != section)
+                                            .WithKey(name)
+                                    ),
+                                ]
+                            )
+                            .AutomationName("Sections")
+                            .AutomationId("section-tabs"),
+                        body
+                    )
+                    .Padding(24)
+            )
+            .AutomationName("Inventory")
+            .AutomationId("inventory-scroll");
     }
 }
 
@@ -52,7 +66,9 @@ public sealed class FieldsSection : Component
 {
     // The name a key prints as: a letter in lower case, any other key as the platform names it ("Enter").
     private static string KeyName(Windows.System.VirtualKey key) =>
-        key is >= Windows.System.VirtualKey.A and <= Windows.System.VirtualKey.Z ? key.ToString().ToLowerInvariant() : key.ToString();
+        key is >= Windows.System.VirtualKey.A and <= Windows.System.VirtualKey.Z
+            ? key.ToString().ToLowerInvariant()
+            : key.ToString();
 
     public override Element Render()
     {
@@ -64,40 +80,56 @@ public sealed class FieldsSection : Component
         var (focused, setFocused) = UseState("none");
         var (focusRef, requestFocus) = this.UseElementFocus();
 
-        UseEffect(() =>
-        {
-            if (focusShown)
+        UseEffect(
+            () =>
             {
-                requestFocus();
-            }
-        }, focusShown);
+                if (focusShown)
+                {
+                    requestFocus();
+                }
+            },
+            focusShown
+        );
 
         // Clears the focus status only when the field losing focus still owns it.
         void Blurred(string field) => setFocused(focused == field ? "none" : focused);
 
         if (focusShown)
         {
-            return VStack(8,
-                TextBox("", _ => { }).Ref(focusRef).AutomationName("Autofocus field").AutomationId("autofocus-input")
+            return VStack(
+                8,
+                TextBox("", _ => { })
+                    .Ref(focusRef)
+                    .AutomationName("Autofocus field")
+                    .AutomationId("autofocus-input")
                     .OnGotFocus((_, _) => setFocused("Autofocus field"))
                     .OnLostFocus((_, _) => Blurred("Autofocus field")),
-                TextBox("", _ => { }).AutomationName("Second field").AutomationId("second-input")
+                TextBox("", _ => { })
+                    .AutomationName("Second field")
+                    .AutomationId("second-input")
                     .OnGotFocus((_, _) => setFocused("Second field"))
                     .OnLostFocus((_, _) => Blurred("Second field")),
-                Body($"focus: {focused}").AutomationId("focus-status"));
+                Body($"focus: {focused}").AutomationId("focus-status")
+            );
         }
 
-        return VStack(8,
-            TextBox(name, setName, placeholderText: "Type your name").AutomationName("Name field").AutomationId("name-input"),
+        return VStack(
+            8,
+            TextBox(name, setName, placeholderText: "Type your name")
+                .AutomationName("Name field")
+                .AutomationId("name-input"),
             Body($"name: {name}").AutomationId("name-echo"),
-            PasswordBox(passphrase, setPassphrase, placeholderText: "Passphrase").AutomationName("Passphrase field").AutomationId("passphrase-input"),
+            PasswordBox(passphrase, setPassphrase, placeholderText: "Passphrase")
+                .AutomationName("Passphrase field")
+                .AutomationId("passphrase-input"),
             Body($"passphrase length: {passphrase.Length}").AutomationId("passphrase-length"),
             TextBox(keyText, setKeyText, placeholderText: "Key echo")
                 .AutomationName("Key echo field")
                 .AutomationId("key-input")
                 .OnKeyDown((_, e) => setLastKey(KeyName(e.Key))),
             Body($"key: {lastKey}").AutomationId("key-status"),
-            Button("Show focus fields", () => setFocusShown(true)).AutomationId("show-focus-fields"));
+            Button("Show focus fields", () => setFocusShown(true)).AutomationId("show-focus-fields")
+        );
     }
 }
 
@@ -113,35 +145,59 @@ public sealed class TogglesSection : Component
         var (size, setSize) = UseState("Small");
         var (delayed, setDelayed) = UseState("arming");
 
-        UseEffect(() =>
-        {
-            var cts = new CancellationTokenSource();
-            After(1500, cts.Token, () => setDelayed("ready"));
-            return () => cts.Cancel();
-        }, Array.Empty<object>());
+        UseEffect(
+            () =>
+            {
+                var cts = new CancellationTokenSource();
+                After(1500, cts.Token, () => setDelayed("ready"));
+                return () => cts.Cancel();
+            },
+            Array.Empty<object>()
+        );
 
-        return VStack(8,
+        return VStack(
+            8,
             ToggleSwitch(wifi, setWifi, header: "Wi-Fi").AutomationName("Wi-Fi switch").AutomationId("wifi-switch"),
             Body($"wifi: {(wifi ? "on" : "off")}").AutomationId("wifi-status"),
-            CheckBox(newsletter, setNewsletter, label: "Newsletter").AutomationName("Newsletter").AutomationId("newsletter-checkbox"),
+            CheckBox(newsletter, setNewsletter, label: "Newsletter")
+                .AutomationName("Newsletter")
+                .AutomationId("newsletter-checkbox"),
             Body($"newsletter: {(newsletter ? "on" : "off")}").AutomationId("newsletter-status"),
-            HStack(8, [.. Sizes.Select(option =>
-                RadioButton(option, size == option, isChecked =>
-                {
-                    if (isChecked)
-                    {
-                        setSize(option);
-                    }
-                }, groupName: "inventory-size")
-                .AutomationId($"size-{option.ToLowerInvariant()}")
-                .WithKey(option))]).AutomationName("Size").AutomationId("size-group"),
+            HStack(
+                    8,
+                    [
+                        .. Sizes.Select(option =>
+                            RadioButton(
+                                    option,
+                                    size == option,
+                                    isChecked =>
+                                    {
+                                        if (isChecked)
+                                        {
+                                            setSize(option);
+                                        }
+                                    },
+                                    groupName: "inventory-size"
+                                )
+                                .AutomationId($"size-{option.ToLowerInvariant()}")
+                                .WithKey(option)
+                        ),
+                    ]
+                )
+                .AutomationName("Size")
+                .AutomationId("size-group"),
             Body($"size: {size}").AutomationId("size-status"),
-            HStack(8,
+            HStack(
+                8,
                 Button("Locked", () => { }).IsEnabled(false).AutomationId("locked-button"),
-                Button("Delayed", () => setDelayed("pressed")).IsEnabled(delayed != "arming").AutomationId("delayed-button")),
+                Button("Delayed", () => setDelayed("pressed"))
+                    .IsEnabled(delayed != "arming")
+                    .AutomationId("delayed-button")
+            ),
             Body($"delayed: {delayed}").AutomationId("delayed-status"),
             Body("Now you see me").IsVisible(false).AutomationId("ghost-text"),
-            Body("Now you see me").AutomationId("twin-text"));
+            Body("Now you see me").AutomationId("twin-text")
+        );
     }
 }
 
@@ -150,7 +206,12 @@ public sealed class GesturesSection : Component
 {
     private const int DoubleTapWindowMilliseconds = 300;
 
-    private static readonly (string Name, string Price)[] Fruits = [("Apple", "$1"), ("Banana", "$2"), ("Cherry", "$3")];
+    private static readonly (string Name, string Price)[] Fruits =
+    [
+        ("Apple", "$1"),
+        ("Banana", "$2"),
+        ("Cherry", "$3"),
+    ];
 
     public override Element Render()
     {
@@ -176,35 +237,62 @@ public sealed class GesturesSection : Component
 
         static string Point(double x, double y) => $"{Math.Round(x)},{Math.Round(y)}";
 
-        return VStack(8,
-            HStack(8,
+        return VStack(
+            8,
+            HStack(
+                8,
                 Button("Hold me", null)
-                    .OnLongPress(() => setGesture("long press"), TimeSpan.FromMilliseconds(500), enableMouseEmulation: true)
+                    .OnLongPress(
+                        () => setGesture("long press"),
+                        TimeSpan.FromMilliseconds(500),
+                        enableMouseEmulation: true
+                    )
                     .AutomationId("long-press-target"),
-                Button("Double-tap me", DoubleTapCandidate).AutomationId("double-tap-target")),
+                Button("Double-tap me", DoubleTapCandidate).AutomationId("double-tap-target")
+            ),
             Body($"gesture: {gesture}").AutomationId("gesture-status"),
             Body(taps).AutomationId("tap-count"),
-            Rectangle().Fill(Brush("#e0e0e0")).Size(240, 100)
+            Rectangle()
+                .Fill(Brush("#e0e0e0"))
+                .Size(240, 100)
                 .AutomationName("Tap pad")
                 .AutomationId("tap-pad")
-                .OnPointerPressed((sender, e) =>
-                {
-                    var at = e.GetCurrentPoint((UIElement)sender).Position;
-                    setPad(Point(at.X, at.Y));
-                }),
+                .OnPointerPressed(
+                    (sender, e) =>
+                    {
+                        var at = e.GetCurrentPoint((UIElement)sender).Position;
+                        setPad(Point(at.X, at.Y));
+                    }
+                ),
             Body($"pad: {pad}").AutomationId("pad-status"),
-            Rectangle().Fill(Brush("#bbdefb")).Size(240, 100)
+            Rectangle()
+                .Fill(Brush("#bbdefb"))
+                .Size(240, 100)
                 .AutomationName("Swipe pad")
                 .AutomationId("swipe-pad")
                 .OnPointerPressed((sender, e) => swipeStart.Current = e.GetCurrentPoint((UIElement)sender).Position)
-                .OnPointerReleased((sender, e) =>
-                {
-                    var from = swipeStart.Current;
-                    var to = e.GetCurrentPoint((UIElement)sender).Position;
-                    setSwipe($"{Point(from.X, from.Y)} to {Point(to.X, to.Y)}");
-                }),
+                .OnPointerReleased(
+                    (sender, e) =>
+                    {
+                        var from = swipeStart.Current;
+                        var to = e.GetCurrentPoint((UIElement)sender).Position;
+                        setSwipe($"{Point(from.X, from.Y)} to {Point(to.X, to.Y)}");
+                    }
+                ),
             Body($"swipe: {swipe}").AutomationId("swipe-status"),
-            VStack(4, [.. Fruits.Select(fruit =>
-                HStack(8, Body(fruit.Name), Body(fruit.Price)).AutomationName($"{fruit.Name} row").AutomationId("fruit-row").WithKey(fruit.Name))]).AutomationName("Fruit list").AutomationId("fruit-list"));
+            VStack(
+                    4,
+                    [
+                        .. Fruits.Select(fruit =>
+                            HStack(8, Body(fruit.Name), Body(fruit.Price))
+                                .AutomationName($"{fruit.Name} row")
+                                .AutomationId("fruit-row")
+                                .WithKey(fruit.Name)
+                        ),
+                    ]
+                )
+                .AutomationName("Fruit list")
+                .AutomationId("fruit-list")
+        );
     }
 }

@@ -11,9 +11,10 @@ namespace E2E.TestMu.Mobile.Tests;
 /// <summary>One request the fake hub saw. <see cref="Command"/> is the path under the session: <c>actions</c>, <c>element/el-1/value</c>, or empty for the session itself.</summary>
 internal sealed record AppiumCall(HttpMethod Method, string Path, JsonNode? Body, string? Authorization)
 {
-    public string Command => Path.Contains("/session/sess-1/", StringComparison.Ordinal)
-        ? Path[(Path.IndexOf("/session/sess-1/", StringComparison.Ordinal) + "/session/sess-1/".Length)..]
-        : "";
+    public string Command =>
+        Path.Contains("/session/sess-1/", StringComparison.Ordinal)
+            ? Path[(Path.IndexOf("/session/sess-1/", StringComparison.Ordinal) + "/session/sess-1/".Length)..]
+            : "";
 
     /// <summary>The script of an <c>execute/sync</c> call, else null.</summary>
     public string? Script => Command == "execute/sync" ? Body?["script"]?.GetValue<string>() : null;
@@ -34,7 +35,8 @@ internal sealed class FakeAppium : HttpMessageHandler
 
     public static readonly Uri Hub = new("https://hub.example/wd/hub");
 
-    private readonly List<(string Method, string Command, Func<AppiumCall, HttpResponseMessage> Respond)> _scripted = [];
+    private readonly List<(string Method, string Command, Func<AppiumCall, HttpResponseMessage> Respond)> _scripted =
+    [];
 
     public List<AppiumCall> Calls { get; } = [];
 
@@ -44,20 +46,59 @@ internal sealed class FakeAppium : HttpMessageHandler
     public WebDriverClient Driver(HubCredentials? credentials = null) => new(Http, Hub, SessionId, credentials);
 
     /// <summary>Answers <paramref name="command"/> of this method with this response from now on.</summary>
-    public void Script(string method, string command, Func<AppiumCall, HttpResponseMessage> respond) => _scripted.Insert(0, (method, command, respond));
+    public void Script(string method, string command, Func<AppiumCall, HttpResponseMessage> respond) =>
+        _scripted.Insert(0, (method, command, respond));
 
-    public void ScriptValue(string method, string command, JsonNode? value) => Script(method, command, _ => Value(value));
+    public void ScriptValue(string method, string command, JsonNode? value) =>
+        Script(method, command, _ => Value(value));
 
     public static HttpResponseMessage Value(JsonNode? value) =>
-        new(HttpStatusCode.OK) { Content = new StringContent(new JsonObject { ["value"] = value?.DeepClone() }.ToJsonString(), Encoding.UTF8, "application/json") };
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                new JsonObject { ["value"] = value?.DeepClone() }.ToJsonString(),
+                Encoding.UTF8,
+                "application/json"
+            ),
+        };
 
     public static HttpResponseMessage Failure(HttpStatusCode status, string error, string message) =>
-        new(status) { Content = new StringContent(new JsonObject { ["value"] = new JsonObject { ["error"] = error, ["message"] = message } }.ToJsonString(), Encoding.UTF8, "application/json") };
+        new(status)
+        {
+            Content = new StringContent(
+                new JsonObject
+                {
+                    ["value"] = new JsonObject { ["error"] = error, ["message"] = message },
+                }.ToJsonString(),
+                Encoding.UTF8,
+                "application/json"
+            ),
+        };
 
     /// <summary>A PNG header for a screenshot of this size: all the client reads.</summary>
     public static string PngBase64(int width, int height)
     {
-        byte[] header = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, (byte)'I', (byte)'H', (byte)'D', (byte)'R', .. Big(width), .. Big(height)];
+        byte[] header =
+        [
+            0x89,
+            0x50,
+            0x4e,
+            0x47,
+            0x0d,
+            0x0a,
+            0x1a,
+            0x0a,
+            0,
+            0,
+            0,
+            13,
+            (byte)'I',
+            (byte)'H',
+            (byte)'D',
+            (byte)'R',
+            .. Big(width),
+            .. Big(height),
+        ];
         return Convert.ToBase64String(header);
     }
 
@@ -65,14 +106,25 @@ internal sealed class FakeAppium : HttpMessageHandler
 
     public IEnumerable<AppiumCall> Scripts() => Calls.Where(call => call.Script is not null);
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
     {
         var text = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
-        var call = new AppiumCall(request.Method, request.RequestUri!.AbsolutePath, text is null ? null : JsonNode.Parse(text), request.Headers.Authorization?.ToString());
+        var call = new AppiumCall(
+            request.Method,
+            request.RequestUri!.AbsolutePath,
+            text is null ? null : JsonNode.Parse(text),
+            request.Headers.Authorization?.ToString()
+        );
         Calls.Add(call);
         foreach (var (method, command, respond) in _scripted)
         {
-            if (method == call.Method.Method && (command == call.Command || (command.Length == 0 && call.Command.Length == 0)))
+            if (
+                method == call.Method.Method
+                && (command == call.Command || (command.Length == 0 && call.Command.Length == 0))
+            )
             {
                 return respond(call);
             }
@@ -90,7 +142,15 @@ internal sealed class FakeAppium : HttpMessageHandler
 
         return (call.Method.Method, call.Command) switch
         {
-            ("GET", "window/rect") => Value(new JsonObject { ["x"] = 0, ["y"] = 0, ["width"] = 390, ["height"] = 844 }),
+            ("GET", "window/rect") => Value(
+                new JsonObject
+                {
+                    ["x"] = 0,
+                    ["y"] = 0,
+                    ["width"] = 390,
+                    ["height"] = 844,
+                }
+            ),
             ("GET", "screenshot") => Value(PngBase64(780, 1688)),
             ("GET", "element/active") => Value(new JsonObject { [ElementKey] = "el-1" }),
             ("GET", "source") => Value("<AppiumAUT/>"),
@@ -105,5 +165,8 @@ internal static class Json
 {
     /// <summary>Whether a node equals the JSON written out, ignoring whitespace.</summary>
     public static void AssertEqual(string expected, JsonNode? actual) =>
-        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expected), actual), $"expected {expected}{Environment.NewLine}actual   {actual?.ToJsonString()}");
+        Assert.True(
+            JsonNode.DeepEquals(JsonNode.Parse(expected), actual),
+            $"expected {expected}{Environment.NewLine}actual   {actual?.ToJsonString()}"
+        );
 }

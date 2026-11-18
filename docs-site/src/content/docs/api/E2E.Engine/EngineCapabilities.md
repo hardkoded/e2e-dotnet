@@ -54,6 +54,21 @@ CloseTab = 16384
 
 **Value:** [EngineCapabilities](./)
 
+<a id="E2E_Engine_EngineCapabilities_ComputedStyle"></a>
+
+### ComputedStyle
+
+
+```csharp
+ComputedStyle = 32768
+```
+
+
+`ReadStyleAsync`: the engine reads allow-listed
+rendered properties of an observed node. Upstream's `computed-style` capability (named `computed-style` in `requires`).
+
+**Value:** [EngineCapabilities](./)
+
 <a id="E2E_Engine_EngineCapabilities_History"></a>
 
 ### History
@@ -113,6 +128,22 @@ None = 0
 Observation = 1
 ```
 
+
+**Value:** [EngineCapabilities](./)
+
+<a id="E2E_Engine_EngineCapabilities_OpenLink"></a>
+
+### OpenLink
+
+
+```csharp
+OpenLink = 65536
+```
+
+
+`OpenLinkAsync`: the engine opens a link in the app under test, which
+`app.open(path)` needs on a target that declares `app.linkBase`. .NET-only name for upstream's optional `session.openLink`;
+C# has no optional member to test, so this declares it.
 
 **Value:** [EngineCapabilities](./)
 

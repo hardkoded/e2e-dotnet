@@ -18,29 +18,47 @@ public sealed class UpsertCommentTests
     private static Task<string> Upsert(FakeGitHub fake, CancellationToken cancellationToken = default) =>
         GitHubPost.UpsertCommentAsync(
             new PostParams(fake.Client, "https://api.github.com", Token, "octo/app", 41, Marker, $"{Marker}\n### e2e"),
-            cancellationToken);
+            cancellationToken
+        );
 
     private static FakeGitHub Fake(params (string Route, Func<Call, HttpResponseMessage> Answer)[] script) =>
         new(script.ToDictionary(entry => entry.Route, entry => entry.Answer));
 
     private static List<object> Page(int from, int count) =>
-        [.. Enumerable.Range(from, count).Select(id => (object)new { id, user = Bot, body = $"comment {id}" })];
+        [
+            .. Enumerable
+                .Range(from, count)
+                .Select(id =>
+                    (object)
+                        new
+                        {
+                            id,
+                            user = Bot,
+                            body = $"comment {id}",
+                        }
+                ),
+        ];
 
     private static string[] Routes(FakeGitHub fake) => [.. fake.Calls.Select(call => call.Route)];
 
     private static string CommentUrl(int id) => $"https://github.com/octo/app/pull/41#issuecomment-{id}";
 
-    private static async Task<string> ErrorOf(Task<string> upsert) => (await Assert.ThrowsAsync<InvalidOperationException>(() => upsert)).Message;
+    private static async Task<string> ErrorOf(Task<string> upsert) =>
+        (await Assert.ThrowsAsync<InvalidOperationException>(() => upsert)).Message;
 
     [Fact]
     public async Task Creates_a_comment_when_none_carries_the_marker_with_the_GitHub_headers_and_the_signal()
     {
         var fake = Fake(
             ("GET /repos/octo/app/issues/41/comments", _ => Json(200, new[] { new { id = 1, body = "unrelated" } })),
-            ("POST /repos/octo/app/issues/41/comments", _ => Json(201, new { id = 2, html_url = CommentUrl(2) })));
+            ("POST /repos/octo/app/issues/41/comments", _ => Json(201, new { id = 2, html_url = CommentUrl(2) }))
+        );
 
         Assert.Equal(CommentUrl(2), await Upsert(fake));
-        Assert.Equal(["GET /user", "GET /repos/octo/app/issues/41/comments", "POST /repos/octo/app/issues/41/comments"], Routes(fake));
+        Assert.Equal(
+            ["GET /user", "GET /repos/octo/app/issues/41/comments", "POST /repos/octo/app/issues/41/comments"],
+            Routes(fake)
+        );
         var headers = fake.Calls[1].Headers;
         Assert.Equal("Bearer ghs_token", headers["authorization"]);
         Assert.Equal("application/vnd.github+json", headers["accept"]);
@@ -57,8 +75,20 @@ public sealed class UpsertCommentTests
     {
         var fake = Fake(
             ("GET /repos/octo/app/issues/41/comments?per_page=100&page=1", _ => Json(200, Page(0, 100))),
-            ("GET /repos/octo/app/issues/41/comments?per_page=100&page=2", _ => Json(200, new[] { new { id = 500, user = Bot, body = $"{Marker}\nold" } })),
-            ("PATCH /repos/octo/app/issues/comments/500", _ => Json(200, new { id = 500, html_url = CommentUrl(500) })));
+            ("GET /repos/octo/app/issues/41/comments?per_page=100&page=2", _ => Json(
+                    200,
+                    new[]
+                    {
+                        new
+                        {
+                            id = 500,
+                            user = Bot,
+                            body = $"{Marker}\nold",
+                        },
+                    }
+                )),
+            ("PATCH /repos/octo/app/issues/comments/500", _ => Json(200, new { id = 500, html_url = CommentUrl(500) }))
+        );
 
         Assert.Equal(CommentUrl(500), await Upsert(fake));
         Assert.Equal("PATCH", fake.Calls[^1].Method);
@@ -68,16 +98,42 @@ public sealed class UpsertCommentTests
     [Fact]
     public async Task Matches_only_a_comment_whose_first_line_is_the_marker_not_one_that_quotes_it_or_extends_it()
     {
-        var fake = Fake(
-            ("GET *", _ => Json(200, new object[]
-            {
-                new { id = 1, user = Bot, body = $"> {Marker}\n> quoted in a reply" },
-                new { id = 2, user = Bot, body = $"### e2e\n{Marker}" },
-                new { id = 3, user = Bot, body = $"{Marker.Replace(" -->", " key=a -->", StringComparison.Ordinal)}\nanother job" },
-                new { id = 4, user = Bot, body = $"{Marker} extra\nnot the marker line" },
-                new { id = 5, user = Bot, body = $"{Marker}\r\nedited on the web" },
-            })),
-            ("PATCH /repos/octo/app/issues/comments/5", _ => Json(200, new { id = 5, html_url = CommentUrl(5) })));
+        var fake = Fake(("GET *", _ => Json(
+                    200,
+                    new object[]
+                    {
+                        new
+                        {
+                            id = 1,
+                            user = Bot,
+                            body = $"> {Marker}\n> quoted in a reply",
+                        },
+                        new
+                        {
+                            id = 2,
+                            user = Bot,
+                            body = $"### e2e\n{Marker}",
+                        },
+                        new
+                        {
+                            id = 3,
+                            user = Bot,
+                            body = $"{Marker.Replace(" -->", " key=a -->", StringComparison.Ordinal)}\nanother job",
+                        },
+                        new
+                        {
+                            id = 4,
+                            user = Bot,
+                            body = $"{Marker} extra\nnot the marker line",
+                        },
+                        new
+                        {
+                            id = 5,
+                            user = Bot,
+                            body = $"{Marker}\r\nedited on the web",
+                        },
+                    }
+                )), ("PATCH /repos/octo/app/issues/comments/5", _ => Json(200, new { id = 5, html_url = CommentUrl(5) })));
 
         Assert.Equal(CommentUrl(5), await Upsert(fake));
         Assert.Equal(["GET", "GET", "PATCH"], fake.Calls.Select(call => call.Method));
@@ -86,13 +142,19 @@ public sealed class UpsertCommentTests
     [Fact]
     public async Task Never_edits_a_comment_another_account_wrote_with_the_marker_and_posts_its_own()
     {
-        var fake = Fake(
-            ("GET /repos/octo/app/issues/41/comments", _ => Json(200, new object[]
-            {
-                new { id = 1, user = new { login = "mallory", type = "User" }, body = $"{Marker}\n### e2e: 9 passed" },
-                new { id = 2, body = $"{Marker}\nno author" },
-            })),
-            ("POST /repos/octo/app/issues/41/comments", _ => Json(201, new { id = 3, html_url = CommentUrl(3) })));
+        var fake = Fake(("GET /repos/octo/app/issues/41/comments", _ => Json(
+                    200,
+                    new object[]
+                    {
+                        new
+                        {
+                            id = 1,
+                            user = new { login = "mallory", type = "User" },
+                            body = $"{Marker}\n### e2e: 9 passed",
+                        },
+                        new { id = 2, body = $"{Marker}\nno author" },
+                    }
+                )), ("POST /repos/octo/app/issues/41/comments", _ => Json(201, new { id = 3, html_url = CommentUrl(3) })));
 
         Assert.Equal(CommentUrl(3), await Upsert(fake));
         Assert.Equal(["GET", "GET", "POST"], fake.Calls.Select(call => call.Method));
@@ -101,16 +163,30 @@ public sealed class UpsertCommentTests
     [Fact]
     public async Task Edits_a_GitHub_Apps_own_comment_with_the_apps_installation_token()
     {
-        var fake = Fake(
-            ("GET /repos/octo/app/issues/41/comments", _ => Json(200, new object[]
-            {
-                new { id = 1, user = new { login = "mallory", type = "User" }, body = $"{Marker}\nfirst" },
-                new { id = 2, user = new { login = "shop-ci[bot]", type = "Bot" }, body = $"{Marker}\nfrom the app" },
-            })),
-            ("PATCH /repos/octo/app/issues/comments/2", _ => Json(200, new { id = 2, html_url = CommentUrl(2) })));
+        var fake = Fake(("GET /repos/octo/app/issues/41/comments", _ => Json(
+                    200,
+                    new object[]
+                    {
+                        new
+                        {
+                            id = 1,
+                            user = new { login = "mallory", type = "User" },
+                            body = $"{Marker}\nfirst",
+                        },
+                        new
+                        {
+                            id = 2,
+                            user = new { login = "shop-ci[bot]", type = "Bot" },
+                            body = $"{Marker}\nfrom the app",
+                        },
+                    }
+                )), ("PATCH /repos/octo/app/issues/comments/2", _ => Json(200, new { id = 2, html_url = CommentUrl(2) })));
 
         Assert.Equal(CommentUrl(2), await Upsert(fake));
-        Assert.Equal(["GET /user", "GET /repos/octo/app/issues/41/comments", "PATCH /repos/octo/app/issues/comments/2"], Routes(fake));
+        Assert.Equal(
+            ["GET /user", "GET /repos/octo/app/issues/41/comments", "PATCH /repos/octo/app/issues/comments/2"],
+            Routes(fake)
+        );
     }
 
     [Fact]
@@ -118,23 +194,52 @@ public sealed class UpsertCommentTests
     {
         var fake = Fake(
             ("GET /user", _ => Json(200, new { login = "Octo-CI" })),
-            ("GET /repos/octo/app/issues/41/comments", _ => Json(200, new object[]
-            {
-                new { id = 1, user = Bot, body = $"{Marker}\nfrom GITHUB_TOKEN" },
-                new { id = 2, user = new { login = "octo-ci", type = "User" }, body = $"{Marker}\nfrom the personal token" },
-            })),
-            ("PATCH /repos/octo/app/issues/comments/2", _ => Json(200, new { id = 2, html_url = CommentUrl(2) })));
+            ("GET /repos/octo/app/issues/41/comments", _ => Json(
+                    200,
+                    new object[]
+                    {
+                        new
+                        {
+                            id = 1,
+                            user = Bot,
+                            body = $"{Marker}\nfrom GITHUB_TOKEN",
+                        },
+                        new
+                        {
+                            id = 2,
+                            user = new { login = "octo-ci", type = "User" },
+                            body = $"{Marker}\nfrom the personal token",
+                        },
+                    }
+                )),
+            ("PATCH /repos/octo/app/issues/comments/2", _ => Json(200, new { id = 2, html_url = CommentUrl(2) }))
+        );
 
         Assert.Equal(CommentUrl(2), await Upsert(fake));
-        Assert.Equal(["GET /user", "GET /repos/octo/app/issues/41/comments", "PATCH /repos/octo/app/issues/comments/2"], Routes(fake));
+        Assert.Equal(
+            ["GET /user", "GET /repos/octo/app/issues/41/comments", "PATCH /repos/octo/app/issues/comments/2"],
+            Routes(fake)
+        );
     }
 
     [Fact]
     public async Task Stops_searching_after_a_hundred_full_pages_and_posts_a_new_comment()
     {
         var fake = Fake(
-            ("GET *", call => Json(200, Page(int.Parse(System.Web.HttpUtility.ParseQueryString(new Uri(call.Url).Query)["page"]!, System.Globalization.CultureInfo.InvariantCulture) * 100, 100))),
-            ("POST *", _ => Json(201, new { id = 9, html_url = CommentUrl(9) })));
+            ("GET *", call =>
+                Json(
+                    200,
+                    Page(
+                        int.Parse(
+                            System.Web.HttpUtility.ParseQueryString(new Uri(call.Url).Query)["page"]!,
+                            System.Globalization.CultureInfo.InvariantCulture
+                        ) * 100,
+                        100
+                    )
+                )
+            ),
+            ("POST *", _ => Json(201, new { id = 9, html_url = CommentUrl(9) }))
+        );
 
         Assert.Equal(CommentUrl(9), await Upsert(fake));
         Assert.Equal(101, fake.Calls.Count(call => call.Method == "GET"));
@@ -145,28 +250,49 @@ public sealed class UpsertCommentTests
     {
         Assert.Equal(
             "the token cannot comment on octo/app#41: a pull request from a fork runs with a read-only token, and the job needs `permissions: pull-requests: write`",
-            await ErrorOf(Upsert(Fake(("GET *", _ => Json(403, new { message = "Resource not accessible by integration" }))))));
+            await ErrorOf(
+                Upsert(Fake(("GET *", _ => Json(403, new { message = "Resource not accessible by integration" }))))
+            )
+        );
         Assert.Equal(
             "GitHub rejected the token (GITHUB_TOKEN or GH_TOKEN)",
-            await ErrorOf(Upsert(Fake(("GET *", _ => Json(401, new { message = "Bad credentials" })), ("GET /user", _ => Json(401, new { }))))));
+            await ErrorOf(
+                Upsert(
+                    Fake(
+                        ("GET *", _ => Json(401, new { message = "Bad credentials" })),
+                        ("GET /user", _ => Json(401, new { }))
+                    )
+                )
+            )
+        );
         Assert.Equal(
             "GitHub responded 502 to GET /repos/octo/app/issues/41/comments?per_page=100&page=1: upstream sad",
-            await ErrorOf(Upsert(Fake(("GET *", _ => Text(502, "upstream sad"))))));
+            await ErrorOf(Upsert(Fake(("GET *", _ => Text(502, "upstream sad")))))
+        );
         Assert.Equal(
             "GitHub answered GET /user without a login",
-            await ErrorOf(Upsert(Fake(("GET /user", _ => Json(200, new { id = 1 }))))));
+            await ErrorOf(Upsert(Fake(("GET /user", _ => Json(200, new { id = 1 })))))
+        );
         Assert.Equal(
             "GitHub responded 502 to GET /user: upstream sad",
-            await ErrorOf(Upsert(Fake(("GET /user", _ => Text(502, "upstream sad"))))));
+            await ErrorOf(Upsert(Fake(("GET /user", _ => Text(502, "upstream sad")))))
+        );
         Assert.Equal(
             "GitHub responded 403 to GET /user: {\"message\":\"API rate limit exceeded\"}",
-            await ErrorOf(Upsert(Fake(("GET /user", _ => Json(403, new { message = "API rate limit exceeded" }))))));
+            await ErrorOf(Upsert(Fake(("GET /user", _ => Json(403, new { message = "API rate limit exceeded" })))))
+        );
         Assert.Equal(
             "GitHub answered the comment list with a body that is not a list",
-            await ErrorOf(Upsert(Fake(("GET *", _ => Json(200, new { message = "odd" }))))));
+            await ErrorOf(Upsert(Fake(("GET *", _ => Json(200, new { message = "odd" })))))
+        );
         Assert.Equal(
             "GitHub answered the comment without its html_url",
-            await ErrorOf(Upsert(Fake(("GET *", _ => Json(200, Array.Empty<object>())), ("POST *", _ => Json(201, new { id = 3 }))))));
+            await ErrorOf(
+                Upsert(
+                    Fake(("GET *", _ => Json(200, Array.Empty<object>())), ("POST *", _ => Json(201, new { id = 3 })))
+                )
+            )
+        );
     }
 
     [Fact]
@@ -185,7 +311,8 @@ public sealed class UpsertCommentTests
 
             Assert.Equal(
                 "GitHub rate limited GET /repos/octo/app/issues/41/comments?per_page=100&page=1; wait for the rate-limit reset or Retry-After before rerunning the job",
-                await ErrorOf(Upsert(fake)));
+                await ErrorOf(Upsert(fake))
+            );
             Assert.Equal(["GET /user", "GET /repos/octo/app/issues/41/comments"], Routes(fake));
         }
     }
@@ -206,7 +333,9 @@ public sealed class UpsertCommentTests
     [Fact]
     public async Task Keeps_the_token_out_of_the_error_when_GitHub_echoes_it_back()
     {
-        var message = await ErrorOf(Upsert(Fake(("GET *", _ => Text((int)HttpStatusCode.BadGateway, $"bad gateway for {Token}")))));
+        var message = await ErrorOf(
+            Upsert(Fake(("GET *", _ => Text((int)HttpStatusCode.BadGateway, $"bad gateway for {Token}"))))
+        );
 
         Assert.DoesNotContain(Token, message, StringComparison.Ordinal);
         Assert.StartsWith("GitHub responded 502 to GET", message, StringComparison.Ordinal);

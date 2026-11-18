@@ -15,16 +15,24 @@ public sealed class DialogRouterTests
         var router = new DialogRouter();
         var first = 0;
         var second = 0;
-        router.Add((DialogHandler)(_ =>
-        {
-            first++;
-            return Task.CompletedTask;
-        }));
-        var unsubscribe = router.Add((DialogHandler)(_ =>
-        {
-            second++;
-            return Task.CompletedTask;
-        }));
+        router.Add(
+            (DialogHandler)(
+                _ =>
+                {
+                    first++;
+                    return Task.CompletedTask;
+                }
+            )
+        );
+        var unsubscribe = router.Add(
+            (DialogHandler)(
+                _ =>
+                {
+                    second++;
+                    return Task.CompletedTask;
+                }
+            )
+        );
 
         await router.DispatchAsync(new FakeNativeDialog());
         Assert.Equal(1, second);
@@ -40,11 +48,13 @@ public sealed class DialogRouterTests
     {
         var router = new DialogRouter();
         var calls = 0;
-        var handler = (DialogHandler)(dialog =>
-        {
-            calls++;
-            return dialog.AcceptAsync();
-        });
+        var handler = (DialogHandler)(
+            dialog =>
+            {
+                calls++;
+                return dialog.AcceptAsync();
+            }
+        );
         var unsubscribeFirst = router.Add(handler);
         router.Add(handler);
         unsubscribeFirst();
@@ -70,11 +80,15 @@ public sealed class DialogRouterTests
         Assert.Equal(1, dismissed.Dismisses);
 
         var seen = new List<string>();
-        router.Add((DialogHandler)(dialog =>
-        {
-            seen.Add(dialog.Message);
-            return dialog.AcceptAsync("yes");
-        }));
+        router.Add(
+            (DialogHandler)(
+                dialog =>
+                {
+                    seen.Add(dialog.Message);
+                    return dialog.AcceptAsync("yes");
+                }
+            )
+        );
         var custom = new FakeNativeDialog("name?");
         await router.DispatchAsync(custom);
         Assert.Equal(["name?"], seen);
@@ -141,11 +155,15 @@ public sealed class DialogRouterTests
     {
         var router = new DialogRouter();
         var dialog = new FakeNativeDialog();
-        router.Add((DialogHandler)(native =>
-        {
-            _ = native.AcceptAsync();
-            return Task.CompletedTask;
-        }));
+        router.Add(
+            (DialogHandler)(
+                native =>
+                {
+                    _ = native.AcceptAsync();
+                    return Task.CompletedTask;
+                }
+            )
+        );
         await router.DispatchAsync(dialog);
         Assert.Equal(1, dialog.Accepts);
         Assert.Equal(0, dialog.Dismisses);
@@ -157,11 +175,15 @@ public sealed class DialogRouterTests
     {
         var router = new DialogRouter();
         var failure = new TestException("ASSERTION_FAILED", "expected the other message");
-        router.Add((DialogHandler)(async dialog =>
-        {
-            await dialog.AcceptAsync();
-            throw failure;
-        }));
+        router.Add(
+            (DialogHandler)(
+                async dialog =>
+                {
+                    await dialog.AcceptAsync();
+                    throw failure;
+                }
+            )
+        );
         await router.DispatchAsync(new FakeNativeDialog());
         Assert.Same(failure, Assert.Throws<TestException>(router.ThrowPending));
     }

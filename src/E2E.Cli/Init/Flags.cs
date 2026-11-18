@@ -16,12 +16,13 @@ internal static class InitFlags
     private static readonly string[] McpFiles = [.. McpConfig.McpLocations.Select(location => location.File)];
 
     public const string Usage = """
-        e2e init [directory] [--yes] [--example <name>] [--framework <id>] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>] [--install | --no-install]
+        e2e init [directory] [--yes] [--example <name>] [--framework <id>] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>] [--ci <id>] [--install | --no-install]
 
         Scaffolds a test project (a .csproj and ExampleTests.cs) with e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore. Existing files are never overwritten.
           --yes             accept the defaults for every question a flag does not answer, and ask nothing
           --example <name>  start from a sample downloaded from GitHub: E2E.Sample, E2E.XUnit.V3.Sample, TodoMvc
           --framework <id>  test framework of a new project: nunit (the default), xunit, or tunit; an existing project keeps its own
+          --ci <id>         CI pipeline that runs the tests, one job per platform: github-actions, gitlab, or none; none writes none, and --yes alone writes none
           --install         restore the packages with dotnet restore after scaffolding
           --no-install      do not restore the packages
           --engine <ids>    engine for a new config: web, mobile, or none
@@ -65,7 +66,19 @@ internal static class InitFlags
                     (name, value) = (name[..eq], name[(eq + 1)..]);
                 }
 
-                if (name is not ("engine" or "gateway" or "endpoint" or "skills" or "mcp" or "example" or "framework"))
+                if (
+                    name
+                    is not (
+                        "engine"
+                        or "gateway"
+                        or "endpoint"
+                        or "skills"
+                        or "mcp"
+                        or "example"
+                        or "framework"
+                        or "ci"
+                    )
+                )
                 {
                     return (null, "error: unknown option '--" + name + "'");
                 }
@@ -84,9 +97,24 @@ internal static class InitFlags
                 if (name is "engine" or "skills" or "mcp")
                 {
                     // Names, comma-separated or repeated, each once; an empty value is a usage error rather than an empty list (upstream's parseNames).
-                    if (value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Length == 0)
+                    if (
+                        value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Length
+                        == 0
+                    )
                     {
-                        return (null, "error: option '--" + name + "' argument '" + value + "' is invalid. must name at least one " + (name == "engine" ? "engine" : name == "skills" ? "skill directory" : "MCP config file"));
+                        return (
+                            null,
+                            "error: option '--"
+                                + name
+                                + "' argument '"
+                                + value
+                                + "' is invalid. must name at least one "
+                                + (
+                                    name == "engine" ? "engine"
+                                    : name == "skills" ? "skill directory"
+                                    : "MCP config file"
+                                )
+                        );
                     }
 
                     values[name] = values.TryGetValue(name, out var previous) ? previous + "," + value : value;
@@ -116,13 +144,29 @@ internal static class InitFlags
             example = Examples.FindExample(exampleName.Trim())?.Id;
             if (example is null)
             {
-                return (null, "error: option '--example' argument '" + exampleName + "' is invalid. unknown example \"" + exampleName + "\"; expected " + string.Join(", ", Examples.All.Select(preset => preset.Id)));
+                return (
+                    null,
+                    "error: option '--example' argument '"
+                        + exampleName
+                        + "' is invalid. unknown example \""
+                        + exampleName
+                        + "\"; expected "
+                        + string.Join(", ", Examples.All.Select(preset => preset.Id))
+                );
             }
 
             var conflicts = new[] { "engine", "gateway", "endpoint", "framework" }.Where(values.ContainsKey).ToList();
             if (conflicts.Count > 0)
             {
-                return (null, "error: --example " + example + " brings its own " + E2EConfig.FileName + " and project; drop " + string.Join(", ", conflicts.Select(flag => "--" + flag)));
+                return (
+                    null,
+                    "error: --example "
+                        + example
+                        + " brings its own "
+                        + E2EConfig.FileName
+                        + " and project; drop "
+                        + string.Join(", ", conflicts.Select(flag => "--" + flag))
+                );
             }
         }
 
@@ -132,7 +176,31 @@ internal static class InitFlags
             framework = Frameworks.All.FirstOrDefault(preset => preset.Id == frameworkName)?.Id;
             if (framework is null)
             {
-                return (null, "error: option '--framework' argument '" + frameworkName + "' is invalid. Allowed choices are " + string.Join(", ", Frameworks.All.Select(preset => preset.Id)) + ".");
+                return (
+                    null,
+                    "error: option '--framework' argument '"
+                        + frameworkName
+                        + "' is invalid. Allowed choices are "
+                        + string.Join(", ", Frameworks.All.Select(preset => preset.Id))
+                        + "."
+                );
+            }
+        }
+
+        string? ci = null;
+        if (values.TryGetValue("ci", out var ciName))
+        {
+            ci = Ci.Services.Select(service => service.Id).Append("none").FirstOrDefault(id => id == ciName);
+            if (ci is null)
+            {
+                return (
+                    null,
+                    "error: option '--ci' argument '"
+                        + ciName
+                        + "' is invalid. Allowed choices are "
+                        + string.Join(", ", Ci.Services.Select(service => service.Id).Append("none"))
+                        + "."
+                );
             }
         }
 
@@ -145,15 +213,29 @@ internal static class InitFlags
 
             if (values.TryGetValue("gateway", out var other) && other != "openai-compatible")
             {
-                return (null, "error: --endpoint is the base URL for --gateway openai-compatible, not --gateway " + other);
+                return (
+                    null,
+                    "error: --endpoint is the base URL for --gateway openai-compatible, not --gateway " + other
+                );
             }
 
             values["gateway"] = "openai-compatible";
         }
 
-        if (values.TryGetValue("gateway", out var gateway) && gateway != "none" && !Gateways.All.Any(preset => preset.Id == gateway))
+        if (
+            values.TryGetValue("gateway", out var gateway)
+            && gateway != "none"
+            && !Gateways.All.Any(preset => preset.Id == gateway)
+        )
         {
-            return (null, "error: option '--gateway' argument '" + gateway + "' is invalid. Allowed choices are " + string.Join(", ", Gateways.All.Select(preset => preset.Id).Append("none")) + ".");
+            return (
+                null,
+                "error: option '--gateway' argument '"
+                    + gateway
+                    + "' is invalid. Allowed choices are "
+                    + string.Join(", ", Gateways.All.Select(preset => preset.Id).Append("none"))
+                    + "."
+            );
         }
 
         IReadOnlyList<string>? engines = null;
@@ -162,7 +244,12 @@ internal static class InitFlags
         string? error = null;
         if (values.TryGetValue("engine", out var engineList))
         {
-            (engines, error) = CheckNames("--engine", "engine", engineList, [.. Engines.GetEnginePresets().Select(preset => preset.Id)]);
+            (engines, error) = CheckNames(
+                "--engine",
+                "engine",
+                engineList,
+                [.. Engines.GetEnginePresets().Select(preset => preset.Id)]
+            );
             if (error is null && engines!.Count > 1)
             {
                 error = "error: --engine: the .NET port runs one target; name one engine";
@@ -197,17 +284,26 @@ internal static class InitFlags
                 Example = example,
                 Install = install,
                 Framework = framework,
+                Ci = ci,
             },
-            null);
+            null
+        );
     }
 
     /// <summary>What an <c>--engine</c>, <c>--skills</c>, or <c>--mcp</c> list names: known values, each once, or none for <c>none</c> alone. Anything else is a usage error with the valid values.</summary>
-    private static (IReadOnlyList<string>? Names, string? Error) CheckNames(string flag, string noun, string list, IReadOnlyList<string> known)
+    private static (IReadOnlyList<string>? Names, string? Error) CheckNames(
+        string flag,
+        string noun,
+        string list,
+        IReadOnlyList<string> known
+    )
     {
         var names = list.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         if (names.Contains("none"))
         {
-            return names.Length > 1 ? (null, "error: " + flag + ": none cannot be combined with other values") : ([], null);
+            return names.Length > 1
+                ? (null, "error: " + flag + ": none cannot be combined with other values")
+                : ([], null);
         }
 
         // A location with its trailing slashes dropped, so .agents/skills/ is .agents/skills.
@@ -215,7 +311,17 @@ internal static class InitFlags
         var unknown = locations.FirstOrDefault(name => !known.Contains(name));
         if (unknown is not null)
         {
-            return (null, "error: " + flag + ": unknown " + noun + " \"" + unknown + "\"; expected " + string.Join(", ", known.Append("none")));
+            return (
+                null,
+                "error: "
+                    + flag
+                    + ": unknown "
+                    + noun
+                    + " \""
+                    + unknown
+                    + "\"; expected "
+                    + string.Join(", ", known.Append("none"))
+            );
         }
 
         return ([.. locations.Distinct()], null);

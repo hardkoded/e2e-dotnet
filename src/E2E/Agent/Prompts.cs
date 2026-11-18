@@ -8,9 +8,10 @@ namespace E2E;
 internal static class Prompts
 {
     /// <summary>
-    /// The line naming the test a step runs in, <c>Test: billing &gt; upgrades the tier</c>, or null outside one. It opens the user
-    /// message, never the system message: the system message stays the same across tests, so a provider's prompt cache serves
-    /// every test of a run. Upstream's <c>testTitleLine</c>.
+    /// The line naming the test a step runs in, <c>Test: billing &gt; upgrades the tier</c>, or null outside one. It goes in the user
+    /// message, never the system message, so the prefix a provider's prompt cache serves stays the same across tests. Upstream's
+    /// <c>testTitleLine</c>. Upstream puts it after the fixed request text of the user message; the port keeps that text in the judgment's
+    /// system message, so the title opens the user message.
     /// </summary>
     internal static string? TestTitleLine(IReadOnlyList<string> titlePath)
     {

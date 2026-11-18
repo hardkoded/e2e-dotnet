@@ -59,20 +59,24 @@ public sealed class ElementhandleScrollIntoViewTests : PlaywrightTest
     [Test]
     public async Task Should_scroll_display_contents_into_view()
     {
-        await Browser.GotoAsync(Content("""
-            <style>
-              html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
-              ::-webkit-scrollbar { display: none; }
-              * { scrollbar-width: none; }
-            </style>
-            <div id=container style="width:200px;height:200px;overflow:scroll;border:1px solid black;">
-              <div style="margin-top:500px;background:red;">
-                <div style="height:50px;width:100px;background:cyan;">
-                  <div id=target style="display:contents">Hello</div>
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>
+                  html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+                  ::-webkit-scrollbar { display: none; }
+                  * { scrollbar-width: none; }
+                </style>
+                <div id=container style="width:200px;height:200px;overflow:scroll;border:1px solid black;">
+                  <div style="margin-top:500px;background:red;">
+                    <div style="height:50px;width:100px;background:cyan;">
+                      <div id=target style="display:contents">Hello</div>
+                    </div>
+                  <div>
                 </div>
-              <div>
-            </div>
-            """));
+                """
+            )
+        );
         await Browser.Locator("#target").ScrollIntoViewAsync();
         var scrollTop = await Browser.EvaluateAsync<double>("() => document.querySelector('#container').scrollTop");
         Assert.That(Math.Abs(scrollTop - 350), Is.LessThan(1));
@@ -102,18 +106,22 @@ public sealed class ElementhandleScrollIntoViewTests : PlaywrightTest
     [Test]
     public async Task Should_wait_for_element_to_stop_moving()
     {
-        await Browser.GotoAsync(Content("""
-            <style>
-              @keyframes move {
-                from { margin-left: 0; }
-                to { margin-left: 200px; }
-              }
-              div.animated {
-                animation: 2s linear 0s infinite alternate move;
-              }
-            </style>
-            <div class=animated>moving</div>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>
+                  @keyframes move {
+                    from { margin-left: 0; }
+                    to { margin-left: 200px; }
+                  }
+                  div.animated {
+                    animation: 2s linear 0s infinite alternate move;
+                  }
+                </style>
+                <div class=animated>moving</div>
+                """
+            )
+        );
         await TestWaitingAsync("div => div.classList.remove('animated')");
     }
 
@@ -121,7 +129,9 @@ public sealed class ElementhandleScrollIntoViewTests : PlaywrightTest
     public async Task Should_timeout_waiting_for_visible()
     {
         await Browser.GotoAsync(Content("<div style=\"display:none\">Hello</div>"));
-        var error = await Assert.CatchAsync(() => Browser.Locator("div").ScrollIntoViewAsync(new ActionOptions { Timeout = TimeSpan.FromSeconds(3) }));
+        var error = await Assert.CatchAsync(() =>
+            Browser.Locator("div").ScrollIntoViewAsync(new ActionOptions { Timeout = TimeSpan.FromSeconds(3) })
+        );
         Assert.That(error, Is.InstanceOf<Exception>());
     }
 }

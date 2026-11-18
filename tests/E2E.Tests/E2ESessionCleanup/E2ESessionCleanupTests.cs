@@ -16,12 +16,16 @@ public sealed class E2ESessionCleanupTests
         var engine = new CountingEngine();
 
         // A video somebody asked for fails the start once the engine is up; the engine-to-session adapter reports its plain exception as ENGINE_FAILURE.
-        var error = await Assert.ThrowsAnyAsync<EngineException>(() => E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            TestTitle = "cleanup > case",
-            Video = new ResolvedRecording(RecordingMode.On, RecordingSource.Target),
-        }));
+        var error = await Assert.ThrowsAnyAsync<EngineException>(() =>
+            E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = engine,
+                    TestTitle = "cleanup > case",
+                    Video = new ResolvedRecording(RecordingMode.On, RecordingSource.Target),
+                }
+            )
+        );
         Assert.Equal("ENGINE_FAILURE", error.Code);
         Assert.IsType<InvalidOperationException>(error.InnerException);
 
@@ -63,7 +67,9 @@ public sealed class E2ESessionCleanupTests
                 return false;
             }
 
-            return targetMethod?.Name == nameof(IEngineSession.StartVideoAsync) ? Task.FromException(new InvalidOperationException("the video would not start")) : null;
+            return targetMethod?.Name == nameof(IEngineSession.StartVideoAsync)
+                ? Task.FromException(new InvalidOperationException("the video would not start"))
+                : null;
         }
     }
 }

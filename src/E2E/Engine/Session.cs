@@ -74,11 +74,12 @@ public static class EngineSessions
     }
 
     /// <summary>Stamps the adapter's revision onto every ref of a tree, since the engine mints stable ids and the adapter owns revisions.</summary>
-    internal static EngineNode StampRevision(EngineNode node, string revision) => node with
-    {
-        Ref = node.Ref with { Revision = revision },
-        Children = node.Children?.Select(child => StampRevision(child, revision)).ToArray(),
-    };
+    internal static EngineNode StampRevision(EngineNode node, string revision) =>
+        node with
+        {
+            Ref = node.Ref with { Revision = revision },
+            Children = node.Children?.Select(child => StampRevision(child, revision)).ToArray(),
+        };
 
     /// <summary>The grammar verbs an engine's declared kinds and hooks can honor.</summary>
     internal static IReadOnlySet<string> DeclaredVerbs(EngineHandle? engine)
@@ -148,18 +149,19 @@ public static class EngineSessions
     }
 
     /// <summary>The pointer kind name of a point action, as the engine declares it.</summary>
-    internal static string PointerKind(PointerAction action) => action switch
-    {
-        PointerAction.Tap => "tap",
-        PointerAction.DoubleTap => "doubleTap",
-        PointerAction.LongPress => "longPress",
-        PointerAction.SwipeTo => "swipeTo",
-        PointerAction.SecondaryTap => "secondaryTap",
-        PointerAction.Hover => "hover",
-        PointerAction.DragTo => "dragTo",
-        PointerAction.Swipe => "swipe",
-        _ => throw new ArgumentOutOfRangeException(nameof(action)),
-    };
+    internal static string PointerKind(PointerAction action) =>
+        action switch
+        {
+            PointerAction.Tap => "tap",
+            PointerAction.DoubleTap => "doubleTap",
+            PointerAction.LongPress => "longPress",
+            PointerAction.SwipeTo => "swipeTo",
+            PointerAction.SecondaryTap => "secondaryTap",
+            PointerAction.Hover => "hover",
+            PointerAction.DragTo => "dragTo",
+            PointerAction.Swipe => "swipe",
+            _ => throw new ArgumentOutOfRangeException(nameof(action)),
+        };
 
     /// <summary>The cleanup budget of a call: the operation's timeout, or the unbounded budget when the call carries none.</summary>
     internal static TimeSpan Budget(OperationContext operation) => operation.Timeout ?? E2E.Internal.Time.Unbounded;
@@ -200,9 +202,16 @@ public static class EngineSessions
             AppLog = new AppLogRoute(clock);
             Screens = new ScreenRoute(options.Traced, clock);
             Environment = new EnvironmentFacts();
-            CaptureState = _engine?.State is { } state ? (operation) => Call<EngineState>("state capture", state.Capture is null ? null : () => state.Capture(operation)) : null;
+            CaptureState = _engine?.State is { } state
+                ? (operation) =>
+                    Call<EngineState>("state capture", state.Capture is null ? null : () => state.Capture(operation))
+                : null;
             RestoreState = _engine?.State is { } restoreState
-                ? (captured, operation) => Call("state restore", restoreState.Restore is null ? null : () => restoreState.Restore(captured, operation))
+                ? (captured, operation) =>
+                    Call(
+                        "state restore",
+                        restoreState.Restore is null ? null : () => restoreState.Restore(captured, operation)
+                    )
                 : null;
         }
 
@@ -236,7 +245,10 @@ public static class EngineSessions
             var remedy = _engine is null
                 ? "the target declares no engine; add one, such as the web engine or a mobile engine"
                 : $"engine {_engine.Name} does not implement it";
-            return new ConfigurationException("UNSUPPORTED_CAPABILITY", $"target \"{_targetName}\" has no engine capability for {what}: {remedy}");
+            return new ConfigurationException(
+                "UNSUPPORTED_CAPABILITY",
+                $"target \"{_targetName}\" has no engine capability for {what}: {remedy}"
+            );
         }
 
         /// <summary>One declared member as a guarded call: capability-checked at the moment of use, and error-normalized.</summary>
@@ -286,12 +298,24 @@ public static class EngineSessions
             {
                 if (options?.PixelFallback != true || snapshot.Pixels is null)
                 {
-                    throw new TestException("UNSUPPORTED_CAPABILITY", "unavailable semantics require permitted fallback pixels");
+                    throw new TestException(
+                        "UNSUPPORTED_CAPABILITY",
+                        "unavailable semantics require permitted fallback pixels"
+                    );
                 }
 
-                if (snapshot.Root.Role is not null || snapshot.Root.Name is not null || snapshot.Root.Children is { Count: > 0 } || snapshot.Root.States is not null)
+                if (
+                    snapshot.Root.Role is not null
+                    || snapshot.Root.Name is not null
+                    || snapshot.Root.Children is { Count: > 0 }
+                    || snapshot.Root.States is not null
+                )
                 {
-                    throw new EngineException("INVALID_STATE", "an unavailable semantic tree must contain only the stable root reference", retryable: false);
+                    throw new EngineException(
+                        "INVALID_STATE",
+                        "an unavailable semantic tree must contain only the stable root reference",
+                        retryable: false
+                    );
                 }
 
                 _located.Clear();
@@ -377,6 +401,17 @@ public static class EngineSessions
             return Task.FromResult(node);
         }
 
+        public async Task<IReadOnlyDictionary<string, string>> ReadStyleAsync(
+            NodeRef reference,
+            IReadOnlyList<string> properties,
+            OperationContext operation
+        )
+        {
+            var readStyle = _engine?.ReadStyle ?? throw Unsupported("computed styles");
+            return await Call("computed styles", () => readStyle(reference, properties, operation))
+                .ConfigureAwait(false);
+        }
+
         public async Task PerformAsync(NodeRef reference, LocatorAction action, OperationContext operation)
         {
             var kind = EngineActionKinds.Of(action);
@@ -385,7 +420,13 @@ public static class EngineSessions
                 throw Unsupported($"the \"{kind}\" action");
             }
 
-            if (action is LocatorAction.Tap { Modifiers.Count: > 0 } or LocatorAction.DoubleTap { Modifiers.Count: > 0 } or LocatorAction.SecondaryTap { Modifiers.Count: > 0 } && !TapModifiers)
+            if (
+                action
+                    is LocatorAction.Tap { Modifiers.Count: > 0 }
+                        or LocatorAction.DoubleTap { Modifiers.Count: > 0 }
+                        or LocatorAction.SecondaryTap { Modifiers.Count: > 0 }
+                && !TapModifiers
+            )
             {
                 throw Unsupported($"modifiers on the \"{kind}\" action");
             }
@@ -442,7 +483,8 @@ public static class EngineSessions
             _ended = true;
             if (_engine?.EndAttempt is { } end)
             {
-                await Call("attempt end", () => end(new EngineCleanupContext(operation.Signal, Budget(operation)))).ConfigureAwait(false);
+                await Call("attempt end", () => end(new EngineCleanupContext(operation.Signal, Budget(operation))))
+                    .ConfigureAwait(false);
             }
         }
 
@@ -470,49 +512,90 @@ public static class EngineSessions
         private sealed class SessionKeyboard(EngineSession session) : ISessionKeyboard
         {
             public Task TypeAsync(string text, bool replace, OperationContext operation) =>
-                session.Call("keyboard input", session._engine?.Keyboard?.Type is { } type ? () => type(text, replace, operation) : null);
+                session.Call(
+                    "keyboard input",
+                    session._engine?.Keyboard?.Type is { } type ? () => type(text, replace, operation) : null
+                );
 
             public Task PressAsync(string key, OperationContext operation)
             {
                 RequireKey(key);
-                return session.Call("keyboard input", session._engine?.Keyboard?.Press is { } press ? () => press(key, operation) : null);
+                return session.Call(
+                    "keyboard input",
+                    session._engine?.Keyboard?.Press is { } press ? () => press(key, operation) : null
+                );
             }
 
             public Task DismissAsync(OperationContext operation) =>
-                session.Call("keyboard dismissal", session._engine?.Keyboard?.Dismiss is { } dismiss ? () => dismiss(operation) : null);
+                session.Call(
+                    "keyboard dismissal",
+                    session._engine?.Keyboard?.Dismiss is { } dismiss ? () => dismiss(operation) : null
+                );
         }
 
         private sealed class SessionApp(EngineSession session) : ISessionApp
         {
             public Task OpenAsync(string url, OperationContext operation) =>
-                session.Call("navigation", session._engine?.Session?.Open is { } open ? () => open(url, operation) : null);
+                session.Call(
+                    "navigation",
+                    session._engine?.Session?.Open is { } open ? () => open(url, operation) : null
+                );
+
+            public Task OpenLinkAsync(string url, OperationContext operation) =>
+                session.Call(
+                    "app links",
+                    session._engine?.Session?.OpenLink is { } openLink ? () => openLink(url, operation) : null
+                );
 
             public Task BackAsync(OperationContext operation) =>
-                session.Call("back navigation", session._engine?.Session?.Back is { } back ? () => back(operation) : null);
+                session.Call(
+                    "back navigation",
+                    session._engine?.Session?.Back is { } back ? () => back(operation) : null
+                );
 
             public Task ResizeAsync(ViewportSize size, OperationContext operation) =>
-                session.Call("viewport resizing", session._engine?.Session?.Resize is { } resize ? () => resize(size, operation) : null);
+                session.Call(
+                    "viewport resizing",
+                    session._engine?.Session?.Resize is { } resize ? () => resize(size, operation) : null
+                );
 
             public Task SwitchTabAsync(int index, OperationContext operation) =>
-                session.Call("tab switching", session._engine?.Session?.SwitchTab is { } switchTab ? () => switchTab(index, operation) : null);
+                session.Call(
+                    "tab switching",
+                    session._engine?.Session?.SwitchTab is { } switchTab ? () => switchTab(index, operation) : null
+                );
 
             public Task CloseTabAsync(int index, OperationContext operation) =>
-                session.Call("tab closing", session._engine?.Session?.CloseTab is { } closeTab ? () => closeTab(index, operation) : null);
+                session.Call(
+                    "tab closing",
+                    session._engine?.Session?.CloseTab is { } closeTab ? () => closeTab(index, operation) : null
+                );
 
             public Task RestartAsync(OperationContext operation) =>
-                session.Call("app restart", session._engine?.Session?.Restart is { } restart ? () => restart(operation) : null);
+                session.Call(
+                    "app restart",
+                    session._engine?.Session?.Restart is { } restart ? () => restart(operation) : null
+                );
 
             public Task ResetAsync(OperationContext operation) =>
-                session.Call("app state reset", session._engine?.Session?.Reset is { } reset ? () => reset(operation) : null);
+                session.Call(
+                    "app state reset",
+                    session._engine?.Session?.Reset is { } reset ? () => reset(operation) : null
+                );
         }
 
         private sealed class SessionArtifacts(EngineSession session) : ISessionArtifacts
         {
             public Task<string> ScreenshotAsync(string? label, OperationContext operation) =>
-                session.Call<string>("screenshots", session._engine?.Artifacts?.Screenshot is { } screenshot ? () => screenshot(label, operation) : null);
+                session.Call<string>(
+                    "screenshots",
+                    session._engine?.Artifacts?.Screenshot is { } screenshot ? () => screenshot(label, operation) : null
+                );
 
             public Func<OperationContext, Task>? StartVideo =>
-                session._engine?.Artifacts?.StartVideo is { } start ? operation => session.Call("video recording", () => start(operation)) : null;
+                session._engine?.Artifacts?.StartVideo is { } start
+                    ? operation => session.Call("video recording", () => start(operation))
+                    : null;
 
             public Func<OperationContext, Task<IReadOnlyList<VideoSegment>>>? StopVideo =>
                 session._engine?.Artifacts?.StopVideo is { } stop

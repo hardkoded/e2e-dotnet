@@ -15,7 +15,9 @@ public sealed class FilteringTodosTests : TodoMvcTest
         await Expect.That(Todo("Will complete").GetByRole("checkbox")).ToBeCheckedAsync();
 
         await Agent.ActAsync("show only the active todos");
-        await Expect.Poll(() => Browser.UrlAsync()).ToSatisfyAsync(url => url.EndsWith("#/active", StringComparison.Ordinal), "the URL ends with #/active");
+        await Expect
+            .Poll(() => Browser.UrlAsync())
+            .ToSatisfyAsync(url => url.EndsWith("#/active", StringComparison.Ordinal), "the URL ends with #/active");
         await Expect.That(Todo("Active 1")).ToBeVisibleAsync();
         await Expect.That(Todo("Active 2")).ToBeVisibleAsync();
         await Expect.That(Todo("Will complete")).ToBeHiddenAsync();

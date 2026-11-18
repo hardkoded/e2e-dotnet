@@ -25,7 +25,13 @@ internal static class SnapshotText
         Render(observation, redactor, appOrigin, int.MaxValue, out _);
 
     /// <summary><see cref="Render(Observation, Redactor, string?)"/> within <paramref name="maxBytes"/>. <paramref name="cut"/> says whether the budget cut it.</summary>
-    public static string Render(Observation observation, Redactor redactor, string? appOrigin, int maxBytes, out bool cut)
+    public static string Render(
+        Observation observation,
+        Redactor redactor,
+        string? appOrigin,
+        int maxBytes,
+        out bool cut
+    )
     {
         var (lines, nodes) = FailureEvidence.Listing(observation, redactor, appOrigin, maxBytes);
         cut = lines.Count > nodes && lines[^1] == TruncationMarker;
@@ -40,7 +46,11 @@ internal static class SnapshotText
     /// <c>agent/observation.ts</c>). A node with no role reads as <c>text</c>, as in the lines the model reads. Focus is listed.
     /// </summary>
     internal static string FormatNode(SemanticNode node, int depth, Redactor redactor, string? appOrigin) =>
-        new string(' ', Math.Min(depth, MaxIndentDepth)) + "#" + node.Ref + " " + Describe(node, redactor, appOrigin, focus: true);
+        new string(' ', Math.Min(depth, MaxIndentDepth))
+        + "#"
+        + node.Ref
+        + " "
+        + Describe(node, redactor, appOrigin, focus: true);
 
     /// <summary>
     /// One node as a line names it, after its <c>- </c> and indent: role, name, text, the disambiguators, value, and the states
@@ -56,7 +66,11 @@ internal static class SnapshotText
         // or its test id, shows the text it owns, so a container does not repeat its children's.
         // A named node shows its text too, when it differs.
         var shown = node.OwnText ?? node.Text;
-        var name = TextRules.Collapse(string.IsNullOrEmpty(node.Name) ? AgentObservation.RedactText(shown ?? "", redactor, ObservationLimits.Text) : AgentObservation.RedactText(node.Name, redactor, ObservationLimits.Name));
+        var name = TextRules.Collapse(
+            string.IsNullOrEmpty(node.Name)
+                ? AgentObservation.RedactText(shown ?? "", redactor, ObservationLimits.Text)
+                : AgentObservation.RedactText(node.Name, redactor, ObservationLimits.Name)
+        );
         if (name.Length > 0)
         {
             builder.Append(" \"").Append(name).Append('"');
@@ -74,7 +88,10 @@ internal static class SnapshotText
         // The disambiguators the model needs when role and name repeat. The tree has already reduced the href to origin and path.
         if (!string.IsNullOrEmpty(node.TestId))
         {
-            builder.Append(" testid=\"").Append(TextRules.Collapse(AgentObservation.RedactText(node.TestId, redactor))).Append('"');
+            builder
+                .Append(" testid=\"")
+                .Append(TextRules.Collapse(AgentObservation.RedactText(node.TestId, redactor)))
+                .Append('"');
         }
 
         if (node.Attributes.TryGetValue("href", out var href) && href.Length > 0)
@@ -84,13 +101,19 @@ internal static class SnapshotText
 
         if (!string.IsNullOrEmpty(node.Placeholder) && string.IsNullOrEmpty(node.Name))
         {
-            builder.Append(" placeholder=\"").Append(TextRules.Collapse(AgentObservation.RedactText(node.Placeholder, redactor))).Append('"');
+            builder
+                .Append(" placeholder=\"")
+                .Append(TextRules.Collapse(AgentObservation.RedactText(node.Placeholder, redactor)))
+                .Append('"');
         }
 
         // A checkbox's or radio's value is an app token its checked state already says more than.
         if (!node.States.Secure && !string.IsNullOrEmpty(node.Value) && !LocatorResolver.IsCheckable(node))
         {
-            builder.Append(" value=\"").Append(AgentObservation.RedactText(node.Value, redactor, ObservationLimits.Text)).Append('"');
+            builder
+                .Append(" value=\"")
+                .Append(AgentObservation.RedactText(node.Value, redactor, ObservationLimits.Text))
+                .Append('"');
         }
 
         // What a Shift+Arrow press selected: without it the model extends a selection blind and cannot tell one word
@@ -185,17 +208,35 @@ internal static class SnapshotText
 
             switch (c)
             {
-                case '"': builder.Append("\\\""); break;
-                case '\\': builder.Append("\\\\"); break;
-                case '\b': builder.Append("\\b"); break;
-                case '\f': builder.Append("\\f"); break;
-                case '\n': builder.Append("\\n"); break;
-                case '\r': builder.Append("\\r"); break;
-                case '\t': builder.Append("\\t"); break;
-                case < ' ' or (>= '\ud800' and <= '\udfff'):
-                    builder.Append("\\u").Append(((int)c).ToString("x4", System.Globalization.CultureInfo.InvariantCulture));
+                case '"':
+                    builder.Append("\\\"");
                     break;
-                default: builder.Append(c); break;
+                case '\\':
+                    builder.Append("\\\\");
+                    break;
+                case '\b':
+                    builder.Append("\\b");
+                    break;
+                case '\f':
+                    builder.Append("\\f");
+                    break;
+                case '\n':
+                    builder.Append("\\n");
+                    break;
+                case '\r':
+                    builder.Append("\\r");
+                    break;
+                case '\t':
+                    builder.Append("\\t");
+                    break;
+                case < ' ' or (>= '\ud800' and <= '\udfff'):
+                    builder
+                        .Append("\\u")
+                        .Append(((int)c).ToString("x4", System.Globalization.CultureInfo.InvariantCulture));
+                    break;
+                default:
+                    builder.Append(c);
+                    break;
             }
         }
 
@@ -216,12 +257,23 @@ internal static class SnapshotText
         }
 
         var fields = new[] { node.Value, node.Text }.OfType<string>().ToList();
-        if (fields.Any(field => !string.Equals(AgentObservation.RedactText(field, redactor, ObservationLimits.Text), field, StringComparison.Ordinal)))
+        if (
+            fields.Any(field =>
+                !string.Equals(
+                    AgentObservation.RedactText(field, redactor, ObservationLimits.Text),
+                    field,
+                    StringComparison.Ordinal
+                )
+            )
+        )
         {
             return null;
         }
 
-        if (fields.Any(field => field.Length == ObservationLimits.Text) && !fields.Any(field => field.Contains(node.Selection, StringComparison.Ordinal)))
+        if (
+            fields.Any(field => field.Length == ObservationLimits.Text)
+            && !fields.Any(field => field.Contains(node.Selection, StringComparison.Ordinal))
+        )
         {
             return null;
         }

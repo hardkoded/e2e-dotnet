@@ -14,25 +14,30 @@ public sealed class DownloadRedactionTests : ArtifactStoreHarness
 {
     private const string Secret = "download-secret-Qx7-2718";
 
-    private static Redactor LedgerOf(string name, string value) => Redactor.For(new (string Name, string Value)[] { (name, value) });
+    private static Redactor LedgerOf(string name, string value) =>
+        Redactor.For(new (string Name, string Value)[] { (name, value) });
 
     private AttemptArtifacts Downloads(bool withLedger, IArtifactStore? store = null)
     {
-        var artifacts = ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
-        {
-            ArtifactsRoot = Root(),
-            Segments = ["web", "test-1", "attempt-0"],
-            AttemptId = "att-1",
-            Store = store,
-            Ledger = withLedger ? () => LedgerOf("api-key", Secret) : null,
-        });
+        var artifacts = ArtifactPaths.CreateAttemptArtifacts(
+            new AttemptArtifactsOptions
+            {
+                ArtifactsRoot = Root(),
+                Segments = ["web", "test-1", "attempt-0"],
+                AttemptId = "att-1",
+                Store = store,
+                Ledger = withLedger ? () => LedgerOf("api-key", Secret) : null,
+            }
+        );
         Directory.CreateDirectory(Path.Combine(artifacts.Dir, "downloads"));
         return artifacts;
     }
 
-    private static string PathOf(AttemptArtifacts artifacts, string name) => Path.Combine(artifacts.Dir, "downloads", name);
+    private static string PathOf(AttemptArtifacts artifacts, string name) =>
+        Path.Combine(artifacts.Dir, "downloads", name);
 
-    private static string ReadText(AttemptArtifacts artifacts, string name) => File.ReadAllText(PathOf(artifacts, name), new UTF8Encoding(false));
+    private static string ReadText(AttemptArtifacts artifacts, string name) =>
+        File.ReadAllText(PathOf(artifacts, name), new UTF8Encoding(false));
 
     [Fact]
     public async Task Labels_a_download_incomplete_by_default_bytes_the_app_served_not_rewritten()
@@ -104,13 +109,15 @@ public sealed class DownloadRedactionTests : ArtifactStoreHarness
     [Fact]
     public async Task Rewrites_a_value_CSV_quoted_its_double_quotes_doubled()
     {
-        var artifacts = ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
-        {
-            ArtifactsRoot = Root(),
-            Segments = ["web", "test-1", "attempt-0"],
-            AttemptId = "att-1",
-            Ledger = () => LedgerOf("api-key", "pa\"ss,word"),
-        });
+        var artifacts = ArtifactPaths.CreateAttemptArtifacts(
+            new AttemptArtifactsOptions
+            {
+                ArtifactsRoot = Root(),
+                Segments = ["web", "test-1", "attempt-0"],
+                AttemptId = "att-1",
+                Ledger = () => LedgerOf("api-key", "pa\"ss,word"),
+            }
+        );
         Directory.CreateDirectory(Path.Combine(artifacts.Dir, "downloads"));
         File.WriteAllText(PathOf(artifacts, "export.csv"), "id,key\n1,\"pa\"\"ss,word\"\n");
         artifacts.Sink.Register(ArtifactKind.Download, "downloads/export.csv");
@@ -154,13 +161,15 @@ public sealed class DownloadRedactionTests : ArtifactStoreHarness
     [Fact]
     public async Task Leaves_a_download_as_served_with_no_secret_value_and_a_binary_one_with_a_value_both_incomplete()
     {
-        var empty = ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
-        {
-            ArtifactsRoot = Root(),
-            Segments = ["web", "test-1", "attempt-0"],
-            AttemptId = "att-1",
-            Ledger = () => Redactor.None,
-        });
+        var empty = ArtifactPaths.CreateAttemptArtifacts(
+            new AttemptArtifactsOptions
+            {
+                ArtifactsRoot = Root(),
+                Segments = ["web", "test-1", "attempt-0"],
+                AttemptId = "att-1",
+                Ledger = () => Redactor.None,
+            }
+        );
         Directory.CreateDirectory(Path.Combine(empty.Dir, "downloads"));
         var body = $"key={Secret}";
         File.WriteAllText(PathOf(empty, "env.txt"), body);
@@ -178,7 +187,10 @@ public sealed class DownloadRedactionTests : ArtifactStoreHarness
         known.Sink.Register(ArtifactKind.Download, "downloads/broken.txt");
         await known.SettleAsync();
 
-        Assert.Equal([ArtifactRedaction.Incomplete, ArtifactRedaction.Incomplete], known.Records.Select(record => record.Redaction));
+        Assert.Equal(
+            [ArtifactRedaction.Incomplete, ArtifactRedaction.Incomplete],
+            known.Records.Select(record => record.Redaction)
+        );
         Assert.Equal(binary, File.ReadAllBytes(PathOf(known, "blob.bin")));
         Assert.Equal(binary, File.ReadAllBytes(PathOf(known, "broken.txt")));
     }

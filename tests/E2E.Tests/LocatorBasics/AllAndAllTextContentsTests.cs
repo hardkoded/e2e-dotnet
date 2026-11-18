@@ -27,7 +27,10 @@ public sealed class AllAndAllTextContentsTests
     [Fact]
     public async Task Reads_the_normalized_text_of_every_match_without_strictness()
     {
-        Assert.Equal(["Item Alpha", "Item Beta", "Item Gamma"], await ScreenFixture.Create(List).GetByRole("listitem").AllTextContentsAsync());
+        Assert.Equal(
+            ["Item Alpha", "Item Beta", "Item Gamma"],
+            await ScreenFixture.Create(List).GetByRole("listitem").AllTextContentsAsync()
+        );
     }
 
     [Fact]

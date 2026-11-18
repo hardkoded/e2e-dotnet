@@ -20,7 +20,8 @@ namespace E2E.Cli.Tests.McpHostedDevice;
 /// </summary>
 public sealed class HostedDeviceSessionTests : IDisposable
 {
-    private const string Config = """{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }] }""";
+    private const string Config =
+        """{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }] }""";
 
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
 
@@ -53,7 +54,11 @@ public sealed class HostedDeviceSessionTests : IDisposable
     [Fact]
     public async Task Releases_the_lease_of_an_open_that_fails_after_the_lease_exists_and_leaves_the_host_ready()
     {
-        var cloud = new FakeCloud { OnOpen = (count, _) => count == 2 ? throw new InvalidOperationException("the app would not launch") : Task.CompletedTask };
+        var cloud = new FakeCloud
+        {
+            OnOpen = (count, _) =>
+                count == 2 ? throw new InvalidOperationException("the app would not launch") : Task.CompletedTask,
+        };
         var host = Host(cloud);
         var failure = await Assert.ThrowsAsync<EngineException>(() => host.OpenAsync(new Mcp.OpenSessionOptions()));
         Assert.Contains("the app would not launch", failure.Message, StringComparison.Ordinal);
@@ -185,8 +190,18 @@ public sealed class HostedDeviceSessionTests : IDisposable
     {
         var cloud = new FakeCloud();
         var host = Host(cloud, maxSessions: 2);
-        var first = Regex.Match(await host.OpenAsync(new Mcp.OpenSessionOptions()), @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
-        var other = await Assert.ThrowsAsync<ConfigurationException>(() => host.OpenAsync(new Mcp.OpenSessionOptions()));
+        var first = Regex
+            .Match(
+                await host.OpenAsync(new Mcp.OpenSessionOptions()),
+                @"^Session (\S+) open",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            )
+            .Groups[1]
+            .Value;
+        var other = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            host.OpenAsync(new Mcp.OpenSessionOptions())
+        );
         Assert.Equal("ENGINE_IN_USE", other.Code);
         Assert.Equal((1, 0), (cloud.Acquired, cloud.Released));
         await host.CloseAsync("done", first);
@@ -213,7 +228,13 @@ public sealed class HostedDeviceSessionTests : IDisposable
     [Fact]
     public async Task Redacts_the_services_key_from_an_open_failure_and_the_cleanup_line_and_shows_no_lease_id_or_token()
     {
-        var cloud = new FakeCloud { OnAcquire = () => throw new InvalidOperationException("Limrun answered 401 to POST /v1/ios_instances: bad key limrun-key-12345") };
+        var cloud = new FakeCloud
+        {
+            OnAcquire = () =>
+                throw new InvalidOperationException(
+                    "Limrun answered 401 to POST /v1/ios_instances: bad key limrun-key-12345"
+                ),
+        };
         var host = Host(cloud);
         var result = await host.ToolSpecs()[0].Call(Json("{}"), CancellationToken.None);
         var text = Text(result);
@@ -243,7 +264,10 @@ public sealed class HostedDeviceSessionTests : IDisposable
     }
 
     private static string Text(ModelContextProtocol.Protocol.CallToolResult result) =>
-        string.Join('\n', result.Content.OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(part => part.Text));
+        string.Join(
+            '\n',
+            result.Content.OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(part => part.Text)
+        );
 
     private static async Task UntilAsync(Func<bool> condition)
     {
@@ -258,23 +282,25 @@ public sealed class HostedDeviceSessionTests : IDisposable
     /// <summary>A host whose every session builds a device engine over <paramref name="cloud"/>, as the tool builds one from E2E_MOBILE_PROVIDER.</summary>
     private SessionHost Host(FakeCloud cloud, TimeSpan? idle = null, TimeSpan? lifetime = null, int maxSessions = 4)
     {
-        var host = new SessionHost(new SessionHostOptions
-        {
-            LocateConfig = requested => Path.Combine(_dir, requested ?? "e2e.config.json"),
-            LoadConfig = path => Task.FromResult(E2EConfig.Parse(Config, _dir)),
-            CreateEngine = (target, _) => cloud.Engine(target),
-            Credentials = () => [Secret.Create("LIMRUN_API_KEY", "limrun-key-12345")],
-            MaxSessions = maxSessions,
-            Idle = idle ?? SessionHost.SessionIdle,
-            Ttl = lifetime ?? SessionHost.SessionTtl,
-            Log = (level, message) =>
+        var host = new SessionHost(
+            new SessionHostOptions
             {
-                lock (_logs)
+                LocateConfig = requested => Path.Combine(_dir, requested ?? "e2e.config.json"),
+                LoadConfig = path => Task.FromResult(E2EConfig.Parse(Config, _dir)),
+                CreateEngine = (target, _) => cloud.Engine(target),
+                Credentials = () => [Secret.Create("LIMRUN_API_KEY", "limrun-key-12345")],
+                MaxSessions = maxSessions,
+                Idle = idle ?? SessionHost.SessionIdle,
+                Ttl = lifetime ?? SessionHost.SessionTtl,
+                Log = (level, message) =>
                 {
-                    _logs.Add(level + ": " + message);
-                }
-            },
-        });
+                    lock (_logs)
+                    {
+                        _logs.Add(level + ": " + message);
+                    }
+                },
+            }
+        );
         _hosts.Add(host);
         return host;
     }

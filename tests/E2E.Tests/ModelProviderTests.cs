@@ -14,7 +14,8 @@ public sealed class ModelProviderTests
     [Fact]
     public async Task Responses_model_sends_the_conversation_without_storage_and_reads_function_calls()
     {
-        var handler = new RecordingHandler("""
+        var handler = new RecordingHandler(
+            """
             {
               "output": [
                 { "type": "reasoning", "summary": [] },
@@ -23,9 +24,13 @@ public sealed class ModelProviderTests
               ],
               "usage": { "input_tokens": 11, "output_tokens": 3 }
             }
-            """);
+            """
+        );
         using var http = new HttpClient(handler);
-        using var model = new OpenAiResponsesModel(new OpenAiResponsesModelOptions { Model = "gpt-test", ApiKey = "sk" }, http);
+        using var model = new OpenAiResponsesModel(
+            new OpenAiResponsesModelOptions { Model = "gpt-test", ApiKey = "sk" },
+            http
+        );
 
         var response = await model.CompleteAsync(Conversation(), CancellationToken.None);
 
@@ -55,11 +60,14 @@ public sealed class ModelProviderTests
     [Fact]
     public async Task Responses_model_folds_an_event_stream_with_streamed_items()
     {
-        var stream = string.Join("\n\n",
-            "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"output\":[]}}",
-            "event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"call_id\":\"c1\",\"name\":\"done\",\"arguments\":\"{\\\"status\\\":\\\"passed\\\",\\\"summary\\\":\\\"ok\\\"}\"}}",
-            "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"output\":[],\"usage\":{\"input_tokens\":2,\"output_tokens\":1}}}",
-            "data: [DONE]") + "\n\n";
+        var stream =
+            string.Join(
+                "\n\n",
+                "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"output\":[]}}",
+                "event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"call_id\":\"c1\",\"name\":\"done\",\"arguments\":\"{\\\"status\\\":\\\"passed\\\",\\\"summary\\\":\\\"ok\\\"}\"}}",
+                "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"output\":[],\"usage\":{\"input_tokens\":2,\"output_tokens\":1}}}",
+                "data: [DONE]"
+            ) + "\n\n";
         var handler = RecordingHandler.WithContentType(stream, "text/event-stream");
         using var http = new HttpClient(handler);
         using var model = new OpenAiResponsesModel(new OpenAiResponsesModelOptions { Model = "m", ApiKey = "k" }, http);
@@ -77,7 +85,9 @@ public sealed class ModelProviderTests
         using var http = new HttpClient(RecordingHandler.WithContentType(stream, "text/event-stream"));
         using var model = new OpenAiResponsesModel(new OpenAiResponsesModelOptions { Model = "m", ApiKey = "k" }, http);
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => model.CompleteAsync(Conversation(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            model.CompleteAsync(Conversation(), CancellationToken.None)
+        );
 
         Assert.Equal("MODEL_PROVIDER_FAILED", error.Code);
         Assert.Contains("overloaded", error.Message, StringComparison.Ordinal);
@@ -99,7 +109,8 @@ public sealed class ModelProviderTests
                 ApiKeyHeader = "api-key",
                 QueryParameters = new Dictionary<string, string> { ["api-version"] = "v1" },
             },
-            http);
+            http
+        );
         preset.Dispose();
 
         await model.CompleteAsync(Conversation(), CancellationToken.None);
@@ -111,25 +122,94 @@ public sealed class ModelProviderTests
     }
 
     [Theory]
-    [InlineData("anthropic", """{ "content": [], "usage": { "input_tokens": 5, "cache_read_input_tokens": 100, "cache_creation_input_tokens": 20, "output_tokens": 7 } }""", 125, 100, 20, null)]
-    [InlineData("responses", """{ "output": [], "usage": { "input_tokens": 125, "input_tokens_details": { "cached_tokens": 100 }, "output_tokens": 7 } }""", 125, 100, null, null)]
-    [InlineData("compatible", """{ "choices": [{ "message": { "content": "ok" } }], "usage": { "prompt_tokens": 125, "prompt_tokens_details": { "cached_tokens": 100, "cache_write_tokens": 20 }, "completion_tokens": 7, "cost": 0.25 } }""", 125, 100, 20, 0.25)]
-    [InlineData("google", """{ "candidates": [], "usageMetadata": { "promptTokenCount": 125, "cachedContentTokenCount": 100, "candidatesTokenCount": 7 } }""", 125, 100, null, null)]
-    [InlineData("bedrock", """{ "output": { "message": { "content": [] } }, "usage": { "inputTokens": 5, "cacheReadInputTokens": 100, "cacheWriteInputTokens": 20, "outputTokens": 7 } }""", 125, 100, 20, null)]
-    [InlineData("anthropic", """{ "content": [], "usage": { "input_tokens": 5, "output_tokens": 7 } }""", 5, null, null, null)]
-    [InlineData("compatible", """{ "choices": [{ "message": { "content": "ok" } }], "usage": { "prompt_tokens": 5, "completion_tokens": 7, "cost": -1 } }""", 5, null, null, null)]
+    [InlineData(
+        "anthropic",
+        """{ "content": [], "usage": { "input_tokens": 5, "cache_read_input_tokens": 100, "cache_creation_input_tokens": 20, "output_tokens": 7 } }""",
+        125,
+        100,
+        20,
+        null
+    )]
+    [InlineData(
+        "responses",
+        """{ "output": [], "usage": { "input_tokens": 125, "input_tokens_details": { "cached_tokens": 100 }, "output_tokens": 7 } }""",
+        125,
+        100,
+        null,
+        null
+    )]
+    [InlineData(
+        "compatible",
+        """{ "choices": [{ "message": { "content": "ok" } }], "usage": { "prompt_tokens": 125, "prompt_tokens_details": { "cached_tokens": 100, "cache_write_tokens": 20 }, "completion_tokens": 7, "cost": 0.25 } }""",
+        125,
+        100,
+        20,
+        0.25
+    )]
+    [InlineData(
+        "google",
+        """{ "candidates": [], "usageMetadata": { "promptTokenCount": 125, "cachedContentTokenCount": 100, "candidatesTokenCount": 7 } }""",
+        125,
+        100,
+        null,
+        null
+    )]
+    [InlineData(
+        "bedrock",
+        """{ "output": { "message": { "content": [] } }, "usage": { "inputTokens": 5, "cacheReadInputTokens": 100, "cacheWriteInputTokens": 20, "outputTokens": 7 } }""",
+        125,
+        100,
+        20,
+        null
+    )]
+    [InlineData(
+        "anthropic",
+        """{ "content": [], "usage": { "input_tokens": 5, "output_tokens": 7 } }""",
+        5,
+        null,
+        null,
+        null
+    )]
+    [InlineData(
+        "compatible",
+        """{ "choices": [{ "message": { "content": "ok" } }], "usage": { "prompt_tokens": 5, "completion_tokens": 7, "cost": -1 } }""",
+        5,
+        null,
+        null,
+        null
+    )]
     public async Task Provider_usage_carries_the_cache_split_and_the_cost_when_reported(
-        string provider, string body, int input, int? cacheRead, int? cacheWrite, double? cost)
+        string provider,
+        string body,
+        int input,
+        int? cacheRead,
+        int? cacheWrite,
+        double? cost
+    )
     {
         var handler = new RecordingHandler(body);
         using var http = new HttpClient(handler);
         IAgentModel model = provider switch
         {
             "anthropic" => new AnthropicModel(new AnthropicModelOptions { Model = "m", ApiKey = "k" }, http),
-            "responses" => new OpenAiResponsesModel(new OpenAiResponsesModelOptions { Model = "m", ApiKey = "k" }, http),
-            "compatible" => new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "m", ApiKey = "k" }, http),
+            "responses" => new OpenAiResponsesModel(
+                new OpenAiResponsesModelOptions { Model = "m", ApiKey = "k" },
+                http
+            ),
+            "compatible" => new OpenAiCompatibleModel(
+                new OpenAiCompatibleModelOptions { Model = "m", ApiKey = "k" },
+                http
+            ),
             "google" => new GoogleModel(new GoogleModelOptions { Model = "m", ApiKey = "k" }, http),
-            _ => new BedrockModel(new BedrockModelOptions { Model = "m", Region = "eu-west-1", ApiKey = "k" }, http),
+            _ => new BedrockModel(
+                new BedrockModelOptions
+                {
+                    Model = "m",
+                    Region = "eu-west-1",
+                    ApiKey = "k",
+                },
+                http
+            ),
         };
 
         using var disposable = (IDisposable)model;
@@ -146,11 +226,24 @@ public sealed class ModelProviderTests
     [InlineData("gateway", """{"gateway":{"cost":"0.25"}}""")]
     [InlineData("openrouter", """{"openrouter":{"usage":{"cost":0.25}}}""")]
     [InlineData("openai", null)]
-    public async Task Compatible_model_reports_the_billed_cost_as_the_provider_metadata_of_the_turn(string provider, string? expected)
+    public async Task Compatible_model_reports_the_billed_cost_as_the_provider_metadata_of_the_turn(
+        string provider,
+        string? expected
+    )
     {
-        var handler = new RecordingHandler("""{ "choices": [{ "message": { "content": "ok" } }], "usage": { "prompt_tokens": 5, "completion_tokens": 7, "cost": 0.25 } }""");
+        var handler = new RecordingHandler(
+            """{ "choices": [{ "message": { "content": "ok" } }], "usage": { "prompt_tokens": 5, "completion_tokens": 7, "cost": 0.25 } }"""
+        );
         using var http = new HttpClient(handler);
-        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "m", ApiKey = "k", Provider = provider }, http);
+        using var model = new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions
+            {
+                Model = "m",
+                ApiKey = "k",
+                Provider = provider,
+            },
+            http
+        );
 
         var metadata = (await model.CompleteAsync(Conversation(), CancellationToken.None)).ProviderMetadata;
 
@@ -160,7 +253,8 @@ public sealed class ModelProviderTests
     [Fact]
     public async Task Anthropic_model_marks_cache_breakpoints_and_merges_tool_results()
     {
-        var handler = new RecordingHandler("""
+        var handler = new RecordingHandler(
+            """
             {
               "content": [
                 { "type": "text", "text": "ok" },
@@ -168,7 +262,8 @@ public sealed class ModelProviderTests
               ],
               "usage": { "input_tokens": 5, "cache_read_input_tokens": 100, "output_tokens": 7 }
             }
-            """);
+            """
+        );
         using var http = new HttpClient(handler);
         using var model = new AnthropicModel(new AnthropicModelOptions { Model = "claude-test", ApiKey = "ant" }, http);
 
@@ -215,7 +310,8 @@ public sealed class ModelProviderTests
         Assert.Equal("ephemeral", body["system"]![0]!["cache_control"]!["type"]!.GetValue<string>());
         Assert.DoesNotContain(
             body["messages"]!.AsArray().SelectMany(message => message!["content"]!.AsArray()),
-            block => block!["cache_control"] is not null);
+            block => block!["cache_control"] is not null
+        );
     }
 
     [Fact]
@@ -233,7 +329,8 @@ public sealed class ModelProviderTests
               ]
             }
             """,
-            """{ "content": [{ "type": "text", "text": "ok" }] }""");
+            """{ "content": [{ "type": "text", "text": "ok" }] }"""
+        );
         using var http = new HttpClient(handler);
         using var model = new AnthropicModel(new AnthropicModelOptions { Model = "claude-test", ApiKey = "ant" }, http);
 
@@ -252,21 +349,45 @@ public sealed class ModelProviderTests
                 Messages =
                 [
                     new ModelMessage { Role = "user", Content = "Goal: pay" },
-                    new ModelMessage { Role = "assistant", Content = first.Content, ToolCalls = first.ToolCalls, ReasoningItems = first.ReasoningItems },
-                    new ModelMessage { Role = "tool", ToolCallId = "toolu_1", Name = "tap", Content = "tapped" },
-                    new ModelMessage { Role = "assistant", Content = "all paid", ReasoningItems = first.ReasoningItems },
+                    new ModelMessage
+                    {
+                        Role = "assistant",
+                        Content = first.Content,
+                        ToolCalls = first.ToolCalls,
+                        ReasoningItems = first.ReasoningItems,
+                    },
+                    new ModelMessage
+                    {
+                        Role = "tool",
+                        ToolCallId = "toolu_1",
+                        Name = "tap",
+                        Content = "tapped",
+                    },
+                    new ModelMessage
+                    {
+                        Role = "assistant",
+                        Content = "all paid",
+                        ReasoningItems = first.ReasoningItems,
+                    },
                 ],
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         var messages = handler.Requests[1].Json()["messages"]!.AsArray();
         var toolTurn = messages[1]!["content"]!.AsArray();
-        Assert.Equal(["thinking", "redacted_thinking", "text", "tool_use"], toolTurn.Select(block => block!["type"]!.GetValue<string>()));
+        Assert.Equal(
+            ["thinking", "redacted_thinking", "text", "tool_use"],
+            toolTurn.Select(block => block!["type"]!.GetValue<string>())
+        );
         Assert.Equal("plan", toolTurn[0]!["thinking"]!.GetValue<string>());
         Assert.Equal("sig-1", toolTurn[0]!["signature"]!.GetValue<string>());
         Assert.Equal("enc-1", toolTurn[1]!["data"]!.GetValue<string>());
         var textTurn = messages[3]!["content"]!.AsArray();
-        Assert.Equal(["thinking", "redacted_thinking", "text"], textTurn.Select(block => block!["type"]!.GetValue<string>()));
+        Assert.Equal(
+            ["thinking", "redacted_thinking", "text"],
+            textTurn.Select(block => block!["type"]!.GetValue<string>())
+        );
         Assert.Equal("sig-1", textTurn[0]!["signature"]!.GetValue<string>());
         Assert.Equal("enc-1", textTurn[1]!["data"]!.GetValue<string>());
     }
@@ -277,9 +398,13 @@ public sealed class ModelProviderTests
         var handler = new RecordingHandler(
             """{ "choices": [{ "message": { "content": "hmm", "reasoning_content": "step by step" } }] }""",
             """{ "choices": [{ "message": { "content": "plain", "reasoning": "other spelling" } }] }""",
-            """{ "choices": [{ "message": { "content": "ok" } }] }""");
+            """{ "choices": [{ "message": { "content": "ok" } }] }"""
+        );
         using var http = new HttpClient(handler);
-        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "reasoner", ApiKey = "k" }, http);
+        using var model = new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions { Model = "reasoner", ApiKey = "k" },
+            http
+        );
 
         var first = await model.CompleteAsync(Conversation(), CancellationToken.None);
         var second = await model.CompleteAsync(Conversation(), CancellationToken.None);
@@ -297,15 +422,29 @@ public sealed class ModelProviderTests
                 Messages =
                 [
                     new ModelMessage { Role = "user", Content = "Goal: pay" },
-                    new ModelMessage { Role = "assistant", Content = first.Content, ReasoningItems = first.ReasoningItems },
-                    new ModelMessage { Role = "assistant", ToolCalls = Conversation().Messages[1].ToolCalls, ReasoningItems = first.ReasoningItems },
+                    new ModelMessage
+                    {
+                        Role = "assistant",
+                        Content = first.Content,
+                        ReasoningItems = first.ReasoningItems,
+                    },
+                    new ModelMessage
+                    {
+                        Role = "assistant",
+                        ToolCalls = Conversation().Messages[1].ToolCalls,
+                        ReasoningItems = first.ReasoningItems,
+                    },
                     new ModelMessage { Role = "assistant", Content = "no reasoning" },
                 ],
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         var messages = handler.Requests[2].Json()["messages"]!.AsArray();
-        Assert.Equal(["system", "user", "assistant", "assistant", "assistant"], messages.Select(message => message!["role"]!.GetValue<string>()));
+        Assert.Equal(
+            ["system", "user", "assistant", "assistant", "assistant"],
+            messages.Select(message => message!["role"]!.GetValue<string>())
+        );
         Assert.Equal("step by step", messages[2]!["reasoning_content"]!.GetValue<string>());
         Assert.Equal("step by step", messages[3]!["reasoning_content"]!.GetValue<string>());
         Assert.Null(messages[4]!["reasoning_content"]);
@@ -323,11 +462,20 @@ public sealed class ModelProviderTests
               "usageMetadata": { "promptTokenCount": 9, "candidatesTokenCount": 2, "thoughtsTokenCount": 4 }
             }
             """,
-            """{ "candidates": [{ "content": { "parts": [{ "text": "ok" }] } }] }""");
+            """{ "candidates": [{ "content": { "parts": [{ "text": "ok" }] } }] }"""
+        );
         using var http = new HttpClient(handler);
         using var model = new GoogleModel(new GoogleModelOptions { Model = "gemini-3-pro", ApiKey = "g" }, http);
 
-        var first = await model.CompleteAsync(new ModelRequest { System = "rules", Messages = [new ModelMessage { Role = "user", Content = "go" }], Tools = Tools() }, CancellationToken.None);
+        var first = await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "rules",
+                Messages = [new ModelMessage { Role = "user", Content = "go" }],
+                Tools = Tools(),
+            },
+            CancellationToken.None
+        );
         var call = first.ToolCalls.Single();
         Assert.Equal(6, first.Usage!.OutputTokens);
         await model.CompleteAsync(
@@ -339,13 +487,22 @@ public sealed class ModelProviderTests
                 [
                     new ModelMessage { Role = "user", Content = "go" },
                     new ModelMessage { Role = "assistant", ToolCalls = [call] },
-                    new ModelMessage { Role = "tool", ToolCallId = call.Id, Content = "tapped" },
+                    new ModelMessage
+                    {
+                        Role = "tool",
+                        ToolCallId = call.Id,
+                        Content = "tapped",
+                    },
                 ],
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         var sent = handler.Requests[0];
-        Assert.Equal("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro:generateContent", sent.Uri.AbsoluteUri);
+        Assert.Equal(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro:generateContent",
+            sent.Uri.AbsoluteUri
+        );
         Assert.Equal("g", sent.Headers["x-goog-api-key"]);
         Assert.NotNull(sent.Json()["tools"]![0]!["functionDeclarations"]![0]!["parametersJsonSchema"]);
         var contents = handler.Requests[1].Json()["contents"]!.AsArray();
@@ -367,7 +524,8 @@ public sealed class ModelProviderTests
               ] } }]
             }
             """,
-            """{ "candidates": [{ "content": { "parts": [{ "text": "ok" }] } }] }""");
+            """{ "candidates": [{ "content": { "parts": [{ "text": "ok" }] } }] }"""
+        );
         using var http = new HttpClient(handler);
         using var model = new GoogleModel(new GoogleModelOptions { Model = "gemini-2.5-pro", ApiKey = "g" }, http);
 
@@ -384,12 +542,30 @@ public sealed class ModelProviderTests
                 Messages =
                 [
                     new ModelMessage { Role = "user", Content = "go" },
-                    new ModelMessage { Role = "assistant", Content = first.Content, ToolCalls = first.ToolCalls, ReasoningItems = first.ReasoningItems },
-                    new ModelMessage { Role = "tool", ToolCallId = first.ToolCalls[0].Id, Name = "tap", Content = "tapped" },
-                    new ModelMessage { Role = "assistant", Content = "all paid", ReasoningItems = first.ReasoningItems },
+                    new ModelMessage
+                    {
+                        Role = "assistant",
+                        Content = first.Content,
+                        ToolCalls = first.ToolCalls,
+                        ReasoningItems = first.ReasoningItems,
+                    },
+                    new ModelMessage
+                    {
+                        Role = "tool",
+                        ToolCallId = first.ToolCalls[0].Id,
+                        Name = "tap",
+                        Content = "tapped",
+                    },
+                    new ModelMessage
+                    {
+                        Role = "assistant",
+                        Content = "all paid",
+                        ReasoningItems = first.ReasoningItems,
+                    },
                 ],
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         var contents = handler.Requests[1].Json()["contents"]!.AsArray();
         var toolTurn = contents[1]!["parts"]!.AsArray();
@@ -409,7 +585,8 @@ public sealed class ModelProviderTests
     {
         var handler = new RecordingHandler(
             """{ "candidates": [{ "content": { "parts": [{ "text": "done", "thoughtSignature": "c2ln" }] } }] }""",
-            """{ "candidates": [{ "content": { "parts": [{ "text": "ok" }] } }] }""");
+            """{ "candidates": [{ "content": { "parts": [{ "text": "ok" }] } }] }"""
+        );
         using var http = new HttpClient(handler);
         using var model = new GoogleModel(new GoogleModelOptions { Model = "gemini-3-pro", ApiKey = "g" }, http);
 
@@ -424,11 +601,17 @@ public sealed class ModelProviderTests
                 Messages =
                 [
                     new ModelMessage { Role = "user", Content = "go" },
-                    new ModelMessage { Role = "assistant", Content = first.Content, ReasoningItems = first.ReasoningItems },
+                    new ModelMessage
+                    {
+                        Role = "assistant",
+                        Content = first.Content,
+                        ReasoningItems = first.ReasoningItems,
+                    },
                     new ModelMessage { Role = "user", Content = "again" },
                 ],
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         var parts = handler.Requests[1].Json()["contents"]![1]!["parts"]!.AsArray();
         var part = Assert.Single(parts)!;
@@ -445,11 +628,17 @@ public sealed class ModelProviderTests
                 Messages =
                 [
                     new ModelMessage { Role = "user", Content = "go" },
-                    new ModelMessage { Role = "assistant", Content = "shrunk", ReasoningItems = first.ReasoningItems },
+                    new ModelMessage
+                    {
+                        Role = "assistant",
+                        Content = "shrunk",
+                        ReasoningItems = first.ReasoningItems,
+                    },
                     new ModelMessage { Role = "user", Content = "again" },
                 ],
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
         var shrunk = Assert.Single(handler.Requests[2].Json()["contents"]![1]!["parts"]!.AsArray())!;
         Assert.Equal("shrunk", shrunk["text"]!.GetValue<string>());
     }
@@ -466,9 +655,18 @@ public sealed class ModelProviderTests
               { "toolUse": { "toolUseId": "t1", "name": "tap", "input": { "role": "button", "name": "Pay" } } }
             ] } } }
             """,
-            """{ "output": { "message": { "role": "assistant", "content": [{ "text": "ok" }] } } }""");
+            """{ "output": { "message": { "role": "assistant", "content": [{ "text": "ok" }] } } }"""
+        );
         using var http = new HttpClient(handler);
-        using var model = new BedrockModel(new BedrockModelOptions { Model = "us.anthropic.claude-test-v1:0", Region = "eu-west-1", ApiKey = "bedrock-key" }, http);
+        using var model = new BedrockModel(
+            new BedrockModelOptions
+            {
+                Model = "us.anthropic.claude-test-v1:0",
+                Region = "eu-west-1",
+                ApiKey = "bedrock-key",
+            },
+            http
+        );
 
         var first = await model.CompleteAsync(Conversation(), CancellationToken.None);
 
@@ -483,12 +681,30 @@ public sealed class ModelProviderTests
                 Messages =
                 [
                     new ModelMessage { Role = "user", Content = "go" },
-                    new ModelMessage { Role = "assistant", Content = first.Content, ToolCalls = first.ToolCalls, ReasoningItems = first.ReasoningItems },
-                    new ModelMessage { Role = "tool", ToolCallId = "t1", Name = "tap", Content = "tapped" },
-                    new ModelMessage { Role = "assistant", Content = "all paid", ReasoningItems = first.ReasoningItems },
+                    new ModelMessage
+                    {
+                        Role = "assistant",
+                        Content = first.Content,
+                        ToolCalls = first.ToolCalls,
+                        ReasoningItems = first.ReasoningItems,
+                    },
+                    new ModelMessage
+                    {
+                        Role = "tool",
+                        ToolCallId = "t1",
+                        Name = "tap",
+                        Content = "tapped",
+                    },
+                    new ModelMessage
+                    {
+                        Role = "assistant",
+                        Content = "all paid",
+                        ReasoningItems = first.ReasoningItems,
+                    },
                 ],
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         var messages = handler.Requests[1].Json()["messages"]!.AsArray();
         var toolTurn = messages[1]!["content"]!.AsArray();
@@ -505,19 +721,32 @@ public sealed class ModelProviderTests
     [Fact]
     public async Task Bedrock_model_sends_a_bedrock_api_key_as_bearer()
     {
-        var handler = new RecordingHandler("""
+        var handler = new RecordingHandler(
+            """
             { "output": { "message": { "role": "assistant", "content": [
               { "toolUse": { "toolUseId": "t1", "name": "done", "input": { "status": "passed", "summary": "ok" } } }
             ] } }, "usage": { "inputTokens": 3, "outputTokens": 4 } }
-            """);
+            """
+        );
         using var http = new HttpClient(handler);
-        using var model = new BedrockModel(new BedrockModelOptions { Model = "us.anthropic.claude-test-v1:0", Region = "eu-west-1", ApiKey = "bedrock-key" }, http);
+        using var model = new BedrockModel(
+            new BedrockModelOptions
+            {
+                Model = "us.anthropic.claude-test-v1:0",
+                Region = "eu-west-1",
+                ApiKey = "bedrock-key",
+            },
+            http
+        );
 
         var response = await model.CompleteAsync(Conversation(), CancellationToken.None);
 
         Assert.Equal("t1", response.ToolCalls.Single().Id);
         var sent = handler.Requests.Single();
-        Assert.Equal("https://bedrock-runtime.eu-west-1.amazonaws.com/model/us.anthropic.claude-test-v1%3A0/converse", sent.Uri.AbsoluteUri);
+        Assert.Equal(
+            "https://bedrock-runtime.eu-west-1.amazonaws.com/model/us.anthropic.claude-test-v1%3A0/converse",
+            sent.Uri.AbsoluteUri
+        );
         Assert.Equal("Bearer bedrock-key", sent.Headers["Authorization"]);
         var body = sent.Json();
         Assert.Equal("rules", body["system"]![0]!["text"]!.GetValue<string>());
@@ -538,13 +767,22 @@ public sealed class ModelProviderTests
                 ApiKeyEnv = "E2E_TEST_UNSET_BEDROCK_KEY",
                 Credentials = new AwsCredentials("AKIDEXAMPLE", "secret", "session"),
             },
-            http);
+            http
+        );
 
         await model.CompleteAsync(Conversation(), CancellationToken.None);
 
         var sent = handler.Requests.Single();
-        Assert.StartsWith("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/", sent.Headers["Authorization"], StringComparison.Ordinal);
-        Assert.Contains("/us-west-2/bedrock/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token, Signature=", sent.Headers["Authorization"], StringComparison.Ordinal);
+        Assert.StartsWith(
+            "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/",
+            sent.Headers["Authorization"],
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "/us-west-2/bedrock/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token, Signature=",
+            sent.Headers["Authorization"],
+            StringComparison.Ordinal
+        );
         Assert.Equal("session", sent.Headers["x-amz-security-token"]);
         Assert.Equal("application/json", sent.ContentType);
     }
@@ -564,8 +802,11 @@ public sealed class ModelProviderTests
                 ApiKeyEnv = "E2E_TEST_UNSET_BEDROCK_KEY",
                 Credentials = new AwsCredentials("AKIDEXAMPLE", "secret"),
             },
-            http)
-        { Clock = clock };
+            http
+        )
+        {
+            Clock = clock,
+        };
 
         await model.CompleteAsync(Conversation(), CancellationToken.None);
 
@@ -587,9 +828,11 @@ public sealed class ModelProviderTests
                 Model = "amazon.nova-pro-v1:0",
                 Region = "us-west-2",
                 ApiKeyEnv = "E2E_TEST_UNSET_BEDROCK_KEY",
-                CredentialChain = () => new Amazon.Runtime.SessionAWSCredentials("AKIDCHAIN", "chain-secret", "chain-token"),
+                CredentialChain = () =>
+                    new Amazon.Runtime.SessionAWSCredentials("AKIDCHAIN", "chain-secret", "chain-token"),
             },
-            http);
+            http
+        );
 
         try
         {
@@ -604,7 +847,11 @@ public sealed class ModelProviderTests
         }
 
         var sent = handler.Requests.Single();
-        Assert.StartsWith("AWS4-HMAC-SHA256 Credential=AKIDCHAIN/", sent.Headers["Authorization"], StringComparison.Ordinal);
+        Assert.StartsWith(
+            "AWS4-HMAC-SHA256 Credential=AKIDCHAIN/",
+            sent.Headers["Authorization"],
+            StringComparison.Ordinal
+        );
         Assert.Equal("chain-token", sent.Headers["x-amz-security-token"]);
     }
 
@@ -621,7 +868,8 @@ public sealed class ModelProviderTests
                 ApiKeyEnv = "E2E_TEST_UNSET_BEDROCK_KEY",
                 CredentialChain = () => throw new InvalidOperationException("no credentials"),
             },
-            http);
+            http
+        );
 
         var accessKey = System.Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");
         var secretKey = System.Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY");
@@ -630,7 +878,9 @@ public sealed class ModelProviderTests
         {
             System.Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", null);
             System.Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", null);
-            error = await Assert.ThrowsAsync<AgentException>(() => model.CompleteAsync(Conversation(), CancellationToken.None));
+            error = await Assert.ThrowsAsync<AgentException>(() =>
+                model.CompleteAsync(Conversation(), CancellationToken.None)
+            );
         }
         finally
         {
@@ -657,18 +907,33 @@ public sealed class ModelProviderTests
 
         public List<string> Authorizations { get; } = [];
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
         {
             Dates.Add(request.Headers.GetValues("x-amz-date").Single());
             Authorizations.Add(request.Headers.GetValues("Authorization").Single());
             if (Dates.Count > 1)
             {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{ "output": { "message": { "content": [{ "text": "ok" }] } } }""", Encoding.UTF8, "application/json") });
+                return Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(
+                            """{ "output": { "message": { "content": [{ "text": "ok" }] } } }""",
+                            Encoding.UTF8,
+                            "application/json"
+                        ),
+                    }
+                );
             }
 
             // The wait before the retry outlasts AWS's five minutes.
             clock.Advance(TimeSpan.FromMinutes(6));
-            var throttled = new HttpResponseMessage(HttpStatusCode.TooManyRequests) { Content = new StringContent("slow down") };
+            var throttled = new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+            {
+                Content = new StringContent("slow down"),
+            };
             throttled.Headers.TryAddWithoutValidation("retry-after-ms", "0");
             return Task.FromResult(throttled);
         }
@@ -678,12 +943,15 @@ public sealed class ModelProviderTests
     public void SigV4_matches_the_aws_documentation_example()
     {
         // The IAM ListUsers example from the AWS Signature Version 4 documentation.
-        const string canonical = "GET\n/\nAction=ListUsers&Version=2010-05-08\ncontent-type:application/x-www-form-urlencoded; charset=utf-8\nhost:iam.amazonaws.com\nx-amz-date:20150830T123600Z\n\ncontent-type;host;x-amz-date\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        const string canonical =
+            "GET\n/\nAction=ListUsers&Version=2010-05-08\ncontent-type:application/x-www-form-urlencoded; charset=utf-8\nhost:iam.amazonaws.com\nx-amz-date:20150830T123600Z\n\ncontent-type;host;x-amz-date\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         Assert.Equal("f536975d06c0309214f805bb90ccff089219ecd68b2577efef23edd43b7e1a59", SigV4.Hash(canonical));
-        var toSign = "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-east-1/iam/aws4_request\nf536975d06c0309214f805bb90ccff089219ecd68b2577efef23edd43b7e1a59";
+        var toSign =
+            "AWS4-HMAC-SHA256\n20150830T123600Z\n20150830/us-east-1/iam/aws4_request\nf536975d06c0309214f805bb90ccff089219ecd68b2577efef23edd43b7e1a59";
         Assert.Equal(
             "5d672d79c15b13162d9279b0855cfba6789a8edb4c82c400e06b5924a6f2b5d7",
-            SigV4.Signature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "20150830", "us-east-1", "iam", toSign));
+            SigV4.Signature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "20150830", "us-east-1", "iam", toSign)
+        );
         Assert.Equal("/model/a%253Ab/converse", SigV4.CanonicalPath("/model/a%3Ab/converse"));
     }
 
@@ -692,21 +960,41 @@ public sealed class ModelProviderTests
     {
         var openai = new RecordingHandler("""{ "choices": [{ "message": { "content": "ok" } }] }""");
         using (var http = new HttpClient(openai))
-        using (var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "gpt", ApiKey = "k" }, http))
+        using (
+            var model = new OpenAiCompatibleModel(
+                new OpenAiCompatibleModelOptions { Model = "gpt", ApiKey = "k" },
+                http
+            )
+        )
         {
             await model.CompleteAsync(Conversation(), CancellationToken.None);
         }
 
         var gateway = new RecordingHandler("""{ "choices": [{ "message": { "content": "ok" } }] }""");
         using (var http = new HttpClient(gateway))
-        using (var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "openai/gpt-6-luna", Provider = "gateway", ApiKey = "k" }, http))
+        using (
+            var model = new OpenAiCompatibleModel(
+                new OpenAiCompatibleModelOptions
+                {
+                    Model = "openai/gpt-6-luna",
+                    Provider = "gateway",
+                    ApiKey = "k",
+                },
+                http
+            )
+        )
         {
             await model.CompleteAsync(Conversation(), CancellationToken.None);
         }
 
         var local = new RecordingHandler("""{ "choices": [{ "message": { "content": "ok" } }] }""");
         using (var http = new HttpClient(local))
-        using (var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "llama", BaseUrl = "http://127.0.0.1:11434/v1" }, http))
+        using (
+            var model = new OpenAiCompatibleModel(
+                new OpenAiCompatibleModelOptions { Model = "llama", BaseUrl = "http://127.0.0.1:11434/v1" },
+                http
+            )
+        )
         {
             await model.CompleteAsync(Conversation(), CancellationToken.None);
         }
@@ -731,7 +1019,8 @@ public sealed class ModelProviderTests
                 BaseUrl = "https://openrouter.ai/api/v1",
                 ApiKey = "or",
             },
-            http);
+            http
+        );
 
         await model.CompleteAsync(Conversation(), CancellationToken.None);
 
@@ -760,7 +1049,9 @@ public sealed class ModelProviderTests
         Directory.CreateDirectory(root);
         try
         {
-            File.WriteAllText(Path.Combine(root, "e2e.config.json"), """
+            File.WriteAllText(
+                Path.Combine(root, "e2e.config.json"),
+                """
                 {
                   "agents": {
                     "default": { "model": "claude-test", "provider": "anthropic" },
@@ -771,7 +1062,8 @@ public sealed class ModelProviderTests
                     "chatgpt": { "model": "gpt-6-luna", "provider": "chatgpt" }
                   }
                 }
-                """);
+                """
+            );
             var config = E2EConfig.Load(Path.Combine(root, "e2e.config.json"));
 
             Assert.Equal("anthropic", config.Agent.Provider);
@@ -790,9 +1082,18 @@ public sealed class ModelProviderTests
     }
 
     [Theory]
-    [InlineData("""{ "agents": { "default": { "model": "m", "provider": "cohere" } } }""", "agents.default.provider must be one of")]
-    [InlineData("""{ "agents": { "default": { "model": "m", "provider": "copilot", "apiKeyEnv": "X" } } }""", "baseUrl and apiKeyEnv do not apply")]
-    [InlineData("""{ "agents": { "default": { "model": "m", "provider": "openai-compatible" } } }""", "baseUrl is required")]
+    [InlineData(
+        """{ "agents": { "default": { "model": "m", "provider": "cohere" } } }""",
+        "agents.default.provider must be one of"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "model": "m", "provider": "copilot", "apiKeyEnv": "X" } } }""",
+        "baseUrl and apiKeyEnv do not apply"
+    )]
+    [InlineData(
+        """{ "agents": { "default": { "model": "m", "provider": "openai-compatible" } } }""",
+        "baseUrl is required"
+    )]
     public void Config_refuses_a_bad_provider(string json, string message)
     {
         var root = Path.Combine(Path.GetTempPath(), "e2e-provider-" + Guid.NewGuid().ToString("N"));
@@ -800,7 +1101,9 @@ public sealed class ModelProviderTests
         try
         {
             File.WriteAllText(Path.Combine(root, "e2e.config.json"), json);
-            var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Load(Path.Combine(root, "e2e.config.json")));
+            var error = Assert.Throws<ConfigurationException>(() =>
+                E2EConfig.Load(Path.Combine(root, "e2e.config.json"))
+            );
             Assert.Equal("INVALID_CONFIG", error.Code);
             Assert.Contains(message, error.Message, StringComparison.Ordinal);
         }
@@ -812,7 +1115,12 @@ public sealed class ModelProviderTests
 
     internal static ModelRequest Conversation()
     {
-        var call = new ModelToolCall { Id = "call_1", Name = "tap", Arguments = JsonSerializer.SerializeToElement(new { role = "button", name = "Pay" }) };
+        var call = new ModelToolCall
+        {
+            Id = "call_1",
+            Name = "tap",
+            Arguments = JsonSerializer.SerializeToElement(new { role = "button", name = "Pay" }),
+        };
         return new ModelRequest
         {
             System = "rules",
@@ -821,7 +1129,13 @@ public sealed class ModelProviderTests
             [
                 new ModelMessage { Role = "user", Content = "Goal: pay" },
                 new ModelMessage { Role = "assistant", ToolCalls = [call] },
-                new ModelMessage { Role = "tool", ToolCallId = "call_1", Name = "tap", Content = "tapped" },
+                new ModelMessage
+                {
+                    Role = "tool",
+                    ToolCallId = "call_1",
+                    Name = "tap",
+                    Content = "tapped",
+                },
             ],
         };
     }
@@ -834,7 +1148,9 @@ public sealed class ModelProviderTests
             {
                 Name = "done",
                 Description = "finish",
-                Parameters = JsonSerializer.SerializeToElement(new { type = "object", properties = new { status = new { type = "string" } } }),
+                Parameters = JsonSerializer.SerializeToElement(
+                    new { type = "object", properties = new { status = new { type = "string" } } }
+                ),
             },
         ];
     }
@@ -871,7 +1187,10 @@ internal sealed class RecordingHandler : HttpMessageHandler
         return this;
     }
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
     {
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var header in request.Headers.NonValidated)
@@ -880,14 +1199,28 @@ internal sealed class RecordingHandler : HttpMessageHandler
         }
 
         var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
-        Requests.Add(new RecordedRequest(request.Method, request.RequestUri!, headers, body, request.Content?.Headers.ContentType?.ToString()));
+        Requests.Add(
+            new RecordedRequest(
+                request.Method,
+                request.RequestUri!,
+                headers,
+                body,
+                request.Content?.Headers.ContentType?.ToString()
+            )
+        );
         OnRequest?.Invoke(Requests.Count);
         var (status, answer, contentType) = _answers.Count > 1 ? _answers.Dequeue() : _answers.Peek();
         return new HttpResponseMessage(status) { Content = new StringContent(answer, Encoding.UTF8, contentType) };
     }
 }
 
-internal sealed record RecordedRequest(HttpMethod Method, Uri Uri, Dictionary<string, string> Headers, string Body, string? ContentType)
+internal sealed record RecordedRequest(
+    HttpMethod Method,
+    Uri Uri,
+    Dictionary<string, string> Headers,
+    string Body,
+    string? ContentType
+)
 {
     public JsonObject Json() => JsonNode.Parse(Body)!.AsObject();
 }

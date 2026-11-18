@@ -8,8 +8,10 @@ namespace E2E.Tests.SchemaFixtures;
 public sealed class SessionV1SchemaTests
 {
     [Fact]
-    public void Accepts_the_valid_fixture() => SessionSchema.AssertValidSessionEnvelope(ReportSchema.ReadJson("fixtures", "session-v1.valid.json"));
+    public void Accepts_the_valid_fixture() =>
+        SessionSchema.AssertValidSessionEnvelope(ReportSchema.ReadJson("fixtures", "session-v1.valid.json"));
 
     [Fact]
-    public void Rejects_the_invalid_fixture() => Assert.False(SessionSchema.IsValid(ReportSchema.ReadJson("fixtures", "session-v1.invalid.json")));
+    public void Rejects_the_invalid_fixture() =>
+        Assert.False(SessionSchema.IsValid(ReportSchema.ReadJson("fixtures", "session-v1.invalid.json")));
 }

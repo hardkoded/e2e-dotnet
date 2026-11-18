@@ -27,18 +27,33 @@ internal static class AtomicWrite
     private static readonly UTF8Encoding Utf8 = new(false);
 
     /// <summary>Writes <paramref name="content"/> to <paramref name="filePath"/> atomically; a failed write leaves no temporary file behind.</summary>
-    public static Task WriteFileAtomicAsync(string filePath, string content, CancellationToken cancellationToken = default) =>
-        WriteFileAtomicAsync(filePath, Utf8.GetBytes(content), null, cancellationToken);
+    public static Task WriteFileAtomicAsync(
+        string filePath,
+        string content,
+        CancellationToken cancellationToken = default
+    ) => WriteFileAtomicAsync(filePath, Utf8.GetBytes(content), null, cancellationToken);
 
     /// <summary>The string form with the file mode of upstream's <c>{ mode }</c> option (ignored on Windows, which has no Unix mode).</summary>
-    public static Task WriteFileAtomicAsync(string filePath, string content, UnixFileMode mode, CancellationToken cancellationToken = default) =>
-        WriteFileAtomicAsync(filePath, Utf8.GetBytes(content), mode, cancellationToken);
+    public static Task WriteFileAtomicAsync(
+        string filePath,
+        string content,
+        UnixFileMode mode,
+        CancellationToken cancellationToken = default
+    ) => WriteFileAtomicAsync(filePath, Utf8.GetBytes(content), mode, cancellationToken);
 
     /// <summary>The bytes form of <see cref="WriteFileAtomicAsync(string, string, CancellationToken)"/> (upstream accepts a <c>Uint8Array</c>).</summary>
-    public static Task WriteFileAtomicAsync(string filePath, byte[] content, CancellationToken cancellationToken = default) =>
-        WriteFileAtomicAsync(filePath, content, null, cancellationToken);
+    public static Task WriteFileAtomicAsync(
+        string filePath,
+        byte[] content,
+        CancellationToken cancellationToken = default
+    ) => WriteFileAtomicAsync(filePath, content, null, cancellationToken);
 
-    private static async Task WriteFileAtomicAsync(string filePath, byte[] content, UnixFileMode? mode, CancellationToken cancellationToken)
+    private static async Task WriteFileAtomicAsync(
+        string filePath,
+        byte[] content,
+        UnixFileMode? mode,
+        CancellationToken cancellationToken
+    )
     {
         var temporary = TemporaryPath(filePath);
         try
@@ -46,7 +61,12 @@ internal static class AtomicWrite
             if (mode is { } createMode && !OperatingSystem.IsWindows())
             {
                 // The temporary file is created with the mode, so it is never readable wider, even for a moment.
-                var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, UnixCreateMode = createMode };
+                var options = new FileStreamOptions
+                {
+                    Mode = FileMode.CreateNew,
+                    Access = FileAccess.Write,
+                    UnixCreateMode = createMode,
+                };
                 var stream = new FileStream(temporary, options);
                 await using (stream.ConfigureAwait(false))
                 {
@@ -124,8 +144,12 @@ internal static class AtomicWrite
         }
     }
 
-    private static string TemporaryPath(string filePath) => filePath + "." + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8)) + ".tmp";
+    private static string TemporaryPath(string filePath) =>
+        filePath + "." + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8)) + ".tmp";
 
     private static bool RetriesMove(Exception ex, int attempt) =>
-        OperatingSystem.IsWindows() && attempt < MoveAttempts && ex is (IOException or UnauthorizedAccessException) && ex.HResult is AccessDenied or SharingViolation;
+        OperatingSystem.IsWindows()
+        && attempt < MoveAttempts
+        && ex is (IOException or UnauthorizedAccessException)
+        && ex.HResult is AccessDenied or SharingViolation;
 }

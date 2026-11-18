@@ -85,7 +85,10 @@ internal interface IKernelBrowsers
     Task<bool> DeleteAsync(string sessionId, CancellationToken cancellationToken);
 
     /// <summary>The session ids of the active browsers carrying every one of <paramref name="tags"/>.</summary>
-    Task<IReadOnlyList<string>> ListActiveAsync(IReadOnlyDictionary<string, string> tags, CancellationToken cancellationToken);
+    Task<IReadOnlyList<string>> ListActiveAsync(
+        IReadOnlyDictionary<string, string> tags,
+        CancellationToken cancellationToken
+    );
 
     /// <summary>Starts recording the browser's screen; resolves to the replay id.</summary>
     Task<string> StartReplayAsync(string sessionId, KernelReplayParams parameters, CancellationToken cancellationToken);
@@ -112,18 +115,28 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
 
     public async Task<KernelBrowser> CreateAsync(KernelBrowserParams parameters, CancellationToken cancellationToken)
     {
-        var reply = await SendJsonAsync(HttpMethod.Post, "/browsers", Body(parameters), cancellationToken).ConfigureAwait(false);
+        var reply = await SendJsonAsync(HttpMethod.Post, "/browsers", Body(parameters), cancellationToken)
+            .ConfigureAwait(false);
         return new KernelBrowser(
-            Text(reply.Body?["session_id"]) ?? throw new KernelApiException(HttpStatusCode.OK, "Kernel created a browser without a session_id"),
-            Text(reply.Body?["cdp_ws_url"]) ?? throw new KernelApiException(HttpStatusCode.OK, "Kernel created a browser without a cdp_ws_url"),
-            Text(reply.Body?["browser_live_view_url"]));
+            Text(reply.Body?["session_id"])
+                ?? throw new KernelApiException(HttpStatusCode.OK, "Kernel created a browser without a session_id"),
+            Text(reply.Body?["cdp_ws_url"])
+                ?? throw new KernelApiException(HttpStatusCode.OK, "Kernel created a browser without a cdp_ws_url"),
+            Text(reply.Body?["browser_live_view_url"])
+        );
     }
 
     public async Task<bool> DeleteAsync(string sessionId, CancellationToken cancellationToken)
     {
         try
         {
-            await SendJsonAsync(HttpMethod.Delete, $"/browsers/{Uri.EscapeDataString(sessionId)}", null, cancellationToken).ConfigureAwait(false);
+            await SendJsonAsync(
+                    HttpMethod.Delete,
+                    $"/browsers/{Uri.EscapeDataString(sessionId)}",
+                    null,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             return true;
         }
         catch (KernelApiException exception) when (exception.Status == HttpStatusCode.NotFound)
@@ -132,12 +145,19 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
         }
     }
 
-    public async Task<IReadOnlyList<string>> ListActiveAsync(IReadOnlyDictionary<string, string> tags, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<string>> ListActiveAsync(
+        IReadOnlyDictionary<string, string> tags,
+        CancellationToken cancellationToken
+    )
     {
         var query = new StringBuilder("status=active");
         foreach (var (key, value) in tags)
         {
-            query.Append("&tags%5B").Append(Uri.EscapeDataString(key)).Append("%5D=").Append(Uri.EscapeDataString(value));
+            query
+                .Append("&tags%5B")
+                .Append(Uri.EscapeDataString(key))
+                .Append("%5D=")
+                .Append(Uri.EscapeDataString(value));
         }
 
         var ids = new List<string>();
@@ -147,7 +167,12 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
         {
             var path = offset == 0 ? $"/browsers?{query}" : $"/browsers?{query}&offset={offset}";
             var reply = await SendJsonAsync(HttpMethod.Get, path, null, cancellationToken).ConfigureAwait(false);
-            var items = reply.Body as JsonArray ?? throw new KernelApiException(HttpStatusCode.OK, "Kernel answered the list of browsers with something other than an array");
+            var items =
+                reply.Body as JsonArray
+                ?? throw new KernelApiException(
+                    HttpStatusCode.OK,
+                    "Kernel answered the list of browsers with something other than an array"
+                );
             ids.AddRange(items.Select(item => Text(item?["session_id"])).OfType<string>());
 
             // Kernel pages with X-Has-More and X-Next-Offset, the absolute start of the next page; 0 is its stop sentinel.
@@ -158,7 +183,11 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
                 return ids;
             }
 
-            offset = next ?? throw new KernelApiException(HttpStatusCode.OK, "Kernel reported X-Has-More: true without an X-Next-Offset header; refusing to silently truncate the list");
+            offset = next
+                ?? throw new KernelApiException(
+                    HttpStatusCode.OK,
+                    "Kernel reported X-Has-More: true without an X-Next-Offset header; refusing to silently truncate the list"
+                );
             if (offset == 0)
             {
                 return ids;
@@ -166,29 +195,61 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
 
             if (offset <= previous)
             {
-                throw new KernelApiException(HttpStatusCode.OK, "Kernel did not advance X-Next-Offset; refusing to list the same page again");
+                throw new KernelApiException(
+                    HttpStatusCode.OK,
+                    "Kernel did not advance X-Next-Offset; refusing to list the same page again"
+                );
             }
 
             previous = offset;
         }
     }
 
-    public async Task<string> StartReplayAsync(string sessionId, KernelReplayParams parameters, CancellationToken cancellationToken)
+    public async Task<string> StartReplayAsync(
+        string sessionId,
+        KernelReplayParams parameters,
+        CancellationToken cancellationToken
+    )
     {
         var body = new JsonObject();
         Set(body, "framerate", parameters.Framerate);
         Set(body, "max_duration_in_seconds", parameters.MaxDurationInSeconds);
         Set(body, "record_audio", parameters.RecordAudio);
-        var reply = await SendJsonAsync(HttpMethod.Post, $"/browsers/{Uri.EscapeDataString(sessionId)}/replays", body, cancellationToken).ConfigureAwait(false);
-        return Text(reply.Body?["replay_id"]) ?? throw new KernelApiException(HttpStatusCode.OK, "Kernel started a replay without a replay_id");
+        var reply = await SendJsonAsync(
+                HttpMethod.Post,
+                $"/browsers/{Uri.EscapeDataString(sessionId)}/replays",
+                body,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return Text(reply.Body?["replay_id"])
+            ?? throw new KernelApiException(HttpStatusCode.OK, "Kernel started a replay without a replay_id");
     }
 
     public async Task StopReplayAsync(string sessionId, string replayId, CancellationToken cancellationToken) =>
-        await SendJsonAsync(HttpMethod.Post, $"/browsers/{Uri.EscapeDataString(sessionId)}/replays/{Uri.EscapeDataString(replayId)}/stop", null, cancellationToken).ConfigureAwait(false);
+        await SendJsonAsync(
+                HttpMethod.Post,
+                $"/browsers/{Uri.EscapeDataString(sessionId)}/replays/{Uri.EscapeDataString(replayId)}/stop",
+                null,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
 
-    public async Task DownloadReplayAsync(string sessionId, string replayId, string file, CancellationToken cancellationToken)
+    public async Task DownloadReplayAsync(
+        string sessionId,
+        string replayId,
+        string file,
+        CancellationToken cancellationToken
+    )
     {
-        using var reply = await SendAsync(HttpMethod.Get, $"/browsers/{Uri.EscapeDataString(sessionId)}/replays/{Uri.EscapeDataString(replayId)}", null, "video/mp4", cancellationToken).ConfigureAwait(false);
+        using var reply = await SendAsync(
+                HttpMethod.Get,
+                $"/browsers/{Uri.EscapeDataString(sessionId)}/replays/{Uri.EscapeDataString(replayId)}",
+                null,
+                "video/mp4",
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         await using var source = await reply.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         await using var target = File.Create(file);
         await source.CopyToAsync(target, cancellationToken).ConfigureAwait(false);
@@ -196,7 +257,14 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
 
     public async Task<byte[]> ReadFileAsync(string sessionId, string file, CancellationToken cancellationToken)
     {
-        using var reply = await SendAsync(HttpMethod.Get, $"/browsers/{Uri.EscapeDataString(sessionId)}/fs/read_file?path={Uri.EscapeDataString(file)}", null, "application/octet-stream", cancellationToken).ConfigureAwait(false);
+        using var reply = await SendAsync(
+                HttpMethod.Get,
+                $"/browsers/{Uri.EscapeDataString(sessionId)}/fs/read_file?path={Uri.EscapeDataString(file)}",
+                null,
+                "application/octet-stream",
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         return await reply.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -232,7 +300,9 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
 
         if (parameters.Tags is { } tags)
         {
-            body["tags"] = new JsonObject(tags.Select(tag => KeyValuePair.Create<string, JsonNode?>(tag.Key, tag.Value)));
+            body["tags"] = new JsonObject(
+                tags.Select(tag => KeyValuePair.Create<string, JsonNode?>(tag.Key, tag.Value))
+            );
         }
 
         return body;
@@ -262,13 +332,21 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
         }
     }
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
-    private static string? Header(HttpResponseHeaders headers, string name) => headers.TryGetValues(name, out var values) ? values.FirstOrDefault()?.Trim().ToLowerInvariant() : null;
+    private static string? Header(HttpResponseHeaders headers, string name) =>
+        headers.TryGetValues(name, out var values) ? values.FirstOrDefault()?.Trim().ToLowerInvariant() : null;
 
-    private async Task<(JsonNode? Body, HttpResponseHeaders Headers)> SendJsonAsync(HttpMethod method, string path, JsonObject? body, CancellationToken cancellationToken)
+    private async Task<(JsonNode? Body, HttpResponseHeaders Headers)> SendJsonAsync(
+        HttpMethod method,
+        string path,
+        JsonObject? body,
+        CancellationToken cancellationToken
+    )
     {
-        using var reply = await SendAsync(method, path, body, "application/json", cancellationToken).ConfigureAwait(false);
+        using var reply = await SendAsync(method, path, body, "application/json", cancellationToken)
+            .ConfigureAwait(false);
 
         // The body of an answer that arrived is read even when the caller has since cancelled: a created browser must be known to be deleted.
         using var timeout = new CancellationTokenSource(RequestTimeout);
@@ -285,7 +363,13 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
     }
 
     /// <summary>Sends one request and returns its answer once the headers arrive, or throws <see cref="KernelApiException"/> for an error status.</summary>
-    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, JsonObject? body, string accept, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> SendAsync(
+        HttpMethod method,
+        string path,
+        JsonObject? body,
+        string accept,
+        CancellationToken cancellationToken
+    )
     {
         using var message = new HttpRequestMessage(method, new Uri(baseUrl.AbsoluteUri.TrimEnd('/') + path));
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
@@ -297,7 +381,8 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(RequestTimeout);
-        var reply = await http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+        var reply = await http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, timeout.Token)
+            .ConfigureAwait(false);
         if (reply.IsSuccessStatusCode)
         {
             return reply;
@@ -306,7 +391,10 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
         using (reply)
         {
             using var read = new CancellationTokenSource(RequestTimeout);
-            throw new KernelApiException(reply.StatusCode, ErrorMessage(reply.StatusCode, await reply.Content.ReadAsStringAsync(read.Token).ConfigureAwait(false)));
+            throw new KernelApiException(
+                reply.StatusCode,
+                ErrorMessage(reply.StatusCode, await reply.Content.ReadAsStringAsync(read.Token).ConfigureAwait(false))
+            );
         }
     }
 
@@ -326,7 +414,9 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
             // Not JSON: the text is the message.
         }
 
-        var message = (error is JsonObject json ? Text(json["message"]) ?? json.ToJsonString() : error?.ToJsonString() ?? text).Trim();
+        var message = (
+            error is JsonObject json ? Text(json["message"]) ?? json.ToJsonString() : error?.ToJsonString() ?? text
+        ).Trim();
         return message.Length == 0 ? $"{(int)status} status code (no body)" : $"{(int)status} {message}";
     }
 }

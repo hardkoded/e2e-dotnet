@@ -25,7 +25,23 @@ public sealed class SerializeErrorTests
     {
         var serialized = ErrorSerializer.Serialize(new ConfigurationException("X", "a\u0007b\u0001c"));
         Assert.Equal("a�b�c", serialized.Message);
-        var colored = ErrorSerializer.Serialize(new ConfigurationException("X", "\u001b[1m\u001b[31mUnauthenticated\u001b[0m request"));
+        var colored = ErrorSerializer.Serialize(
+            new ConfigurationException("X", "\u001b[1m\u001b[31mUnauthenticated\u001b[0m request")
+        );
         Assert.Equal("Unauthenticated request", colored.Message);
+    }
+
+    [Fact]
+    public void Partial_Keeps_carriage_returns_in_the_message_and_the_details()
+    {
+        // PARTIAL: the port's SerializedError carries no stack; the message and the details are checked.
+        var serialized = ErrorSerializer.Serialize(
+            new TestException("ASSERTION_FAILED", "line one\r\nline two")
+            {
+                Details = new ErrorDetails { Observed = "a\r\nb" },
+            }
+        );
+        Assert.Equal("line one\r\nline two", serialized.Message);
+        Assert.Equal("a\r\nb", serialized.Details?.Observed);
     }
 }

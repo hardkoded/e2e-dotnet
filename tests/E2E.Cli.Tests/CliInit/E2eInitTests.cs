@@ -29,7 +29,18 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // Partial: the config is JSON with a provider id and the MCP entry runs the installed tool; the project is a .csproj with E2E and its adapter.
     public async Task Partial_Adds_the_runner_Playwright_and_AI_with_yes_and_does_not_install_or_prompt()
     {
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, RunInstall = (_, _) => throw new InvalidOperationException("restore must not run") })).ExitCode);
+        Assert.Equal(
+            0,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        RunInstall = (_, _) => throw new InvalidOperationException("restore must not run"),
+                    }
+                )
+            ).ExitCode
+        );
         var project = XDocument.Parse(Read(ProjectFile()));
         var range = Versions.DependencyRange(Versions.RunnerVersion);
         Assert.Equal(
@@ -40,14 +51,24 @@ public sealed partial class E2eInitTests : CliInitTestBase
                 new KeyValuePair<string, string>("E2E", range),
                 new KeyValuePair<string, string>("E2E.NUnit", range),
             ],
-            project.Descendants("PackageReference").Select(reference => new KeyValuePair<string, string>((string)reference.Attribute("Include")!, (string)reference.Attribute("Version")!)));
+            project
+                .Descendants("PackageReference")
+                .Select(reference => new KeyValuePair<string, string>(
+                    (string)reference.Attribute("Include")!,
+                    (string)reference.Attribute("Version")!
+                ))
+        );
         Assert.Equal("net10.0", project.Descendants("TargetFramework").Single().Value);
         Assert.Equal("false", project.Descendants("IsPackable").Single().Value);
         var example = Read("ExampleTests.cs");
         Assert.Contains("// With the model key in the environment, uncomment:", example, StringComparison.Ordinal);
         Assert.Contains("public async Task App_opens()", example, StringComparison.Ordinal);
         Assert.Contains("await App.OpenAsync(\"/\");", example, StringComparison.Ordinal);
-        Assert.Contains("await Expect.That(Browser.Locator(\"body\")).ToBeVisibleAsync();", example, StringComparison.Ordinal);
+        Assert.Contains(
+            "await Expect.That(Browser.Locator(\"body\")).ToBeVisibleAsync();",
+            example,
+            StringComparison.Ordinal
+        );
         Assert.Contains("// public async Task The_agent_drives_a_flow()", example, StringComparison.Ordinal);
         Assert.DoesNotContain("HttpClient", example, StringComparison.Ordinal);
         Assert.Contains(".e2e/cache/", Read(".gitignore"), StringComparison.Ordinal);
@@ -57,7 +78,10 @@ public sealed partial class E2eInitTests : CliInitTestBase
         var config = Json("e2e.config.json");
         Assert.Equal("gateway", (string?)config["agents"]!["default"]!["provider"]);
         Assert.Equal("openai/gpt-6-luna-fast", (string?)config["agents"]!["default"]!["model"]);
-        Assert.Equal("You are a thorough QA agent. Verify every outcome.", (string?)config["agents"]!["default"]!["system"]);
+        Assert.Equal(
+            "You are a thorough QA agent. Verify every outcome.",
+            (string?)config["agents"]!["default"]!["system"]
+        );
         Assert.Equal("web", (string?)config["targets"]![0]!["platform"]);
         Assert.Equal("http://localhost:3000", (string?)config["targets"]![0]!["app"]!["url"]);
         // The config loads: init never writes one the port rejects.
@@ -72,7 +96,11 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.Contains(".e2e/cache/", Read(".gitignore"), StringComparison.Ordinal);
         Assert.Contains(".e2e/report.json", Read(".gitignore"), StringComparison.Ordinal);
         Assert.Matches(SkillFrontmatter(), Read(".agents/skills/e2e-dotnet/SKILL.md"));
-        Assert.Contains("# Setting up e2e for .NET", Read(".claude/skills/e2e-dotnet/references/setup.md"), StringComparison.Ordinal);
+        Assert.Contains(
+            "# Setting up e2e for .NET",
+            Read(".claude/skills/e2e-dotnet/references/setup.md"),
+            StringComparison.Ordinal
+        );
         Assert.Contains("Next: dotnet test", Output, StringComparison.Ordinal);
     }
 
@@ -81,8 +109,9 @@ public sealed partial class E2eInitTests : CliInitTestBase
     public async Task Partial_Hands_back_what_yes_chose_then_that_a_second_run_had_nothing_to_do()
     {
         Assert.Equal(
-            new InitRunOutcome(0, InitResult.Scaffolded, true, false, "web", "vercel", true, true),
-            await RunInitAsync());
+            new InitRunOutcome(0, InitResult.Scaffolded, true, false, "web", "vercel", true, true, null, false, "none"),
+            await RunInitAsync()
+        );
         var second = await RunInitAsync();
         Assert.Equal(0, second.ExitCode);
         Assert.Equal(InitResult.AlreadyInitialized, second.Result);
@@ -108,9 +137,26 @@ public sealed partial class E2eInitTests : CliInitTestBase
     [InlineData("opencode-console", "opencode-console", "opencode-console", "deepseek-v4.1-flash")]
     [InlineData("grok", "spacexai", "grok", "grok-4")]
     // Partial: the model is a provider id in e2e.config.json, with no import line and no SDK packages.
-    public async Task Partial_Writes_a_subscription_model_and_names_the_sign_in_as_the_next_step(string gateway, string login, string provider, string model)
+    public async Task Partial_Writes_a_subscription_model_and_names_the_sign_in_as_the_next_step(
+        string gateway,
+        string login,
+        string provider,
+        string model
+    )
     {
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Engines = ["web"], Gateway = gateway })).ExitCode);
+        Assert.Equal(
+            0,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Engines = ["web"],
+                        Gateway = gateway,
+                    }
+                )
+            ).ExitCode
+        );
         var agent = Json("e2e.config.json")["agents"]!["default"]!;
         Assert.Equal(provider, (string?)agent["provider"]);
         Assert.Equal(model, (string?)agent["model"]);
@@ -122,21 +168,38 @@ public sealed partial class E2eInitTests : CliInitTestBase
     public async Task Partial_Takes_every_answer_from_flags_under_yes_and_writes_only_the_chosen_locations()
     {
         var restored = new List<string>();
-        var outcome = await RunInitAsync(new InitOptions
-        {
-            Yes = true,
-            Engines = ["mobile"],
-            Gateway = "openrouter",
-            Skills = [".agents/skills"],
-            Mcp = [".mcp.json"],
-            Install = true,
-            RunInstall = (directory, _) =>
+        var outcome = await RunInitAsync(
+            new InitOptions
             {
-                restored.Add(directory);
-                return Task.FromResult(0);
-            },
-        });
-        Assert.Equal(new InitRunOutcome(0, InitResult.Scaffolded, true, false, "mobile", "openrouter", true, true, null, true), outcome);
+                Yes = true,
+                Engines = ["mobile"],
+                Gateway = "openrouter",
+                Skills = [".agents/skills"],
+                Mcp = [".mcp.json"],
+                Install = true,
+                RunInstall = (directory, _) =>
+                {
+                    restored.Add(directory);
+                    return Task.FromResult(0);
+                },
+            }
+        );
+        Assert.Equal(
+            new InitRunOutcome(
+                0,
+                InitResult.Scaffolded,
+                true,
+                false,
+                "mobile",
+                "openrouter",
+                true,
+                true,
+                null,
+                true,
+                "none"
+            ),
+            outcome
+        );
         Assert.Empty(Prompts.SelectCalls);
         Assert.Empty(Prompts.MultiSelectCalls);
         Assert.Empty(Prompts.ConfirmCalls);
@@ -156,7 +219,16 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // Partial: the project has no ai package to leave out, and the config is JSON.
     public async Task Partial_Writes_no_model_skill_or_MCP_config_when_each_flag_says_none()
     {
-        var outcome = await RunInitAsync(new InitOptions { Yes = true, Engines = [], Gateway = "none", Skills = [], Mcp = [] });
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Engines = [],
+                Gateway = "none",
+                Skills = [],
+                Mcp = [],
+            }
+        );
         Assert.Equal(0, outcome.ExitCode);
         Assert.Equal("none", outcome.Engine);
         Assert.Equal("none", outcome.Gateway);
@@ -165,7 +237,8 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.Null(Json("e2e.config.json")["agents"]);
         Assert.Equal(
             new[] { ".gitignore", "e2e.config.json", "ExampleTests.cs", ProjectFile() }.Order(StringComparer.Ordinal),
-            Directory.EnumerateFileSystemEntries(Dir).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+            Directory.EnumerateFileSystemEntries(Dir).Select(Path.GetFileName).Order(StringComparer.Ordinal)
+        );
         Assert.Contains("Skipped the agent skill", Output, StringComparison.Ordinal);
         Assert.Contains("Skipped the MCP server", Output, StringComparison.Ordinal);
     }
@@ -173,9 +246,24 @@ public sealed partial class E2eInitTests : CliInitTestBase
     [Theory]
     [InlineData(" https://llm.example/v1 ", "https://llm.example/v1")]
     [InlineData(null, "http://127.0.0.1:11434/v1")]
-    public async Task Writes_the_endpoint_of_an_OpenAI_compatible_gateway_under_yes_else_the_local_placeholder(string? endpoint, string written)
+    public async Task Writes_the_endpoint_of_an_OpenAI_compatible_gateway_under_yes_else_the_local_placeholder(
+        string? endpoint,
+        string written
+    )
     {
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Gateway = "openai-compatible", Endpoint = endpoint })).ExitCode);
+        Assert.Equal(
+            0,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Gateway = "openai-compatible",
+                        Endpoint = endpoint,
+                    }
+                )
+            ).ExitCode
+        );
         Assert.Equal(written, (string?)Json("e2e.config.json")["agents"]!["default"]!["baseUrl"]);
         _ = E2EConfig.Parse(Read("e2e.config.json"), Dir);
     }
@@ -184,19 +272,42 @@ public sealed partial class E2eInitTests : CliInitTestBase
     public async Task Warns_that_engine_and_gateway_flags_do_not_apply_to_an_existing_config()
     {
         await File.WriteAllTextAsync(Path_("e2e.config.json"), "{}\n");
-        var outcome = await RunInitAsync(new InitOptions { Yes = true, Engines = ["mobile"], Gateway = "openrouter" });
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Engines = ["mobile"],
+                Gateway = "openrouter",
+            }
+        );
         Assert.Equal(0, outcome.ExitCode);
         Assert.Null(outcome.Engine);
         Assert.Null(outcome.Gateway);
         Assert.Equal("{}\n", Read("e2e.config.json"));
-        Assert.Contains("Ignoring --engine, --gateway: e2e.config.json exists, and these apply to a new config only", Output, StringComparison.Ordinal);
+        Assert.Contains(
+            "Ignoring --engine, --gateway: e2e.config.json exists, and these apply to a new config only",
+            Output,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public async Task Installs_the_skill_exactly_where_skills_says_on_a_re_run_leaving_earlier_locations_untouched()
     {
         WriteCopy(".agents/skills", "stale");
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Skills = [".claude/skills"], Mcp = [] })).ExitCode);
+        Assert.Equal(
+            0,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Skills = [".claude/skills"],
+                        Mcp = [],
+                    }
+                )
+            ).ExitCode
+        );
         Assert.Equal(BundledSkillMd(), Read(".claude/skills/e2e-dotnet/SKILL.md"));
         Assert.False(IsLink(Path_(".claude/skills/e2e-dotnet")));
         Assert.Equal("stale", Read(".agents/skills/e2e-dotnet/SKILL.md"));
@@ -206,7 +317,16 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // Partial: the flags have no --install, so they answer every question but that one.
     public async Task Partial_Refuses_to_run_without_a_terminal_and_without_yes_even_when_flags_answer_every_question()
     {
-        var outcome = await RunInitAsync(new InitOptions { Interactive = false, Engines = ["web"], Gateway = "none", Skills = [], Mcp = [] });
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Interactive = false,
+                Engines = ["web"],
+                Gateway = "none",
+                Skills = [],
+                Mcp = [],
+            }
+        );
         Assert.Equal(2, outcome.ExitCode);
         Assert.Equal(InitResult.NotInteractive, outcome.Result);
         Assert.Empty(Directory.EnumerateFileSystemEntries(Dir));
@@ -223,7 +343,11 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.Empty(Prompts.SelectCalls);
         Assert.Empty(Prompts.ConfirmCalls);
         Assert.Contains("needs an interactive terminal", Output, StringComparison.Ordinal);
-        Assert.Contains("pass --yes to accept the defaults (the web engine, the Vercel AI Gateway) or --yes with flags such as --engine for other answers", Output, StringComparison.Ordinal);
+        Assert.Contains(
+            "pass --yes to accept the defaults (the web engine, the Vercel AI Gateway) or --yes with flags such as --engine for other answers",
+            Output,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -250,23 +374,32 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Prompts.NextSelect("vercel");
         Prompts.NextConfirm(true, true);
         var restored = new List<string>();
-        var outcome = await RunInitAsync(new InitOptions
-        {
-            RunInstall = (directory, _) =>
+        var outcome = await RunInitAsync(
+            new InitOptions
             {
-                // Everything is written before the restore starts.
-                Assert.Contains("E2E.NUnit", Read(ProjectFile()), StringComparison.Ordinal);
-                Assert.True(File.Exists(Path_("ExampleTests.cs")));
-                Assert.NotNull(Json("e2e.config.json")["agents"]);
-                restored.Add(directory);
-                return Task.FromResult(0);
-            },
-        });
+                Ci = "none",
+                RunInstall = (directory, _) =>
+                {
+                    // Everything is written before the restore starts.
+                    Assert.Contains("E2E.NUnit", Read(ProjectFile()), StringComparison.Ordinal);
+                    Assert.True(File.Exists(Path_("ExampleTests.cs")));
+                    Assert.NotNull(Json("e2e.config.json")["agents"]);
+                    restored.Add(directory);
+                    return Task.FromResult(0);
+                },
+            }
+        );
         Assert.Equal(0, outcome.ExitCode);
         var gateway = Assert.Single(Prompts.SelectCalls);
         Assert.Contains("Which model gateway", gateway.Message, StringComparison.Ordinal);
         Assert.Equal("vercel", gateway.InitialValue);
-        Assert.Equal([new ConfirmCall("Apply these changes?", true), new ConfirmCall("Install dependencies with dotnet restore?", true)], Prompts.ConfirmCalls);
+        Assert.Equal(
+            [
+                new ConfirmCall("Apply these changes?", true),
+                new ConfirmCall("Install dependencies with dotnet restore?", true),
+            ],
+            Prompts.ConfirmCalls
+        );
         Assert.Equal([Dir], restored);
         Assert.Equal("gateway", (string?)Json("e2e.config.json")["agents"]!["default"]!["provider"]);
         Assert.Contains("Next: dotnet test", Output, StringComparison.Ordinal);
@@ -279,7 +412,9 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Prompts.Engines = ["web"];
         Prompts.NextSelect("vercel");
         Prompts.NextConfirm(true, false);
-        var outcome = await RunInitAsync(new InitOptions { RunInstall = (_, _) => throw new InvalidOperationException("restore must not run") });
+        var outcome = await RunInitAsync(
+            new InitOptions { RunInstall = (_, _) => throw new InvalidOperationException("restore must not run") }
+        );
         Assert.Equal(0, outcome.ExitCode);
         Assert.False(outcome.Install);
         Assert.Contains("Include=\"E2E\"", Read(ProjectFile()), StringComparison.Ordinal);
@@ -290,7 +425,14 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // Partial: the restore is a seam, so the failure is an exit code the test returns, and the Next line is not printed.
     public async Task Partial_Keeps_the_scaffold_and_returns_a_failure_when_installation_fails()
     {
-        var outcome = await RunInitAsync(new InitOptions { Yes = true, Install = true, RunInstall = (_, _) => Task.FromResult(1) });
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Install = true,
+                RunInstall = (_, _) => Task.FromResult(1),
+            }
+        );
         Assert.Equal(2, outcome.ExitCode);
         Assert.Equal(InitResult.InstallFailed, outcome.Result);
         Assert.True(outcome.Install);
@@ -308,13 +450,14 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Prompts.NextSelect("openai-compatible");
         Prompts.NextText(" http://127.0.0.1:11434/v1 ");
         Prompts.NextConfirm(true);
-        Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
+        Assert.Equal(0, (await RunInitAsync(new InitOptions { Ci = "none" })).ExitCode);
         var gateway = Assert.Single(Prompts.SelectCalls);
         Assert.Contains("Which model gateway", gateway.Message, StringComparison.Ordinal);
         Assert.Equal("vercel", gateway.InitialValue);
         Assert.Equal(
             ["vercel", "openrouter", "openai-compatible", "chatgpt", "copilot", "opencode-console", "grok", "none"],
-            gateway.Options.Select(option => option.Value));
+            gateway.Options.Select(option => option.Value)
+        );
         Assert.Equal("Vercel AI Gateway", gateway.Options[0].Label);
         Assert.Equal("http://127.0.0.1:11434/v1", Assert.Single(Prompts.TextCalls).Placeholder);
         var agent = Json("e2e.config.json")["agents"]!["default"]!;
@@ -328,7 +471,16 @@ public sealed partial class E2eInitTests : CliInitTestBase
     {
         Prompts.NextSelect("none");
         Prompts.NextConfirm(true);
-        var outcome = await RunInitAsync(new InitOptions { Engines = ["web"], Skills = [".claude/skills"], Mcp = [], Install = false });
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Engines = ["web"],
+                Skills = [".claude/skills"],
+                Mcp = [],
+                Ci = "none",
+                Install = false,
+            }
+        );
         Assert.Equal(0, outcome.ExitCode);
         Assert.Equal("web", outcome.Engine);
         Assert.Equal("none", outcome.Gateway);
@@ -350,7 +502,8 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Prompts.Mcp = null;
         Assert.Equal(
             new InitRunOutcome(0, InitResult.Cancelled, false, false, "mobile", "none", true, false),
-            await RunInitAsync(new InitOptions()));
+            await RunInitAsync(new InitOptions())
+        );
 
         Prompts.Engines = ["mobile"];
         Prompts.Mcp = [".mcp.json"];
@@ -380,6 +533,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
     [InlineData("endpoint")]
     [InlineData("skill")]
     [InlineData("mcp")]
+    [InlineData("ci")]
     [InlineData("files")]
     // Partial: the port has no install stage.
     public async Task Partial_Leaves_the_directory_untouched_when_cancelling_at_stage(string stage)
@@ -388,6 +542,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Prompts.Skills = stage == "skill" ? null : [".agents/skills"];
         Prompts.Mcp = stage == "mcp" ? null : [".mcp.json"];
         Prompts.NextSelect(stage == "gateway" ? null : "openai-compatible");
+        Prompts.NextSelect(stage == "ci" ? null : "github-actions");
         Prompts.NextText(stage == "endpoint" ? null : "http://127.0.0.1:11434/v1");
         Prompts.NextConfirm(stage != "files", null);
         Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
@@ -436,7 +591,10 @@ public sealed partial class E2eInitTests : CliInitTestBase
         await RunInitAsync();
         Assert.Equal("{ \"custom\": true }\n", Read("e2e.config.json"));
         Assert.Equal("// custom test\n", Read("ExampleTests.cs"));
-        Assert.Equal(older + "obj/\n.e2e/results/\n.e2e/report.json\n.e2e/ai-trace-*.json\n.e2e/videos/\n", Read(".gitignore"));
+        Assert.Equal(
+            older + "obj/\n.e2e/results/\n.e2e/report.json\n.e2e/ai-trace-*.json\n.e2e/videos/\n",
+            Read(".gitignore")
+        );
     }
 
     [Fact]
@@ -465,7 +623,11 @@ public sealed partial class E2eInitTests : CliInitTestBase
         await File.WriteAllTextAsync(Path_(".agents/skills/e2e-dotnet/references/setup.md"), "stale\n");
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
         Assert.Matches(SkillFrontmatter(), Read(".agents/skills/e2e-dotnet/SKILL.md"));
-        Assert.Contains("# Setting up e2e for .NET", Read(".agents/skills/e2e-dotnet/references/setup.md"), StringComparison.Ordinal);
+        Assert.Contains(
+            "# Setting up e2e for .NET",
+            Read(".agents/skills/e2e-dotnet/references/setup.md"),
+            StringComparison.Ordinal
+        );
         Assert.False(Exists(".claude"));
         Assert.Contains("Updated .agents/skills/e2e-dotnet/", Output, StringComparison.Ordinal);
     }
@@ -486,7 +648,11 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.Equal(Real(Path_(".agents/skills/e2e-dotnet")), Real(link));
         Assert.Equal(Read(".claude/skills/e2e-dotnet/SKILL.md"), Read(".agents/skills/e2e-dotnet/SKILL.md"));
         Assert.Contains("Created .agents/skills/e2e-dotnet/", Output, StringComparison.Ordinal);
-        Assert.Contains("Linked .claude/skills/e2e-dotnet -> ../../.agents/skills/e2e-dotnet", Output, StringComparison.Ordinal);
+        Assert.Contains(
+            "Linked .claude/skills/e2e-dotnet -> ../../.agents/skills/e2e-dotnet",
+            Output,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("(replaced", Output, StringComparison.Ordinal);
 
         ClearOutput();
@@ -511,7 +677,11 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.True(IsLink(link));
         Assert.Equal("../../.agents/skills/e2e-dotnet", new FileInfo(link).LinkTarget!.Replace('\\', '/'));
         Assert.Matches(SkillFrontmatter(), Read(".claude/skills/e2e-dotnet/SKILL.md"));
-        Assert.Contains("Linked .claude/skills/e2e-dotnet -> ../../.agents/skills/e2e-dotnet (replaced the copy)", Output, StringComparison.Ordinal);
+        Assert.Contains(
+            "Linked .claude/skills/e2e-dotnet -> ../../.agents/skills/e2e-dotnet (replaced the copy)",
+            Output,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("Updated .agents/skills/e2e-dotnet/", Output, StringComparison.Ordinal);
     }
 
@@ -546,7 +716,13 @@ public sealed partial class E2eInitTests : CliInitTestBase
         File.Delete(linked);
         Link(linked, Path.Combine("..", "..", "..", "mine.md"), directory: false);
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
-        Assert.Contains("Symlink, not touching: .claude/skills/e2e-dotnet/ (.claude/skills/e2e-dotnet/SKILL.md -> " + Real(mine) + ")", Output, StringComparison.Ordinal);
+        Assert.Contains(
+            "Symlink, not touching: .claude/skills/e2e-dotnet/ (.claude/skills/e2e-dotnet/SKILL.md -> "
+                + Real(mine)
+                + ")",
+            Output,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("Linked", Output, StringComparison.Ordinal);
         Assert.True(Directory.Exists(Path_(".claude/skills/e2e-dotnet")));
         Assert.True(IsLink(linked));
@@ -566,7 +742,10 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Link(Path_(".claude/skills"), Path.Combine("..", ".agents", "skills"), directory: true);
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
         Assert.Matches(SkillFrontmatter(), Read(".agents/skills/e2e-dotnet/SKILL.md"));
-        Assert.Equal(["e2e-dotnet"], Directory.EnumerateFileSystemEntries(Path_(".agents/skills")).Select(Path.GetFileName));
+        Assert.Equal(
+            ["e2e-dotnet"],
+            Directory.EnumerateFileSystemEntries(Path_(".agents/skills")).Select(Path.GetFileName)
+        );
         Assert.True(Directory.Exists(Path_(".agents/skills/e2e-dotnet")));
         Assert.False(IsLink(Path_(".agents/skills/e2e-dotnet")));
         Assert.True(IsLink(Path_(".claude/skills")));
@@ -600,19 +779,33 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.Empty(Prompts.SelectCalls);
         Assert.Equal(2, Prompts.MultiSelectCalls.Count);
         var mcpQuestion = Prompts.MultiSelects.Single(call => call.Message.Contains("MCP", StringComparison.Ordinal));
-        Assert.Equal([".mcp.json", ".cursor/mcp.json", ".codex/config.toml"], mcpQuestion.Options.Select(option => option.Value));
+        Assert.Equal(
+            [".mcp.json", ".cursor/mcp.json", ".codex/config.toml"],
+            mcpQuestion.Options.Select(option => option.Value)
+        );
         Assert.Equal([".mcp.json", ".cursor/mcp.json", ".codex/config.toml"], mcpQuestion.InitialValues);
         Assert.False(Exists(".agents"));
         Assert.False(Exists(".claude"));
         Assert.False(Exists(".mcp.json"));
         Assert.Contains("e2e guide", Output, StringComparison.Ordinal);
-        Assert.Contains("e2e init --yes --skills none --mcp .codex/config.toml,.mcp.json,.cursor/mcp.json", Output, StringComparison.Ordinal);
+        Assert.Contains(
+            "e2e init --yes --skills none --mcp .codex/config.toml,.mcp.json,.cursor/mcp.json",
+            Output,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public async Task Is_idempotent()
     {
-        await RunInitAsync(new InitOptions { Yes = true, Engines = ["web"], Gateway = "vercel" });
+        await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Engines = ["web"],
+                Gateway = "vercel",
+            }
+        );
         string[] files = ["e2e.config.json", ".gitignore", ".agents/skills/e2e-dotnet/SKILL.md"];
         var before = files.Select(Read).ToList();
         ClearOutput();
@@ -638,7 +831,11 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Directory.CreateDirectory(Path_(".agents/skills/e2e-dotnet/SKILL.md"));
         await File.WriteAllTextAsync(Path_(".agents/skills/e2e-dotnet/references"), "not a directory\n");
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
-        Assert.Contains("Broken, not touching: .agents/skills/e2e-dotnet/ (SKILL.md is a directory, references is a file)", Output, StringComparison.Ordinal);
+        Assert.Contains(
+            "Broken, not touching: .agents/skills/e2e-dotnet/ (SKILL.md is a directory, references is a file)",
+            Output,
+            StringComparison.Ordinal
+        );
         Assert.True(Directory.Exists(Path_(".agents/skills/e2e-dotnet/SKILL.md")));
         Assert.Equal("not a directory\n", Read(".agents/skills/e2e-dotnet/references"));
         Assert.False(Exists(".claude"));
@@ -660,8 +857,17 @@ public sealed partial class E2eInitTests : CliInitTestBase
             Assert.False(install.Existing);
             Assert.Empty(install.Obstacles);
             Assert.Equal(
-                bundled.Select(file => new SkillLink(location + "/e2e-dotnet/" + file.Relative, Path.Combine(Real(elsewhere), "skills", "e2e-dotnet", file.Relative.Replace('/', Path.DirectorySeparatorChar)))),
-                install.Links);
+                bundled.Select(file => new SkillLink(
+                    location + "/e2e-dotnet/" + file.Relative,
+                    Path.Combine(
+                        Real(elsewhere),
+                        "skills",
+                        "e2e-dotnet",
+                        file.Relative.Replace('/', Path.DirectorySeparatorChar)
+                    )
+                )),
+                install.Links
+            );
             Assert.False(Directory.Exists(Path.Combine(elsewhere, "skills")));
         }
         finally
@@ -678,7 +884,11 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Directory = "apps/web" }, target)).ExitCode);
         Assert.True(File.Exists(Path.Combine(target, "e2e.config.json")));
         Assert.True(File.Exists(Path.Combine(target, "web.csproj")));
-        Assert.Contains("namespace web;", await File.ReadAllTextAsync(Path.Combine(target, "ExampleTests.cs")), StringComparison.Ordinal);
+        Assert.Contains(
+            "namespace web;",
+            await File.ReadAllTextAsync(Path.Combine(target, "ExampleTests.cs")),
+            StringComparison.Ordinal
+        );
         Assert.Contains("e2e init apps/web", Output, StringComparison.Ordinal);
         Assert.Contains("Next: cd apps/web, then dotnet test", Output, StringComparison.Ordinal);
     }
@@ -687,13 +897,39 @@ public sealed partial class E2eInitTests : CliInitTestBase
     public async Task Quotes_a_directory_the_shell_would_otherwise_split_for_the_platform_it_runs_on()
     {
         var posix = Path.Combine(Dir, "apps", "my web");
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Directory = "apps/my web", Windows = false }, posix)).ExitCode);
+        Assert.Equal(
+            0,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Directory = "apps/my web",
+                        Windows = false,
+                    },
+                    posix
+                )
+            ).ExitCode
+        );
         Assert.Contains("Next: cd 'apps/my web', then dotnet test", Output, StringComparison.Ordinal);
         Assert.True(File.Exists(Path.Combine(posix, "e2e.config.json")));
 
         ClearOutput();
         var windows = Path.Combine(Dir, "my app");
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Directory = "my app", Windows = true }, windows)).ExitCode);
+        Assert.Equal(
+            0,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Directory = "my app",
+                        Windows = true,
+                    },
+                    windows
+                )
+            ).ExitCode
+        );
         Assert.Contains("Next: cd \"my app\", then dotnet test", Output, StringComparison.Ordinal);
     }
 
@@ -701,7 +937,10 @@ public sealed partial class E2eInitTests : CliInitTestBase
     public async Task Rejects_a_directory_argument_that_names_a_file()
     {
         await File.WriteAllTextAsync(Path_("notes.txt"), "");
-        Assert.Equal(2, (await RunInitAsync(new InitOptions { Yes = true, Directory = "notes.txt" }, Path_("notes.txt"))).ExitCode);
+        Assert.Equal(
+            2,
+            (await RunInitAsync(new InitOptions { Yes = true, Directory = "notes.txt" }, Path_("notes.txt"))).ExitCode
+        );
         Assert.Contains("notes.txt is a file, not a directory", Output, StringComparison.Ordinal);
     }
 
@@ -725,10 +964,26 @@ public sealed partial class E2eInitTests : CliInitTestBase
                 "NUnit3TestAdapter",
                 .. device ? new[] { "E2E.Mobile.NUnit" } : ["E2E", "E2E.NUnit"],
             ],
-            XDocument.Parse(Read(ProjectFile())).Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!));
-        Assert.All(XDocument.Parse(Read(ProjectFile())).Descendants("PackageReference").Where(reference => ((string)reference.Attribute("Include")!).StartsWith("E2E", StringComparison.Ordinal)), reference => Assert.Equal(range, (string)reference.Attribute("Version")!));
+            XDocument
+                .Parse(Read(ProjectFile()))
+                .Descendants("PackageReference")
+                .Select(reference => (string)reference.Attribute("Include")!)
+        );
+        Assert.All(
+            XDocument
+                .Parse(Read(ProjectFile()))
+                .Descendants("PackageReference")
+                .Where(reference =>
+                    ((string)reference.Attribute("Include")!).StartsWith("E2E", StringComparison.Ordinal)
+                ),
+            reference => Assert.Equal(range, (string)reference.Attribute("Version")!)
+        );
         Assert.Equal(ai, Json("e2e.config.json")["agents"] is not null);
-        Assert.Equal(ai, Read("ExampleTests.cs").Contains("// With the model key in the environment, uncomment:", StringComparison.Ordinal));
+        Assert.Equal(
+            ai,
+            Read("ExampleTests.cs")
+                .Contains("// With the model key in the environment, uncomment:", StringComparison.Ordinal)
+        );
         Assert.Empty(Prompts.TextCalls);
         Assert.Equal(engine == "web", Read("ExampleTests.cs").Contains("E2ETest", StringComparison.Ordinal));
         Assert.Equal(device, Read("ExampleTests.cs").Contains("MobileAppTest", StringComparison.Ordinal));
@@ -741,7 +996,9 @@ public sealed partial class E2eInitTests : CliInitTestBase
     public async Task Partial_Adds_only_the_missing_script_to_package_json_beside_an_existing_config_with_no_engine_or_gateway_packages()
     {
         await File.WriteAllTextAsync(Path_("e2e.config.json"), "{ \"custom\": true }\n");
-        await File.WriteAllTextAsync(Path_("existing-app.csproj"), """
+        await File.WriteAllTextAsync(
+            Path_("existing-app.csproj"),
+            """
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <TargetFramework>net10.0</TargetFramework>
@@ -750,11 +1007,21 @@ public sealed partial class E2eInitTests : CliInitTestBase
                 <PackageReference Include="E2E" Version="1.2.3" />
               </ItemGroup>
             </Project>
-            """);
+            """
+        );
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
-        var references = XDocument.Parse(Read("existing-app.csproj")).Descendants("PackageReference").ToDictionary(reference => (string)reference.Attribute("Include")!, reference => (string)reference.Attribute("Version")!);
+        var references = XDocument
+            .Parse(Read("existing-app.csproj"))
+            .Descendants("PackageReference")
+            .ToDictionary(
+                reference => (string)reference.Attribute("Include")!,
+                reference => (string)reference.Attribute("Version")!
+            );
         Assert.Equal("1.2.3", references["E2E"]);
-        Assert.Equal(["E2E", "E2E.NUnit", "Microsoft.NET.Test.Sdk", "NUnit", "NUnit3TestAdapter"], references.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["E2E", "E2E.NUnit", "Microsoft.NET.Test.Sdk", "NUnit", "NUnit3TestAdapter"],
+            references.Keys.Order(StringComparer.Ordinal)
+        );
         Assert.Equal("{ \"custom\": true }\n", Read("e2e.config.json"));
         Assert.False(File.Exists(Path_(ProjectFile())));
     }
@@ -775,9 +1042,17 @@ public sealed partial class E2eInitTests : CliInitTestBase
             "        <ProjectReference Include=\"..\\E2E.NUnit\\E2E.NUnit.csproj\" />",
             "    </ItemGroup>",
             "</Project>",
-            "");
+            ""
+        );
         await File.WriteAllTextAsync(Path_("existing-app.csproj"), original);
-        await RunInitAsync(new InitOptions { Yes = true, Engines = ["web"], Gateway = "vercel" });
+        await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Engines = ["web"],
+                Gateway = "vercel",
+            }
+        );
         var written = Read("existing-app.csproj");
         var range = Versions.DependencyRange(Versions.RunnerVersion);
         Assert.Equal(
@@ -787,8 +1062,10 @@ public sealed partial class E2eInitTests : CliInitTestBase
                     + "        <PackageReference Include=\"Microsoft.NET.Test.Sdk\" Version=\"17.14.1\" />\r\n"
                     + "        <PackageReference Include=\"NUnit3TestAdapter\" Version=\"6.3.0\" />\r\n"
                     + $"        <PackageReference Include=\"E2E\" Version=\"{range}\" />\r\n",
-                StringComparison.Ordinal),
-            written);
+                StringComparison.Ordinal
+            ),
+            written
+        );
         Assert.DoesNotContain("\n", written.Replace("\r\n", "", StringComparison.Ordinal), StringComparison.Ordinal);
     }
 
@@ -796,27 +1073,56 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // Partial: a reference goes after the last one, whatever order the file lists them in, and a file with none gets an item group.
     public async Task Partial_Appends_to_a_hand_ordered_devDependencies_block_and_to_scripts_even_when_they_sort()
     {
-        await File.WriteAllTextAsync(Path_("existing-app.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"xunit.v3.mtp-off\" Version=\"4.0.1\" />\n    <PackageReference Include=\"Microsoft.NET.Test.Sdk\" Version=\"17.14.1\" />\n  </ItemGroup>\n</Project>\n");
+        await File.WriteAllTextAsync(
+            Path_("existing-app.csproj"),
+            "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"xunit.v3.mtp-off\" Version=\"4.0.1\" />\n    <PackageReference Include=\"Microsoft.NET.Test.Sdk\" Version=\"17.14.1\" />\n  </ItemGroup>\n</Project>\n"
+        );
         await RunInitAsync();
-        var references = XDocument.Parse(Read("existing-app.csproj")).Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!).ToList();
+        var references = XDocument
+            .Parse(Read("existing-app.csproj"))
+            .Descendants("PackageReference")
+            .Select(reference => (string)reference.Attribute("Include")!)
+            .ToList();
         Assert.Equal(["xunit.v3.mtp-off", "Microsoft.NET.Test.Sdk"], references.Take(2));
         Assert.Equal(["xunit.runner.visualstudio", "E2E", "E2E.XUnit.V3"], references.Skip(2));
 
-        await File.WriteAllTextAsync(Path_("existing-app.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n  </PropertyGroup>\n</Project>\n");
+        await File.WriteAllTextAsync(
+            Path_("existing-app.csproj"),
+            "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n  </PropertyGroup>\n</Project>\n"
+        );
         await RunInitAsync();
         Assert.Equal(
-            "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n  </PropertyGroup>\n\n  <ItemGroup>\n    <PackageReference Include=\"Microsoft.NET.Test.Sdk\" Version=\"17.14.1\" />\n    <PackageReference Include=\"NUnit\" Version=\"5.0.0\" />\n    <PackageReference Include=\"NUnit3TestAdapter\" Version=\"6.3.0\" />\n    <PackageReference Include=\"E2E\" Version=\"" + Versions.DependencyRange(Versions.RunnerVersion) + "\" />\n    <PackageReference Include=\"E2E.NUnit\" Version=\"" + Versions.DependencyRange(Versions.RunnerVersion) + "\" />\n  </ItemGroup>\n</Project>\n",
-            Read("existing-app.csproj"));
+            "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n  </PropertyGroup>\n\n  <ItemGroup>\n    <PackageReference Include=\"Microsoft.NET.Test.Sdk\" Version=\"17.14.1\" />\n    <PackageReference Include=\"NUnit\" Version=\"5.0.0\" />\n    <PackageReference Include=\"NUnit3TestAdapter\" Version=\"6.3.0\" />\n    <PackageReference Include=\"E2E\" Version=\""
+                + Versions.DependencyRange(Versions.RunnerVersion)
+                + "\" />\n    <PackageReference Include=\"E2E.NUnit\" Version=\""
+                + Versions.DependencyRange(Versions.RunnerVersion)
+                + "\" />\n  </ItemGroup>\n</Project>\n",
+            Read("existing-app.csproj")
+        );
     }
 
     [Theory]
     [InlineData("<Project", "could not be read: ")]
     [InlineData("<Other />", "could not be read: the root element is not <Project>")]
     // Partial: the file is XML, so the reasons are the parser's and the missing <Project> root, not a JSON field.
-    public async Task Partial_Rejects_invalid_package_json_before_writing_and_says_what_is_wrong(string project, string reason)
+    public async Task Partial_Rejects_invalid_package_json_before_writing_and_says_what_is_wrong(
+        string project,
+        string reason
+    )
     {
         await File.WriteAllTextAsync(Path_("broken.csproj"), project);
-        Assert.Equal(2, (await RunInitAsync(new InitOptions { Yes = true, RunInstall = (_, _) => throw new InvalidOperationException("restore must not run") })).ExitCode);
+        Assert.Equal(
+            2,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        RunInstall = (_, _) => throw new InvalidOperationException("restore must not run"),
+                    }
+                )
+            ).ExitCode
+        );
         Assert.Equal(project, Read("broken.csproj"));
         Assert.Equal(["broken.csproj"], Directory.EnumerateFileSystemEntries(Dir).Select(Path.GetFileName));
         Assert.Contains(reason, Output, StringComparison.Ordinal);
@@ -832,19 +1138,35 @@ public sealed partial class E2eInitTests : CliInitTestBase
         var outcome = await RunInitAsync();
         Assert.Equal(InitResult.InvalidProject, outcome.Result);
         Assert.Contains("holds more than one project file (a.csproj, b.csproj)", Output, StringComparison.Ordinal);
-        Assert.Equal(["a.csproj", "b.csproj"], Directory.EnumerateFileSystemEntries(Dir).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["a.csproj", "b.csproj"],
+            Directory.EnumerateFileSystemEntries(Dir).Select(Path.GetFileName).Order(StringComparer.Ordinal)
+        );
     }
 
     [Fact]
     // .NET-only: --framework picks the framework of a new project; xUnit v3 is an executable with its own packages and attribute.
     public async Task Scaffolds_an_xUnit_v3_project_with_the_framework_flag()
     {
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Framework = "xunit", Gateway = "none" })).ExitCode);
+        Assert.Equal(
+            0,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Framework = "xunit",
+                        Gateway = "none",
+                    }
+                )
+            ).ExitCode
+        );
         var project = XDocument.Parse(Read(ProjectFile()));
         Assert.Equal("Exe", project.Descendants("OutputType").Single().Value);
         Assert.Equal(
             ["Microsoft.NET.Test.Sdk", "xunit.v3.mtp-off", "xunit.runner.visualstudio", "E2E", "E2E.XUnit.V3"],
-            project.Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!));
+            project.Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!)
+        );
         var example = Read("ExampleTests.cs");
         Assert.Contains("using E2E.XUnit.V3;", example, StringComparison.Ordinal);
         Assert.Contains("using Xunit;", example, StringComparison.Ordinal);
@@ -856,12 +1178,25 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // .NET-only: --framework tunit is an executable with the TUnit package and its attribute.
     public async Task Scaffolds_a_TUnit_project_with_the_framework_flag()
     {
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Framework = "tunit", Gateway = "none" })).ExitCode);
+        Assert.Equal(
+            0,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Framework = "tunit",
+                        Gateway = "none",
+                    }
+                )
+            ).ExitCode
+        );
         var project = XDocument.Parse(Read(ProjectFile()));
         Assert.Equal("Exe", project.Descendants("OutputType").Single().Value);
         Assert.Equal(
             ["TUnit", "E2E", "E2E.TUnit"],
-            project.Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!));
+            project.Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!)
+        );
         Assert.Equal("1.83.8", (string)project.Descendants("PackageReference").First().Attribute("Version")!);
         var example = Read("ExampleTests.cs");
         Assert.Contains("using E2E.TUnit;", example, StringComparison.Ordinal);
@@ -874,7 +1209,19 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // .NET-only: TUnit runs on Microsoft.Testing.Platform, which `dotnet test` refuses on .NET SDK 10+ without a global.json opt-in, so the next step is `dotnet run`. The project has one entry point: TUnit's own.
     public async Task Tells_a_TUnit_project_to_dotnet_run_and_adds_no_entry_point()
     {
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Framework = "tunit", Gateway = "none" })).ExitCode);
+        Assert.Equal(
+            0,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Framework = "tunit",
+                        Gateway = "none",
+                    }
+                )
+            ).ExitCode
+        );
         Assert.Contains("Next: dotnet run", Output, StringComparison.Ordinal);
         Assert.DoesNotContain("dotnet test", Output, StringComparison.Ordinal);
         Assert.False(File.Exists(Path.Combine(Dir, "Program.cs")));
@@ -886,8 +1233,25 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // .NET-only: each engine of the TUnit preset takes the adapter package of its own.
     public async Task Scaffolds_the_adapter_of_the_engine_for_TUnit(string engine, string adapter)
     {
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Framework = "tunit", Engines = [engine], Gateway = "none" })).ExitCode);
-        var references = XDocument.Parse(Read(ProjectFile())).Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!).ToList();
+        Assert.Equal(
+            0,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Framework = "tunit",
+                        Engines = [engine],
+                        Gateway = "none",
+                    }
+                )
+            ).ExitCode
+        );
+        var references = XDocument
+            .Parse(Read(ProjectFile()))
+            .Descendants("PackageReference")
+            .Select(reference => (string)reference.Attribute("Include")!)
+            .ToList();
         Assert.Contains(adapter, references);
         Assert.Contains("TUnit", references);
         Assert.DoesNotContain("E2E.NUnit", references);
@@ -901,22 +1265,47 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // .NET-only: an existing project keeps its framework, so init adds that framework's adapter and not the other one's.
     public async Task Keeps_the_framework_an_existing_project_uses(string marker, string adapter)
     {
-        await File.WriteAllTextAsync(Path_("existing-app.csproj"), $"<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"{marker}\" Version=\"1.0.0\" />\n  </ItemGroup>\n</Project>\n");
+        await File.WriteAllTextAsync(
+            Path_("existing-app.csproj"),
+            $"<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"{marker}\" Version=\"1.0.0\" />\n  </ItemGroup>\n</Project>\n"
+        );
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
-        var references = XDocument.Parse(Read("existing-app.csproj")).Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!).ToList();
+        var references = XDocument
+            .Parse(Read("existing-app.csproj"))
+            .Descendants("PackageReference")
+            .Select(reference => (string)reference.Attribute("Include")!)
+            .ToList();
         Assert.Contains(adapter, references);
-        Assert.DoesNotContain(references, reference => reference is "E2E.NUnit" or "E2E.XUnit.V3" or "E2E.TUnit" && reference != adapter);
+        Assert.DoesNotContain(references, reference =>
+            reference is "E2E.NUnit" or "E2E.XUnit.V3" or "E2E.TUnit" && reference != adapter
+        );
         Assert.Equal(marker == "NUnit", references.Contains("NUnit3TestAdapter"));
-        Assert.Equal(marker.StartsWith("xunit", StringComparison.Ordinal), references.Contains("xunit.runner.visualstudio"));
+        Assert.Equal(
+            marker.StartsWith("xunit", StringComparison.Ordinal),
+            references.Contains("xunit.runner.visualstudio")
+        );
     }
 
     [Fact]
     // .NET-only: a flag for the other framework would put two test frameworks in one project.
     public async Task Refuses_a_framework_flag_that_differs_from_the_framework_the_project_uses()
     {
-        var project = "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"xunit.v3.mtp-off\" Version=\"4.0.1\" />\n  </ItemGroup>\n</Project>\n";
+        var project =
+            "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"xunit.v3.mtp-off\" Version=\"4.0.1\" />\n  </ItemGroup>\n</Project>\n";
         await File.WriteAllTextAsync(Path_("existing-app.csproj"), project);
-        Assert.Equal(2, (await RunInitAsync(new InitOptions { Yes = true, Framework = "nunit", Gateway = "none" })).ExitCode);
+        Assert.Equal(
+            2,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Framework = "nunit",
+                        Gateway = "none",
+                    }
+                )
+            ).ExitCode
+        );
         Assert.Equal(project, Read("existing-app.csproj"));
     }
 
@@ -924,9 +1313,16 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // .NET-only: another xunit.v3 package already makes the project xUnit v3.
     public async Task Adds_no_second_xunit_v3_package_beside_xunit_v3()
     {
-        await File.WriteAllTextAsync(Path_("existing-app.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"xunit.v3\" Version=\"4.0.1\" />\n  </ItemGroup>\n</Project>\n");
+        await File.WriteAllTextAsync(
+            Path_("existing-app.csproj"),
+            "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"xunit.v3\" Version=\"4.0.1\" />\n  </ItemGroup>\n</Project>\n"
+        );
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
-        var references = XDocument.Parse(Read("existing-app.csproj")).Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!).ToList();
+        var references = XDocument
+            .Parse(Read("existing-app.csproj"))
+            .Descendants("PackageReference")
+            .Select(reference => (string)reference.Attribute("Include")!)
+            .ToList();
         Assert.DoesNotContain("xunit.v3.mtp-off", references);
         Assert.Contains("E2E.XUnit.V3", references);
     }
@@ -935,7 +1331,10 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // .NET-only: the comments before <Project> stay when init adds a reference.
     public async Task Keeps_a_comment_before_the_project_element()
     {
-        await File.WriteAllTextAsync(Path_("existing-app.csproj"), "<!-- license -->\n<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"NUnit\" Version=\"5.0.0\" />\n  </ItemGroup>\n</Project>\n");
+        await File.WriteAllTextAsync(
+            Path_("existing-app.csproj"),
+            "<!-- license -->\n<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"NUnit\" Version=\"5.0.0\" />\n  </ItemGroup>\n</Project>\n"
+        );
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
         Assert.StartsWith("<!-- license -->\n<Project", Read("existing-app.csproj"), StringComparison.Ordinal);
     }
@@ -958,7 +1357,8 @@ public sealed partial class E2eInitTests : CliInitTestBase
                     return Task.FromResult(0);
                 },
             },
-            cancellationToken: interrupt.Token);
+            cancellationToken: interrupt.Token
+        );
         Assert.Equal(130, outcome.ExitCode);
         Assert.True(File.Exists(Path_(ProjectFile())));
     }

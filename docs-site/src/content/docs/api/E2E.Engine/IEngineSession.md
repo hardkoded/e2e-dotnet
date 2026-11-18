@@ -538,6 +538,31 @@ Task OpenAsync(string url, CancellationToken cancellationToken)
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Engine_IEngineSession_OpenLinkAsync_"></a>
+<a id="E2E_Engine_IEngineSession_OpenLinkAsync_System_String_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### OpenLinkAsync(string, OperationContext, CancellationToken)
+
+
+```csharp
+Task OpenLinkAsync(string url, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+Opens a link in the app under test, as a deep link or a universal link would: `App.OpenAsync(path)` on a target that declares
+`app.linkBase` lands here with the link joined and its scheme checked. Engines that declare [OpenLink](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_OpenLink)
+implement it. Upstream's `session.openLink`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `url` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_PerformAsync_"></a>
 <a id="E2E_Engine_IEngineSession_PerformAsync_E2E_Engine_SemanticNode_E2E_Engine_LocatorAction_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
 
@@ -676,6 +701,33 @@ Sends a key to whatever holds focus. The harness has already validated the key.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Engine_IEngineSession_ReadStyleAsync_"></a>
+<a id="E2E_Engine_IEngineSession_ReadStyleAsync_E2E_Engine_SemanticNode_System_Collections_Generic_IReadOnlyList_System_String__E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### `ReadStyleAsync(SemanticNode, IReadOnlyList<string>, OperationContext, CancellationToken)`
+
+
+```csharp
+Task<IReadOnlyDictionary<string, string>> ReadStyleAsync(SemanticNode node, IReadOnlyList<string> properties, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+Reads only the requested, allow-listed rendered properties ([ComputedStyleProperties](/api/E2E.Engine/ComputedStyles/#E2E_Engine_ComputedStyles_ComputedStyleProperties)) of a node this engine
+minted, without changing app state, and returns a string for every property requested. Throw `NODE_STALE` if the node no longer
+binds. The harness redacts the values before a tool sees them. Engines that declare [ComputedStyle](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_ComputedStyle)
+implement it; the default refuses with `UNSUPPORTED_CAPABILITY`. Upstream's `readStyle(ref, properties, operation)`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `node` | [SemanticNode](/api/E2E.Engine/SemanticNode/) |  |
+| `properties` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;IReadOnlyDictionary&lt;string, string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Engine_IEngineSession_ResizeAsync_"></a>
 <a id="E2E_Engine_IEngineSession_ResizeAsync_E2E_Engine_TraceViewport_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>

@@ -20,7 +20,11 @@ internal sealed record PromptOption(string Value, string Label, string? Hint = n
 internal interface IInitPrompts
 {
     /// <summary>Asks for any number of the options; <paramref name="initialValues"/> are the ones chosen to start with.</summary>
-    IReadOnlyList<string>? MultiSelect(string message, IReadOnlyList<PromptOption> options, IReadOnlyList<string> initialValues);
+    IReadOnlyList<string>? MultiSelect(
+        string message,
+        IReadOnlyList<PromptOption> options,
+        IReadOnlyList<string> initialValues
+    );
 
     /// <summary>Asks for one of the options; <paramref name="initialValue"/> is the one chosen to start with.</summary>
     string? Select(string message, IReadOnlyList<PromptOption> options, string initialValue);
@@ -38,17 +42,30 @@ internal interface IInitPrompts
 /// </summary>
 internal sealed class ConsolePrompts(TextReader input, TextWriter output) : IInitPrompts
 {
-    public IReadOnlyList<string>? MultiSelect(string message, IReadOnlyList<PromptOption> options, IReadOnlyList<string> initialValues)
+    public IReadOnlyList<string>? MultiSelect(
+        string message,
+        IReadOnlyList<PromptOption> options,
+        IReadOnlyList<string> initialValues
+    )
     {
         while (true)
         {
             output.WriteLine(Program.Clean(message));
             for (var i = 0; i < options.Count; i++)
             {
-                output.WriteLine("  " + (i + 1).ToString(CultureInfo.InvariantCulture) + ") [" + (initialValues.Contains(options[i].Value) ? "x" : " ") + "] " + Describe(options[i]));
+                output.WriteLine(
+                    "  "
+                        + (i + 1).ToString(CultureInfo.InvariantCulture)
+                        + ") ["
+                        + (initialValues.Contains(options[i].Value) ? "x" : " ")
+                        + "] "
+                        + Describe(options[i])
+                );
             }
 
-            output.Write("Numbers or names separated by commas, Enter for the marked ones, none for none, q to cancel: ");
+            output.Write(
+                "Numbers or names separated by commas, Enter for the marked ones, none for none, q to cancel: "
+            );
             var line = input.ReadLine()?.Trim();
             if (line is null || line.Equals("q", StringComparison.OrdinalIgnoreCase))
             {
@@ -95,7 +112,13 @@ internal sealed class ConsolePrompts(TextReader input, TextWriter output) : IIni
             output.WriteLine(Program.Clean(message));
             for (var i = 0; i < options.Count; i++)
             {
-                output.WriteLine("  " + (i + 1).ToString(CultureInfo.InvariantCulture) + ") " + Describe(options[i]) + (options[i].Value == initialValue ? " (default)" : ""));
+                output.WriteLine(
+                    "  "
+                        + (i + 1).ToString(CultureInfo.InvariantCulture)
+                        + ") "
+                        + Describe(options[i])
+                        + (options[i].Value == initialValue ? " (default)" : "")
+                );
             }
 
             output.Write("Number or name, Enter for the default, q to cancel: ");
@@ -156,12 +179,18 @@ internal sealed class ConsolePrompts(TextReader input, TextWriter output) : IIni
                 return initialValue;
             }
 
-            if (line.Equals("y", StringComparison.OrdinalIgnoreCase) || line.Equals("yes", StringComparison.OrdinalIgnoreCase))
+            if (
+                line.Equals("y", StringComparison.OrdinalIgnoreCase)
+                || line.Equals("yes", StringComparison.OrdinalIgnoreCase)
+            )
             {
                 return true;
             }
 
-            if (line.Equals("n", StringComparison.OrdinalIgnoreCase) || line.Equals("no", StringComparison.OrdinalIgnoreCase))
+            if (
+                line.Equals("n", StringComparison.OrdinalIgnoreCase)
+                || line.Equals("no", StringComparison.OrdinalIgnoreCase)
+            )
             {
                 return false;
             }
@@ -171,10 +200,13 @@ internal sealed class ConsolePrompts(TextReader input, TextWriter output) : IIni
     }
 
     private static string Describe(PromptOption option) =>
-        Program.Clean(option.Label == option.Value ? option.Label : option.Label + " (" + option.Value + ")") + (option.Hint is null ? "" : ": " + Program.Clean(option.Hint));
+        Program.Clean(option.Label == option.Value ? option.Label : option.Label + " (" + option.Value + ")")
+        + (option.Hint is null ? "" : ": " + Program.Clean(option.Hint));
 
     private static PromptOption? Find(IReadOnlyList<PromptOption> options, string word) =>
-        int.TryParse(word, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) && number >= 1 && number <= options.Count
+        int.TryParse(word, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number)
+        && number >= 1
+        && number <= options.Count
             ? options[number - 1]
             : options.FirstOrDefault(option => option.Value.Equals(word, StringComparison.OrdinalIgnoreCase));
 }

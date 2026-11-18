@@ -43,7 +43,10 @@ public sealed class E2eModelsTests : IDisposable
     public async Task Raises_the_missing_login_error_naming_how_to_sign_in_when_there_is_none()
     {
         var none = await Assert.ThrowsAsync<OAuthException>(() => RunAsync("models"));
-        Assert.Equal("no login is stored; sign in with e2e login <openai|github-copilot|opencode-console|spacexai>, or set OPENCODE_API_KEY", none.Message);
+        Assert.Equal(
+            "no login is stored; sign in with e2e login <openai|github-copilot|opencode-console|spacexai>, or set OPENCODE_API_KEY",
+            none.Message
+        );
 
         var named = await Assert.ThrowsAsync<OAuthException>(() => RunAsync("models", "spacexai"));
         Assert.Equal("no SpaceXAI login is stored; run `e2e login spacexai`", named.Message);
@@ -52,40 +55,65 @@ public sealed class E2eModelsTests : IDisposable
     [Fact]
     public async Task Lists_a_provider_whose_API_key_is_set_alongside_the_stored_logins()
     {
-        Environment.SetEnvironmentVariable(CredentialStores.EnvironmentVariable, """{ "spacexai": { "access": "x", "refresh": "", "expires": 0 } }""");
+        Environment.SetEnvironmentVariable(
+            CredentialStores.EnvironmentVariable,
+            """{ "spacexai": { "access": "x", "refresh": "", "expires": 0 } }"""
+        );
         Environment.SetEnvironmentVariable("OPENCODE_API_KEY", "oc_sk_env");
-        OAuthProviders.Replacements["opencode-console"] = new ModelsDouble("opencode-console", "OpenCode Console", () => [new SubscriptionModel("go/deepseek-v4.1-flash")]) { KeyVariable = "OPENCODE_API_KEY" };
-        OAuthProviders.Replacements["spacexai"] = new ModelsDouble("spacexai", "SpaceXAI", () => [new SubscriptionModel("grok-4")]);
+        OAuthProviders.Replacements["opencode-console"] = new ModelsDouble("opencode-console", "OpenCode Console", () =>
+            [new SubscriptionModel("go/deepseek-v4.1-flash")]
+        )
+        {
+            KeyVariable = "OPENCODE_API_KEY",
+        };
+        OAuthProviders.Replacements["spacexai"] = new ModelsDouble("spacexai", "SpaceXAI", () =>
+            [new SubscriptionModel("grok-4")]
+        );
 
         var (code, stdout, _) = await RunAsync("models");
 
         Assert.Equal(0, code);
-        Assert.Equal("OpenCode Console (opencode-console): 1 model\n  go/deepseek-v4.1-flash\n\nSpaceXAI (spacexai): 1 model\n  grok-4\n", stdout);
+        Assert.Equal(
+            "OpenCode Console (opencode-console): 1 model\n  go/deepseek-v4.1-flash\n\nSpaceXAI (spacexai): 1 model\n  grok-4\n",
+            stdout
+        );
     }
 
     [Fact]
     public async Task Prints_one_aligned_line_per_model_with_vendor_text_stripped_of_terminal_controls_and_keeps_going_past_a_failing_provider()
     {
         Environment.SetEnvironmentVariable(CredentialStores.EnvironmentVariable, Logins);
-        OAuthProviders.Replacements["github-copilot"] = new ModelsDouble("github-copilot", "GitHub Copilot", () => throw new OAuthException(OAuthException.FlowFailed, "GitHub Copilot did not list its models: 503: down"));
-        OAuthProviders.Replacements["spacexai"] = new ModelsDouble(
-            "spacexai",
-            "SpaceXAI",
-            () =>
+        OAuthProviders.Replacements["github-copilot"] = new ModelsDouble("github-copilot", "GitHub Copilot", () =>
+            throw new OAuthException(OAuthException.FlowFailed, "GitHub Copilot did not list its models: 503: down")
+        );
+        OAuthProviders.Replacements["spacexai"] = new ModelsDouble("spacexai", "SpaceXAI", () =>
             [
                 new SubscriptionModel("grok-4", Detail: "vision; also grok-4-latest"),
                 new SubscriptionModel("grok-4-fast\u001b[31m", "grok-4-fast\u001b[31m"),
                 new SubscriptionModel("grok-3"),
-            ]);
+            ]
+        );
 
         var (code, stdout, stderr) = await RunAsync("models");
 
         Assert.Equal(1, code);
-        Assert.Contains("GitHub Copilot (github-copilot): GitHub Copilot did not list its models: 503: down\n", stderr, StringComparison.Ordinal);
         Assert.Contains(
-            string.Join('\n', "SpaceXAI (spacexai): 3 models", "  grok-4       vision; also grok-4-latest", "  grok-4-fast", "  grok-3", ""),
+            "GitHub Copilot (github-copilot): GitHub Copilot did not list its models: 503: down\n",
+            stderr,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            string.Join(
+                '\n',
+                "SpaceXAI (spacexai): 3 models",
+                "  grok-4       vision; also grok-4-latest",
+                "  grok-4-fast",
+                "  grok-3",
+                ""
+            ),
             stdout,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain('\u001b', stdout);
 
         OAuthProviders.Replacements["spacexai"] = new ModelsDouble("spacexai", "SpaceXAI", () => []);
@@ -98,12 +126,20 @@ public sealed class E2eModelsTests : IDisposable
     {
         var stdout = new LineFeedWriter();
         var stderr = new LineFeedWriter();
-        var code = await Program.RunAsync(args, stdout, stderr, TextReader.Null, interactive: false, CancellationToken.None);
+        var code = await Program.RunAsync(
+            args,
+            stdout,
+            stderr,
+            TextReader.Null,
+            interactive: false,
+            CancellationToken.None
+        );
         return (code, stdout.ToString(), stderr.ToString());
     }
 
     /// <summary>A provider that lists what its callback says, or fails with its callback's error.</summary>
-    private sealed class ModelsDouble(string id, string name, Func<IReadOnlyList<SubscriptionModel>> models) : IOAuthProvider
+    private sealed class ModelsDouble(string id, string name, Func<IReadOnlyList<SubscriptionModel>> models)
+        : IOAuthProvider
     {
         public string Id => id;
 
@@ -113,15 +149,24 @@ public sealed class E2eModelsTests : IDisposable
 
         public string? ApiKeyEnv => KeyVariable;
 
-        public Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken) =>
-            throw new InvalidOperationException("a login is never started here");
+        public Task<OAuthCredentials> LoginAsync(
+            OAuthLoginCallbacks callbacks,
+            OAuthLoginOptions options,
+            CancellationToken cancellationToken
+        ) => throw new InvalidOperationException("a login is never started here");
 
         public Task<OAuthCredentials> RefreshAsync(OAuthCredentials credentials, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("a login is never refreshed here");
 
-        public Task PrepareAsync(HttpRequestMessage request, OAuthCredentials credentials, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PrepareAsync(
+            HttpRequestMessage request,
+            OAuthCredentials credentials,
+            CancellationToken cancellationToken
+        ) => Task.CompletedTask;
 
-        public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(HttpClient http, CancellationToken cancellationToken) =>
-            Task.FromResult(models());
+        public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+            HttpClient http,
+            CancellationToken cancellationToken
+        ) => Task.FromResult(models());
     }
 }

@@ -201,7 +201,15 @@ public static partial class SnapshotProjection
     private const double StatusIconMaxWidthShare = 0.5;
 
     /// <summary>The classes a status icon is built from: it shows, and offers nothing to act on.</summary>
-    private static readonly HashSet<string> StatusIconKinds = ["text-view", "image-view", "frame-layout", "linear-layout", "view", "view-group"];
+    private static readonly HashSet<string> StatusIconKinds =
+    [
+        "text-view",
+        "image-view",
+        "frame-layout",
+        "linear-layout",
+        "view",
+        "view-group",
+    ];
 
     /// <summary>One element-type spelling for <c>NavigationBar</c>, <c>XCUIElementTypeNavigationBar</c>, <c>navigation-bar</c>, and <c>android.widget.NavigationBar</c> alike.</summary>
     internal static string NormalizeKind(string type)
@@ -222,7 +230,13 @@ public static partial class SnapshotProjection
     /// nodes (see <see cref="KeyboardSide"/>) and the focused node, the field the keyboard types into: the platform keeps
     /// it above the keyboard, and on iOS its reported frame can lag behind where it moved to.
     /// </summary>
-    public static ProjectedSnapshot ProjectSnapshot(IReadOnlyList<RawNode> raw, Func<string> mintId, ViewportSize? publishedViewport = null, long? refsGeneration = null, Rect? keyboard = null)
+    public static ProjectedSnapshot ProjectSnapshot(
+        IReadOnlyList<RawNode> raw,
+        Func<string> mintId,
+        ViewportSize? publishedViewport = null,
+        long? refsGeneration = null,
+        Rect? keyboard = null
+    )
     {
         var viewport = publishedViewport ?? ViewportOf(raw);
         var parents = ParentPositions(raw);
@@ -264,17 +278,27 @@ public static partial class SnapshotProjection
             var source = raw[position];
             var id = mintId();
             var kind = KindOf(source);
-            var onKeyboard = parentOnKeyboard || keyboardSide.Contains(position) || source.KeyboardOwned == true || IsKeyboardElement(source);
+            var onKeyboard =
+                parentOnKeyboard
+                || keyboardSide.Contains(position)
+                || source.KeyboardOwned == true
+                || IsKeyboardElement(source);
             var android = IsAndroidClass(source.Type);
 
             // The role React Native spelled into the value outranks the platform's `Other`: it is the role
             // the app declared, and iOS had no trait for it. Only an `Other` carries that encoding; a
             // native control's value is its own.
             var spelled = android || kind != "other" ? null : ReactNativeValue(source.Value);
-            var role = EditableRole(spelled?.Role ?? DescribedRole(source) ?? RoleOf(kind, android, parent?.Kind), source.Editable);
+            var role = EditableRole(
+                spelled?.Role ?? DescribedRole(source) ?? RoleOf(kind, android, parent?.Kind),
+                source.Editable
+            );
             var editable = source.Editable == true || (role is not null && TextInputRoles.Contains(role));
 
-            var value = ShowsHint(source, android, editable) ? "" : spelled is null ? source.Value : spelled.Value;
+            var value =
+                ShowsHint(source, android, editable) ? ""
+                : spelled is null ? source.Value
+                : spelled.Value;
 
             // iOS names a secure field by class; UIAutomator flags a password `EditText` by attribute, the
             // class being the plain one.
@@ -334,8 +358,15 @@ public static partial class SnapshotProjection
                 States = reported,
             };
             index.Add(entry);
-            var childNodes = kids.Where(child => child != folded?.Child).Select(child => Build(child, entry, onKeyboard)).ToList();
-            if (!onKeyboard && source.Focused != true && UnderKeyboard(source.Rect, keyboard) && childNodes.All(child => child.States?.Hidden == true))
+            var childNodes = kids.Where(child => child != folded?.Child)
+                .Select(child => Build(child, entry, onKeyboard))
+                .ToList();
+            if (
+                !onKeyboard
+                && source.Focused != true
+                && UnderKeyboard(source.Rect, keyboard)
+                && childNodes.All(child => child.States?.Hidden == true)
+            )
             {
                 reported["hidden"] = true;
             }
@@ -344,7 +375,9 @@ public static partial class SnapshotProjection
             // holds. Android echoes a text view's label as its value, which would render every line twice,
             // so that echo is dropped; a field keeps a value equal to its label, since iOS names an
             // unlabeled field by its text and the value is what a test reads.
-            var showsValue = !(secure || string.IsNullOrEmpty(value) || (android && !editable && value == source.Label));
+            var showsValue = !(
+                secure || string.IsNullOrEmpty(value) || (android && !editable && value == source.Label)
+            );
             var node = new SemanticNode
             {
                 Ref = id,
@@ -385,7 +418,13 @@ public static partial class SnapshotProjection
             .Where(position => !IsSystemBar(raw[position], viewport, () => DisplayOnly(position)))
             .Select(position => Build(position, null, false))
             .ToList();
-        return new ProjectedSnapshot { Roots = rootNodes, Index = index, Viewport = viewport, RefsGeneration = refsGeneration };
+        return new ProjectedSnapshot
+        {
+            Roots = rootNodes,
+            Index = index,
+            Viewport = viewport,
+            RefsGeneration = refsGeneration,
+        };
     }
 
     /// <summary>Platform element types that are the soft keyboard or one of its keys, as agent-device names them.</summary>
@@ -396,7 +435,8 @@ public static partial class SnapshotProjection
     /// keyboard around them), or the suggestion strip UIKit draws along its top edge (<c>UISystemInputAssistantView</c>),
     /// which XCTest lists beside the keyboard, not inside it.
     /// </summary>
-    private static bool IsKeyboardElement(RawNode node) => KeyboardKinds.Contains(KindOf(node)) || node.Identifier == "SystemInputAssistantView";
+    private static bool IsKeyboardElement(RawNode node) =>
+        KeyboardKinds.Contains(KindOf(node)) || node.Identifier == "SystemInputAssistantView";
 
     /// <summary>
     /// The band the soft keyboard covers: the frame the capture's producer measured or derived, else the keyboard elements
@@ -406,7 +446,13 @@ public static partial class SnapshotProjection
     /// leaves no band, whatever the tree holds. <paramref name="kind"/>, <paramref name="frame"/> and <paramref name="visible"/>
     /// are the capture's keyboard fact: its kind, its frame, and what a <c>visibility-only</c> probe says.
     /// </summary>
-    public static Rect? KeyboardBand(IReadOnlyList<RawNode> nodes, string? kind, Rect? frame, bool? visible, ViewportSize? viewport)
+    public static Rect? KeyboardBand(
+        IReadOnlyList<RawNode> nodes,
+        string? kind,
+        Rect? frame,
+        bool? visible,
+        ViewportSize? viewport
+    )
     {
         if (kind is "visible" or "derived")
         {
@@ -419,7 +465,9 @@ public static partial class SnapshotProjection
         }
 
         var boards = nodes
-            .Where(node => node.Rect is { Width: > 0, Height: > 0 } && node.VisibleToUser != false && IsKeyboardElement(node))
+            .Where(node =>
+                node.Rect is { Width: > 0, Height: > 0 } && node.VisibleToUser != false && IsKeyboardElement(node)
+            )
             .Select(node => node.Rect!.Value)
             .ToList();
         if (boards.Count == 0)
@@ -463,7 +511,8 @@ public static partial class SnapshotProjection
         IReadOnlyList<int?> parents,
         IReadOnlyList<int> roots,
         Dictionary<int, List<int>> children,
-        Rect band)
+        Rect band
+    )
     {
         var side = new HashSet<int>();
         for (var position = 0; position < raw.Count; position++)
@@ -474,7 +523,10 @@ public static partial class SnapshotProjection
             }
 
             var parent = parents[position];
-            IReadOnlyList<int> siblings = parent is not { } owner ? roots : children.TryGetValue(owner, out var below) ? below : [];
+            IReadOnlyList<int> siblings =
+                parent is not { } owner ? roots
+                : children.TryGetValue(owner, out var below) ? below
+                : [];
             foreach (var sibling in siblings)
             {
                 if (sibling > position && raw[sibling].Rect is { } rect && rect.Y >= band.Y)
@@ -542,13 +594,14 @@ public static partial class SnapshotProjection
     /// viewport; it carries no name of its own, the foreground app being reported as the snapshot's
     /// location.
     /// </summary>
-    public static SemanticNode ScreenRoot(IReadOnlyList<SemanticNode> roots, ViewportSize viewport) => new()
-    {
-        Ref = RootId,
-        Role = "screen",
-        Rect = new BoundingBox(0, 0, viewport.Width, viewport.Height),
-        Children = roots,
-    };
+    public static SemanticNode ScreenRoot(IReadOnlyList<SemanticNode> roots, ViewportSize viewport) =>
+        new()
+        {
+            Ref = RootId,
+            Role = "screen",
+            Rect = new BoundingBox(0, 0, viewport.Width, viewport.Height),
+            Children = roots,
+        };
 
     /// <summary>
     /// The visible screen's title. On iOS, the navigation bar's identifier when a text inside the bar shows
@@ -561,7 +614,9 @@ public static partial class SnapshotProjection
     public static string? ScreenTitle(ProjectedSnapshot snapshot)
     {
         var bar = snapshot.Index.FirstOrDefault(entry => entry.Kind == "navigation-bar")
-            ?? snapshot.Index.FirstOrDefault(entry => AndroidTitleIds.Any(suffix => entry.Raw.Identifier?.EndsWith(suffix, StringComparison.Ordinal) == true));
+            ?? snapshot.Index.FirstOrDefault(entry =>
+                AndroidTitleIds.Any(suffix => entry.Raw.Identifier?.EndsWith(suffix, StringComparison.Ordinal) == true)
+            );
         if (bar is null)
         {
             return null;
@@ -573,8 +628,11 @@ public static partial class SnapshotProjection
         if (bar.Kind == "navigation-bar")
         {
             var identifier = TextOf(bar.Raw.Identifier);
-            var shown = identifier is not null
-                && snapshot.Index.Any(entry => entry.Node.Role == "text" && entry.Raw.Label == identifier && IsWithin(entry, bar));
+            var shown =
+                identifier is not null
+                && snapshot.Index.Any(entry =>
+                    entry.Node.Role == "text" && entry.Raw.Label == identifier && IsWithin(entry, bar)
+                );
             return shown ? identifier : null;
         }
 
@@ -584,7 +642,11 @@ public static partial class SnapshotProjection
             return label;
         }
 
-        return snapshot.Index.FirstOrDefault(entry => entry.Node.Role == "text" && TextOf(entry.Raw.Label) is not null && IsWithin(entry, bar))?.Raw.Label;
+        return snapshot
+            .Index.FirstOrDefault(entry =>
+                entry.Node.Role == "text" && TextOf(entry.Raw.Label) is not null && IsWithin(entry, bar)
+            )
+            ?.Raw.Label;
     }
 
     /// <summary>True when <paramref name="entry"/> is a strict descendant of <paramref name="ancestor"/>.</summary>
@@ -647,7 +709,11 @@ public static partial class SnapshotProjection
         }
 
         rest.AddRange(parts.Skip(position));
-        return new SpelledValue(role, new SpelledStates(checkedState, expanded), rest.Count == 0 ? null : string.Join(", ", rest));
+        return new SpelledValue(
+            role,
+            new SpelledStates(checkedState, expanded),
+            rest.Count == 0 ? null : string.Join(", ", rest)
+        );
     }
 
     /// <summary>
@@ -658,7 +724,8 @@ public static partial class SnapshotProjection
     private static string KindOf(RawNode raw) => NormalizeKind(raw.Type ?? raw.Role ?? "");
 
     /// <summary>True when a raw type is a qualified Android class name.</summary>
-    private static bool IsAndroidClass(string? type) => type is not null && type.Contains('.', StringComparison.Ordinal);
+    private static bool IsAndroidClass(string? type) =>
+        type is not null && type.Contains('.', StringComparison.Ordinal);
 
     /// <summary>
     /// Contract role for one platform element type. XCTest reports the items of a tab bar or segmented
@@ -674,7 +741,8 @@ public static partial class SnapshotProjection
 
         if (android)
         {
-            return AndroidRoleMap.GetValueOrDefault(kind) ?? (kind.EndsWith("layout", StringComparison.Ordinal) ? "group" : kind);
+            return AndroidRoleMap.GetValueOrDefault(kind)
+                ?? (kind.EndsWith("layout", StringComparison.Ordinal) ? "group" : kind);
         }
 
         if (kind == "button" && parentKind is not null && TabContainerKinds.Contains(parentKind))
@@ -698,7 +766,9 @@ public static partial class SnapshotProjection
             return "heading";
         }
 
-        return source.RoleDescription is null ? null : ReactNativeRoleDescriptions.GetValueOrDefault(source.RoleDescription.ToLowerInvariant());
+        return source.RoleDescription is null
+            ? null
+            : ReactNativeRoleDescriptions.GetValueOrDefault(source.RoleDescription.ToLowerInvariant());
     }
 
     /// <summary>
@@ -731,7 +801,12 @@ public static partial class SnapshotProjection
     /// <c>"Name, Ada Lovelace"</c> over one <c>StaticText</c> child. Null unless the field's only child is that
     /// text and the field has a label of its own.
     /// </summary>
-    private static Folded? FoldedPlaceholder(RawNode source, IReadOnlyList<int> kids, IReadOnlyList<RawNode> raw, Dictionary<int, List<int>> children)
+    private static Folded? FoldedPlaceholder(
+        RawNode source,
+        IReadOnlyList<int> kids,
+        IReadOnlyList<RawNode> raw,
+        Dictionary<int, List<int>> children
+    )
     {
         if (kids.Count != 1)
         {
@@ -785,7 +860,9 @@ public static partial class SnapshotProjection
         }
 
         return node.Value is not null
-            || (node.Children.Count > 0 && node.Children.All(child => child.Role == "text" && child.Children.Count == 0));
+            || (
+                node.Children.Count > 0 && node.Children.All(child => child.Role == "text" && child.Children.Count == 0)
+            );
     }
 
     /// <summary>The string itself, or null for an absent or empty one.</summary>
@@ -825,7 +902,9 @@ public static partial class SnapshotProjection
     }
 
     private static string StripRef(string? reference) =>
-        reference is null ? "" : reference.StartsWith('@') ? reference[1..] : reference;
+        reference is null ? ""
+        : reference.StartsWith('@') ? reference[1..]
+        : reference;
 
     /// <summary>
     /// Parent position of every raw node. <c>parentIndex</c> is authoritative when it names a node in the
@@ -849,7 +928,11 @@ public static partial class SnapshotProjection
         {
             var node = raw[position];
             int? parent = null;
-            if (node.ParentIndex is >= 0 and var parentIndex && byIndex.TryGetValue(parentIndex, out var resolved) && resolved < position)
+            if (
+                node.ParentIndex is >= 0 and var parentIndex
+                && byIndex.TryGetValue(parentIndex, out var resolved)
+                && resolved < position
+            )
             {
                 parent = resolved;
             }
@@ -915,7 +998,8 @@ public static partial class SnapshotProjection
     }
 
     /// <summary>Quotes one selector term value the way agent-device's parser reads it back.</summary>
-    private static string QuoteTerm(string value) => QuotedTermCharacters().IsMatch(value) ? JsonText.Quote(value) : value;
+    private static string QuoteTerm(string value) =>
+        QuotedTermCharacters().IsMatch(value) ? JsonText.Quote(value) : value;
 
     [GeneratedRegex("([a-z0-9])([A-Z])")]
     private static partial Regex WordBoundary();

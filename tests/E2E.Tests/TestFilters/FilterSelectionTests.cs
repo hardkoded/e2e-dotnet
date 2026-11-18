@@ -16,18 +16,26 @@ namespace E2E.Tests.TestFilters;
 public sealed class FilterSelectionTests
 {
     /// <summary>What <c>FilterSelection</c> is handed for the collection under the config, judging a ref git cannot measure from, so a lookup would throw; and the notices it wrote.</summary>
-    private static (FilterSelectionOptions Options, List<string> Notices) OptionsOf(Collection col, ResolvedConfig cfg, SelectionFilters? selectionFilters = null, CancellationToken cancellationToken = default)
+    private static (FilterSelectionOptions Options, List<string> Notices) OptionsOf(
+        Collection col,
+        ResolvedConfig cfg,
+        SelectionFilters? selectionFilters = null,
+        CancellationToken cancellationToken = default
+    )
     {
         var notices = new List<string>();
-        return (new FilterSelectionOptions
-        {
-            Config = cfg,
-            Collection = col,
-            SelectionFilters = selectionFilters ?? new SelectionFilters(),
-            ChangedSince = "no-such-ref",
-            CancellationToken = cancellationToken,
-            Notice = notices.Add,
-        }, notices);
+        return (
+            new FilterSelectionOptions
+            {
+                Config = cfg,
+                Collection = col,
+                SelectionFilters = selectionFilters ?? new SelectionFilters(),
+                ChangedSince = "no-such-ref",
+                CancellationToken = cancellationToken,
+                Notice = notices.Add,
+            },
+            notices
+        );
     }
 
     [Fact]

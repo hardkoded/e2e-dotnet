@@ -15,7 +15,12 @@ namespace E2E.Tests.SelectOptionShape;
 /// </summary>
 public sealed class LocatorSelectOptionShapeTests
 {
-    private static readonly SemanticNode Frequency = new() { Ref = "frequency", Role = "listbox", Name = "Frequency" };
+    private static readonly SemanticNode Frequency = new()
+    {
+        Ref = "frequency",
+        Role = "listbox",
+        Name = "Frequency",
+    };
 
     /// <summary>A screen over one select, logging every action the engine is asked to perform.</summary>
     private static (Locator Select, List<LocatorAction> Performed) SelectScreen()
@@ -32,7 +37,8 @@ public sealed class LocatorSelectOptionShapeTests
             () => CancellationToken.None,
             () => { },
             TimeSpan.FromMilliseconds(300),
-            TimeSpan.FromMilliseconds(300));
+            TimeSpan.FromMilliseconds(300)
+        );
         return (screen.GetByRole("listbox", "Frequency"), performed);
     }
 
@@ -69,12 +75,19 @@ public sealed class LocatorSelectOptionShapeTests
         Assert.Equal<LocatorAction>([new LocatorAction.Select(option)], performed);
     }
 
-    public static TheoryData<string, SelectOption> Refused => new()
-    {
-        { "two keys", new SelectOption { Label = "Daily", Value = "daily" } },
-        { "a negative index", new SelectOption { Index = -1 } },
-        { "NET-only none", new SelectOption() },
-    };
+    public static TheoryData<string, SelectOption> Refused =>
+        new()
+        {
+            {
+                "two keys",
+                new SelectOption { Label = "Daily", Value = "daily" }
+            },
+            {
+                "a negative index",
+                new SelectOption { Index = -1 }
+            },
+            { "NET-only none", new SelectOption() },
+        };
 
     [Theory]
     [MemberData(nameof(Refused))]
@@ -86,7 +99,10 @@ public sealed class LocatorSelectOptionShapeTests
         var error = await Assert.ThrowsAsync<TestException>(() => select.SelectOptionAsync(option));
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
-        Assert.Equal("selectOption takes a label string or exactly one of { label }, { value }, { index } with a nonnegative integer index", error.Message);
+        Assert.Equal(
+            "selectOption takes a label string or exactly one of { label }, { value }, { index } with a nonnegative integer index",
+            error.Message
+        );
         Assert.Empty(performed);
     }
 }

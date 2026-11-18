@@ -16,7 +16,8 @@ internal sealed record CliIo(TextWriter Stdout, TextWriter Stderr, Func<string[]
 /// </summary>
 internal static class E2eWebCli
 {
-    private static readonly string BrowserArgs = "[" + string.Join('|', BrowserConnection.BrowserNames) + " ...] [--with-deps]";
+    private static readonly string BrowserArgs =
+        "[" + string.Join('|', BrowserConnection.BrowserNames) + " ...] [--with-deps]";
 
     internal static readonly string Usage = $"""
         Usage: e2e install {BrowserArgs}
@@ -40,13 +41,22 @@ internal static class E2eWebCli
         var names = args.Where(arg => !arg.StartsWith('-')).ToList();
         if (options.Find(option => option != "--with-deps") is { } unknownOption)
         {
-            await io.Stderr.WriteLineAsync("unknown option \"" + unknownOption + "\"\n\n" + Usage).ConfigureAwait(false);
+            await io
+                .Stderr.WriteLineAsync("unknown option \"" + unknownOption + "\"\n\n" + Usage)
+                .ConfigureAwait(false);
             return 2;
         }
 
         if (names.Find(name => !BrowserConnection.IsBrowserName(name)) is { } unknownBrowser)
         {
-            await io.Stderr.WriteLineAsync("unknown browser \"" + unknownBrowser + "\"; expected one of " + string.Join(", ", BrowserConnection.BrowserNames)).ConfigureAwait(false);
+            await io
+                .Stderr.WriteLineAsync(
+                    "unknown browser \""
+                        + unknownBrowser
+                        + "\"; expected one of "
+                        + string.Join(", ", BrowserConnection.BrowserNames)
+                )
+                .ConfigureAwait(false);
             return 2;
         }
 

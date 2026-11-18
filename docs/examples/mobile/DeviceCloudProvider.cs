@@ -24,10 +24,19 @@ public static class DeviceCloudProvider
     /// <c>Provider</c> is agent-device's name for the cloud. <paramref name="leasesFactory"/> (.NET-only) makes the leases, so a test
     /// can stand in for the service.
     /// </summary>
-    public static IDeviceProvider CloudDevices(CloudDevicesOptions options, Func<AgentDeviceLeaseOptions, IAgentDeviceLeases>? leasesFactory = null)
+    public static IDeviceProvider CloudDevices(
+        CloudDevicesOptions options,
+        Func<AgentDeviceLeaseOptions, IAgentDeviceLeases>? leasesFactory = null
+    )
     {
         var leases = (leasesFactory ?? (leaseOptions => new AgentDeviceLeases(leaseOptions)))(
-            new AgentDeviceLeaseOptions { Provider = options.Provider, Label = options.Provider, StateDir = options.StateDir });
+            new AgentDeviceLeaseOptions
+            {
+                Provider = options.Provider,
+                Label = options.Provider,
+                StateDir = options.StateDir,
+            }
+        );
         return new CloudDeviceProvider(options, leases);
     }
 
@@ -44,9 +53,13 @@ public static class DeviceCloudProvider
                     Env = new Dictionary<string, string>(),
                     Summary = request.Platform.WireName(),
                 },
-                cancellationToken);
+                cancellationToken
+            );
 
-        public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken) =>
-            leases.ReleaseAsync(lease, context, cancellationToken);
+        public Task ReleaseAsync(
+            DeviceLease lease,
+            DeviceReleaseContext context,
+            CancellationToken cancellationToken
+        ) => leases.ReleaseAsync(lease, context, cancellationToken);
     }
 }

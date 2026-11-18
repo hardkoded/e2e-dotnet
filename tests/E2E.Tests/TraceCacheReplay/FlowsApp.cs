@@ -20,9 +20,7 @@ internal sealed partial class FlowsApp : IDisposable
     private int _searches;
     private int _feedRequests;
 
-    private FlowsApp()
-    {
-    }
+    private FlowsApp() { }
 
     /// <summary>The variant every page renders as from now on, or null for the plain one (upstream's <c>setVariant</c>).</summary>
     public string? Variant
@@ -63,7 +61,11 @@ internal sealed partial class FlowsApp : IDisposable
         }
         else if (RecordPath().Match(path) is { Success: true } record)
         {
-            html = Record(record.Groups[1].Value == "records" ? "Record" : "Draft", Uri.UnescapeDataString(record.Groups[2].Value), variant);
+            html = Record(
+                record.Groups[1].Value == "records" ? "Record" : "Draft",
+                Uri.UnescapeDataString(record.Groups[2].Value),
+                variant
+            );
         }
         else if (path == "/search")
         {
@@ -107,7 +109,11 @@ internal sealed partial class FlowsApp : IDisposable
     [GeneratedRegex(@"^/companies/([^/]+)\z")]
     private static partial Regex CompanyPath();
 
-    private static string Escape(string text) => text.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal).Replace(">", "&gt;", StringComparison.Ordinal).Replace("\"", "&quot;", StringComparison.Ordinal);
+    private static string Escape(string text) =>
+        text.Replace("&", "&amp;", StringComparison.Ordinal)
+            .Replace("<", "&lt;", StringComparison.Ordinal)
+            .Replace(">", "&gt;", StringComparison.Ordinal)
+            .Replace("\"", "&quot;", StringComparison.Ordinal);
 
     private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
 
@@ -137,43 +143,50 @@ internal sealed partial class FlowsApp : IDisposable
         """;
 
     // One record's page under a minted id, served for /records/<id> and /drafts/<id> alike.
-    private static string Record(string kind, string id, string? variant) => $$"""
-        <!doctype html>
-        <html>
-        <head><title>Record</title></head>
-        <body>
-          <h1>{{Escape(kind)}} {{Escape(id)}}</h1>
-          <button onclick="document.getElementById('state').textContent = 'archived'">{{(variant == "renamed" ? "Retire" : "Archive")}}</button>
-          <output id="state" role="status" aria-label="Record state">open</output>
-        </body>
-        </html>
-        """;
+    private static string Record(string kind, string id, string? variant) =>
+        $$"""
+            <!doctype html>
+            <html>
+            <head><title>Record</title></head>
+            <body>
+              <h1>{{Escape(kind)}} {{Escape(id)}}</h1>
+              <button onclick="document.getElementById('state').textContent = 'archived'">{{(
+                variant == "renamed" ? "Retire" : "Archive"
+            )}}</button>
+              <output id="state" role="status" aria-label="Record state">open</output>
+            </body>
+            </html>
+            """;
 
     // A create form whose submit navigates to the created record's page, the name percent-encoded in the path.
-    private static string CompanyForm(string? variant) => $$"""
-        <!doctype html>
-        <html>
-        <head><title>New company</title></head>
-        <body>
-          <h1>New company</h1>
-          <label for="company-name">Company name</label>
-          <input id="company-name" />
-          <button onclick="location.href = '/companies/' + encodeURIComponent(document.getElementById('company-name').value)">{{(variant == "renamed" ? "Save" : "Create")}}</button>
-        </body>
-        </html>
-        """;
+    private static string CompanyForm(string? variant) =>
+        $$"""
+            <!doctype html>
+            <html>
+            <head><title>New company</title></head>
+            <body>
+              <h1>New company</h1>
+              <label for="company-name">Company name</label>
+              <input id="company-name" />
+              <button onclick="location.href = '/companies/' + encodeURIComponent(document.getElementById('company-name').value)">{{(
+                variant == "renamed" ? "Save" : "Create"
+            )}}</button>
+            </body>
+            </html>
+            """;
 
-    private static string Company(string name) => $$"""
-        <!doctype html>
-        <html>
-        <head><title>Company</title></head>
-        <body>
-          <h1>{{Escape(name)}}</h1>
-          <output id="state" role="status" aria-label="Company state">created</output>
-          <a href="/companies/new">New company</a>
-        </body>
-        </html>
-        """;
+    private static string Company(string name) =>
+        $$"""
+            <!doctype html>
+            <html>
+            <head><title>Company</title></head>
+            <body>
+              <h1>{{Escape(name)}}</h1>
+              <output id="state" role="status" aria-label="Company state">created</output>
+              <a href="/companies/new">New company</a>
+            </body>
+            </html>
+            """;
 
     // A search page whose results land in the query string as a form submission spells it (?q=E2E+abc), beside a record count that
     // grows with the searches made so far, a timing in milliseconds, and a bare-number badge, and one stable status line.
@@ -207,8 +220,13 @@ internal sealed partial class FlowsApp : IDisposable
     // A page whose content changes on every request while its route stays put.
     private static string Feed(int feedRequests)
     {
-        var items = string.Concat(Enumerable.Range(0, 3).Select(offset =>
-            $"<li><a href=\"/about\">Offer {Number(((feedRequests + offset) % 97) + 1)} — {Number(1000 + (((feedRequests * 37) + (offset * 13)) % 9000))} zl</a></li>"));
+        var items = string.Concat(
+            Enumerable
+                .Range(0, 3)
+                .Select(offset =>
+                    $"<li><a href=\"/about\">Offer {Number(((feedRequests + offset) % 97) + 1)} — {Number(1000 + (((feedRequests * 37) + (offset * 13)) % 9000))} zl</a></li>"
+                )
+        );
         return $$"""
             <!doctype html>
             <html>
@@ -229,15 +247,17 @@ internal sealed partial class FlowsApp : IDisposable
         var rows = string.Join(
             "\n",
             (reverse ? new[] { "C", "B", "A" } : ["A", "B", "C"]).Select(offer =>
-                $"    <li><span>Offer {offer}</span> <button name=\"reserve-{offer.ToLowerInvariant()}\" onclick=\"pick('{offer}')\">Reserve now</button></li>"));
+                $"    <li><span>Offer {offer}</span> <button name=\"reserve-{offer.ToLowerInvariant()}\" onclick=\"pick('{offer}')\">Reserve now</button></li>"
+            )
+        );
         var append = widget
             ? """
-                  setTimeout(() => {
-                    const widget = document.createElement('div');
-                    widget.textContent = 'Chat with us';
-                    document.body.prepend(widget);
-                  }, 150);
-              """
+                    setTimeout(() => {
+                      const widget = document.createElement('div');
+                      widget.textContent = 'Chat with us';
+                      document.body.prepend(widget);
+                    }, 150);
+                """
             : "";
         return $$"""
             <!doctype html>
@@ -268,8 +288,11 @@ internal sealed partial class FlowsApp : IDisposable
         const string motto = "    <input placeholder=\"Motto\" />";
         var rows = string.Join(
             "\n",
-            new[] { "one", "two", "three" }.Select((row, index) =>
-                $"    <div><span>Row {row}</span> <button onclick=\"pick({Number(index + 1)})\">Add</button></div>"));
+            new[] { "one", "two", "three" }.Select(
+                (row, index) =>
+                    $"    <div><span>Row {row}</span> <button onclick=\"pick({Number(index + 1)})\">Add</button></div>"
+            )
+        );
         var banner = moved ? "  <div role=\"note\">Announcement: scheduled maintenance tonight</div>\n" : "";
         var fields = moved ? motto + "\n" + nickname : nickname + "\n" + motto;
         return $$"""

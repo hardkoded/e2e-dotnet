@@ -37,7 +37,15 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver
         var details = test.Metadata.TestDetails;
         var name = details.ClassType.FullName + "." + details.MethodName;
         return details.TestMethodArguments.Length > 0
-            ? name + "(" + string.Join(", ", details.TestMethodArguments.Select(argument => ArgumentTitle.Format(argument, details.TestMethodArguments.Length > 1))) + ")"
+            ? name
+                + "("
+                + string.Join(
+                    ", ",
+                    details.TestMethodArguments.Select(argument =>
+                        ArgumentTitle.Format(argument, details.TestMethodArguments.Length > 1)
+                    )
+                )
+                + ")"
             : name;
     }
 
@@ -58,12 +66,14 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver
         RunSelection.SkipIfLeftOut(GetType(), details.MethodName);
         RunSelection.SkipIfSetupRan(GetType(), details.MethodName);
         await StartSessionAsync(
-            CacheTitle(context),
-            context.Execution.CurrentRetryAttempt + 1,
-            null,
-            () => LooksBeforeTeardownExecutor.OutcomeOf(context) is { Failure: not null },
-            cancellationToken,
-            TestMethodOf(details)).ConfigureAwait(false);
+                CacheTitle(context),
+                context.Execution.CurrentRetryAttempt + 1,
+                null,
+                () => LooksBeforeTeardownExecutor.OutcomeOf(context) is { Failure: not null },
+                cancellationToken,
+                TestMethodOf(details)
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -183,8 +193,17 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver
         var types = details.MethodMetadata.Parameters.Select(parameter => parameter.Type).ToArray();
         for (var type = details.ClassType; type is not null; type = type.BaseType)
         {
-            var found = type.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.DeclaredOnly)
-                .FirstOrDefault(method => string.Equals(method.Name, details.MethodName, StringComparison.Ordinal) && method.GetParameters().Select(parameter => parameter.ParameterType).SequenceEqual(types));
+            var found = type.GetMethods(
+                    System.Reflection.BindingFlags.Public
+                        | System.Reflection.BindingFlags.NonPublic
+                        | System.Reflection.BindingFlags.Instance
+                        | System.Reflection.BindingFlags.Static
+                        | System.Reflection.BindingFlags.DeclaredOnly
+                )
+                .FirstOrDefault(method =>
+                    string.Equals(method.Name, details.MethodName, StringComparison.Ordinal)
+                    && method.GetParameters().Select(parameter => parameter.ParameterType).SequenceEqual(types)
+                );
             if (found is not null)
             {
                 return found;
@@ -222,15 +241,26 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver
             }
 
             return result is { State: TestState.Cancelled }
-                ? result.Exception as OperationCanceledException ?? new OperationCanceledException()
-                : outcome.Skipped is { } reason ? new SkipException(reason) : null;
+                    ? result.Exception as OperationCanceledException ?? new OperationCanceledException()
+                : outcome.Skipped is { } reason ? new SkipException(reason)
+                : null;
         }
 
         return failure is OperationCanceledException
             ? failure
-            : failure as TestException ?? new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(failure.Message) ? "The test failed." : failure.Message);
+            : failure as TestException
+                ?? new TestException(
+                    "TEST_FAILED",
+                    string.IsNullOrWhiteSpace(failure.Message) ? "The test failed." : failure.Message
+                );
     }
 
     private static Exception ResultFailure(TestResult result) =>
-        result.Exception as TestException ?? new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(result.Exception?.Message) ? "A hook of the test failed." : result.Exception.Message);
+        result.Exception as TestException
+        ?? new TestException(
+            "TEST_FAILED",
+            string.IsNullOrWhiteSpace(result.Exception?.Message)
+                ? "A hook of the test failed."
+                : result.Exception.Message
+        );
 }

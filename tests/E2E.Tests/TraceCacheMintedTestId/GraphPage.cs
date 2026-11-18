@@ -37,9 +37,11 @@ internal static class GraphPage
 
     /// <summary>Serves the page at <c>/graph</c>, whatever the query.</summary>
     public static Task<TinySite> StartAsync() =>
-        TinySite.StartAsync(context => context.Request.Url!.AbsolutePath == "/graph"
-            ? TinySite.RespondAsync(context, Html)
-            : NotFoundAsync(context));
+        TinySite.StartAsync(context =>
+            context.Request.Url!.AbsolutePath == "/graph"
+                ? TinySite.RespondAsync(context, Html)
+                : NotFoundAsync(context)
+        );
 
     private static Task NotFoundAsync(System.Net.HttpListenerContext context)
     {

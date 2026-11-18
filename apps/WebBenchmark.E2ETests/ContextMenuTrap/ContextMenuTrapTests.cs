@@ -38,7 +38,9 @@ public sealed class ContextMenuTrapTests : BenchmarkTest
         var more = Screen.GetByRole("button", "More actions for report.pdf");
         await more.TapAsync();
         await Screen.GetByRole("button", "Duplicate").TapAsync();
-        await Expect.That(Screen.GetByTestId("notice-message")).ToHaveTextAsync("Duplicating is disabled for sample files");
+        await Expect
+            .That(Screen.GetByTestId("notice-message"))
+            .ToHaveTextAsync("Duplicating is disabled for sample files");
 
         await more.TapAsync();
         await Screen.GetByRole("button", "Delete").TapAsync();

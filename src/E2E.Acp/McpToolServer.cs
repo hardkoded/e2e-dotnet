@@ -17,7 +17,13 @@ namespace E2E.Acp;
 internal sealed record ToolResult(string Text, (string Data, string MimeType)? Image = null, bool IsError = false);
 
 /// <summary>One tool the agent can call: a closed input schema and its handler. Upstream's <c>ServedTool</c> (<c>mcp.ts</c>).</summary>
-internal sealed record ServedTool(string Name, string Description, JsonElement InputSchema, bool ReadOnly, Func<JsonElement, CancellationToken, Task<ToolResult>> RunAsync);
+internal sealed record ServedTool(
+    string Name,
+    string Description,
+    JsonElement InputSchema,
+    bool ReadOnly,
+    Func<JsonElement, CancellationToken, Task<ToolResult>> RunAsync
+);
 
 /// <summary>
 /// Serves the step tools to the agent as one MCP server over streamable HTTP on 127.0.0.1. An ACP agent takes tools only as MCP
@@ -110,7 +116,8 @@ internal sealed class McpToolServer : IDisposable
             {
                 context = await _listener.GetContextAsync().ConfigureAwait(false);
             }
-            catch (Exception error) when (error is HttpListenerException or ObjectDisposedException or InvalidOperationException)
+            catch (Exception error)
+                when (error is HttpListenerException or ObjectDisposedException or InvalidOperationException)
             {
                 return;
             }
@@ -157,7 +164,8 @@ internal sealed class McpToolServer : IDisposable
             {
                 response.Close();
             }
-            catch (Exception error) when (error is HttpListenerException or ObjectDisposedException or InvalidOperationException)
+            catch (Exception error)
+                when (error is HttpListenerException or ObjectDisposedException or InvalidOperationException)
             {
                 // The agent hung up.
             }
@@ -192,9 +200,14 @@ internal sealed class McpToolServer : IDisposable
             return;
         }
 
-        if (message.ValueKind != JsonValueKind.Object || !message.TryGetProperty("method", out var method) || method.ValueKind != JsonValueKind.String)
+        if (
+            message.ValueKind != JsonValueKind.Object
+            || !message.TryGetProperty("method", out var method)
+            || method.ValueKind != JsonValueKind.String
+        )
         {
-            await WriteAsync(response, 400, Failure((JsonElement?)null, -32600, "Invalid Request")).ConfigureAwait(false);
+            await WriteAsync(response, 400, Failure((JsonElement?)null, -32600, "Invalid Request"))
+                .ConfigureAwait(false);
             return;
         }
 
@@ -229,7 +242,12 @@ internal sealed class McpToolServer : IDisposable
         switch (method)
         {
             case "initialize":
-                var asked = parameters.ValueKind == JsonValueKind.Object && parameters.TryGetProperty("protocolVersion", out var version) && version.ValueKind == JsonValueKind.String ? version.GetString() : null;
+                var asked =
+                    parameters.ValueKind == JsonValueKind.Object
+                    && parameters.TryGetProperty("protocolVersion", out var version)
+                    && version.ValueKind == JsonValueKind.String
+                        ? version.GetString()
+                        : null;
                 return new JsonObject
                 {
                     ["protocolVersion"] = ProtocolVersions.Contains(asked) ? asked : ProtocolVersions[0],
@@ -241,13 +259,24 @@ internal sealed class McpToolServer : IDisposable
             case "tools/list":
                 return new JsonObject
                 {
-                    ["tools"] = new JsonArray(_tools.Select(tool => (JsonNode)new JsonObject
-                    {
-                        ["name"] = tool.Name,
-                        ["description"] = tool.Description,
-                        ["inputSchema"] = JsonNode.Parse(tool.InputSchema.GetRawText()),
-                        ["annotations"] = new JsonObject { ["readOnlyHint"] = tool.ReadOnly, ["openWorldHint"] = false },
-                    }).ToArray()),
+                    ["tools"] = new JsonArray(
+                        _tools
+                            .Select(tool =>
+                                (JsonNode)
+                                    new JsonObject
+                                    {
+                                        ["name"] = tool.Name,
+                                        ["description"] = tool.Description,
+                                        ["inputSchema"] = JsonNode.Parse(tool.InputSchema.GetRawText()),
+                                        ["annotations"] = new JsonObject
+                                        {
+                                            ["readOnlyHint"] = tool.ReadOnly,
+                                            ["openWorldHint"] = false,
+                                        },
+                                    }
+                            )
+                            .ToArray()
+                    ),
                 };
             case "tools/call":
                 return await CallAsync(parameters, cancellationToken).ConfigureAwait(false);
@@ -258,10 +287,18 @@ internal sealed class McpToolServer : IDisposable
 
     private async Task<JsonNode> CallAsync(JsonElement parameters, CancellationToken cancellationToken)
     {
-        var name = parameters.ValueKind == JsonValueKind.Object && parameters.TryGetProperty("name", out var found) && found.ValueKind == JsonValueKind.String ? found.GetString() : null;
+        var name =
+            parameters.ValueKind == JsonValueKind.Object
+            && parameters.TryGetProperty("name", out var found)
+            && found.ValueKind == JsonValueKind.String
+                ? found.GetString()
+                : null;
         var tool = _tools.FirstOrDefault(entry => string.Equals(entry.Name, name, StringComparison.Ordinal))
             ?? throw new McpException(-32602, $"Tool {name} not found");
-        var arguments = parameters.TryGetProperty("arguments", out var given) && given.ValueKind == JsonValueKind.Object ? given : EmptyArguments;
+        var arguments =
+            parameters.TryGetProperty("arguments", out var given) && given.ValueKind == JsonValueKind.Object
+                ? given
+                : EmptyArguments;
         ToolResult result;
         try
         {
@@ -272,10 +309,20 @@ internal sealed class McpToolServer : IDisposable
             result = new ToolResult($"{tool.Name} failed: {error.Message.Split('\n')[0]}", IsError: true);
         }
 
-        var content = new JsonArray { new JsonObject { ["type"] = "text", ["text"] = result.Text } };
+        var content = new JsonArray
+        {
+            new JsonObject { ["type"] = "text", ["text"] = result.Text },
+        };
         if (result.Image is { } image)
         {
-            content.Add(new JsonObject { ["type"] = "image", ["data"] = image.Data, ["mimeType"] = image.MimeType });
+            content.Add(
+                new JsonObject
+                {
+                    ["type"] = "image",
+                    ["data"] = image.Data,
+                    ["mimeType"] = image.MimeType,
+                }
+            );
         }
 
         var answer = new JsonObject { ["content"] = content };
@@ -287,12 +334,13 @@ internal sealed class McpToolServer : IDisposable
         return answer;
     }
 
-    private static JsonObject Failure(JsonElement? id, int code, string message) => new()
-    {
-        ["jsonrpc"] = "2.0",
-        ["id"] = id is { } value ? JsonNode.Parse(value.GetRawText()) : null,
-        ["error"] = new JsonObject { ["code"] = code, ["message"] = message },
-    };
+    private static JsonObject Failure(JsonElement? id, int code, string message) =>
+        new()
+        {
+            ["jsonrpc"] = "2.0",
+            ["id"] = id is { } value ? JsonNode.Parse(value.GetRawText()) : null,
+            ["error"] = new JsonObject { ["code"] = code, ["message"] = message },
+        };
 
     private static async Task WriteAsync(HttpListenerResponse response, int status, JsonObject body)
     {

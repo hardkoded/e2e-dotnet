@@ -17,7 +17,10 @@ namespace E2E;
 internal static class DebugSteps
 {
     // JSON.stringify keeps a character it need not escape, so a label reads as the author wrote it.
-    private static readonly JsonSerializerOptions Quoting = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions Quoting = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     /// <summary>
     /// Renders one aligned table of every agent step, in execution order, with per-phase splits summed from the step's child events.
@@ -34,34 +37,62 @@ internal static class DebugSteps
 
         var models = steps.Select(ViaLabel).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
         var mixedModels = models.Count > 1;
-        var rows = steps.Select(step => (string[])
-        [
-            Truncate(step.Label.Length == 0 ? step.Api : step.Api + " " + JsonSerializer.Serialize(step.Label, Quoting), 64),
-            .. mixedModels ? new[] { ViaLabel(step) ?? "-" } : [],
-            DebugTrace.FormatMs(step.DurationMs),
-            DebugTrace.FormatMs(EventMs(step, StepEventKind.Model)),
-            DebugTrace.FormatMs(EventMs(step, StepEventKind.Observation)),
-            DebugTrace.FormatMs(EventMs(step, StepEventKind.Engine)),
-            (step.Model?.Calls ?? 0).ToString(CultureInfo.InvariantCulture),
-            (step.Model?.InputTokens ?? 0).ToString(CultureInfo.InvariantCulture) + "/" + (step.Model?.OutputTokens ?? 0).ToString(CultureInfo.InvariantCulture),
-            CachedShare(step),
-            step.Model?.EstimatedCostUsd is { } cost ? FormatUsd(cost) : "-",
-        ]).ToList();
+        var rows = steps
+            .Select(step =>
+                (string[])
+                    [
+                        Truncate(
+                            step.Label.Length == 0
+                                ? step.Api
+                                : step.Api + " " + JsonSerializer.Serialize(step.Label, Quoting),
+                            64
+                        ),
+                        .. mixedModels ? new[] { ViaLabel(step) ?? "-" } : [],
+                        DebugTrace.FormatMs(step.DurationMs),
+                        DebugTrace.FormatMs(EventMs(step, StepEventKind.Model)),
+                        DebugTrace.FormatMs(EventMs(step, StepEventKind.Observation)),
+                        DebugTrace.FormatMs(EventMs(step, StepEventKind.Engine)),
+                        (step.Model?.Calls ?? 0).ToString(CultureInfo.InvariantCulture),
+                        (step.Model?.InputTokens ?? 0).ToString(CultureInfo.InvariantCulture)
+                            + "/"
+                            + (step.Model?.OutputTokens ?? 0).ToString(CultureInfo.InvariantCulture),
+                        CachedShare(step),
+                        step.Model?.EstimatedCostUsd is { } cost ? FormatUsd(cost) : "-",
+                    ]
+            )
+            .ToList();
 
         var knownCosts = steps.Select(step => step.Model?.EstimatedCostUsd).OfType<double>().ToList();
-        var total = knownCosts.Count == 0 ? "" : ", total " + FormatUsd(knownCosts.Sum()) + (knownCosts.Count < steps.Count ? "+" : "");
+        var total =
+            knownCosts.Count == 0
+                ? ""
+                : ", total " + FormatUsd(knownCosts.Sum()) + (knownCosts.Count < steps.Count ? "+" : "");
         var sharedModel = mixedModels || models.Count == 0 ? "" : ", model " + models[0];
         return DebugTrace.Table(
             "[e2e debug] agent steps (execution order" + sharedModel + total + ")",
-            ["step", .. mixedModels ? new[] { "via" } : [], "total", "model", "observe", "action", "calls", "tokens in/out", "cached", "cost"],
+            [
+                "step",
+                .. mixedModels ? new[] { "via" } : [],
+                "total",
+                "model",
+                "observe",
+                "action",
+                "calls",
+                "tokens in/out",
+                "cached",
+                "cost",
+            ],
             rows,
-            "(no agent steps recorded)");
+            "(no agent steps recorded)"
+        );
     }
 
     // The model a step reported, as the `via` column names it; null for a step with no model or no provenance.
-    private static string? ViaLabel(StepRecord step) => step.Model is null ? null : ReportFormat.StepModelLabel(step.Model);
+    private static string? ViaLabel(StepRecord step) =>
+        step.Model is null ? null : ReportFormat.StepModelLabel(step.Model);
 
-    private static long EventMs(StepRecord step, StepEventKind kind) => step.Events.Where(item => item.Kind == kind).Sum(item => item.DurationMs);
+    private static long EventMs(StepRecord step, StepEventKind kind) =>
+        step.Events.Where(item => item.Kind == kind).Sum(item => item.DurationMs);
 
     // The share of the step's input the provider served from its prompt cache, `38% (5700)`; `-` when the provider reports no cache split.
     private static string CachedShare(StepRecord step)
@@ -80,7 +111,8 @@ internal static class DebugSteps
         return share.ToString(CultureInfo.InvariantCulture) + "% (" + read.ToString(CultureInfo.InvariantCulture) + ")";
     }
 
-    private static string Truncate(string value, int maxLength) => value.Length <= maxLength ? value : value[..(maxLength - 1)] + "…";
+    private static string Truncate(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..(maxLength - 1)] + "…";
 
     private static string FormatUsd(double value)
     {

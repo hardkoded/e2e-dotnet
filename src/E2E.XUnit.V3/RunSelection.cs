@@ -22,7 +22,9 @@ internal static class RunSelection
     // The contract of xUnit v3 for an exception that skips a test: its message starts with this, and the rest is the reason.
     private const string DynamicSkipToken = "$XunitDynamicSkip$";
 
-    private static IReadOnlyDictionary<string, string> _excluded = new Dictionary<string, string>(StringComparer.Ordinal);
+    private static IReadOnlyDictionary<string, string> _excluded = new Dictionary<string, string>(
+        StringComparer.Ordinal
+    );
 
     private static readonly Lock Gate = new();
 
@@ -33,7 +35,10 @@ internal static class RunSelection
     {
         lock (Gate)
         {
-            _excluded = new Dictionary<string, string>(_excluded, StringComparer.Ordinal).Concat(excluded).GroupBy(pair => pair.Key, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().Value, StringComparer.Ordinal);
+            _excluded = new Dictionary<string, string>(_excluded, StringComparer.Ordinal)
+                .Concat(excluded)
+                .GroupBy(pair => pair.Key, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First().Value, StringComparer.Ordinal);
         }
     }
 
@@ -51,7 +56,9 @@ internal static class RunSelection
     {
         if (SetupDependencies.HasRun(fixture, method))
         {
-            throw new InvalidOperationException(DynamicSkipToken + "the setup test already ran for a test that restores its session");
+            throw new InvalidOperationException(
+                DynamicSkipToken + "the setup test already ran for a test that restores its session"
+            );
         }
     }
 
@@ -65,24 +72,41 @@ internal static class RunSelection
     internal static IReadOnlyList<DiscoveredTest> Discover(IEnumerable<Type> types, Assembly assembly)
     {
         var found = new List<DiscoveredTest>();
-        foreach (var type in types.Where(type => type is { IsAbstract: false, IsClass: true } && typeof(E2ETest).IsAssignableFrom(type)).OrderBy(type => type.FullName, StringComparer.Ordinal))
+        foreach (
+            var type in types
+                .Where(type => type is { IsAbstract: false, IsClass: true } && typeof(E2ETest).IsAssignableFrom(type))
+                .OrderBy(type => type.FullName, StringComparer.Ordinal)
+        )
         {
             var typeTags = TagsOf(type, assembly).ToList();
-            foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance).OrderBy(method => method.MetadataToken))
+            foreach (
+                var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                    .OrderBy(method => method.MetadataToken)
+            )
             {
-                if (method.GetCustomAttributes(true).OfType<IFactAttribute>().FirstOrDefault() is not { Explicit: not true } fact)
+                if (
+                    method.GetCustomAttributes(true).OfType<IFactAttribute>().FirstOrDefault()
+                    is not { Explicit: not true } fact
+                )
                 {
                     continue;
                 }
 
-                found.Add(new DiscoveredTest(
-                    KeyOf(type, method.Name),
-                    type.Namespace ?? "",
-                    TypeNameOf(type),
-                    method.Name,
-                    [.. typeTags, .. CategoriesOf(method)],
-                    // A skip with a condition (SkipUnless, SkipWhen) is decided when the test runs, so it is not an outright skip.
-                    string.IsNullOrEmpty(fact.Skip) || fact.SkipUnless is not null || fact.SkipWhen is not null ? null : fact.Skip));
+                found.Add(
+                    new DiscoveredTest(
+                        KeyOf(type, method.Name),
+                        type.Namespace ?? "",
+                        TypeNameOf(type),
+                        method.Name,
+                        [.. typeTags, .. CategoriesOf(method)],
+                        // A skip with a condition (SkipUnless, SkipWhen) is decided when the test runs, so it is not an outright skip.
+                        string.IsNullOrEmpty(fact.Skip)
+                        || fact.SkipUnless is not null
+                        || fact.SkipWhen is not null
+                            ? null
+                            : fact.Skip
+                    )
+                );
             }
         }
 
@@ -103,11 +127,16 @@ internal static class RunSelection
     }
 
     // A nested class is named with its enclosing classes, so two nested classes with one name stay apart.
-    private static string TypeNameOf(Type type) => type.DeclaringType is { } outer ? TypeNameOf(outer) + "+" + type.Name : type.Name;
+    private static string TypeNameOf(Type type) =>
+        type.DeclaringType is { } outer ? TypeNameOf(outer) + "+" + type.Name : type.Name;
 
     private static IEnumerable<string> CategoriesOf(MemberInfo member) =>
-        member.GetCustomAttributes(true).OfType<ITraitAttribute>().SelectMany(trait => trait.GetTraits() ?? [])
-            .Where(trait => string.Equals(trait.Key, CategoryTrait, StringComparison.Ordinal)).Select(trait => trait.Value);
+        member
+            .GetCustomAttributes(true)
+            .OfType<ITraitAttribute>()
+            .SelectMany(trait => trait.GetTraits() ?? [])
+            .Where(trait => string.Equals(trait.Key, CategoryTrait, StringComparison.Ordinal))
+            .Select(trait => trait.Value);
 
     private static IEnumerable<string> TagsOf(Type type, Assembly assembly)
     {
@@ -119,7 +148,13 @@ internal static class RunSelection
             }
         }
 
-        foreach (var trait in assembly.GetCustomAttributes().OfType<ITraitAttribute>().SelectMany(trait => trait.GetTraits() ?? []).Where(trait => string.Equals(trait.Key, CategoryTrait, StringComparison.Ordinal)))
+        foreach (
+            var trait in assembly
+                .GetCustomAttributes()
+                .OfType<ITraitAttribute>()
+                .SelectMany(trait => trait.GetTraits() ?? [])
+                .Where(trait => string.Equals(trait.Key, CategoryTrait, StringComparison.Ordinal))
+        )
         {
             yield return trait.Value;
         }

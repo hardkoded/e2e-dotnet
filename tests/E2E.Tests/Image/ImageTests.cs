@@ -53,7 +53,8 @@ public sealed class ImageTests
     }
 
     /// <summary>Samples as 16-bit big-endian bytes, the order a PNG stores them in.</summary>
-    private static byte[] Sixteen(params int[] samples) => samples.SelectMany(sample => new[] { (byte)(sample >> 8), (byte)(sample & 255) }).ToArray();
+    private static byte[] Sixteen(params int[] samples) =>
+        samples.SelectMany(sample => new[] { (byte)(sample >> 8), (byte)(sample & 255) }).ToArray();
 
     private static byte[] Bytes(params int[] values) => values.Select(value => (byte)value).ToArray();
 
@@ -61,7 +62,15 @@ public sealed class ImageTests
     /// A PNG written straight from the format: <paramref name="rows"/> hold each scanline's sample bytes, packed as the color type and
     /// <paramref name="depth"/> say, with no filter. It does not go through the library under test, so it can say what an encoder never would.
     /// </summary>
-    private static byte[] Png(int width, int height, int depth, int colorType, byte[][] rows, byte[][]? palette = null, byte[]? transparency = null)
+    private static byte[] Png(
+        int width,
+        int height,
+        int depth,
+        int colorType,
+        byte[][] rows,
+        byte[][]? palette = null,
+        byte[]? transparency = null
+    )
     {
         using var output = new MemoryStream();
         output.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
@@ -82,7 +91,13 @@ public sealed class ImageTests
         }
 
         using var compressed = new MemoryStream();
-        using (var zlib = new System.IO.Compression.ZLibStream(compressed, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+        using (
+            var zlib = new System.IO.Compression.ZLibStream(
+                compressed,
+                System.IO.Compression.CompressionLevel.Fastest,
+                leaveOpen: true
+            )
+        )
         {
             foreach (var row in rows)
             {
@@ -97,30 +112,350 @@ public sealed class ImageTests
     }
 
     /// <summary>Red, green, and blue: the palette the indexed cases share.</summary>
-    private static readonly byte[][] Palette = [[255, 0, 0], [0, 255, 0], [0, 0, 255]];
+    private static readonly byte[][] Palette =
+    [
+        [255, 0, 0],
+        [0, 255, 0],
+        [0, 0, 255],
+    ];
 
-    public static TheoryData<string, byte[], byte[]> DecodeCases() => new()
-    {
-        { "gray", Png(3, 2, 8, 0, [Bytes(0, 90, 180), Bytes(255, 30, 60)]), Bytes(0, 0, 0, 255, 90, 90, 90, 255, 180, 180, 180, 255, 255, 255, 255, 255, 30, 30, 30, 255, 60, 60, 60, 255) },
-        { "gray with alpha", Png(3, 2, 8, 4, [Bytes(0, 255, 90, 128, 180, 0), Bytes(255, 255, 30, 10, 60, 200)]), Bytes(0, 0, 0, 255, 90, 90, 90, 128, 180, 180, 180, 0, 255, 255, 255, 255, 30, 30, 30, 10, 60, 60, 60, 200) },
-        { "RGB", Png(3, 2, 8, 2, [Bytes(255, 0, 0, 0, 255, 0, 0, 0, 255), Bytes(10, 20, 30, 40, 50, 60, 70, 80, 90)]), Bytes(255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 10, 20, 30, 255, 40, 50, 60, 255, 70, 80, 90, 255) },
-        { "RGBA", Png(3, 2, 8, 6, [Bytes(255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 0), Bytes(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)]), Bytes(255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12) },
-        { "16-bit gray", Png(3, 2, 16, 0, [Sixteen(0, 32768, 65535), Sixteen(1, 257, 60000)]), Bytes(0, 0, 0, 255, 128, 128, 128, 255, 255, 255, 255, 255, 0, 0, 0, 255, 1, 1, 1, 255, 233, 233, 233, 255) },
-        { "16-bit RGBA", Png(3, 2, 16, 6, [Sixteen(65535, 0, 0, 65535, 0, 32768, 0, 65535, 0, 0, 65535, 0), Sixteen(4096, 8192, 12288, 65535, 1, 2, 3, 4, 60000, 50000, 40000, 30000)]), Bytes(255, 0, 0, 255, 0, 128, 0, 255, 0, 0, 255, 0, 16, 32, 48, 255, 0, 0, 0, 0, 233, 195, 156, 117) },
-        { "a palette", Png(3, 2, 8, 3, [Bytes(0, 1, 2), Bytes(1, 0, 2)], Palette), Bytes(255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255, 0, 0, 255, 255) },
-        { "a palette with alpha", Png(3, 2, 8, 3, [Bytes(0, 1, 2), Bytes(1, 0, 2)], Palette, Bytes(255, 128, 0)), Bytes(255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 0, 0, 255, 0, 128, 255, 0, 0, 255, 0, 0, 255, 0) },
-        { "a 2-bit palette", Png(3, 2, 2, 3, [Bytes(0b00_01_10_00), Bytes(0b01_00_10_00)], Palette), Bytes(255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255, 0, 0, 255, 255) },
-        { "1-bit gray", Png(3, 2, 1, 0, [Bytes(0b010_00000), Bytes(0b101_00000)]), Bytes(0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255) },
-        { "2-bit gray", Png(3, 2, 2, 0, [Bytes(0b00_01_10_00), Bytes(0b11_10_01_00)]), Bytes(0, 0, 0, 255, 85, 85, 85, 255, 170, 170, 170, 255, 255, 255, 255, 255, 170, 170, 170, 255, 85, 85, 85, 255) },
-        { "4-bit gray", Png(3, 2, 4, 0, [Bytes(0x0f, 0x80), Bytes(0x37, 0x00)]), Bytes(0, 0, 0, 255, 255, 255, 255, 255, 136, 136, 136, 255, 51, 51, 51, 255, 119, 119, 119, 255, 0, 0, 0, 255) },
-        { "gray with a transparent color", Png(3, 2, 8, 0, [Bytes(0, 90, 180), Bytes(255, 90, 60)], null, Bytes(0, 90)), Bytes(0, 0, 0, 255, 90, 90, 90, 0, 180, 180, 180, 255, 255, 255, 255, 255, 90, 90, 90, 0, 60, 60, 60, 255) },
-        { "RGB with a transparent color", Png(3, 2, 8, 2, [Bytes(255, 0, 0, 0, 255, 0, 0, 0, 255), Bytes(10, 20, 30, 0, 255, 0, 70, 80, 90)], null, Bytes(0, 0, 0, 255, 0, 0)), Bytes(255, 0, 0, 255, 0, 255, 0, 0, 0, 0, 255, 255, 10, 20, 30, 255, 0, 255, 0, 0, 70, 80, 90, 255) },
-        // Samples chosen where scaling 16 bits to 8 rounds both ways: 128 and 255 down, 129 and 32768 up.
-        { "16-bit RGB", Png(3, 2, 16, 2, [Sixteen(0, 65535, 32768, 257, 128, 129, 1000, 40000, 65000), Sixteen(65535, 0, 0, 12345, 54321, 22222, 255, 256, 65534)]), Bytes(0, 255, 128, 255, 1, 0, 1, 255, 4, 156, 253, 255, 255, 0, 0, 255, 48, 211, 86, 255, 1, 1, 255, 255) },
-        { "16-bit gray with alpha", Png(3, 2, 16, 4, [Sixteen(0, 65535, 32768, 32768, 65535, 0), Sixteen(1000, 129, 257, 128, 40000, 65000)]), Bytes(0, 0, 0, 255, 128, 128, 128, 128, 255, 255, 255, 0, 4, 4, 4, 1, 1, 1, 1, 0, 156, 156, 156, 253) },
-        // Every sample here scales to 0 at 8 bits, so only the 16-bit comparison tells (1, 2, 3) from the colors beside it.
-        { "16-bit RGB with a transparent color", Png(3, 2, 16, 2, [Sixteen(1, 2, 3, 4, 5, 6, 7, 8, 9), Sixteen(1, 2, 3, 1, 2, 4, 9, 9, 9)], null, Sixteen(1, 2, 3)), Bytes(0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 255) },
-    };
+    public static TheoryData<string, byte[], byte[]> DecodeCases() =>
+        new()
+        {
+            {
+                "gray",
+                Png(3, 2, 8, 0, [Bytes(0, 90, 180), Bytes(255, 30, 60)]),
+                Bytes(
+                    0,
+                    0,
+                    0,
+                    255,
+                    90,
+                    90,
+                    90,
+                    255,
+                    180,
+                    180,
+                    180,
+                    255,
+                    255,
+                    255,
+                    255,
+                    255,
+                    30,
+                    30,
+                    30,
+                    255,
+                    60,
+                    60,
+                    60,
+                    255
+                )
+            },
+            {
+                "gray with alpha",
+                Png(3, 2, 8, 4, [Bytes(0, 255, 90, 128, 180, 0), Bytes(255, 255, 30, 10, 60, 200)]),
+                Bytes(
+                    0,
+                    0,
+                    0,
+                    255,
+                    90,
+                    90,
+                    90,
+                    128,
+                    180,
+                    180,
+                    180,
+                    0,
+                    255,
+                    255,
+                    255,
+                    255,
+                    30,
+                    30,
+                    30,
+                    10,
+                    60,
+                    60,
+                    60,
+                    200
+                )
+            },
+            {
+                "RGB",
+                Png(3, 2, 8, 2, [Bytes(255, 0, 0, 0, 255, 0, 0, 0, 255), Bytes(10, 20, 30, 40, 50, 60, 70, 80, 90)]),
+                Bytes(255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 10, 20, 30, 255, 40, 50, 60, 255, 70, 80, 90, 255)
+            },
+            {
+                "RGBA",
+                Png(
+                    3,
+                    2,
+                    8,
+                    6,
+                    [Bytes(255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 0), Bytes(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)]
+                ),
+                Bytes(255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+            },
+            {
+                "16-bit gray",
+                Png(3, 2, 16, 0, [Sixteen(0, 32768, 65535), Sixteen(1, 257, 60000)]),
+                Bytes(
+                    0,
+                    0,
+                    0,
+                    255,
+                    128,
+                    128,
+                    128,
+                    255,
+                    255,
+                    255,
+                    255,
+                    255,
+                    0,
+                    0,
+                    0,
+                    255,
+                    1,
+                    1,
+                    1,
+                    255,
+                    233,
+                    233,
+                    233,
+                    255
+                )
+            },
+            {
+                "16-bit RGBA",
+                Png(
+                    3,
+                    2,
+                    16,
+                    6,
+                    [
+                        Sixteen(65535, 0, 0, 65535, 0, 32768, 0, 65535, 0, 0, 65535, 0),
+                        Sixteen(4096, 8192, 12288, 65535, 1, 2, 3, 4, 60000, 50000, 40000, 30000),
+                    ]
+                ),
+                Bytes(255, 0, 0, 255, 0, 128, 0, 255, 0, 0, 255, 0, 16, 32, 48, 255, 0, 0, 0, 0, 233, 195, 156, 117)
+            },
+            {
+                "a palette",
+                Png(3, 2, 8, 3, [Bytes(0, 1, 2), Bytes(1, 0, 2)], Palette),
+                Bytes(255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255, 0, 0, 255, 255)
+            },
+            {
+                "a palette with alpha",
+                Png(3, 2, 8, 3, [Bytes(0, 1, 2), Bytes(1, 0, 2)], Palette, Bytes(255, 128, 0)),
+                Bytes(255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 0, 0, 255, 0, 128, 255, 0, 0, 255, 0, 0, 255, 0)
+            },
+            {
+                "a 2-bit palette",
+                Png(3, 2, 2, 3, [Bytes(0b00_01_10_00), Bytes(0b01_00_10_00)], Palette),
+                Bytes(255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255, 0, 0, 255, 255)
+            },
+            {
+                "1-bit gray",
+                Png(3, 2, 1, 0, [Bytes(0b010_00000), Bytes(0b101_00000)]),
+                Bytes(
+                    0,
+                    0,
+                    0,
+                    255,
+                    255,
+                    255,
+                    255,
+                    255,
+                    0,
+                    0,
+                    0,
+                    255,
+                    255,
+                    255,
+                    255,
+                    255,
+                    0,
+                    0,
+                    0,
+                    255,
+                    255,
+                    255,
+                    255,
+                    255
+                )
+            },
+            {
+                "2-bit gray",
+                Png(3, 2, 2, 0, [Bytes(0b00_01_10_00), Bytes(0b11_10_01_00)]),
+                Bytes(
+                    0,
+                    0,
+                    0,
+                    255,
+                    85,
+                    85,
+                    85,
+                    255,
+                    170,
+                    170,
+                    170,
+                    255,
+                    255,
+                    255,
+                    255,
+                    255,
+                    170,
+                    170,
+                    170,
+                    255,
+                    85,
+                    85,
+                    85,
+                    255
+                )
+            },
+            {
+                "4-bit gray",
+                Png(3, 2, 4, 0, [Bytes(0x0f, 0x80), Bytes(0x37, 0x00)]),
+                Bytes(
+                    0,
+                    0,
+                    0,
+                    255,
+                    255,
+                    255,
+                    255,
+                    255,
+                    136,
+                    136,
+                    136,
+                    255,
+                    51,
+                    51,
+                    51,
+                    255,
+                    119,
+                    119,
+                    119,
+                    255,
+                    0,
+                    0,
+                    0,
+                    255
+                )
+            },
+            {
+                "gray with a transparent color",
+                Png(3, 2, 8, 0, [Bytes(0, 90, 180), Bytes(255, 90, 60)], null, Bytes(0, 90)),
+                Bytes(
+                    0,
+                    0,
+                    0,
+                    255,
+                    90,
+                    90,
+                    90,
+                    0,
+                    180,
+                    180,
+                    180,
+                    255,
+                    255,
+                    255,
+                    255,
+                    255,
+                    90,
+                    90,
+                    90,
+                    0,
+                    60,
+                    60,
+                    60,
+                    255
+                )
+            },
+            {
+                "RGB with a transparent color",
+                Png(
+                    3,
+                    2,
+                    8,
+                    2,
+                    [Bytes(255, 0, 0, 0, 255, 0, 0, 0, 255), Bytes(10, 20, 30, 0, 255, 0, 70, 80, 90)],
+                    null,
+                    Bytes(0, 0, 0, 255, 0, 0)
+                ),
+                Bytes(255, 0, 0, 255, 0, 255, 0, 0, 0, 0, 255, 255, 10, 20, 30, 255, 0, 255, 0, 0, 70, 80, 90, 255)
+            },
+            // Samples chosen where scaling 16 bits to 8 rounds both ways: 128 and 255 down, 129 and 32768 up.
+            {
+                "16-bit RGB",
+                Png(
+                    3,
+                    2,
+                    16,
+                    2,
+                    [
+                        Sixteen(0, 65535, 32768, 257, 128, 129, 1000, 40000, 65000),
+                        Sixteen(65535, 0, 0, 12345, 54321, 22222, 255, 256, 65534),
+                    ]
+                ),
+                Bytes(
+                    0,
+                    255,
+                    128,
+                    255,
+                    1,
+                    0,
+                    1,
+                    255,
+                    4,
+                    156,
+                    253,
+                    255,
+                    255,
+                    0,
+                    0,
+                    255,
+                    48,
+                    211,
+                    86,
+                    255,
+                    1,
+                    1,
+                    255,
+                    255
+                )
+            },
+            {
+                "16-bit gray with alpha",
+                Png(
+                    3,
+                    2,
+                    16,
+                    4,
+                    [Sixteen(0, 65535, 32768, 32768, 65535, 0), Sixteen(1000, 129, 257, 128, 40000, 65000)]
+                ),
+                Bytes(0, 0, 0, 255, 128, 128, 128, 128, 255, 255, 255, 0, 4, 4, 4, 1, 1, 1, 1, 0, 156, 156, 156, 253)
+            },
+            // Every sample here scales to 0 at 8 bits, so only the 16-bit comparison tells (1, 2, 3) from the colors beside it.
+            {
+                "16-bit RGB with a transparent color",
+                Png(
+                    3,
+                    2,
+                    16,
+                    2,
+                    [Sixteen(1, 2, 3, 4, 5, 6, 7, 8, 9), Sixteen(1, 2, 3, 1, 2, 4, 9, 9, 9)],
+                    null,
+                    Sixteen(1, 2, 3)
+                ),
+                Bytes(0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 255)
+            },
+        };
 
     [Fact]
     public void Round_trips_through_PNG()
@@ -138,7 +473,10 @@ public sealed class ImageTests
     {
         var decoded = ImageOps.DecodePng(bytes);
         Assert.Equal([3, 2], [decoded.Width, decoded.Height]);
-        Assert.True(rgba.AsSpan().SequenceEqual(decoded.Data), $"{label}: expected {Convert.ToHexString(rgba)}, got {Convert.ToHexString(decoded.Data)}");
+        Assert.True(
+            rgba.AsSpan().SequenceEqual(decoded.Data),
+            $"{label}: expected {Convert.ToHexString(rgba)}, got {Convert.ToHexString(decoded.Data)}"
+        );
     }
 
     /// <summary>A filtered scanline: the filter byte, then each byte minus the filter's prediction (the encoder side of the reader's unfilter).</summary>
@@ -152,8 +490,20 @@ public sealed class ImageTests
             int up = previous[at];
             int upLeft = at >= bytesPerPixel ? previous[at - bytesPerPixel] : 0;
             var estimate = left + up - upLeft;
-            var paeth = Math.Abs(estimate - left) <= Math.Abs(estimate - up) && Math.Abs(estimate - left) <= Math.Abs(estimate - upLeft) ? left : Math.Abs(estimate - up) <= Math.Abs(estimate - upLeft) ? up : upLeft;
-            var predictor = filter switch { 1 => left, 2 => up, 3 => (left + up) / 2, 4 => paeth, _ => 0 };
+            var paeth =
+                Math.Abs(estimate - left) <= Math.Abs(estimate - up)
+                && Math.Abs(estimate - left) <= Math.Abs(estimate - upLeft)
+                    ? left
+                : Math.Abs(estimate - up) <= Math.Abs(estimate - upLeft) ? up
+                : upLeft;
+            var predictor = filter switch
+            {
+                1 => left,
+                2 => up,
+                3 => (left + up) / 2,
+                4 => paeth,
+                _ => 0,
+            };
             result[at + 1] = (byte)(line[at] - predictor);
         }
 
@@ -168,7 +518,10 @@ public sealed class ImageTests
     {
         const int width = 9;
         const int height = 9;
-        var values = Enumerable.Range(0, width * height * 3).Select(at => (int)((uint)(at * 2654435761L) >> 16)).ToArray();
+        var values = Enumerable
+            .Range(0, width * height * 3)
+            .Select(at => (int)((uint)(at * 2654435761L) >> 16))
+            .ToArray();
         var passes = interlaced
             ? new[] { (0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2) }
             : [(0, 0, 1, 1)];
@@ -179,7 +532,17 @@ public sealed class ImageTests
             var previous = new byte[(((width - x0) + dx - 1) / dx) * 6];
             for (var y = y0; y < height; y += dy)
             {
-                var line = Enumerable.Range(0, ((width - x0) + dx - 1) / dx).SelectMany(column => Sixteen(Enumerable.Range(0, 3).Select(channel => values[((y * width) + x0 + (column * dx)) * 3 + channel]).ToArray())).ToArray();
+                var line = Enumerable
+                    .Range(0, ((width - x0) + dx - 1) / dx)
+                    .SelectMany(column =>
+                        Sixteen(
+                            Enumerable
+                                .Range(0, 3)
+                                .Select(channel => values[((y * width) + x0 + (column * dx)) * 3 + channel])
+                                .ToArray()
+                        )
+                    )
+                    .ToArray();
                 raw.Write(Filtered(rowNumber++ % 5, line, previous, 6));
                 previous = line;
             }
@@ -195,14 +558,31 @@ public sealed class ImageTests
         header[12] = (byte)(interlaced ? 1 : 0);
         Chunk(output, "IHDR", header);
         using var compressed = new MemoryStream();
-        using (var zlib = new System.IO.Compression.ZLibStream(compressed, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+        using (
+            var zlib = new System.IO.Compression.ZLibStream(
+                compressed,
+                System.IO.Compression.CompressionLevel.Fastest,
+                leaveOpen: true
+            )
+        )
         {
             zlib.Write(raw.ToArray());
         }
 
         Chunk(output, "IDAT", compressed.ToArray());
         Chunk(output, "IEND", []);
-        var expected = Enumerable.Range(0, width * height).SelectMany(pixel => new[] { Narrow(values[pixel * 3]), Narrow(values[(pixel * 3) + 1]), Narrow(values[(pixel * 3) + 2]), (byte)255 }).ToArray();
+        var expected = Enumerable
+            .Range(0, width * height)
+            .SelectMany(pixel =>
+                new[]
+                {
+                    Narrow(values[pixel * 3]),
+                    Narrow(values[(pixel * 3) + 1]),
+                    Narrow(values[(pixel * 3) + 2]),
+                    (byte)255,
+                }
+            )
+            .ToArray();
         Assert.Equal(expected, ImageOps.DecodePng(output.ToArray()).Data);
     }
 
@@ -213,9 +593,20 @@ public sealed class ImageTests
     {
         const int width = 37;
         const int height = 11;
-        var samples = Enumerable.Range(0, width * height * 3).Select(at => (byte)((uint)(at * 2654435761L) >> 24)).ToArray();
-        var rows = Enumerable.Range(0, height).Select(y => samples.AsSpan(y * width * 3, width * 3).ToArray()).ToArray();
-        var expected = Enumerable.Range(0, width * height).SelectMany(pixel => new[] { samples[pixel * 3], samples[(pixel * 3) + 1], samples[(pixel * 3) + 2], (byte)255 }).ToArray();
+        var samples = Enumerable
+            .Range(0, width * height * 3)
+            .Select(at => (byte)((uint)(at * 2654435761L) >> 24))
+            .ToArray();
+        var rows = Enumerable
+            .Range(0, height)
+            .Select(y => samples.AsSpan(y * width * 3, width * 3).ToArray())
+            .ToArray();
+        var expected = Enumerable
+            .Range(0, width * height)
+            .SelectMany(pixel =>
+                new[] { samples[pixel * 3], samples[(pixel * 3) + 1], samples[(pixel * 3) + 2], (byte)255 }
+            )
+            .ToArray();
         var decoded = ImageOps.DecodePng(Png(width, height, 8, 2, rows));
         Assert.Equal([width, height], [decoded.Width, decoded.Height]);
         Assert.Equal(expected, decoded.Data);
@@ -242,7 +633,9 @@ public sealed class ImageTests
         using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
         using var jpegData = image.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 90);
         var jpeg = jpegData.ToArray();
-        foreach (var bytes in new[] { Array.Empty<byte>(), new byte[] { 1, 2, 3 }, valid[..^10], valid[..40], corrupt, jpeg })
+        foreach (
+            var bytes in new[] { Array.Empty<byte>(), new byte[] { 1, 2, 3 }, valid[..^10], valid[..40], corrupt, jpeg }
+        )
         {
             Assert.ThrowsAny<Exception>(() => ImageOps.DecodePng(bytes));
         }
@@ -261,8 +654,14 @@ public sealed class ImageTests
     [Fact]
     public void Refuses_pixels_that_do_not_fill_the_image_where_the_addon_would_abort_the_process()
     {
-        Assert.Contains("not 17", Assert.Throws<ArgumentException>(() => ImageOps.EncodePng(new RgbaImage(2, 2, new byte[17]))).Message);
-        Assert.Contains("not 15", Assert.Throws<ArgumentException>(() => ImageOps.EncodePng(new RgbaImage(2, 2, new byte[15]))).Message);
+        Assert.Contains(
+            "not 17",
+            Assert.Throws<ArgumentException>(() => ImageOps.EncodePng(new RgbaImage(2, 2, new byte[17]))).Message
+        );
+        Assert.Contains(
+            "not 15",
+            Assert.Throws<ArgumentException>(() => ImageOps.EncodePng(new RgbaImage(2, 2, new byte[15]))).Message
+        );
     }
 
     [Fact]
@@ -280,7 +679,8 @@ public sealed class ImageTests
         Assert.Equal(Gray(4, 4, 0).Data, blank.Data);
         Assert.Equal(
             new byte[] { 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 0, 255 },
-            ImageOps.CropImage(image, new ImageBox(1, 1, 2, 2)).Data);
+            ImageOps.CropImage(image, new ImageBox(1, 1, 2, 2)).Data
+        );
     }
 
     [Fact]
@@ -300,16 +700,26 @@ public sealed class ImageTests
         var pixels = Assert.IsType<ImageComparison.Pixels>(ImageOps.CompareImages(expected, actual, Exact));
         Assert.Equal(5, pixels.DiffPixels);
         Assert.Equal(0.05, pixels.Ratio);
-        Assert.IsType<ImageComparison.Match>(ImageOps.CompareImages(expected, actual, Exact with { MaxDiffPixels = 5 }));
-        Assert.IsType<ImageComparison.Match>(ImageOps.CompareImages(expected, actual, Exact with { MaxDiffPixelRatio = 0.05 }));
-        Assert.IsType<ImageComparison.Pixels>(ImageOps.CompareImages(expected, actual, Exact with { MaxDiffPixels = 10, MaxDiffPixelRatio = 0.04 }));
+        Assert.IsType<ImageComparison.Match>(
+            ImageOps.CompareImages(expected, actual, Exact with { MaxDiffPixels = 5 })
+        );
+        Assert.IsType<ImageComparison.Match>(
+            ImageOps.CompareImages(expected, actual, Exact with { MaxDiffPixelRatio = 0.05 })
+        );
+        Assert.IsType<ImageComparison.Pixels>(
+            ImageOps.CompareImages(expected, actual, Exact with { MaxDiffPixels = 10, MaxDiffPixelRatio = 0.04 })
+        );
     }
 
     [Fact]
     public void Counts_a_pixel_as_the_same_when_its_color_is_within_the_threshold()
     {
-        Assert.IsType<ImageComparison.Match>(ImageOps.CompareImages(Gray(4, 4, 200), Gray(4, 4, 204), Exact with { Threshold = 0.2 }));
-        var pixels = Assert.IsType<ImageComparison.Pixels>(ImageOps.CompareImages(Gray(4, 4, 200), Gray(4, 4, 204), Exact));
+        Assert.IsType<ImageComparison.Match>(
+            ImageOps.CompareImages(Gray(4, 4, 200), Gray(4, 4, 204), Exact with { Threshold = 0.2 })
+        );
+        var pixels = Assert.IsType<ImageComparison.Pixels>(
+            ImageOps.CompareImages(Gray(4, 4, 200), Gray(4, 4, 204), Exact)
+        );
         Assert.Equal(16, pixels.DiffPixels);
     }
 }

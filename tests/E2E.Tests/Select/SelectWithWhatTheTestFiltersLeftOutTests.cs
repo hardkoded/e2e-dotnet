@@ -16,11 +16,22 @@ public sealed class SelectWithWhatTheTestFiltersLeftOutTests
     [Fact]
     public void Partial_Leaves_the_test_out_on_every_target_and_agent_naming_the_filter_and_its_reason()
     {
-        var col = CollectionOf("tests/a.e2e.ts", new Decl("pays") { Agents = ["default", "admin"] }, new Decl("refunds") { Agents = ["default", "admin"] });
+        var col = CollectionOf(
+            "tests/a.e2e.ts",
+            new Decl("pays") { Agents = ["default", "admin"] },
+            new Decl("refunds") { Agents = ["default", "admin"] }
+        );
         var cfg = ConfigOf(targets: [Web("web"), Web("web-2")]);
-        var selection = Selector.Select(col, cfg, new SelectionFilters { Excluded = LeftOut(col, ("refunds", "areas", "the diff misses it")) });
+        var selection = Selector.Select(
+            col,
+            cfg,
+            new SelectionFilters { Excluded = LeftOut(col, ("refunds", "areas", "the diff misses it")) }
+        );
         var refunds = selection.Pairs.Where(pair => pair.Test.Title == "refunds").ToList();
-        Assert.Equal([("web", "default"), ("web", "admin"), ("web-2", "default"), ("web-2", "admin")], refunds.Select(pair => (pair.Target.Name, pair.Agent)));
+        Assert.Equal(
+            [("web", "default"), ("web", "admin"), ("web-2", "default"), ("web-2", "admin")],
+            refunds.Select(pair => (pair.Target.Name, pair.Agent))
+        );
         foreach (var pair in refunds)
         {
             Assert.Equal(Disposition.Filtered, pair.Disposition);
@@ -41,16 +52,32 @@ public sealed class SelectWithWhatTheTestFiltersLeftOutTests
             "tests/a.e2e.ts",
             new Decl("step 1") { Describe = ["wizard"], Serial = "wizard" },
             new Decl("step 2") { Describe = ["wizard"], Serial = "wizard" },
-            new Decl("other"));
-        var one = Selector.Select(col, ConfigOf(), new SelectionFilters { Excluded = LeftOut(col, ("step 1", "areas", "unaffected")) });
+            new Decl("other")
+        );
+        var one = Selector.Select(
+            col,
+            ConfigOf(),
+            new SelectionFilters { Excluded = LeftOut(col, ("step 1", "areas", "unaffected")) }
+        );
         Assert.Equal(["step 1", "step 2", "other"], Running(one));
         Assert.Null(one.Pairs.First(pair => pair.Test.Title == "step 1").Skip);
 
-        var both = Selector.Select(col, ConfigOf(), new SelectionFilters { Excluded = LeftOut(col, ("step 1", "areas", "unaffected"), ("step 2", "areas", "unaffected")) });
+        var both = Selector.Select(
+            col,
+            ConfigOf(),
+            new SelectionFilters
+            {
+                Excluded = LeftOut(col, ("step 1", "areas", "unaffected"), ("step 2", "areas", "unaffected")),
+            }
+        );
         Assert.Equal(["other"], Running(both));
         Assert.Equal(
-            [new SkipInfo("filtered", "unaffected", Filter: "areas"), new SkipInfo("filtered", "unaffected", Filter: "areas")],
-            both.Pairs.Where(pair => pair.Test.SerialId is not null).Select(pair => pair.Skip));
+            [
+                new SkipInfo("filtered", "unaffected", Filter: "areas"),
+                new SkipInfo("filtered", "unaffected", Filter: "areas"),
+            ],
+            both.Pairs.Where(pair => pair.Test.SerialId is not null).Select(pair => pair.Skip)
+        );
     }
 
     [Fact]
@@ -60,11 +87,20 @@ public sealed class SelectWithWhatTheTestFiltersLeftOutTests
             "tests/a.e2e.ts",
             new Decl("sign in") { Sessions = ["member"] },
             new Decl("signed in") { Session = "member" },
-            new Decl("anonymous"));
+            new Decl("anonymous")
+        );
         var cfg = ConfigOf(targets: [Web("web", StateEngine)]);
-        var consumerOut = Selector.Select(col, cfg, new SelectionFilters { Excluded = LeftOut(col, ("signed in", "areas", "unaffected")) });
+        var consumerOut = Selector.Select(
+            col,
+            cfg,
+            new SelectionFilters { Excluded = LeftOut(col, ("signed in", "areas", "unaffected")) }
+        );
         Assert.Equal(["anonymous"], Running(consumerOut));
-        var consumerKept = Selector.Select(col, cfg, new SelectionFilters { Excluded = LeftOut(col, ("anonymous", "areas", "unaffected")) });
+        var consumerKept = Selector.Select(
+            col,
+            cfg,
+            new SelectionFilters { Excluded = LeftOut(col, ("anonymous", "areas", "unaffected")) }
+        );
         Assert.Equal(["sign in", "signed in"], Running(consumerKept));
     }
 
@@ -77,12 +113,20 @@ public sealed class SelectWithWhatTheTestFiltersLeftOutTests
 
         // Leaving b out does not move the cut: shard 1 is still a and b, shard 2 still c and d.
         var excluded = LeftOut(col, ("b", "areas", "unaffected"));
-        var first = Selector.Select(col, ConfigOf(), new SelectionFilters { Excluded = excluded, Shard = new Shard(1, 2) });
+        var first = Selector.Select(
+            col,
+            ConfigOf(),
+            new SelectionFilters { Excluded = excluded, Shard = new Shard(1, 2) }
+        );
         Assert.Equal(["a"], Running(first));
         Assert.Equal(unaffected, Pair(first, "b").Skip);
         Assert.Equal(outside, Pair(first, "c").Skip);
         Assert.Equal(outside, Pair(first, "d").Skip);
-        var second = Selector.Select(col, ConfigOf(), new SelectionFilters { Excluded = excluded, Shard = new Shard(2, 2) });
+        var second = Selector.Select(
+            col,
+            ConfigOf(),
+            new SelectionFilters { Excluded = excluded, Shard = new Shard(2, 2) }
+        );
         Assert.Equal(["c", "d"], Running(second));
         Assert.Equal(outside, Pair(second, "a").Skip);
         Assert.Equal(outside, Pair(second, "b").Skip);
@@ -95,9 +139,19 @@ public sealed class SelectWithWhatTheTestFiltersLeftOutTests
             "tests/a.e2e.ts",
             new Decl("web only") { Platforms = ["web"] },
             new Decl("needs device") { Requires = ["device"] },
-            new Decl("kept"));
-        var cfg = ConfigOf(targets: [Web("web", new ResolvedEngine("toy", new HashSet<string>())), Web("ios", platform: "ios")]);
-        var filtered = Selector.Select(col, cfg, new SelectionFilters { Excluded = LeftOut(col, ("web only", "areas", "unaffected"), ("needs device", "areas", "unaffected")) });
+            new Decl("kept")
+        );
+        var cfg = ConfigOf(
+            targets: [Web("web", new ResolvedEngine("toy", new HashSet<string>())), Web("ios", platform: "ios")]
+        );
+        var filtered = Selector.Select(
+            col,
+            cfg,
+            new SelectionFilters
+            {
+                Excluded = LeftOut(col, ("web only", "areas", "unaffected"), ("needs device", "areas", "unaffected")),
+            }
+        );
         Assert.Equal(new SkipInfo("filtered", "unaffected", Filter: "areas"), Pair(filtered, "web only", "web").Skip);
         Assert.Equal("platform-unavailable", Pair(filtered, "web only", "ios").Skip?.Cause);
         Assert.Equal("capability-unavailable", Pair(filtered, "needs device", "web").Skip?.Cause);

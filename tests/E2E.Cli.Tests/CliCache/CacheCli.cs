@@ -15,7 +15,9 @@ internal sealed class CacheCli : IDisposable
     public CacheCli()
     {
         Root = Directory.CreateTempSubdirectory("e2e-cache-cli-").FullName;
-        WriteConfig("""{ "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }], "cache": { "dir": "store" } }""");
+        WriteConfig(
+            """{ "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }], "cache": { "dir": "store" } }"""
+        );
     }
 
     public string Root { get; }
@@ -33,13 +35,25 @@ internal sealed class CacheCli : IDisposable
     public void WriteConfig(string json) => File.WriteAllText(Path.Combine(Root, "e2e.config.json"), json);
 
     /// <summary>Upstream's <c>trace(recordedFor, actions)</c>: a recording of <paramref name="actions"/> taps.</summary>
-    public static CacheEntry Trace(string? test, string? target, string? instruction, int actions) => new()
-    {
-        Test = test,
-        TargetId = target,
-        Instruction = instruction,
-        Actions = [.. Enumerable.Range(0, actions).Select(index => new RecordedAction { Kind = "tap", Summary = "tap " + index, Role = "button", Name = "Button " + index })],
-    };
+    public static CacheEntry Trace(string? test, string? target, string? instruction, int actions) =>
+        new()
+        {
+            Test = test,
+            TargetId = target,
+            Instruction = instruction,
+            Actions =
+            [
+                .. Enumerable
+                    .Range(0, actions)
+                    .Select(index => new RecordedAction
+                    {
+                        Kind = "tap",
+                        Summary = "tap " + index,
+                        Role = "button",
+                        Name = "Button " + index,
+                    }),
+            ],
+        };
 
     public void Seed(params (string KeyHash, CacheEntry Entry)[] entries)
     {
@@ -56,7 +70,14 @@ internal sealed class CacheCli : IDisposable
     {
         var stdout = new StringWriter();
         var stderr = new StringWriter();
-        ExitCode = CacheCommand.Run([.. args, "--config", Path.Combine(Root, "e2e.config.json")], stdout, stderr, interactive: false, Root, env);
+        ExitCode = CacheCommand.Run(
+            [.. args, "--config", Path.Combine(Root, "e2e.config.json")],
+            stdout,
+            stderr,
+            interactive: false,
+            Root,
+            env
+        );
         Stdout = stdout.ToString();
         Stderr = stderr.ToString();
     }

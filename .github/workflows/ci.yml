@@ -12,6 +12,26 @@ env:
   SLOPWATCH_EXCLUDE: "**/node_modules/**,**/bin/**,**/obj/**,.claude/**,.tmp*/**,docs/_site/**,docs/api/**,coverage/**,**/.vs/**"
 
 jobs:
+  csharpier:
+    name: csharpier
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            11.0.x
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Check formatting
+        run: dotnet csharpier check .
+
   build:
     name: restore-build-test
     runs-on: ubuntu-latest
@@ -36,8 +56,12 @@ jobs:
           dotnet tool restore
           dotnet slopwatch analyze -d . --fail-on error --exclude "$SLOPWATCH_EXCLUDE"
 
+      # CSharpier owns whitespace and layout (see the csharpier job), so `dotnet format` checks only code style and
+      # analyzers. Its whitespace pass would undo CSharpier's layout.
       - name: Format
-        run: dotnet format E2E.slnx --verify-no-changes --no-restore
+        run: |
+          dotnet format style E2E.slnx --verify-no-changes --no-restore
+          dotnet format analyzers E2E.slnx --verify-no-changes --no-restore
 
       - name: Build
         run: dotnet build E2E.slnx --no-restore -c Release

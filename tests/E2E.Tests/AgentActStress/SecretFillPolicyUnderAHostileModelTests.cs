@@ -31,8 +31,22 @@ public sealed class SecretFillPolicyUnderAHostileModelTests
             toolResults.Add(LastToolResult(request));
             return calls++ switch
             {
-                0 => ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Notes\""), name = "admin" }),
-                1 => ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Notes\""), name = "stripe-key" }),
+                0 => ModelResponses.Call(
+                    "type_secret",
+                    new
+                    {
+                        target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Notes\""),
+                        name = "admin",
+                    }
+                ),
+                1 => ModelResponses.Call(
+                    "type_secret",
+                    new
+                    {
+                        target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Notes\""),
+                        name = "stripe-key",
+                    }
+                ),
                 _ => ModelResponses.Done("passed", "filled the API key"),
             };
         });
@@ -40,19 +54,26 @@ public sealed class SecretFillPolicyUnderAHostileModelTests
         await WebSemanticsTests.RunAsync(session, async () =>
         {
             await session.Context.App.OpenAsync("/editor");
-            await session.Context.Agent.ActAsync("paste the API key into the notes editor", new ActOptions
-            {
-                Params = new Dictionary<string, object?>
+            await session.Context.Agent.ActAsync(
+                "paste the API key into the notes editor",
+                new ActOptions
                 {
-                    ["password"] = Secret.Create("admin", AdminPassword, "password"),
-                    ["apiKey"] = Secret.Create("stripe-key", Generic),
-                },
-            });
+                    Params = new Dictionary<string, object?>
+                    {
+                        ["password"] = Secret.Create("admin", AdminPassword, "password"),
+                        ["apiKey"] = Secret.Create("stripe-key", Generic),
+                    },
+                }
+            );
         });
 
         Assert.Equal(3, model.CallCount);
         // The host is an editable textbox, so the sink is accepted; a password still needs a password field, and the editor has purpose none.
-        Assert.Contains("field purpose none is incompatible with secret purpose password", toolResults[1], StringComparison.Ordinal);
+        Assert.Contains(
+            "field purpose none is incompatible with secret purpose password",
+            toolResults[1],
+            StringComparison.Ordinal
+        );
         Assert.Contains("<secret:stripe-key>", toolResults[2], StringComparison.Ordinal);
         AssertNeverSeen(model, Generic);
     }
@@ -61,37 +82,58 @@ public sealed class SecretFillPolicyUnderAHostileModelTests
     public async Task Never_leaks_the_plaintext_into_prompts_or_tool_results()
     {
         using var site = await WebFixtureApp.StartAsync();
-        var model = new ScriptedModel(request => LastToolResult(request) == ""
-            ? ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""), name = "admin" })
-            : ModelResponses.Done("passed", "filled the secret"));
+        var model = new ScriptedModel(request =>
+            LastToolResult(request) == ""
+                ? ModelResponses.Call(
+                    "type_secret",
+                    new
+                    {
+                        target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""),
+                        name = "admin",
+                    }
+                )
+                : ModelResponses.Done("passed", "filled the secret")
+        );
         await using var session = await StartAsync(site.Url, model);
         await WebSemanticsTests.RunAsync(session, async () =>
         {
             await session.Context.App.OpenAsync("/");
-            await session.Context.Agent.ActAsync("probe", new ActOptions
-            {
-                Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin", AdminPassword, "password") },
-            });
+            await session.Context.Agent.ActAsync(
+                "probe",
+                new ActOptions
+                {
+                    Params = new Dictionary<string, object?>
+                    {
+                        ["password"] = Secret.Create("admin", AdminPassword, "password"),
+                    },
+                }
+            );
         });
 
         // The model never saw the value: not in any prompt, only the placeholder.
         AssertNeverSeen(model, AdminPassword);
-        Assert.Contains("<secret:admin>", string.Join('\n', model.Requests[^1].Messages.Select(message => message.Content)), StringComparison.Ordinal);
+        Assert.Contains(
+            "<secret:admin>",
+            string.Join('\n', model.Requests[^1].Messages.Select(message => message.Content)),
+            StringComparison.Ordinal
+        );
     }
 
     private static Task<E2ESession> StartAsync(string url, ScriptedModel model) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = model,
-            BaseUrl = url,
-            CacheEnabled = false,
-            TestTitle = "secret probe",
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(20),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = model,
+                BaseUrl = url,
+                CacheEnabled = false,
+                TestTitle = "secret probe",
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(20),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
 
     private static string LastToolResult(ModelRequest request) =>
         request.Messages.LastOrDefault(message => message.Role == "tool")?.Content ?? "";

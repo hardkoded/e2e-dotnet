@@ -30,6 +30,7 @@ This repo is a .NET port of [tester-army/e2e](https://github.com/tester-army/e2e
 
 ## Before you push
 
+- CSharpier owns formatting. Run `dotnet csharpier format .` from the repo root before every commit/push. The Husky.Net pre-push hook runs `dotnet csharpier check .` and blocks unformatted pushes. Do not run `dotnet format whitespace` or a plain `dotnet format`, because their whitespace pass fights CSharpier. Use `dotnet format style` / `dotnet format analyzers` only.
 - If the change can affect the agent, run every real-model test: `dotnet test E2E.slnx --filter "TestCategory=RealModel"`. This covers the agent, prompts, cache, replay, the web engine, and the page script. Doc-only and config-only changes skip this step.
 - The tests use the GitHub Copilot login (`dotnet run --project src/E2E.Cli -- login github-copilot`). If you cannot log in, say so in your report. Do not skip the tests silently.
 - Real-model tests can be flaky. Rerun a failed test once. If it fails twice, treat it as a real failure and report it.

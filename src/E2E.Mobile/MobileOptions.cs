@@ -41,36 +41,39 @@ public enum PermissionState
 /// <summary>The names agent-device knows the permissions and their states by.</summary>
 public static class DevicePermissions
 {
-    public static string WireName(this DevicePermission permission) => permission switch
-    {
-        DevicePermission.Camera => "camera",
-        DevicePermission.Microphone => "microphone",
-        DevicePermission.Photos => "photos",
-        DevicePermission.Contacts => "contacts",
-        DevicePermission.Notifications => "notifications",
-        DevicePermission.Calendar => "calendar",
-        DevicePermission.Location => "location",
-        DevicePermission.Reminders => "reminders",
-        DevicePermission.Motion => "motion",
-        DevicePermission.Siri => "siri",
-        DevicePermission.MediaLibrary => "media-library",
-        _ => throw new ArgumentOutOfRangeException(nameof(permission), permission, "Unknown permission."),
-    };
+    public static string WireName(this DevicePermission permission) =>
+        permission switch
+        {
+            DevicePermission.Camera => "camera",
+            DevicePermission.Microphone => "microphone",
+            DevicePermission.Photos => "photos",
+            DevicePermission.Contacts => "contacts",
+            DevicePermission.Notifications => "notifications",
+            DevicePermission.Calendar => "calendar",
+            DevicePermission.Location => "location",
+            DevicePermission.Reminders => "reminders",
+            DevicePermission.Motion => "motion",
+            DevicePermission.Siri => "siri",
+            DevicePermission.MediaLibrary => "media-library",
+            _ => throw new ArgumentOutOfRangeException(nameof(permission), permission, "Unknown permission."),
+        };
 
-    public static string WireName(this PermissionState state) => state switch
-    {
-        PermissionState.Grant => "grant",
-        PermissionState.Deny => "deny",
-        PermissionState.Reset => "reset",
-        _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Unknown permission state."),
-    };
+    public static string WireName(this PermissionState state) =>
+        state switch
+        {
+            PermissionState.Grant => "grant",
+            PermissionState.Deny => "deny",
+            PermissionState.Reset => "reset",
+            _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Unknown permission state."),
+        };
 
-    public static string WireName(this MobilePlatform platform) => platform switch
-    {
-        MobilePlatform.Ios => "ios",
-        MobilePlatform.Android => "android",
-        _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, "Unknown platform."),
-    };
+    public static string WireName(this MobilePlatform platform) =>
+        platform switch
+        {
+            MobilePlatform.Ios => "ios",
+            MobilePlatform.Android => "android",
+            _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, "Unknown platform."),
+        };
 }
 
 /// <summary>

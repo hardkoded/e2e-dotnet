@@ -53,7 +53,10 @@ internal static class LabelSelector
             const body = JSON.parse(selector);
             const expected = normalize(body.value);
             const candidates = matchesIn(root, {{JsonSerializer.Serialize(LabelableSelector, Json)}}, []);
-            for (const closed of closedRootsUnder(root, [])) matchesIn(closed, {{JsonSerializer.Serialize(LabelableSelector, Json)}}, candidates);
+            for (const closed of closedRootsUnder(root, [])) matchesIn(closed, {{JsonSerializer.Serialize(
+            LabelableSelector,
+            Json
+        )}}, candidates);
             return candidates.filter((el) => labelsOf(el).some((label) => normalize(label) === expected));
           };
           return { queryAll, query: (root, selector) => queryAll(root, selector)[0] ?? null };

@@ -13,7 +13,8 @@ namespace E2E.Tests.SampleHistory;
 /// </summary>
 public sealed partial class SampleHistoryTests
 {
-    private static E2E.SampleHistory History(string name, Func<string, string>? redact = null) => new(name, redact ?? (text => text));
+    private static E2E.SampleHistory History(string name, Func<string, string>? redact = null) =>
+        new(name, redact ?? (text => text));
 
     [Fact]
     public void Counts_the_reads_of_a_poll_that_passed_at_once_and_tells_no_readings()
@@ -23,7 +24,10 @@ public sealed partial class SampleHistoryTests
 
         var told = history.Event(StepEventStatus.Passed);
 
-        Assert.Equal((StepEventKind.Poll, "expect", StepEventStatus.Passed, 1), (told.Kind, told.Name, told.Status, told.Count));
+        Assert.Equal(
+            (StepEventKind.Poll, "expect", StepEventStatus.Passed, 1),
+            (told.Kind, told.Name, told.Status, told.Count)
+        );
         Assert.Null(told.Detail);
     }
 
@@ -53,7 +57,10 @@ public sealed partial class SampleHistoryTests
 
         var told = history.Event(StepEventStatus.Failed);
 
-        Assert.Equal(("waitFor", StepEventStatus.Failed, 4, "absent x4"), (told.Name, told.Status, told.Count, told.Detail));
+        Assert.Equal(
+            ("waitFor", StepEventStatus.Failed, 4, "absent x4"),
+            (told.Name, told.Status, told.Count, told.Detail)
+        );
     }
 
     [Fact]
@@ -75,7 +82,9 @@ public sealed partial class SampleHistoryTests
     [Fact]
     public void Redacts_a_reading_before_it_is_clipped_so_no_cut_leaves_the_head_of_a_secret()
     {
-        var history = History("expect", text => text.Replace("eyJsecret-token-value", "[secret]", StringComparison.Ordinal));
+        var history = History("expect", text =>
+            text.Replace("eyJsecret-token-value", "[secret]", StringComparison.Ordinal)
+        );
         history.Add($"value \"{new string('x', 70)}eyJsecret-token-value\"");
 
         Assert.Equal($"value \"{new string('x', 70)}[s…", history.Event(StepEventStatus.Failed).Detail);

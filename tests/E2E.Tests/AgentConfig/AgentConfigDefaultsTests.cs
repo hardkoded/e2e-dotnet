@@ -13,71 +13,148 @@ public sealed class AgentConfigDefaultsTests
     {
         Assert.Null(Parse("{}").Agent.ProviderOptions);
 
-        var config = Parse("""
+        var config = Parse(
+            """
             { "agents": { "default": { "providerOptions": { "openai": { "reasoningEffort": "low" }, "google": { "thinkingConfig": { "thinkingBudget": 0 } } } } } }
-            """);
+            """
+        );
 
         Assert.Equal("low", config.Agent.ProviderOptions!["openai"].GetProperty("reasoningEffort").GetString());
-        Assert.Equal(0, config.Agent.ProviderOptions["google"].GetProperty("thinkingConfig").GetProperty("thinkingBudget").GetInt32());
+        Assert.Equal(
+            0,
+            config
+                .Agent.ProviderOptions["google"]
+                .GetProperty("thinkingConfig")
+                .GetProperty("thinkingBudget")
+                .GetInt32()
+        );
         Assert.Same(config.Agent.ProviderOptions, config.Agent.CreateOptions().ProviderOptions);
     }
 
     [Fact]
     public void Rejects_agent_providerOptions_that_is_not_a_record_of_provider_records()
     {
-        Assert.Contains("agents.default.providerOptions must be an object", Invalid("""{ "agents": { "default": { "providerOptions": "low" } } }"""), StringComparison.Ordinal);
-        Assert.Contains("agents.default.providerOptions", Invalid("""{ "agents": { "default": { "providerOptions": [] } } }"""), StringComparison.Ordinal);
-        Assert.Contains("agents.default.providerOptions.openai must be an object", Invalid("""{ "agents": { "default": { "providerOptions": { "openai": "low" } } } }"""), StringComparison.Ordinal);
+        Assert.Contains(
+            "agents.default.providerOptions must be an object",
+            Invalid("""{ "agents": { "default": { "providerOptions": "low" } } }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "agents.default.providerOptions",
+            Invalid("""{ "agents": { "default": { "providerOptions": [] } } }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "agents.default.providerOptions.openai must be an object",
+            Invalid("""{ "agents": { "default": { "providerOptions": { "openai": "low" } } } }"""),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public void Bounds_budgets_to_1_through_100_observation_bytes_to_1_KiB_through_16_MiB_and_input_tokens_to_1_through_1000000()
     {
-        Assert.Contains("maxSteps", Invalid("""{ "agents": { "default": { "maxSteps": 0 } } }"""), StringComparison.Ordinal);
-        Assert.Contains("maxSteps", Invalid("""{ "agents": { "default": { "maxSteps": 101 } } }"""), StringComparison.Ordinal);
-        Assert.Contains("maxModelCalls", Invalid("""{ "agents": { "default": { "maxModelCalls": 101 } } }"""), StringComparison.Ordinal);
-        Assert.Contains("maxObservationBytes", Invalid("""{ "agents": { "default": { "maxObservationBytes": 1023 } } }"""), StringComparison.Ordinal);
-        Assert.Contains("maxObservationBytes", Invalid("""{ "agents": { "default": { "maxObservationBytes": 16777217 } } }"""), StringComparison.Ordinal);
-        Assert.Equal(200_000, Parse("""{ "agents": { "default": { "maxInputTokens": 200000 } } }""").Agent.MaxInputTokens);
+        Assert.Contains(
+            "maxSteps",
+            Invalid("""{ "agents": { "default": { "maxSteps": 0 } } }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "maxSteps",
+            Invalid("""{ "agents": { "default": { "maxSteps": 101 } } }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "maxModelCalls",
+            Invalid("""{ "agents": { "default": { "maxModelCalls": 101 } } }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "maxObservationBytes",
+            Invalid("""{ "agents": { "default": { "maxObservationBytes": 1023 } } }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "maxObservationBytes",
+            Invalid("""{ "agents": { "default": { "maxObservationBytes": 16777217 } } }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Equal(
+            200_000,
+            Parse("""{ "agents": { "default": { "maxInputTokens": 200000 } } }""").Agent.MaxInputTokens
+        );
         Assert.Equal(
             "agents.default.maxInputTokens must be an integer from 1 through 1000000",
-            Invalid("""{ "agents": { "default": { "maxInputTokens": 0 } } }"""));
-        Assert.Contains("agents.default.maxInputTokens", Invalid("""{ "agents": { "default": { "maxInputTokens": 1000001 } } }"""), StringComparison.Ordinal);
+            Invalid("""{ "agents": { "default": { "maxInputTokens": 0 } } }""")
+        );
+        Assert.Contains(
+            "agents.default.maxInputTokens",
+            Invalid("""{ "agents": { "default": { "maxInputTokens": 1000001 } } }"""),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public void Owns_the_judgment_budget_judgmentTimeout_is_per_agent_and_independent_of_actionTimeout()
     {
-        var config = Parse("""{ "actionTimeout": 90000, "agents": { "default": {}, "slow": { "judgmentTimeout": 120000 } } }""");
+        var config = Parse(
+            """{ "actionTimeout": 90000, "agents": { "default": {}, "slow": { "judgmentTimeout": 120000 } } }"""
+        );
 
         Assert.Equal(TimeSpan.FromSeconds(30), config.Agent.JudgmentTimeout);
         Assert.Equal(TimeSpan.FromSeconds(120), config.Agents["slow"].JudgmentTimeout);
         Assert.Equal(TimeSpan.FromSeconds(90), config.ActionTimeout);
-        Assert.Contains("agents.default.judgmentTimeout must be a positive", Invalid("""{ "agents": { "default": { "judgmentTimeout": 0 } } }"""), StringComparison.Ordinal);
-        Assert.Contains("agents.default.judgmentTimeout", Invalid("""{ "agents": { "default": { "judgmentTimeout": 1.5 } } }"""), StringComparison.Ordinal);
-        Assert.Equal(TimeSpan.FromMilliseconds(int.MaxValue), Parse("""{ "agents": { "default": { "judgmentTimeout": 2147483647 } } }""").Agent.JudgmentTimeout);
+        Assert.Contains(
+            "agents.default.judgmentTimeout must be a positive",
+            Invalid("""{ "agents": { "default": { "judgmentTimeout": 0 } } }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "agents.default.judgmentTimeout",
+            Invalid("""{ "agents": { "default": { "judgmentTimeout": 1.5 } } }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Equal(
+            TimeSpan.FromMilliseconds(int.MaxValue),
+            Parse("""{ "agents": { "default": { "judgmentTimeout": 2147483647 } } }""").Agent.JudgmentTimeout
+        );
         Assert.Equal(
             "agents.default.judgmentTimeout must be at most 2147483647 milliseconds, got 2147483648",
-            Invalid("""{ "agents": { "default": { "judgmentTimeout": 2147483648 } } }"""));
+            Invalid("""{ "agents": { "default": { "judgmentTimeout": 2147483648 } } }""")
+        );
     }
 
     [Fact]
     public void Rejects_unknown_agent_keys_with_the_nearest_one_including_the_removed_cache_mode()
     {
-        Assert.Contains("unknown agents.default key", Invalid("""{ "agents": { "default": { "retries": 2 } } }"""), StringComparison.Ordinal);
-        Assert.Contains("unknown agents.default key", Invalid("""{ "agents": { "default": { "cache": "always" } } }"""), StringComparison.Ordinal);
+        Assert.Contains(
+            "unknown agents.default key",
+            Invalid("""{ "agents": { "default": { "retries": 2 } } }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "unknown agents.default key",
+            Invalid("""{ "agents": { "default": { "cache": "always" } } }"""),
+            StringComparison.Ordinal
+        );
         Assert.Equal(
             "unknown agents.default key \"sytem\"; did you mean \"system\"?",
-            Invalid("""{ "agents": { "default": { "sytem": "Be careful." } } }"""));
+            Invalid("""{ "agents": { "default": { "sytem": "Be careful." } } }""")
+        );
         Assert.Equal(
             "unknown agents.ux key \"maxInputToken\"; did you mean \"maxInputTokens\"?",
-            Invalid("""{ "agents": { "ux": { "maxInputToken": 1000 } } }"""));
+            Invalid("""{ "agents": { "ux": { "maxInputToken": 1000 } } }""")
+        );
     }
 
     [Fact]
     public void Rejects_a_removed_agent_key_naming_its_replacement()
     {
-        Assert.Contains("agents.default.timeout was removed: use judgmentTimeout", Invalid("""{ "agents": { "default": { "timeout": 30000 } } }"""), StringComparison.Ordinal);
+        Assert.Contains(
+            "agents.default.timeout was removed: use judgmentTimeout",
+            Invalid("""{ "agents": { "default": { "timeout": 30000 } } }"""),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -86,9 +163,17 @@ public sealed class AgentConfigDefaultsTests
         var json = "{ \"agents\": { \"default\": { \"context\": \"" + new string('a', 16_385) + "\" } } }";
 
         Assert.Equal("agents.default.context is 16385 bytes; the maximum is 16384", Invalid(json));
-        Assert.Equal(16_384, Parse(json.Replace(new string('a', 16_385), new string('a', 16_384), StringComparison.Ordinal)).Agent.Context!.Length);
+        Assert.Equal(
+            16_384,
+            Parse(
+                json.Replace(new string('a', 16_385), new string('a', 16_384), StringComparison.Ordinal)
+            ).Agent.Context!.Length
+        );
         Assert.Equal("be terse", Parse("""{ "agents": { "default": { "context": "be terse" } } }""").Agent.Context);
-        Assert.Equal("agents.default.context must be a string", Invalid("""{ "agents": { "default": { "context": 5 } } }"""));
+        Assert.Equal(
+            "agents.default.context must be a string",
+            Invalid("""{ "agents": { "default": { "context": 5 } } }""")
+        );
     }
 
     private static E2EConfig Parse(string json) => E2EConfig.Parse(json, Root, _ => null);

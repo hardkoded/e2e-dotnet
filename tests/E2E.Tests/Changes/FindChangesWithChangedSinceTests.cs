@@ -48,7 +48,11 @@ public sealed class FindChangesWithChangedSinceTests : IDisposable
         GitRepo.InitRepo(dir);
         var baseCommit = GitRepo.CommitFiles(dir, new Dictionary<string, string> { ["src/app.ts"] = "one\n" }, "app");
         GitRepo.RunGit(dir, "checkout", "--quiet", "-b", "feature");
-        GitRepo.CommitFiles(dir, new Dictionary<string, string> { ["src/app.ts"] = "two\n", ["tests/new.e2e.ts"] = "test\n" }, "feature");
+        GitRepo.CommitFiles(
+            dir,
+            new Dictionary<string, string> { ["src/app.ts"] = "two\n", ["tests/new.e2e.ts"] = "test\n" },
+            "feature"
+        );
         GitRepo.RunGit(dir, "checkout", "--quiet", "main");
         GitRepo.CommitFiles(dir, new Dictionary<string, string> { ["docs/later.md"] = "later\n" }, "later");
         GitRepo.RunGit(dir, "checkout", "--quiet", "feature");
@@ -56,18 +60,43 @@ public sealed class FindChangesWithChangedSinceTests : IDisposable
     }
 
     /// <summary><c>FindChangesAsync</c> in <paramref name="cwd"/> over the change since <c>main</c> and a live token.</summary>
-    private static Task<TestFilterChanges> LookUp(string cwd, string changedSince = "main", CancellationToken cancellationToken = default, TimeSpan? budget = null) =>
-        E2E.Changes.FindChangesAsync(new ChangeOptions { Cwd = cwd, ChangedSince = changedSince, CancellationToken = cancellationToken, Budget = budget ?? E2E.Changes.GitBudget });
+    private static Task<TestFilterChanges> LookUp(
+        string cwd,
+        string changedSince = "main",
+        CancellationToken cancellationToken = default,
+        TimeSpan? budget = null
+    ) =>
+        E2E.Changes.FindChangesAsync(
+            new ChangeOptions
+            {
+                Cwd = cwd,
+                ChangedSince = changedSince,
+                CancellationToken = cancellationToken,
+                Budget = budget ?? E2E.Changes.GitBudget,
+            }
+        );
 
     /// <summary>The files a lookup found, failing the test when it found none.</summary>
     private static IReadOnlyList<string> FilesOf(TestFilterChanges lookup) =>
-        lookup.Files.Count == 0 ? throw new InvalidOperationException($"expected a change since {lookup.Base}") : lookup.Files;
+        lookup.Files.Count == 0
+            ? throw new InvalidOperationException($"expected a change since {lookup.Base}")
+            : lookup.Files;
 
     /// <summary>A clone of <paramref name="dir"/>'s <paramref name="branch"/>, <paramref name="depth"/> commits deep, as actions/checkout makes one.</summary>
     private string ShallowClone(string dir, string branch, int depth)
     {
         var clone = Path.Combine(TempDir(), "shallow");
-        GitRepo.RunGit(Path.GetDirectoryName(clone)!, "clone", "--quiet", "--depth", depth.ToString(System.Globalization.CultureInfo.InvariantCulture), "--branch", branch, new Uri(dir).AbsoluteUri, clone);
+        GitRepo.RunGit(
+            Path.GetDirectoryName(clone)!,
+            "clone",
+            "--quiet",
+            "--depth",
+            depth.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "--branch",
+            branch,
+            new Uri(dir).AbsoluteUri,
+            clone
+        );
         return clone;
     }
 
@@ -105,7 +134,10 @@ public sealed class FindChangesWithChangedSinceTests : IDisposable
         // Asked from a subdirectory, paths stay repository-relative, and untracked files outside it count too.
         File.WriteAllText(Path.Combine(dir, "root-new.ts"), "new\n");
         File.WriteAllText(Path.Combine(dir, "src", "new.ts"), "new\n");
-        Assert.Equal(["root-new.ts", "src/app.ts", "src/new.ts", "tests/new.e2e.ts"], FilesOf(await LookUp(Path.Combine(dir, "src"))));
+        Assert.Equal(
+            ["root-new.ts", "src/app.ts", "src/new.ts", "tests/new.e2e.ts"],
+            FilesOf(await LookUp(Path.Combine(dir, "src")))
+        );
     }
 
     [Fact]
@@ -127,7 +159,20 @@ public sealed class FindChangesWithChangedSinceTests : IDisposable
         Directory.CreateDirectory(Path.Combine(dir, "tools"));
         GitRepo.InitRepo(Path.Combine(dir, "tools"));
         var files = FilesOf(await LookUp(dir));
-        Assert.Equal([".gitignore", "file.txt", "plain/g.txt", "src/app.ts", "staged.ts", "tests/new.e2e.ts", "untracked.ts", "～.ts", "\U0001F600.ts"], files);
+        Assert.Equal(
+            [
+                ".gitignore",
+                "file.txt",
+                "plain/g.txt",
+                "src/app.ts",
+                "staged.ts",
+                "tests/new.e2e.ts",
+                "untracked.ts",
+                "～.ts",
+                "\U0001F600.ts",
+            ],
+            files
+        );
     }
 
     [Fact]
@@ -142,9 +187,14 @@ public sealed class FindChangesWithChangedSinceTests : IDisposable
         var bin = TempDir();
         var real = Directory.GetFiles("/usr/bin", "git").FirstOrDefault() ?? "/bin/git";
         var script = Path.Combine(bin, "git");
-        File.WriteAllText(script, $"#!/bin/sh\nfor arg; do [ \"$arg\" = --no-relative ] && exit 129; done\nexec \"{real}\" \"$@\"\n");
+        File.WriteAllText(
+            script,
+            $"#!/bin/sh\nfor arg; do [ \"$arg\" = --no-relative ] && exit 129; done\nexec \"{real}\" \"$@\"\n"
+        );
         File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        await WithPath(bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH"), async () => Assert.Equal(["src/app.ts", "tests/new.e2e.ts"], FilesOf(await LookUp(dir))));
+        await WithPath(bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH"), async () =>
+            Assert.Equal(["src/app.ts", "tests/new.e2e.ts"], FilesOf(await LookUp(dir)))
+        );
     }
 
     [Fact]
@@ -161,7 +211,11 @@ public sealed class FindChangesWithChangedSinceTests : IDisposable
     {
         var (dir, _) = FeatureRepo();
         var head = GitRepo.RunGit(dir, "rev-parse", "HEAD");
-        Assert.Equal(new TestFilterChanges(head, Paths.OnDiskPath(dir), []), await LookUp(dir, "HEAD"), new ChangesComparer());
+        Assert.Equal(
+            new TestFilterChanges(head, Paths.OnDiskPath(dir), []),
+            await LookUp(dir, "HEAD"),
+            new ChangesComparer()
+        );
     }
 
     [Fact]
@@ -177,14 +231,20 @@ public sealed class FindChangesWithChangedSinceTests : IDisposable
     {
         var (dir, _) = FeatureRepo();
         var missing = await InvalidChangedSince(LookUp(dir, "origin/mian"));
-        Assert.Equal("--changed-since \"origin/mian\" names no commit in this checkout; fetch it, such as with fetch-depth: 0 on actions/checkout or GIT_DEPTH: 0 on GitLab", missing.Message);
+        Assert.Equal(
+            "--changed-since \"origin/mian\" names no commit in this checkout; fetch it, such as with fetch-depth: 0 on actions/checkout or GIT_DEPTH: 0 on GitLab",
+            missing.Message
+        );
         GitRepo.RunGit(dir, "checkout", "--quiet", "--orphan", "unrelated");
         GitRepo.CommitFiles(dir, new Dictionary<string, string> { ["other.txt"] = "x\n" }, "unrelated");
         GitRepo.RunGit(dir, "checkout", "--quiet", "feature");
 
         // A full clone holds every commit: more history cannot help.
         var unrelated = await InvalidChangedSince(LookUp(dir, "unrelated"));
-        Assert.Equal("--changed-since \"unrelated\" shares no history with HEAD: their histories are unrelated; name a ref on the history of HEAD", unrelated.Message);
+        Assert.Equal(
+            "--changed-since \"unrelated\" shares no history with HEAD: their histories are unrelated; name a ref on the history of HEAD",
+            unrelated.Message
+        );
     }
 
     [Fact]
@@ -194,7 +254,10 @@ public sealed class FindChangesWithChangedSinceTests : IDisposable
         var clone = ShallowClone(dir, "feature", 1);
         GitRepo.RunGit(clone, "fetch", "--quiet", "--depth", "1", "origin", "main:refs/remotes/origin/main");
         var error = await InvalidChangedSince(LookUp(clone, "origin/main"));
-        Assert.Equal("--changed-since \"origin/main\" shares no history with HEAD in this checkout; fetch more history, such as git fetch --unshallow", error.Message);
+        Assert.Equal(
+            "--changed-since \"origin/main\" shares no history with HEAD in this checkout; fetch more history, such as git fetch --unshallow",
+            error.Message
+        );
     }
 
     [Fact]
@@ -204,7 +267,12 @@ public sealed class FindChangesWithChangedSinceTests : IDisposable
         Assert.Matches(@"\A--changed-since ""main"": git rev-parse: not a git repository", outside.Message);
 
         var (dir, _) = FeatureRepo();
-        await WithPath(TempDir(), async () => Assert.Equal("--changed-since \"main\": git was not found", (await InvalidChangedSince(LookUp(dir))).Message));
+        await WithPath(TempDir(), async () =>
+            Assert.Equal(
+                "--changed-since \"main\": git was not found",
+                (await InvalidChangedSince(LookUp(dir))).Message
+            )
+        );
 
         var slow = await InvalidChangedSince(LookUp(dir, budget: TimeSpan.FromMilliseconds(1)));
         Assert.Equal("--changed-since \"main\": git did not answer within 1ms", slow.Message);
@@ -223,7 +291,8 @@ public sealed class FindChangesWithChangedSinceTests : IDisposable
     /// <summary>Compares the change by value, its files by element.</summary>
     private sealed class ChangesComparer : IEqualityComparer<TestFilterChanges>
     {
-        public bool Equals(TestFilterChanges? x, TestFilterChanges? y) => x is not null && y is not null && x.Base == y.Base && x.Root == y.Root && x.Files.SequenceEqual(y.Files);
+        public bool Equals(TestFilterChanges? x, TestFilterChanges? y) =>
+            x is not null && y is not null && x.Base == y.Base && x.Root == y.Root && x.Files.SequenceEqual(y.Files);
 
         public int GetHashCode(TestFilterChanges obj) => obj.Base.GetHashCode(StringComparison.Ordinal);
     }

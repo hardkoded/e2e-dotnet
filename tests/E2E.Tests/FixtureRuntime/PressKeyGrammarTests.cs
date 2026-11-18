@@ -14,7 +14,12 @@ namespace E2E.Tests.FixtureRuntime;
 /// </summary>
 public sealed class PressKeyGrammarTests
 {
-    private static readonly SemanticNode Field = new() { Ref = "field", Role = "textbox", Name = "Name" };
+    private static readonly SemanticNode Field = new()
+    {
+        Ref = "field",
+        Role = "textbox",
+        Name = "Name",
+    };
 
     [Fact]
     public async Task Rejects_a_key_outside_the_grammar_in_the_locator_tier_before_the_locator_is_resolved()
@@ -23,7 +28,9 @@ public sealed class PressKeyGrammarTests
         await using var session = await StartAsync(engine);
         foreach (var key in new[] { "Ctrl+a", "Enter+Shift", "", "ab", "Shift" })
         {
-            var error = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByLabel("Name").PressAsync(key));
+            var error = await Assert.ThrowsAsync<TestException>(() =>
+                session.Screen.GetByLabel("Name").PressAsync(key)
+            );
             Assert.Equal("INVALID_ARGUMENT", error.Code);
             Assert.Contains($"press key \"{key}\" is not a key", error.Message, StringComparison.Ordinal);
         }
@@ -54,10 +61,7 @@ public sealed class PressKeyGrammarTests
 
             await context.Actions.PressAsync(new ExecutorTarget("field"), "Shift+Tab", token);
             return Passed("pressed");
-        })
-        {
-            Version = "1",
-        };
+        }) { Version = "1" };
         await using var session = await StartAsync(engine, executor);
 
         await session.Agent.ActAsync("press keys");
@@ -76,22 +80,29 @@ public sealed class PressKeyGrammarTests
 
         var check = await Assert.ThrowsAsync<EngineException>(() => session.Screen.GetByLabel("Name").CheckAsync());
         Assert.Equal(EngineErrorCodes.UnsupportedCapability, check.Code);
-        Assert.Equal("the \"check\" action is not available on this target: its engine declares tap, press", check.Message);
-        var swipe = await Assert.ThrowsAsync<EngineException>(() => session.Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down }));
+        Assert.Equal(
+            "the \"check\" action is not available on this target: its engine declares tap, press",
+            check.Message
+        );
+        var swipe = await Assert.ThrowsAsync<EngineException>(() =>
+            session.Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })
+        );
         Assert.Equal(EngineErrorCodes.UnsupportedCapability, swipe.Code);
         Assert.Equal(0, engine.Locates);
         Assert.Empty(engine.Performed);
     }
 
     private static Task<E2ESession> StartAsync(IEngine engine, IStepExecutor? executor = null) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            AgentExecutor = executor,
-            BaseUrl = "https://app.test",
-            TestTitle = "press key grammar",
-            CacheEnabled = false,
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                AgentExecutor = executor,
+                BaseUrl = "https://app.test",
+                TestTitle = "press key grammar",
+                CacheEnabled = false,
+            }
+        );
 
     /// <summary>Upstream's <c>keyboard()</c>: an engine that records every located expression and performed action.</summary>
     private sealed class KeyboardEngine : IEngine
@@ -106,7 +117,11 @@ public sealed class PressKeyGrammarTests
 
         public string Version => "1";
 
-        public EngineCapabilities Capabilities => EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard;
+        public EngineCapabilities Capabilities =>
+            EngineCapabilities.Observation
+            | EngineCapabilities.Actions
+            | EngineCapabilities.Location
+            | EngineCapabilities.Keyboard;
 
         public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
             Task.FromResult<IEngineSession>(new Session(this));
@@ -124,7 +139,11 @@ public sealed class PressKeyGrammarTests
             public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
                 Task.FromResult(new Observation { Route = "/", Roots = [Field] });
 
-            public Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
+            public Task<IReadOnlyList<SemanticNode>> LocateAsync(
+                LocatorExpression expression,
+                TimeSpan timeout,
+                CancellationToken cancellationToken
+            )
             {
                 Interlocked.Increment(ref engine._locates);
                 return Task.FromResult<IReadOnlyList<SemanticNode>>([Field]);
@@ -132,7 +151,9 @@ public sealed class PressKeyGrammarTests
 
             public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
             {
-                engine.Performed.Add(action is LocatorAction.Press press ? "press:" + press.Key : EngineActionKinds.Of(action));
+                engine.Performed.Add(
+                    action is LocatorAction.Press press ? "press:" + press.Key : EngineActionKinds.Of(action)
+                );
                 return Task.CompletedTask;
             }
 

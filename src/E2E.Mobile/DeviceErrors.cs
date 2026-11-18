@@ -18,6 +18,7 @@ namespace E2E.Mobile;
 /// <item><term>a stale-ref refusal, by <c>details.reason</c> (action paths only)</term><description>NODE_STALE (retryable)</description></item>
 /// <item><term><c>target_still_moving</c> with <c>details.dispatched: no</c></term><description>NODE_STALE (retryable)</description></item>
 /// <item><term>a covered or keyboard-occluded target, <c>dispatched: no</c></term><description>NOT_ACTIONABLE, with the hint</description></item>
+/// <item><term>a target with no screen origin to aim at, <c>dispatched: no</c></term><description>NOT_ACTIONABLE, with the hint</description></item>
 /// <item><term>the iOS runner busy, wedged, or past its watchdog; a snapshot the runner acquired but could not present</term><description>ENGINE_FAILURE, naming the runner and the recovery</description></item>
 /// <item><term>anything else, agent-device's own timeouts included</term><description>ENGINE_FAILURE with the text</description></item>
 /// </list>
@@ -48,7 +49,12 @@ public static partial class DeviceErrors
 
     private const string AmbiguousMatchHint = "Set MobileOptions.Device to a device id, or boot exactly one device.";
 
-    private static readonly HashSet<string> UnsupportedCodes = ["UNSUPPORTED_OPERATION", "NOT_IMPLEMENTED", "UNSUPPORTED_PLATFORM"];
+    private static readonly HashSet<string> UnsupportedCodes =
+    [
+        "UNSUPPORTED_OPERATION",
+        "NOT_IMPLEMENTED",
+        "UNSUPPORTED_PLATFORM",
+    ];
 
     /// <summary>
     /// The <c>details.reason</c> values agent-device refuses an <c>@ref</c> with: the ref names no node of
@@ -66,11 +72,25 @@ public static partial class DeviceErrors
     ];
 
     /// <summary>
-    /// The <c>details.reason</c> values agent-device refuses an action with when something else is drawn where the touch
-    /// would land: an overlay its occlusion scan found over the target (<c>coveredBy</c> names it), or the soft keyboard
-    /// over the target's touch point. Nothing was sent, and the app is fine; the test has to move the cover or the target first.
+    /// The <c>details.reason</c> values agent-device refuses an action with, nothing sent, on a healthy device, each with
+    /// the hint the failure carries: <c>null</c> keeps agent-device's own, and a string replaces it.
+    /// <list type="bullet">
+    /// <item><c>target_covered</c>, <c>tap_keyboard_occludes_target</c>: an overlay its occlusion scan found over the target
+    /// (<c>coveredBy</c> names it), or the soft keyboard over the target's touch point. The test has to move the cover or
+    /// the target first, and agent-device's hint says how.</item>
+    /// <item><c>window-origin-unknown</c> (0.21.37): the capture the ref came from could not place its window on the
+    /// screen, so its bounds may be offset from screen coordinates by the window's position (a placed iPad window).
+    /// agent-device's hint names its CLI (<c>snapshot</c>, <c>screenshot</c>); a point tap is not aimed from the capture,
+    /// and agent-device takes it, but a point read from <c>BoundingBox()</c> carries the same offset.</item>
+    /// </list>
     /// </summary>
-    private static readonly HashSet<string> OccludedReasons = ["target_covered", "tap_keyboard_occludes_target"];
+    private static readonly Dictionary<string, string?> NotActionableReasons = new()
+    {
+        ["target_covered"] = null,
+        ["tap_keyboard_occludes_target"] = null,
+        ["window-origin-unknown"] =
+            "Nothing was sent. The app's window has no known position on the screen, so node bounds, boundingBox() included, may be offset from screen coordinates. For a tap, tap a screen point with screen.tapAt(), not one taken from those bounds.",
+    };
 
     /// <summary>
     /// What the iOS automation runner reported about itself, by the code agent-device emits for it:
@@ -80,9 +100,18 @@ public static partial class DeviceErrors
     /// </summary>
     private static readonly Dictionary<string, RunnerStateText> RunnerStates = new(StringComparer.Ordinal)
     {
-        ["RUNNER_BUSY"] = new("the iOS automation runner is still finishing a command that overran its watchdog", "Wait a few seconds and rerun."),
-        ["MAIN_THREAD_TIMEOUT"] = new("the iOS automation runner's main thread overran its watchdog on this command", "Rerun once it has drained."),
-        ["RUNNER_WEDGED"] = new("the iOS automation runner is wedged: its main thread is stuck in abandoned work", "agent-device restarts the runner; rerun."),
+        ["RUNNER_BUSY"] = new(
+            "the iOS automation runner is still finishing a command that overran its watchdog",
+            "Wait a few seconds and rerun."
+        ),
+        ["MAIN_THREAD_TIMEOUT"] = new(
+            "the iOS automation runner's main thread overran its watchdog on this command",
+            "Rerun once it has drained."
+        ),
+        ["RUNNER_WEDGED"] = new(
+            "the iOS automation runner is wedged: its main thread is stuck in abandoned work",
+            "agent-device restarts the runner; rerun."
+        ),
     };
 
     /// <summary>
@@ -110,10 +139,17 @@ public static partial class DeviceErrors
     /// cold-starting app on a slow emulator does this until it renders. Mirrors agent-device's <c>isUnreadableCaptureContentError</c>,
     /// which its root entry does not export (0.21.25).
     /// </summary>
-    private static readonly HashSet<string> UnreadableCaptureReasons = ["empty-helper-output", "system-window-only", "content-poor-app-window"];
+    private static readonly HashSet<string> UnreadableCaptureReasons =
+    [
+        "empty-helper-output",
+        "system-window-only",
+        "content-poor-app-window",
+    ];
 
-    private static readonly RunnerStateText Presentation =
-        new("the iOS automation runner could not present the accessibility snapshot", "Rerun.");
+    private static readonly RunnerStateText Presentation = new(
+        "the iOS automation runner could not present the accessibility snapshot",
+        "Rerun."
+    );
 
     /// <summary>A failure's message in agent-device's normalized form.</summary>
     public static string Message(Exception cause) => AgentDeviceErrors.Normalize(cause).Message;
@@ -148,12 +184,22 @@ public static partial class DeviceErrors
 
         if (RunnerState(cause) is { } state)
         {
-            return new EngineException(EngineErrorCodes.EngineFailure, RunnerMessage(operation, where, state, cause), retryable: false, cause);
+            return new EngineException(
+                EngineErrorCodes.EngineFailure,
+                RunnerMessage(operation, where, state, cause),
+                retryable: false,
+                cause
+            );
         }
 
         if (IsPresentationFailure(cause))
         {
-            return new EngineException(EngineErrorCodes.EngineFailure, RunnerMessage(operation, where, Presentation, cause), retryable: false, cause);
+            return new EngineException(
+                EngineErrorCodes.EngineFailure,
+                RunnerMessage(operation, where, Presentation, cause),
+                retryable: false,
+                cause
+            );
         }
 
         return new EngineException(EngineErrorCodes.EngineFailure, text, retryable: false, cause);
@@ -164,20 +210,24 @@ public static partial class DeviceErrors
     /// watchdog. The runner, not the app, is what needs attention, so a caller that tolerates an app that
     /// did not open (warm-up) must not tolerate this.
     /// </summary>
-    public static bool IsRunnerFailure(Exception? error) => error?.InnerException is { } cause && RunnerState(cause) is not null;
+    public static bool IsRunnerFailure(Exception? error) =>
+        error?.InnerException is { } cause && RunnerState(cause) is not null;
 
     /// <summary>
     /// True for a translated snapshot the iOS runner acquired but could not present. The check is per
     /// capture and the capture is a read, so one retry is safe and usually enough.
     /// </summary>
-    public static bool IsSnapshotPresentationFailure(Exception? error) => error?.InnerException is { } cause && IsPresentationFailure(cause);
+    public static bool IsSnapshotPresentationFailure(Exception? error) =>
+        error?.InnerException is { } cause && IsPresentationFailure(cause);
 
     /// <summary>
     /// True for a translated snapshot agent-device took on Android but found too little foreground content in to read. The
     /// screen is still arriving, so a caller that polls may read it as nothing there yet.
     /// </summary>
     public static bool IsUnreadableCapture(Exception? error) =>
-        error?.InnerException is { } cause && Details(cause).GetValueOrDefault("androidSnapshotHelperFailureReason") is string reason && UnreadableCaptureReasons.Contains(reason);
+        error?.InnerException is { } cause
+        && Details(cause).GetValueOrDefault("androidSnapshotHelperFailureReason") is string reason
+        && UnreadableCaptureReasons.Contains(reason);
 
     /// <summary>
     /// True for a translated read the iOS runner refused because XCTest sees the app as not running. A physical device
@@ -189,13 +239,19 @@ public static partial class DeviceErrors
 
     /// <summary>True for a translated <c>open</c> agent-device refused because no installed app matches the name.</summary>
     public static bool IsAppNotInstalled(Exception? error) =>
-        error?.InnerException is AgentDeviceError cause && AgentDeviceErrors.Normalize(cause).Code == "APP_NOT_INSTALLED";
+        error?.InnerException is AgentDeviceError cause
+        && AgentDeviceErrors.Normalize(cause).Code == "APP_NOT_INSTALLED";
 
     /// <summary>
     /// Runs one agent-device command under a cancellation token and translates its failure onto the engine
     /// taxonomy: the one boundary every command crosses.
     /// </summary>
-    public static async Task<T> RunCommandAsync<T>(string label, Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken, string? where = null)
+    public static async Task<T> RunCommandAsync<T>(
+        string label,
+        Func<CancellationToken, Task<T>> work,
+        CancellationToken cancellationToken,
+        string? where = null
+    )
     {
         try
         {
@@ -214,8 +270,8 @@ public static partial class DeviceErrors
     /// instead of failing the action. Existing stale-ref reasons are sufficient on their own: Android dialog
     /// recovery can mark a refused drag as <c>dispatched: unknown</c>. A <c>target_still_moving</c> refusal
     /// additionally requires <c>dispatched: no</c>; missing or unknown dispatch is not retryable.
-    /// A target agent-device refused as covered (<see cref="OccludedReasons"/>) with nothing dispatched is
-    /// <c>NOT_ACTIONABLE</c>: the test's own failure, with the hint that names the cover, never an infrastructure one.
+    /// A target agent-device refused for a reason in <see cref="NotActionableReasons"/> with nothing dispatched is
+    /// <c>NOT_ACTIONABLE</c>, with the move that gets past it: an action failure on a healthy device, never an infrastructure one.
     /// </summary>
     public static Exception StaleOr(Exception cause, string operation, string? where = null)
     {
@@ -225,15 +281,35 @@ public static partial class DeviceErrors
         }
 
         var details = Details(cause);
-        if (details.GetValueOrDefault("reason") is string reason
-            && (StaleRefReasons.Contains(reason) || (reason == "target_still_moving" && details.GetValueOrDefault("dispatched") is "no")))
+        if (
+            details.GetValueOrDefault("reason") is string reason
+            && (
+                StaleRefReasons.Contains(reason)
+                || (reason == "target_still_moving" && details.GetValueOrDefault("dispatched") is "no")
+            )
+        )
         {
-            return new EngineException(EngineErrorCodes.NodeStale, $"{operation}: {Message(cause)}", retryable: true, cause);
+            return new EngineException(
+                EngineErrorCodes.NodeStale,
+                $"{operation}: {Message(cause)}",
+                retryable: true,
+                cause
+            );
         }
 
-        if (details.GetValueOrDefault("reason") is string occluded && OccludedReasons.Contains(occluded) && details.GetValueOrDefault("dispatched") is "no")
+        if (
+            details.GetValueOrDefault("reason") is string refusal
+            && NotActionableReasons.TryGetValue(refusal, out var hint)
+            && details.GetValueOrDefault("dispatched") is "no"
+        )
         {
-            return new EngineException(EngineErrorCodes.NotActionable, $"{operation} failed: {WithHint(cause, Message(cause))}", retryable: false, cause);
+            var text = hint is null ? WithHint(cause, Message(cause)) : $"{Message(cause)} Hint: {hint}";
+            return new EngineException(
+                EngineErrorCodes.NotActionable,
+                $"{operation} failed: {text}",
+                retryable: false,
+                cause
+            );
         }
 
         return TranslateError(cause, operation, where);
@@ -259,7 +335,11 @@ public static partial class DeviceErrors
     /// </summary>
     private static string WithHint(Exception cause, string text)
     {
-        if (Details(cause).GetValueOrDefault("hint") is string hint && hint.Trim().Length > 0 && !CliAdvice().IsMatch(hint))
+        if (
+            Details(cause).GetValueOrDefault("hint") is string hint
+            && hint.Trim().Length > 0
+            && !CliAdvice().IsMatch(hint)
+        )
         {
             if (hint.Trim() != AgentDeviceErrors.DefaultHintForCode(AgentDeviceErrors.Normalize(cause).Code))
             {
@@ -278,7 +358,11 @@ public static partial class DeviceErrors
             return byCode;
         }
 
-        return Details(cause).GetValueOrDefault("runnerErrorCode") is string wire && RunnerStates.TryGetValue(wire, out var byWire) ? byWire : null;
+        return
+            Details(cause).GetValueOrDefault("runnerErrorCode") is string wire
+            && RunnerStates.TryGetValue(wire, out var byWire)
+            ? byWire
+            : null;
     }
 
     /// <summary>True when the iOS runner acquired a snapshot and failed its own presentation check on it.</summary>
@@ -304,7 +388,10 @@ public static partial class DeviceErrors
         return $"{operation} failed: {state.Headline}{location}: {Message(cause)} The app is fine. {state.FirstMove} {RunnerRecovery}";
     }
 
-    [GeneratedRegex(@"\b(?:is )?not supported\b|\bunsupported\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(
+        @"\b(?:is )?not supported\b|\bunsupported\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
+    )]
     private static partial Regex Unsupported();
 
     /// <summary>agent-device's generic hint (<c>Check command arguments and run --help</c>) is CLI advice.</summary>

@@ -10,11 +10,12 @@ namespace E2E.Mobile.Tests.Engine;
 
 public sealed class ObservationTests
 {
-    private static JsonObject Sparse() => new()
-    {
-        ["nodes"] = new JsonArray(new JsonObject { ["ref"] = "@e1", ["type"] = "application" }),
-        ["snapshotQuality"] = new JsonObject { ["state"] = "sparse" },
-    };
+    private static JsonObject Sparse() =>
+        new()
+        {
+            ["nodes"] = new JsonArray(new JsonObject { ["ref"] = "@e1", ["type"] = "application" }),
+            ["snapshotQuality"] = new JsonObject { ["state"] = "sparse" },
+        };
 
     private static SemanticNode Named(SemanticNode root, string name) => Walk(root).First(node => node.Name == name);
 
@@ -56,14 +57,22 @@ public sealed class ObservationTests
         var session = await OpenAttempt(h);
         Assert.Null((await session.ObserveAsync(CancellationToken.None)).KeyboardVisible);
 
-        var frame = new JsonObject { ["x"] = 0, ["y"] = 583, ["width"] = 390, ["height"] = 261 };
+        var frame = new JsonObject
+        {
+            ["x"] = 0,
+            ["y"] = 583,
+            ["width"] = 390,
+            ["height"] = 261,
+        };
         h.Fake.Respond("capture.snapshot", _ => Snapshot(new JsonObject { ["kind"] = "visible", ["frame"] = frame }));
         Assert.True((await session.ObserveAsync(CancellationToken.None)).KeyboardVisible);
 
         h.Fake.Respond("capture.snapshot", _ => Snapshot(new JsonObject { ["kind"] = "absent" }));
         Assert.False((await session.ObserveAsync(CancellationToken.None)).KeyboardVisible);
 
-        h.Fake.Respond("capture.snapshot", _ => Snapshot(new JsonObject { ["kind"] = "unmeasurable", ["reason"] = "keyboard-frame-query-timeout" }));
+        h.Fake.Respond("capture.snapshot", _ =>
+            Snapshot(new JsonObject { ["kind"] = "unmeasurable", ["reason"] = "keyboard-frame-query-timeout" })
+        );
         Assert.Null((await session.ObserveAsync(CancellationToken.None)).KeyboardVisible);
     }
 
@@ -101,12 +110,18 @@ public sealed class ObservationTests
         Assert.Equal(new TraceViewport(402, 874), publishedObservation.Viewport);
         var tree = Harness.Create();
         var treeSession = await OpenAttempt(tree);
-        Assert.Equal(new BoundingBox(0, 0, 390, 844), (await treeSession.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        Assert.Equal(
+            new BoundingBox(0, 0, 390, 844),
+            (await treeSession.ObserveAsync(CancellationToken.None)).Roots[0].Rect
+        );
         Assert.DoesNotContain("capture.screenshot", published.Fake.Methods().Concat(tree.Fake.Methods()));
 
         // A published size that is not positive is no measurement: the tree decides.
         tree.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(0, 0));
-        Assert.Equal(new BoundingBox(0, 0, 390, 844), (await treeSession.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        Assert.Equal(
+            new BoundingBox(0, 0, 390, 844),
+            (await treeSession.ObserveAsync(CancellationToken.None)).Roots[0].Rect
+        );
     }
 
     private static JsonObject WithViewport(double width, double height)
@@ -121,9 +136,19 @@ public sealed class ObservationTests
     {
         var h = Harness.Create();
         // Calendar behind Notification Center, read live on an iOS 26 simulator: its tree, healthy, clipped to a third of the screen.
-        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject { ["logicalWidth"] = 390, ["logicalHeight"] = 844, ["width"] = 1170, ["height"] = 2532, ["pixelDensity"] = 3 });
+        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject
+        {
+            ["logicalWidth"] = 390,
+            ["logicalHeight"] = 844,
+            ["width"] = 1170,
+            ["height"] = 2532,
+            ["pixelDensity"] = 3,
+        });
         var session = await OpenAttempt(h);
-        Assert.Equal(new BoundingBox(0, 0, 390, 844), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        Assert.Equal(
+            new BoundingBox(0, 0, 390, 844),
+            (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect
+        );
         int Screenshots() => h.Fake.Methods().Count(method => method == "capture.screenshot");
         var before = Screenshots();
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
@@ -132,22 +157,38 @@ public sealed class ObservationTests
             snapshot["snapshotQuality"] = new JsonObject { ["state"] = "healthy" };
             return snapshot;
         });
-        Assert.Equal(new BoundingBox(0, 0, 390, 844), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        Assert.Equal(
+            new BoundingBox(0, 0, 390, 844),
+            (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect
+        );
         Assert.Equal(before + 1, Screenshots());
 
         // A rotation is the known size transposed: taken as it comes, without asking the device.
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(844, 390));
-        Assert.Equal(new BoundingBox(0, 0, 844, 390), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        Assert.Equal(
+            new BoundingBox(0, 0, 844, 390),
+            (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect
+        );
         Assert.Equal(before + 1, Screenshots());
 
         // Any other size replaces the known one when the device's screen agrees.
-        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject { ["logicalWidth"] = 402, ["logicalHeight"] = 874 });
+        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject
+        {
+            ["logicalWidth"] = 402,
+            ["logicalHeight"] = 874,
+        });
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(402, 874));
-        Assert.Equal(new BoundingBox(0, 0, 402, 874), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        Assert.Equal(
+            new BoundingBox(0, 0, 402, 874),
+            (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect
+        );
         // A real device's screenshot reports no logical size: the tree's size stands.
         h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject { ["width"] = 1125, ["height"] = 2001 });
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(375, 667));
-        Assert.Equal(new BoundingBox(0, 0, 375, 667), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        Assert.Equal(
+            new BoundingBox(0, 0, 375, 667),
+            (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect
+        );
     }
 
     [Fact]
@@ -164,7 +205,9 @@ public sealed class ObservationTests
     {
         var h = Harness.Create();
         var calls = 0;
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => ++calls < 2 ? Sparse() : FakeDeviceClient.SettingsSnapshot());
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            ++calls < 2 ? Sparse() : FakeDeviceClient.SettingsSnapshot()
+        );
         var session = await OpenAttempt(h);
         var snapshot = await session.ObserveAsync(CancellationToken.None);
         Assert.Equal(2, calls);
@@ -213,8 +256,16 @@ public sealed class ObservationTests
             return new JsonObject { ["path"] = options["path"]!.GetValue<string>() };
         });
         var session = await OpenAttempt(h);
-        await session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(30), CancellationToken.None);
-        await session.ObserveAsync(new ObserveOptions { Pixels = true, Comparable = true }, TimeSpan.FromSeconds(30), CancellationToken.None);
+        await session.ObserveAsync(
+            new ObserveOptions { Pixels = true },
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None
+        );
+        await session.ObserveAsync(
+            new ObserveOptions { Pixels = true, Comparable = true },
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None
+        );
         Assert.Equal([null, true], asked);
     }
 
@@ -226,7 +277,12 @@ public sealed class ObservationTests
         h.Fake.Respond(DeviceMethods.CaptureScreenshot, options =>
         {
             File.WriteAllBytes(options!["path"]!.GetValue<string>(), png);
-            return new JsonObject { ["path"] = options["path"]!.GetValue<string>(), ["logicalWidth"] = 390, ["logicalHeight"] = 844 };
+            return new JsonObject
+            {
+                ["path"] = options["path"]!.GetValue<string>(),
+                ["logicalWidth"] = 390,
+                ["logicalHeight"] = 844,
+            };
         });
         var session = await OpenAttempt(h);
         var observation = await session.ObserveAsync(CancellationToken.None);
@@ -254,10 +310,16 @@ public sealed class ObservationTests
             foreach (var bytes in new[] { new byte[] { 1, 2, 3 }, headerOnly })
             {
                 shot = bytes;
-                var observation = await session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(30), CancellationToken.None);
+                var observation = await session.ObserveAsync(
+                    new ObserveOptions { Pixels = true },
+                    TimeSpan.FromSeconds(30),
+                    CancellationToken.None
+                );
                 Assert.Null(observation.Pixels);
                 Assert.Single(observation.Roots[0].Children);
-                var withheld = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotArtifactAsync("password", TimeSpan.FromSeconds(30), CancellationToken.None));
+                var withheld = await Assert.ThrowsAsync<EngineException>(() =>
+                    session.ScreenshotArtifactAsync("password", TimeSpan.FromSeconds(30), CancellationToken.None)
+                );
                 Assert.Equal("ENGINE_FAILURE", withheld.Code);
             }
 
@@ -282,14 +344,23 @@ public sealed class ObservationTests
         });
         var session = await OpenAttempt(h);
         var timeout = TimeSpan.FromSeconds(30);
-        var observation = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
+        var observation = await session.ObserveAsync(
+            new ObserveOptions { Pixels = true },
+            timeout,
+            CancellationToken.None
+        );
         var pixels = observation.Pixels!;
         Assert.Equal(0.5, pixels.Scale);
         // One secure node on the Settings fixture: the Password field at y=270, 44 tall.
         Assert.Equal(1, pixels.MaskedRegionCount);
         var decoded = PngCodec.Decode(pixels.Png);
         Assert.Equal((195, 422), (decoded.Width, decoded.Height));
-        int[] At(DecodedPng image, int x, int y) => [image.Pixels[(((y * 195) + x) * 4)], image.Pixels[(((y * 195) + x) * 4) + 1], image.Pixels[(((y * 195) + x) * 4) + 2]];
+        int[] At(DecodedPng image, int x, int y) =>
+            [
+                image.Pixels[(((y * 195) + x) * 4)],
+                image.Pixels[(((y * 195) + x) * 4) + 1],
+                image.Pixels[(((y * 195) + x) * 4) + 2],
+            ];
         Assert.Equal([0, 0, 0], At(decoded, 100, 290 / 2));
         Assert.Equal([255, 255, 255], At(decoded, 100, 240 / 2));
 
@@ -297,11 +368,22 @@ public sealed class ObservationTests
         Assert.Null((await session.ObserveAsync(timeout, CancellationToken.None)).Pixels);
 
         // Android flags a password EditText by attribute, not by class; it is painted over the same way.
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly(
-        [
-            N("e1", index: 0, depth: 0, type: "android.widget.FrameLayout", rect: new Rect(0, 0, 390, 844)),
-            N("e2", index: 1, parentIndex: 0, depth: 1, type: "android.widget.EditText", label: "Password", value: "hunter2", password: true, rect: new Rect(0, 270, 390, 44)),
-        ]));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.NodesOnly([
+                N("e1", index: 0, depth: 0, type: "android.widget.FrameLayout", rect: new Rect(0, 0, 390, 844)),
+                N(
+                    "e2",
+                    index: 1,
+                    parentIndex: 0,
+                    depth: 1,
+                    type: "android.widget.EditText",
+                    label: "Password",
+                    value: "hunter2",
+                    password: true,
+                    rect: new Rect(0, 270, 390, 44)
+                ),
+            ])
+        );
         var android = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
         Assert.Equal(1, android.Pixels!.MaskedRegionCount);
         var password = Named(android.Roots[0], "Password");
@@ -313,16 +395,28 @@ public sealed class ObservationTests
         Assert.Equal([255, 255, 255], At(androidPixels, 100, 240 / 2));
 
         // A secure node without bounds cannot be masked: the tree ships, the image does not.
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly([N("e1", type: "SecureTextField", label: "PIN", value: "1234")]));
-        var unmaskable = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.NodesOnly([N("e1", type: "SecureTextField", label: "PIN", value: "1234")])
+        );
+        var unmaskable = await session.ObserveAsync(
+            new ObserveOptions { Pixels = true },
+            timeout,
+            CancellationToken.None
+        );
         Assert.Null(unmaskable.Pixels);
         Assert.Single(unmaskable.Roots[0].Children);
         // A snapshot without geometry keeps the viewport the session last learned.
         Assert.Equal(new TraceViewport(390, 844), unmaskable.Viewport);
 
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
-        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => throw new AgentDeviceError("COMMAND_FAILED", "screenshot failed"));
-        var treeOnly = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
+        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ =>
+            throw new AgentDeviceError("COMMAND_FAILED", "screenshot failed")
+        );
+        var treeOnly = await session.ObserveAsync(
+            new ObserveOptions { Pixels = true },
+            timeout,
+            CancellationToken.None
+        );
         Assert.Null(treeOnly.Pixels);
         Assert.NotEmpty(treeOnly.Roots[0].Children);
     }
@@ -331,10 +425,19 @@ public sealed class ObservationTests
     public async Task Is_an_empty_screen_before_any_app_is_open_when_no_app_is_pinned_and_a_fault_when_one_is()
     {
         var free = Harness.Create(pinned: false);
-        free.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => throw new AgentDeviceError("SESSION_NOT_FOUND", "No active app session"));
+        free.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            throw new AgentDeviceError("SESSION_NOT_FOUND", "No active app session")
+        );
 
         // No tree means no geometry: the viewport comes from the device's screenshot metadata, once.
-        free.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject { ["logicalWidth"] = 390, ["logicalHeight"] = 844, ["width"] = 1170, ["height"] = 2532, ["pixelDensity"] = 3 });
+        free.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject
+        {
+            ["logicalWidth"] = 390,
+            ["logicalHeight"] = 844,
+            ["width"] = 1170,
+            ["height"] = 2532,
+            ["pixelDensity"] = 3,
+        });
         var session = await OpenAttempt(free);
         var empty = await session.ObserveAsync(CancellationToken.None);
         var root = Assert.Single(empty.Roots);
@@ -352,12 +455,16 @@ public sealed class ObservationTests
         blind.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => new JsonObject { ["nodes"] = new JsonArray() });
         blind.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject());
         var blindSession = await OpenAttempt(blind);
-        var unknown = await Assert.ThrowsAsync<EngineException>(() => blindSession.ObserveAsync(CancellationToken.None));
+        var unknown = await Assert.ThrowsAsync<EngineException>(() =>
+            blindSession.ObserveAsync(CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", unknown.Code);
         Assert.Contains("viewport is unknown", unknown.Message, StringComparison.Ordinal);
 
         var pinned = Harness.Create();
-        pinned.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => throw new AgentDeviceError("SESSION_NOT_FOUND", "No active app session"));
+        pinned.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            throw new AgentDeviceError("SESSION_NOT_FOUND", "No active app session")
+        );
         var pinnedSession = await OpenAttempt(pinned);
         var fault = await Assert.ThrowsAsync<EngineException>(() => pinnedSession.ObserveAsync(CancellationToken.None));
         Assert.Equal("INVALID_STATE", fault.Code);
@@ -372,7 +479,11 @@ public sealed class ObservationTests
     [InlineData("press", DeviceMethods.CommandKeyboard)]
     [InlineData("keyboard dismiss", DeviceMethods.CommandKeyboard)]
     [InlineData("back", DeviceMethods.CommandBack)]
-    public async Task Ends_an_input_hung_on_its_device_command_at_its_budget_as_possibly_committed(string entry, string method)
+    [InlineData("open link", DeviceMethods.AppsOpen)]
+    public async Task Ends_an_input_hung_on_its_device_command_at_its_budget_as_possibly_committed(
+        string entry,
+        string method
+    )
     {
         var h = Harness.Create();
 
@@ -392,13 +503,33 @@ public sealed class ObservationTests
         });
         Task hung = entry switch
         {
-            "tap" => session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None),
-            "screen swipe" => session.PerformAsync(root, new LocatorAction.Swipe(ScrollDirection.Down), OperationContext.Test, CancellationToken.None),
-            "tap at point" => session.PerformAtAsync(new Point(10, 10), new PointerAction.Tap(), OperationContext.Test, CancellationToken.None),
+            "tap" => session.PerformAsync(
+                about,
+                new LocatorAction.Tap(),
+                OperationContext.Test,
+                CancellationToken.None
+            ),
+            "screen swipe" => session.PerformAsync(
+                root,
+                new LocatorAction.Swipe(ScrollDirection.Down),
+                OperationContext.Test,
+                CancellationToken.None
+            ),
+            "tap at point" => session.PerformAtAsync(
+                new Point(10, 10),
+                new PointerAction.Tap(),
+                OperationContext.Test,
+                CancellationToken.None
+            ),
             "type" => session.TypeTextAsync("hi", replace: false, CancellationToken.None),
             "press" => session.PressAsync("Enter", CancellationToken.None),
             "keyboard dismiss" => ((IEngineSession)session).DismissKeyboardAsync(CancellationToken.None),
             "back" => session.BackAsync(OperationContext.Test, CancellationToken.None),
+            "open link" => ((IEngineSession)session).OpenLinkAsync(
+                "e2e-benchmark://orders/42",
+                OperationContext.Test,
+                CancellationToken.None
+            ),
             _ => throw new ArgumentOutOfRangeException(nameof(entry), entry, null),
         };
         await sent.Task;
@@ -422,8 +553,13 @@ public sealed class ObservationTests
 
         // About moves with the tap, so the next tap relocates it first; a slow relocation spends the whole budget.
         await session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(
-            RawNodes.SettingsNodes.Select(node => node.Label == "About" ? node with { Rect = new Rect(0, 400, 390, 44) } : node)));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SnapshotOf(
+                RawNodes.SettingsNodes.Select(node =>
+                    node.Label == "About" ? node with { Rect = new Rect(0, 400, 390, 44) } : node
+                )
+            )
+        );
         var moved = await Screens.Observed(session, "About");
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
         {
@@ -432,7 +568,9 @@ public sealed class ObservationTests
         });
         int Presses() => h.Fake.Methods().Count(method => method == DeviceMethods.InteractionsPress);
         var before = Presses();
-        var late = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(moved, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None));
+        var late = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(moved, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None)
+        );
         Assert.Equal("OPERATION_TIMEOUT", late.Code);
         Assert.Equal(before, Presses());
 
@@ -444,7 +582,9 @@ public sealed class ObservationTests
             h.Clock.Spend(TimeSpan.FromMilliseconds(170));
             return new JsonObject();
         });
-        var cut = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(field, new LocatorAction.Press("a"), OperationContext.Agent, CancellationToken.None));
+        var cut = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(field, new LocatorAction.Press("a"), OperationContext.Agent, CancellationToken.None)
+        );
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", cut.Code);
         Assert.DoesNotContain(DeviceMethods.InteractionsType, h.Fake.Methods());
     }
@@ -455,9 +595,18 @@ public sealed class ObservationTests
         var h = Harness.Create();
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromSeconds(2));
         var about = await Screens.Observed(session, "About");
-        var onNode = await Assert.ThrowsAsync<EngineException>(() => session.LongPressAsync(about, TimeSpan.FromSeconds(3)));
+        var onNode = await Assert.ThrowsAsync<EngineException>(() =>
+            session.LongPressAsync(about, TimeSpan.FromSeconds(3))
+        );
         Assert.Equal("NOT_ACTIONABLE", onNode.Code);
-        var atPoint = await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(10, 10), new PointerAction.LongPress(TimeSpan.FromSeconds(3)), OperationContext.Test, CancellationToken.None));
+        var atPoint = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAtAsync(
+                new Point(10, 10),
+                new PointerAction.LongPress(TimeSpan.FromSeconds(3)),
+                OperationContext.Test,
+                CancellationToken.None
+            )
+        );
         Assert.Equal("NOT_ACTIONABLE", atPoint.Code);
         Assert.DoesNotContain(DeviceMethods.InteractionsLongPress, h.Fake.Methods());
     }
@@ -507,7 +656,12 @@ public sealed class ObservationTests
         Assert.Equal("CANCELLED", cancelled.Code);
     }
 
-    private static readonly LocatorExpression About = LocatorExpression.For("text", TextMatch.FromString("About"), new TextMatchOptions(), "value");
+    private static readonly LocatorExpression About = LocatorExpression.For(
+        "text",
+        TextMatch.FromString("About"),
+        new TextMatchOptions(),
+        "value"
+    );
 
     private static Task<JsonNode?> Never() => new TaskCompletionSource<JsonNode?>().Task;
 
@@ -548,10 +702,25 @@ public sealed class ObservationTests
         var h = Harness.Create();
         h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h);
-        h.Fake.Respond(DeviceMethods.CommandKeyboard, _ => throw new AgentDeviceError("UNSUPPORTED_OPERATION", "Unable to dismiss the iOS keyboard: the keyboard exposes no dismiss key"));
+        h.Fake.Respond(DeviceMethods.CommandKeyboard, _ =>
+            throw new AgentDeviceError(
+                "UNSUPPORTED_OPERATION",
+                "Unable to dismiss the iOS keyboard: the keyboard exposes no dismiss key"
+            )
+        );
         var keyboardUp = FakeDeviceClient.SettingsSnapshot();
         keyboardUp["viewport"] = new JsonObject { ["width"] = 390, ["height"] = 844 };
-        keyboardUp["keyboard"] = new JsonObject { ["kind"] = "visible", ["frame"] = new JsonObject { ["x"] = 0, ["y"] = 583, ["width"] = 390, ["height"] = 261 } };
+        keyboardUp["keyboard"] = new JsonObject
+        {
+            ["kind"] = "visible",
+            ["frame"] = new JsonObject
+            {
+                ["x"] = 0,
+                ["y"] = 583,
+                ["width"] = 390,
+                ["height"] = 261,
+            },
+        };
         var snapshots = 0;
         var dragged = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) =>
@@ -564,7 +733,10 @@ public sealed class ObservationTests
             dragged.TrySetResult();
             return Never();
         });
-        var dismiss = session.DismissKeyboardAsync(CancellationToken.None, session.InputBudget("keyboard dismiss", TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        var dismiss = session.DismissKeyboardAsync(
+            CancellationToken.None,
+            session.InputBudget("keyboard dismiss", TimeSpan.FromMilliseconds(300), CancellationToken.None)
+        );
         await dragged.Task;
         await h.Clock.SpendUntil(dismiss, TimeSpan.FromMilliseconds(350));
         var failure = await Assert.ThrowsAsync<EngineException>(() => dismiss);
@@ -611,14 +783,17 @@ public sealed class ObservationTests
                 throw new AgentDeviceError(
                     "COMMAND_FAILED",
                     "regular iOS snapshot presentation requires a valid viewport",
-                    new Dictionary<string, object?> { ["reason"] = "invalid-viewport" });
+                    new Dictionary<string, object?> { ["reason"] = "invalid-viewport" }
+                );
             }
             finally
             {
                 failed.SetResult();
             }
         });
-        var locating = Assert.ThrowsAsync<EngineException>(() => session.LocateAsync(About, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        var locating = Assert.ThrowsAsync<EngineException>(() =>
+            session.LocateAsync(About, TimeSpan.FromMilliseconds(300), CancellationToken.None)
+        );
         await sent.Task;
         await h.Clock.SpendUntil(locating, TimeSpan.FromMilliseconds(300));
         var failure = await locating;
@@ -640,7 +815,9 @@ public sealed class ObservationTests
         {
             var session = await Screens.OpenAttempt(h, artifactsDir.FullName);
             h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) => Never());
-            var failure = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotArtifactAsync("hung shot", TimeSpan.FromMilliseconds(300), CancellationToken.None));
+            var failure = await Assert.ThrowsAsync<EngineException>(() =>
+                session.ScreenshotArtifactAsync("hung shot", TimeSpan.FromMilliseconds(300), CancellationToken.None)
+            );
             Assert.Equal("OPERATION_TIMEOUT", failure.Code);
         }
         finally
@@ -655,7 +832,13 @@ public sealed class ObservationTests
         var h = Harness.Create();
         var session = await OpenAttempt(h);
         h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) => Never());
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.ObserveAsync(
+                new ObserveOptions { Pixels = true },
+                TimeSpan.FromMilliseconds(300),
+                CancellationToken.None
+            )
+        );
         Assert.Equal("OPERATION_TIMEOUT", failure.Code);
     }
 
@@ -681,7 +864,13 @@ public sealed class ObservationTests
             return Never();
         });
         var started = h.Clock.GetUtcNow();
-        var observing = Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromMilliseconds(500), CancellationToken.None));
+        var observing = Assert.ThrowsAsync<EngineException>(() =>
+            session.ObserveAsync(
+                new ObserveOptions { Pixels = true },
+                TimeSpan.FromMilliseconds(500),
+                CancellationToken.None
+            )
+        );
         await shot.Task;
         await h.Clock.SpendUntil(observing, TimeSpan.FromMilliseconds(350));
         var failure = await observing;

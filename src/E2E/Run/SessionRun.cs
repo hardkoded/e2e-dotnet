@@ -8,7 +8,12 @@ namespace E2E;
 /// What one test's session does with saved sessions: the session to restore, and for a setup test the staging that collects what it
 /// saves. Upstream's <c>SessionPlan</c> and the setup arm of its <c>AttemptContext</c> (<c>run/execute.ts</c>).
 /// </summary>
-internal sealed record SessionPlan(SessionStore Store, SessionIdentity Identity, string? Restore, SessionStaging? Staging);
+internal sealed record SessionPlan(
+    SessionStore Store,
+    SessionIdentity Identity,
+    string? Restore,
+    SessionStaging? Staging
+);
 
 /// <summary>
 /// The process's one <see cref="SessionStore"/>, made when the first test needs it (.NET-only: upstream's runner makes it for the run). The

@@ -88,7 +88,10 @@ internal static class WebLocators
 {
     // The contract's role vocabulary spelled as the ARIA role the role selector knows, where the two differ: the tree reports an img as image,
     // so an image query has to go back to img to match it (upstream's ARIA_ROLE_BY_CONTRACT_ROLE).
-    private static readonly Dictionary<string, string> AriaRoleByContractRole = new(StringComparer.Ordinal) { ["image"] = "img" };
+    private static readonly Dictionary<string, string> AriaRoleByContractRole = new(StringComparer.Ordinal)
+    {
+        ["image"] = "img",
+    };
 
     // Every control that displays a current value: the candidates of a display-value query. A checkbox or radio carries a value it never
     // shows (on by default), so it is no candidate (upstream's VALUED_SELECTOR).
@@ -117,19 +120,21 @@ internal static class WebLocators
 
         public static PwScope Of(IFrameLocator frame) => new(frame);
 
-        public ILocator Locator(string selector) => _scope switch
-        {
-            IPage page => page.Locator(selector),
-            IFrameLocator frame => frame.Locator(selector),
-            _ => ((ILocator)_scope).Locator(selector),
-        };
+        public ILocator Locator(string selector) =>
+            _scope switch
+            {
+                IPage page => page.Locator(selector),
+                IFrameLocator frame => frame.Locator(selector),
+                _ => ((ILocator)_scope).Locator(selector),
+            };
 
-        public PwScope FrameLocator(string selector) => _scope switch
-        {
-            IPage page => Of(page.FrameLocator(selector)),
-            IFrameLocator frame => Of(frame.FrameLocator(selector)),
-            _ => Of(((ILocator)_scope).FrameLocator(selector)),
-        };
+        public PwScope FrameLocator(string selector) =>
+            _scope switch
+            {
+                IPage page => Of(page.FrameLocator(selector)),
+                IFrameLocator frame => Of(frame.FrameLocator(selector)),
+                _ => Of(((ILocator)_scope).FrameLocator(selector)),
+            };
     }
 
     // How one query kind reaches its nodes across the roots it searches: its scope, then every closed shadow root recorded under it. A
@@ -155,7 +160,9 @@ internal static class WebLocators
     private static Regex Sendable(Regex pattern)
     {
         const RegexOptions Sendable = RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Singleline;
-        return (pattern.Options & ~Sendable) == 0 ? pattern : new Regex(pattern.ToString(), pattern.Options & Sendable, pattern.MatchTimeout);
+        return (pattern.Options & ~Sendable) == 0
+            ? pattern
+            : new Regex(pattern.ToString(), pattern.Options & Sendable, pattern.MatchTimeout);
     }
 
     /// <summary>
@@ -203,9 +210,13 @@ internal static class WebLocators
     {
         var body = string.Join(
             GlyphOrSpace + "+",
-            Regex.Split(name.Trim(), @"\s+").Select(word => Regex.Replace(word, @"[.*+?^${}()|\[\]\\/]", "\\$&")));
+            Regex.Split(name.Trim(), @"\s+").Select(word => Regex.Replace(word, @"[.*+?^${}()|\[\]\\/]", "\\$&"))
+        );
         var source = exact ? "^" + GlyphOrSpace + "*" + body + GlyphOrSpace + "*$" : body;
-        source = Regex.Replace(source, "[\"'`]", match => "\\x" + ((int)match.Value[0]).ToString("x", CultureInfo.InvariantCulture))
+        source = Regex
+            .Replace(source, "[\"'`]", match =>
+                "\\x" + ((int)match.Value[0]).ToString("x", CultureInfo.InvariantCulture)
+            )
             .Replace(">>", ">\\x3e", StringComparison.Ordinal);
         return "/" + source + (exact ? "/u" : "/iu");
     }
@@ -217,10 +228,16 @@ internal static class WebLocators
     /// </summary>
     private static string TestIdSelector(string attribute, TextPattern pattern)
     {
-        var name = attribute.Contains(',', StringComparison.Ordinal) ? System.Text.Json.JsonSerializer.Serialize(attribute) : attribute;
+        var name = attribute.Contains(',', StringComparison.Ordinal)
+            ? System.Text.Json.JsonSerializer.Serialize(attribute)
+            : attribute;
         var value = pattern.Match.Pattern is { } regex
             ? RegexForSelector(regex)
-            : "\"" + pattern.Match.Text!.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"s";
+            : "\""
+                + pattern
+                    .Match.Text!.Replace("\\", "\\\\", StringComparison.Ordinal)
+                    .Replace("\"", "\\\"", StringComparison.Ordinal)
+                + "\"s";
         return $"internal:testid=[{name}={value}]";
     }
 
@@ -254,7 +271,10 @@ internal static class WebLocators
 
         if (name is not null)
         {
-            selector.Append("[name=").Append(name.Pattern is { } regex ? RegexForSelector(regex) : GlyphTolerantName(name.Text!, exact)).Append(']');
+            selector
+                .Append("[name=")
+                .Append(name.Pattern is { } regex ? RegexForSelector(regex) : GlyphTolerantName(name.Text!, exact))
+                .Append(']');
         }
 
         Add("pressed", query.Pressed);
@@ -271,38 +291,62 @@ internal static class WebLocators
         switch (query.Kind)
         {
             case "role":
-                return new Candidates.Playwright(roots => roots.Locator(RoleSelector(query, query.Value, query.Exact, options.IncludeHidden)));
+                return new Candidates.Playwright(roots =>
+                    roots.Locator(RoleSelector(query, query.Value, query.Exact, options.IncludeHidden))
+                );
             case "label":
                 return query.Value!.Pattern is null && query.Exact
-                    ? new Candidates.Engine(LabelSelector.ExactLabelSelector(new ExactLabelSelectorBody(query.Value.Text!, options.TestIdAttribute, ReadNode.SecureFieldSelector)))
-                    : new Candidates.Playwright(roots => query.Value.Pattern is { } regex
-                        ? roots.GetByLabel(Sendable(regex), new LocatorGetByLabelOptions { Exact = false })
-                        : roots.GetByLabel(query.Value.Text!, new LocatorGetByLabelOptions { Exact = false }));
+                    ? new Candidates.Engine(
+                        LabelSelector.ExactLabelSelector(
+                            new ExactLabelSelectorBody(
+                                query.Value.Text!,
+                                options.TestIdAttribute,
+                                ReadNode.SecureFieldSelector
+                            )
+                        )
+                    )
+                    : new Candidates.Playwright(roots =>
+                        query.Value.Pattern is { } regex
+                            ? roots.GetByLabel(Sendable(regex), new LocatorGetByLabelOptions { Exact = false })
+                            : roots.GetByLabel(query.Value.Text!, new LocatorGetByLabelOptions { Exact = false })
+                    );
             case "placeholder":
-                return new Candidates.Playwright(roots => pattern.Match.Pattern is { } regex
-                    ? roots.GetByPlaceholder(Sendable(regex), new LocatorGetByPlaceholderOptions { Exact = false })
-                    : roots.GetByPlaceholder(pattern.Match.Text!, new LocatorGetByPlaceholderOptions { Exact = pattern.Exact }));
+                return new Candidates.Playwright(roots =>
+                    pattern.Match.Pattern is { } regex
+                        ? roots.GetByPlaceholder(Sendable(regex), new LocatorGetByPlaceholderOptions { Exact = false })
+                        : roots.GetByPlaceholder(
+                            pattern.Match.Text!,
+                            new LocatorGetByPlaceholderOptions { Exact = pattern.Exact }
+                        )
+                );
             case "text":
-                return new Candidates.Playwright(roots => pattern.Match.Pattern is { } regex
-                    ? roots.GetByText(Sendable(regex), new LocatorGetByTextOptions { Exact = false })
-                    : roots.GetByText(pattern.Match.Text!, new LocatorGetByTextOptions { Exact = pattern.Exact }));
+                return new Candidates.Playwright(roots =>
+                    pattern.Match.Pattern is { } regex
+                        ? roots.GetByText(Sendable(regex), new LocatorGetByTextOptions { Exact = false })
+                        : roots.GetByText(pattern.Match.Text!, new LocatorGetByTextOptions { Exact = pattern.Exact })
+                );
             case "displayValue":
                 return new Candidates.Css(ValuedSelector);
             case "testid":
-                return new Candidates.Playwright(roots => roots.Locator(TestIdSelector(options.TestIdAttribute, pattern)));
+                return new Candidates.Playwright(roots =>
+                    roots.Locator(TestIdSelector(options.TestIdAttribute, pattern))
+                );
             default:
                 throw new EngineException("ENGINE_FAILURE", $"a {query.Kind} expression is no query", retryable: false);
         }
     }
 
     /// <summary>Composes the candidates of one query onto <paramref name="scope"/> and the closed shadow roots under it.</summary>
-    private static ILocator QueryToPw(PwScope scope, LocatorExpression query, ProjectionOptions options) => CandidatesOf(query, options) switch
-    {
-        Candidates.Css css => scope.Locator($"{PageScript.SearchRootsSelectorEngine}={css.Selector}"),
-        Candidates.Engine engine => scope.Locator(engine.Selector),
-        Candidates.Playwright playwright => playwright.Locate(scope.Locator($"{PageScript.SearchRootsSelectorEngine}=")),
-        _ => throw new InvalidOperationException(),
-    };
+    private static ILocator QueryToPw(PwScope scope, LocatorExpression query, ProjectionOptions options) =>
+        CandidatesOf(query, options) switch
+        {
+            Candidates.Css css => scope.Locator($"{PageScript.SearchRootsSelectorEngine}={css.Selector}"),
+            Candidates.Engine engine => scope.Locator(engine.Selector),
+            Candidates.Playwright playwright => playwright.Locate(
+                scope.Locator($"{PageScript.SearchRootsSelectorEngine}=")
+            ),
+            _ => throw new InvalidOperationException(),
+        };
 
     /// <summary>
     /// A <c>visible</c> query narrows its candidates inside the selector, before any enclosing scope, filter, or index runs, by the reader's own
@@ -313,7 +357,12 @@ internal static class WebLocators
         NarrowedToVisible(QueryToPw(scope, query, options), query, options.FrameHidden, options.IncludeHidden);
 
     /// <summary>The visibility narrowing above, on a locator already built for <paramref name="query"/>; identity unless the query keeps shown nodes alone.</summary>
-    private static ILocator NarrowedToVisible(ILocator located, LocatorExpression query, bool frameHidden, bool includeHidden)
+    private static ILocator NarrowedToVisible(
+        ILocator located,
+        LocatorExpression query,
+        bool frameHidden,
+        bool includeHidden
+    )
     {
         // A role query matches a hidden node only when the expression asks for it (IncludeHidden, .NET-only: toBeAttached and waitFor).
         if (frameHidden && (query.Visible || (query.Kind == "role" && !includeHidden)))
@@ -325,7 +374,9 @@ internal static class WebLocators
     }
 
     private static ILocator Positioned(ILocator locator, int index) =>
-        index == LocatorExpression.LastIndex ? locator.Last : index == 0 ? locator.First : locator.Nth(index);
+        index == LocatorExpression.LastIndex ? locator.Last
+        : index == 0 ? locator.First
+        : locator.Nth(index);
 
     /// <summary>A projection whose matches are exactly <paramref name="locator"/>'s, with nothing left for the engine to apply.</summary>
     private static ProjectedLocator Plain(ILocator locator) => new() { Locator = locator };
@@ -372,82 +423,94 @@ internal static class WebLocators
         switch (expression.Kind)
         {
             case "union":
-                {
-                    var left = RequireComposable(Project(scope, expression.Left!, options));
-                    var right = RequireComposable(Project(scope, expression.Right!, options));
-                    return Plain(left.Or(right));
-                }
+            {
+                var left = RequireComposable(Project(scope, expression.Left!, options));
+                var right = RequireComposable(Project(scope, expression.Right!, options));
+                return Plain(left.Or(right));
+            }
 
             case "filter":
+            {
+                var source = Project(scope, expression.Source!, options);
+                var filter = new LocatorFilterOptions();
+                SetHasText(filter, expression.HasText, not: false);
+                SetHasText(filter, expression.HasNotText, not: true);
+                if (expression.Has is not null)
                 {
-                    var source = Project(scope, expression.Source!, options);
-                    var filter = new LocatorFilterOptions();
-                    SetHasText(filter, expression.HasText, not: false);
-                    SetHasText(filter, expression.HasNotText, not: true);
-                    if (expression.Has is not null)
-                    {
-                        filter.Has = RequireComposable(Project(scope, WithinSource(expression.Has, expression.Source!, "has"), options));
-                    }
+                    filter.Has = RequireComposable(
+                        Project(scope, WithinSource(expression.Has, expression.Source!, "has"), options)
+                    );
+                }
 
-                    if (expression.HasNot is not null)
-                    {
-                        filter.HasNot = RequireComposable(Project(scope, WithinSource(expression.HasNot, expression.Source!, "hasNot"), options));
-                    }
+                if (expression.HasNot is not null)
+                {
+                    filter.HasNot = RequireComposable(
+                        Project(scope, WithinSource(expression.HasNot, expression.Source!, "hasNot"), options)
+                    );
+                }
 
-                    if (source.Steps.Count > 0)
-                    {
-                        return source with { Steps = [.. source.Steps, new PostStep.Filter(filter)] };
-                    }
+                if (source.Steps.Count > 0)
+                {
+                    return source with { Steps = [.. source.Steps, new PostStep.Filter(filter)] };
+                }
 
+                return source with
+                {
+                    Locator = source.Locator.Filter(filter),
+                    Composable = source.Composable?.Filter(filter),
+                    Steps = [],
+                };
+            }
+
+            case "index":
+            {
+                var source = Project(scope, expression.Source!, options);
+                var index = expression.Index!.Value;
+                if (source.DisplayValue is not null || source.Name is not null)
+                {
                     return source with
                     {
-                        Locator = source.Locator.Filter(filter),
-                        Composable = source.Composable?.Filter(filter),
-                        Steps = [],
+                        Composable = source.Composable is null ? null : Positioned(source.Composable, index),
+                        Steps = [.. source.Steps, new PostStep.Position(index)],
                     };
                 }
 
-            case "index":
-                {
-                    var source = Project(scope, expression.Source!, options);
-                    var index = expression.Index!.Value;
-                    if (source.DisplayValue is not null || source.Name is not null)
-                    {
-                        return source with
-                        {
-                            Composable = source.Composable is null ? null : Positioned(source.Composable, index),
-                            Steps = [.. source.Steps, new PostStep.Position(index)],
-                        };
-                    }
-
-                    return Plain(Positioned(source.Locator, index));
-                }
+                return Plain(Positioned(source.Locator, index));
+            }
 
             case "selector":
                 return Plain(scope.Locator(expression.Selector!));
             case "frame":
                 return Project(scope.FrameLocator(expression.Selector!), expression.Source!, options);
             default:
-                {
-                    var inner = expression.Parent is null ? scope : PwScope.Of(RequireComposable(Project(scope, expression.Parent, options)));
-                    var exactLabel = expression.Kind == "label" && expression.Value is { Pattern: null } && expression.Exact
+            {
+                var inner = expression.Parent is null
+                    ? scope
+                    : PwScope.Of(RequireComposable(Project(scope, expression.Parent, options)));
+                var exactLabel =
+                    expression.Kind == "label" && expression.Value is { Pattern: null } && expression.Exact
                         ? new TextPattern(expression.Value, expression.Exact)
                         : (TextPattern?)null;
-                    var locator = VisibleQueryToPw(inner, expression, options);
-                    return new ProjectedLocator
-                    {
-                        Locator = locator,
-                        DisplayValue = expression.Kind == "displayValue" ? new TextPattern(expression.Value!, expression.Exact) : null,
-                        Name = exactLabel,
-                        Composable = exactLabel is null ? null : locator,
-                        Visible = expression.Visible,
-                    };
-                }
+                var locator = VisibleQueryToPw(inner, expression, options);
+                return new ProjectedLocator
+                {
+                    Locator = locator,
+                    DisplayValue =
+                        expression.Kind == "displayValue" ? new TextPattern(expression.Value!, expression.Exact) : null,
+                    Name = exactLabel,
+                    Composable = exactLabel is null ? null : locator,
+                    Visible = expression.Visible,
+                };
+            }
         }
     }
 
     /// <summary>Projects an expression onto the page (upstream's <c>projectExpression</c>).</summary>
-    public static ProjectedLocator ProjectExpression(IPage page, LocatorExpression expression, ProjectionOptions options)
+    public static ProjectedLocator ProjectExpression(
+        IPage page,
+        LocatorExpression expression,
+        ProjectionOptions options
+    )
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(expression);
@@ -482,7 +545,8 @@ internal static class WebLocators
     public static async Task<IReadOnlyList<T>> ApplyPostSteps<T>(
         IReadOnlyList<T> matches,
         IReadOnlyList<PostStep> steps,
-        Func<T, LocatorFilterOptions, Task<bool>> passesFilter)
+        Func<T, LocatorFilterOptions, Task<bool>> passesFilter
+    )
     {
         ArgumentNullException.ThrowIfNull(matches);
         ArgumentNullException.ThrowIfNull(steps);
@@ -493,9 +557,11 @@ internal static class WebLocators
             if (step is PostStep.Position position)
             {
                 var index = position.Index;
-                selected = index == 0 ? selected.Take(1).ToList()
+                selected =
+                    index == 0 ? selected.Take(1).ToList()
                     : index == LocatorExpression.LastIndex ? selected.Skip(Math.Max(0, selected.Count - 1)).ToList()
-                    : index < selected.Count ? [selected[index]] : [];
+                    : index < selected.Count ? [selected[index]]
+                    : [];
                 continue;
             }
 
@@ -523,18 +589,23 @@ internal static class WebLocators
         switch (expression.Kind)
         {
             case "union":
+            {
+                var left = FrameSelectors(expression.Left!);
+                var right = FrameSelectors(expression.Right!);
+                if (!left.SequenceEqual(right, StringComparer.Ordinal))
                 {
-                    var left = FrameSelectors(expression.Left!);
-                    var right = FrameSelectors(expression.Right!);
-                    if (!left.SequenceEqual(right, StringComparer.Ordinal))
-                    {
-                        throw new EngineException("UNSUPPORTED_CAPABILITY", "locator.or requires both branches in the same document", retryable: false);
-                    }
-
-                    return left;
+                    throw new EngineException(
+                        "UNSUPPORTED_CAPABILITY",
+                        "locator.or requires both branches in the same document",
+                        retryable: false
+                    );
                 }
 
-            case "filter" or "index":
+                return left;
+            }
+
+            case "filter"
+            or "index":
                 return FrameSelectors(expression.Source!);
             case "selector":
                 return [];
@@ -555,7 +626,11 @@ internal static class WebLocators
     {
         if (!FrameSelectors(has).SequenceEqual(FrameSelectors(source), StringComparer.Ordinal))
         {
-            throw new EngineException("UNSUPPORTED_CAPABILITY", $"locator.filter({{ {key} }}) requires both locators in the same document", retryable: false);
+            throw new EngineException(
+                "UNSUPPORTED_CAPABILITY",
+                $"locator.filter({{ {key} }}) requires both locators in the same document",
+                retryable: false
+            );
         }
 
         return WithoutFrameScopes(has);
@@ -570,24 +645,38 @@ internal static class WebLocators
         switch (expression.Kind)
         {
             case "frame":
+            {
+                var leaf = expression.Source!;
+                while (leaf.Kind == "frame")
                 {
-                    var leaf = expression.Source!;
-                    while (leaf.Kind == "frame")
-                    {
-                        leaf = leaf.Source!;
-                    }
-
-                    return leaf.Kind == "selector" ? expression : leaf;
+                    leaf = leaf.Source!;
                 }
 
+                return leaf.Kind == "selector" ? expression : leaf;
+            }
+
             case "union":
-                return expression with { Left = WithoutFrameScopes(expression.Left!), Right = WithoutFrameScopes(expression.Right!) };
+                return expression with
+                {
+                    Left = WithoutFrameScopes(expression.Left!),
+                    Right = WithoutFrameScopes(expression.Right!),
+                };
             case "filter":
-                return expression with { Source = WithoutFrameScopes(expression.Source!), Has = expression.Has is null ? null : WithoutFrameScopes(expression.Has), HasNot = expression.HasNot is null ? null : WithoutFrameScopes(expression.HasNot) };
+                return expression with
+                {
+                    Source = WithoutFrameScopes(expression.Source!),
+                    Has = expression.Has is null ? null : WithoutFrameScopes(expression.Has),
+                    HasNot = expression.HasNot is null ? null : WithoutFrameScopes(expression.HasNot),
+                };
             case "index":
                 return expression with { Source = WithoutFrameScopes(expression.Source!) };
             default:
-                return expression.Parent is null ? expression : expression with { Parent = WithoutFrameScopes(expression.Parent) };
+                return expression.Parent is null
+                    ? expression
+                    : expression with
+                    {
+                        Parent = WithoutFrameScopes(expression.Parent),
+                    };
         }
     }
 
@@ -605,7 +694,8 @@ internal static class WebLocators
             {
                 throw new TestException(
                     "INVALID_LOCATOR",
-                    "a selector that captures with * (*css=article >> text=Hello) is not supported: use Filter(Locator) instead");
+                    "a selector that captures with * (*css=article >> text=Hello) is not supported: use Filter(Locator) instead"
+                );
             }
         }
     }

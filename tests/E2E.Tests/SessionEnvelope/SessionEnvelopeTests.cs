@@ -34,7 +34,11 @@ public sealed class SessionEnvelopeTests : SessionEnvelopeKit
     public async Task Names_every_secret_the_config_accepts_a_long_name_and_many_names_validate_and_round_trip()
     {
         var longName = new string('x', 300);
-        (string, string)[] secrets = [(longName, SecretValue), .. Enumerable.Range(0, 300).Select(index => ($"token-{index}", $"value-{index}-padded"))];
+        (string, string)[] secrets =
+        [
+            (longName, SecretValue),
+            .. Enumerable.Range(0, 300).Select(index => ($"token-{index}", $"value-{index}-padded")),
+        ];
         var (store, _, _, envelope) = await SaveEnvelope(secrets);
         try
         {

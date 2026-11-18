@@ -27,7 +27,8 @@ public sealed class ReadExploreChangeTests : IDisposable
 
     private static string Unredacted(string text) => text;
 
-    private static Dictionary<string, string> Files(params (string Path, string Content)[] files) => files.ToDictionary(file => file.Path, file => file.Content, StringComparer.Ordinal);
+    private static Dictionary<string, string> Files(params (string Path, string Content)[] files) =>
+        files.ToDictionary(file => file.Path, file => file.Content, StringComparer.Ordinal);
 
     private string TempDir()
     {
@@ -37,7 +38,11 @@ public sealed class ReadExploreChangeTests : IDisposable
     }
 
     /// <summary>A repository on a <c>feature</c> branch off <c>main</c>, with <paramref name="files"/> committed on the branch; returns the directory and the branch point.</summary>
-    private (string Dir, string Point) BranchWith(Dictionary<string, string> baseFiles, Dictionary<string, string> files, string message = "feature")
+    private (string Dir, string Point) BranchWith(
+        Dictionary<string, string> baseFiles,
+        Dictionary<string, string> files,
+        string message = "feature"
+    )
     {
         var dir = TempDir();
         GitRepo.InitRepo(dir);
@@ -47,14 +52,28 @@ public sealed class ReadExploreChangeTests : IDisposable
         return (dir, point);
     }
 
-    private static Task<global::E2E.ExploreChange> ReadAsync(string dir, Func<string, string>? redact = null, TimeSpan? budget = null) =>
-        ExploreChanges.ReadExploreChangeAsync(new ReadExploreChangeOptions { Cwd = dir, ChangedSince = "main", Redact = redact ?? Unredacted, Budget = budget });
+    private static Task<global::E2E.ExploreChange> ReadAsync(
+        string dir,
+        Func<string, string>? redact = null,
+        TimeSpan? budget = null
+    ) =>
+        ExploreChanges.ReadExploreChangeAsync(
+            new ReadExploreChangeOptions
+            {
+                Cwd = dir,
+                ChangedSince = "main",
+                Redact = redact ?? Unredacted,
+                Budget = budget,
+            }
+        );
 
     /// <summary>The change since <c>main</c> in <paramref name="dir"/>, its brief read within <paramref name="budget"/>.</summary>
-    private static async Task<ChangeBrief> ChangeOf(string dir, TimeSpan? budget = null) => (await ReadAsync(dir, budget: budget)).Brief;
+    private static async Task<ChangeBrief> ChangeOf(string dir, TimeSpan? budget = null) =>
+        (await ReadAsync(dir, budget: budget)).Brief;
 
     /// <summary>The brief's text of the change since <c>main</c> in <paramref name="dir"/>, read within <paramref name="budget"/>.</summary>
-    private static async Task<string> BriefOf(string dir, TimeSpan? budget = null) => (await ChangeOf(dir, budget)).Text;
+    private static async Task<string> BriefOf(string dir, TimeSpan? budget = null) =>
+        (await ChangeOf(dir, budget)).Text;
 
     [Fact]
     public async Task Lists_each_file_with_its_counts_then_its_patch_after_the_commit_messages()
@@ -62,7 +81,8 @@ public sealed class ReadExploreChangeTests : IDisposable
         var (dir, point) = BranchWith(
             Files(("src/cart.tsx", "<button>Remove</button>\n")),
             Files(("src/cart.tsx", "<button>Delete</button>\n")),
-            "Rename the cart remove button\n\nUsers read Remove as clearing the cart.");
+            "Rename the cart remove button\n\nUsers read Remove as clearing the cart."
+        );
 
         var change = await ReadAsync(dir);
 
@@ -82,8 +102,10 @@ public sealed class ReadExploreChangeTests : IDisposable
                 "src/cart.tsx (+1 -1; full patch below)",
                 "@@ -1 +1 @@",
                 "-<button>Remove</button>",
-                "+<button>Delete</button>"),
-            change.Brief.Text);
+                "+<button>Delete</button>"
+            ),
+            change.Brief.Text
+        );
     }
 
     [Fact]
@@ -125,7 +147,11 @@ public sealed class ReadExploreChangeTests : IDisposable
         var brief = await ChangeOf(dir);
 
         Assert.False(brief.Complete);
-        Assert.Contains("a.txt (+1 -1; full patch below; also changed locally, not shown)\n@@ -1 +1 @@\n-a\n+b", brief.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            "a.txt (+1 -1; full patch below; also changed locally, not shown)\n@@ -1 +1 @@\n-a\n+b",
+            brief.Text,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("local edit", brief.Text, StringComparison.Ordinal);
     }
 
@@ -139,8 +165,12 @@ public sealed class ReadExploreChangeTests : IDisposable
 
         Assert.Equal(0, change.Report.Files);
         Assert.Equal(
-            new ChangeBrief($"No files changed since {point[..7]}.\nThe working tree has local edits to 1 file since the last commit; they are not shown.", false),
-            change.Brief);
+            new ChangeBrief(
+                $"No files changed since {point[..7]}.\nThe working tree has local edits to 1 file since the last commit; they are not shown.",
+                false
+            ),
+            change.Brief
+        );
     }
 
     [Fact]
@@ -155,25 +185,49 @@ public sealed class ReadExploreChangeTests : IDisposable
         GitRepo.InitRepo(dir);
         GitRepo.CommitFiles(dir, Files(("run.sh", "echo hi\n")), "add run.sh");
         GitRepo.RunGit(dir, "checkout", "--quiet", "-b", "feature");
-        File.SetUnixFileMode(Path.Combine(dir, "run.sh"), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        File.SetUnixFileMode(
+            Path.Combine(dir, "run.sh"),
+            UnixFileMode.UserRead
+                | UnixFileMode.UserWrite
+                | UnixFileMode.UserExecute
+                | UnixFileMode.GroupRead
+                | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherRead
+                | UnixFileMode.OtherExecute
+        );
         GitRepo.RunGit(dir, "commit", "--quiet", "-am", "make run.sh executable");
 
         var brief = await ChangeOf(dir);
 
-        Assert.Contains("run.sh (+0 -0; full patch below)\nold mode 100644\nnew mode 100755", brief.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            "run.sh (+0 -0; full patch below)\nold mode 100644\nnew mode 100755",
+            brief.Text,
+            StringComparison.Ordinal
+        );
         Assert.True(brief.Complete);
     }
 
     [Fact]
     public async Task Redacts_a_configured_secret_multiline_or_cut_by_a_budget_before_cutting_and_in_a_file_name()
     {
-        var key = string.Join('\n', "-----BEGIN KEY-----", "c2VjcmV0LWxpbmUtb25l", "c2VjcmV0LWxpbmUtdHdv", "-----END KEY-----");
+        var key = string.Join(
+            '\n',
+            "-----BEGIN KEY-----",
+            "c2VjcmV0LWxpbmUtb25l",
+            "c2VjcmV0LWxpbmUtdHdv",
+            "-----END KEY-----"
+        );
         var token = "tok_" + new string('k', 330);
         var redactor = Redactor.For([("KEY", key), ("TOKEN", token)]);
         var (dir, _) = BranchWith(
             Files(("a.txt", "a\n")),
-            Files(("key.pem", key + "\n"), ("env.ts", $"export const token = '{token}';\n"), ("c2VjcmV0LWxpbmUtdHdv.txt", "x\n")),
-            $"Rotate {token}");
+            Files(
+                ("key.pem", key + "\n"),
+                ("env.ts", $"export const token = '{token}';\n"),
+                ("c2VjcmV0LWxpbmUtdHdv.txt", "x\n")
+            ),
+            $"Rotate {token}"
+        );
 
         var text = (await ReadAsync(dir, redactor.RedactFragments)).Brief.Text;
 
@@ -194,11 +248,16 @@ public sealed class ReadExploreChangeTests : IDisposable
     {
         var (dir, _) = BranchWith(
             Files(("p/i.tsx", "i\n"), ("p/d.tsx", "d\n")),
-            Files(("p/[id].tsx", "route\n"), ("p/i.tsx", "i2\n"), ("p/d.tsx", "d2\n")));
+            Files(("p/[id].tsx", "route\n"), ("p/i.tsx", "i2\n"), ("p/d.tsx", "d2\n"))
+        );
 
         var brief = await BriefOf(dir);
 
-        Assert.Contains("p/[id].tsx (+1 -0; full patch below)\n@@ -0,0 +1 @@\n+route\np/d.tsx", brief, StringComparison.Ordinal);
+        Assert.Contains(
+            "p/[id].tsx (+1 -0; full patch below)\n@@ -0,0 +1 @@\n+route\np/d.tsx",
+            brief,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("diff --git", brief, StringComparison.Ordinal);
     }
 
@@ -206,7 +265,9 @@ public sealed class ReadExploreChangeTests : IDisposable
     public async Task Cuts_a_large_patch_and_lists_files_past_the_budget_by_counts_only()
     {
         var big = string.Join('\n', Enumerable.Range(0, 2_000).Select(index => $"line {index}"));
-        var files = Enumerable.Range(0, 12).ToDictionary(index => $"f{index:00}.txt", _ => big + "\n", StringComparer.Ordinal);
+        var files = Enumerable
+            .Range(0, 12)
+            .ToDictionary(index => $"f{index:00}.txt", _ => big + "\n", StringComparer.Ordinal);
         var (dir, _) = BranchWith(Files(("a.txt", "a\n")), files);
 
         var change = await ChangeOf(dir);
@@ -225,30 +286,49 @@ public sealed class ReadExploreChangeTests : IDisposable
         var change = await ChangeOf(dir);
 
         Assert.False(change.Complete);
-        Assert.Contains($"bundle.js (+1 -0; patch below, long lines cut)\n@@ -0,0 +1 @@\n+{new string('x', 298)}…", change.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            $"bundle.js (+1 -0; patch below, long lines cut)\n@@ -0,0 +1 @@\n+{new string('x', 298)}…",
+            change.Text,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public async Task Never_cuts_a_long_line_inside_a_character_outside_the_BMP()
     {
         // The line is `+` and 297 x's, so the emoji's surrogate pair straddles the cut.
-        var (dir, _) = BranchWith(Files(("a.txt", "a\n")), Files(("copy.ts", new string('x', 297) + "😀" + new string('y', 100) + "\n")));
+        var (dir, _) = BranchWith(
+            Files(("a.txt", "a\n")),
+            Files(("copy.ts", new string('x', 297) + "😀" + new string('y', 100) + "\n"))
+        );
 
         var brief = await BriefOf(dir);
 
         Assert.Contains($"+{new string('x', 297)}…", brief, StringComparison.Ordinal);
 
         // Matches only a lone surrogate.
-        Assert.False(brief.Where((character, index) => char.IsHighSurrogate(character) ? index + 1 >= brief.Length || !char.IsLowSurrogate(brief[index + 1]) : char.IsLowSurrogate(character) && (index == 0 || !char.IsHighSurrogate(brief[index - 1]))).Any());
+        Assert.False(
+            brief
+                .Where(
+                    (character, index) =>
+                        char.IsHighSurrogate(character)
+                            ? index + 1 >= brief.Length || !char.IsLowSurrogate(brief[index + 1])
+                            : char.IsLowSurrogate(character) && (index == 0 || !char.IsHighSurrogate(brief[index - 1]))
+                )
+                .Any()
+        );
     }
 
     [Fact]
     public async Task Counts_the_files_past_the_list_budget()
     {
-        var files = Enumerable.Range(0, 80).ToDictionary(
-            index => $"packages/app/src/features/{string.Concat(Enumerable.Repeat("deep/", 4))}f{index:00}.txt",
-            index => $"{index}\n",
-            StringComparer.Ordinal);
+        var files = Enumerable
+            .Range(0, 80)
+            .ToDictionary(
+                index => $"packages/app/src/features/{string.Concat(Enumerable.Repeat("deep/", 4))}f{index:00}.txt",
+                index => $"{index}\n",
+                StringComparer.Ordinal
+            );
         var (dir, _) = BranchWith(Files(("a.txt", "a\n")), files);
 
         var change = await ChangeOf(dir);
@@ -269,7 +349,11 @@ public sealed class ReadExploreChangeTests : IDisposable
         foreach (var index in Enumerable.Range(0, 4))
         {
             var detail = Enumerable.Range(0, 50).Select(line => $"detail {line} of commit {index}");
-            GitRepo.CommitFiles(dir, Files(($"f{index}.txt", $"{index}\n")), string.Join('\n', [$"Commit {index}", "", .. detail]));
+            GitRepo.CommitFiles(
+                dir,
+                Files(($"f{index}.txt", $"{index}\n")),
+                string.Join('\n', [$"Commit {index}", "", .. detail])
+            );
         }
 
         var brief = await BriefOf(dir);
@@ -308,11 +392,21 @@ public sealed class ReadExploreChangeTests : IDisposable
     public async Task Stays_within_the_agent_context_limit_fence_included_for_the_largest_change()
     {
         var big = string.Join('\n', Enumerable.Range(0, 40).Select(index => $"{new string('y', 120)} {index}"));
-        var files = Enumerable.Range(0, 200).ToDictionary(index => string.Concat(Enumerable.Repeat("nested/", 20)) + $"f{index:000}.txt", _ => big + "\n", StringComparer.Ordinal);
+        var files = Enumerable
+            .Range(0, 200)
+            .ToDictionary(
+                index => string.Concat(Enumerable.Repeat("nested/", 20)) + $"f{index:000}.txt",
+                _ => big + "\n",
+                StringComparer.Ordinal
+            );
         var dir = TempDir();
         GitRepo.InitRepo(dir);
         GitRepo.RunGit(dir, "checkout", "--quiet", "-b", "feature");
-        GitRepo.CommitFiles(dir, files, string.Concat(Enumerable.Repeat("Subject ", 40)) + "\n\n" + string.Concat(Enumerable.Repeat("body ", 400)));
+        GitRepo.CommitFiles(
+            dir,
+            files,
+            string.Concat(Enumerable.Repeat("Subject ", 40)) + "\n\n" + string.Concat(Enumerable.Repeat("body ", 400))
+        );
         foreach (var index in Enumerable.Range(0, 6))
         {
             GitRepo.CommitFiles(dir, Files(($"c{index}.txt", "c\n")), new string('z', 1_000));
@@ -320,7 +414,9 @@ public sealed class ReadExploreChangeTests : IDisposable
 
         var brief = await BriefOf(dir);
 
-        Assert.True(Encoding.UTF8.GetByteCount(ExploreChanges.ChangeContext(brief)) <= ReportLimits.Default.MaxAgentContextBytes);
+        Assert.True(
+            Encoding.UTF8.GetByteCount(ExploreChanges.ChangeContext(brief)) <= ReportLimits.Default.MaxAgentContextBytes
+        );
     }
 
     [Fact]
@@ -328,13 +424,25 @@ public sealed class ReadExploreChangeTests : IDisposable
     {
         var redactor = Redactor.For([("PASSWORD", "p4sswd")]);
         var big = string.Join('\n', Enumerable.Range(0, 40).Select(index => $"{new string('y', 120)} {index}"));
-        var files = Enumerable.Range(0, 200).ToDictionary(index => string.Concat(Enumerable.Repeat("p4sswd/", 30)) + $"{index:000}.txt", _ => big + "\n", StringComparer.Ordinal);
-        var (dir, _) = BranchWith(Files(("a.txt", "a\n")), files, string.Concat(Enumerable.Repeat("Subject ", 40)) + "\n\n" + string.Concat(Enumerable.Repeat("body ", 400)));
+        var files = Enumerable
+            .Range(0, 200)
+            .ToDictionary(
+                index => string.Concat(Enumerable.Repeat("p4sswd/", 30)) + $"{index:000}.txt",
+                _ => big + "\n",
+                StringComparer.Ordinal
+            );
+        var (dir, _) = BranchWith(
+            Files(("a.txt", "a\n")),
+            files,
+            string.Concat(Enumerable.Repeat("Subject ", 40)) + "\n\n" + string.Concat(Enumerable.Repeat("body ", 400))
+        );
 
         var text = (await ReadAsync(dir, redactor.RedactFragments)).Brief.Text;
 
         Assert.DoesNotContain("p4sswd", text, StringComparison.Ordinal);
-        Assert.True(Encoding.UTF8.GetByteCount(ExploreChanges.ChangeContext(text)) <= ReportLimits.Default.MaxAgentContextBytes);
+        Assert.True(
+            Encoding.UTF8.GetByteCount(ExploreChanges.ChangeContext(text)) <= ReportLimits.Default.MaxAgentContextBytes
+        );
     }
 
     [Fact]
@@ -344,7 +452,14 @@ public sealed class ReadExploreChangeTests : IDisposable
         var head = GitRepo.InitRepo(dir);
         GitRepo.RunGit(dir, "branch", "base");
 
-        var change = await ExploreChanges.ReadExploreChangeAsync(new ReadExploreChangeOptions { Cwd = dir, ChangedSince = "base", Redact = Unredacted });
+        var change = await ExploreChanges.ReadExploreChangeAsync(
+            new ReadExploreChangeOptions
+            {
+                Cwd = dir,
+                ChangedSince = "base",
+                Redact = Unredacted,
+            }
+        );
 
         Assert.Equal(new ReportExploreChange(head, 0), change.Report);
         Assert.Equal(new ChangeBrief($"No files changed since {head[..7]}.", true), change.Brief);

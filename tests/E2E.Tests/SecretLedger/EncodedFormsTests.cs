@@ -29,7 +29,10 @@ public sealed class EncodedFormsTests
     [Fact]
     public void Redacts_the_value_HTML_escaped()
     {
-        Assert.Equal("<input value=\"<secret:member>\">", _ledger.Redact("<input value=\"p@ss &quot;w\\rd&quot; &amp; &lt;x&gt;\">"));
+        Assert.Equal(
+            "<input value=\"<secret:member>\">",
+            _ledger.Redact("<input value=\"p@ss &quot;w\\rd&quot; &amp; &lt;x&gt;\">")
+        );
     }
 
     [Fact]
@@ -63,7 +66,8 @@ public sealed class EncodedFormsTests
         Assert.Equal("""{"v":"<secret:quoted>"}""", quoted.Redact("""{"v":"it\u0027s \u003cok\u003E"}"""));
         Assert.Equal(
             """{"t":"{\"v\":\"<secret:quoted>\"}"}""",
-            quoted.Redact("""{"t":"{\"v\":\"it\\u0027s \\u003cok\\u003e\"}"}"""));
+            quoted.Redact("""{"t":"{\"v\":\"it\\u0027s \\u003cok\\u003e\"}"}""")
+        );
     }
 
     [Fact]

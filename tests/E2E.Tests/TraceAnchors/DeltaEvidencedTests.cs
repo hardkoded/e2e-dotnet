@@ -13,16 +13,30 @@ public sealed class DeltaEvidencedTests
     [Fact]
     public void Holds_when_some_recorded_change_was_not_already_on_the_screen_the_replay_began_on()
     {
-        var delta = new CacheEntry { Appeared = [Anchor("status", text: "Submitted")], Gone = [Anchor("status", text: "Draft")] };
+        var delta = new CacheEntry
+        {
+            Appeared = [Anchor("status", text: "Submitted")],
+            Gone = [Anchor("status", text: "Draft")],
+        };
 
         Assert.True(Anchors.Evidenced(delta, Project([Heading, Node("status", text: "Draft")]), []));
-        Assert.True(Anchors.Evidenced(new CacheEntry { Appeared = [Anchor("status", text: "Submitted")] }, Project([Heading]), []));
+        Assert.True(
+            Anchors.Evidenced(
+                new CacheEntry { Appeared = [Anchor("status", text: "Submitted")] },
+                Project([Heading]),
+                []
+            )
+        );
     }
 
     [Fact]
     public void Fails_when_the_outcome_already_showed_before_the_first_action_a_submit_that_did_nothing()
     {
-        var delta = new CacheEntry { Appeared = [Anchor("status", text: "Submitted")], Gone = [Anchor("status", text: "Draft")] };
+        var delta = new CacheEntry
+        {
+            Appeared = [Anchor("status", text: "Submitted")],
+            Gone = [Anchor("status", text: "Draft")],
+        };
 
         Assert.False(Anchors.Evidenced(delta, Project([Heading, Node("status", text: "Submitted")]), []));
     }
@@ -30,10 +44,19 @@ public sealed class DeltaEvidencedTests
     [Fact]
     public void Counts_a_node_read_by_the_shape_of_its_minted_test_id_only_when_no_node_of_that_shape_was_there_before()
     {
-        var added = new CacheEntry { Appeared = [Anchor("box", testId: "rf__node-3f9c2a1b-7d4e-4c1a-9b2e-0a1b2c3d4e5f")] };
+        var added = new CacheEntry
+        {
+            Appeared = [Anchor("box", testId: "rf__node-3f9c2a1b-7d4e-4c1a-9b2e-0a1b2c3d4e5f")],
+        };
 
         Assert.True(Anchors.Evidenced(added, Project([Heading]), []));
-        Assert.False(Anchors.Evidenced(added, Project([Heading, Node("box", testId: "rf__node-8e21d0c4-5b6a-4f3e-8d2c-1a0b9c8d7e6f")]), []));
+        Assert.False(
+            Anchors.Evidenced(
+                added,
+                Project([Heading, Node("box", testId: "rf__node-8e21d0c4-5b6a-4f3e-8d2c-1a0b9c8d7e6f")]),
+                []
+            )
+        );
     }
 
     [Fact]
@@ -55,6 +78,12 @@ public sealed class DeltaEvidencedTests
         Assert.False(Anchors.Evidenced(form, Project([Heading, Node("textbox", "Email"), subscribed]), [email]));
         Assert.True(Anchors.Evidenced(form, Project([Heading, Node("textbox", "Email")]), [email]));
         // A step that only fills a field has nothing but the value to show.
-        Assert.True(Anchors.Evidenced(new CacheEntry { Appeared = [typed], Gone = [email] }, Project([Heading, Node("textbox", "Email")]), [email]));
+        Assert.True(
+            Anchors.Evidenced(
+                new CacheEntry { Appeared = [typed], Gone = [email] },
+                Project([Heading, Node("textbox", "Email")]),
+                [email]
+            )
+        );
     }
 }

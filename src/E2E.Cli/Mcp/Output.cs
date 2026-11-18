@@ -215,7 +215,11 @@ internal sealed class McpOutput
         _loadFailed = false;
         if (bytes > 0)
         {
-            Log("e2e mcp: [warning] withheld " + bytes.ToString(CultureInfo.InvariantCulture) + " bytes of output printed while a config failed to load: its secrets are unknown, so the output cannot be redacted");
+            Log(
+                "e2e mcp: [warning] withheld "
+                    + bytes.ToString(CultureInfo.InvariantCulture)
+                    + " bytes of output printed while a config failed to load: its secrets are unknown, so the output cannot be redacted"
+            );
         }
     }
 
@@ -249,7 +253,8 @@ internal sealed class McpOutputWriter(McpOutput output, OutputStream stream) : T
         }
     }
 
-    public override void Write(char[] buffer, int index, int count) => output.Write(stream, new string(buffer, index, count));
+    public override void Write(char[] buffer, int index, int count) =>
+        output.Write(stream, new string(buffer, index, count));
 
     public override void Write(ReadOnlySpan<char> buffer)
     {

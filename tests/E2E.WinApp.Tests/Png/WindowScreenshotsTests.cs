@@ -12,7 +12,11 @@ namespace E2E.WinApp.Tests.Png;
 public sealed class WindowScreenshotsTests
 {
     private static RawScreenshot Shot(int width, int height) =>
-        new(Enumerable.Repeat(new byte[] { 10, 20, 30, 0 }, width * height).SelectMany(pixel => pixel).ToArray(), width, height);
+        new(
+            Enumerable.Repeat(new byte[] { 10, 20, 30, 0 }, width * height).SelectMany(pixel => pixel).ToArray(),
+            width,
+            height
+        );
 
     [Fact]
     public void Swaps_the_channels_and_makes_the_image_opaque()
@@ -26,7 +30,10 @@ public sealed class WindowScreenshotsTests
     [Fact]
     public void Paints_each_mask_black_rounding_outward_and_clipped_to_the_image()
     {
-        var (png, masked) = WindowScreenshots.Render(Shot(4, 3), [new Rect(1.4, 0.6, 1.2, 1), new Rect(-5, 2, 100, 100)]);
+        var (png, masked) = WindowScreenshots.Render(
+            Shot(4, 3),
+            [new Rect(1.4, 0.6, 1.2, 1), new Rect(-5, 2, 100, 100)]
+        );
         var image = PngReader.Read(png);
         Assert.Equal(2, masked);
         Assert.Equal((0, 0, 0, 255), PngReader.Pixel(image, 1, 0));
@@ -66,7 +73,14 @@ public sealed class WindowScreenshotsTests
     {
         await using var harness = new Harness();
         var session = await harness.OpenAsync();
-        harness.Driver.Script(session.App!.ProcessId, FakeWindowDriver.MainHandle, "Settings", RawElements.Settings(), new Rect(100, 50, 1600, 1200), scale: 2);
+        harness.Driver.Script(
+            session.App!.ProcessId,
+            FakeWindowDriver.MainHandle,
+            "Settings",
+            RawElements.Settings(),
+            new Rect(100, 50, 1600, 1200),
+            scale: 2
+        );
         harness.Driver.Screenshot = Shot(1600, 1200);
         var shot = await session.ScreenshotAsync(CancellationToken.None);
         Assert.Equal(2, shot.Scale);
@@ -81,9 +95,17 @@ public sealed class WindowScreenshotsTests
             await using var harness = new Harness { ArtifactsDir = directory };
             var session = await harness.OpenAsync();
             harness.Driver.Screenshot = Shot(800, 600);
-            Assert.Equal("screenshots/001-first_shot.png", await session.ScreenshotArtifactAsync("first shot", CancellationToken.None));
-            Assert.Equal("screenshots/002-screenshot.png", await session.ScreenshotArtifactAsync(null, CancellationToken.None));
-            var image = PngReader.Read(await File.ReadAllBytesAsync(Path.Combine(directory, "screenshots", "002-screenshot.png")));
+            Assert.Equal(
+                "screenshots/001-first_shot.png",
+                await session.ScreenshotArtifactAsync("first shot", CancellationToken.None)
+            );
+            Assert.Equal(
+                "screenshots/002-screenshot.png",
+                await session.ScreenshotArtifactAsync(null, CancellationToken.None)
+            );
+            var image = PngReader.Read(
+                await File.ReadAllBytesAsync(Path.Combine(directory, "screenshots", "002-screenshot.png"))
+            );
             Assert.Equal((0, 0, 0, 255), PngReader.Pixel(image, 25, 75));
             Assert.Equal((30, 20, 10, 255), PngReader.Pixel(image, 25, 60));
             Assert.Empty(Directory.GetFiles(Path.Combine(directory, "screenshots"), "*.tmp"));
@@ -99,7 +121,9 @@ public sealed class WindowScreenshotsTests
     {
         await using var harness = new Harness();
         var session = await harness.OpenAsync();
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotArtifactAsync("x", CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.ScreenshotArtifactAsync("x", CancellationToken.None)
+        );
         Assert.Equal(EngineErrorCodes.InvalidState, error.Code);
     }
 
@@ -107,7 +131,9 @@ public sealed class WindowScreenshotsTests
     public async Task A_secure_field_without_a_box_withholds_the_screenshot()
     {
         await using var harness = new Harness();
-        var session = await harness.OpenAsync(RawElements.Window("W", RawElements.PasswordBox("p", "Pin") with { Bounds = null }));
+        var session = await harness.OpenAsync(
+            RawElements.Window("W", RawElements.PasswordBox("p", "Pin") with { Bounds = null })
+        );
         var error = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotAsync(CancellationToken.None));
         Assert.Equal(EngineErrorCodes.EngineFailure, error.Code);
         Assert.Contains("screenshot withheld", error.Message, StringComparison.Ordinal);

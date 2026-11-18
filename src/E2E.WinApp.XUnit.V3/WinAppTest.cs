@@ -25,7 +25,10 @@ public abstract class WinAppTest : E2ETest
     protected virtual string? AppPath => WinAppHost.AppPath(Config);
 
     /// <summary>The test's window session: the pointer and scroll actions the locator API does not carry (<c>SwipeAsync</c>, <c>LongPressAsync</c>, <c>HoverAsync</c>, <c>DragToAsync</c>).</summary>
-    protected WindowSession Session => (_engine ?? throw new InvalidOperationException("The engine starts with the test session.")).ActiveSessions.Single();
+    protected WindowSession Session =>
+        (
+            _engine ?? throw new InvalidOperationException("The engine starts with the test session.")
+        ).ActiveSessions.Single();
 
     /// <summary>The window fixture of the test's session: open and close the app, resize and maximize its window, answer a dialog.</summary>
     protected Window Window => Session.Window;
@@ -37,7 +40,8 @@ public abstract class WinAppTest : E2ETest
     protected override IEngine CreateEngine() => _engine = new WinAppEngine(CreateWinAppOptions());
 
     /// <summary>The agent can open another app and answer a dialog.</summary>
-    protected override IReadOnlyDictionary<string, AgentTool>? AgentTools => WinAppTools.Create(_engine ?? throw new InvalidOperationException("The engine starts with the test session."));
+    protected override IReadOnlyDictionary<string, AgentTool>? AgentTools =>
+        WinAppTools.Create(_engine ?? throw new InvalidOperationException("The engine starts with the test session."));
 
     /// <summary>A desktop app is slower than a browser: each action waits for the window to settle, and the model sees a new tree after it.</summary>
     protected override TimeSpan StepTimeout => TimeSpan.FromSeconds(90);

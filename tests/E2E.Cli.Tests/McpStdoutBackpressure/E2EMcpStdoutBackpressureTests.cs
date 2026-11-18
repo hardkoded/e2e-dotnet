@@ -18,19 +18,36 @@ public sealed class E2EMcpStdoutBackpressureTests
     [Fact]
     public async Task Survives_responses_the_client_has_not_read_yet_and_delivers_all_of_them()
     {
-        using var project = new FixtureProject(new Dictionary<string, string> { ["e2e.config.json"] = FixtureProject.Config("http://127.0.0.1:1") });
+        using var project = new FixtureProject(
+            new Dictionary<string, string> { ["e2e.config.json"] = FixtureProject.Config("http://127.0.0.1:1") }
+        );
         using var server = RawServer.Start(project.Directory, readStdout: false);
-        await server.SendAsync(new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "initialize",
-            @params = new { protocolVersion = "2025-06-18", capabilities = new { }, clientInfo = new { name = "backpressure", version = "0.0.0" } },
-        });
+        await server.SendAsync(
+            new
+            {
+                jsonrpc = "2.0",
+                id = 1,
+                method = "initialize",
+                @params = new
+                {
+                    protocolVersion = "2025-06-18",
+                    capabilities = new { },
+                    clientInfo = new { name = "backpressure", version = "0.0.0" },
+                },
+            }
+        );
         await server.SendAsync(new { jsonrpc = "2.0", method = "notifications/initialized" });
         for (var index = 0; index < Reads; index++)
         {
-            await server.SendAsync(new { jsonrpc = "2.0", id = 100 + index, method = "resources/read", @params = new { uri = "e2e://guide" } });
+            await server.SendAsync(
+                new
+                {
+                    jsonrpc = "2.0",
+                    id = 100 + index,
+                    method = "resources/read",
+                    @params = new { uri = "e2e://guide" },
+                }
+            );
         }
 
         // Nobody reads stdout: the server's writes back up while the requests keep arriving.

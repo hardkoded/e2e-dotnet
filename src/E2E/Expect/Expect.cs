@@ -34,7 +34,10 @@ public static class Expect
     public static SoftValueExpectation<T> Soft<T>(Screen screen, T actual, string? message = null)
     {
         ArgumentNullException.ThrowIfNull(screen);
-        return new SoftValueExpectation<T>(new ValueExpectation<T>(actual, negated: false, message), screen.SoftFailures);
+        return new SoftValueExpectation<T>(
+            new ValueExpectation<T>(actual, negated: false, message),
+            screen.SoftFailures
+        );
     }
 
     /// <summary>Matches any instance of <paramref name="sample"/> (any number type for a number type), inside <c>ToEqual</c> and the other structural matchers. <c>typeof(object)</c> also matches <c>null</c>, as upstream's <c>expect.any(Object)</c> does.</summary>
@@ -179,19 +182,35 @@ public sealed class LocatorExpect
     /// <summary>
     /// Waits for the one match to look like its stored screenshot, the box of the node cut from the screen. See <see cref="ScreenExpect.ToHaveScreenshotAsync(string?, ScreenshotOptions?, string?)"/>.
     /// </summary>
-    public Task ToHaveScreenshotAsync(string? name = null, ScreenshotOptions? options = null, [CallerFilePath] string? callerFile = null)
-        => ScreenshotAssertion.ExpectScreenshotAsync(_locator.Screen, _locator, _negated, name, options, callerFile, default);
+    public Task ToHaveScreenshotAsync(
+        string? name = null,
+        ScreenshotOptions? options = null,
+        [CallerFilePath] string? callerFile = null
+    ) =>
+        ScreenshotAssertion.ExpectScreenshotAsync(
+            _locator.Screen,
+            _locator,
+            _negated,
+            name,
+            options,
+            callerFile,
+            default
+        );
 
     /// <inheritdoc cref="ToHaveScreenshotAsync(string?, ScreenshotOptions?, string?)"/>
-    public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null)
-        => ToHaveScreenshotAsync(null, options, callerFile);
+    public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null) =>
+        ToHaveScreenshotAsync(null, options, callerFile);
 
     /// <summary>
     /// Waits for one visible match. <paramref name="visible"/> false waits for hidden or absent, as <see cref="ToBeHiddenAsync"/>.
     /// On a device, a node whose centre the soft keyboard covers is hidden, except for the keyboard's own keys, suggestion bar,
     /// and dock, the focused field, and a container with a child still showing.
     /// </summary>
-    public Task ToBeVisibleAsync(bool visible = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToBeVisibleAsync(
+        bool visible = true,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         return VisibilityAsync("toBeVisible", visible, timeout, cancellationToken);
     }
@@ -203,24 +222,41 @@ public sealed class LocatorExpect
     }
 
     /// <summary>Waits for one match to exist, visible or not. <paramref name="attached"/> false waits for none.</summary>
-    public Task ToBeAttachedAsync(bool attached = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToBeAttachedAsync(
+        bool attached = true,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         return PollAsync(
             "toBeAttached",
             attached ? "attached" : "detached",
             timeout,
             includeHidden: true,
-            matches => matches.Count > 1
-                ? Verdict.Strict(matches.Count)
-                : new Verdict((matches.Count == 1) == attached, matches.Count == 1 ? "attached" : "no node"),
+            matches =>
+                matches.Count > 1
+                    ? Verdict.Strict(matches.Count)
+                    : new Verdict((matches.Count == 1) == attached, matches.Count == 1 ? "attached" : "no node"),
             cancellationToken,
-            MissingFrame.Empty);
+            MissingFrame.Empty
+        );
     }
 
     /// <summary>Waits for enabled state. <paramref name="enabled"/> false waits for disabled state.</summary>
-    public Task ToBeEnabledAsync(bool enabled = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToBeEnabledAsync(
+        bool enabled = true,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
-        return StateAsync("toBeEnabled", node => !node.States.Disabled, enabled, enabled ? "enabled" : "disabled", timeout, cancellationToken);
+        return StateAsync(
+            "toBeEnabled",
+            node => !node.States.Disabled,
+            enabled,
+            enabled ? "enabled" : "disabled",
+            timeout,
+            cancellationToken
+        );
     }
 
     /// <summary>Waits for disabled state.</summary>
@@ -230,9 +266,20 @@ public sealed class LocatorExpect
     }
 
     /// <summary>Waits for checked state. <paramref name="isChecked"/> false waits for unchecked state.</summary>
-    public Task ToBeCheckedAsync(bool isChecked = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToBeCheckedAsync(
+        bool isChecked = true,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
-        return StateAsync("toBeChecked", node => node.States.Checked, isChecked, isChecked ? "checked" : "unchecked", timeout, cancellationToken);
+        return StateAsync(
+            "toBeChecked",
+            node => node.States.Checked,
+            isChecked,
+            isChecked ? "checked" : "unchecked",
+            timeout,
+            cancellationToken
+        );
     }
 
     /// <summary>Waits for selected state.</summary>
@@ -257,50 +304,116 @@ public sealed class LocatorExpect
     /// Waits for exact normalized text: the node's rendered text (<c>innerText</c> on the web), not its label.
     /// <paramref name="ignoreCase"/> folds a string's case, and adds or removes a pattern's.
     /// </summary>
-    public Task ToHaveTextAsync(TextMatch expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToHaveTextAsync(
+        TextMatch expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         return TextAsync(Field.HasText, expected, ignoreCase, timeout, cancellationToken);
     }
 
     /// <summary>Waits for exactly as many matches as entries, each with its entry's text, in order.</summary>
-    public Task ToHaveTextAsync(IReadOnlyList<TextMatch> expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToHaveTextAsync(
+        IReadOnlyList<TextMatch> expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         return TextListAsync(Field.HasText, expected, ignoreCase, timeout, cancellationToken);
     }
 
     /// <summary>Waits for contained normalized text.</summary>
-    public Task ToContainTextAsync(TextMatch expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToContainTextAsync(
+        TextMatch expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         return TextAsync(Field.ContainsText, expected, ignoreCase, timeout, cancellationToken);
     }
 
     /// <summary>Waits for each entry to be contained by a distinct match, in order. Extra matches are allowed.</summary>
-    public Task ToContainTextAsync(IReadOnlyList<TextMatch> expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToContainTextAsync(
+        IReadOnlyList<TextMatch> expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         return TextListAsync(Field.ContainsText, expected, ignoreCase, timeout, cancellationToken);
     }
 
     /// <summary>Waits for a form control's value, compared as it is. Fails on a node that is not a form control, negated too.</summary>
-    public Task ToHaveValueAsync(TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToHaveValueAsync(
+        TextMatch expected,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         return TextAsync(Field.Value, expected, null, timeout, cancellationToken);
     }
 
     /// <summary>Waits for an accessible name.</summary>
-    public Task ToHaveAccessibleNameAsync(TextMatch expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToHaveAccessibleNameAsync(
+        TextMatch expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         return TextAsync(Field.Name, expected, ignoreCase, timeout, cancellationToken);
     }
 
+    /// <summary>
+    /// Waits for the one match to have the role, compared as a string. only the exact <c>img</c> reads as <c>image</c>, as <c>GetByRole</c> reads it;
+    /// any other string is compared as written, and an empty one is <c>INVALID_ARGUMENT</c>.
+    /// </summary>
+    public Task ToHaveRoleAsync(string role, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(role))
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "expect." + (_negated ? "not." : "") + "toHaveRole role must be a non-empty string"
+            );
+        }
+
+        var expected = LocatorExpression.CanonicalRole(role);
+        return PollSingleAsync(
+            "toHaveRole",
+            "role " + Quote(expected),
+            timeout,
+            node => new Verdict(
+                string.Equals(node.Role, expected, StringComparison.Ordinal),
+                node.Role is null ? "no role" : "role " + Quote(node.Role)
+            ),
+            cancellationToken
+        );
+    }
+
     /// <summary>Waits for the attribute to be present.</summary>
-    public Task ToHaveAttributeAsync(string name, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToHaveAttributeAsync(
+        string name,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(name);
         return AttributeAsync(name, null, null, timeout, cancellationToken);
     }
 
     /// <summary>Waits for the attribute to be present and its normalized value to match.</summary>
-    public Task ToHaveAttributeAsync(string name, TextMatch value, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToHaveAttributeAsync(
+        string name,
+        TextMatch value,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(value);
@@ -318,7 +431,8 @@ public sealed class LocatorExpect
             includeHidden: false,
             matches => new Verdict(matches.Count == count, "count " + Number(matches.Count)),
             cancellationToken,
-            MissingFrame.Empty);
+            MissingFrame.Empty
+        );
     }
 
     private Task VisibilityAsync(string matcher, bool visible, TimeSpan? timeout, CancellationToken cancellationToken)
@@ -348,20 +462,35 @@ public sealed class LocatorExpect
                 return new Verdict(visible ? shown : hidden, observed);
             },
             cancellationToken,
-            MissingFrame.Empty);
+            MissingFrame.Empty
+        );
     }
 
-    private Task StateAsync(string matcher, Func<SemanticNode, bool> state, bool expected, string describeExpected, TimeSpan? timeout, CancellationToken cancellationToken)
+    private Task StateAsync(
+        string matcher,
+        Func<SemanticNode, bool> state,
+        bool expected,
+        string describeExpected,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken
+    )
     {
         return PollSingleAsync(
             matcher,
             describeExpected,
             timeout,
             node => new Verdict(state(node) == expected, ObservedStates(node)),
-            cancellationToken);
+            cancellationToken
+        );
     }
 
-    private Task TextAsync(Field field, TextMatch expected, bool? ignoreCase, TimeSpan? timeout, CancellationToken cancellationToken)
+    private Task TextAsync(
+        Field field,
+        TextMatch expected,
+        bool? ignoreCase,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(expected);
         var pattern = expected.WithIgnoreCase(ignoreCase);
@@ -385,39 +514,73 @@ public sealed class LocatorExpect
 
                 return new Verdict(field.Compare(actual, pattern, ignoreCase), field.Label + " " + field.Print(actual));
             },
-            cancellationToken);
+            cancellationToken
+        );
     }
 
-    private Task TextListAsync(Field field, IReadOnlyList<TextMatch> expected, bool? ignoreCase, TimeSpan? timeout, CancellationToken cancellationToken)
+    private Task TextListAsync(
+        Field field,
+        IReadOnlyList<TextMatch> expected,
+        bool? ignoreCase,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(expected);
-        var patterns = expected.Select(entry =>
-        {
-            ArgumentNullException.ThrowIfNull(entry, nameof(expected));
-            return entry.WithIgnoreCase(ignoreCase);
-        }).ToList();
-        bool Satisfies(SemanticNode node, TextMatch pattern) => field.Read(node) is { } actual && field.Compare(actual, pattern, ignoreCase);
+        var patterns = expected
+            .Select(entry =>
+            {
+                ArgumentNullException.ThrowIfNull(entry, nameof(expected));
+                return entry.WithIgnoreCase(ignoreCase);
+            })
+            .ToList();
+        bool Satisfies(SemanticNode node, TextMatch pattern) =>
+            field.Read(node) is { } actual && field.Compare(actual, pattern, ignoreCase);
         return PollAsync(
             field.Matcher,
-            field.DescribeExpected("[" + string.Join(", ", patterns.Select(pattern => pattern.Describe(ignoreCase))) + "]"),
+            field.DescribeExpected(
+                "[" + string.Join(", ", patterns.Select(pattern => pattern.Describe(ignoreCase))) + "]"
+            ),
             timeout,
             includeHidden: false,
             matches =>
             {
                 _locator.DenySecureRead(matches);
-                var holds = field.Contains ? MatchesSubsequence(matches, patterns, Satisfies) : MatchesPositionally(matches, patterns, Satisfies);
-                return new Verdict(holds, field.Label + " [" + string.Join(", ", matches.Select(node => field.Read(node) is { } actual ? field.Print(actual) : "no " + field.Label)) + "]");
+                var holds = field.Contains
+                    ? MatchesSubsequence(matches, patterns, Satisfies)
+                    : MatchesPositionally(matches, patterns, Satisfies);
+                return new Verdict(
+                    holds,
+                    field.Label
+                        + " ["
+                        + string.Join(
+                            ", ",
+                            matches.Select(node =>
+                                field.Read(node) is { } actual ? field.Print(actual) : "no " + field.Label
+                            )
+                        )
+                        + "]"
+                );
             },
             cancellationToken,
-            MissingFrame.Empty);
+            MissingFrame.Empty
+        );
     }
 
-    private Task AttributeAsync(string name, TextMatch? value, bool? ignoreCase, TimeSpan? timeout, CancellationToken cancellationToken)
+    private Task AttributeAsync(
+        string name,
+        TextMatch? value,
+        bool? ignoreCase,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken
+    )
     {
         var pattern = value?.WithIgnoreCase(ignoreCase);
         return PollSingleAsync(
             "toHaveAttribute",
-            pattern is null ? "attribute \"" + name + "\"" : "attribute \"" + name + "\" " + pattern.Describe(ignoreCase),
+            pattern is null
+                ? "attribute \"" + name + "\""
+                : "attribute \"" + name + "\" " + pattern.Describe(ignoreCase),
             timeout,
             node =>
             {
@@ -427,27 +590,38 @@ public sealed class LocatorExpect
                     return new Verdict(false, "attribute \"" + name + "\" absent");
                 }
 
-                var holds = pattern is null || TextRules.Compare(attribute, pattern, contains: false, normalize: true, ignoreCase);
+                var holds =
+                    pattern is null
+                    || TextRules.Compare(attribute, pattern, contains: false, normalize: true, ignoreCase);
                 return new Verdict(holds, "attribute \"" + name + "\" " + Quote(attribute));
             },
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     /// <summary>A matcher that needs exactly one match before its condition means anything.</summary>
-    private Task PollSingleAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<SemanticNode, Verdict> check, CancellationToken cancellationToken)
+    private Task PollSingleAsync(
+        string matcher,
+        string describeExpected,
+        TimeSpan? timeout,
+        Func<SemanticNode, Verdict> check,
+        CancellationToken cancellationToken
+    )
     {
         return PollAsync(
             matcher,
             describeExpected,
             timeout,
             includeHidden: false,
-            matches => matches.Count switch
-            {
-                0 => new Verdict(null, "no node"),
-                1 => check(matches[0]),
-                _ => Verdict.Strict(matches.Count),
-            },
-            cancellationToken);
+            matches =>
+                matches.Count switch
+                {
+                    0 => new Verdict(null, "no node"),
+                    1 => check(matches[0]),
+                    _ => Verdict.Strict(matches.Count),
+                },
+            cancellationToken
+        );
     }
 
     /// <summary>
@@ -462,13 +636,24 @@ public sealed class LocatorExpect
         bool includeHidden,
         Func<IReadOnlyList<SemanticNode>, Verdict> evaluate,
         CancellationToken cancellationToken,
-        MissingFrame missingFrame = MissingFrame.Wait) =>
+        MissingFrame missingFrame = MissingFrame.Wait
+    ) =>
         _locator.Screen.RunStepAsync(
             StepKind.Assertion,
             "expect." + (_negated ? "not." : "") + matcher,
             _locator.Query.Describe(),
-            () => PollCoreAsync(matcher, describeExpected, timeout, includeHidden, evaluate, missingFrame, cancellationToken),
-            verifies: true);
+            () =>
+                PollCoreAsync(
+                    matcher,
+                    describeExpected,
+                    timeout,
+                    includeHidden,
+                    evaluate,
+                    missingFrame,
+                    cancellationToken
+                ),
+            verifies: true
+        );
 
     private async Task PollCoreAsync(
         string matcher,
@@ -477,7 +662,8 @@ public sealed class LocatorExpect
         bool includeHidden,
         Func<IReadOnlyList<SemanticNode>, Verdict> evaluate,
         MissingFrame missingFrame,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var token = _locator.Screen.Token(cancellationToken);
         var clock = _locator.Screen.Clock;
@@ -486,25 +672,39 @@ public sealed class LocatorExpect
         var samples = new SampleHistory("expect", _locator.Screen.Redact);
         try
         {
-            var deadline = _locator.Screen.Engine.AssertionDeadlineFor(timeout, "expect." + (_negated ? "not." : "") + matcher);
-            await samples.RecordAsync(_locator.Screen.Steps, token, () => Time.PollReadsAsync(new PollReadsOptions
-            {
-                Deadline = deadline,
-                Reads = _locator.Screen.Reads(deadline),
-                Clock = clock,
-                Token = token,
-                Negated = _negated,
-                Interval = _locator.Screen.PollInterval,
-                Evaluate = async reads =>
-                {
-                    var matches = await _locator.ResolveAsync(token, includeHidden, reads, missingFrame).ConfigureAwait(false);
-                    last = evaluate(matches);
-                    lastMatches = matches;
-                    samples.Add(last.Observed + " (" + Number(matches.Count) + (matches.Count == 1 ? " match)" : " matches)"));
-                    return last.Holds;
-                },
-                OnTimeout = cause => Failure(matcher, describeExpected, last, lastMatches, cause),
-            })).ConfigureAwait(false);
+            var deadline = _locator.Screen.Engine.AssertionDeadlineFor(
+                timeout,
+                "expect." + (_negated ? "not." : "") + matcher
+            );
+            await samples
+                .RecordAsync(_locator.Screen.Steps, token, () => Time.PollReadsAsync(
+                        new PollReadsOptions
+                        {
+                            Deadline = deadline,
+                            Reads = _locator.Screen.Reads(deadline),
+                            Clock = clock,
+                            Token = token,
+                            Negated = _negated,
+                            Interval = _locator.Screen.PollInterval,
+                            Evaluate = async reads =>
+                            {
+                                var matches = await _locator
+                                    .ResolveAsync(token, includeHidden, reads, missingFrame)
+                                    .ConfigureAwait(false);
+                                last = evaluate(matches);
+                                lastMatches = matches;
+                                samples.Add(
+                                    last.Observed
+                                        + " ("
+                                        + Number(matches.Count)
+                                        + (matches.Count == 1 ? " match)" : " matches)")
+                                );
+                                return last.Holds;
+                            },
+                            OnTimeout = cause => Failure(matcher, describeExpected, last, lastMatches, cause),
+                        }
+                    ))
+                .ConfigureAwait(false);
             _locator.Screen.NotifyVerified();
         }
         catch (TestException)
@@ -519,7 +719,13 @@ public sealed class LocatorExpect
     }
 
     /// <summary>The error a matcher throws at its deadline, built from its last sample.</summary>
-    private TestException Failure(string matcher, string describeExpected, Verdict verdict, IReadOnlyList<SemanticNode> matches, Exception? cause = null)
+    private TestException Failure(
+        string matcher,
+        string describeExpected,
+        Verdict verdict,
+        IReadOnlyList<SemanticNode> matches,
+        Exception? cause = null
+    )
     {
         var name = (_negated ? "not." : "") + matcher;
         var code = verdict.StrictCount > 1 ? "LOCATOR_AMBIGUOUS" : "ASSERTION_FAILED";
@@ -528,7 +734,8 @@ public sealed class LocatorExpect
             "expect." + name + " failed",
             "locator: " + _locator.Query.Describe(),
             "expected: " + (_negated ? "not " : "") + describeExpected,
-            "observed: " + verdict.Observed + " (match count " + Number(matches.Count) + ")");
+            "observed: " + verdict.Observed + " (match count " + Number(matches.Count) + ")"
+        );
         // The same facts, one per field, for a reporter that lays them out.
         var details = new ErrorDetails
         {
@@ -540,7 +747,11 @@ public sealed class LocatorExpect
         return ErrorRedaction.Failure(code, message, cause, _locator.Screen.Redact, details);
     }
 
-    private static bool MatchesPositionally(IReadOnlyList<SemanticNode> nodes, List<TextMatch> patterns, Func<SemanticNode, TextMatch, bool> satisfies)
+    private static bool MatchesPositionally(
+        IReadOnlyList<SemanticNode> nodes,
+        List<TextMatch> patterns,
+        Func<SemanticNode, TextMatch, bool> satisfies
+    )
     {
         if (nodes.Count != patterns.Count)
         {
@@ -559,7 +770,11 @@ public sealed class LocatorExpect
     }
 
     /// <summary>Whether every pattern is satisfied by a distinct node, in order. Greedy, which finds a subsequence whenever one exists.</summary>
-    private static bool MatchesSubsequence(IReadOnlyList<SemanticNode> nodes, List<TextMatch> patterns, Func<SemanticNode, TextMatch, bool> satisfies)
+    private static bool MatchesSubsequence(
+        IReadOnlyList<SemanticNode> nodes,
+        List<TextMatch> patterns,
+        Func<SemanticNode, TextMatch, bool> satisfies
+    )
     {
         var next = 0;
         foreach (var node in nodes)
@@ -604,7 +819,10 @@ public sealed class LocatorExpect
 
     private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
 
-    private static readonly JsonSerializerOptions QuoteOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions QuoteOptions = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     /// <summary>Prints a value as upstream does with <c>JSON.stringify</c>: quoted, with newlines and quotes escaped.</summary>
     internal static string Quote(string? value) => JsonSerializer.Serialize(value ?? "", QuoteOptions);
@@ -618,23 +836,67 @@ public sealed class LocatorExpect
     /// <summary>The node field a text matcher reads, and how it compares.</summary>
     private sealed class Field
     {
-        public static readonly Field HasText = new("toHaveText", "text", contains: false, normalize: true, readsWithheld: true, pattern => "text " + pattern);
+        public static readonly Field HasText = new(
+            "toHaveText",
+            "text",
+            contains: false,
+            normalize: true,
+            readsWithheld: true,
+            pattern => "text " + pattern
+        );
 
-        public static readonly Field ContainsText = new("toContainText", "text", contains: true, normalize: true, readsWithheld: true, pattern => "text containing " + pattern);
+        public static readonly Field ContainsText = new(
+            "toContainText",
+            "text",
+            contains: true,
+            normalize: true,
+            readsWithheld: true,
+            pattern => "text containing " + pattern
+        );
 
-        public static readonly Field Value = new("toHaveValue", "value", contains: false, normalize: false, readsWithheld: true, pattern => "value " + pattern);
+        public static readonly Field Value = new(
+            "toHaveValue",
+            "value",
+            contains: false,
+            normalize: false,
+            readsWithheld: true,
+            pattern => "value " + pattern
+        );
 
-        public static readonly Field Name = new("toHaveAccessibleName", "accessible name", contains: false, normalize: true, readsWithheld: false, pattern => "accessible name " + pattern);
+        public static readonly Field Name = new(
+            "toHaveAccessibleName",
+            "accessible name",
+            contains: false,
+            normalize: true,
+            readsWithheld: false,
+            pattern => "accessible name " + pattern
+        );
 
         /// <summary>
         /// Roles whose node carries a value: the editable roles plus the controls a platform reports a value
         /// for without taking typed text (a range input, a number stepper, a multiple select and its options).
         /// </summary>
-        private static readonly HashSet<string> ValueRoles = ["textbox", "searchbox", "combobox", "spinbutton", "slider", "listbox", "option"];
+        private static readonly HashSet<string> ValueRoles =
+        [
+            "textbox",
+            "searchbox",
+            "combobox",
+            "spinbutton",
+            "slider",
+            "listbox",
+            "option",
+        ];
 
         private readonly bool _normalize;
 
-        private Field(string matcher, string label, bool contains, bool normalize, bool readsWithheld, Func<string, string> describeExpected)
+        private Field(
+            string matcher,
+            string label,
+            bool contains,
+            bool normalize,
+            bool readsWithheld,
+            Func<string, string> describeExpected
+        )
         {
             Matcher = matcher;
             Label = label;
@@ -705,13 +967,22 @@ public sealed class ScreenExpect
     /// beside the file this call is in. <paramref name="name"/> defaults to the test's title and a count. A missing screenshot is
     /// written and fails the call, or, with <c>E2E_UPDATE_SNAPSHOTS=1</c>, written and passed. Only the web engine captures pixels.
     /// </summary>
-    public Task ToHaveScreenshotAsync(string? name = null, ScreenshotOptions? options = null, [CallerFilePath] string? callerFile = null)
-        => _screen.IsScoped
+    public Task ToHaveScreenshotAsync(
+        string? name = null,
+        ScreenshotOptions? options = null,
+        [CallerFilePath] string? callerFile = null
+    ) =>
+        _screen.IsScoped
             // A scoped screen (a frame) refuses, since its box is not known.
-            ? Task.FromException(new TestException("INVALID_ARGUMENT", "toHaveScreenshot compares the whole screen or one locator; call it on screen, or on a locator inside the frame"))
+            ? Task.FromException(
+                new TestException(
+                    "INVALID_ARGUMENT",
+                    "toHaveScreenshot compares the whole screen or one locator; call it on screen, or on a locator inside the frame"
+                )
+            )
             : ScreenshotAssertion.ExpectScreenshotAsync(_screen, null, _negated, name, options, callerFile, default);
 
     /// <inheritdoc cref="ToHaveScreenshotAsync(string?, ScreenshotOptions?, string?)"/>
-    public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null)
-        => ToHaveScreenshotAsync(null, options, callerFile);
+    public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null) =>
+        ToHaveScreenshotAsync(null, options, callerFile);
 }

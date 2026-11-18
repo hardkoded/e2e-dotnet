@@ -37,7 +37,10 @@ public abstract class MobileAppTest : E2ETest
     protected static bool AttachesToRunningApp => MobileAppHost.AttachesToRunningApp;
 
     /// <summary>The device fixture of the test's session: appearance, home, foreground app, and the other device controls.</summary>
-    protected Device Device => (_engine ?? throw new InvalidOperationException("The engine starts with the test session.")).ActiveSessions.Single().Device;
+    protected Device Device =>
+        (_engine ?? throw new InvalidOperationException("The engine starts with the test session."))
+            .ActiveSessions.Single()
+            .Device;
 
     /// <summary>The options of the engine: the local device, or the provider's hosted device.</summary>
     protected virtual MobileOptions CreateMobileOptions(IDeviceProvider? provider) =>
@@ -46,14 +49,14 @@ public abstract class MobileAppTest : E2ETest
     /// <summary>The hosted device the run leased, or a <see cref="MobileEngine"/> for the local device.</summary>
     protected override IEngine CreateEngine()
     {
-        // TUnit runs the base class hooks before the derived ones, and the base hook creates the engine. So the lease happens here.
-        var cancellationToken = SessionStartToken;
-        Task.Run(() => MobileAppHost.LeaseAsync(CreateMobileOptions, ProjectRoot, Console.WriteLine, cancellationToken), cancellationToken).GetAwaiter().GetResult();
+        // TUnit runs the base class hooks before the derived ones, and the base hook creates the engine. So the shared engine is made here.
+        MobileAppHost.ShareEngine(CreateMobileOptions);
         return _engine = MobileAppHost.Engine ?? new MobileEngine(CreateMobileOptions(provider: null));
     }
 
     /// <summary>The agent can open another app, swipe from point to point, and answer a system alert.</summary>
-    protected override IReadOnlyDictionary<string, AgentTool>? AgentTools => MobileTools.Create(_engine ?? throw new InvalidOperationException("The engine starts with the test session."));
+    protected override IReadOnlyDictionary<string, AgentTool>? AgentTools =>
+        MobileTools.Create(_engine ?? throw new InvalidOperationException("The engine starts with the test session."));
 
     /// <summary>A device is slower than a browser: each action waits for the screen to settle, and the model sees a new snapshot after it.</summary>
     protected override TimeSpan StepTimeout => TimeSpan.FromSeconds(90);

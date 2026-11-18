@@ -47,7 +47,16 @@ public sealed class AppRecordingsTests : IDisposable
         await recordings.StartSpanAsync("dialog opens", default);
         Assert.True(recordings.SpanRunning);
         var first = await recordings.StopSpanAsync(Sink(), default);
-        Assert.Equal([new RecordedVideoFile { Path = Path.Combine(_dir, "recordings", "001-dialog_opens.webm"), StartedAt = StartedAt }], first.Videos);
+        Assert.Equal(
+            [
+                new RecordedVideoFile
+                {
+                    Path = Path.Combine(_dir, "recordings", "001-dialog_opens.webm"),
+                    StartedAt = StartedAt,
+                },
+            ],
+            first.Videos
+        );
         Assert.False(File.Exists(Path.Combine(_dir, "video", "video.webm")));
 
         _written = ["video/video-part2.webm", "video/video-part3.webm"];
@@ -55,9 +64,15 @@ public sealed class AppRecordingsTests : IDisposable
         var second = await recordings.StopSpanAsync(Sink(), default);
         Assert.Equal(
             [Path.Combine("recordings", "002-recording.webm"), Path.Combine("recordings", "002-recording-part2.webm")],
-            second.Videos.Select(video => video is RecordedVideoFile file ? Path.GetRelativePath(_dir, file.Path) : ((RecordedVideoLink)video).Url));
+            second.Videos.Select(video =>
+                video is RecordedVideoFile file ? Path.GetRelativePath(_dir, file.Path) : ((RecordedVideoLink)video).Url
+            )
+        );
         Assert.Equal(["artifact-2", "artifact-3"], second.Ids);
-        Assert.Equal([ArtifactKind.Video, ArtifactKind.Video, ArtifactKind.Video], _registered.Select(artifact => artifact.Kind));
+        Assert.Equal(
+            [ArtifactKind.Video, ArtifactKind.Video, ArtifactKind.Video],
+            _registered.Select(artifact => artifact.Kind)
+        );
         Assert.Equal("2", File.ReadAllText(Path.Combine(_dir, "recordings", "001-dialog_opens.webm")));
         Assert.Equal(["start", "stop", "start", "stop"], _calls);
         Assert.False(recordings.SpanRunning);
@@ -70,7 +85,17 @@ public sealed class AppRecordingsTests : IDisposable
         var recordings = Recordings();
         await recordings.StartSpanAsync("hosted", default);
         var stopped = await recordings.StopSpanAsync(Sink(), default);
-        Assert.Equal([new RecordedVideoLink { Url = "https://videos.example.com/lease/1.mp4", MediaType = "video/mp4", StartedAt = StartedAt }], stopped.Videos);
+        Assert.Equal(
+            [
+                new RecordedVideoLink
+                {
+                    Url = "https://videos.example.com/lease/1.mp4",
+                    MediaType = "video/mp4",
+                    StartedAt = StartedAt,
+                },
+            ],
+            stopped.Videos
+        );
         Assert.Equal(["link-1"], stopped.Ids);
         Assert.Empty(_registered);
     }
@@ -86,7 +111,10 @@ public sealed class AppRecordingsTests : IDisposable
         var nothing = await Assert.ThrowsAsync<TestException>(() => recordings.StopSpanAsync(Sink(), default));
         Assert.Equal("INVALID_ARGUMENT", nothing.Code);
         Assert.Equal(["start"], _calls);
-        Assert.Equal([new VideoFile { Path = "video/video.webm", StartedAt = StartedAt }], await recordings.StopAttemptVideoAsync(default, default));
+        Assert.Equal(
+            [new VideoFile { Path = "video/video.webm", StartedAt = StartedAt }],
+            await recordings.StopAttemptVideoAsync(default, default)
+        );
         await recordings.StartSpanAsync("after", default);
         Assert.Equal(["start", "stop", "start"], _calls);
     }
@@ -108,7 +136,9 @@ public sealed class AppRecordingsTests : IDisposable
     [Fact]
     public async Task Refuses_on_an_engine_without_video()
     {
-        var refused = await Assert.ThrowsAsync<ConfigurationException>(() => Recordings(video: false, target: "phone").StartSpanAsync("x", default));
+        var refused = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Recordings(video: false, target: "phone").StartSpanAsync("x", default)
+        );
         Assert.Equal("UNSUPPORTED_CAPABILITY", refused.Code);
         Assert.Contains("target \"phone\"", refused.Message, StringComparison.Ordinal);
     }
@@ -166,7 +196,9 @@ public sealed class AppRecordingsTests : IDisposable
             {
                 case nameof(IEngineSession.StartVideoAsync):
                     Owner._calls.Add("start");
-                    return Owner._failStart ? Task.FromException(new InvalidOperationException("device refused to record")) : Task.CompletedTask;
+                    return Owner._failStart
+                        ? Task.FromException(new InvalidOperationException("device refused to record"))
+                        : Task.CompletedTask;
                 case nameof(IEngineSession.StopVideoAsync):
                     Owner._calls.Add("stop");
                     IReadOnlyList<VideoSegment> segments =
@@ -175,11 +207,20 @@ public sealed class AppRecordingsTests : IDisposable
                         {
                             if (relative.StartsWith("https://", StringComparison.Ordinal))
                             {
-                                return (VideoSegment)new VideoLink { Url = relative, MediaType = "video/mp4", StartedAt = StartedAt };
+                                return (VideoSegment)
+                                    new VideoLink
+                                    {
+                                        Url = relative,
+                                        MediaType = "video/mp4",
+                                        StartedAt = StartedAt,
+                                    };
                             }
 
                             Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(Owner._dir, relative))!);
-                            File.WriteAllText(Path.Combine(Owner._dir, relative), Owner._calls.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                            File.WriteAllText(
+                                Path.Combine(Owner._dir, relative),
+                                Owner._calls.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                            );
                             return new VideoFile { Path = relative, StartedAt = StartedAt };
                         }),
                     ];

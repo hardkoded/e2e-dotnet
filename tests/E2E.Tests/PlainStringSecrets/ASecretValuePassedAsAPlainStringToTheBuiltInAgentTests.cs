@@ -31,26 +31,31 @@ public sealed class ASecretValuePassedAsAPlainStringToTheBuiltInAgentTests
                 ? ModelResponses.Done("passed", "nothing secret is shown")
                 : ModelResponses.Done("passed", "inspected");
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(BillingWorld.Create()),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            AgentContext = "context " + Value,
-            CacheEnabled = false,
-            // The title spells the secret too, as upstream's test does: it reaches both prompts as the marker.
-            TestTitle = "built-in agent " + Value,
-            TestFile = "PlainStringSecrets",
-        });
-        await session.App.OpenAsync("/settings/billing");
-        await session.Agent.ActAsync("inspect " + Value + " with {note}", new ActOptions
-        {
-            Params = new Dictionary<string, object?>
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
             {
-                ["probe"] = Secret.Create("probe", Value),
-                ["note"] = Value,
-            },
-        });
+                Engine = new DocumentEngine(BillingWorld.Create()),
+                Model = model,
+                BaseUrl = "https://billing.test",
+                AgentContext = "context " + Value,
+                CacheEnabled = false,
+                // The title spells the secret too, as upstream's test does: it reaches both prompts as the marker.
+                TestTitle = "built-in agent " + Value,
+                TestFile = "PlainStringSecrets",
+            }
+        );
+        await session.App.OpenAsync("/settings/billing");
+        await session.Agent.ActAsync(
+            "inspect " + Value + " with {note}",
+            new ActOptions
+            {
+                Params = new Dictionary<string, object?>
+                {
+                    ["probe"] = Secret.Create("probe", Value),
+                    ["note"] = Value,
+                },
+            }
+        );
         await session.Agent.AssertAsync("the page does not show " + Value);
         session.Complete();
 
@@ -64,6 +69,15 @@ public sealed class ASecretValuePassedAsAPlainStringToTheBuiltInAgentTests
         Assert.Contains("the page does not show " + Marker, judgmentPrompt, StringComparison.Ordinal);
         Assert.Contains("Test: built-in agent " + Marker, judgmentPrompt, StringComparison.Ordinal);
         Assert.Contains("context " + Marker, judgment.System, StringComparison.Ordinal);
-        Assert.DoesNotContain(Value, string.Join('\n', model.Requests.SelectMany(request => request.Messages.Select(message => message.Content).Prepend(request.System))), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            Value,
+            string.Join(
+                '\n',
+                model.Requests.SelectMany(request =>
+                    request.Messages.Select(message => message.Content).Prepend(request.System)
+                )
+            ),
+            StringComparison.Ordinal
+        );
     }
 }

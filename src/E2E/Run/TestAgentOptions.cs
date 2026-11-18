@@ -12,13 +12,18 @@ internal static class TestAgentOptions
     /// <summary>The closest <see cref="AgentAttribute"/>, or null.</summary>
     public static string? Agent(Type type, MethodBase? method)
     {
-        return Layers(type, method).Select(layer => layer.GetCustomAttribute<AgentAttribute>(false)?.Name).LastOrDefault(name => name is not null);
+        return Layers(type, method)
+            .Select(layer => layer.GetCustomAttribute<AgentAttribute>(false)?.Name)
+            .LastOrDefault(name => name is not null);
     }
 
     /// <summary>Every <see cref="AgentContextAttribute"/>, outer to inner, one per line, or null when there is none.</summary>
     public static string? AgentContext(Type type, MethodBase? method)
     {
-        var parts = Layers(type, method).Select(layer => layer.GetCustomAttribute<AgentContextAttribute>(false)?.Text).Where(text => !string.IsNullOrWhiteSpace(text)).ToArray();
+        var parts = Layers(type, method)
+            .Select(layer => layer.GetCustomAttribute<AgentContextAttribute>(false)?.Text)
+            .Where(text => !string.IsNullOrWhiteSpace(text))
+            .ToArray();
         return parts.Length == 0 ? null : string.Join('\n', parts);
     }
 

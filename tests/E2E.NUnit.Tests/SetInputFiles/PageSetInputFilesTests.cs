@@ -21,24 +21,26 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
     private static string EmptyPage => $"{PREFIX}/empty.html";
 
     /// <summary>Reads the first file of the input <paramref name="selector"/> matches as text, in the page.</summary>
-    private static string ReadFirstFile(string selector) => $$"""
-        () => {
-          const reader = new FileReader();
-          const promise = new Promise((fulfill) => { reader.onload = fulfill; });
-          reader.readAsText(document.querySelector({{JsonSerializer.Serialize(selector)}}).files[0]);
-          return promise.then(() => reader.result);
-        }
-        """;
+    private static string ReadFirstFile(string selector) =>
+        $$"""
+            () => {
+              const reader = new FileReader();
+              const promise = new Promise((fulfill) => { reader.onload = fulfill; });
+              reader.readAsText(document.querySelector({{JsonSerializer.Serialize(selector)}}).files[0]);
+              return promise.then(() => reader.result);
+            }
+            """;
 
     /// <summary>Records the input and change events the input <paramref name="selector"/> matches dispatches, into <c>window.events</c>.</summary>
-    private static string RecordEvents(string selector) => $$"""
-        () => {
-          window.events = [];
-          const e = document.querySelector({{JsonSerializer.Serialize(selector)}});
-          e.addEventListener('input', () => window.events.push('input'));
-          e.addEventListener('change', () => window.events.push('change'));
-        }
-        """;
+    private static string RecordEvents(string selector) =>
+        $$"""
+            () => {
+              window.events = [];
+              const e = document.querySelector({{JsonSerializer.Serialize(selector)}});
+              e.addEventListener('input', () => window.events.push('input'));
+              e.addEventListener('change', () => window.events.push('change'));
+            }
+            """;
 
     [TearDown]
     public void RemoveOutputDirs()
@@ -76,14 +78,20 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
 
     /// <summary>The files the server parsed from the form the page posted to <c>/upload</c>.</summary>
     private async Task<List<UploadedFile>> UploadedAsync() =>
-        JsonSerializer.Deserialize<List<UploadedFile>>((await Browser.EvaluateAsync<string>("document.body.textContent"))!, Json)!;
+        JsonSerializer.Deserialize<List<UploadedFile>>(
+            (await Browser.EvaluateAsync<string>("document.body.textContent"))!,
+            Json
+        )!;
 
     [Test]
     public async Task Should_upload_the_file()
     {
         await Browser.GotoAsync("/input/fileupload.html");
         await Browser.Locator("input[type=file]").SetInputFilesAsync(Asset("file-to-upload.txt"));
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"), Is.EqualTo("file-to-upload.txt"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"),
+            Is.EqualTo("file-to-upload.txt")
+        );
         Assert.That(await Browser.EvaluateAsync<string>(ReadFirstFile("input")), Is.EqualTo("contents of the file"));
     }
 
@@ -98,24 +106,34 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
         Directory.CreateDirectory(Path.Combine(dir, "sub-dir"));
         await File.WriteAllTextAsync(Path.Combine(dir, "sub-dir", "really.txt"), "sub-dir file content");
         await Browser.Locator("input[type=file]").SetInputFilesAsync(dir);
-        var webkitRelativePaths = (await Browser.EvaluateAsync<string[]>("() => [...document.querySelector('input').files].map((f) => f.webkitRelativePath)"))!;
-        Assert.That(webkitRelativePaths, Is.EquivalentTo(new[]
-        {
-            "file-upload-test/sub-dir/really.txt",
-            "file-upload-test/file1.txt",
-            "file-upload-test/file2",
-        }));
+        var webkitRelativePaths = (
+            await Browser.EvaluateAsync<string[]>(
+                "() => [...document.querySelector('input').files].map((f) => f.webkitRelativePath)"
+            )
+        )!;
+        Assert.That(
+            webkitRelativePaths,
+            Is.EquivalentTo(
+                new[] { "file-upload-test/sub-dir/really.txt", "file-upload-test/file1.txt", "file-upload-test/file2" }
+            )
+        );
         for (var i = 0; i < webkitRelativePaths.Length; i++)
         {
-            var fileContent = await Browser.EvaluateAsync<string>("""
+            var fileContent = await Browser.EvaluateAsync<string>(
+                """
                 (i) => {
                   const reader = new FileReader();
                   const promise = new Promise((fulfill) => { reader.onload = fulfill; });
                   reader.readAsText(document.querySelector('input').files[i]);
                   return promise.then(() => reader.result);
                 }
-                """, i);
-            Assert.That(fileContent, Is.EqualTo(await File.ReadAllTextAsync(Path.Combine(dir, "..", webkitRelativePaths[i]))));
+                """,
+                i
+            );
+            Assert.That(
+                fileContent,
+                Is.EqualTo(await File.ReadAllTextAsync(Path.Combine(dir, "..", webkitRelativePaths[i])))
+            );
         }
     }
 
@@ -128,7 +146,11 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
         await File.WriteAllTextAsync(Path.Combine(dir, "folder1", "file1.txt"), "file1 content");
         Directory.CreateDirectory(Path.Combine(dir, "folder2"));
         await File.WriteAllTextAsync(Path.Combine(dir, "folder2", "file2.txt"), "file2 content");
-        var error = await Assert.CatchAsync(() => Browser.Locator("input[type=file]").SetInputFilesAsync([Path.Combine(dir, "folder1"), Path.Combine(dir, "folder2")]));
+        var error = await Assert.CatchAsync(() =>
+            Browser
+                .Locator("input[type=file]")
+                .SetInputFilesAsync([Path.Combine(dir, "folder1"), Path.Combine(dir, "folder2")])
+        );
         Assert.That(error!.Message, Does.Contain("Multiple directories are not supported"));
     }
 
@@ -139,7 +161,11 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
         var dir = Path.Combine(OutputDir(), "file-upload-test");
         Directory.CreateDirectory(Path.Combine(dir, "folder1"));
         await File.WriteAllTextAsync(Path.Combine(dir, "folder1", "file1.txt"), "file1 content");
-        var error = await Assert.CatchAsync(() => Browser.Locator("input[type=file]").SetInputFilesAsync([Path.Combine(dir, "folder1"), Path.Combine(dir, "folder1", "file1.txt")]));
+        var error = await Assert.CatchAsync(() =>
+            Browser
+                .Locator("input[type=file]")
+                .SetInputFilesAsync([Path.Combine(dir, "folder1"), Path.Combine(dir, "folder1", "file1.txt")])
+        );
         Assert.That(error!.Message, Does.Contain("File paths must be all files or a single directory"));
     }
 
@@ -151,14 +177,19 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
         Directory.CreateDirectory(dir);
         await File.WriteAllTextAsync(Path.Combine(dir, "file1.txt"), "file1 content");
         var error = await Assert.CatchAsync(() => Browser.Locator("input[type=file]").SetInputFilesAsync(dir));
-        Assert.That(error!.Message, Does.Contain("File input does not support directories, pass individual files instead"));
+        Assert.That(
+            error!.Message,
+            Does.Contain("File input does not support directories, pass individual files instead")
+        );
     }
 
     [Test]
     public async Task Should_throw_when_uploading_a_file_in_a_directory_upload_input()
     {
         await Browser.GotoAsync("/input/folderupload.html");
-        var error = await Assert.CatchAsync(() => Browser.Locator("input[type=file]").SetInputFilesAsync(Asset("file to upload.txt")));
+        var error = await Assert.CatchAsync(() =>
+            Browser.Locator("input[type=file]").SetInputFilesAsync(Asset("file to upload.txt"))
+        );
         Assert.That(error!.Message, Does.Contain("[webkitdirectory] input requires passing a path to a directory"));
     }
 
@@ -169,7 +200,10 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
         await Browser.EvaluateAsync<object>("() => { window['__popup'] = window.open('about:blank'); }");
         await Browser.EvaluateAsync<object>("() => { window['__popup'].close(); }");
         await Browser.Locator("input[type=file]").SetInputFilesAsync(Asset("file-to-upload.txt"));
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"), Is.EqualTo("file-to-upload.txt"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"),
+            Is.EqualTo("file-to-upload.txt")
+        );
     }
 
     [Test]
@@ -180,11 +214,15 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
         await WriteLargeFileAsync(uploadFile);
         await Browser.EvaluateAsync<object>(RecordEvents("input[type=\"file\"]"));
         await Browser.Locator("input[type=\"file\"]").SetInputFilesAsync(uploadFile);
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('input[type=\"file\"]').files[0].name"), Is.EqualTo("200MB.zip"));
-        Assert.That(await Browser.EvaluateAsync<string[]>("() => window.events"), Is.EqualTo(new[] { "input", "change" }));
-        await Task.WhenAll(
-            Browser.WaitForURLAsync("/upload"),
-            Browser.Locator("input[type=submit]").TapAsync());
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input[type=\"file\"]').files[0].name"),
+            Is.EqualTo("200MB.zip")
+        );
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>("() => window.events"),
+            Is.EqualTo(new[] { "input", "change" })
+        );
+        await Task.WhenAll(Browser.WaitForURLAsync("/upload"), Browser.Locator("input[type=submit]").TapAsync());
         var file1 = (await UploadedAsync())[0];
         Assert.That(file1.Filename, Is.EqualTo("200MB.zip"));
         Assert.That(file1.Size, Is.EqualTo(200 * 1024 * 1024));
@@ -195,7 +233,9 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
     public async Task Should_throw_an_error_if_the_file_does_not_exist()
     {
         await Browser.GotoAsync("/input/fileupload.html");
-        var error = await Assert.CatchAsync(() => Browser.Locator("input[type=file]").SetInputFilesAsync("i actually do not exist.txt"));
+        var error = await Assert.CatchAsync(() =>
+            Browser.Locator("input[type=file]").SetInputFilesAsync("i actually do not exist.txt")
+        );
         // Node's "ENOENT: no such file or directory" is .NET's FileNotFoundException message here.
         Assert.That(error!.Message, Does.Contain("Could not find file"));
         Assert.That(error.Message, Does.Contain("i actually do not exist.txt"));
@@ -211,11 +251,15 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
         var relativeUploadPath = Path.GetRelativePath(ProjectRoot, uploadFile);
         Assert.That(Path.IsPathRooted(relativeUploadPath), Is.False);
         await Browser.Locator("input[type=\"file\"]").SetInputFilesAsync(relativeUploadPath);
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('input[type=\"file\"]').files[0].name"), Is.EqualTo("200MB.zip"));
-        Assert.That(await Browser.EvaluateAsync<string[]>("() => window.events"), Is.EqualTo(new[] { "input", "change" }));
-        await Task.WhenAll(
-            Browser.WaitForURLAsync("/upload"),
-            Browser.Locator("input[type=submit]").TapAsync());
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input[type=\"file\"]').files[0].name"),
+            Is.EqualTo("200MB.zip")
+        );
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>("() => window.events"),
+            Is.EqualTo(new[] { "input", "change" })
+        );
+        await Task.WhenAll(Browser.WaitForURLAsync("/upload"), Browser.Locator("input[type=submit]").TapAsync());
         var file1 = (await UploadedAsync())[0];
         Assert.That(file1.Filename, Is.EqualTo("200MB.zip"));
         Assert.That(file1.Size, Is.EqualTo(200 * 1024 * 1024));
@@ -227,7 +271,10 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
     {
         await Browser.GotoAsync("/input/fileupload.html");
         await Browser.Locator("input[type=file]").SetInputFilesAsync(Asset("file to upload.txt"));
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"), Is.EqualTo("file to upload.txt"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"),
+            Is.EqualTo("file to upload.txt")
+        );
         Assert.That(await Browser.EvaluateAsync<string>(ReadFirstFile("input")), Is.EqualTo("contents of the file"));
     }
 
@@ -236,44 +283,66 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
     {
         await Browser.GotoAsync(Content("<input type=file>"));
         await Browser.Locator("input[type=file]").SetInputFilesAsync(Asset("file-to-upload.txt"));
-        Assert.That(await Browser.EvaluateAsync<int>("() => document.querySelector('input').files.length"), Is.EqualTo(1));
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"), Is.EqualTo("file-to-upload.txt"));
+        Assert.That(
+            await Browser.EvaluateAsync<int>("() => document.querySelector('input').files.length"),
+            Is.EqualTo(1)
+        );
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"),
+            Is.EqualTo("file-to-upload.txt")
+        );
     }
 
     [Test]
     public async Task Should_work_with_CSP()
     {
-        var headers = Uri.EscapeDataString("""{"content-type":"text/html","content-security-policy":"default-src \"none\""}""");
+        var headers = Uri.EscapeDataString(
+            """{"content-type":"text/html","content-security-policy":"default-src \"none\""}"""
+        );
         await Browser.GotoAsync($"/respond?headers={headers}&body={Uri.EscapeDataString("<input type=file>")}");
         await Browser.Locator("input[type=file]").SetInputFilesAsync(Asset("file-to-upload.txt"));
-        Assert.That(await Browser.EvaluateAsync<int>("() => document.querySelector('input').files.length"), Is.EqualTo(1));
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"), Is.EqualTo("file-to-upload.txt"));
+        Assert.That(
+            await Browser.EvaluateAsync<int>("() => document.querySelector('input').files.length"),
+            Is.EqualTo(1)
+        );
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"),
+            Is.EqualTo("file-to-upload.txt")
+        );
     }
 
     [Test]
     public async Task Should_detect_mime_type()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.GotoAsync(Content("""
-            <form action="/upload" method="post" enctype="multipart/form-data" >
-              <input type="file" name="file1">
-              <input type="file" name="file2">
-              <input type="submit" value="Submit">
-            </form>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <form action="/upload" method="post" enctype="multipart/form-data" >
+                  <input type="file" name="file1">
+                  <input type="file" name="file2">
+                  <input type="submit" value="Submit">
+                </form>
+                """
+            )
+        );
         await Browser.Locator("input[name=file1]").SetInputFilesAsync(Asset("file-to-upload.txt"));
         await Browser.Locator("input[name=file2]").SetInputFilesAsync(Asset("pptr.png"));
-        await Task.WhenAll(
-            Browser.WaitForURLAsync("/upload"),
-            Browser.Locator("input[type=submit]").TapAsync());
+        await Task.WhenAll(Browser.WaitForURLAsync("/upload"), Browser.Locator("input[type=submit]").TapAsync());
         var files = await UploadedAsync();
         var (file1, file2) = (files[0], files[1]);
         Assert.That(file1.Filename, Is.EqualTo("file-to-upload.txt"));
         Assert.That(file1.Mimetype, Is.EqualTo("text/plain"));
-        Assert.That(Convert.FromBase64String(file1.Base64!), Is.EqualTo(await File.ReadAllBytesAsync(Asset("file-to-upload.txt"))));
+        Assert.That(
+            Convert.FromBase64String(file1.Base64!),
+            Is.EqualTo(await File.ReadAllBytesAsync(Asset("file-to-upload.txt")))
+        );
         Assert.That(file2.Filename, Is.EqualTo("pptr.png"));
         Assert.That(file2.Mimetype, Is.EqualTo("image/png"));
-        Assert.That(Convert.FromBase64String(file2.Base64!), Is.EqualTo(await File.ReadAllBytesAsync(Asset("pptr.png"))));
+        Assert.That(
+            Convert.FromBase64String(file2.Base64!),
+            Is.EqualTo(await File.ReadAllBytesAsync(Asset("pptr.png")))
+        );
     }
 
     [Test]
@@ -281,27 +350,34 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
     {
         await Browser.GotoAsync(EmptyPage);
         const int dataSize = 1 << 20;
-        var files = await Browser.EvaluateAsync<List<UploadedFile>>("""
+        var files = await Browser.EvaluateAsync<List<UploadedFile>>(
+            """
             async (size) => {
               const body = new FormData();
               body.set('file', new Blob([new Uint8Array(size)]));
               return (await fetch('/upload', { method: 'POST', body })).json();
             }
-            """, dataSize);
+            """,
+            dataSize
+        );
         Assert.That(files![0].Size, Is.EqualTo(dataSize));
     }
 
     [Test]
     public async Task Should_emit_input_and_change_events()
     {
-        await Browser.GotoAsync(Content("""
-            <input id=input type=file></input>
-            <script>
-              window.events = [];
-              input.addEventListener('input', e => window.events.push({ type: e.type }));
-              input.addEventListener('change', e => window.events.push({ type: e.type }));
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <input id=input type=file></input>
+                <script>
+                  window.events = [];
+                  input.addEventListener('input', e => window.events.push({ type: e.type }));
+                  input.addEventListener('change', e => window.events.push({ type: e.type }));
+                </script>
+                """
+            )
+        );
         await Browser.Locator("input[type=file]").SetInputFilesAsync(Asset("file-to-upload.txt"));
         var events = (await Browser.EvaluateAsync<List<EventRecord>>("() => window.events"))!;
         Assert.That(events, Has.Count.EqualTo(2));
@@ -316,14 +392,26 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
         await Browser.EvaluateAsync<object>(RecordEvents("input"));
 
         await Browser.Locator("input[type=file]").SetInputFilesAsync(Asset("file-to-upload.txt"));
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"), Is.EqualTo("file-to-upload.txt"));
-        Assert.That(await Browser.EvaluateAsync<string[]>("() => window.events"), Is.EqualTo(new[] { "input", "change" }));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"),
+            Is.EqualTo("file-to-upload.txt")
+        );
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>("() => window.events"),
+            Is.EqualTo(new[] { "input", "change" })
+        );
 
         await Browser.EvaluateAsync<object>("() => { window.events.length = 0; }");
 
         await Browser.Locator("input[type=file]").SetInputFilesAsync(Asset("pptr.png"));
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"), Is.EqualTo("pptr.png"));
-        Assert.That(await Browser.EvaluateAsync<string[]>("() => window.events"), Is.EqualTo(new[] { "input", "change" }));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"),
+            Is.EqualTo("pptr.png")
+        );
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>("() => window.events"),
+            Is.EqualTo(new[] { "input", "change" })
+        );
     }
 
     [Test]
@@ -332,9 +420,20 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
         await Browser.GotoAsync(Content("<input type=file multiple=true/>"));
         string[] files = ["file-to-upload.txt", "file-to-upload-2.txt"];
         await Browser.Locator("input[type=file]").SetInputFilesAsync(files.Select(Asset));
-        Assert.That(await Browser.EvaluateAsync<string[]>("() => [...document.querySelector('input').files].map((f) => f.name)"), Is.EqualTo(files));
-        var timestamps = (await Browser.EvaluateAsync<double[]>("() => [...document.querySelector('input').files].map((f) => f.lastModified)"))!;
-        var expectedTimestamps = files.Select(file => new DateTimeOffset(File.GetLastWriteTimeUtc(Asset(file))).ToUnixTimeMilliseconds()).ToArray();
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>(
+                "() => [...document.querySelector('input').files].map((f) => f.name)"
+            ),
+            Is.EqualTo(files)
+        );
+        var timestamps = (
+            await Browser.EvaluateAsync<double[]>(
+                "() => [...document.querySelector('input').files].map((f) => f.lastModified)"
+            )
+        )!;
+        var expectedTimestamps = files
+            .Select(file => new DateTimeOffset(File.GetLastWriteTimeUtc(Asset(file))).ToUnixTimeMilliseconds())
+            .ToArray();
         for (var i = 0; i < timestamps.Length; i++)
         {
             Assert.That(Math.Abs(timestamps[i] - expectedTimestamps[i]), Is.LessThanOrEqualTo(1000));

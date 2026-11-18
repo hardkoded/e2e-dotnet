@@ -21,31 +21,73 @@ public sealed class ToMatchSchemaTests
     [Fact]
     public void Returns_the_schema_output_for_a_matching_value_defaults_applied()
     {
-        var user = Expect.That<object?>(new Dictionary<string, object?> { ["id"] = 1, ["email"] = "ada@example.com" }).ToMatchSchema(User);
-        Expect.That(user).ToEqual(new Dictionary<string, object?> { ["id"] = 1, ["email"] = "ada@example.com", ["role"] = "member" });
-        Expect.That(Expect.That<object?>(new List<object?> { new Dictionary<string, object?> { ["id"] = 2, ["email"] = "bo@example.com", ["role"] = "admin" } }).ToMatchSchema(UserList)).ToHaveLength(1);
+        var user = Expect
+            .That<object?>(new Dictionary<string, object?> { ["id"] = 1, ["email"] = "ada@example.com" })
+            .ToMatchSchema(User);
+        Expect
+            .That(user)
+            .ToEqual(
+                new Dictionary<string, object?>
+                {
+                    ["id"] = 1,
+                    ["email"] = "ada@example.com",
+                    ["role"] = "member",
+                }
+            );
+        Expect
+            .That(
+                Expect
+                    .That<object?>(
+                        new List<object?>
+                        {
+                            new Dictionary<string, object?>
+                            {
+                                ["id"] = 2,
+                                ["email"] = "bo@example.com",
+                                ["role"] = "admin",
+                            },
+                        }
+                    )
+                    .ToMatchSchema(UserList)
+            )
+            .ToHaveLength(1);
     }
 
     [Fact]
     public void Fails_listing_every_issue_by_its_path()
     {
         FailsWith(
-            () => Expect.That<object?>(new List<object?>
-            {
-                new Dictionary<string, object?> { ["id"] = 1, ["email"] = "ada@example.com" },
-                new Dictionary<string, object?> { ["id"] = "2", ["email"] = "nope" },
-            }).ToMatchSchema(UserList),
-            @"to match the schema:\n- 1\.id: .+\n- 1\.email: ");
-        FailsWith(() => Expect.That<object?>(null, "GET /users").ToMatchSchema(User), @"^GET /users: expected null to match the schema:\n- ");
+            () =>
+                Expect
+                    .That<object?>(
+                        new List<object?>
+                        {
+                            new Dictionary<string, object?> { ["id"] = 1, ["email"] = "ada@example.com" },
+                            new Dictionary<string, object?> { ["id"] = "2", ["email"] = "nope" },
+                        }
+                    )
+                    .ToMatchSchema(UserList),
+            @"to match the schema:\n- 1\.id: .+\n- 1\.email: "
+        );
+        FailsWith(
+            () => Expect.That<object?>(null, "GET /users").ToMatchSchema(User),
+            @"^GET /users: expected null to match the schema:\n- "
+        );
     }
 
     [Fact]
     public void Negates_returning_nothing()
     {
-        Expect.That(Expect.That<object?>(new Dictionary<string, object?> { ["id"] = "x" }).Not.ToMatchSchema(User)).ToBeNull();
+        Expect
+            .That(Expect.That<object?>(new Dictionary<string, object?> { ["id"] = "x" }).Not.ToMatchSchema(User))
+            .ToBeNull();
         FailsWith(
-            () => Expect.That<object?>(new Dictionary<string, object?> { ["id"] = 1, ["email"] = "ada@example.com" }).Not.ToMatchSchema(User),
-            "not to match the schema");
+            () =>
+                Expect
+                    .That<object?>(new Dictionary<string, object?> { ["id"] = 1, ["email"] = "ada@example.com" })
+                    .Not.ToMatchSchema(User),
+            "not to match the schema"
+        );
     }
 
     [Fact]
@@ -60,7 +102,9 @@ public sealed class ToMatchSchemaTests
     {
         if (value is not Dictionary<string, object?> record)
         {
-            return StandardSchemaV1Result<Dictionary<string, object?>>.Failure([new StandardSchemaV1Issue("expected an object")]);
+            return StandardSchemaV1Result<Dictionary<string, object?>>.Failure([
+                new StandardSchemaV1Issue("expected an object"),
+            ]);
         }
 
         var issues = new List<StandardSchemaV1Issue>();
@@ -82,12 +126,14 @@ public sealed class ToMatchSchemaTests
 
         return issues.Count > 0
             ? StandardSchemaV1Result<Dictionary<string, object?>>.Failure(issues)
-            : StandardSchemaV1Result<Dictionary<string, object?>>.Success(new Dictionary<string, object?>
-            {
-                ["id"] = record["id"],
-                ["email"] = record["email"],
-                ["role"] = role,
-            });
+            : StandardSchemaV1Result<Dictionary<string, object?>>.Success(
+                new Dictionary<string, object?>
+                {
+                    ["id"] = record["id"],
+                    ["email"] = record["email"],
+                    ["role"] = role,
+                }
+            );
     }
 
     /// <summary>Validates the way <c>z.array(User)</c> does: every element is checked, and each issue is prefixed with its index.</summary>
@@ -95,7 +141,9 @@ public sealed class ToMatchSchemaTests
     {
         if (value is not List<object?> items)
         {
-            return StandardSchemaV1Result<List<Dictionary<string, object?>>>.Failure([new StandardSchemaV1Issue("expected an array")]);
+            return StandardSchemaV1Result<List<Dictionary<string, object?>>>.Failure([
+                new StandardSchemaV1Issue("expected an array"),
+            ]);
         }
 
         var outputs = new List<Dictionary<string, object?>>();

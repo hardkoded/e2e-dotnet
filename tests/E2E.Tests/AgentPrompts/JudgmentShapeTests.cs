@@ -13,13 +13,20 @@ public sealed class JudgmentShapeTests
 {
     private const string App = "https://app.test";
 
-    private static string ShapeAt(string location) => E2E.AgentObservation.JudgedLocationShape(E2E.AgentObservation.JudgeLocation(location, App));
+    private static string ShapeAt(string location) =>
+        E2E.AgentObservation.JudgedLocationShape(E2E.AgentObservation.JudgeLocation(location, App));
 
     [Fact]
     public void Partial_sees_no_location_change_when_the_tree_is_withheld()
     {
         // Upstream's judgmentShape: a tree the call withholds is not shown the address, so its change is no change.
-        string ShapeWithheld(string location) => E2E.AgentObservation.JudgmentShape("Screen (\"x\"):\n#e1 heading \"A\"", "#e1 heading \"A\"", E2E.AgentObservation.JudgeLocation(location, App), treeWithheld: true);
+        string ShapeWithheld(string location) =>
+            E2E.AgentObservation.JudgmentShape(
+                "Screen (\"x\"):\n#e1 heading \"A\"",
+                "#e1 heading \"A\"",
+                E2E.AgentObservation.JudgeLocation(location, App),
+                treeWithheld: true
+            );
         Assert.Equal(ShapeWithheld("https://app.test/a"), ShapeWithheld("https://app.test/b"));
     }
 
@@ -27,7 +34,13 @@ public sealed class JudgmentShapeTests
     public void Partial_ignores_node_ids_as_upstreams_observation_shape_does()
     {
         // The same screen with its nodes minted under other ids: a judgment compares it as no change.
-        string ShapeWith(string ids) => E2E.AgentObservation.JudgmentShape("Screen (\"x\"):\n" + ids + " heading \"A\"", ids + " heading \"A\"", E2E.AgentObservation.JudgeLocation("https://app.test/a", App), treeWithheld: false);
+        string ShapeWith(string ids) =>
+            E2E.AgentObservation.JudgmentShape(
+                "Screen (\"x\"):\n" + ids + " heading \"A\"",
+                ids + " heading \"A\"",
+                E2E.AgentObservation.JudgeLocation("https://app.test/a", App),
+                treeWithheld: false
+            );
         Assert.Equal(ShapeWith("#e1"), ShapeWith("#e7"));
     }
 
@@ -35,7 +48,13 @@ public sealed class JudgmentShapeTests
     public void Partial_ignores_a_node_id_that_ends_its_line()
     {
         // Upstream's observationShape strips the id token alone, with no space after it, so a bare id line compares as no change too.
-        string ShapeWith(string id) => E2E.AgentObservation.JudgmentShape("Screen (\"x\"):\n" + id + "\nheading \"A\"", id + "\nheading \"A\"", E2E.AgentObservation.JudgeLocation("https://app.test/a", App), treeWithheld: false);
+        string ShapeWith(string id) =>
+            E2E.AgentObservation.JudgmentShape(
+                "Screen (\"x\"):\n" + id + "\nheading \"A\"",
+                id + "\nheading \"A\"",
+                E2E.AgentObservation.JudgeLocation("https://app.test/a", App),
+                treeWithheld: false
+            );
         Assert.Equal(ShapeWith("#e1"), ShapeWith("#e7"));
     }
 

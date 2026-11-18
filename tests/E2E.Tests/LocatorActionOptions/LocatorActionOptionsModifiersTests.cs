@@ -25,14 +25,16 @@ public sealed class LocatorActionOptionsModifiersTests
         var options = new ClickOptions { Modifiers = [KeyModifier.Shift] };
         var locator = screen.GetByLabel("Agree");
 
-        await (verb switch
-        {
-            "tap" => locator.TapAsync(options),
-            "click" => locator.ClickAsync(options),
-            "doubleTap" => locator.DoubleTapAsync(options),
-            "dblclick" => locator.DblClickAsync(options),
-            _ => locator.SecondaryTapAsync(options),
-        });
+        await (
+            verb switch
+            {
+                "tap" => locator.TapAsync(options),
+                "click" => locator.ClickAsync(options),
+                "doubleTap" => locator.DoubleTapAsync(options),
+                "dblclick" => locator.DblClickAsync(options),
+                _ => locator.SecondaryTapAsync(options),
+            }
+        );
 
         var action = Assert.Single(received);
         var held = verb switch
@@ -60,7 +62,9 @@ public sealed class LocatorActionOptionsModifiersTests
     {
         var (screen, received) = LocatorActionOptionsTests.BoxScreen();
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => screen.GetByLabel("Agree").TapAsync(new ClickOptions { Modifiers = [KeyModifier.Shift] }));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            screen.GetByLabel("Agree").TapAsync(new ClickOptions { Modifiers = [KeyModifier.Shift] })
+        );
 
         Assert.Equal(EngineErrorCodes.UnsupportedCapability, error.Code);
         Assert.Empty(received);
@@ -72,7 +76,9 @@ public sealed class LocatorActionOptionsModifiersTests
         var (screen, _) = LocatorActionOptionsTests.BoxScreen();
         var started = DateTime.UtcNow;
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => screen.GetByLabel("Missing").SecondaryTapAsync(new ClickOptions { Modifiers = [KeyModifier.Alt] }));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            screen.GetByLabel("Missing").SecondaryTapAsync(new ClickOptions { Modifiers = [KeyModifier.Alt] })
+        );
 
         Assert.Equal(EngineErrorCodes.UnsupportedCapability, error.Code);
         Assert.True(DateTime.UtcNow - started < TimeSpan.FromMilliseconds(500));
@@ -85,7 +91,9 @@ public sealed class LocatorActionOptionsModifiersTests
     {
         var (screen, received) = LocatorActionOptionsTests.BoxScreen(tapModifiers: true);
 
-        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByLabel("Agree").TapAsync(new ClickOptions { Modifiers = modifiers }));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            screen.GetByLabel("Agree").TapAsync(new ClickOptions { Modifiers = modifiers })
+        );
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
         Assert.Contains(message, error.Message);
@@ -98,7 +106,10 @@ public sealed class LocatorActionOptionsModifiersTests
         var (screen, _) = LocatorActionOptionsTests.BoxScreen(tapModifiers: true);
 
         var error = await Assert.ThrowsAsync<TestException>(() =>
-            screen.GetByLabel("Agree").TapAsync(new TapOptions { Modifiers = [KeyModifier.Shift], Position = new Point(1, 1) }));
+            screen
+                .GetByLabel("Agree")
+                .TapAsync(new TapOptions { Modifiers = [KeyModifier.Shift], Position = new Point(1, 1) })
+        );
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
         Assert.Contains("modifiers with a position", error.Message, StringComparison.Ordinal);

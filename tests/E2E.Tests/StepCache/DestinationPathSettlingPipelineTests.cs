@@ -14,7 +14,13 @@ public sealed class DestinationPathSettlingPipelineTests
     public async Task Still_hands_off_when_the_destination_never_arrives_within_the_budget_through_the_pipeline()
     {
         var directory = CoreTests.TempCache();
-        await StepAsync(ProjectWorld("/customers"), new FileStepCache(directory), "/pricing", Saved, Script(ModelResponses.Tap("link", "Create project")));
+        await StepAsync(
+            ProjectWorld("/customers"),
+            new FileStepCache(directory),
+            "/pricing",
+            Saved,
+            Script(ModelResponses.Tap("link", "Create project"))
+        );
 
         // The link now stays on the pricing page, so the recorded destination never shows up.
         var stays = new DocumentWorld().Map("/pricing", page => page.Link("Create project", "/pricing"));

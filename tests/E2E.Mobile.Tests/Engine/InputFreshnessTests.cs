@@ -13,14 +13,36 @@ namespace E2E.Mobile.Tests.Engine;
 public sealed class InputFreshnessTests
 {
     /// <summary>Upstream's <c>form(y, changes)</c>: the secure field <c>Account</c> and its neighbor, after a slow accessibility capture.</summary>
-    private static JsonObject Account(double y = 237, Func<RawNode, RawNode>? change = null, params (string Key, JsonNode? Value)[] more)
+    private static JsonObject Account(
+        double y = 237,
+        Func<RawNode, RawNode>? change = null,
+        params (string Key, JsonNode? Value)[] more
+    )
     {
-        var field = N("@e20", index: 1, parentIndex: 0, depth: 1, type: "secure-text-field", label: "Account", identifier: "account", rect: R(40, y, 322, 49));
+        var field = N(
+            "@e20",
+            index: 1,
+            parentIndex: 0,
+            depth: 1,
+            type: "secure-text-field",
+            label: "Account",
+            identifier: "account",
+            rect: R(40, y, 322, 49)
+        );
         List<RawNode> nodes =
         [
             SettingsNodes[0],
             change?.Invoke(field) ?? field,
-            N("@e21", index: 2, parentIndex: 0, depth: 1, type: "text-field", label: "Username", identifier: "username", rect: R(40, 218, 322, 49)),
+            N(
+                "@e21",
+                index: 2,
+                parentIndex: 0,
+                depth: 1,
+                type: "text-field",
+                label: "Username",
+                identifier: "username",
+                rect: R(40, 218, 322, 49)
+            ),
         ];
         return FakeDeviceClient.SnapshotOf(nodes, more);
     }
@@ -34,19 +56,38 @@ public sealed class InputFreshnessTests
 
     private static double Waited(Harness h, int since) => h.Delays.Skip(since).Sum(delay => delay.TotalMilliseconds);
 
-    private static LocatorAction Typing(string kind, bool sensitive) => kind == "fill" ? new LocatorAction.Fill("example", sensitive) : new LocatorAction.Clear();
+    private static LocatorAction Typing(string kind, bool sensitive) =>
+        kind == "fill" ? new LocatorAction.Fill("example", sensitive) : new LocatorAction.Clear();
 
     private static string Fill(string @ref, string text) => $$"""{"ref":"{{@ref}}","text":"{{text}}"}""";
 
     /// <summary>A uniquely identified field and its neighbor, as upstream's <c>form</c>, with the field's type and what it holds named.</summary>
     private static JsonObject Form(RawNode field, RawNode? inside = null)
     {
-        var account = field with { Ref = "@e20", Index = 1, ParentIndex = 0, Depth = 1, Label = "Account", Identifier = "account", Rect = R(40, 237, 322, 49) };
+        var account = field with
+        {
+            Ref = "@e20",
+            Index = 1,
+            ParentIndex = 0,
+            Depth = 1,
+            Label = "Account",
+            Identifier = "account",
+            Rect = R(40, 237, 322, 49),
+        };
         List<RawNode> nodes =
         [
             SettingsNodes[0],
             account,
-            N("@e21", index: 2, parentIndex: 0, depth: 1, type: "text-field", label: "Username", identifier: "username", rect: R(40, 218, 322, 49)),
+            N(
+                "@e21",
+                index: 2,
+                parentIndex: 0,
+                depth: 1,
+                type: "text-field",
+                label: "Username",
+                identifier: "username",
+                rect: R(40, 218, 322, 49)
+            ),
         ];
         if (inside is not null)
         {
@@ -58,12 +99,14 @@ public sealed class InputFreshnessTests
 
     // agent-device 0.21.33's simulator accessibility tree reads a Compose Multiplatform field as an unclassified
     // `Other`: an empty one over the placeholder it draws, a filled one with its text as the value.
-    private static JsonObject Unclassified(string? value = null, RawNode? inside = null) => Form(N(type: "Other", value: value), inside);
+    private static JsonObject Unclassified(string? value = null, RawNode? inside = null) =>
+        Form(N(type: "Other", value: value), inside);
 
     private static RawNode Child(string type, string label) =>
         N("@e22", index: 3, parentIndex: 1, depth: 2, type: type, label: label, rect: R(52, 252, 101, 18));
 
-    private static LocatorAction Act(string kind) => kind == "fill" ? new LocatorAction.Fill("example") : new LocatorAction.Clear();
+    private static LocatorAction Act(string kind) =>
+        kind == "fill" ? new LocatorAction.Fill("example") : new LocatorAction.Clear();
 
     public static TheoryData<OperationOrigin, string, string> Cases(params string[] names)
     {
@@ -82,7 +125,8 @@ public sealed class InputFreshnessTests
         return data;
     }
 
-    public static TheoryData<OperationOrigin, string, string> ActsCases() => Cases("empty, over its placeholder", "filled");
+    public static TheoryData<OperationOrigin, string, string> ActsCases() =>
+        Cases("empty, over its placeholder", "filled");
 
     public static TheoryData<OperationOrigin, string, string> RejectsCases() =>
         Cases("childless and valueless, like a React Native Pressable", "holding a control");
@@ -93,13 +137,17 @@ public sealed class InputFreshnessTests
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
-        var snapshot = field == "filled" ? Unclassified("Grace") : Unclassified(inside: Child("static-text", "Ada Lovelace"));
+        var snapshot =
+            field == "filled" ? Unclassified("Grace") : Unclassified(inside: Child("static-text", "Ada Lovelace"));
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => snapshot.DeepClone());
         var observed = await Observed(session, "Account");
 
         await session.PerformAsync(observed, Act(kind), new OperationContext(origin), CancellationToken.None);
 
-        JsonAssert.Args(kind == "fill" ? """{"ref":"@e20","text":"example"}""" : """{"ref":"@e20","text":""}""", h.Fake.LastArgs("interactions.fill") is { } args ? Strip(args) : null);
+        JsonAssert.Args(
+            kind == "fill" ? """{"ref":"@e20","text":"example"}""" : """{"ref":"@e20","text":""}""",
+            h.Fake.LastArgs("interactions.fill") is { } args ? Strip(args) : null
+        );
     }
 
     [Theory]
@@ -112,7 +160,9 @@ public sealed class InputFreshnessTests
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => snapshot.DeepClone());
         var observed = await Observed(session, "Account");
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(observed, Act(kind), new OperationContext(origin), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(observed, Act(kind), new OperationContext(origin), CancellationToken.None)
+        );
 
         Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
         Assert.False(failure.Retryable);
@@ -121,7 +171,10 @@ public sealed class InputFreshnessTests
 
     [Theory]
     [MemberData(nameof(GainedCases))]
-    public async Task Rejects_an_unclassified_iOS_element_that_gained_a_control_before_typing(OperationOrigin origin, string kind)
+    public async Task Rejects_an_unclassified_iOS_element_that_gained_a_control_before_typing(
+        OperationOrigin origin,
+        string kind
+    )
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
@@ -129,7 +182,9 @@ public sealed class InputFreshnessTests
         var observed = await Observed(session, "Account");
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Unclassified(inside: Child("button", "Loading")));
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(observed, Act(kind), new OperationContext(origin), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(observed, Act(kind), new OperationContext(origin), CancellationToken.None)
+        );
 
         Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
         Assert.False(failure.Retryable);
@@ -152,7 +207,10 @@ public sealed class InputFreshnessTests
 
     [Theory]
     [MemberData(nameof(GainedCases))]
-    public async Task Uses_one_fresh_binding_after_a_slow_capture_for_origin_and_kind(OperationOrigin origin, string kind)
+    public async Task Uses_one_fresh_binding_after_a_slow_capture_for_origin_and_kind(
+        OperationOrigin origin,
+        string kind
+    )
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
@@ -165,7 +223,12 @@ public sealed class InputFreshnessTests
         var captures = Snapshots(h);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account(126, field => field with { Ref = "@e42" }));
 
-        await session.PerformAsync(old, Typing(kind, sensitive: true), new OperationContext(origin), CancellationToken.None);
+        await session.PerformAsync(
+            old,
+            Typing(kind, sensitive: true),
+            new OperationContext(origin),
+            CancellationToken.None
+        );
 
         JsonAssert.Args(Fill("@e42", kind == "fill" ? "example" : ""), Strip(h.Fake.LastArgs("interactions.fill")!));
         Assert.Equal(captures + 1, Snapshots(h));
@@ -184,7 +247,12 @@ public sealed class InputFreshnessTests
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account(126, field => field with { Ref = "@e42" }));
         var delays = h.Delays.Count;
 
-        await session.PerformAsync(sliding, Typing(kind, sensitive: false), new OperationContext(origin), CancellationToken.None);
+        await session.PerformAsync(
+            sliding,
+            Typing(kind, sensitive: false),
+            new OperationContext(origin),
+            CancellationToken.None
+        );
 
         JsonAssert.Args(Fill("@e42", kind == "fill" ? "example" : ""), Strip(h.Fake.LastArgs("interactions.fill")!));
         Assert.Equal(captures + 1, Snapshots(h));
@@ -196,7 +264,10 @@ public sealed class InputFreshnessTests
 
     [Theory]
     [MemberData(nameof(GainedCases))]
-    public async Task Rejects_an_originally_non_input_target_before_waiting_or_capturing_for_origin_and_kind(OperationOrigin origin, string kind)
+    public async Task Rejects_an_originally_non_input_target_before_waiting_or_capturing_for_origin_and_kind(
+        OperationOrigin origin,
+        string kind
+    )
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
@@ -205,7 +276,14 @@ public sealed class InputFreshnessTests
         var captures = Snapshots(h);
         var delays = h.Delays.Count;
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(button, Typing(kind, sensitive: false), new OperationContext(origin), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(
+                button,
+                Typing(kind, sensitive: false),
+                new OperationContext(origin),
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
         Assert.False(failure.Retryable);
@@ -219,10 +297,19 @@ public sealed class InputFreshnessTests
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
-        await session.PerformAsync(await Observed(session, "Back"), new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
+        await session.PerformAsync(
+            await Observed(session, "Back"),
+            new LocatorAction.Tap(),
+            OperationContext.Test,
+            CancellationToken.None
+        );
         var search = await Observed(session, "Search");
         var captures = Snapshots(h);
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(SettingsNodes.Select(node => node.Label == "Search" ? node with { Ref = "@e42" } : node)));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            FakeDeviceClient.SnapshotOf(
+                SettingsNodes.Select(node => node.Label == "Search" ? node with { Ref = "@e42" } : node)
+            )
+        );
         var delays = h.Delays.Count;
 
         await session.PerformAsync(search, new LocatorAction.Clear(), OperationContext.Test, CancellationToken.None);
@@ -232,19 +319,30 @@ public sealed class InputFreshnessTests
         Assert.Equal(captures + 1, Snapshots(h));
     }
 
-    public static TheoryData<string> ChangedTargets() => new("missing", "renamed", "different identifier", "truncated", "non-editable", "no longer secure", "disabled", "hidden");
+    public static TheoryData<string> ChangedTargets() =>
+        new(
+            "missing",
+            "renamed",
+            "different identifier",
+            "truncated",
+            "non-editable",
+            "no longer secure",
+            "disabled",
+            "hidden"
+        );
 
-    private static JsonObject Changed(string name) => name switch
-    {
-        "missing" => FakeDeviceClient.SnapshotOf([SettingsNodes[0]]),
-        "renamed" => Account(237, field => field with { Label = "Other account" }),
-        "different identifier" => Account(237, field => field with { Identifier = "other" }),
-        "truncated" => Account(237, null, ("truncated", true)),
-        "non-editable" => Account(237, field => field with { Type = "button" }),
-        "no longer secure" => Account(237, field => field with { Type = "text-field" }),
-        "disabled" => Account(237, field => field with { Enabled = false }),
-        _ => Account(237, field => field with { VisibleToUser = false }),
-    };
+    private static JsonObject Changed(string name) =>
+        name switch
+        {
+            "missing" => FakeDeviceClient.SnapshotOf([SettingsNodes[0]]),
+            "renamed" => Account(237, field => field with { Label = "Other account" }),
+            "different identifier" => Account(237, field => field with { Identifier = "other" }),
+            "truncated" => Account(237, null, ("truncated", true)),
+            "non-editable" => Account(237, field => field with { Type = "button" }),
+            "no longer secure" => Account(237, field => field with { Type = "text-field" }),
+            "disabled" => Account(237, field => field with { Enabled = false }),
+            _ => Account(237, field => field with { VisibleToUser = false }),
+        };
 
     [Theory]
     [MemberData(nameof(ChangedTargets))]
@@ -256,7 +354,13 @@ public sealed class InputFreshnessTests
         var old = await Observed(session, "Account");
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Changed(name));
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(old, new LocatorAction.Fill("not-for-diagnostics", Sensitive: true), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(
+                old,
+                new LocatorAction.Fill("not-for-diagnostics", Sensitive: true),
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal("NODE_STALE", failure.Code);
         Assert.True(failure.Retryable);
@@ -264,7 +368,14 @@ public sealed class InputFreshnessTests
         Assert.DoesNotContain("interactions.fill", h.Fake.Methods());
     }
 
-    public static TheoryData<string, int> OtpCases() => new() { { "fill", 0 }, { "fill", 1 }, { "clear", 0 }, { "clear", 1 } };
+    public static TheoryData<string, int> OtpCases() =>
+        new()
+        {
+            { "fill", 0 },
+            { "fill", 1 },
+            { "clear", 0 },
+            { "clear", 1 },
+        };
 
     [Theory]
     [MemberData(nameof(OtpCases))]
@@ -272,17 +383,33 @@ public sealed class InputFreshnessTests
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
-        static JsonObject Digits(string[] refs, double shift) => FakeDeviceClient.SnapshotOf(
-        [
-            SettingsNodes[0],
-            .. refs.Select((@ref, index) => N(@ref, index: index + 1, parentIndex: 0, depth: 1, type: "text-field", label: "Digit", rect: R(40, 100 + (index * 100) + shift, 49, 49))),
-        ]);
+        static JsonObject Digits(string[] refs, double shift) =>
+            FakeDeviceClient.SnapshotOf([
+                SettingsNodes[0],
+                .. refs.Select(
+                    (@ref, index) =>
+                        N(
+                            @ref,
+                            index: index + 1,
+                            parentIndex: 0,
+                            depth: 1,
+                            type: "text-field",
+                            label: "Digit",
+                            rect: R(40, 100 + (index * 100) + shift, 49, 49)
+                        )
+                ),
+            ]);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Digits(["@e20", "@e21"], 0));
         var target = Walk(await RootOf(session)).Where(node => node.Name == "Digit").ElementAt(selected);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Digits(["@e41", "@e42"], 10));
         var captures = Snapshots(h);
 
-        await session.PerformAsync(target, Typing(kind, sensitive: false), OperationContext.Test, CancellationToken.None);
+        await session.PerformAsync(
+            target,
+            Typing(kind, sensitive: false),
+            OperationContext.Test,
+            CancellationToken.None
+        );
 
         Assert.Equal(selected == 0 ? "@e41" : "@e42", h.Fake.LastArgs("interactions.fill")!["ref"]!.GetValue<string>());
         Assert.Equal(captures + 1, Snapshots(h));
@@ -297,13 +424,19 @@ public sealed class InputFreshnessTests
         var old = await Observed(session, "Account");
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account(237, null, ("truncated", true)));
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(old, new LocatorAction.Clear(), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(old, new LocatorAction.Clear(), CancellationToken.None)
+        );
 
         Assert.Equal("NODE_STALE", failure.Code);
         Assert.True(failure.Retryable);
         Assert.DoesNotContain("interactions.fill", h.Fake.Methods());
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account());
-        await session.PerformAsync(await Observed(session, "Account"), new LocatorAction.Clear(), CancellationToken.None);
+        await session.PerformAsync(
+            await Observed(session, "Account"),
+            new LocatorAction.Clear(),
+            CancellationToken.None
+        );
         Assert.Equal(1, Fills(h));
     }
 
@@ -314,7 +447,9 @@ public sealed class InputFreshnessTests
         var session = await OpenAttempt(h);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account());
         var old = await Observed(session, "Account");
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account(237, field => field with { Ref = "@e42", Focused = true }));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            Account(237, field => field with { Ref = "@e42", Focused = true })
+        );
 
         await session.PerformAsync(old, new LocatorAction.Fill("example", Sensitive: true), CancellationToken.None);
 
@@ -333,7 +468,14 @@ public sealed class InputFreshnessTests
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account(126, field => field with { Enabled = false }));
         var captures = Snapshots(h);
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(old, new LocatorAction.Fill("example", Sensitive: true), OperationContext.Test, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(
+                old,
+                new LocatorAction.Fill("example", Sensitive: true),
+                OperationContext.Test,
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal("NODE_STALE", failure.Code);
         Assert.DoesNotContain("interactions.fill", h.Fake.Methods());
@@ -356,7 +498,9 @@ public sealed class InputFreshnessTests
             return Task.FromResult<JsonNode?>(Account());
         });
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(old, new LocatorAction.Clear(), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(old, new LocatorAction.Clear(), CancellationToken.None)
+        );
 
         Assert.Equal("OPERATION_TIMEOUT", failure.Code);
         Assert.DoesNotContain("interactions.fill", h.Fake.Methods());
@@ -375,7 +519,9 @@ public sealed class InputFreshnessTests
         using var controller = new CancellationTokenSource();
         controller.CancelAfter(TimeSpan.FromMilliseconds(20));
 
-        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(search, Typing(kind, sensitive: false), OperationContext.Test, controller.Token));
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(search, Typing(kind, sensitive: false), OperationContext.Test, controller.Token)
+        );
 
         Assert.Equal("CANCELLED", cancelled.Code);
         Assert.Equal(captures, Snapshots(h));
@@ -396,12 +542,15 @@ public sealed class InputFreshnessTests
             return Account();
         });
 
-        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(old, new LocatorAction.Clear(), controller.Token));
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(old, new LocatorAction.Clear(), controller.Token)
+        );
 
         Assert.Equal("CANCELLED", cancelled.Code);
         Assert.DoesNotContain("interactions.fill", h.Fake.Methods());
     }
 
     /// <summary>The ref and text of a fill call, the way upstream's <c>toMatchObject</c> reads them: settle options are not part of the assertion.</summary>
-    private static JsonObject Strip(JsonObject args) => new() { ["ref"] = args["ref"]?.DeepClone(), ["text"] = args["text"]?.DeepClone() };
+    private static JsonObject Strip(JsonObject args) =>
+        new() { ["ref"] = args["ref"]?.DeepClone(), ["text"] = args["text"]?.DeepClone() };
 }

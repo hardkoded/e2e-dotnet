@@ -11,11 +11,17 @@ namespace E2E.Tests.TestFilters;
 public sealed class FilterRecordsAndFilterSummaryTests
 {
     private static FilterOf Leaving(string name, string[] titles, string? note = null) =>
-        new(name, (tests, _) => Task.FromResult(new TestFilterResult
-        {
-            Exclude = tests.Where(entry => titles.Contains(TitleOf(entry))).ToDictionary(entry => entry.Id, _ => "unaffected"),
-            Note = note,
-        }));
+        new(name, (tests, _) =>
+            Task.FromResult(
+                new TestFilterResult
+                {
+                    Exclude = tests
+                        .Where(entry => titles.Contains(TitleOf(entry)))
+                        .ToDictionary(entry => entry.Id, _ => "unaffected"),
+                    Note = note,
+                }
+            )
+        );
 
     /// <summary>
     /// Partial: the port has no <c>collect</c> and <c>select</c>, so the final selection is built by hand: two targets over the tests
@@ -27,11 +33,24 @@ public sealed class FilterRecordsAndFilterSummaryTests
     {
         var candidates = CandidatesOf("step 1", "step 2", "pays", "refunds");
         var boom = new FilterOf("boom", (_, _) => throw new InvalidOperationException("kaboom"));
-        var applied = await Filters.ApplyTestFilters([Leaving("areas", ["pays"], "src/todos changed"), Leaving("jev", ["refunds"]), boom], candidates, Scope().Scope);
+        var applied = await Filters.ApplyTestFilters(
+            [Leaving("areas", ["pays"], "src/todos changed"), Leaving("jev", ["refunds"]), boom],
+            candidates,
+            Scope().Scope
+        );
 
         // The final selection: every test on two targets, each left-out pair carrying its filter's name.
         var results = candidates
-            .SelectMany(candidate => new[] { "web", "web-2" }.Select(_ => (candidate.Id, Skip: applied.Excluded.TryGetValue(candidate.Id, out var left) ? new ReportSkip("filtered", left.Reason, left.Filter) : null)))
+            .SelectMany(candidate =>
+                new[] { "web", "web-2" }.Select(_ =>
+                    (
+                        candidate.Id,
+                        Skip: applied.Excluded.TryGetValue(candidate.Id, out var left)
+                            ? new ReportSkip("filtered", left.Reason, left.Filter)
+                            : null
+                    )
+                )
+            )
             .ToList();
         var records = Filters.FilterRecords(applied.Decisions, results);
         Assert.Equal(
@@ -40,8 +59,12 @@ public sealed class FilterRecordsAndFilterSummaryTests
                 new ReportFilter("jev", 3, 1),
                 new ReportFilter("boom", 2, 0, "failed, so it leaves nothing out: kaboom", FilterOutcome.Failed),
             ],
-            records);
-        Assert.Equal(["areas kept 3 of 4 tests, left out 1 (src/todos changed)", "jev kept 2 of 3 tests, left out 1", null], records.Select(Filters.FilterSummary));
+            records
+        );
+        Assert.Equal(
+            ["areas kept 3 of 4 tests, left out 1 (src/todos changed)", "jev kept 2 of 3 tests, left out 1", null],
+            records.Select(Filters.FilterSummary)
+        );
         Assert.Null(Filters.FilterSummary(new ReportFilter("slow", 2, 0, Outcome: FilterOutcome.TimedOut)));
     }
 }

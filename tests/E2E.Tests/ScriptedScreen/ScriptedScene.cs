@@ -38,7 +38,8 @@ internal sealed class ScriptedScene : IDisposable
             {
                 Type(text, replace);
                 return Task.CompletedTask;
-            });
+            }
+        );
         Screen.Capabilities = EngineCapabilities.Keyboard;
     }
 
@@ -61,7 +62,20 @@ internal sealed class ScriptedScene : IDisposable
 
     /// <summary>Runs <paramref name="mutate"/> once, <paramref name="milliseconds"/> from now; disposing the scene cancels it.</summary>
     public void After(int milliseconds, Action mutate) =>
-        _timers.Add(new Timer(_ => { lock (_gate) { mutate(); } }, null, milliseconds, Timeout.Infinite));
+        _timers.Add(
+            new Timer(
+                _ =>
+                {
+                    lock (_gate)
+                    {
+                        mutate();
+                    }
+                },
+                null,
+                milliseconds,
+                Timeout.Infinite
+            )
+        );
 
     public void Open() => _opened = true;
 
@@ -73,32 +87,33 @@ internal sealed class ScriptedScene : IDisposable
         }
     }
 
-    private static SemanticNode ToSemantic(ScriptedNode node) => new()
-    {
-        Ref = node.Id,
-        Role = node.Role,
-        Name = node.Name,
-        Text = node.Text,
-        Value = node.Secure ? null : node.Value,
-        TestId = node.TestId,
-        InputPurpose = node.InputPurpose,
-        Level = node.Level,
-        States = new NodeStates
+    private static SemanticNode ToSemantic(ScriptedNode node) =>
+        new()
         {
-            Checked = node.Checked,
-            CheckedReported = node.Checked,
-            Disabled = node.Disabled,
-            Expanded = node.Expanded,
-            Focused = node.Focused,
-            Hidden = node.Hidden,
-            Secure = node.Secure,
-            Selected = node.Selected,
-            Pressed = node.Pressed,
-        },
-        Attributes = node.Attributes,
-        Rect = node.Rect,
-        Children = node.Children.Select(ToSemantic).ToList(),
-    };
+            Ref = node.Id,
+            Role = node.Role,
+            Name = node.Name,
+            Text = node.Text,
+            Value = node.Secure ? null : node.Value,
+            TestId = node.TestId,
+            InputPurpose = node.InputPurpose,
+            Level = node.Level,
+            States = new NodeStates
+            {
+                Checked = node.Checked,
+                CheckedReported = node.Checked,
+                Disabled = node.Disabled,
+                Expanded = node.Expanded,
+                Focused = node.Focused,
+                Hidden = node.Hidden,
+                Secure = node.Secure,
+                Selected = node.Selected,
+                Pressed = node.Pressed,
+            },
+            Attributes = node.Attributes,
+            Rect = node.Rect,
+            Children = node.Children.Select(ToSemantic).ToList(),
+        };
 
     private static IEnumerable<ScriptedNode> All(IEnumerable<ScriptedNode> level)
     {
@@ -191,7 +206,18 @@ internal sealed class ScriptedScene : IDisposable
                 var picked = (select.Option?.Index is { } at ? node.Options.ElementAtOrDefault(at) : null)
                     ?? node.Options.FirstOrDefault(option => option.Label == (select.Text ?? select.Option?.Label))
                     ?? node.Options.FirstOrDefault(option => option.Value == (select.Text ?? select.Option?.Value))
-                    ?? throw new EngineException(EngineErrorCodes.NotActionable, "no option matches " + (select.Text ?? select.Option?.Label ?? select.Option?.Value ?? select.Option?.Index?.ToString()) + " on " + node.Id);
+                    ?? throw new EngineException(
+                        EngineErrorCodes.NotActionable,
+                        "no option matches "
+                            + (
+                                select.Text
+                                ?? select.Option?.Label
+                                ?? select.Option?.Value
+                                ?? select.Option?.Index?.ToString()
+                            )
+                            + " on "
+                            + node.Id
+                    );
                 node.Value = picked.Value;
                 break;
         }

@@ -15,7 +15,8 @@ public static class PngReader
     {
         Assert.Equal(new byte[] { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a }, png[..8]);
         var at = 8;
-        int width = 0, height = 0;
+        int width = 0,
+            height = 0;
         using var data = new MemoryStream();
         while (at < png.Length)
         {

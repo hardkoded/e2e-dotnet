@@ -13,7 +13,14 @@ public sealed class KernelRecordTests : IDisposable
 {
     private readonly DirectoryInfo _dir = Directory.CreateTempSubdirectory("e2e-kernel-replay-");
 
-    private static ProviderRecordContext RecordContext() => new() { RunId = "run-1", TargetName = "web", AttemptId = "a1", Env = Env };
+    private static ProviderRecordContext RecordContext() =>
+        new()
+        {
+            RunId = "run-1",
+            TargetName = "web",
+            AttemptId = "a1",
+            Env = Env,
+        };
 
     public void Dispose() => _dir.Delete(recursive: true);
 
@@ -27,7 +34,10 @@ public sealed class KernelRecordTests : IDisposable
 
         Assert.NotNull(recording);
         Assert.True(recording.StartedAt >= before.AddMilliseconds(-1));
-        var result = await recording.StopAsync(new ProviderRecordingStopContext { Dir = _dir.FullName }, CancellationToken.None);
+        var result = await recording.StopAsync(
+            new ProviderRecordingStopContext { Dir = _dir.FullName },
+            CancellationToken.None
+        );
         Assert.Equal("replay.mp4", result.File);
         Assert.Equal("mp4 bytes", await File.ReadAllTextAsync(Path.Combine(_dir.FullName, "replay.mp4")));
         Assert.Equal(["startReplay", "stopReplay", "downloadReplay"], fake.Calls.Select(call => call.Route));
@@ -42,12 +52,17 @@ public sealed class KernelRecordTests : IDisposable
         var recording = await Provider(fake).RecordAsync(Lease(), RecordContext(), CancellationToken.None);
         var stop = new ProviderRecordingStopContext { Dir = _dir.FullName };
 
-        var failure = await Assert.ThrowsAsync<KernelApiException>(() => recording!.StopAsync(stop, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<KernelApiException>(() =>
+            recording!.StopAsync(stop, CancellationToken.None)
+        );
         Assert.Contains("503 replay still processing", failure.Message, StringComparison.Ordinal);
         var result = await recording!.StopAsync(stop, CancellationToken.None);
 
         Assert.Equal("replay.mp4", result.File);
-        Assert.Equal(["startReplay", "stopReplay", "downloadReplay", "downloadReplay"], fake.Calls.Select(call => call.Route));
+        Assert.Equal(
+            ["startReplay", "stopReplay", "downloadReplay", "downloadReplay"],
+            fake.Calls.Select(call => call.Route)
+        );
     }
 
     [Fact]
@@ -55,16 +70,31 @@ public sealed class KernelRecordTests : IDisposable
     {
         var fake = new FakeKernel();
 
-        Assert.Null(await Provider(fake, new KernelOptions { Replay = false }).RecordAsync(Lease(), RecordContext(), CancellationToken.None));
-        Assert.Null(await Provider(fake, new KernelOptions { Headless = true }).RecordAsync(Lease(), RecordContext(), CancellationToken.None));
-        Assert.NotNull(await Provider(fake, new KernelOptions { Headless = false }).RecordAsync(Lease(), RecordContext(), CancellationToken.None));
+        Assert.Null(
+            await Provider(fake, new KernelOptions { Replay = false })
+                .RecordAsync(Lease(), RecordContext(), CancellationToken.None)
+        );
+        Assert.Null(
+            await Provider(fake, new KernelOptions { Headless = true })
+                .RecordAsync(Lease(), RecordContext(), CancellationToken.None)
+        );
+        Assert.NotNull(
+            await Provider(fake, new KernelOptions { Headless = false })
+                .RecordAsync(Lease(), RecordContext(), CancellationToken.None)
+        );
     }
 
     [Fact]
     public async Task Passes_the_replay_options_to_the_replay_never_to_Kernel_as_a_create_browser_field()
     {
         var fake = new FakeKernel();
-        var provider = Provider(fake, new KernelOptions { ReplayParams = new KernelReplayParams { Framerate = 20, MaxDurationInSeconds = 300 } });
+        var provider = Provider(
+            fake,
+            new KernelOptions
+            {
+                ReplayParams = new KernelReplayParams { Framerate = 20, MaxDurationInSeconds = 300 },
+            }
+        );
 
         await provider.AcquireAsync(Request(), CancellationToken.None);
 

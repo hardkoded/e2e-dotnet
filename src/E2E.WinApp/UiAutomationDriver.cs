@@ -61,15 +61,29 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
         _system = _services.GetRequiredService<ISystemUiQuery>();
     }
 
-    public async Task<LaunchedApp> LaunchAsync(string executable, IReadOnlyList<string> arguments, string workingDirectory, TimeSpan timeout, Action<AppLogEntry>? log, CancellationToken cancellationToken)
+    public async Task<LaunchedApp> LaunchAsync(
+        string executable,
+        IReadOnlyList<string> arguments,
+        string workingDirectory,
+        TimeSpan timeout,
+        Action<AppLogEntry>? log,
+        CancellationToken cancellationToken
+    )
     {
-        var process = await WindowProcess.StartAsync(executable, arguments, workingDirectory, timeout, log, pid => Windows(pid), cancellationToken).ConfigureAwait(false);
+        var process = await WindowProcess
+            .StartAsync(executable, arguments, workingDirectory, timeout, log, pid => Windows(pid), cancellationToken)
+            .ConfigureAwait(false);
         lock (_lock)
         {
             _processes[process.ProcessId] = process;
         }
 
-        return new LaunchedApp(process.ProcessId, process.MainWindow, Path.GetFileNameWithoutExtension(executable), Owned: true);
+        return new LaunchedApp(
+            process.ProcessId,
+            process.MainWindow,
+            Path.GetFileNameWithoutExtension(executable),
+            Owned: true
+        );
     }
 
     public async Task<LaunchedApp> AttachAsync(string app, CancellationToken cancellationToken)
@@ -84,13 +98,19 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
             throw Translate(cause);
         }
 
-        var window = target.WindowHandle != 0 ? target.WindowHandle : Windows(target.ProcessId).FirstOrDefault()?.Handle ?? 0;
+        var window =
+            target.WindowHandle != 0 ? target.WindowHandle : Windows(target.ProcessId).FirstOrDefault()?.Handle ?? 0;
         if (window == 0)
         {
             throw new WindowDriverException(DriverFault.AppNotFound, $"{app} has no visible window");
         }
 
-        return new LaunchedApp(target.ProcessId, window, target.ProcessName is { Length: > 0 } name ? name : app, Owned: false);
+        return new LaunchedApp(
+            target.ProcessId,
+            window,
+            target.ProcessName is { Length: > 0 } name ? name : app,
+            Owned: false
+        );
     }
 
     public async Task CloseAsync(LaunchedApp app, TimeSpan timeout, CancellationToken cancellationToken)
@@ -124,7 +144,8 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 Remember(windowHandle, read);
                 return raw;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task<string?> FocusedAsync(long windowHandle, CancellationToken cancellationToken) =>
         RunAsync<string?>(
@@ -132,7 +153,9 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
             {
                 try
                 {
-                    var focused = await _automation.GetFocusedElementAsync(UiTarget.FromWindowHandle((IntPtr)windowHandle), token).ConfigureAwait(false);
+                    var focused = await _automation
+                        .GetFocusedElementAsync(UiTarget.FromWindowHandle((IntPtr)windowHandle), token)
+                        .ConfigureAwait(false);
                     return focused is null ? null : ObservedHandleOf(windowHandle, focused);
                 }
                 catch (Exception cause) when (cause is not OperationCanceledException)
@@ -141,7 +164,8 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                     return null;
                 }
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task<string> InvokeAsync(string handle, InvokeKind kind, CancellationToken cancellationToken) =>
         RunAsync(
@@ -153,10 +177,13 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                     return await _automation.InvokeAsync(target, element, token).ConfigureAwait(false);
                 }
 
-                var result = await _automation.InvokeAsync(target, element, ToAction(kind), token).ConfigureAwait(false);
+                var result = await _automation
+                    .InvokeAsync(target, element, ToAction(kind), token)
+                    .ConfigureAwait(false);
                 return result.Pattern;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task SetValueAsync(string handle, string text, CancellationToken cancellationToken) =>
         RunAsync(
@@ -166,7 +193,8 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 await _automation.SetValueAsync(target, element, text, token).ConfigureAwait(false);
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task FocusAsync(string handle, CancellationToken cancellationToken) =>
         RunAsync(
@@ -176,7 +204,8 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 await _automation.FocusAsync(target, element, token).ConfigureAwait(false);
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task ScrollIntoViewAsync(string handle, CancellationToken cancellationToken) =>
         RunAsync(
@@ -186,17 +215,21 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 await _automation.ScrollIntoViewAsync(target, element, token).ConfigureAwait(false);
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task ScrollAsync(string handle, ScrollDirection direction, CancellationToken cancellationToken) =>
         RunAsync(
             async token =>
             {
                 var (element, target) = Lookup(handle);
-                await _automation.ScrollContainerAsync(target, element, direction.ToString().ToLowerInvariant(), null!, token).ConfigureAwait(false);
+                await _automation
+                    .ScrollContainerAsync(target, element, direction.ToString().ToLowerInvariant(), null!, token)
+                    .ConfigureAwait(false);
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task SendKeysAsync(long windowHandle, string keys, bool verbatim, CancellationToken cancellationToken) =>
         Run(
@@ -209,14 +242,19 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 }
                 catch (FormatException cause)
                 {
-                    throw new WindowDriverException(DriverFault.Other, $"the key string is not valid: {cause.Message}", cause);
+                    throw new WindowDriverException(
+                        DriverFault.Other,
+                        $"the key string is not valid: {cause.Message}",
+                        cause
+                    );
                 }
 
                 // WinUI controls are windowless, so posted messages are dropped: input goes through SendInput, to the foreground window.
                 _keyboard.Send(windowHandle, actions, KeyTransport.SendInput);
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task ClickAsync(Point screen, bool doubleClick, bool rightClick, CancellationToken cancellationToken) =>
         Run(
@@ -225,7 +263,8 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 _mouse.Click(Round(screen.X), Round(screen.Y), doubleClick, rightClick);
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task HoverAsync(Point screen, CancellationToken cancellationToken) =>
         Run(
@@ -234,16 +273,25 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 _mouse.Hover(Round(screen.X), Round(screen.Y));
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task DragAsync(Point from, Point to, TimeSpan hold, CancellationToken cancellationToken) =>
         Run(
             () =>
             {
-                _mouse.Drag(Round(from.X), Round(from.Y), Round(to.X), Round(to.Y), rightButton: false, holdMs: (int)Math.Clamp(hold.TotalMilliseconds, 0, int.MaxValue));
+                _mouse.Drag(
+                    Round(from.X),
+                    Round(from.Y),
+                    Round(to.X),
+                    Round(to.Y),
+                    rightButton: false,
+                    holdMs: (int)Math.Clamp(hold.TotalMilliseconds, 0, int.MaxValue)
+                );
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task ScrollWheelAsync(Point screen, int notches, CancellationToken cancellationToken) =>
         Run(
@@ -252,7 +300,8 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 _mouse.ScrollWheel(Round(screen.X), Round(screen.Y), notches * 120);
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     /// <summary>
     /// Brings the window forward, restoring it first when it is minimized. Windows refuses the request when another process holds the
@@ -271,7 +320,10 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
 
                 if (ForegroundGuard.NoInteractiveDesktop())
                 {
-                    throw new WindowDriverException(DriverFault.ForegroundLost, "there is no interactive desktop to bring the app window forward on: the session is locked or on a secure desktop");
+                    throw new WindowDriverException(
+                        DriverFault.ForegroundLost,
+                        "there is no interactive desktop to bring the app window forward on: the session is locked or on a secure desktop"
+                    );
                 }
 
                 SetForegroundWindow(hwnd);
@@ -298,22 +350,35 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
 
                     if (!AwaitForeground(hwnd))
                     {
-                        throw new WindowDriverException(DriverFault.ForegroundLost, "the app window could not be brought to the foreground: another app holds the input");
+                        throw new WindowDriverException(
+                            DriverFault.ForegroundLost,
+                            "the app window could not be brought to the foreground: another app holds the input"
+                        );
                     }
                 }
 
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task<RawScreenshot> ScreenshotAsync(long windowHandle, CancellationToken cancellationToken) =>
         RunAsync(
             async token =>
             {
-                var (pixels, width, height) = await _automation.ScreenshotAsync(UiTarget.FromWindowHandle((IntPtr)windowHandle), null!, captureScreen: false, focus: false, token).ConfigureAwait(false);
+                var (pixels, width, height) = await _automation
+                    .ScreenshotAsync(
+                        UiTarget.FromWindowHandle((IntPtr)windowHandle),
+                        null!,
+                        captureScreen: false,
+                        focus: false,
+                        token
+                    )
+                    .ConfigureAwait(false);
                 return new RawScreenshot(pixels, width, height);
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task ResizeAsync(long windowHandle, int width, int height, CancellationToken cancellationToken) =>
         Run(
@@ -321,28 +386,46 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
             {
                 var hwnd = (IntPtr)windowHandle;
                 var scale = ScaleOf(hwnd);
-                if (!SetWindowPos(hwnd, IntPtr.Zero, 0, 0, Round(width * scale), Round(height * scale), SwpNoMove | SwpNoZOrder | SwpNoActivate))
+                if (
+                    !SetWindowPos(
+                        hwnd,
+                        IntPtr.Zero,
+                        0,
+                        0,
+                        Round(width * scale),
+                        Round(height * scale),
+                        SwpNoMove | SwpNoZOrder | SwpNoActivate
+                    )
+                )
                 {
-                    throw new WindowDriverException(DriverFault.Other, $"the window could not be resized (error {Marshal.GetLastPInvokeError()})");
+                    throw new WindowDriverException(
+                        DriverFault.Other,
+                        $"the window could not be resized (error {Marshal.GetLastPInvokeError()})"
+                    );
                 }
 
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public Task ShowAsync(long windowHandle, WindowState state, CancellationToken cancellationToken) =>
         Run(
             () =>
             {
-                ShowWindow((IntPtr)windowHandle, state switch
-                {
-                    WindowState.Maximized => SwMaximize,
-                    WindowState.Minimized => SwMinimize,
-                    _ => SwRestore,
-                });
+                ShowWindow(
+                    (IntPtr)windowHandle,
+                    state switch
+                    {
+                        WindowState.Maximized => SwMaximize,
+                        WindowState.Minimized => SwMinimize,
+                        _ => SwRestore,
+                    }
+                );
                 return true;
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     /// <summary>Ends every process the driver started, each within the cleanup budget, then releases the library. One failure skips nothing.</summary>
     public async ValueTask DisposeAsync()
@@ -388,7 +471,11 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
             }
 
             var bounds = new Rect(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
-            if (bounds.Width <= 0 || bounds.Height <= 0 || IgnoredWindowClasses.Contains(_system.GetWindowClassName((long)hwnd), StringComparer.Ordinal))
+            if (
+                bounds.Width <= 0
+                || bounds.Height <= 0
+                || IgnoredWindowClasses.Contains(_system.GetWindowClassName((long)hwnd), StringComparer.Ordinal)
+            )
             {
                 continue;
             }
@@ -396,7 +483,12 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
             windows.Add(new WindowInfo((long)hwnd, pid, title ?? "", bounds, ScaleOf(hwnd)));
         }
 
-        return [.. windows.OrderBy(window => window.Handle == (long)main ? 0 : 1).ThenByDescending(window => window.Bounds.Width * window.Bounds.Height)];
+        return
+        [
+            .. windows
+                .OrderBy(window => window.Handle == (long)main ? 0 : 1)
+                .ThenByDescending(window => window.Bounds.Width * window.Bounds.Height),
+        ];
     }
 
     /// <summary>
@@ -405,7 +497,10 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
     /// and those are attached as they come. One top-level element is the root; several (or none) are put under a root that stands
     /// for the window.
     /// </summary>
-    private (UiElement Root, Dictionary<UiElement, List<UiElement>> Children) Nest(UiElement[] elements, long windowHandle)
+    private (UiElement Root, Dictionary<UiElement, List<UiElement>> Children) Nest(
+        UiElement[] elements,
+        long windowHandle
+    )
     {
         var children = new Dictionary<UiElement, List<UiElement>>(ReferenceEqualityComparer.Instance);
         var tops = new List<UiElement>();
@@ -436,7 +531,13 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
             return (tops[0], children);
         }
 
-        var root = new UiElement { Type = "Window", Name = _system.GetWindowText(windowHandle), IsEnabled = true, WindowHandle = windowHandle };
+        var root = new UiElement
+        {
+            Type = "Window",
+            Name = _system.GetWindowText(windowHandle),
+            IsEnabled = true,
+            WindowHandle = windowHandle,
+        };
         if (_automation.TryGetWindowRect(windowHandle, out var rect))
         {
             root.X = rect.Left;
@@ -473,7 +574,12 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
     /// <summary>The control types that are one of a set of which one is selected; the selected one is read from its selection item pattern.</summary>
     private static readonly string[] SelectionTypes = ["RadioButton", "TabItem", "ListItem", "DataItem", "TreeItem"];
 
-    private async Task<Dictionary<UiElement, bool>> ReadSelectionAsync(UiTarget target, UiElement root, Dictionary<UiElement, List<UiElement>> children, CancellationToken cancellationToken)
+    private async Task<Dictionary<UiElement, bool>> ReadSelectionAsync(
+        UiTarget target,
+        UiElement root,
+        Dictionary<UiElement, List<UiElement>> children,
+        CancellationToken cancellationToken
+    )
     {
         var selection = new Dictionary<UiElement, bool>();
         var pending = new Stack<UiElement>();
@@ -484,8 +590,16 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
             {
                 try
                 {
-                    var properties = await _automation.GetPropertiesAsync(target, element, "IsSelected", cancellationToken).ConfigureAwait(false);
-                    if (properties.TryGetValue("IsSelected", out var value) && bool.TryParse(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture), out var selected))
+                    var properties = await _automation
+                        .GetPropertiesAsync(target, element, "IsSelected", cancellationToken)
+                        .ConfigureAwait(false);
+                    if (
+                        properties.TryGetValue("IsSelected", out var value)
+                        && bool.TryParse(
+                            Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture),
+                            out var selected
+                        )
+                    )
                     {
                         selection[element] = selected;
                     }
@@ -512,7 +626,14 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
     /// One element as the projection reads it, collected under its handle into <paramref name="read"/>. The password flag is not read:
     /// the library's <c>IsPassword</c> answers true for a plain rich edit, so the projection goes by the framework class instead.
     /// </summary>
-    private RawElement ToRaw(UiElement element, Dictionary<UiElement, List<UiElement>> children, UiTarget target, Dictionary<string, (UiElement, UiTarget)> read, Dictionary<UiElement, bool> selection, bool isRoot)
+    private RawElement ToRaw(
+        UiElement element,
+        Dictionary<UiElement, List<UiElement>> children,
+        UiTarget target,
+        Dictionary<string, (UiElement, UiTarget)> read,
+        Dictionary<UiElement, bool> selection,
+        bool isRoot
+    )
     {
         var handle = HandleOf(element);
         read[handle] = (element, target);
@@ -526,7 +647,10 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
             ClassName = element.ClassName,
             IsEnabled = element.IsEnabled,
             IsOffscreen = element.IsOffscreen && !isRoot,
-            Bounds = element.Width > 0 && element.Height > 0 ? new Rect(element.X, element.Y, element.Width, element.Height) : null,
+            Bounds =
+                element.Width > 0 && element.Height > 0
+                    ? new Rect(element.X, element.Y, element.Width, element.Height)
+                    : null,
             Value = element.Value,
             ToggleState = element.ToggleState,
             IsSelected = selection.TryGetValue(element, out var selected) ? selected : null,
@@ -556,7 +680,15 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 var matches = read.Where(pair => SameElement(pair.Value.Element, focused)).ToList();
                 if (matches.Count > 1)
                 {
-                    matches = [.. matches.Where(pair => pair.Value.Element.X == focused.X && pair.Value.Element.Y == focused.Y && pair.Value.Element.Width == focused.Width && pair.Value.Element.Height == focused.Height)];
+                    matches =
+                    [
+                        .. matches.Where(pair =>
+                            pair.Value.Element.X == focused.X
+                            && pair.Value.Element.Y == focused.Y
+                            && pair.Value.Element.Width == focused.Width
+                            && pair.Value.Element.Height == focused.Height
+                        ),
+                    ];
                 }
 
                 if (matches.Count == 1)
@@ -572,9 +704,15 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
     private static bool SameElement(UiElement left, UiElement right) =>
         left.Type == right.Type
         && left.Name == right.Name
-        && (string.IsNullOrEmpty(left.AutomationId)
-            ? string.IsNullOrEmpty(right.AutomationId) && left.X == right.X && left.Y == right.Y && left.Width == right.Width && left.Height == right.Height
-            : left.AutomationId == right.AutomationId);
+        && (
+            string.IsNullOrEmpty(left.AutomationId)
+                ? string.IsNullOrEmpty(right.AutomationId)
+                    && left.X == right.X
+                    && left.Y == right.Y
+                    && left.Width == right.Width
+                    && left.Height == right.Height
+                : left.AutomationId == right.AutomationId
+        );
 
     private string HandleOf(UiElement element)
     {
@@ -622,35 +760,44 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 }
             }
 
-            throw new WindowDriverException(DriverFault.ElementVanished, $"element {handle} is not part of the newest observation");
+            throw new WindowDriverException(
+                DriverFault.ElementVanished,
+                $"element {handle} is not part of the newest observation"
+            );
         }
     }
 
-    private static UiInvokeAction ToAction(InvokeKind kind) => kind switch
-    {
-        InvokeKind.Invoke => UiInvokeAction.Invoke,
-        InvokeKind.Select => UiInvokeAction.Select,
-        InvokeKind.Toggle => UiInvokeAction.Toggle,
-        InvokeKind.ToggleOn => UiInvokeAction.ToggleOn,
-        InvokeKind.ToggleOff => UiInvokeAction.ToggleOff,
-        InvokeKind.Expand => UiInvokeAction.Expand,
-        InvokeKind.Collapse => UiInvokeAction.Collapse,
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown invoke kind."),
-    };
+    private static UiInvokeAction ToAction(InvokeKind kind) =>
+        kind switch
+        {
+            InvokeKind.Invoke => UiInvokeAction.Invoke,
+            InvokeKind.Select => UiInvokeAction.Select,
+            InvokeKind.Toggle => UiInvokeAction.Toggle,
+            InvokeKind.ToggleOn => UiInvokeAction.ToggleOn,
+            InvokeKind.ToggleOff => UiInvokeAction.ToggleOff,
+            InvokeKind.Expand => UiInvokeAction.Expand,
+            InvokeKind.Collapse => UiInvokeAction.Collapse,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown invoke kind."),
+        };
 
     /// <summary>A library failure as the engine classifies it.</summary>
-    private static Exception Translate(Exception cause) => cause switch
-    {
-        OperationCanceledException or WindowDriverException => cause,
-        UiElementNotFoundException => new WindowDriverException(DriverFault.ElementVanished, cause.Message, cause),
-        UiAmbiguousSelectorException => new WindowDriverException(DriverFault.Ambiguous, cause.Message, cause),
-        UiElementOffscreenException => new WindowDriverException(DriverFault.Offscreen, cause.Message, cause),
-        AppNotFoundException => new WindowDriverException(DriverFault.AppNotFound, cause.Message, cause),
-        ForegroundLostException => new WindowDriverException(DriverFault.ForegroundLost, cause.Message, cause),
-        UiValueSetException => new WindowDriverException(DriverFault.ValueRejected, cause.Message, cause),
-        COMException com when (uint)com.HResult is 0x80040201 or 0x80131509 => new WindowDriverException(DriverFault.ElementVanished, cause.Message, cause),
-        _ => new WindowDriverException(DriverFault.Other, cause.Message, cause),
-    };
+    private static Exception Translate(Exception cause) =>
+        cause switch
+        {
+            OperationCanceledException or WindowDriverException => cause,
+            UiElementNotFoundException => new WindowDriverException(DriverFault.ElementVanished, cause.Message, cause),
+            UiAmbiguousSelectorException => new WindowDriverException(DriverFault.Ambiguous, cause.Message, cause),
+            UiElementOffscreenException => new WindowDriverException(DriverFault.Offscreen, cause.Message, cause),
+            AppNotFoundException => new WindowDriverException(DriverFault.AppNotFound, cause.Message, cause),
+            ForegroundLostException => new WindowDriverException(DriverFault.ForegroundLost, cause.Message, cause),
+            UiValueSetException => new WindowDriverException(DriverFault.ValueRejected, cause.Message, cause),
+            COMException com when (uint)com.HResult is 0x80040201 or 0x80131509 => new WindowDriverException(
+                DriverFault.ElementVanished,
+                cause.Message,
+                cause
+            ),
+            _ => new WindowDriverException(DriverFault.Other, cause.Message, cause),
+        };
 
     /// <summary>
     /// One library call under the caller's token: it runs on a worker thread, since the library makes blocking COM calls and
@@ -763,7 +910,11 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool AttachThreadInput(uint attach, uint attachTo, [MarshalAs(UnmanagedType.Bool)] bool attaching);
+    private static partial bool AttachThreadInput(
+        uint attach,
+        uint attachTo,
+        [MarshalAs(UnmanagedType.Bool)] bool attaching
+    );
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -778,5 +929,13 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
 
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
+    private static partial bool SetWindowPos(
+        IntPtr hwnd,
+        IntPtr insertAfter,
+        int x,
+        int y,
+        int width,
+        int height,
+        uint flags
+    );
 }

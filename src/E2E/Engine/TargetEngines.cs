@@ -13,28 +13,49 @@ namespace E2E.Engine;
 internal static class TargetEngines
 {
     /// <summary>Builds the engine of <paramref name="target"/>. <paramref name="headless"/> is the web window choice; null leaves it to <c>E2E_HEADLESS</c>.</summary>
-    public static IEngine Create(TargetConfig target, bool? headless, Func<TargetConfig, IEngine>? mobile, Func<TargetConfig, IEngine>? windows = null)
+    public static IEngine Create(
+        TargetConfig target,
+        bool? headless,
+        Func<TargetConfig, IEngine>? mobile,
+        Func<TargetConfig, IEngine>? windows = null
+    )
     {
         ArgumentNullException.ThrowIfNull(target);
         if (target.Engine is { } held)
         {
+            TargetApps.CheckLinkBase(target.App.LinkBase, held, $"target \"{target.Name}\" app");
             return held;
         }
 
         IEngine engine = target.Platform switch
         {
             "web" => new WebEngine(headless),
-            "ios" or "android" => (mobile ?? throw new ConfigurationException(
+            "ios" or "android" => (
+                mobile
+                ?? throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"target \"{target.Name}\" has platform {target.Platform}, but this host has no device engine; use the e2e tool, or set ExploreOptions.Engine."
+                )
+            ).Invoke(target),
+            "windows" => (
+                windows
+                ?? throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"target \"{target.Name}\" has platform windows, but this host has no Windows app engine; use the e2e tool on Windows, or set ExploreOptions.Engine."
+                )
+            ).Invoke(target),
+            _ => throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"target \"{target.Name}\" has platform {target.Platform}, but this host has no device engine; use the e2e tool, or set ExploreOptions.Engine.")).Invoke(target),
-            "windows" => (windows ?? throw new ConfigurationException(
-                "INVALID_CONFIG",
-                $"target \"{target.Name}\" has platform windows, but this host has no Windows app engine; use the e2e tool on Windows, or set ExploreOptions.Engine.")).Invoke(target),
-            _ => throw new ConfigurationException("INVALID_CONFIG", $"target \"{target.Name}\" has platform {target.Platform}; the platform must be web, ios, android, or windows"),
+                $"target \"{target.Name}\" has platform {target.Platform}; the platform must be web, ios, android, or windows"
+            ),
         };
 
-        // Config load: the harness checks the target's app against the engine that will drive it (upstream's validateApp, run once per target).
-        engine.ValidateApp(TargetApps.EngineAppDeclarationOf(target.App), new EngineAppCheckInfo { TargetName = target.Name });
+        // Config load: the link base is checked against the engine that must open its links, then the harness checks the target's app against the engine that will drive it (upstream's validateApp, run once per target).
+        TargetApps.CheckLinkBase(target.App.LinkBase, engine, $"target \"{target.Name}\" app");
+        engine.ValidateApp(
+            TargetApps.EngineAppDeclarationOf(target.App),
+            new EngineAppCheckInfo { TargetName = target.Name }
+        );
         return engine;
     }
 

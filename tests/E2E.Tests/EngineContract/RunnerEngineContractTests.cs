@@ -24,7 +24,10 @@ namespace E2E.Tests.EngineContract;
 public sealed class RunnerEngineContractTests : IDisposable
 {
     // The output directory holds the results and the run's report.json beside them.
-    private readonly string _results = Path.Combine(Directory.CreateTempSubdirectory("e2e-engine-contract-").FullName, "results");
+    private readonly string _results = Path.Combine(
+        Directory.CreateTempSubdirectory("e2e-engine-contract-").FullName,
+        "results"
+    );
 
     public void Dispose() => Directory.Delete(Path.GetDirectoryName(_results)!, recursive: true);
 
@@ -34,12 +37,16 @@ public sealed class RunnerEngineContractTests : IDisposable
         // Partial: the port names the code ENVIRONMENT_UNAVAILABLE, not LAUNCH_TIMEOUT, and a failed launch has no
         // session to end, so there is no attemptsEnded count to check. The category, the retry and the report are the runner's.
         var engine = new HangingEngine();
-        var error = await Assert.ThrowsAsync<EngineException>(() => E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            TestTitle = "launch hang",
-            LaunchTimeout = TimeSpan.FromMilliseconds(50),
-        }));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = engine,
+                    TestTitle = "launch hang",
+                    LaunchTimeout = TimeSpan.FromMilliseconds(50),
+                }
+            )
+        );
         Assert.Equal("ENVIRONMENT_UNAVAILABLE", error.Code);
         Assert.Contains("launch timeout", error.Message, StringComparison.Ordinal);
         Assert.True(engine.Stopped);
@@ -49,26 +56,35 @@ public sealed class RunnerEngineContractTests : IDisposable
     public async Task Surfaces_UNSUPPORTED_ARTIFACT_before_any_attempt_when_a_target_demands_more_than_the_engine_offers_PARTIAL_a_session_is_refused_where_a_run_has_no_attempt_started()
     {
         // The engine hangs when started, so a refusal that comes back at all came before the engine started.
-        var error = await Assert.ThrowsAsync<ConfigurationException>(() => E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new HangingEngine(),
-            TestTitle = "artifact",
-            TargetName = "fake",
-            Video = new ResolvedRecording(RecordingMode.On, RecordingSource.Target),
-        }));
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = new HangingEngine(),
+                    TestTitle = "artifact",
+                    TargetName = "fake",
+                    Video = new ResolvedRecording(RecordingMode.On, RecordingSource.Target),
+                }
+            )
+        );
         Assert.Equal("UNSUPPORTED_ARTIFACT", error.Code);
-        Assert.Equal("target \"fake\" (engine web) cannot record video, and the target sets video: 'on'", error.Message);
+        Assert.Equal(
+            "target \"fake\" (engine web) cannot record video, and the target sets video: 'on'",
+            error.Message
+        );
     }
 
     [Fact]
     public async Task A_failure_settleAttempt_throws_after_the_body_is_the_verdict_with_its_own_code_PARTIAL_the_phase_the_cleanup_field_and_the_exit_code_are_the_runners()
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new SettlingEngine(new DocumentEngine(BillingWorld.Create())),
-            BaseUrl = "https://billing.test",
-            TestTitle = "taps a node",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new SettlingEngine(new DocumentEngine(BillingWorld.Create())),
+                BaseUrl = "https://billing.test",
+                TestTitle = "taps a node",
+            }
+        );
         await session.App.OpenAsync("/settings/billing");
         var error = await Assert.ThrowsAsync<TestException>(() => session.SettleAttemptAsync());
         Assert.Equal("ASSERTION_FAILED", error.Code);
@@ -145,7 +161,9 @@ public sealed class RunnerEngineContractTests : IDisposable
         Assert.Equal(3, run.ExitCode);
         Assert.Equal(1, failure.Disposed);
 
-        var unsupported = Fake(onNavigate: _ => throw new EngineException("UNSUPPORTED_CAPABILITY", "deep links unsupported"));
+        var unsupported = Fake(onNavigate: _ =>
+            throw new EngineException("UNSUPPORTED_CAPABILITY", "deep links unsupported")
+        );
         var (secondResult, second) = await FailOpeningAsync(unsupported, "taps a node");
         Assert.Equal(Reports.ErrorCategory.Configuration, secondResult.Attempts[0].Error!.Category);
         Assert.Equal("UNSUPPORTED_CAPABILITY", secondResult.Attempts[0].Error!.Code);
@@ -175,7 +193,12 @@ public sealed class RunnerEngineContractTests : IDisposable
     [Fact]
     public async Task Names_APP_UNREACHABLE_with_the_URL_when_the_network_refused_the_navigation_PARTIAL_a_session_stands_for_the_run()
     {
-        var refused = Fake(onNavigate: url => throw new EngineException("ENGINE_FAILURE", $"navigation failed: page.goto: net::ERR_CONNECTION_REFUSED at {url}"));
+        var refused = Fake(onNavigate: url =>
+            throw new EngineException(
+                "ENGINE_FAILURE",
+                $"navigation failed: page.goto: net::ERR_CONNECTION_REFUSED at {url}"
+            )
+        );
         var (result, run) = await FailOpeningAsync(refused, "taps a node");
         Assert.Equal(Reports.ResultStatus.Failed, result.Status);
         var error = result.Attempts[0].Error!;
@@ -183,7 +206,8 @@ public sealed class RunnerEngineContractTests : IDisposable
         Assert.Equal("APP_UNREACHABLE", error.Code);
         Assert.Matches(
             @"^nothing answered at https?://\S+ \(ERR_CONNECTION_REFUSED\); start the app there, point the target's app.url at where it runs, or give the target an app.command so the runner starts it\z",
-            error.Message);
+            error.Message
+        );
         Assert.Equal(3, run.ExitCode);
     }
 
@@ -202,7 +226,9 @@ public sealed class RunnerEngineContractTests : IDisposable
         Assert.Equal(Reports.ResultStatus.Passed, result.Status);
         var attempt = Assert.Single(result.Attempts);
         Assert.Equal(Reports.AttemptCleanup.Failed, attempt.Cleanup);
-        var disposal = Assert.Single(attempt.SecondaryErrors, error => error.Message.Contains("device lease release exploded", StringComparison.Ordinal));
+        var disposal = Assert.Single(attempt.SecondaryErrors, error =>
+            error.Message.Contains("device lease release exploded", StringComparison.Ordinal)
+        );
         Assert.Equal(Reports.ErrorPhase.Cleanup, disposal.Phase);
         Assert.Equal(Reports.ErrorCategory.Infrastructure, disposal.Category);
         Assert.Equal(3, report.Run.ExitCode);
@@ -215,8 +241,17 @@ public sealed class RunnerEngineContractTests : IDisposable
         var col = CollectionOf(
             "tests/requires.e2e.ts",
             new Decl("needs gadget") { Requires = ["gadget"] },
-            new Decl("needs web") { Requires = ["web"] });
-        var cfg = ConfigOf(targets: [Web("fake", new ResolvedEngine("fake", new HashSet<string> { "actions", "location", "observation", "gadget" }))]);
+            new Decl("needs web") { Requires = ["web"] }
+        );
+        var cfg = ConfigOf(
+            targets:
+            [
+                Web(
+                    "fake",
+                    new ResolvedEngine("fake", new HashSet<string> { "actions", "location", "observation", "gadget" })
+                ),
+            ]
+        );
         var selection = Selector.Select(col, cfg, new SelectionFilters());
         var gadget = Assert.Single(selection.Pairs, pair => pair.Test.Title == "needs gadget");
         Assert.Equal(Disposition.Run, gadget.Disposition);
@@ -244,12 +279,14 @@ public sealed class RunnerEngineContractTests : IDisposable
     [Fact]
     public async Task Reaching_a_fixture_the_engine_does_not_contribute_is_a_configuration_error()
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(BillingWorld.Create()),
-            BaseUrl = "https://billing.test",
-            TestTitle = "needs browser",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(BillingWorld.Create()),
+                BaseUrl = "https://billing.test",
+                TestTitle = "needs browser",
+            }
+        );
         await session.App.OpenAsync("/settings/billing");
         var error = await Assert.ThrowsAsync<ConfigurationException>(() => session.Browser.GotoAsync("/somewhere"));
         Assert.Equal("UNSUPPORTED_CAPABILITY", error.Code);
@@ -265,24 +302,25 @@ public sealed class RunnerEngineContractTests : IDisposable
         var timeout = TimeSpan.FromMilliseconds(300);
         var engine = new StallingEngine(new DocumentEngine(BillingWorld.Create()), TimeSpan.FromMilliseconds(50));
         var model = new ScriptedModel(_ => ModelResponses.Done("failed", "the Submit button is disabled"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            Model = model,
-            BaseUrl = "https://billing.test",
-            TestTitle = "observe deadline",
-            TestTimeout = TimeSpan.FromSeconds(10),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                Model = model,
+                BaseUrl = "https://billing.test",
+                TestTitle = "observe deadline",
+                TestTimeout = TimeSpan.FromSeconds(10),
+            }
+        );
 
         Exception? error = null;
         try
         {
             await session.App.OpenAsync("/settings/billing");
-            await session.Agent.WaitForAsync("the Submit button is enabled", new WaitForOptions
-            {
-                Timeout = timeout,
-                Interval = TimeSpan.FromMilliseconds(100),
-            });
+            await session.Agent.WaitForAsync(
+                "the Submit button is enabled",
+                new WaitForOptions { Timeout = timeout, Interval = TimeSpan.FromMilliseconds(100) }
+            );
         }
         catch (Exception ex)
         {
@@ -319,17 +357,22 @@ public sealed class RunnerEngineContractTests : IDisposable
         new(new DocumentEngine(BillingWorld.Create("Submit"))) { OnNavigate = onNavigate, OnDispose = onDispose };
 
     private Task<E2ESession> StartAsync(IEngine engine, string title) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            BaseUrl = "https://billing.test",
-            TestTitle = title,
-            ResultsDirectory = _results,
-            ProjectRoot = _results,
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                BaseUrl = "https://billing.test",
+                TestTitle = title,
+                ResultsDirectory = _results,
+                ProjectRoot = _results,
+            }
+        );
 
     /// <summary>Runs a test whose <c>app.open</c> fails, and returns its result and the run it stands for.</summary>
-    private async Task<(Reports.ReportResult Result, Reports.ReportRun Run)> FailOpeningAsync(FakeEngine engine, string title)
+    private async Task<(Reports.ReportResult Result, Reports.ReportRun Run)> FailOpeningAsync(
+        FakeEngine engine,
+        string title
+    )
     {
         await using var session = await StartAsync(engine, title);
         var error = await Assert.ThrowsAnyAsync<Exception>(() => session.App.OpenAsync("/settings/billing"));
@@ -341,24 +384,37 @@ public sealed class RunnerEngineContractTests : IDisposable
 
     private static async Task<AgentException> InconclusiveAsync(IEngine engine, bool vision = false)
     {
-        var model = new ScriptedModel(request => request.Messages[0].Content!.Contains("Statement: the Submit button is visible", StringComparison.Ordinal)
-            ? ModelResponses.Done("passed", "the Submit button is listed")
-            : ModelResponses.Done("failed", "the tree lists no state for the Submit button", "ASSERTION_INCONCLUSIVE"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            Judge = model,
-            BaseUrl = "https://billing.test",
-            TestTitle = "inconclusive judgment",
-            TestTimeout = TimeSpan.FromSeconds(10),
-        });
+        var model = new ScriptedModel(request =>
+            request.Messages[0].Content!.Contains("Statement: the Submit button is visible", StringComparison.Ordinal)
+                ? ModelResponses.Done("passed", "the Submit button is listed")
+                : ModelResponses.Done(
+                    "failed",
+                    "the tree lists no state for the Submit button",
+                    "ASSERTION_INCONCLUSIVE"
+                )
+        );
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                Judge = model,
+                BaseUrl = "https://billing.test",
+                TestTitle = "inconclusive judgment",
+                TestTimeout = TimeSpan.FromSeconds(10),
+            }
+        );
         await session.App.OpenAsync("/settings/billing");
         if (vision)
         {
-            await session.Agent.AssertAsync("the Submit button is visible", new AssertOptions { Vision = VisionMode.On });
+            await session.Agent.AssertAsync(
+                "the Submit button is visible",
+                new AssertOptions { Vision = VisionMode.On }
+            );
         }
 
-        var failure = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the Submit button is enabled"));
+        var failure = await Assert.ThrowsAsync<AgentException>(() =>
+            session.Agent.AssertAsync("the Submit button is enabled")
+        );
         session.Complete(failure);
         return failure;
     }
@@ -399,14 +455,17 @@ public sealed class RunnerEngineContractTests : IDisposable
         {
             public string Route => inner.Route;
 
-            public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+            public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+                inner.OpenAsync(url, cancellationToken);
 
-            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => inner.ObserveAsync(cancellationToken);
+            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+                inner.ObserveAsync(cancellationToken);
 
             public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
                 inner.PerformAsync(node, action, cancellationToken);
 
-            public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+            public Task PressAsync(string key, CancellationToken cancellationToken) =>
+                inner.PressAsync(key, cancellationToken);
 
             public Task SettleAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
                 throw new TestException("ASSERTION_FAILED", "a callback the body left running failed");
@@ -433,7 +492,8 @@ public sealed class RunnerEngineContractTests : IDisposable
 
             public string Route => inner.Route;
 
-            public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+            public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+                inner.OpenAsync(url, cancellationToken);
 
             public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
             {
@@ -457,7 +517,8 @@ public sealed class RunnerEngineContractTests : IDisposable
             public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
                 inner.PerformAsync(node, action, cancellationToken);
 
-            public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+            public Task PressAsync(string key, CancellationToken cancellationToken) =>
+                inner.PressAsync(key, cancellationToken);
 
             public ValueTask DisposeAsync() => inner.DisposeAsync();
         }

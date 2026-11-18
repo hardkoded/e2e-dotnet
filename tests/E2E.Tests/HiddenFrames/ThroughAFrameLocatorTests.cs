@@ -49,10 +49,16 @@ public sealed class ThroughAFrameLocatorTests
             await Task.Delay(300);
             Assert.False(tap.IsCompleted);
 
-            await session.Browser.EvaluateAsync<object?>("() => { document.querySelector('[name=frame]').style.visibility = 'visible'; }");
+            await session.Browser.EvaluateAsync<object?>(
+                "() => { document.querySelector('[name=frame]').style.visibility = 'visible'; }"
+            );
 
             await tap;
-            Assert.True(await session.Browser.EvaluateAsync<bool>("() => document.querySelector('[name=frame]').contentWindow.__clicked === true"));
+            Assert.True(
+                await session.Browser.EvaluateAsync<bool>(
+                    "() => document.querySelector('[name=frame]').contentWindow.__clicked === true"
+                )
+            );
             await Expect.That(button).ToBeVisibleAsync();
         });
     }
@@ -60,19 +66,23 @@ public sealed class ThroughAFrameLocatorTests
     private static async Task RunAsync(Func<E2ESession, Task> body)
     {
         using var site = await TinySite.StartAsync(Hidden);
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
-            BaseUrl = site.Url,
-            TestTitle = "hidden frames",
-            ActionTimeout = TimeSpan.FromSeconds(5),
-            AssertionTimeout = TimeSpan.FromSeconds(4),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+                BaseUrl = site.Url,
+                TestTitle = "hidden frames",
+                ActionTimeout = TimeSpan.FromSeconds(5),
+                AssertionTimeout = TimeSpan.FromSeconds(4),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         await session.App.OpenAsync("/");
         // A plain query does not enter an iframe, as upstream's: the page is ready when its visible frame has loaded.
-        await Expect.That(session.Browser.FrameLocator("[name=parent]").GetByRole("button", "Parent")).ToBeVisibleAsync();
+        await Expect
+            .That(session.Browser.FrameLocator("[name=parent]").GetByRole("button", "Parent"))
+            .ToBeVisibleAsync();
         await body(session);
     }
 }

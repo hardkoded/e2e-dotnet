@@ -1,0 +1,155 @@
+---
+title: Drive an app without a test runner
+description: Launch a browser or a device from plain C# code, with an optional agent and no test framework.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`Launch.LaunchAsync` drives a browser or an iOS or Android app from plain code. It uses the e2e engines, `Screen`, and `App`, without a test framework: there is no config file, no report, and no `Expect`. Use it for scripts, automation, scrapers, and bots. This page ports upstream's `docs/core.mdx` (`@e2e-dev/core`); the .NET library is one package, so there is nothing separate to install.
+
+## Drive a browser
+
+`Launch.LaunchAsync` prepares an engine and returns a `Host`. A `Session` is one isolated browser context on that host, and it holds `Screen`, `App`, `Platform`, and `Browser`. An engine that contributes fixtures (`IEngine<TFixtures>`, such as `MobileEngine` with `MobileFixtures`) makes `LaunchAsync` return a `Host<TFixtures>` whose sessions are `Session<TFixtures>`: `session.Fixtures.Device` is the device fixture. `WebEngine` is one too (`WebFixtures`): `session.Fixtures.Browser` is the browser fixture, and `session.Fixtures.App` is a `WebApp`, the `App` with `BaseUrl` always set, since a web target always declares `app.url`.
+
+```csharp
+using E2E;
+using E2E.Engine;
+
+await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions { App = new LaunchApp { Url = "https://shop.example.com" } });
+
+foreach (var sku in new[] { "A-1001", "B-2040" })
+{
+    await using var session = await shop.NewSessionAsync();
+    await session.App.OpenAsync($"/products/{sku}");
+    var price = await session.Screen.GetByTestId("sale-price").TextContentAsync();
+    Console.WriteLine($"{sku} {price}");
+}
+```
+
+`Screen` and `App` are the same API as in a test. `await using` closes each session at the end of its block, and the host, with its browser, at the end of the scope.
+
+| Rule | Behavior |
+| --- | --- |
+| Ownership | Each `LaunchAsync` takes its own engine instance. A second host on the same instance fails with `WORKER_PROTOCOL`. |
+| Sessions | One session at a time on a host. Close it before `NewSessionAsync()`. For parallel work, launch more hosts. |
+| Timeouts | An action, a wait, or a read gets 30 seconds. `App.OpenAsync()` and `App.RestartAsync()` get 120 seconds. `LaunchOptions.Timeout` or `session.SetDefaultTimeout(timeout)` sets one value for all of them, for the operations that start from then on. There is no session deadline. |
+| Cancellation | The token passed to `LaunchAsync` and `NewSessionAsync` stops what is running. |
+| App links | On a device, `LaunchApp.LinkBase` (an absolute URL or a scheme such as `shopapp://`, with no query or fragment) makes `session.App.OpenAsync("/orders/42")` open `shopapp://orders/42` in the pinned app. An absolute link opens as given; a `file:`, `data:`, `javascript:`, `view-source:`, `blob:`, or `filesystem:` link is `POLICY_DENIED`. An engine with no link hook, such as `WebEngine`, refuses a link base with `INVALID_CONFIG`. |
+| Window | `LaunchOptions.Headed` shows the browser window; the default is hidden. A device ignores it. |
+| Files | Screenshots and downloads go to a temp directory that is deleted when the host closes. Set `ArtifactsDir` to keep them; a relative path resolves from `Cwd`. |
+| Closing | `CloseAsync` is idempotent and throws an `AggregateException` of the failures closing found. |
+
+<Aside type="note">
+Not ported yet: closing the host on SIGINT, SIGTERM, and SIGHUP. Issue [#1677](https://github.com/hardkoded/e2e-dotnet/issues/1677) tracks it.
+</Aside>
+
+## Let the agent act
+
+`CoreAgents.CreateAgent(session, options)` puts an agent over one session. Its `ActAsync`, `AssertAsync`, `WaitForAsync`, and `ExtractAsync` work as they do in a test.
+
+```csharp
+await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions { App = new LaunchApp { Url = "https://shop.example.com" } });
+await using var session = await shop.NewSessionAsync();
+await session.App.OpenAsync("/products/A-1001");
+
+var agent = CoreAgents.CreateAgent(session, new CreateAgentOptions
+{
+    Model = model,
+    Cache = new AgentCacheOptions { Dir = ".shop-bot/cache" },
+});
+
+await agent.ActAsync("Add the item to the cart and apply the coupon with the largest discount", new CachingActOptions { CacheKey = "cart-best-coupon" });
+// A check after the step lets the cache keep its recording.
+await session.Screen.GetByRole("button", "Pay now").WaitForAsync();
+
+var order = await agent.ExtractAsync<Order>("the order total");
+if (order.Total <= 39_000)
+{
+    try
+    {
+        await session.Screen.GetByRole("button", "Pay now").TapAsync();
+    }
+    catch (E2EException)
+    {
+        // A failed tap may still have reached the server: check the order list, never retry the payment.
+        Console.Error.WriteLine("check /my/orders");
+        throw;
+    }
+}
+else
+{
+    Console.WriteLine($"the total, {order.Total}, is over the limit: the order stays unpaid");
+}
+
+record Order(int Total);
+```
+
+`CreateAgentOptions` takes the options of an `agents` entry (`AgentOptions`), such as `Model`, `Judge`, `MaxSteps`, and `Context`, plus `Cache`. There is no default model: an agent without one fails its first call with `MODEL_UNAVAILABLE`. An `ActAsync` step has its own timeout, 120000 ms: set it per call with `Timeout`. A call takes no `Agent` option: it is `INVALID_ARGUMENT`, so create another agent for another configuration. A session that did not come from `Host.NewSessionAsync` is `INVALID_ARGUMENT` too.
+
+### Replay recorded steps
+
+With `Cache`, `ActAsync` records each flow and replays it on the next run with no model call. Every `ActAsync` then names its recording with `CachingActOptions.CacheKey`, or runs live with `Cache = false`. An `ActAsync` without one fails with `INVALID_ARGUMENT`, and so does a `CacheKey` on an agent created without `Cache`. C# has one `CoreAgent` type where TypeScript types the agent by the options it was created with, so the refusal is at runtime.
+
+A recording is keyed by the `CacheKey`, the instruction, its params, the app, and how many times the session made the same call. Pass a value that changes between runs as a param: a value the agent reads off the screen is decided by the model again on each run.
+
+A recording is saved when the session closes, or its host does, and only when a check passed after the step, such as `Locator.WaitForAsync()`, `AssertAsync`, or `WaitForAsync`. When an agent step fails, the recordings not yet confirmed at that moment are dropped. A failure of your own code's locator call, such as a `WaitForAsync` that ran out, drops nothing. A step that fails only because no model answered (`MODEL_UNAVAILABLE`, `MODEL_PROVIDER_FAILED`) leaves the recordings as they are. Read [Replay cache](/features/caching/) for how a replay checks the screen and hands off to the model.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `Dir` | `.e2e/cache` | The directory, from the `Cwd` the host was launched with. |
+| `Mode` | `ReadWrite` | `ReadOnly` replays and never writes. `Off` is `INVALID_ARGUMENT`: leave `Cache` unset. |
+| `Strict` | `false` | A recording that no longer replays fails with `REPLAY_STALE`. |
+| `Store` | - | A custom `IStepCache` in place of the files. |
+
+## Keep a signed-in state
+
+`session.SaveStateAsync()` captures a browser session's cookies and storage in memory. Close that session, then start another from the state with `NewSessionAsync(new NewSessionOptions { State = state })`. An engine with no state capability fails with `UNSUPPORTED_CAPABILITY`.
+
+```csharp
+var state = await session.SaveStateAsync();
+await session.CloseAsync();
+await using var next = await shop.NewSessionAsync(new NewSessionOptions { State = state });
+```
+
+To keep a state between program runs, encrypt it with a 32-byte key that you keep, for example in a secret store. There is no plaintext export.
+
+```csharp
+var key = new SessionStateKeyOptions { Key = RandomNumberGenerator.GetBytes(32) };
+byte[] bytes = await state.ExportAsync(key); // write these to disk
+var restored = await SessionState.ImportAsync(bytes, key);
+```
+
+The document is `session-state-1` ([schema](https://github.com/hardkoded/e2e-dotnet/blob/main/schema/session-state-v1.schema.json)): the engine, the platform, a digest of the app, and the names of the secrets are in the clear and authenticated, and everything else is in the ciphertext.
+
+A state restores only on a host of the same engine, platform, and app. Another is `SESSION_MISMATCH`. Two addresses of one app, such as `localhost` and `127.0.0.1`, are two apps unless both hosts set the same `LaunchApp.Identity`. A wrong key or a changed byte is `SESSION_INVALID`, and an expired state is `SESSION_EXPIRED`.
+
+## Pass secrets
+
+Give secret values to `LaunchAsync`, then fill them by name.
+
+```csharp
+await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions
+{
+    App = new LaunchApp { Url = "https://shop.example.com" },
+    Secrets = new Dictionary<string, string> { ["SHOP_PASSWORD"] = Environment.GetEnvironmentVariable("SHOP_PASSWORD")! },
+});
+await session.Screen.GetByLabel("Password").FillAsync(shop.Secret("SHOP_PASSWORD"));
+```
+
+A value is at least 6 characters. It never appears in the errors a session throws, in `Screen.TreeAsync()`, or in what the agent reads. A read your code asks for, such as `TextContentAsync()`, returns the page's text as it is. An exported state holds the values the session knew, encrypted, so a host launched without them still redacts them. `Host.Secret` with a name that was not passed throws `SECRET_UNAVAILABLE`.
+
+## Handle errors
+
+Every failure is an `E2EException` with a `Code`. A step that fails in a session throws it classified and redacted, with no report around it: an engine's own failure is `ENGINE_FAILURE`, and a cause that held a secret value is rebuilt with it replaced.
+
+| Code | When |
+| --- | --- |
+| `LOCATOR_NOT_FOUND` | Nothing matched before the timeout. |
+| `CANCELLED` | A token aborted the operation, or the session is closed: an action, a read, or an app call on a closed session fails with the message `the session is closed`. |
+| `WORKER_PROTOCOL` | A second session on a host, a second host on one engine instance, or a closed host. |
+| `SESSION_MISMATCH` | A state restored on another engine, platform, or app. |
+| `SESSION_INVALID` | A state document that is not `session-state-1`, or that failed authentication. |
+| `SESSION_EXPIRED` | A state past its expiry. |
+| `SECRET_UNAVAILABLE` | `Host.Secret` named a secret that was not passed. |
+
+[Errors](/reference/errors) lists every code.

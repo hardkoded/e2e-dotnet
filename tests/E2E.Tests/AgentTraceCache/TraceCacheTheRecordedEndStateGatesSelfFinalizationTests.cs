@@ -32,27 +32,26 @@ public sealed class TraceCacheTheRecordedEndStateGatesSelfFinalizationTests
             return Regex.IsMatch(observation.Text, "\"Marker\"[^\n]*text=\"saved\"")
                 ? Passed("the marker reads saved")
                 : Failed("the marker was not saved");
-        })
-        {
-            Version = "test",
-        };
+        }) { Version = "test" };
 
     private static async Task<ActResult> RunAsync(string directory, string appUrl, Action onRun)
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            AgentExecutor = SaveMarkerExecutor(onRun),
-            BaseUrl = appUrl,
-            AppIdentity = "fixture-app",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "saves the marker",
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(30),
-            TestTimeout = TimeSpan.FromSeconds(60),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                AgentExecutor = SaveMarkerExecutor(onRun),
+                BaseUrl = appUrl,
+                AppIdentity = "fixture-app",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "saves the marker",
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(30),
+                TestTimeout = TimeSpan.FromSeconds(60),
+            }
+        );
         await session.App.OpenAsync("/storage");
         var result = await session.Agent.ActAsync("save the marker");
         await Expect.That(session.Screen.GetByLabel("Marker")).ToHaveTextAsync("saved");

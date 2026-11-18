@@ -23,7 +23,9 @@ public sealed class VerbsTests : E2ETest
     public async Task Hover_reveals_the_card_menu_and_the_agent_archives_the_card()
     {
         await Browser.GotoAsync("/board");
-        await Agent.ActAsync("archive the Design review card; the archive action shows when the card actions are hovered");
+        await Agent.ActAsync(
+            "archive the Design review card; the archive action shows when the card actions are hovered"
+        );
         await Expect.That(Screen.GetByLabel("Board state")).ToHaveTextAsync("Design review is archived");
     }
 

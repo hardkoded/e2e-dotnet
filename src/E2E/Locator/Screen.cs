@@ -38,29 +38,36 @@ public class Screen
         Func<ScrollDirection, Momentum?, CancellationToken, Task>? swipe = null,
         Func<TimeSpan, CancellationToken, Task<Observation>>? observeWithin = null,
         Func<Point, PointerAction, CancellationToken, Task>? performAt = null,
-        Func<string, bool, CancellationToken, Task>? typeText = null)
+        Func<string, bool, CancellationToken, Task>? typeText = null
+    )
         : this(
-            new LocatorEngine(new LocatorEngineOptions
-            {
-                Observe = observe,
-                ObserveWithin = observeWithin,
-                Locate = locate,
-                Perform = (node, action, _, token) => perform(node, action, token),
-                PerformAt = performAt is null ? null : (point, action, _, token) => performAt(point, action, token),
-                TypeText = typeText,
-                Cancellation = cancellation,
-                ActionTimeout = actionTimeout,
-                AssertionTimeout = assertionTimeout,
-                Clock = clock ?? TimeProvider.System,
-            }),
+            new LocatorEngine(
+                new LocatorEngineOptions
+                {
+                    Observe = observe,
+                    ObserveWithin = observeWithin,
+                    Locate = locate,
+                    Perform = (node, action, _, token) => perform(node, action, token),
+                    PerformAt = performAt is null ? null : (point, action, _, token) => performAt(point, action, token),
+                    TypeText = typeText,
+                    Cancellation = cancellation,
+                    ActionTimeout = actionTimeout,
+                    AssertionTimeout = assertionTimeout,
+                    Clock = clock ?? TimeProvider.System,
+                }
+            ),
             verified,
             softFailures,
-            swipe)
-    {
-    }
+            swipe
+        ) { }
 
     /// <summary>A screen over the locator engine of an attempt.</summary>
-    internal Screen(LocatorEngine engine, Action verified, SoftFailures? softFailures = null, Func<ScrollDirection, Momentum?, CancellationToken, Task>? swipe = null)
+    internal Screen(
+        LocatorEngine engine,
+        Action verified,
+        SoftFailures? softFailures = null,
+        Func<ScrollDirection, Momentum?, CancellationToken, Task>? swipe = null
+    )
     {
         Engine = engine;
         _verified = verified;
@@ -101,40 +108,72 @@ public class Screen
     internal TimeProvider Clock => Engine.Clock;
 
     /// <summary>The end of the attempt's test timeout, which no read may outlast (upstream's <c>budget.deadline</c>); null outside a session or with no test timeout.</summary>
-    internal Deadline? BudgetDeadline { get => Engine.BudgetDeadline; set => Engine.BudgetDeadline = value; }
+    internal Deadline? BudgetDeadline
+    {
+        get => Engine.BudgetDeadline;
+        set => Engine.BudgetDeadline = value;
+    }
 
     /// <summary>The reads of one wait on <paramref name="deadline"/>: the last may run past it, up to the test timeout (upstream's <c>reads</c>).</summary>
     internal ReadWindow Reads(Deadline deadline) => Engine.Reads(deadline);
 
     /// <summary>What the attempt's engine declares; none for a screen outside a session. The locator reads <see cref="EngineCapabilities.TapModifiers"/>, upstream's <c>session.tapModifiers</c>.</summary>
-    internal EngineCapabilities Capabilities { get => Engine.Capabilities; set => Engine.Capabilities = value; }
+    internal EngineCapabilities Capabilities
+    {
+        get => Engine.Capabilities;
+        set => Engine.Capabilities = value;
+    }
 
     /// <summary>
     /// The locator action kinds the engine declared (upstream's <c>session.actions</c>). Null declares every kind, as a screen built over
     /// bare functions does; a session sets it from <see cref="IEngineSession.ActionKinds"/>.
     /// </summary>
-    internal IReadOnlyCollection<string>? ActionKinds { get => Engine.ActionKinds; set => Engine.ActionKinds = value; }
+    internal IReadOnlyCollection<string>? ActionKinds
+    {
+        get => Engine.ActionKinds;
+        set => Engine.ActionKinds = value;
+    }
 
     /// <summary>The pointer action kinds the engine declared (upstream's <c>session.pointerActions</c>). Null declares none.</summary>
-    internal IReadOnlyCollection<string>? PointerActionKinds { get => Engine.PointerActionKinds; set => Engine.PointerActionKinds = value; }
+    internal IReadOnlyCollection<string>? PointerActionKinds
+    {
+        get => Engine.PointerActionKinds;
+        set => Engine.PointerActionKinds = value;
+    }
 
     internal SoftFailures SoftFailures { get; }
 
     internal TimeSpan PollInterval => Engine.PollInterval;
 
     /// <summary>Where <c>ToHaveScreenshotAsync</c> keeps screenshots; null for a screen outside a session.</summary>
-    internal ScreenshotContext? Screenshots { get => Root._screenshots; set => Root._screenshots = value; }
+    internal ScreenshotContext? Screenshots
+    {
+        get => Root._screenshots;
+        set => Root._screenshots = value;
+    }
 
     internal void MarkSecretFilled(Secret secret) => RememberSecret?.Invoke(secret);
 
     /// <summary>Makes the attempt know a secret filled through this screen, so every message it redacts covers it.</summary>
-    internal Action<Secret>? RememberSecret { get => Root._rememberSecret; set => Root._rememberSecret = value; }
+    internal Action<Secret>? RememberSecret
+    {
+        get => Root._rememberSecret;
+        set => Root._rememberSecret = value;
+    }
 
     /// <summary>Makes the attempt redact one value a provider computed under the secret's name, without making it a secret the agent may fill.</summary>
-    internal Action<string, string>? RegisterSecretValue { get => Root._registerSecretValue; set => Root._registerSecretValue = value; }
+    internal Action<string, string>? RegisterSecretValue
+    {
+        get => Root._registerSecretValue;
+        set => Root._registerSecretValue = value;
+    }
 
     /// <summary>Replaces the secrets the attempt knows in text a failure quotes from the screen; the text as it is for a screen outside a session.</summary>
-    internal Func<string, string> Redact { get => Engine.Redact; set => Engine.Redact = value; }
+    internal Func<string, string> Redact
+    {
+        get => Engine.Redact;
+        set => Engine.Redact = value;
+    }
 
     /// <summary>Creates a lazy role query. <c>img</c> is read as <c>image</c>. A role query never matches a hidden node.</summary>
     public Locator GetByRole(string role, TextMatch? name = null, bool exact = true)
@@ -156,7 +195,10 @@ public class Screen
         ArgumentNullException.ThrowIfNull(options);
         if (options.Name is not null)
         {
-            throw new TestException("INVALID_LOCATOR", "getByRole takes the \"name\" as its second argument or in the options, not both.");
+            throw new TestException(
+                "INVALID_LOCATOR",
+                "getByRole takes the \"name\" as its second argument or in the options, not both."
+            );
         }
 
         return new Locator(this, Scoped(LocatorExpression.ForRole(role, name, options)));
@@ -166,19 +208,23 @@ public class Screen
     /// Creates a lazy visible-text query. It answers with the innermost match, such as a
     /// <c>&lt;strong&gt;</c> inside a paragraph. The text of a label answers with the label, not the control it names.
     /// </summary>
-    public Locator GetByText(TextMatch text, bool exact = true) => GetByText(text, new TextMatchOptions { Exact = exact });
+    public Locator GetByText(TextMatch text, bool exact = true) =>
+        GetByText(text, new TextMatchOptions { Exact = exact });
 
     /// <summary>
     /// Creates a lazy visible-text query. It answers with the innermost match, such as a
     /// <c>&lt;strong&gt;</c> inside a paragraph. The text of a label answers with the label, not the control it names.
     /// </summary>
-    public Locator GetByText(TextMatch text, TextMatchOptions options) => new(this, Scoped(LocatorExpression.For("text", text, options, nameof(text))));
+    public Locator GetByText(TextMatch text, TextMatchOptions options) =>
+        new(this, Scoped(LocatorExpression.For("text", text, options, nameof(text))));
 
     /// <summary>Creates a lazy accessible-label query: any node whose accessible name matches. On a web page, a node whose <c>aria-label</c>, <c>aria-labelledby</c> target, or <c>&lt;label&gt;</c> text matches.</summary>
-    public Locator GetByLabel(TextMatch label, bool exact = true) => GetByLabel(label, new TextMatchOptions { Exact = exact });
+    public Locator GetByLabel(TextMatch label, bool exact = true) =>
+        GetByLabel(label, new TextMatchOptions { Exact = exact });
 
     /// <summary>Creates a lazy accessible-label query: any node whose accessible name matches. On a web page, a node whose <c>aria-label</c>, <c>aria-labelledby</c> target, or <c>&lt;label&gt;</c> text matches.</summary>
-    public Locator GetByLabel(TextMatch label, TextMatchOptions options) => new(this, Scoped(LocatorExpression.For("label", label, options, nameof(label))));
+    public Locator GetByLabel(TextMatch label, TextMatchOptions options) =>
+        new(this, Scoped(LocatorExpression.For("label", label, options, nameof(label))));
 
     /// <summary>Creates a lazy test-id query. A string matches the whole id, case-sensitive.</summary>
     public Locator GetByTestId(TextMatch testId) => GetByTestId(testId, new TextMatchOptions());
@@ -187,27 +233,42 @@ public class Screen
     public Locator GetByTestId(TextMatch testId, TextMatchOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return new Locator(this, Scoped(LocatorExpression.For("testid", testId, new TextMatchOptions { Visible = options.Visible }, nameof(testId))));
+        return new Locator(
+            this,
+            Scoped(
+                LocatorExpression.For(
+                    "testid",
+                    testId,
+                    new TextMatchOptions { Visible = options.Visible },
+                    nameof(testId)
+                )
+            )
+        );
     }
 
     /// <summary>Creates a lazy placeholder query.</summary>
-    public Locator GetByPlaceholder(TextMatch placeholder, bool exact = true) => GetByPlaceholder(placeholder, new TextMatchOptions { Exact = exact });
+    public Locator GetByPlaceholder(TextMatch placeholder, bool exact = true) =>
+        GetByPlaceholder(placeholder, new TextMatchOptions { Exact = exact });
 
     /// <summary>Creates a lazy placeholder query.</summary>
-    public Locator GetByPlaceholder(TextMatch placeholder, TextMatchOptions options) => new(this, Scoped(LocatorExpression.For("placeholder", placeholder, options, nameof(placeholder))));
+    public Locator GetByPlaceholder(TextMatch placeholder, TextMatchOptions options) =>
+        new(this, Scoped(LocatorExpression.For("placeholder", placeholder, options, nameof(placeholder))));
 
     /// <summary>Creates a lazy displayed-value query: the current value of an input, text area, or select. A checkbox or radio never shows its value, so it never matches.</summary>
-    public Locator GetByDisplayValue(TextMatch value, bool exact = true) => GetByDisplayValue(value, new TextMatchOptions { Exact = exact });
+    public Locator GetByDisplayValue(TextMatch value, bool exact = true) =>
+        GetByDisplayValue(value, new TextMatchOptions { Exact = exact });
 
     /// <summary>Creates a lazy displayed-value query: the current value of an input, text area, or select. A checkbox or radio never shows its value, so it never matches.</summary>
-    public Locator GetByDisplayValue(TextMatch value, TextMatchOptions options) => new(this, Scoped(LocatorExpression.For("displayValue", value, options, nameof(value))));
+    public Locator GetByDisplayValue(TextMatch value, TextMatchOptions options) =>
+        new(this, Scoped(LocatorExpression.For("displayValue", value, options, nameof(value))));
 
     /// <summary>
     /// Reads the whole screen once, without waiting, as the agent reads it: one node per line, <c>#id role "name" text="…" [states]</c>,
     /// children indented, secrets redacted. The text has the format and size limit of the trace's screen at failure. A node the page does
     /// not show is left out. Use it to write a locator. Takes <see cref="ActionOptions.Timeout"/>, the configured action timeout by default.
     /// </summary>
-    public Task<string> TreeAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => ReadTreeAsync("screen.tree", options, cancellationToken);
+    public Task<string> TreeAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) =>
+        ReadTreeAsync("screen.tree", options, cancellationToken);
 
     /// <summary>
     /// Prints <see cref="TreeAsync"/> to <see cref="Console.Out"/>, which NUnit and xUnit v2 capture into the test's output.
@@ -224,7 +285,9 @@ public class Screen
     public Task TapAtAsync(Point point, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
         var at = RequirePoint(point, "tapAt");
-        return RunStepAsync(StepKind.Screen, "screen.tapAt", DescribePoint(at), () => Engine.PerformAtAsync(at, new PointerAction.Tap(), options?.Timeout, Token(cancellationToken)));
+        return RunStepAsync(StepKind.Screen, "screen.tapAt", DescribePoint(at), () =>
+            Engine.PerformAtAsync(at, new PointerAction.Tap(), options?.Timeout, Token(cancellationToken))
+        );
     }
 
     /// <summary>
@@ -233,10 +296,16 @@ public class Screen
     /// at the point, as <c>DoubleTapAsync</c> does on a node; their timing on iOS is in the mobile guide's known device limitations. Upstream's <c>screen.doubleTapAt</c>.
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> for a point that is not finite or is negative.</exception>
-    public Task DoubleTapAtAsync(Point point, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    public Task DoubleTapAtAsync(
+        Point point,
+        ActionOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
         var at = RequirePoint(point, "doubleTapAt");
-        return RunStepAsync(StepKind.Screen, "screen.doubleTapAt", DescribePoint(at), () => Engine.PerformAtAsync(at, new PointerAction.DoubleTap(), options?.Timeout, Token(cancellationToken)));
+        return RunStepAsync(StepKind.Screen, "screen.doubleTapAt", DescribePoint(at), () =>
+            Engine.PerformAtAsync(at, new PointerAction.DoubleTap(), options?.Timeout, Token(cancellationToken))
+        );
     }
 
     /// <summary>
@@ -248,13 +317,23 @@ public class Screen
         ArgumentNullException.ThrowIfNull(options);
         if (options.Timeout is not null)
         {
-            throw new TestException("INVALID_ARGUMENT", "swipe options has no key \"timeout\"; a viewport swipe takes direction and momentum");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "swipe options has no key \"timeout\"; a viewport swipe takes direction and momentum"
+            );
         }
 
-        var swipe = _swipe ?? throw new EngineException(EngineErrorCodes.UnsupportedCapability, "scroll is not supported by this engine.");
+        var swipe = _swipe
+            ?? throw new EngineException(
+                EngineErrorCodes.UnsupportedCapability,
+                "scroll is not supported by this engine."
+            );
         if (ActionKinds is { } declared && !declared.Contains("swipe"))
         {
-            throw new EngineException(EngineErrorCodes.UnsupportedCapability, "swipe gestures are not available on this target: its engine declares no \"swipe\" action");
+            throw new EngineException(
+                EngineErrorCodes.UnsupportedCapability,
+                "swipe gestures are not available on this target: its engine declares no \"swipe\" action"
+            );
         }
 
         return RunStepAsync(StepKind.Screen, "screen.swipe", DirectionName(options.Direction), async () =>
@@ -275,7 +354,9 @@ public class Screen
         var from = RequirePoint(options.From, "swipe from");
         var to = RequirePoint(options.To, "swipe to");
         var duration = ValidateSwipeDuration(options.Duration);
-        return RunStepAsync(StepKind.Screen, "screen.swipe", DescribePoint(from) + " → " + DescribePoint(to), () => Engine.PerformAtAsync(from, new PointerAction.SwipeTo(to, duration), null, Token(cancellationToken)));
+        return RunStepAsync(StepKind.Screen, "screen.swipe", DescribePoint(from) + " → " + DescribePoint(to), () =>
+            Engine.PerformAtAsync(from, new PointerAction.SwipeTo(to, duration), null, Token(cancellationToken))
+        );
     }
 
     /// <summary>Validates a point a test names: finite, and never off the plane. Upstream's <c>requirePoint</c>.</summary>
@@ -286,7 +367,9 @@ public class Screen
             throw new TestException("INVALID_ARGUMENT", $"{what} requires a point {{ x, y }} of finite numbers");
         }
 
-        return point.X < 0 || point.Y < 0 ? throw new TestException("INVALID_ARGUMENT", $"{what} requires a point {{ x, y }} of non-negative numbers") : point;
+        return point.X < 0 || point.Y < 0
+            ? throw new TestException("INVALID_ARGUMENT", $"{what} requires a point {{ x, y }} of non-negative numbers")
+            : point;
     }
 
     /// <summary>A point as the report shows it. Upstream's <c>describePoint</c>.</summary>
@@ -303,17 +386,22 @@ public class Screen
 
         var milliseconds = length.TotalMilliseconds;
         return milliseconds != Math.Floor(milliseconds) || milliseconds < 16 || milliseconds > 10_000
-            ? throw new TestException("INVALID_ARGUMENT", "swipe duration must be an integer from 16 through 10000, got " + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            ? throw new TestException(
+                "INVALID_ARGUMENT",
+                "swipe duration must be an integer from 16 through 10000, got "
+                    + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            )
             : length;
     }
 
-    private static string DirectionName(ScrollDirection direction) => direction switch
-    {
-        ScrollDirection.Up => "up",
-        ScrollDirection.Down => "down",
-        ScrollDirection.Left => "left",
-        _ => "right",
-    };
+    private static string DirectionName(ScrollDirection direction) =>
+        direction switch
+        {
+            ScrollDirection.Up => "up",
+            ScrollDirection.Down => "down",
+            ScrollDirection.Left => "left",
+            _ => "right",
+        };
 
     /// <summary>
     /// Scrolls the viewport until <paramref name="target"/> is visible: polls the target and swipes between polls, down and slowly
@@ -321,11 +409,19 @@ public class Screen
     /// action timeout. Upstream's <c>screen.scrollUntilVisible</c>.
     /// </summary>
     /// <exception cref="TestException"><c>LOCATOR_NOT_FOUND</c> when the target did not become visible in time; <c>INVALID_LOCATOR</c> when it belongs to another screen or attempt.</exception>
-    public Task ScrollUntilVisibleAsync(Locator target, ScrollUntilVisibleOptions? options = null, CancellationToken cancellationToken = default) =>
-        ScrollUntilVisibleAsync(target, options, null, cancellationToken);
+    public Task ScrollUntilVisibleAsync(
+        Locator target,
+        ScrollUntilVisibleOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) => ScrollUntilVisibleAsync(target, options, null, cancellationToken);
 
     /// <summary>The scroll of <c>screen</c> or of a locator: on a locator (<paramref name="scope"/>) the node itself swipes, so a scroll container pages.</summary>
-    internal async Task ScrollUntilVisibleAsync(Locator target, ScrollUntilVisibleOptions? options, Locator? scope, CancellationToken cancellationToken)
+    internal async Task ScrollUntilVisibleAsync(
+        Locator target,
+        ScrollUntilVisibleOptions? options,
+        Locator? scope,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(target);
         OwnLocator(target, "scrollUntilVisible");
@@ -336,67 +432,95 @@ public class Screen
         var token = Token(cancellationToken);
         var label = target.Query.Describe();
         await RunStepAsync(StepKind.Screen, "screen.scrollUntilVisible", label, async () =>
-        {
-            var deadline = new Deadline(timeout, Clock);
-            var startedAt = Clock.GetTimestamp();
-            TestException NotVisible(Exception? cause)
             {
-                var message = "target did not become visible while scrolling: " + label;
-                return new TestException("LOCATOR_NOT_FOUND", message, cause!) { Details = LocatorEngine.LocatorDetails(target.Query, Clock.GetElapsedTime(startedAt)) };
-            }
-
-            var reads = Reads(deadline);
-            var sampled = false;
-            while (true)
-            {
-                token.ThrowIfCancellationRequested();
-                SemanticNode? node;
-                try
+                var deadline = new Deadline(timeout, Clock);
+                var startedAt = Clock.GetTimestamp();
+                TestException NotVisible(Exception? cause)
                 {
-                    node = await target.ResolveSingleAsync(token, reads).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (sampled && reads.CutOff(ex))
-                {
-                    throw NotVisible(ex);
+                    var message = "target did not become visible while scrolling: " + label;
+                    return new TestException("LOCATOR_NOT_FOUND", message, cause!)
+                    {
+                        Details = LocatorEngine.LocatorDetails(target.Query, Clock.GetElapsedTime(startedAt)),
+                    };
                 }
 
-                sampled = true;
-                if (LocatorEngine.IsNodeVisible(node))
+                var reads = Reads(deadline);
+                var sampled = false;
+                while (true)
                 {
-                    return;
-                }
+                    token.ThrowIfCancellationRequested();
+                    SemanticNode? node;
+                    try
+                    {
+                        node = await target.ResolveSingleAsync(token, reads).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (sampled && reads.CutOff(ex))
+                    {
+                        throw NotVisible(ex);
+                    }
 
-                if (deadline.Expired(Clock.GetUtcNow()))
-                {
-                    throw NotVisible(null);
-                }
+                    sampled = true;
+                    if (LocatorEngine.IsNodeVisible(node))
+                    {
+                        return;
+                    }
 
-                // Every swipe is bounded by the scroll's own deadline: the token a swipe runs under ends with it.
-                using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
-                bounded.CancelAfter(deadline.Remaining(Clock.GetUtcNow()));
-                try
-                {
-                    await SwipeStepAsync(scope, direction, momentum, deadline, bounded.Token).ConfigureAwait(false);
+                    if (deadline.Expired(Clock.GetUtcNow()))
+                    {
+                        throw NotVisible(null);
+                    }
+
+                    // Every swipe is bounded by the scroll's own deadline: the token a swipe runs under ends with it.
+                    using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    bounded.CancelAfter(deadline.Remaining(Clock.GetUtcNow()));
+                    try
+                    {
+                        await SwipeStepAsync(scope, direction, momentum, deadline, bounded.Token).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (bounded.IsCancellationRequested && !token.IsCancellationRequested)
+                    {
+                        // The deadline ended the swipe: the scroll timed out, as an engine reporting a timeout on its budget would say.
+                        throw NotVisible(
+                            Time.IsOperationTimeout(ex)
+                                ? ex
+                                : new EngineException(
+                                    EngineErrorCodes.OperationTimeout,
+                                    "swipe exceeded the scroll timeout",
+                                    retryable: false
+                                )
+                        );
+                    }
+                    catch (Exception ex)
+                        when (!token.IsCancellationRequested
+                            && (
+                                deadline.Expired(Clock.GetUtcNow())
+                                || (
+                                    Time.IsOperationTimeout(ex)
+                                    && deadline.Remaining(Clock.GetUtcNow()) < Time.PollInterval
+                                )
+                            )
+                        )
+                    {
+                        // The engine's timer can wake a moment before this clock reads the deadline, so a swipe that ran out of its
+                        // budget within a poll interval of the deadline is the deadline too, whichever timer fired first.
+                        throw NotVisible(ex);
+                    }
                 }
-                catch (Exception ex) when (bounded.IsCancellationRequested && !token.IsCancellationRequested)
-                {
-                    // The deadline ended the swipe: the scroll timed out, as an engine reporting a timeout on its budget would say.
-                    throw NotVisible(Time.IsOperationTimeout(ex) ? ex : new EngineException(EngineErrorCodes.OperationTimeout, "swipe exceeded the scroll timeout", retryable: false));
-                }
-                catch (Exception ex) when (!token.IsCancellationRequested
-                    && (deadline.Expired(Clock.GetUtcNow()) || (Time.IsOperationTimeout(ex) && deadline.Remaining(Clock.GetUtcNow()) < Time.PollInterval)))
-                {
-                    // The engine's timer can wake a moment before this clock reads the deadline, so a swipe that ran out of its
-                    // budget within a poll interval of the deadline is the deadline too, whichever timer fired first.
-                    throw NotVisible(ex);
-                }
-            }
-        }).ConfigureAwait(false);
+            })
+            .ConfigureAwait(false);
     }
 
-    private Task SwipeStepAsync(Locator? scope, ScrollDirection direction, Momentum momentum, Deadline deadline, CancellationToken token) =>
+    private Task SwipeStepAsync(
+        Locator? scope,
+        ScrollDirection direction,
+        Momentum momentum,
+        Deadline deadline,
+        CancellationToken token
+    ) =>
         scope is null
-            ? (_swipe ?? throw new EngineException("UNSUPPORTED_CAPABILITY", "scroll is not supported by this engine.")).Invoke(direction, momentum, token)
+            ? (
+                _swipe ?? throw new EngineException("UNSUPPORTED_CAPABILITY", "scroll is not supported by this engine.")
+            ).Invoke(direction, momentum, token)
             : scope.PerformUntilAsync(new LocatorAction.Swipe(direction, momentum), deadline, token);
 
     /// <summary>
@@ -409,15 +533,25 @@ public class Screen
         {
             throw new TestException(
                 "INVALID_LOCATOR",
-                api + " requires a locator made by this screen; the one given belongs to another target's screen or another attempt");
+                api
+                    + " requires a locator made by this screen; the one given belongs to another target's screen or another attempt"
+            );
         }
     }
 
     /// <summary>Renders an observation as <see cref="TreeAsync"/> returns it: redacted, one node per line. A session sets its own redactor and app origin; a screen outside one redacts the text with <see cref="Redact"/>.</summary>
-    internal Func<Observation, string>? RenderTree { get => Root._renderTree; set => Root._renderTree = value; }
+    internal Func<Observation, string>? RenderTree
+    {
+        get => Root._renderTree;
+        set => Root._renderTree = value;
+    }
 
-    internal static string TreeText(Observation observation, Redactor redactor, string? appOrigin, int maxObservationBytes) =>
-        string.Join('\n', FailureEvidence.Listing(observation, redactor, appOrigin, maxObservationBytes).Lines);
+    internal static string TreeText(
+        Observation observation,
+        Redactor redactor,
+        string? appOrigin,
+        int maxObservationBytes
+    ) => string.Join('\n', FailureEvidence.Listing(observation, redactor, appOrigin, maxObservationBytes).Lines);
 
     /// <summary>One observation of the whole screen, rendered, as a screen step.</summary>
     private async Task<string> ReadTreeAsync(string api, ActionOptions? options, CancellationToken cancellationToken)
@@ -434,54 +568,84 @@ public class Screen
         async Task<string> Read()
         {
             using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
-            bounded.CancelAfter(timeout);  // an infinite timeout never fires
+            bounded.CancelAfter(timeout); // an infinite timeout never fires
             try
             {
                 // The wait ends with the timeout even when the engine ignores cancellation; the abandoned read's fault is observed.
                 var read = ObserveAsync(timeout, bounded.Token);
-                _ = read.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                _ = read.ContinueWith(
+                    static finished => _ = finished.Exception,
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default
+                );
                 var observation = await read.WaitAsync(bounded.Token).ConfigureAwait(false);
-                return RenderTree?.Invoke(observation) ?? Redact(TreeText(observation, Redactor.None, null, E2EDefaults.MaxObservationBytes));
+                return RenderTree?.Invoke(observation)
+                    ?? Redact(TreeText(observation, Redactor.None, null, E2EDefaults.MaxObservationBytes));
             }
-            catch (Exception ex) when (bounded.IsCancellationRequested && !token.IsCancellationRequested
-                && (ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }))
+            catch (Exception ex)
+                when (bounded.IsCancellationRequested
+                    && !token.IsCancellationRequested
+                    && (ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled })
+                )
             {
                 // The engine's own budget ends with the token, so it may report the cancel first.
                 throw new EngineException(EngineErrorCodes.OperationTimeout, api + " timed out", retryable: false);
             }
         }
 
-        return Steps is null ? await Read().ConfigureAwait(false) : await Steps.RunAsync(StepKind.Screen, api, "whole screen", Read).ConfigureAwait(false);
+        return Steps is null
+            ? await Read().ConfigureAwait(false)
+            : await Steps.RunAsync(StepKind.Screen, api, "whole screen", Read).ConfigureAwait(false);
     }
 
-    internal Task<Observation> ObserveAsync(CancellationToken cancellationToken) => Engine.ObserveAsync(cancellationToken);
+    internal Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+        Engine.ObserveAsync(cancellationToken);
 
     /// <summary>The observation within <paramref name="timeout"/>, the budget the engine bounds its reads by (upstream's <c>operation.timeoutMs</c>).</summary>
-    internal Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) => Engine.ObserveAsync(timeout, cancellationToken);
+    internal Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+        Engine.ObserveAsync(timeout, cancellationToken);
 
     internal CancellationToken Token(CancellationToken cancellationToken) => Engine.Token(cancellationToken);
 
     internal void NotifyVerified() => _verified();
 
     /// <summary>The project root that <see cref="Locator.SetInputFilesAsync(string, ActionOptions, CancellationToken)"/> resolves paths from (upstream's <c>context.projectRoot</c>); null outside a session, where a path stays as given.</summary>
-    internal string? ProjectRoot { get => Root._projectRoot; set => Root._projectRoot = value; }
+    internal string? ProjectRoot
+    {
+        get => Root._projectRoot;
+        set => Root._projectRoot = value;
+    }
 
     /// <summary>The attempt's step timeline; null for a screen outside a session, whose calls then run unrecorded.</summary>
-    internal StepRecorder? Steps { get => Engine.Steps; set => Engine.Steps = value; }
+    internal StepRecorder? Steps
+    {
+        get => Engine.Steps;
+        set => Engine.Steps = value;
+    }
 
     /// <summary>Runs one call that touches the app as a recorded step of the attempt, or as it is without a timeline.</summary>
     internal Task RunStepAsync(StepKind kind, string api, string label, Func<Task> body, bool verifies = false) =>
         Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
 
     /// <summary>Runs one call that touches the app and returns a value as a recorded step of the attempt, or as it is without a timeline.</summary>
-    internal Task<T> RunStepAsync<T>(StepKind kind, string api, string label, Func<Task<T>> body, bool verifies = false) =>
-        Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
+    internal Task<T> RunStepAsync<T>(
+        StepKind kind,
+        string api,
+        string label,
+        Func<Task<T>> body,
+        bool verifies = false
+    ) => Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
 
     /// <summary>Records one child event under the running step; nothing outside a session listens.</summary>
     internal void RecordEvent(StepEvent stepEvent) => Steps?.RecordEvent(stepEvent);
 
     /// <summary>Tells the attempt that an assertion failed on the app. Nothing outside a session listens.</summary>
-    internal Action Failed { get => Root._failed; set => Root._failed = value; }
+    internal Action Failed
+    {
+        get => Root._failed;
+        set => Root._failed = value;
+    }
 
     internal void NotifyFailed() => Failed();
 }
@@ -504,7 +668,15 @@ public sealed class Locator
     {
         ArgumentNullException.ThrowIfNull(hasText);
         hasText.ThrowIfBlank(nameof(hasText));
-        return new Locator(_screen, new LocatorExpression { Kind = "filter", Source = Query, HasText = hasText });
+        return new Locator(
+            _screen,
+            new LocatorExpression
+            {
+                Kind = "filter",
+                Source = Query,
+                HasText = hasText,
+            }
+        );
     }
 
     /// <summary>Keeps the matches with a descendant that <paramref name="has"/> matches. <paramref name="has"/> resolves inside each match.</summary>
@@ -512,7 +684,15 @@ public sealed class Locator
     {
         ArgumentNullException.ThrowIfNull(has);
         _screen.OwnLocator(has, "filter({ has })");
-        return new Locator(_screen, new LocatorExpression { Kind = "filter", Source = Query, Has = has.Query });
+        return new Locator(
+            _screen,
+            new LocatorExpression
+            {
+                Kind = "filter",
+                Source = Query,
+                Has = has.Query,
+            }
+        );
     }
 
     /// <summary>
@@ -523,7 +703,12 @@ public sealed class Locator
     /// object, beside <see cref="Filter(TextMatch)"/> and <see cref="Filter(Locator)"/>.
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_LOCATOR</c>: no filter is given, or the <c>has</c> or <c>hasNot</c> locator belongs to another screen or attempt.</exception>
-    public Locator Filter(TextMatch? hasText = null, TextMatch? hasNotText = null, Locator? has = null, Locator? hasNot = null)
+    public Locator Filter(
+        TextMatch? hasText = null,
+        TextMatch? hasNotText = null,
+        Locator? has = null,
+        Locator? hasNot = null
+    )
     {
         if (hasText is null && hasNotText is null && has is null && hasNot is null)
         {
@@ -541,15 +726,18 @@ public sealed class Locator
             _screen.OwnLocator(hasNot, "filter({ hasNot })");
         }
 
-        return new Locator(_screen, new LocatorExpression
-        {
-            Kind = "filter",
-            Source = Query,
-            HasText = hasText,
-            HasNotText = hasNotText,
-            Has = has?.Query,
-            HasNot = hasNot?.Query,
-        });
+        return new Locator(
+            _screen,
+            new LocatorExpression
+            {
+                Kind = "filter",
+                Source = Query,
+                HasText = hasText,
+                HasNotText = hasNotText,
+                Has = has?.Query,
+                HasNot = hasNot?.Query,
+            }
+        );
     }
 
     /// <summary>
@@ -565,30 +753,58 @@ public sealed class Locator
         {
             throw new TestException(
                 "INVALID_LOCATOR",
-                "or requires a locator made by this screen; the one given belongs to another target's screen or another attempt");
+                "or requires a locator made by this screen; the one given belongs to another target's screen or another attempt"
+            );
         }
 
-        return new Locator(_screen, new LocatorExpression { Kind = "union", Left = Query, Right = other.Query });
+        return new Locator(
+            _screen,
+            new LocatorExpression
+            {
+                Kind = "union",
+                Left = Query,
+                Right = other.Query,
+            }
+        );
     }
 
     public Locator First() => Nth(0);
 
-    public Locator Last() => new(_screen, new LocatorExpression { Kind = "index", Source = Query, Index = LocatorExpression.LastIndex });
+    public Locator Last() =>
+        new(
+            _screen,
+            new LocatorExpression
+            {
+                Kind = "index",
+                Source = Query,
+                Index = LocatorExpression.LastIndex,
+            }
+        );
 
     public Locator Nth(int index)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(index);
-        return new Locator(_screen, new LocatorExpression { Kind = "index", Source = Query, Index = index });
+        return new Locator(
+            _screen,
+            new LocatorExpression
+            {
+                Kind = "index",
+                Source = Query,
+                Index = index,
+            }
+        );
     }
 
     /// <summary>Creates a role query among this locator's descendants.</summary>
-    public Locator GetByRole(string role, TextMatch? name = null, bool exact = true) => Scope(_screen.Root.GetByRole(role, name, exact));
+    public Locator GetByRole(string role, TextMatch? name = null, bool exact = true) =>
+        Scope(_screen.Root.GetByRole(role, name, exact));
 
     /// <summary>Creates a role query among this locator's descendants.</summary>
     public Locator GetByRole(string role, RoleOptions options) => Scope(_screen.Root.GetByRole(role, options));
 
     /// <summary>Creates a role query among this locator's descendants.</summary>
-    public Locator GetByRole(string role, TextMatch name, RoleOptions options) => Scope(_screen.Root.GetByRole(role, name, options));
+    public Locator GetByRole(string role, TextMatch name, RoleOptions options) =>
+        Scope(_screen.Root.GetByRole(role, name, options));
 
     /// <summary>Creates a visible-text query among this locator's descendants.</summary>
     public Locator GetByText(TextMatch text, bool exact = true) => Scope(_screen.Root.GetByText(text, exact));
@@ -600,64 +816,88 @@ public sealed class Locator
     public Locator GetByLabel(TextMatch label, bool exact = true) => Scope(_screen.Root.GetByLabel(label, exact));
 
     /// <summary>Creates a label query among this locator's descendants.</summary>
-    public Locator GetByLabel(TextMatch label, TextMatchOptions options) => Scope(_screen.Root.GetByLabel(label, options));
+    public Locator GetByLabel(TextMatch label, TextMatchOptions options) =>
+        Scope(_screen.Root.GetByLabel(label, options));
 
     /// <summary>Creates a test-id query among this locator's descendants.</summary>
     public Locator GetByTestId(TextMatch testId) => Scope(_screen.Root.GetByTestId(testId));
 
     /// <summary>Creates a test-id query among this locator's descendants.</summary>
-    public Locator GetByTestId(TextMatch testId, TextMatchOptions options) => Scope(_screen.Root.GetByTestId(testId, options));
+    public Locator GetByTestId(TextMatch testId, TextMatchOptions options) =>
+        Scope(_screen.Root.GetByTestId(testId, options));
 
     /// <summary>Creates a placeholder query among this locator's descendants.</summary>
-    public Locator GetByPlaceholder(TextMatch placeholder, bool exact = true) => Scope(_screen.Root.GetByPlaceholder(placeholder, exact));
+    public Locator GetByPlaceholder(TextMatch placeholder, bool exact = true) =>
+        Scope(_screen.Root.GetByPlaceholder(placeholder, exact));
 
     /// <summary>Creates a placeholder query among this locator's descendants.</summary>
-    public Locator GetByPlaceholder(TextMatch placeholder, TextMatchOptions options) => Scope(_screen.Root.GetByPlaceholder(placeholder, options));
+    public Locator GetByPlaceholder(TextMatch placeholder, TextMatchOptions options) =>
+        Scope(_screen.Root.GetByPlaceholder(placeholder, options));
 
     /// <summary>Creates a displayed-value query among this locator's descendants.</summary>
-    public Locator GetByDisplayValue(TextMatch value, bool exact = true) => Scope(_screen.Root.GetByDisplayValue(value, exact));
+    public Locator GetByDisplayValue(TextMatch value, bool exact = true) =>
+        Scope(_screen.Root.GetByDisplayValue(value, exact));
 
     /// <summary>Creates a displayed-value query among this locator's descendants.</summary>
-    public Locator GetByDisplayValue(TextMatch value, TextMatchOptions options) => Scope(_screen.Root.GetByDisplayValue(value, options));
+    public Locator GetByDisplayValue(TextMatch value, TextMatchOptions options) =>
+        Scope(_screen.Root.GetByDisplayValue(value, options));
 
     /// <summary>Taps the node, waiting for exactly one enabled match.</summary>
-    public Task TapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => TapAsync(AsClick(options), cancellationToken);
+    public Task TapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) =>
+        TapAsync(AsClick(options), cancellationToken);
 
     /// <summary>
     /// Taps the node. <see cref="ClickOptions.Modifiers"/> are held for the tap, on an engine that declares
     /// <see cref="EngineCapabilities.TapModifiers"/>; any other engine refuses them with <c>UNSUPPORTED_CAPABILITY</c> before the node is resolved.
     /// </summary>
-    public Task TapAsync(ClickOptions? options, CancellationToken cancellationToken = default) => TapWithAsync("tap", options, cancellationToken);
+    public Task TapAsync(ClickOptions? options, CancellationToken cancellationToken = default) =>
+        TapWithAsync("tap", options, cancellationToken);
 
     /// <summary>
     /// Taps the node, or, with <see cref="TapOptions.Position"/>, the point of its box at that offset from its top-left corner, inside its border on a document platform: the node is scrolled
     /// into view when the engine can, its box is read, and the pointer is dispatched there with no other actionability check. That needs the
     /// engine's <c>tap</c> pointer action. A node that never has a box fails with <c>LOCATOR_NOT_FOUND</c>, as <c>WaitForAsync</c> does.
     /// </summary>
-    public Task TapAsync(TapOptions? options, CancellationToken cancellationToken = default) => TapAsync((ClickOptions?)options, cancellationToken);
+    public Task TapAsync(TapOptions? options, CancellationToken cancellationToken = default) =>
+        TapAsync((ClickOptions?)options, cancellationToken);
 
     /// <summary>Alias of <see cref="TapAsync(ActionOptions, CancellationToken)"/>.</summary>
-    public Task ClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => ClickAsync(AsClick(options), cancellationToken);
+    public Task ClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) =>
+        ClickAsync(AsClick(options), cancellationToken);
 
     /// <summary>Alias of <see cref="TapAsync(ClickOptions, CancellationToken)"/>.</summary>
-    public Task ClickAsync(ClickOptions? options, CancellationToken cancellationToken = default) => TapWithAsync("click", options, cancellationToken);
+    public Task ClickAsync(ClickOptions? options, CancellationToken cancellationToken = default) =>
+        TapWithAsync("click", options, cancellationToken);
 
     /// <summary>Alias of <see cref="TapAsync(TapOptions, CancellationToken)"/>.</summary>
-    public Task ClickAsync(TapOptions? options, CancellationToken cancellationToken = default) => ClickAsync((ClickOptions?)options, cancellationToken);
+    public Task ClickAsync(TapOptions? options, CancellationToken cancellationToken = default) =>
+        ClickAsync((ClickOptions?)options, cancellationToken);
 
     /// <summary>Double taps the node, waiting for exactly one enabled match.</summary>
-    public Task DoubleTapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => DoubleTapAsync(AsClick(options), cancellationToken);
+    public Task DoubleTapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) =>
+        DoubleTapAsync(AsClick(options), cancellationToken);
 
     /// <summary>Double taps the node. <see cref="ClickOptions.Modifiers"/> are held for both taps, as for <see cref="TapAsync(ClickOptions, CancellationToken)"/>.</summary>
     public Task DoubleTapAsync(ClickOptions? options, CancellationToken cancellationToken = default) =>
-        ClickWithAsync("doubleTap", static modifiers => new LocatorAction.DoubleTap(modifiers), options, cancellationToken);
+        ClickWithAsync(
+            "doubleTap",
+            static modifiers => new LocatorAction.DoubleTap(modifiers),
+            options,
+            cancellationToken
+        );
 
     /// <summary>Alias of <see cref="DoubleTapAsync(ActionOptions, CancellationToken)"/>.</summary>
-    public Task DblClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => DblClickAsync(AsClick(options), cancellationToken);
+    public Task DblClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) =>
+        DblClickAsync(AsClick(options), cancellationToken);
 
     /// <summary>Alias of <see cref="DoubleTapAsync(ClickOptions, CancellationToken)"/>.</summary>
     public Task DblClickAsync(ClickOptions? options, CancellationToken cancellationToken = default) =>
-        ClickWithAsync("dblclick", static modifiers => new LocatorAction.DoubleTap(modifiers), options, cancellationToken);
+        ClickWithAsync(
+            "dblclick",
+            static modifiers => new LocatorAction.DoubleTap(modifiers),
+            options,
+            cancellationToken
+        );
 
     private static ClickOptions? AsClick(ActionOptions? options) =>
         options as ClickOptions ?? (options is null ? null : new ClickOptions { Timeout = options.Timeout });
@@ -667,7 +907,12 @@ public sealed class Locator
     /// An engine with no secondary tap (a device, the document engine) fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     public Task SecondaryTapAsync(ClickOptions? options = null, CancellationToken cancellationToken = default) =>
-        ClickWithAsync("secondaryTap", static modifiers => new LocatorAction.SecondaryTap(modifiers), options, cancellationToken);
+        ClickWithAsync(
+            "secondaryTap",
+            static modifiers => new LocatorAction.SecondaryTap(modifiers),
+            options,
+            cancellationToken
+        );
 
     /// <summary>
     /// Holds a press on the node for <see cref="LongPressOptions.Duration"/>, from 100 ms through 10 s; without one the engine holds its default.
@@ -688,11 +933,23 @@ public sealed class Locator
     /// drag is resolved again along with the source.
     /// </summary>
     /// <exception cref="TestException"><paramref name="target"/> is a locator of another screen (<c>INVALID_LOCATOR</c>).</exception>
-    public Task DragToAsync(Locator target, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    public Task DragToAsync(
+        Locator target,
+        ActionOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(target);
         _screen.OwnLocator(target, "dragTo");
-        return ActAsync("locator.dragTo", async (deadline, token) => new LocatorAction.DragTo(await target.ResolveExactlyOneAsync(deadline, token).ConfigureAwait(false)), options, null, null, cancellationToken);
+        return ActAsync(
+            "locator.dragTo",
+            async (deadline, token) =>
+                new LocatorAction.DragTo(await target.ResolveExactlyOneAsync(deadline, token).ConfigureAwait(false)),
+            options,
+            null,
+            null,
+            cancellationToken
+        );
     }
 
     /// <summary>
@@ -734,7 +991,9 @@ public sealed class Locator
             _screen.MarkSecretFilled(value);
             _screen.RegisterSecretValue?.Invoke(resolved.Name, resolved.Value);
             var action = new LocatorAction.Fill(resolved.Value, Sensitive: true);
-            await _screen.Engine.PerformAsync(Query, (_, _) => Task.FromResult<LocatorAction>(action), options?.Timeout, token).ConfigureAwait(false);
+            await _screen
+                .Engine.PerformAsync(Query, (_, _) => Task.FromResult<LocatorAction>(action), options?.Timeout, token)
+                .ConfigureAwait(false);
         });
     }
 
@@ -746,7 +1005,11 @@ public sealed class Locator
     /// whose engine declares no keyboard, or does not declare <c>focus</c>, is refused with <c>UNSUPPORTED_CAPABILITY</c> before any node
     /// resolves. A secret is not typed as keystrokes; pass it to <see cref="FillAsync(Secret, ActionOptions, CancellationToken)"/>.
     /// </summary>
-    public Task PressSequentiallyAsync(string text, PressSequentiallyOptions? options = null, CancellationToken cancellationToken = default)
+    public Task PressSequentiallyAsync(
+        string text,
+        PressSequentiallyOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(text);
         if (options?.Delay is TimeSpan wait)
@@ -754,12 +1017,19 @@ public sealed class Locator
             ArgumentOutOfRangeException.ThrowIfLessThan(wait, TimeSpan.Zero, nameof(options));
         }
 
-        var chunks = text.Length == 0 ? [] : options?.Delay is null ? new[] { text } : CodePoints(text);
-        return _screen.RunStepAsync(
-            StepKind.Locator,
-            "locator.pressSequentially",
-            Query.Describe(),
-            () => _screen.Engine.PressSequentiallyAsync(Query, chunks, options?.Delay ?? TimeSpan.Zero, options?.Timeout, _screen.Token(cancellationToken)));
+        var chunks =
+            text.Length == 0 ? []
+            : options?.Delay is null ? new[] { text }
+            : CodePoints(text);
+        return _screen.RunStepAsync(StepKind.Locator, "locator.pressSequentially", Query.Describe(), () =>
+            _screen.Engine.PressSequentiallyAsync(
+                Query,
+                chunks,
+                options?.Delay ?? TimeSpan.Zero,
+                options?.Timeout,
+                _screen.Token(cancellationToken)
+            )
+        );
     }
 
     /// <summary>The text split by code point, so a surrogate pair is one keystroke as it is in upstream's <c>[...text]</c>; a lone surrogate stands alone.</summary>
@@ -794,7 +1064,11 @@ public sealed class Locator
     }
 
     /// <summary>Selects the option whose value or label is <paramref name="value"/>.</summary>
-    public Task SelectOptionAsync(string value, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    public Task SelectOptionAsync(
+        string value,
+        ActionOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(value);
         return ActAsync(new LocatorAction.Select(value), options, cancellationToken);
@@ -804,7 +1078,11 @@ public sealed class Locator
     /// Selects the option <paramref name="option"/> names by its label, its value, or its index. A select takes one option per call.
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> when <paramref name="option"/> names none or more than one of the three, or an index below 0.</exception>
-    public Task SelectOptionAsync(SelectOption option, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    public Task SelectOptionAsync(
+        SelectOption option,
+        ActionOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(option);
         option.Require();
@@ -815,7 +1093,11 @@ public sealed class Locator
     /// Sets the files of exactly one file input, or of a control that opens a file chooser; <paramref name="path"/> resolves from the project root.
     /// On the web it also takes a button that opens a file chooser. An empty list of paths clears the input and fires <c>input</c> and <c>change</c>. A button that opens none fails with <c>ACTION_FAILED</c>, caused by the engine's <c>NOT_ACTIONABLE</c>.
     /// </summary>
-    public Task SetInputFilesAsync(string path, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    public Task SetInputFilesAsync(
+        string path,
+        ActionOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(path);
         return SetInputFilesAsync([path], options, cancellationToken);
@@ -823,7 +1105,11 @@ public sealed class Locator
 
     /// <inheritdoc cref="SetInputFilesAsync(string, ActionOptions, CancellationToken)"/>
     /// <exception cref="ArgumentException"><paramref name="paths"/> has a blank entry (upstream's <c>INVALID_ARGUMENT</c>).</exception>
-    public Task SetInputFilesAsync(IEnumerable<string> paths, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    public Task SetInputFilesAsync(
+        IEnumerable<string> paths,
+        ActionOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(paths);
         var list = paths.ToList();
@@ -872,7 +1158,10 @@ public sealed class Locator
 
         return Roles.IsValueControl(node)
             ? ""
-            : throw new TestException("ACTION_FAILED", $"Node is not an <input>, <textarea> or <select> element: {Query.Describe()}");
+            : throw new TestException(
+                "ACTION_FAILED",
+                $"Node is not an <input>, <textarea> or <select> element: {Query.Describe()}"
+            );
     }
 
     /// <summary>Waits up to the action timeout for one match, then reads one platform attribute once, or null when the node does not have it. Fails with <c>POLICY_DENIED</c> on a secure field.</summary>
@@ -886,7 +1175,9 @@ public sealed class Locator
     /// <summary>Reads current visibility: true when exactly one visible node matches. More than one match fails.</summary>
     public async Task<bool> IsVisibleAsync(CancellationToken cancellationToken = default)
     {
-        return LocatorEngine.IsNodeVisible(await _screen.Engine.ReadNowAsync(Query, _screen.Token(cancellationToken)).ConfigureAwait(false));
+        return LocatorEngine.IsNodeVisible(
+            await _screen.Engine.ReadNowAsync(Query, _screen.Token(cancellationToken)).ConfigureAwait(false)
+        );
     }
 
     /// <summary>Reads current hidden or absent state, the negation of <see cref="IsVisibleAsync"/>.</summary>
@@ -930,7 +1221,9 @@ public sealed class Locator
     /// <summary>Counts current matches without waiting.</summary>
     public async Task<int> CountAsync(CancellationToken cancellationToken = default)
     {
-        var matches = await _screen.Engine.ReadAllNowAsync(Query, _screen.Token(cancellationToken)).ConfigureAwait(false);
+        var matches = await _screen
+            .Engine.ReadAllNowAsync(Query, _screen.Token(cancellationToken))
+            .ConfigureAwait(false);
         return matches.Count;
     }
 
@@ -953,7 +1246,9 @@ public sealed class Locator
     /// </summary>
     public async Task<IReadOnlyList<string>> AllTextContentsAsync(CancellationToken cancellationToken = default)
     {
-        var matches = await _screen.Engine.ReadAllNowAsync(Query, _screen.Token(cancellationToken)).ConfigureAwait(false);
+        var matches = await _screen
+            .Engine.ReadAllNowAsync(Query, _screen.Token(cancellationToken))
+            .ConfigureAwait(false);
         DenySecureRead(matches);
         return matches.Select(node => TextRules.Normalize(node.Text ?? "")).ToList();
     }
@@ -971,7 +1266,8 @@ public sealed class Locator
             "locator.waitFor",
             Query.Describe() + " → " + StateName(options?.State ?? WaitForState.Visible),
             () => WaitForCoreAsync(options, cancellationToken),
-            verifies: true);
+            verifies: true
+        );
 
     private async Task WaitForCoreAsync(LocatorWaitForOptions? options, CancellationToken cancellationToken)
     {
@@ -981,39 +1277,59 @@ public sealed class Locator
         var startedAt = clock.GetTimestamp();
         var deadline = _screen.Engine.DeadlineFor(options?.Timeout);
         var samples = new SampleHistory("waitFor", _screen.Redact);
-        await samples.RecordAsync(_screen.Steps, token, () => Time.PollReadsAsync(new PollReadsOptions
-        {
-            Deadline = deadline,
-            Reads = _screen.Reads(deadline),
-            Clock = clock,
-            Token = token,
-            Negated = false,
-            Interval = _screen.PollInterval,
-            Evaluate = async reads =>
-            {
-                // The states absence satisfies read a frame missing from the document as zero matches.
-                var matches = await ResolveAsync(token, includeHidden: true, reads, state is WaitForState.Detached or WaitForState.Hidden ? MissingFrame.Empty : MissingFrame.Wait).ConfigureAwait(false);
-                if (matches.Count > 1)
-                {
-                    throw await _screen.Engine.AmbiguousAsync(Query, matches.Count, token).ConfigureAwait(false);
-                }
+        await samples
+            .RecordAsync(_screen.Steps, token, () => Time.PollReadsAsync(
+                    new PollReadsOptions
+                    {
+                        Deadline = deadline,
+                        Reads = _screen.Reads(deadline),
+                        Clock = clock,
+                        Token = token,
+                        Negated = false,
+                        Interval = _screen.PollInterval,
+                        Evaluate = async reads =>
+                        {
+                            // The states absence satisfies read a frame missing from the document as zero matches.
+                            var matches = await ResolveAsync(
+                                    token,
+                                    includeHidden: true,
+                                    reads,
+                                    state is WaitForState.Detached or WaitForState.Hidden
+                                        ? MissingFrame.Empty
+                                        : MissingFrame.Wait
+                                )
+                                .ConfigureAwait(false);
+                            if (matches.Count > 1)
+                            {
+                                throw await _screen
+                                    .Engine.AmbiguousAsync(Query, matches.Count, token)
+                                    .ConfigureAwait(false);
+                            }
 
-                samples.Add(matches.Count == 0 ? "absent" : LocatorEngine.IsNodeVisible(matches[0]) ? "visible" : "hidden");
-                return state switch
-                {
-                    WaitForState.Attached => matches.Count == 1,
-                    WaitForState.Visible => matches.Count == 1 && LocatorEngine.IsNodeVisible(matches[0]),
-                    WaitForState.Hidden => matches.Count == 0 || !LocatorEngine.IsNodeVisible(matches[0]),
-                    _ => matches.Count == 0,
-                };
-            },
-            OnTimeout = cause => ErrorRedaction.Failure(
-                "LOCATOR_NOT_FOUND",
-                "locator did not become " + StateName(state) + ": " + Query.Describe(),
-                cause,
-                _screen.Redact,
-                LocatorEngine.LocatorDetails(Query, clock.GetElapsedTime(startedAt))),
-        })).ConfigureAwait(false);
+                            samples.Add(
+                                matches.Count == 0 ? "absent"
+                                : LocatorEngine.IsNodeVisible(matches[0]) ? "visible"
+                                : "hidden"
+                            );
+                            return state switch
+                            {
+                                WaitForState.Attached => matches.Count == 1,
+                                WaitForState.Visible => matches.Count == 1 && LocatorEngine.IsNodeVisible(matches[0]),
+                                WaitForState.Hidden => matches.Count == 0 || !LocatorEngine.IsNodeVisible(matches[0]),
+                                _ => matches.Count == 0,
+                            };
+                        },
+                        OnTimeout = cause =>
+                            ErrorRedaction.Failure(
+                                "LOCATOR_NOT_FOUND",
+                                "locator did not become " + StateName(state) + ": " + Query.Describe(),
+                                cause,
+                                _screen.Redact,
+                                LocatorEngine.LocatorDetails(Query, clock.GetElapsedTime(startedAt))
+                            ),
+                    }
+                ))
+            .ConfigureAwait(false);
         _screen.NotifyVerified();
     }
 
@@ -1022,8 +1338,12 @@ public sealed class Locator
     /// resolves locators skips a hidden node unless <paramref name="includeHidden"/> asks for it. <paramref name="reads"/> bounds the retries and the budget
     /// of each read, and defaults to a window of the action timeout. <paramref name="missingFrame"/> says what a frame the engine reports missing means.
     /// </summary>
-    internal Task<IReadOnlyList<SemanticNode>> ResolveAsync(CancellationToken cancellationToken, bool includeHidden = false, ReadWindow? reads = null, MissingFrame missingFrame = MissingFrame.Wait) =>
-        _screen.Engine.ResolveOnceAsync(Query, cancellationToken, includeHidden, reads, missingFrame);
+    internal Task<IReadOnlyList<SemanticNode>> ResolveAsync(
+        CancellationToken cancellationToken,
+        bool includeHidden = false,
+        ReadWindow? reads = null,
+        MissingFrame missingFrame = MissingFrame.Wait
+    ) => _screen.Engine.ResolveOnceAsync(Query, cancellationToken, includeHidden, reads, missingFrame);
 
     internal Screen Screen => _screen;
 
@@ -1034,28 +1354,57 @@ public sealed class Locator
     /// More than one match fails at once.
     /// </summary>
     private Task ActAsync(LocatorAction action, ActionOptions? options, CancellationToken cancellationToken) =>
-        ActAsync("locator." + LocatorEngine.ApiName(action), (_, _) => Task.FromResult(action), options, null, () => _screen.Engine.CheckAction(action), cancellationToken, anyState: action is LocatorAction.ScrollIntoView);
+        ActAsync(
+            "locator." + LocatorEngine.ApiName(action),
+            (_, _) => Task.FromResult(action),
+            options,
+            null,
+            () => _screen.Engine.CheckAction(action),
+            cancellationToken,
+            anyState: action is LocatorAction.ScrollIntoView
+        );
 
     /// <summary>
     /// <see cref="ActAsync(LocatorAction, ActionOptions, CancellationToken)"/> for an action built once the node is found, with the step's
     /// label and a check that runs inside the step before the node is resolved.
     /// </summary>
-    private Task ActAsync(string api, Func<Deadline, CancellationToken, Task<LocatorAction>> build, ActionOptions? options, string? label, Action? check, CancellationToken cancellationToken, bool anyState = false) =>
-        _screen.RunStepAsync(StepKind.Locator, api, label ?? Query.Describe(), () =>
+    private Task ActAsync(
+        string api,
+        Func<Deadline, CancellationToken, Task<LocatorAction>> build,
+        ActionOptions? options,
+        string? label,
+        Action? check,
+        CancellationToken cancellationToken,
+        bool anyState = false
+    ) => _screen.RunStepAsync(StepKind.Locator, api, label ?? Query.Describe(), () =>
         {
             check?.Invoke();
-            return _screen.Engine.PerformAsync(Query, build, options?.Timeout, _screen.Token(cancellationToken), anyState);
+            return _screen.Engine.PerformAsync(
+                Query,
+                build,
+                options?.Timeout,
+                _screen.Token(cancellationToken),
+                anyState
+            );
         });
 
     /// <summary>
     /// A tap, double tap, or secondary tap with the keys <see cref="ClickOptions.Modifiers"/> holds. The modifiers are validated at once; an
     /// engine that does not declare <see cref="EngineCapabilities.TapModifiers"/> refuses them inside the step, before the node is resolved.
     /// </summary>
-    private Task ClickWithAsync(string api, Func<IReadOnlyList<KeyModifier>?, LocatorAction> make, ClickOptions? options, CancellationToken cancellationToken)
+    private Task ClickWithAsync(
+        string api,
+        Func<IReadOnlyList<KeyModifier>?, LocatorAction> make,
+        ClickOptions? options,
+        CancellationToken cancellationToken
+    )
     {
         if (options is TapOptions { Position: not null })
         {
-            throw new TestException("INVALID_ARGUMENT", api + " options has no key \"position\"; it takes timeout, modifiers");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                api + " options has no key \"position\"; it takes timeout, modifiers"
+            );
         }
 
         // Validation only: every capability is passed, so the engine's own check waits for the step (RequireClickModifiers below).
@@ -1075,7 +1424,8 @@ public sealed class Locator
                     ActionDispatcher.RequireClickModifiers(options, api, _screen.Capabilities);
                 }
             },
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     /// <summary>
@@ -1086,17 +1436,30 @@ public sealed class Locator
     {
         if (options is not TapOptions { Position: { } position })
         {
-            return ClickWithAsync(api, static modifiers => new LocatorAction.Tap(modifiers), options, cancellationToken);
+            return ClickWithAsync(
+                api,
+                static modifiers => new LocatorAction.Tap(modifiers),
+                options,
+                cancellationToken
+            );
         }
 
         // Validation only, as for the other taps: the capability check waits for the step.
         if (ActionDispatcher.RequireClickModifiers(options, api, EngineCapabilities.TapModifiers) is not null)
         {
-            throw new TestException("INVALID_ARGUMENT", api + "() does not take modifiers with a position yet; drop one of them");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                api + "() does not take modifiers with a position yet; drop one of them"
+            );
         }
 
         var offset = Screen.RequirePoint(position, api + " position");
-        return _screen.RunStepAsync(StepKind.Locator, "locator." + api, Query.Describe() + " at " + Screen.DescribePoint(offset), () => PerformWithinAsync(offset, new PointerAction.Tap(), options.Timeout, cancellationToken));
+        return _screen.RunStepAsync(
+            StepKind.Locator,
+            "locator." + api,
+            Query.Describe() + " at " + Screen.DescribePoint(offset),
+            () => PerformWithinAsync(offset, new PointerAction.Tap(), options.Timeout, cancellationToken)
+        );
     }
 
     /// <summary>The hold of a long press: whole milliseconds from 100 through 10000, or null for the engine's default.</summary>
@@ -1110,7 +1473,12 @@ public sealed class Locator
         var milliseconds = hold.TotalMilliseconds;
         if (milliseconds != Math.Floor(milliseconds) || milliseconds < 100 || milliseconds > 10_000)
         {
-            throw new ArgumentOutOfRangeException(nameof(duration), hold, "longPress duration must be an integer from 100 through 10000 milliseconds, got " + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            throw new ArgumentOutOfRangeException(
+                nameof(duration),
+                hold,
+                "longPress duration must be an integer from 100 through 10000 milliseconds, got "
+                    + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            );
         }
 
         return hold;
@@ -1120,23 +1488,35 @@ public sealed class Locator
     /// Scrolls this locator's node until <paramref name="target"/> is visible: the node itself swipes, so a scroll container pages
     /// without the pointer having to hover it first. Both locators must come from the same screen. Upstream's <c>locator.scrollUntilVisible</c>.
     /// </summary>
-    public Task ScrollUntilVisibleAsync(Locator target, ScrollUntilVisibleOptions? options = null, CancellationToken cancellationToken = default) =>
-        _screen.ScrollUntilVisibleAsync(target, options, this, cancellationToken);
+    public Task ScrollUntilVisibleAsync(
+        Locator target,
+        ScrollUntilVisibleOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) => _screen.ScrollUntilVisibleAsync(target, options, this, cancellationToken);
 
     /// <summary>
     /// Performs one pointer action at an offset from the origin of exactly one match (<see cref="SemanticNode.Origin"/>, else its box's top-left corner): the node is scrolled into view when the engine
     /// can, then its box is read and the pointer dispatched at the point, with no node behind the gesture. The node has to be visible with a
     /// box within the deadline; one that never is fails as <c>LOCATOR_NOT_FOUND</c>, as <c>WaitForAsync</c> does. Upstream's <c>performWithin</c>.
     /// </summary>
-    internal Task PerformWithinAsync(Point offset, PointerAction action, TimeSpan? timeout, CancellationToken cancellationToken) =>
-        _screen.Engine.PerformWithinAsync(Query, offset, action, timeout, _screen.Token(cancellationToken));
+    internal Task PerformWithinAsync(
+        Point offset,
+        PointerAction action,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken
+    ) => _screen.Engine.PerformWithinAsync(Query, offset, action, timeout, _screen.Token(cancellationToken));
 
     /// <summary>Performs one action on the one enabled match, waiting for it until <paramref name="deadline"/> (upstream's <c>performUntil</c>, <see cref="LocatorEngine.PerformUntilAsync"/>).</summary>
-    internal Task PerformUntilAsync(LocatorAction action, Deadline deadline, CancellationToken token, bool anyState = false) =>
-        _screen.Engine.PerformUntilAsync(Query, action, deadline, token, anyState);
+    internal Task PerformUntilAsync(
+        LocatorAction action,
+        Deadline deadline,
+        CancellationToken token,
+        bool anyState = false
+    ) => _screen.Engine.PerformUntilAsync(Query, action, deadline, token, anyState);
 
     /// <summary>A secure field's text, value, and attributes are withheld, so reading them is denied rather than read as empty.</summary>
-    internal void DenySecureRead(IReadOnlyList<SemanticNode> nodes) => LocatorEngine.DenySecureRead(nodes, Query.Describe());
+    internal void DenySecureRead(IReadOnlyList<SemanticNode> nodes) =>
+        LocatorEngine.DenySecureRead(nodes, Query.Describe());
 
     /// <summary>Returns the one match for a text or value read. A secure match fails with <c>POLICY_DENIED</c>.</summary>
     private async Task<SemanticNode> ResolveReadableAsync(CancellationToken cancellationToken)
@@ -1147,8 +1527,11 @@ public sealed class Locator
     }
 
     /// <summary>Returns the one match, or null when nothing matches. More than one match fails.</summary>
-    internal Task<SemanticNode?> ResolveSingleAsync(CancellationToken token, ReadWindow? reads = null, MissingFrame missingFrame = MissingFrame.Wait) =>
-        _screen.Engine.TryReadAsync(Query, token, reads, missingFrame);
+    internal Task<SemanticNode?> ResolveSingleAsync(
+        CancellationToken token,
+        ReadWindow? reads = null,
+        MissingFrame missingFrame = MissingFrame.Wait
+    ) => _screen.Engine.TryReadAsync(Query, token, reads, missingFrame);
 
     /// <summary>
     /// Waits until <paramref name="deadline"/> for the one match. Upstream's <c>resolveExactlyOne</c>, which a drag uses for the node it drops on.
@@ -1156,13 +1539,14 @@ public sealed class Locator
     internal Task<SemanticNode> ResolveExactlyOneAsync(Deadline deadline, CancellationToken token) =>
         _screen.Engine.ResolveExactlyOneAsync(Query, deadline, token);
 
-    private static string StateName(WaitForState state) => state switch
-    {
-        WaitForState.Attached => "attached",
-        WaitForState.Detached => "detached",
-        WaitForState.Hidden => "hidden",
-        _ => "visible",
-    };
+    private static string StateName(WaitForState state) =>
+        state switch
+        {
+            WaitForState.Attached => "attached",
+            WaitForState.Detached => "detached",
+            WaitForState.Hidden => "hidden",
+            _ => "visible",
+        };
 }
 
 /// <summary>Options for one locator action.</summary>
@@ -1352,6 +1736,10 @@ public sealed record LocatorExpression
     /// </summary>
     internal bool IncludeHidden { get; init; }
 
+    /// <summary>The vocabulary role behind a <c>GetByRole</c> or <c>ToHaveRole</c> argument; a role is its own.</summary>
+    internal static string CanonicalRole(string role) =>
+        string.Equals(role, "img", StringComparison.Ordinal) ? "image" : role;
+
     internal static LocatorExpression ForRole(string role, TextMatch? name, RoleOptions options)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(role);
@@ -1363,7 +1751,7 @@ public sealed record LocatorExpression
         return new LocatorExpression
         {
             Kind = "role",
-            Role = string.Equals(role, "img", StringComparison.OrdinalIgnoreCase) ? "image" : role,
+            Role = CanonicalRole(role),
             Value = name,
             Exact = options.Exact,
             Visible = options.Visible,
@@ -1381,7 +1769,13 @@ public sealed record LocatorExpression
         ArgumentNullException.ThrowIfNull(value, paramName);
         ArgumentNullException.ThrowIfNull(options);
         value.ThrowIfBlank(paramName);
-        return new LocatorExpression { Kind = kind, Value = value, Exact = options.Exact, Visible = options.Visible };
+        return new LocatorExpression
+        {
+            Kind = kind,
+            Value = value,
+            Exact = options.Exact,
+            Visible = options.Visible,
+        };
     }
 
     /// <summary>
@@ -1391,7 +1785,10 @@ public sealed record LocatorExpression
     /// </summary>
     internal ErrorDetails ExpressionHints()
     {
-        static string? PatternText(TextMatch? match) => match is null ? null : match.Pattern is null ? match.Text : match.Pattern.ToString();
+        static string? PatternText(TextMatch? match) =>
+            match is null ? null
+            : match.Pattern is null ? match.Text
+            : match.Pattern.ToString();
         switch (Kind)
         {
             case "union":
@@ -1445,42 +1842,51 @@ public sealed record LocatorExpression
             case "union":
                 return Left!.Describe() + ".or(" + Right!.Describe() + ")";
             case "filter":
+            {
+                var parts = new List<string>();
+                if (HasText is not null)
                 {
-                    var parts = new List<string>();
-                    if (HasText is not null)
-                    {
-                        parts.Add("hasText: " + HasText + (HasTextExact ? ", exact" : ""));
-                    }
-
-                    if (HasNotText is not null)
-                    {
-                        parts.Add("hasNotText: " + HasNotText + (HasNotTextExact ? ", exact" : ""));
-                    }
-
-                    if (Has is not null)
-                    {
-                        parts.Add("has: " + Has.Describe());
-                    }
-
-                    if (HasNot is not null)
-                    {
-                        parts.Add("hasNot: " + HasNot.Describe());
-                    }
-
-                    return Source!.Describe() + ".filter(" + string.Join(", ", parts) + ")";
+                    parts.Add("hasText: " + HasText + (HasTextExact ? ", exact" : ""));
                 }
+
+                if (HasNotText is not null)
+                {
+                    parts.Add("hasNotText: " + HasNotText + (HasNotTextExact ? ", exact" : ""));
+                }
+
+                if (Has is not null)
+                {
+                    parts.Add("has: " + Has.Describe());
+                }
+
+                if (HasNot is not null)
+                {
+                    parts.Add("hasNot: " + HasNot.Describe());
+                }
+
+                return Source!.Describe() + ".filter(" + string.Join(", ", parts) + ")";
+            }
             case "frame":
                 return "frameLocator(" + Quoted(Selector) + ") >> " + Source!.Describe();
             case "index":
-                return Source!.Describe() + (Index == LastIndex
-                    ? ".last()"
-                    : ".nth(" + Index!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")");
+                return Source!.Describe()
+                    + (
+                        Index == LastIndex
+                            ? ".last()"
+                            : ".nth(" + Index!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")"
+                    );
         }
 
         var visible = Visible ? ", visible: true" : "";
         var core = Kind switch
         {
-            "role" => "getByRole(\"" + Role + "\"" + (Value is null ? "" : ", " + Value) + RoleOptions() + visible + ")",
+            "role" => "getByRole(\""
+                + Role
+                + "\""
+                + (Value is null ? "" : ", " + Value)
+                + RoleOptions()
+                + visible
+                + ")",
             "text" => "getByText(" + Value + visible + ")",
             "label" => "getByLabel(" + Value + visible + ")",
             "testid" => "getByTestId(" + Value + visible + ")",
@@ -1493,7 +1899,9 @@ public sealed record LocatorExpression
     }
 
     private static string Quoted(string? selector) =>
-        "\"" + selector?.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+        "\""
+        + selector?.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal)
+        + "\"";
 
     private string RoleOptions()
     {
@@ -1533,7 +1941,11 @@ internal static class LocatorResolver
     /// asks for every attached node, so role queries match hidden nodes too.
     /// A <c>visible</c> query never matches a hidden node.
     /// </summary>
-    public static IReadOnlyList<SemanticNode> Resolve(Observation observation, LocatorExpression query, bool includeHidden = false)
+    public static IReadOnlyList<SemanticNode> Resolve(
+        Observation observation,
+        LocatorExpression query,
+        bool includeHidden = false
+    )
     {
         var tree = new TreeIndex(observation.Roots);
         return Resolve(query, tree.All, tree, includeHidden);
@@ -1546,7 +1958,8 @@ internal static class LocatorResolver
     internal static IReadOnlyList<SemanticNode> ResolveExpression(
         LocatorExpression query,
         IReadOnlyList<SemanticNode> nodes,
-        Func<string, IReadOnlyList<SemanticNode>, IReadOnlyList<SemanticNode>>? selector)
+        Func<string, IReadOnlyList<SemanticNode>, IReadOnlyList<SemanticNode>>? selector
+    )
     {
         var tree = new TreeIndex(nodes, selector);
         return Resolve(query, tree.All, tree, includeHidden: false);
@@ -1564,35 +1977,50 @@ internal static class LocatorResolver
         }
     }
 
-    private static List<SemanticNode> Resolve(LocatorExpression query, IReadOnlyList<SemanticNode> candidates, TreeIndex tree, bool includeHidden)
+    private static List<SemanticNode> Resolve(
+        LocatorExpression query,
+        IReadOnlyList<SemanticNode> candidates,
+        TreeIndex tree,
+        bool includeHidden
+    )
     {
         switch (query.Kind)
         {
             case "union":
-                {
-                    var matches = new HashSet<SemanticNode>(ReferenceEqualityComparer.Instance);
-                    matches.UnionWith(Resolve(query.Left!, candidates, tree, includeHidden));
-                    matches.UnionWith(Resolve(query.Right!, candidates, tree, includeHidden));
-                    return candidates.Where(matches.Contains).ToList();
-                }
+            {
+                var matches = new HashSet<SemanticNode>(ReferenceEqualityComparer.Instance);
+                matches.UnionWith(Resolve(query.Left!, candidates, tree, includeHidden));
+                matches.UnionWith(Resolve(query.Right!, candidates, tree, includeHidden));
+                return candidates.Where(matches.Contains).ToList();
+            }
 
             case "filter":
+            {
+                if (
+                    (query.Has is not null && UsesDisplayValue(query.Has))
+                    || (query.HasNot is not null && UsesDisplayValue(query.HasNot))
+                )
                 {
-                    if ((query.Has is not null && UsesDisplayValue(query.Has)) || (query.HasNot is not null && UsesDisplayValue(query.HasNot)))
-                    {
-                        throw UnsupportedDisplayValue();
-                    }
+                    throw UnsupportedDisplayValue();
+                }
 
-                    var source = Resolve(query.Source!, candidates, tree, includeHidden);
-                    var includeValue = !UsesDisplayValue(query.Source!);
-                    return source.Where(node =>
+                var source = Resolve(query.Source!, candidates, tree, includeHidden);
+                var includeValue = !UsesDisplayValue(query.Source!);
+                return source
+                    .Where(node =>
                     {
-                        if (query.HasText is not null && !SubtreeHasText(node, query.HasText, query.HasTextExact, includeValue))
+                        if (
+                            query.HasText is not null
+                            && !SubtreeHasText(node, query.HasText, query.HasTextExact, includeValue)
+                        )
                         {
                             return false;
                         }
 
-                        if (query.HasNotText is not null && SubtreeHasText(node, query.HasNotText, query.HasNotTextExact, includeValue))
+                        if (
+                            query.HasNotText is not null
+                            && SubtreeHasText(node, query.HasNotText, query.HasNotTextExact, includeValue)
+                        )
                         {
                             return false;
                         }
@@ -1609,15 +2037,16 @@ internal static class LocatorResolver
                         }
 
                         return query.HasNot is null || Resolve(query.HasNot, within, tree, includeHidden).Count == 0;
-                    }).ToList();
-                }
+                    })
+                    .ToList();
+            }
 
             case "index":
-                {
-                    var source = Resolve(query.Source!, candidates, tree, includeHidden);
-                    var position = query.Index == LocatorExpression.LastIndex ? source.Count - 1 : query.Index!.Value;
-                    return position >= 0 && position < source.Count ? [source[position]] : [];
-                }
+            {
+                var source = Resolve(query.Source!, candidates, tree, includeHidden);
+                var position = query.Index == LocatorExpression.LastIndex ? source.Count - 1 : query.Index!.Value;
+                return position >= 0 && position < source.Count ? [source[position]] : [];
+            }
 
             case "selector" when tree.Selector is { } selector:
                 return selector(query.Selector!, candidates).ToList();
@@ -1626,32 +2055,34 @@ internal static class LocatorResolver
                 throw new EngineException(
                     "UNSUPPORTED_CAPABILITY",
                     $"selector {System.Text.Json.JsonSerializer.Serialize(query.Selector)} needs a platform selector language, and this surface has none",
-                    retryable: false);
+                    retryable: false
+                );
 
             case "frame":
                 throw new EngineException(
                     EngineErrorCodes.FrameNotFound,
                     $"no nested document matches {System.Text.Json.JsonSerializer.Serialize(query.Selector)}: this surface has none to scope a query into",
-                    retryable: false);
+                    retryable: false
+                );
 
             default:
+            {
+                if (query.Parent is not null && UsesDisplayValue(query.Parent))
                 {
-                    if (query.Parent is not null && UsesDisplayValue(query.Parent))
-                    {
-                        throw UnsupportedDisplayValue();
-                    }
-
-                    var pool = query.Parent is null
-                        ? candidates
-                        : tree.DescendantsOf(Resolve(query.Parent, candidates, tree, includeHidden), candidates);
-                    var matches = pool.Where(node => Matches(node, query, includeHidden)).ToList();
-                    return query.Kind switch
-                    {
-                        "text" => tree.InnermostOnly(BoxedFirst(matches)),
-                        "label" => tree.InnermostOnly(matches),
-                        _ => matches,
-                    };
+                    throw UnsupportedDisplayValue();
                 }
+
+                var pool = query.Parent is null
+                    ? candidates
+                    : tree.DescendantsOf(Resolve(query.Parent, candidates, tree, includeHidden), candidates);
+                var matches = pool.Where(node => Matches(node, query, includeHidden)).ToList();
+                return query.Kind switch
+                {
+                    "text" => tree.InnermostOnly(BoxedFirst(matches)),
+                    "label" => tree.InnermostOnly(matches),
+                    _ => matches,
+                };
+            }
         }
     }
 
@@ -1671,7 +2102,10 @@ internal static class LocatorResolver
         || (query.Parent is not null && UsesDisplayValue(query.Parent));
 
     private static EngineException UnsupportedDisplayValue() =>
-        new("UNSUPPORTED_CAPABILITY", "displayValue queries cannot scope child queries or serve as a has or hasNot filter in this engine");
+        new(
+            "UNSUPPORTED_CAPABILITY",
+            "displayValue queries cannot scope child queries or serve as a has or hasNot filter in this engine"
+        );
 
     private static bool Matches(SemanticNode node, LocatorExpression query, bool includeHidden)
     {
@@ -1685,7 +2119,9 @@ internal static class LocatorResolver
         {
             "role" => RoleMatches(node, query, includeHidden),
             "text" => HasText(node, value!, query.Exact),
-            "label" => node.Labels is { } labels ? labels.Any(label => value!.Matches(label, query.Exact)) : value!.Matches(node.Name, query.Exact),
+            "label" => node.Labels is { } labels
+                ? labels.Any(label => value!.Matches(label, query.Exact))
+                : value!.Matches(node.Name, query.Exact),
             "testid" => value!.Matches(node.TestId, exact: true),
             "placeholder" => value!.Matches(node.Placeholder, query.Exact),
             // A checkbox or radio carries a value it never shows (`on` by default), so it is no candidate.
@@ -1696,11 +2132,19 @@ internal static class LocatorResolver
 
     // An input whose type is checkbox or radio, as upstream's `input:not([type="checkbox" i]):not([type="radio" i])`.
     internal static bool IsCheckable(SemanticNode node) =>
-        node.Attributes.TryGetValue("type", out var type) && (type.Equals("checkbox", StringComparison.OrdinalIgnoreCase) || type.Equals("radio", StringComparison.OrdinalIgnoreCase));
+        node.Attributes.TryGetValue("type", out var type)
+        && (
+            type.Equals("checkbox", StringComparison.OrdinalIgnoreCase)
+            || type.Equals("radio", StringComparison.OrdinalIgnoreCase)
+        );
 
     private static bool RoleMatches(SemanticNode node, LocatorExpression query, bool includeHidden)
     {
-        if (node.Role is null || !string.Equals(node.Role, query.Role, StringComparison.OrdinalIgnoreCase) || ((node.States.Hidden || node.States.AriaHidden) && !includeHidden))
+        if (
+            node.Role is null
+            || !string.Equals(node.Role, query.Role, StringComparison.OrdinalIgnoreCase)
+            || ((node.States.Hidden || node.States.AriaHidden) && !includeHidden)
+        )
         {
             return false;
         }
@@ -1722,10 +2166,13 @@ internal static class LocatorResolver
     // A node with DOM text (the web) answers to that text, as Playwright's text engine does: a placeholder, a title, or the label a
     // control is named by is no text. Any other node answers to its accessible name or its text.
     private static bool HasText(SemanticNode node, TextMatch expected, bool exact) =>
-        node.DomText is { } domText ? expected.Matches(domText, exact) : expected.Matches(node.Name, exact) || expected.Matches(node.Text, exact);
+        node.DomText is { } domText
+            ? expected.Matches(domText, exact)
+            : expected.Matches(node.Name, exact) || expected.Matches(node.Text, exact);
 
     /// <summary>A state with no value to match (mixed, or an attribute that is absent) matches neither true nor false, as Playwright's role selector reads it.</summary>
-    private static bool StateIs(bool? wanted, bool actual, bool unset = false) => wanted is null || (!unset && wanted.Value == actual);
+    private static bool StateIs(bool? wanted, bool actual, bool unset = false) =>
+        wanted is null || (!unset && wanted.Value == actual);
 
     /// <summary>
     /// Whether the node's own name, text, or value, or a descendant's, contains the text, ignoring case.
@@ -1761,7 +2208,10 @@ internal static class LocatorResolver
     {
         private readonly Dictionary<SemanticNode, SemanticNode> _parents = new(ReferenceEqualityComparer.Instance);
 
-        public TreeIndex(IEnumerable<SemanticNode> roots, Func<string, IReadOnlyList<SemanticNode>, IReadOnlyList<SemanticNode>>? selector = null)
+        public TreeIndex(
+            IEnumerable<SemanticNode> roots,
+            Func<string, IReadOnlyList<SemanticNode>, IReadOnlyList<SemanticNode>>? selector = null
+        )
         {
             Selector = selector;
             foreach (var root in roots)
@@ -1779,7 +2229,10 @@ internal static class LocatorResolver
         /// The candidates that are strict descendants of any of <paramref name="ancestors"/>, in document order. A frame node's children are
         /// its own document's, so a candidate under a nested frame is no descendant of a node above that frame, as in a locator chain.
         /// </summary>
-        public List<SemanticNode> DescendantsOf(IReadOnlyCollection<SemanticNode> ancestors, IReadOnlyList<SemanticNode> candidates)
+        public List<SemanticNode> DescendantsOf(
+            IReadOnlyCollection<SemanticNode> ancestors,
+            IReadOnlyList<SemanticNode> candidates
+        )
         {
             if (ancestors.Count == 0)
             {

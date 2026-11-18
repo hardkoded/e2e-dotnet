@@ -27,6 +27,8 @@ dotnet build MyApp -f net11.0-android -t:SignAndroidPackage  # Android
 
 The iOS build writes `MyApp.app` under `bin/Debug/net11.0-ios/iossimulator-arm64/`. Build and install again after every app change: the tests do not build the app.
 
+On .NET 11, `dotnet run` builds, installs, and launches the app in one step. Run it from the app's folder: `dotnet run -f net11.0-ios --list-devices` lists the device ids, and `dotnet run -f net11.0-ios --device <id>` runs the app on one. For an iOS simulator the id is its UDID, the same value `E2E_MOBILE_DEVICE` takes. The command stays attached and streams the app's log until Ctrl+C.
+
 ## 3. Create the test project
 
 Keep it a plain `net10.0` or `net11.0` project, so it builds on a machine without the MAUI workload.
@@ -100,11 +102,24 @@ builder.AddMauiDevFlowAgent();
 Launch the app, then run the tests against it:
 
 ```bash
-dotnet build MyApp -f net11.0-ios -r iossimulator-arm64 -t:Run
+# In one terminal, from the app's folder; leave it running:
+dotnet run -f net11.0-ios --device <id>
+# In another terminal:
 E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MyApp dotnet test
 ```
 
-The tests attach to the running app. Nothing is installed and the app is not relaunched between tests, so each test starts from the state the last one left. Tests that send the app to the background or relaunch it are inconclusive in this mode. Use `AttachesToRunningApp` in `Assume.That` to skip them. This mode is a preview and has not been run against a device yet.
+To change the app while you fix a test, start it with `dotnet watch` in place of `dotnet run`. Hot reload applies each edit to the running app, with no reinstall and no relaunch:
+
+```bash
+# Terminal 1, from the app's folder:
+dotnet watch -f net11.0-ios --device <id>
+# Terminal 2, one test at a time:
+E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MyApp dotnet test --filter "FullyQualifiedName~<Class>.<Method>"
+```
+
+Edit the app, wait for `C# and Razor changes applied` (it prints this for a XAML edit too), and run the second command again. A coding agent can start `dotnet watch` with `--non-interactive`, so it never waits for a key. Hot reload does not reset the app: it is the same process, so the screen, the typed text, and the counters stay as the last test left them, and the next test starts from that state. A test that needs a clean start must navigate there itself, or you restart `dotnet watch`. If `dotnet watch` says it cannot apply an edit, restart it.
+
+The tests attach to the running app. Nothing is installed and the app is not relaunched between tests, so each test starts from the state the last one left. Tests that send the app to the background or relaunch it are inconclusive in this mode. Use `AttachesToRunningApp` in `Assume.That` to skip them. This mode is a preview. It was run on an iOS simulator, not on Android or a physical device.
 
 ## Next
 

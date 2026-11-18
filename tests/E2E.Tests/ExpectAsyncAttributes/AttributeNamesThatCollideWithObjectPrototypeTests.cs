@@ -12,19 +12,23 @@ public sealed class AttributeNamesThatCollideWithObjectPrototypeTests
     [Fact]
     public async Task An_absent_attribute_is_absent_whatever_its_name()
     {
-        var screen = ScreenFixture.Create(new SemanticNode
-        {
-            Ref = "node-1",
-            Role = "button",
-            Attributes = new Dictionary<string, string> { ["type"] = "submit" },
-        });
+        var screen = ScreenFixture.Create(
+            new SemanticNode
+            {
+                Ref = "node-1",
+                Role = "button",
+                Attributes = new Dictionary<string, string> { ["type"] = "submit" },
+            }
+        );
         var locator = screen.GetByRole("button");
 
         foreach (var name in new[] { "constructor", "toString", "__proto__", "hasOwnProperty" })
         {
             await Expect.That(locator).Not.ToHaveAttributeAsync(name);
             Assert.Null(await locator.GetAttributeAsync(name));
-            var error = await ToHaveValueTests.Fails("ASSERTION_FAILED", () => Expect.That(locator).ToHaveAttributeAsync(name, TimeSpan.FromMilliseconds(50)));
+            var error = await ToHaveValueTests.Fails("ASSERTION_FAILED", () =>
+                Expect.That(locator).ToHaveAttributeAsync(name, TimeSpan.FromMilliseconds(50))
+            );
             Assert.Contains("attribute \"" + name + "\" absent", error.Message, StringComparison.Ordinal);
         }
     }
@@ -32,12 +36,19 @@ public sealed class AttributeNamesThatCollideWithObjectPrototypeTests
     [Fact]
     public async Task A_present_attribute_answers_its_string_whatever_its_name()
     {
-        var screen = ScreenFixture.Create(new SemanticNode
-        {
-            Ref = "node-1",
-            Role = "button",
-            Attributes = new Dictionary<string, string> { ["constructor"] = "x", ["toString"] = "", ["__proto__"] = "proto" },
-        });
+        var screen = ScreenFixture.Create(
+            new SemanticNode
+            {
+                Ref = "node-1",
+                Role = "button",
+                Attributes = new Dictionary<string, string>
+                {
+                    ["constructor"] = "x",
+                    ["toString"] = "",
+                    ["__proto__"] = "proto",
+                },
+            }
+        );
         var locator = screen.GetByRole("button");
 
         await Expect.That(locator).ToHaveAttributeAsync("constructor", "x");

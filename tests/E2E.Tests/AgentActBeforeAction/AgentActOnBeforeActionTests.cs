@@ -25,23 +25,35 @@ public sealed class AgentActOnBeforeActionTests
 
     private static string Label(BeforeActionEvent e) => $"before {e.Index} {e.Source.ToString().ToLowerInvariant()}";
 
-    private static Task<E2ESession> StartAsync(string directory, IAgentModel? model, IStepExecutor? executor = null, CacheMode mode = CacheMode.ReadWrite) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(CounterPage.World()),
-            Model = model,
-            AgentExecutor = executor,
-            BaseUrl = "https://counter.test",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = mode,
-            TestTitle = Title,
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ReplayTimeout = TimeSpan.FromMilliseconds(300),
-        });
+    private static Task<E2ESession> StartAsync(
+        string directory,
+        IAgentModel? model,
+        IStepExecutor? executor = null,
+        CacheMode mode = CacheMode.ReadWrite
+    ) =>
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                Model = model,
+                AgentExecutor = executor,
+                BaseUrl = "https://counter.test",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = mode,
+                TestTitle = Title,
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                ReplayTimeout = TimeSpan.FromMilliseconds(300),
+            }
+        );
 
     // Upstream's SUITE: the starting screen shows the count before this action, and onAction the count after it.
-    private static async Task RunSuiteAsync(E2ESession session, List<string> labels, Func<BeforeActionEvent, Task>? extra = null, bool confirm = true)
+    private static async Task RunSuiteAsync(
+        E2ESession session,
+        List<string> labels,
+        Func<BeforeActionEvent, Task>? extra = null,
+        bool confirm = true
+    )
     {
         await session.App.OpenAsync("/");
         await session.Agent.ActAsync(
@@ -50,15 +62,21 @@ public sealed class AgentActOnBeforeActionTests
             {
                 OnBeforeAction = async e =>
                 {
-                    await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync((e.Index - 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    await Expect
+                        .That(session.Screen.GetByRole("status"))
+                        .ToHaveTextAsync((e.Index - 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
                     labels.Add(Label(e));
                     if (extra is not null)
                     {
                         await extra(e);
                     }
                 },
-                OnAction = e => Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync(e.Index.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-            });
+                OnAction = e =>
+                    Expect
+                        .That(session.Screen.GetByRole("status"))
+                        .ToHaveTextAsync(e.Index.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            }
+        );
         if (confirm)
         {
             await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("2");
@@ -102,7 +120,8 @@ public sealed class AgentActOnBeforeActionTests
         {
             await session.Agent.ActAsync(
                 TwoTapCounter.Instruction,
-                new ActOptions { OnBeforeAction = _ => throw new InvalidOperationException("before broke") });
+                new ActOptions { OnBeforeAction = _ => throw new InvalidOperationException("before broke") }
+            );
         }
         catch (AgentException error)
         {
@@ -115,7 +134,9 @@ public sealed class AgentActOnBeforeActionTests
 
         Assert.Equal("ACTION_FAILED", failure.Code);
         Assert.Contains("onBeforeAction failed: before broke", failure.Message, StringComparison.Ordinal);
-        Assert.Contains(session.StepRecords, step => step.Api == "expect.toHaveText" && step.Status == StepStatus.Passed);
+        Assert.Contains(session.StepRecords, step =>
+            step.Api == "expect.toHaveText" && step.Status == StepStatus.Passed
+        );
         Assert.Equal(1, session.StepRecords.Single(step => step.Api == "agent.act").Metrics?.ActionSteps);
     }
 
@@ -134,10 +155,13 @@ public sealed class AgentActOnBeforeActionTests
         var calls = model.CallCount;
         await using (var session = await StartAsync(directory, model))
         {
-            var error = await Assert.ThrowsAsync<AgentException>(() => RunSuiteAsync(
-                session,
-                [],
-                e => e.Source == ActionSource.Replay ? throw new InvalidOperationException("replay observer broke") : Task.CompletedTask));
+            var error = await Assert.ThrowsAsync<AgentException>(() =>
+                RunSuiteAsync(session, [], e =>
+                    e.Source == ActionSource.Replay
+                        ? throw new InvalidOperationException("replay observer broke")
+                        : Task.CompletedTask
+                )
+            );
             session.Complete(error);
             Assert.Contains("onBeforeAction failed: replay observer broke", error.Message, StringComparison.Ordinal);
         }
@@ -180,7 +204,8 @@ public sealed class AgentActOnBeforeActionTests
                     labels.Add(Label(e));
                     return Task.CompletedTask;
                 },
-            });
+            }
+        );
         session.Complete();
 
         Assert.Equal(["before 1 model"], labels);
@@ -193,7 +218,9 @@ public sealed class AgentActOnBeforeActionTests
         // before the dispatcher takes a slot, so a hand-rolled executor makes the same dispatcher call, and the refusal comes from the dispatcher.
         var executor = new TestExecutor("missing-target-executor", async (context, token) =>
         {
-            var refused = await Assert.ThrowsAsync<TestException>(() => context.Actions.TapAsync(new ExecutorTarget("n99999"), token));
+            var refused = await Assert.ThrowsAsync<TestException>(() =>
+                context.Actions.TapAsync(new ExecutorTarget("n99999"), token)
+            );
             Assert.Equal("LOCATOR_NOT_FOUND", refused.Code);
             return Passed("observed the refused attempt");
         });
@@ -210,7 +237,8 @@ public sealed class AgentActOnBeforeActionTests
                     return Task.CompletedTask;
                 },
                 OnAction = _ => throw new InvalidOperationException("must not complete"),
-            });
+            }
+        );
         await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("0");
         session.Complete();
 

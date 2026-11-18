@@ -29,7 +29,10 @@ public sealed class StepHooksTests
             var steps = page.Split('\n').Where(line => Regex.IsMatch(line, @"^\d+\. ")).ToList();
             Assert.That(steps, Has.Count.EqualTo(3), page);
             Assert.That(steps[0], Does.Contain("`app.open`").And.Contain("in beforeEach)"));
-            Assert.That(steps[1], Does.Contain("`expect.toHaveText`").And.Not.Contain("in beforeEach").And.Not.Contain("in afterEach"));
+            Assert.That(
+                steps[1],
+                Does.Contain("`expect.toHaveText`").And.Not.Contain("in beforeEach").And.Not.Contain("in afterEach")
+            );
             Assert.That(steps[2], Does.Contain("`expect.toBeVisible`").And.Contain("in afterEach)"));
         }
         finally
@@ -49,7 +52,8 @@ public sealed class HookedFixture : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     public static string Results { get; set; } = "";
 

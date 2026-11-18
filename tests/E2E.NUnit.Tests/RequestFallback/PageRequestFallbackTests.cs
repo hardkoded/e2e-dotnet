@@ -68,7 +68,9 @@ public sealed class PageRequestFallbackTests : PlaywrightTest
             failed = true;
             await route.ContinueAsync();
         });
-        await Browser.RouteAsync("**/empty.html", route => route.FulfillAsync(new RouteFulfillResponse { Status = 200, Body = "fulfilled" }));
+        await Browser.RouteAsync("**/empty.html", route =>
+            route.FulfillAsync(new RouteFulfillResponse { Status = 200, Body = "fulfilled" })
+        );
         await Browser.RouteAsync("**/empty.html", route => route.FallbackAsync());
         var response = await AllAsync(Browser.WaitForResponseAsync("**/empty.html"), Browser.GotoAsync(EmptyPage));
         Assert.That(await response.TextAsync(), Is.EqualTo("fulfilled"));

@@ -12,7 +12,14 @@ namespace E2E.Tests.DebugSteps;
 public sealed partial class AgentStepTableTests
 {
     private static StepModelInfo Model(string provider, string id, int calls) =>
-        new() { Provider = provider, Model = id, Calls = calls, InputTokens = 100 * calls, OutputTokens = 10 * calls };
+        new()
+        {
+            Provider = provider,
+            Model = id,
+            Calls = calls,
+            InputTokens = 100 * calls,
+            OutputTokens = 10 * calls,
+        };
 
     private static StepRecord Step(string label, string api = "agent.act", StepModelInfo? model = null)
     {
@@ -36,29 +43,43 @@ public sealed partial class AgentStepTableTests
         var acted = Model("typesafe-ai", "jev", 2);
         var judged = Model("fake-loop", "scripted-loop", 1);
 
-        var table = Steps.AgentStepTable(
-        [
+        var table = Steps.AgentStepTable([
             [Step("pay", model: acted), Step("no model call")],
             [Step("confirm", "agent.assert", judged)],
         ]);
 
         Assert.Matches(@"\A\[e2e debug\] agent steps \(execution order\)\n", table);
         var cells = Cells(table);
-        Assert.Equal(["step", "via", "total", "model", "observe", "action", "calls", "tokens in/out", "cached", "cost"], cells[0]);
         Assert.Equal(
-            [["agent.act \"pay\"", "typesafe-ai/jev"], ["agent.act \"no model call\"", "-"], ["agent.assert \"confirm\"", "fake-loop/scripted-loop"]],
-            cells.Skip(1).Select(row => row[..2]));
+            ["step", "via", "total", "model", "observe", "action", "calls", "tokens in/out", "cached", "cost"],
+            cells[0]
+        );
+        Assert.Equal(
+            [
+                ["agent.act \"pay\"", "typesafe-ai/jev"],
+                ["agent.act \"no model call\"", "-"],
+                ["agent.assert \"confirm\"", "fake-loop/scripted-loop"],
+            ],
+            cells.Skip(1).Select(row => row[..2])
+        );
         Assert.Equal("typesafe-ai/jev", ReportFormat.StepModelLabel(acted));
     }
 
     [Fact]
     public void Shows_a_dash_for_a_step_whose_model_record_lacks_provenance_and_never_prints_undefined()
     {
-        var table = Steps.AgentStepTable(
-        [
+        var table = Steps.AgentStepTable([
             [
                 Step("pay", model: Model("typesafe-ai", "jev", 2)),
-                Step("judge", model: new StepModelInfo { Calls = 1, InputTokens = 100, OutputTokens = 10 }),
+                Step(
+                    "judge",
+                    model: new StepModelInfo
+                    {
+                        Calls = 1,
+                        InputTokens = 100,
+                        OutputTokens = 10,
+                    }
+                ),
                 Step("confirm", model: Model("fake-loop", "scripted-loop", 1)),
             ],
         ]);

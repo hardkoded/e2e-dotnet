@@ -20,7 +20,10 @@ internal static class ReportJsonWriter
 
     private static JsonSerializerOptions Create()
     {
-        var options = new JsonSerializerOptions(ReportSerializer.Options) { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+        var options = new JsonSerializerOptions(ReportSerializer.Options)
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        };
         options.Converters.Insert(0, new TimestampConverter());
         options.Converters.Insert(0, new ReportExploreWriter());
         return options;
@@ -29,15 +32,25 @@ internal static class ReportJsonWriter
     /// <summary>A moment in the spelling the schema requires: UTC with milliseconds.</summary>
     private sealed class TimestampConverter : JsonConverter<DateTimeOffset>
     {
-        public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => reader.GetDateTimeOffset();
+        public override DateTimeOffset Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options
+        ) => reader.GetDateTimeOffset();
 
-        public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options) => writer.WriteStringValue(ReportWire.Timestamp(value));
+        public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(ReportWire.Timestamp(value));
     }
 
     private sealed class ReportExploreWriter : JsonConverter<ReportExplore>
     {
-        public override ReportExplore Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotSupportedException();
+        public override ReportExplore Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options
+        ) => throw new NotSupportedException();
 
-        public override void Write(Utf8JsonWriter writer, ReportExplore value, JsonSerializerOptions options) => ReportWire.Explore(value).WriteTo(writer);
+        public override void Write(Utf8JsonWriter writer, ReportExplore value, JsonSerializerOptions options) =>
+            ReportWire.Explore(value).WriteTo(writer);
     }
 }

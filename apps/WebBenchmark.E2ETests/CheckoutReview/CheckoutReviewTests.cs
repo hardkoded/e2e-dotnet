@@ -14,9 +14,13 @@ public sealed class CheckoutReviewTests : BenchmarkTest
     public async Task Shows_a_raw_greeting_token_and_an_undefined_delivery_date_planted_bug_yet_places_the_order()
     {
         await App.OpenAsync("/e/checkout-review");
-        await Expect.That(Screen.GetByTestId("checkout-greeting")).ToHaveTextAsync("Thanks, {{firstName}}! Review your order below.");
+        await Expect
+            .That(Screen.GetByTestId("checkout-greeting"))
+            .ToHaveTextAsync("Thanks, {{firstName}}! Review your order below.");
         await Expect.That(Screen.GetByTestId("delivery-estimate")).ToHaveTextAsync("Delivery: Arrives by undefined");
-        await Expect.That(Screen.GetByTestId("order-lines").GetByRole("listitem")).ToContainTextAsync(["Gooseneck Kettle x1", "Single Origin Beans 1kg x2"]);
+        await Expect
+            .That(Screen.GetByTestId("order-lines").GetByRole("listitem"))
+            .ToContainTextAsync(["Gooseneck Kettle x1", "Single Origin Beans 1kg x2"]);
         await Expect.That(Screen.GetByText("Ship to: 221B Baker Street, London")).ToBeVisibleAsync();
 
         await Screen.GetByRole("button", "Place order - $123.00").TapAsync();

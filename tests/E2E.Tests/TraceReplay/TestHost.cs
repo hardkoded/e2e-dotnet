@@ -26,13 +26,38 @@ internal sealed class TestHost : IReplayHost
         };
     }
 
-    public static SemanticNode Upgrade { get; } = new() { Ref = "n1", Role = "button", Name = "Upgrade" };
+    public static SemanticNode Upgrade { get; } =
+        new()
+        {
+            Ref = "n1",
+            Role = "button",
+            Name = "Upgrade",
+        };
 
-    public static SemanticNode Email { get; } = new() { Ref = "n2", Role = "textbox", Name = "Email" };
+    public static SemanticNode Email { get; } =
+        new()
+        {
+            Ref = "n2",
+            Role = "textbox",
+            Name = "Email",
+        };
 
-    public static RecordedAction TapUpgrade { get; } = new() { Kind = "tap", Role = "button", Name = "Upgrade" };
+    public static RecordedAction TapUpgrade { get; } =
+        new()
+        {
+            Kind = "tap",
+            Role = "button",
+            Name = "Upgrade",
+        };
 
-    public static RecordedAction TypeEmail { get; } = new() { Kind = "fill", Role = "textbox", Name = "Email", Value = "x" };
+    public static RecordedAction TypeEmail { get; } =
+        new()
+        {
+            Kind = "fill",
+            Role = "textbox",
+            Name = "Email",
+            Value = "x",
+        };
 
     public List<string> Calls { get; } = [];
 
@@ -62,14 +87,23 @@ internal sealed class TestHost : IReplayHost
     /// <summary>The clock the replay reads; a test swaps in a fake one, as upstream's fake timers.</summary>
     public TimeProvider Time { get; set; } = TimeProvider.System;
 
-    public static TestHost MakeHost(IReadOnlyList<SemanticNode>? nodes = null, Action<string, object?>? onAction = null, TraceViewport? viewport = null) =>
-        new(nodes ?? [Upgrade, Email], onAction, viewport);
+    public static TestHost MakeHost(
+        IReadOnlyList<SemanticNode>? nodes = null,
+        Action<string, object?>? onAction = null,
+        TraceViewport? viewport = null
+    ) => new(nodes ?? [Upgrade, Email], onAction, viewport);
 
     /// <summary>The viewport every screen is observed in unless a test names another (upstream's <c>VIEWPORT</c>).</summary>
     public static TraceViewport Viewport { get; } = new(1280, 720);
 
     /// <summary>One observed screen over the given nodes.</summary>
-    public static Observation Screen(IReadOnlyList<SemanticNode> nodes, TraceViewport? viewport = null) => new() { Route = "/plan", Roots = nodes, Viewport = viewport ?? Viewport };
+    public static Observation Screen(IReadOnlyList<SemanticNode> nodes, TraceViewport? viewport = null) =>
+        new()
+        {
+            Route = "/plan",
+            Roots = nodes,
+            Viewport = viewport ?? Viewport,
+        };
 
     public Task<PreparedObservation> ObserveAsync(SettleMode mode)
     {
@@ -79,7 +113,10 @@ internal sealed class TestHost : IReplayHost
 
     /// <summary>A raw look as the feed prepares it: redacted, indexed, and cut at the default byte budget.</summary>
     internal static PreparedObservation Prepare(Observation observation, Redactor redactor) =>
-        global::E2E.AgentObservation.PrepareObservation(observation, new PrepareObservationOptions { Redactor = redactor, MaxBytes = E2EDefaults.MaxObservationBytes });
+        global::E2E.AgentObservation.PrepareObservation(
+            observation,
+            new PrepareObservationOptions { Redactor = redactor, MaxBytes = E2EDefaults.MaxObservationBytes }
+        );
 
     /// <summary>The order the replay asked the host for its upload authorization, an action slot, and the before hook (.NET-only).</summary>
     public List<string> Gates { get; } = [];
@@ -105,9 +142,7 @@ internal sealed class TestHost : IReplayHost
         return Task.CompletedTask;
     }
 
-    public void MarkActing()
-    {
-    }
+    public void MarkActing() { }
 
     public Task CommitAsync(RecordedAction action)
     {
@@ -133,39 +168,76 @@ internal sealed class TestHost : IReplayHost
 
     private sealed class Grammar(TestHost host) : IExecutorActions
     {
-        public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => host.Click("tap", target, options);
+        public Task TapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => host.Click("tap", target, options);
 
-        public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => host.Click("doubleTap", target, options);
+        public Task DoubleTapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => host.Click("doubleTap", target, options);
 
-        public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => host.Click("secondaryTap", target, options);
+        public Task SecondaryTapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => host.Click("secondaryTap", target, options);
 
-        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("longPress", target.Id);
+        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            host.Act("longPress", target.Id);
 
-        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("hover", target.Id);
+        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            host.Act("hover", target.Id);
 
-        public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default) => host.Act("drag", (source.Id, destination.Id));
+        public Task DragAsync(
+            ExecutorTarget source,
+            ExecutorTarget destination,
+            CancellationToken cancellationToken = default
+        ) => host.Act("drag", (source.Id, destination.Id));
 
-        public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => host.Act("type", (target.Id, value));
+        public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>
+            host.Act("type", (target.Id, value));
 
-        public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default) => host.Act("typeSecret", (target.Id, secretName));
+        public Task TypeSecretAsync(
+            ExecutorTarget target,
+            string secretName,
+            CancellationToken cancellationToken = default
+        ) => host.Act("typeSecret", (target.Id, secretName));
 
-        public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("clear", target.Id);
+        public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            host.Act("clear", target.Id);
 
-        public Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default) => host.Act("press", (target?.Id, key));
+        public Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default) =>
+            host.Act("press", (target?.Id, key));
 
-        public Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default) => host.Act("typeText", (value, options?.Replace == true));
+        public Task TypeTextAsync(
+            string value,
+            TypeTextOptions? options = null,
+            CancellationToken cancellationToken = default
+        ) => host.Act("typeText", (value, options?.Replace == true));
 
-        public Task PressKeyAsync(string key, CancellationToken cancellationToken = default) => host.Act("pressKey", key);
+        public Task PressKeyAsync(string key, CancellationToken cancellationToken = default) =>
+            host.Act("pressKey", key);
 
         public Task DismissKeyboardAsync(CancellationToken cancellationToken = default) => host.Act("dismissKeyboard");
 
-        public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => host.Act("select", (target.Id, value));
+        public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>
+            host.Act("select", (target.Id, value));
 
-        public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) => host.Act("check", (target.Id, check));
+        public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) =>
+            host.Act("check", (target.Id, check));
 
-        public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default) => host.Act("upload", (target.Id, paths));
+        public Task UploadAsync(
+            ExecutorTarget target,
+            IReadOnlyList<string> paths,
+            CancellationToken cancellationToken = default
+        ) => host.Act("upload", (target.Id, paths));
 
-        public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("scrollTo", target.Id);
+        public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            host.Act("scrollTo", target.Id);
 
         public async Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default)
         {
@@ -179,27 +251,43 @@ internal sealed class TestHost : IReplayHost
             return new PointTapResult(point, null, "");
         }
 
-        public async Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default)
+        public async Task<PointDragResult> DragAtAsync(
+            Point from,
+            Point to,
+            CancellationToken cancellationToken = default
+        )
         {
             await host.Act("dragAt", (from.X, from.Y, to.X, to.Y)).ConfigureAwait(false);
             return new PointDragResult(from, to, null, null, "");
         }
 
-        public Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointHit(point, null, null, ""));
+        public Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PointHit(point, null, null, ""));
 
-        public Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default) =>
-            host.Act("scrollUntil", (text, direction, list?.Id));
+        public Task ScrollUntilAsync(
+            string text,
+            ScrollDirection direction,
+            ExecutorTarget? list = null,
+            CancellationToken cancellationToken = default
+        ) => host.Act("scrollUntil", (text, direction, list?.Id));
 
-        public Task ScrollAsync(ExecutorTarget? list, ScrollDirection direction, int times = 1, CancellationToken cancellationToken = default) =>
-            host.Act("scroll", (direction, list?.Id));
+        public Task ScrollAsync(
+            ExecutorTarget? list,
+            ScrollDirection direction,
+            int times = 1,
+            CancellationToken cancellationToken = default
+        ) => host.Act("scroll", (direction, list?.Id));
 
-        public Task NavigateAsync(string url, CancellationToken cancellationToken = default) => host.Act("navigate", url);
+        public Task NavigateAsync(string url, CancellationToken cancellationToken = default) =>
+            host.Act("navigate", url);
 
         public Task BackAsync(CancellationToken cancellationToken = default) => host.Act("back");
 
-        public Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default) => host.Act("resize", size);
+        public Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default) =>
+            host.Act("resize", size);
 
-        public Task SwitchTabAsync(int tab, CancellationToken cancellationToken = default) => host.Act("switchTab", tab);
+        public Task SwitchTabAsync(int tab, CancellationToken cancellationToken = default) =>
+            host.Act("switchTab", tab);
 
         public Task CloseTabAsync(int tab, CancellationToken cancellationToken = default) => host.Act("closeTab", tab);
     }

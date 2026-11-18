@@ -10,10 +10,15 @@ public sealed class EasSessionsRedactionTests
     [Fact]
     public async Task HidesTheTokenInAnErrorExpoAnswersWith()
     {
-        var graphql = await Assert.ThrowsAsync<EasException>(
-            () => EasSessionsTests.Answering("""{ "errors": [{ "message": "bad token expo-test" }] }""").StateAsync("s1", CancellationToken.None));
+        var graphql = await Assert.ThrowsAsync<EasException>(() =>
+            EasSessionsTests
+                .Answering("""{ "errors": [{ "message": "bad token expo-test" }] }""")
+                .StateAsync("s1", CancellationToken.None)
+        );
         Assert.Equal("Expo: bad token *****", graphql.Message);
-        var page = await Assert.ThrowsAsync<InvalidOperationException>(() => EasSessionsTests.Answering("Forbidden: expo-test", 403).StateAsync("s1", CancellationToken.None));
+        var page = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            EasSessionsTests.Answering("Forbidden: expo-test", 403).StateAsync("s1", CancellationToken.None)
+        );
         Assert.Equal("Expo: HTTP 403, Forbidden: *****", page.Message);
     }
 }

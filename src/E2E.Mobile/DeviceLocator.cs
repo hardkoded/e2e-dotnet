@@ -15,17 +15,21 @@ namespace E2E.Mobile;
 internal static partial class DeviceLocator
 {
     /// <summary>Resolves one expression to the nodes it currently matches; <paramref name="platform"/> is the one agent-device selectors match for.</summary>
-    public static List<ProjectedNode> ResolveExpression(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    public static List<ProjectedNode> ResolveExpression(
+        LocatorExpression expression,
+        IReadOnlyList<ProjectedNode> index,
+        MobilePlatform platform
+    )
     {
         switch (expression.Kind)
         {
             case "union":
-                {
-                    var matches = new HashSet<ProjectedNode>(ReferenceEqualityComparer.Instance);
-                    matches.UnionWith(ResolveExpression(expression.Left!, index, platform));
-                    matches.UnionWith(ResolveExpression(expression.Right!, index, platform));
-                    return [.. index.Where(matches.Contains)];
-                }
+            {
+                var matches = new HashSet<ProjectedNode>(ReferenceEqualityComparer.Instance);
+                matches.UnionWith(ResolveExpression(expression.Left!, index, platform));
+                matches.UnionWith(ResolveExpression(expression.Right!, index, platform));
+                return [.. index.Where(matches.Contains)];
+            }
             case "filter":
                 return Filter(expression, index, platform);
             case "index":
@@ -36,56 +40,80 @@ internal static partial class DeviceLocator
                 throw new EngineException(
                     EngineErrorCodes.FrameNotFound,
                     "a device surface has no nested documents to scope a query into",
-                    retryable: false);
+                    retryable: false
+                );
             default:
                 return Query(expression, index, platform);
         }
     }
 
-    private static List<ProjectedNode> Filter(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    private static List<ProjectedNode> Filter(
+        LocatorExpression expression,
+        IReadOnlyList<ProjectedNode> index,
+        MobilePlatform platform
+    )
     {
         var source = ResolveExpression(expression.Source!, index, platform);
-        return source.Where(entry =>
-        {
-            if (expression.HasText is not null && !SubtreeHasText(entry, index, expression.HasText, expression.HasTextExact))
+        return source
+            .Where(entry =>
             {
-                return false;
-            }
+                if (
+                    expression.HasText is not null
+                    && !SubtreeHasText(entry, index, expression.HasText, expression.HasTextExact)
+                )
+                {
+                    return false;
+                }
 
-            if (expression.HasNotText is not null && SubtreeHasText(entry, index, expression.HasNotText, expression.HasNotTextExact))
-            {
-                return false;
-            }
+                if (
+                    expression.HasNotText is not null
+                    && SubtreeHasText(entry, index, expression.HasNotText, expression.HasNotTextExact)
+                )
+                {
+                    return false;
+                }
 
-            if (expression.Has is null && expression.HasNot is null)
-            {
-                return true;
-            }
+                if (expression.Has is null && expression.HasNot is null)
+                {
+                    return true;
+                }
 
-            var within = DescendantsOf([entry], index);
-            if (expression.Has is not null && ResolveExpression(expression.Has, within, platform).Count == 0)
-            {
-                return false;
-            }
+                var within = DescendantsOf([entry], index);
+                if (expression.Has is not null && ResolveExpression(expression.Has, within, platform).Count == 0)
+                {
+                    return false;
+                }
 
-            return expression.HasNot is null || ResolveExpression(expression.HasNot, within, platform).Count == 0;
-        }).ToList();
+                return expression.HasNot is null || ResolveExpression(expression.HasNot, within, platform).Count == 0;
+            })
+            .ToList();
     }
 
-    private static List<ProjectedNode> Pick(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    private static List<ProjectedNode> Pick(
+        LocatorExpression expression,
+        IReadOnlyList<ProjectedNode> index,
+        MobilePlatform platform
+    )
     {
         var source = ResolveExpression(expression.Source!, index, platform);
         var position = expression.Index == LocatorExpression.LastIndex ? source.Count - 1 : expression.Index!.Value;
         return position >= 0 && position < source.Count ? [source[position]] : [];
     }
 
-    private static List<ProjectedNode> Query(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    private static List<ProjectedNode> Query(
+        LocatorExpression expression,
+        IReadOnlyList<ProjectedNode> index,
+        MobilePlatform platform
+    )
     {
-        var candidates = expression.Parent is null ? index : DescendantsOf(ResolveExpression(expression.Parent, index, platform), index);
+        var candidates = expression.Parent is null
+            ? index
+            : DescendantsOf(ResolveExpression(expression.Parent, index, platform), index);
         var full = candidates.Where(entry => MatchesQuery(entry, expression, withoutPackage: false)).ToList();
-        var matches = full.Count == 0 && platform == MobilePlatform.Android && expression.Kind == "testid"
-            ? candidates.Where(entry => MatchesQuery(entry, expression, withoutPackage: true)).ToList()
-            : full;
+        var matches =
+            full.Count == 0 && platform == MobilePlatform.Android && expression.Kind == "testid"
+                ? candidates.Where(entry => MatchesQuery(entry, expression, withoutPackage: true)).ToList()
+                : full;
         return EchoedQueryKinds.Contains(expression.Kind) ? InnermostOnly(matches) : matches;
     }
 
@@ -106,7 +134,9 @@ internal static partial class DeviceLocator
     private static bool MatchesWithoutPackage(string testId, TextMatch pattern)
     {
         var match = AndroidResourceId().Match(testId);
-        return match.Success && match.Groups[1].Value != "android" && pattern.Matches(match.Groups[2].Value, exact: true);
+        return match.Success
+            && match.Groups[1].Value != "android"
+            && pattern.Matches(match.Groups[2].Value, exact: true);
     }
 
     /// <summary>The query kinds a device answers with the innermost match, because it echoes what they match on up the tree.</summary>
@@ -120,10 +150,17 @@ internal static partial class DeviceLocator
     /// every <c>GetByText</c> and <c>GetByLabel</c> on such a screen is ambiguous.
     /// </summary>
     private static List<ProjectedNode> InnermostOnly(List<ProjectedNode> matches) =>
-        matches.Where(entry => !matches.Any(other => !ReferenceEquals(other, entry) && SnapshotProjection.IsWithin(other, entry))).ToList();
+        matches
+            .Where(entry =>
+                !matches.Any(other => !ReferenceEquals(other, entry) && SnapshotProjection.IsWithin(other, entry))
+            )
+            .ToList();
 
     /// <summary>Strict descendants of any node in <paramref name="ancestors"/>, in document order.</summary>
-    private static List<ProjectedNode> DescendantsOf(IReadOnlyList<ProjectedNode> ancestors, IReadOnlyList<ProjectedNode> index)
+    private static List<ProjectedNode> DescendantsOf(
+        IReadOnlyList<ProjectedNode> ancestors,
+        IReadOnlyList<ProjectedNode> index
+    )
     {
         if (ancestors.Count == 0)
         {
@@ -133,10 +170,17 @@ internal static partial class DeviceLocator
         return index.Where(entry => ancestors.Any(ancestor => SnapshotProjection.IsWithin(entry, ancestor))).ToList();
     }
 
-    private static bool SubtreeHasText(ProjectedNode entry, IReadOnlyList<ProjectedNode> index, TextMatch pattern, bool exact)
+    private static bool SubtreeHasText(
+        ProjectedNode entry,
+        IReadOnlyList<ProjectedNode> index,
+        TextMatch pattern,
+        bool exact
+    )
     {
         bool Has(ProjectedNode node) =>
-            new[] { node.Node.Name, node.Node.Text, node.Node.Value }.Any(text => text is not null && pattern.Matches(text, exact));
+            new[] { node.Node.Name, node.Node.Text, node.Node.Value }.Any(text =>
+                text is not null && pattern.Matches(text, exact)
+            );
 
         return Has(entry) || DescendantsOf([entry], index).Any(Has);
     }
@@ -174,11 +218,13 @@ internal static partial class DeviceLocator
                 }
 
                 var states = node.States;
-                if (!StateIs(query.Checked, states.Checked)
+                if (
+                    !StateIs(query.Checked, states.Checked)
                     || !StateIs(query.Disabled, states.Disabled)
                     || !StateIs(query.Selected, states.Selected)
                     || !StateIs(query.Expanded, states.Expanded)
-                    || !StateIs(query.Pressed, states.Pressed))
+                    || !StateIs(query.Pressed, states.Pressed)
+                )
                 {
                     return false;
                 }
@@ -196,7 +242,11 @@ internal static partial class DeviceLocator
                 return node.Value is not null && query.Value!.Matches(node.Value, query.Exact);
             case "testid":
                 return node.TestId is not null
-                    && (withoutPackage ? MatchesWithoutPackage(node.TestId, query.Value!) : query.Value!.Matches(node.TestId, exact: true));
+                    && (
+                        withoutPackage
+                            ? MatchesWithoutPackage(node.TestId, query.Value!)
+                            : query.Value!.Matches(node.TestId, exact: true)
+                    );
             default:
                 return false;
         }

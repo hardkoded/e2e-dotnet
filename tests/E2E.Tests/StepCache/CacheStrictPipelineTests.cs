@@ -15,10 +15,43 @@ public sealed class CacheStrictPipelineTests
     [Fact]
     public async Task Still_runs_live_a_step_with_no_recording_and_a_recording_too_long_to_replay_through_the_pipeline()
     {
-        Assert.Null((await StepAsync(StorageWorld(), new FileStepCache(CoreTests.TempCache()), "/storage", null, Script(ModelResponses.Tap("button", "Save marker")), strict: true)).Error);
+        Assert.Null(
+            (
+                await StepAsync(
+                    StorageWorld(),
+                    new FileStepCache(CoreTests.TempCache()),
+                    "/storage",
+                    null,
+                    Script(ModelResponses.Tap("button", "Save marker")),
+                    strict: true
+                )
+            ).Error
+        );
 
-        var truncated = new CacheEntry { Route = "/storage", Truncated = true, Actions = [.. Enumerable.Range(0, 50).Select(_ => new RecordedAction { Kind = "tap", Role = "button", Name = "Save marker" })] };
-        var step = await StepAsync(StorageWorld(), new FixedEntryCache(truncated), "/storage", null, Script(ModelResponses.Tap("button", "Save marker")), strict: true);
+        var truncated = new CacheEntry
+        {
+            Route = "/storage",
+            Truncated = true,
+            Actions =
+            [
+                .. Enumerable
+                    .Range(0, 50)
+                    .Select(_ => new RecordedAction
+                    {
+                        Kind = "tap",
+                        Role = "button",
+                        Name = "Save marker",
+                    }),
+            ],
+        };
+        var step = await StepAsync(
+            StorageWorld(),
+            new FixedEntryCache(truncated),
+            "/storage",
+            null,
+            Script(ModelResponses.Tap("button", "Save marker")),
+            strict: true
+        );
 
         Assert.Null(step.Error);
         Assert.Equal(("missed", "truncated", 0), (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions));
@@ -32,15 +65,20 @@ public sealed class CacheStrictPipelineTests
 
         public int? Write(string key, CacheEntry written) => 0;
 
-        public void Delete(string key)
-        {
-        }
+        public void Delete(string key) { }
     }
 
     [Fact]
     public async Task Fails_an_entry_it_cannot_read_and_a_recording_made_on_another_screen_through_the_pipeline()
     {
-        var unreadable = await StepAsync(StorageWorld(), new MalformedCache(), "/storage", null, Script(), strict: true);
+        var unreadable = await StepAsync(
+            StorageWorld(),
+            new MalformedCache(),
+            "/storage",
+            null,
+            Script(),
+            strict: true
+        );
         Assert.Equal("REPLAY_STALE", Assert.IsType<AgentException>(unreadable.Error).Code);
 
         var directory = CoreTests.TempCache();
@@ -51,7 +89,17 @@ public sealed class CacheStrictPipelineTests
                 page.Button("Upgrade", () => status.Name = status.Text = "Marker saved");
             })
             .Map("/billing", page => page.Heading("Billing"));
-        Assert.Null((await StepAsync(world, new FileStepCache(directory), "/pricing", Saved, Script(ModelResponses.Tap("button", "Upgrade")))).Error);
+        Assert.Null(
+            (
+                await StepAsync(
+                    world,
+                    new FileStepCache(directory),
+                    "/pricing",
+                    Saved,
+                    Script(ModelResponses.Tap("button", "Upgrade"))
+                )
+            ).Error
+        );
 
         var elsewhere = await StepAsync(world, new FileStepCache(directory), "/billing", null, Script(), strict: true);
         var error = Assert.IsType<AgentException>(elsewhere.Error);
@@ -80,7 +128,14 @@ public sealed class CacheStrictPipelineTests
     [Fact]
     public async Task Runs_live_when_the_store_read_rejects_since_nothing_says_a_recording_exists_through_the_pipeline()
     {
-        var step = await StepAsync(StorageWorld(), new ThrowingCache(), "/storage", null, Script(ModelResponses.Tap("button", "Save marker")), strict: true);
+        var step = await StepAsync(
+            StorageWorld(),
+            new ThrowingCache(),
+            "/storage",
+            null,
+            Script(ModelResponses.Tap("button", "Save marker")),
+            strict: true
+        );
 
         Assert.Null(step.Error);
         Assert.Equal(("missed", "invalid-entry"), (step.Cache?.Mode, step.Cache?.Reason));
@@ -92,7 +147,14 @@ public sealed class CacheStrictPipelineTests
         var directory = CoreTests.TempCache();
         await RecordCustomersAsync(directory);
 
-        var step = await StepAsync(CustomersWorld(), new FileStepCache(directory), "/pricing", null, Script(), strict: true);
+        var step = await StepAsync(
+            CustomersWorld(),
+            new FileStepCache(directory),
+            "/pricing",
+            null,
+            Script(),
+            strict: true
+        );
 
         Assert.Null(step.Error);
         Assert.Equal(1, step.Replayed);

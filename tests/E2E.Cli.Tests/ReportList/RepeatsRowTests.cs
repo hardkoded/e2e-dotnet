@@ -23,15 +23,44 @@ public sealed class RepeatsRowTests
         var failed = Attempt(error: new ReportError("ASSERTION_FAILED", "no"), status: AttemptStatus.Failed);
         foreach (var repeat in new[] { 0, 1, 2 })
         {
-            reporter.Handle(Finished(Result(repeat == 1 ? ResultStatus.Failed : ResultStatus.Passed, id: "pays", repeat: repeat, title: ["pays"], file: "tests/checkout.e2e.ts", attempts: [repeat == 1 ? failed : Attempt()])));
-            reporter.Handle(Finished(Result(ResultStatus.Passed, id: "refunds", repeat: repeat, title: ["refunds"], file: "tests/checkout.e2e.ts", declarationIndex: 1)));
+            reporter.Handle(
+                Finished(
+                    Result(
+                        repeat == 1 ? ResultStatus.Failed : ResultStatus.Passed,
+                        id: "pays",
+                        repeat: repeat,
+                        title: ["pays"],
+                        file: "tests/checkout.e2e.ts",
+                        attempts: [repeat == 1 ? failed : Attempt()]
+                    )
+                )
+            );
+            reporter.Handle(
+                Finished(
+                    Result(
+                        ResultStatus.Passed,
+                        id: "refunds",
+                        repeat: repeat,
+                        title: ["refunds"],
+                        file: "tests/checkout.e2e.ts",
+                        declarationIndex: 1
+                    )
+                )
+            );
         }
 
         reporter.Handle(RunFinished(ReportRunStatus.Failed, 1));
-        var row = output.Lines.IndexOf(output.Lines.Single(line => line.TrimStart().StartsWith("Repeats  ", StringComparison.Ordinal)));
+        var row = output.Lines.IndexOf(
+            output.Lines.Single(line => line.TrimStart().StartsWith("Repeats  ", StringComparison.Ordinal))
+        );
         Assert.EndsWith("Repeats  1 of 2 tests passed all 3 runs", output.Lines[row]);
-        Assert.EndsWith("× |chromium| tests/checkout.e2e.ts > pays  2/3 passed · repeat 1 ASSERTION_FAILED", output.Lines[row + 1]);
-        Assert.DoesNotContain(output.Lines.Skip(row + 2).Take(1), line => line.Contains("refunds", StringComparison.Ordinal));
+        Assert.EndsWith(
+            "× |chromium| tests/checkout.e2e.ts > pays  2/3 passed · repeat 1 ASSERTION_FAILED",
+            output.Lines[row + 1]
+        );
+        Assert.DoesNotContain(output.Lines.Skip(row + 2).Take(1), line =>
+            line.Contains("refunds", StringComparison.Ordinal)
+        );
     }
 
     [Fact]

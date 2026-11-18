@@ -42,17 +42,23 @@ internal sealed class WindowProcess : IDisposable
         TimeSpan timeout,
         Action<AppLogEntry>? log,
         Func<int, IReadOnlyList<WindowInfo>> windows,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(windows);
         if (!File.Exists(executable))
         {
-            throw new WindowDriverException(DriverFault.Launch, $"the app executable {executable} does not exist; build the app first, or point app.appPath (or {WinAppTargetEngine.AppPathVariable}) at the build");
+            throw new WindowDriverException(
+                DriverFault.Launch,
+                $"the app executable {executable} does not exist; build the app first, or point app.appPath (or {WinAppTargetEngine.AppPathVariable}) at the build"
+            );
         }
 
         var info = new ProcessStartInfo(executable)
         {
-            WorkingDirectory = Directory.Exists(workingDirectory) ? workingDirectory : Path.GetDirectoryName(executable) ?? ".",
+            WorkingDirectory = Directory.Exists(workingDirectory)
+                ? workingDirectory
+                : Path.GetDirectoryName(executable) ?? ".",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -66,11 +72,16 @@ internal sealed class WindowProcess : IDisposable
         Process process;
         try
         {
-            process = Process.Start(info) ?? throw new WindowDriverException(DriverFault.Launch, $"{executable} did not start");
+            process = Process.Start(info)
+                ?? throw new WindowDriverException(DriverFault.Launch, $"{executable} did not start");
         }
         catch (Exception cause) when (cause is not WindowDriverException and not OperationCanceledException)
         {
-            throw new WindowDriverException(DriverFault.Launch, $"{executable} could not be started: {cause.Message}", cause);
+            throw new WindowDriverException(
+                DriverFault.Launch,
+                $"{executable} could not be started: {cause.Message}",
+                cause
+            );
         }
 
         try
@@ -82,7 +93,10 @@ internal sealed class WindowProcess : IDisposable
                 cancellationToken.ThrowIfCancellationRequested();
                 if (process.HasExited)
                 {
-                    throw new WindowDriverException(DriverFault.Launch, $"{Path.GetFileName(executable)} exited with code {process.ExitCode} before it showed a window");
+                    throw new WindowDriverException(
+                        DriverFault.Launch,
+                        $"{Path.GetFileName(executable)} exited with code {process.ExitCode} before it showed a window"
+                    );
                 }
 
                 var visible = windows(process.Id);
@@ -93,7 +107,10 @@ internal sealed class WindowProcess : IDisposable
 
                 if (deadline.Elapsed >= timeout)
                 {
-                    throw new WindowDriverException(DriverFault.Launch, $"{Path.GetFileName(executable)} showed no window within {timeout.TotalSeconds:0.#} s");
+                    throw new WindowDriverException(
+                        DriverFault.Launch,
+                        $"{Path.GetFileName(executable)} showed no window within {timeout.TotalSeconds:0.#} s"
+                    );
                 }
 
                 await Task.Delay(PollInterval, cancellationToken).ConfigureAwait(false);

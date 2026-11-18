@@ -107,6 +107,8 @@ dotnet test --filter "TestCategory=RealModel"                     # only the mod
 
 Run from the project's folder, or pass its path: `dotnet test tests/MyApp.E2ETests`. The first run asks the model to perform each `ActAsync`. A passing run records the steps a later check confirmed in `.e2e/cache`, and the next run replays them with no model call. See [Caching and self-healing](/features/caching/).
 
+On Microsoft.Testing.Platform, `--filter` works as above. Use `--report-trx --report-trx-filename e2e.trx` and `--output Detailed` in place of the `--logger` options. NUnit also needs the TRX package: `dotnet add package Microsoft.Testing.Extensions.TrxReport`. [How to turn MTP on](/testing-frameworks/#vstest-and-microsofttestingplatform).
+
 ## 5. NUnit specifics
 
 ### Hooks and their order
@@ -201,7 +203,7 @@ dotnet add package E2E.Mobile.NUnit      # MobileAppTest, in E2E.Mobile.NUnit
 dotnet add package E2E.WinApp.NUnit      # WinAppTest, in E2E.WinApp.NUnit
 ```
 
-`MobileAppTest` leases the device once per run in `[OneTimeSetUp]`. For a Windows project, put `[assembly: NonParallelizable]` in the project, so one window is in the foreground at a time. The steps are on the [Mobile](/get-started/mobile/), [.NET MAUI](/get-started/maui/), and [Windows](/get-started/windows/) pages.
+`MobileAppTest` makes one shared engine for a hosted run in `[OneTimeSetUp]`, and the run leases the device when the first test starts. For a Windows project, put `[assembly: NonParallelizable]` in the project, so one window is in the foreground at a time. The steps are on the [Mobile](/get-started/mobile/), [.NET MAUI](/get-started/maui/), and [Windows](/get-started/windows/) pages.
 
 ## 7. Next
 

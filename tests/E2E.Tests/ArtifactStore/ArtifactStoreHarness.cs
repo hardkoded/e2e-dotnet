@@ -48,6 +48,7 @@ public abstract class ArtifactStoreHarness : IDisposable
 
     protected sealed class DelegateStore(Func<StoredArtifact, Task<string>> put) : IArtifactStore
     {
-        public Task<string> PutAsync(StoredArtifact artifact, CancellationToken cancellationToken = default) => put(artifact);
+        public Task<string> PutAsync(StoredArtifact artifact, CancellationToken cancellationToken = default) =>
+            put(artifact);
     }
 }

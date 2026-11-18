@@ -35,19 +35,27 @@ public sealed class HugeVirtualizedList : Component
             columns: [GridSize.Star()],
             rows: [GridSize.Auto, GridSize.Star()],
             Hint($"All {TotalRows} rows are loaded. Scroll to {RowLabel(TargetRow)} and tap it.").Padding(16, 12),
-            ScrollView(ItemsRepeater(Rows, row => row.ToString(), (row, _) =>
-                    Button(TextBlock(RowLabel(row)), () =>
-                    {
-                        if (row == TargetRow)
-                        {
-                            setFound(true);
-                        }
-                    })
-                    .AutomationId($"row-{row}")
-                    .Height(RowHeight)
-                    .HAlign(HorizontalAlignment.Stretch)
-                    .CornerRadius(0)))
-                .AutomationName("Huge list").AutomationId("huge-list")
-                .Grid(row: 1));
+            ScrollView(
+                    ItemsRepeater(
+                        Rows,
+                        row => row.ToString(),
+                        (row, _) =>
+                            Button(TextBlock(RowLabel(row)), () =>
+                                {
+                                    if (row == TargetRow)
+                                    {
+                                        setFound(true);
+                                    }
+                                })
+                                .AutomationId($"row-{row}")
+                                .Height(RowHeight)
+                                .HAlign(HorizontalAlignment.Stretch)
+                                .CornerRadius(0)
+                    )
+                )
+                .AutomationName("Huge list")
+                .AutomationId("huge-list")
+                .Grid(row: 1)
+        );
     }
 }

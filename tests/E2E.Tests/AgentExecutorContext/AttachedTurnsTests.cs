@@ -26,7 +26,14 @@ public sealed class AttachedTurnsTests
 
         await session.Agent.ActAsync(
             "talk",
-            new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin.password", "admin-pass", "password") } });
+            new ActOptions
+            {
+                Params = new Dictionary<string, object?>
+                {
+                    ["password"] = Secret.Create("admin.password", "admin-pass", "password"),
+                },
+            }
+        );
 
         var turn = Assert.Single(Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns));
         Assert.Equal(1, turn.Index);
@@ -37,7 +44,9 @@ public sealed class AttachedTurnsTests
     [Fact]
     public async Task Keeps_nothing_when_the_executor_attached_no_turns()
     {
-        await using var session = await StartAsync(new TestExecutor("quiet", (_, _) => Task.FromResult(Passed("done"))));
+        await using var session = await StartAsync(
+            new TestExecutor("quiet", (_, _) => Task.FromResult(Passed("done")))
+        );
 
         await session.Agent.ActAsync("do nothing");
 
@@ -49,12 +58,16 @@ public sealed class AttachedTurnsTests
     {
         var calls = 0;
         // A model that refuses a forced choice, so the loop asks under auto and the prose reply is the text-reply path, not a skipped forced call.
-        var model = new ScriptedModel(request => request.ToolChoice!.Forced ? throw ToolLoopToolChoice.FakeLoopModel.Rejection : ++calls switch
-        {
-            1 => new ModelResponse { Content = "I will look around first." },
-            2 => ModelResponses.Tap("button", "Increment"),
-            _ => ModelResponses.Done("passed", "Counted."),
-        });
+        var model = new ScriptedModel(request =>
+            request.ToolChoice!.Forced
+                ? throw ToolLoopToolChoice.FakeLoopModel.Rejection
+                : ++calls switch
+                {
+                    1 => new ModelResponse { Content = "I will look around first." },
+                    2 => ModelResponses.Tap("button", "Increment"),
+                    _ => ModelResponses.Done("passed", "Counted."),
+                }
+        );
         await using var session = await StartAsync(executor: null, model);
 
         await session.App.OpenAsync("/");
@@ -63,7 +76,10 @@ public sealed class AttachedTurnsTests
         var turns = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns);
         Assert.Equal([1, 2, 3], turns.Select(turn => turn.Index));
         Assert.Empty(turns[0].Calls);
-        Assert.Equal("assistant: I will look around first.\n[loop] turn 1 made no tool call: asking for one", turns[0].Outcome);
+        Assert.Equal(
+            "assistant: I will look around first.\n[loop] turn 1 made no tool call: asking for one",
+            turns[0].Outcome
+        );
         Assert.StartsWith("tap(", Assert.Single(turns[1].Calls), StringComparison.Ordinal);
         Assert.StartsWith("[tap] ", turns[1].Outcome, StringComparison.Ordinal);
         Assert.StartsWith("complete_step(", Assert.Single(turns[2].Calls), StringComparison.Ordinal);
@@ -74,9 +90,11 @@ public sealed class AttachedTurnsTests
     public async Task The_tool_loop_keeps_the_last_twelve_turns_with_calls_and_arguments_clipped()
     {
         var calls = 0;
-        var model = new ScriptedModel(_ => ++calls <= 14
-            ? ModelResponses.Call("navigate", new { url = "/" + new string('x', 500) + calls })
-            : ModelResponses.Done("passed", "Done."));
+        var model = new ScriptedModel(_ =>
+            ++calls <= 14
+                ? ModelResponses.Call("navigate", new { url = "/" + new string('x', 500) + calls })
+                : ModelResponses.Done("passed", "Done.")
+        );
         await using var session = await StartAsync(executor: null, model);
 
         await session.App.OpenAsync("/");
@@ -86,7 +104,9 @@ public sealed class AttachedTurnsTests
         Assert.Equal(12, turns.Count);
         Assert.Equal(4, turns[0].Index);
         Assert.Equal(15, turns[^1].Index);
-        Assert.All(turns.SelectMany(turn => turn.Calls), call => Assert.True(call.Length <= 200 + "…[truncated]".Length));
+        Assert.All(turns.SelectMany(turn => turn.Calls), call =>
+            Assert.True(call.Length <= 200 + "…[truncated]".Length)
+        );
     }
 
     [Fact]
@@ -95,12 +115,14 @@ public sealed class AttachedTurnsTests
         var executor = new TestExecutor("wordy", (context, _) =>
         {
             // The secret starts 5 characters before the 2048-character cut of an outcome and 195 before the 200-character cut of a call.
-            context.AttachTurns(
-            [
-                .. Enumerable.Range(1, 20).Select(index => new StepTurn(
-                    index,
-                    [.. Enumerable.Range(0, 10).Select(_ => new string('c', 195) + "hunter2xyz")],
-                    new string('o', 2043) + "hunter2xyz")),
+            context.AttachTurns([
+                .. Enumerable
+                    .Range(1, 20)
+                    .Select(index => new StepTurn(
+                        index,
+                        [.. Enumerable.Range(0, 10).Select(_ => new string('c', 195) + "hunter2xyz")],
+                        new string('o', 2043) + "hunter2xyz"
+                    )),
             ]);
             return Task.FromResult(Passed("done"));
         });
@@ -108,7 +130,11 @@ public sealed class AttachedTurnsTests
 
         await session.Agent.ActAsync(
             "talk",
-            new ActOptions { Params = new Dictionary<string, object?> { ["pw"] = Secret.Create("pw", "hunter2xyz", "password") } });
+            new ActOptions
+            {
+                Params = new Dictionary<string, object?> { ["pw"] = Secret.Create("pw", "hunter2xyz", "password") },
+            }
+        );
 
         var turns = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns);
         Assert.Equal(Enumerable.Range(9, 12), turns.Select(turn => turn.Index));
@@ -125,25 +151,41 @@ public sealed class AttachedTurnsTests
     [Fact]
     public async Task The_tool_loop_redacts_a_secret_in_a_tool_result_before_it_cuts_the_result()
     {
-        var model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
-            ? ModelResponses.Done("passed", "Done.")
-            : ModelResponses.Call("echo", new { }));
-        var executor = ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
-        {
-            Name = "echoer",
-            BuildPrompt = context => Task.FromResult(context.Step.Instruction),
-            Tools = (_, _) =>
-            [
-                new ToolLoopTool(
-                    new ModelTool { Name = "echo", Description = "Echo", Parameters = System.Text.Json.JsonDocument.Parse("""{ "type": "object" }""").RootElement.Clone() },
-                    (_, _) => Task.FromResult(new ToolLoopResult(new string('r', 593) + "hunter2xyz"))),
-            ],
-        });
+        var model = new ScriptedModel(request =>
+            request.Messages.Any(message => message.Role == "tool")
+                ? ModelResponses.Done("passed", "Done.")
+                : ModelResponses.Call("echo", new { })
+        );
+        var executor = ToolLoop.CreateToolLoopExecutor(
+            new ToolLoopExecutorOptions
+            {
+                Name = "echoer",
+                BuildPrompt = context => Task.FromResult(context.Step.Instruction),
+                Tools = (_, _) =>
+                    [
+                        new ToolLoopTool(
+                            new ModelTool
+                            {
+                                Name = "echo",
+                                Description = "Echo",
+                                Parameters = System
+                                    .Text.Json.JsonDocument.Parse("""{ "type": "object" }""")
+                                    .RootElement.Clone(),
+                            },
+                            (_, _) => Task.FromResult(new ToolLoopResult(new string('r', 593) + "hunter2xyz"))
+                        ),
+                    ],
+            }
+        );
         await using var session = await StartAsync(executor, model);
 
         await session.Agent.ActAsync(
             "echo",
-            new ActOptions { Params = new Dictionary<string, object?> { ["pw"] = Secret.Create("pw", "hunter2xyz", "password") } });
+            new ActOptions
+            {
+                Params = new Dictionary<string, object?> { ["pw"] = Secret.Create("pw", "hunter2xyz", "password") },
+            }
+        );
 
         var turns = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns);
         Assert.DoesNotContain("hunt", turns[0].Outcome, StringComparison.Ordinal);
@@ -158,17 +200,20 @@ public sealed class AttachedTurnsTests
         Assert.Equal("ab😀", TurnLog.Truncate("ab😀", 4));
     }
 
-    private static StepRecord AgentStep(E2ESession session) => session.StepRecords.Single(step => step.Api == "agent.act");
+    private static StepRecord AgentStep(E2ESession session) =>
+        session.StepRecords.Single(step => step.Api == "agent.act");
 
     private static Task<E2ESession> StartAsync(IStepExecutor? executor, IAgentModel? model = null) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(CounterPage.World()),
-            AgentExecutor = executor,
-            Model = model,
-            BaseUrl = "https://counter.test",
-            TestTitle = "turns",
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                AgentExecutor = executor,
+                Model = model,
+                BaseUrl = "https://counter.test",
+                TestTitle = "turns",
+            }
+        );
 
     private static Task<E2ESession> StartAsync(IStepExecutor executor) => StartAsync(executor, null);
 }

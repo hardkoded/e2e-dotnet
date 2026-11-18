@@ -2,12 +2,12 @@
 
 ## Contents
 
-- When to use a host
 - Open a host and a session
 - The options
 - Closing: the failures it returns
 - Steps and the report
 - Limits
+- Launch without a config or a runner
 
 `E2EHost` (upstream's `openHost`) is for a test runner that is not NUnit or
 xUnit and wants isolated per-test sessions: it loads the config, starts the
@@ -78,3 +78,28 @@ trace mode. The page stands alone: it has no `report.json` to point at.
 
 - The engine starts and is disposed once for each session, not once for the host.
 - There is no `extend`, so `Fixtures` has no extra members.
+
+## Launch without a config or a runner
+
+For a script, a scraper, or a bot there is no config file and no report: `Launch.LaunchAsync` (upstream's `launch` from `@e2e-dev/core`) takes an engine and
+the app, and returns a `Host` that opens one `Session` at a time. A session holds `Screen`, `App`, `Platform`, and `Browser`. An engine that contributes fixtures (`IEngine<TFixtures>`, such as `MobileEngine` with `MobileFixtures`) makes `LaunchAsync` return a `Host<TFixtures>` whose sessions are `Session<TFixtures>`: `session.Fixtures.Device` is the device fixture. `WebEngine` is one too (`WebFixtures`): `session.Fixtures.Browser` is the browser fixture, and `session.Fixtures.App` is a `WebApp`, the `App` with `BaseUrl` always set, since a web target always declares `app.url`.
+
+```csharp
+await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions
+{
+    App = new LaunchApp { Url = "https://shop.example.com" },
+    Secrets = new Dictionary<string, string> { ["SHOP_PASSWORD"] = password },
+});
+await using var session = await shop.NewSessionAsync();
+await session.App.OpenAsync("/signin");
+await session.Screen.GetByLabel("Password").FillAsync(shop.Secret("SHOP_PASSWORD"));
+```
+
+- A second `LaunchAsync` on an engine instance another host owns, and a second open session on a host, fail with `WORKER_PROTOCOL`. Parallel work is more hosts.
+- A secret value is at least 6 characters, and is redacted from the errors a session throws and from `Screen.TreeAsync()`. `Host.Secret(name)` with another name is `SECRET_UNAVAILABLE`.
+- `LaunchOptions.Timeout` bounds an action, a wait, a read, and `App.OpenAsync()` or `App.RestartAsync()` (30 seconds for the first three and 120 seconds for the last two without it). `session.SetDefaultTimeout(timeout)` moves all of them for the operations that start from then on; a zero or infinite span is `INVALID_ARGUMENT`. There is no session deadline. `Headed` shows the browser window (a device ignores it). An operation on a closed session fails with `CANCELLED` and the message `the session is closed`. `ArtifactsDir` keeps screenshots and downloads (a relative path resolves from `Cwd`); without it they go to a temp directory deleted when the host closes.
+- `await session.SaveStateAsync()` captures cookies and storage in memory. Pass it to `shop.NewSessionAsync(new NewSessionOptions { State = state })`. To keep it between runs, `state.ExportAsync(new SessionStateKeyOptions { Key = key })` with a 32-byte key you keep, and `SessionState.ImportAsync(bytes, options)`. A state restores only on the same engine, platform, and app (`SESSION_MISMATCH`; give two addresses of one app the same `LaunchApp.Identity`), a wrong key or changed byte is `SESSION_INVALID`, and an old one `SESSION_EXPIRED`.
+- `LaunchApp.LinkBase` (an absolute URL or a scheme such as `shopapp://`, with no query or fragment) makes `session.App.OpenAsync("/orders/42")` open `shopapp://orders/42` in the pinned app of a device engine. An absolute link opens as given; `file:`, `data:`, `javascript:`, `view-source:`, `blob:`, and `filesystem:` are `POLICY_DENIED`; an engine without a link hook, or a bad value, is `INVALID_CONFIG` at launch.
+- `CoreAgents.CreateAgent(session, new CreateAgentOptions { Model = model, Cache = new AgentCacheOptions { Dir = ".cache" } })` puts an agent over a session: `ActAsync`, `AssertAsync`, `WaitForAsync`, and `ExtractAsync` as in a test. `CreateAgentOptions` is an `AgentOptions` plus `Cache` (`Dir`, `Mode`, `Store`, `Strict`). No model fails the first call with `MODEL_UNAVAILABLE`; `ActAsync` takes no `Agent` option (`INVALID_ARGUMENT`).
+- With `Cache`, each `ActAsync` names its recording, `new CachingActOptions { CacheKey = "checkout" }`, or runs live with `Cache = false`; without either, or with a `CacheKey` on an agent without a cache, it is `INVALID_ARGUMENT`. A recording is keyed by the `CacheKey`, the instruction, its params, the app, and how often the session made the same call. It is saved when the session or its host closes, and only if a check passed after it (`Locator.WaitForAsync`, `AssertAsync`, `WaitForAsync`). An agent step that fails drops the recordings not yet confirmed (not when only a missing model explains it); a failed locator call of your own code drops nothing.
+- Not ported yet: closing on signals (issue 1677).

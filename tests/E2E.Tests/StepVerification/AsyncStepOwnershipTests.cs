@@ -39,7 +39,14 @@ public sealed class AsyncStepOwnershipTests
         await second;
 
         Assert.Null(steps.CurrentStepId);
-        Assert.Equal([["first"], ["second"], ["nested"]], steps.All().Select(step => step.Artifacts));
+        Assert.Equal(
+            [
+                ["first"],
+                ["second"],
+                ["nested"],
+            ],
+            steps.All().Select(step => step.Artifacts)
+        );
     }
 
     [Fact]
@@ -57,7 +64,8 @@ public sealed class AsyncStepOwnershipTests
                     steps.AttachViewport(new StepViewport(1, 1, 1));
                     steps.RecordEvent(new StepEvent { Kind = StepEventKind.Engine, StartedAt = DateTimeOffset.UtcNow });
                 },
-                TaskScheduler.Default);
+                TaskScheduler.Default
+            );
             return Task.CompletedTask;
         });
 

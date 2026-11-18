@@ -109,11 +109,14 @@ internal sealed class FakeEngine(IEngine inner, byte shade = 255) : IEngine
             }
 
             var label = method.Name == nameof(IEngineSession.ScreenshotArtifactAsync) ? (string?)arguments[0] : null;
-            engine.Record(new EngineCall(
-                label is null ? method.Name : $"{method.Name}({label})",
-                arguments.OfType<CancellationToken>().FirstOrDefault().IsCancellationRequested,
-                arguments.OfType<OperationContext>().FirstOrDefault(),
-                arguments.OfType<TimeSpan>().Select(timeout => (TimeSpan?)timeout).FirstOrDefault()));
+            engine.Record(
+                new EngineCall(
+                    label is null ? method.Name : $"{method.Name}({label})",
+                    arguments.OfType<CancellationToken>().FirstOrDefault().IsCancellationRequested,
+                    arguments.OfType<OperationContext>().FirstOrDefault(),
+                    arguments.OfType<TimeSpan>().Select(timeout => (TimeSpan?)timeout).FirstOrDefault()
+                )
+            );
 
             try
             {

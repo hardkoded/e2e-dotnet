@@ -43,7 +43,12 @@ internal sealed class StepSpec
 }
 
 /// <summary>What the built-in executor reads of the runtime beyond the public context: the attempt, the looks, and the accounting of its step.</summary>
-internal sealed record ActHost(AttemptScope Scope, ObservationFeed Feed, StepAccounting Accounting, IReadOnlyDictionary<string, object?>? Params);
+internal sealed record ActHost(
+    AttemptScope Scope,
+    ObservationFeed Feed,
+    StepAccounting Accounting,
+    IReadOnlyDictionary<string, object?>? Params
+);
 
 /// <summary>
 /// The context an executor receives from the runtime (upstream's <c>ActDispatch.context()</c>): the step as the executor may
@@ -64,7 +69,19 @@ internal sealed partial class ActContext : StepExecutorContext
     private const int MaxOutcomeChars = 2048;
 
     [SetsRequiredMembers]
-    public ActContext(AttemptScope scope, ObservationFeed feed, StepAccounting budget, ActionDispatcher dispatcher, StepSpec spec, ResolvedAgent agent, int stepIndex, IReadOnlyList<Secret> declared, LedgerContext ledger, PreparedObservation? start, ReplayedPrefix? prefix)
+    public ActContext(
+        AttemptScope scope,
+        ObservationFeed feed,
+        StepAccounting budget,
+        ActionDispatcher dispatcher,
+        StepSpec spec,
+        ResolvedAgent agent,
+        int stepIndex,
+        IReadOnlyList<Secret> declared,
+        LedgerContext ledger,
+        PreparedObservation? start,
+        ReplayedPrefix? prefix
+    )
     {
         _scope = scope;
         _feed = feed;
@@ -74,7 +91,11 @@ internal sealed partial class ActContext : StepExecutorContext
             Kind = spec.Kind,
             Index = stepIndex,
             Instruction = scope.Redactor.Redact(spec.Instruction),
-            Params = ProjectParams(spec.Params, scope.Redactor, spec.Kind == ExecutorStepKind.Act ? "agent.act" : "agent.assert"),
+            Params = ProjectParams(
+                spec.Params,
+                scope.Redactor,
+                spec.Kind == ExecutorStepKind.Act ? "agent.act" : "agent.assert"
+            ),
             Secrets = declared.Select(secret => new ExecutorSecret(secret.Name, secret.Purpose)).ToList(),
             Vision = spec.Vision,
         };
@@ -87,7 +108,18 @@ internal sealed partial class ActContext : StepExecutorContext
             CancellationToken = scope.Ended.Token,
             Memory = scope.ExecutorMemory,
         };
-        Target = new ExecutorTargetInfo { Name = scope.TargetName, Platform = scope.EnginePlatform, Verbs = VerbsOf(scope.EngineCapabilities, scope.ActionKinds, scope.Session.PointerActionKinds, scope.Session.CanDismissKeyboard), TapModifiers = scope.EngineCapabilities.HasFlag(EngineCapabilities.TapModifiers) };
+        Target = new ExecutorTargetInfo
+        {
+            Name = scope.TargetName,
+            Platform = scope.EnginePlatform,
+            Verbs = VerbsOf(
+                scope.EngineCapabilities,
+                scope.ActionKinds,
+                scope.Session.PointerActionKinds,
+                scope.Session.CanDismissKeyboard
+            ),
+            TapModifiers = scope.EngineCapabilities.HasFlag(EngineCapabilities.TapModifiers),
+        };
         ReplayedPrefix = prefix;
         Model = agent.Model;
         ProviderOptions = agent.ProviderOptions;
@@ -103,21 +135,43 @@ internal sealed partial class ActContext : StepExecutorContext
     /// <summary>Bytes of <see cref="StepExecutorContext.Ledger"/>, which the step's metrics keep.</summary>
     public int LedgerBytes { get; }
 
-    public override async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default)
+    public override async Task<ExecutorObservation> ObserveAsync(
+        ExecutorObserveOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
-        return await _budget.Queue.RunAsync(async () =>
-        {
-            _budget.Checkpoint();
-            using var linked = CancellationTokenSource.CreateLinkedTokenSource(_budget.Token, cancellationToken);
-            try
+        return await _budget
+            .Queue.RunAsync(async () =>
             {
-                return await _feed.ObserveAsync(options, linked.Token).ConfigureAwait(false);
-            }
-            catch (Exception) when (CheckStep())
+                _budget.Checkpoint();
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(_budget.Token, cancellationToken);
+                try
+                {
+                    return await _feed.ObserveAsync(options, linked.Token).ConfigureAwait(false);
+                }
+                catch (Exception) when (CheckStep())
+                {
+                    throw;
+                }
+            })
+            .ConfigureAwait(false);
+    }
+
+    public override async Task<ExecutorReadResult> ReadAsync(
+        ExecutorTarget target,
+        ExecutorReadOptions options,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(options);
+        return await _budget
+            .Queue.RunAsync(async () =>
             {
-                throw;
-            }
-        }).ConfigureAwait(false);
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(_budget.Token, cancellationToken);
+                return await _feed.ReadAsync(target, options, linked.Token).ConfigureAwait(false);
+            })
+            .ConfigureAwait(false);
     }
 
     public override void AttachTranscript(string text)
@@ -136,17 +190,28 @@ internal sealed partial class ActContext : StepExecutorContext
         // The record is bounded here, whoever attaches: redact first, then cut, so a cut never leaves half a secret. Upstream cuts first.
         _turns =
         [
-            .. turns.TakeLast(MaxTurns).Select(turn => new StepTurn(
-                turn.Index,
-                [.. turn.Calls.Take(MaxCalls).Select(call => TurnLog.Truncate(_scope.Redactor.Redact(call), MaxCallChars))],
-                TurnLog.Truncate(_scope.Redactor.Redact(turn.Outcome), MaxOutcomeChars))),
+            .. turns
+                .TakeLast(MaxTurns)
+                .Select(turn => new StepTurn(
+                    turn.Index,
+                    [
+                        .. turn
+                            .Calls.Take(MaxCalls)
+                            .Select(call => TurnLog.Truncate(_scope.Redactor.Redact(call), MaxCallChars)),
+                    ],
+                    TurnLog.Truncate(_scope.Redactor.Redact(turn.Outcome), MaxOutcomeChars)
+                )),
         ];
     }
 
     /// <summary>The turns the executor attached, redacted; null when it attached none.</summary>
     public IReadOnlyList<StepTurn>? Turns => _turns is { Count: > 0 } ? _turns : null;
 
-    public override Task<string> AttachScreenshotAsync(ExecutorPixels pixels, string label, CancellationToken cancellationToken = default)
+    public override Task<string> AttachScreenshotAsync(
+        ExecutorPixels pixels,
+        string label,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(pixels);
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
@@ -154,12 +219,23 @@ internal sealed partial class ActContext : StepExecutorContext
         var artifacts = _scope.Artifacts;
         if (screenshots is null || artifacts is null)
         {
-            throw new TestException("UNSUPPORTED_CAPABILITY", "this attempt keeps no results, so there is nowhere to keep the screenshot");
+            throw new TestException(
+                "UNSUPPORTED_CAPABILITY",
+                "this attempt keeps no results, so there is nowhere to keep the screenshot"
+            );
         }
 
         // Upstream writes the file, registers it as a `screenshot` artifact, and attaches it to the step in progress.
-        var kept = Path.GetFullPath(Path.Combine(screenshots.ProjectRoot, screenshots.KeepEvidence(UnsafeInName().Replace(label, "-"), pixels.Data)));
-        var id = artifacts.Sink.Register(Reports.ArtifactKind.Screenshot, Path.GetRelativePath(artifacts.Dir, kept).Replace('\\', '/'));
+        var kept = Path.GetFullPath(
+            Path.Combine(
+                screenshots.ProjectRoot,
+                screenshots.KeepEvidence(UnsafeInName().Replace(label, "-"), pixels.Data)
+            )
+        );
+        var id = artifacts.Sink.Register(
+            Reports.ArtifactKind.Screenshot,
+            Path.GetRelativePath(artifacts.Dir, kept).Replace('\\', '/')
+        );
         _scope.Steps.AttachArtifact(id);
         return Task.FromResult(id);
     }
@@ -202,7 +278,12 @@ internal sealed partial class ActContext : StepExecutorContext
     ];
 
     // The verbs the engine can honor: the grammar the built-in tools offer for these declarations (upstream's declaredVerbs).
-    internal static HashSet<ExecutorVerb> VerbsOf(EngineCapabilities capabilities, IReadOnlyCollection<string>? actionKinds, IReadOnlyCollection<string> pointerKinds, bool canDismissKeyboard = false)
+    internal static HashSet<ExecutorVerb> VerbsOf(
+        EngineCapabilities capabilities,
+        IReadOnlyCollection<string>? actionKinds,
+        IReadOnlyCollection<string> pointerKinds,
+        bool canDismissKeyboard = false
+    )
     {
         var verbs = new HashSet<ExecutorVerb> { ExecutorVerb.Navigate };
         var declared = actionKinds ?? [];
@@ -294,15 +375,28 @@ internal sealed partial class ActContext : StepExecutorContext
 
     // The call params as JSON the executor may read: a Secret is its name and purpose, never its value, and every string the
     // test spelled that holds a secret value the attempt knows is redacted, keys included. `api` names the call in error messages.
-    internal static Dictionary<string, JsonElement>? ProjectParams(IReadOnlyDictionary<string, object?>? parameters, Redactor redactor, string api)
+    internal static Dictionary<string, JsonElement>? ProjectParams(
+        IReadOnlyDictionary<string, object?>? parameters,
+        Redactor redactor,
+        string api
+    )
     {
         if (parameters is null)
         {
             return null;
         }
 
-        var (redacted, _) = ActParams.RedactParams(ActParams.Projected(parameters, api) ?? new JsonObject(), [], redactor.Redact, api);
-        return redacted.ToDictionary(pair => pair.Key, pair => JsonSerializer.SerializeToElement(pair.Value), StringComparer.Ordinal);
+        var (redacted, _) = ActParams.RedactParams(
+            ActParams.Projected(parameters, api) ?? new JsonObject(),
+            [],
+            redactor.Redact,
+            api
+        );
+        return redacted.ToDictionary(
+            pair => pair.Key,
+            pair => JsonSerializer.SerializeToElement(pair.Value),
+            StringComparer.Ordinal
+        );
     }
 
     [GeneratedRegex("[^A-Za-z0-9_-]+")]

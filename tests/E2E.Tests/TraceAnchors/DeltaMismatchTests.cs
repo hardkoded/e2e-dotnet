@@ -23,7 +23,9 @@ public sealed class DeltaMismatchTests
     [Fact]
     public void Is_presence_not_uniqueness()
     {
-        Assert.True(Holds([Anchor("status", "Marker", text: "saved")], [SavedMarker, Node("status", "Marker", text: "saved")]));
+        Assert.True(
+            Holds([Anchor("status", "Marker", text: "saved")], [SavedMarker, Node("status", "Marker", text: "saved")])
+        );
     }
 
     [Fact]
@@ -53,7 +55,12 @@ public sealed class DeltaMismatchTests
         Assert.True(Holds([on], [Node("switch", "Email notifications", states: new NodeStates { Checked = true })]));
         Assert.False(Holds([on], [Node("switch", "Email notifications")]));
         // An anchor recorded without a state does not match the control with one either.
-        Assert.False(Holds([Anchor("switch", "Email notifications")], [Node("switch", "Email notifications", states: new NodeStates { Checked = true })]));
+        Assert.False(
+            Holds(
+                [Anchor("switch", "Email notifications")],
+                [Node("switch", "Email notifications", states: new NodeStates { Checked = true })]
+            )
+        );
     }
 
     [Fact]
@@ -73,8 +80,12 @@ public sealed class DeltaMismatchTests
         static SemanticNode Expiring(string at) => Node("alert", text: "Session expires at " + at);
 
         Assert.True(Holds([Anchor("alert", text: "Session expires at 17:42")], [Expiring("17:45")]));
-        Assert.True(Holds([Anchor("status", "Marker", text: "saved")], [SavedMarker, Expiring("17:45")], [Expiring("17:44")]));
-        Assert.False(Holds([Anchor("alert", text: "Session expires at 17:42")], [Node("alert", text: "Session expired")]));
+        Assert.True(
+            Holds([Anchor("status", "Marker", text: "saved")], [SavedMarker, Expiring("17:45")], [Expiring("17:44")])
+        );
+        Assert.False(
+            Holds([Anchor("alert", text: "Session expires at 17:42")], [Node("alert", text: "Session expired")])
+        );
     }
 
     [Fact]
@@ -86,7 +97,9 @@ public sealed class DeltaMismatchTests
         Assert.True(Holds(recorded, [Saved("2026-10-24T15:45:03.120Z")]));
         Assert.True(Holds(recorded, [Saved("2026-10-24T15:30:00Z")]));
         Assert.True(Holds(recorded, [Saved("2026-10-24T15:30+02:00")]));
-        Assert.True(Holds([Anchor("alert", text: "Saved at 2026-10-24T15:30:00Z")], [Saved("2026-10-24T15:30:00.250Z")]));
+        Assert.True(
+            Holds([Anchor("alert", text: "Saved at 2026-10-24T15:30:00Z")], [Saved("2026-10-24T15:30:00.250Z")])
+        );
         Assert.False(Holds(recorded, [Node("alert", text: "Save failed")]));
     }
 
@@ -129,7 +142,11 @@ public sealed class DeltaMismatchTests
         Assert.False(Holds([anchor], [Node("box", testId: "rf__edge-8e21d0c4-5b6a-4f3e-8d2c-1a0b9c8d7e6f")]));
         Assert.False(Holds([anchor], [Node("button", "Delete", testId: mintedB)]));
         // A vanished one stays exact: an older entry recorded it beside siblings of its shape.
-        Assert.True(Holds([], [Heading, Node("box", testId: mintedB)], [Heading, Node("box", testId: mintedA)], [anchor]));
-        Assert.False(Holds([], [Heading, Node("box", testId: mintedA)], [Heading, Node("box", testId: mintedA)], [anchor]));
+        Assert.True(
+            Holds([], [Heading, Node("box", testId: mintedB)], [Heading, Node("box", testId: mintedA)], [anchor])
+        );
+        Assert.False(
+            Holds([], [Heading, Node("box", testId: mintedA)], [Heading, Node("box", testId: mintedA)], [anchor])
+        );
     }
 }

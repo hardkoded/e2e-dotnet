@@ -13,7 +13,9 @@ public sealed class JudgeModelTests
     [Fact]
     public void Is_the_model_unless_one_is_configured_so_judgments_always_have_one_rule()
     {
-        var withModel = E2EConfig.Parse("""{ "agents": { "default": { "model": "gpt-4.1-mini" } } }""", Root, _ => null);
+        var withModel = E2EConfig.Parse("""{ "agents": { "default": { "model": "gpt-4.1-mini" } } }""", Root, _ =>
+            null
+        );
         var resolved = ResolvedAgent.From("default", withModel.Agent.CreateOptions());
         Assert.Equal("gpt-4.1-mini", resolved.Judge!.Name);
         Assert.Same(resolved.Model, resolved.Judge);
@@ -24,7 +26,11 @@ public sealed class JudgeModelTests
     [Fact]
     public void Resolves_agent_judge_apart_from_agent_model()
     {
-        var config = E2EConfig.Parse("""{ "agents": { "default": { "model": "gpt-4.1-mini", "judge": "o4-mini" } } }""", Root, _ => null);
+        var config = E2EConfig.Parse(
+            """{ "agents": { "default": { "model": "gpt-4.1-mini", "judge": "o4-mini" } } }""",
+            Root,
+            _ => null
+        );
         var resolved = ResolvedAgent.From("default", config.Agent.CreateOptions());
 
         Assert.Equal("gpt-4.1-mini", resolved.Model!.Name);
@@ -36,7 +42,11 @@ public sealed class JudgeModelTests
     public void Uses_the_judge_a_custom_executor_brought()
     {
         var judge = new NamedModel("gpt-5.4");
-        var executor = new TestExecutor("custom-brain", (_, _) => throw new InvalidOperationException("not called")) { Model = new NamedModel("gpt-5.4-mini"), Judge = judge };
+        var executor = new TestExecutor("custom-brain", (_, _) => throw new InvalidOperationException("not called"))
+        {
+            Model = new NamedModel("gpt-5.4-mini"),
+            Judge = judge,
+        };
 
         var resolved = ResolvedAgent.From("default", new AgentOptions { Executor = executor });
 
@@ -53,9 +63,14 @@ public sealed class JudgeModelTests
             Judge = new NamedModel("gpt-5.4"),
         };
 
-        var error = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("default", new AgentOptions { Executor = executor, Judge = new NamedModel("gpt-5.5") }));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            ResolvedAgent.From("default", new AgentOptions { Executor = executor, Judge = new NamedModel("gpt-5.5") })
+        );
 
         Assert.Equal("INVALID_CONFIG", error.Code);
-        Assert.Equal("agents.default.judge (gpt-5.5) and the executor's own judge (gpt-5.4) differ; configure the judge in one place", error.Message);
+        Assert.Equal(
+            "agents.default.judge (gpt-5.5) and the executor's own judge (gpt-5.4) differ; configure the judge in one place",
+            error.Message
+        );
     }
 }

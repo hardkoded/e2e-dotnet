@@ -27,9 +27,18 @@ public sealed class RunnerEngineContractTests
         // Upstream fails the run with COLLECTION_ERROR before any setup runs, and no attempt starts. NUnit has no such step: the setup fails
         // at session.save(), and the consumer, which no setup saved, fails when it is consumed.
         Assert.That(results["capture session"].ResultState.Status, Is.EqualTo(TestStatus.Failed));
-        Assert.That(results["capture session"].Message, Does.Contain("has no engine state capability for session.save()"));
-        Assert.That(results[nameof(SessionContractFixture.Consumes_session)].ResultState.Status, Is.EqualTo(TestStatus.Failed));
-        Assert.That(results[nameof(SessionContractFixture.Consumes_session)].Message, Does.Contain("has no engine state capability for session restore"));
+        Assert.That(
+            results["capture session"].Message,
+            Does.Contain("has no engine state capability for session.save()")
+        );
+        Assert.That(
+            results[nameof(SessionContractFixture.Consumes_session)].ResultState.Status,
+            Is.EqualTo(TestStatus.Failed)
+        );
+        Assert.That(
+            results[nameof(SessionContractFixture.Consumes_session)].Message,
+            Does.Contain("has no engine state capability for session restore")
+        );
         Assert.That(SessionFixtureBase.Spy.Captured, Is.Empty);
     }
 
@@ -43,8 +52,16 @@ public sealed class RunnerEngineContractTests
 
         var results = NestedSessionRun.Run("capture session", nameof(SessionContractFixture.Consumes_session));
 
-        Assert.That(results["capture session"].ResultState.Status, Is.EqualTo(TestStatus.Passed), results["capture session"].Message);
-        Assert.That(results[nameof(SessionContractFixture.Consumes_session)].ResultState.Status, Is.EqualTo(TestStatus.Passed), results[nameof(SessionContractFixture.Consumes_session)].Message);
+        Assert.That(
+            results["capture session"].ResultState.Status,
+            Is.EqualTo(TestStatus.Passed),
+            results["capture session"].Message
+        );
+        Assert.That(
+            results[nameof(SessionContractFixture.Consumes_session)].ResultState.Status,
+            Is.EqualTo(TestStatus.Passed),
+            results[nameof(SessionContractFixture.Consumes_session)].Message
+        );
         Assert.That(spy.Captured, Has.Count.EqualTo(1));
         Assert.That(spy.Restored, Has.Count.EqualTo(1));
         Assert.That(spy.Restored[0].Format, Is.EqualTo("playwright-storage-state"));
@@ -71,12 +88,30 @@ public sealed class RunnerEngineContractTests
         // .NET-only: upstream's session contract is checked by its collector and by SessionStaging; the NUnit surface needs its own tests.
         SessionFixtureBase.Spy = new StateSpyEngine(new WebEngine(new WebEngineOptions()));
 
-        var results = NestedSessionRun.Run("saves nothing", "saves twice", "saves an undeclared name", nameof(SessionContractBreaksFixture.Saves_outside_a_setup_test), nameof(SessionContractBreaksFixture.Restores_a_session_nobody_saved));
+        var results = NestedSessionRun.Run(
+            "saves nothing",
+            "saves twice",
+            "saves an undeclared name",
+            nameof(SessionContractBreaksFixture.Saves_outside_a_setup_test),
+            nameof(SessionContractBreaksFixture.Restores_a_session_nobody_saved)
+        );
 
-        Assert.That(results["saves nothing"].Message, Does.Contain("setup must save each declared session exactly once; missing: [acct]"));
+        Assert.That(
+            results["saves nothing"].Message,
+            Does.Contain("setup must save each declared session exactly once; missing: [acct]")
+        );
         Assert.That(results["saves twice"].Message, Does.Contain("session \"twice\" saved twice"));
-        Assert.That(results["saves an undeclared name"].Message, Does.Contain("session \"other\" was not declared by this setup test"));
-        Assert.That(results[nameof(SessionContractBreaksFixture.Saves_outside_a_setup_test)].Message, Does.Contain("only available in a setup test"));
-        Assert.That(results[nameof(SessionContractBreaksFixture.Restores_a_session_nobody_saved)].Message, Does.Contain("session \"never-saved\" was not produced"));
+        Assert.That(
+            results["saves an undeclared name"].Message,
+            Does.Contain("session \"other\" was not declared by this setup test")
+        );
+        Assert.That(
+            results[nameof(SessionContractBreaksFixture.Saves_outside_a_setup_test)].Message,
+            Does.Contain("only available in a setup test")
+        );
+        Assert.That(
+            results[nameof(SessionContractBreaksFixture.Restores_a_session_nobody_saved)].Message,
+            Does.Contain("session \"never-saved\" was not produced")
+        );
     }
 }

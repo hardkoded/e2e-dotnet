@@ -61,12 +61,17 @@ internal sealed class RunningTree(Colors pc, Func<string, string> badge)
     {
         var chars = word.EnumerateRunes().Select(rune => rune.ToString()).ToList();
         var head = frame % (chars.Count + ShimmerRestFrames);
-        return string.Concat(chars.Select((letter, index) => Math.Abs(index - head) switch
-        {
-            0 => pc.Bold(pc.White(letter)),
-            1 => pc.White(letter),
-            _ => pc.Dim(letter),
-        }));
+        return string.Concat(
+            chars.Select(
+                (letter, index) =>
+                    Math.Abs(index - head) switch
+                    {
+                        0 => pc.Bold(pc.White(letter)),
+                        1 => pc.White(letter),
+                        _ => pc.Dim(letter),
+                    }
+            )
+        );
     }
 
     /// <summary>
@@ -83,7 +88,8 @@ internal sealed class RunningTree(Colors pc, Func<string, string> badge)
     }
 
     /// <summary><c>… N earlier things</c> folding rows that do not fit (upstream's <c>foldMarker</c>).</summary>
-    private static string FoldMarker(Colors pc, int count, string noun) => pc.Dim($"… {count} earlier {noun}{(count == 1 ? string.Empty : "s")}");
+    private static string FoldMarker(Colors pc, int count, string noun) =>
+        pc.Dim($"… {count} earlier {noun}{(count == 1 ? string.Empty : "s")}");
 
     /// <summary>
     /// The window's rows: running files and tests with their detail, then the summary. The block must fit the screen, because repainting more
@@ -91,7 +97,13 @@ internal sealed class RunningTree(Colors pc, Func<string, string> badge)
     /// remains once every test has its own row, and tests that still do not fit fold into one <c>more running</c> marker. <paramref name="room"/>
     /// is the screen under the permanent log; the block pads out to it so the summary sits at the bottom.
     /// </summary>
-    public List<string> Render(IReadOnlyList<RunningTest> running, IReadOnlyList<string> summary, long now, int room, SetupInFlight? setup = null)
+    public List<string> Render(
+        IReadOnlyList<RunningTest> running,
+        IReadOnlyList<string> summary,
+        long now,
+        int room,
+        SetupInFlight? setup = null
+    )
     {
         var active = new List<(FileGroup Group, List<RunningTest> Tests)>();
         foreach (var test in running)
@@ -109,13 +121,18 @@ internal sealed class RunningTree(Colors pc, Func<string, string> badge)
 
         var capacity = Format.TerminalRows() - summary.Count - ChromeRows;
         var budget = capacity;
-        var perTest = Math.Max(0, (int)Math.Floor((budget - active.Count - running.Count) / (double)Math.Max(1, running.Count)));
+        var perTest = Math.Max(
+            0,
+            (int)Math.Floor((budget - active.Count - running.Count) / (double)Math.Max(1, running.Count))
+        );
         var maxEvents = Math.Min(MaxEvents, perTest);
         List<string> lines = [];
         var hidden = 0;
         if (setup is not null && budget > 0)
         {
-            lines.Add($"{pc.Bold(pc.Yellow($" {Format.Pointer} "))}{pc.Dim(setup.Verb)} {setup.Subject} {Clock(now - setup.StartedMs)}");
+            lines.Add(
+                $"{pc.Bold(pc.Yellow($" {Format.Pointer} "))}{pc.Dim(setup.Verb)} {setup.Subject} {Clock(now - setup.StartedMs)}"
+            );
             budget--;
         }
 
@@ -127,8 +144,12 @@ internal sealed class RunningTree(Colors pc, Func<string, string> badge)
                 continue;
             }
 
-            var progress = pc.Dim($" {group.Lines.Count}/{(group.Planned is { } planned ? planned.ToString(CultureInfo.InvariantCulture) : "?")}");
-            lines.Add($"{pc.Bold(pc.Yellow($" {Format.Pointer} "))}{badge(group.Target)} {Format.Bounded(group.File)}{progress}");
+            var progress = pc.Dim(
+                $" {group.Lines.Count}/{(group.Planned is { } planned ? planned.ToString(CultureInfo.InvariantCulture) : "?")}"
+            );
+            lines.Add(
+                $"{pc.Bold(pc.Yellow($" {Format.Pointer} "))}{badge(group.Target)} {Format.Bounded(group.File)}{progress}"
+            );
             budget--;
             for (var index = 0; index < tests.Count; index++)
             {
@@ -159,7 +180,8 @@ internal sealed class RunningTree(Colors pc, Func<string, string> badge)
     }
 
     /// <summary>The one ticking clock of a running test, on its row.</summary>
-    private string Clock(long elapsedMs) => pc.Bold(pc.Yellow(Format.FormatTime(TimeSpan.FromMilliseconds(Math.Max(0, elapsedMs)))));
+    private string Clock(long elapsedMs) =>
+        pc.Bold(pc.Yellow(Format.FormatTime(TimeSpan.FromMilliseconds(Math.Max(0, elapsedMs)))));
 
     /// <summary>
     /// Everything under a running test's row: its finished steps, then the current step. The current step has priority; finished steps take
@@ -220,12 +242,14 @@ internal sealed class RunningTree(Colors pc, Func<string, string> badge)
     /// otherwise the model has the turn and the word is <c>Thinking</c> (upstream's <c>waitingWord</c>).
     /// </summary>
     private static string WaitingWord(CurrentStep current) =>
-        current.Replaying ? "Replaying" : current.Activity switch
-        {
-            Reports.StepActivity.Observe => "Observing",
-            Reports.StepActivity.Action => "Acting",
-            _ => "Thinking",
-        };
+        current.Replaying
+            ? "Replaying"
+            : current.Activity switch
+            {
+                Reports.StepActivity.Observe => "Observing",
+                Reports.StepActivity.Action => "Acting",
+                _ => "Thinking",
+            };
 
     /// <summary>The work in flight: a spinner and a shimmering status word (upstream's <c>waitingRow</c>).</summary>
     internal static string WaitingRow(Colors pc, long now, string word)

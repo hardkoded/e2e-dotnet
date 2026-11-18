@@ -18,19 +18,31 @@ public sealed partial class CreateGrammarToolsTests
 {
     private const string Instruction = "increment the counter once";
 
-    private static ToolLoopTool ReadInbox() => new(
-        new ModelTool { Name = "read_inbox", Description = "Read the inbox", Parameters = JsonDocument.Parse("""{ "type": "object", "properties": {} }""").RootElement },
-        (_, _) => Task.FromResult(new ToolLoopResult("no mail")));
+    private static ToolLoopTool ReadInbox() =>
+        new(
+            new ModelTool
+            {
+                Name = "read_inbox",
+                Description = "Read the inbox",
+                Parameters = JsonDocument.Parse("""{ "type": "object", "properties": {} }""").RootElement,
+            },
+            (_, _) => Task.FromResult(new ToolLoopResult("no mail"))
+        );
 
-    private static IStepExecutor Executor(Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoopTool>> tools) =>
-        ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
-        {
-            Name = "with-inbox",
-            Version = "1",
-            System = _ => DefaultAgent.BaseRules + "\n\nCheck the inbox with read_inbox when a step mentions an email.",
-            BuildPrompt = context => Task.FromResult(context.Step.Instruction),
-            Tools = tools,
-        });
+    private static IStepExecutor Executor(
+        Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoopTool>> tools
+    ) =>
+        ToolLoop.CreateToolLoopExecutor(
+            new ToolLoopExecutorOptions
+            {
+                Name = "with-inbox",
+                Version = "1",
+                System = _ =>
+                    DefaultAgent.BaseRules + "\n\nCheck the inbox with read_inbox when a step mentions an email.",
+                BuildPrompt = context => Task.FromResult(context.Step.Instruction),
+                Tools = tools,
+            }
+        );
 
     [GeneratedRegex("#(?<ref>\\S+) button \"Increment\"")]
     private static partial Regex IncrementPattern();
@@ -38,12 +50,23 @@ public sealed partial class CreateGrammarToolsTests
     [Fact]
     public async Task Keeps_the_built_in_actions_beside_a_tool_of_its_own()
     {
-        var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
-        {
-            0 => ModelResponses.Call("observe", new { }),
-            1 => ModelResponses.Call("tap", new { target = IncrementPattern().Match(string.Join('\n', request.Messages.Select(message => message.Content))).Groups["ref"].Value }),
-            _ => ModelResponses.Done("passed", "tapped Increment"),
-        });
+        var model = new ScriptedModel(request =>
+            request.Messages.Count(message => message.Role == "tool") switch
+            {
+                0 => ModelResponses.Call("observe", new { }),
+                1 => ModelResponses.Call(
+                    "tap",
+                    new
+                    {
+                        target = IncrementPattern()
+                            .Match(string.Join('\n', request.Messages.Select(message => message.Content)))
+                            .Groups["ref"]
+                            .Value,
+                    }
+                ),
+                _ => ModelResponses.Done("passed", "tapped Increment"),
+            }
+        );
         ActResult? act = null;
 
         var result = await RunAsync(
@@ -55,7 +78,8 @@ public sealed partial class CreateGrammarToolsTests
             },
             CounterPage.World(),
             model,
-            executor: Executor((context, _) => [.. AgentTools.CreateGrammarTools(context), ReadInbox()]));
+            executor: Executor((context, _) => [.. AgentTools.CreateGrammarTools(context), ReadInbox()])
+        );
 
         Assert.Null(result.Error);
         var offered = model.Requests[0].Tools.Select(tool => tool.Name).ToList();
@@ -64,7 +88,11 @@ public sealed partial class CreateGrammarToolsTests
         Assert.Contains("read_inbox", offered);
         Assert.Equal("complete_step", offered[^1]);
         Assert.StartsWith(DefaultAgent.BaseRules, model.Requests[0].System, StringComparison.Ordinal);
-        Assert.EndsWith(AgentTools.VerdictRules + "\n- " + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule, model.Requests[0].System, StringComparison.Ordinal);
+        Assert.EndsWith(
+            AgentTools.VerdictRules + "\n- " + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule,
+            model.Requests[0].System,
+            StringComparison.Ordinal
+        );
         Assert.Equal(1, act!.Actions);
     }
 
@@ -72,12 +100,23 @@ public sealed partial class CreateGrammarToolsTests
     public async Task Runs_every_tool_body_under_the_guard_and_reads_a_body_the_guard_answered_for_as_failed()
     {
         var guarded = new List<string>();
-        var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
-        {
-            0 => ModelResponses.Call("observe", new { }),
-            1 => ModelResponses.Call("tap", new { target = IncrementPattern().Match(string.Join('\n', request.Messages.Select(message => message.Content))).Groups["ref"].Value }),
-            _ => ModelResponses.Done("failed", "the guard stopped the tap"),
-        });
+        var model = new ScriptedModel(request =>
+            request.Messages.Count(message => message.Role == "tool") switch
+            {
+                0 => ModelResponses.Call("observe", new { }),
+                1 => ModelResponses.Call(
+                    "tap",
+                    new
+                    {
+                        target = IncrementPattern()
+                            .Match(string.Join('\n', request.Messages.Select(message => message.Content)))
+                            .Groups["ref"]
+                            .Value,
+                    }
+                ),
+                _ => ModelResponses.Done("failed", "the guard stopped the tap"),
+            }
+        );
         var options = new GrammarToolsOptions
         {
             Guard = async body =>
@@ -96,20 +135,28 @@ public sealed partial class CreateGrammarToolsTests
             },
             CounterPage.World(),
             model,
-            executor: Executor((context, _) => AgentTools.CreateGrammarTools(context, options)));
+            executor: Executor((context, _) => AgentTools.CreateGrammarTools(context, options))
+        );
 
         Assert.Equal(2, guarded.Count);
-        Assert.Contains(model.Requests[^1].Messages, message => message.Role == "tool" && message.Content == "stopped by the guard");
+        Assert.Contains(model.Requests[^1].Messages, message =>
+            message.Role == "tool" && message.Content == "stopped by the guard"
+        );
         Assert.IsType<AgentException>(result.Error);
     }
 
     [Fact]
     public async Task Fails_a_call_whose_body_the_guard_never_ran()
     {
-        var model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
-            ? ModelResponses.Done("blocked", "the step is concluding", "ENVIRONMENT_UNAVAILABLE")
-            : ModelResponses.Call("observe", new { }));
-        var options = new GrammarToolsOptions { Guard = _ => Task.FromResult("The step is concluding; nothing more runs.") };
+        var model = new ScriptedModel(request =>
+            request.Messages.Any(message => message.Role == "tool")
+                ? ModelResponses.Done("blocked", "the step is concluding", "ENVIRONMENT_UNAVAILABLE")
+                : ModelResponses.Call("observe", new { })
+        );
+        var options = new GrammarToolsOptions
+        {
+            Guard = _ => Task.FromResult("The step is concluding; nothing more runs."),
+        };
 
         var result = await RunAsync(
             async ctx =>
@@ -119,10 +166,14 @@ public sealed partial class CreateGrammarToolsTests
             },
             CounterPage.World(),
             model,
-            executor: Executor((context, _) => AgentTools.CreateGrammarTools(context, options)));
+            executor: Executor((context, _) => AgentTools.CreateGrammarTools(context, options))
+        );
 
         Assert.IsType<AgentException>(result.Error);
-        Assert.Equal("The step is concluding; nothing more runs.", model.Requests[^1].Messages.First(message => message.Role == "tool").Content);
+        Assert.Equal(
+            "The step is concluding; nothing more runs.",
+            model.Requests[^1].Messages.First(message => message.Role == "tool").Content
+        );
     }
 
     [Fact]
@@ -146,10 +197,21 @@ public sealed partial class CreateGrammarToolsTests
         Assert.Equal(StepVerdictStatus.Passed, verdict.Verdict!.Value.Status);
     }
 
-    private static ModelToolCall Done(string status, string summary, string? errorCode) => new()
-    {
-        Id = "call-1",
-        Name = VerdictTool.Name,
-        Arguments = JsonSerializer.SerializeToElement(errorCode is null ? new { status, summary } : (object)new { status, summary, errorCode }),
-    };
+    private static ModelToolCall Done(string status, string summary, string? errorCode) =>
+        new()
+        {
+            Id = "call-1",
+            Name = VerdictTool.Name,
+            Arguments = JsonSerializer.SerializeToElement(
+                errorCode is null
+                    ? new { status, summary }
+                    : (object)
+                        new
+                        {
+                            status,
+                            summary,
+                            errorCode,
+                        }
+            ),
+        };
 }

@@ -16,10 +16,14 @@ public sealed class E2eCacheClearTests : IDisposable
     {
         _cli.Seed(
             (new string('a', 64), CacheCli.Trace(null, null, null, 1)),
-            (new string('b', 64), CacheCli.Trace(null, null, null, 1)));
+            (new string('b', 64), CacheCli.Trace(null, null, null, 1))
+        );
         _cli.Invoke("clear");
         Assert.Contains("cleared 2 file(s)", _cli.Stdout, StringComparison.Ordinal);
-        Assert.Equal(["e2e.config.json"], Directory.GetFileSystemEntries(_cli.Root).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["e2e.config.json"],
+            Directory.GetFileSystemEntries(_cli.Root).Select(Path.GetFileName).Order(StringComparer.Ordinal)
+        );
         Assert.Equal(0, _cli.ExitCode);
     }
 

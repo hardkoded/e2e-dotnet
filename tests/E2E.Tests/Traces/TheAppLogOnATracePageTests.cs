@@ -12,13 +12,30 @@ public sealed class TheAppLogOnATracePageTests : TracePageKit
 {
     private static readonly DateTimeOffset Epoch = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-    private static AppLogRecord Logged(int ms, AppLogLevel level, string text, int? step, AppLogSource source = AppLogSource.Console) =>
-        new(source, level, text, Epoch.AddMilliseconds(ms), step);
+    private static AppLogRecord Logged(
+        int ms,
+        AppLogLevel level,
+        string text,
+        int? step,
+        AppLogSource source = AppLogSource.Console
+    ) => new(source, level, text, Epoch.AddMilliseconds(ms), step);
 
     [Fact]
     public async Task Lists_every_line_the_app_logged_in_one_section_oldest_first_with_its_step_on_the_page_and_one_before_the_first_step_as_such()
     {
-        var first = Step(0, api: "app.open", events: [Event(StepEventKind.Navigation, Epoch.AddMilliseconds(10), 0, detail: "navigated to http://127.0.0.1:4100/")]);
+        var first = Step(
+            0,
+            api: "app.open",
+            events:
+            [
+                Event(
+                    StepEventKind.Navigation,
+                    Epoch.AddMilliseconds(10),
+                    0,
+                    detail: "navigated to http://127.0.0.1:4100/"
+                ),
+            ]
+        );
         var second = Step(1, status: StepStatus.Failed);
         AppLogRecord[] appLog =
         [
@@ -28,7 +45,15 @@ public sealed class TheAppLogOnATracePageTests : TracePageKit
             Logged(5, AppLogLevel.Info, "early", null),
         ];
 
-        var page = Assert.Single(await PagesOfAsync(Result(id: "dddddddd44", status: ResultStatus.Failed, attempts: [Attempt(AttemptStatus.Failed, steps: [first, second], appLog: appLog)])));
+        var page = Assert.Single(
+            await PagesOfAsync(
+                Result(
+                    id: "dddddddd44",
+                    status: ResultStatus.Failed,
+                    attempts: [Attempt(AttemptStatus.Failed, steps: [first, second], appLog: appLog)]
+                )
+            )
+        );
 
         Assert.Contains(
             string.Join(
@@ -41,9 +66,11 @@ public sealed class TheAppLogOnATracePageTests : TracePageKit
                 "- step 1 · ℹ console: `booted`",
                 "- step 2 · ⚠ console warning: `slow render`",
                 "- step 2 · ✗ network error: `POST /api/todos 500`",
-                ""),
+                ""
+            ),
             page.Text,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         Assert.Equal(["↪ navigated to /", "ℹ console: `booted`"], StepLines(page.Text, 1));
     }
 
@@ -54,7 +81,15 @@ public sealed class TheAppLogOnATracePageTests : TracePageKit
         var step = Step(0, status: StepStatus.Failed);
         AppLogRecord[] appLog = [Logged(-1, AppLogLevel.Error, "first failure", 0), .. chatter];
 
-        var page = Assert.Single(await PagesOfAsync(Result(id: "eeeeeeee55", status: ResultStatus.Failed, attempts: [Attempt(AttemptStatus.Failed, steps: [step], appLog: appLog)])));
+        var page = Assert.Single(
+            await PagesOfAsync(
+                Result(
+                    id: "eeeeeeee55",
+                    status: ResultStatus.Failed,
+                    attempts: [Attempt(AttemptStatus.Failed, steps: [step], appLog: appLog)]
+                )
+            )
+        );
 
         var section = page.Text.Split("## App log")[1].Split("\n## ")[0];
         var items = section.Split('\n').Where(line => line.StartsWith("- ", StringComparison.Ordinal)).ToList();
@@ -68,7 +103,15 @@ public sealed class TheAppLogOnATracePageTests : TracePageKit
     [Fact]
     public async Task Leaves_the_section_out_when_the_app_logged_nothing()
     {
-        var page = Assert.Single(await PagesOfAsync(Result(id: "ffffffff66", status: ResultStatus.Failed, attempts: [Attempt(AttemptStatus.Failed, steps: [Step(0)])])));
+        var page = Assert.Single(
+            await PagesOfAsync(
+                Result(
+                    id: "ffffffff66",
+                    status: ResultStatus.Failed,
+                    attempts: [Attempt(AttemptStatus.Failed, steps: [Step(0)])]
+                )
+            )
+        );
 
         Assert.DoesNotContain("## App log", page.Text, StringComparison.Ordinal);
     }

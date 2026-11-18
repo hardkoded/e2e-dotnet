@@ -8,7 +8,14 @@ using E2E.Mobile;
 namespace E2E.Limrun;
 
 /// <summary>What the driver attaches to a Limrun device: the daemon's state directory, the run, and the build to install.</summary>
-internal sealed record LimrunDriverRequest(string StateDirectory, string RunId, int Slot, MobilePlatform Platform, string? App, string? AppPath);
+internal sealed record LimrunDriverRequest(
+    string StateDirectory,
+    string RunId,
+    int Slot,
+    MobilePlatform Platform,
+    string? App,
+    string? AppPath
+);
 
 /// <summary>The device the driver attached: how a client reaches it, the id agent-device lists it under, and the app it installed.</summary>
 internal sealed record LimrunBinding(JsonObject Client, string DeviceId, string? InstalledApp = null);
@@ -25,24 +32,41 @@ internal static class LimrunDriver
     /// <summary>The tenant every lease is scoped to.</summary>
     private const string Tenant = "e2e";
 
-    public static async Task<LimrunBinding> AttachAsync(LimrunDriverRequest request, DeviceClientFactory connect, CancellationToken cancellationToken)
+    public static async Task<LimrunBinding> AttachAsync(
+        LimrunDriverRequest request,
+        DeviceClientFactory connect,
+        CancellationToken cancellationToken
+    )
     {
         var platform = request.Platform.WireName();
         var session = LimrunSessions.LeaseSession(request.StateDirectory);
-        var allocator = connect(session, new DeviceConnection { Client = new JsonObject { ["stateDir"] = request.StateDirectory } });
-        var lease = await allocator.CallAsync(
-            DeviceMethods.LeasesAllocate,
-            DeviceArgs.Of(
-                ("tenant", Tenant),
-                ("runId", request.RunId),
-                ("clientId", $"worker-{request.Slot}"),
-                ("leaseBackend", $"{platform}-instance"),
-                ("leaseProvider", "limrun"),
-                ("retainOnClose", true)),
-            cancellationToken).ConfigureAwait(false) as JsonObject ?? throw new InvalidOperationException("agent-device returned no lease");
+        var allocator = connect(
+            session,
+            new DeviceConnection { Client = new JsonObject { ["stateDir"] = request.StateDirectory } }
+        );
+        var lease =
+            await allocator
+                .CallAsync(
+                    DeviceMethods.LeasesAllocate,
+                    DeviceArgs.Of(
+                        ("tenant", Tenant),
+                        ("runId", request.RunId),
+                        ("clientId", $"worker-{request.Slot}"),
+                        ("leaseBackend", $"{platform}-instance"),
+                        ("leaseProvider", "limrun"),
+                        ("retainOnClose", true)
+                    ),
+                    cancellationToken
+                )
+                .ConfigureAwait(false) as JsonObject
+            ?? throw new InvalidOperationException("agent-device returned no lease");
 
         // The daemon closes a lease with its session unless it is retained, and the lease must outlive the worker's sessions.
-        if (lease["retainOnClose"] is not JsonValue retained || !retained.TryGetValue<bool>(out var retainedOnClose) || !retainedOnClose)
+        if (
+            lease["retainOnClose"] is not JsonValue retained
+            || !retained.TryGetValue<bool>(out var retainedOnClose)
+            || !retainedOnClose
+        )
         {
             throw new InvalidOperationException("agent-device did not retain the Limrun lease across session close");
         }
@@ -71,21 +95,31 @@ internal static class LimrunDriver
         }
 
         var device = connect(session, new DeviceConnection { Client = client });
-        var installed = await device.CallAsync(
-            DeviceMethods.AppsInstall,
-            DeviceArgs.Of(
-                ("appPath", request.AppPath),
-                (request.Platform == MobilePlatform.Ios ? "udid" : "serial", binding.DeviceId),
-                ("app", request.App),
-                ("platform", platform)),
-            cancellationToken).ConfigureAwait(false);
-        var id = Text(installed?["appId"]) ?? Text(installed?["bundleId"]) ?? Text(installed?["package"]) ?? request.App
-            ?? throw new InvalidOperationException("Limrun installed the build but agent-device returned no app identifier");
+        var installed = await device
+            .CallAsync(
+                DeviceMethods.AppsInstall,
+                DeviceArgs.Of(
+                    ("appPath", request.AppPath),
+                    (request.Platform == MobilePlatform.Ios ? "udid" : "serial", binding.DeviceId),
+                    ("app", request.App),
+                    ("platform", platform)
+                ),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        var id = Text(installed?["appId"])
+            ?? Text(installed?["bundleId"])
+            ?? Text(installed?["package"])
+            ?? request.App
+            ?? throw new InvalidOperationException(
+                "Limrun installed the build but agent-device returned no app identifier"
+            );
         return binding with { InstalledApp = id };
     }
 
     private static string Required(JsonObject lease, string name) =>
         Text(lease[name]) ?? throw new InvalidOperationException($"Invalid lease response from daemon: no {name}");
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) && text.Length > 0 ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) && text.Length > 0 ? text : null;
 }

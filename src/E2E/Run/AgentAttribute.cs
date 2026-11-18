@@ -15,7 +15,10 @@ namespace E2E;
 public sealed class AgentAttribute(string name) : Attribute
 {
     /// <summary>The name of an <c>agents.&lt;name&gt;</c> entry.</summary>
-    public string Name { get; } = string.IsNullOrWhiteSpace(name) ? throw new ArgumentException("agent must be the name of a configured agent", nameof(name)) : name;
+    public string Name { get; } =
+        string.IsNullOrWhiteSpace(name)
+            ? throw new ArgumentException("agent must be the name of a configured agent", nameof(name))
+            : name;
 }
 
 /// <summary>

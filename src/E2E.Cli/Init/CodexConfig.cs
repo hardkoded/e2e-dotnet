@@ -51,7 +51,11 @@ internal static class CodexConfig
         }
 
         content = SetLaunchValue(content, ["mcp_servers", "e2e", "command"], JsonValue.Create(command));
-        content = SetLaunchValue(content, ["mcp_servers", "e2e", "args"], new JsonArray([.. args.Select(arg => (JsonNode?)JsonValue.Create(arg))]));
+        content = SetLaunchValue(
+            content,
+            ["mcp_servers", "e2e", "args"],
+            new JsonArray([.. args.Select(arg => (JsonNode?)JsonValue.Create(arg))])
+        );
         _ = ReadCodexConfig(content);
         return content;
     }
@@ -97,7 +101,9 @@ internal static class CodexConfig
                 }
                 else
                 {
-                    throw new InvalidOperationException("Codex setting " + string.Join('.', resolved) + " must be a TOML table");
+                    throw new InvalidOperationException(
+                        "Codex setting " + string.Join('.', resolved) + " must be a TOML table"
+                    );
                 }
             }
 
@@ -110,13 +116,20 @@ internal static class CodexConfig
             }
         }
 
-        bool Matches(IReadOnlyList<string> path) => path.Count <= keys.Length && path.Select((key, index) => key == keys[index]).All(match => match);
+        bool Matches(IReadOnlyList<string> path) =>
+            path.Count <= keys.Length && path.Select((key, index) => key == keys[index]).All(match => match);
 
         Visit(root, []);
-        var encoded = value.ToJsonString(new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        var encoded = value.ToJsonString(
+            new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }
+        );
         if (existing is not null)
         {
-            return string.Concat(text.AsSpan(0, existing.Span.Offset), encoded, text.AsSpan(existing.Span.Offset + existing.Span.Length));
+            return string.Concat(
+                text.AsSpan(0, existing.Span.Offset),
+                encoded,
+                text.AsSpan(existing.Span.Offset + existing.Span.Length)
+            );
         }
 
         var assignment = string.Join('.', keys.Skip(depth)) + " = " + encoded;
@@ -134,7 +147,14 @@ internal static class CodexConfig
                 offset = before.Length;
             }
 
-            insertion = (inlineTable.Items.ChildrenCount > 0 ? trailingComma ? " " : ", " : "") + assignment;
+            insertion =
+                (
+                    inlineTable.Items.ChildrenCount > 0
+                        ? trailingComma
+                            ? " "
+                            : ", "
+                        : ""
+                ) + assignment;
         }
         else
         {
@@ -157,19 +177,22 @@ internal static class CodexConfig
         var document = SyntaxParser.Parse(text);
         if (document.HasErrors)
         {
-            throw new InvalidOperationException(string.Join("; ", document.Diagnostics.Select(message => message.ToString())));
+            throw new InvalidOperationException(
+                string.Join("; ", document.Diagnostics.Select(message => message.ToString()))
+            );
         }
 
         return document;
     }
 
-    private static IEnumerable<KeyValueSyntax> KeyValuesOf(SyntaxNode node) => node switch
-    {
-        DocumentSyntax document => document.KeyValues,
-        TableSyntaxBase table => table.Items.OfType<KeyValueSyntax>(),
-        InlineTableSyntax inline => inline.Items.Select(item => item.KeyValue!),
-        _ => [],
-    };
+    private static IEnumerable<KeyValueSyntax> KeyValuesOf(SyntaxNode node) =>
+        node switch
+        {
+            DocumentSyntax document => document.KeyValues,
+            TableSyntaxBase table => table.Items.OfType<KeyValueSyntax>(),
+            InlineTableSyntax inline => inline.Items.Select(item => item.KeyValue!),
+            _ => [],
+        };
 
     /// <summary>The static parts of a key, <c>a."b".c</c> being <c>a</c>, <c>b</c>, <c>c</c>.</summary>
     private static List<string> KeyParts(KeySyntax key)
@@ -179,25 +202,29 @@ internal static class CodexConfig
         return parts;
     }
 
-    private static string KeyText(SyntaxNode key) => key switch
-    {
-        BareKeySyntax bare => bare.Key!.Text!,
-        StringValueSyntax text => text.Value!,
-        _ => throw new InvalidOperationException("unsupported TOML key"),
-    };
+    private static string KeyText(SyntaxNode key) =>
+        key switch
+        {
+            BareKeySyntax bare => bare.Key!.Text!,
+            StringValueSyntax text => text.Value!,
+            _ => throw new InvalidOperationException("unsupported TOML key"),
+        };
 
     /// <summary>.NET-only: the Tomlyn model as JSON, the shape <see cref="McpConfig"/> merges and compares (upstream reads plain objects).</summary>
-    private static JsonNode? ToJson(object? value) => value switch
-    {
-        null => null,
-        TomlTable table => new JsonObject(table.Select(pair => KeyValuePair.Create(pair.Key, ToJson(pair.Value)))),
-        TomlTableArray tables => new JsonArray([.. tables.Select(ToJson)]),
-        TomlArray array => new JsonArray([.. array.Select(ToJson)]),
-        string text => JsonValue.Create(text),
-        bool flag => JsonValue.Create(flag),
-        long number => JsonValue.Create(number),
-        double number when !double.IsFinite(number) => JsonValue.Create(number.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-        double number => JsonValue.Create(number),
-        _ => JsonValue.Create(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)),
-    };
+    private static JsonNode? ToJson(object? value) =>
+        value switch
+        {
+            null => null,
+            TomlTable table => new JsonObject(table.Select(pair => KeyValuePair.Create(pair.Key, ToJson(pair.Value)))),
+            TomlTableArray tables => new JsonArray([.. tables.Select(ToJson)]),
+            TomlArray array => new JsonArray([.. array.Select(ToJson)]),
+            string text => JsonValue.Create(text),
+            bool flag => JsonValue.Create(flag),
+            long number => JsonValue.Create(number),
+            double number when !double.IsFinite(number) => JsonValue.Create(
+                number.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            ),
+            double number => JsonValue.Create(number),
+            _ => JsonValue.Create(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)),
+        };
 }

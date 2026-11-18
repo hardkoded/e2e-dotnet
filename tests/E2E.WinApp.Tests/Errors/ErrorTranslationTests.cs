@@ -21,7 +21,9 @@ public sealed class ErrorTranslationTests
     [InlineData(DriverFault.Other, EngineErrorCodes.EngineFailure, false)]
     public void Maps_each_fault_onto_its_code(DriverFault fault, string code, bool retryable)
     {
-        var error = Assert.IsType<EngineException>(WinAppErrors.TranslateError(new WindowDriverException(fault, "the library said no"), "perform tap"));
+        var error = Assert.IsType<EngineException>(
+            WinAppErrors.TranslateError(new WindowDriverException(fault, "the library said no"), "perform tap")
+        );
         Assert.Equal(code, error.Code);
         Assert.Equal(retryable, error.Retryable);
         Assert.Contains("perform tap failed: the library said no", error.Message, StringComparison.Ordinal);
@@ -30,14 +32,18 @@ public sealed class ErrorTranslationTests
     [Fact]
     public void An_app_not_found_names_the_open_to_make()
     {
-        var error = Assert.IsType<EngineException>(WinAppErrors.TranslateError(new WindowDriverException(DriverFault.AppNotFound, "gone"), "observe"));
+        var error = Assert.IsType<EngineException>(
+            WinAppErrors.TranslateError(new WindowDriverException(DriverFault.AppNotFound, "gone"), "observe")
+        );
         Assert.Contains("call app.open()", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Cancellation_is_cancelled_and_never_a_timeout()
     {
-        var error = Assert.IsType<EngineException>(WinAppErrors.TranslateError(new OperationCanceledException(), "observe"));
+        var error = Assert.IsType<EngineException>(
+            WinAppErrors.TranslateError(new OperationCanceledException(), "observe")
+        );
         Assert.Equal(EngineErrorCodes.Cancelled, error.Code);
         Assert.Equal("observe cancelled", error.Message);
     }
@@ -67,11 +73,27 @@ public sealed class ErrorTranslationTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
         var called = false;
-        var error = await Assert.ThrowsAsync<EngineException>(() => WinAppErrors.RunAsync("observe", _ => { called = true; return Task.CompletedTask; }, cancelled.Token));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            WinAppErrors.RunAsync(
+                "observe",
+                _ =>
+                {
+                    called = true;
+                    return Task.CompletedTask;
+                },
+                cancelled.Token
+            )
+        );
         Assert.Equal(EngineErrorCodes.Cancelled, error.Code);
         Assert.False(called);
 
-        var failed = await Assert.ThrowsAsync<EngineException>(() => WinAppErrors.RunAsync<int>("observe", _ => throw new WindowDriverException(DriverFault.Offscreen, "x"), CancellationToken.None));
+        var failed = await Assert.ThrowsAsync<EngineException>(() =>
+            WinAppErrors.RunAsync<int>(
+                "observe",
+                _ => throw new WindowDriverException(DriverFault.Offscreen, "x"),
+                CancellationToken.None
+            )
+        );
         Assert.Equal(EngineErrorCodes.NotActionable, failed.Code);
         Assert.Equal(3, await WinAppErrors.RunAsync("observe", _ => Task.FromResult(3), CancellationToken.None));
     }

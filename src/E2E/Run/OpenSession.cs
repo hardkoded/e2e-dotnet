@@ -83,7 +83,15 @@ public sealed class E2EHost : IAsyncDisposable
     private readonly Action _release;
     private readonly Lazy<Task<IReadOnlyList<Exception>>> _closing;
 
-    private E2EHost(StandaloneHost host, E2EConfig config, TargetConfig declared, TargetConfig target, IEngine engine, IAppProcesses apps, Action release)
+    private E2EHost(
+        StandaloneHost host,
+        E2EConfig config,
+        TargetConfig declared,
+        TargetConfig target,
+        IEngine engine,
+        IAppProcesses apps,
+        Action release
+    )
     {
         _host = host;
         _config = config;
@@ -106,8 +114,10 @@ public sealed class E2EHost : IAsyncDisposable
     /// provisioning, initialization, and every session's operations; close still releases resources. Upstream's <c>openHost</c>, which is a
     /// free function: C# has none, so the type it returns owns it.
     /// </summary>
-    public static Task<E2EHost> OpenAsync(OpenHostOptions? options = null, CancellationToken cancellationToken = default) =>
-        OpenSession.RedactOpening(() => OpenWorkerAsync(options ?? new OpenHostOptions(), cancellationToken));
+    public static Task<E2EHost> OpenAsync(
+        OpenHostOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) => OpeningRedaction.RedactOpening(() => OpenWorkerAsync(options ?? new OpenHostOptions(), cancellationToken));
 
     /// <summary>Loads the selected target and opens its worker behind the redacted public boundary. Upstream's <c>openHostWorker</c>.</summary>
     private static async Task<E2EHost> OpenWorkerAsync(OpenHostOptions options, CancellationToken cancellationToken)
@@ -120,23 +130,35 @@ public sealed class E2EHost : IAsyncDisposable
             var config = OpenSession.LoadHostConfig(cwd, options.Config, options.ConfigPath, options.Env);
             OpenSession.RegisterStaticSecrets(config.AllSecrets);
             var declared = SelectTarget.Select(config.Targets, options.Target, "pass `Target` to E2EHost.OpenAsync");
-            var engine = options.EngineFactory?.Invoke(declared) ?? TargetEngines.Create(declared, options.Headed ? false : null, null);
-            Action<string>? notice = options.OnNotice is { } onNotice ? line => OpenSession.Notify(onNotice, declared.Name, line) : null;
+            var engine = options.EngineFactory?.Invoke(declared)
+                ?? TargetEngines.Create(declared, options.Headed ? false : null, null);
+            TargetApps.CheckLinkBase(declared.App.LinkBase, engine, $"target \"{declared.Name}\" app");
+            Action<string>? notice = options.OnNotice is { } onNotice
+                ? line => OpenSession.Notify(onNotice, declared.Name, line)
+                : null;
 
             // The target's app command starts before the host opens, and the URL is on the port it was started on.
-            var (target, processes) = await RunApps.AcquireAsync(config, declared, notice, cancellationToken).ConfigureAwait(false);
+            var (target, processes) = await RunApps
+                .AcquireAsync(config, declared, notice, cancellationToken)
+                .ConfigureAwait(false);
             apps = processes;
-            var host = await Standalone.OpenWorkerAsync(new StandaloneHostOptions
-            {
-                Engine = engine,
-                TargetName = target.Name,
-                ProjectRoot = config.ProjectRoot,
-                Env = options.Env,
-                CleanupTimeout = config.CleanupTimeout,
-                CancellationToken = cancellationToken,
-                Notice = options.OnNotice is { } callback ? (name, line) => OpenSession.Notify(callback, name, line) : null,
-                RunId = AttemptReport.RunId,
-            }).ConfigureAwait(false);
+            var host = await Standalone
+                .OpenWorkerAsync(
+                    new StandaloneHostOptions
+                    {
+                        Engine = engine,
+                        TargetName = target.Name,
+                        ProjectRoot = config.ProjectRoot,
+                        Env = options.Env,
+                        CleanupTimeout = config.CleanupTimeout,
+                        CancellationToken = cancellationToken,
+                        Notice = options.OnNotice is { } callback
+                            ? (name, line) => OpenSession.Notify(callback, name, line)
+                            : null,
+                        RunId = AttemptReport.RunId,
+                    }
+                )
+                .ConfigureAwait(false);
             return new E2EHost(host, config, declared, target, engine, apps, release);
         }
         catch
@@ -158,7 +180,7 @@ public sealed class E2EHost : IAsyncDisposable
     public Task<E2ESession> OpenSessionAsync(OpenSessionOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return OpenSession.RedactOpening(async () =>
+        return OpeningRedaction.RedactOpening(async () =>
         {
             if (string.IsNullOrWhiteSpace(options.Name))
             {
@@ -171,7 +193,9 @@ public sealed class E2EHost : IAsyncDisposable
                 throw new ConfigurationException("INVALID_CONFIG", "the session timeout must be positive and finite");
             }
 
-            var attempt = await _host.OpenAttemptAsync(SessionOptions(options, timeout), cancellationToken, hosted: true).ConfigureAwait(false);
+            var attempt = await _host
+                .OpenAttemptAsync(SessionOptions(options, timeout), cancellationToken, hosted: true)
+                .ConfigureAwait(false);
             return attempt.Session;
         });
     }
@@ -188,7 +212,10 @@ public sealed class E2EHost : IAsyncDisposable
         var failures = await CloseAsync().ConfigureAwait(false);
         if (failures.Count > 0)
         {
-            throw new AggregateException("closing the e2e host failed: " + string.Join("; ", failures.Select(failure => failure.Message)), failures);
+            throw new AggregateException(
+                "closing the e2e host failed: " + string.Join("; ", failures.Select(failure => failure.Message)),
+                failures
+            );
         }
     }
 
@@ -230,8 +257,14 @@ public sealed class E2EHost : IAsyncDisposable
     {
         var agent = _config.Agent;
         var cacheMode = _config.Cache.Mode;
-        var identity = Sessions.TargetIdentity(
-            _target.Name, _declared.Platform, _engine, TargetApps.ResolveTargetApp(_target.Name, _declared.App, _config.ProjectRoot)).AppIdentity;
+        var identity = Sessions
+            .TargetIdentity(
+                _target.Name,
+                _declared.Platform,
+                _engine,
+                TargetApps.ResolveTargetApp(_target.Name, _declared.App, _config.ProjectRoot)
+            )
+            .AppIdentity;
         return new E2ESessionOptions
         {
             Engine = _engine,
@@ -246,19 +279,21 @@ public sealed class E2EHost : IAsyncDisposable
             MaxObservationBytes = agent.MaxObservationBytes,
             MaxInputTokens = agent.MaxInputTokens,
             ProviderOptions = agent.ProviderOptions,
-            Agents = _config.Agents
-                .Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal))
+            Agents = _config
+                .Agents.Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal))
                 .ToDictionary(pair => pair.Key, pair => pair.Value.CreateOptions(), StringComparer.Ordinal),
             Agent = options.Agent,
             BaseUrl = _target.App.Url,
             Permissions = _target.App.Permissions,
             BundleId = _target.App.BundleId,
             AppPath = _target.App.AppPath,
+            LinkBase = _target.App.LinkBase,
             LaunchArguments = _target.App.LaunchArguments,
             ProjectRoot = _config.ProjectRoot,
             ResultsDirectory = OutputLayout.Of(_config.Output).Results,
             TargetName = _target.Name,
-            Cache = cacheMode == CacheMode.Off ? null : _config.Cache.Store ?? new FileStepCache(_config.Cache.Directory),
+            Cache =
+                cacheMode == CacheMode.Off ? null : _config.Cache.Store ?? new FileStepCache(_config.Cache.Directory),
             ArtifactStore = _config.ArtifactStore,
             CacheEnabled = cacheMode != CacheMode.Off,
             CacheMode = cacheMode,
@@ -273,7 +308,9 @@ public sealed class E2EHost : IAsyncDisposable
             AssertionTimeout = _config.AssertionTimeout,
             MaxModelCalls = agent.MaxModelCalls ?? E2EDefaults.MaxModelCalls,
             MaxSteps = agent.MaxSteps ?? E2EDefaults.MaxSteps,
-            OnProgress = options.OnStep is { } onStep ? progress => OpenSession.Notify(onStep, StepProgressWire.Public(progress)) : null,
+            OnProgress = options.OnStep is { } onStep
+                ? progress => OpenSession.Notify(onStep, StepProgressWire.Public(progress))
+                : null,
         };
     }
 }
@@ -285,26 +322,6 @@ internal static class OpenSession
     private static readonly List<Secret> Secrets = [];
     private static readonly HashSet<(string Name, string Value)> Known = [];
     private static Redactor _redactor = Redactor.None;
-
-    /// <summary>Opening errors go straight to the external runner, never through a report writer. Upstream's <c>redactOpening</c>.</summary>
-    public static async Task<T> RedactOpening<T>(Func<Task<T>> open)
-    {
-        try
-        {
-            return await open().ConfigureAwait(false);
-        }
-        catch (Exception cause) when (cause is not OperationCanceledException)
-        {
-            // Arbitrary engine causes can carry non-text secret data; only the sanitized record crosses out. The stack and the inner exception stay behind.
-            var safe = ErrorSerializer.Serialize(cause, null, Redact);
-            throw safe.Category switch
-            {
-                "configuration" => new ConfigurationException(safe.Code, safe.Message),
-                "infrastructure" => new EngineException(safe.Code, safe.Message, safe.Retryable),
-                _ => new E2EException(safe.Code, safe.Message) { Details = safe.Details },
-            };
-        }
-    }
 
     /// <summary>Makes the config's secrets known to the process before the first engine call, so an opening failure is redacted like any text. Upstream's <c>registerStaticSecrets</c>.</summary>
     public static void RegisterStaticSecrets(IEnumerable<Secret> secrets)
@@ -324,7 +341,12 @@ internal static class OpenSession
     }
 
     /// <summary>The config a host opens: a value is used as it is; a file is read fresh, with the host's environment. Upstream's <c>loadHostConfig</c>.</summary>
-    public static E2EConfig LoadHostConfig(string cwd, E2EConfig? config, string? configPath, IReadOnlyDictionary<string, string?>? env)
+    public static E2EConfig LoadHostConfig(
+        string cwd,
+        E2EConfig? config,
+        string? configPath,
+        IReadOnlyDictionary<string, string?>? env
+    )
     {
         if (config is not null)
         {
@@ -336,13 +358,19 @@ internal static class OpenSession
         var path = configPath is null ? E2EConfig.Find(cwd) : Path.GetFullPath(configPath, cwd);
         if (path is null)
         {
-            throw new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one");
+            throw new ConfigurationException(
+                "CONFIG_NOT_FOUND",
+                "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one"
+            );
         }
 
         if (!File.Exists(path))
         {
             throw configPath is null
-                ? new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one")
+                ? new ConfigurationException(
+                    "CONFIG_NOT_FOUND",
+                    "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one"
+                )
                 : E2EConfig.ExplicitConfigNotFound(cwd, configPath, path);
         }
 
@@ -359,8 +387,7 @@ internal static class OpenSession
 #pragma warning disable CA1031 // The contract is that the callback does not throw; a throwing one is not a failure of the session.
         catch (Exception)
 #pragma warning restore CA1031
-        {
-        }
+        { }
     }
 
     /// <inheritdoc cref="Notify{T}(Action{T}, T)"/>
@@ -373,11 +400,11 @@ internal static class OpenSession
 #pragma warning disable CA1031 // As above.
         catch (Exception)
 #pragma warning restore CA1031
-        {
-        }
+        { }
     }
 
-    private static string Redact(string text)
+    /// <summary>Replaces the process's known secret values in <paramref name="text"/>. Upstream's <c>processSecrets.redact</c> (<c>run/secrecy.ts</c>).</summary>
+    internal static string Redact(string text)
     {
         Redactor redactor;
         lock (Gate)

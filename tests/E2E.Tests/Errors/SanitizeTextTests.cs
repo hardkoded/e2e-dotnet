@@ -17,4 +17,18 @@ public sealed class SanitizeTextTests
         Assert.Equal("a\tb\nc", TextRules.SanitizeText("a\tb\nc"));
         Assert.Equal("ok 😀 fine", TextRules.SanitizeText("ok 😀 fine"));
     }
+
+    [Fact]
+    public void Replaces_carriage_returns_SanitizeRecordedText_keeps_the_one_in_a_CRLF()
+    {
+        Assert.Equal("a\uFFFD\nb", TextRules.SanitizeText("a\r\nb"));
+        Assert.Equal(
+            "a\r\nb\uFFFD\uFFFD\uFFFDc",
+            TextRules.SanitizeRecordedText("a\r\nb\u0007\u000c\u000e\u001b[31mc")
+        );
+        Assert.Equal(
+            "failed\uFFFDpassed\uFFFD\r\nend\uFFFD",
+            TextRules.SanitizeRecordedText("failed\rpassed\r\r\nend\r")
+        );
+    }
 }

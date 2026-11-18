@@ -45,7 +45,13 @@ public sealed class AsymmetricMatchersTests
         Expect.That(new { a = 1, b = 2 }).ToEqual(Expect.ObjectContaining(new { a = 1 }));
         Expect.That(new { a = new { b = 1 } }).ToEqual(Expect.ObjectContaining(new { a = new { b = 1 } }));
         FailsWith(() => Expect.That(new { a = 1 }).ToEqual(Expect.ObjectContaining(new { b = 1 })), "ObjectContaining");
-        FailsWith(() => Expect.That(new { a = new { b = 1, c = 2 } }).ToEqual(Expect.ObjectContaining(new { a = new { b = 1 } })), "ObjectContaining");
+        FailsWith(
+            () =>
+                Expect
+                    .That(new { a = new { b = 1, c = 2 } })
+                    .ToEqual(Expect.ObjectContaining(new { a = new { b = 1 } })),
+            "ObjectContaining"
+        );
         Expect.That(new[] { 3, 1, 2 }).ToEqual(Expect.ArrayContaining([1, 2]));
         Expect.That(new[] { new { a = 1 }, new { a = 2 } }).ToEqual(Expect.ArrayContaining([new { a = 2 }]));
         FailsWith(() => Expect.That(new[] { 1 }).ToEqual(Expect.ArrayContaining([1, 2])), "ArrayContaining");
@@ -59,26 +65,70 @@ public sealed class AsymmetricMatchersTests
     [Fact]
     public void Are_honoured_inside_every_structural_matcher()
     {
-        var payload = new { id = "usr_1", createdAt = DateTime.UtcNow, tags = new[] { "a", "b" }, profile = new { name = "Ada", age = 36 } };
-        Expect.That(payload).ToEqual(new
+        var payload = new
         {
-            id = Expect.StringMatching(new Regex("^usr_")),
-            createdAt = Expect.Any(typeof(DateTime)),
-            tags = Expect.ArrayContaining(["b"]),
-            profile = Expect.ObjectContaining(new { name = Expect.Any(typeof(string)) }),
-        });
-        Expect.That(payload).ToMatchObject(new { profile = new { age = Expect.Any(typeof(int)) }, tags = new object[] { Expect.Any(typeof(string)), "b" } });
-        Expect.That(new[] { new { id = 1, ok = true }, new { id = 2, ok = false } }).ToContain(Expect.ObjectContaining(new { id = 2 }));
+            id = "usr_1",
+            createdAt = DateTime.UtcNow,
+            tags = new[] { "a", "b" },
+            profile = new { name = "Ada", age = 36 },
+        };
+        Expect
+            .That(payload)
+            .ToEqual(
+                new
+                {
+                    id = Expect.StringMatching(new Regex("^usr_")),
+                    createdAt = Expect.Any(typeof(DateTime)),
+                    tags = Expect.ArrayContaining(["b"]),
+                    profile = Expect.ObjectContaining(new { name = Expect.Any(typeof(string)) }),
+                }
+            );
+        Expect
+            .That(payload)
+            .ToMatchObject(
+                new
+                {
+                    profile = new { age = Expect.Any(typeof(int)) },
+                    tags = new object[] { Expect.Any(typeof(string)), "b" },
+                }
+            );
+        Expect
+            .That(new[] { new { id = 1, ok = true }, new { id = 2, ok = false } })
+            .ToContain(Expect.ObjectContaining(new { id = 2 }));
         Expect.That(new[] { "alpha", "beta" }).ToContain(Expect.StringContaining("bet"));
         Expect.That(payload).ToHaveProperty("profile.name", Expect.Any(typeof(string)));
         Expect.That(payload).ToHaveProperty("tags", Expect.ArrayContaining(["a"]));
         FailsWith(
-            () => Expect.That(payload).ToEqual(new { id = Expect.Any(typeof(int)), createdAt = Expect.Anything(), tags = new[] { "a", "b" }, profile = Expect.Anything() }),
-            "to equal");
-        FailsWith(() => Expect.That(payload).ToMatchObject(new { profile = new { age = Expect.Any(typeof(string)) } }), "to match object");
-        FailsWith(() => Expect.That(new[] { new { id = 1 } }).ToContain(Expect.ObjectContaining(new { id = 2 })), "to contain");
-        FailsWith(() => Expect.That(payload).ToHaveProperty("profile.age", Expect.Any(typeof(string))), "to equal Any<String>, got 36");
-        FailsWith(() => Expect.That(payload).Not.ToMatchObject(new { id = Expect.Any(typeof(string)) }), "not to match object");
+            () =>
+                Expect
+                    .That(payload)
+                    .ToEqual(
+                        new
+                        {
+                            id = Expect.Any(typeof(int)),
+                            createdAt = Expect.Anything(),
+                            tags = new[] { "a", "b" },
+                            profile = Expect.Anything(),
+                        }
+                    ),
+            "to equal"
+        );
+        FailsWith(
+            () => Expect.That(payload).ToMatchObject(new { profile = new { age = Expect.Any(typeof(string)) } }),
+            "to match object"
+        );
+        FailsWith(
+            () => Expect.That(new[] { new { id = 1 } }).ToContain(Expect.ObjectContaining(new { id = 2 })),
+            "to contain"
+        );
+        FailsWith(
+            () => Expect.That(payload).ToHaveProperty("profile.age", Expect.Any(typeof(string))),
+            "to equal Any<String>, got 36"
+        );
+        FailsWith(
+            () => Expect.That(payload).Not.ToMatchObject(new { id = Expect.Any(typeof(string)) }),
+            "not to match object"
+        );
     }
 
     [Fact]

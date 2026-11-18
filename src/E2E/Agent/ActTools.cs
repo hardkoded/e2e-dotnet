@@ -21,10 +21,45 @@ namespace E2E;
 /// its <c>screenshot</c> is the session's own, and its action results carry no image. No upstream equivalent: upstream's tool loop holds
 /// these as closures over its <c>ToolLoopHelpers</c>.
 /// </summary>
-internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter screen, bool session = false)
+internal sealed partial class ActTools(
+    AttemptScope scope,
+    ObservationFeed feed,
+    ScreenPresenter screen,
+    bool session = false,
+    Func<string, CancellationToken, Task<string>>? saveScreenshot = null
+)
 {
-    private static readonly HashSet<string> ActionTools =
-        new(["navigate", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "upload", "back", "resize_viewport", "switch_tab", "close_tab", "dismiss_keyboard", "scroll", "scroll_to", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ActionTools = new(
+        [
+            "navigate",
+            "tap",
+            "double_tap",
+            "long_press",
+            "right_click",
+            "hover",
+            "drag",
+            "type",
+            "type_secret",
+            "press",
+            "select",
+            "check",
+            "upload",
+            "back",
+            "resize_viewport",
+            "switch_tab",
+            "close_tab",
+            "dismiss_keyboard",
+            "scroll",
+            "scroll_to",
+            "tap_at",
+            "hover_at",
+            "drag_at",
+            "type_at",
+            "press_at",
+            "select_at",
+        ],
+        StringComparer.Ordinal
+    );
 
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
@@ -33,7 +68,13 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     private HashSet<ExecutorVerb>? _verbs;
 
     // The verbs the engine's declarations unlock, which decide the tools the step offers (ActContext.VerbsOf).
-    private HashSet<ExecutorVerb> Verbs => _verbs ??= ActContext.VerbsOf(_scope.EngineCapabilities, _scope.ActionKinds, _scope.Session.PointerActionKinds, _scope.Session.CanDismissKeyboard);
+    private HashSet<ExecutorVerb> Verbs =>
+        _verbs ??= ActContext.VerbsOf(
+            _scope.EngineCapabilities,
+            _scope.ActionKinds,
+            _scope.Session.PointerActionKinds,
+            _scope.Session.CanDismissKeyboard
+        );
 
     // Whether the engine has a keyboard, which a fill with no node and a point on nothing listed reach focused fields through.
     private bool Keyboard => _scope.EngineCapabilities.HasFlag(EngineCapabilities.Keyboard);
@@ -45,20 +86,51 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         StepAccounting budget,
         IReadOnlyDictionary<string, AgentTool>? projectTools,
         CancellationToken token,
-        StepExecutorContext? context = null)
+        StepExecutorContext? context = null
+    )
     {
         // observe looks and records nothing, so it takes no action slot.
         if (string.Equals(call.Name, "observe", StringComparison.Ordinal))
         {
-            return _session ? ToolOutcome.Ok(await WholeScreenAsync(token).ConfigureAwait(false)) : await DescribeOutcomeAsync("Observed.", token, keyboardNote: false).ConfigureAwait(false);
+            return _session
+                ? ToolOutcome.Ok(await WholeScreenAsync(token).ConfigureAwait(false))
+                : await DescribeOutcomeAsync("Observed.", token, keyboardNote: false).ConfigureAwait(false);
         }
 
         // screenshot looks too: it attaches the viewport's pixels, and from then on every result carries a fresh one.
-        if (string.Equals(call.Name, AgentTools.ScreenshotName, StringComparison.Ordinal) && !_session)
+        if (string.Equals(call.Name, AgentTools.ScreenshotName, StringComparison.Ordinal))
         {
             try
             {
-                return Outcome(await DescribeAsync(null, token, pixels: true).ConfigureAwait(false));
+                // Upstream's zod schema: an optional string ending in .png, checked before the tool runs.
+                string? file = null;
+                if (
+                    saveScreenshot is not null
+                    && call.Arguments.ValueKind == JsonValueKind.Object
+                    && call.Arguments.TryGetProperty("path", out var path)
+                )
+                {
+                    file = path.ValueKind == JsonValueKind.String ? path.GetString() : null;
+                    if (file is null || !file.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ToolOutcome.Fail("screenshot path must be a .png file.");
+                    }
+                }
+
+                var shown = _session
+                    ? await SessionScreenshotAsync(token).ConfigureAwait(false)
+                    : Outcome(await DescribeAsync(null, token, pixels: true).ConfigureAwait(false));
+                if (file is null)
+                {
+                    return shown;
+                }
+
+                return new ToolOutcome
+                {
+                    Content = shown.Content + "\nSaved to " + await saveScreenshot!(file, token).ConfigureAwait(false),
+                    Pixels = shown.Pixels,
+                    Succeeded = true,
+                };
             }
             catch (E2EException ex) when (!token.IsCancellationRequested && !StepExecutors.IsRuntimeHardStop(ex))
             {
@@ -92,8 +164,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
 
         // switch_tab and close_tab are tools only where the engine can show and close a tab.
-        if ((call.Name == AgentTools.SwitchTabName && !_scope.EngineCapabilities.HasFlag(EngineCapabilities.SwitchTab))
-            || (call.Name == AgentTools.CloseTabName && !_scope.EngineCapabilities.HasFlag(EngineCapabilities.CloseTab)))
+        if (
+            (call.Name == AgentTools.SwitchTabName && !_scope.EngineCapabilities.HasFlag(EngineCapabilities.SwitchTab))
+            || (call.Name == AgentTools.CloseTabName && !_scope.EngineCapabilities.HasFlag(EngineCapabilities.CloseTab))
+        )
         {
             return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
         }
@@ -108,7 +182,9 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         // The one dispatcher action the call makes spends the slot.
         if (!budget.TryPrepay())
         {
-            return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call " + VerdictTool.Name + " with a verdict.");
+            return ToolOutcome.Fail(
+                budget.Message + ". Take no more actions. Call " + VerdictTool.Name + " with a verdict."
+            );
         }
 
         try
@@ -121,22 +197,56 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
     }
 
-    private async Task<ToolOutcome> RunActionAsync(ModelToolCall call, IExecutorActions actions, StepAccounting budget, CancellationToken token)
+    private async Task<ToolOutcome> RunActionAsync(
+        ModelToolCall call,
+        IExecutorActions actions,
+        StepAccounting budget,
+        CancellationToken token
+    )
     {
         var arguments = call.Arguments;
         switch (call.Name)
         {
             case "back":
-                return await ActingAsync(new ActionLabel("Navigated back.", "back"), () => actions.BackAsync(token), token).ConfigureAwait(false);
+                return await ActingAsync(
+                        new ActionLabel("Navigated back.", "back"),
+                        () => actions.BackAsync(token),
+                        token
+                    )
+                    .ConfigureAwait(false);
             case "resize_viewport":
                 return await ResizeViewportAsync(arguments, actions, token).ConfigureAwait(false);
             case "switch_tab":
-                return await TabToolAsync(arguments, "switch_tab", "Switched to tab ", tab => actions.SwitchTabAsync(tab, token), token).ConfigureAwait(false);
+                return await TabToolAsync(
+                        arguments,
+                        "switch_tab",
+                        "Switched to tab ",
+                        tab => actions.SwitchTabAsync(tab, token),
+                        token
+                    )
+                    .ConfigureAwait(false);
             case "close_tab":
-                return await TabToolAsync(arguments, "close_tab", "Closed tab ", tab => actions.CloseTabAsync(tab, token), token).ConfigureAwait(false);
+                return await TabToolAsync(
+                        arguments,
+                        "close_tab",
+                        "Closed tab ",
+                        tab => actions.CloseTabAsync(tab, token),
+                        token
+                    )
+                    .ConfigureAwait(false);
             case "dismiss_keyboard":
                 // The keyboard leaving is the point, so the result does not note it, and an unchanged screen is no sign of a miss.
-                return await ActingAsync(new ActionLabel("Dismissed the keyboard.", "dismiss_keyboard", ExpectChange: false, KeyboardNote: false), () => actions.DismissKeyboardAsync(token), token).ConfigureAwait(false);
+                return await ActingAsync(
+                        new ActionLabel(
+                            "Dismissed the keyboard.",
+                            "dismiss_keyboard",
+                            ExpectChange: false,
+                            KeyboardNote: false
+                        ),
+                        () => actions.DismissKeyboardAsync(token),
+                        token
+                    )
+                    .ConfigureAwait(false);
             case "scroll":
                 return await ScrollAsync(arguments, actions, token).ConfigureAwait(false);
             case "scroll_to":
@@ -147,7 +257,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 return await DragAsync(arguments, actions, token).ConfigureAwait(false);
             case "navigate":
                 var url = Args.String(arguments, "url") ?? "/";
-                return await ActingAsync(new ActionLabel("Navigated to " + url + ".", "navigate " + url), () => actions.NavigateAsync(url, token), token).ConfigureAwait(false);
+                return await ActingAsync(
+                        new ActionLabel("Navigated to " + url + ".", "navigate " + url),
+                        () => actions.NavigateAsync(url, token),
+                        token
+                    )
+                    .ConfigureAwait(false);
             case "tap_at" or "hover_at" or "drag_at" or "type_at" or "press_at" or "select_at":
                 return await PointToolAsync(call.Name, arguments, actions, budget, token).ConfigureAwait(false);
             case "press" when !HasTarget(arguments):
@@ -157,9 +272,11 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 var typed = Args.String(arguments, "value") ?? "";
                 var replace = Args.Bool(arguments, "replace") == true;
                 return await ActingAsync(
-                    new ActionLabel("Typed into the focused field.", "type into the focused field"),
-                    () => actions.TypeTextAsync(typed, new TypeTextOptions { Replace = replace }, token),
-                    token).ConfigureAwait(false);
+                        new ActionLabel("Typed into the focused field.", "type into the focused field"),
+                        () => actions.TypeTextAsync(typed, new TypeTextOptions { Replace = replace }, token),
+                        token
+                    )
+                    .ConfigureAwait(false);
         }
 
         SemanticNode node;
@@ -169,14 +286,20 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
         catch (TestException ex)
         {
-            return await FailedAsync(NodeLabel(call.Name, arguments, ReferenceOf(arguments)), ex, token).ConfigureAwait(false);
+            return await FailedAsync(NodeLabel(call.Name, arguments, ReferenceOf(arguments)), ex, token)
+                .ConfigureAwait(false);
         }
 
         var target = new ExecutorTarget(node);
         if (call.Name == "type" && Keyboard)
         {
             var value = Args.String(arguments, "value") ?? "";
-            return await ActingAsync(NodeLabel(call.Name, arguments, "#" + node.Ref), () => TypeIntoNodeAsync(actions, target, value, "#" + node.Ref, token), token).ConfigureAwait(false);
+            return await ActingAsync(
+                    NodeLabel(call.Name, arguments, "#" + node.Ref),
+                    () => TypeIntoNodeAsync(actions, target, value, "#" + node.Ref, token),
+                    token
+                )
+                .ConfigureAwait(false);
         }
 
         if (call.Name == "press")
@@ -185,38 +308,71 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
 
         return await ActingAsync(
-            NodeLabel(call.Name, arguments, "#" + node.Ref),
-            () => call.Name switch
-            {
-                "tap" => actions.TapAsync(target, ClickOptionsOf(arguments), token),
-                "double_tap" => actions.DoubleTapAsync(target, ClickOptionsOf(arguments), token),
-                "long_press" => actions.LongPressAsync(target, token),
-                "right_click" => actions.SecondaryTapAsync(target, ClickOptionsOf(arguments), token),
-                "hover" => actions.HoverAsync(target, token),
-                "type" => actions.TypeAsync(target, Args.String(arguments, "value") ?? "", token),
-                "type_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "name") ?? "", token),
-                "select" => actions.SelectAsync(target, Args.String(arguments, "value") ?? "", token),
-                "check" => actions.CheckAsync(target, CheckedOf(arguments), token),
-                "clear" => actions.ClearAsync(target, token),
-                _ => throw new TestException("INVALID_ARGUMENT", "Unknown tool " + call.Name + "."),
-            },
-            token).ConfigureAwait(false);
+                NodeLabel(call.Name, arguments, "#" + node.Ref),
+                () =>
+                    call.Name switch
+                    {
+                        "tap" => actions.TapAsync(target, ClickOptionsOf(arguments), token),
+                        "double_tap" => actions.DoubleTapAsync(target, ClickOptionsOf(arguments), token),
+                        "long_press" => actions.LongPressAsync(target, token),
+                        "right_click" => actions.SecondaryTapAsync(target, ClickOptionsOf(arguments), token),
+                        "hover" => actions.HoverAsync(target, token),
+                        "type" => actions.TypeAsync(target, Args.String(arguments, "value") ?? "", token),
+                        "type_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "name") ?? "", token),
+                        "select" => actions.SelectAsync(target, Args.String(arguments, "value") ?? "", token),
+                        "check" => actions.CheckAsync(target, CheckedOf(arguments), token),
+                        "clear" => actions.ClearAsync(target, token),
+                        _ => throw new TestException("INVALID_ARGUMENT", "Unknown tool " + call.Name + "."),
+                    },
+                token
+            )
+            .ConfigureAwait(false);
     }
 
     // Upstream's resize_viewport tool: the screen at the new size is the result, and a layout that did not move is no sign of a miss.
-    private async Task<ToolOutcome> ResizeViewportAsync(JsonElement arguments, IExecutorActions actions, CancellationToken token)
+    private async Task<ToolOutcome> ResizeViewportAsync(
+        JsonElement arguments,
+        IExecutorActions actions,
+        CancellationToken token
+    )
     {
-        if (Args.Int(arguments, "width") is not { } width || Args.Int(arguments, "height") is not { } height || !Geometry.ViewportLimits.Fits(width) || !Geometry.ViewportLimits.Fits(height))
+        if (
+            Args.Int(arguments, "width") is not { } width
+            || Args.Int(arguments, "height") is not { } height
+            || !Geometry.ViewportLimits.Fits(width)
+            || !Geometry.ViewportLimits.Fits(height)
+        )
         {
-            return ToolOutcome.Fail("resize_viewport needs a width and a height in whole CSS pixels, " + Geometry.ViewportLimits.Min.ToString(CultureInfo.InvariantCulture) + " to " + Geometry.ViewportLimits.Max.ToString(CultureInfo.InvariantCulture) + ".");
+            return ToolOutcome.Fail(
+                "resize_viewport needs a width and a height in whole CSS pixels, "
+                    + Geometry.ViewportLimits.Min.ToString(CultureInfo.InvariantCulture)
+                    + " to "
+                    + Geometry.ViewportLimits.Max.ToString(CultureInfo.InvariantCulture)
+                    + "."
+            );
         }
 
         var size = width.ToString(CultureInfo.InvariantCulture) + "x" + height.ToString(CultureInfo.InvariantCulture);
-        return await ActingAsync(new ActionLabel("Resized the viewport to " + size + ".", "resize_viewport " + size, ExpectChange: false), () => actions.ResizeAsync(new TraceViewport(width, height), token), token).ConfigureAwait(false);
+        return await ActingAsync(
+                new ActionLabel(
+                    "Resized the viewport to " + size + ".",
+                    "resize_viewport " + size,
+                    ExpectChange: false
+                ),
+                () => actions.ResizeAsync(new TraceViewport(width, height), token),
+                token
+            )
+            .ConfigureAwait(false);
     }
 
     // Upstream's switch_tab and close_tab tools: the tab number from 1, and the screen after it as the result.
-    private async Task<ToolOutcome> TabToolAsync(JsonElement arguments, string tool, string done, Func<int, Task> run, CancellationToken token)
+    private async Task<ToolOutcome> TabToolAsync(
+        JsonElement arguments,
+        string tool,
+        string done,
+        Func<int, Task> run,
+        CancellationToken token
+    )
     {
         if (Args.Int(arguments, "tab") is not { } tab || tab < 1)
         {
@@ -224,57 +380,90 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
 
         var number = tab.ToString(CultureInfo.InvariantCulture);
-        return await ActingAsync(new ActionLabel(done + number + ".", tool + " " + number), () => run(tab), token).ConfigureAwait(false);
+        return await ActingAsync(new ActionLabel(done + number + ".", tool + " " + number), () => run(tab), token)
+            .ConfigureAwait(false);
     }
 
     // Upstream's press tool with `times`: each repeat is one recorded action against the budget, as a scroll repeat is. The first press addresses
     // the node; the rest go to whatever has focus, since a targeted press refocuses the node first and a repeated Tab would start over from it
     // instead of walking on.
-    private async Task<ToolOutcome> PressAsync(JsonElement arguments, ExecutorTarget? target, string where, IExecutorActions actions, CancellationToken token)
+    private async Task<ToolOutcome> PressAsync(
+        JsonElement arguments,
+        ExecutorTarget? target,
+        string where,
+        IExecutorActions actions,
+        CancellationToken token
+    )
     {
-        var given = arguments.ValueKind == JsonValueKind.Object && arguments.TryGetProperty("times", out var raw) && raw.ValueKind != JsonValueKind.Null;
+        var given =
+            arguments.ValueKind == JsonValueKind.Object
+            && arguments.TryGetProperty("times", out var raw)
+            && raw.ValueKind != JsonValueKind.Null;
         var times = Args.Int(arguments, "times") ?? (given ? 0 : 1);
         if (times is < 1 or > AgentTools.MaxPressTimes)
         {
-            return ToolOutcome.Fail("press times must be 1 to " + AgentTools.MaxPressTimes.ToString(CultureInfo.InvariantCulture) + ".");
+            return ToolOutcome.Fail(
+                "press times must be 1 to " + AgentTools.MaxPressTimes.ToString(CultureInfo.InvariantCulture) + "."
+            );
         }
 
         var key = Args.String(arguments, "key") ?? "Enter";
         var label = NodeLabel("press", arguments, where);
         if (times > 1)
         {
-            label = label with { Done = "Pressed " + key + " " + times.ToString(CultureInfo.InvariantCulture) + " times on " + where + "." };
+            label = label with
+            {
+                Done =
+                    "Pressed " + key + " " + times.ToString(CultureInfo.InvariantCulture) + " times on " + where + ".",
+            };
         }
 
         return await ActingAsync(
-            label,
-            async () =>
-            {
-                for (var repeat = 0; repeat < times; repeat++)
+                label,
+                async () =>
                 {
-                    if (target is null || (repeat > 0 && Keyboard))
+                    for (var repeat = 0; repeat < times; repeat++)
                     {
-                        await actions.PressKeyAsync(key, token).ConfigureAwait(false);
+                        if (target is null || (repeat > 0 && Keyboard))
+                        {
+                            await actions.PressKeyAsync(key, token).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            await actions.PressAsync(target, key, token).ConfigureAwait(false);
+                        }
                     }
-                    else
-                    {
-                        await actions.PressAsync(target, key, token).ConfigureAwait(false);
-                    }
-                }
-            },
-            token).ConfigureAwait(false);
+                },
+                token
+            )
+            .ConfigureAwait(false);
     }
 
     // Upstream's createPointTools: a point the model read off the latest screenshot, scaled into the viewport, then the verb the tool names.
     // Before a screenshot the call costs nothing: it answers with the line that says to take one. The action's own summary leads the
     // result, and a call the point verb turned away before it took a slot gives the slot back.
-    private async Task<ToolOutcome> PointToolAsync(string tool, JsonElement arguments, IExecutorActions actions, StepAccounting budget, CancellationToken token)
+    private async Task<ToolOutcome> PointToolAsync(
+        string tool,
+        JsonElement arguments,
+        IExecutorActions actions,
+        StepAccounting budget,
+        CancellationToken token
+    )
     {
-        var coordinates = new (string Name, double? Value)[] { ("x", Args.Number(arguments, "x")), ("y", Args.Number(arguments, "y")) };
+        var coordinates = new (string Name, double? Value)[]
+        {
+            ("x", Args.Number(arguments, "x")),
+            ("y", Args.Number(arguments, "y")),
+        };
         var drag = tool == "drag_at";
         if (drag)
         {
-            coordinates = [.. coordinates, ("to_x", Args.Number(arguments, "to_x")), ("to_y", Args.Number(arguments, "to_y"))];
+            coordinates =
+            [
+                .. coordinates,
+                ("to_x", Args.Number(arguments, "to_x")),
+                ("to_y", Args.Number(arguments, "to_y")),
+            ];
         }
 
         if (coordinates.FirstOrDefault(pair => pair.Value is null).Name is { } missing)
@@ -284,11 +473,28 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
 
         // Upstream's schemas: type_at needs a value (empty is allowed), select_at a non-empty value, press_at a key of 1 to 64 characters.
-        var text = tool switch { "type_at" or "select_at" => Args.String(arguments, "value"), "press_at" => Args.String(arguments, "key"), _ => "" };
-        if (text is null || (tool == "select_at" && text.Length == 0) || (tool == "press_at" && text.Length is 0 or > 64))
+        var text = tool switch
+        {
+            "type_at" or "select_at" => Args.String(arguments, "value"),
+            "press_at" => Args.String(arguments, "key"),
+            _ => "",
+        };
+        if (
+            text is null
+            || (tool == "select_at" && text.Length == 0)
+            || (tool == "press_at" && text.Length is 0 or > 64)
+        )
         {
             budget.RefundPrepaid();
-            return ToolOutcome.Fail(tool + " takes " + (tool == "press_at" ? "a key of 1 to 64 characters." : tool == "select_at" ? "a non-empty value." : "a value."));
+            return ToolOutcome.Fail(
+                tool
+                    + " takes "
+                    + (
+                        tool == "press_at" ? "a key of 1 to 64 characters."
+                        : tool == "select_at" ? "a non-empty value."
+                        : "a value."
+                    )
+            );
         }
 
         var px = coordinates[0].Value!.Value;
@@ -296,24 +502,69 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         if (_screen.LatestScreenshot is not { Pixels: var shot, Viewport: { } viewport })
         {
             budget.RefundPrepaid();
-            return ToolOutcome.Ok(_screen.ShowingPixels
-                ? "The screenshot has no known viewport size, so " + tool + " coordinates cannot be placed. Act on a listed node by id."
-                : "No screenshot has been taken in this step: " + tool + " coordinates are pixels of the latest screenshot. Call screenshot first, or act on a listed node by id.");
+            return ToolOutcome.Ok(
+                _screen.ShowingPixels
+                    ? "The screenshot has no known viewport size, so "
+                        + tool
+                        + " coordinates cannot be placed. Act on a listed node by id."
+                    : "No screenshot has been taken in this step: "
+                        + tool
+                        + " coordinates are pixels of the latest screenshot. Call screenshot first, or act on a listed node by id."
+            );
         }
 
         var point = PointTap.ImagePointToViewport(new Point(px, py), shot, viewport);
-        var attempt = tool + " " + At(px, py) + (drag ? " to " + At(coordinates[2].Value!.Value, coordinates[3].Value!.Value) : "");
+        var attempt =
+            tool
+            + " "
+            + At(px, py)
+            + (drag ? " to " + At(coordinates[2].Value!.Value, coordinates[3].Value!.Value) : "");
         var label = new ActionLabel(attempt, attempt);
         try
         {
             var outcome = tool switch
             {
-                "tap_at" => new ActionOutcome((await actions.TapAtAsync(point, token).ConfigureAwait(false)).Summary, label.ExpectChange),
-                "hover_at" => new ActionOutcome((await actions.HoverAtAsync(point, token).ConfigureAwait(false)).Summary, label.ExpectChange),
-                "drag_at" => new ActionOutcome((await actions.DragAtAsync(point, PointTap.ImagePointToViewport(new Point(coordinates[2].Value!.Value, coordinates[3].Value!.Value), shot, viewport), token).ConfigureAwait(false)).Summary, label.ExpectChange),
-                "select_at" => new ActionOutcome(await SelectAtAsync(point, text, actions, token).ConfigureAwait(false), label.ExpectChange),
-                "type_at" => await TypeAtAsync(point, At(px, py), text, Args.Bool(arguments, "replace") == true, actions, token).ConfigureAwait(false),
-                _ => new ActionOutcome(await PressAtAsync(point, At(px, py), text, actions, token).ConfigureAwait(false), label.ExpectChange),
+                "tap_at" => new ActionOutcome(
+                    (await actions.TapAtAsync(point, token).ConfigureAwait(false)).Summary,
+                    label.ExpectChange
+                ),
+                "hover_at" => new ActionOutcome(
+                    (await actions.HoverAtAsync(point, token).ConfigureAwait(false)).Summary,
+                    label.ExpectChange
+                ),
+                "drag_at" => new ActionOutcome(
+                    (
+                        await actions
+                            .DragAtAsync(
+                                point,
+                                PointTap.ImagePointToViewport(
+                                    new Point(coordinates[2].Value!.Value, coordinates[3].Value!.Value),
+                                    shot,
+                                    viewport
+                                ),
+                                token
+                            )
+                            .ConfigureAwait(false)
+                    ).Summary,
+                    label.ExpectChange
+                ),
+                "select_at" => new ActionOutcome(
+                    await SelectAtAsync(point, text, actions, token).ConfigureAwait(false),
+                    label.ExpectChange
+                ),
+                "type_at" => await TypeAtAsync(
+                        point,
+                        At(px, py),
+                        text,
+                        Args.Bool(arguments, "replace") == true,
+                        actions,
+                        token
+                    )
+                    .ConfigureAwait(false),
+                _ => new ActionOutcome(
+                    await PressAtAsync(point, At(px, py), text, actions, token).ConfigureAwait(false),
+                    label.ExpectChange
+                ),
             };
             return await DescribeOutcomeAsync(outcome.Lead, token, outcome.ExpectChange).ConfigureAwait(false);
         }
@@ -326,15 +577,31 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     }
 
     // Upstream's controlAt: the listed control at a point, for a verb that needs one. Nothing listed there is an ordinary action failure the model reads and works around.
-    private static async Task<(ExecutorTarget Control, string Summary)> ControlAtAsync(Point point, string verb, IExecutorActions actions, CancellationToken token)
+    private static async Task<(ExecutorTarget Control, string Summary)> ControlAtAsync(
+        Point point,
+        string verb,
+        IExecutorActions actions,
+        CancellationToken token
+    )
     {
         var hit = await actions.HitTestAsync(point, token).ConfigureAwait(false);
         return hit.Control is { } control
             ? (control, hit.Summary)
-            : throw new TestException("ACTION_FAILED", hit.Summary + "; " + verb + " needs a control the screen lists. Tap the target first, or aim at the control itself.");
+            : throw new TestException(
+                "ACTION_FAILED",
+                hit.Summary
+                    + "; "
+                    + verb
+                    + " needs a control the screen lists. Tap the target first, or aim at the control itself."
+            );
     }
 
-    private static async Task<string> SelectAtAsync(Point point, string value, IExecutorActions actions, CancellationToken token)
+    private static async Task<string> SelectAtAsync(
+        Point point,
+        string value,
+        IExecutorActions actions,
+        CancellationToken token
+    )
     {
         var (control, summary) = await ControlAtAsync(point, "select_at", actions, token).ConfigureAwait(false);
         await actions.SelectAsync(control, value, token).ConfigureAwait(false);
@@ -343,7 +610,13 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
     // Upstream's focusAt: the control at a point for a verb that needs one, or, with a keyboard, focus given to the point by a tap so the
     // keyboard can reach whatever the app put there: a field drawn on a canvas, an input flattened out of the tree.
-    private async Task<(ExecutorTarget? Control, string Summary)> FocusAtAsync(Point point, string at, string verb, IExecutorActions actions, CancellationToken token)
+    private async Task<(ExecutorTarget? Control, string Summary)> FocusAtAsync(
+        Point point,
+        string at,
+        string verb,
+        IExecutorActions actions,
+        CancellationToken token
+    )
     {
         var hit = await actions.HitTestAsync(point, token).ConfigureAwait(false);
         if (hit.Control is { } control)
@@ -353,14 +626,27 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
         if (!Keyboard)
         {
-            throw new TestException("ACTION_FAILED", hit.Summary + "; " + verb + " needs a control the screen lists. Tap the target first, or aim at the control itself.");
+            throw new TestException(
+                "ACTION_FAILED",
+                hit.Summary
+                    + "; "
+                    + verb
+                    + " needs a control the screen lists. Tap the target first, or aim at the control itself."
+            );
         }
 
         await actions.TapAtAsync(point, token).ConfigureAwait(false);
         return (null, "the field at " + at + " (tapped to focus it; " + hit.Summary + ")");
     }
 
-    private async Task<ActionOutcome> TypeAtAsync(Point point, string at, string value, bool replace, IExecutorActions actions, CancellationToken token)
+    private async Task<ActionOutcome> TypeAtAsync(
+        Point point,
+        string at,
+        string value,
+        bool replace,
+        IExecutorActions actions,
+        CancellationToken token
+    )
     {
         var (control, summary) = await FocusAtAsync(point, at, "type_at", actions, token).ConfigureAwait(false);
         if (control is null)
@@ -375,7 +661,13 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         return new ActionOutcome("Typed into " + summary + ".", true);
     }
 
-    private async Task<string> PressAtAsync(Point point, string at, string key, IExecutorActions actions, CancellationToken token)
+    private async Task<string> PressAtAsync(
+        Point point,
+        string at,
+        string key,
+        IExecutorActions actions,
+        CancellationToken token
+    )
     {
         var (control, summary) = await FocusAtAsync(point, at, "press_at", actions, token).ConfigureAwait(false);
         if (control is null)
@@ -391,10 +683,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     }
 
     /// <summary>How the lead of a <c>fill</c> that fell back to the keyboard says so (upstream's <c>TYPED_THROUGH_KEYBOARD</c>).</summary>
-    private const string TypedThroughKeyboardLead = "is not an input; tapped it to focus it and typed through the keyboard";
+    private const string TypedThroughKeyboardLead =
+        "is not an input; tapped it to focus it and typed through the keyboard";
 
     /// <summary>True for the result of a fill whose node took the value through the keyboard, not as a fill. Upstream's <c>typedThroughKeyboard</c>.</summary>
-    internal static bool TypedThroughKeyboard(string result) => result.Split('\n', 2)[0].Contains(TypedThroughKeyboardLead, StringComparison.Ordinal);
+    internal static bool TypedThroughKeyboard(string result) =>
+        result.Split('\n', 2)[0].Contains(TypedThroughKeyboardLead, StringComparison.Ordinal);
 
     // Upstream's typeIntoNode. Types into one listed node. A node the engine cannot fill (a focusable canvas, a custom widget with its own
     // key handling, or a container the model named after a tap_at) still takes keystrokes when the engine has a keyboard: the node is
@@ -402,7 +696,13 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     // unrelated field an earlier action left focused, and typing into it would corrupt that field while reporting success on this node.
     // Returns that path's outcome: its lead, and no change expected of the tree, which does not list what such a node holds, so an
     // unchanged listing would otherwise read as the typing having failed. Null when the node took the value as a fill.
-    private async Task<ActionOutcome?> TypeIntoNodeAsync(IExecutorActions actions, ExecutorTarget target, string value, string label, CancellationToken token)
+    private async Task<ActionOutcome?> TypeIntoNodeAsync(
+        IExecutorActions actions,
+        ExecutorTarget target,
+        string value,
+        string label,
+        CancellationToken token
+    )
     {
         try
         {
@@ -417,8 +717,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         await actions.TapAsync(target, token).ConfigureAwait(false);
         await actions.TypeTextAsync(value, new TypeTextOptions { Replace = false }, token).ConfigureAwait(false);
         return new ActionOutcome(
-            label + " " + TypedThroughKeyboardLead + ". The tree does not list this node's text, so an unchanged listing says nothing about the typing: verify it through the app's reaction or a screenshot.",
-            false);
+            label
+                + " "
+                + TypedThroughKeyboardLead
+                + ". The tree does not list this node's text, so an unchanged listing says nothing about the typing: verify it through the app's reaction or a screenshot.",
+            false
+        );
     }
 
     // An engine's refusal to fill a node that is not a text input. The engine codes it NOT_ACTIONABLE; the harness may hand the executor an
@@ -427,7 +731,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     {
         for (var current = cause; current is not null; current = current.InnerException)
         {
-            if (current is E2EException { Code: EngineErrorCodes.NotActionable } && NotFillable().IsMatch(current.Message))
+            if (
+                current is E2EException { Code: EngineErrorCodes.NotActionable }
+                && NotFillable().IsMatch(current.Message)
+            )
             {
                 return true;
             }
@@ -436,14 +743,22 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         return false;
     }
 
-    [GeneratedRegex(@"not an? <?(input|textarea)|not editable", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(
+        @"not an? <?(input|textarea)|not editable",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
+    )]
     private static partial Regex NotFillable();
 
     // What an action says about itself beyond its label: the lead its result opens with, and whether the tree is expected to show a change.
     private readonly record struct ActionOutcome(string Lead, bool ExpectChange);
 
     // How a point reads in a lead: upstream's `(x, y)`.
-    private static string At(double x, double y) => "(" + x.ToString("R", CultureInfo.InvariantCulture) + ", " + y.ToString("R", CultureInfo.InvariantCulture) + ")";
+    private static string At(double x, double y) =>
+        "("
+        + x.ToString("R", CultureInfo.InvariantCulture)
+        + ", "
+        + y.ToString("R", CultureInfo.InvariantCulture)
+        + ")";
 
     // Upstream's `acting`: the action runs, then the screen follows under the label's done lead, or under the failure lead when it threw.
     private Task<ToolOutcome> ActingAsync(ActionLabel label, Func<Task> action, CancellationToken token) =>
@@ -454,10 +769,15 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 await action().ConfigureAwait(false);
                 return null;
             },
-            token);
+            token
+        );
 
     // The same for an action that may report its own lead and whether a change is expected (upstream's ActionOutcome).
-    private async Task<ToolOutcome> ActingAsync(ActionLabel label, Func<Task<ActionOutcome?>> action, CancellationToken token)
+    private async Task<ToolOutcome> ActingAsync(
+        ActionLabel label,
+        Func<Task<ActionOutcome?>> action,
+        CancellationToken token
+    )
     {
         ActionOutcome? outcome;
         try
@@ -469,26 +789,48 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return await FailedAsync(label, ex, token).ConfigureAwait(false);
         }
 
-        return await DescribeOutcomeAsync(outcome?.Lead ?? label.Done, token, outcome?.ExpectChange ?? label.ExpectChange, label.KeyboardNote).ConfigureAwait(false);
+        return await DescribeOutcomeAsync(
+                outcome?.Lead ?? label.Done,
+                token,
+                outcome?.ExpectChange ?? label.ExpectChange,
+                label.KeyboardNote
+            )
+            .ConfigureAwait(false);
     }
 
     // Upstream's `failureLead` on a screen: a failed action still returns the screen, so the model can act on a stale-id or not-found failure at once.
     private async Task<ToolOutcome> FailedAsync(ActionLabel label, E2EException error, CancellationToken token)
     {
         var screen = await DescribeAsync(FailureLead(label, error), token).ConfigureAwait(false);
-        return new() { Content = screen.Text, Pixels = screen.Pixels, Succeeded = false, Code = error.Code, Error = error.Message };
+        return new()
+        {
+            Content = screen.Text,
+            Pixels = screen.Pixels,
+            Succeeded = false,
+            Code = error.Code,
+            Error = error.Message,
+        };
     }
 
-    private static ToolOutcome Outcome(ScreenText screen) => new() { Content = screen.Text, Pixels = screen.Pixels, Succeeded = true };
+    private static ToolOutcome Outcome(ScreenText screen) =>
+        new()
+        {
+            Content = screen.Text,
+            Pixels = screen.Pixels,
+            Succeeded = true,
+        };
 
     // Upstream's failureLead: the attempt, then the error's code, then its message. `navigate file:///etc/passwd failed: POLICY_DENIED: forbidden URL scheme: file:`.
-    private static string FailureLead(ActionLabel label, E2EException error) => label.Attempt + " failed: " + error.Code + ": " + error.Message;
+    private static string FailureLead(ActionLabel label, E2EException error) =>
+        label.Attempt + " failed: " + error.Code + ": " + error.Message;
 
     // The done and attempt leads of a node tool, upstream's wording; `reference` stands where upstream's `#id` does.
-    private static ActionLabel SecretLabel(string secret, string reference) => new(
-        "Filled secret \"" + secret + "\" into " + reference + "; its value is masked in every observation.",
-        "type_secret \"" + secret + "\" into " + reference,
-        false);
+    private static ActionLabel SecretLabel(string secret, string reference) =>
+        new(
+            "Filled secret \"" + secret + "\" into " + reference + "; its value is masked in every observation.",
+            "type_secret \"" + secret + "\" into " + reference,
+            false
+        );
 
     // Upstream's check takes an optional z.boolean() `checked`: absent is true, and a present value that is no boolean is refused.
     private static bool CheckedOf(JsonElement arguments)
@@ -525,10 +867,20 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             "hover" => new("Hovered over " + reference + ".", "hover " + reference),
             "type" => new("Typed into " + reference + ".", "type " + reference),
             "type_secret" => SecretLabel(Args.String(arguments, "name") ?? "", reference),
-            "press" => new("Pressed " + key + " on " + reference + ".", "press " + key + " on " + reference, !MovesFocusOnly(key)),
-            "select" => new("Selected \"" + value + "\" in " + reference + ".", "select \"" + value + "\" in " + reference),
+            "press" => new(
+                "Pressed " + key + " on " + reference + ".",
+                "press " + key + " on " + reference,
+                !MovesFocusOnly(key)
+            ),
+            "select" => new(
+                "Selected \"" + value + "\" in " + reference + ".",
+                "select \"" + value + "\" in " + reference
+            ),
             "clear" => new("Cleared " + reference + ".", "clear " + reference),
-            "check" => new((Args.Bool(arguments, "checked") == false ? "Unchecked " : "Checked ") + reference + ".", "check " + reference),
+            "check" => new(
+                (Args.Bool(arguments, "checked") == false ? "Unchecked " : "Checked ") + reference + ".",
+                "check " + reference
+            ),
             _ => new(tool + " " + reference, tool + " " + reference),
         };
     }
@@ -539,7 +891,13 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
     // A mutating tool takes an action slot and is recorded as a gap: the grammar cannot reproduce it, so a replay ends there
     // and hands the step to the model. The budgets record the gap before the tool runs, since a failed tool may have changed the app.
-    private async Task<ToolOutcome> RunProjectToolAsync(ModelToolCall call, AgentTool tool, StepAccounting budget, CancellationToken token, StepExecutorContext? context)
+    private async Task<ToolOutcome> RunProjectToolAsync(
+        ModelToolCall call,
+        AgentTool tool,
+        StepAccounting budget,
+        CancellationToken token,
+        StepExecutorContext? context
+    )
     {
         if (call.Arguments.ValueKind is not (JsonValueKind.Object or JsonValueKind.Undefined or JsonValueKind.Null))
         {
@@ -548,21 +906,34 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
         if (tool.Mutates && !budget.TryPrepay())
         {
-            return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call " + VerdictTool.Name + " with a verdict.");
+            return ToolOutcome.Fail(
+                budget.Message + ". Take no more actions. Call " + VerdictTool.Name + " with a verdict."
+            );
         }
 
         string output;
         try
         {
-            var input = call.Arguments.ValueKind == JsonValueKind.Object ? (JsonObject)JsonNode.Parse(call.Arguments.GetRawText())! : new JsonObject();
-            var toolContext = context is null ? AgentToolContext.Unavailable : new AgentToolContext(context, tool.Mutates);
-            output = await budget.RunToolAsync(
-                call.Name,
-                tool.Mutates,
-                () => Phases.InstrumentPhaseAsync(
-                    new PhaseHost(_scope.Steps, _scope.Debug),
-                    new PhaseSpec(StepEventKind.Engine, Phases.Action, ActionNames.ProjectToolEventPrefix + call.Name),
-                    () => tool.RunAsync(input, toolContext, token))).ConfigureAwait(false);
+            var input =
+                call.Arguments.ValueKind == JsonValueKind.Object
+                    ? (JsonObject)JsonNode.Parse(call.Arguments.GetRawText())!
+                    : new JsonObject();
+            var toolContext = context is null
+                ? AgentToolContext.Unavailable
+                : new AgentToolContext(context, tool.Mutates);
+            output = await budget
+                .RunToolAsync(call.Name, tool.Mutates, () =>
+                    Phases.InstrumentPhaseAsync(
+                        new PhaseHost(_scope.Steps, _scope.Debug),
+                        new PhaseSpec(
+                            StepEventKind.Engine,
+                            Phases.Action,
+                            ActionNames.ProjectToolEventPrefix + call.Name
+                        ),
+                        () => tool.RunAsync(input, toolContext, token)
+                    )
+                )
+                .ConfigureAwait(false);
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {
@@ -583,7 +954,11 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         return tool.Mutates ? await DescribeOutcomeAsync(output, token).ConfigureAwait(false) : ToolOutcome.Ok(output);
     }
 
-    private async Task<ToolOutcome> ScrollAsync(JsonElement arguments, IExecutorActions actions, CancellationToken token)
+    private async Task<ToolOutcome> ScrollAsync(
+        JsonElement arguments,
+        IExecutorActions actions,
+        CancellationToken token
+    )
     {
         if (!TryDirection(Args.String(arguments, "direction"), out var direction))
         {
@@ -593,23 +968,32 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         var times = Args.Int(arguments, "times") ?? 1;
         if (times is < 1 or > AgentTools.MaxScrollTimes)
         {
-            return ToolOutcome.Fail("scroll times must be 1 to " + AgentTools.MaxScrollTimes.ToString(CultureInfo.InvariantCulture) + ".");
+            return ToolOutcome.Fail(
+                "scroll times must be 1 to " + AgentTools.MaxScrollTimes.ToString(CultureInfo.InvariantCulture) + "."
+            );
         }
 
         // Upstream's `scrolled`: the done lead names the way and the screens, the attempt the way and the node.
         var way = DirectionName(direction);
         var label = new ActionLabel(
-            times == 1 ? "Scrolled " + way + "." : "Scrolled " + way + " " + times.ToString(CultureInfo.InvariantCulture) + " screens.",
+            times == 1
+                ? "Scrolled " + way + "."
+                : "Scrolled " + way + " " + times.ToString(CultureInfo.InvariantCulture) + " screens.",
             "scroll " + way + (HasTarget(arguments) ? " " + ReferenceOf(arguments) : ""),
-            false);
+            false
+        );
         return await ActingAsync(
-            label,
-            async () =>
-            {
-                var target = HasTarget(arguments) ? new ExecutorTarget(await ResolveAsync(arguments, token).ConfigureAwait(false)) : null;
-                await actions.ScrollAsync(target, direction, times, token).ConfigureAwait(false);
-            },
-            token).ConfigureAwait(false);
+                label,
+                async () =>
+                {
+                    var target = HasTarget(arguments)
+                        ? new ExecutorTarget(await ResolveAsync(arguments, token).ConfigureAwait(false))
+                        : null;
+                    await actions.ScrollAsync(target, direction, times, token).ConfigureAwait(false);
+                },
+                token
+            )
+            .ConfigureAwait(false);
     }
 
     // Upstream's drag tool: the drop target is named like the node dragged, and both are found before anything moves. `Dragged #a to #b.` on
@@ -617,7 +1001,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     private async Task<ToolOutcome> DragAsync(JsonElement arguments, IExecutorActions actions, CancellationToken token)
     {
         var to = Args.String(arguments, "to");
-        var label = new ActionLabel("", "drag " + ReferenceOf(arguments) + " to " + (to is null ? "target" : "#" + to.TrimStart('#')));
+        var label = new ActionLabel(
+            "",
+            "drag " + ReferenceOf(arguments) + " to " + (to is null ? "target" : "#" + to.TrimStart('#'))
+        );
         SemanticNode source;
         SemanticNode destination;
         try
@@ -637,18 +1024,34 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return await FailedAsync(label, ex, token).ConfigureAwait(false);
         }
 
-        label = new ActionLabel("Dragged #" + source.Ref + " to #" + destination.Ref + ".", "drag #" + source.Ref + " to #" + destination.Ref);
-        return await ActingAsync(label, () => actions.DragAsync(new ExecutorTarget(source), new ExecutorTarget(destination), token), token).ConfigureAwait(false);
+        label = new ActionLabel(
+            "Dragged #" + source.Ref + " to #" + destination.Ref + ".",
+            "drag #" + source.Ref + " to #" + destination.Ref
+        );
+        return await ActingAsync(
+                label,
+                () => actions.DragAsync(new ExecutorTarget(source), new ExecutorTarget(destination), token),
+                token
+            )
+            .ConfigureAwait(false);
     }
 
-    private async Task<ToolOutcome> ScrollToAsync(JsonElement arguments, IExecutorActions actions, CancellationToken token)
+    private async Task<ToolOutcome> ScrollToAsync(
+        JsonElement arguments,
+        IExecutorActions actions,
+        CancellationToken token
+    )
     {
         var text = Args.String(arguments, "text");
         if (text is not null)
         {
             if (string.IsNullOrWhiteSpace(text) || text.Length > AgentTools.MaxScrollToText)
             {
-                return ToolOutcome.Fail("scroll_to text must be the text to reach, up to " + AgentTools.MaxScrollToText.ToString(CultureInfo.InvariantCulture) + " characters.");
+                return ToolOutcome.Fail(
+                    "scroll_to text must be the text to reach, up to "
+                        + AgentTools.MaxScrollToText.ToString(CultureInfo.InvariantCulture)
+                        + " characters."
+                );
             }
 
             var way = Args.String(arguments, "direction");
@@ -660,13 +1063,21 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
             var quoted = UploadPaths.Quote(text);
             return await ActingAsync(
-                new ActionLabel("Scrolled " + DirectionName(direction) + " until " + quoted + " was in view.", "scroll_to " + quoted, false),
-                async () =>
-                {
-                    var list = HasTarget(arguments) ? new ExecutorTarget(await ResolveAsync(arguments, token).ConfigureAwait(false)) : null;
-                    await actions.ScrollUntilAsync(text, direction, list, token).ConfigureAwait(false);
-                },
-                token).ConfigureAwait(false);
+                    new ActionLabel(
+                        "Scrolled " + DirectionName(direction) + " until " + quoted + " was in view.",
+                        "scroll_to " + quoted,
+                        false
+                    ),
+                    async () =>
+                    {
+                        var list = HasTarget(arguments)
+                            ? new ExecutorTarget(await ResolveAsync(arguments, token).ConfigureAwait(false))
+                            : null;
+                        await actions.ScrollUntilAsync(text, direction, list, token).ConfigureAwait(false);
+                    },
+                    token
+                )
+                .ConfigureAwait(false);
         }
 
         if (!HasTarget(arguments))
@@ -692,7 +1103,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     // Upstream's upload tool: the paths are authorized before the node is looked for, so a refused path is the policy's decision whatever the
     // target, and costs no slot. The wording is upstream's too: `Uploaded "x" to #id.` on success, `upload "x" to #id failed: <code>:
     // <message>` on a refusal, each followed by the screen. The resolved node's ref stands where upstream's `#id` does.
-    private async Task<ToolOutcome> UploadAsync(JsonElement arguments, IExecutorActions actions, StepAccounting budget, CancellationToken token)
+    private async Task<ToolOutcome> UploadAsync(
+        JsonElement arguments,
+        IExecutorActions actions,
+        StepAccounting budget,
+        CancellationToken token
+    )
     {
         var reference = ReferenceOf(arguments);
         var label = new ActionLabel("", "upload to " + reference);
@@ -732,7 +1148,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
 
         reference = "#" + node.Ref;
-        label = new ActionLabel("Uploaded " + listed + " to " + reference + ".", "upload " + listed + " to " + reference);
+        label = new ActionLabel(
+            "Uploaded " + listed + " to " + reference + ".",
+            "upload " + listed + " to " + reference
+        );
         try
         {
             await actions.UploadAsync(new ExecutorTarget(node), files, token).ConfigureAwait(false);
@@ -750,26 +1169,38 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     // The files an upload call names. Anything but a list of strings is the model's error, which the policy words as it does an empty list.
     private static List<string> FilesOf(JsonElement arguments)
     {
-        if (arguments.ValueKind == JsonValueKind.Object
+        if (
+            arguments.ValueKind == JsonValueKind.Object
             && arguments.TryGetProperty("files", out var files)
             && files.ValueKind == JsonValueKind.Array
-            && files.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String))
+            && files.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String)
+        )
         {
             return [.. files.EnumerateArray().Select(item => item.GetString()!)];
         }
 
-        throw new TestException("INVALID_ARGUMENT", "upload requires one or more non-empty project-relative file paths");
+        throw new TestException(
+            "INVALID_ARGUMENT",
+            "upload requires one or more non-empty project-relative file paths"
+        );
     }
 
     // The keys a tap call holds: absent for none. A value that is no list of key modifier names is the model's error.
     private static ClickOptions? ClickOptionsOf(JsonElement arguments)
     {
-        if (arguments.ValueKind != JsonValueKind.Object || !arguments.TryGetProperty("modifiers", out var held) || held.ValueKind == JsonValueKind.Null)
+        if (
+            arguments.ValueKind != JsonValueKind.Object
+            || !arguments.TryGetProperty("modifiers", out var held)
+            || held.ValueKind == JsonValueKind.Null
+        )
         {
             return null;
         }
 
-        var invalid = new TestException("INVALID_ARGUMENT", "modifiers must be an array of " + string.Join(", ", KeyModifiers.Names));
+        var invalid = new TestException(
+            "INVALID_ARGUMENT",
+            "modifiers must be an array of " + string.Join(", ", KeyModifiers.Names)
+        );
         if (held.ValueKind != JsonValueKind.Array)
         {
             throw invalid;
@@ -792,14 +1223,20 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token) =>
         ResolveIn(arguments, _feed.PreparedOf(await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false)));
 
-    private SemanticNode ResolveIn(JsonElement arguments, PreparedObservation observation) => ResolveIn(Args.String(arguments, "target"), observation);
+    private SemanticNode ResolveIn(JsonElement arguments, PreparedObservation observation) =>
+        ResolveIn(Args.String(arguments, "target"), observation);
 
     private SemanticNode ResolveIn(string? target, PreparedObservation observation)
     {
         // The id the listing prefixes with `#`, which a model copies now and then (upstream's `lookup` trims it too).
         var id = target?.TrimStart('#');
         var matches = Find(observation, null, null, null, id, _scope.Redactor);
-        if (matches.Count == 0 && id is { } reference && _feed.LastSeen(reference) is { } seen && !observation.Nodes.ContainsKey(reference))
+        if (
+            matches.Count == 0
+            && id is { } reference
+            && _feed.LastSeen(reference) is { } seen
+            && !observation.Nodes.ContainsKey(reference)
+        )
         {
             // Several actions of one turn name the screen the turn saw. A ref the newest screen no longer carries,
             // because the element remounted, is the one node that reads the same now.
@@ -813,7 +1250,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
         if (matches.Count > 1)
         {
-            throw new TestException("LOCATOR_AMBIGUOUS", "Matched " + matches.Count.ToString(CultureInfo.InvariantCulture) + " controls. Name the control more specifically.");
+            throw new TestException(
+                "LOCATOR_AMBIGUOUS",
+                "Matched "
+                    + matches.Count.ToString(CultureInfo.InvariantCulture)
+                    + " controls. Name the control more specifically."
+            );
         }
 
         _feed.MarkActing();
@@ -821,7 +1263,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     }
 
     // An action that ran but whose look failed is a failed tool for the model, as in the targeted paths, not the end of the act.
-    private async Task<ToolOutcome> DescribeOutcomeAsync(string action, CancellationToken token, bool expectChange = false, bool keyboardNote = true)
+    private async Task<ToolOutcome> DescribeOutcomeAsync(
+        string action,
+        CancellationToken token,
+        bool expectChange = false,
+        bool keyboardNote = true
+    )
     {
         try
         {
@@ -838,9 +1285,20 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     // The screen is the changes since the one the model holds, the action's lead first; `expectChange` says an unchanged screen after this
     // action is worth pointing out. Once the step shows pixels (a screenshot went to the model), every look carries a fresh one.
     // `pixels` asks for one beside a look that would not carry it (the screenshot tool). A session over MCP gets the changes alone.
-    private async Task<ScreenText> DescribeAsync(string? action, CancellationToken token, bool expectChange = false, bool keyboardNote = true, bool pixels = false)
+    private async Task<ScreenText> DescribeAsync(
+        string? action,
+        CancellationToken token,
+        bool expectChange = false,
+        bool keyboardNote = true,
+        bool pixels = false
+    )
     {
-        var options = new ScreenUpdateOptions { Lead = action, ExpectChange = expectChange, KeyboardNote = keyboardNote };
+        var options = new ScreenUpdateOptions
+        {
+            Lead = action,
+            ExpectChange = expectChange,
+            KeyboardNote = keyboardNote,
+        };
         if (_session)
         {
             var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
@@ -848,20 +1306,62 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
 
         // A screen the engine cannot read as a tree is shown by its pixels alone, whether or not the step asked for one.
-        var view = await _feed.ObserveAsync(new ExecutorObserveOptions { Pixels = pixels || _screen.ShowingPixels || _screen.WantsPixels }, token).ConfigureAwait(false);
+        var view = await _feed
+            .ObserveAsync(
+                new ExecutorObserveOptions { Pixels = pixels || _screen.ShowingPixels || _screen.WantsPixels },
+                token
+            )
+            .ConfigureAwait(false);
         var output = _screen.Present(view, options);
         return new ScreenText(output.Text, output.Pixels);
     }
 
+    // A session's `screenshot`: the masked viewport attached as an image, noted on the screen so a point tool reads its coordinates against it.
+    private async Task<ToolOutcome> SessionScreenshotAsync(CancellationToken token)
+    {
+        var shot = await _scope.Session.ScreenshotAsync(token).ConfigureAwait(false);
+        var (width, height) =
+            shot.Png.Length < 24
+                ? (0, 0)
+                : (
+                    System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(shot.Png.AsSpan(16)),
+                    System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(shot.Png.AsSpan(20))
+                );
+        var pixels = new ExecutorPixels(shot.Png, "image/png", width, height, shot.Scale, shot.MaskedRegionCount ?? 0);
+        var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+        _screen.Attach(pixels, observation.Viewport);
+        return new ToolOutcome
+        {
+            Content =
+                "Screenshot attached: "
+                + width.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " by "
+                + height.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " pixels ("
+                + shot.Scale.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
+                + " per CSS pixel).",
+            Pixels = pixels,
+            Succeeded = true,
+        };
+    }
+
     // A session's `observe`: the whole screen, every time. The presenter takes it as the baseline for the changes that follow.
     private async Task<string> WholeScreenAsync(CancellationToken token) =>
-        _screen.Initial(_feed.View(_feed.PreparedOf(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false)), _scope));
+        _screen.Initial(
+            _feed.View(
+                _feed.PreparedOf(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false)),
+                _scope
+            )
+        );
 
     // Keys whose whole effect is where the focus or the caret sits, which the tree does not record: an unchanged screen after one
     // of these is the normal outcome, not a control that did nothing (upstream's `movesFocusOnly`).
     private static bool MovesFocusOnly(string key) => FocusOnlyKey().IsMatch(key.Trim());
 
-    [GeneratedRegex(@"^(?:(?:Shift|Control|Alt|Meta)\+)*(?:Tab|Arrow(?:Left|Right|Up|Down)|Home|End|PageUp|PageDown)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(
+        @"^(?:(?:Shift|Control|Alt|Meta)\+)*(?:Tab|Arrow(?:Left|Right|Up|Down)|Home|End|PageUp|PageDown)$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
+    )]
     private static partial Regex FocusOnlyKey();
 
     // The screen a look rendered, and the screenshot that goes with it, when the look took one.
@@ -871,5 +1371,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     // for the lead of a failure, so a failed action never reads as done.
     // `ExpectChange` is whether an unchanged screen after the action is worth pointing out (a session's `expectChange`), and `KeyboardNote`
     // whether a keyboard leaving with the action is (a session's `keyboardNote`).
-    private readonly record struct ActionLabel(string Done, string Attempt, bool ExpectChange = true, bool KeyboardNote = true);
+    private readonly record struct ActionLabel(
+        string Done,
+        string Attempt,
+        bool ExpectChange = true,
+        bool KeyboardNote = true
+    );
 }

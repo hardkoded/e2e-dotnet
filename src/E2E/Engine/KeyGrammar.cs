@@ -23,8 +23,33 @@ public static class KeyGrammar
 
     public static IReadOnlyList<string> KeyNames { get; } =
     [
-        "Enter", "Escape", "Tab", "Backspace", "Delete", "Insert", "Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-        "Home", "End", "PageUp", "PageDown", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+        "Enter",
+        "Escape",
+        "Tab",
+        "Backspace",
+        "Delete",
+        "Insert",
+        "Space",
+        "ArrowUp",
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight",
+        "Home",
+        "End",
+        "PageUp",
+        "PageDown",
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "F7",
+        "F8",
+        "F9",
+        "F10",
+        "F11",
+        "F12",
     ];
 
     /// <summary>
@@ -75,9 +100,19 @@ public static class KeyGrammar
 
     /// <summary>Control, format, surrogate, private-use, unassigned, and line or paragraph separators are never a printable key.</summary>
     private static bool IsPrintable(string character) =>
-        !HasLoneSurrogate(character) && !character.EnumerateRunes().Any(rune => Rune.GetUnicodeCategory(rune) is
-            UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.Surrogate or UnicodeCategory.PrivateUse
-            or UnicodeCategory.OtherNotAssigned or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator);
+        !HasLoneSurrogate(character)
+        && !character
+            .EnumerateRunes()
+            .Any(rune =>
+                Rune.GetUnicodeCategory(rune)
+                    is UnicodeCategory.Control
+                        or UnicodeCategory.Format
+                        or UnicodeCategory.Surrogate
+                        or UnicodeCategory.PrivateUse
+                        or UnicodeCategory.OtherNotAssigned
+                        or UnicodeCategory.LineSeparator
+                        or UnicodeCategory.ParagraphSeparator
+            );
 
     /// <summary>
     /// <c>EnumerateRunes</c> maps a lone surrogate to U+FFFD, which is printable, so the surrogate is checked on the UTF-16 units first.

@@ -15,7 +15,11 @@ namespace E2E.Cli.Tests.Helpers;
 internal static class DraftedTestRun
 {
     /// <summary>Builds and runs one NUnit test whose body is <paramref name="body"/>, then <paramref name="check"/>. The result holds the exit code and the output.</summary>
-    public static async Task<(int Code, string Output)> RunAsync(string projectDirectory, IEnumerable<string> body, string check)
+    public static async Task<(int Code, string Output)> RunAsync(
+        string projectDirectory,
+        IEnumerable<string> body,
+        string check
+    )
     {
         var repo = RepoRoot();
         // The draft sits outside the repository, so it takes the repository's SDK pin along: another SDK would rebuild src/ with its own outputs.
@@ -38,10 +42,13 @@ internal static class DraftedTestRun
               <ItemGroup>
                 <Using Include="NUnit.Framework" />
                 <ProjectReference Include="{SecurityElement.Escape(Path.Combine(repo, "src", "E2E", "E2E.csproj"))}" />
-                <ProjectReference Include="{SecurityElement.Escape(Path.Combine(repo, "src", "E2E.NUnit", "E2E.NUnit.csproj"))}" />
+                <ProjectReference Include="{SecurityElement.Escape(
+                Path.Combine(repo, "src", "E2E.NUnit", "E2E.NUnit.csproj")
+            )}" />
               </ItemGroup>
             </Project>
-            """);
+            """
+        );
         File.WriteAllText(
             Path.Combine(projectDirectory, "DraftTests.cs"),
             $$"""
@@ -56,14 +63,23 @@ internal static class DraftedTestRun
             {{string.Join('\n', body.Append(check).Select(line => "        " + line))}}
                 }
             }
-            """);
+            """
+        );
 
-        var start = new ProcessStartInfo("dotnet") { WorkingDirectory = projectDirectory, RedirectStandardOutput = true, RedirectStandardError = true };
+        var start = new ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = projectDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
         start.ArgumentList.Add("test");
         start.ArgumentList.Add("--nologo");
         // The configuration this test runs in, so the referenced projects' built outputs are reused instead of built again.
         start.ArgumentList.Add("-c");
-        start.ArgumentList.Add(typeof(DraftedTestRun).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration ?? "Debug");
+        start.ArgumentList.Add(
+            typeof(DraftedTestRun).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration
+                ?? "Debug"
+        );
         start.ArgumentList.Add("-nodeReuse:false");
         start.Environment["UseSharedCompilation"] = "false";
         // Upstream's fixtureEnv: the run is the caller's environment, outside CI.

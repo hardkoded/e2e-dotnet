@@ -16,7 +16,9 @@ public sealed class SoftFailureAggregateTests
         using var site = await TinySite.StartAsync(RedactionSite.Page);
         await using var session = await RedactionSite.StartAsync(site, "soft aggregate");
         await session.App.OpenAsync("/");
-        await Expect.Soft(session.Screen.GetByText("Token", exact: false)).ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(300));
+        await Expect
+            .Soft(session.Screen.GetByText("Token", exact: false))
+            .ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(300));
         RedactionSite.Know(session);
 
         var aggregate = session.CloseSoftFailures();

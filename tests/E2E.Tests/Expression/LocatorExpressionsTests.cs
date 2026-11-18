@@ -20,14 +20,20 @@ public sealed class LocatorExpressionsTests
     public void Builds_role_queries_with_name_and_states()
     {
         var query = _screen.GetByRole("button", "Save", new RoleOptions { Checked = true }).Query;
-        Assert.Equal(("role", "button", "\"Save\"", true, true), (query.Kind, query.Role, query.Value?.ToString(), query.Exact, query.Checked));
+        Assert.Equal(
+            ("role", "button", "\"Save\"", true, true),
+            (query.Kind, query.Role, query.Value?.ToString(), query.Exact, query.Checked)
+        );
         Assert.Null(query.Disabled);
     }
 
     [Fact]
     public void Rewrites_the_img_alias_to_the_image_role_before_the_expression_is_built()
     {
-        Assert.Equal(_screen.GetByRole("image", "Logo").Query.Describe(), _screen.GetByRole("img", "Logo").Query.Describe());
+        Assert.Equal(
+            _screen.GetByRole("image", "Logo").Query.Describe(),
+            _screen.GetByRole("img", "Logo").Query.Describe()
+        );
         Assert.Equal("image", _screen.GetByRole("img").Query.Role);
         Assert.Equal(_screen.GetByRole("image").Query.Describe(), _screen.GetByRole("img").Query.Describe());
     }
@@ -46,8 +52,14 @@ public sealed class LocatorExpressionsTests
     [Fact]
     public void Describes_a_visible_query_so_an_ambiguity_message_shows_the_predicate()
     {
-        Assert.Equal("getByText(\"Pro\", visible: true)", _screen.GetByText("Pro", new TextMatchOptions { Visible = true }).Query.Describe());
-        Assert.Equal("getByRole(\"button\", \"Save\", visible: true)", _screen.GetByRole("button", "Save", new RoleOptions { Visible = true }).Query.Describe());
+        Assert.Equal(
+            "getByText(\"Pro\", visible: true)",
+            _screen.GetByText("Pro", new TextMatchOptions { Visible = true }).Query.Describe()
+        );
+        Assert.Equal(
+            "getByRole(\"button\", \"Save\", visible: true)",
+            _screen.GetByRole("button", "Save", new RoleOptions { Visible = true }).Query.Describe()
+        );
     }
 
     [Fact]
@@ -89,7 +101,10 @@ public sealed class LocatorExpressionsTests
     [Fact]
     public void DescribeExpression_renders_a_readable_chain()
     {
-        Assert.Equal("getByRole(\"listitem\").filter(hasText: \"Pro\").nth(0)", _screen.GetByRole("listitem").Filter("Pro").First().Query.Describe());
+        Assert.Equal(
+            "getByRole(\"listitem\").filter(hasText: \"Pro\").nth(0)",
+            _screen.GetByRole("listitem").Filter("Pro").First().Query.Describe()
+        );
     }
 
     [Fact]
@@ -97,10 +112,14 @@ public sealed class LocatorExpressionsTests
     {
         var inner = _screen.GetByRole("button", "Remove");
         var source = _screen.GetByRole("listitem");
-        Assert.Equal("getByRole(\"listitem\").filter(has: getByRole(\"button\", \"Remove\"))", source.Filter(inner).Query.Describe());
+        Assert.Equal(
+            "getByRole(\"listitem\").filter(has: getByRole(\"button\", \"Remove\"))",
+            source.Filter(inner).Query.Describe()
+        );
         Assert.Equal(
             "getByRole(\"listitem\").filter(hasText: \"Pro\", has: getByRole(\"button\", \"Remove\"))",
-            source.Filter(hasText: "Pro", has: inner).Query.Describe());
+            source.Filter(hasText: "Pro", has: inner).Query.Describe()
+        );
     }
 
     [Fact]
@@ -108,10 +127,14 @@ public sealed class LocatorExpressionsTests
     {
         var inner = _screen.GetByRole("button", "Remove");
         var source = _screen.GetByRole("listitem");
-        Assert.Equal("getByRole(\"listitem\").filter(hasNot: getByRole(\"button\", \"Remove\"))", source.Filter(hasNot: inner).Query.Describe());
+        Assert.Equal(
+            "getByRole(\"listitem\").filter(hasNot: getByRole(\"button\", \"Remove\"))",
+            source.Filter(hasNot: inner).Query.Describe()
+        );
         Assert.Equal(
             "getByRole(\"listitem\").filter(hasText: \"Pro\", has: getByRole(\"button\", \"Remove\"), hasNot: getByRole(\"button\", \"Remove\"))",
-            source.Filter(hasText: "Pro", has: inner, hasNot: inner).Query.Describe());
+            source.Filter(hasText: "Pro", has: inner, hasNot: inner).Query.Describe()
+        );
     }
 
     [Fact]

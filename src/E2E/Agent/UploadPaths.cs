@@ -33,17 +33,27 @@ internal static class UploadPaths
     /// reads and corrects; a path the policy refuses is <c>POLICY_DENIED</c>. Upstream takes <c>unknown</c>; a null list, or a null entry
     /// where the model gave something that is no string, is the typed form of its malformed input.
     /// </summary>
-    public static AuthorizedUpload AuthorizeUploadPaths(IUploadPolicyHost host, IReadOnlyList<string?>? paths, string projectRoot)
+    public static AuthorizedUpload AuthorizeUploadPaths(
+        IUploadPolicyHost host,
+        IReadOnlyList<string?>? paths,
+        string projectRoot
+    )
     {
         ArgumentNullException.ThrowIfNull(host);
         if (paths is null || paths.Count == 0 || paths.Any(string.IsNullOrWhiteSpace))
         {
-            throw new TestException("INVALID_ARGUMENT", "upload requires one or more non-empty project-relative file paths");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "upload requires one or more non-empty project-relative file paths"
+            );
         }
 
         if (paths.Count > Trace.MaxTraceUploadPaths)
         {
-            throw new TestException("INVALID_ARGUMENT", $"upload takes at most {Trace.MaxTraceUploadPaths} files at once");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"upload takes at most {Trace.MaxTraceUploadPaths} files at once"
+            );
         }
 
         var resolved = new List<string>(paths.Count);
@@ -78,12 +88,22 @@ internal static class UploadPaths
 
         if (relative is null)
         {
-            throw Deny(host, $"{Quote(entry)} is outside the project root; only files inside the project can be uploaded");
+            throw Deny(
+                host,
+                $"{Quote(entry)} is outside the project root; only files inside the project can be uploaded"
+            );
         }
 
-        if (relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(segment => segment.StartsWith('.')))
+        if (
+            relative
+                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(segment => segment.StartsWith('.'))
+        )
         {
-            throw Deny(host, $"{Quote(entry)} is a hidden file or sits under a hidden directory; those are never uploaded");
+            throw Deny(
+                host,
+                $"{Quote(entry)} is a hidden file or sits under a hidden directory; those are never uploaded"
+            );
         }
 
         if (Directory.Exists(absolute))
@@ -101,9 +121,11 @@ internal static class UploadPaths
 
     // Where a named sample is; a name that is no sample is the model's to correct.
     private static string Sample(string name) =>
-        SampleFiles.SamplePath(name) ?? throw new TestException(
+        SampleFiles.SamplePath(name)
+        ?? throw new TestException(
             "INVALID_ARGUMENT",
-            $"no sample file named {Quote(name)}; the samples are {string.Join(", ", SampleFiles.SampleNames.Select(known => SampleFiles.SamplePrefix + known))}");
+            $"no sample file named {Quote(name)}; the samples are {string.Join(", ", SampleFiles.SampleNames.Select(known => SampleFiles.SamplePrefix + known))}"
+        );
 
     // The policy refusal: recorded on the step first, then thrown as the model-readable denial.
     private static AgentException Deny(IUploadPolicyHost host, string reason)
@@ -116,5 +138,8 @@ internal static class UploadPaths
     internal static string Quote(string entry) => JsonSerializer.Serialize(entry, QuoteOptions);
 
     // JSON.stringify leaves non-ASCII text and '&', '<', '>' as written, so the relaxed encoder is the one that matches it.
-    private static readonly JsonSerializerOptions QuoteOptions = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions QuoteOptions = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 }

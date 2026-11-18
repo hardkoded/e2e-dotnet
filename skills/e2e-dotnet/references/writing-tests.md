@@ -206,6 +206,12 @@ Members of `E2ETest` in both frameworks:
   A table is named by its `<caption>`, a fieldset by its `<legend>`, a figure
   by its `<figcaption>`, and an svg by its `<title>` child, which also names
   a link or button around it. A node with no name reports `Name` null.
+  A content role reads its descendants, a custom element's shadow tree
+  included. A descendant with a role of its own that is not text or structure
+  (a `status` badge, a tree item's child `group`, an `img`) adds only its
+  label or `title`: a tab holding `Inbox <span role="status">3</span>` is
+  `Inbox`. An `<input type="submit">` or `type="reset"` with no `value` and no
+  other accessible name reads `Submit` or `Reset`.
 - `RoleOptions` adds `Checked`, `Disabled`, `Selected`, `Expanded`,
   `Pressed`, and `Level`.
 - Narrow with `Filter(text)` (a case-insensitive substring, unlike a query),
@@ -359,6 +365,14 @@ and an icon-only button reads `""`. A hidden node reads its DOM text, so a
 text query still finds a `visibility: hidden` copy. Check a label with
 `ToHaveAccessibleNameAsync`.
 
+`ToHaveRoleAsync(role)` waits for the one match to have that role, compared as
+a string. only the exact `img` reads as `image`, as `GetByRole` reads it; any other string,
+`IMG` included, is compared as written, and an empty one is `INVALID_ARGUMENT`. It compares the
+role `Screen.TreeAsync()` shows, so a `switch` is not a `checkbox`, and on the
+web an editing host (`contenteditable`) reads as `textbox`. A node the tree
+shows without a role fails it with `observed: no role`. It answers on a
+secure field, whose role is never withheld.
+
 `Screen.TreeAsync()` returns the whole screen as the agent reads it (one node
 per line, children indented, secrets redacted) and `Screen.DebugAsync()` prints
 it to the test's output. Use them to write a locator. Both read once without
@@ -378,7 +392,8 @@ node under the soft keyboard is hidden, so the scroll goes on (topic `mobile`, "
 
 ## Expect
 
-`Expect.That(locator)` polls until the assertion timeout:
+`Expect.That(locator)` polls until the assertion timeout, reading at 0, 20, and
+50 ms, then every 100 ms from the start:
 `ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToBeAttachedAsync`,
 `ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeCheckedAsync`,
 `ToContainTextAsync`, `ToHaveTextAsync`, `ToHaveValueAsync`,
@@ -560,7 +575,9 @@ public async Task Renames_a_project()
 }
 ```
 
-On a device there are no cookies and `App.OpenAsync()` takes no path:
+On a device there are no cookies and `App.OpenAsync()` takes no path, unless the
+target declares `app.linkBase` (`"linkBase": "myapp://"` makes
+`App.OpenAsync("/projects/42")` open `myapp://projects/42`):
 `Device.OpenLinkAsync("myapp://projects/42")` opens a route, or a sign-in
 link, in the app. The step report shows the link without its userinfo, query, or fragment, where a magic link's token rides (`<link>` when it does not parse).
 
@@ -616,6 +633,9 @@ misses.
 - Shadow DOM: `Screen` queries reach open shadow roots and closed roots attached with `attachShadow`, not declarative closed roots (`<template shadowrootmode="closed">`). The engine
   tracks the closed roots through a record its init script defines on the page, so a page that
   replaces the global `WeakMap` keeps them reachable, and a secure field inside one is still masked in screenshots.
+- Inert content: the agent doesn't see content that takes no input, so it never aims at it. That is an element with the `inert` attribute and everything under it, and
+  everything outside a modal `<dialog>` opened with `showModal()` or a `show-modal` command. With several modal dialogs open, only the one shown last stays; when e2e can't tell
+  which one that is, it leaves out nothing. Locators still find inert content, and `ToBeVisibleAsync` still passes, as in Playwright.
 - `Keyboard.PressAsync(key)`, `Keyboard.TypeAsync(text)`,
   `Keyboard.DownAsync(key)`, `Keyboard.UpAsync(key)`, and `Mouse.*`: unfocused
   input. Only `DownAsync(key)` holds a key or modifier until `UpAsync(key)`;

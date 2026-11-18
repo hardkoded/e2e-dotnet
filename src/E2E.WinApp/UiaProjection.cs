@@ -122,7 +122,24 @@ public static class UiaProjection
     private static readonly string[] SecureClasses = ["PasswordBox"];
 
     /// <summary>Roles whose node text is their name: the model reads the control by it.</summary>
-    private static readonly HashSet<string> TextRoles = ["text", "link", "button", "listitem", "tab", "menuitem", "checkbox", "radio", "switch", "heading", "treeitem", "tooltip", "status", "columnheader", "row"];
+    private static readonly HashSet<string> TextRoles =
+    [
+        "text",
+        "link",
+        "button",
+        "listitem",
+        "tab",
+        "menuitem",
+        "checkbox",
+        "radio",
+        "switch",
+        "heading",
+        "treeitem",
+        "tooltip",
+        "status",
+        "columnheader",
+        "row",
+    ];
 
     /// <summary>
     /// Projects one window. <paramref name="mintId"/> is called once per node in document order, so the surface's id space stays unique
@@ -130,7 +147,15 @@ public static class UiaProjection
     /// <paramref name="scale"/>, so every window of the app is in one coordinate space. <paramref name="focused"/> is the handle of the
     /// element with keyboard focus. The budget is shared by every window of the observation.
     /// </summary>
-    public static ProjectedWindow ProjectWindow(RawElement root, long windowHandle, Point origin, double scale, string? focused, Func<string> mintId, ProjectionBudget budget)
+    public static ProjectedWindow ProjectWindow(
+        RawElement root,
+        long windowHandle,
+        Point origin,
+        double scale,
+        string? focused,
+        Func<string> mintId,
+        ProjectionBudget budget
+    )
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(mintId);
@@ -175,7 +200,10 @@ public static class UiaProjection
             }
 
             var name = Cut(NonEmpty(source.Name), ObservationLimits.Name);
-            var text = role is not null && TextRoles.Contains(role) ? Cut(NonEmpty(source.Name), ObservationLimits.Text) : null;
+            var text =
+                role is not null && TextRoles.Contains(role)
+                    ? Cut(NonEmpty(source.Name), ObservationLimits.Text)
+                    : null;
             var node = new SemanticNode
             {
                 Ref = entry.Id,
@@ -190,10 +218,14 @@ public static class UiaProjection
                 {
                     Disabled = !source.IsEnabled,
                     Hidden = source.IsOffscreen,
-                    Checked = string.Equals(source.ToggleState, "On", StringComparison.OrdinalIgnoreCase) || (role == "radio" && source.IsSelected == true),
+                    Checked =
+                        string.Equals(source.ToggleState, "On", StringComparison.OrdinalIgnoreCase)
+                        || (role == "radio" && source.IsSelected == true),
                     CheckedReported = source.ToggleState is not null,
                     Selected = source.IsSelected == true,
-                    Expanded = string.Equals(source.ExpandState, "Expanded", StringComparison.OrdinalIgnoreCase) || string.Equals(source.ExpandState, "PartiallyExpanded", StringComparison.OrdinalIgnoreCase),
+                    Expanded =
+                        string.Equals(source.ExpandState, "Expanded", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(source.ExpandState, "PartiallyExpanded", StringComparison.OrdinalIgnoreCase),
                     Focused = focused is not null && source.Handle == focused,
                     Secure = secure,
                 },
@@ -209,20 +241,26 @@ public static class UiaProjection
 
         var rootNode = Build(root, null, isRoot: true)
             ?? throw WinAppSupport.Failure("the observation's node budget is spent before the window's root");
-        return new ProjectedWindow { Node = rootNode, Index = index, Truncated = truncated || budget.Exhausted };
+        return new ProjectedWindow
+        {
+            Node = rootNode,
+            Index = index,
+            Truncated = truncated || budget.Exhausted,
+        };
     }
 
     /// <summary>
     /// The one root the contract wants over the app's windows. Its box is the main window's client area; it carries no name of
     /// its own, the app and the window title being reported as the observation's location.
     /// </summary>
-    public static SemanticNode ScreenRoot(IReadOnlyList<SemanticNode> roots, ViewportSize viewport) => new()
-    {
-        Ref = RootId,
-        Role = "screen",
-        Rect = new BoundingBox(0, 0, viewport.Width, viewport.Height),
-        Children = roots,
-    };
+    public static SemanticNode ScreenRoot(IReadOnlyList<SemanticNode> roots, ViewportSize viewport) =>
+        new()
+        {
+            Ref = RootId,
+            Role = "screen",
+            Rect = new BoundingBox(0, 0, viewport.Width, viewport.Height),
+            Children = roots,
+        };
 
     /// <summary>True when <paramref name="entry"/> is a strict descendant of <paramref name="ancestor"/>.</summary>
     public static bool IsWithin(ProjectedElement entry, ProjectedElement ancestor)
@@ -273,7 +311,8 @@ public static class UiaProjection
 
     /// <summary>A password field, by the UI Automation flag when the driver read it, else by the framework class.</summary>
     internal static bool IsSecure(RawElement source) =>
-        source.IsPassword == true || SecureClasses.Any(known => (source.ClassName ?? "").Contains(known, StringComparison.Ordinal));
+        source.IsPassword == true
+        || SecureClasses.Any(known => (source.ClassName ?? "").Contains(known, StringComparison.Ordinal));
 
     /// <summary>
     /// Whether an element scrolls along <paramref name="direction"/>, by the axes the library reports (<c>vertical</c>,
@@ -291,13 +330,20 @@ public static class UiaProjection
         return direction switch
         {
             ScrollDirection.Up or ScrollDirection.Down => both
-                || axes.Contains("vert", StringComparison.Ordinal) || axes.Contains("up", StringComparison.Ordinal) || axes.Contains("down", StringComparison.Ordinal) || axes is "v" or "vh" or "hv",
+                || axes.Contains("vert", StringComparison.Ordinal)
+                || axes.Contains("up", StringComparison.Ordinal)
+                || axes.Contains("down", StringComparison.Ordinal)
+                || axes is "v" or "vh" or "hv",
             _ => both
-                || axes.Contains("horiz", StringComparison.Ordinal) || axes.Contains("left", StringComparison.Ordinal) || axes.Contains("right", StringComparison.Ordinal) || axes is "h" or "vh" or "hv",
+                || axes.Contains("horiz", StringComparison.Ordinal)
+                || axes.Contains("left", StringComparison.Ordinal)
+                || axes.Contains("right", StringComparison.Ordinal)
+                || axes is "h" or "vh" or "hv",
         };
     }
 
     private static string? NonEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
-    private static string? Cut(string? value, int limit) => value is null || value.Length <= limit ? value : value[..limit];
+    private static string? Cut(string? value, int limit) =>
+        value is null || value.Length <= limit ? value : value[..limit];
 }

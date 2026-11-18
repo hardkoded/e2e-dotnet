@@ -67,7 +67,12 @@ public sealed class RemoteChromeCleanupTests : IDisposable
     public async Task Retries_while_a_helper_still_holds_a_file_and_deletes_once_it_lets_go()
     {
         var profile = Profile("e2e-cdp-host-held", age: TimeSpan.Zero);
-        var held = new FileStream(Path.Combine(profile, "Default", "Preferences"), FileMode.Open, FileAccess.Read, FileShare.None);
+        var held = new FileStream(
+            Path.Combine(profile, "Default", "Preferences"),
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.None
+        );
         _ = Task.Run(async () =>
         {
             await Task.Delay(300);

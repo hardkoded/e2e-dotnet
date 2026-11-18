@@ -16,7 +16,11 @@ internal static class ReportStatusBuilders
 
     public static readonly ReportError ProductFailure = new("ASSERTION_FAILED", "expected the dashboard");
 
-    public static readonly ReportError ReportWriteFailure = new("REPORT_WRITE_FAILED", "the JUnit report could not be written: EACCES", "report");
+    public static readonly ReportError ReportWriteFailure = new(
+        "REPORT_WRITE_FAILED",
+        "the JUnit report could not be written: EACCES",
+        "report"
+    );
 
     /// <summary>A failed result for one test titled <paramref name="title"/>; two in one report need distinct titles, as a run gives each result its own id.</summary>
     public static ReportResult FailedResult(ReportError error, string title = "case") =>
@@ -26,7 +30,15 @@ internal static class ReportStatusBuilders
             File = "tests/case.e2e.ts",
             TitlePath = ["suite", title],
             Status = ResultStatus.Failed,
-            Attempts = [new ReportAttempt { Status = AttemptStatus.Failed, DurationMs = 10, Error = error }],
+            Attempts =
+            [
+                new ReportAttempt
+                {
+                    Status = AttemptStatus.Failed,
+                    DurationMs = 10,
+                    Error = error,
+                },
+            ],
         };
 
     public static Report1Document Build(
@@ -35,18 +47,23 @@ internal static class ReportStatusBuilders
         int exitCode = 1,
         IReadOnlyList<ReportError>? runErrors = null,
         string? projectRoot = null,
-        ReportLimits? limits = null) =>
-        Valid(BuildReport.Build(new BuildReportOptions
-        {
-            RunId = Guid.CreateVersion7().ToString(),
-            StartedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
-            Status = status,
-            ExitCode = exitCode,
-            Results = results ?? [],
-            RunErrors = runErrors ?? [],
-            ProjectRoot = projectRoot,
-            Limits = limits,
-        }));
+        ReportLimits? limits = null
+    ) =>
+        Valid(
+            BuildReport.Build(
+                new BuildReportOptions
+                {
+                    RunId = Guid.CreateVersion7().ToString(),
+                    StartedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                    Status = status,
+                    ExitCode = exitCode,
+                    Results = results ?? [],
+                    RunErrors = runErrors ?? [],
+                    ProjectRoot = projectRoot,
+                    Limits = limits,
+                }
+            )
+        );
 
     private static Report1Document Valid(Report1Document document)
     {

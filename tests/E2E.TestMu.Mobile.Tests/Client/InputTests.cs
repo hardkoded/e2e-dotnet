@@ -40,7 +40,10 @@ public sealed class InputTests
 
         await client.CallAsync(DeviceMethods.InteractionsPress, """{"ref":"@e3","count":2}""");
 
-        Assert.Equal($"{TapOnSave} | pause 100 | down | pause 50 | up", Gesture.Describe(Assert.Single(hub.Calls).Body));
+        Assert.Equal(
+            $"{TapOnSave} | pause 100 | down | pause 50 | up",
+            Gesture.Describe(Assert.Single(hub.Calls).Body)
+        );
     }
 
     [Fact]
@@ -58,9 +61,15 @@ public sealed class InputTests
     {
         var (client, hub, _) = Appium.Over();
 
-        await client.CallAsync(DeviceMethods.InteractionsSwipe, """{"from":{"x":200,"y":600},"to":{"x":200,"y":200}}""");
+        await client.CallAsync(
+            DeviceMethods.InteractionsSwipe,
+            """{"from":{"x":200,"y":600},"to":{"x":200,"y":200}}"""
+        );
 
-        Assert.Equal("move 200,600 (0ms) | down | move 200,200 (300ms) | up", Gesture.Describe(Assert.Single(hub.Calls).Body));
+        Assert.Equal(
+            "move 200,600 (0ms) | down | move 200,200 (300ms) | up",
+            Gesture.Describe(Assert.Single(hub.Calls).Body)
+        );
     }
 
     [Fact]
@@ -68,9 +77,15 @@ public sealed class InputTests
     {
         var (client, hub, _) = Appium.Over();
 
-        await client.CallAsync(DeviceMethods.InteractionsPan, """{"x":100,"y":100,"dx":50,"dy":-20,"durationMs":800}""");
+        await client.CallAsync(
+            DeviceMethods.InteractionsPan,
+            """{"x":100,"y":100,"dx":50,"dy":-20,"durationMs":800}"""
+        );
 
-        Assert.Equal("move 100,100 (0ms) | down | move 150,80 (800ms) | up", Gesture.Describe(Assert.Single(hub.Calls).Body));
+        Assert.Equal(
+            "move 100,100 (0ms) | down | move 150,80 (800ms) | up",
+            Gesture.Describe(Assert.Single(hub.Calls).Body)
+        );
     }
 
     [Fact]
@@ -80,7 +95,10 @@ public sealed class InputTests
 
         await client.CallAsync(DeviceMethods.InteractionsDrag, """{"source":"@e3","destination":"@e4"}""");
 
-        Assert.Equal("move 125,220 (0ms) | down | pause 500 | move 120,320 (500ms) | up", Gesture.Describe(Assert.Single(hub.Calls).Body));
+        Assert.Equal(
+            "move 125,220 (0ms) | down | pause 500 | move 120,320 (500ms) | up",
+            Gesture.Describe(Assert.Single(hub.Calls).Body)
+        );
     }
 
     [Theory]
@@ -115,7 +133,10 @@ public sealed class InputTests
 
         await client.CallAsync(DeviceMethods.InteractionsFill, """{"ref":"@e4","text":"hello"}""");
 
-        Assert.Equal(["POST actions", "GET element/active", "POST element/el-1/clear", "POST element/el-1/value"], hub.Calls.Select(call => $"{call.Method} {call.Command}"));
+        Assert.Equal(
+            ["POST actions", "GET element/active", "POST element/el-1/clear", "POST element/el-1/value"],
+            hub.Calls.Select(call => $"{call.Method} {call.Command}")
+        );
         Assert.Equal("move 120,320 (0ms) | down | pause 50 | up", Gesture.Describe(hub.Calls[0].Body));
         Json.AssertEqual("""{"text":"hello","value":["h","e","l","l","o"]}""", hub.Calls[3].Body);
     }
@@ -127,14 +148,19 @@ public sealed class InputTests
 
         await client.CallAsync(DeviceMethods.InteractionsFill, """{"ref":"@e4","text":""}""");
 
-        Assert.Equal(["POST actions", "GET element/active", "POST element/el-1/clear"], hub.Calls.Select(call => $"{call.Method} {call.Command}"));
+        Assert.Equal(
+            ["POST actions", "GET element/active", "POST element/el-1/clear"],
+            hub.Calls.Select(call => $"{call.Method} {call.Command}")
+        );
     }
 
     [Fact]
     public async Task Filling_when_the_tap_focuses_nothing_fails_without_typing()
     {
         var (client, hub, _) = await Appium.ReadAsync();
-        hub.Script("GET", "element/active", _ => FakeAppium.Failure(System.Net.HttpStatusCode.NotFound, "no such element", "no active element"));
+        hub.Script("GET", "element/active", _ =>
+            FakeAppium.Failure(System.Net.HttpStatusCode.NotFound, "no such element", "no active element")
+        );
 
         var error = await client.FailureAsync(DeviceMethods.InteractionsFill, """{"ref":"@e4","text":"hello"}""");
 
@@ -149,7 +175,10 @@ public sealed class InputTests
 
         await client.CallAsync(DeviceMethods.InteractionsType, """{"text":"ab"}""");
 
-        Assert.Equal(["GET element/active", "POST element/el-1/value"], hub.Calls.Select(call => $"{call.Method} {call.Command}"));
+        Assert.Equal(
+            ["GET element/active", "POST element/el-1/value"],
+            hub.Calls.Select(call => $"{call.Method} {call.Command}")
+        );
         Json.AssertEqual("""{"text":"ab","value":["a","b"]}""", hub.Calls[1].Body);
     }
 
@@ -157,7 +186,9 @@ public sealed class InputTests
     public async Task Types_as_key_presses_when_no_element_has_the_focus()
     {
         var (client, hub, _) = Appium.Over();
-        hub.Script("GET", "element/active", _ => FakeAppium.Failure(System.Net.HttpStatusCode.NotFound, "no such element", "none"));
+        hub.Script("GET", "element/active", _ =>
+            FakeAppium.Failure(System.Net.HttpStatusCode.NotFound, "no such element", "none")
+        );
 
         await client.CallAsync(DeviceMethods.InteractionsType, """{"text":"ab"}""");
 
@@ -232,7 +263,12 @@ public sealed class InputTests
     [Fact]
     public async Task Back_on_iOS_is_unsupported_when_the_screen_has_no_navigation_bar()
     {
-        var (client, hub, _) = Appium.Over(screen: (JsonObject)JsonNode.Parse("""{"nodes":[{"ref":"e1","index":0,"type":"Button","rect":{"x":0,"y":0,"width":10,"height":10}}]}""")!);
+        var (client, hub, _) = Appium.Over(
+            screen: (JsonObject)
+                JsonNode.Parse(
+                    """{"nodes":[{"ref":"e1","index":0,"type":"Button","rect":{"x":0,"y":0,"width":10,"height":10}}]}"""
+                )!
+        );
 
         var error = await client.FailureAsync(DeviceMethods.CommandBack);
 
@@ -260,7 +296,10 @@ public sealed class InputTests
     {
         var (client, hub, _) = Appium.Over();
 
-        var error = await client.FailureAsync(DeviceMethods.CommandOrientation, """{"orientation":"portrait-upside-down"}""");
+        var error = await client.FailureAsync(
+            DeviceMethods.CommandOrientation,
+            """{"orientation":"portrait-upside-down"}"""
+        );
 
         Assert.Equal("UNSUPPORTED_OPERATION", error.Code);
         Assert.Empty(hub.Calls);
@@ -276,7 +315,10 @@ public sealed class InputTests
         var read = await client.CallAsync(DeviceMethods.CommandClipboard, """{"action":"read"}""");
 
         Assert.Equal("mobile: setPasteboard", hub.Calls[0].Script);
-        Json.AssertEqual($$"""{"content":"{{Convert.ToBase64String("héllo"u8.ToArray())}}","encoding":"utf8"}""", hub.Calls[0].Arguments);
+        Json.AssertEqual(
+            $$"""{"content":"{{Convert.ToBase64String("héllo"u8.ToArray())}}","encoding":"utf8"}""",
+            hub.Calls[0].Arguments
+        );
         Assert.Equal("mobile: getPasteboard", hub.Calls[1].Script);
         Json.AssertEqual("""{"action":"read","text":"copied"}""", read);
     }
@@ -291,7 +333,10 @@ public sealed class InputTests
         var read = await client.CallAsync(DeviceMethods.CommandClipboard, """{"action":"read"}""");
 
         Assert.Equal("mobile: setClipboard", hub.Calls[0].Script);
-        Json.AssertEqual($$"""{"content":"{{Convert.ToBase64String("abc"u8.ToArray())}}","contentType":"plaintext"}""", hub.Calls[0].Arguments);
+        Json.AssertEqual(
+            $$"""{"content":"{{Convert.ToBase64String("abc"u8.ToArray())}}","contentType":"plaintext"}""",
+            hub.Calls[0].Arguments
+        );
         Assert.Equal("mobile: getClipboard", hub.Calls[1].Script);
         Json.AssertEqual("""{"action":"read","text":"copied"}""", read);
     }
@@ -311,7 +356,9 @@ public sealed class InputTests
     public async Task Types_as_key_presses_when_the_focused_element_takes_no_text()
     {
         var (client, hub, _) = Appium.Over();
-        hub.Script("POST", "element/el-1/value", _ => FakeAppium.Failure(System.Net.HttpStatusCode.BadRequest, "invalid element state", "not editable"));
+        hub.Script("POST", "element/el-1/value", _ =>
+            FakeAppium.Failure(System.Net.HttpStatusCode.BadRequest, "invalid element state", "not editable")
+        );
 
         await client.CallAsync(DeviceMethods.InteractionsType, """{"text":"a"}""");
 

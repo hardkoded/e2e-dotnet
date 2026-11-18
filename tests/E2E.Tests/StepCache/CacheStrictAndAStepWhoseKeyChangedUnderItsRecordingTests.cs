@@ -40,8 +40,16 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
         var error = await Assert.ThrowsAsync<AgentException>(session.BeginAsync);
 
         Assert.Equal("REPLAY_STALE", error.Code);
-        Assert.Contains("holds it under another cache key (" + OldKey + ".json)", error.Message, StringComparison.Ordinal);
-        Assert.Contains("re-record it with a read-write run with cache.strict set to false", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "holds it under another cache key (" + OldKey + ".json)",
+            error.Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "re-record it with a read-write run with cache.strict set to false",
+            error.Message,
+            StringComparison.Ordinal
+        );
         Assert.Equal(("missed", "no-entry"), (session.CacheInfo?.Mode, session.CacheInfo?.Reason));
     }
 
@@ -56,7 +64,8 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
                 entry.CallIndex = null;
                 entry.Agent = null;
             }),
-            MakeHost(["/"]));
+            MakeHost(["/"])
+        );
 
         Assert.Null(await session.BeginAsync());
     }
@@ -106,7 +115,9 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
     [InlineData("agent")]
     [InlineData("test")]
     [InlineData("target")]
-    public async Task Runs_live_a_step_the_store_holds_no_recording_of_another_instruction_params_occurrence_agent_test_or_target(string change)
+    public async Task Runs_live_a_step_the_store_holds_no_recording_of_another_instruction_params_occurrence_agent_test_or_target(
+        string change
+    )
     {
         var session = MakeSession(
             Rekeyed(entry =>
@@ -117,7 +128,9 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
                         entry.Instruction = "open the billing page";
                         break;
                     case "params":
-                        entry.ParamsDigest = CacheKeys.ParamsDigest(new Dictionary<string, object?> { ["plan"] = "pro" });
+                        entry.ParamsDigest = CacheKeys.ParamsDigest(
+                            new Dictionary<string, object?> { ["plan"] = "pro" }
+                        );
                         break;
                     case "occurrence":
                         entry.CallIndex = 1;
@@ -133,7 +146,8 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
                         break;
                 }
             }),
-            MakeHost(["/"]));
+            MakeHost(["/"])
+        );
 
         Assert.Null(await session.BeginAsync());
     }

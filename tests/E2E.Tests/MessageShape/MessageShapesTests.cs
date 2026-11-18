@@ -15,20 +15,33 @@ public sealed class MessageShapesTests
 {
     private static byte[] Bytes() => [137, 80, 78, 71];
 
-    private static ModelMessage Screenshot(byte[]? data = null) => new()
-    {
-        Role = "user",
-        Content = "Execute this test step: look.",
-        Images = [new ModelImage(data ?? Bytes(), "image/png", 1, 1)],
-    };
+    private static ModelMessage Screenshot(byte[]? data = null) =>
+        new()
+        {
+            Role = "user",
+            Content = "Execute this test step: look.",
+            Images = [new ModelImage(data ?? Bytes(), "image/png", 1, 1)],
+        };
 
-    private static ModelMessage Result(string value) => new() { Role = "tool", ToolCallId = "c1", Name = "tap", Content = value };
+    private static ModelMessage Result(string value) =>
+        new()
+        {
+            Role = "tool",
+            ToolCallId = "c1",
+            Name = "tap",
+            Content = value,
+        };
 
     [Fact]
     public void Match_for_a_clone_of_the_same_message_bytes_included()
     {
         var message = Screenshot();
-        var clone = new ModelMessage { Role = message.Role, Content = message.Content, Images = [new ModelImage([.. Bytes()], "image/png", 1, 1)] };
+        var clone = new ModelMessage
+        {
+            Role = message.Role,
+            Content = message.Content,
+            Images = [new ModelImage([.. Bytes()], "image/png", 1, 1)],
+        };
 
         Assert.Equal(E2E.MessageShape.ShapeOf(message), E2E.MessageShape.ShapeOf(clone));
     }
@@ -41,7 +54,8 @@ public sealed class MessageShapesTests
         Assert.NotEqual(before, E2E.MessageShape.ShapeOf(Result("looked again")));
         Assert.NotEqual(
             E2E.MessageShape.ShapeOf(new ModelMessage { Role = "user", Content = "x" }),
-            E2E.MessageShape.ShapeOf(new ModelMessage { Role = "assistant", Content = "x" }));
+            E2E.MessageShape.ShapeOf(new ModelMessage { Role = "assistant", Content = "x" })
+        );
     }
 
     [Fact]

@@ -27,7 +27,9 @@ One reference does most of the work. Read it; do not restate it.
 
 Detect the source runner, then read the guide and the topics in its row in
 full, before the inventory and before writing any code. A guide maps the
-runner's config, API, and commands to e2e and marks what has no port. It is a
+runner's config, API, and commands to e2e and lists what e2e does not have yet
+under "What e2e doesn't have yet" (Planned, Not yet, or Not planned), with
+today's workaround where there is one. It is a
 page of the docs site at `https://www.hardkoded.com/e2e-dotnet/migrate/<guide>/`
 (`docs-site/src/content/docs/migrate/<guide>.mdx` in a clone of the repo).
 
@@ -51,8 +53,9 @@ Also read `writing-tests-nunit` when the e2e project uses NUnit, or
 `writing-tests-xunit` when it uses xUnit v3. Follow the source project's
 framework when it is a .NET one; otherwise ask the user.
 
-A guide marks each feature `missing`, `by design`, `web only`, "Not yet", or
-"No equivalent". Where it gives a workaround, use it. Where it gives none, the test stays in the old
+A guide lists each feature the port lacks under "What e2e doesn't have yet"
+(Planned, Not yet, or Not planned), and marks some as web only. Where it gives a
+workaround, use it. Where it gives none, the test stays in the old
 runner and the progress file says why. A project with two source runners
 migrates one at a time, one section of the progress file each.
 
@@ -185,8 +188,8 @@ which. When they leave it to you, suggest in this order:
 1. Tests whose shared helpers are already ported.
 2. Tests that break often in the old runner: retries, flaky history in CI,
    comments explaining a workaround for the runner. They gain the most.
-3. Tests that need a capability the guide marks "Not yet", "No equivalent", or
-   `missing`, last (read `COMPATIBILITY.md`).
+3. Tests that need a capability the guide lists under "What e2e doesn't have
+   yet", last (read `COMPATIBILITY.md`).
 
 Write the slice into the progress file's `Next` section before starting, so
 an interrupted session leaves a trail.
@@ -245,8 +248,8 @@ Then each test, one at a time:
   coordinate tap, a retry loop) is a workaround for the old runner. Try the
   plain step first; keep a workaround only when e2e needs it too, with its
   own comment saying why.
-- Where the guide marks a step "Not yet", "No equivalent", or `missing`, use
-  its workaround. When there is none, the test stays in the old runner: mark
+- Where the guide lists a step under "What e2e doesn't have yet", use its
+  workaround. When there is none, the test stays in the old runner: mark
   it `stays` with the reason, and offer to open an issue at
   `hardkoded/e2e-dotnet` with the gap. Open it only when the user agrees.
 - Do not change app code. A test that needs a test id the app lacks gets
@@ -260,7 +263,7 @@ patching: coordinate taps, picker spins, long tap sequences through a
 wizard. Keep the test's shape: an `Agent.ActAsync` in the arrange block
 ends it with a wait for the state it reached, and one under test is
 checked by the locator assertions at the end (topic `agent`).
-One exception: when the guide marks a selector "No equivalent" (an image
+One exception: when the guide lists a selector under "What e2e doesn't have yet" with no workaround (an image
 selector, XPath with no locator for the control) and a goal is its only
 workaround, use the goal in place of the literal port, keep the locator
 assertion on the outcome, and note it in the row.
@@ -350,7 +353,7 @@ Defect check: on
 
 ## Gaps
 
-- The source test uses a feature the port does not have (guide: Not yet, with no workaround); issue filed.
+- The source test uses a feature the port does not have (guide: listed under "What e2e doesn't have yet", with no workaround); issue filed.
 
 ## Next
 

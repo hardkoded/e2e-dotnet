@@ -31,7 +31,13 @@ public sealed class PlaywrightProtocolTests
         </script></body></html>
         """;
 
-    private static BrowserLease Lease(string id, string endpoint) => new() { Id = id, CdpEndpoint = endpoint, Protocol = BrowserProtocol.Playwright };
+    private static BrowserLease Lease(string id, string endpoint) =>
+        new()
+        {
+            Id = id,
+            CdpEndpoint = endpoint,
+            Protocol = BrowserProtocol.Playwright,
+        };
 
     private static async Task<string?> HeadingAsync(IEngineSession session) =>
         WebSemanticsTests.Flatten((await session.ObserveAsync(None)).Roots).First(node => node.Role == "heading").Name;
@@ -67,16 +73,23 @@ public sealed class PlaywrightProtocolTests
         using var app = await TinySite.StartAsync(Probe);
         await using var grid = await RemotePlaywrightServer.StartAsync();
         var cloud = new ToyCloud { OnAcquire = (request, token) => Task.FromResult(Lease("session-1", grid.Endpoint)) };
-        var engine = new WebEngine(new WebEngineOptions
-        {
-            Browser = cloud,
-            Locale = "de-DE",
-            TimezoneId = "Asia/Tokyo",
-            ColorScheme = WebColorScheme.Dark,
-            Viewport = new WebViewport(412, 300),
-        });
+        var engine = new WebEngine(
+            new WebEngineOptions
+            {
+                Browser = cloud,
+                Locale = "de-DE",
+                TimezoneId = "Asia/Tokyo",
+                ColorScheme = WebColorScheme.Dark,
+                Viewport = new WebViewport(412, 300),
+            }
+        );
 
-        await using (var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(30) }, None))
+        await using (
+            var session = await engine.StartAsync(
+                new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(30) },
+                None
+            )
+        )
         {
             await session.OpenAsync(app.Url, None);
             Assert.Equal("de-DE|Asia/Tokyo|true|412|300", await HeadingAsync(session));
@@ -109,9 +122,21 @@ public sealed class PlaywrightProtocolTests
             };
             Dictionary<string, string?> env;
             (runner, env) = await Runner.PreparedAsync(cloud, 1);
-            worker = new WebEngine(new WebEngineOptions { Browser = cloud, Locale = "fr-FR", Viewport = new WebViewport(412, 300) });
+            worker = new WebEngine(
+                new WebEngineOptions
+                {
+                    Browser = cloud,
+                    Locale = "fr-FR",
+                    Viewport = new WebViewport(412, 300),
+                }
+            );
             worker.Init(Runner.InitInfo(0, env));
-            var options = new EngineStartOptions { AttemptId = "a", BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(30) };
+            var options = new EngineStartOptions
+            {
+                AttemptId = "a",
+                BaseUrl = app.Url,
+                ActionTimeout = TimeSpan.FromSeconds(30),
+            };
 
             // The grid drops the session while the attempt rides it.
             first = await worker.StartAsync(options, None);
@@ -143,7 +168,13 @@ public sealed class PlaywrightProtocolTests
             {
                 if (first is not null)
                 {
-                    await first.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+                    await first
+                        .DisposeAsync()
+                        .AsTask()
+                        .WaitAsync(TimeSpan.FromSeconds(30))
+                        .ConfigureAwait(
+                            ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext
+                        );
                 }
             }
             finally
@@ -154,12 +185,25 @@ public sealed class PlaywrightProtocolTests
                     {
                         if (worker is not null)
                         {
-                            await worker.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+                            await worker
+                                .DisposeAsync()
+                                .AsTask()
+                                .WaitAsync(TimeSpan.FromSeconds(30))
+                                .ConfigureAwait(
+                                    ConfigureAwaitOptions.SuppressThrowing
+                                        | ConfigureAwaitOptions.ContinueOnCapturedContext
+                                );
                         }
 
                         if (runner is not null)
                         {
-                            await runner.FinishAsync(Runner.FinishInfo(), None).WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+                            await runner
+                                .FinishAsync(Runner.FinishInfo(), None)
+                                .WaitAsync(TimeSpan.FromSeconds(30))
+                                .ConfigureAwait(
+                                    ConfigureAwaitOptions.SuppressThrowing
+                                        | ConfigureAwaitOptions.ContinueOnCapturedContext
+                                );
                         }
                     }
                 }
@@ -177,15 +221,28 @@ public sealed class PlaywrightProtocolTests
     [Fact]
     public async Task Dials_a_playwright_lease_with_connect_and_a_cdp_lease_with_connect_over_cdp()
     {
-        var cloud = new ToyCloud { OnAcquire = (request, token) => Task.FromResult(request.Slot == 0 ? Lease("pw", "wss://grid.example/pw") : new BrowserLease { Id = "cdp", CdpEndpoint = "wss://grid.example/cdp" }) };
+        var cloud = new ToyCloud
+        {
+            OnAcquire = (request, token) =>
+                Task.FromResult(
+                    request.Slot == 0
+                        ? Lease("pw", "wss://grid.example/pw")
+                        : new BrowserLease { Id = "cdp", CdpEndpoint = "wss://grid.example/cdp" }
+                ),
+        };
         var dialer = new Dialer();
         var (runner, env) = await Runner.PreparedAsync(cloud, 2);
 
         // The protocol reaches the worker in the hand-off.
         var variable = Runner.LeasesVariableIn(env.Keys);
-        Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse("""{"slots":2,"leases":[{"id":"pw","cdpEndpoint":"wss://grid.example/pw","protocol":"playwright"},{"id":"cdp","cdpEndpoint":"wss://grid.example/cdp"}]}"""),
-            JsonNode.Parse(env[variable]!)));
+        Assert.True(
+            JsonNode.DeepEquals(
+                JsonNode.Parse(
+                    """{"slots":2,"leases":[{"id":"pw","cdpEndpoint":"wss://grid.example/pw","protocol":"playwright"},{"id":"cdp","cdpEndpoint":"wss://grid.example/cdp"}]}"""
+                ),
+                JsonNode.Parse(env[variable]!)
+            )
+        );
 
         foreach (var slot in new[] { 0, 1 })
         {
@@ -202,10 +259,15 @@ public sealed class PlaywrightProtocolTests
     [Fact]
     public async Task Refuses_a_playwright_lease_in_attempt_scope_and_gives_it_back_because_that_connection_cannot_be_reattached()
     {
-        var cloud = new ToyCloud(BrowserProviderScope.Attempt) { OnAcquire = (request, token) => Task.FromResult(Lease("pw", "wss://grid.example/pw")) };
+        var cloud = new ToyCloud(BrowserProviderScope.Attempt)
+        {
+            OnAcquire = (request, token) => Task.FromResult(Lease("pw", "wss://grid.example/pw")),
+        };
         var dialer = new Dialer();
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => dialer.Engine(cloud).StartAsync(Runner.Attempt("a1"), None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            dialer.Engine(cloud).StartAsync(Runner.Attempt("a1"), None)
+        );
 
         Assert.Contains("cannot be reattached after a drop", error.Message, StringComparison.Ordinal);
         Assert.Equal(["pw"], cloud.ReleasedIds);
@@ -215,7 +277,19 @@ public sealed class PlaywrightProtocolTests
     [Fact]
     public async Task Refuses_a_playwright_lease_that_names_a_reconnect_endpoint()
     {
-        var cloud = new ToyCloud { OnAcquire = (request, token) => Task.FromResult(new BrowserLease { Id = "pw", CdpEndpoint = "wss://grid.example/pw", ReconnectEndpoint = "wss://grid.example/again", Protocol = BrowserProtocol.Playwright }) };
+        var cloud = new ToyCloud
+        {
+            OnAcquire = (request, token) =>
+                Task.FromResult(
+                    new BrowserLease
+                    {
+                        Id = "pw",
+                        CdpEndpoint = "wss://grid.example/pw",
+                        ReconnectEndpoint = "wss://grid.example/again",
+                        Protocol = BrowserProtocol.Playwright,
+                    }
+                ),
+        };
 
         var error = await Assert.ThrowsAnyAsync<Exception>(() => Runner.PreparedAsync(cloud, 1));
 

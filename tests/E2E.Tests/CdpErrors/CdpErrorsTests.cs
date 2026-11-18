@@ -19,13 +19,23 @@ public sealed class CdpErrorsTests
     {
         var cause = new TimeoutException($"WebSocket error: {value}, synthetic-token", new PlaywrightException(value));
         var playwright = Playwright(() => cause);
-        var failure = await Assert.ThrowsAnyAsync<Exception>(() => BrowserConnection.ConnectCdpAsync(
-            playwright,
-            new CdpTarget { Endpoint = "wss://browser.example", Headers = new Dictionary<string, string> { ["Custom"] = value } },
-            TimeSpan.FromSeconds(1),
-            CancellationToken.None));
+        var failure = await Assert.ThrowsAnyAsync<Exception>(() =>
+            BrowserConnection.ConnectCdpAsync(
+                playwright,
+                new CdpTarget
+                {
+                    Endpoint = "wss://browser.example",
+                    Headers = new Dictionary<string, string> { ["Custom"] = value },
+                },
+                TimeSpan.FromSeconds(1),
+                CancellationToken.None
+            )
+        );
         Assert.IsType<TimeoutException>(failure);
-        Assert.Equal("CDP connection failed; check the endpoint, handshake headers, and connection timeout", failure.Message);
+        Assert.Equal(
+            "CDP connection failed; check the endpoint, handshake headers, and connection timeout",
+            failure.Message
+        );
         Assert.Null(failure.InnerException);
         Assert.DoesNotContain("synthetic-token", failure.ToString(), StringComparison.Ordinal);
     }
@@ -35,7 +45,14 @@ public sealed class CdpErrorsTests
     {
         var cause = new PlaywrightException("connection refused");
         var playwright = Playwright(() => cause);
-        var failure = await Assert.ThrowsAnyAsync<Exception>(() => BrowserConnection.ConnectCdpAsync(playwright, new CdpTarget { Endpoint = "wss://browser.example" }, TimeSpan.FromSeconds(1), CancellationToken.None));
+        var failure = await Assert.ThrowsAnyAsync<Exception>(() =>
+            BrowserConnection.ConnectCdpAsync(
+                playwright,
+                new CdpTarget { Endpoint = "wss://browser.example" },
+                TimeSpan.FromSeconds(1),
+                CancellationToken.None
+            )
+        );
         Assert.Same(cause, failure);
     }
 

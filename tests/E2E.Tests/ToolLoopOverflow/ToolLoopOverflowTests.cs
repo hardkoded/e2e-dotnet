@@ -13,14 +13,22 @@ public sealed class ToolLoopOverflowTests
     [Fact]
     public async Task Fails_an_overflow_as_inconclusive_without_shrinking_the_history_when_InconclusiveOnOverflow_is_set()
     {
-        var model = new ScriptedModel(_ => throw new AgentException("CONTEXT_OVERFLOW", "The model request exceeded the context window: prompt is too long: 300000 tokens > 200000 maximum", blocked: true));
-        var executor = ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
-        {
-            Name = "evidence-keeping-loop",
-            InconclusiveOnOverflow = true,
-            Tools = (_, _) => [],
-            BuildPrompt = async context => (await context.ObserveAsync()).Text,
-        });
+        var model = new ScriptedModel(_ =>
+            throw new AgentException(
+                "CONTEXT_OVERFLOW",
+                "The model request exceeded the context window: prompt is too long: 300000 tokens > 200000 maximum",
+                blocked: true
+            )
+        );
+        var executor = ToolLoop.CreateToolLoopExecutor(
+            new ToolLoopExecutorOptions
+            {
+                Name = "evidence-keeping-loop",
+                InconclusiveOnOverflow = true,
+                Tools = (_, _) => [],
+                BuildPrompt = async context => (await context.ObserveAsync()).Text,
+            }
+        );
         var world = new DocumentWorld().Map("/big", page =>
         {
             for (var i = 0; i < 600; i++)
@@ -36,7 +44,8 @@ public sealed class ToolLoopOverflowTests
             },
             world,
             model,
-            executor: executor);
+            executor: executor
+        );
 
         Assert.Equal("ASSERTION_INCONCLUSIVE", Assert.IsType<AgentException>(attempt.Error).Code);
         Assert.Equal(1, model.CallCount);

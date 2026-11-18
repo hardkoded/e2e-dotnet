@@ -83,7 +83,9 @@ public sealed class LocatorQueryTests : PlaywrightTest
     public async Task Should_filter_by_regex_with_quotes()
     {
         await Browser.GotoAsync(Content("""<div>Hello "world"</div><div>Hello world</div>"""));
-        await Expect.That(Browser.Locator("div").Filter(hasText: new Regex("Hello \"world\""))).ToHaveTextAsync("Hello \"world\"");
+        await Expect
+            .That(Browser.Locator("div").Filter(hasText: new Regex("Hello \"world\"")))
+            .ToHaveTextAsync("Hello \"world\"");
     }
 
     [Test]
@@ -93,7 +95,9 @@ public sealed class LocatorQueryTests : PlaywrightTest
         foreach (var pattern in new[] { "let's", "let's", "'s", "'s", "let['abc]s", "let's let's", "let's let's" })
         {
             var regex = new Regex(pattern, RegexOptions.IgnoreCase);
-            await Expect.Soft(Browser.Locator("button").Filter(hasText: regex).GetByText("hello")).ToHaveTextAsync("hello");
+            await Expect
+                .Soft(Browser.Locator("button").Filter(hasText: regex).GetByText("hello"))
+                .ToHaveTextAsync("hello");
             await Expect.Soft(Screen.GetByRole("button", regex).GetByText("hello")).ToHaveTextAsync("hello");
         }
 
@@ -108,7 +112,9 @@ public sealed class LocatorQueryTests : PlaywrightTest
         foreach (var pattern in new[] { @"let\\'s", @"let\\'s", @"let\\'s let\\'s", @"let\\'s let\\'s" })
         {
             var regex = new Regex(pattern, RegexOptions.IgnoreCase);
-            await Expect.Soft(Browser.Locator("button").Filter(hasText: regex).GetByText("hello")).ToHaveTextAsync("hello");
+            await Expect
+                .Soft(Browser.Locator("button").Filter(hasText: regex).GetByText("hello"))
+                .ToHaveTextAsync("hello");
             await Expect.Soft(Screen.GetByRole("button", regex).GetByText("hello")).ToHaveTextAsync("hello");
         }
 
@@ -121,21 +127,30 @@ public sealed class LocatorQueryTests : PlaywrightTest
     public async Task Should_filter_by_regex_and_regexp_flags()
     {
         await Browser.GotoAsync(Content("""<div>Hello "world"</div><div>Hello world</div>"""));
-        await Expect.That(Browser.Locator("div").Filter(hasText: new Regex("hElLo \"world\"", RegexOptions.IgnoreCase))).ToHaveTextAsync("Hello \"world\"");
+        await Expect
+            .That(Browser.Locator("div").Filter(hasText: new Regex("hElLo \"world\"", RegexOptions.IgnoreCase)))
+            .ToHaveTextAsync("Hello \"world\"");
     }
 
     [Test]
     public async Task Should_filter_by_case_insensitive_regex_in_a_child()
     {
         await Browser.GotoAsync(Content("""<div class="test"><h5>Title Text</h5></div>"""));
-        await Expect.That(Browser.Locator("div").Filter(hasText: new Regex("^title text$", RegexOptions.IgnoreCase))).ToHaveTextAsync("Title Text");
+        await Expect
+            .That(Browser.Locator("div").Filter(hasText: new Regex("^title text$", RegexOptions.IgnoreCase)))
+            .ToHaveTextAsync("Title Text");
     }
 
     [Test]
     public async Task Should_filter_by_case_insensitive_regex_in_multiple_children()
     {
         await Browser.GotoAsync(Content("""<div class="test"><h5>Title</h5> <h2><i>Text</i></h2></div>"""));
-        await Expect.That(Browser).ToHaveClassAsync(Browser.Locator("div").Filter(hasText: new Regex("^title text$", RegexOptions.IgnoreCase)), "test");
+        await Expect
+            .That(Browser)
+            .ToHaveClassAsync(
+                Browser.Locator("div").Filter(hasText: new Regex("^title text$", RegexOptions.IgnoreCase)),
+                "test"
+            );
     }
 
     [Test]
@@ -150,29 +165,54 @@ public sealed class LocatorQueryTests : PlaywrightTest
     public async Task Should_support_has_locator()
     {
         await Browser.GotoAsync(Content("<div><span>hello</span></div><div><span>world</span></div>"));
-        await Expect.That(Browser.Locator("div").Filter(has: Screen.GetByText("world", exact: false))).ToHaveCountAsync(1);
-        Assert.That(await Browser.Locator("div").Filter(has: Screen.GetByText("world", exact: false)).TextContentAsync(), Is.EqualTo("world"));
+        await Expect
+            .That(Browser.Locator("div").Filter(has: Screen.GetByText("world", exact: false)))
+            .ToHaveCountAsync(1);
+        Assert.That(
+            await Browser.Locator("div").Filter(has: Screen.GetByText("world", exact: false)).TextContentAsync(),
+            Is.EqualTo("world")
+        );
         await Expect.That(Browser.Locator("div").Filter(has: Screen.GetByText("hello"))).ToHaveCountAsync(1);
-        Assert.That(await Browser.Locator("div").Filter(has: Screen.GetByText("hello")).TextContentAsync(), Is.EqualTo("hello"));
+        Assert.That(
+            await Browser.Locator("div").Filter(has: Screen.GetByText("hello")).TextContentAsync(),
+            Is.EqualTo("hello")
+        );
         await Expect.That(Browser.Locator("div").Filter(has: Browser.Locator("span"))).ToHaveCountAsync(2);
-        await Expect.That(Browser.Locator("div").Filter(has: Browser.Locator("span").Filter(hasText: "wor"))).ToHaveCountAsync(1);
-        Assert.That(await Browser.Locator("div").Filter(has: Browser.Locator("span").Filter(hasText: "wor")).TextContentAsync(), Is.EqualTo("world"));
-        await Expect.That(Browser.Locator("div").Filter(has: Browser.Locator("span"), hasText: "wor")).ToHaveCountAsync(1);
+        await Expect
+            .That(Browser.Locator("div").Filter(has: Browser.Locator("span").Filter(hasText: "wor")))
+            .ToHaveCountAsync(1);
+        Assert.That(
+            await Browser.Locator("div").Filter(has: Browser.Locator("span").Filter(hasText: "wor")).TextContentAsync(),
+            Is.EqualTo("world")
+        );
+        await Expect
+            .That(Browser.Locator("div").Filter(has: Browser.Locator("span"), hasText: "wor"))
+            .ToHaveCountAsync(1);
     }
 
     [Test]
     public async Task Should_support_locator_filter()
     {
-        await Browser.GotoAsync(Content("<section><div><span>hello</span></div><div><span>world</span></div></section>"));
+        await Browser.GotoAsync(
+            Content("<section><div><span>hello</span></div><div><span>world</span></div></section>")
+        );
         await Expect.That(Browser.Locator("div").Filter(hasText: "hello")).ToHaveCountAsync(1);
         await Expect.That(Browser.Locator("div").Filter(hasText: "hello").Filter(hasText: "hello")).ToHaveCountAsync(1);
         await Expect.That(Browser.Locator("div").Filter(hasText: "hello").Filter(hasText: "world")).ToHaveCountAsync(0);
-        await Expect.That(Browser.Locator("section").Filter(hasText: "hello").Filter(hasText: "world")).ToHaveCountAsync(1);
+        await Expect
+            .That(Browser.Locator("section").Filter(hasText: "hello").Filter(hasText: "world"))
+            .ToHaveCountAsync(1);
         await Expect.That(Browser.Locator("div").Filter(hasText: "hello").GetByText("hello")).ToHaveCountAsync(1);
-        await Expect.That(Browser.Locator("div").Filter(has: Browser.Locator("span").Filter(hasText: "world"))).ToHaveCountAsync(1);
+        await Expect
+            .That(Browser.Locator("div").Filter(has: Browser.Locator("span").Filter(hasText: "world")))
+            .ToHaveCountAsync(1);
         await Expect.That(Browser.Locator("div").Filter(has: Browser.Locator("span"))).ToHaveCountAsync(2);
-        await Expect.That(Browser.Locator("div").Filter(has: Browser.Locator("span"), hasText: "world")).ToHaveCountAsync(1);
-        await Expect.That(Browser.Locator("div").Filter(hasNot: Browser.Locator("span").Filter(hasText: "world"))).ToHaveCountAsync(1);
+        await Expect
+            .That(Browser.Locator("div").Filter(has: Browser.Locator("span"), hasText: "world"))
+            .ToHaveCountAsync(1);
+        await Expect
+            .That(Browser.Locator("div").Filter(hasNot: Browser.Locator("span").Filter(hasText: "world")))
+            .ToHaveCountAsync(1);
         await Expect.That(Browser.Locator("div").Filter(hasNot: Browser.Locator("section"))).ToHaveCountAsync(2);
         await Expect.That(Browser.Locator("div").Filter(hasNot: Browser.Locator("span"))).ToHaveCountAsync(0);
         await Expect.That(Browser.Locator("div").Filter(hasNotText: "hello")).ToHaveCountAsync(1);
@@ -184,8 +224,12 @@ public sealed class LocatorQueryTests : PlaywrightTest
     {
         await Browser.GotoAsync(Content("<div>hello</div><span>world</span>"));
         await Expect.That(Browser.Locator("div").Or(Browser.Locator("span"))).ToHaveCountAsync(2);
-        await Expect.That(Browser.Locator("div").Or(Browser.Locator("span"))).ToHaveTextAsync(new TextMatch[] { "hello", "world" });
-        await Expect.That(Browser.Locator("span").Or(Browser.Locator("article")).Or(Browser.Locator("div"))).ToHaveTextAsync(new TextMatch[] { "hello", "world" });
+        await Expect
+            .That(Browser.Locator("div").Or(Browser.Locator("span")))
+            .ToHaveTextAsync(new TextMatch[] { "hello", "world" });
+        await Expect
+            .That(Browser.Locator("span").Or(Browser.Locator("article")).Or(Browser.Locator("div")))
+            .ToHaveTextAsync(new TextMatch[] { "hello", "world" });
         await Expect.That(Browser.Locator("article").Or(Browser.Locator("something"))).ToHaveCountAsync(0);
         await Expect.That(Browser.Locator("article").Or(Browser.Locator("div"))).ToHaveTextAsync("hello");
         await Expect.That(Browser.Locator("article").Or(Browser.Locator("span"))).ToHaveTextAsync("world");
@@ -196,11 +240,17 @@ public sealed class LocatorQueryTests : PlaywrightTest
     [Test]
     public async Task Should_allow_some_but_not_all_nested_frameLocators()
     {
-        await Browser.GotoAsync(Content("""<iframe srcdoc="<span id=target>world</span>"></iframe><span>hello</span>"""));
+        await Browser.GotoAsync(
+            Content("""<iframe srcdoc="<span id=target>world</span>"></iframe><span>hello</span>""")
+        );
         var frame = Browser.FrameLocator("iframe");
         await Expect.That(frame.Locator("span").Or(frame.Locator("article"))).ToHaveTextAsync("world");
         await Expect.That(frame.Locator("article").Or(frame.Locator("span"))).ToHaveTextAsync("world");
-        var error = await Assert.CatchAsync(() => Expect.That(frame.Locator("div").Or(Browser.FrameLocator("#iframe").Locator("span"))).ToHaveTextAsync("world"));
+        var error = await Assert.CatchAsync(() =>
+            Expect
+                .That(frame.Locator("div").Or(Browser.FrameLocator("#iframe").Locator("span")))
+                .ToHaveTextAsync("world")
+        );
         Assert.That(error, Is.Not.Null);
     }
 
@@ -209,7 +259,9 @@ public sealed class LocatorQueryTests : PlaywrightTest
     {
         await Browser.GotoAsync("/frames/two-frames.html");
         var child = Browser.FrameLocator("iframe[name=uno]");
-        var error = await Assert.CatchAsync(() => Browser.Locator("div").Filter(has: child.Locator("span")).CountAsync());
+        var error = await Assert.CatchAsync(() =>
+            Browser.Locator("div").Filter(has: child.Locator("span")).CountAsync()
+        );
         Assert.That(error, Is.Not.Null);
     }
 

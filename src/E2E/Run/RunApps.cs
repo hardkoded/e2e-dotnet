@@ -26,7 +26,9 @@ internal static class RunApps
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.Ordinal);
 
     // The target as the run sees it, resolved once per target so every caller reads the one port a free port was assigned.
-    private static readonly ConcurrentDictionary<string, (TargetConfig Target, ResolvedApp App)> Resolved = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, (TargetConfig Target, ResolvedApp App)> Resolved = new(
+        StringComparer.Ordinal
+    );
 
     // The holds of the tests of this process, released at the end of the run.
     private static readonly ConcurrentDictionary<string, IAppProcesses> RunHolds = new(StringComparer.Ordinal);
@@ -39,7 +41,8 @@ internal static class RunApps
         E2EConfig config,
         TargetConfig target,
         Action<string>? notice,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(target);
@@ -66,7 +69,8 @@ internal static class RunApps
                 await held.StopAsync(_ => { }).ConfigureAwait(false);
             }
 
-            var (resolved, processes) = await AcquireLockedAsync(key, config, target, notice, cancellationToken).ConfigureAwait(false);
+            var (resolved, processes) = await AcquireLockedAsync(key, config, target, notice, cancellationToken)
+                .ConfigureAwait(false);
             RunHolds[key] = processes;
             return resolved;
         }
@@ -84,13 +88,25 @@ internal static class RunApps
         E2EConfig config,
         TargetConfig target,
         Action<string>? notice,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(target);
         if (target.App.Command is null)
         {
-            return (target, await Provision.StartDeclaredProcessesAsync([], config.ProjectRoot, () => new ManagedProcessHooks(), DebugTrace.Off, cancellationToken).ConfigureAwait(false));
+            return (
+                target,
+                await Provision
+                    .StartDeclaredProcessesAsync(
+                        [],
+                        config.ProjectRoot,
+                        () => new ManagedProcessHooks(),
+                        DebugTrace.Off,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false)
+            );
         }
 
         var key = KeyOf(config, target);
@@ -117,22 +133,28 @@ internal static class RunApps
             if (RunHolds.TryRemove(key, out var held))
             {
                 Resolved.TryRemove(key, out _);
-                await held.StopAsync(failure => Console.Error.WriteLine("e2e: stopping the app command failed: " + failure.Message)).ConfigureAwait(false);
+                await held.StopAsync(failure =>
+                        Console.Error.WriteLine("e2e: stopping the app command failed: " + failure.Message)
+                    )
+                    .ConfigureAwait(false);
             }
         }
     }
 
     // The app command's setup step, named with the URL it answers on (upstream's `appStep` in `runner.ts`).
-    private static AppSetupStep AppStep(string label, string? url) => new(label, url is null ? null : Urls.PrintableUrl(url));
+    private static AppSetupStep AppStep(string label, string? url) =>
+        new(label, url is null ? null : Urls.PrintableUrl(url));
 
-    private static string KeyOf(E2EConfig config, TargetConfig target) => (config.ConfigPath ?? config.ProjectRoot) + "\0" + target.Name;
+    private static string KeyOf(E2EConfig config, TargetConfig target) =>
+        (config.ConfigPath ?? config.ProjectRoot) + "\0" + target.Name;
 
     private static async Task<(TargetConfig Target, IAppProcesses Processes)> AcquireLockedAsync(
         string key,
         E2EConfig config,
         TargetConfig target,
         Action<string>? notice,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (!Resolved.TryGetValue(key, out var resolved))
         {
@@ -151,10 +173,26 @@ internal static class RunApps
                 RunEvents.Emit(new NoticeEvent("app", message));
             },
             Starting = (label, url) => RunEvents.Emit(new SetupEvent(AppStep(label, url), SetupState.Started)),
-            Ready = (label, url, duration, reused) => RunEvents.Emit(
-                new SetupEvent(AppStep(label, url), SetupState.Finished, (long)duration.TotalMilliseconds, reused ? SetupOutcome.Reused : null)),
+            Ready = (label, url, duration, reused) =>
+                RunEvents.Emit(
+                    new SetupEvent(
+                        AppStep(label, url),
+                        SetupState.Finished,
+                        (long)duration.TotalMilliseconds,
+                        reused ? SetupOutcome.Reused : null
+                    )
+                ),
         };
-        var processes = await Provision.StartDeclaredProcessesAsync([(target.Name, resolved.App)], config.ProjectRoot, () => hooks, DebugTrace.Off, cancellationToken, Pool).ConfigureAwait(false);
+        var processes = await Provision
+            .StartDeclaredProcessesAsync(
+                [(target.Name, resolved.App)],
+                config.ProjectRoot,
+                () => hooks,
+                DebugTrace.Off,
+                cancellationToken,
+                Pool
+            )
+            .ConfigureAwait(false);
         if (cancellationToken.IsCancellationRequested)
         {
             // Provision returns what it held when the token ends, where a caller that remembers the result needs the cancel.

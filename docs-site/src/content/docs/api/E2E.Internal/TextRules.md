@@ -164,6 +164,29 @@ public static string Normalize(string text)
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Internal_TextRules_SanitizeRecordedText_"></a>
+<a id="E2E_Internal_TextRules_SanitizeRecordedText_System_String_"></a>
+
+### SanitizeRecordedText(string)
+
+
+```csharp
+public static string SanitizeRecordedText(string text)
+```
+
+
+Upstream's `sanitizeRecordedText` (`internal/errors.ts`): [SanitizeText(string)](TextRules.md#E2E_Internal_TextRules_SanitizeText_System_String_) that keeps `\r\n` line breaks, for
+text the run records (serialized errors and skip reasons). A lone `\r` still becomes U+FFFD, since on a terminal it rewinds the
+line and the text after it overwrites the text before.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `text` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Internal_TextRules_SanitizeText_"></a>
 <a id="E2E_Internal_TextRules_SanitizeText_System_String_"></a>
 

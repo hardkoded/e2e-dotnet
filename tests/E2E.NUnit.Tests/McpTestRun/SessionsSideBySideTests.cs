@@ -28,10 +28,14 @@ public sealed class SessionsSideBySideTests
     /// <summary>How long a fixture waits for the test driver to release it, so a driver that failed early does not hold the turn forever.</summary>
     internal static readonly TimeSpan GateWait = TimeSpan.FromMinutes(2);
 
-    private static readonly string HeldName = typeof(HeldTurnFixture).FullName + "." + nameof(HeldTurnFixture.Holds_its_turn);
-    private static readonly string MarkedName = typeof(MarkedTurnFixture).FullName + "." + nameof(MarkedTurnFixture.Marks);
-    private static readonly string SlowName = typeof(SlowLoadFixture).FullName + "." + nameof(SlowLoadFixture.Loads_slowly);
-    private static readonly string QuickName = typeof(QuickLoadFixture).FullName + "." + nameof(QuickLoadFixture.Loads_quickly);
+    private static readonly string HeldName =
+        typeof(HeldTurnFixture).FullName + "." + nameof(HeldTurnFixture.Holds_its_turn);
+    private static readonly string MarkedName =
+        typeof(MarkedTurnFixture).FullName + "." + nameof(MarkedTurnFixture.Marks);
+    private static readonly string SlowName =
+        typeof(SlowLoadFixture).FullName + "." + nameof(SlowLoadFixture.Loads_slowly);
+    private static readonly string QuickName =
+        typeof(QuickLoadFixture).FullName + "." + nameof(QuickLoadFixture.Loads_quickly);
 
     [Test]
     [NonParallelizable]
@@ -86,7 +90,10 @@ public sealed class SessionsSideBySideTests
         var sessions = Host(dir);
         try
         {
-            var opened = await Task.WhenAll(sessions.OpenAsync(new E2E.Cli.Mcp.OpenSessionOptions { Test = SlowName }), sessions.OpenAsync(new E2E.Cli.Mcp.OpenSessionOptions { Test = QuickName }));
+            var opened = await Task.WhenAll(
+                sessions.OpenAsync(new E2E.Cli.Mcp.OpenSessionOptions { Test = SlowName }),
+                sessions.OpenAsync(new E2E.Cli.Mcp.OpenSessionOptions { Test = QuickName })
+            );
             Assert.That(opened[0], Does.StartWith("Test \"" + SlowName + "\" ended without failing"));
             Assert.That(opened[1], Does.StartWith("Test \"" + QuickName + "\" ended without failing"));
             await sessions.CloseAllAsync("done");
@@ -117,14 +124,20 @@ public sealed class SessionsSideBySideTests
     /// <summary>A host on this assembly and the testbed, as upstream's <c>inProcessHost</c> is on its project.</summary>
     internal static SessionHost Host(string dir)
     {
-        var config = """{ "testAssembly": """ + System.Text.Json.JsonSerializer.Serialize(typeof(SessionsSideBySideTests).Assembly.Location)
-            + """, "targets": [{ "name": "web", "platform": "web", "app": { "url": """ + System.Text.Json.JsonSerializer.Serialize(E2E.Playground.Testbed.Url) + """ } }] }""";
-        return new SessionHost(new SessionHostOptions
-        {
-            LocateConfig = _ => Path.Combine(dir, "e2e.config.json"),
-            LoadConfig = _ => Task.FromResult(E2EConfig.Parse(config, dir, _ => null)),
-            Log = (_, _) => { },
-        });
+        var config =
+            """{ "testAssembly": """
+            + System.Text.Json.JsonSerializer.Serialize(typeof(SessionsSideBySideTests).Assembly.Location)
+            + """, "targets": [{ "name": "web", "platform": "web", "app": { "url": """
+            + System.Text.Json.JsonSerializer.Serialize(E2E.Playground.Testbed.Url)
+            + """ } }] }""";
+        return new SessionHost(
+            new SessionHostOptions
+            {
+                LocateConfig = _ => Path.Combine(dir, "e2e.config.json"),
+                LoadConfig = _ => Task.FromResult(E2EConfig.Parse(config, dir, _ => null)),
+                Log = (_, _) => { },
+            }
+        );
     }
 }
 
@@ -132,9 +145,14 @@ public sealed class SessionsSideBySideTests
 [Explicit("Run by SessionsSideBySideTests")]
 public sealed class HeldTurnFixture : E2ETest
 {
-    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", SourceDirectory(), _ => null);
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        SourceDirectory(),
+        _ => null
+    );
 
-    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
+    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") =>
+        Path.GetDirectoryName(path)!;
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -145,7 +163,9 @@ public sealed class HeldTurnFixture : E2ETest
     {
         await App.OpenAsync("/");
         ((TaskCompletionSource)AppContext.GetData(SessionsSideBySideTests.HeldKey)!).TrySetResult();
-        await ((TaskCompletionSource)AppContext.GetData(SessionsSideBySideTests.GateKey)!).Task.WaitAsync(SessionsSideBySideTests.GateWait);
+        await ((TaskCompletionSource)AppContext.GetData(SessionsSideBySideTests.GateKey)!).Task.WaitAsync(
+            SessionsSideBySideTests.GateWait
+        );
     }
 }
 
@@ -153,9 +173,14 @@ public sealed class HeldTurnFixture : E2ETest
 [Explicit("Run by SessionsSideBySideTests")]
 public sealed class MarkedTurnFixture : E2ETest
 {
-    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", SourceDirectory(), _ => null);
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        SourceDirectory(),
+        _ => null
+    );
 
-    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
+    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") =>
+        Path.GetDirectoryName(path)!;
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -175,9 +200,14 @@ public sealed class MarkedTurnFixture : E2ETest
 [Explicit("Run by SessionsSideBySideTests")]
 public sealed class SlowLoadFixture : E2ETest
 {
-    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", SourceDirectory(), _ => null);
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        SourceDirectory(),
+        _ => null
+    );
 
-    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
+    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") =>
+        Path.GetDirectoryName(path)!;
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -192,11 +222,13 @@ public sealed class SlowLoadFixture : E2ETest
         var start = DateTime.UtcNow;
         await App.OpenAsync("/");
         // Each poll takes a while, so two bodies overlap unless they take turns.
-        await Expect.Poll(async () =>
-        {
-            await Task.Delay(300);
-            return 1;
-        }).ToMatchAsync(Is.EqualTo(1));
+        await Expect
+            .Poll(async () =>
+            {
+                await Task.Delay(300);
+                return 1;
+            })
+            .ToMatchAsync(Is.EqualTo(1));
         SessionsSideBySideTests.RecordSpan(start);
     }
 }
@@ -205,9 +237,14 @@ public sealed class SlowLoadFixture : E2ETest
 [Explicit("Run by SessionsSideBySideTests")]
 public sealed class QuickLoadFixture : E2ETest
 {
-    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", SourceDirectory(), _ => null);
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        SourceDirectory(),
+        _ => null
+    );
 
-    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
+    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") =>
+        Path.GetDirectoryName(path)!;
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -218,11 +255,13 @@ public sealed class QuickLoadFixture : E2ETest
     {
         var start = DateTime.UtcNow;
         await App.OpenAsync("/");
-        await Expect.Poll(async () =>
-        {
-            await Task.Delay(300);
-            return 1;
-        }).ToMatchAsync(Is.EqualTo(1));
+        await Expect
+            .Poll(async () =>
+            {
+                await Task.Delay(300);
+                return 1;
+            })
+            .ToMatchAsync(Is.EqualTo(1));
         SessionsSideBySideTests.RecordSpan(start);
     }
 }

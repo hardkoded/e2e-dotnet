@@ -13,7 +13,13 @@ namespace E2E.Tests.DismissKeyboard;
 /// </summary>
 public sealed class DismissKeyboardTests
 {
-    private static async Task<(List<string> Tools, string Results, List<ActionEvent> Events, int Dismissed, StepRecord Step)> RunAsync(FileStepCache? cache, bool canDismiss = true)
+    private static async Task<(
+        List<string> Tools,
+        string Results,
+        List<ActionEvent> Events,
+        int Dismissed,
+        StepRecord Step
+    )> RunAsync(FileStepCache? cache, bool canDismiss = true)
     {
         var device = new KeyboardDevice(canDismiss);
         var tools = new List<string>();
@@ -21,29 +27,51 @@ public sealed class DismissKeyboardTests
         var model = new ScriptedModel(request =>
         {
             tools.AddRange(request.Tools.Select(tool => tool.Name));
-            results.AddRange(request.Messages.Where(message => message.Role == "tool").Select(message => message.Content ?? ""));
-            return request.Messages.Count(message => message.Role == "tool") == 0 ? ModelResponses.Call("dismiss_keyboard", new { }) : ModelResponses.Done("passed", "ok");
+            results.AddRange(
+                request.Messages.Where(message => message.Role == "tool").Select(message => message.Content ?? "")
+            );
+            return request.Messages.Count(message => message.Role == "tool") == 0
+                ? ModelResponses.Call("dismiss_keyboard", new { })
+                : ModelResponses.Done("passed", "ok");
         });
         var events = new List<ActionEvent>();
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = device,
-            Model = model,
-            BaseUrl = "https://device.test",
-            Cache = cache,
-            CacheEnabled = cache is not null,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "dismiss the keyboard",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = device,
+                Model = model,
+                BaseUrl = "https://device.test",
+                Cache = cache,
+                CacheEnabled = cache is not null,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "dismiss the keyboard",
+            }
+        );
         await session.App.OpenAsync("/");
-        await session.Agent.ActAsync("hide the keyboard", new ActOptions { OnAction = e => { events.Add(e); return Task.CompletedTask; } });
+        await session.Agent.ActAsync(
+            "hide the keyboard",
+            new ActOptions
+            {
+                OnAction = e =>
+                {
+                    events.Add(e);
+                    return Task.CompletedTask;
+                },
+            }
+        );
         if (cache is not null)
         {
             await Expect.That(session.Screen.GetByRole("button", "Go")).ToBeVisibleAsync();
         }
 
         session.Complete();
-        return (tools, string.Join("\n", results), events, device.Dismissed, session.StepRecords.Single(step => step.Api == "agent.act"));
+        return (
+            tools,
+            string.Join("\n", results),
+            events,
+            device.Dismissed,
+            session.StepRecords.Single(step => step.Api == "agent.act")
+        );
     }
 
     [Fact]
@@ -68,7 +96,16 @@ public sealed class DismissKeyboardTests
             tools.AddRange(request.Tools.Select(tool => tool.Name));
             return ModelResponses.Done("passed", "ok");
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = device, Model = model, BaseUrl = "https://device.test", CacheEnabled = false, TestTitle = "no dismissal" });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = device,
+                Model = model,
+                BaseUrl = "https://device.test",
+                CacheEnabled = false,
+                TestTitle = "no dismissal",
+            }
+        );
         await session.App.OpenAsync("/");
         await session.Agent.ActAsync("look");
         session.Complete();
@@ -105,9 +142,11 @@ public sealed class DismissKeyboardTests
 
         public string Version => "1";
 
-        public EngineCapabilities Capabilities => EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Keyboard;
+        public EngineCapabilities Capabilities =>
+            EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Keyboard;
 
-        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) => Task.FromResult<IEngineSession>(new Session(this, canDismiss));
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            Task.FromResult<IEngineSession>(new Session(this, canDismiss));
 
         private sealed class Session(KeyboardDevice device, bool canDismiss) : IEngineSession
         {
@@ -125,25 +164,54 @@ public sealed class DismissKeyboardTests
 
             public Task<Observation> ObserveAsync(CancellationToken cancellationToken)
             {
-                var children = new List<SemanticNode> { new() { Ref = "go", Role = "button", Name = "Go", Rect = new BoundingBox(10, 10, 50, 20) } };
+                var children = new List<SemanticNode>
+                {
+                    new()
+                    {
+                        Ref = "go",
+                        Role = "button",
+                        Name = "Go",
+                        Rect = new BoundingBox(10, 10, 50, 20),
+                    },
+                };
                 if (device.Dismissed == 0)
                 {
-                    children.Add(new SemanticNode { Ref = "kb", Role = "keyboard", Name = "Keyboard", Rect = new BoundingBox(0, 500, 400, 300) });
+                    children.Add(
+                        new SemanticNode
+                        {
+                            Ref = "kb",
+                            Role = "keyboard",
+                            Name = "Keyboard",
+                            Rect = new BoundingBox(0, 500, 400, 300),
+                        }
+                    );
                 }
 
-                return Task.FromResult(new Observation
-                {
-                    Route = "/",
-                    Viewport = new TraceViewport(400, 800),
-                    Roots = [new SemanticNode { Ref = "root", Rect = new BoundingBox(0, 0, 400, 800), Children = children }],
-                });
+                return Task.FromResult(
+                    new Observation
+                    {
+                        Route = "/",
+                        Viewport = new TraceViewport(400, 800),
+                        Roots =
+                        [
+                            new SemanticNode
+                            {
+                                Ref = "root",
+                                Rect = new BoundingBox(0, 0, 400, 800),
+                                Children = children,
+                            },
+                        ],
+                    }
+                );
             }
 
-            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => Task.CompletedTask;
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+                Task.CompletedTask;
 
             public Task PressAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
 
-            public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => Task.CompletedTask;
+            public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
+                Task.CompletedTask;
 
             public Task BackAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 

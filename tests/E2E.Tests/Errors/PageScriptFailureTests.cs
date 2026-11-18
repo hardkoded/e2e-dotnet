@@ -19,10 +19,14 @@ public sealed class PageScriptFailureTests
     {
         var call = 0;
         return WebErrors.PageScriptFailureAsync(
-            () => counts[call++] ? Task.CompletedTask : Task.FromException(new Exception("Target page, context or browser has been closed")),
+            () =>
+                counts[call++]
+                    ? Task.CompletedTask
+                    : Task.FromException(new Exception("Target page, context or browser has been closed")),
             () => Task.FromException(new Exception("locator.evaluate: TypeError: Map is not a constructor")),
             PageError,
-            "locate");
+            "locate"
+        );
     }
 
     [Fact]

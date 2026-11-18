@@ -128,7 +128,7 @@ or a method adds facts only that test knows. It joins the agent's `context`,
 outer layer first, one per line, and reaches the judges too, so keep
 instructions out of it. A changed text records again.
 
-Under a test, every prompt of the built-in agent and the judges also opens with the test's title, such as
+Under a test, every prompt of the built-in agent and the judges also carries the test's title, such as
 `Test: billing > upgrades the tier`. Under NUnit or xUnit the title is the test's
 full name (`CacheTitle`), as `Test: Billing.UpgradeTests.Upgrades_the_tier`; under
 `e2e explore` it is the goal. An `e2e mcp` session runs no test and has no such
@@ -292,6 +292,10 @@ A project tool adds its own name to this list (see "Project tools").
 `type_secret` fills any editable field, a rich-text editor included, with a
 generic secret; a password secret needs a password field. It takes `target`
 (the node id) and `name` (the secret's name), as upstream's `type_secret`.
+The tool is offered on every act step whose engine can fill, so every step of a
+target sends the same tools and a provider's prompt cache serves them. The
+step's opening message lists the secrets it declares, and a call that names one
+the step did not declare fills nothing (`POLICY_DENIED`).
 
 ## AssertAsync, WaitForAsync, ExtractAsync: one question
 
@@ -335,12 +339,13 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
 - A value shown in more than one place (a total in the summary and on the
   pay button) must agree everywhere, or the judgment fails. Name the one you
   mean (`"the order summary total is $42.00"`) when only it matters.
-- `WaitForAsync` judges at once, then every `Interval` (default 3 s) only
-  when the screen changed, and is `STEP_TIMEOUT` after `Timeout` (default the
+- `WaitForAsync` judges at once, observes every 500 ms, judges only when the
+  screen or its location changed, and is `STEP_TIMEOUT` after `Timeout` (default the
   agent's `judgmentTimeout`, 30 s). A screen capture that outlives `Timeout`
   is `STEP_TIMEOUT` with `agent.waitFor exceeded its N ms timeout`; once a
   judgment has been made, the timeout reads `waitFor timed out; last
-  judgment: ...`.
+  judgment: ...`. A change after a still screen is judged at once; while the
+  screen keeps changing, at most once per `Interval` (default 3 s).
 - `ExtractAsync<T>`: the type is the schema. The model sees the JSON schema
   of `T`, and the answer must deserialize into `T`. Data the screen does not
   show is `ASSERTION_INCONCLUSIVE`; to accept absence, make the member
@@ -773,7 +778,25 @@ same dictionary. A config file cannot declare one, since a tool is code.
   `Explore.ExploreAsync` adds (topic `explore`).
 - A tool that needs the screen takes the second `AgentTool` constructor,
   whose delegate also gets an `AgentToolContext`: `ObserveAsync` (a read-only
-  tool only; a mutating tool gets `POLICY_DENIED`) and `AttachScreenshotAsync`.
+  tool only; a mutating tool gets `POLICY_DENIED`), `ReadAsync`, and
+  `AttachScreenshotAsync`.
+- A `mutates: false` tool can call `context.ReadAsync(new ExecutorTarget(id),
+  new ExecutorReadOptions { Style = ["color", "font-weight"] })` for a node in its
+  newest observation. Web reads return a redacted `Style` dictionary under the step
+  deadline, use no action slot, and never relocate stale ids. A test can say
+  `requires: ['computed-style']` to skip engines without support (the selection core
+  honors it; the test attributes expose no `requires`). Allowed properties
+  (`ComputedStyles.ComputedStyleProperties`): `color`, `background-color`, `font-size`,
+  `font-weight`, `font-style`, `text-align`, `text-decoration-line`, `display`,
+  `visibility`, and `opacity`. A mutating tool, or an engine with no `ReadStyleAsync`
+  (the mobile engine), gets `POLICY_DENIED`; an invalid option or property name is
+  `INVALID_ARGUMENT`; no semantic observation, an id the latest one does not list, or
+  an element that detached is `LOCATOR_NOT_FOUND` (observe again before reading); a
+  read that used up the step's remaining time is `STEP_TIMEOUT`. Reads run in order
+  with observations and actions, measure the current value on the original element,
+  and do not refresh the observation or wait for a value to change. Computed
+  `visibility` and `opacity` describe the element's CSS, not whether another element
+  covers it or an ancestor hides it.
 - Not ported from upstream: building a tool from an AI SDK tool
   (`defineTool`, `toModelOutput`).
 
@@ -886,9 +909,11 @@ screenshot in `Pixels`. When a tool throws an error that
 `StepExecutors.IsRuntimeHardStop(error)` accepts, end the step and rethrow it.
 The context must be one the runtime opened for a step.
 Each built-in tool's schema, and the schema of `complete_step`, is closed: it carries
-`additionalProperties: false`, and a call with a field the tool does not declare
-(`force`, `selector`) is refused with the field named, never run without it. A
-tool of your own keeps the schema you give it.
+`additionalProperties: false`, and a call with a field a tool that declares fields
+does not declare (`force`, `selector`) is refused with the field named, never run
+without it. A built-in tool with no fields (`observe`, `back`, `dismiss_keyboard`,
+`screenshot`) drops the keys it is given and runs; a value that is not an object
+still fails. A tool of your own keeps the schema you give it.
 
 ```csharp
 Tools = (context, helpers) =>
@@ -943,12 +968,13 @@ What the context holds:
 | `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one, as numbered lines (`1. app.open passed :: /`) in at most 8192 bytes |
 | `Attempt` | `TestId`, `AttemptId`, the test's `TitlePath` (empty outside a test), `Index`, a `CancellationToken` that ends with the attempt, and a `Memory` dictionary the runtime never reads |
 | `Budgets` | `MaxActions`, `MaxModelCalls`, `ActionsUsed()`, `RemainingMs()`, `RecordModelCall(ExecutorModelCall)`, and `RunToolAsync`. `ExecutorModelCall.Reasoning` is the model's own reasoning for the turn; the step's `model` event carries a redacted excerpt of at most 600 characters, and a turn with no reasoning leaves the field out |
+| `ReadAsync(target, options)` | Secret-redacted computed styles of a currently listed node, as `ExecutorReadResult.Style`: `new ExecutorReadOptions { Style = ["color"] }`. Only the requested allow-listed properties; see the project tools above for the errors. It never refreshes the observation or relocates the id |
 | `AttachTranscript`, `AttachScreenshotAsync` | Keep a model transcript, or observed pixels (a `screenshot` artifact of the step; it returns the artifact's report id), under the attempt's results directory |
 | `AttachTurns(turns)` | Keeps a clipped record of the model turns (`StepTurn`: `Index`, `Calls`, `Outcome`) on the step. The trace page shows the last ones under a failed step. Call it as each turn ends; the last call wins. A secret the attempt knows is redacted. `ToolLoop.CreateToolLoopExecutor` calls it for you |
 
 `RunStepAsync` gets a token that ends on cancellation, at the step deadline, and
 on any other hard stop. An executor that ignores it still cannot outlive the
-clock: a second after the stop, the runtime settles the step without it.
+clock: a second after the stop, the runtime settles the step without it. The ACP executor returns as soon as the token ends, before it reads the opening screen or while that read runs; the read does not hold the cancel.
 
 The verdict is `Passed`, `Failed`, or `Blocked` with a summary. A blocked
 verdict needs a code from `StepExecutors.BlockableCodes`, and a passed one has

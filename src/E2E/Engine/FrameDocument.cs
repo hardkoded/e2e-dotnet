@@ -52,16 +52,15 @@ internal static class FrameDocument
             {
                 await fetched.DisposeAsync().ConfigureAwait(false);
             }
-            catch (PlaywrightException)
-            {
-            }
+            catch (PlaywrightException) { }
         }
     }
 
     /// <summary>The page's frames whose documents script can read; see <see cref="HasReadableDocumentAsync"/>.</summary>
     public static async Task<List<IFrame>> ReadableFramesAsync(IReadOnlyList<IFrame> frames)
     {
-        var readable = await Task.WhenAll(frames.Select(frame => HasReadableDocumentAsync(frame))).ConfigureAwait(false);
+        var readable = await Task.WhenAll(frames.Select(frame => HasReadableDocumentAsync(frame)))
+            .ConfigureAwait(false);
         return frames.Where((_, index) => readable[index]).ToList();
     }
 
@@ -70,7 +69,9 @@ internal static class FrameDocument
     {
         try
         {
-            return await owner.EvaluateAsync<bool>("element => 'contentDocument' in element && element.contentDocument !== null").ConfigureAwait(false);
+            return await owner
+                .EvaluateAsync<bool>("element => 'contentDocument' in element && element.contentDocument !== null")
+                .ConfigureAwait(false);
         }
         catch (PlaywrightException)
         {

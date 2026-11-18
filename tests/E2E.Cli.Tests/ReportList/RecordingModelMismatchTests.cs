@@ -17,9 +17,17 @@ namespace E2E.Cli.Tests.ReportList;
 public sealed class RecordingModelMismatchTests
 {
     private static CacheInfo Replayed(string? recordedBy, string? entry = null) =>
-        new() { Mode = "self-finalized", ReplayedActions = 1, TotalActions = 1, RecordedBy = recordedBy, Entry = entry };
+        new()
+        {
+            Mode = "self-finalized",
+            ReplayedActions = 1,
+            TotalActions = 1,
+            RecordedBy = recordedBy,
+            Entry = entry,
+        };
 
-    private static List<string> Notices(Capture output) => [.. output.Lines.Where(line => line.Contains("recorded with", StringComparison.Ordinal))];
+    private static List<string> Notices(Capture output) =>
+        [.. output.Lines.Where(line => line.Contains("recorded with", StringComparison.Ordinal))];
 
     [Theory]
     [InlineData(false, false)]
@@ -32,8 +40,19 @@ public sealed class RecordingModelMismatchTests
         var reporter = PlainReporter(output, live: live);
         reporter.Handle(RunStarted(model: "example/B"));
         reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
-        var steps = new[] { 0, 1 }.Select(index => AgentStepRecord("pay", Replayed("example/A", hasEntry ? $"recording-{index}" : null), index: index)).ToList();
-        reporter.Handle(Finished(Result(ResultStatus.Flaky, attempts: [Attempt(steps, status: AttemptStatus.Failed), Attempt(steps, id: "attempt-2")])));
+        var steps = new[] { 0, 1 }
+            .Select(index =>
+                AgentStepRecord("pay", Replayed("example/A", hasEntry ? $"recording-{index}" : null), index: index)
+            )
+            .ToList();
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Flaky,
+                    attempts: [Attempt(steps, status: AttemptStatus.Failed), Attempt(steps, id: "attempt-2")]
+                )
+            )
+        );
         Assert.Equal(2, Notices(output).Count);
     }
 
@@ -61,10 +80,20 @@ public sealed class RecordingModelMismatchTests
         reporter.Handle(RunStarted(model: "example/B"));
         reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
         var cached = AgentStepRecord("pay", Replayed("example/A"));
-        reporter.Handle(Finished(Result(ResultStatus.Flaky, attempts: [Attempt([cached], status: AttemptStatus.Failed), Attempt([cached], id: "attempt-2")])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Flaky,
+                    attempts: [Attempt([cached], status: AttemptStatus.Failed), Attempt([cached], id: "attempt-2")]
+                )
+            )
+        );
         var notices = Notices(output);
         Assert.Single(notices);
-        Assert.True(output.Lines.IndexOf(notices[0]) > output.Lines.FindIndex(line => line.Contains("tests/case.e2e.ts", StringComparison.Ordinal)));
+        Assert.True(
+            output.Lines.IndexOf(notices[0])
+                > output.Lines.FindIndex(line => line.Contains("tests/case.e2e.ts", StringComparison.Ordinal))
+        );
         Assert.StartsWith("     ", notices[0], StringComparison.Ordinal);
     }
 
@@ -81,7 +110,13 @@ public sealed class RecordingModelMismatchTests
     [InlineData(true, null, "example/A", "default", false)]
     [InlineData(true, "example/B", "example/A", "pinned", false)]
     [InlineData(true, "example/B", "example/A\n\u001b[31m", "default", true)]
-    public void Prints_only_known_mismatches_and_preserves_the_header(bool live, string? configured, string? recorded, string agent, bool expected)
+    public void Prints_only_known_mismatches_and_preserves_the_header(
+        bool live,
+        string? configured,
+        string? recorded,
+        string agent,
+        bool expected
+    )
     {
         var output = new Capture { Raw = _ => { } };
         var reporter = PlainReporter(output, live: live);

@@ -15,15 +15,40 @@ namespace E2E.Cli.Tests.InitExamples;
 /// </summary>
 public sealed class E2eInitExampleTests : CliInitTestBase
 {
-    private static string Tag => "https://codeload.github.com/hardkoded/e2e-dotnet/tar.gz/refs/tags/v" + Versions.RunnerVersion;
+    private static string Tag =>
+        "https://codeload.github.com/hardkoded/e2e-dotnet/tar.gz/refs/tags/v" + Versions.RunnerVersion;
 
     [Fact]
     public async Task Copies_the_example_from_the_release_tag_and_runs_the_wizard_on_it_without_adding_scaffold_files()
     {
         var handler = ExampleArchives.StubHandler.Serving(ExampleArchives.SampleTarball());
         var target = Path.Combine(Dir, "my-app");
-        var outcome = await RunInitAsync(new InitOptions { Yes = true, Example = "E2E.Sample", Directory = "my-app", ExampleHandler = handler }, target);
-        Assert.Equal(new InitRunOutcome(0, InitResult.Scaffolded, true, true, null, null, true, true, "E2E.Sample"), outcome);
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Example = "E2E.Sample",
+                Directory = "my-app",
+                ExampleHandler = handler,
+            },
+            target
+        );
+        Assert.Equal(
+            new InitRunOutcome(
+                0,
+                InitResult.Scaffolded,
+                true,
+                true,
+                null,
+                null,
+                true,
+                true,
+                "E2E.Sample",
+                false,
+                "none"
+            ),
+            outcome
+        );
         Assert.Equal([Tag], handler.Urls);
 
         // The sample's project points at this tool's packages and carries what the repository's Directory.Build.props gave it.
@@ -31,26 +56,81 @@ public sealed class E2eInitExampleTests : CliInitTestBase
         var range = Versions.DependencyRange(Versions.RunnerVersion);
         Assert.Equal(
             [("NUnit", "5.0.0"), ("E2E", range), ("E2E.NUnit", range)],
-            project.Descendants("PackageReference").Select(reference => ((string)reference.Attribute("Include")!, (string)reference.Attribute("Version")!)));
+            project
+                .Descendants("PackageReference")
+                .Select(reference => ((string)reference.Attribute("Include")!, (string)reference.Attribute("Version")!))
+        );
         Assert.Empty(project.Descendants("ProjectReference"));
-        Assert.Equal(["net10.0", "latest", "enable", "enable"], new[] { "TargetFramework", "LangVersion", "Nullable", "ImplicitUsings" }.Select(name => project.Descendants(name).Single().Value));
+        Assert.Equal(
+            ["net10.0", "latest", "enable", "enable"],
+            new[] { "TargetFramework", "LangVersion", "Nullable", "ImplicitUsings" }.Select(name =>
+                project.Descendants(name).Single().Value
+            )
+        );
         Assert.Equal("{}\n", await File.ReadAllTextAsync(Path.Combine(target, E2EConfig.FileName)));
         Assert.Equal("// tests\n", await File.ReadAllTextAsync(Path.Combine(target, "DaritenTests.cs")));
         Assert.False(File.Exists(Path.Combine(target, "ExampleTests.cs")));
         Assert.True(File.Exists(Path.Combine(target, ".agents/skills/e2e-dotnet/SKILL.md")));
         Assert.True(File.Exists(Path.Combine(target, ".mcp.json")));
-        Assert.Contains(".e2e/results/", await File.ReadAllTextAsync(Path.Combine(target, ".gitignore")), StringComparison.Ordinal);
+        Assert.Contains(
+            ".e2e/results/",
+            await File.ReadAllTextAsync(Path.Combine(target, ".gitignore")),
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("Add package references", Output, StringComparison.Ordinal);
         Assert.Contains("Next: cd my-app, then dotnet test", Output, StringComparison.Ordinal);
     }
 
     [Fact]
+    // Partial: the sample's JSON config reads without its packages installed, so the pipeline comes from its targets, not from the one-web-job fallback.
+    public async Task Partial_Writes_a_CI_pipeline_for_the_example_before_its_dependencies_are_installed()
+    {
+        var handler = ExampleArchives.StubHandler.Serving(ExampleArchives.SampleTarball());
+        var target = Path.Combine(Dir, "my-app");
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Example = "E2E.Sample",
+                Directory = "my-app",
+                ExampleHandler = handler,
+                Ci = "github-actions",
+            },
+            target
+        );
+        Assert.Equal(0, outcome.ExitCode);
+        Assert.Equal("github-actions", outcome.Ci);
+        var workflow = await File.ReadAllTextAsync(Path.Combine(target, ".github/workflows/e2e.yml"));
+        Assert.Contains("run: dotnet test -c Release --no-build E2E.Sample.csproj", workflow, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Falls_back_to_main_when_the_tag_is_missing_and_says_so()
     {
-        var handler = new ExampleArchives.StubHandler((request, _) => Task.FromResult(request.RequestUri!.AbsolutePath.Contains("refs/tags/", StringComparison.Ordinal)
-            ? new HttpResponseMessage(HttpStatusCode.NotFound)
-            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(ExampleArchives.SampleTarball("e2e-dotnet-main")) }));
-        Assert.Equal(InitResult.Scaffolded, (await RunInitAsync(new InitOptions { Yes = true, Example = "e2e.sample", ExampleHandler = handler })).Result);
+        var handler = new ExampleArchives.StubHandler(
+            (request, _) =>
+                Task.FromResult(
+                    request.RequestUri!.AbsolutePath.Contains("refs/tags/", StringComparison.Ordinal)
+                        ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                        : new HttpResponseMessage(HttpStatusCode.OK)
+                        {
+                            Content = new ByteArrayContent(ExampleArchives.SampleTarball("e2e-dotnet-main")),
+                        }
+                )
+        );
+        Assert.Equal(
+            InitResult.Scaffolded,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Example = "e2e.sample",
+                        ExampleHandler = handler,
+                    }
+                )
+            ).Result
+        );
         Assert.Equal("https://codeload.github.com/hardkoded/e2e-dotnet/tar.gz/refs/heads/main", handler.Urls[1]);
         Assert.Contains("used the samples on main", Output, StringComparison.Ordinal);
         Assert.True(File.Exists(Path_("E2E.Sample.csproj")));
@@ -59,9 +139,18 @@ public sealed class E2eInitExampleTests : CliInitTestBase
     [Fact]
     public async Task Refuses_a_directory_with_files_in_it_before_downloading_anything()
     {
-        var handler = new ExampleArchives.StubHandler((_, _) => throw new InvalidOperationException("nothing may be requested"));
+        var handler = new ExampleArchives.StubHandler(
+            (_, _) => throw new InvalidOperationException("nothing may be requested")
+        );
         await File.WriteAllTextAsync(Path_("notes.txt"), "mine");
-        var outcome = await RunInitAsync(new InitOptions { Yes = true, Example = "E2E.Sample", ExampleHandler = handler });
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Example = "E2E.Sample",
+                ExampleHandler = handler,
+            }
+        );
         Assert.Equal(2, outcome.ExitCode);
         Assert.Equal(InitResult.InvalidProject, outcome.Result);
         Assert.Empty(handler.Urls);
@@ -73,7 +162,15 @@ public sealed class E2eInitExampleTests : CliInitTestBase
     {
         var handler = new ExampleArchives.StubHandler((_, _) => throw new HttpRequestException("fetch failed"));
         var target = Path.Combine(Dir, "app");
-        var outcome = await RunInitAsync(new InitOptions { Yes = true, Example = "E2E.Sample", ExampleHandler = handler }, target);
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Example = "E2E.Sample",
+                ExampleHandler = handler,
+            },
+            target
+        );
         Assert.Equal(2, outcome.ExitCode);
         Assert.Equal(InitResult.ExampleFailed, outcome.Result);
         Assert.False(Directory.Exists(target));
@@ -85,10 +182,27 @@ public sealed class E2eInitExampleTests : CliInitTestBase
     {
         // Half the archive arrives, then the connection stalls until the request is cancelled, as a real body does.
         var archive = ExampleArchives.SampleTarball();
-        var handler = new ExampleArchives.StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new ExampleArchives.StallingStream(archive)) }));
+        var handler = new ExampleArchives.StubHandler(
+            (_, _) =>
+                Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StreamContent(new ExampleArchives.StallingStream(archive)),
+                    }
+                )
+        );
         var target = Path.Combine(Dir, "app");
         using var interrupt = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
-        var outcome = await RunInitAsync(new InitOptions { Yes = true, Example = "E2E.Sample", ExampleHandler = handler }, target, interrupt.Token);
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Example = "E2E.Sample",
+                ExampleHandler = handler,
+            },
+            target,
+            interrupt.Token
+        );
         Assert.Equal(130, outcome.ExitCode);
         Assert.Equal(InitResult.Cancelled, outcome.Result);
         Assert.False(Directory.Exists(target));
@@ -100,7 +214,16 @@ public sealed class E2eInitExampleTests : CliInitTestBase
         var handler = ExampleArchives.StubHandler.Serving(ExampleArchives.SampleTarball());
         Directory.CreateDirectory(Path_(".git"));
         Prompts.NextConfirm(false);
-        var outcome = await RunInitAsync(new InitOptions { Interactive = true, Example = "E2E.Sample", Skills = [], Mcp = [], ExampleHandler = handler });
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Interactive = true,
+                Example = "E2E.Sample",
+                Skills = [],
+                Mcp = [],
+                ExampleHandler = handler,
+            }
+        );
         Assert.Equal(0, outcome.ExitCode);
         Assert.Equal(InitResult.Cancelled, outcome.Result);
         Assert.Equal([".git"], Directory.EnumerateFileSystemEntries(Dir).Select(Path.GetFileName));

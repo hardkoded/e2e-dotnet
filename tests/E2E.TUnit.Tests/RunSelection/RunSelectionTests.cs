@@ -17,9 +17,7 @@ public sealed class DiscoveredFixture : E2E.TUnit.E2ETest
     [Test]
     [Skip("only found by reflection")]
     [Category("Slow")]
-    public void Is_found_by_reflection()
-    {
-    }
+    public void Is_found_by_reflection() { }
 
     [Test]
     [Skip("only found by reflection")]
@@ -28,9 +26,7 @@ public sealed class DiscoveredFixture : E2E.TUnit.E2ETest
     public async Task A_theory_is_one_test(int row) => await Assert.That(row).IsGreaterThan(0);
 
     [Test, Explicit]
-    public void Is_not_judged_when_explicit()
-    {
-    }
+    public void Is_not_judged_when_explicit() { }
 }
 
 /// <summary>A skip decided when the test runs, by a condition: it is never an outright skip.</summary>
@@ -44,9 +40,7 @@ public sealed class JudgedFixture : E2E.TUnit.E2ETest
 {
     [Test]
     [SkipWhenRuns]
-    public void Is_judged()
-    {
-    }
+    public void Is_judged() { }
 }
 
 /// <summary>A fixture the filters left out in its own process: the exclusion is made before the class runs, as a run fixture makes it before the first test.</summary>
@@ -54,7 +48,12 @@ public sealed class LeftOutByTheFiltersFixture : E2E.TUnit.E2ETest
 {
     [Before(HookType.Class)]
     public static void LeaveOut() =>
-        E2E.TUnit.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutByTheFiltersFixture).FullName}.{nameof(Is_left_out)}"] = "login.cs did not change" });
+        E2E.TUnit.RunSelection.Set(
+            new Dictionary<string, string>
+            {
+                [$"{typeof(LeftOutByTheFiltersFixture).FullName}.{nameof(Is_left_out)}"] = "login.cs did not change",
+            }
+        );
 
     [Test, Explicit]
     public void Is_left_out() => Console.Out.WriteLine("body-ran");
@@ -64,9 +63,7 @@ public sealed class LeftOutByTheFiltersFixture : E2E.TUnit.E2ETest
 public sealed class LeftOutFixture : E2E.TUnit.E2ETest
 {
     [Test, Explicit]
-    public void Is_left_out()
-    {
-    }
+    public void Is_left_out() { }
 }
 
 /// <summary>
@@ -81,7 +78,9 @@ public sealed class RunSelectionTests
     [Test]
     public async Task Finds_the_tests_of_the_assembly_with_their_categories_and_skip_reason()
     {
-        var found = E2E.TUnit.RunSelection.Discover(typeof(RunSelectionTests).Assembly).Single(test => test.Key == KeyOf(nameof(DiscoveredFixture.Is_found_by_reflection)));
+        var found = E2E
+            .TUnit.RunSelection.Discover(typeof(RunSelectionTests).Assembly)
+            .Single(test => test.Key == KeyOf(nameof(DiscoveredFixture.Is_found_by_reflection)));
 
         await Assert.That(found.Namespace).IsEqualTo("E2E.TUnit.Tests.RunSelection");
         await Assert.That(found.TypeName).IsEqualTo(nameof(DiscoveredFixture));
@@ -92,15 +91,26 @@ public sealed class RunSelectionTests
     [Test]
     public async Task Finds_a_theory_once_and_leaves_an_explicit_test_out()
     {
-        var methods = E2E.TUnit.RunSelection.Discover(typeof(RunSelectionTests).Assembly).Where(test => test.TypeName == nameof(DiscoveredFixture)).Select(test => test.Title).ToList();
+        var methods = E2E
+            .TUnit.RunSelection.Discover(typeof(RunSelectionTests).Assembly)
+            .Where(test => test.TypeName == nameof(DiscoveredFixture))
+            .Select(test => test.Title)
+            .ToList();
 
-        await Assert.That(methods).IsEquivalentTo([nameof(DiscoveredFixture.Is_found_by_reflection), nameof(DiscoveredFixture.A_theory_is_one_test)]);
+        await Assert
+            .That(methods)
+            .IsEquivalentTo([
+                nameof(DiscoveredFixture.Is_found_by_reflection),
+                nameof(DiscoveredFixture.A_theory_is_one_test),
+            ]);
     }
 
     [Test]
     public async Task Does_not_take_a_conditional_skip_for_an_outright_one()
     {
-        var found = E2E.TUnit.RunSelection.Discover(typeof(RunSelectionTests).Assembly).Single(test => test.Key == $"{typeof(JudgedFixture).FullName}.{nameof(JudgedFixture.Is_judged)}");
+        var found = E2E
+            .TUnit.RunSelection.Discover(typeof(RunSelectionTests).Assembly)
+            .Single(test => test.Key == $"{typeof(JudgedFixture).FullName}.{nameof(JudgedFixture.Is_judged)}");
 
         await Assert.That(found.SkipReason).IsNull();
     }
@@ -152,11 +162,18 @@ public sealed class RunSelectionTests
     }
 
     [Test]
-    public async Task Ends_a_test_the_filters_left_out_as_skipped_before_its_session_starts(CancellationToken cancellationToken)
+    public async Task Ends_a_test_the_filters_left_out_as_skipped_before_its_session_starts(
+        CancellationToken cancellationToken
+    )
     {
         var context = TUnitContext.Current!;
         var method = context.Metadata.TestDetails.MethodName;
-        E2E.TUnit.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutFixture).FullName}.{method}"] = "login.cs did not change" });
+        E2E.TUnit.RunSelection.Set(
+            new Dictionary<string, string>
+            {
+                [$"{typeof(LeftOutFixture).FullName}.{method}"] = "login.cs did not change",
+            }
+        );
         try
         {
             // The start hook of the test base class is called by hand, as TUnit calls it; no session exists for it to start when the test is left out.
@@ -193,8 +210,18 @@ public sealed class RunSelectionTests
         {
             public string Name => "judged";
 
-            public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) =>
-                Task.FromResult(new TestFilterResult { Exclude = tests.Where(test => test.TitlePath[0] == nameof(JudgedFixture)).ToDictionary(test => test.Id, _ => "left out") });
+            public Task<TestFilterResult> FilterAsync(
+                IReadOnlyList<TestFilterCandidate> tests,
+                TestFilterContext context
+            ) =>
+                Task.FromResult(
+                    new TestFilterResult
+                    {
+                        Exclude = tests
+                            .Where(test => test.TitlePath[0] == nameof(JudgedFixture))
+                            .ToDictionary(test => test.Id, _ => "left out"),
+                    }
+                );
         }
 
         protected override IReadOnlyList<ITestFilter> Filters => [new Judged()];
@@ -205,14 +232,21 @@ public sealed class RunSelectionTests
     }
 
     [Test]
-    public async Task The_run_fixture_leaves_out_what_the_filters_name_and_reports_it(CancellationToken cancellationToken)
+    public async Task The_run_fixture_leaves_out_what_the_filters_name_and_reports_it(
+        CancellationToken cancellationToken
+    )
     {
         var dir = FeatureRepo();
         try
         {
-            await new LeaveOutJudged(dir, "main").InitializeAsync(typeof(RunSelectionTests).Assembly, cancellationToken);
+            await new LeaveOutJudged(dir, "main").InitializeAsync(
+                typeof(RunSelectionTests).Assembly,
+                cancellationToken
+            );
 
-            await Assert.That(SkipReasonOf(typeof(JudgedFixture), nameof(JudgedFixture.Is_judged))).IsEqualTo("left out");
+            await Assert
+                .That(SkipReasonOf(typeof(JudgedFixture), nameof(JudgedFixture.Is_judged)))
+                .IsEqualTo("left out");
             var run = JsonNode.Parse(File.ReadAllText(Path.Combine(dir, ".e2e", "report.json")))!["run"]!;
             await Assert.That((string)run["filters"]![0]!["name"]!).IsEqualTo("judged");
             var result = run["results"]!.AsArray().Single()!;
@@ -251,7 +285,9 @@ public sealed class RunSelectionTests
         // The hook of a library runs for every project that references it, so it is opt-in: only a public class derived from E2ERunFixture
         // with a public parameterless constructor takes part. LeaveOutJudged has constructor arguments, so it does not.
         await Assert.That(E2ERunFixture.DeclaredIn(typeof(E2ERunFixture).Assembly)).IsEmpty();
-        await Assert.That(E2ERunFixture.DeclaredIn(typeof(RunSelectionTests).Assembly).Select(fixture => fixture.GetType())).IsEquivalentTo([typeof(RunHookProbe)]);
+        await Assert
+            .That(E2ERunFixture.DeclaredIn(typeof(RunSelectionTests).Assembly).Select(fixture => fixture.GetType()))
+            .IsEquivalentTo([typeof(RunHookProbe)]);
     }
 
     [Test]
@@ -288,8 +324,23 @@ public sealed class RunSelectionTests
 
     private static void Git(string dir, params string[] args)
     {
-        var start = new ProcessStartInfo("git") { WorkingDirectory = dir, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false" }.Concat(args))
+        var start = new ProcessStartInfo("git")
+        {
+            WorkingDirectory = dir,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        foreach (
+            var arg in new[]
+            {
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@example.com",
+                "-c",
+                "commit.gpgsign=false",
+            }.Concat(args)
+        )
         {
             start.ArgumentList.Add(arg);
         }

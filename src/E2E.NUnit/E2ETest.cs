@@ -41,7 +41,11 @@ public abstract class E2ETest : E2EFixture
     protected virtual void RecordSoftFailure(TestException failure)
     {
         ArgumentNullException.ThrowIfNull(failure);
-        TestExecutionContext.CurrentContext.CurrentResult.RecordAssertion(AssertionStatus.Failed, failure.Message, failure.StackTrace);
+        TestExecutionContext.CurrentContext.CurrentResult.RecordAssertion(
+            AssertionStatus.Failed,
+            failure.Message,
+            failure.StackTrace
+        );
     }
 
     [SetUp]
@@ -73,7 +77,15 @@ public abstract class E2ETest : E2EFixture
             }
         }
 
-        await StartSessionAsync(CacheTitle(current.Test), AttemptOf(current), RecordSoftFailure, HasFailed, current.CancellationToken, TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo).ConfigureAwait(false);
+        await StartSessionAsync(
+                CacheTitle(current.Test),
+                AttemptOf(current),
+                RecordSoftFailure,
+                HasFailed,
+                current.CancellationToken,
+                TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo
+            )
+            .ConfigureAwait(false);
     }
 
     [TearDown]
@@ -135,7 +147,15 @@ public abstract class E2ETest : E2EFixture
         }
 
         // A host that asked for this test (e2e mcp's open_session {test}) keeps the session open: it completes and disposes it at close.
-        if (EngineInUse is { } engine && SessionHandover.TryOffer(current.Test.FullName, session, engine, session.VerdictOf(ErrorForCache(current.Result) ?? late, current.CancellationToken)))
+        if (
+            EngineInUse is { } engine
+            && SessionHandover.TryOffer(
+                current.Test.FullName,
+                session,
+                engine,
+                session.VerdictOf(ErrorForCache(current.Result) ?? late, current.CancellationToken)
+            )
+        )
         {
             return;
         }
@@ -228,9 +248,16 @@ public abstract class E2ETest : E2EFixture
 
     private void RejectInstancePerTest()
     {
-        if (GetType().GetCustomAttributes(typeof(FixtureLifeCycleAttribute), true).Cast<FixtureLifeCycleAttribute>().Any(attribute => attribute.LifeCycle == LifeCycle.InstancePerTestCase))
+        if (
+            GetType()
+                .GetCustomAttributes(typeof(FixtureLifeCycleAttribute), true)
+                .Cast<FixtureLifeCycleAttribute>()
+                .Any(attribute => attribute.LifeCycle == LifeCycle.InstancePerTestCase)
+        )
         {
-            throw new InvalidOperationException($"{GetType().Name} is [Serial], so its tests share one fixture instance and one session: remove [FixtureLifeCycle(LifeCycle.InstancePerTestCase)].");
+            throw new InvalidOperationException(
+                $"{GetType().Name} is [Serial], so its tests share one fixture instance and one session: remove [FixtureLifeCycle(LifeCycle.InstancePerTestCase)]."
+            );
         }
     }
 
@@ -241,7 +268,9 @@ public abstract class E2ETest : E2EFixture
         var type = GetType();
         var methods = methodName is null
             ? []
-            : type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+            : type.GetMethods(
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static
+                )
                 .Where(method => string.Equals(method.Name, methodName, StringComparison.Ordinal))
                 .ToArray();
         var sources = new List<ICustomAttributeProvider> { type, type.Assembly };
@@ -249,17 +278,41 @@ public abstract class E2ETest : E2EFixture
 
         // A fixture or an assembly that lets children run in parallel, or a test method that opts in itself,
         // unless the fixture or the method opts out.
-        var parallel = sources.Any(source => source.GetCustomAttributes(typeof(ParallelizableAttribute), true).Cast<ParallelizableAttribute>().Any(attribute => (attribute.Scope & ParallelScope.Children) != 0))
-            || methods.Any(method => method.GetCustomAttributes(typeof(ParallelizableAttribute), true).Cast<ParallelizableAttribute>().Any(attribute => (attribute.Scope & ParallelScope.Self) != 0));
-        var fixtureOptedOut = type.IsDefined(typeof(NonParallelizableAttribute), true)
-            && !type.GetCustomAttributes(typeof(ParallelizableAttribute), true).Cast<ParallelizableAttribute>().Any(attribute => (attribute.Scope & ParallelScope.Children) != 0);
-        var optedOut = fixtureOptedOut || (methods.Length > 0 && methods.All(method => method.IsDefined(typeof(NonParallelizableAttribute), true)));
-        var perTest = sources.Any(source => source.GetCustomAttributes(typeof(FixtureLifeCycleAttribute), true).Cast<FixtureLifeCycleAttribute>().Any(attribute => attribute.LifeCycle == LifeCycle.InstancePerTestCase));
+        var parallel =
+            sources.Any(source =>
+                source
+                    .GetCustomAttributes(typeof(ParallelizableAttribute), true)
+                    .Cast<ParallelizableAttribute>()
+                    .Any(attribute => (attribute.Scope & ParallelScope.Children) != 0)
+            )
+            || methods.Any(method =>
+                method
+                    .GetCustomAttributes(typeof(ParallelizableAttribute), true)
+                    .Cast<ParallelizableAttribute>()
+                    .Any(attribute => (attribute.Scope & ParallelScope.Self) != 0)
+            );
+        var fixtureOptedOut =
+            type.IsDefined(typeof(NonParallelizableAttribute), true)
+            && !type.GetCustomAttributes(typeof(ParallelizableAttribute), true)
+                .Cast<ParallelizableAttribute>()
+                .Any(attribute => (attribute.Scope & ParallelScope.Children) != 0);
+        var optedOut =
+            fixtureOptedOut
+            || (
+                methods.Length > 0 && methods.All(method => method.IsDefined(typeof(NonParallelizableAttribute), true))
+            );
+        var perTest = sources.Any(source =>
+            source
+                .GetCustomAttributes(typeof(FixtureLifeCycleAttribute), true)
+                .Cast<FixtureLifeCycleAttribute>()
+                .Any(attribute => attribute.LifeCycle == LifeCycle.InstancePerTestCase)
+        );
         if (parallel && !perTest && !optedOut)
         {
             throw new InvalidOperationException(
-                $"{type.Name} runs its tests in parallel on one fixture instance, so they would share one E2E session. " +
-                "Use [Parallelizable(ParallelScope.Fixtures)] to run fixtures in parallel, or add [FixtureLifeCycle(LifeCycle.InstancePerTestCase)].");
+                $"{type.Name} runs its tests in parallel on one fixture instance, so they would share one E2E session. "
+                    + "Use [Parallelizable(ParallelScope.Fixtures)] to run fixtures in parallel, or add [FixtureLifeCycle(LifeCycle.InstancePerTestCase)]."
+            );
         }
     }
 
@@ -284,16 +337,22 @@ public abstract class E2ETest : E2EFixture
     private int AttemptOf(global::NUnit.Framework.TestContext current)
     {
         var name = current.Test.MethodName;
-        var retried = name is not null && GetType()
-            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
-            .Any(method => string.Equals(method.Name, name, StringComparison.Ordinal) && method.IsDefined(typeof(RetryAttribute), true));
+        var retried =
+            name is not null
+            && GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+                .Any(method =>
+                    string.Equals(method.Name, name, StringComparison.Ordinal)
+                    && method.IsDefined(typeof(RetryAttribute), true)
+                );
         return retried ? current.CurrentRepeatCount + 1 : 1;
     }
 
     // A derived [TearDown] runs before this fixture's teardown, after the result of the test body is known.
     private static bool HasFailed()
     {
-        return global::NUnit.Framework.TestContext.CurrentContext.Result.Outcome.Status == global::NUnit.Framework.Interfaces.TestStatus.Failed;
+        return global::NUnit.Framework.TestContext.CurrentContext.Result.Outcome.Status
+            == global::NUnit.Framework.Interfaces.TestStatus.Failed;
     }
 
     private static Exception? ErrorForCache(global::NUnit.Framework.TestContext.ResultAdapter result)
@@ -301,9 +360,16 @@ public abstract class E2ETest : E2EFixture
         var recorded = result.RecordedException;
         return result.Outcome.Status switch
         {
-            global::NUnit.Framework.Interfaces.TestStatus.Passed or global::NUnit.Framework.Interfaces.TestStatus.Warning => null,
-            global::NUnit.Framework.Interfaces.TestStatus.Skipped or global::NUnit.Framework.Interfaces.TestStatus.Inconclusive => recorded as SkipException ?? new SkipException(string.IsNullOrWhiteSpace(result.Message) ? "skipped" : result.Message),
-            _ => recorded ?? new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(result.Message) ? "The test failed." : result.Message),
+            global::NUnit.Framework.Interfaces.TestStatus.Passed
+            or global::NUnit.Framework.Interfaces.TestStatus.Warning => null,
+            global::NUnit.Framework.Interfaces.TestStatus.Skipped
+            or global::NUnit.Framework.Interfaces.TestStatus.Inconclusive => recorded as SkipException
+                ?? new SkipException(string.IsNullOrWhiteSpace(result.Message) ? "skipped" : result.Message),
+            _ => recorded
+                ?? new TestException(
+                    "TEST_FAILED",
+                    string.IsNullOrWhiteSpace(result.Message) ? "The test failed." : result.Message
+                ),
         };
     }
 }

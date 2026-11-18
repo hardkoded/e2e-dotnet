@@ -37,8 +37,13 @@ public sealed class GoogleModel : IAgentModel, IDisposable
     public async Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var model = _options.Model.StartsWith("models/", StringComparison.Ordinal) ? _options.Model : "models/" + _options.Model;
-        using var message = new HttpRequestMessage(HttpMethod.Post, ModelEndpoint.Build(_options.BaseUrl, "/" + model + ":generateContent", null));
+        var model = _options.Model.StartsWith("models/", StringComparison.Ordinal)
+            ? _options.Model
+            : "models/" + _options.Model;
+        using var message = new HttpRequestMessage(
+            HttpMethod.Post,
+            ModelEndpoint.Build(_options.BaseUrl, "/" + model + ":generateContent", null)
+        );
         var apiKey = _options.ResolveApiKey();
         if (apiKey is not null)
         {
@@ -47,7 +52,9 @@ public sealed class GoogleModel : IAgentModel, IDisposable
 
         ModelEndpoint.AddHeaders(message, _options.Headers);
         message.Content = ModelHttp.Json(BuildBody(request));
-        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, maxRetries: request.MaxRetries).ConfigureAwait(false);
+        var body = await ModelHttp
+            .SendAsync(_http, message, request.Redactor, cancellationToken, maxRetries: request.MaxRetries)
+            .ConfigureAwait(false);
         return ModelHttp.Parse(body, Parse);
     }
 
@@ -60,12 +67,17 @@ public sealed class GoogleModel : IAgentModel, IDisposable
     }
 
     // The AI SDK's mapping: required is mode ANY, a named tool is mode ANY limited to that function.
-    private static JsonObject FunctionCalling(ModelToolChoice? choice) => choice switch
-    {
-        { Type: "required" } => new JsonObject { ["mode"] = "ANY" },
-        { Type: "tool" } => new JsonObject { ["mode"] = "ANY", ["allowedFunctionNames"] = new JsonArray(choice.ToolName) },
-        _ => new JsonObject { ["mode"] = "AUTO" },
-    };
+    private static JsonObject FunctionCalling(ModelToolChoice? choice) =>
+        choice switch
+        {
+            { Type: "required" } => new JsonObject { ["mode"] = "ANY" },
+            { Type: "tool" } => new JsonObject
+            {
+                ["mode"] = "ANY",
+                ["allowedFunctionNames"] = new JsonArray(choice.ToolName),
+            },
+            _ => new JsonObject { ["mode"] = "AUTO" },
+        };
 
     internal JsonObject BuildBody(ModelRequest request)
     {
@@ -109,18 +121,27 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             }
             else if (string.Equals(message.Role, "tool", StringComparison.Ordinal))
             {
-                var name = message.Name ?? (message.ToolCallId is not null && names.TryGetValue(message.ToolCallId, out var known) ? known : "tool");
-                Append(contents, "user", new JsonArray
-                {
-                    new JsonObject
+                var name = message.Name
+                    ?? (
+                        message.ToolCallId is not null && names.TryGetValue(message.ToolCallId, out var known)
+                            ? known
+                            : "tool"
+                    );
+                Append(
+                    contents,
+                    "user",
+                    new JsonArray
                     {
-                        ["functionResponse"] = new JsonObject
+                        new JsonObject
                         {
-                            ["name"] = name,
-                            ["response"] = new JsonObject { ["content"] = message.Content ?? "" },
+                            ["functionResponse"] = new JsonObject
+                            {
+                                ["name"] = name,
+                                ["response"] = new JsonObject { ["content"] = message.Content ?? "" },
+                            },
                         },
-                    },
-                });
+                    }
+                );
             }
             else
             {
@@ -133,10 +154,16 @@ public sealed class GoogleModel : IAgentModel, IDisposable
 
                 foreach (var image in ModelHttp.UserImages(message))
                 {
-                    parts.Add(new JsonObject
-                    {
-                        ["inlineData"] = new JsonObject { ["mimeType"] = image.MediaType, ["data"] = Convert.ToBase64String(image.Data) },
-                    });
+                    parts.Add(
+                        new JsonObject
+                        {
+                            ["inlineData"] = new JsonObject
+                            {
+                                ["mimeType"] = image.MediaType,
+                                ["data"] = Convert.ToBase64String(image.Data),
+                            },
+                        }
+                    );
                 }
 
                 Append(contents, role, parts);
@@ -146,17 +173,22 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         var declarations = new JsonArray();
         foreach (var tool in request.Tools)
         {
-            declarations.Add(new JsonObject
-            {
-                ["name"] = tool.Name,
-                ["description"] = tool.Description,
-                ["parametersJsonSchema"] = JsonNode.Parse(tool.Parameters.GetRawText()),
-            });
+            declarations.Add(
+                new JsonObject
+                {
+                    ["name"] = tool.Name,
+                    ["description"] = tool.Description,
+                    ["parametersJsonSchema"] = JsonNode.Parse(tool.Parameters.GetRawText()),
+                }
+            );
         }
 
         var payload = new JsonObject
         {
-            ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray { new JsonObject { ["text"] = request.System } } },
+            ["systemInstruction"] = new JsonObject
+            {
+                ["parts"] = new JsonArray { new JsonObject { ["text"] = request.System } },
+            },
             ["contents"] = contents,
         };
 
@@ -166,7 +198,15 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             payload["toolConfig"] = new JsonObject { ["functionCallingConfig"] = FunctionCalling(request.ToolChoice) };
         }
 
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "contents", "tools", "systemInstruction", "toolConfig");
+        ModelHttp.MergeProviderOptions(
+            payload,
+            request,
+            _options.Provider,
+            "contents",
+            "tools",
+            "systemInstruction",
+            "toolConfig"
+        );
 
         // The format joins the generation options a provider option may have set (thinking).
         if (request.Schema is { } schema)
@@ -182,8 +222,11 @@ public sealed class GoogleModel : IAgentModel, IDisposable
 
     /// <summary>The thought signature the call's Google metadata carries, when it carries one.</summary>
     private static string? SignatureOf(ModelToolCall call) =>
-        call.ProviderMetadata is not null && call.ProviderMetadata.TryGetValue("google", out var google)
-        && google.ValueKind == JsonValueKind.Object ? ModelHttp.OptionalString(google, "thoughtSignature") : null;
+        call.ProviderMetadata is not null
+        && call.ProviderMetadata.TryGetValue("google", out var google)
+        && google.ValueKind == JsonValueKind.Object
+            ? ModelHttp.OptionalString(google, "thoughtSignature")
+            : null;
 
     // The thought parts of an earlier turn go back as they came, signature included, ahead of its text and function calls.
     private static JsonArray Reasoning(ModelMessage message)
@@ -191,7 +234,10 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         var parts = new JsonArray();
         if (string.Equals(message.Role, "assistant", StringComparison.Ordinal))
         {
-            var items = (message.ReasoningItems ?? []).Select(item => JsonNode.Parse(item.GetRawText())).OfType<JsonObject>().ToList();
+            var items = (message.ReasoningItems ?? [])
+                .Select(item => JsonNode.Parse(item.GetRawText()))
+                .OfType<JsonObject>()
+                .ToList();
             // Signed text parts replace Content only while they still spell it; a Content changed since the reply goes as it is.
             var replayed = string.Concat(items.Where(IsPlainText).Select(item => item["text"]?.GetValue<string>()));
             var keepText = replayed.Length > 0 && string.Equals(replayed, message.Content, StringComparison.Ordinal);
@@ -211,7 +257,11 @@ public sealed class GoogleModel : IAgentModel, IDisposable
 
     private static void Append(JsonArray contents, string role, JsonArray parts)
     {
-        if (contents.Count > 0 && contents[^1]?["role"]?.GetValue<string>() == role && contents[^1]?["parts"] is JsonArray previous)
+        if (
+            contents.Count > 0
+            && contents[^1]?["role"]?.GetValue<string>() == role
+            && contents[^1]?["parts"] is JsonArray previous
+        )
         {
             foreach (var part in parts.ToArray())
             {
@@ -232,30 +282,50 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         var reasoning = new List<JsonElement>();
         var items = new List<JsonObject>();
         var signedText = false;
-        if (root.TryGetProperty("candidates", out var candidates) && candidates.ValueKind == JsonValueKind.Array && candidates.GetArrayLength() > 0
-            && candidates[0].TryGetProperty("content", out var content) && content.TryGetProperty("parts", out var parts))
+        if (
+            root.TryGetProperty("candidates", out var candidates)
+            && candidates.ValueKind == JsonValueKind.Array
+            && candidates.GetArrayLength() > 0
+            && candidates[0].TryGetProperty("content", out var content)
+            && content.TryGetProperty("parts", out var parts)
+        )
         {
             foreach (var part in parts.EnumerateArray())
             {
                 if (part.TryGetProperty("functionCall", out var call))
                 {
-                    var id = call.TryGetProperty("id", out var given) && given.ValueKind == JsonValueKind.String
-                        ? given.GetString()!
-                        : "gemini_" + Interlocked.Increment(ref _calls).ToString(CultureInfo.InvariantCulture);
-                    calls.Add(new ModelToolCall
-                    {
-                        Id = id,
-                        ProviderMetadata = ModelHttp.OptionalString(part, "thoughtSignature") is { } signature
-                            ? new Dictionary<string, JsonElement> { ["google"] = JsonSerializer.SerializeToElement(new { thoughtSignature = signature }) }
-                            : null,
-                        Name = call.GetProperty("name").GetString() ?? "",
-                        Arguments = call.TryGetProperty("args", out var args) && args.ValueKind == JsonValueKind.Object ? args.Clone() : ModelHttp.Arguments(null),
-                    });
+                    var id =
+                        call.TryGetProperty("id", out var given) && given.ValueKind == JsonValueKind.String
+                            ? given.GetString()!
+                            : "gemini_" + Interlocked.Increment(ref _calls).ToString(CultureInfo.InvariantCulture);
+                    calls.Add(
+                        new ModelToolCall
+                        {
+                            Id = id,
+                            ProviderMetadata = ModelHttp.OptionalString(part, "thoughtSignature") is { } signature
+                                ? new Dictionary<string, JsonElement>
+                                {
+                                    ["google"] = JsonSerializer.SerializeToElement(
+                                        new { thoughtSignature = signature }
+                                    ),
+                                }
+                                : null,
+                            Name = call.GetProperty("name").GetString() ?? "",
+                            Arguments =
+                                call.TryGetProperty("args", out var args) && args.ValueKind == JsonValueKind.Object
+                                    ? args.Clone()
+                                    : ModelHttp.Arguments(null),
+                        }
+                    );
                 }
                 else if (part.TryGetProperty("thought", out var thought) && thought.ValueKind == JsonValueKind.True)
                 {
                     // A thought summary, with the signature that lets Gemini recognize it when it comes back.
-                    var item = new JsonObject { ["text"] = ModelHttp.OptionalString(part, "text") ?? "", ["thought"] = true };
+                    var item = new JsonObject
+                    {
+                        ["text"] = ModelHttp.OptionalString(part, "text") ?? "",
+                        ["thought"] = true,
+                    };
                     if (ModelHttp.OptionalString(part, "thoughtSignature") is { } thoughtSignature)
                     {
                         item["thoughtSignature"] = thoughtSignature;
@@ -284,24 +354,48 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             reasoning.Add(JsonSerializer.SerializeToElement(item));
         }
 
-        var reasoningText = ModelHttp.ReasoningText(items.Where(item => item.ContainsKey("thought")).Select(item => (string?)item["text"] ?? ""));
+        var reasoningText = ModelHttp.ReasoningText(
+            items.Where(item => item.ContainsKey("thought")).Select(item => (string?)item["text"] ?? "")
+        );
         ModelCallUsage? usage = null;
-        if (root.TryGetProperty("usageMetadata", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
+        if (
+            root.TryGetProperty("usageMetadata", out var usageElement)
+            && usageElement.ValueKind == JsonValueKind.Object
+        )
         {
             usage = new ModelCallUsage
             {
                 InputTokens = ModelHttp.Int(usageElement, "promptTokenCount"),
-                OutputTokens = ModelHttp.Int(usageElement, "candidatesTokenCount") + ModelHttp.Int(usageElement, "thoughtsTokenCount"),
+                OutputTokens =
+                    ModelHttp.Int(usageElement, "candidatesTokenCount")
+                    + ModelHttp.Int(usageElement, "thoughtsTokenCount"),
                 CacheReadTokens = ModelHttp.OptionalInt(usageElement, "cachedContentTokenCount"),
             };
         }
 
-        var finish = root.TryGetProperty("candidates", out var first) && first.ValueKind == JsonValueKind.Array && first.GetArrayLength() > 0 ? ModelHttp.OptionalString(first[0], "finishReason") : null;
+        var finish =
+            root.TryGetProperty("candidates", out var first)
+            && first.ValueKind == JsonValueKind.Array
+            && first.GetArrayLength() > 0
+                ? ModelHttp.OptionalString(first[0], "finishReason")
+                : null;
         // A prompt Gemini blocks has no candidate: the AI SDK reads promptFeedback.blockReason as a content-filter finish.
-        var blocked = finish is null && root.TryGetProperty("promptFeedback", out var feedback) ? ModelHttp.OptionalString(feedback, "blockReason") : null;
+        var blocked =
+            finish is null && root.TryGetProperty("promptFeedback", out var feedback)
+                ? ModelHttp.OptionalString(feedback, "blockReason")
+                : null;
         if (blocked is not (null or "" or "BLOCK_REASON_UNSPECIFIED" or "BLOCKED_REASON_UNSPECIFIED"))
         {
-            return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage, ReasoningItems = reasoning, ReasoningText = reasoningText, FinishReason = ModelResponse.ContentFilter, RawFinishReason = blocked };
+            return new ModelResponse
+            {
+                Content = text.Count == 0 ? null : string.Concat(text),
+                ToolCalls = calls,
+                Usage = usage,
+                ReasoningItems = reasoning,
+                ReasoningText = reasoningText,
+                FinishReason = ModelResponse.ContentFilter,
+                RawFinishReason = blocked,
+            };
         }
 
         return new ModelResponse
@@ -311,7 +405,15 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             Usage = usage,
             ReasoningItems = reasoning,
             ReasoningText = reasoningText,
-            FinishReason = ModelHttp.FinishReason(finish, "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY"),
+            FinishReason = ModelHttp.FinishReason(
+                finish,
+                "SAFETY",
+                "RECITATION",
+                "BLOCKLIST",
+                "PROHIBITED_CONTENT",
+                "SPII",
+                "IMAGE_SAFETY"
+            ),
             RawFinishReason = finish,
         };
     }

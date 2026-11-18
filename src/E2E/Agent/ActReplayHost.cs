@@ -22,7 +22,8 @@ public sealed partial class Agent
         ObservationFeed feed,
         StepAccounting budget,
         ActionDispatcher dispatcher,
-        CancellationToken token) : IStepCacheHost, IExecutorActions
+        CancellationToken token
+    ) : IStepCacheHost, IExecutorActions
     {
         public IExecutorActions Actions => this;
 
@@ -40,7 +41,8 @@ public sealed partial class Agent
 
         public bool TraceEligible => feed.TraceEligible;
 
-        public async Task<PreparedObservation> ObserveAsync(SettleMode mode) => feed.PreparedOf(await feed.ObserveAsync(mode, token).ConfigureAwait(false));
+        public async Task<PreparedObservation> ObserveAsync(SettleMode mode) =>
+            feed.PreparedOf(await feed.ObserveAsync(mode, token).ConfigureAwait(false));
 
         public bool TryReserve() => budget.TryReserve();
 
@@ -84,21 +86,51 @@ public sealed partial class Agent
             return dispatcher.NotifyAsync(Dispatched(action), ActionSource.Replay);
         }
 
-        public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("tap", target, options, cancellationToken);
+        public Task TapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => ClickAsync("tap", target, options, cancellationToken);
 
-        public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("doubleTap", target, options, cancellationToken);
+        public Task DoubleTapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => ClickAsync("doubleTap", target, options, cancellationToken);
 
-        public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("secondaryTap", target, options, cancellationToken);
+        public Task SecondaryTapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => ClickAsync("secondaryTap", target, options, cancellationToken);
 
-        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.LongPress(), "longPress", cancellationToken);
+        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            PerformAsync(target, new LocatorAction.LongPress(), "longPress", cancellationToken);
 
-        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.Hover(), "hover", cancellationToken);
+        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            PerformAsync(target, new LocatorAction.Hover(), "hover", cancellationToken);
 
-        public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default) =>
-            PerformAsync(source, new LocatorAction.DragTo(Resolve(destination)), "drag", cancellationToken);
+        public Task DragAsync(
+            ExecutorTarget source,
+            ExecutorTarget destination,
+            CancellationToken cancellationToken = default
+        ) => PerformAsync(source, new LocatorAction.DragTo(Resolve(destination)), "drag", cancellationToken);
 
-        private Task ClickAsync(string kind, ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken) =>
-            PerformAsync(target, ActionDispatcher.ClickAction(kind, ActionDispatcher.RequireClickModifiers(options, kind, scope.EngineCapabilities)), kind, cancellationToken);
+        private Task ClickAsync(
+            string kind,
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken
+        ) =>
+            PerformAsync(
+                target,
+                ActionDispatcher.ClickAction(
+                    kind,
+                    ActionDispatcher.RequireClickModifiers(options, kind, scope.EngineCapabilities)
+                ),
+                kind,
+                cancellationToken
+            );
 
         // A value is expanded with this call's params before it is read: one that expands to a secret's marker fills that secret.
         public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
@@ -108,27 +140,44 @@ public sealed partial class Agent
                 : PerformAsync(target, new LocatorAction.Fill(value, false), "fill", cancellationToken);
         }
 
-        public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default) =>
-            TypeSecretAsync(target, secretName, cancellationToken, armed: "<secret:" + secretName + ">");
+        public Task TypeSecretAsync(
+            ExecutorTarget target,
+            string secretName,
+            CancellationToken cancellationToken = default
+        ) => TypeSecretAsync(target, secretName, cancellationToken, armed: "<secret:" + secretName + ">");
 
-        private async Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken, string? armed)
+        private async Task TypeSecretAsync(
+            ExecutorTarget target,
+            string secretName,
+            CancellationToken cancellationToken,
+            string? armed
+        )
         {
             var secret = dispatcher.DeclaredSecret(secretName);
             // Recorded by stable name only; replay re-runs the full authorization (upstream's replay calls the dispatcher's typeSecret).
             // It runs before the provider is asked, for the node as it is now; a provider's value joins redaction before it is typed.
             // Authorization runs again for each attempt, on the node as a relocation found it, as the dispatcher's typeSecret does.
-            await dispatcher.TargetedAsync(
-                Resolve(target),
-                cancellationToken,
-                async (found, _) =>
+            await dispatcher
+                .TargetedAsync(Resolve(target), cancellationToken, async (found, _) =>
                 {
-                    var resolved = await SecretFill.AuthorizeSecretFillAsync(dispatcher.PolicyHost, scope, secret, found, cancellationToken).ConfigureAwait(false);
-                    await scope.Session.PerformAsync(found, new LocatorAction.Fill(resolved.Value, true), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
-                }).ConfigureAwait(false);
+                    var resolved = await SecretFill
+                        .AuthorizeSecretFillAsync(dispatcher.PolicyHost, scope, secret, found, cancellationToken)
+                        .ConfigureAwait(false);
+                    await scope
+                        .Session.PerformAsync(
+                            found,
+                            new LocatorAction.Fill(resolved.Value, true),
+                            budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout),
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+                })
+                .ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "fill", Value = armed });
         }
 
-        public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.Clear(), "clear", cancellationToken);
+        public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            PerformAsync(target, new LocatorAction.Clear(), "clear", cancellationToken);
 
         public async Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default)
         {
@@ -142,9 +191,20 @@ public sealed partial class Agent
         }
 
         // A recorded keyboard input goes to whatever holds focus as given: the focus it relies on is the effect of the recorded actions before it.
-        public async Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default)
+        public async Task TypeTextAsync(
+            string value,
+            TypeTextOptions? options = null,
+            CancellationToken cancellationToken = default
+        )
         {
-            await scope.Session.TypeTextAsync(value, options?.Replace == true, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.TypeTextAsync(
+                    value,
+                    options?.Replace == true,
+                    budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "typeText" });
         }
 
@@ -152,13 +212,24 @@ public sealed partial class Agent
         {
             // Upstream's `keyboard.press` session guard (engine/session.ts).
             Keys.RequireKey(key);
-            await scope.Session.PressAsync(key, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.PressAsync(
+                    key,
+                    budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "pressKey" });
         }
 
         public async Task DismissKeyboardAsync(CancellationToken cancellationToken = default)
         {
-            await scope.Session.DismissKeyboardAsync(budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.DismissKeyboardAsync(
+                    budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "dismissKeyboard" });
         }
 
@@ -166,40 +237,77 @@ public sealed partial class Agent
             PerformAsync(target, new LocatorAction.Select(value), "select", cancellationToken);
 
         public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) =>
-            check ? PerformAsync(target, new LocatorAction.Check(), "check", cancellationToken) : PerformAsync(target, new LocatorAction.Uncheck(), "uncheck", cancellationToken);
+            check
+                ? PerformAsync(target, new LocatorAction.Check(), "check", cancellationToken)
+                : PerformAsync(target, new LocatorAction.Uncheck(), "uncheck", cancellationToken);
 
         // The recorded paths are expanded with this call's params, then authorized against the project root again, as the recording's were.
         // The replay asks first (AuthorizeUpload), before it takes the slot, and the upload spends that decision.
         private AuthorizedUpload? _authorizedUpload;
 
-        public void AuthorizeUpload(IReadOnlyList<string> paths) => _authorizedUpload = dispatcher.AuthorizeUpload(paths);
+        public void AuthorizeUpload(IReadOnlyList<string> paths) =>
+            _authorizedUpload = dispatcher.AuthorizeUpload(paths);
 
-        public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+        public Task UploadAsync(
+            ExecutorTarget target,
+            IReadOnlyList<string> paths,
+            CancellationToken cancellationToken = default
+        )
         {
             var authorized = _authorizedUpload ?? dispatcher.AuthorizeUpload(paths);
             _authorizedUpload = null;
-            return PerformAsync(target, new LocatorAction.SetInputFiles(authorized.Resolved), "upload", cancellationToken);
+            return PerformAsync(
+                target,
+                new LocatorAction.SetInputFiles(authorized.Resolved),
+                "upload",
+                cancellationToken
+            );
         }
 
-        public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.ScrollIntoView(), "scrollTo", cancellationToken);
+        public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            PerformAsync(target, new LocatorAction.ScrollIntoView(), "scrollTo", cancellationToken);
 
-        public async Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default)
+        public async Task ScrollUntilAsync(
+            string text,
+            ScrollDirection direction,
+            ExecutorTarget? list = null,
+            CancellationToken cancellationToken = default
+        )
         {
             await dispatcher.PageUntilAsync(text, direction, list, cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "scrollUntil" });
         }
 
-        public async Task ScrollAsync(ExecutorTarget? list, ScrollDirection direction, int times = 1, CancellationToken cancellationToken = default)
+        public async Task ScrollAsync(
+            ExecutorTarget? list,
+            ScrollDirection direction,
+            int times = 1,
+            CancellationToken cancellationToken = default
+        )
         {
             for (var repeat = 0; repeat < times; repeat++)
             {
                 if (list is null)
                 {
-                    await scope.Session.SwipeAsync(direction, null, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+                    await scope
+                        .Session.SwipeAsync(
+                            direction,
+                            null,
+                            budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout),
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
                 }
                 else
                 {
-                    await scope.Session.PerformAsync(Resolve(list), new LocatorAction.Swipe(direction), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+                    await scope
+                        .Session.PerformAsync(
+                            Resolve(list),
+                            new LocatorAction.Swipe(direction),
+                            budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout),
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
                 }
 
                 feed.ArmAfter(new RecordedAction { Kind = "scroll" });
@@ -208,33 +316,59 @@ public sealed partial class Agent
 
         public async Task NavigateAsync(string url, CancellationToken cancellationToken = default)
         {
-            await scope.Session.OpenAsync(Routes.Resolve(scope.BaseUrl, url), budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.OpenAsync(
+                    Routes.Resolve(scope.BaseUrl, url),
+                    budget.Operation(OperationContext.Agent, scope.ActionTimeout),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "navigate" });
         }
 
         public async Task BackAsync(CancellationToken cancellationToken = default)
         {
-            await scope.Session.BackAsync(budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.BackAsync(budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken)
+                .ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "back" });
         }
 
         public async Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default)
         {
             var viewport = Geometry.RequireViewportSize(size);
-            await scope.Session.ResizeAsync(viewport, budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.ResizeAsync(
+                    viewport,
+                    budget.Operation(OperationContext.Agent, scope.ActionTimeout),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             scope.Steps.AttachViewport(new StepViewport(viewport.Width, viewport.Height, 1));
             feed.ArmAfter(new RecordedAction { Kind = "resize" });
         }
 
         public async Task SwitchTabAsync(int tab, CancellationToken cancellationToken = default)
         {
-            await scope.Session.SwitchTabAsync(tab - 1, budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.SwitchTabAsync(
+                    tab - 1,
+                    budget.Operation(OperationContext.Agent, scope.ActionTimeout),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "switchTab" });
         }
 
         public async Task CloseTabAsync(int tab, CancellationToken cancellationToken = default)
         {
-            await scope.Session.CloseTabAsync(tab - 1, budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.CloseTabAsync(
+                    tab - 1,
+                    budget.Operation(OperationContext.Agent, scope.ActionTimeout),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "closeTab" });
         }
 
@@ -242,7 +376,14 @@ public sealed partial class Agent
         // prose is for a model, which a replay has none of.
         public async Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default)
         {
-            await scope.Session.PerformAtAsync(point, new PointerAction.Tap(), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.PerformAtAsync(
+                    point,
+                    new PointerAction.Tap(),
+                    budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             _tapped = point;
             feed.ArmAfter(new RecordedAction { Kind = "tapAt" });
             return new PointTapResult(point, null, "");
@@ -250,15 +391,33 @@ public sealed partial class Agent
 
         public async Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default)
         {
-            await scope.Session.PerformAtAsync(point, new PointerAction.Hover(), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.PerformAtAsync(
+                    point,
+                    new PointerAction.Hover(),
+                    budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             _tapped = point;
             feed.ArmAfter(new RecordedAction { Kind = "hoverAt" });
             return new PointTapResult(point, null, "");
         }
 
-        public async Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default)
+        public async Task<PointDragResult> DragAtAsync(
+            Point from,
+            Point to,
+            CancellationToken cancellationToken = default
+        )
         {
-            await scope.Session.PerformAtAsync(from, new PointerAction.DragTo(to), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.PerformAtAsync(
+                    from,
+                    new PointerAction.DragTo(to),
+                    budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             _dragged = (from, to);
             feed.ArmAfter(new RecordedAction { Kind = "dragAt" });
             return new PointDragResult(from, to, null, null, "");
@@ -271,7 +430,13 @@ public sealed partial class Agent
         private static SemanticNode Resolve(ExecutorTarget target) =>
             target.Node ?? throw new InvalidOperationException("A replayed target holds the node it was found as.");
 
-        private async Task PerformAsync(ExecutorTarget target, LocatorAction action, string kind, CancellationToken cancellationToken, string? value = null)
+        private async Task PerformAsync(
+            ExecutorTarget target,
+            LocatorAction action,
+            string kind,
+            CancellationToken cancellationToken,
+            string? value = null
+        )
         {
             // Upstream's session guard (`perform` in engine/session.ts) checks a press key before the engine is asked, on a replay too.
             if (action is LocatorAction.Press press)
@@ -279,7 +444,14 @@ public sealed partial class Agent
                 Keys.RequireKey(press.Key);
             }
 
-            await scope.Session.PerformAsync(Resolve(target), action, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            await scope
+                .Session.PerformAsync(
+                    Resolve(target),
+                    action,
+                    budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = kind, Value = value });
         }
     }

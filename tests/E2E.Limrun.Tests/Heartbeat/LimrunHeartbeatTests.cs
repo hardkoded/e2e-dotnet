@@ -17,7 +17,10 @@ public sealed class LimrunHeartbeatTests
     {
         public List<JsonObject> Requests { get; } = [];
 
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
         {
             var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken))!.AsObject();
             lock (Requests)
@@ -30,7 +33,8 @@ public sealed class LimrunHeartbeatTests
                 Content = new StringContent(
                     """{"jsonrpc":"2.0","id":1,"result":{"ok":true,"data":{"lease":{"leaseId":"lease-2"}}}}""",
                     Encoding.UTF8,
-                    "application/json"),
+                    "application/json"
+                ),
             };
         }
     }
@@ -38,7 +42,12 @@ public sealed class LimrunHeartbeatTests
     [Fact]
     public async Task Renews_an_idle_scoped_lease_beyond_its_expiry_window_and_stops_before_daemon_cleanup()
     {
-        var ambient = new[] { "AGENT_DEVICE_DAEMON_BASE_URL", "AGENT_DEVICE_DAEMON_AUTH_TOKEN", "AGENT_DEVICE_DAEMON_TRANSPORT" };
+        var ambient = new[]
+        {
+            "AGENT_DEVICE_DAEMON_BASE_URL",
+            "AGENT_DEVICE_DAEMON_AUTH_TOKEN",
+            "AGENT_DEVICE_DAEMON_TRANSPORT",
+        };
         var before = ambient.Select(Environment.GetEnvironmentVariable).ToArray();
         Environment.SetEnvironmentVariable(ambient[0], "http://127.0.0.1:1");
         Environment.SetEnvironmentVariable(ambient[1], "unrelated-token");
@@ -48,8 +57,15 @@ public sealed class LimrunHeartbeatTests
             var daemon = new FakeDaemon();
             var clock = new ManualDelay();
             var binding = new LimrunBinding(
-                new JsonObject { ["stateDir"] = "/worker-2", ["tenant"] = "e2e", ["runId"] = "run", ["leaseId"] = "lease-2" },
-                "device-2");
+                new JsonObject
+                {
+                    ["stateDir"] = "/worker-2",
+                    ["tenant"] = "e2e",
+                    ["runId"] = "run",
+                    ["leaseId"] = "lease-2",
+                },
+                "device-2"
+            );
             var created = new List<DeviceClientConfig>();
 
             // The real client over a fake daemon, so the request that reaches it is the one a real daemon would get.
@@ -58,22 +74,36 @@ public sealed class LimrunHeartbeatTests
                 (session, connection) =>
                 {
                     created.Add(DeviceClientConfig.For(session, connection));
-                    return new AgentDeviceRpcClient(session, connection!.Client, _ => Task.FromResult(new DaemonEndpoint(new Uri("http://127.0.0.1:1/"), "token")), new HttpClient(daemon));
+                    return new AgentDeviceRpcClient(
+                        session,
+                        connection!.Client,
+                        _ => Task.FromResult(new DaemonEndpoint(new Uri("http://127.0.0.1:1/"), "token")),
+                        new HttpClient(daemon)
+                    );
                 },
                 _ => { },
                 clock.Delay,
-                CancellationToken.None);
+                CancellationToken.None
+            );
 
             var config = Assert.Single(created);
-            JsonAssert.Args("""{"stateDir":"/worker-2","tenant":"e2e","runId":"run","leaseId":"lease-2"}""", config.Settings);
+            JsonAssert.Args(
+                """{"stateDir":"/worker-2","tenant":"e2e","runId":"run","leaseId":"lease-2"}""",
+                config.Settings
+            );
             Assert.Equal("", config.DaemonBaseUrl);
             Assert.Equal("", config.DaemonAuthToken);
             Assert.Equal("auto", config.DaemonTransport);
             await clock.AdvanceAsync(TimeSpan.FromSeconds(140));
             Assert.Equal(8, daemon.Requests.Count);
-            Assert.All(daemon.Requests, request => Assert.Equal("agent_device.lease.heartbeat", request["method"]!.GetValue<string>()));
+            Assert.All(daemon.Requests, request =>
+                Assert.Equal("agent_device.lease.heartbeat", request["method"]!.GetValue<string>())
+            );
             Assert.Matches("^e2e-lease-[0-9a-f]{8}$", config.Session);
-            JsonAssert.Args($$"""{"session":"{{config.Session}}","tenantId":"e2e","runId":"run","leaseId":"lease-2","ttlMs":60000}""", daemon.Requests[^1]["params"]);
+            JsonAssert.Args(
+                $$"""{"session":"{{config.Session}}","tenantId":"e2e","runId":"run","leaseId":"lease-2","ttlMs":60000}""",
+                daemon.Requests[^1]["params"]
+            );
             await stop();
             await clock.AdvanceAsync(TimeSpan.FromSeconds(140));
             Assert.Equal(8, daemon.Requests.Count);
@@ -114,7 +144,8 @@ public sealed class LimrunHeartbeatTests
             (_, _) => client,
             log.Add,
             clock.Delay,
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         await clock.AdvanceAsync(TimeSpan.FromSeconds(20));
         Assert.Equal(["driver lease renewal failed: transport unavailable"], log);
@@ -141,16 +172,19 @@ public sealed class LimrunHeartbeatTests
         var created = 0;
         var binding = new LimrunBinding(JsonNode.Parse(client)!.AsObject(), "device");
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => LimrunHeartbeat.StartAsync(
-            binding,
-            (_, _) =>
-            {
-                created++;
-                return new FakeDeviceClient();
-            },
-            _ => { },
-            new ManualDelay().Delay,
-            CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            LimrunHeartbeat.StartAsync(
+                binding,
+                (_, _) =>
+                {
+                    created++;
+                    return new FakeDeviceClient();
+                },
+                _ => { },
+                new ManualDelay().Delay,
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal("Limrun driver returned no agent-device state directory or lease id", error.Message);
         Assert.Equal(0, created);

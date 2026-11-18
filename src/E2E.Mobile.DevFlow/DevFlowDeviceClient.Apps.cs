@@ -19,7 +19,9 @@ internal sealed partial class DevFlowDeviceClient
         var url = Text(options, "url");
         if (url is not null || (app is not null && DeviceLinks.IsLink(app)))
         {
-            throw DevFlowErrors.Unsupported("opening a link is not supported with DevFlow yet: the agent runs inside the app and cannot ask the device to open one");
+            throw DevFlowErrors.Unsupported(
+                "opening a link is not supported with DevFlow yet: the agent runs inside the app and cannot ask the device to open one"
+            );
         }
 
         if (app is null)
@@ -29,22 +31,29 @@ internal sealed partial class DevFlowDeviceClient
 
         if (options["relaunch"] is JsonValue relaunch && relaunch.TryGetValue<bool>(out var fresh) && fresh)
         {
-            throw DevFlowErrors.Unsupported("relaunching the app is not supported with DevFlow yet: the agent runs inside the app, so a test attaches to the app you launched; open it without Relaunch");
+            throw DevFlowErrors.Unsupported(
+                "relaunching the app is not supported with DevFlow yet: the agent runs inside the app, so a test attaches to the app you launched; open it without Relaunch"
+            );
         }
 
         if (options["launchArgs"] is JsonArray { Count: > 0 })
         {
-            throw DevFlowErrors.Unsupported("launch arguments are not supported with DevFlow: the app is already running when a test attaches to it");
+            throw DevFlowErrors.Unsupported(
+                "launch arguments are not supported with DevFlow: the app is already running when a test attaches to it"
+            );
         }
 
         await StatusAsync(cancellationToken).ConfigureAwait(false);
         if (_app.PackageId is { } running && !Matches(running, app) && !Matches(_app.Name, app))
         {
-            throw DevFlowErrors.Failed($"the DevFlow agent runs {running}, not {app}; point the provider at the right app or fix the target's bundle id");
+            throw DevFlowErrors.Failed(
+                $"the DevFlow agent runs {running}, not {app}; point the provider at the right app or fix the target's bundle id"
+            );
         }
 
         return AppIdentity(_app.PackageId ?? app, _app.Name ?? app);
     }
 
-    private static bool Matches(string? reported, string wanted) => string.Equals(reported, wanted, StringComparison.OrdinalIgnoreCase);
+    private static bool Matches(string? reported, string wanted) =>
+        string.Equals(reported, wanted, StringComparison.OrdinalIgnoreCase);
 }

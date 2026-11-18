@@ -30,10 +30,14 @@ internal sealed record StandaloneHostOptions
 
     /// <summary>The run's id, when the host belongs to a hosted run. Null mints one.</summary>
     public string? RunId { get; init; }
+
+    /// <summary>Whether the engine shows its surface, a browser window; <c>--headed</c>. Upstream's <c>headed</c>.</summary>
+    public bool Headed { get; init; }
 }
 
 /// <summary>One attempt on a standalone host. Upstream's <c>StandaloneAttempt</c> (<c>run/standalone-attempt.ts</c>), over the port's session.</summary>
-internal sealed class StandaloneAttempt(E2ESession session, Func<Task<IReadOnlyList<Exception>>> close) : IAsyncDisposable
+internal sealed class StandaloneAttempt(E2ESession session, Func<Task<IReadOnlyList<Exception>>> close)
+    : IAsyncDisposable
 {
     private int _reported;
 
@@ -77,19 +81,29 @@ internal static class Standalone
     /// One attempt on a worker of its own, closed together. Upstream's <c>openStandaloneAttempt</c>. Disposing the attempt disposes the
     /// session and finishes the engine, so a hosted device the engine leased goes back whichever way the attempt ends.
     /// </summary>
-    public static async Task<StandaloneAttempt> OpenAttemptAsync(E2ESessionOptions options, CancellationToken cancellationToken = default)
+    public static async Task<StandaloneAttempt> OpenAttemptAsync(
+        E2ESessionOptions options,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(options.Engine);
         var target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName;
-        var host = await OpenWorkerAsync(new StandaloneHostOptions
-        {
-            Engine = options.Engine,
-            TargetName = target,
-            ProjectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot),
-            CleanupTimeout = options.CleanupTimeout,
-            CancellationToken = cancellationToken,
-        }).ConfigureAwait(false);
+        var host = await OpenWorkerAsync(
+                new StandaloneHostOptions
+                {
+                    Engine = options.Engine,
+                    TargetName = target,
+                    ProjectRoot = Path.GetFullPath(
+                        string.IsNullOrEmpty(options.ProjectRoot)
+                            ? Directory.GetCurrentDirectory()
+                            : options.ProjectRoot
+                    ),
+                    CleanupTimeout = options.CleanupTimeout,
+                    CancellationToken = cancellationToken,
+                }
+            )
+            .ConfigureAwait(false);
         try
         {
             var attempt = await host.OpenAttemptAsync(options, cancellationToken).ConfigureAwait(false);
@@ -175,7 +189,11 @@ internal sealed class StandaloneHost
     /// host stays usable for the next attempt, unless an attempt's cleanup failed: what it left may be unclean, so the host refuses another.
     /// A <paramref name="hosted"/> attempt is upstream's hosted kind: its session closes through <see cref="E2ESession.CloseAsync"/> and is disposed by its owner.
     /// </summary>
-    public Task<StandaloneAttempt> OpenAttemptAsync(E2ESessionOptions session, CancellationToken cancellationToken = default, bool hosted = false)
+    public Task<StandaloneAttempt> OpenAttemptAsync(
+        E2ESessionOptions session,
+        CancellationToken cancellationToken = default,
+        bool hosted = false
+    )
     {
         ArgumentNullException.ThrowIfNull(session);
         var result = new TaskCompletionSource<StandaloneAttempt>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -183,17 +201,26 @@ internal sealed class StandaloneHost
         {
             if (_closed)
             {
-                return Task.FromException<StandaloneAttempt>(new EngineException("WORKER_PROTOCOL", "the e2e host is closed"));
+                return Task.FromException<StandaloneAttempt>(
+                    new EngineException("WORKER_PROTOCOL", "the e2e host is closed")
+                );
             }
 
             if (_unsafeToReuse)
             {
-                return Task.FromException<StandaloneAttempt>(new EngineException("WORKER_PROTOCOL", "the e2e host cannot open another session after one closed with failures"));
+                return Task.FromException<StandaloneAttempt>(
+                    new EngineException(
+                        "WORKER_PROTOCOL",
+                        "the e2e host cannot open another session after one closed with failures"
+                    )
+                );
             }
 
             if (_opening is not null || _live is not null)
             {
-                return Task.FromException<StandaloneAttempt>(new EngineException("WORKER_PROTOCOL", "the e2e host already has an opening or live session"));
+                return Task.FromException<StandaloneAttempt>(
+                    new EngineException("WORKER_PROTOCOL", "the e2e host already has an opening or live session")
+                );
             }
 
             _opening = result.Task;
@@ -226,7 +253,11 @@ internal sealed class StandaloneHost
             OperationCanceledException => EngineErrorCodes.Cancelled,
             _ => EngineErrorCodes.EngineFailure,
         };
-        return new EngineException(code, $"{cause.Message}; closing the standalone host also failed: {cleanup[0].Message}", cause);
+        return new EngineException(
+            code,
+            $"{cause.Message}; closing the standalone host also failed: {cleanup[0].Message}",
+            cause
+        );
     }
 
     internal async Task PrepareAsync()
@@ -237,12 +268,22 @@ internal sealed class StandaloneHost
             AppDomain.CurrentDomain.ProcessExit += _exit;
         }
 
-        var prepared = await _engines.PrepareAsync(
-            _options.Engine,
-            _options.TargetName,
-            1,
-            new PrepareScope { RunId = _runId, ProjectRoot = _options.ProjectRoot, Env = _env, Notice = Notice },
-            _signal).ConfigureAwait(false);
+        var prepared = await _engines
+            .PrepareAsync(
+                _options.Engine,
+                _options.TargetName,
+                1,
+                new PrepareScope
+                {
+                    RunId = _runId,
+                    ProjectRoot = _options.ProjectRoot,
+                    Env = _env,
+                    Notice = Notice,
+                    Headed = _options.Headed,
+                },
+                _signal
+            )
+            .ConfigureAwait(false);
         if (prepared is not null)
         {
             // What prepare left is the worker's environment; the run's own variables are never overwritten.
@@ -251,11 +292,19 @@ internal sealed class StandaloneHost
 
         if (_signal.IsCancellationRequested)
         {
-            throw new EngineException(EngineErrorCodes.Cancelled, $"opening a host on target \"{_options.TargetName}\" was cancelled");
+            throw new EngineException(
+                EngineErrorCodes.Cancelled,
+                $"opening a host on target \"{_options.TargetName}\" was cancelled"
+            );
         }
     }
 
-    private async Task LaunchAsync(E2ESessionOptions session, CancellationToken cancellationToken, TaskCompletionSource<StandaloneAttempt> result, bool hosted)
+    private async Task LaunchAsync(
+        E2ESessionOptions session,
+        CancellationToken cancellationToken,
+        TaskCompletionSource<StandaloneAttempt> result,
+        bool hosted
+    )
     {
         // The attempt's own scope outlives the open: it ends the session when the host or its caller does.
         var scope = CancellationTokenSource.CreateLinkedTokenSource(_signal, cancellationToken);
@@ -266,7 +315,10 @@ internal sealed class StandaloneHost
             if (scope.IsCancellationRequested)
             {
                 // An engine that ignored the cancel must not hand back a session nobody wants.
-                var cancelled = new EngineException(EngineErrorCodes.Cancelled, "opening the e2e session was cancelled");
+                var cancelled = new EngineException(
+                    EngineErrorCodes.Cancelled,
+                    "opening the e2e session was cancelled"
+                );
                 started.Complete(cancelled, scope.Token);
                 await started.DisposeAsync().ConfigureAwait(false);
                 throw cancelled;
@@ -289,7 +341,11 @@ internal sealed class StandaloneHost
                 _opening = null;
             }
 
-            if (cause is OperationCanceledException && !cancellationToken.IsCancellationRequested && _signal.IsCancellationRequested)
+            if (
+                cause is OperationCanceledException
+                && !cancellationToken.IsCancellationRequested
+                && _signal.IsCancellationRequested
+            )
             {
                 cause = new EngineException(EngineErrorCodes.Cancelled, "opening the e2e session was cancelled", cause);
             }
@@ -394,14 +450,18 @@ internal sealed class StandaloneHost
     {
         try
         {
-            await _engines.FinishAsync(new FinishScope
-            {
-                RunId = _runId,
-                Env = _env,
-                CleanupTimeout = _options.CleanupTimeout,
-                Notice = Notice,
-                OnFailure = failure => Add([failure]),
-            }).ConfigureAwait(false);
+            await _engines
+                .FinishAsync(
+                    new FinishScope
+                    {
+                        RunId = _runId,
+                        Env = _env,
+                        CleanupTimeout = _options.CleanupTimeout,
+                        Notice = Notice,
+                        OnFailure = failure => Add([failure]),
+                    }
+                )
+                .ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // Whatever finish threw is a cleanup failure to report, and the host is closed either way.
         catch (Exception cause)
@@ -426,8 +486,7 @@ internal sealed class StandaloneHost
 #pragma warning disable CA1031 // The process is going away; there is no log left to report to, and the provider's own time limit ends the lease.
         catch (Exception)
 #pragma warning restore CA1031
-        {
-        }
+        { }
     }
 
     private void Add(IEnumerable<Exception> errors)
@@ -449,7 +508,6 @@ internal sealed class StandaloneHost
 #pragma warning disable CA1031 // The callback must not throw; a throwing one is not a failure of the host.
         catch (Exception)
 #pragma warning restore CA1031
-        {
-        }
+        { }
     }
 }

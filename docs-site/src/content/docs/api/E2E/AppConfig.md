@@ -121,6 +121,23 @@ Arguments every fresh launch of the app takes: process arguments on iOS, `am sta
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
+<a id="E2E_AppConfig_LinkBase_"></a>
+<a id="E2E_AppConfig_LinkBase"></a>
+
+### LinkBase
+
+
+```csharp
+public string? LinkBase { get; init; }
+```
+
+
+The base `App.OpenAsync(path)` joins a path to on a device target (upstream's `app.linkBase`): an absolute URL such as
+`https://shop.example.com`, or a bare scheme such as `shopapp://`, with no query or fragment. The joined link opens in the pinned
+app; an absolute link opens as given. Needs an engine that opens links, such as the device engine.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_AppConfig_Permissions_"></a>
 <a id="E2E_AppConfig_Permissions"></a>
 

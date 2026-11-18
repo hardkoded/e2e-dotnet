@@ -20,12 +20,13 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ActResult](/api/E2E/ActResult/) |  |
 | [Agent](/api/E2E/Agent/) | One goal (ActAsync) or a check against the current screen. |
 | [AgentAttribute](/api/E2E/AgentAttribute/) | Pins the agent that the calls of a test, or of every test in a class, use when they name none. Upstream's agent option of test and describe. The closest pin wins: a call's Agent, then the method, then the class, then an enclosing or base class, then the E2E_AGENT environment variable. Base and enclosing classes count although the attribute is not inherited: TestAgentOptions reads each layer itself. An unknown name fails the test with INVALID_ARGUMENT. |
+| [AgentCacheOptions](/api/E2E/AgentCacheOptions/) | Where ActAsync keeps the flows it recorded, and whether it may write new ones. Upstream's AgentCacheOptions (core/agent.ts). |
 | [AgentConfig](/api/E2E/AgentConfig/) | One entry of agents. Upstream model and judge are AI SDK instances; here they are model ids for Provider, which share BaseUrl and ApiKeyEnv. Each entry starts from the defaults; none inherits another's values. |
 | [AgentContextAttribute](/api/E2E/AgentContextAttribute/) | Appends facts only this test knows to the context of every agent, after the agent's own context. Upstream's agentContext option of test and describe. Layers join outer to inner, one per line. Keep instructions out of it: it reaches the judges too. |
 | [AgentException](/api/E2E/AgentException/) | An agent step failed, was blocked, or could not talk to its model. |
 | [AgentOptions](/api/E2E/AgentOptions/) | One named agent, as upstream agents.<name>. Each entry starts from the built-in defaults; no agent inherits another's values. A call picks one with its Agent option. |
 | [AgentTool](/api/E2E/AgentTool/) | A project tool the agent offers to the model beside its own: upstream's defineTool. It declares whether it changes the application and which platforms it is offered on; the agent owns dispatch and accounting. The tool's name is its key in Tools. |
-| [AgentToolContext](/api/E2E/AgentToolContext/) | What a project tool reaches of the step it runs in (upstream's ToolContext): a look at the screen, and a screenshot kept as evidence of the step. A tool that changes the app may not look: it observes in a separate call. |
+| [AgentToolContext](/api/E2E/AgentToolContext/) | What a project tool reaches of the step it runs in (upstream's ToolContext): a look at the screen, the rendered properties of a node, and a screenshot kept as evidence of the step. A tool that changes the app may not look: it observes in a separate call. |
 | [AgentTools](/api/E2E/AgentTools/) | The built-in agent's tool vocabulary (upstream's agent/primitives.ts). CreateGrammarTools and CreateVerdictTool are public, for a tool loop or an executor that keeps the built-in actions and verdicts. |
 | [AnthropicModel](/api/E2E/AnthropicModel/) | Anthropic Messages API client. The system prompt and the newest message carry cache breakpoints, as upstream marks them, so each turn of a tool loop reads the previous turn's prefix from the cache. |
 | [AnthropicModelOptions](/api/E2E/AnthropicModelOptions/) |  |
@@ -47,9 +48,13 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [CacheEntry](/api/E2E/CacheEntry/) | A recording of one verified act. Its file name is the hash of a trace cache key (TraceCacheKeyHash): the cache schema, the replay policy version, the project, the test, the target, the engine's name and contract version, the app's identity, the instruction's and params' digests, the agent's name, a digest of the agent's redacted context, and which repeat of that same call in the attempt it is. The model id and the engine's package version are not part of the key. |
 | [CacheInfo](/api/E2E/CacheInfo/) |  |
 | [CacheLookup](/api/E2E/CacheLookup/) |  |
+| [CachingActOptions](/api/E2E/CachingActOptions/) | ActOptions for ActAsync: each call names the recording it replays and records, or runs live. Upstream's CachingActOptions (core/agent.ts), which TypeScript types as a union; C# holds both members, and the agent refuses the one that does not fit it at runtime. Agent is INVALID_ARGUMENT: create another agent for another configuration. |
 | [ClickOptions](/api/E2E/ClickOptions/) | Options for TapAsync, DoubleTapAsync, and SecondaryTapAsync. Upstream's ClickOptions. |
 | [CommandConfig](/api/E2E/CommandConfig/) | The command a target's app.command starts the app with (upstream's CommandConfig). It is a program and its arguments, never a shell line: the executable is started directly and each argument is passed as it is. |
 | [ConfigurationException](/api/E2E/ConfigurationException/) | e2e.config.json is invalid. The code is INVALID_CONFIG. |
+| [CoreAgent](/api/E2E/CoreAgent/) | An agent over one session, configured in code: ActAsync, AssertAsync, WaitForAsync, and ExtractAsync behave as they do in a test. With a cache, ActAsync replays recorded flows, each keyed by the CacheKey the call names. Upstream's CachingAgent, CoreAgent, and UncheckedAgent (core/agent.ts), which TypeScript tells apart by the options createAgent was called with: C# has one type, and refuses at runtime the ActAsync call that does not fit the agent. |
+| [CoreAgents](/api/E2E/CoreAgents/) | createAgent from @e2e-dev/core/agent: the agent over one session, configured in code. Upstream's core/agent.ts. |
+| [CreateAgentOptions](/api/E2E/CreateAgentOptions/) | The agent's model, budgets, and context, as an agents entry of a config takes them (AgentOptions), plus what only a program sets. Upstream's CreateAgentOptions (core/agent.ts). |
 | [Credentials](/api/E2E/Credentials/) | The accounts of the config's credentials (upstream's credentials, secrets.ts): E2E_USER_{NAME}_USERNAME and E2E_USER_{NAME}_PASSWORD replace the config's values. While a session runs, only a configured name resolves. |
 | [DefaultAgent](/api/E2E/DefaultAgent/) | Upstream's createBuiltInAgent (agent/default-agent.ts): the tool loop with the built-in rules, tools, and opening prompt. |
 | [DragAtActionEvent](/api/E2E/DragAtActionEvent/) | A dragAt the step dispatched. Mobile engines have no dragAt. |
@@ -71,6 +76,8 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExecutorObservation](/api/E2E/ExecutorObservation/) | A redacted, size-bounded observation an executor may show its model. |
 | [ExecutorObserveOptions](/api/E2E/ExecutorObserveOptions/) | What an executor asks ObserveAsync to include beyond the text. |
 | [ExecutorPixels](/api/E2E/ExecutorPixels/) | Masked viewport pixels cleared for model input: the engine's capture, sized for the model, and its proven mask count. |
+| [ExecutorReadOptions](/api/E2E/ExecutorReadOptions/) | What an executor asks ReadAsync to measure on a node (upstream's ExecutorReadOptions). |
+| [ExecutorReadResult](/api/E2E/ExecutorReadResult/) | What ReadAsync measured on a node (upstream's ExecutorReadResult). |
 | [ExecutorSecret](/api/E2E/ExecutorSecret/) | A secret declared in a step's params: its stable name and what it is for. Never its value. |
 | [ExecutorStep](/api/E2E/ExecutorStep/) | One step handed to an executor. An Act plans and executes a flow. An Assert judges a condition and must not change the app. |
 | [ExecutorTabs](/api/E2E/ExecutorTabs/) | The open tabs of a screen (upstream's ExecutorObservation.tabs), numbered from 1 in the order they opened. |
@@ -97,7 +104,12 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [GoogleModelOptions](/api/E2E/GoogleModelOptions/) |  |
 | [GotoOptions](/api/E2E/GotoOptions/) | Options of GotoAsync. |
 | [GrammarToolsOptions](/api/E2E/GrammarToolsOptions/) | What CreateGrammarTools runs a tool body under (upstream's GrammarToolOptions). |
+| [Host](/api/E2E/Host/) | One engine instance, initialized: the owner of the sessions opened on it, one at a time. Upstream's Host (core/launch.ts). |
+| [Host&lt;TFixtures&gt;](/api/E2E/Host-1/) | A host on an engine that contributes fixtures: its sessions are Session&lt;T&gt;. Upstream's Host<Fixtures> (core/launch.ts). |
 | [HoverAtActionEvent](/api/E2E/HoverAtActionEvent/) | A hoverAt the step dispatched. Mobile engines have no hoverAt. |
+| [Launch](/api/E2E/Launch/) | launch from @e2e-dev/core: drive a browser or a device from plain code, with no test runner, config file, or report. A host is one worker on one engine instance: it prepares the engine, initializes it, and opens sessions on it one at a time. Parallel work is more hosts. Upstream's core/launch.ts. |
+| [LaunchApp](/api/E2E/LaunchApp/) | The app a host drives: what app.open() opens on a browser, or launches on a device. Upstream's LaunchApp (core/launch.ts), a pick of the target's app. |
+| [LaunchOptions](/api/E2E/LaunchOptions/) | What LaunchAsync is given. Upstream's LaunchOptions (core/launch.ts). |
 | [Locator](/api/E2E/Locator/) | A query that resolves against a fresh observation every time it is used. |
 | [LocatorExpect](/api/E2E/LocatorExpect/) | Matchers that retry until they pass or the assertion timeout elapses. Each takes an optional timeout that replaces the assertion timeout for that call. |
 | [LocatorExpression](/api/E2E/LocatorExpression/) | A locator expression. Query kinds (role, text, label, testid, placeholder, displayValue) search the descendants of Parent when it is set. filter and index narrow Source. union matches either Left or Right, each node once, in document order. selector is a CSS or XPath selector in the engine's own language, and frame scopes Source into the iframe Selector names. |
@@ -114,6 +126,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ModelToolCall](/api/E2E/ModelToolCall/) |  |
 | [ModelToolChoice](/api/E2E/ModelToolChoice/) | The AI SDK's ToolChoice: auto lets the model answer in prose or call any offered tool, required makes it call some tool, and a named tool makes it call that one. Each provider sends its own form of it (Anthropic's any, Bedrock's any, OpenAI's required, Gemini's ANY). |
 | [ModelWarning](/api/E2E/ModelWarning/) | One of upstream's call warnings (CallWarning): the provider changed the request instead of failing it. A provider that sends auto in place of the forced tool choice it was asked for says so with Type unsupported and Feature toolChoice. |
+| [NewSessionOptions](/api/E2E/NewSessionOptions/) | What NewSessionAsync is given. Upstream's NewSessionOptions (core/launch.ts). |
 | [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/) | Chat-completions client for OpenAI and any server that speaks the same tool-call JSON. Set BaseUrl to a local server such as http://127.0.0.1:11434/v1. The API key is optional for servers that do not check one. ModelProviders has presets for OpenRouter, the Vercel AI Gateway, SpaceXAI, and Ollama. |
 | [OpenAiCompatibleModelOptions](/api/E2E/OpenAiCompatibleModelOptions/) |  |
 | [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/) | OpenAI Responses API client: OpenAI itself, Azure OpenAI (AzureOpenAi), and the subscription backends that only speak Responses. Nothing is stored server side, so each turn carries the whole conversation. A server-sent-event answer is folded back into the completed response. |
@@ -153,6 +166,10 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [Secret](/api/E2E/Secret/) | A value the model must not see. Prompts, transcripts, reports, and the names and test ids an act records in its replay cache entry receive <secret:name>. The agent fills the real value itself. |
 | [Secrets](/api/E2E/Secrets/) | The secrets declared in e2e.config.json. Each value comes from E2E_SECRET_{NAME} when it is set, else from the config. The name is uppercased and every character other than A-Z and 0-9 becomes an underscore. |
 | [SelectOption](/api/E2E/SelectOption/) | One option of a select-like control, named by exactly one of its Label, its Value, or its Index. Upstream's SelectOption object forms { label }, { value }, and { index }; the plain string form is SelectOptionAsync. A select takes one option per call. |
+| [Session](/api/E2E/Session/) | One isolated session: a browser context, or the app on a device. Holds Screen, App, Platform, and Browser. Upstream's Session and SessionControls (core/launch.ts), over the port's E2ESession. |
+| [Session&lt;TFixtures&gt;](/api/E2E/Session-1/) | A session on an engine that contributes fixtures of its own: Fixtures holds them, such as Device on a mobile engine. Upstream's Session<Fixtures> (core/launch.ts), the session type intersected with the engine's fixtures; C# has no intersection, so the engine's fixtures are one member. |
+| [SessionState](/api/E2E/SessionState/) | What a session's SaveStateAsync captures (the engine's cookies, storage, or app data), held in memory. Upstream's SessionState (core/state.ts). It leaves the process only encrypted, under a key the caller holds, as a session-state-1 document; there is no plaintext export. Pass it to NewSessionAsync to start a session from it, on a host of the same engine, platform, and app. |
+| [SessionStateKeyOptions](/api/E2E/SessionStateKeyOptions/) | The options of ExportAsync(SessionStateKeyOptions) and ImportAsync: the AES-256-GCM key, 32 bytes the caller keeps. Upstream's SessionStateKeyOptions. |
 | [SkipException](/api/E2E/SkipException/) | Thrown by Skip when a test stops early and is reported skipped. |
 | [SoftBrowserExpect](/api/E2E/SoftBrowserExpect/) | The browser matchers of BrowserExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, as SoftLocatorExpect does. |
 | [SoftLocatorExpect](/api/E2E/SoftLocatorExpect/) | The locator matchers of LocatorExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, and the test body runs on. Any other error, such as LOCATOR_AMBIGUOUS, still throws. |
@@ -190,7 +207,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ValueExpectation&lt;T&gt;](/api/E2E/ValueExpectation-1/) | Synchronous matchers over a plain value, from That&lt;T&gt;. A failure is an ASSERTION_FAILED TestException. The optional message of the call opens every failure, and survives Not. |
 | [Values](/api/E2E/Values/) | Wraps a fresh value so the replay cache can still match the step. |
 | [VerdictTool](/api/E2E/VerdictTool/) | Upstream's VerdictTool: the conclusion tool, the policy that accepts or refuses the verdict a call carries, and the verdict it collected. Made by CreateVerdictTool; the tool loop adds one to every vocabulary, so an executor of its own that drives a model outside the loop is the only caller of Execute(ModelToolCall). |
-| [WaitForOptions](/api/E2E/WaitForOptions/) | agent.waitFor: a judgment at most once per Interval, and only on a changed screen, until Timeout. |
+| [WaitForOptions](/api/E2E/WaitForOptions/) | agent.waitFor: a judgment on each screen change, at most once per Interval while it keeps changing, until Timeout. |
 | [WebResponse](/api/E2E/WebResponse/) | A response WaitForResponseAsync matched. |
 | [WebRoute](/api/E2E/WebRoute/) | One request a RouteAsync handler intercepted. Take exactly one decision. Each validates its options before it decides, so a rejected option leaves the request undecided, and the request is aborted. |
 

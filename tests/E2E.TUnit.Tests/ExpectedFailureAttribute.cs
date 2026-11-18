@@ -28,7 +28,10 @@ public sealed class ExpectedFailureAttribute(params string[] messageParts) : Att
         var message = result?.Exception?.ToString() ?? "";
         if (result?.State != TestState.Failed)
         {
-            context.Execution.OverrideResult(TestState.Failed, $"The test was to fail, and its state is {result?.State}.");
+            context.Execution.OverrideResult(
+                TestState.Failed,
+                $"The test was to fail, and its state is {result?.State}."
+            );
         }
         else if (messageParts.FirstOrDefault(part => !message.Contains(part, StringComparison.Ordinal)) is { } missing)
         {

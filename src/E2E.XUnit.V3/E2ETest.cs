@@ -24,7 +24,9 @@ namespace E2E.XUnit.V3;
 public abstract class E2ETest : E2EFixture, IAsyncLifetime
 {
     // The attribute that looks before the teardown gets the test, not the instance.
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, E2ETest> Running = new(StringComparer.Ordinal);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, E2ETest> Running = new(
+        StringComparer.Ordinal
+    );
 
     /// <summary>
     /// The test's title: its cache identity, and the <c>Test:</c> line every prompt's context opens with.
@@ -37,7 +39,15 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         ArgumentNullException.ThrowIfNull(test);
         var name = test.TestCase.TestClassName + "." + test.TestCase.TestMethodName;
         return test is IXunitTest { TestMethodArguments.Length: > 0 } row
-            ? name + "(" + string.Join(", ", row.TestMethodArguments.Select(argument => FormatArgument(argument, row.TestMethodArguments.Length > 1))) + ")"
+            ? name
+                + "("
+                + string.Join(
+                    ", ",
+                    row.TestMethodArguments.Select(argument =>
+                        FormatArgument(argument, row.TestMethodArguments.Length > 1)
+                    )
+                )
+                + ")"
             : name;
     }
 
@@ -54,13 +64,21 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         {
             null => "null",
             string text => text.Contains('"', StringComparison.Ordinal)
-                || text.Contains('\\', StringComparison.Ordinal)
-                || text.StartsWith('[')
-                || text == "null"
-                || (quoteComma && text.Contains(',', StringComparison.Ordinal))
-                ? "\"" + text.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\""
+            || text.Contains('\\', StringComparison.Ordinal)
+            || text.StartsWith('[')
+            || text == "null"
+            || (quoteComma && text.Contains(',', StringComparison.Ordinal))
+                ? "\""
+                    + text.Replace("\\", "\\\\", StringComparison.Ordinal)
+                        .Replace("\"", "\\\"", StringComparison.Ordinal)
+                    + "\""
                 : text,
-            System.Collections.IEnumerable items when depth < MaxTitleDepth => "[" + string.Join(", ", items.Cast<object?>().Take(MaxTitleItems).Select(item => FormatArgument(item, true, depth + 1))) + "]",
+            System.Collections.IEnumerable items when depth < MaxTitleDepth => "["
+                + string.Join(
+                    ", ",
+                    items.Cast<object?>().Take(MaxTitleItems).Select(item => FormatArgument(item, true, depth + 1))
+                )
+                + "]",
             _ => Convert.ToString(argument, CultureInfo.InvariantCulture) ?? "null",
         };
     }
@@ -68,10 +86,19 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     public virtual async ValueTask InitializeAsync()
     {
         var current = Xunit.TestContext.Current;
-        var test = current.Test ?? throw new InvalidOperationException("The E2E session starts inside a running xUnit test.");
+        var test = current.Test
+            ?? throw new InvalidOperationException("The E2E session starts inside a running xUnit test.");
         RunSelection.SkipIfLeftOut(GetType(), test.TestCase.TestMethodName);
         RunSelection.SkipIfSetupRan(GetType(), test.TestCase.TestMethodName);
-        await StartSessionAsync(CacheTitle(test), 1, null, HasFailed, current.CancellationToken, (test.TestCase as IXunitTestCase)?.TestMethod?.Method).ConfigureAwait(false);
+        await StartSessionAsync(
+                CacheTitle(test),
+                1,
+                null,
+                HasFailed,
+                current.CancellationToken,
+                (test.TestCase as IXunitTestCase)?.TestMethod?.Method
+            )
+            .ConfigureAwait(false);
         Running[test.UniqueID] = this;
     }
 
@@ -225,7 +252,11 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         return Xunit.TestContext.Current.TestState?.Result == TestResult.Failed;
     }
 
-    private static readonly HashSet<string> CancellationTypes = new(StringComparer.Ordinal) { typeof(OperationCanceledException).FullName!, typeof(TaskCanceledException).FullName! };
+    private static readonly HashSet<string> CancellationTypes = new(StringComparer.Ordinal)
+    {
+        typeof(OperationCanceledException).FullName!,
+        typeof(TaskCanceledException).FullName!,
+    };
 
     // xUnit keeps only the failure's type and message. The session itself knows when an agent call hit
     // a model outage or a stale replay, so the cache still keeps its entries then.
@@ -239,7 +270,10 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
 
         var type = state?.ExceptionTypes?.FirstOrDefault();
         var message = state?.ExceptionMessages?.FirstOrDefault();
-        if (state?.Result == TestResult.Skipped || string.Equals(type, typeof(SkipException).FullName, StringComparison.Ordinal))
+        if (
+            state?.Result == TestResult.Skipped
+            || string.Equals(type, typeof(SkipException).FullName, StringComparison.Ordinal)
+        )
         {
             return new SkipException(string.IsNullOrWhiteSpace(message) ? "skipped" : message);
         }
@@ -247,7 +281,9 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         // A cancelled test stays a cancellation: the session reads the runner's token to tell the user's cancel from any other.
         if (type is not null && CancellationTypes.Contains(type))
         {
-            return new OperationCanceledException(string.IsNullOrWhiteSpace(message) ? "The test was cancelled." : message);
+            return new OperationCanceledException(
+                string.IsNullOrWhiteSpace(message) ? "The test was cancelled." : message
+            );
         }
 
         return new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(message) ? "The test failed." : message);

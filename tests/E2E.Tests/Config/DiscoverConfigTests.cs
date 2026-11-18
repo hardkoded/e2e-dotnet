@@ -71,13 +71,29 @@ public sealed class DiscoverConfigTests
         var relative = E2EConfig.ExplicitConfigNotFound(custom, typed, nested);
         Assert.Equal("CONFIG_NOT_FOUND", relative.Code);
         Assert.Equal(
-            "config file not found: " + nested + " (" + typed + " resolved against the working directory " + custom + "); pass an absolute path, or a path relative to that directory",
-            relative.Message);
-        var absolute = E2EConfig.ExplicitConfigNotFound(root, Path.Combine(root, "missing.config.json"), Path.Combine(root, "missing.config.json"));
+            "config file not found: "
+                + nested
+                + " ("
+                + typed
+                + " resolved against the working directory "
+                + custom
+                + "); pass an absolute path, or a path relative to that directory",
+            relative.Message
+        );
+        var absolute = E2EConfig.ExplicitConfigNotFound(
+            root,
+            Path.Combine(root, "missing.config.json"),
+            Path.Combine(root, "missing.config.json")
+        );
         Assert.Equal("CONFIG_NOT_FOUND", absolute.Code);
         Assert.Equal("config file not found: " + Path.Combine(root, "missing.config.json"), absolute.Message);
 
-        var missing = Path.Combine(Path.GetTempPath(), "e2e-discover", Guid.NewGuid().ToString("n"), "missing.config.json");
+        var missing = Path.Combine(
+            Path.GetTempPath(),
+            "e2e-discover",
+            Guid.NewGuid().ToString("n"),
+            "missing.config.json"
+        );
 
         var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Load(missing));
 

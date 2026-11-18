@@ -23,7 +23,12 @@ public sealed class PageFunctionSourceTests
     {
         await RunAsync(string.Empty, async session =>
         {
-            var result = await ((IBrowserSession)session).EvaluateAsync("function add(value) { return value + 1; }", 41, hasArg: true, CancellationToken.None);
+            var result = await ((IBrowserSession)session).EvaluateAsync(
+                "function add(value) { return value + 1; }",
+                41,
+                hasArg: true,
+                CancellationToken.None
+            );
             Assert.Equal(42, result!.Value.GetInt32());
         });
     }
@@ -33,7 +38,12 @@ public sealed class PageFunctionSourceTests
     {
         await RunAsync(string.Empty, async session =>
         {
-            var result = await ((IBrowserSession)session).EvaluateAsync("async function add(value) { return value + 1; }", 41, hasArg: true, CancellationToken.None);
+            var result = await ((IBrowserSession)session).EvaluateAsync(
+                "async function add(value) { return value + 1; }",
+                41,
+                hasArg: true,
+                CancellationToken.None
+            );
             Assert.Equal(42, result!.Value.GetInt32());
         });
     }

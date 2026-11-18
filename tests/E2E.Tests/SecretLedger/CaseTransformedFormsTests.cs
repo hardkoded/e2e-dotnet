@@ -24,7 +24,10 @@ public sealed class CaseTransformedFormsTests
         var ledger = Ledger.Of(("german", "straße-ǆungla"), ("turkish", "kilit-sifre"), ("greek", "ΚΛΕΙΔΙΣ-77"));
         Assert.Equal("<secret:german> <secret:german>", ledger.Redact("STRASSE-ǄUNGLA Strasse-ǅungla"));
         Assert.Equal("<secret:turkish>", ledger.Redact("KİLİT-SİFRE"));
-        Assert.Equal("<secret:greek> <secret:greek> <secret:greek> κλειδι-77", ledger.Redact("κλειδις-77 κλειδισ-77 Κλειδις-77 κλειδι-77"));
+        Assert.Equal(
+            "<secret:greek> <secret:greek> <secret:greek> κλειδι-77",
+            ledger.Redact("κλειδις-77 κλειδισ-77 Κλειδις-77 κλειδι-77")
+        );
     }
 
     [Fact]

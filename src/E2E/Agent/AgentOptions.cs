@@ -12,7 +12,7 @@ namespace E2E;
 /// One named agent, as upstream <c>agents.&lt;name&gt;</c>. Each entry starts from the built-in
 /// defaults; no agent inherits another's values. A call picks one with its <c>Agent</c> option.
 /// </summary>
-public sealed class AgentOptions
+public class AgentOptions
 {
     /// <summary>
     /// The model behind <c>act</c>. There is no implicit default. A custom <see cref="Executor"/> that brought a model of its
@@ -184,15 +184,32 @@ internal sealed class ResolvedAgent
         Check(options.MaxModelCalls ?? E2EDefaults.MaxModelCalls, label + ".maxModelCalls");
         if (options.JudgmentTimeout <= TimeSpan.Zero)
         {
-            throw new ConfigurationException("INVALID_CONFIG", label + ".judgmentTimeout must be a positive safe integer of milliseconds, got " + ((long)options.JudgmentTimeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                label
+                    + ".judgmentTimeout must be a positive safe integer of milliseconds, got "
+                    + ((long)options.JudgmentTimeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture)
+            );
         }
 
         if (options.JudgmentTimeout.TotalMilliseconds > int.MaxValue)
         {
-            throw new ConfigurationException("INVALID_CONFIG", label + ".judgmentTimeout must be at most " + int.MaxValue.ToString(CultureInfo.InvariantCulture) + " milliseconds, got " + ((long)options.JudgmentTimeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                label
+                    + ".judgmentTimeout must be at most "
+                    + int.MaxValue.ToString(CultureInfo.InvariantCulture)
+                    + " milliseconds, got "
+                    + ((long)options.JudgmentTimeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture)
+            );
         }
 
-        Check(options.MaxObservationBytes, label + ".maxObservationBytes", MinObservationBytes, MaxObservationBytesLimit);
+        Check(
+            options.MaxObservationBytes,
+            label + ".maxObservationBytes",
+            MinObservationBytes,
+            MaxObservationBytesLimit
+        );
         Check(options.MaxInputTokens, label + ".maxInputTokens", 1, MaxInputTokensLimit);
         CheckContext(options.Context, label + ".context");
         CheckProviderOptions(options.ProviderOptions, label);
@@ -227,16 +244,36 @@ internal sealed class ResolvedAgent
 
         if (string.IsNullOrWhiteSpace(executor.Name))
         {
-            throw new ConfigurationException("INVALID_CONFIG", label + ".executor must be a StepExecutor: an IStepExecutor with a name, such as ToolLoop.CreateToolLoopExecutor(...)");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                label
+                    + ".executor must be a StepExecutor: an IStepExecutor with a name, such as ToolLoop.CreateToolLoopExecutor(...)"
+            );
         }
 
-        foreach (var (key, set, brings) in new[] { ("system", options.System is not null, "prompt"), ("tools", options.Tools is not null, "tools") })
+        foreach (
+            var (key, set, brings) in new[]
+            {
+                ("system", options.System is not null, "prompt"),
+                ("tools", options.Tools is not null, "tools"),
+            }
+        )
         {
             if (set)
             {
                 throw new ConfigurationException(
                     "INVALID_CONFIG",
-                    label + "." + key + " is an option of the built-in agent, and " + label + ".executor replaces it: a custom executor brings its own " + brings + "; drop " + key + " or drop executor");
+                    label
+                        + "."
+                        + key
+                        + " is an option of the built-in agent, and "
+                        + label
+                        + ".executor replaces it: a custom executor brings its own "
+                        + brings
+                        + "; drop "
+                        + key
+                        + " or drop executor"
+                );
             }
         }
 
@@ -252,11 +289,27 @@ internal sealed class ResolvedAgent
             return configured;
         }
 
-        if (configured is not null && !ReferenceEquals(configured, brought) && !string.Equals(configured.Name, brought.Name, StringComparison.Ordinal))
+        if (
+            configured is not null
+            && !ReferenceEquals(configured, brought)
+            && !string.Equals(configured.Name, brought.Name, StringComparison.Ordinal)
+        )
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                label + "." + slot + " (" + configured.Name + ") and the executor's own " + slot + " (" + brought.Name + ") differ; configure the " + slot + " in one place");
+                label
+                    + "."
+                    + slot
+                    + " ("
+                    + configured.Name
+                    + ") and the executor's own "
+                    + slot
+                    + " ("
+                    + brought.Name
+                    + ") differ; configure the "
+                    + slot
+                    + " in one place"
+            );
         }
 
         return brought;
@@ -266,8 +319,17 @@ internal sealed class ResolvedAgent
     /// The failure for an agent that needs a model and has none: <paramref name="needs"/> names what needs it, and the message
     /// names the entry to write, under that agent's own key.
     /// </summary>
-    internal static AgentException MissingModelError(string name, string needs = "the agent fixture requires a model") =>
-        new("MODEL_UNAVAILABLE", needs + ", and agents." + name + " has none: set Model on it to an IAgentModel, or model and provider in e2e.config.json");
+    internal static AgentException MissingModelError(
+        string name,
+        string needs = "the agent fixture requires a model"
+    ) =>
+        new(
+            "MODEL_UNAVAILABLE",
+            needs
+                + ", and agents."
+                + name
+                + " has none: set Model on it to an IAgentModel, or model and provider in e2e.config.json"
+        );
 
     internal static void Check(int value, string label) => Check(value, label, 1, MaxBudget);
 
@@ -278,7 +340,12 @@ internal sealed class ResolvedAgent
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                label + " must be an integer from " + min.ToString(CultureInfo.InvariantCulture) + " through " + max.ToString(CultureInfo.InvariantCulture));
+                label
+                    + " must be an integer from "
+                    + min.ToString(CultureInfo.InvariantCulture)
+                    + " through "
+                    + max.ToString(CultureInfo.InvariantCulture)
+            );
         }
     }
 
@@ -294,7 +361,12 @@ internal sealed class ResolvedAgent
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                label + " is " + bytes.ToString(CultureInfo.InvariantCulture) + " bytes; the maximum is " + MaxContextBytes.ToString(CultureInfo.InvariantCulture));
+                label
+                    + " is "
+                    + bytes.ToString(CultureInfo.InvariantCulture)
+                    + " bytes; the maximum is "
+                    + MaxContextBytes.ToString(CultureInfo.InvariantCulture)
+            );
         }
     }
 
@@ -309,14 +381,25 @@ internal sealed class ResolvedAgent
         {
             if (AgentTools.IsReserved(name))
             {
-                throw new ConfigurationException("INVALID_CONFIG", label + ".tools." + name + ": the " + name + " tool name is reserved for the agent's own tools");
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    label + ".tools." + name + ": the " + name + " tool name is reserved for the agent's own tools"
+                );
             }
 
             if (!tool.IsHarness && AgentTools.HarnessToolNames.TryGetValue(name, out var surface))
             {
                 throw new ConfigurationException(
                     "INVALID_CONFIG",
-                    label + ".tools." + name + ": the " + name + " tool name is reserved for the tool the harness adds in " + surface + "; rename it");
+                    label
+                        + ".tools."
+                        + name
+                        + ": the "
+                        + name
+                        + " tool name is reserved for the tool the harness adds in "
+                        + surface
+                        + "; rename it"
+                );
             }
         }
     }
@@ -332,7 +415,10 @@ internal sealed class ResolvedAgent
         {
             if (pair.Value.ValueKind != JsonValueKind.Object)
             {
-                throw new ConfigurationException("INVALID_CONFIG", label + ".providerOptions." + pair.Key + " must be an object of provider options");
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    label + ".providerOptions." + pair.Key + " must be an object of provider options"
+                );
             }
         }
     }

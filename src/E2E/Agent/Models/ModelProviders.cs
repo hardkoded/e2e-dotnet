@@ -28,26 +28,36 @@ public static class ModelProviders
     /// An Azure OpenAI deployment over the Responses API (<c>/openai/v1</c>), reading <c>AZURE_API_KEY</c>.
     /// <paramref name="resourceName"/> defaults to <c>AZURE_RESOURCE_NAME</c>.
     /// </summary>
-    public static OpenAiResponsesModel AzureOpenAi(string deployment, string? resourceName = null, string? apiKey = null)
+    public static OpenAiResponsesModel AzureOpenAi(
+        string deployment,
+        string? resourceName = null,
+        string? apiKey = null
+    )
     {
-        var resource = resourceName ?? ModelHttp.Environment("AZURE_RESOURCE_NAME")
-            ?? throw new ConfigurationException("INVALID_CONFIG", "Azure OpenAI needs a resource name: pass it or set AZURE_RESOURCE_NAME");
+        var resource = resourceName
+            ?? ModelHttp.Environment("AZURE_RESOURCE_NAME")
+            ?? throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "Azure OpenAI needs a resource name: pass it or set AZURE_RESOURCE_NAME"
+            );
         return AzureOpenAiAt(deployment, "https://" + resource + ".openai.azure.com/openai/v1", apiKey);
     }
 
     /// <summary>An Azure OpenAI deployment at an explicit <c>/openai/v1</c> base URL, reading <c>AZURE_API_KEY</c>.</summary>
     public static OpenAiResponsesModel AzureOpenAiAt(string deployment, string baseUrl, string? apiKey = null)
     {
-        return new OpenAiResponsesModel(new OpenAiResponsesModelOptions
-        {
-            Model = deployment,
-            BaseUrl = baseUrl,
-            Provider = "azure",
-            ApiKey = apiKey,
-            ApiKeyEnv = "AZURE_API_KEY",
-            ApiKeyHeader = "api-key",
-            QueryParameters = new Dictionary<string, string>(StringComparer.Ordinal) { ["api-version"] = "v1" },
-        });
+        return new OpenAiResponsesModel(
+            new OpenAiResponsesModelOptions
+            {
+                Model = deployment,
+                BaseUrl = baseUrl,
+                Provider = "azure",
+                ApiKey = apiKey,
+                ApiKeyEnv = "AZURE_API_KEY",
+                ApiKeyHeader = "api-key",
+                QueryParameters = new Dictionary<string, string>(StringComparer.Ordinal) { ["api-version"] = "v1" },
+            }
+        );
     }
 
     /// <summary>Anthropic's Messages API, reading <c>ANTHROPIC_API_KEY</c>.</summary>
@@ -71,27 +81,31 @@ public static class ModelProviders
     /// <summary>The SpaceXAI API, reading <c>XAI_API_KEY</c>.</summary>
     public static OpenAiCompatibleModel Xai(string model, string? apiKey = null)
     {
-        return new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions
-        {
-            Model = model,
-            BaseUrl = "https://api.x.ai/v1",
-            Provider = "xai",
-            ApiKey = apiKey,
-            ApiKeyEnv = "XAI_API_KEY",
-        });
+        return new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions
+            {
+                Model = model,
+                BaseUrl = "https://api.x.ai/v1",
+                Provider = "xai",
+                ApiKey = apiKey,
+                ApiKeyEnv = "XAI_API_KEY",
+            }
+        );
     }
 
     /// <summary>OpenRouter, reading <c>OPENROUTER_API_KEY</c>. Model ids name the upstream, such as <c>openai/gpt-6-luna-fast</c>.</summary>
     public static OpenAiCompatibleModel OpenRouter(string model, string? apiKey = null)
     {
-        return new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions
-        {
-            Model = model,
-            BaseUrl = "https://openrouter.ai/api/v1",
-            Provider = "openrouter",
-            ApiKey = apiKey,
-            ApiKeyEnv = "OPENROUTER_API_KEY",
-        });
+        return new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions
+            {
+                Model = model,
+                BaseUrl = "https://openrouter.ai/api/v1",
+                Provider = "openrouter",
+                ApiKey = apiKey,
+                ApiKeyEnv = "OPENROUTER_API_KEY",
+            }
+        );
     }
 
     /// <summary>
@@ -100,26 +114,30 @@ public static class ModelProviders
     /// </summary>
     public static OpenAiCompatibleModel Gateway(string model, string? apiKey = null)
     {
-        return new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions
-        {
-            Model = model,
-            BaseUrl = "https://ai-gateway.vercel.sh/v1",
-            Provider = "gateway",
-            ApiKey = apiKey,
-            ApiKeyEnv = "AI_GATEWAY_API_KEY",
-            ApiKeyFallbackEnv = "VERCEL_OIDC_TOKEN",
-        });
+        return new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions
+            {
+                Model = model,
+                BaseUrl = "https://ai-gateway.vercel.sh/v1",
+                Provider = "gateway",
+                ApiKey = apiKey,
+                ApiKeyEnv = "AI_GATEWAY_API_KEY",
+                ApiKeyFallbackEnv = "VERCEL_OIDC_TOKEN",
+            }
+        );
     }
 
     /// <summary>A local Ollama server's OpenAI-compatible API, no key.</summary>
     public static OpenAiCompatibleModel Ollama(string model, string baseUrl = "http://127.0.0.1:11434/v1")
     {
-        return new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions
-        {
-            Model = model,
-            BaseUrl = baseUrl,
-            Provider = "openai-compatible",
-            ApiKeyEnv = "LLM_API_KEY",
-        });
+        return new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions
+            {
+                Model = model,
+                BaseUrl = baseUrl,
+                Provider = "openai-compatible",
+                ApiKeyEnv = "LLM_API_KEY",
+            }
+        );
     }
 }

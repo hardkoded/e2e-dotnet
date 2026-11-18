@@ -23,39 +23,69 @@ public sealed partial class CreateToolLoopExecutorTests
 
     private static JsonElement Schema(string json) => JsonDocument.Parse(json).RootElement;
 
-    private static ToolLoopTool ReadScreen(StepExecutorContext context) => new(
-        new ModelTool { Name = "read_screen", Description = "Read the screen as text", Parameters = Schema("""{ "type": "object", "properties": {} }""") },
-        async (_, token) => new ToolLoopResult((await context.ObserveAsync(cancellationToken: token)).Text));
+    private static ToolLoopTool ReadScreen(StepExecutorContext context) =>
+        new(
+            new ModelTool
+            {
+                Name = "read_screen",
+                Description = "Read the screen as text",
+                Parameters = Schema("""{ "type": "object", "properties": {} }"""),
+            },
+            async (_, token) => new ToolLoopResult((await context.ObserveAsync(cancellationToken: token)).Text)
+        );
 
-    private static ToolLoopTool Tap(StepExecutorContext context) => new(
-        new ModelTool { Name = "tap", Description = "Tap a node by its ref", Parameters = Schema("""{ "type": "object", "properties": { "ref": { "type": "string" } }, "required": ["ref"] }""") },
-        async (call, token) =>
-        {
-            await context.Actions.TapAsync(new ExecutorTarget(call.Arguments.GetProperty("ref").GetString()!), token);
-            return new ToolLoopResult("Tapped.");
-        });
+    private static ToolLoopTool Tap(StepExecutorContext context) =>
+        new(
+            new ModelTool
+            {
+                Name = "tap",
+                Description = "Tap a node by its ref",
+                Parameters = Schema(
+                    """{ "type": "object", "properties": { "ref": { "type": "string" } }, "required": ["ref"] }"""
+                ),
+            },
+            async (call, token) =>
+            {
+                await context.Actions.TapAsync(
+                    new ExecutorTarget(call.Arguments.GetProperty("ref").GetString()!),
+                    token
+                );
+                return new ToolLoopResult("Tapped.");
+            }
+        );
 
-    private static IStepExecutor TapOnly(Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoopTool>>? tools = null, IAgentModel? model = null, Func<IReadOnlyList<ModelMessage>, PreparedTurn, PreparedMessages>? prepare = null) =>
-        ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
-        {
-            Name = "tap-only",
-            Version = "1",
-            Model = model,
-            System = _ => "Read the screen before acting.",
-            BuildPrompt = context => Task.FromResult(context.Step.Instruction),
-            Tools = tools ?? ((context, _) => [ReadScreen(context), Tap(context)]),
-            PrepareMessages = prepare,
-        });
+    private static IStepExecutor TapOnly(
+        Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoopTool>>? tools = null,
+        IAgentModel? model = null,
+        Func<IReadOnlyList<ModelMessage>, PreparedTurn, PreparedMessages>? prepare = null
+    ) =>
+        ToolLoop.CreateToolLoopExecutor(
+            new ToolLoopExecutorOptions
+            {
+                Name = "tap-only",
+                Version = "1",
+                Model = model,
+                System = _ => "Read the screen before acting.",
+                BuildPrompt = context => Task.FromResult(context.Step.Instruction),
+                Tools = tools ?? ((context, _) => [ReadScreen(context), Tap(context)]),
+                PrepareMessages = prepare,
+            }
+        );
 
     [Fact]
     public async Task Runs_a_vocabulary_of_its_own_and_adds_the_done_tool()
     {
-        var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
-        {
-            0 => ModelResponses.Call("read_screen", new { }),
-            1 => ModelResponses.Call("tap", new { @ref = IncrementRef(request.Messages.Last(message => message.Role == "tool").Content!) }),
-            _ => ModelResponses.Done("passed", "tapped Increment"),
-        });
+        var model = new ScriptedModel(request =>
+            request.Messages.Count(message => message.Role == "tool") switch
+            {
+                0 => ModelResponses.Call("read_screen", new { }),
+                1 => ModelResponses.Call(
+                    "tap",
+                    new { @ref = IncrementRef(request.Messages.Last(message => message.Role == "tool").Content!) }
+                ),
+                _ => ModelResponses.Done("passed", "tapped Increment"),
+            }
+        );
         ActResult? act = null;
 
         var result = await RunAsync(
@@ -67,12 +97,19 @@ public sealed partial class CreateToolLoopExecutorTests
             },
             CounterPage.World(),
             model,
-            executor: TapOnly());
+            executor: TapOnly()
+        );
 
         Assert.Null(result.Error);
         Assert.Equal(["read_screen", "tap", "complete_step"], model.Requests[0].Tools.Select(tool => tool.Name));
         Assert.Equal(Instruction, model.Requests[0].Messages[0].Content);
-        Assert.Equal("Read the screen before acting.\n\n" + AgentTools.VerdictRules + "\n- " + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule, model.Requests[0].System);
+        Assert.Equal(
+            "Read the screen before acting.\n\n"
+                + AgentTools.VerdictRules
+                + "\n- "
+                + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule,
+            model.Requests[0].System
+        );
         Assert.Equal(3, act!.ModelCalls);
         Assert.Equal(1, act.Actions);
         Assert.All(model.Requests, request => Assert.True(request.MarkLatest));
@@ -82,35 +119,53 @@ public sealed partial class CreateToolLoopExecutorTests
     public async Task Appends_the_project_context_of_the_agent_to_its_guidance()
     {
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "nothing to do"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(CounterPage.World()),
-            Model = model,
-            AgentExecutor = TapOnly(),
-            AgentContext = "Plans are tiers.",
-            BaseUrl = "https://counter.test",
-            TestTitle = "context",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                Model = model,
+                AgentExecutor = TapOnly(),
+                AgentContext = "Plans are tiers.",
+                BaseUrl = "https://counter.test",
+                TestTitle = "context",
+            }
+        );
         await session.App.OpenAsync("/");
 
         await session.Agent.ActAsync(Instruction);
         session.Complete();
 
-        Assert.Equal("Read the screen before acting.\n\nProject context:\nPlans are tiers.\n\n" + AgentTools.VerdictRules + "\n- " + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule, model.Requests[0].System);
+        Assert.Equal(
+            "Read the screen before acting.\n\nProject context:\nPlans are tiers.\n\n"
+                + AgentTools.VerdictRules
+                + "\n- "
+                + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule,
+            model.Requests[0].System
+        );
     }
 
     [Fact]
     public async Task Hands_the_model_a_tool_that_threw_as_a_failed_call_and_goes_on()
     {
-        var tools = new Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoopTool>>((_, _) =>
-        [
-            new ToolLoopTool(
-                new ModelTool { Name = "lookup", Description = "Looks something up", Parameters = Schema("""{ "type": "object", "properties": {} }""") },
-                (_, _) => throw new InvalidOperationException("the lookup is down")),
-        ]);
-        var model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
-            ? ModelResponses.Done("blocked", "the lookup is down", "ENVIRONMENT_UNAVAILABLE")
-            : ModelResponses.Call("lookup", new { }));
+        var tools = new Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoopTool>>(
+            (_, _) =>
+                [
+                    new ToolLoopTool(
+                        new ModelTool
+                        {
+                            Name = "lookup",
+                            Description = "Looks something up",
+                            Parameters = Schema("""{ "type": "object", "properties": {} }"""),
+                        },
+                        (_, _) => throw new InvalidOperationException("the lookup is down")
+                    ),
+                ]
+        );
+        var model = new ScriptedModel(request =>
+            request.Messages.Any(message => message.Role == "tool")
+                ? ModelResponses.Done("blocked", "the lookup is down", "ENVIRONMENT_UNAVAILABLE")
+                : ModelResponses.Call("lookup", new { })
+        );
 
         var result = await RunAsync(
             async ctx =>
@@ -120,7 +175,8 @@ public sealed partial class CreateToolLoopExecutorTests
             },
             CounterPage.World(),
             model,
-            executor: TapOnly(tools));
+            executor: TapOnly(tools)
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("ENVIRONMENT_UNAVAILABLE", error.Code);
@@ -132,19 +188,27 @@ public sealed partial class CreateToolLoopExecutorTests
     [Fact]
     public async Task Ends_the_loop_when_a_tool_raises_a_hard_stop_of_the_step()
     {
-        var tools = new Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoopTool>>((context, _) =>
-        [
-            new ToolLoopTool(
-                new ModelTool { Name = "tap_twice", Description = "Taps the button twice", Parameters = Schema("""{ "type": "object", "properties": {} }""") },
-                async (_, token) =>
-                {
-                    var observation = await context.ObserveAsync(cancellationToken: token);
-                    var increment = TargetFor(observation.Text, "button \"Increment\"");
-                    await context.Actions.TapAsync(increment, token);
-                    await context.Actions.TapAsync(increment, token);
-                    return new ToolLoopResult("Tapped twice.");
-                }),
-        ]);
+        var tools = new Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoopTool>>(
+            (context, _) =>
+                [
+                    new ToolLoopTool(
+                        new ModelTool
+                        {
+                            Name = "tap_twice",
+                            Description = "Taps the button twice",
+                            Parameters = Schema("""{ "type": "object", "properties": {} }"""),
+                        },
+                        async (_, token) =>
+                        {
+                            var observation = await context.ObserveAsync(cancellationToken: token);
+                            var increment = TargetFor(observation.Text, "button \"Increment\"");
+                            await context.Actions.TapAsync(increment, token);
+                            await context.Actions.TapAsync(increment, token);
+                            return new ToolLoopResult("Tapped twice.");
+                        }
+                    ),
+                ]
+        );
         var model = new ScriptedModel(_ => ModelResponses.Call("tap_twice", new { }));
 
         var result = await RunAsync(
@@ -155,7 +219,8 @@ public sealed partial class CreateToolLoopExecutorTests
             },
             CounterPage.World(),
             model,
-            executor: TapOnly(tools));
+            executor: TapOnly(tools)
+        );
 
         Assert.Equal("STEP_BUDGET_EXHAUSTED", Assert.IsType<AgentException>(result.Error).Code);
         Assert.Equal(1, model.CallCount);
@@ -174,22 +239,27 @@ public sealed partial class CreateToolLoopExecutorTests
             },
             CounterPage.World(),
             model,
-            executor: TapOnly(prepare: (messages, _) => new PreparedMessages(messages, "the step makes no progress")));
+            executor: TapOnly(prepare: (messages, _) => new PreparedMessages(messages, "the step makes no progress"))
+        );
 
         Assert.Equal("ACTION_FAILED", Assert.IsType<AgentException>(result.Error).Code);
         Assert.Equal(["complete_step"], model.Requests[0].Tools.Select(tool => tool.Name));
-        Assert.Contains(model.Requests[0].Messages, message => message.Content?.Contains("the step makes no progress", StringComparison.Ordinal) == true);
+        Assert.Contains(model.Requests[0].Messages, message =>
+            message.Content?.Contains("the step makes no progress", StringComparison.Ordinal) == true
+        );
     }
 
     [Fact]
     public async Task Tells_the_preparation_which_turn_it_is_and_what_the_turn_before_called()
     {
         var seen = new List<(int Step, string Calls)>();
-        var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
-        {
-            0 => ModelResponses.Call("read_screen", new { }),
-            _ => ModelResponses.Done("passed", "looked"),
-        });
+        var model = new ScriptedModel(request =>
+            request.Messages.Count(message => message.Role == "tool") switch
+            {
+                0 => ModelResponses.Call("read_screen", new { }),
+                _ => ModelResponses.Done("passed", "looked"),
+            }
+        );
 
         var result = await RunAsync(
             async ctx =>
@@ -199,11 +269,14 @@ public sealed partial class CreateToolLoopExecutorTests
             },
             CounterPage.World(),
             model,
-            executor: TapOnly(prepare: (messages, turn) =>
-            {
-                seen.Add((turn.StepNumber, string.Join(",", turn.PreviousToolCalls)));
-                return new PreparedMessages(messages);
-            }));
+            executor: TapOnly(
+                prepare: (messages, turn) =>
+                {
+                    seen.Add((turn.StepNumber, string.Join(",", turn.PreviousToolCalls)));
+                    return new PreparedMessages(messages);
+                }
+            )
+        );
 
         Assert.Null(result.Error);
         Assert.Equal([(0, ""), (1, "read_screen")], seen);
@@ -219,7 +292,8 @@ public sealed partial class CreateToolLoopExecutorTests
                 await ctx.Agent.ActAsync(Instruction);
             },
             CounterPage.World(),
-            executor: TapOnly());
+            executor: TapOnly()
+        );
 
         Assert.Equal("MODEL_UNAVAILABLE", Assert.IsType<AgentException>(result.Error).Code);
     }
@@ -238,7 +312,8 @@ public sealed partial class CreateToolLoopExecutorTests
                 await ctx.Agent.ActAsync(Instruction);
             },
             CounterPage.World(),
-            executor: executor);
+            executor: executor
+        );
 
         Assert.Same(model, agent.Model);
         Assert.Same(model, agent.Judge);
@@ -251,9 +326,11 @@ public sealed partial class CreateToolLoopExecutorTests
     {
         var inner = DefaultAgent.CreateBuiltInAgent(new BuiltInAgentOptions { System = "Be careful." });
         var wrapper = new TestExecutor("wrapper", (context, token) => inner.RunStepAsync(context, token));
-        var model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
-            ? ModelResponses.Done("passed", "tapped")
-            : ModelResponses.Tap("button", "Increment"));
+        var model = new ScriptedModel(request =>
+            request.Messages.Any(message => message.Role == "tool")
+                ? ModelResponses.Done("passed", "tapped")
+                : ModelResponses.Tap("button", "Increment")
+        );
 
         var result = await RunAsync(
             async ctx =>
@@ -264,7 +341,8 @@ public sealed partial class CreateToolLoopExecutorTests
             },
             CounterPage.World(),
             model,
-            executor: wrapper);
+            executor: wrapper
+        );
 
         Assert.Null(result.Error);
         Assert.Contains("Be careful.", model.Requests[0].System, StringComparison.Ordinal);
@@ -278,7 +356,9 @@ public sealed partial class CreateToolLoopExecutorTests
         var inner = DefaultAgent.CreateBuiltInAgent();
         var context = new HandBuiltContext();
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => inner.RunStepAsync(context, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            inner.RunStepAsync(context, CancellationToken.None)
+        );
 
         Assert.Contains("a context built by hand", error.Message, StringComparison.Ordinal);
     }
@@ -286,12 +366,16 @@ public sealed partial class CreateToolLoopExecutorTests
     [Fact]
     public void Refuses_a_tool_loop_with_no_name()
     {
-        var error = Assert.Throws<TestException>(() => ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
-        {
-            Name = " ",
-            Tools = (_, _) => [],
-            BuildPrompt = _ => Task.FromResult("go"),
-        }));
+        var error = Assert.Throws<TestException>(() =>
+            ToolLoop.CreateToolLoopExecutor(
+                new ToolLoopExecutorOptions
+                {
+                    Name = " ",
+                    Tools = (_, _) => [],
+                    BuildPrompt = _ => Task.FromResult("go"),
+                }
+            )
+        );
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
     }
@@ -326,9 +410,7 @@ public sealed partial class CreateToolLoopExecutorTests
 
         public int RemainingMs() => 60_000;
 
-        public void RecordModelCall(ExecutorModelCall? usage = null)
-        {
-        }
+        public void RecordModelCall(ExecutorModelCall? usage = null) { }
 
         public Task<T> RunToolAsync<T>(string name, bool mutates, Func<Task<T>> body) => body();
     }

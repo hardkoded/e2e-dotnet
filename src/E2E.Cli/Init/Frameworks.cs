@@ -29,7 +29,8 @@ internal sealed record FrameworkPreset(
     string TestAttribute,
     string TrueAssertion,
     bool Executable,
-    string TestCommand = "dotnet test");
+    string TestCommand = "dotnet test"
+);
 
 /// <summary>.NET-only: the test frameworks of the scaffold. NUnit is the default, as the get-started pages lead with it.</summary>
 internal static class Frameworks
@@ -44,17 +45,14 @@ internal static class Frameworks
             "nunit",
             "NUnit",
             "NUnit",
-            [
-                new("Microsoft.NET.Test.Sdk", "17.14.1"),
-                new("NUnit", "5.0.0"),
-                new("NUnit3TestAdapter", "6.3.0"),
-            ],
+            [new("Microsoft.NET.Test.Sdk", "17.14.1"), new("NUnit", "5.0.0"), new("NUnit3TestAdapter", "6.3.0")],
             "NUnit",
             "E2E.NUnit",
             "NUnit.Framework",
             "Test",
             "Assert.That({0}, Is.True)",
-            false),
+            false
+        ),
         new FrameworkPreset(
             "xunit",
             "xUnit v3",
@@ -69,31 +67,40 @@ internal static class Frameworks
             "Xunit",
             "Fact",
             "Assert.True({0})",
-            true),
+            true
+        ),
         new FrameworkPreset(
             "tunit",
             "TUnit",
             "TUnit",
-            [
-                new("TUnit", "1.83.8"),
-            ],
+            [new("TUnit", "1.83.8")],
             "TUnit",
             "E2E.TUnit",
             "TUnit.Core",
             "Test",
             "await Assert.That({0}).IsTrue()",
             true,
-            "dotnet run"),
+            "dotnet run"
+        ),
     ];
 
     /// <summary>Resolves a framework by id.</summary>
     public static FrameworkPreset Get(string id) =>
-        All.FirstOrDefault(entry => entry.Id == id) ?? throw new ArgumentException("unknown framework: " + id, nameof(id));
+        All.FirstOrDefault(entry => entry.Id == id)
+        ?? throw new ArgumentException("unknown framework: " + id, nameof(id));
 
     /// <summary>The framework a project already uses, judged by the packages it names, or null when it names neither.</summary>
     public static FrameworkPreset? Detect(IEnumerable<string> packages)
     {
         var names = packages.ToList();
-        return All.FirstOrDefault(entry => names.Any(name => name.StartsWith(entry.Marker, StringComparison.OrdinalIgnoreCase) || (name.StartsWith("E2E.", StringComparison.OrdinalIgnoreCase) && name.Contains(entry.Marker, StringComparison.OrdinalIgnoreCase))));
+        return All.FirstOrDefault(entry =>
+            names.Any(name =>
+                name.StartsWith(entry.Marker, StringComparison.OrdinalIgnoreCase)
+                || (
+                    name.StartsWith("E2E.", StringComparison.OrdinalIgnoreCase)
+                    && name.Contains(entry.Marker, StringComparison.OrdinalIgnoreCase)
+                )
+            )
+        );
     }
 }

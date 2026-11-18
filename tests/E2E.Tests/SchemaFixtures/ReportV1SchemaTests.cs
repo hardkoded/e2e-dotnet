@@ -15,9 +15,11 @@ public sealed class ReportV1SchemaTests
 
     private static JsonObject Result(JsonNode report, int index = 0) => Run(report)["results"]![index]!.AsObject();
 
-    private static JsonObject Attempt(JsonNode report, int result = 0, int index = 0) => Result(report, result)["attempts"]![index]!.AsObject();
+    private static JsonObject Attempt(JsonNode report, int result = 0, int index = 0) =>
+        Result(report, result)["attempts"]![index]!.AsObject();
 
-    private static JsonArray Repeat(string text, int count) => [.. Enumerable.Repeat(text, count).Select(each => System.Text.Json.Nodes.JsonValue.Create(each))];
+    private static JsonArray Repeat(string text, int count) =>
+        [.. Enumerable.Repeat(text, count).Select(each => System.Text.Json.Nodes.JsonValue.Create(each))];
 
     private static void Check(JsonNode report, params (Action Break, Action Fix)[] cases)
     {
@@ -37,7 +39,8 @@ public sealed class ReportV1SchemaTests
     }
 
     [Fact]
-    public void Rejects_the_invalid_fixture() => Assert.False(ReportSchema.IsValid(ReportSchema.ReadJson("fixtures", "report-v1.invalid.json")));
+    public void Rejects_the_invalid_fixture() =>
+        Assert.False(ReportSchema.IsValid(ReportSchema.ReadJson("fixtures", "report-v1.invalid.json")));
 
     [Fact]
     public void Accepts_optional_runner_cut_retry_decisions_and_rejects_other_types()
@@ -51,7 +54,14 @@ public sealed class ReportV1SchemaTests
             Assert.True(ReportSchema.IsValid(report));
         }
 
-        foreach (JsonNode? cutRetry in new JsonNode?[] { System.Text.Json.Nodes.JsonValue.Create("true"), System.Text.Json.Nodes.JsonValue.Create(1), null })
+        foreach (
+            JsonNode? cutRetry in new JsonNode?[]
+            {
+                System.Text.Json.Nodes.JsonValue.Create("true"),
+                System.Text.Json.Nodes.JsonValue.Create(1),
+                null,
+            }
+        )
         {
             attempt["cutRetry"] = cutRetry;
             Assert.False(ReportSchema.IsValid(report));
@@ -69,7 +79,10 @@ public sealed class ReportV1SchemaTests
         var step = attempt["steps"]![0]!.AsObject();
         var cache = step["cache"]!.AsObject();
         var line = attempt["appLog"]![0]!.AsObject();
-        var navigation = step["events"]!.AsArray().Select(each => each!.AsObject()).First(each => (string?)each["kind"] == "navigation");
+        var navigation = step["events"]!
+            .AsArray()
+            .Select(each => each!.AsObject())
+            .First(each => (string?)each["kind"] == "navigation");
 
         Check(
             report,
@@ -81,7 +94,8 @@ public sealed class ReportV1SchemaTests
             (() => step["phase"] = "body", () => step.Remove("phase")),
             (() => cache["detail"] = new string('x', 601), () => cache["detail"] = new string('x', 600)),
             (() => cache["entry"] = "not-a-digest", () => cache["entry"] = new string('a', 64)),
-            (() => cache["write"] = "written", () => cache["write"] = "kept"));
+            (() => cache["write"] = "written", () => cache["write"] = "kept")
+        );
     }
 
     [Fact]
@@ -96,8 +110,15 @@ public sealed class ReportV1SchemaTests
             (() => screen["changes"] = Repeat("added x", 13), () => screen["changes"] = Repeat("added x", 12)),
             (() => screen["more"] = 0, () => screen["more"] = 1),
             (() => screen.Remove("nodes"), () => screen["nodes"] = 0),
-            (() => attempt["environment"] = new JsonObject { ["browser"] = new string('x', 201) }, () => attempt["environment"] = new JsonObject { ["browser"] = new string('x', 200) }),
-            (() => attempt["environment"] = new JsonObject { ["cores"] = 8 }, () => attempt["environment"] = new JsonObject { ["cores"] = "8" }));
+            (
+                () => attempt["environment"] = new JsonObject { ["browser"] = new string('x', 201) },
+                () => attempt["environment"] = new JsonObject { ["browser"] = new string('x', 200) }
+            ),
+            (
+                () => attempt["environment"] = new JsonObject { ["cores"] = 8 },
+                () => attempt["environment"] = new JsonObject { ["cores"] = "8" }
+            )
+        );
     }
 
     [Fact]
@@ -123,7 +144,10 @@ public sealed class ReportV1SchemaTests
     public void Lets_a_video_be_a_link_a_hosted_service_keeps_http_s_only()
     {
         var report = Valid();
-        var link = Attempt(report)["artifacts"]!.AsArray().Select(each => each!.AsObject()).First(each => each["url"] is not null);
+        var link = Attempt(report)["artifacts"]!
+            .AsArray()
+            .Select(each => each!.AsObject())
+            .First(each => each["url"] is not null);
 
         Assert.Equal("video", (string?)link["kind"]);
         Assert.Equal("incomplete", (string?)link["redaction"]);
@@ -139,17 +163,24 @@ public sealed class ReportV1SchemaTests
     public void Lets_a_suite_hook_failure_name_its_scope_a_project_relative_file_a_target_and_describe_titles()
     {
         var report = Valid();
-        JsonObject Hook(JsonObject scope) => new()
-        {
-            ["category"] = "test",
-            ["code"] = "HOOK_FAILED",
-            ["message"] = "afterAll failed: teardown broke",
-            ["retryable"] = false,
-            ["phase"] = "afterAll",
-            ["scopeId"] = "checkout",
-            ["scope"] = scope,
-        };
-        JsonObject Scope() => new() { ["file"] = "tests/example.e2e.ts", ["targetId"] = "web", ["titlePath"] = new JsonArray("checkout") };
+        JsonObject Hook(JsonObject scope) =>
+            new()
+            {
+                ["category"] = "test",
+                ["code"] = "HOOK_FAILED",
+                ["message"] = "afterAll failed: teardown broke",
+                ["retryable"] = false,
+                ["phase"] = "afterAll",
+                ["scopeId"] = "checkout",
+                ["scope"] = scope,
+            };
+        JsonObject Scope() =>
+            new()
+            {
+                ["file"] = "tests/example.e2e.ts",
+                ["targetId"] = "web",
+                ["titlePath"] = new JsonArray("checkout"),
+            };
 
         Run(report)["errors"] = new JsonArray(Hook(Scope()));
         Assert.True(ReportSchema.IsValid(report));
@@ -175,11 +206,18 @@ public sealed class ReportV1SchemaTests
     {
         var report = Valid();
         var run = Run(report);
-        var skip = run["results"]!.AsArray().Select(each => each!["skip"]).First(each => each?["filter"] is not null)!.AsObject();
+        var skip = run["results"]!
+            .AsArray()
+            .Select(each => each!["skip"])
+            .First(each => each?["filter"] is not null)!
+            .AsObject();
         Assert.Equal("filtered", (string?)skip["cause"]);
         Assert.Equal("areas", (string?)skip["filter"]);
         var filter = run["filters"]![0]!.AsObject();
-        var timedOut = run["filters"]!.AsArray().Select(each => each!.AsObject()).First(each => (string?)each["outcome"] == "timed-out");
+        var timedOut = run["filters"]!
+            .AsArray()
+            .Select(each => each!.AsObject())
+            .First(each => (string?)each["outcome"] == "timed-out");
         var changes = run["changes"]!.AsObject();
         var error = run["errors"]![0]!.AsObject();
         Assert.True(ReportSchema.IsValid(report));
@@ -209,14 +247,19 @@ public sealed class ReportV1SchemaTests
             (() => changes["skipped"] = "", () => changes["skipped"] = "no tests to judge"),
             (() => changes["skipped"] = new string('x', 1025), () => changes["skipped"] = new string('x', 1024)),
             (() => changes["paths"] = new JsonArray("src/app.ts"), () => changes.Remove("paths")),
-            (() => error["phase"] = "filtering", () => error["phase"] = "filter"));
+            (() => error["phase"] = "filtering", () => error["phase"] = "filter")
+        );
 
         // A run that called no filter before git was asked says why, and nothing about a change.
         run["changes"] = new JsonObject { ["skipped"] = "--last-failed" };
         Assert.True(ReportSchema.IsValid(report));
         foreach (var counted in new[] { ("files", (JsonNode)0), ("base", new string('a', 40)) })
         {
-            run["changes"] = new JsonObject { ["skipped"] = "--last-failed", [counted.Item1] = counted.Item2.DeepClone() };
+            run["changes"] = new JsonObject
+            {
+                ["skipped"] = "--last-failed",
+                [counted.Item1] = counted.Item2.DeepClone(),
+            };
             Assert.False(ReportSchema.IsValid(report));
         }
 
@@ -235,7 +278,9 @@ public sealed class ReportV1SchemaTests
         Assert.True(ReportSchema.IsValid(report));
         Run(report)["summary"]!.AsObject().Remove("interrupted");
         Assert.False(ReportSchema.IsValid(report));
-        Assert.Contains(ReportSchema.Errors(report, "required"), message => message.Contains("interrupted", StringComparison.Ordinal));
+        Assert.Contains(ReportSchema.Errors(report, "required"), message =>
+            message.Contains("interrupted", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -251,7 +296,14 @@ public sealed class ReportV1SchemaTests
         Assert.False(ReportSchema.IsValid(report));
         attempt["skip"] = skip;
         attempt["status"] = "failed";
-        attempt["error"] = new JsonObject { ["category"] = "test", ["code"] = "ASSERTION_FAILED", ["message"] = "1 soft assertion failed", ["retryable"] = true, ["phase"] = "body" };
+        attempt["error"] = new JsonObject
+        {
+            ["category"] = "test",
+            ["code"] = "ASSERTION_FAILED",
+            ["message"] = "1 soft assertion failed",
+            ["retryable"] = true,
+            ["phase"] = "body",
+        };
         Assert.True(ReportSchema.IsValid(report));
         attempt.Remove("error");
         attempt["status"] = "passed";
@@ -289,7 +341,10 @@ public sealed class ReportV1SchemaTests
     public void Requires_judgment_evidence_after_a_model_call_while_allowing_capture_failures_before_one()
     {
         var report = Valid();
-        var judgment = Attempt(report)["steps"]!.AsArray().Select(each => each!.AsObject()).First(each => (string?)each["api"] == "agent.assert");
+        var judgment = Attempt(report)["steps"]!
+            .AsArray()
+            .Select(each => each!.AsObject())
+            .First(each => (string?)each["api"] == "agent.assert");
         Assert.Equal(0, (int)judgment["metrics"]!["modelCalls"]!);
         Assert.True(ReportSchema.IsValid(report));
 
@@ -310,7 +365,10 @@ public sealed class ReportV1SchemaTests
     public void Accepts_only_a_boolean_observation_truncation_marker()
     {
         var report = Valid();
-        var act = Attempt(report)["steps"]!.AsArray().Select(each => each!.AsObject()).First(each => (string?)each["api"] == "agent.act");
+        var act = Attempt(report)["steps"]!
+            .AsArray()
+            .Select(each => each!.AsObject())
+            .First(each => (string?)each["api"] == "agent.act");
         Assert.True((bool)act["observationTruncated"]!);
         Assert.True(ReportSchema.IsValid(report));
         act["observationTruncated"] = "yes";
@@ -323,7 +381,10 @@ public sealed class ReportV1SchemaTests
     public void Lets_only_a_gap_name_the_rule_that_made_a_typed_value_run_time_data()
     {
         var report = Valid();
-        var cache = Attempt(report)["steps"]!.AsArray().Select(each => each!.AsObject()).First(each => (string?)each["api"] == "agent.act")["cache"]!.AsObject();
+        var cache = Attempt(report)["steps"]!
+            .AsArray()
+            .Select(each => each!.AsObject())
+            .First(each => (string?)each["api"] == "agent.act")["cache"]!.AsObject();
         Assert.Equal("gap", (string?)cache["reason"]);
         Assert.Equal("minted-token", (string?)cache["derived"]);
         Assert.True(ReportSchema.IsValid(report));
@@ -361,7 +422,12 @@ public sealed class ReportV1SchemaTests
             new JsonObject { ["provider"] = "test", ["model"] = "  " },
             new JsonObject { ["provider"] = "test" },
             new JsonObject { ["provider"] = "test", ["model"] = 1 },
-            new JsonObject { ["provider"] = "test", ["model"] = "A", ["calls"] = 1 },
+            new JsonObject
+            {
+                ["provider"] = "test",
+                ["model"] = "A",
+                ["calls"] = 1,
+            },
         ];
         foreach (var recordedBy in bad)
         {
@@ -377,7 +443,11 @@ public sealed class ReportV1SchemaTests
     public void Lets_a_missed_or_handed_off_step_say_why_it_was_not_recorded_with_a_closed_reason()
     {
         var report = Valid();
-        var steps = Run(report)["results"]!.AsArray().SelectMany(result => result!["attempts"]!.AsArray()).SelectMany(attempt => attempt!["steps"]!.AsArray()).Select(step => step!.AsObject());
+        var steps = Run(report)["results"]!
+            .AsArray()
+            .SelectMany(result => result!["attempts"]!.AsArray())
+            .SelectMany(attempt => attempt!["steps"]!.AsArray())
+            .Select(step => step!.AsObject());
         var cache = steps.First(step => step["cache"]?["notRecorded"] is not null)["cache"]!.AsObject();
         Assert.Equal("missed", (string?)cache["mode"]);
         Assert.Equal("param-collision", (string?)cache["notRecorded"]);

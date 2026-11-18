@@ -18,10 +18,17 @@ public sealed class TheBuiltCliAndTheBundledSkillTests
             var overview = await RunAsync(dir, "guide");
             Assert.StartsWith("# e2e", overview.Stdout, StringComparison.Ordinal);
             var topic = await RunAsync(dir, "guide", "writing-tests");
-            Assert.Equal(await File.ReadAllTextAsync(Path.Combine(RepoSkill(), "references", "writing-tests.md")), topic.Stdout);
+            Assert.Equal(
+                await File.ReadAllTextAsync(Path.Combine(RepoSkill(), "references", "writing-tests.md")),
+                topic.Stdout
+            );
             var unknown = await RunAsync(dir, "guide", "nope");
             Assert.Equal(2, unknown.Code);
-            Assert.Contains("unknown topic \"nope\"; topics: agent, bug-bash, debugging, explore, host, mcp, mobile, running, setup, windows, writing-tests, writing-tests-nunit, writing-tests-tunit, writing-tests-xunit", unknown.Stderr, StringComparison.Ordinal);
+            Assert.Contains(
+                "unknown topic \"nope\"; topics: agent, bug-bash, debugging, explore, host, mcp, mobile, running, setup, windows, writing-tests, writing-tests-nunit, writing-tests-tunit, writing-tests-xunit",
+                unknown.Stderr,
+                StringComparison.Ordinal
+            );
             var help = await RunAsync(dir, "--help");
             Assert.Contains("guide [topic]", help.Stdout, StringComparison.Ordinal);
         }
@@ -44,7 +51,10 @@ public sealed class TheBuiltCliAndTheBundledSkillTests
             {
                 var skill = Path.Combine(dir, location, "e2e-dotnet", "SKILL.md");
                 Assert.True(File.Exists(skill), skill);
-                Assert.Equal(await File.ReadAllTextAsync(Path.Combine(RepoSkill(), "SKILL.md")), await File.ReadAllTextAsync(skill));
+                Assert.Equal(
+                    await File.ReadAllTextAsync(Path.Combine(RepoSkill(), "SKILL.md")),
+                    await File.ReadAllTextAsync(skill)
+                );
                 Assert.True(File.Exists(Path.Combine(dir, location, "e2e-dotnet", "references", "setup.md")));
             }
         }
@@ -57,7 +67,12 @@ public sealed class TheBuiltCliAndTheBundledSkillTests
     /// <summary>Runs the built <c>e2e</c> tool in <paramref name="dir"/>.</summary>
     private static async Task<(int Code, string Stdout, string Stderr)> RunAsync(string dir, params string[] args)
     {
-        var start = new ProcessStartInfo("dotnet") { WorkingDirectory = dir, RedirectStandardOutput = true, RedirectStandardError = true };
+        var start = new ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = dir,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
         start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "E2E.Cli.dll"));
         foreach (var arg in args)
         {

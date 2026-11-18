@@ -14,11 +14,12 @@ public sealed class StepRecorderRecordScreenTests
     {
         var steps = new StepRecorder("attempt");
         var reads = 0;
-        Func<ScreenText?> Seen(string text) => () =>
-        {
-            reads++;
-            return Screen(text);
-        };
+        Func<ScreenText?> Seen(string text) =>
+            () =>
+            {
+                reads++;
+                return Screen(text);
+            };
 
         steps.RecordScreen(Seen("#root document"));
         await steps.RunAsync(StepKind.App, "app.open", "/", () =>

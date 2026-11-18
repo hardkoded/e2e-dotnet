@@ -16,17 +16,41 @@ public sealed class AiTraceTests
     {
         const string token = "synthetic-trace-secret-271828";
         var known = false;
-        var recorder = new AiTraceRecorder(text => known ? text.Replace(token, "<secret:key>", StringComparison.Ordinal) : text);
+        var recorder = new AiTraceRecorder(text =>
+            known ? text.Replace(token, "<secret:key>", StringComparison.Ordinal) : text
+        );
         recorder.OnStart(new AiTraceStartEvent("redact", "ai.generateText"));
         recorder.OnStepStart(new AiTraceStepStartEvent("redact", 0, "fake", "fake", null, []));
         var results = A(
             O(("type", "tool-result"), ("output", O(("type", "json"), ("value", O((token, token)))))),
-            O(("type", "tool-result"), ("output", O(("type", "json"), ("value", new Uri($"https://example.test/?key={token}"))))),
-            O(("type", "tool-result"), ("output", O(("type", "text"), ("value", $"custom {token}")))));
-        recorder.OnLanguageModelCallStart(new AiTraceModelCallStartEvent("redact", null, A(O(("role", "tool"), ("content", results)))));
+            O(
+                ("type", "tool-result"),
+                ("output", O(("type", "json"), ("value", new Uri($"https://example.test/?key={token}"))))
+            ),
+            O(("type", "tool-result"), ("output", O(("type", "text"), ("value", $"custom {token}"))))
+        );
+        recorder.OnLanguageModelCallStart(
+            new AiTraceModelCallStartEvent("redact", null, A(O(("role", "tool"), ("content", results))))
+        );
         known = true;
-        var response = new AiTraceResponse(Messages: A(O(("role", "tool"), ("content", A(O(("type", "tool-result"), ("output", O(("type", "text"), ("value", token)))))))));
-        recorder.OnStepEnd(new AiTraceStepEndEvent("redact", 0, A(O(("type", "tool-result"), ("output", token))), "stop", O(), response));
+        var response = new AiTraceResponse(
+            Messages: A(
+                O(
+                    ("role", "tool"),
+                    ("content", A(O(("type", "tool-result"), ("output", O(("type", "text"), ("value", token))))))
+                )
+            )
+        );
+        recorder.OnStepEnd(
+            new AiTraceStepEndEvent(
+                "redact",
+                0,
+                A(O(("type", "tool-result"), ("output", token))),
+                "stop",
+                O(),
+                response
+            )
+        );
         recorder.OnEnd(new AiTraceEndEvent("redact"));
         var step = recorder.Drain().Steps[0];
 
@@ -41,7 +65,15 @@ public sealed class AiTraceTests
     {
         const string token = "synthetic-metadata-secret-314159";
         var recorder = new AiTraceRecorder(text => text.Replace(token, "<secret:key>", StringComparison.Ordinal));
-        var scope = Scope with { Test = $"test {token}", TestId = $"id-{token}", Target = token, Agent = token, Api = token, Label = new string('x', 75) + token };
+        var scope = Scope with
+        {
+            Test = $"test {token}",
+            TestId = $"id-{token}",
+            Target = token,
+            Agent = token,
+            Api = token,
+            Label = new string('x', 75) + token,
+        };
         await InScope(scope, () =>
         {
             recorder.OnStart(new AiTraceStartEvent("scope", "ai.generateText"));
@@ -53,8 +85,17 @@ public sealed class AiTraceTests
         var runs = recorder.Drain().Runs;
 
         Assert.Equal(
-            scope with { Test = "test <secret:key>", TestId = "id-<secret:key>", Target = "<secret:key>", Agent = "<secret:key>", Api = "<secret:key>", Label = new string('x', 75) + "<secret:key>" },
-            runs[0].E2e);
+            scope with
+            {
+                Test = "test <secret:key>",
+                TestId = "id-<secret:key>",
+                Target = "<secret:key>",
+                Agent = "<secret:key>",
+                Api = "<secret:key>",
+                Label = new string('x', 75) + "<secret:key>",
+            },
+            runs[0].E2e
+        );
         Assert.Contains("test <secret:key>", runs[0].FunctionId, StringComparison.Ordinal);
         Assert.DoesNotContain(token[..5], runs[0].FunctionId, StringComparison.Ordinal);
         Assert.Equal("function <secret:key>", runs[1].FunctionId);

@@ -14,22 +14,24 @@ namespace E2E.Tests.FixtureRuntime;
 public sealed class AgentExtractTests
 {
     private static DocumentWorld Todos() => new DocumentWorld().Map("/", page =>
-    {
-        page.Paragraph("Buy milk");
-        page.Paragraph("Walk the dog");
-        page.Paragraph("Ship it");
-    });
+        {
+            page.Paragraph("Buy milk");
+            page.Paragraph("Walk the dog");
+            page.Paragraph("Ship it");
+        });
 
     private static async Task<(Exception? Error, T? Value)> ExtractAsync<T>(ScriptedModel model, string instruction)
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(Todos()),
-            Model = model,
-            BaseUrl = "https://todos.test",
-            TestTitle = "extract",
-            CacheEnabled = false,
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(Todos()),
+                Model = model,
+                BaseUrl = "https://todos.test",
+                TestTitle = "extract",
+                CacheEnabled = false,
+            }
+        );
         await session.App.OpenAsync("/");
         try
         {
@@ -44,7 +46,9 @@ public sealed class AgentExtractTests
     [Fact]
     public async Task Fails_inconclusive_naming_what_was_missing_when_the_screen_does_not_show_the_data()
     {
-        var model = new ScriptedModel(_ => ModelResponses.Done("failed", "no phone number is on this screen", "ASSERTION_INCONCLUSIVE"));
+        var model = new ScriptedModel(_ =>
+            ModelResponses.Done("failed", "no phone number is on this screen", "ASSERTION_INCONCLUSIVE")
+        );
 
         var (error, _) = await ExtractAsync<Phone>(model, "the customer phone number");
 
@@ -95,7 +99,11 @@ public sealed class AgentExtractTests
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
             return text.Contains("<previous-attempt-rejected>", StringComparison.Ordinal)
-                ? ModelResponses.Done("failed", "the list shows 3 todos, not a number of them in words", "ASSERTION_INCONCLUSIVE")
+                ? ModelResponses.Done(
+                    "failed",
+                    "the list shows 3 todos, not a number of them in words",
+                    "ASSERTION_INCONCLUSIVE"
+                )
                 : ModelResponses.Call("extract", new { data = new { count = "three" } });
         });
 
@@ -103,7 +111,11 @@ public sealed class AgentExtractTests
 
         Assert.Equal("ASSERTION_INCONCLUSIVE", Assert.IsType<AgentException>(error).Code);
         Assert.Equal(2, model.CallCount);
-        Assert.Contains("could not be converted", string.Join('\n', model.Requests[1].Messages.Select(message => message.Content)), StringComparison.Ordinal);
+        Assert.Contains(
+            "could not be converted",
+            string.Join('\n', model.Requests[1].Messages.Select(message => message.Content)),
+            StringComparison.Ordinal
+        );
     }
 
     private sealed class TodoCount

@@ -22,7 +22,9 @@ public sealed class ExpectSoftTests
         await using var session = await StartAsync();
         await session.App.OpenAsync("/settings/billing");
         Assert.Null(session.CloseSoftFailures());
-        var error = await Assert.ThrowsAsync<TestException>(() => Expect.Soft(session.Screen.GetByRole("status", "Pro")).ToBeVisibleAsync());
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.Soft(session.Screen.GetByRole("status", "Pro")).ToBeVisibleAsync()
+        );
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.Contains("toBeVisible failed", error.Message, StringComparison.Ordinal);
     }
@@ -76,7 +78,10 @@ public sealed class ExpectSoftTests
 
         failures.Keep(new TestException("ASSERTION_FAILED", "expect.toHaveText failed\nlocator: getByRole('status')"));
 
-        Assert.Equal("1 soft assertion failed\n1. expect.toHaveText failed\n   locator: getByRole('status')", failures.Close()?.Message);
+        Assert.Equal(
+            "1 soft assertion failed\n1. expect.toHaveText failed\n   locator: getByRole('status')",
+            failures.Close()?.Message
+        );
     }
 
     /// <summary>Partial: the port keeps the first failure as the inner exception, where upstream points the stack at the first <c>expect.soft</c> line.</summary>
@@ -120,7 +125,9 @@ public sealed class ExpectSoftTests
 
         await Expect.Soft(screen.GetByRole("heading", "Billing")).Not.ToBeVisibleAsync();
         await Expect.Soft(screen.GetByRole("heading", "Billing")).ToHaveCountAsync(1);
-        var other = await Assert.ThrowsAsync<TestException>(() => Expect.Soft(screen.GetByRole("button", "Save")).ToBeVisibleAsync());
+        var other = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.Soft(screen.GetByRole("button", "Save")).ToBeVisibleAsync()
+        );
         Assert.Equal("LOCATOR_AMBIGUOUS", other.Code);
 
         var error = Assert.IsType<TestException>(session.CloseSoftFailures());
@@ -130,16 +137,18 @@ public sealed class ExpectSoftTests
 
     private static Task<E2ESession> StartAsync(DocumentWorld? world = null)
     {
-        return E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(world ?? BillingWorld.Create()),
-            BaseUrl = "https://billing.test",
-            CacheEnabled = false,
-            TestTitle = "billing > soft",
-            AssertionTimeout = TimeSpan.FromMilliseconds(100),
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            TestTimeout = TimeSpan.FromSeconds(10),
-        });
+        return E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(world ?? BillingWorld.Create()),
+                BaseUrl = "https://billing.test",
+                CacheEnabled = false,
+                TestTitle = "billing > soft",
+                AssertionTimeout = TimeSpan.FromMilliseconds(100),
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                TestTimeout = TimeSpan.FromSeconds(10),
+            }
+        );
     }
 
     [Fact]
@@ -147,7 +156,9 @@ public sealed class ExpectSoftTests
     {
         var failures = new SoftFailures();
         failures.Close();
-        var error = Assert.Throws<TestException>(() => new SoftValueExpectation<int>(new ValueExpectation<int>(1, negated: false, message: null), failures).ToBe(2));
+        var error = Assert.Throws<TestException>(() =>
+            new SoftValueExpectation<int>(new ValueExpectation<int>(1, negated: false, message: null), failures).ToBe(2)
+        );
         Assert.Equal("ASSERTION_FAILED", error.Code);
         new SoftValueExpectation<int>(new ValueExpectation<int>(1, negated: false, message: null), failures).ToBe(1);
     }
@@ -156,7 +167,9 @@ public sealed class ExpectSoftTests
     public void Keeps_a_usage_failure_too_since_the_matcher_could_not_pass()
     {
         var failures = new SoftFailures();
-        new SoftValueExpectation<int>(new ValueExpectation<int>(42, negated: false, message: null), failures).ToContain("x");
+        new SoftValueExpectation<int>(new ValueExpectation<int>(42, negated: false, message: null), failures).ToContain(
+            "x"
+        );
         Assert.Contains("string or collection", failures.Close()?.Message, StringComparison.Ordinal);
     }
 }

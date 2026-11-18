@@ -12,7 +12,12 @@ namespace E2E.Cli.Report;
 /// it is a no-op, so callers never branch. .NET-only: the timer comes from a <see cref="TimeProvider"/>, and its callback takes <c>gate</c>, the
 /// lock the reporter holds while it handles an event, since a timer thread is not the one that handles events.
 /// </summary>
-internal sealed class LiveWindow(Action<string>? raw, Func<int, IReadOnlyList<string>> getWindow, TimeProvider time, object gate)
+internal sealed class LiveWindow(
+    Action<string>? raw,
+    Func<int, IReadOnlyList<string>> getWindow,
+    TimeProvider time,
+    object gate
+)
 {
     private const char Esc = '\u001b';
 
@@ -64,7 +69,12 @@ internal sealed class LiveWindow(Action<string>? raw, Func<int, IReadOnlyList<st
         }
 
         _active = true;
-        _timer = time.CreateTimer(_ => Tick(), null, TimeSpan.FromMilliseconds(RepaintIntervalMs), TimeSpan.FromMilliseconds(RepaintIntervalMs));
+        _timer = time.CreateTimer(
+            _ => Tick(),
+            null,
+            TimeSpan.FromMilliseconds(RepaintIntervalMs),
+            TimeSpan.FromMilliseconds(RepaintIntervalMs)
+        );
         Redraw();
     }
 
@@ -188,5 +198,6 @@ internal sealed class LiveWindow(Action<string>? raw, Func<int, IReadOnlyList<st
 
     /// <summary>Screen rows one permanent line takes: one per wrapped row of each of its lines. A line as wide as the terminal still fits in one row (upstream's <c>rowsOf</c>).</summary>
     private static int RowsOf(string text, int columns) =>
-        text.Split('\n').Sum(line => Math.Max(1, (int)Math.Ceiling(Format.VisibleWidth(line) / (double)Math.Max(1, columns))));
+        text.Split('\n')
+            .Sum(line => Math.Max(1, (int)Math.Ceiling(Format.VisibleWidth(line) / (double)Math.Max(1, columns))));
 }

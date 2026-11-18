@@ -20,27 +20,30 @@ public sealed class StandaloneHostTests : IDisposable
 
     public void Dispose() => _report.Dispose();
 
-    private E2ESessionOptions Options(ToyEngine engine, string? projectRoot = null) => new()
-    {
-        ResultsDirectory = _report.Results,
-        ProjectRoot = projectRoot ?? _report.Output,
-        TargetName = "kiosk",
-        Engine = engine,
-        CacheEnabled = false,
-        TestTitle = "standalone",
-    };
+    private E2ESessionOptions Options(ToyEngine engine, string? projectRoot = null) =>
+        new()
+        {
+            ResultsDirectory = _report.Results,
+            ProjectRoot = projectRoot ?? _report.Output,
+            TargetName = "kiosk",
+            Engine = engine,
+            CacheEnabled = false,
+            TestTitle = "standalone",
+        };
 
     [Fact]
     public async Task Prepares_one_slot_and_hands_the_worker_what_prepare_left_beside_the_run_environment()
     {
         var toy = new ToyEngine();
-        var host = await Standalone.OpenWorkerAsync(new StandaloneHostOptions
-        {
-            Engine = toy,
-            TargetName = "kiosk",
-            ProjectRoot = _report.Output,
-            Env = new Dictionary<string, string?> { ["TOY_CACHE"] = "/run/cache" },
-        });
+        var host = await Standalone.OpenWorkerAsync(
+            new StandaloneHostOptions
+            {
+                Engine = toy,
+                TargetName = "kiosk",
+                ProjectRoot = _report.Output,
+                Env = new Dictionary<string, string?> { ["TOY_CACHE"] = "/run/cache" },
+            }
+        );
         var attempt = await host.OpenAttemptAsync(Options(toy));
         attempt.Session.Complete();
         Assert.Empty(await attempt.CloseAsync());
@@ -73,7 +76,10 @@ public sealed class StandaloneHostTests : IDisposable
     [Fact]
     public async Task Finishes_the_engine_when_the_attempt_fails_to_start_and_keeps_the_failure_of_the_start()
     {
-        var toy = new ToyEngine { OnStart = (_, _) => throw new EngineException("ENVIRONMENT_UNAVAILABLE", "the app would not launch") };
+        var toy = new ToyEngine
+        {
+            OnStart = (_, _) => throw new EngineException("ENVIRONMENT_UNAVAILABLE", "the app would not launch"),
+        };
         var failure = await Assert.ThrowsAsync<EngineException>(() => Standalone.OpenAttemptAsync(Options(toy)));
         Assert.Equal("ENVIRONMENT_UNAVAILABLE", failure.Code);
         Assert.Equal(["prepare", "init", "finish"], toy.Lifecycle);
@@ -155,7 +161,14 @@ public sealed class StandaloneHostTests : IDisposable
     public async Task Refuses_a_second_attempt_while_one_is_live_and_opens_the_next_once_it_closed()
     {
         var toy = new ToyEngine();
-        var host = await Standalone.OpenWorkerAsync(new StandaloneHostOptions { Engine = toy, TargetName = "kiosk", ProjectRoot = _report.Output });
+        var host = await Standalone.OpenWorkerAsync(
+            new StandaloneHostOptions
+            {
+                Engine = toy,
+                TargetName = "kiosk",
+                ProjectRoot = _report.Output,
+            }
+        );
         var first = await host.OpenAttemptAsync(Options(toy));
         var refused = await Assert.ThrowsAsync<EngineException>(() => host.OpenAttemptAsync(Options(toy)));
         Assert.Equal("WORKER_PROTOCOL", refused.Code);
@@ -175,7 +188,14 @@ public sealed class StandaloneHostTests : IDisposable
     public async Task Releases_at_the_end_of_the_process_once_and_not_again_when_the_host_closes()
     {
         var toy = new ToyEngine();
-        var host = await Standalone.OpenWorkerAsync(new StandaloneHostOptions { Engine = toy, TargetName = "kiosk", ProjectRoot = _report.Output });
+        var host = await Standalone.OpenWorkerAsync(
+            new StandaloneHostOptions
+            {
+                Engine = toy,
+                TargetName = "kiosk",
+                ProjectRoot = _report.Output,
+            }
+        );
         host.ReleaseAtExit();
         Assert.Equal(["prepare", "finish"], toy.Lifecycle);
         Assert.Empty(await host.CloseAsync());

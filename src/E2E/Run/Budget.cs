@@ -14,14 +14,20 @@ internal sealed class AttemptBudget : IDisposable
 {
     private readonly object _gate = new();
     private readonly List<CancellationTokenSource> _sources;
+    private readonly Func<E2EException>? _closed;
     private CancellationTokenSource _current;
+    private bool _disposed;
 
-    /// <summary>Starts with the test's own signal; the budget owns it and disposes it.</summary>
-    public AttemptBudget(CancellationTokenSource test)
+    /// <summary>
+    /// Starts with the test's own signal; the budget owns it and disposes it. <paramref name="closed"/> is what an operation fails with once the
+    /// session has closed (upstream's <c>StandaloneSessionOptions.closed</c>, the reason the ended signal aborts with); a bare cancellation when absent.
+    /// </summary>
+    public AttemptBudget(CancellationTokenSource test, Func<E2EException>? closed = null)
     {
         ArgumentNullException.ThrowIfNull(test);
         _sources = [test];
         _current = test;
+        _closed = closed;
     }
 
     /// <summary>The signal the running phase's operations are cancelled with.</summary>
@@ -31,7 +37,10 @@ internal sealed class AttemptBudget : IDisposable
         {
             lock (_gate)
             {
-                return _current.Token;
+                // A phase that ended for a reason of its own (a closed session) starts nothing more, and the reason is the error.
+                return _disposed
+                    ? (_closed is null ? new CancellationToken(canceled: true) : throw _closed())
+                    : _current.Token;
             }
         }
     }
@@ -75,6 +84,7 @@ internal sealed class AttemptBudget : IDisposable
     {
         lock (_gate)
         {
+            _disposed = true;
             foreach (var source in _sources)
             {
                 source.Dispose();

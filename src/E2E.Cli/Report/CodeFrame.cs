@@ -45,7 +45,8 @@ internal static class CodeFrame
 
         var start = Math.Max(0, index - FrameRange);
         var end = Math.Min(lines.Length - 1, index + FrameRange);
-        string Gutter(int? number = null) => pc.Gray((number?.ToString(CultureInfo.InvariantCulture) ?? string.Empty).PadLeft(3) + "|");
+        string Gutter(int? number = null) =>
+            pc.Gray((number?.ToString(CultureInfo.InvariantCulture) ?? string.Empty).PadLeft(3) + "|");
         List<string> rows = [];
         for (var i = start; i <= end; i++)
         {

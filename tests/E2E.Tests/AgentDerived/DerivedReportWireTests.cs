@@ -17,7 +17,17 @@ public sealed class DerivedReportWireTests
     [InlineData(DerivedReason.Date, "date")]
     public void Writes_the_rule_a_replay_stopped_at_a_gap_reports(DerivedReason reason, string spelled)
     {
-        var step = LedgerSteps.Step("agent.act", "type the code", cache: new CacheInfo { Mode = "missed", Reason = "gap", Derived = reason, TotalActions = 2 });
+        var step = LedgerSteps.Step(
+            "agent.act",
+            "type the code",
+            cache: new CacheInfo
+            {
+                Mode = "missed",
+                Reason = "gap",
+                Derived = reason,
+                TotalActions = 2,
+            }
+        );
 
         Assert.Equal(spelled, (string?)ReportWire.Step(step)["cache"]!["derived"]);
     }
@@ -25,7 +35,16 @@ public sealed class DerivedReportWireTests
     [Fact]
     public void Leaves_derived_out_for_a_gap_at_a_project_tool()
     {
-        var step = LedgerSteps.Step("agent.act", "seed", cache: new CacheInfo { Mode = "missed", Reason = "gap", TotalActions = 2 });
+        var step = LedgerSteps.Step(
+            "agent.act",
+            "seed",
+            cache: new CacheInfo
+            {
+                Mode = "missed",
+                Reason = "gap",
+                TotalActions = 2,
+            }
+        );
 
         Assert.Null(ReportWire.Step(step)["cache"]!.AsObject()["derived"]);
     }

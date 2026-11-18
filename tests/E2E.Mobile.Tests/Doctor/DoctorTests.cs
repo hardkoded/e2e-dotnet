@@ -33,7 +33,12 @@ public sealed class DoctorTests : IDisposable
 
     private static JsonObject Check(string id, string status, string summary, string? hint = null)
     {
-        var check = new JsonObject { ["id"] = id, ["status"] = status, ["summary"] = summary };
+        var check = new JsonObject
+        {
+            ["id"] = id,
+            ["status"] = status,
+            ["summary"] = summary,
+        };
         if (hint is not null)
         {
             check["hint"] = hint;
@@ -43,7 +48,11 @@ public sealed class DoctorTests : IDisposable
     }
 
     /// <summary>A harness whose doctor answers per selected device: found when its name is in <paramref name="known"/>.</summary>
-    private static Harness DoctorHarness(Func<MobileOptions, MobileOptions>? configure = null, Func<MobileApp, MobileApp>? app = null, params string[] known)
+    private static Harness DoctorHarness(
+        Func<MobileOptions, MobileOptions>? configure = null,
+        Func<MobileApp, MobileApp>? app = null,
+        params string[] known
+    )
     {
         var harness = Harness.Create(configure, true, app);
         harness.Fake.Respond(DeviceMethods.CommandDoctor, args =>
@@ -64,9 +73,11 @@ public sealed class DoctorTests : IDisposable
 
             if (targetApp is not null && found)
             {
-                checks.Add(device is null
-                    ? Check("target-app-device", "fail", "Target app check needs one booted device; 4 matched.")
-                    : Check("target-app", "pass", $"Target app is launchable: {targetApp}"));
+                checks.Add(
+                    device is null
+                        ? Check("target-app-device", "fail", "Target app check needs one booted device; 4 matched.")
+                        : Check("target-app", "pass", $"Target app is launchable: {targetApp}")
+                );
             }
 
             return new JsonObject { ["status"] = found ? "pass" : "fail", ["checks"] = checks };
@@ -74,15 +85,16 @@ public sealed class DoctorTests : IDisposable
         return harness;
     }
 
-    private static EngineDoctorInfo Info(Harness harness, string? projectRoot = null) => new()
-    {
-        TargetName = "ios-simulator",
-        ProjectRoot = projectRoot ?? Harness.ProjectRoot,
-        App = new EngineAppInfo { BundleId = harness.App.BundleId, AppPath = harness.App.AppPath },
-        Env = new Dictionary<string, string?>(),
-        Headed = false,
-        Log = _ => { },
-    };
+    private static EngineDoctorInfo Info(Harness harness, string? projectRoot = null) =>
+        new()
+        {
+            TargetName = "ios-simulator",
+            ProjectRoot = projectRoot ?? Harness.ProjectRoot,
+            App = new EngineAppInfo { BundleId = harness.App.BundleId, AppPath = harness.App.AppPath },
+            Env = new Dictionary<string, string?>(),
+            Headed = false,
+            Log = _ => { },
+        };
 
     [Fact]
     public async Task Maps_agent_device_findings_dropping_evidence_Metro_and_an_app_check_with_no_single_booted_device()
@@ -95,8 +107,12 @@ public sealed class DoctorTests : IDisposable
                 new EngineDoctorCheck("ios-runner-cache", EngineDoctorStatus.Pass, "iOS runner artifact cached."),
                 new EngineDoctorCheck("device", EngineDoctorStatus.Pass, "1 iOS device available; 1 booted."),
             ],
-            await harness.Engine.DoctorAsync(Info(harness), CancellationToken.None));
-        JsonAssert.Args("""{"platform":"ios","targetApp":"Settings"}""", harness.Fake.LastArgs(DeviceMethods.CommandDoctor));
+            await harness.Engine.DoctorAsync(Info(harness), CancellationToken.None)
+        );
+        JsonAssert.Args(
+            """{"platform":"ios","targetApp":"Settings"}""",
+            harness.Fake.LastArgs(DeviceMethods.CommandDoctor)
+        );
         Assert.Equal(["e2e-ios-simulator-0"], harness.Sessions);
     }
 
@@ -108,12 +124,25 @@ public sealed class DoctorTests : IDisposable
             [
                 new EngineDoctorCheck("agent-device", EngineDoctorStatus.Pass, "agent-device 0.21.35"),
                 new EngineDoctorCheck("toolchain", EngineDoctorStatus.Pass, "Apple toolchain: Xcode 27.0."),
-                new EngineDoctorCheck("device", EngineDoctorStatus.Fail, "\"Gone\": No iOS devices found. Start or create a simulator."),
+                new EngineDoctorCheck(
+                    "device",
+                    EngineDoctorStatus.Fail,
+                    "\"Gone\": No iOS devices found. Start or create a simulator."
+                ),
                 new EngineDoctorCheck("ios-runner-cache", EngineDoctorStatus.Pass, "iOS runner artifact cached."),
-                new EngineDoctorCheck("device", EngineDoctorStatus.Pass, "\"iPhone 17\": 1 iOS device available; 1 booted."),
-                new EngineDoctorCheck("target-app", EngineDoctorStatus.Pass, "\"iPhone 17\": Target app is launchable: Settings"),
+                new EngineDoctorCheck(
+                    "device",
+                    EngineDoctorStatus.Pass,
+                    "\"iPhone 17\": 1 iOS device available; 1 booted."
+                ),
+                new EngineDoctorCheck(
+                    "target-app",
+                    EngineDoctorStatus.Pass,
+                    "\"iPhone 17\": Target app is launchable: Settings"
+                ),
             ],
-            await harness.Engine.DoctorAsync(Info(harness), CancellationToken.None));
+            await harness.Engine.DoctorAsync(Info(harness), CancellationToken.None)
+        );
     }
 
     [Fact]
@@ -122,7 +151,10 @@ public sealed class DoctorTests : IDisposable
         const string Udid = "78D5CEB4-D3A1-48E2-9AFD-6F8A99A824DA";
         var harness = DoctorHarness(options => options with { Device = Udid });
         await harness.Engine.DoctorAsync(Info(harness), CancellationToken.None);
-        JsonAssert.Args($$"""{"platform":"ios","udid":"{{Udid}}","targetApp":"Settings"}""", harness.Fake.LastArgs(DeviceMethods.CommandDoctor));
+        JsonAssert.Args(
+            $$"""{"platform":"ios","udid":"{{Udid}}","targetApp":"Settings"}""",
+            harness.Fake.LastArgs(DeviceMethods.CommandDoctor)
+        );
     }
 
     [Fact]
@@ -132,7 +164,10 @@ public sealed class DoctorTests : IDisposable
         File.WriteAllText(Path.Combine(_dir, "App.app"), "");
         var present = DoctorHarness(app: _ => new MobileApp { AppPath = "App.app", BundleId = "com.example.app" });
         var checks = await present.Engine.DoctorAsync(Info(present, _dir), CancellationToken.None);
-        Assert.Equal(new EngineDoctorCheck("app-path", EngineDoctorStatus.Pass, Path.Combine(_dir, "App.app")), checks[0]);
+        Assert.Equal(
+            new EngineDoctorCheck("app-path", EngineDoctorStatus.Pass, Path.Combine(_dir, "App.app")),
+            checks[0]
+        );
         Assert.False(present.Fake.LastArgs(DeviceMethods.CommandDoctor)!.ContainsKey("targetApp"));
 
         var missing = DoctorHarness(app: _ => new MobileApp { AppPath = "Missing.app" });
@@ -143,10 +178,20 @@ public sealed class DoctorTests : IDisposable
     [Fact]
     public async Task Skips_the_device_and_the_build_for_a_providers_leases_without_calling_agent_device()
     {
-        var harness = DoctorHarness(options => options with { Provider = new CloudProvider() }, app: _ => new MobileApp { AppPath = "hosted.app" });
+        var harness = DoctorHarness(
+            options => options with { Provider = new CloudProvider() },
+            app: _ => new MobileApp { AppPath = "hosted.app" }
+        );
         Assert.Equal(
-            [new EngineDoctorCheck("device", EngineDoctorStatus.Skip, "devices and the build come from the \"cloud\" provider")],
-            await harness.Engine.DoctorAsync(Info(harness), CancellationToken.None));
+            [
+                new EngineDoctorCheck(
+                    "device",
+                    EngineDoctorStatus.Skip,
+                    "devices and the build come from the \"cloud\" provider"
+                ),
+            ],
+            await harness.Engine.DoctorAsync(Info(harness), CancellationToken.None)
+        );
         Assert.Empty(harness.Fake.Methods());
     }
 
@@ -154,8 +199,13 @@ public sealed class DoctorTests : IDisposable
     {
         public string Name => "cloud";
 
-        public Task<DeviceLease> AcquireAsync(DeviceRequest request, CancellationToken cancellationToken) => throw new InvalidOperationException("unused");
+        public Task<DeviceLease> AcquireAsync(DeviceRequest request, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("unused");
 
-        public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task ReleaseAsync(
+            DeviceLease lease,
+            DeviceReleaseContext context,
+            CancellationToken cancellationToken
+        ) => Task.CompletedTask;
     }
 }

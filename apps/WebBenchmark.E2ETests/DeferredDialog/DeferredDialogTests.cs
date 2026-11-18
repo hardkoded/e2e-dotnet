@@ -22,7 +22,9 @@ public sealed class DeferredDialogTests : BenchmarkTest
         try
         {
             await Screen.GetByRole("button", "Submit report").DoubleTapAsync();
-            await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Report submitted after deferred confirmation");
+            await Expect
+                .That(Screen.GetByTestId("success-message"))
+                .ToHaveTextAsync("Report submitted after deferred confirmation");
             Assert.That(Volatile.Read(ref dialogs), Is.EqualTo(1));
         }
         finally

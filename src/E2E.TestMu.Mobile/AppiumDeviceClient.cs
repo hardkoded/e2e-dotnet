@@ -21,7 +21,11 @@ namespace E2E.TestMu.Mobile;
 /// <c>settle</c> options are not honored: the engine's own observe loop waits for the screen to settle.
 /// </para>
 /// </summary>
-internal sealed partial class AppiumDeviceClient(WebDriverClient driver, MobilePlatform platform, IPageSourceConverter? converter = null) : IDeviceClient
+internal sealed partial class AppiumDeviceClient(
+    WebDriverClient driver,
+    MobilePlatform platform,
+    IPageSourceConverter? converter = null
+) : IDeviceClient
 {
     private readonly ScreenRefs _refs = new();
 
@@ -84,9 +88,13 @@ internal sealed partial class AppiumDeviceClient(WebDriverClient driver, MobileP
             case DeviceMethods.CommandClipboard:
                 return ClipboardAsync(options, cancellationToken);
             case DeviceMethods.AppsInstall or DeviceMethods.AppsReinstall:
-                throw AppiumErrors.Unsupported("installing a build from a test is not supported on TestMu: the provider installs the app when it leases the device");
+                throw AppiumErrors.Unsupported(
+                    "installing a build from a test is not supported on TestMu: the provider installs the app when it leases the device"
+                );
             case DeviceMethods.SettingsUpdate:
-                throw AppiumErrors.Unsupported($"the {Text(options, "setting") ?? "settings"} setting is not supported on TestMu devices yet");
+                throw AppiumErrors.Unsupported(
+                    $"the {Text(options, "setting") ?? "settings"} setting is not supported on TestMu devices yet"
+                );
             case DeviceMethods.InteractionsHover:
                 throw AppiumErrors.Unsupported("a touch screen has no hover");
             case DeviceMethods.CommandFold:
@@ -105,7 +113,11 @@ internal sealed partial class AppiumDeviceClient(WebDriverClient driver, MobileP
         return null;
     }
 
-    private Task<JsonNode?> ExecuteAsync(string script, CancellationToken cancellationToken, params (string Key, JsonNode? Value)[] arguments)
+    private Task<JsonNode?> ExecuteAsync(
+        string script,
+        CancellationToken cancellationToken,
+        params (string Key, JsonNode? Value)[] arguments
+    )
     {
         var args = new JsonObject();
         foreach (var (key, value) in arguments)
@@ -139,7 +151,9 @@ internal sealed partial class AppiumDeviceClient(WebDriverClient driver, MobileP
 
     /// <summary>A JSON number, whatever type backs it: one parsed from text and one built in code differ.</summary>
     private static double? Number(JsonNode? node) =>
-        node is JsonValue && JsonSerializer.SerializeToElement(node) is { ValueKind: JsonValueKind.Number } element ? element.GetDouble() : null;
+        node is JsonValue && JsonSerializer.SerializeToElement(node) is { ValueKind: JsonValueKind.Number } element
+            ? element.GetDouble()
+            : null;
 
     private static JsonNode? Json(string? text) => text is null ? null : JsonValue.Create(text);
 }

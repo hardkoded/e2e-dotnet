@@ -25,13 +25,27 @@ public sealed class SessionLoadTests : SessionEnvelopeKit
         var (store, _, _, _) = await SaveEnvelope();
         try
         {
-            foreach (var other in new[]
-            {
-                Identity with { AppIdentity = new string('b', 64) },
-                Identity with { EngineName = "other" },
-                Identity with { EngineVersion = "1.62.0" },
-                Identity with { Platform = "android" },
-            })
+            foreach (
+                var other in new[]
+                {
+                    Identity with
+                    {
+                        AppIdentity = new string('b', 64),
+                    },
+                    Identity with
+                    {
+                        EngineName = "other",
+                    },
+                    Identity with
+                    {
+                        EngineVersion = "1.62.0",
+                    },
+                    Identity with
+                    {
+                        Platform = "android",
+                    },
+                }
+            )
             {
                 var error = await Assert.ThrowsAsync<ConfigurationException>(() => store.LoadAsync("member", other));
                 Assert.Equal("SESSION_MISMATCH", error.Code);
@@ -97,7 +111,11 @@ public sealed class SessionLoadTests : SessionEnvelopeKit
                 envelope["state"]!["ciphertext"] = Convert.ToBase64String(bytes);
             },
             envelope => envelope["secrecy"]!["names"] = new JsonArray(),
-            envelope => envelope["expiresAt"] = DateTimeOffset.Parse((string)envelope["expiresAt"]!, CultureInfo.InvariantCulture).AddDays(365).UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture),
+            envelope =>
+                envelope["expiresAt"] = DateTimeOffset
+                    .Parse((string)envelope["expiresAt"]!, CultureInfo.InvariantCulture)
+                    .AddDays(365)
+                    .UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture),
         ];
         foreach (var edit in edits)
         {

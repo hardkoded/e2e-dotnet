@@ -18,18 +18,27 @@ public sealed class NoOutputErrorTests
     [Fact]
     public async Task Partial_Plain_call_an_error_finish_is_MODEL_PROVIDER_FAILED_not_MODEL_OUTPUT_INVALID()
     {
-        var model = new ScriptedModel(_ => new ModelResponse { Content = "{\"a\":1}", FinishReason = ModelResponse.ErrorFinish, RawFinishReason = "error" });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        var model = new ScriptedModel(_ => new ModelResponse
         {
-            Engine = new DocumentEngine(new DocumentWorld().Map("/", page => page.Paragraph("page content"))),
-            Model = model,
-            BaseUrl = "https://todos.test",
-            TestTitle = "error finish",
-            CacheEnabled = false,
+            Content = "{\"a\":1}",
+            FinishReason = ModelResponse.ErrorFinish,
+            RawFinishReason = "error",
         });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(new DocumentWorld().Map("/", page => page.Paragraph("page content"))),
+                Model = model,
+                BaseUrl = "https://todos.test",
+                TestTitle = "error finish",
+                CacheEnabled = false,
+            }
+        );
         await session.App.OpenAsync("/");
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the page shows the target token"));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            session.Agent.AssertAsync("the page shows the target token")
+        );
         session.Complete(error);
 
         Assert.Equal("MODEL_PROVIDER_FAILED", error.Code);

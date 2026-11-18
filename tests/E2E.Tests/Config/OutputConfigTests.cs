@@ -29,15 +29,38 @@ public sealed class OutputConfigTests
     [Fact]
     public void Partial_Refuses_a_directory_the_run_cannot_own_with_the_reason()
     {
-        Assert.Equal("output must be a non-empty path relative to the project root, got \"\"", Refusal("""{ "output": "" }"""));
+        Assert.Equal(
+            "output must be a non-empty path relative to the project root, got \"\"",
+            Refusal("""{ "output": "" }""")
+        );
         Assert.Contains("output must be a non-empty path", Refusal("""{ "output": 5 }"""), StringComparison.Ordinal);
         Assert.Contains("output \".\" is the project root", Refusal("""{ "output": "." }"""), StringComparison.Ordinal);
         Assert.Contains("--output \"./\" is the project root", Refusal("{}", "./"), StringComparison.Ordinal);
-        Assert.Contains($"output \"../elsewhere\" is outside the project root {Root}", Refusal("""{ "output": "../elsewhere" }"""), StringComparison.Ordinal);
-        Assert.Contains("is outside the project root", Refusal(Json("output", Path.Combine(Path.GetTempPath(), "e2e-results-elsewhere"))), StringComparison.Ordinal);
-        Assert.Contains("is the cache directory .e2e/cache or inside it", Refusal("""{ "output": ".e2e/cache" }""").Replace('\\', '/'), StringComparison.Ordinal);
-        Assert.Contains("is the cache directory store or inside it", Refusal("""{ "output": "store/results", "cache": { "dir": "store" } }"""), StringComparison.Ordinal);
-        Assert.Contains("would hold cache.dir out/results/cache under results/", Refusal("""{ "output": "out", "cache": { "dir": "out/results/cache" } }""").Replace('\\', '/'), StringComparison.Ordinal);
+        Assert.Contains(
+            $"output \"../elsewhere\" is outside the project root {Root}",
+            Refusal("""{ "output": "../elsewhere" }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "is outside the project root",
+            Refusal(Json("output", Path.Combine(Path.GetTempPath(), "e2e-results-elsewhere"))),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "is the cache directory .e2e/cache or inside it",
+            Refusal("""{ "output": ".e2e/cache" }""").Replace('\\', '/'),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "is the cache directory store or inside it",
+            Refusal("""{ "output": "store/results", "cache": { "dir": "store" } }"""),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "would hold cache.dir out/results/cache under results/",
+            Refusal("""{ "output": "out", "cache": { "dir": "out/results/cache" } }""").Replace('\\', '/'),
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>Partial: the second refusal upstream shows is the one for the test globs.</summary>
@@ -46,21 +69,26 @@ public sealed class OutputConfigTests
     {
         Assert.Equal(
             "output \".e2e\" (the default) is the cache directory .e2e or inside it; keep results and the replay cache apart",
-            Refusal("""{ "cache": { "dir": ".e2e" } }"""));
+            Refusal("""{ "cache": { "dir": ".e2e" } }""")
+        );
         Assert.Contains(
             "output \".e2e\" (the default) is the cache directory .e2e or inside it",
             Refusal("{}", environment: Env(("E2E_CACHE_DIR", ".e2e"))),
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "output \".e2e\" (the default) would hold E2E_CACHE_DIR .e2e/results/cache under results/, which the run owns; move E2E_CACHE_DIR or the output",
             Refusal("{}", environment: Env(("E2E_CACHE_DIR", ".e2e/results/cache"))).Replace('\\', '/'),
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public void Compares_paths_through_symlinks_so_one_directory_spelled_two_ways_is_one_directory()
     {
-        var baseDirectory = E2E.Internal.Paths.RealPathOfExisting(Directory.CreateTempSubdirectory("e2e-output-").FullName);
+        var baseDirectory = E2E.Internal.Paths.RealPathOfExisting(
+            Directory.CreateTempSubdirectory("e2e-output-").FullName
+        );
         try
         {
             var real = Path.Combine(baseDirectory, "real");
@@ -76,18 +104,24 @@ public sealed class OutputConfigTests
             var spelled = Json("cache", new { dir = Path.Combine(link, ".e2e", "results", "cache") });
             Assert.Equal(
                 "output \".e2e\" (the default) would hold cache.dir .e2e/results/cache under results/, which the run owns; move cache.dir or the output",
-                Assert.Throws<ConfigurationException>(() => Parse(spelled, real).Output).Message.Replace('\\', '/'));
+                Assert.Throws<ConfigurationException>(() => Parse(spelled, real).Output).Message.Replace('\\', '/')
+            );
             Assert.Equal(
                 $"--output {JsonSerializer.Serialize(link)} is the project root; the run clears <output>/results, so name a directory of its own, such as '.e2e'",
-                Assert.Throws<ConfigurationException>(() => Parse("{}", real).ResolveOutput(link)).Message);
+                Assert.Throws<ConfigurationException>(() => Parse("{}", real).ResolveOutput(link)).Message
+            );
 
             // A link whose target does not exist yet is followed: the run's writes land where it points.
-            Directory.CreateSymbolicLink(Path.Combine(real, "dangling"), Path.Combine(baseDirectory, "elsewhere", "results"));
+            Directory.CreateSymbolicLink(
+                Path.Combine(real, "dangling"),
+                Path.Combine(baseDirectory, "elsewhere", "results")
+            );
             foreach (var output in new[] { "dangling", "dangling/nested" })
             {
                 Assert.Equal(
                     $"--output {JsonSerializer.Serialize(output)} is outside the project root {real}; name a directory inside it",
-                    Assert.Throws<ConfigurationException>(() => Parse("{}", real).ResolveOutput(output)).Message);
+                    Assert.Throws<ConfigurationException>(() => Parse("{}", real).ResolveOutput(output)).Message
+                );
             }
 
             Directory.CreateSymbolicLink(Path.Combine(real, "pending"), "later");
@@ -95,8 +129,11 @@ public sealed class OutputConfigTests
             Directory.CreateSymbolicLink(Path.Combine(real, "into-cache"), Path.Combine(".e2e", "cache"));
             Assert.Contains(
                 "--output \"into-cache\" is the cache directory .e2e/cache or inside it",
-                Assert.Throws<ConfigurationException>(() => Parse("{}", real).ResolveOutput("into-cache")).Message.Replace('\\', '/'),
-                StringComparison.Ordinal);
+                Assert
+                    .Throws<ConfigurationException>(() => Parse("{}", real).ResolveOutput("into-cache"))
+                    .Message.Replace('\\', '/'),
+                StringComparison.Ordinal
+            );
         }
         finally
         {
@@ -114,11 +151,13 @@ public sealed class OutputConfigTests
             var config = Parse("{}", directory);
             Assert.Equal(
                 "--output \"results.txt\" is a file; name a directory, which the run creates when it is missing",
-                Assert.Throws<ConfigurationException>(() => config.ResolveOutput("results.txt")).Message);
+                Assert.Throws<ConfigurationException>(() => config.ResolveOutput("results.txt")).Message
+            );
             Assert.StartsWith(
                 "--output \"results.txt/e2e\" is under the file results.txt;",
                 Assert.Throws<ConfigurationException>(() => config.ResolveOutput("results.txt/e2e")).Message,
-                StringComparison.Ordinal);
+                StringComparison.Ordinal
+            );
             Assert.Equal(Path.Combine(directory, "fresh", "e2e"), config.ResolveOutput("fresh/e2e"));
         }
         finally
@@ -132,7 +171,10 @@ public sealed class OutputConfigTests
     public void Partial_Accepts_an_output_beside_the_tests_or_inside_a_glob_rooted_higher_up()
     {
         Assert.Equal(Path.Combine(Root, "results"), Resolve("""{ "output": "results" }""").Output);
-        Assert.Equal(Path.Combine(Root, "out", "replays"), Resolve("""{ "output": "out", "cache": { "dir": "out/replays" } }""").Cache.Directory);
+        Assert.Equal(
+            Path.Combine(Root, "out", "replays"),
+            Resolve("""{ "output": "out", "cache": { "dir": "out/replays" } }""").Cache.Directory
+        );
     }
 
     [Fact]
@@ -143,14 +185,18 @@ public sealed class OutputConfigTests
         Assert.Equal(Path.Combine(Root, "out"), config.ResolveOutput("out"));
     }
 
-    private static string Json(string key, object value) => JsonSerializer.Serialize(new Dictionary<string, object> { [key] = value });
+    private static string Json(string key, object value) =>
+        JsonSerializer.Serialize(new Dictionary<string, object> { [key] = value });
 
     private static E2EConfig Parse(string json, string root) => E2EConfig.Parse(json, root, Env());
 
     [Fact]
     public void Stays_out_of_the_digest()
     {
-        Assert.Equal(ResolveConfigTests.Digest(Resolve("""{ "output": "results" }""")), ResolveConfigTests.Digest(Resolve("{}")));
+        Assert.Equal(
+            ResolveConfigTests.Digest(Resolve("""{ "output": "results" }""")),
+            ResolveConfigTests.Digest(Resolve("{}"))
+        );
     }
 
     private static E2EConfig Resolve(string json) => Parse(json, Root);
@@ -158,7 +204,9 @@ public sealed class OutputConfigTests
     // The message of the failure for a config and an --output flag.
     private static string Refusal(string json, string? flag = null, Func<string, string?>? environment = null)
     {
-        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(json, Root, environment ?? Env()).ResolveOutput(flag));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            E2EConfig.Parse(json, Root, environment ?? Env()).ResolveOutput(flag)
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         return error.Message;
     }

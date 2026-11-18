@@ -31,12 +31,25 @@ public sealed class VideoTests : IDisposable
             if (options!["action"]!.GetValue<string>() == "start")
             {
                 requested = options["path"]!.GetValue<string>();
-                return new JsonObject { ["recording"] = "started", ["outPath"] = finalizeAt ?? requested, ["sessionStateDir"] = "/tmp", ["showTouches"] = true };
+                return new JsonObject
+                {
+                    ["recording"] = "started",
+                    ["outPath"] = finalizeAt ?? requested,
+                    ["sessionStateDir"] = "/tmp",
+                    ["showTouches"] = true,
+                };
             }
 
             var written = finalizeAt ?? requested!;
             File.WriteAllText(written, "mp4 bytes");
-            return new JsonObject { ["recording"] = "stopped", ["outPath"] = written, ["artifacts"] = new JsonArray(), ["durationMs"] = 1200, ["showTouches"] = true };
+            return new JsonObject
+            {
+                ["recording"] = "stopped",
+                ["outPath"] = written,
+                ["artifacts"] = new JsonArray(),
+                ["durationMs"] = 1200,
+                ["showTouches"] = true,
+            };
         });
     }
 
@@ -54,14 +67,20 @@ public sealed class VideoTests : IDisposable
             expected["hideTouches"] = true;
         }
 
-        Assert.True(JsonNode.DeepEquals(expected, h.Fake.LastArgs(DeviceMethods.RecordingRecord)), h.Fake.LastArgs(DeviceMethods.RecordingRecord)?.ToJsonString());
+        Assert.True(
+            JsonNode.DeepEquals(expected, h.Fake.LastArgs(DeviceMethods.RecordingRecord)),
+            h.Fake.LastArgs(DeviceMethods.RecordingRecord)?.ToJsonString()
+        );
     }
 
     private static void AssertStop(Harness h, string selection)
     {
         var expected = Selection(selection);
         expected["action"] = "stop";
-        Assert.True(JsonNode.DeepEquals(expected, h.Fake.LastArgs(DeviceMethods.RecordingRecord)), h.Fake.LastArgs(DeviceMethods.RecordingRecord)?.ToJsonString());
+        Assert.True(
+            JsonNode.DeepEquals(expected, h.Fake.LastArgs(DeviceMethods.RecordingRecord)),
+            h.Fake.LastArgs(DeviceMethods.RecordingRecord)?.ToJsonString()
+        );
     }
 
     [Fact]
@@ -80,7 +99,9 @@ public sealed class VideoTests : IDisposable
         AssertStop(h, """{"platform":"ios"}""");
         var segment = Assert.IsType<VideoFile>(Assert.Single(segments));
         Assert.Equal("video/video.mp4", segment.Path);
-        Assert.True(DateTime.TryParse(segment.StartedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _));
+        Assert.True(
+            DateTime.TryParse(segment.StartedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _)
+        );
         Assert.True(File.Exists(VideoPath));
         await session.DisposeAsync();
         Assert.Equal(2, Records(h));
@@ -97,7 +118,9 @@ public sealed class VideoTests : IDisposable
             await session.StartVideoAsync(CancellationToken.None);
             var segment = Assert.IsType<VideoFile>(Assert.Single(await session.StopVideoAsync(CancellationToken.None)));
             Assert.Equal("video/video.mp4", segment.Path);
-            Assert.True(DateTime.TryParse(segment.StartedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _));
+            Assert.True(
+                DateTime.TryParse(segment.StartedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _)
+            );
             File.Move(VideoPath, Path.Combine(_artifactsDir, moved));
         }
 
@@ -109,10 +132,18 @@ public sealed class VideoTests : IDisposable
     }
 
     [Theory]
-    [InlineData(MobilePlatform.Ios, "73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6", """{"platform":"ios","udid":"73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6"}""")]
+    [InlineData(
+        MobilePlatform.Ios,
+        "73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6",
+        """{"platform":"ios","udid":"73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6"}"""
+    )]
     [InlineData(MobilePlatform.Android, "emulator-5554", """{"platform":"android","serial":"emulator-5554"}""")]
     [InlineData(MobilePlatform.Ios, "iPhone 17 Pro", """{"platform":"ios","device":"iPhone 17 Pro"}""")]
-    public async Task Records_and_stops_on_the_pinned_platform_device_after_closeApp_ends_the_previous_session(MobilePlatform platform, string device, string selection)
+    public async Task Records_and_stops_on_the_pinned_platform_device_after_closeApp_ends_the_previous_session(
+        MobilePlatform platform,
+        string device,
+        string selection
+    )
     {
         var h = Harness.Create(options => options with { Platform = platform, Device = device });
         Recorder(h);
@@ -165,7 +196,10 @@ public sealed class VideoTests : IDisposable
         var h = Harness.Create();
         var finalizing = new TaskCompletionSource<JsonNode?>(TaskCreationOptions.RunContinuationsAsynchronously);
         h.Fake.RespondAsync(DeviceMethods.RecordingRecord, (options, _) =>
-            options!["action"]!.GetValue<string>() == "start" ? Task.FromResult<JsonNode?>(new JsonObject { ["recording"] = "started" }) : finalizing.Task);
+            options!["action"]!.GetValue<string>() == "start"
+                ? Task.FromResult<JsonNode?>(new JsonObject { ["recording"] = "started" })
+                : finalizing.Task
+        );
         var session = await OpenAttempt(h, _artifactsDir);
         await session.StartVideoAsync(CancellationToken.None);
         using var controller = new CancellationTokenSource();
@@ -208,7 +242,9 @@ public sealed class VideoTests : IDisposable
 
             return Interlocked.Increment(ref stops) == 1
                 ? failing.Task
-                : Task.FromResult<JsonNode?>(new JsonObject { ["recording"] = "stopped", ["recordOnlySession"] = true });
+                : Task.FromResult<JsonNode?>(
+                    new JsonObject { ["recording"] = "stopped", ["recordOnlySession"] = true }
+                );
         });
         var session = await OpenAttempt(h, _artifactsDir);
         await session.StartVideoAsync(CancellationToken.None);
@@ -280,7 +316,15 @@ public sealed class VideoTests : IDisposable
                 throw new InvalidOperationException("recorder busy");
             }
 
-            return Task.FromResult<JsonNode?>(new JsonObject { ["recording"] = "stopped", ["artifacts"] = new JsonArray(), ["durationMs"] = 0, ["showTouches"] = true });
+            return Task.FromResult<JsonNode?>(
+                new JsonObject
+                {
+                    ["recording"] = "stopped",
+                    ["artifacts"] = new JsonArray(),
+                    ["durationMs"] = 0,
+                    ["showTouches"] = true,
+                }
+            );
         });
         var session = await OpenAttempt(h, _artifactsDir);
 
@@ -290,7 +334,15 @@ public sealed class VideoTests : IDisposable
         await reached.Task;
         await budget.CancelAsync();
         await Assert.ThrowsAnyAsync<Exception>(() => starting);
-        release.SetResult(new JsonObject { ["recording"] = "started", ["outPath"] = VideoPath, ["sessionStateDir"] = "/tmp", ["showTouches"] = true });
+        release.SetResult(
+            new JsonObject
+            {
+                ["recording"] = "started",
+                ["outPath"] = VideoPath,
+                ["sessionStateDir"] = "/tmp",
+                ["showTouches"] = true,
+            }
+        );
         await session.DisposeAsync();
         Assert.Equal(1, stops);
 

@@ -12,7 +12,15 @@ internal static class RekeyedCache
     // Records the upgrade step and returns its entry.
     public static async Task<CacheEntry> RecordAsync(string directory)
     {
-        await using (var session = await ConfigTests.StartAsync(directory, CacheMode.ReadWrite, strict: false, "Upgrade to Pro", () => { }))
+        await using (
+            var session = await ConfigTests.StartAsync(
+                directory,
+                CacheMode.ReadWrite,
+                strict: false,
+                "Upgrade to Pro",
+                () => { }
+            )
+        )
         {
             await ConfigTests.UpgradeAsync(session);
             session.Complete();
@@ -37,7 +45,15 @@ internal static class RekeyedCache
     public static async Task AssertRunsLiveAsync(string directory)
     {
         var calls = 0;
-        await using (var session = await ConfigTests.StartAsync(directory, CacheMode.ReadOnly, strict: true, "Upgrade to Pro", () => calls++))
+        await using (
+            var session = await ConfigTests.StartAsync(
+                directory,
+                CacheMode.ReadOnly,
+                strict: true,
+                "Upgrade to Pro",
+                () => calls++
+            )
+        )
         {
             await ConfigTests.UpgradeAsync(session);
             Assert.Equal(1, session.Missed);

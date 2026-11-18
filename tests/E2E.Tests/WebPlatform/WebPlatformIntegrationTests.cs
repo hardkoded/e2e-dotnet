@@ -28,9 +28,12 @@ public sealed class WebPlatformIntegrationTests
     [InlineData("a *css= capture is refused before the last selector part")]
     [InlineData("toHaveURL ignoreCase folds the comparison")]
     [InlineData("string and RegExp URL patterns match what they name")]
+    [InlineData("toHaveRole compares the role the tree reads")]
     [InlineData("routes are attempt-scoped: registered before the first page, kept across restart and clearState")]
     [InlineData("clicks hold the modifiers they name")]
-    [InlineData("contenteditable hosts are textboxes: reached by label and by role (an explicit role only), filled, and read as a value")]
+    [InlineData(
+        "contenteditable hosts are textboxes: reached by label and by role (an explicit role only), filled, and read as a value"
+    )]
     public async Task Ported_scenario_passes(string title)
     {
         Assert.Null(await RunAsync(Scenarios[title]));
@@ -39,26 +42,35 @@ public sealed class WebPlatformIntegrationTests
     [Fact]
     public async Task Downloads_are_captured_as_artifacts()
     {
-        Assert.Null(await RunAsync(async session =>
-        {
-            await session.App.OpenAsync("/downloads");
-            var download = await session.Browser.WaitForDownloadAsync(() => session.Browser.Locator("a[download]").TapAsync());
-            Assert.Equal("report.csv", download.SuggestedFilename);
-            Assert.StartsWith("downloads/", download.Path, StringComparison.Ordinal);
-            Assert.Equal("id,total\n1,42\n", await File.ReadAllTextAsync(download.AbsolutePath));
-        }));
+        Assert.Null(
+            await RunAsync(async session =>
+            {
+                await session.App.OpenAsync("/downloads");
+                var download = await session.Browser.WaitForDownloadAsync(() =>
+                    session.Browser.Locator("a[download]").TapAsync()
+                );
+                Assert.Equal("report.csv", download.SuggestedFilename);
+                Assert.StartsWith("downloads/", download.Path, StringComparison.Ordinal);
+                Assert.Equal("id,total\n1,42\n", await File.ReadAllTextAsync(download.AbsolutePath));
+            })
+        );
     }
 
     [Fact]
     public async Task Fails_a_download_that_never_started_with_the_wait_and_the_trigger_time_not_a_bare_timeout()
     {
-        var error = Assert.IsType<TestException>(await RunAsync(async session =>
-        {
-            await session.App.OpenAsync("/downloads");
-            await session.Browser.WaitForDownloadAsync(() => Task.Delay(200), TimeSpan.FromMilliseconds(500));
-        }));
+        var error = Assert.IsType<TestException>(
+            await RunAsync(async session =>
+            {
+                await session.App.OpenAsync("/downloads");
+                await session.Browser.WaitForDownloadAsync(() => Task.Delay(200), TimeSpan.FromMilliseconds(500));
+            })
+        );
         Assert.Equal("ACTION_FAILED", error.Code);
-        var timing = Regex.Match(error.Message, @"^no download started within (\d+)ms; the trigger resolved after (\d+)ms$");
+        var timing = Regex.Match(
+            error.Message,
+            @"^no download started within (\d+)ms; the trigger resolved after (\d+)ms$"
+        );
         Assert.True(timing.Success, error.Message);
 
         // The operation reports its remaining budget after setup, capped by the requested 500ms.
@@ -66,7 +78,10 @@ public sealed class WebPlatformIntegrationTests
         Assert.InRange(waitMs, 1, 500);
 
         // The trigger sleeps 200ms; a timer can fire a millisecond or two early.
-        Assert.True(int.Parse(timing.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture) >= 190, error.Message);
+        Assert.True(
+            int.Parse(timing.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture) >= 190,
+            error.Message
+        );
     }
 
     [Fact]
@@ -76,19 +91,21 @@ public sealed class WebPlatformIntegrationTests
         try
         {
             using var site = await FixtureApp.StartAsync();
-            await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-            {
-                Engine = new WebEngine(headless: true),
-                Model = new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
-                BaseUrl = site.Url,
-                TestTitle = "downloads are captured as artifacts",
-                ProjectRoot = results,
-                ResultsDirectory = Path.Combine(results, "results"),
-                ActionTimeout = TimeSpan.FromSeconds(5),
-                TestTimeout = TimeSpan.FromSeconds(30),
-                CacheEnabled = false,
-                Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
-            });
+            await using var session = await E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = new WebEngine(headless: true),
+                    Model = new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+                    BaseUrl = site.Url,
+                    TestTitle = "downloads are captured as artifacts",
+                    ProjectRoot = results,
+                    ResultsDirectory = Path.Combine(results, "results"),
+                    ActionTimeout = TimeSpan.FromSeconds(5),
+                    TestTimeout = TimeSpan.FromSeconds(30),
+                    CacheEnabled = false,
+                    Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+                }
+            );
             await session.App.OpenAsync("/downloads");
             await session.Browser.WaitForDownloadAsync(() => session.Browser.Locator("a[download]").TapAsync());
             session.Complete();
@@ -115,11 +132,13 @@ public sealed class WebPlatformIntegrationTests
     public async Task Fails_a_read_of_a_node_that_never_arrives_with_LOCATOR_NOT_FOUND_once_the_action_timeout_has_run()
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        var error = Assert.IsType<TestException>(await RunAsync(async session =>
-        {
-            await session.App.OpenAsync("/classes");
-            await session.Screen.GetByText("Never card").TextContentAsync();
-        }));
+        var error = Assert.IsType<TestException>(
+            await RunAsync(async session =>
+            {
+                await session.App.OpenAsync("/classes");
+                await session.Screen.GetByText("Never card").TextContentAsync();
+            })
+        );
         Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.Contains("Never card", error.Message, StringComparison.Ordinal);
         Assert.True(watch.Elapsed >= TimeSpan.FromSeconds(5), "failed after " + watch.Elapsed);
@@ -128,9 +147,13 @@ public sealed class WebPlatformIntegrationTests
     [Fact]
     public async Task Decides_absence_under_an_absent_frame_without_waiting_out_the_deadline()
     {
-        var (error, steps) = await RunWithStepsAsync(Scenarios["absence matchers and waits under an absent frame pass at once"]);
+        var (error, steps) = await RunWithStepsAsync(
+            Scenarios["absence matchers and waits under an absent frame pass at once"]
+        );
         Assert.Null(error);
-        var decided = steps.Where(step => step.Api.StartsWith("expect.", StringComparison.Ordinal) || step.Api == "locator.waitFor").ToList();
+        var decided = steps
+            .Where(step => step.Api.StartsWith("expect.", StringComparison.Ordinal) || step.Api == "locator.waitFor")
+            .ToList();
         Assert.Equal(5, decided.Count);
         foreach (var step in decided)
         {
@@ -144,7 +167,10 @@ public sealed class WebPlatformIntegrationTests
         var (error, steps) = await RunWithStepsAsync(async session =>
         {
             await session.App.OpenAsync("/frame");
-            await session.Browser.FrameLocator("#absent").GetByRole("button").TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(800) });
+            await session
+                .Browser.FrameLocator("#absent")
+                .GetByRole("button")
+                .TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(800) });
         });
         Assert.Equal("LOCATOR_NOT_FOUND", Assert.IsType<TestException>(error).Code);
         var tap = steps.First(step => step.Api == "locator.tap");
@@ -166,7 +192,9 @@ public sealed class WebPlatformIntegrationTests
         var (error, steps) = await RunWithStepsAsync(async session =>
         {
             await session.App.OpenAsync("/classes");
-            await Expect.That(session.Browser).ToHaveClassAsync(session.Browser.Locator(".dup"), "dup", TimeSpan.FromMilliseconds(1800));
+            await Expect
+                .That(session.Browser)
+                .ToHaveClassAsync(session.Browser.Locator(".dup"), "dup", TimeSpan.FromMilliseconds(1800));
         });
         Assert.Equal("LOCATOR_AMBIGUOUS", Assert.IsType<TestException>(error).Code);
         Assert.True(steps.First(step => step.Api == "expect.toHaveClass").DurationMs < 1800);
@@ -178,7 +206,9 @@ public sealed class WebPlatformIntegrationTests
         var (error, steps) = await RunWithStepsAsync(async session =>
         {
             await session.App.OpenAsync("/classes");
-            await Expect.That(session.Browser).ToHaveClassAsync(session.Browser.Locator("#never-card"), "card", TimeSpan.FromMilliseconds(300));
+            await Expect
+                .That(session.Browser)
+                .ToHaveClassAsync(session.Browser.Locator("#never-card"), "card", TimeSpan.FromMilliseconds(300));
         });
         var failure = Assert.IsType<TestException>(error);
         Assert.Equal("ASSERTION_FAILED", failure.Code);
@@ -192,7 +222,9 @@ public sealed class WebPlatformIntegrationTests
         var error = await RunAsync(async session =>
         {
             await session.App.OpenAsync("/classes");
-            await Expect.That(session.Browser).ToHaveClassAsync(session.Screen.GetByTestId("items"), "", TimeSpan.FromMilliseconds(300));
+            await Expect
+                .That(session.Browser)
+                .ToHaveClassAsync(session.Screen.GetByTestId("items"), "", TimeSpan.FromMilliseconds(300));
         });
         var missing = Assert.IsType<TestException>(error);
         Assert.Equal("ASSERTION_FAILED", missing.Code);
@@ -202,10 +234,13 @@ public sealed class WebPlatformIntegrationTests
     [Fact]
     public async Task Sets_a_viewport_before_the_first_navigation_without_opening_a_page()
     {
-        var (error, steps) = await RunWithStepsAsync(Scenarios["a viewport set before the first navigation opens no page"]);
+        var (error, steps) = await RunWithStepsAsync(
+            Scenarios["a viewport set before the first navigation opens no page"]
+        );
         Assert.Equal(
             [("browser.setViewport", StepStatus.Passed), ("locator.tap", StepStatus.Failed)],
-            steps.Select(step => (step.Api, step.Status)).ToArray());
+            steps.Select(step => (step.Api, step.Status)).ToArray()
+        );
         Assert.Equal("APP_NOT_OPEN", Assert.IsType<TestException>(error).Code);
     }
 
@@ -213,7 +248,9 @@ public sealed class WebPlatformIntegrationTests
     public async Task Fails_toHaveValue_on_a_textarea_against_the_raw_value_and_prints_what_it_compared()
     {
         // The web engine reports the value raw, and the matcher neither collapses the newlines to match nor prints a string it never compared.
-        var error = Assert.IsType<TestException>(await RunAsync(Scenarios["a textarea value is never normalized to match"]));
+        var error = Assert.IsType<TestException>(
+            await RunAsync(Scenarios["a textarea value is never normalized to match"])
+        );
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.Contains("observed: value \"line1\\n\\nline2  \"", error.Message, StringComparison.Ordinal);
     }
@@ -222,7 +259,13 @@ public sealed class WebPlatformIntegrationTests
     public async Task Denies_toHaveAttribute_on_a_password_field_that_has_a_value_attribute_with_POLICY_DENIED_negated_too()
     {
         // The engine withholds a secure field's value attribute, so the matcher must not read the gap as absent and pass the negated form.
-        foreach (var title in new[] { "toHaveAttribute never judges a secure field", "a negated toHaveAttribute never judges a secure field" })
+        foreach (
+            var title in new[]
+            {
+                "toHaveAttribute never judges a secure field",
+                "a negated toHaveAttribute never judges a secure field",
+            }
+        )
         {
             var error = Assert.IsType<TestException>(await RunAsync(Scenarios[title]));
             Assert.Equal("POLICY_DENIED", error.Code);
@@ -230,9 +273,38 @@ public sealed class WebPlatformIntegrationTests
             Assert.DoesNotContain("marker-5e0c", error.ToString(), StringComparison.Ordinal);
         }
 
-        var control = Assert.IsType<TestException>(await RunAsync(Scenarios["a negated toHaveAttribute fails on a plain field that holds the same marker"]));
+        var control = Assert.IsType<TestException>(
+            await RunAsync(Scenarios["a negated toHaveAttribute fails on a plain field that holds the same marker"])
+        );
         Assert.Equal("ASSERTION_FAILED", control.Code);
         Assert.Contains("observed: attribute \"value\" \"marker-5e0c\"", control.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Fails_toHaveRole_on_a_switch_asked_for_a_checkbox_naming_both_roles()
+    {
+        var error = Assert.IsType<TestException>(await RunAsync(Scenarios["toHaveRole fails on another role"]));
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Contains(
+            "expected: role \"checkbox\"\nobserved: role \"switch\"",
+            error.Message,
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
+    public async Task Fails_toHaveRole_on_a_password_field_and_keeps_its_value_out_of_the_result()
+    {
+        var error = Assert.IsType<TestException>(
+            await RunAsync(Scenarios["toHaveRole fails on a secure field without its value"])
+        );
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Contains(
+            "expected: role \"searchbox\"\nobserved: role \"textbox\"",
+            error.Message,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("marker-7c1f", error.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -250,7 +322,9 @@ public sealed class WebPlatformIntegrationTests
         Assert.Equal("POLICY_DENIED", error.Code);
         Assert.Contains("reading values from a secure field is denied", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("marker-9b1f", error.ToString(), StringComparison.Ordinal);
-        var control = Assert.IsType<TestException>(await RunAsync(Scenarios["toHaveValue reads a plain field that holds the same marker"]));
+        var control = Assert.IsType<TestException>(
+            await RunAsync(Scenarios["toHaveValue reads a plain field that holds the same marker"])
+        );
         Assert.Equal("ASSERTION_FAILED", control.Code);
         Assert.Contains("observed: value \"marker-9b1f\"", control.Message, StringComparison.Ordinal);
     }
@@ -258,25 +332,37 @@ public sealed class WebPlatformIntegrationTests
     [Fact]
     public async Task Fails_a_negated_toHaveURL_ignoreCase_on_a_case_folded_match()
     {
-        var error = Assert.IsType<TestException>(await RunAsync(async session =>
-        {
-            await session.App.OpenAsync("/classes");
-            await Expect.That(session.Browser).Not.ToHaveURLAsync("/CLASSES", ignoreCase: true, timeout: TimeSpan.FromMilliseconds(300));
-        }));
+        var error = Assert.IsType<TestException>(
+            await RunAsync(async session =>
+            {
+                await session.App.OpenAsync("/classes");
+                await Expect
+                    .That(session.Browser)
+                    .Not.ToHaveURLAsync("/CLASSES", ignoreCase: true, timeout: TimeSpan.FromMilliseconds(300));
+            })
+        );
         Assert.Equal("ASSERTION_FAILED", error.Code);
-        Assert.Matches("^expect\\.not\\.toHaveURL failed\nexpected: not URL http://127\\.0\\.0\\.1:\\d+/CLASSES \\(ignoring case\\)\nobserved: URL http://127\\.0\\.0\\.1:\\d+/classes$", error.Message);
+        Assert.Matches(
+            "^expect\\.not\\.toHaveURL failed\nexpected: not URL http://127\\.0\\.0\\.1:\\d+/CLASSES \\(ignoring case\\)\nobserved: URL http://127\\.0\\.0\\.1:\\d+/classes$",
+            error.Message
+        );
     }
 
     [Fact]
     public async Task Prints_a_relative_toHaveURL_expectation_resolved_against_the_app_URL_like_the_observed_one()
     {
-        var error = Assert.IsType<TestException>(await RunAsync(async session =>
-        {
-            await session.App.OpenAsync("/classes");
-            await Expect.That(session.Browser).ToHaveURLAsync("/about", timeout: TimeSpan.FromMilliseconds(300));
-        }));
+        var error = Assert.IsType<TestException>(
+            await RunAsync(async session =>
+            {
+                await session.App.OpenAsync("/classes");
+                await Expect.That(session.Browser).ToHaveURLAsync("/about", timeout: TimeSpan.FromMilliseconds(300));
+            })
+        );
         Assert.Equal("ASSERTION_FAILED", error.Code);
-        Assert.Matches("^expect\\.toHaveURL failed\nexpected: URL http://127\\.0\\.0\\.1:\\d+/about\nobserved: URL http://127\\.0\\.0\\.1:\\d+/classes$", error.Message);
+        Assert.Matches(
+            "^expect\\.toHaveURL failed\nexpected: URL http://127\\.0\\.0\\.1:\\d+/about\nobserved: URL http://127\\.0\\.0\\.1:\\d+/classes$",
+            error.Message
+        );
     }
 
     [Fact]
@@ -292,11 +378,18 @@ public sealed class WebPlatformIntegrationTests
     [Theory]
     [InlineData("route", "a route handler assertion that no step follows")]
     [InlineData("dialog", "a dialog handler assertion that no step follows")]
-    public async Task Partial_Fails_a_handler_assertion_at_the_attempt_end_when_no_step_follows_it(string kind, string title)
+    public async Task Partial_Fails_a_handler_assertion_at_the_attempt_end_when_no_step_follows_it(
+        string kind,
+        string title
+    )
     {
         var error = Assert.IsType<TestException>(await RunAsync(Scenarios[title]));
         Assert.Equal("ASSERTION_FAILED", error.Code);
-        Assert.Contains("Expected: \"" + (kind == "route" ? "POST" : "Are you sure?") + "\"", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "Expected: \"" + (kind == "route" ? "POST" : "Are you sure?") + "\"",
+            error.Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -308,40 +401,70 @@ public sealed class WebPlatformIntegrationTests
         await File.WriteAllTextAsync(markerPath, "marker-local-file\n");
         var marker = new Uri(markerPath).AbsoluteUri;
 
-        foreach (var url in new[] { "view-source:" + marker, "VIEW-SOURCE:" + marker, "  view-source:" + marker, "blob:http://127.0.0.1/x", "about:srcdoc" })
-        {
-            var error = Assert.IsType<TestException>(await RunAsync(async session =>
+        foreach (
+            var url in new[]
             {
-                await session.App.OpenAsync();
-                await session.App.OpenAsync(url);
-                Assert.DoesNotContain("marker-local-file", await session.Browser.EvaluateAsync<string>("() => document.body?.innerText ?? ''"));
-            }));
+                "view-source:" + marker,
+                "VIEW-SOURCE:" + marker,
+                "  view-source:" + marker,
+                "blob:http://127.0.0.1/x",
+                "about:srcdoc",
+            }
+        )
+        {
+            var error = Assert.IsType<TestException>(
+                await RunAsync(async session =>
+                {
+                    await session.App.OpenAsync();
+                    await session.App.OpenAsync(url);
+                    Assert.DoesNotContain(
+                        "marker-local-file",
+                        await session.Browser.EvaluateAsync<string>("() => document.body?.innerText ?? ''")
+                    );
+                })
+            );
             Assert.Equal("POLICY_DENIED", error.Code);
             Assert.Matches("^forbidden URL scheme: (view-source|blob|about):$", error.Message);
         }
 
-        var navigated = Assert.IsType<TestException>(await RunAsync(async session =>
-        {
-            await session.App.OpenAsync();
-            await session.Browser.GotoAsync("view-source:" + marker);
-            Assert.DoesNotContain("marker-local-file", await session.Browser.EvaluateAsync<string>("() => document.body?.innerText ?? ''"));
-        }));
+        var navigated = Assert.IsType<TestException>(
+            await RunAsync(async session =>
+            {
+                await session.App.OpenAsync();
+                await session.Browser.GotoAsync("view-source:" + marker);
+                Assert.DoesNotContain(
+                    "marker-local-file",
+                    await session.Browser.EvaluateAsync<string>("() => document.body?.innerText ?? ''")
+                );
+            })
+        );
         Assert.Equal("POLICY_DENIED", navigated.Code);
         Assert.Equal("forbidden URL scheme: view-source:", navigated.Message);
 
-        Assert.Null(await RunAsync(async session =>
-        {
-            await session.App.OpenAsync();
-            await session.App.OpenAsync("about:blank");
-            await session.Browser.GotoAsync("about:blank");
-            Assert.Equal("about:blank", await session.Browser.UrlAsync());
-        }));
+        Assert.Null(
+            await RunAsync(async session =>
+            {
+                await session.App.OpenAsync();
+                await session.App.OpenAsync("about:blank");
+                await session.Browser.GotoAsync("about:blank");
+                Assert.Equal("about:blank", await session.Browser.UrlAsync());
+            })
+        );
 
-        var cookie = Assert.IsType<TestException>(await RunAsync(async session =>
-        {
-            await session.App.OpenAsync();
-            await session.Browser.SetCookiesAsync([new BrowserCookie { Name = "flavor", Value = "oatmeal", Url = "about:blank" }]);
-        }));
+        var cookie = Assert.IsType<TestException>(
+            await RunAsync(async session =>
+            {
+                await session.App.OpenAsync();
+                await session.Browser.SetCookiesAsync([
+                    new BrowserCookie
+                    {
+                        Name = "flavor",
+                        Value = "oatmeal",
+                        Url = "about:blank",
+                    },
+                ]);
+            })
+        );
         Assert.Equal("POLICY_DENIED", cookie.Code);
         Assert.Equal("cookie URL must be http(s): about:blank", cookie.Message);
         directory.Delete(recursive: true);
@@ -359,13 +482,23 @@ public sealed class WebPlatformIntegrationTests
         ["class assertions report the observed class on failure"] = async session =>
         {
             await session.App.OpenAsync();
-            var failure = await Assert.ThrowsAsync<TestException>(() => Expect.That(session.Browser).ToHaveClassAsync(session.Browser.Locator("#class-card"), "card inactive", TimeSpan.FromMilliseconds(300)));
+            var failure = await Assert.ThrowsAsync<TestException>(() =>
+                Expect
+                    .That(session.Browser)
+                    .ToHaveClassAsync(
+                        session.Browser.Locator("#class-card"),
+                        "card inactive",
+                        TimeSpan.FromMilliseconds(300)
+                    )
+            );
             Assert.Contains("class \"card active\"", failure.Message, StringComparison.Ordinal);
         },
         ["class assertions poll for a node that arrives late"] = async session =>
         {
             await session.App.OpenAsync("/classes");
-            await Expect.That(session.Browser).ToHaveClassAsync(session.Browser.Locator("#late-card"), "card late", TimeSpan.FromMilliseconds(1800));
+            await Expect
+                .That(session.Browser)
+                .ToHaveClassAsync(session.Browser.Locator("#late-card"), "card late", TimeSpan.FromMilliseconds(1800));
         },
         ["an empty class attribute is an empty class list"] = async session =>
         {
@@ -385,7 +518,10 @@ public sealed class WebPlatformIntegrationTests
         ["a nested absent frame counts as zero matches at once"] = async session =>
         {
             await session.App.OpenAsync("/frame-nested");
-            Assert.Equal(0, await session.Browser.FrameLocator("#outer").FrameLocator("#absent").GetByRole("button").CountAsync());
+            Assert.Equal(
+                0,
+                await session.Browser.FrameLocator("#outer").FrameLocator("#absent").GetByRole("button").CountAsync()
+            );
         },
         ["absence matchers and waits under an absent frame pass at once"] = async session =>
         {
@@ -412,12 +548,17 @@ public sealed class WebPlatformIntegrationTests
                 capture = ex.Message;
             }
 
-            Assert.Contains("a selector that captures with * (*css=article >> text=Hello) is not supported", capture, StringComparison.Ordinal);
+            Assert.Contains(
+                "a selector that captures with * (*css=article >> text=Hello) is not supported",
+                capture,
+                StringComparison.Ordinal
+            );
         },
         ["clicks hold the modifiers they name"] = async session =>
         {
             await session.App.OpenAsync();
-            await session.Browser.EvaluateAsync<object?>("""
+            await session.Browser.EvaluateAsync<object?>(
+                """
                 () => {
                     document.body.innerHTML = '<button>Pick</button><p role="status"></p>';
                     const button = document.querySelector('button');
@@ -431,7 +572,8 @@ public sealed class WebPlatformIntegrationTests
                     button.addEventListener('contextmenu', (event) => { event.preventDefault(); status.textContent = held(event); });
                     return null;
                 }
-                """);
+                """
+            );
             var pick = session.Screen.GetByRole("button", "Pick");
             var status = session.Screen.GetByRole("status");
             await pick.ClickAsync(new ClickOptions { Modifiers = [KeyModifier.Shift] });
@@ -462,32 +604,47 @@ public sealed class WebPlatformIntegrationTests
             await Expect.That(browser).Not.ToHaveURLAsync(new Regex("/other$"), timeout: short200);
             await browser.WaitForURLAsync(new Regex("/about$"));
             await browser.RouteAsync(new Regex("/other$"), route => route.AbortAsync());
-            await browser.RouteAsync(new Regex("/api/flags$"), route => route.FulfillAsync(new RouteFulfillResponse { Json = new Dictionary<string, bool> { ["betaBoard"] = true } }));
+            await browser.RouteAsync(new Regex("/api/flags$"), route =>
+                route.FulfillAsync(
+                    new RouteFulfillResponse { Json = new Dictionary<string, bool> { ["betaBoard"] = true } }
+                )
+            );
             var waiting = browser.WaitForResponseAsync(new Regex("/api/flags$"));
             await browser.GotoAsync("/flags");
             var response = await waiting;
             Assert.Matches("/api/flags$", response.Url);
-            Assert.Equal(new Dictionary<string, bool> { ["betaBoard"] = true }, await response.JsonAsync<Dictionary<string, bool>>());
+            Assert.Equal(
+                new Dictionary<string, bool> { ["betaBoard"] = true },
+                await response.JsonAsync<Dictionary<string, bool>>()
+            );
             await Expect.That(flags).ToHaveTextAsync("beta on");
             await browser.UnrouteAsync(new Regex("/api/flags$"));
             var real = browser.WaitForResponseAsync("**/api/flags");
             await browser.ReloadAsync();
-            Assert.Equal(new Dictionary<string, bool> { ["betaBoard"] = false }, await (await real).JsonAsync<Dictionary<string, bool>>());
+            Assert.Equal(
+                new Dictionary<string, bool> { ["betaBoard"] = false },
+                await (await real).JsonAsync<Dictionary<string, bool>>()
+            );
             await Expect.That(flags).ToHaveTextAsync("beta off");
         },
-        ["routes are attempt-scoped: registered before the first page, kept across restart and clearState"] = async session =>
-        {
-            var flags = session.Screen.GetByRole("status", "Flags");
-            await session.Browser.RouteAsync("**/api/flags", route => route.FulfillAsync(new RouteFulfillResponse { Json = new Dictionary<string, bool> { ["betaBoard"] = true } }));
-            await session.App.OpenAsync("/flags");
-            await Expect.That(flags).ToHaveTextAsync("beta on");
-            await session.App.RestartAsync();
-            await session.Browser.GotoAsync("/flags");
-            await Expect.That(flags).ToHaveTextAsync("beta on");
-            await session.App.ClearStateAsync();
-            await session.Browser.GotoAsync("/flags");
-            await Expect.That(flags).ToHaveTextAsync("beta on");
-        },
+        ["routes are attempt-scoped: registered before the first page, kept across restart and clearState"] =
+            async session =>
+            {
+                var flags = session.Screen.GetByRole("status", "Flags");
+                await session.Browser.RouteAsync("**/api/flags", route =>
+                    route.FulfillAsync(
+                        new RouteFulfillResponse { Json = new Dictionary<string, bool> { ["betaBoard"] = true } }
+                    )
+                );
+                await session.App.OpenAsync("/flags");
+                await Expect.That(flags).ToHaveTextAsync("beta on");
+                await session.App.RestartAsync();
+                await session.Browser.GotoAsync("/flags");
+                await Expect.That(flags).ToHaveTextAsync("beta on");
+                await session.App.ClearStateAsync();
+                await session.Browser.GotoAsync("/flags");
+                await Expect.That(flags).ToHaveTextAsync("beta on");
+            },
         ["deterministic queries and reads"] = async session =>
         {
             var screen = session.Screen;
@@ -514,11 +671,17 @@ public sealed class WebPlatformIntegrationTests
             Assert.Equal(["Item Alpha", "Item Beta", "Item Gamma"], texts);
             Assert.Equal(texts, await screen.GetByTestId("item").AllTextContentsAsync());
             Assert.Empty(await screen.GetByTestId("missing").AllAsync());
-            await Expect.That(screen.GetByTestId("item")).ToHaveTextAsync(["Item Alpha", new Regex("Beta"), "Item Gamma"]);
+            await Expect
+                .That(screen.GetByTestId("item"))
+                .ToHaveTextAsync(["Item Alpha", new Regex("Beta"), "Item Gamma"]);
             await Expect.That(screen.GetByTestId("item")).ToContainTextAsync(["Alpha", "Beta", "Gamma"]);
             await Expect.That(screen.GetByTestId("item")).ToContainTextAsync(["Alpha", "Gamma"]);
-            await Expect.That(screen.GetByTestId("item")).Not.ToContainTextAsync(["Gamma", "Alpha"], timeout: TimeSpan.FromMilliseconds(200));
-            await Expect.That(screen.GetByTestId("item")).Not.ToHaveTextAsync(["Item Alpha", "Item Beta"], timeout: TimeSpan.FromMilliseconds(200));
+            await Expect
+                .That(screen.GetByTestId("item"))
+                .Not.ToContainTextAsync(["Gamma", "Alpha"], timeout: TimeSpan.FromMilliseconds(200));
+            await Expect
+                .That(screen.GetByTestId("item"))
+                .Not.ToHaveTextAsync(["Item Alpha", "Item Beta"], timeout: TimeSpan.FromMilliseconds(200));
 
             Assert.Null(await screen.GetByTestId("items").GetAttributeAsync("class"));
             Assert.Equal("card active", await session.Browser.Locator("#class-card").GetAttributeAsync("class"));
@@ -529,7 +692,9 @@ public sealed class WebPlatformIntegrationTests
             Assert.Null(await screen.GetByTestId("items").GetAttributeAsync("toString"));
             Assert.Null(await screen.GetByTestId("items").GetAttributeAsync("__proto__"));
         },
-        ["contenteditable hosts are textboxes: reached by label and by role (an explicit role only), filled, and read as a value"] = async session =>
+        [
+            "contenteditable hosts are textboxes: reached by label and by role (an explicit role only), filled, and read as a value"
+        ] = async session =>
         {
             await session.App.OpenAsync("/editor");
             var notes = session.Screen.GetByLabel("Notes");
@@ -550,18 +715,24 @@ public sealed class WebPlatformIntegrationTests
             await session.App.OpenAsync();
             await Expect.That(session.Screen.GetByLabel("Notes")).ToHaveValueAsync("line1\n\nline2  ");
             await Expect.That(session.Screen.GetByLabel("Notes")).ToHaveValueAsync(new Regex("^line1\n\nline2 {2}$"));
-            await Expect.That(session.Screen.GetByLabel("Notes")).Not.ToHaveValueAsync("line1 line2", TimeSpan.FromMilliseconds(200));
+            await Expect
+                .That(session.Screen.GetByLabel("Notes"))
+                .Not.ToHaveValueAsync("line1 line2", TimeSpan.FromMilliseconds(200));
         },
         ["a textarea value is never normalized to match"] = async session =>
         {
             await session.App.OpenAsync();
-            await Expect.That(session.Screen.GetByLabel("Notes")).ToHaveValueAsync("line1 line2", TimeSpan.FromMilliseconds(500));
+            await Expect
+                .That(session.Screen.GetByLabel("Notes"))
+                .ToHaveValueAsync("line1 line2", TimeSpan.FromMilliseconds(500));
         },
         ["toHaveAttribute reads the value attribute of plain fields"] = async session =>
         {
             await session.App.OpenAsync("/value-attributes");
             await Expect.That(session.Screen.GetByLabel("Plain")).ToHaveAttributeAsync("value", "marker-5e0c");
-            await Expect.That(session.Screen.GetByLabel("Blank")).Not.ToHaveAttributeAsync("value", TimeSpan.FromMilliseconds(200));
+            await Expect
+                .That(session.Screen.GetByLabel("Blank"))
+                .Not.ToHaveAttributeAsync("value", TimeSpan.FromMilliseconds(200));
         },
         ["toHaveAttribute never judges a secure field"] = async session =>
         {
@@ -576,7 +747,39 @@ public sealed class WebPlatformIntegrationTests
         ["a negated toHaveAttribute fails on a plain field that holds the same marker"] = async session =>
         {
             await session.App.OpenAsync("/value-attributes");
-            await Expect.That(session.Screen.GetByLabel("Plain")).Not.ToHaveAttributeAsync("value", TimeSpan.FromMilliseconds(500));
+            await Expect
+                .That(session.Screen.GetByLabel("Plain"))
+                .Not.ToHaveAttributeAsync("value", TimeSpan.FromMilliseconds(500));
+        },
+        ["toHaveRole compares the role the tree reads"] = async session =>
+        {
+            await session.App.OpenAsync("/role-matcher");
+            var screen = session.Screen;
+            var soon = TimeSpan.FromMilliseconds(200);
+            await Expect.That(screen.GetByLabel("Name")).ToHaveRoleAsync("textbox");
+            await Expect.That(screen.GetByLabel("Secret")).ToHaveRoleAsync("textbox");
+            await Expect.That(screen.GetByTestId("logo")).ToHaveRoleAsync("img");
+            await Expect.That(screen.GetByTestId("logo")).ToHaveRoleAsync("image");
+            await Expect.That(screen.GetByTestId("title")).ToHaveRoleAsync("heading");
+            await Expect.That(screen.GetByText("Wi-Fi")).ToHaveRoleAsync("switch");
+            await Expect.That(screen.GetByText("Wi-Fi")).Not.ToHaveRoleAsync("checkbox", soon);
+            await Expect.That(screen.GetByTestId("plain")).Not.ToHaveRoleAsync("button", soon);
+            // An editing host reads as a textbox in the tree, though getByRole finds it by its tag's role.
+            await Expect.That(screen.GetByRole("heading", "Untitled")).ToHaveRoleAsync("textbox");
+        },
+        ["toHaveRole fails on another role"] = async session =>
+        {
+            await session.App.OpenAsync("/role-matcher");
+            await Expect
+                .That(session.Screen.GetByText("Wi-Fi"))
+                .ToHaveRoleAsync("checkbox", TimeSpan.FromMilliseconds(500));
+        },
+        ["toHaveRole fails on a secure field without its value"] = async session =>
+        {
+            await session.App.OpenAsync("/role-matcher");
+            await Expect
+                .That(session.Screen.GetByLabel("Secret"))
+                .ToHaveRoleAsync("searchbox", TimeSpan.FromMilliseconds(300));
         },
         ["secure fields refuse value reads"] = async session =>
         {
@@ -594,7 +797,9 @@ public sealed class WebPlatformIntegrationTests
         {
             await session.App.OpenAsync();
             await session.Screen.GetByLabel("Email").FillAsync("marker-9b1f");
-            await Expect.That(session.Screen.GetByLabel("Email")).ToHaveValueAsync(string.Empty, TimeSpan.FromMilliseconds(500));
+            await Expect
+                .That(session.Screen.GetByLabel("Email"))
+                .ToHaveValueAsync(string.Empty, TimeSpan.FromMilliseconds(500));
         },
         ["a viewport set before the first navigation holds through app.open"] = async session =>
         {
@@ -610,7 +815,9 @@ public sealed class WebPlatformIntegrationTests
         ["a viewport set before the first navigation opens no page"] = async session =>
         {
             await session.Browser.SetViewportAsync(390, 600);
-            await session.Screen.GetByTestId("items").TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(200) });
+            await session
+                .Screen.GetByTestId("items")
+                .TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(200) });
         },
         ["forbidden URL schemes are refused"] = async session =>
         {
@@ -643,27 +850,35 @@ public sealed class WebPlatformIntegrationTests
     {
         if (!string.Equals(actual, expected, StringComparison.Ordinal))
         {
-            throw new TestException("ASSERTION_FAILED", $"expect(received).toBe(expected)\nExpected: \"{expected}\"\nReceived: \"{actual}\"");
+            throw new TestException(
+                "ASSERTION_FAILED",
+                $"expect(received).toBe(expected)\nExpected: \"{expected}\"\nReceived: \"{actual}\""
+            );
         }
     }
 
     // Runs one upstream test body in its own session and returns what failed it, as the upstream run's result does.
-    private static async Task<Exception?> RunAsync(Func<E2ESession, Task> body) => (await RunWithStepsAsync(body)).Error;
+    private static async Task<Exception?> RunAsync(Func<E2ESession, Task> body) =>
+        (await RunWithStepsAsync(body)).Error;
 
     // RunAsync, with the steps the attempt recorded, as the upstream run's result keeps them.
-    private static async Task<(Exception? Error, IReadOnlyList<StepRecord> Steps)> RunWithStepsAsync(Func<E2ESession, Task> body)
+    private static async Task<(Exception? Error, IReadOnlyList<StepRecord> Steps)> RunWithStepsAsync(
+        Func<E2ESession, Task> body
+    )
     {
         using var site = await FixtureApp.StartAsync();
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
-            BaseUrl = site.Url,
-            TestTitle = "web platform",
-            ActionTimeout = TimeSpan.FromSeconds(5),
-            AssertionTimeout = TimeSpan.FromSeconds(4),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+                BaseUrl = site.Url,
+                TestTitle = "web platform",
+                ActionTimeout = TimeSpan.FromSeconds(5),
+                AssertionTimeout = TimeSpan.FromSeconds(4),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         Exception? error = null;
         try
         {

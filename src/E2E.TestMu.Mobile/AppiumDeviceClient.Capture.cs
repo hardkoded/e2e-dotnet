@@ -21,11 +21,16 @@ internal sealed partial class AppiumDeviceClient
     {
         if (converter is null)
         {
-            throw AppiumErrors.NotImplemented("reading the screen of a TestMu device is not implemented yet: the page source has no snapshot conversion");
+            throw AppiumErrors.NotImplemented(
+                "reading the screen of a TestMu device is not implemented yet: the page source has no snapshot conversion"
+            );
         }
 
         var source = await driver.GetAsync("source", cancellationToken).ConfigureAwait(false);
-        var snapshot = converter.Convert(source is JsonValue value && value.TryGetValue<string>(out var text) ? text : "", platform);
+        var snapshot = converter.Convert(
+            source is JsonValue value && value.TryGetValue<string>(out var text) ? text : "",
+            platform
+        );
         _refs.Replace(snapshot);
         return snapshot;
     }
@@ -41,16 +46,27 @@ internal sealed partial class AppiumDeviceClient
         byte[] png;
         try
         {
-            png = Convert.FromBase64String(encoded is JsonValue value && value.TryGetValue<string>(out var text) ? text : "");
+            png = Convert.FromBase64String(
+                encoded is JsonValue value && value.TryGetValue<string>(out var text) ? text : ""
+            );
         }
         catch (FormatException cause)
         {
-            throw new AgentDeviceError("COMMAND_FAILED", "the device returned a screenshot that is not base64", inner: cause);
+            throw new AgentDeviceError(
+                "COMMAND_FAILED",
+                "the device returned a screenshot that is not base64",
+                inner: cause
+            );
         }
 
         await File.WriteAllBytesAsync(path, png, cancellationToken).ConfigureAwait(false);
         var (logicalWidth, logicalHeight) = await WindowAsync(cancellationToken).ConfigureAwait(false);
-        var result = new JsonObject { ["path"] = path, ["logicalWidth"] = logicalWidth, ["logicalHeight"] = logicalHeight };
+        var result = new JsonObject
+        {
+            ["path"] = path,
+            ["logicalWidth"] = logicalWidth,
+            ["logicalHeight"] = logicalHeight,
+        };
         if (DeviceSupport.ReadPngSize(png) is { } size)
         {
             result["width"] = size.Width;

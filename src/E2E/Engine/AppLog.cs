@@ -28,13 +28,14 @@ internal static class AppLog
     private const string LoadEcho = "Failed to load resource:";
 
     /// <summary>Console message types worth a line; <c>debug</c> and the rest are the app talking to itself.</summary>
-    private static AppLogLevel? ConsoleLevel(string type) => type switch
-    {
-        "error" or "assert" => AppLogLevel.Error,
-        "warning" => AppLogLevel.Warning,
-        "log" or "info" => AppLogLevel.Info,
-        _ => null,
-    };
+    private static AppLogLevel? ConsoleLevel(string type) =>
+        type switch
+        {
+            "error" or "assert" => AppLogLevel.Error,
+            "warning" => AppLogLevel.Warning,
+            "log" or "info" => AppLogLevel.Info,
+            _ => null,
+        };
 
     /// <summary>Reports the context's console output, uncaught exceptions, failed requests, and navigations to <paramref name="log"/>, from now on.</summary>
     public static void Install(IBrowserContext context, Action<AppLogEntry> log, NavigationLog navigation)
@@ -71,7 +72,8 @@ internal static class AppLog
                 Report(new AppLogEntry(AppLogSource.Console, level, ConsoleText(message)));
             }
         };
-        context.WebError += (_, webError) => Report(new AppLogEntry(AppLogSource.Error, AppLogLevel.Error, ErrorText(webError.Error)));
+        context.WebError += (_, webError) =>
+            Report(new AppLogEntry(AppLogSource.Error, AppLogLevel.Error, ErrorText(webError.Error)));
         context.RequestFailed += (_, request) =>
         {
             var failure = request.Failure ?? "failed";
@@ -84,7 +86,13 @@ internal static class AppLog
         {
             if (response.Status >= 400 && !IsMissingFavicon(response))
             {
-                Report(new AppLogEntry(AppLogSource.Network, response.Status >= 500 ? AppLogLevel.Error : AppLogLevel.Warning, ResponseLine(response)));
+                Report(
+                    new AppLogEntry(
+                        AppLogSource.Network,
+                        response.Status >= 500 ? AppLogLevel.Error : AppLogLevel.Warning,
+                        ResponseLine(response)
+                    )
+                );
             }
         };
 
@@ -159,7 +167,8 @@ internal static class AppLog
     /// Firefox's abort codes, and WebKit's text, read the way Playwright reads each browser's cancellation.
     /// </summary>
     private static bool IsCancelled(string errorText) =>
-        errorText is "net::ERR_ABORTED" or "NS_BINDING_ABORTED" || errorText.Contains("cancelled", StringComparison.Ordinal);
+        errorText is "net::ERR_ABORTED" or "NS_BINDING_ABORTED"
+        || errorText.Contains("cancelled", StringComparison.Ordinal);
 
     /// <summary>
     /// <c>navigated to /checkout</c>, <c>a background tab navigated to /help</c>, <c>frame "pay" loaded /embed</c>: one navigation as a
@@ -175,7 +184,9 @@ internal static class AppLog
 
         if (ReferenceEquals(frame, page.MainFrame))
         {
-            return background ? "a background tab navigated to " + url : navigation.OwnNavigation(url) ? null : "navigated to " + url;
+            return background ? "a background tab navigated to " + url
+                : navigation.OwnNavigation(url) ? null
+                : "navigated to " + url;
         }
 
         var name = frame.Name;
@@ -189,8 +200,15 @@ internal static class AppLog
     private static string ErrorText(string error)
     {
         var lines = error.Split('\n');
-        var top = lines.Select(static line => line.Trim()).FirstOrDefault(static line => line.StartsWith("at ", StringComparison.Ordinal));
-        var message = string.Join(' ', lines.TakeWhile(static line => !line.TrimStart().StartsWith("at ", StringComparison.Ordinal)).Select(static line => line.Trim()));
+        var top = lines
+            .Select(static line => line.Trim())
+            .FirstOrDefault(static line => line.StartsWith("at ", StringComparison.Ordinal));
+        var message = string.Join(
+            ' ',
+            lines
+                .TakeWhile(static line => !line.TrimStart().StartsWith("at ", StringComparison.Ordinal))
+                .Select(static line => line.Trim())
+        );
         return top is null ? message : message + " " + top;
     }
 
@@ -201,18 +219,32 @@ internal static class AppLog
         var location = message.Location;
         var column = location.LastIndexOf(':');
         var line = column > 0 ? location.LastIndexOf(':', column - 1) : -1;
-        if (line <= 0
-            || !int.TryParse(location.AsSpan(line + 1, column - line - 1), NumberStyles.None, CultureInfo.InvariantCulture, out var lineNumber))
+        if (
+            line <= 0
+            || !int.TryParse(
+                location.AsSpan(line + 1, column - line - 1),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var lineNumber
+            )
+        )
         {
             return message.Text;
         }
 
-        return message.Text + " (at " + location[..line] + ":" + (lineNumber + 1).ToString(CultureInfo.InvariantCulture) + ")";
+        return message.Text
+            + " (at "
+            + location[..line]
+            + ":"
+            + (lineNumber + 1).ToString(CultureInfo.InvariantCulture)
+            + ")";
     }
 
     /// <summary>A browser's own request for a site icon the app never served: noise on every page of most apps.</summary>
     private static bool IsMissingFavicon(IResponse response) =>
-        response.Status == 404 && Uri.TryCreate(response.Url, UriKind.Absolute, out var url) && url.AbsolutePath == "/favicon.ico";
+        response.Status == 404
+        && Uri.TryCreate(response.Url, UriKind.Absolute, out var url)
+        && url.AbsolutePath == "/favicon.ico";
 
     /// <summary><c>GET https://app.test/api/todos</c>: the request line a network entry starts with.</summary>
     private static string RequestLine(IRequest request) => request.Method + " " + request.Url;
@@ -221,6 +253,9 @@ internal static class AppLog
     private static string ResponseLine(IResponse response)
     {
         var text = response.StatusText;
-        return RequestLine(response.Request) + " " + response.Status.ToString(CultureInfo.InvariantCulture) + (text.Length == 0 ? "" : " " + text);
+        return RequestLine(response.Request)
+            + " "
+            + response.Status.ToString(CultureInfo.InvariantCulture)
+            + (text.Length == 0 ? "" : " " + text);
     }
 }

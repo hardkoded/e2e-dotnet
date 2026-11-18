@@ -96,7 +96,11 @@ internal static partial class FailureText
         [CacheWrite.NotWritten] = "recording not saved: the cache store did not write it",
     };
 
-    [GeneratedRegex(@"https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?(?=/)", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
+    [GeneratedRegex(
+        @"https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?(?=/)",
+        RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 2000
+    )]
     private static partial Regex LoopbackOrigin();
 
     /// <summary>
@@ -111,7 +115,9 @@ internal static partial class FailureText
         }
 
         List<string> lines = [];
-        var matched = details.Matches is { } count ? count.ToString(CultureInfo.InvariantCulture) + " " + (count == 1 ? "match" : "matches") : null;
+        var matched = details.Matches is { } count
+            ? count.ToString(CultureInfo.InvariantCulture) + " " + (count == 1 ? "match" : "matches")
+            : null;
         if (details.Expected is not null)
         {
             lines.Add("Expected: " + Cell(details.Expected, MaxDetailChars));
@@ -119,7 +125,9 @@ internal static partial class FailureText
 
         if (details.Observed is not null)
         {
-            lines.Add("Observed: " + Cell(details.Observed, MaxDetailChars) + (matched is null ? "" : " (" + matched + ")"));
+            lines.Add(
+                "Observed: " + Cell(details.Observed, MaxDetailChars) + (matched is null ? "" : " (" + matched + ")")
+            );
         }
         else if (matched is not null)
         {
@@ -181,15 +189,24 @@ internal static partial class FailureText
             return null;
         }
 
-        var candidates = attempt.Steps
-            .Select((step, index) => new FailedStep(index, step))
-            .Where(item => item.Step.Status != StepStatus.Passed && (error.Phase is null || PhaseOf(item.Step.Phase) == error.Phase))
+        var candidates = attempt
+            .Steps.Select((step, index) => new FailedStep(index, step))
+            .Where(item =>
+                item.Step.Status != StepStatus.Passed
+                && (error.Phase is null || PhaseOf(item.Step.Phase) == error.Phase)
+            )
             .ToList();
-        var alike = candidates.Where(item => string.Equals(item.Step.Error?.Code, error.Code, StringComparison.Ordinal)).ToList();
+        var alike = candidates
+            .Where(item => string.Equals(item.Step.Error?.Code, error.Code, StringComparison.Ordinal))
+            .ToList();
         if (error.Source is { } line && alike.Count > 0)
         {
             // The step's own error, not its source: that is the call site, a line below the `await` of a split call.
-            return alike.LastOrDefault(item => item.Step.Error?.Source is { } own && string.Equals(own.File, line.File, StringComparison.Ordinal) && own.Line == line.Line);
+            return alike.LastOrDefault(item =>
+                item.Step.Error?.Source is { } own
+                && string.Equals(own.File, line.File, StringComparison.Ordinal)
+                && own.Line == line.Line
+            );
         }
 
         return alike.LastOrDefault() ?? candidates.LastOrDefault(item => item.Step.Status == StepStatus.Cancelled);
@@ -202,9 +219,14 @@ internal static partial class FailureText
     public static string? AttemptsLine(ReportResult result, Outcome final)
     {
         // An attempt that recorded nothing for this test, or one the run interrupted, says nothing about how the test fails.
-        var failed = final.Attempts
-            .Where(attempt => attempt.Status is not (AttemptStatus.Passed or AttemptStatus.Skipped or AttemptStatus.Interrupted) && (attempt.Error is not null || attempt.Steps.Count > 0))
-            .Select(attempt => (Code: Cell(attempt.Error?.Code ?? KebabName(attempt.Status), 128), Step: FailedStepOf(attempt)?.Index))
+        var failed = final
+            .Attempts.Where(attempt =>
+                attempt.Status is not (AttemptStatus.Passed or AttemptStatus.Skipped or AttemptStatus.Interrupted)
+                && (attempt.Error is not null || attempt.Steps.Count > 0)
+            )
+            .Select(attempt =>
+                (Code: Cell(attempt.Error?.Code ?? KebabName(attempt.Status), 128), Step: FailedStepOf(attempt)?.Index)
+            )
             .ToList();
         if (failed.Count == 0 || final.Attempts.Count < 2 || failed.Count < 2)
         {
@@ -212,16 +234,24 @@ internal static partial class FailureText
         }
 
         var first = failed[0];
-        static string Where(int? step) => step is null ? "" : " at step " + (step.Value + 1).ToString(CultureInfo.InvariantCulture);
-        var count = failed.Count == final.Attempts.Count
-            ? failed.Count == 2 ? "both attempts" : "all " + failed.Count.ToString(CultureInfo.InvariantCulture) + " attempts"
-            : Plural(failed.Count, "attempt");
+        static string Where(int? step) =>
+            step is null ? "" : " at step " + (step.Value + 1).ToString(CultureInfo.InvariantCulture);
+        var count =
+            failed.Count == final.Attempts.Count
+                ? failed.Count == 2
+                    ? "both attempts"
+                    : "all " + failed.Count.ToString(CultureInfo.InvariantCulture) + " attempts"
+                : Plural(failed.Count, "attempt");
 
         // Consecutive attempts that failed alike are one run: `at step 8, then at step 20 (3 times)`.
         List<(string Code, int? Step, int Count)> runs = [];
         foreach (var attempt in failed)
         {
-            if (runs.Count > 0 && string.Equals(runs[^1].Code, attempt.Code, StringComparison.Ordinal) && runs[^1].Step == attempt.Step)
+            if (
+                runs.Count > 0
+                && string.Equals(runs[^1].Code, attempt.Code, StringComparison.Ordinal)
+                && runs[^1].Step == attempt.Step
+            )
             {
                 runs[^1] = runs[^1] with { Count = runs[^1].Count + 1 };
             }
@@ -233,15 +263,26 @@ internal static partial class FailureText
 
         if (runs.Count == 1)
         {
-            return "Failed the same way on " + count + ": **" + first.Code + "**" + Where(first.Step) + "." + (result.Status == ResultStatus.Flaky ? " The retry that passed is the exception." : "");
+            return "Failed the same way on "
+                + count
+                + ": **"
+                + first.Code
+                + "**"
+                + Where(first.Step)
+                + "."
+                + (result.Status == ResultStatus.Flaky ? " The retry that passed is the exception." : "");
         }
 
-        var told = runs.Select((run, index) =>
-        {
-            var named = index == 0 || !string.Equals(run.Code, runs[index - 1].Code, StringComparison.Ordinal);
-            var place = ((named ? "**" + run.Code + "**" : "") + Where(run.Step)).TrimStart();
-            return run.Count == 1 ? place : place + " (" + run.Count.ToString(CultureInfo.InvariantCulture) + " times)";
-        });
+        var told = runs.Select(
+            (run, index) =>
+            {
+                var named = index == 0 || !string.Equals(run.Code, runs[index - 1].Code, StringComparison.Ordinal);
+                var place = ((named ? "**" + run.Code + "**" : "") + Where(run.Step)).TrimStart();
+                return run.Count == 1
+                    ? place
+                    : place + " (" + run.Count.ToString(CultureInfo.InvariantCulture) + " times)";
+            }
+        );
         return "Failed on " + count + ": " + string.Join(", then ", told) + ".";
     }
 
@@ -262,7 +303,9 @@ internal static partial class FailureText
     /// <summary>Artifacts of the told attempt by id, the failure's own first, one per kind.</summary>
     public static IReadOnlyList<ArtifactRecord> EvidenceOf(ReportAttempt told)
     {
-        var byId = told.Artifacts.GroupBy(artifact => artifact.Id).ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var byId = told
+            .Artifacts.GroupBy(artifact => artifact.Id)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         List<ArtifactRecord> own = [];
         foreach (var id in new[] { told.Failure?.Screenshot, told.Failure?.Screen })
         {
@@ -290,11 +333,20 @@ internal static partial class FailureText
     }
 
     /// <summary>Where an app log line came from, as the page names it (upstream's <c>APP_SOURCE_TEXT</c>).</summary>
-    private static string AppSourceText(AppLogSource source) => source switch { AppLogSource.Console => "console", AppLogSource.Error => "uncaught", AppLogSource.Network => "network", _ => "system" };
+    private static string AppSourceText(AppLogSource source) =>
+        source switch
+        {
+            AppLogSource.Console => "console",
+            AppLogSource.Error => "uncaught",
+            AppLogSource.Network => "network",
+            _ => "system",
+        };
 
     /// <summary>A loopback URL cannot be opened by anyone reading the page, so its path is the whole of what it says; any other URL is kept whole.</summary>
     private static string ScreenUrl(string url) =>
-        Uri.TryCreate(url, UriKind.Absolute, out var parsed) && Urls.IsLoopbackHost(parsed.Host) ? parsed.PathAndQuery + parsed.Fragment : url;
+        Uri.TryCreate(url, UriKind.Absolute, out var parsed) && Urls.IsLoopbackHost(parsed.Host)
+            ? parsed.PathAndQuery + parsed.Fragment
+            : url;
 
     /// <summary><c>file:line</c>, linked to the commit when known, else in backticks.</summary>
     public static string SourceText(ReportSource source, Func<string, int, string>? sourceUrl)
@@ -306,9 +358,16 @@ internal static partial class FailureText
     /// <summary>One turn on one line: its calls, then the first line of what came back.</summary>
     private static string TurnLine(StepTurn turn, int max = MaxDetailChars)
     {
-        var calls = turn.Calls.Count == 0 ? "no tool call" : string.Join(", ", turn.Calls.Select(call => Code(call, MaxLabelChars * 2)));
+        var calls =
+            turn.Calls.Count == 0
+                ? "no tool call"
+                : string.Join(", ", turn.Calls.Select(call => Code(call, MaxLabelChars * 2)));
         var outcome = turn.Outcome.Split('\n').FirstOrDefault(line => line.Trim().Length > 0) ?? "";
-        return "Turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + ": " + calls + (outcome.Length == 0 ? "" : " → " + Cell(outcome, max));
+        return "Turn "
+            + turn.Index.ToString(CultureInfo.InvariantCulture)
+            + ": "
+            + calls
+            + (outcome.Length == 0 ? "" : " → " + Cell(outcome, max));
     }
 
     /// <summary><c>Turn 4: tap(...) → ...</c>, one line per kept turn, the last few of a failed agent step, for the run page.</summary>
@@ -320,10 +379,18 @@ internal static partial class FailureText
             return [];
         }
 
-        return [.. turns
-            .Where(turn => !(turn.Calls.Count > 0 && turn.Calls.All(call => call.StartsWith("complete_step(", StringComparison.Ordinal))))
-            .TakeLast(MaxSummaryTurns)
-            .Select(turn => TurnLine(turn, 160))];
+        return
+        [
+            .. turns
+                .Where(turn =>
+                    !(
+                        turn.Calls.Count > 0
+                        && turn.Calls.All(call => call.StartsWith("complete_step(", StringComparison.Ordinal))
+                    )
+                )
+                .TakeLast(MaxSummaryTurns)
+                .Select(turn => TurnLine(turn, 160)),
+        ];
     }
 
     /// <summary><c>Screen: /path</c> and <c>Closest to the locator: ...</c>, for the run page.</summary>
@@ -368,7 +435,10 @@ internal static partial class FailureText
     public static AppErrors AppErrorsOf(IReadOnlyList<AppLogRecord> appLog)
     {
         var errors = appLog.Where(entry => entry.Level == AppLogLevel.Error).OrderBy(entry => entry.At).ToList();
-        var shown = errors.Take(MaxSummaryAppErrors).Select(entry => (Label: AppSourceText(entry.Source) + " error", Text: ShortenLoopback(entry.Text))).ToList();
+        var shown = errors
+            .Take(MaxSummaryAppErrors)
+            .Select(entry => (Label: AppSourceText(entry.Source) + " error", Text: ShortenLoopback(entry.Text)))
+            .ToList();
         var left = errors.Count - shown.Count;
         return new AppErrors(errors.Count, shown, left == 0 ? null : Plural(left, "more app error") + " logged");
     }
@@ -378,20 +448,26 @@ internal static partial class FailureText
     /// one record type; the port's live events carry the run's own.
     /// </summary>
     public static AppErrors AppErrorsOf(IReadOnlyList<E2E.AppLogRecord> appLog) =>
-        AppErrorsOf([.. appLog.Select(entry => new AppLogRecord
-        {
-            Source = Enum.Parse<AppLogSource>(entry.Source.ToString()),
-            Level = Enum.Parse<AppLogLevel>(entry.Level.ToString()),
-            Text = entry.Text,
-            At = entry.At,
-            Step = entry.Step,
-        })]);
+        AppErrorsOf([
+            .. appLog.Select(entry => new AppLogRecord
+            {
+                Source = Enum.Parse<AppLogSource>(entry.Source.ToString()),
+                Level = Enum.Parse<AppLogLevel>(entry.Level.ToString()),
+                Text = entry.Text,
+                At = entry.At,
+                Step = entry.Step,
+            }),
+        ]);
 
     /// <summary><c>App console error: `...`</c>, one line per error the run page quotes, then how many it left out.</summary>
     public static List<string> AppErrorLines(ReportAttempt told)
     {
         var (_, shown, more) = AppErrorsOf(told.AppLog ?? []);
-        return [.. shown.Select(error => "App " + error.Label + ": " + Code(error.Text, MaxDetailChars)), .. more is null ? [] : new[] { more }];
+        return
+        [
+            .. shown.Select(error => "App " + error.Label + ": " + Code(error.Text, MaxDetailChars)),
+            .. more is null ? [] : new[] { more },
+        ];
     }
 
     /// <summary>A turn's outcome as the page quotes it: the first result lines, then every loop note, which come last and say why the step ended.</summary>
@@ -419,7 +495,10 @@ internal static partial class FailureText
             return (ordered, 0);
         }
 
-        HashSet<int> kept = [.. Enumerable.Range(0, ordered.Count).Where(index => ordered[index].Important).TakeLast(max)];
+        HashSet<int> kept =
+        [
+            .. Enumerable.Range(0, ordered.Count).Where(index => ordered[index].Important).TakeLast(max),
+        ];
         for (var index = ordered.Count - 1; index >= 0 && kept.Count < max; index--)
         {
             kept.Add(index);
@@ -432,7 +511,12 @@ internal static partial class FailureText
     /// <summary>One app log line as a page shows it: <c>✗ network error: `GET /api 500`</c>.</summary>
     private static string AppLogLine(AppLogRecord entry)
     {
-        var glyph = entry.Level switch { AppLogLevel.Error => "✗", AppLogLevel.Warning => "⚠", _ => "ℹ" };
+        var glyph = entry.Level switch
+        {
+            AppLogLevel.Error => "✗",
+            AppLogLevel.Warning => "⚠",
+            _ => "ℹ",
+        };
         var text = Code(ShortenLoopback(entry.Text), MaxDetailChars);
         var source = AppSourceText(entry.Source);
         return entry.Level == AppLogLevel.Info
@@ -453,15 +537,23 @@ internal static partial class FailureText
             lines.Add(CacheLine(cache, cacheDir));
         }
 
-        var items = step.Events
-            .Where(item => item.Kind is StepEventKind.Engine or StepEventKind.Navigation
-                || (item.Kind == StepEventKind.Poll && ((item.Count ?? 0) > 1 || item.Status != StepEventStatus.Passed)))
+        var items = step
+            .Events.Where(item =>
+                item.Kind is StepEventKind.Engine or StepEventKind.Navigation
+                || (item.Kind == StepEventKind.Poll && ((item.Count ?? 0) > 1 || item.Status != StepEventStatus.Passed))
+            )
             .Select(item => new PageItem(item.StartedAt, item.Status != StepEventStatus.Passed, EventLine(item)))
-            .Concat(appLog.Where(entry => entry.Step == step.Index).Select(entry => new PageItem(entry.At, entry.Level != AppLogLevel.Info, AppLogLine(entry))));
+            .Concat(
+                appLog
+                    .Where(entry => entry.Step == step.Index)
+                    .Select(entry => new PageItem(entry.At, entry.Level != AppLogLevel.Info, AppLogLine(entry)))
+            );
         var (shown, left) = ImportantThenLatest(items, MaxStepEvents);
         if (left > 0)
         {
-            lines.Add(left.ToString(CultureInfo.InvariantCulture) + " " + (left == 1 ? "event" : "events") + " left out");
+            lines.Add(
+                left.ToString(CultureInfo.InvariantCulture) + " " + (left == 1 ? "event" : "events") + " left out"
+            );
         }
 
         lines.AddRange(shown.Select(item => item.Line));
@@ -475,14 +567,28 @@ internal static partial class FailureText
     /// </summary>
     private static List<string> AppLogLines(IReadOnlyList<ReportStep> steps, IReadOnlyList<AppLogRecord> appLog)
     {
-        var numbers = steps.Select((step, position) => (step.Index, Number: position + 1)).ToDictionary(item => item.Index, item => item.Number);
+        var numbers = steps
+            .Select((step, position) => (step.Index, Number: position + 1))
+            .ToDictionary(item => item.Index, item => item.Number);
         var items = appLog.Select(entry =>
         {
-            var where = entry.Step is { } step && numbers.TryGetValue(step, out var number) ? "step " + number.ToString(CultureInfo.InvariantCulture) : "before step 1";
+            var where =
+                entry.Step is { } step && numbers.TryGetValue(step, out var number)
+                    ? "step " + number.ToString(CultureInfo.InvariantCulture)
+                    : "before step 1";
             return new PageItem(entry.At, entry.Level != AppLogLevel.Info, where + " · " + AppLogLine(entry));
         });
         var (shown, left) = ImportantThenLatest(items, MaxAppLogLines);
-        return [.. left == 0 ? [] : new[] { left.ToString(CultureInfo.InvariantCulture) + " " + (left == 1 ? "line" : "lines") + " left out" }, .. shown.Select(item => item.Line)];
+        return
+        [
+            .. left == 0
+                ? []
+                : new[]
+                {
+                    left.ToString(CultureInfo.InvariantCulture) + " " + (left == 1 ? "line" : "lines") + " left out",
+                },
+            .. shown.Select(item => item.Line),
+        ];
     }
 
     private static string CacheLine(StepCacheRecord cache, string? cacheDir)
@@ -495,8 +601,15 @@ internal static partial class FailureText
 
         var how = cache.Mode switch
         {
-            CacheMode.SelfFinalized => "replayed all " + Plural(cache.TotalActions, "recorded action") + ", no model call",
-            CacheMode.AgentConcluded => "replayed " + cache.ReplayedActions.ToString(CultureInfo.InvariantCulture) + " of " + Plural(cache.TotalActions, "recorded action") + ", then the agent took over: " + Reason(cache.Reason, CacheMissReason.ActionFailed),
+            CacheMode.SelfFinalized => "replayed all "
+                + Plural(cache.TotalActions, "recorded action")
+                + ", no model call",
+            CacheMode.AgentConcluded => "replayed "
+                + cache.ReplayedActions.ToString(CultureInfo.InvariantCulture)
+                + " of "
+                + Plural(cache.TotalActions, "recorded action")
+                + ", then the agent took over: "
+                + Reason(cache.Reason, CacheMissReason.ActionFailed),
             _ => "no replay: " + Reason(cache.Reason, CacheMissReason.NoEntry),
         };
         List<string> parts = ["cache: " + how];
@@ -520,7 +633,10 @@ internal static partial class FailureText
             parts.Add("nothing recorded: a unique() value collides with another param");
         }
 
-        var entry = cache.Entry is null || cacheDir is null ? "" : " (" + Code(cacheDir + "/" + cache.Entry + ".json", MaxPathChars) + ")";
+        var entry =
+            cache.Entry is null || cacheDir is null
+                ? ""
+                : " (" + Code(cacheDir + "/" + cache.Entry + ".json", MaxPathChars) + ")";
         return string.Join("; ", parts) + entry;
     }
 
@@ -534,7 +650,14 @@ internal static partial class FailureText
                 return "↪ " + Cell(ShortenLoopback(item.Detail ?? "navigated"), MaxDetailChars);
             case StepEventKind.Poll:
                 var verb = item.Status == StepEventStatus.Passed ? "passed after" : "gave up after";
-                return (item.Name is null ? "poll" : Cell(item.Name, MaxIdChars)) + " " + verb + " " + Plural(item.Count ?? 1, "read") + " in " + FormatDuration(item.DurationMs) + (detail is null ? "" : ": " + detail);
+                return (item.Name is null ? "poll" : Cell(item.Name, MaxIdChars))
+                    + " "
+                    + verb
+                    + " "
+                    + Plural(item.Count ?? 1, "read")
+                    + " in "
+                    + FormatDuration(item.DurationMs)
+                    + (detail is null ? "" : ": " + detail);
             default:
                 var what = detail ?? Cell(item.Name ?? KebabName(item.Kind), MaxIdChars);
                 if (item.Status == StepEventStatus.Passed)
@@ -542,7 +665,10 @@ internal static partial class FailureText
                     return what + " (" + FormatDuration(item.DurationMs) + ")";
                 }
 
-                return (item.Status == StepEventStatus.Cancelled ? "–" : "✗") + " " + what + (item.Code is null ? "" : ": **" + Cell(item.Code, 128) + "**");
+                return (item.Status == StepEventStatus.Cancelled ? "–" : "✗")
+                    + " "
+                    + what
+                    + (item.Code is null ? "" : ": **" + Cell(item.Code, 128) + "**");
         }
     }
 
@@ -572,9 +698,17 @@ internal static partial class FailureText
         var total = screen.Changes.Count + (screen.More ?? 0);
         return
         [
-            "   - screen: " + Plural(total, "change") + " since " + sinceStep + where + ", " + Plural(screen.Nodes, "node"),
+            "   - screen: "
+                + Plural(total, "change")
+                + " since "
+                + sinceStep
+                + where
+                + ", "
+                + Plural(screen.Nodes, "node"),
             .. screen.Changes.Select(change => "     - " + Code(ShortenLoopback(change), MaxDetailChars)),
-            .. screen.More is { } more ? new[] { "     - " + more.ToString(CultureInfo.InvariantCulture) + " more" } : [],
+            .. screen.More is { } more
+                ? new[] { "     - " + more.ToString(CultureInfo.InvariantCulture) + " more" }
+                : [],
         ];
     }
 
@@ -595,12 +729,16 @@ internal static partial class FailureText
 
         return
         [
-            .. told.Artifacts
-                .Where(artifact => artifact.Kind == ArtifactKind.Video && artifact.StartedAt is not null)
+            .. told
+                .Artifacts.Where(artifact => artifact.Kind == ArtifactKind.Video && artifact.StartedAt is not null)
                 .Select(artifact => new TimedVideo(
                     artifact,
                     artifact.StartedAt!.Value,
-                    artifact.Producer is { Kind: ArtifactProducerKind.Step, StepId: { } stepId } && ends.TryGetValue(stepId, out var end) ? end : null))
+                    artifact.Producer is { Kind: ArtifactProducerKind.Step, StepId: { } stepId }
+                    && ends.TryGetValue(stepId, out var end)
+                        ? end
+                        : null
+                ))
                 .OrderBy(video => video.StartsAt),
         ];
     }
@@ -613,8 +751,9 @@ internal static partial class FailureText
     private static string VideoOffset(ReportStep step, IReadOnlyList<TimedVideo> videos)
     {
         var at = step.StartedAt;
-        var timed = videos.LastOrDefault(candidate => candidate.StartsAt <= at && (candidate.EndsAt is not { } end || at < end))
-            ?? videos.FirstOrDefault(candidate => candidate.EndsAt is null && at < candidate.StartsAt);
+        var timed = videos.LastOrDefault(candidate =>
+            candidate.StartsAt <= at && (candidate.EndsAt is not { } end || at < end)
+        ) ?? videos.FirstOrDefault(candidate => candidate.EndsAt is null && at < candidate.StartsAt);
         if (timed is null)
         {
             return "";
@@ -622,8 +761,16 @@ internal static partial class FailureText
 
         var video = timed.Artifact;
         var seconds = Math.Max(0, (long)Math.Floor((at - timed.StartsAt).TotalSeconds));
-        var name = videos.Count > 1 && video.Path is not null ? System.IO.Path.GetFileNameWithoutExtension(video.Path) : "video";
-        return ", " + name + " " + (seconds / 60).ToString(CultureInfo.InvariantCulture) + ":" + (seconds % 60).ToString("00", CultureInfo.InvariantCulture);
+        var name =
+            videos.Count > 1 && video.Path is not null
+                ? System.IO.Path.GetFileNameWithoutExtension(video.Path)
+                : "video";
+        return ", "
+            + name
+            + " "
+            + (seconds / 60).ToString(CultureInfo.InvariantCulture)
+            + ":"
+            + (seconds % 60).ToString("00", CultureInfo.InvariantCulture);
     }
 
     /// <summary>The kind (or <paramref name="label"/>) of an artifact, linked from the page when it is at hand, and the file's path so the reader finds it.</summary>
@@ -635,7 +782,9 @@ internal static partial class FailureText
         if (artifact.Url is not null)
         {
             // A link from outside text is a link only for http and https; anything else shows as the kind alone.
-            return Uri.TryCreate(artifact.Url, UriKind.Absolute, out var url) && url.Scheme is "http" or "https" ? Link(kind, artifact.Url) : kind;
+            return Uri.TryCreate(artifact.Url, UriKind.Absolute, out var url) && url.Scheme is "http" or "https"
+                ? Link(kind, artifact.Url)
+                : kind;
         }
 
         var fromPage = artifact.Path is null ? null : PageHref(artifact.Path, options);
@@ -654,30 +803,33 @@ internal static partial class FailureText
         options.PageDir is null ? null : System.IO.Path.GetRelativePath(options.PageDir, reportPath).Replace('\\', '/');
 
     /// <summary>The words a result's status goes by on a page.</summary>
-    private static string StatusWord(ResultStatus status) => status switch
-    {
-        ResultStatus.Passed => "passed",
-        ResultStatus.Flaky => "flaky",
-        ResultStatus.Failed => "failed",
-        ResultStatus.TimedOut => "timed out",
-        ResultStatus.Interrupted => "interrupted",
-        _ => "skipped",
-    };
+    private static string StatusWord(ResultStatus status) =>
+        status switch
+        {
+            ResultStatus.Passed => "passed",
+            ResultStatus.Flaky => "flaky",
+            ResultStatus.Failed => "failed",
+            ResultStatus.TimedOut => "timed out",
+            ResultStatus.Interrupted => "interrupted",
+            _ => "skipped",
+        };
 
-    private static string StepGlyph(StepStatus status) => status switch
-    {
-        StepStatus.Passed => "✓",
-        StepStatus.Cancelled => "–",
-        _ => "✗",
-    };
+    private static string StepGlyph(StepStatus status) =>
+        status switch
+        {
+            StepStatus.Passed => "✓",
+            StepStatus.Cancelled => "–",
+            _ => "✗",
+        };
 
     /// <summary>The error phase a step's hook stands for: <c>beforeEach</c>, <c>afterEach</c>, <c>body</c> for the test itself.</summary>
-    private static ErrorPhase PhaseOf(StepPhase? phase) => phase switch
-    {
-        StepPhase.BeforeEach => ErrorPhase.BeforeEach,
-        StepPhase.AfterEach => ErrorPhase.AfterEach,
-        _ => ErrorPhase.Body,
-    };
+    private static ErrorPhase PhaseOf(StepPhase? phase) =>
+        phase switch
+        {
+            StepPhase.BeforeEach => ErrorPhase.BeforeEach,
+            StepPhase.AfterEach => ErrorPhase.AfterEach,
+            _ => ErrorPhase.Body,
+        };
 
     /// <summary>A phase as the schema spells it: <c>beforeEach</c>.</summary>
     internal static string PhaseText(ErrorPhase phase) => JsonNamingPolicy.CamelCase.ConvertName(phase.ToString());
@@ -687,19 +839,28 @@ internal static partial class FailureText
         where T : struct, Enum => JsonNamingPolicy.KebabCaseLower.ConvertName(value.ToString());
 
     /// <summary>Renders one traced result as its own markdown page: a failed or flaky one tells its failure, a passing one its steps.</summary>
-    public static string RenderTracePage(Report report, ReportResult result, Outcome final, TracePageOptions? options = null)
+    public static string RenderTracePage(
+        Report report,
+        ReportResult result,
+        Outcome final,
+        TracePageOptions? options = null
+    )
     {
         options ??= new TracePageOptions();
         var run = report.Run;
         var told = ToldAttempt(result, final);
         var manyTargets = run.Targets.Count > 1;
-        var title = string.Join(" › ", result.TitlePath.Select(part => Cell(part, MaxTitleChars))) + ReportFormat.RepeatSuffix(result.Repeat);
+        var title =
+            string.Join(" › ", result.TitlePath.Select(part => Cell(part, MaxTitleChars)))
+            + ReportFormat.RepeatSuffix(result.Repeat);
         List<string> lines = ["# " + (result.Status == ResultStatus.Passed ? "✓" : "✗") + " " + title, ""];
         List<string> about =
         [
             Code(result.File, MaxPathChars),
             .. manyTargets ? new[] { "target " + Code(result.TargetId, MaxIdChars) } : [],
-            .. string.Equals(result.Agent, "default", StringComparison.Ordinal) ? [] : new[] { "agent " + Code(result.Agent, MaxIdChars) },
+            .. string.Equals(result.Agent, "default", StringComparison.Ordinal)
+                ? []
+                : new[] { "agent " + Code(result.Agent, MaxIdChars) },
             StatusWord(result.Status),
             FormatDuration(final.DurationMs),
         ];
@@ -707,17 +868,33 @@ internal static partial class FailureText
         lines.Add("");
         if (told.Environment is { Count: > 0 } ranOn)
         {
-            lines.Add("Ran on: " + string.Join(" · ", ranOn.Select(pair => Cell(pair.Key, MaxIdChars) + " " + Code(pair.Value, MaxCellChars))));
+            lines.Add(
+                "Ran on: "
+                    + string.Join(
+                        " · ",
+                        ranOn.Select(pair => Cell(pair.Key, MaxIdChars) + " " + Code(pair.Value, MaxCellChars))
+                    )
+            );
             lines.Add("");
         }
 
         if (told.Error is { } error)
         {
-            var phase = error.Phase is null or ErrorPhase.Body ? "" : " in " + Cell(PhaseText(error.Phase.Value), MaxIdChars);
-            lines.AddRange(["**" + Cell(error.Code, 128) + "**" + phase, "", "```text", error.Message.Replace("```", "'''", StringComparison.Ordinal), "```", ""]);
+            var phase = error.Phase is null or ErrorPhase.Body
+                ? ""
+                : " in " + Cell(PhaseText(error.Phase.Value), MaxIdChars);
+            lines.AddRange([
+                "**" + Cell(error.Code, 128) + "**" + phase,
+                "",
+                "```text",
+                error.Message.Replace("```", "'''", StringComparison.Ordinal),
+                "```",
+                "",
+            ]);
 
             // An assertion's message already spells out expected and observed; the facts line would repeat the block above it.
-            var spelled = error.Details is { Expected: { } expected, Observed: { } observed }
+            var spelled =
+                error.Details is { Expected: { } expected, Observed: { } observed }
                 && error.Message.Contains(expected, StringComparison.Ordinal)
                 && error.Message.Contains(observed, StringComparison.Ordinal);
             if (!spelled)
@@ -733,7 +910,9 @@ internal static partial class FailureText
         if (result.Status != ResultStatus.Passed)
         {
             var source = FailureSource(result, told);
-            lines.Add("Look at: " + Code(source.File + ":" + source.Line.ToString(CultureInfo.InvariantCulture)) + "  ");
+            lines.Add(
+                "Look at: " + Code(source.File + ":" + source.Line.ToString(CultureInfo.InvariantCulture)) + "  "
+            );
         }
 
         if (told.Status != AttemptStatus.Skipped && told.Skip is { } skip)
@@ -748,7 +927,11 @@ internal static partial class FailureText
 
         if (result.Status == ResultStatus.Flaky)
         {
-            lines.Add("Passed after " + Plural(final.FailedAttempts, "failed attempt") + "; this page tells the last failure.  ");
+            lines.Add(
+                "Passed after "
+                    + Plural(final.FailedAttempts, "failed attempt")
+                    + "; this page tells the last failure.  "
+            );
         }
 
         if (lines[^1].Length > 0)
@@ -764,20 +947,47 @@ internal static partial class FailureText
             for (var index = 0; index < told.Steps.Count; index++)
             {
                 var step = told.Steps[index];
-                var own = step.Source.File == UnknownSource ? "" : " — " + Code(step.Source.File + ":" + step.Source.Line.ToString(CultureInfo.InvariantCulture), MaxPathChars);
-                var calls = step.Metrics is null or { ModelCalls: 0 } ? "" : ", " + Plural(step.Metrics.ModelCalls, "model call");
-                var failed = step.Status == StepStatus.Passed ? "" : " — **" + Cell(step.Error?.Code ?? KebabName(step.Status), 128) + "**";
+                var own =
+                    step.Source.File == UnknownSource
+                        ? ""
+                        : " — "
+                            + Code(
+                                step.Source.File + ":" + step.Source.Line.ToString(CultureInfo.InvariantCulture),
+                                MaxPathChars
+                            );
+                var calls = step.Metrics is null or { ModelCalls: 0 }
+                    ? ""
+                    : ", " + Plural(step.Metrics.ModelCalls, "model call");
+                var failed =
+                    step.Status == StepStatus.Passed
+                        ? ""
+                        : " — **" + Cell(step.Error?.Code ?? KebabName(step.Status), 128) + "**";
                 var hook = step.Phase is { } phase ? " in " + PhaseText(PhaseOf(phase)) : "";
                 var label = StepLabel(step, MaxCellChars);
                 lines.Add(
-                    (index + 1).ToString(CultureInfo.InvariantCulture) + ". " + StepGlyph(step.Status) + " " + Code(step.Api, MaxIdChars) + (label.Length == 0 ? "" : " " + label)
-                    + " (" + FormatDuration(step.DurationMs) + calls + VideoOffset(step, videos) + hook + ")" + failed + own);
+                    (index + 1).ToString(CultureInfo.InvariantCulture)
+                        + ". "
+                        + StepGlyph(step.Status)
+                        + " "
+                        + Code(step.Api, MaxIdChars)
+                        + (label.Length == 0 ? "" : " " + label)
+                        + " ("
+                        + FormatDuration(step.DurationMs)
+                        + calls
+                        + VideoOffset(step, videos)
+                        + hook
+                        + ")"
+                        + failed
+                        + own
+                );
                 if (step.Status != StepStatus.Passed && !string.IsNullOrWhiteSpace(step.Explanation))
                 {
                     lines.Add("   > " + Cell(step.Explanation, MaxDetailChars));
                 }
 
-                lines.AddRange(StepDetailLines(step, told.AppLog ?? [], options.CacheDir).Select(line => "   - " + line));
+                lines.AddRange(
+                    StepDetailLines(step, told.AppLog ?? [], options.CacheDir).Select(line => "   - " + line)
+                );
                 foreach (var artifact in told.Artifacts)
                 {
                     if (artifact.Kind == ArtifactKind.Screenshot && step.Artifacts.Contains(artifact.Id))
@@ -804,11 +1014,18 @@ internal static partial class FailureText
         {
             lines.Add("## Agent turns of step " + (at.Index + 1).ToString(CultureInfo.InvariantCulture));
             lines.Add("");
-            lines.Add("The last " + Plural(turns.Count, "turn") + " the model took, oldest first: what it called and what came back.");
+            lines.Add(
+                "The last "
+                    + Plural(turns.Count, "turn")
+                    + " the model took, oldest first: what it called and what came back."
+            );
             lines.Add("");
             foreach (var turn in turns)
             {
-                var calls = turn.Calls.Count == 0 ? "_no tool call_" : string.Join(", ", turn.Calls.Select(call => Code(call, MaxCellChars)));
+                var calls =
+                    turn.Calls.Count == 0
+                        ? "_no tool call_"
+                        : string.Join(", ", turn.Calls.Select(call => Code(call, MaxCellChars)));
                 lines.Add("**Turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + "** " + calls + "  ");
                 lines.AddRange(TurnOutcomeLines(turn.Outcome).Select(line => "> " + Cell(line, MaxCellChars)));
                 lines.Add("");
@@ -826,7 +1043,9 @@ internal static partial class FailureText
             foreach (var secondary in told.SecondaryErrors)
             {
                 var phase = secondary.Phase is null ? "" : " in " + Cell(PhaseText(secondary.Phase.Value), MaxIdChars);
-                lines.Add("- **" + Cell(secondary.Code, 128) + "**" + phase + ": " + Cell(secondary.Message, MaxDetailChars));
+                lines.Add(
+                    "- **" + Cell(secondary.Code, 128) + "**" + phase + ": " + Cell(secondary.Message, MaxDetailChars)
+                );
             }
 
             lines.Add("");
@@ -836,7 +1055,18 @@ internal static partial class FailureText
         if (evidence.Count > 0)
         {
             lines.AddRange(["## Evidence", ""]);
-            lines.AddRange(evidence.Select(artifact => "- " + ArtifactPath(artifact, options, string.Equals(artifact.Id, told.Failure?.Screen, StringComparison.Ordinal) ? "screen" : KebabName(artifact.Kind))));
+            lines.AddRange(
+                evidence.Select(artifact =>
+                    "- "
+                    + ArtifactPath(
+                        artifact,
+                        options,
+                        string.Equals(artifact.Id, told.Failure?.Screen, StringComparison.Ordinal)
+                            ? "screen"
+                            : KebabName(artifact.Kind)
+                    )
+                )
+            );
             lines.Add("");
         }
 
@@ -845,15 +1075,32 @@ internal static partial class FailureText
         return string.Join('\n', lines) + "\n";
     }
 
-    private static void AddScreenAtFailure(List<string> lines, ReportAttempt told, FailureEvidence failure, TracePageOptions options)
+    private static void AddScreenAtFailure(
+        List<string> lines,
+        ReportAttempt told,
+        FailureEvidence failure,
+        TracePageOptions options
+    )
     {
         lines.AddRange(["## Screen at failure", ""]);
-        var screen = failure.Screen is null ? null : told.Artifacts.FirstOrDefault(artifact => string.Equals(artifact.Id, failure.Screen, StringComparison.Ordinal));
+        var screen = failure.Screen is null
+            ? null
+            : told.Artifacts.FirstOrDefault(artifact =>
+                string.Equals(artifact.Id, failure.Screen, StringComparison.Ordinal)
+            );
         var listing = screen?.Path is null ? null : options.ReadArtifact?.Invoke(screen.Path);
         List<string> where =
         [
             .. failure.Url is null ? [] : new[] { Code(failure.Url, MaxPathChars) },
-            .. failure.Viewport is null ? [] : new[] { "viewport " + failure.Viewport.Width.ToString(CultureInfo.InvariantCulture) + "x" + failure.Viewport.Height.ToString(CultureInfo.InvariantCulture) },
+            .. failure.Viewport is null
+                ? []
+                : new[]
+                {
+                    "viewport "
+                        + failure.Viewport.Width.ToString(CultureInfo.InvariantCulture)
+                        + "x"
+                        + failure.Viewport.Height.ToString(CultureInfo.InvariantCulture),
+                },
             .. failure.Nodes is null ? [] : new[] { Plural(failure.Nodes.Value, "node") },
         ];
         if (where.Count > 0)
@@ -861,7 +1108,11 @@ internal static partial class FailureText
             lines.Add(string.Join(" · ", where) + "  ");
         }
 
-        var shot = failure.Screenshot is null ? null : told.Artifacts.FirstOrDefault(artifact => string.Equals(artifact.Id, failure.Screenshot, StringComparison.Ordinal));
+        var shot = failure.Screenshot is null
+            ? null
+            : told.Artifacts.FirstOrDefault(artifact =>
+                string.Equals(artifact.Id, failure.Screenshot, StringComparison.Ordinal)
+            );
         if (shot?.Path is not null && PageHref(shot.Path, options) is { } shotHref)
         {
             lines.AddRange(["", "!" + Link("screenshot at failure", shotHref), ""]);
@@ -875,13 +1126,25 @@ internal static partial class FailureText
 
         if (listing is not null)
         {
-            var body = listing.Length > MaxScreenChars ? listing[..MaxScreenChars] + "\n…[cut at " + MaxScreenChars.ToString(CultureInfo.InvariantCulture) + " characters; the file has the rest]" : listing;
+            var body =
+                listing.Length > MaxScreenChars
+                    ? listing[..MaxScreenChars]
+                        + "\n…[cut at "
+                        + MaxScreenChars.ToString(CultureInfo.InvariantCulture)
+                        + " characters; the file has the rest]"
+                    : listing;
             if (lines[^1].Length > 0)
             {
                 lines.Add("");
             }
 
-            lines.AddRange(["The screen as the agent reads it, one node per line: `#id role \"name\" text=\"…\" [states]`.", "", "```text", body.Replace("```", "'''", StringComparison.Ordinal).TrimEnd(), "```"]);
+            lines.AddRange([
+                "The screen as the agent reads it, one node per line: `#id role \"name\" text=\"…\" [states]`.",
+                "",
+                "```text",
+                body.Replace("```", "'''", StringComparison.Ordinal).TrimEnd(),
+                "```",
+            ]);
         }
         else if (screen is not null)
         {

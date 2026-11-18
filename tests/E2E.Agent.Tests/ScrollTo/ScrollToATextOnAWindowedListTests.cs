@@ -60,8 +60,13 @@ public sealed partial class ScrollToATextOnAWindowedListTests : E2ETest
             await context.ObserveAsync(null, cancellationToken);
             await context.Actions.ScrollUntilAsync(row, ScrollDirection.Down, null, cancellationToken);
             var screen = await context.ObserveAsync(null, cancellationToken);
-            var line = screen.Text.Split('\n').FirstOrDefault(entry => entry.Contains($"button \"{row}\"", StringComparison.Ordinal));
-            var id = line is null ? null : Reference().Match(line) is { Success: true } reference ? reference.Groups[1].Value : null;
+            var line = screen
+                .Text.Split('\n')
+                .FirstOrDefault(entry => entry.Contains($"button \"{row}\"", StringComparison.Ordinal));
+            var id =
+                line is null ? null
+                : Reference().Match(line) is { Success: true } reference ? reference.Groups[1].Value
+                : null;
             if (id is null)
             {
                 return new StepVerdict(StepVerdictStatus.Failed, $"{row} is not on the screen", "STEP_NO_CONCLUSION");

@@ -1,6 +1,6 @@
 ---
 title: "AgentToolContext"
-description: "What a project tool reaches of the step it runs in (upstream's ToolContext): a look at the screen, and a screenshot kept as evidence of the step. A tool that..."
+description: "What a project tool reaches of the step it runs in (upstream's ToolContext): a look at the screen, the rendered properties of a node, and a screenshot kept a..."
 editUrl: false
 prev: false
 next: false
@@ -19,8 +19,8 @@ public sealed class AgentToolContext
 ```
 
 
-What a project tool reaches of the step it runs in (upstream's `ToolContext`): a look at the screen, and a screenshot kept
-as evidence of the step. A tool that changes the app may not look: it observes in a separate call.
+What a project tool reaches of the step it runs in (upstream's `ToolContext`): a look at the screen, the rendered properties of a node,
+and a screenshot kept as evidence of the step. A tool that changes the app may not look: it observes in a separate call.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -92,3 +92,27 @@ Upstream's `observe`. A mutating tool is refused with `POLICY_DENIED`.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;ExecutorObservation&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_AgentToolContext_ReadAsync_"></a>
+<a id="E2E_AgentToolContext_ReadAsync_E2E_ExecutorTarget_E2E_ExecutorReadOptions_System_Threading_CancellationToken_"></a>
+
+### ReadAsync(ExecutorTarget, ExecutorReadOptions, CancellationToken)
+
+
+```csharp
+public Task<ExecutorReadResult> ReadAsync(ExecutorTarget target, ExecutorReadOptions options, CancellationToken cancellationToken = default)
+```
+
+
+Upstream's `read`: reads allow-listed computed styles of a node in the newest observation, with no action slot. A mutating tool
+is refused with `POLICY_DENIED`, and so is an engine that cannot read (the mobile engine).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `target` | [ExecutorTarget](/api/E2E/ExecutorTarget/) |  |
+| `options` | [ExecutorReadOptions](/api/E2E/ExecutorReadOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;ExecutorReadResult&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)

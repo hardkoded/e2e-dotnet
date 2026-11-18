@@ -6,7 +6,6 @@ using E2E.Reports;
 
 namespace E2E.GitHub;
 
-
 /// <summary>
 /// A <c>--last-failed</c> rerun and the run it selected from, as one report (upstream's <c>merge.ts</c>). The rerun's document lists every test the run
 /// before it passed as unselected, so the page would show only the few tests it ran again; folding the two gives the comment the whole suite: carried
@@ -16,19 +15,27 @@ namespace E2E.GitHub;
 internal static class Merge
 {
     /// <summary>Statuses that count as a failure of the run. <c>--last-failed</c> also runs an interrupted test again, but that one reached no verdict.</summary>
-    private static readonly HashSet<Reports.ResultStatus> FailedStatuses = [Reports.ResultStatus.Failed, Reports.ResultStatus.TimedOut];
+    private static readonly HashSet<Reports.ResultStatus> FailedStatuses =
+    [
+        Reports.ResultStatus.Failed,
+        Reports.ResultStatus.TimedOut,
+    ];
 
     /// <summary>
     /// A test per target and agent, whatever its <c>--repeat-each</c> run: the identity <c>--last-failed</c> selects by, so a rerun without the flag runs
     /// once a test any repeat of which failed.
     /// </summary>
-    private static string TestKey(Reports.ReportResult result) => string.Join('\0', result.TestId, result.TargetId, result.Agent);
+    private static string TestKey(Reports.ReportResult result) =>
+        string.Join('\0', result.TestId, result.TargetId, result.Agent);
 
     /// <summary>
     /// The rerun's result with the run before's attempts in front of its own: the same test's result there, and the further repeats the rerun has no
     /// result of its own for. A pass after a failure there is flaky; an interrupted rerun of a test that failed there keeps that failure.
     /// </summary>
-    private static Reports.ReportResult FoldRerun(Reports.ReportResult current, IReadOnlyList<Reports.ReportResult> history)
+    private static Reports.ReportResult FoldRerun(
+        Reports.ReportResult current,
+        IReadOnlyList<Reports.ReportResult> history
+    )
     {
         if (history.Count == 0)
         {
@@ -38,18 +45,27 @@ internal static class Merge
         var before = history.OrderBy(result => result.Repeat).ToList();
         var attempts = before.SelectMany(result => result.Attempts).Concat(current.Attempts).ToList();
         var failure = before.LastOrDefault(result => FailedStatuses.Contains(result.Status));
-        var status = failure is null
-            ? current.Status
-            : current.Status == Reports.ResultStatus.Passed
-                ? Reports.ResultStatus.Flaky
-                : current.Status == Reports.ResultStatus.Interrupted ? failure.Status : current.Status;
+        var status =
+            failure is null ? current.Status
+            : current.Status == Reports.ResultStatus.Passed ? Reports.ResultStatus.Flaky
+            : current.Status == Reports.ResultStatus.Interrupted ? failure.Status
+            : current.Status;
         return current with { Status = status, Attempts = attempts };
     }
 
     /// <summary>The counts the way the runner tallies them, over the folded results: the status counts are over the selected ones.</summary>
-    private static Reports.ReportSummary Summarize(IReadOnlyList<Reports.ReportResult> results, Reports.ReportSummary baseSummary)
+    private static Reports.ReportSummary Summarize(
+        IReadOnlyList<Reports.ReportResult> results,
+        Reports.ReportSummary baseSummary
+    )
     {
-        int selected = 0, executed = 0, passed = 0, failed = 0, interrupted = 0, flaky = 0, skipped = 0;
+        int selected = 0,
+            executed = 0,
+            passed = 0,
+            failed = 0,
+            interrupted = 0,
+            flaky = 0,
+            skipped = 0;
         foreach (var result in results)
         {
             if (result.Attempts.Count > 0)
@@ -83,7 +99,17 @@ internal static class Merge
             }
         }
 
-        return baseSummary with { Discovered = results.Count, Selected = selected, Executed = executed, Passed = passed, Failed = failed, Interrupted = interrupted, Flaky = flaky, Skipped = skipped };
+        return baseSummary with
+        {
+            Discovered = results.Count,
+            Selected = selected,
+            Executed = executed,
+            Passed = passed,
+            Failed = failed,
+            Interrupted = interrupted,
+            Flaky = flaky,
+            Skipped = skipped,
+        };
     }
 
     /// <summary>
@@ -153,7 +179,8 @@ internal static class Merge
             }
 
             var key = TestKey(result);
-            List<Reports.ReportResult> extra = firstOfKey[key] == result.Id && leftovers.TryGetValue(key, out var found) ? found : [];
+            List<Reports.ReportResult> extra =
+                firstOfKey[key] == result.Id && leftovers.TryGetValue(key, out var found) ? found : [];
             if (extra.Count > 0)
             {
                 leftovers.Remove(key);
@@ -176,7 +203,10 @@ internal static class Merge
         {
             Run = current.Run with
             {
-                Status = carriedFailure && current.Run.Status == ReportRunStatus.Passed ? ReportRunStatus.Failed : current.Run.Status,
+                Status =
+                    carriedFailure && current.Run.Status == ReportRunStatus.Passed
+                        ? ReportRunStatus.Failed
+                        : current.Run.Status,
                 ExitCode = carriedFailure && current.Run.ExitCode == 0 ? 1 : current.Run.ExitCode,
                 StartedAt = lastRun.Run.StartedAt,
                 Results = results,

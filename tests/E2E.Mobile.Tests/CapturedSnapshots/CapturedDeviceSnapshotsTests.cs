@@ -119,7 +119,10 @@ public sealed class CapturedDeviceSnapshotsTests
     {
         var scenario = capture.Replace(".json", "", StringComparison.Ordinal);
         Assert.True(IosTitles.ContainsKey(scenario), $"add {scenario} to IosTitles");
-        Assert.Equal(IosTitles[scenario], SnapshotProjection.ScreenTitle(Project(Path.Combine(Root, "ios", capture)).Projected));
+        Assert.Equal(
+            IosTitles[scenario],
+            SnapshotProjection.ScreenTitle(Project(Path.Combine(Root, "ios", capture)).Projected)
+        );
     }
 
     [Theory]
@@ -128,7 +131,9 @@ public sealed class CapturedDeviceSnapshotsTests
     {
         var captures = CaptureNames(platform);
         var trees = Directory.GetFiles(Path.Combine(Root, platform), "*.tree.txt").Select(Path.GetFileName);
-        Assert.All(trees, tree => Assert.Contains(tree!.Replace(".tree.txt", ".json", StringComparison.Ordinal), captures));
+        Assert.All(trees, tree =>
+            Assert.Contains(tree!.Replace(".tree.txt", ".json", StringComparison.Ordinal), captures)
+        );
     }
 
     /// <summary>The fixtures in the source tree, which <c>E2E_GOLDEN_UPDATE=1</c> rewrites.</summary>
@@ -136,18 +141,34 @@ public sealed class CapturedDeviceSnapshotsTests
         Path.Combine(Path.GetDirectoryName(testFile)!, "..", "Fixtures", "snapshots");
 
     private static string[] PlatformNames() =>
-        Directory.Exists(Root) ? [.. Directory.GetDirectories(Root).Select(path => Path.GetFileName(path)).Order(StringComparer.Ordinal)] : [];
+        Directory.Exists(Root)
+            ? [.. Directory.GetDirectories(Root).Select(path => Path.GetFileName(path)).Order(StringComparer.Ordinal)]
+            : [];
 
     private static string[] CaptureNames(string platform) =>
-        [.. Directory.GetFiles(Path.Combine(Root, platform), "*.json").Select(path => Path.GetFileName(path)).Order(StringComparer.Ordinal)];
+        [
+            .. Directory
+                .GetFiles(Path.Combine(Root, platform), "*.json")
+                .Select(path => Path.GetFileName(path))
+                .Order(StringComparer.Ordinal),
+        ];
 
     /// <summary>A captured snapshot projected the way <c>observe</c> projects it.</summary>
     private static (Capture Raw, ProjectedSnapshot Projected) Project(string file)
     {
         var raw = JsonSerializer.Deserialize<Capture>(File.ReadAllText(file), Json)!;
         var counter = 0;
-        var keyboard = SnapshotProjection.KeyboardBand(raw.Nodes, raw.Keyboard?.Kind, raw.Keyboard?.Frame, raw.Keyboard?.Visible, raw.Viewport);
-        return (raw, SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++counter}", raw.Viewport, keyboard: keyboard));
+        var keyboard = SnapshotProjection.KeyboardBand(
+            raw.Nodes,
+            raw.Keyboard?.Kind,
+            raw.Keyboard?.Frame,
+            raw.Keyboard?.Visible,
+            raw.Viewport
+        );
+        return (
+            raw,
+            SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++counter}", raw.Viewport, keyboard: keyboard)
+        );
     }
 
     /// <summary>The tree <c>observe</c> would report for a captured snapshot.</summary>
@@ -187,7 +208,10 @@ public sealed class CapturedDeviceSnapshotsTests
             ("focused", node.States.Focused),
             ("hidden", node.States.Hidden),
             ("secure", node.States.Secure),
-        }.Where(state => state.Set).Select(state => state.Name).ToList();
+        }
+            .Where(state => state.Set)
+            .Select(state => state.Name)
+            .ToList();
         if (states.Count > 0)
         {
             parts.Add($"[{string.Join(", ", states)}]");
@@ -212,7 +236,12 @@ public sealed class CapturedDeviceSnapshotsTests
         return output;
     }
 
-    private sealed record Capture(RawNode[] Nodes, ViewportSize? Viewport, bool? Truncated, KeyboardFact? Keyboard = null);
+    private sealed record Capture(
+        RawNode[] Nodes,
+        ViewportSize? Viewport,
+        bool? Truncated,
+        KeyboardFact? Keyboard = null
+    );
 
     /// <summary>The keyboard fact a capture carries: its kind, its measured frame, and what a visibility-only probe says.</summary>
     private sealed record KeyboardFact(string? Kind, Rect? Frame, bool? Visible);

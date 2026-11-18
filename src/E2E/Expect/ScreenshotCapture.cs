@@ -22,7 +22,14 @@ internal static partial class ScreenshotAssertion
     /// still missing, so the call's poll keeps waiting and fails as an assertion. A capture the deadline cut short throws,
     /// and the poll judges it as it judges any read it cut off.
     /// </summary>
-    private sealed class Capturer(Screen screen, ScreenshotContext store, string api, Locator? subject, ScreenshotCall call, ReadWindow reads)
+    private sealed class Capturer(
+        Screen screen,
+        ScreenshotContext store,
+        string api,
+        Locator? subject,
+        ScreenshotCall call,
+        ReadWindow reads
+    )
     {
         private bool _scrolled = !store.ScrollsIntoView;
 
@@ -30,7 +37,10 @@ internal static partial class ScreenshotAssertion
         /// One engine read on the window's budget, which the read is given and the token also ends: a read that ends on that is the
         /// engine's <c>OPERATION_TIMEOUT</c>, reported as <c>ACTION_FAILED</c>.
         /// </summary>
-        private Task<T> ReadAsync<T>(Func<TimeSpan, CancellationToken, Task<T>> read, CancellationToken cancellationToken) =>
+        private Task<T> ReadAsync<T>(
+            Func<TimeSpan, CancellationToken, Task<T>> read,
+            CancellationToken cancellationToken
+        ) =>
             reads.ReadAsync(async budget =>
             {
                 using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -39,10 +49,28 @@ internal static partial class ScreenshotAssertion
                 {
                     return await read(budget, bounded.Token).ConfigureAwait(false);
                 }
-                catch (Exception ex) when (bounded.IsCancellationRequested && !cancellationToken.IsCancellationRequested
-                    && (ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.OperationTimeout or EngineErrorCodes.Cancelled } || ex.InnerException is OperationCanceledException))
+                catch (Exception ex)
+                    when (bounded.IsCancellationRequested
+                        && !cancellationToken.IsCancellationRequested
+                        && (
+                            ex is OperationCanceledException
+                            || ex
+                                is EngineException
+                                {
+                                    Code: EngineErrorCodes.OperationTimeout or EngineErrorCodes.Cancelled
+                                }
+                            || ex.InnerException is OperationCanceledException
+                        )
+                    )
                 {
-                    throw LocatorEngine.TranslateLocatorError(new EngineException(EngineErrorCodes.OperationTimeout, "the screenshot outlived its budget", retryable: false, ex));
+                    throw LocatorEngine.TranslateLocatorError(
+                        new EngineException(
+                            EngineErrorCodes.OperationTimeout,
+                            "the screenshot outlived its budget",
+                            retryable: false,
+                            ex
+                        )
+                    );
                 }
                 catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
                 {
@@ -56,19 +84,29 @@ internal static partial class ScreenshotAssertion
             BoundingBox? box = null;
             if (subject is not null)
             {
-                var node = await screen.Engine.TryReadAsync(subject.Query, cancellationToken, reads).ConfigureAwait(false);
+                var node = await screen
+                    .Engine.TryReadAsync(subject.Query, cancellationToken, reads)
+                    .ConfigureAwait(false);
                 if (node is not null && !_scrolled)
                 {
                     try
                     {
-                        await screen.Engine.PerformUntilAsync(subject.Query, new LocatorAction.ScrollIntoView(), reads.Deadline, cancellationToken, anyState: true).ConfigureAwait(false);
+                        await screen
+                            .Engine.PerformUntilAsync(
+                                subject.Query,
+                                new LocatorAction.ScrollIntoView(),
+                                reads.Deadline,
+                                cancellationToken,
+                                anyState: true
+                            )
+                            .ConfigureAwait(false);
                     }
-                    catch (TestException ex) when (ex.Code == "LOCATOR_NOT_FOUND")
-                    {
-                    }
+                    catch (TestException ex) when (ex.Code == "LOCATOR_NOT_FOUND") { }
 
                     _scrolled = true;
-                    node = await screen.Engine.TryReadAsync(subject.Query, cancellationToken, reads).ConfigureAwait(false);
+                    node = await screen
+                        .Engine.TryReadAsync(subject.Query, cancellationToken, reads)
+                        .ConfigureAwait(false);
                 }
 
                 if (node is null)
@@ -88,25 +126,45 @@ internal static partial class ScreenshotAssertion
             var shot = await ReadAsync(store.Capture, cancellationToken).ConfigureAwait(false);
 
             // Upstream's pixelsProvenMasked: the engine masked at least as many regions as the tree lists secure nodes, or the image is not kept.
-            if (shot.MaskedRegionCount is not { } masked || masked < LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure))
+            if (
+                shot.MaskedRegionCount is not { } masked
+                || masked < LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure)
+            )
             {
-                throw new ConfigurationException("POLICY_DENIED", api + " could not prove every secure field on screen was masked, so the screenshot is not kept");
+                throw new ConfigurationException(
+                    "POLICY_DENIED",
+                    api + " could not prove every secure field on screen was masked, so the screenshot is not kept"
+                );
             }
 
             var raw = ImageOps.DecodePng(shot.Png);
             var scale = shot.Scale > 0 ? shot.Scale : 1;
-            var image = ImageOps.ResampleImage(raw, Math.Max(1, (int)Math.Round(raw.Width / scale)), Math.Max(1, (int)Math.Round(raw.Height / scale)));
+            var image = ImageOps.ResampleImage(
+                raw,
+                Math.Max(1, (int)Math.Round(raw.Width / scale)),
+                Math.Max(1, (int)Math.Round(raw.Height / scale))
+            );
 
             // The engine covers secure fields in the pixels; painting the observed ones as well covers a field the engine's selector missed.
-            var secure = LocatorResolver.Walk(observation.Roots).Where(node => node.States.Secure && !node.States.Hidden && node.Rect is not null).Select(node => node.Rect!);
+            var secure = LocatorResolver
+                .Walk(observation.Roots)
+                .Where(node => node.States.Secure && !node.States.Hidden && node.Rect is not null)
+                .Select(node => node.Rect!);
             image = ImageOps.FillBoxes(image, secure, (0, 0, 0));
             if (call.Masks.Count > 0)
             {
                 var masks = new List<BoundingBox>();
                 foreach (var mask in call.Masks)
                 {
-                    masks.AddRange((await screen.Engine.ReadAllNowAsync(mask.Query, cancellationToken, reads).ConfigureAwait(false))
-                        .Where(node => !node.States.Hidden && node.Rect is not null).Select(node => node.Rect!));
+                    masks.AddRange(
+                        (
+                            await screen
+                                .Engine.ReadAllNowAsync(mask.Query, cancellationToken, reads)
+                                .ConfigureAwait(false)
+                        )
+                            .Where(node => !node.States.Hidden && node.Rect is not null)
+                            .Select(node => node.Rect!)
+                    );
                 }
 
                 image = ImageOps.FillBoxes(image, masks, call.MaskColor);

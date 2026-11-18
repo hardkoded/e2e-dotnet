@@ -17,7 +17,9 @@ public sealed class WebHeadersTests
     {
         foreach (var name in new[] { "x bypass", "x:bypass", "", "x\nbypass" })
         {
-            var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Headers = new Dictionary<string, string> { [name] = "v" } }));
+            var error = Assert.Throws<EngineException>(() =>
+                new WebEngine(new WebEngineOptions { Headers = new Dictionary<string, string> { [name] = "v" } })
+            );
             Assert.Equal("INVALID_CONFIG", error.Code);
             Assert.Contains("invalid header name", error.Message, StringComparison.Ordinal);
         }
@@ -28,7 +30,9 @@ public sealed class WebHeadersTests
     {
         foreach (var value in new[] { "v\r\nx-b: injected", "token\u0000suffix", "\u007f" })
         {
-            var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Headers = new Dictionary<string, string> { ["x-a"] = value } }));
+            var error = Assert.Throws<EngineException>(() =>
+                new WebEngine(new WebEngineOptions { Headers = new Dictionary<string, string> { ["x-a"] = value } })
+            );
             Assert.Equal("INVALID_CONFIG", error.Code);
             Assert.Contains("control character", error.Message, StringComparison.Ordinal);
         }

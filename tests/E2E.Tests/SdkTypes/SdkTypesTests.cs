@@ -20,10 +20,19 @@ public sealed class SdkTypesTests
     [Fact]
     public void Partial_a_custom_loop_keeps_the_built_in_actions()
     {
-        var create = typeof(AgentTools).GetMethod(nameof(AgentTools.CreateGrammarTools), BindingFlags.Public | BindingFlags.Static)!;
+        var create = typeof(AgentTools).GetMethod(
+            nameof(AgentTools.CreateGrammarTools),
+            BindingFlags.Public | BindingFlags.Static
+        )!;
         Assert.Equal(typeof(IReadOnlyList<ToolLoopTool>), create.ReturnType);
-        Assert.Equal([typeof(StepExecutorContext), typeof(GrammarToolsOptions)], create.GetParameters().Select(parameter => parameter.ParameterType));
-        Assert.Equal(typeof(Func<Func<Task<string>>, Task<string>>), typeof(GrammarToolsOptions).GetProperty(nameof(GrammarToolsOptions.Guard))!.PropertyType);
+        Assert.Equal(
+            [typeof(StepExecutorContext), typeof(GrammarToolsOptions)],
+            create.GetParameters().Select(parameter => parameter.ParameterType)
+        );
+        Assert.Equal(
+            typeof(Func<Func<Task<string>>, Task<string>>),
+            typeof(GrammarToolsOptions).GetProperty(nameof(GrammarToolsOptions.Guard))!.PropertyType
+        );
         Assert.Equal(typeof(string), typeof(DefaultAgent).GetField(nameof(DefaultAgent.BaseRules))!.FieldType);
         Assert.False(string.IsNullOrWhiteSpace(DefaultAgent.BaseRules));
     }
@@ -32,7 +41,13 @@ public sealed class SdkTypesTests
     [Fact]
     public void Accepts_exploration_options_on_an_assertion()
     {
-        var options = new AssertOptions { Explore = true, MaxSteps = 10, MaxModelCalls = 6, Vision = VisionMode.Only };
+        var options = new AssertOptions
+        {
+            Explore = true,
+            MaxSteps = 10,
+            MaxModelCalls = 6,
+            Vision = VisionMode.Only,
+        };
 
         Assert.True(options.Explore);
         Assert.Equal((10, 6, VisionMode.Only), (options.MaxSteps, options.MaxModelCalls, options.Vision));
@@ -46,7 +61,9 @@ public sealed class SdkTypesTests
         Assert.Equal([nameof(GrammarToolsOptions.Guard)], options.Select(property => property.Name));
         Assert.False(Library.GetType("E2E.ScreenPresenter")!.IsPublic);
         Assert.False(Library.GetType("E2E.ScreenUpdateOptions")!.IsPublic);
-        Assert.DoesNotContain(typeof(AgentTools).GetMethods(BindingFlags.Public | BindingFlags.Static), method => method.Name == "GrammarTools");
+        Assert.DoesNotContain(typeof(AgentTools).GetMethods(BindingFlags.Public | BindingFlags.Static), method =>
+            method.Name == "GrammarTools"
+        );
     }
 
     // "An executor outside the AI SDK loop keeps the built-in verdict: the tool, its rules as text, and the verdict it collected."
@@ -55,7 +72,11 @@ public sealed class SdkTypesTests
     {
         var conclusion = AgentTools.CreateVerdictTool();
         Assert.IsType<ModelTool>(conclusion.Tool);
-        Assert.Equal(typeof(StepVerdict), Nullable.GetUnderlyingType(typeof(VerdictTool).GetProperty(nameof(VerdictTool.Verdict))!.PropertyType) ?? typeof(VerdictTool).GetProperty(nameof(VerdictTool.Verdict))!.PropertyType);
+        Assert.Equal(
+            typeof(StepVerdict),
+            Nullable.GetUnderlyingType(typeof(VerdictTool).GetProperty(nameof(VerdictTool.Verdict))!.PropertyType)
+                ?? typeof(VerdictTool).GetProperty(nameof(VerdictTool.Verdict))!.PropertyType
+        );
         Assert.Null(conclusion.Verdict);
         Assert.False(string.IsNullOrWhiteSpace(AgentTools.VerdictRules));
         Assert.Equal(typeof(string), typeof(AgentTools).GetField(nameof(AgentTools.VerdictRules))!.FieldType);
@@ -77,7 +98,10 @@ public sealed class SdkTypesTests
         Assert.Equal(typeof(string), typeof(ToolLoopResult).GetProperty(nameof(ToolLoopResult.Content))!.PropertyType);
         var pixels = typeof(ToolLoopResult).GetProperty(nameof(ToolLoopResult.Pixels))!.PropertyType;
         Assert.Equal(typeof(ExecutorPixels), Nullable.GetUnderlyingType(pixels) ?? pixels);
-        Assert.Equal(typeof(string), typeof(ExecutorPixels).GetProperty(nameof(ExecutorPixels.MediaType))!.PropertyType);
+        Assert.Equal(
+            typeof(string),
+            typeof(ExecutorPixels).GetProperty(nameof(ExecutorPixels.MediaType))!.PropertyType
+        );
     }
 
     // The lines the onBeforeAction commit adds (tester-army/e2e#1387): the event holds an index and a source and nothing a dispatch has not
@@ -88,11 +112,62 @@ public sealed class SdkTypesTests
     {
         Assert.Equal(
             [nameof(BeforeActionEvent.Index), nameof(BeforeActionEvent.Source)],
-            typeof(BeforeActionEvent).GetProperties(BindingFlags.Public | BindingFlags.Instance).Select(property => property.Name).Order(StringComparer.Ordinal));
+            typeof(BeforeActionEvent)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Select(property => property.Name)
+                .Order(StringComparer.Ordinal)
+        );
         Assert.Equal(typeof(int), typeof(BeforeActionEvent).GetProperty(nameof(BeforeActionEvent.Index))!.PropertyType);
-        Assert.Equal(typeof(ActionSource), typeof(BeforeActionEvent).GetProperty(nameof(BeforeActionEvent.Source))!.PropertyType);
+        Assert.Equal(
+            typeof(ActionSource),
+            typeof(BeforeActionEvent).GetProperty(nameof(BeforeActionEvent.Source))!.PropertyType
+        );
         Assert.True(typeof(Delegate).IsAssignableFrom(typeof(BeforeActionHook)));
-        Assert.Equal(typeof(BeforeActionHook), typeof(ActOptions).GetProperty(nameof(ActOptions.OnBeforeAction))!.PropertyType);
+        Assert.Equal(
+            typeof(BeforeActionHook),
+            typeof(ActOptions).GetProperty(nameof(ActOptions.OnBeforeAction))!.PropertyType
+        );
         Assert.Null(typeof(AssertOptions).GetProperty("OnBeforeAction"));
+    }
+
+    // The lines the computed-style commit adds (tester-army/e2e#1633): a project tool and an executor read the allow-listed style of a node
+    // by `{ id }` and `{ style }`. Upstream's `@ts-expect-error` lines for `content` and `--token` (a property outside the allow-list) have no
+    // counterpart: a property name is a string here, refused when the read is made (see `ComputedStylePropertiesTests`); the target is
+    // a node id and never a selector, and the options hold the style list and nothing that evaluates code.
+    [Fact]
+    public void Partial_a_tool_and_an_executor_read_the_style_of_a_listed_node_and_nothing_else()
+    {
+        var tool = typeof(AgentToolContext).GetMethod(
+            nameof(AgentToolContext.ReadAsync),
+            BindingFlags.Public | BindingFlags.Instance
+        )!;
+        var executor = typeof(StepExecutorContext).GetMethod(
+            nameof(StepExecutorContext.ReadAsync),
+            BindingFlags.Public | BindingFlags.Instance
+        )!;
+        foreach (var read in new[] { tool, executor })
+        {
+            Assert.Equal(
+                [typeof(ExecutorTarget), typeof(ExecutorReadOptions), typeof(CancellationToken)],
+                read.GetParameters().Select(parameter => parameter.ParameterType)
+            );
+            Assert.Equal(typeof(Task<ExecutorReadResult>), read.ReturnType);
+        }
+
+        Assert.Equal(
+            [nameof(ExecutorReadOptions.Style)],
+            typeof(ExecutorReadOptions)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Select(property => property.Name)
+        );
+        Assert.Equal(
+            typeof(IReadOnlyList<string>),
+            typeof(ExecutorReadOptions).GetProperty(nameof(ExecutorReadOptions.Style))!.PropertyType
+        );
+        Assert.Equal(
+            typeof(IReadOnlyDictionary<string, string>),
+            typeof(ExecutorReadResult).GetProperty(nameof(ExecutorReadResult.Style))!.PropertyType
+        );
+        Assert.Null(typeof(ExecutorTarget).GetMethod("op_Implicit"));
     }
 }

@@ -84,12 +84,14 @@ internal sealed record DoctorReport(string Version, bool Ok, IReadOnlyList<Docto
             Add(node, "path", check.Path);
             if (check.Targets is { } targets)
             {
-                node["targets"] = new JsonArray([.. targets.Select(target =>
-                {
-                    var item = new JsonObject { ["name"] = target.Name, ["platform"] = target.Platform };
-                    Add(item, "engine", target.Engine);
-                    return (JsonNode?)item;
-                })]);
+                node["targets"] = new JsonArray([
+                    .. targets.Select(target =>
+                    {
+                        var item = new JsonObject { ["name"] = target.Name, ["platform"] = target.Platform };
+                        Add(item, "engine", target.Engine);
+                        return (JsonNode?)item;
+                    }),
+                ]);
             }
 
             AddModel(node, "model", check.Model);
@@ -98,8 +100,20 @@ internal sealed record DoctorReport(string Version, bool Ok, IReadOnlyList<Docto
             checks.Add(node);
         }
 
-        var report = new JsonObject { ["schemaVersion"] = SchemaVersion, ["version"] = Version, ["ok"] = Ok, ["checks"] = checks };
-        return report.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        var report = new JsonObject
+        {
+            ["schemaVersion"] = SchemaVersion,
+            ["version"] = Version,
+            ["ok"] = Ok,
+            ["checks"] = checks,
+        };
+        return report.ToJsonString(
+            new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            }
+        );
     }
 
     private static void Add(JsonObject node, string name, string? value)
@@ -185,7 +199,10 @@ internal static partial class Doctor
     private const int ModelCallRetries = 1;
 
     /// <summary>The ids of doctor's own checks, which an engine's finding cannot take. <c>runtime</c> is .NET-only: upstream's <c>node</c> check names the runtime it needs.</summary>
-    private static readonly HashSet<string> ReservedIds = new(["node", "config", "runtime", "engine", "model"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ReservedIds = new(
+        ["node", "config", "runtime", "engine", "model"],
+        StringComparer.Ordinal
+    );
 
     /// <summary>A check id: kebab case, as <see cref="EngineDoctorCheck.Id"/> declares.</summary>
     [GeneratedRegex(@"\A[a-z][a-z0-9-]*\z")]
@@ -206,18 +223,34 @@ internal static partial class Doctor
             cancellationToken.ThrowIfCancellationRequested();
             loaded = Load(options);
         }
-        catch (Exception ex) when (ex is E2EException or OperationCanceledException or IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception ex)
+            when (ex
+                    is E2EException
+                        or OperationCanceledException
+                        or IOException
+                        or UnauthorizedAccessException
+                        or ArgumentException
+            )
         {
             checks.Add(Failed("config", ex));
             return Report(options.Version, checks, redactor);
         }
 
         redactor = Redactor.For(loaded.Config.AllSecrets.Concat(DeviceTargets.Credentials()));
-        checks.Add(new DoctorCheck("config", DoctorStatus.Pass)
-        {
-            Path = loaded.Config.ConfigPath,
-            Targets = [.. loaded.Targets.Select(item => new DoctorTarget(item.Target.Name, item.Target.Platform, item.Engine?.Name))],
-        });
+        checks.Add(
+            new DoctorCheck("config", DoctorStatus.Pass)
+            {
+                Path = loaded.Config.ConfigPath,
+                Targets =
+                [
+                    .. loaded.Targets.Select(item => new DoctorTarget(
+                        item.Target.Name,
+                        item.Target.Platform,
+                        item.Engine?.Name
+                    )),
+                ],
+            }
+        );
         foreach (var item in loaded.Targets)
         {
             if (cancellationToken.IsCancellationRequested)
@@ -225,12 +258,16 @@ internal static partial class Doctor
                 return Report(options.Version, checks, redactor);
             }
 
-            checks.AddRange(await EngineChecksAsync(item, loaded.Config, options, redactor, cancellationToken).ConfigureAwait(false));
+            checks.AddRange(
+                await EngineChecksAsync(item, loaded.Config, options, redactor, cancellationToken).ConfigureAwait(false)
+            );
         }
 
         if (!cancellationToken.IsCancellationRequested)
         {
-            checks.AddRange(await ModelChecksAsync(loaded.Config, options, redactor, cancellationToken).ConfigureAwait(false));
+            checks.AddRange(
+                await ModelChecksAsync(loaded.Config, options, redactor, cancellationToken).ConfigureAwait(false)
+            );
         }
 
         return Report(options.Version, checks, redactor);
@@ -242,29 +279,39 @@ internal static partial class Doctor
         ArgumentNullException.ThrowIfNull(report);
         var pc = colors ?? new Colors(false);
         var width = report.Checks.Count == 0 ? 0 : report.Checks.Max(check => check.Id.Length);
-        var lines = report.Checks.Select(check => $"{Mark(pc, check.Status)} {check.Id.PadRight(width)}  {Format.Bounded(Whitespace().Replace(Describe(check), " ").Trim())}");
+        var lines = report.Checks.Select(check =>
+            $"{Mark(pc, check.Status)} {check.Id.PadRight(width)}  {Format.Bounded(Whitespace().Replace(Describe(check), " ").Trim())}"
+        );
         var failures = report.Checks.Count(check => check.Status == DoctorStatus.Fail);
-        var verdict = failures == 0
-            ? pc.Green("e2e explore and e2e mcp can start here")
-            : pc.Red(failures.ToString(CultureInfo.InvariantCulture) + (failures == 1 ? " check failed" : " checks failed"));
+        var verdict =
+            failures == 0
+                ? pc.Green("e2e explore and e2e mcp can start here")
+                : pc.Red(
+                    failures.ToString(CultureInfo.InvariantCulture)
+                        + (failures == 1 ? " check failed" : " checks failed")
+                );
         return string.Join('\n', lines) + "\n\n" + verdict + "\n";
     }
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Whitespace();
 
-    private static string Mark(Colors pc, DoctorStatus status) => status switch
-    {
-        DoctorStatus.Pass => pc.Green("✓"),
-        DoctorStatus.Warn => pc.Yellow("!"),
-        DoctorStatus.Fail => pc.Red("✗"),
-        DoctorStatus.Skip => pc.Dim("-"),
-        _ => pc.Dim("?"),
-    };
+    private static string Mark(Colors pc, DoctorStatus status) =>
+        status switch
+        {
+            DoctorStatus.Pass => pc.Green("✓"),
+            DoctorStatus.Warn => pc.Yellow("!"),
+            DoctorStatus.Fail => pc.Red("✗"),
+            DoctorStatus.Skip => pc.Dim("-"),
+            _ => pc.Dim("?"),
+        };
 
     private static string Describe(DoctorCheck check)
     {
-        var scope = check.Target is not null ? $"[{check.Target}] " : check.Agent is not null ? $"[{check.Agent}] " : "";
+        var scope =
+            check.Target is not null ? $"[{check.Target}] "
+            : check.Agent is not null ? $"[{check.Agent}] "
+            : "";
         var parts = new List<string>();
         if (check.Path is not null)
         {
@@ -273,7 +320,13 @@ internal static partial class Doctor
 
         if (check.Targets is not null)
         {
-            parts.Add("targets: " + string.Join(", ", check.Targets.Select(target => $"{target.Name} ({target.Engine ?? target.Platform})")));
+            parts.Add(
+                "targets: "
+                    + string.Join(
+                        ", ",
+                        check.Targets.Select(target => $"{target.Name} ({target.Engine ?? target.Platform})")
+                    )
+            );
         }
 
         if (check.Model is not null)
@@ -296,13 +349,26 @@ internal static partial class Doctor
 
     /// <summary>The report, every message redacted of the config's secrets: an engine or a provider error may quote one.</summary>
     private static DoctorReport Report(string version, IReadOnlyList<DoctorCheck> checks, Redactor redactor) =>
-        new(version, checks.All(check => check.Status != DoctorStatus.Fail), [.. checks.Select(check => check.Message is null ? check : check with { Message = redactor.Redact(check.Message) })]);
+        new(
+            version,
+            checks.All(check => check.Status != DoctorStatus.Fail),
+            [
+                .. checks.Select(check =>
+                    check.Message is null ? check : check with { Message = redactor.Redact(check.Message) }
+                ),
+            ]
+        );
 
     /// <summary>A failed check of <paramref name="id"/> carrying the e2e error code and message of <paramref name="cause"/>.</summary>
     private static DoctorCheck Failed(string id, Exception cause, string? target = null)
     {
         var (_, code, message, _) = ErrorSerializer.Classify(cause);
-        return new DoctorCheck(id, DoctorStatus.Fail) { Target = target, Code = code, Message = message };
+        return new DoctorCheck(id, DoctorStatus.Fail)
+        {
+            Target = target,
+            Code = code,
+            Message = message,
+        };
     }
 
     /// <summary>The runtime, which passed: a host that cannot start this program never reaches the check. .NET-only: upstream's <c>node</c>.</summary>
@@ -310,7 +376,13 @@ internal static partial class Doctor
         new("runtime", DoctorStatus.Pass) { Message = RuntimeInformation.FrameworkDescription };
 
     /// <summary>A target the check selected, with its resolved app and the engine built for it, or why that failed.</summary>
-    private sealed record TargetItem(ResolvedTarget Target, TargetConfig Config, ResolvedApp App, IEngine? Engine, Exception? Failure);
+    private sealed record TargetItem(
+        ResolvedTarget Target,
+        TargetConfig Config,
+        ResolvedApp App,
+        IEngine? Engine,
+        Exception? Failure
+    );
 
     private sealed record Loaded(E2EConfig Config, IReadOnlyList<TargetItem> Targets);
 
@@ -322,16 +394,28 @@ internal static partial class Doctor
         if (options.Config is not null)
         {
             var absolute = Path.GetFullPath(options.Config, cwd);
-            path = File.Exists(absolute) ? absolute : throw E2EConfig.ExplicitConfigNotFound(cwd, options.Config, absolute);
+            path = File.Exists(absolute)
+                ? absolute
+                : throw E2EConfig.ExplicitConfigNotFound(cwd, options.Config, absolute);
         }
         else
         {
-            path = E2EConfig.Find(cwd) ?? throw new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one");
+            path = E2EConfig.Find(cwd)
+                ?? throw new ConfigurationException(
+                    "CONFIG_NOT_FOUND",
+                    "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one"
+                );
         }
 
         var config = E2EConfig.Load(path, name => options.Env.GetValueOrDefault(name));
-        var declared = config.Targets.Select(target => new ResolvedTarget(target.Name, target.Platform, target.App)).ToList();
-        var create = options.CreateEngine ?? ((target, headed) => TargetEngines.Create(target, headed ? false : null, DeviceTargets.Create, WindowsTargets.Create));
+        var declared = config
+            .Targets.Select(target => new ResolvedTarget(target.Name, target.Platform, target.App))
+            .ToList();
+        var create = options.CreateEngine
+            ?? (
+                (target, headed) =>
+                    TargetEngines.Create(target, headed ? false : null, DeviceTargets.Create, WindowsTargets.Create)
+            );
         var items = new List<TargetItem>();
         foreach (var selected in Selector.SelectTargets(declared, options.Targets))
         {
@@ -357,7 +441,13 @@ internal static partial class Doctor
     }
 
     /// <summary>What the target's engine reports through its doctor, each finding under the target.</summary>
-    private static async Task<IReadOnlyList<DoctorCheck>> EngineChecksAsync(TargetItem item, E2EConfig config, DoctorOptions options, Redactor redactor, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<DoctorCheck>> EngineChecksAsync(
+        TargetItem item,
+        E2EConfig config,
+        DoctorOptions options,
+        Redactor redactor,
+        CancellationToken cancellationToken
+    )
     {
         var name = item.Target.Name;
         if (item.Failure is not null)
@@ -368,7 +458,14 @@ internal static partial class Doctor
         var engine = item.Engine!;
         if (engine is not IDoctorEngine hook)
         {
-            return [new DoctorCheck("engine", DoctorStatus.Skip) { Target = name, Message = $"engine \"{engine.Name}\" has no doctor checks" }];
+            return
+            [
+                new DoctorCheck("engine", DoctorStatus.Skip)
+                {
+                    Target = name,
+                    Message = $"engine \"{engine.Name}\" has no doctor checks",
+                },
+            ];
         }
 
         var timeout = options.EngineTimeout ?? EngineDoctorTimeout;
@@ -397,7 +494,10 @@ internal static partial class Doctor
             var timedOut = deadline.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
             await Settled(pending).ConfigureAwait(false);
             Exception failure = timedOut
-                ? new EngineException(EngineErrorCodes.EngineFailure, $"engine \"{engine.Name}\" did not finish its checks within {Time.BudgetText((long)timeout.TotalMilliseconds)}")
+                ? new EngineException(
+                    EngineErrorCodes.EngineFailure,
+                    $"engine \"{engine.Name}\" did not finish its checks within {Time.BudgetText((long)timeout.TotalMilliseconds)}"
+                )
                 : ex;
             return [Failed("engine", failure, name)];
         }
@@ -413,11 +513,14 @@ internal static partial class Doctor
 #pragma warning disable CA1031 // The hook's own failure is already the check's; only its end matters here.
         catch (Exception)
 #pragma warning restore CA1031
-        {
-        }
+        { }
     }
 
-    private static IReadOnlyList<DoctorCheck> Findings(string engine, string target, IReadOnlyList<EngineDoctorCheck>? findings)
+    private static IReadOnlyList<DoctorCheck> Findings(
+        string engine,
+        string target,
+        IReadOnlyList<EngineDoctorCheck>? findings
+    )
     {
         if (findings is null)
         {
@@ -429,17 +532,35 @@ internal static partial class Doctor
         {
             if (!IsEngineFinding(finding))
             {
-                return [Failed("engine", Malformed(engine, finding is null ? "null" : $"{{ id: \"{finding.Id}\", status: {(int)finding.Status} }}"), target)];
+                return
+                [
+                    Failed(
+                        "engine",
+                        Malformed(
+                            engine,
+                            finding is null ? "null" : $"{{ id: \"{finding.Id}\", status: {(int)finding.Status} }}"
+                        ),
+                        target
+                    ),
+                ];
             }
 
-            checks.Add(new DoctorCheck(finding.Id, finding.Status switch
-            {
-                EngineDoctorStatus.Pass => DoctorStatus.Pass,
-                EngineDoctorStatus.Warn => DoctorStatus.Warn,
-                EngineDoctorStatus.Fail => DoctorStatus.Fail,
-                _ => DoctorStatus.Skip,
-            })
-            { Target = target, Message = finding.Message });
+            checks.Add(
+                new DoctorCheck(
+                    finding.Id,
+                    finding.Status switch
+                    {
+                        EngineDoctorStatus.Pass => DoctorStatus.Pass,
+                        EngineDoctorStatus.Warn => DoctorStatus.Warn,
+                        EngineDoctorStatus.Fail => DoctorStatus.Fail,
+                        _ => DoctorStatus.Skip,
+                    }
+                )
+                {
+                    Target = target,
+                    Message = finding.Message,
+                }
+            );
         }
 
         return checks;
@@ -450,13 +571,21 @@ internal static partial class Doctor
         value is { Id: { } id } && CheckId().IsMatch(id) && !ReservedIds.Contains(id) && Enum.IsDefined(value.Status);
 
     private static EngineException Malformed(string engine, string value) =>
-        new(EngineErrorCodes.EngineFailure, $"engine \"{engine}\" returned a malformed doctor check: {Format.Bounded(value)}");
+        new(
+            EngineErrorCodes.EngineFailure,
+            $"engine \"{engine}\" returned a malformed doctor check: {Format.Bounded(value)}"
+        );
 
     /// <summary>
     /// One <c>model</c> check per agent. Without <c>--check-model</c>, a model on a stored login passes or fails on that login and any other
     /// is <c>unknown</c>; with it, each model answers one call per set of provider options and input limit the agents send it.
     /// </summary>
-    private static async Task<IReadOnlyList<DoctorCheck>> ModelChecksAsync(E2EConfig config, DoctorOptions options, Redactor redactor, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<DoctorCheck>> ModelChecksAsync(
+        E2EConfig config,
+        DoctorOptions options,
+        Redactor redactor,
+        CancellationToken cancellationToken
+    )
     {
         var calls = new Dictionary<string, Task<ModelFailure?>>(StringComparer.Ordinal);
         Func<AgentConfig, bool, Task<ModelFailure?>>? call = options.CheckModel
@@ -465,13 +594,21 @@ internal static partial class Doctor
                 var key = CallKey(agent, judge);
                 if (!calls.TryGetValue(key, out var pending))
                 {
-                    pending = CallModelAsync(() => options.CreateModel is { } create ? create(agent, judge) : judge ? agent.CreateJudge() : agent.CreateModel(), agent, redactor, cancellationToken);
+                    pending = CallModelAsync(
+                        () =>
+                            options.CreateModel is { } create ? create(agent, judge)
+                            : judge ? agent.CreateJudge()
+                            : agent.CreateModel(),
+                        agent,
+                        redactor,
+                        cancellationToken
+                    );
                     calls[key] = pending;
                 }
 
                 return pending;
             }
-        : null;
+            : null;
         var checks = new List<DoctorCheck>();
         foreach (var (name, agent) in config.Agents)
         {
@@ -491,27 +628,47 @@ internal static partial class Doctor
 
     /// <summary>What makes two agents' calls to one model the same call: the model, how it is reached, and the agent's provider options and input limit.</summary>
     private static string CallKey(AgentConfig agent, bool judge) =>
-        JsonSerializer.Serialize(new object?[] { agent.Provider, judge ? agent.Judge : agent.Model, agent.BaseUrl, agent.ApiKeyEnv, agent.ProviderOptions, agent.MaxInputTokens });
+        JsonSerializer.Serialize(
+            new object?[]
+            {
+                agent.Provider,
+                judge ? agent.Judge : agent.Model,
+                agent.BaseUrl,
+                agent.ApiKeyEnv,
+                agent.ProviderOptions,
+                agent.MaxInputTokens,
+            }
+        );
 
     /// <summary>The <c>model</c> check of one agent: its model and, when it is another one, its judge, each checked on its own.</summary>
-    private static async Task<DoctorCheck> ModelCheckAsync(string name, AgentConfig agent, Func<AgentConfig, bool, Task<ModelFailure?>>? call, CancellationToken cancellationToken)
+    private static async Task<DoctorCheck> ModelCheckAsync(
+        string name,
+        AgentConfig agent,
+        Func<AgentConfig, bool, Task<ModelFailure?>>? call,
+        CancellationToken cancellationToken
+    )
     {
         var judge = agent.Judge is null || agent.Judge == agent.Model ? null : agent.Judge;
         if (agent.Model is null && judge is null)
         {
-            return new DoctorCheck("model", DoctorStatus.Skip) { Agent = name, Message = "no model configured: tests without agent steps run, agent steps fail" };
+            return new DoctorCheck("model", DoctorStatus.Skip)
+            {
+                Agent = name,
+                Message = "no model configured: tests without agent steps run, agent steps fail",
+            };
         }
 
         var login = LoginModel.LoginOf(agent.Provider);
-        DoctorCheck Result(DoctorStatus status, string? code, string message) => new("model", status)
-        {
-            Agent = name,
-            Model = agent.Model is null ? null : new DoctorModel(agent.Provider, agent.Model),
-            Judge = judge is null ? null : new DoctorModel(agent.Provider, judge),
-            Login = login,
-            Code = code,
-            Message = message,
-        };
+        DoctorCheck Result(DoctorStatus status, string? code, string message) =>
+            new("model", status)
+            {
+                Agent = name,
+                Model = agent.Model is null ? null : new DoctorModel(agent.Provider, agent.Model),
+                Judge = judge is null ? null : new DoctorModel(agent.Provider, judge),
+                Login = login,
+                Code = code,
+                Message = message,
+            };
 
         string? credential = null;
         if (login is not null)
@@ -543,12 +700,21 @@ internal static partial class Doctor
             {
                 if (await call(agent, isJudge).ConfigureAwait(false) is { } failure)
                 {
-                    failures.Add(failure with { Message = roles.Count == 1 ? failure.Message : role + ": " + failure.Message });
+                    failures.Add(
+                        failure with
+                        {
+                            Message = roles.Count == 1 ? failure.Message : role + ": " + failure.Message,
+                        }
+                    );
                 }
             }
 
             return failures.Count > 0
-                ? Result(DoctorStatus.Fail, failures[0].Code, string.Join("; ", failures.Select(failure => failure.Message)))
+                ? Result(
+                    DoctorStatus.Fail,
+                    failures[0].Code,
+                    string.Join("; ", failures.Select(failure => failure.Message))
+                )
                 : Result(DoctorStatus.Pass, null, roles.Count == 1 ? "answered" : "both answered");
         }
 
@@ -561,7 +727,12 @@ internal static partial class Doctor
     /// One small call to the model <paramref name="createModel"/> builds, with the agent's provider options, resolving to the failure or null. A reply that is not
     /// the JSON asked for, or a refusal, still proves the model answered; a call the provider ended on an error does not. Upstream's <c>callModel</c>.
     /// </summary>
-    private static async Task<ModelFailure?> CallModelAsync(Func<IAgentModel?> createModel, AgentConfig agent, Redactor redactor, CancellationToken cancellationToken)
+    private static async Task<ModelFailure?> CallModelAsync(
+        Func<IAgentModel?> createModel,
+        AgentConfig agent,
+        Redactor redactor,
+        CancellationToken cancellationToken
+    )
     {
         IAgentModel? model = null;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -574,17 +745,27 @@ internal static partial class Doctor
                 return null;
             }
 
-            var response = await model.CompleteAsync(
-                new ModelRequest
-                {
-                    System = "You are checking that this model is reachable.",
-                    Messages = [new ModelMessage { Role = "user", Content = "Reply with the JSON object {\"ok\": true} and nothing else." }],
-                    Tools = [],
-                    ProviderOptions = agent.ProviderOptions,
-                    MaxRetries = ModelCallRetries,
-                    Redactor = redactor,
-                },
-                deadline.Token).ConfigureAwait(false);
+            var response = await model
+                .CompleteAsync(
+                    new ModelRequest
+                    {
+                        System = "You are checking that this model is reachable.",
+                        Messages =
+                        [
+                            new ModelMessage
+                            {
+                                Role = "user",
+                                Content = "Reply with the JSON object {\"ok\": true} and nothing else.",
+                            },
+                        ],
+                        Tools = [],
+                        ProviderOptions = agent.ProviderOptions,
+                        MaxRetries = ModelCallRetries,
+                        Redactor = redactor,
+                    },
+                    deadline.Token
+                )
+                .ConfigureAwait(false);
             if (string.Equals(response.FinishReason, ModelResponse.ErrorFinish, StringComparison.Ordinal))
             {
                 throw ModelHttp.ErrorFinishError(response.RawFinishReason, redactor);
@@ -592,9 +773,13 @@ internal static partial class Doctor
 
             return null;
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested)
+        catch (OperationCanceledException)
+            when (!cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested)
         {
-            return new ModelFailure("MODEL_PROVIDER_FAILED", "the model did not answer within " + Time.BudgetText((long)ModelCallTimeout.TotalMilliseconds));
+            return new ModelFailure(
+                "MODEL_PROVIDER_FAILED",
+                "the model did not answer within " + Time.BudgetText((long)ModelCallTimeout.TotalMilliseconds)
+            );
         }
 #pragma warning disable CA1031 // Any failure of the call, or of building the model, is the agent's failed model check; a cancel by the caller is not one.
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -610,7 +795,10 @@ internal static partial class Doctor
     }
 
     /// <summary>The credential <paramref name="login"/>'s calls read: its API key variable when set, else the stored login, which must be there.</summary>
-    private static async Task<(bool Ok, string Message)> LoginCredentialAsync(string login, CancellationToken cancellationToken)
+    private static async Task<(bool Ok, string Message)> LoginCredentialAsync(
+        string login,
+        CancellationToken cancellationToken
+    )
     {
         var provider = OAuthProviders.Get(login);
         if (provider.ApiKeyEnv is { } variable && OAuthProviders.ApiKeyFor(provider) is not null)

@@ -19,14 +19,37 @@ public sealed class TraceCacheStrictCacheFailsAStepWhoseKeyChangedUnderItsRecord
         var (directory, oldEntry) = await RecordedAsync();
 
         var calls = 0;
-        await using (var session = await ConfigTests.StartAsync(directory, CacheMode.ReadWrite, strict: true, "Upgrade to Pro", () => calls++, context: Rekeyed))
+        await using (
+            var session = await ConfigTests.StartAsync(
+                directory,
+                CacheMode.ReadWrite,
+                strict: true,
+                "Upgrade to Pro",
+                () => calls++,
+                context: Rekeyed
+            )
+        )
         {
             await session.App.OpenAsync("/settings/billing");
-            var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("upgrade the workspace to the Pro plan"));
+            var error = await Assert.ThrowsAsync<AgentException>(() =>
+                session.Agent.ActAsync("upgrade the workspace to the Pro plan")
+            );
             Assert.Equal("REPLAY_STALE", error.Code);
-            Assert.Contains("holds it under another cache key (" + oldEntry + ")", error.Message, StringComparison.Ordinal);
-            Assert.Contains("since the agent's context (its context, or the test's agentContext) changed after it was recorded", error.Message, StringComparison.Ordinal);
-            Assert.Contains("re-record it with a read-write run with cache.strict set to false", error.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "holds it under another cache key (" + oldEntry + ")",
+                error.Message,
+                StringComparison.Ordinal
+            );
+            Assert.Contains(
+                "since the agent's context (its context, or the test's agentContext) changed after it was recorded",
+                error.Message,
+                StringComparison.Ordinal
+            );
+            Assert.Contains(
+                "re-record it with a read-write run with cache.strict set to false",
+                error.Message,
+                StringComparison.Ordinal
+            );
             Assert.Equal(1, session.Missed);
             session.Complete(error);
         }
@@ -68,14 +91,23 @@ public sealed class TraceCacheStrictCacheFailsAStepWhoseKeyChangedUnderItsRecord
         var key = Path.GetFileNameWithoutExtension(Directory.GetFiles(directory).Single());
         // The test's title reaches the prompt, not the context, so the key digests an empty context, as upstream's
         // keyedBy.agentContextDigest does, so the entry sits under the key of the step with no context at all.
-        var expected = Identity.BuildTraceCacheKey(new TraceCacheKeyParts(
-            Identity.ProjectIdentity(""),
-            "billing > upgrades",
-            new CacheTargetIdentity("document", "document", "document", 1, E2E.Internal.Ids.CanonicalDigest(new JsonObject { ["environment"] = "test" })),
-            Identity.TraceCallSignature("act", "upgrade the workspace to the Pro plan", null),
-            0,
-            new CacheAgentIdentity("default", null),
-            CacheKeys.ReplayPolicyVersion));
+        var expected = Identity.BuildTraceCacheKey(
+            new TraceCacheKeyParts(
+                Identity.ProjectIdentity(""),
+                "billing > upgrades",
+                new CacheTargetIdentity(
+                    "document",
+                    "document",
+                    "document",
+                    1,
+                    E2E.Internal.Ids.CanonicalDigest(new JsonObject { ["environment"] = "test" })
+                ),
+                Identity.TraceCallSignature("act", "upgrade the workspace to the Pro plan", null),
+                0,
+                new CacheAgentIdentity("default", null),
+                CacheKeys.ReplayPolicyVersion
+            )
+        );
         Assert.Equal(Identity.TraceCacheKeyHash(expected), key);
         Assert.Equal(Identity.KeyContext(expected), cache.Read(key).Entry!.KeyedBy);
         var legacy = cache.Read(key).Entry!;
@@ -93,9 +125,21 @@ public sealed class TraceCacheStrictCacheFailsAStepWhoseKeyChangedUnderItsRecord
     }
 
     // Runs the upgrade step in read-write mode until it passes and returns the act's result.
-    private static async Task<ActResult> UpgradeAsync(string directory, bool strict, Action onAct, string? context = null)
+    private static async Task<ActResult> UpgradeAsync(
+        string directory,
+        bool strict,
+        Action onAct,
+        string? context = null
+    )
     {
-        await using var session = await ConfigTests.StartAsync(directory, CacheMode.ReadWrite, strict, "Upgrade to Pro", onAct, context: context);
+        await using var session = await ConfigTests.StartAsync(
+            directory,
+            CacheMode.ReadWrite,
+            strict,
+            "Upgrade to Pro",
+            onAct,
+            context: context
+        );
         await session.App.OpenAsync("/settings/billing");
         var result = await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
         await session.Agent.AssertAsync("the invoice preview shows a prorated amount");

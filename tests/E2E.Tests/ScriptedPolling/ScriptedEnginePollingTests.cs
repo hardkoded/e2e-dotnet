@@ -25,13 +25,17 @@ public sealed class ScriptedEnginePollingTests
         var watch = Stopwatch.StartNew();
         await late.Screen.GetByRole("button", "Reveal").TapAsync();
         await Expect.That(late.Screen.GetByRole("button", "Late arrival")).ToBeVisibleAsync(timeout: Soon);
-        await late.Screen.GetByRole("button", "Late arrival").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible });
+        await late
+            .Screen.GetByRole("button", "Late arrival")
+            .WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible });
         Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(200), "toBeVisible took " + watch.Elapsed);
 
         using var growing = ReferenceScene.Create();
         watch.Restart();
         await growing.Screen.GetByRole("button", "Load more").TapAsync();
-        await Expect.That(growing.Screen.GetByRole("list", "Growing").GetByRole("listitem")).ToHaveCountAsync(3, timeout: Soon);
+        await Expect
+            .That(growing.Screen.GetByRole("list", "Growing").GetByRole("listitem"))
+            .ToHaveCountAsync(3, timeout: Soon);
         Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(300), "toHaveCount took " + watch.Elapsed);
 
         using var changing = ReferenceScene.Create();
@@ -55,8 +59,12 @@ public sealed class ScriptedEnginePollingTests
         using var flipped = ReferenceScene.Create();
         watch.Restart();
         await flipped.Screen.GetByRole("button", "Reveal").TapAsync();
-        await Expect.That(flipped.Screen.GetByRole("status", "Loading")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(2500));
+        await Expect
+            .That(flipped.Screen.GetByRole("status", "Loading"))
+            .Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(2500));
         Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(1150), "not.toBeVisible took " + watch.Elapsed);
-        await flipped.Screen.GetByRole("status", "Loading").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
+        await flipped
+            .Screen.GetByRole("status", "Loading")
+            .WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
     }
 }

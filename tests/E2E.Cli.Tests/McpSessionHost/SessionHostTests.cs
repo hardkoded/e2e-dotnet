@@ -79,10 +79,18 @@ public sealed class SessionHostTests : IAsyncLifetime
         var headedValues = new List<bool>();
         var fake = new FakeEngine();
         var headless = Host(fake, headedValues, headed: false);
-        Assert.Contains("), headed;", await headless.OpenAsync(new Mcp.OpenSessionOptions { Headed = true }), StringComparison.Ordinal);
+        Assert.Contains(
+            "), headed;",
+            await headless.OpenAsync(new Mcp.OpenSessionOptions { Headed = true }),
+            StringComparison.Ordinal
+        );
         await headless.CloseAsync("done");
         var headed = Host(fake, headedValues, headed: true);
-        Assert.Contains("), headless;", await headed.OpenAsync(new Mcp.OpenSessionOptions { Headed = false }), StringComparison.Ordinal);
+        Assert.Contains(
+            "), headless;",
+            await headed.OpenAsync(new Mcp.OpenSessionOptions { Headed = false }),
+            StringComparison.Ordinal
+        );
         await headed.CloseAsync("done");
         Assert.Equal([true, false], headedValues);
     }
@@ -116,27 +124,53 @@ public sealed class SessionHostTests : IAsyncLifetime
     {
         var engines = new List<FakeEngine>();
         var pair = Host(new FakeEngine(), maxSessions: 2, create: () => new FakeEngine(), made: engines);
-        var opened = await Task.WhenAll(pair.OpenAsync(new Mcp.OpenSessionOptions()), pair.OpenAsync(new Mcp.OpenSessionOptions()));
+        var opened = await Task.WhenAll(
+            pair.OpenAsync(new Mcp.OpenSessionOptions()),
+            pair.OpenAsync(new Mcp.OpenSessionOptions())
+        );
         var first = SessionId(opened[0]);
         var second = SessionId(opened[1]);
         Assert.NotEqual(first, second);
-        Assert.Contains($"Pass session \"{first}\" to every tools, call, and close_session; with several sessions open, a call without it fails.", opened[0], StringComparison.Ordinal);
+        Assert.Contains(
+            $"Pass session \"{first}\" to every tools, call, and close_session; with several sessions open, a call without it fails.",
+            opened[0],
+            StringComparison.Ordinal
+        );
         var full = await Assert.ThrowsAsync<ConfigurationException>(() => pair.OpenAsync(new Mcp.OpenSessionOptions()));
         Assert.Equal("SESSION_OPEN", full.Code);
         var slots = string.Join(", ", new[] { first, second }.Select(id => $"{id} on \"web\""));
-        Assert.Equal($"no session slot is free (e2e mcp --max-sessions 2): {slots}; close_session one first", full.Message);
+        Assert.Equal(
+            $"no session slot is free (e2e mcp --max-sessions 2): {slots}; close_session one first",
+            full.Message
+        );
         var unnamed = Assert.Throws<ConfigurationException>(() => pair.Catalog(null, null));
         Assert.Equal("SESSION_REQUIRED", unnamed.Code);
-        Assert.Contains($"2 sessions are open; pass session to name one: {first} on \"web\", {second} on \"web\"", unnamed.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            $"2 sessions are open; pass session to name one: {first} on \"web\", {second} on \"web\"",
+            unnamed.Message,
+            StringComparison.Ordinal
+        );
         Assert.Contains($"Session {second} on target \"web\"", pair.Catalog(second, null), StringComparison.Ordinal);
         var unnamedClose = await Assert.ThrowsAsync<ConfigurationException>(() => pair.CloseAsync("done"));
         Assert.Equal("SESSION_REQUIRED", unnamedClose.Code);
 
-        Assert.Contains($"Session {first} closed (done)", await pair.CloseAsync("done", first), StringComparison.Ordinal);
+        Assert.Contains(
+            $"Session {first} closed (done)",
+            await pair.CloseAsync("done", first),
+            StringComparison.Ordinal
+        );
         var ended = Assert.Throws<ConfigurationException>(() => pair.Catalog(first, null));
-        Assert.Contains($"session \"{first}\" ended: done; call open_session for a new one", ended.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            $"session \"{first}\" ended: done; call open_session for a new one",
+            ended.Message,
+            StringComparison.Ordinal
+        );
         Assert.Contains($"Session {second} on target \"web\"", pair.Catalog(null, null), StringComparison.Ordinal);
-        Assert.Contains($"Session {second} closed (server shutdown)", await pair.CloseAllAsync("server shutdown"), StringComparison.Ordinal);
+        Assert.Contains(
+            $"Session {second} closed (server shutdown)",
+            await pair.CloseAllAsync("server shutdown"),
+            StringComparison.Ordinal
+        );
         Assert.Null(await pair.CloseAllAsync("server shutdown"));
         Assert.Equal(2, engines.Count);
         Assert.All(engines, engine =>
@@ -196,15 +230,23 @@ public sealed class SessionHostTests : IAsyncLifetime
         var again = single.CloseAsync("again", id);
         var catalog = Assert.Throws<ConfigurationException>(() => single.Catalog(id, null));
         Assert.Equal($"session \"{id}\" is closing (done)", catalog.Message);
-        var other = await Assert.ThrowsAsync<ConfigurationException>(() => single.OpenAsync(new Mcp.OpenSessionOptions { Config = "other.config.json" }));
+        var other = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            single.OpenAsync(new Mcp.OpenSessionOptions { Config = "other.config.json" })
+        );
         Assert.Equal("CONFIG_IN_USE", other.Code);
         var second = SessionId(await single.OpenAsync(new Mcp.OpenSessionOptions()));
-        var full = await Assert.ThrowsAsync<ConfigurationException>(() => single.OpenAsync(new Mcp.OpenSessionOptions()));
+        var full = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            single.OpenAsync(new Mcp.OpenSessionOptions())
+        );
         Assert.Equal("SESSION_OPEN", full.Code);
         released.SetResult();
         Assert.Contains($"Session {id} closed (done)", await closing, StringComparison.Ordinal);
         Assert.Equal(await closing, await again);
-        Assert.Contains("button \"Submit\"", await single.OpenAsync(new Mcp.OpenSessionOptions()), StringComparison.Ordinal);
+        Assert.Contains(
+            "button \"Submit\"",
+            await single.OpenAsync(new Mcp.OpenSessionOptions()),
+            StringComparison.Ordinal
+        );
         await single.CloseAsync("done", second);
         await single.CloseAsync("done");
     }
@@ -214,13 +256,20 @@ public sealed class SessionHostTests : IAsyncLifetime
     {
         var mixed = Host(new FakeEngine(), maxSessions: 2);
         var first = SessionId(await mixed.OpenAsync(new Mcp.OpenSessionOptions()));
-        var other = await Assert.ThrowsAsync<ConfigurationException>(() => mixed.OpenAsync(new Mcp.OpenSessionOptions { Config = "other.config.json" }));
+        var other = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            mixed.OpenAsync(new Mcp.OpenSessionOptions { Config = "other.config.json" })
+        );
         Assert.Equal("CONFIG_IN_USE", other.Code);
         Assert.Equal(
             $"session {first} is open on config {Path.Combine(_dir, "e2e.config.json")}; sessions open at once share one config, because the secrets they redact are shared process-wide; open this one on that config, or close every session on it first",
-            other.Message);
+            other.Message
+        );
         await mixed.CloseAsync("done");
-        Assert.Contains($"config {Path.Combine(_dir, "other.config.json")}", await mixed.OpenAsync(new Mcp.OpenSessionOptions { Config = "other.config.json" }), StringComparison.Ordinal);
+        Assert.Contains(
+            $"config {Path.Combine(_dir, "other.config.json")}",
+            await mixed.OpenAsync(new Mcp.OpenSessionOptions { Config = "other.config.json" }),
+            StringComparison.Ordinal
+        );
         await mixed.CloseAsync("done");
     }
 
@@ -230,9 +279,15 @@ public sealed class SessionHostTests : IAsyncLifetime
         var read = new List<string>();
         var mixed = Host(new FakeEngine(), maxSessions: 2, onLoad: path => read.Add(Path.GetFileName(path)));
         var first = SessionId(await mixed.OpenAsync(new Mcp.OpenSessionOptions()));
-        var other = await Assert.ThrowsAsync<ConfigurationException>(() => mixed.OpenAsync(new Mcp.OpenSessionOptions { Config = "other.config.json" }));
+        var other = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            mixed.OpenAsync(new Mcp.OpenSessionOptions { Config = "other.config.json" })
+        );
         Assert.Equal("CONFIG_IN_USE", other.Code);
-        Assert.Contains($"session {first} is open on config {Path.Combine(_dir, "e2e.config.json")}", other.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            $"session {first} is open on config {Path.Combine(_dir, "e2e.config.json")}",
+            other.Message,
+            StringComparison.Ordinal
+        );
         Assert.Equal(["e2e.config.json"], read);
         await mixed.CloseAsync("done");
     }
@@ -245,14 +300,19 @@ public sealed class SessionHostTests : IAsyncLifetime
         var shutting = Host(fake, loaded: loading.Task);
         var opening = shutting.OpenAsync(new Mcp.OpenSessionOptions());
         var shutDown = false;
-        var closed = shutting.CloseAllAsync("server shutdown").ContinueWith(
-            task =>
-            {
-                shutDown = true;
-                return task.Result;
-            },
-            TaskScheduler.Default);
-        var refused = await Assert.ThrowsAsync<ConfigurationException>(() => shutting.OpenAsync(new Mcp.OpenSessionOptions()));
+        var closed = shutting
+            .CloseAllAsync("server shutdown")
+            .ContinueWith(
+                task =>
+                {
+                    shutDown = true;
+                    return task.Result;
+                },
+                TaskScheduler.Default
+            );
+        var refused = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            shutting.OpenAsync(new Mcp.OpenSessionOptions())
+        );
         Assert.Equal("SESSION_OPEN", refused.Code);
         Assert.Equal("the server is shutting down; no session can open", refused.Message);
         await Task.Delay(50);
@@ -289,7 +349,11 @@ public sealed class SessionHostTests : IAsyncLifetime
         Assert.Equal(1, fake.AttemptsStarted);
         Assert.Equal(1, fake.Disposes);
         broken = false;
-        Assert.Contains("button \"Submit\"", await flaky.OpenAsync(new Mcp.OpenSessionOptions()), StringComparison.Ordinal);
+        Assert.Contains(
+            "button \"Submit\"",
+            await flaky.OpenAsync(new Mcp.OpenSessionOptions()),
+            StringComparison.Ordinal
+        );
         await flaky.CloseAsync("done");
         Assert.Equal(2, fake.AttemptsStarted);
         Assert.Equal(2, fake.Disposes);
@@ -298,7 +362,10 @@ public sealed class SessionHostTests : IAsyncLifetime
     [Fact]
     public async Task Redacts_a_secret_an_engine_error_carries_from_the_cleanup_line_of_close_session_and_the_shutdown_summary()
     {
-        var fake = new FakeEngine { OnDispose = () => throw new InvalidOperationException("end failed for admin:kiosk-pw") };
+        var fake = new FakeEngine
+        {
+            OnDispose = () => throw new InvalidOperationException("end failed for admin:kiosk-pw"),
+        };
         var leaky = Host(fake, secrets: "\"adminPassword\": \"kiosk-pw\"");
         var specs = leaky.ToolSpecs().ToDictionary(spec => spec.Name);
         await specs["open_session"].Call(Json("{}"), CancellationToken.None);
@@ -316,7 +383,10 @@ public sealed class SessionHostTests : IAsyncLifetime
     [Fact]
     public async Task Redacts_the_configs_secrets_from_an_open_session_failure_and_the_log_before_any_session_exists()
     {
-        var fake = new FakeEngine { OnStart = () => throw new InvalidOperationException("boot failed with token open-fail-token-1") };
+        var fake = new FakeEngine
+        {
+            OnStart = () => throw new InvalidOperationException("boot failed with token open-fail-token-1"),
+        };
         var leaky = Host(fake, secrets: "\"bootToken\": \"open-fail-token-1\"");
         var result = await leaky.ToolSpecs()[0].Call(Json("{}"), CancellationToken.None);
         var text = Text(result);
@@ -329,31 +399,69 @@ public sealed class SessionHostTests : IAsyncLifetime
     public async Task Names_the_app_command_it_started_and_the_port_it_assigned_without_args_or_env_values()
     {
         // The test app runs under the dotnet muxer (`dotnet test` sets DOTNET_HOST_PATH; the other tests start `dotnet` from PATH), as an apphost may be refused by the machine.
-        var executable = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") is { Length: > 0 } host ? host : "dotnet";
+        var executable = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") is { Length: > 0 } host
+            ? host
+            : "dotnet";
         var command = new JsonObject
         {
             ["executable"] = executable,
-            ["args"] = new JsonArray(Path.Combine(AppContext.BaseDirectory, "E2E.Tests.App.dll"), "serve", "{port}", "--token=arg-secret-5678"),
+            ["args"] = new JsonArray(
+                Path.Combine(AppContext.BaseDirectory, "E2E.Tests.App.dll"),
+                "serve",
+                "{port}",
+                "--token=arg-secret-5678"
+            ),
             ["env"] = new JsonObject { ["DATABASE_URL"] = "postgres://app:db-pass-1234@127.0.0.1:55432/app" },
             ["inheritEnv"] = new JsonArray("STRIPE_*"),
             ["log"] = "app log.txt",
         };
-        var app = new JsonObject { ["url"] = "http://127.0.0.1:0", ["readyUrl"] = "http://127.0.0.1:{port}/health?token=query-secret-42", ["command"] = command };
-        var started = Host(new FakeEngine(), config: new JsonObject { ["targets"] = new JsonArray(new JsonObject { ["name"] = "web", ["platform"] = "web", ["app"] = app }) }.ToJsonString());
+        var app = new JsonObject
+        {
+            ["url"] = "http://127.0.0.1:0",
+            ["readyUrl"] = "http://127.0.0.1:{port}/health?token=query-secret-42",
+            ["command"] = command,
+        };
+        var started = Host(
+            new FakeEngine(),
+            config: new JsonObject
+            {
+                ["targets"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["name"] = "web",
+                        ["platform"] = "web",
+                        ["app"] = app,
+                    }
+                ),
+            }.ToJsonString()
+        );
         var text = await started.OpenAsync(new Mcp.OpenSessionOptions());
-        var port = Regex.Match(text, @"App: http://127\.0\.0\.1:(\d+)/ \(port \1, assigned for the declared port 0\)\.", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
+        var port = Regex
+            .Match(
+                text,
+                @"App: http://127\.0\.0\.1:(\d+)/ \(port \1, assigned for the declared port 0\)\.",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            )
+            .Groups[1]
+            .Value;
         Assert.NotEmpty(port);
         Assert.Contains(
             $"Process: app.command {JsonSerializer.Serialize(executable, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping })} (ready at http://127.0.0.1:{port}/health; env DATABASE_URL; inherits STRIPE_*; log app log.txt). e2e starts no other app process for this session;",
             text,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("db-pass-1234", text, StringComparison.Ordinal);
         Assert.DoesNotContain("arg-secret-5678", text, StringComparison.Ordinal);
         Assert.DoesNotContain("query-secret-42", text, StringComparison.Ordinal);
         await started.CloseAsync("done");
 
         var external = Host(new FakeEngine());
-        Assert.Contains("Process: none; the target declares no app.command, so the app runs outside e2e.", await external.OpenAsync(new Mcp.OpenSessionOptions()), StringComparison.Ordinal);
+        Assert.Contains(
+            "Process: none; the target declares no app.command, so the app runs outside e2e.",
+            await external.OpenAsync(new Mcp.OpenSessionOptions()),
+            StringComparison.Ordinal
+        );
         await external.CloseAsync("done");
     }
 
@@ -363,10 +471,16 @@ public sealed class SessionHostTests : IAsyncLifetime
         var host = Host(new FakeEngine { Kinds = ["tap", "doubleTap", "hover", "dragTo"] });
         var opened = await host.OpenAsync(new Mcp.OpenSessionOptions());
         var names = ServedCli.CatalogNames(opened);
-        Assert.Equal(["observe", "tap", "double_tap", "hover", "type", "press", "drag", "navigate", "locate", "test_lines"], names);
+        Assert.Equal(
+            ["observe", "tap", "double_tap", "hover", "type", "press", "drag", "navigate", "locate", "test_lines"],
+            names
+        );
         Assert.Contains("- drag {target, to}: ", opened, StringComparison.Ordinal);
         var call = host.ToolSpecs().Single(spec => spec.Name == "call");
-        var pressed = await call.Call(Json("""{ "tool": "long_press", "args": { "target": "k-1" } }"""), CancellationToken.None);
+        var pressed = await call.Call(
+            Json("""{ "tool": "long_press", "args": { "target": "k-1" } }"""),
+            CancellationToken.None
+        );
         Assert.True(pressed.IsError);
         Assert.Contains("UNSUPPORTED_CAPABILITY", Text(pressed), StringComparison.Ordinal);
         Assert.Contains("declares no such action", Text(pressed), StringComparison.Ordinal);
@@ -379,17 +493,27 @@ public sealed class SessionHostTests : IAsyncLifetime
         var host = Host(new FakeEngine { Also = EngineCapabilities.Screenshot, Pointer = ["tap"] });
         var names = ServedCli.CatalogNames(await host.OpenAsync(new Mcp.OpenSessionOptions()));
         // The fake engine lists the hover and drag node verbs, so hover_at and drag_at are offered too (they fall back to the node verbs).
-        Assert.Equal(["screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], names.SkipWhile(name => name != "screenshot").TakeWhile(name => name != "locate"));
+        Assert.Equal(
+            ["screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
+            names.SkipWhile(name => name != "screenshot").TakeWhile(name => name != "locate")
+        );
         await host.CloseAsync("done");
 
-        var pointing = Host(new FakeEngine { Also = EngineCapabilities.Screenshot, Pointer = ["tap", "hover", "dragTo"] });
+        var pointing = Host(
+            new FakeEngine { Also = EngineCapabilities.Screenshot, Pointer = ["tap", "hover", "dragTo"] }
+        );
         var all = ServedCli.CatalogNames(await pointing.OpenAsync(new Mcp.OpenSessionOptions()));
-        Assert.Equal(["tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], all.Where(name => name.EndsWith("_at", StringComparison.Ordinal)));
+        Assert.Equal(
+            ["tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
+            all.Where(name => name.EndsWith("_at", StringComparison.Ordinal))
+        );
         await pointing.CloseAsync("done");
 
         // Without a screenshot there is nothing to read a point from.
         var blind = Host(new FakeEngine { Pointer = ["tap"] });
-        Assert.DoesNotContain(ServedCli.CatalogNames(await blind.OpenAsync(new Mcp.OpenSessionOptions())), name => name.EndsWith("_at", StringComparison.Ordinal));
+        Assert.DoesNotContain(ServedCli.CatalogNames(await blind.OpenAsync(new Mcp.OpenSessionOptions())), name =>
+            name.EndsWith("_at", StringComparison.Ordinal)
+        );
         await blind.CloseAsync("done");
     }
 
@@ -399,9 +523,32 @@ public sealed class SessionHostTests : IAsyncLifetime
         var host = Host(new FakeEngine());
         var opened = await host.OpenAsync(new Mcp.OpenSessionOptions());
         var names = ServedCli.CatalogNames(opened);
-        Assert.Equal(["observe", "tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "navigate", "locate", "test_lines"], names);
+        Assert.Equal(
+            [
+                "observe",
+                "tap",
+                "double_tap",
+                "long_press",
+                "right_click",
+                "hover",
+                "type",
+                "press",
+                "select",
+                "check",
+                "uncheck",
+                "clear",
+                "drag",
+                "navigate",
+                "locate",
+                "test_lines",
+            ],
+            names
+        );
         var call = host.ToolSpecs().Single(spec => spec.Name == "call");
-        var scrolled = await call.Call(Json("""{ "tool": "scroll", "args": { "direction": "down" } }"""), CancellationToken.None);
+        var scrolled = await call.Call(
+            Json("""{ "tool": "scroll", "args": { "direction": "down" } }"""),
+            CancellationToken.None
+        );
         Assert.True(scrolled.IsError);
         Assert.Contains("UNSUPPORTED_CAPABILITY", Text(scrolled), StringComparison.Ordinal);
         Assert.Contains("declares no such action", Text(scrolled), StringComparison.Ordinal);
@@ -419,7 +566,10 @@ public sealed class SessionHostTests : IAsyncLifetime
         await host.CloseAsync("done");
 
         var both = Host(new FakeEngine { Kinds = ["check", "uncheck", "clear", "doubleTap"] });
-        Assert.Equal(["observe", "double_tap", "type", "press", "check", "uncheck", "clear", "navigate", "locate", "test_lines"], ServedCli.CatalogNames(await both.OpenAsync(new Mcp.OpenSessionOptions())));
+        Assert.Equal(
+            ["observe", "double_tap", "type", "press", "check", "uncheck", "clear", "navigate", "locate", "test_lines"],
+            ServedCli.CatalogNames(await both.OpenAsync(new Mcp.OpenSessionOptions()))
+        );
         await both.CloseAsync("done");
 
         var keyboard = Host(new FakeEngine { Kinds = [], Also = EngineCapabilities.Keyboard });
@@ -434,7 +584,10 @@ public sealed class SessionHostTests : IAsyncLifetime
     public async Task Launches_a_device_targets_pinned_app_before_the_first_observation()
     {
         var fake = new FakeEngine { Device = true };
-        var device = Host(fake, config: """{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }] }""");
+        var device = Host(
+            fake,
+            config: """{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }] }"""
+        );
         var text = await device.OpenAsync(new Mcp.OpenSessionOptions());
         Assert.Contains("App: com.example.greeter, launched fresh.", text, StringComparison.Ordinal);
         Assert.Contains("button \"Greet\"", text, StringComparison.Ordinal);
@@ -456,7 +609,10 @@ public sealed class SessionHostTests : IAsyncLifetime
                 await Task.Delay(Timeout.Infinite, token);
             },
         };
-        var device = Host(fake, config: """{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }] }""");
+        var device = Host(
+            fake,
+            config: """{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }] }"""
+        );
         using var request = new CancellationTokenSource();
         var opening = device.OpenAsync(new Mcp.OpenSessionOptions(), request.Token);
         await launching.Task.WaitAsync(Patience);
@@ -483,7 +639,9 @@ public sealed class SessionHostTests : IAsyncLifetime
     {
         var device = Host(new FakeEngine { Also = EngineCapabilities.PinnedApp }, maxSessions: 2);
         var first = SessionId(await device.OpenAsync(new Mcp.OpenSessionOptions()));
-        var other = await Assert.ThrowsAsync<ConfigurationException>(() => device.OpenAsync(new Mcp.OpenSessionOptions()));
+        var other = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            device.OpenAsync(new Mcp.OpenSessionOptions())
+        );
         Assert.Equal("ENGINE_IN_USE", other.Code);
         Assert.Contains($"session {first} is driving it", other.Message, StringComparison.Ordinal);
         await device.CloseAsync("done", first);
@@ -498,7 +656,10 @@ public sealed class SessionHostTests : IAsyncLifetime
     }
 
     private static string Text(ModelContextProtocol.Protocol.CallToolResult result) =>
-        string.Join('\n', result.Content.OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(part => part.Text));
+        string.Join(
+            '\n',
+            result.Content.OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(part => part.Text)
+        );
 
     [Fact]
     public async Task Records_only_between_start_recording_and_stop_recording_and_saves_a_recording_still_running_at_close()
@@ -506,28 +667,73 @@ public sealed class SessionHostTests : IAsyncLifetime
         var fake = new FakeEngine { Also = EngineCapabilities.Video };
         var recording = Host(fake);
         var opened = await recording.OpenAsync(new Mcp.OpenSessionOptions());
-        Assert.Matches(new Regex(@"^- start_recording \{name\?\}: Start recording a video of the app, for a person to watch: .*\.$", RegexOptions.Multiline, TimeSpan.FromSeconds(5)), opened);
-        Assert.Matches(new Regex(@"^- stop_recording: Stop the running recording and save it: .*\.$", RegexOptions.Multiline, TimeSpan.FromSeconds(5)), opened);
+        Assert.Matches(
+            new Regex(
+                @"^- start_recording \{name\?\}: Start recording a video of the app, for a person to watch: .*\.$",
+                RegexOptions.Multiline,
+                TimeSpan.FromSeconds(5)
+            ),
+            opened
+        );
+        Assert.Matches(
+            new Regex(
+                @"^- stop_recording: Stop the running recording and save it: .*\.$",
+                RegexOptions.Multiline,
+                TimeSpan.FromSeconds(5)
+            ),
+            opened
+        );
         Assert.DoesNotContain("startVideo", fake.Operations);
         var id = SessionId(opened);
         var recordings = Path.Combine(_dir, ".e2e", "videos", id);
 
-        var started = Text(await recording.CallAsync(id, "start_recording", Json("""{"name":"demo"}"""), CancellationToken.None));
+        var started = Text(
+            await recording.CallAsync(id, "start_recording", Json("""{"name":"demo"}"""), CancellationToken.None)
+        );
         Assert.Contains("Recording 1 \"demo\" started.", started, StringComparison.Ordinal);
         var stopped = Text(await recording.CallAsync(id, "stop_recording", Json("{}"), CancellationToken.None));
-        Assert.Matches(new Regex(@"^Recording 1 ""demo"" stopped after \d+\.\d s\.\n- (\S+)$", RegexOptions.None, TimeSpan.FromSeconds(5)), stopped);
+        Assert.Matches(
+            new Regex(
+                @"^Recording 1 ""demo"" stopped after \d+\.\d s\.\n- (\S+)$",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            ),
+            stopped
+        );
         Assert.EndsWith("- " + Path.Combine(recordings, "1-demo.webm"), stopped, StringComparison.Ordinal);
         var nothing = Text(await recording.CallAsync(id, "stop_recording", Json("{}"), CancellationToken.None));
         Assert.Equal("Nothing is recording; start_recording starts a recording.", nothing);
-        var badName = await recording.CallAsync(id, "start_recording", Json("""{"name":"../escape"}"""), CancellationToken.None);
+        var badName = await recording.CallAsync(
+            id,
+            "start_recording",
+            Json("""{"name":"../escape"}"""),
+            CancellationToken.None
+        );
         Assert.True(badName.IsError);
-        Assert.Matches(new Regex(@"^INVALID_ARGUMENT: call start_recording: name: ", RegexOptions.None, TimeSpan.FromSeconds(5)), Text(badName));
+        Assert.Matches(
+            new Regex(@"^INVALID_ARGUMENT: call start_recording: name: ", RegexOptions.None, TimeSpan.FromSeconds(5)),
+            Text(badName)
+        );
 
         await recording.CallAsync(id, "start_recording", Json("{}"), CancellationToken.None);
         var closed = await recording.CloseAsync("done");
-        Assert.Matches(new Regex(@"^Session \S+ closed \(done\); \d+ tool calls ran\.\nRecording 2 stopped after \d+\.\d s\.\n- \S+$", RegexOptions.None, TimeSpan.FromSeconds(5)), closed);
+        Assert.Matches(
+            new Regex(
+                @"^Session \S+ closed \(done\); \d+ tool calls ran\.\nRecording 2 stopped after \d+\.\d s\.\n- \S+$",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(5)
+            ),
+            closed
+        );
         Assert.EndsWith("- " + Path.Combine(recordings, "2.webm"), closed, StringComparison.Ordinal);
-        Assert.Equal(["1-demo.webm", "2.webm"], Directory.GetFiles(recordings).Select(file => Path.GetFileName(file)).Order(StringComparer.Ordinal).ToArray());
+        Assert.Equal(
+            ["1-demo.webm", "2.webm"],
+            Directory
+                .GetFiles(recordings)
+                .Select(file => Path.GetFileName(file))
+                .Order(StringComparer.Ordinal)
+                .ToArray()
+        );
     }
 
     [Fact]
@@ -540,7 +746,8 @@ public sealed class SessionHostTests : IAsyncLifetime
         Assert.DoesNotContain("Recording", closed, StringComparison.Ordinal);
     }
 
-    private static string SessionId(string text) => Regex.Match(text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
+    private static string SessionId(string text) =>
+        Regex.Match(text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
 
     private static async Task UntilAsync(Func<bool> condition)
     {
@@ -565,45 +772,48 @@ public sealed class SessionHostTests : IAsyncLifetime
         string secrets = "",
         Func<FakeEngine>? create = null,
         List<FakeEngine>? made = null,
-        string? config = null)
+        string? config = null
+    )
     {
-        var host = new SessionHost(new SessionHostOptions
-        {
-            LocateConfig = requested => Path.Combine(_dir, requested ?? "e2e.config.json"),
-            LoadConfig = async path =>
+        var host = new SessionHost(
+            new SessionHostOptions
             {
-                if (loaded is not null)
+                LocateConfig = requested => Path.Combine(_dir, requested ?? "e2e.config.json"),
+                LoadConfig = async path =>
                 {
-                    await loaded;
-                }
+                    if (loaded is not null)
+                    {
+                        await loaded;
+                    }
 
-                onLoad?.Invoke(path);
-                return E2EConfig.Parse(config ?? FixtureProject.Config(Url, secrets), _dir);
-            },
-            CreateEngine = (_, value) =>
-            {
-                headedValues?.Add(value);
-                if (create is null)
+                    onLoad?.Invoke(path);
+                    return E2EConfig.Parse(config ?? FixtureProject.Config(Url, secrets), _dir);
+                },
+                CreateEngine = (_, value) =>
                 {
-                    return engine;
-                }
+                    headedValues?.Add(value);
+                    if (create is null)
+                    {
+                        return engine;
+                    }
 
-                var next = create();
-                made?.Add(next);
-                return next;
-            },
-            Headed = headed,
-            MaxSessions = maxSessions,
-            Idle = idle ?? SessionHost.SessionIdle,
-            Ttl = lifetime ?? SessionHost.SessionTtl,
-            Log = (level, message) =>
-            {
-                lock (_logs)
+                    var next = create();
+                    made?.Add(next);
+                    return next;
+                },
+                Headed = headed,
+                MaxSessions = maxSessions,
+                Idle = idle ?? SessionHost.SessionIdle,
+                Ttl = lifetime ?? SessionHost.SessionTtl,
+                Log = (level, message) =>
                 {
-                    _logs.Add(level + ": " + message);
-                }
-            },
-        });
+                    lock (_logs)
+                    {
+                        _logs.Add(level + ": " + message);
+                    }
+                },
+            }
+        );
         _hosts.Add(host);
         return host;
     }

@@ -37,20 +37,29 @@ public sealed class AttachedTranscriptTests
             context.AttachTranscript("the model said admin-pass");
             return Task.FromResult(Passed("done"));
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(CounterPage.World()),
-            AgentExecutor = executor,
-            BaseUrl = "https://counter.test",
-            ProjectRoot = root,
-            TestTitle = "transcript",
-            Debug = debug,
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                AgentExecutor = executor,
+                BaseUrl = "https://counter.test",
+                ProjectRoot = root,
+                TestTitle = "transcript",
+                Debug = debug,
+            }
+        );
         await session.App.OpenAsync("/");
 
         await session.Agent.ActAsync(
             "talk",
-            new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin.password", "admin-pass", "password") } });
+            new ActOptions
+            {
+                Params = new Dictionary<string, object?>
+                {
+                    ["password"] = Secret.Create("admin.password", "admin-pass", "password"),
+                },
+            }
+        );
         session.Complete();
         return root;
     }

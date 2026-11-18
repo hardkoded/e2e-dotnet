@@ -21,48 +21,74 @@ namespace E2E.Tests.Explore;
 /// </summary>
 public sealed class E2eExploreTests
 {
-    private static ExploreModel Model(Func<string, PlanReply> plan, Func<LoopCall, ModelResponse> loop) => new(plan, loop);
+    private static ExploreModel Model(Func<string, PlanReply> plan, Func<LoopCall, ModelResponse> loop) =>
+        new(plan, loop);
 
     [Fact]
     public async Task Keeps_a_screenshot_per_finding_when_the_model_reports_two_in_one_turn()
     {
         var model = Model(
-            instruction => instruction.Contains("(none yet", StringComparison.Ordinal) ? ExploreModel.Step("Counter", "Look at the counter") : ExploreModel.Finish("Two defects on the home page."),
-            call => call.Turn == 1
-                ? CounterPage.Batch(
-                    ExploreModel.ReportFinding(ExploreModel.CounterFinding()),
-                    ExploreModel.ReportFinding(ExploreModel.CounterFinding("Increment button has no accessible description", severity: 2)))
-                : ExploreModel.Done("passed", "Looked"));
+            instruction =>
+                instruction.Contains("(none yet", StringComparison.Ordinal)
+                    ? ExploreModel.Step("Counter", "Look at the counter")
+                    : ExploreModel.Finish("Two defects on the home page."),
+            call =>
+                call.Turn == 1
+                    ? CounterPage.Batch(
+                        ExploreModel.ReportFinding(ExploreModel.CounterFinding()),
+                        ExploreModel.ReportFinding(
+                            ExploreModel.CounterFinding("Increment button has no accessible description", severity: 2)
+                        )
+                    )
+                    : ExploreModel.Done("passed", "Looked")
+        );
         var root = TempRoot();
         var outcome = await Explorer.ExploreAsync(Options(root, model.Model, []));
 
         var record = outcome.Explore;
         Assert.Equal(
-            new[] { "Counter starts at 0 with no label of what it counts", "Increment button has no accessible description" }.Order(StringComparer.Ordinal),
-            record.Findings.Select(finding => finding.Title).Order(StringComparer.Ordinal));
+            new[]
+            {
+                "Counter starts at 0 with no label of what it counts",
+                "Increment button has no accessible description",
+            }.Order(StringComparer.Ordinal),
+            record.Findings.Select(finding => finding.Title).Order(StringComparer.Ordinal)
+        );
         var ids = record.Findings.Select(finding => finding.ArtifactId).ToList();
         Assert.Equal(2, ids.Distinct().Count());
         var paths = ids.Select(id => outcome.Artifacts.Single(artifact => artifact.Id == id).Path).ToList();
-        Assert.All(paths, path => Assert.True(path is not null && File.Exists(Path.Combine(outcome.ArtifactsRoot!, path))));
-        Assert.Equal(["finding-1.png", "finding-2.png"], paths.Select(path => Path.GetFileName(path)![4..]).Order(StringComparer.Ordinal));
+        Assert.All(paths, path =>
+            Assert.True(path is not null && File.Exists(Path.Combine(outcome.ArtifactsRoot!, path)))
+        );
+        Assert.Equal(
+            ["finding-1.png", "finding-2.png"],
+            paths.Select(path => Path.GetFileName(path)![4..]).Order(StringComparer.Ordinal)
+        );
     }
 
     [Fact]
     public async Task Accepts_a_severity_written_as_a_whole_number_with_a_fraction_part()
     {
         var model = Model(
-            instruction => instruction.Contains("(none yet", StringComparison.Ordinal) ? ExploreModel.Step("Counter", "Look at the counter") : ExploreModel.Finish("One defect."),
-            call => call.Turn == 1
-                ? ExploreModel.ReportFinding(new
-                {
-                    title = "Counter starts at 0 with no label of what it counts",
-                    kind = "issue",
-                    severity = System.Text.Json.Nodes.JsonNode.Parse("3.0"),
-                    expected = "The counter says what it counts",
-                    actual = "output \"Counter\" reads 0",
-                    reproduction = new[] { "Open the home page" },
-                })
-                : ExploreModel.Done("passed", "Looked"));
+            instruction =>
+                instruction.Contains("(none yet", StringComparison.Ordinal)
+                    ? ExploreModel.Step("Counter", "Look at the counter")
+                    : ExploreModel.Finish("One defect."),
+            call =>
+                call.Turn == 1
+                    ? ExploreModel.ReportFinding(
+                        new
+                        {
+                            title = "Counter starts at 0 with no label of what it counts",
+                            kind = "issue",
+                            severity = System.Text.Json.Nodes.JsonNode.Parse("3.0"),
+                            expected = "The counter says what it counts",
+                            actual = "output \"Counter\" reads 0",
+                            reproduction = new[] { "Open the home page" },
+                        }
+                    )
+                    : ExploreModel.Done("passed", "Looked")
+        );
         var outcome = await Explorer.ExploreAsync(Options(TempRoot(), model.Model, []));
 
         Assert.Equal(3, Assert.Single(outcome.Explore.Findings).Severity);
@@ -71,7 +97,9 @@ public sealed class E2eExploreTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Surfaces_a_cancel_from_the_finding_tool_as_a_cancel_and_not_as_a_refused_evidence_capture(bool refuseAttach)
+    public async Task Surfaces_a_cancel_from_the_finding_tool_as_a_cancel_and_not_as_a_refused_evidence_capture(
+        bool refuseAttach
+    )
     {
         var state = new E2E.ExploreState("goal", new ExploreBudgets(4, TimeSpan.FromMinutes(5)));
         var tool = ExploreExecutor.WithFindingTool(new AgentOptions(), state).Tools![ExploreExecutor.FindingToolName];
@@ -79,38 +107,58 @@ public sealed class E2eExploreTests
 
         // The refusal is an I/O error of the screen or the file system, and the cancel arrives with it.
         using var cts = new CancellationTokenSource();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => tool.RunAsync(input, new AgentToolContext(RefusingContext.Create(refuseAttach, cts), mutates: false), cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            tool.RunAsync(
+                input,
+                new AgentToolContext(RefusingContext.Create(refuseAttach, cts), mutates: false),
+                cts.Token
+            )
+        );
         Assert.Empty(state.Findings);
 
         // Without a cancel, the same refusal leaves the finding standing without its evidence.
-        await tool.RunAsync(input, new AgentToolContext(RefusingContext.Create(refuseAttach, null), mutates: false), CancellationToken.None);
+        await tool.RunAsync(
+            input,
+            new AgentToolContext(RefusingContext.Create(refuseAttach, null), mutates: false),
+            CancellationToken.None
+        );
         Assert.Null(Assert.Single(state.Findings).ArtifactId);
     }
 
     /// <summary>A step context whose observation, or its screenshot attachment, is refused as the file system and the screen refuse.</summary>
     private sealed class RefusingContext(bool refuseAttach, CancellationTokenSource? cancel) : StepExecutorContext
     {
-        public static RefusingContext Create(bool refuseAttach, CancellationTokenSource? cancel) => new(refuseAttach, cancel)
-        {
-            Step = new ExecutorStep { Kind = ExecutorStepKind.Act, Instruction = "explore" },
-            Attempt = new ExecutorAttempt { TestId = "t", AttemptId = "a" },
-            Target = new ExecutorTargetInfo { Name = "web", Platform = "web" },
-            Budgets = null!,
-            Actions = null!,
-        };
+        public static RefusingContext Create(bool refuseAttach, CancellationTokenSource? cancel) =>
+            new(refuseAttach, cancel)
+            {
+                Step = new ExecutorStep { Kind = ExecutorStepKind.Act, Instruction = "explore" },
+                Attempt = new ExecutorAttempt { TestId = "t", AttemptId = "a" },
+                Target = new ExecutorTargetInfo { Name = "web", Platform = "web" },
+                Budgets = null!,
+                Actions = null!,
+            };
 
-        public override Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default)
+        public override Task<ExecutorObservation> ObserveAsync(
+            ExecutorObserveOptions? options = null,
+            CancellationToken cancellationToken = default
+        )
         {
             if (refuseAttach)
             {
-                return Task.FromResult(new ExecutorObservation("screen") { Pixels = new ExecutorPixels([1], "image/png", 1, 1, 1, 0) });
+                return Task.FromResult(
+                    new ExecutorObservation("screen") { Pixels = new ExecutorPixels([1], "image/png", 1, 1, 1, 0) }
+                );
             }
 
             cancel?.Cancel();
             throw new IOException("the screen is gone");
         }
 
-        public override Task<string> AttachScreenshotAsync(ExecutorPixels pixels, string label, CancellationToken cancellationToken = default)
+        public override Task<string> AttachScreenshotAsync(
+            ExecutorPixels pixels,
+            string label,
+            CancellationToken cancellationToken = default
+        )
         {
             cancel?.Cancel();
             throw new UnauthorizedAccessException("the results directory is read-only");
@@ -131,12 +179,14 @@ public sealed class E2eExploreTests
                     ? ExploreModel.Step("Counter", "Tap Increment once and check the counter")
                     : ExploreModel.Finish("The counter works but says nothing about what it counts.");
             },
-            call => call.Turn switch
-            {
-                1 => ModelResponses.Tap("button", "Increment"),
-                2 => ExploreModel.ReportFinding(ExploreModel.CounterFinding()),
-                _ => ExploreModel.Done("passed", "Counter went to 1"),
-            });
+            call =>
+                call.Turn switch
+                {
+                    1 => ModelResponses.Tap("button", "Increment"),
+                    2 => ExploreModel.ReportFinding(ExploreModel.CounterFinding()),
+                    _ => ExploreModel.Done("passed", "Counter went to 1"),
+                }
+        );
         var root = TempRoot();
         var outcome = await Explorer.ExploreAsync(Options(root, model.Model, []));
 
@@ -144,7 +194,11 @@ public sealed class E2eExploreTests
         Assert.Equal(2, planPrompts.Count);
         Assert.Contains("Goal: Explore the home page and find bugs", planPrompts[0], StringComparison.Ordinal);
         Assert.Contains("1. [passed] Counter — Counter went to 1", planPrompts[1], StringComparison.Ordinal);
-        Assert.Contains("- [issue, severity 3] " + "Counter starts at 0 with no label of what it counts", planPrompts[1], StringComparison.Ordinal);
+        Assert.Contains(
+            "- [issue, severity 3] " + "Counter starts at 0 with no label of what it counts",
+            planPrompts[1],
+            StringComparison.Ordinal
+        );
         Assert.Equal(1, outcome.ExitCode);
         Assert.Equal(RunStatus.Failed, outcome.Status);
         var error = Assert.IsType<AgentException>(outcome.Error);
@@ -175,14 +229,25 @@ public sealed class E2eExploreTests
         Assert.Equal(E2E.Reports.ArtifactKind.Screenshot, artifact.Kind);
         Assert.Equal("image/png", artifact.MediaType);
         Assert.Equal(E2E.Reports.ArtifactProducerKind.Step, artifact.Producer.Kind);
-        Assert.Equal(AttemptReport.ResultSegmentOf(E2E.Explore.ExploreFile, "Explore the home page and find bugs") + "/attempt-1/screenshots/001-finding-1.png", artifact.Path);
-        Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(outcome.ArtifactsRoot!, artifact.Path!)));
+        Assert.Equal(
+            AttemptReport.ResultSegmentOf(E2E.Explore.ExploreFile, "Explore the home page and find bugs")
+                + "/attempt-1/screenshots/001-finding-1.png",
+            artifact.Path
+        );
+        Assert.Equal(
+            ScreenshotEngine.Png(),
+            await File.ReadAllBytesAsync(Path.Combine(outcome.ArtifactsRoot!, artifact.Path!))
+        );
 
         // The explorer's loop saw the finding tool beside the grammar.
         Assert.Contains(ExploreExecutor.FindingToolName, model.LoopCalls.First().Tools.Select(tool => tool.Name));
 
         // The planner's prompts opened with the goal, the test's title.
-        Assert.Contains("Test: Explore the home page and find bugs", model.PlannerCalls.First().Messages[0].Content, StringComparison.Ordinal);
+        Assert.Contains(
+            "Test: Explore the home page and find bugs",
+            model.PlannerCalls.First().Messages[0].Content,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>A project on its way to a throwaway repository, as upstream's <c>createProject</c> and <c>initRepo</c>: one commit of the README and the ignore file, and a <c>base</c> branch at it.</summary>
@@ -190,7 +255,11 @@ public sealed class E2eExploreTests
     {
         var root = TempRoot();
         GitRepo.InitRepo(root);
-        GitRepo.CommitFiles(root, new Dictionary<string, string> { ["README.md"] = "app\n", [".gitignore"] = ".e2e/\n" }, "project");
+        GitRepo.CommitFiles(
+            root,
+            new Dictionary<string, string> { ["README.md"] = "app\n", [".gitignore"] = ".e2e/\n" },
+            "project"
+        );
         GitRepo.RunGit(root, "branch", "--quiet", "base");
         return root;
     }
@@ -213,39 +282,84 @@ public sealed class E2eExploreTests
             GitRepo.CommitFiles(changed, files, "Show the counter value");
             var plans = 0;
             var model = Model(
-                _ => ++plans == 1 ? ExploreModel.Step("Counter", "Look at the counter") : ExploreModel.Finish("The changed counter renders."),
-                _ => ExploreModel.Done("passed", "Looked"));
+                _ =>
+                    ++plans == 1
+                        ? ExploreModel.Step("Counter", "Look at the counter")
+                        : ExploreModel.Finish("The changed counter renders."),
+                _ => ExploreModel.Done("passed", "Looked")
+            );
             var notices = new List<string>();
-            var outcome = await Explorer.ExploreAsync(Options(changed, model.Model, notices, goal: null, changedSince: "base"));
+            var outcome = await Explorer.ExploreAsync(
+                Options(changed, model.Model, notices, goal: null, changedSince: "base")
+            );
 
             var instruction = model.PlannerCalls.First().Messages[0].Content;
-            Assert.Contains("Goal: Explore what this change affects and find bugs in it", instruction, StringComparison.Ordinal);
-            Assert.Contains("Plan from the code change between <change> and </change> in the context.", instruction, StringComparison.Ordinal);
+            Assert.Contains(
+                "Goal: Explore what this change affects and find bugs in it",
+                instruction,
+                StringComparison.Ordinal
+            );
+            Assert.Contains(
+                "Plan from the code change between <change> and </change> in the context.",
+                instruction,
+                StringComparison.Ordinal
+            );
             Assert.DoesNotContain("<output>{count}</output>", instruction, StringComparison.Ordinal);
 
             // The planner and the explorer both read the change in their trusted context.
             Assert.Contains("- Show the counter value", model.PlannerCalls.First().System, StringComparison.Ordinal);
-            Assert.Contains("src/counter.tsx (+1 -0; full patch below)\n@@ -0,0 +1 @@\n+<output>{count}</output>", model.PlannerCalls.First().System, StringComparison.Ordinal);
-            Assert.Contains("src/counter.tsx (+1 -0; full patch below)", model.LoopCalls.Last().System, StringComparison.Ordinal);
-            Assert.Equal(new ReportExploreChange(GitRepo.RunGit(changed, "rev-parse", "base"), 21), outcome.Explore.Change);
+            Assert.Contains(
+                "src/counter.tsx (+1 -0; full patch below)\n@@ -0,0 +1 @@\n+<output>{count}</output>",
+                model.PlannerCalls.First().System,
+                StringComparison.Ordinal
+            );
+            Assert.Contains(
+                "src/counter.tsx (+1 -0; full patch below)",
+                model.LoopCalls.Last().System,
+                StringComparison.Ordinal
+            );
+            Assert.Equal(
+                new ReportExploreChange(GitRepo.RunGit(changed, "rev-parse", "base"), 21),
+                outcome.Explore.Change
+            );
             Assert.All(outcome.Explore.Steps, step =>
             {
-                Assert.DoesNotContain("<output>{count}</output>", step.Title + step.Instruction, StringComparison.Ordinal);
+                Assert.DoesNotContain(
+                    "<output>{count}</output>",
+                    step.Title + step.Instruction,
+                    StringComparison.Ordinal
+                );
             });
 
             // No change since the ref: a notice, and the context says so.
-            var unchanged = await Explorer.ExploreAsync(Options(changed, model.Model, notices, goal: null, changedSince: "HEAD"));
+            var unchanged = await Explorer.ExploreAsync(
+                Options(changed, model.Model, notices, goal: null, changedSince: "HEAD")
+            );
             Assert.Contains("no files changed since HEAD", notices);
             Assert.Equal("Explore what this change affects and find bugs in it", unchanged.Explore.Goal);
-            Assert.Equal(new ReportExploreChange(GitRepo.RunGit(changed, "rev-parse", "HEAD"), 0), unchanged.Explore.Change);
-            Assert.Contains($"<change>\nNo files changed since {GitRepo.RunGit(changed, "rev-parse", "--short=7", "HEAD")}.\n</change>", model.PlannerCalls.Last().System, StringComparison.Ordinal);
-            var unknown = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(changed, model.Model, [], changedSince: "no-such-ref")));
+            Assert.Equal(
+                new ReportExploreChange(GitRepo.RunGit(changed, "rev-parse", "HEAD"), 0),
+                unchanged.Explore.Change
+            );
+            Assert.Contains(
+                $"<change>\nNo files changed since {GitRepo.RunGit(changed, "rev-parse", "--short=7", "HEAD")}.\n</change>",
+                model.PlannerCalls.Last().System,
+                StringComparison.Ordinal
+            );
+            var unknown = await Assert.ThrowsAsync<ConfigurationException>(() =>
+                Explorer.ExploreAsync(Options(changed, model.Model, [], changedSince: "no-such-ref"))
+            );
             Assert.Equal("INVALID_CHANGED_SINCE", unknown.Code);
 
             // A ref that reads as a git option never reaches git.
-            var option = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(changed, model.Model, [], changedSince: "--output=/tmp/x")));
+            var option = await Assert.ThrowsAsync<ConfigurationException>(() =>
+                Explorer.ExploreAsync(Options(changed, model.Model, [], changedSince: "--output=/tmp/x"))
+            );
             Assert.Equal("INVALID_CHANGED_SINCE", option.Code);
-            Assert.Equal("--changed-since must name a git ref, such as origin/main; got \"--output=/tmp/x\"", option.Message);
+            Assert.Equal(
+                "--changed-since must name a git ref, such as origin/main; got \"--output=/tmp/x\"",
+                option.Message
+            );
         }
         finally
         {
@@ -259,9 +373,18 @@ public sealed class E2eExploreTests
         var changed = ChangedProject();
         try
         {
-            GitRepo.CommitFiles(changed, new Dictionary<string, string> { ["README.md"] = "app, documented\n" }, "Document the app");
-            var model = Model(_ => ExploreModel.Skip("Only README.md changed: documentation, nothing a user sees."), _ => ExploreModel.Done("passed", "Looked"));
-            var skipped = await Explorer.ExploreAsync(Options(changed, model.Model, [], goal: null, changedSince: "base"));
+            GitRepo.CommitFiles(
+                changed,
+                new Dictionary<string, string> { ["README.md"] = "app, documented\n" },
+                "Document the app"
+            );
+            var model = Model(
+                _ => ExploreModel.Skip("Only README.md changed: documentation, nothing a user sees."),
+                _ => ExploreModel.Done("passed", "Looked")
+            );
+            var skipped = await Explorer.ExploreAsync(
+                Options(changed, model.Model, [], goal: null, changedSince: "base")
+            );
             Assert.Equal(RunStatus.Passed, skipped.Status);
             Assert.Equal(0, skipped.ExitCode);
             Assert.Equal(ReportExploreEnded.Skipped, skipped.Explore.Ended);
@@ -270,12 +393,20 @@ public sealed class E2eExploreTests
             Assert.Equal("Only README.md changed: documentation, nothing a user sees.", skipped.Explore.Summary);
 
             // No file changed and a clean working tree: the skip is offered too.
-            var empty = await Explorer.ExploreAsync(Options(changed, model.Model, [], goal: null, changedSince: "HEAD"));
+            var empty = await Explorer.ExploreAsync(
+                Options(changed, model.Model, [], goal: null, changedSince: "HEAD")
+            );
             Assert.Equal(ReportExploreEnded.Skipped, empty.Explore.Ended);
             Assert.Equal(0, empty.Explore.Change!.Files);
 
             // Without a change, or with a goal someone wrote, the grammar has no skip: the answer is invalid, and the built-in survey runs instead.
-            foreach (var options in new[] { Options(changed, model.Model, []), Options(changed, model.Model, [], goal: "Check the counter", changedSince: "base") })
+            foreach (
+                var options in new[]
+                {
+                    Options(changed, model.Model, []),
+                    Options(changed, model.Model, [], goal: "Check the counter", changedSince: "base"),
+                }
+            )
             {
                 var explored = await Explorer.ExploreAsync(options);
                 Assert.NotEqual(ReportExploreEnded.Skipped, explored.Explore.Ended);
@@ -284,7 +415,9 @@ public sealed class E2eExploreTests
 
             // A working tree that differs from HEAD: the brief is not whole, so no skip.
             File.WriteAllText(Path.Combine(changed, "README.md"), "app, edited locally\n");
-            var dirty = await Explorer.ExploreAsync(Options(changed, model.Model, [], goal: null, changedSince: "base"));
+            var dirty = await Explorer.ExploreAsync(
+                Options(changed, model.Model, [], goal: null, changedSince: "base")
+            );
             Assert.NotEqual(ReportExploreEnded.Skipped, dirty.Explore.Ended);
         }
         finally
@@ -299,9 +432,11 @@ public sealed class E2eExploreTests
         var plans = 0;
         var model = Model(
             _ => ++plans == 1 ? ExploreModel.Step("Menu", "Open the menu") : ExploreModel.Finish("Only polish items."),
-            call => call.Turn == 1
-                ? ExploreModel.ReportFinding(ExploreModel.CounterFinding(kind: "warning", severity: 1))
-                : ExploreModel.Done("passed", "Menu toggles"));
+            call =>
+                call.Turn == 1
+                    ? ExploreModel.ReportFinding(ExploreModel.CounterFinding(kind: "warning", severity: 1))
+                    : ExploreModel.Done("passed", "Menu toggles")
+        );
         var notices = new List<string>();
         var outcome = await Explorer.ExploreAsync(Options(TempRoot(), model.Model, notices));
 
@@ -320,62 +455,100 @@ public sealed class E2eExploreTests
         var plans = 0;
         var model = Model(
             _ => ++plans == 1 ? ExploreModel.Step("Counter", "Look at the counter") : ExploreModel.Finish("One issue."),
-            call => call.Turn == 1 ? ExploreModel.ReportFinding(ExploreModel.CounterFinding()) : ExploreModel.Done("passed", "Looked"));
+            call =>
+                call.Turn == 1
+                    ? ExploreModel.ReportFinding(ExploreModel.CounterFinding())
+                    : ExploreModel.Done("passed", "Looked")
+        );
         var root = TempRoot();
-        var outcome = await Explorer.ExploreAsync(Options(
-            root,
-            model.Model,
-            [],
-            goal: "Explore the home page with key " + value,
-            maxSteps: 1,
-            config: ExploreHarness.Config(root, "\"secrets\": { \"probe\": \"" + value + "\" }")));
+        var outcome = await Explorer.ExploreAsync(
+            Options(
+                root,
+                model.Model,
+                [],
+                goal: "Explore the home page with key " + value,
+                maxSteps: 1,
+                config: ExploreHarness.Config(root, "\"secrets\": { \"probe\": \"" + value + "\" }")
+            )
+        );
 
         Assert.Equal("Explore the home page with key <secret:probe>", outcome.Explore.Goal);
-        Assert.Contains("Test: Explore the home page with key <secret:probe>", model.PlannerCalls.First().Messages[0].Content, StringComparison.Ordinal);
+        Assert.Contains(
+            "Test: Explore the home page with key <secret:probe>",
+            model.PlannerCalls.First().Messages[0].Content,
+            StringComparison.Ordinal
+        );
 
         // The explorer's loop ran, its prompt opening with the goal.
-        Assert.Contains("Test: Explore the home page with key <secret:probe>", model.LoopCalls.First().Messages[0].Content, StringComparison.Ordinal);
-        Assert.Contains(Files(root), file => file.Contains("explore-the-home-page-with-key-", StringComparison.Ordinal));
+        Assert.Contains(
+            "Test: Explore the home page with key <secret:probe>",
+            model.LoopCalls.First().Messages[0].Content,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(Files(root), file =>
+            file.Contains("explore-the-home-page-with-key-", StringComparison.Ordinal)
+        );
         Assert.DoesNotContain(value, Everything(model.Model.Requests), StringComparison.Ordinal);
         Assert.DoesNotContain(value, JsonSerializer.Serialize(outcome.Explore), StringComparison.Ordinal);
-        Assert.All(Files(root), file => Assert.DoesNotContain(value, file + File.ReadAllText(file), StringComparison.Ordinal));
+        Assert.All(Files(root), file =>
+            Assert.DoesNotContain(value, file + File.ReadAllText(file), StringComparison.Ordinal)
+        );
 
         // A goal at the ceiling that the markers push past it is refused before anything starts.
         var longGoal = new string('a', 2_000 - value.Length - 1) + " " + value;
-        var refused = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(
-            root,
-            model.Model,
-            [],
-            goal: longGoal,
-            config: ExploreHarness.Config(root, "\"secrets\": { \"a-long-secret-name\": \"" + value + "\" }"))));
+        var refused = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Explorer.ExploreAsync(
+                Options(
+                    root,
+                    model.Model,
+                    [],
+                    goal: longGoal,
+                    config: ExploreHarness.Config(root, "\"secrets\": { \"a-long-secret-name\": \"" + value + "\" }")
+                )
+            )
+        );
         Assert.Equal("INVALID_CONFIG", refused.Code);
-        Assert.Equal("the goal must be at most 2000 characters with its secret values redacted, got 2009", refused.Message);
+        Assert.Equal(
+            "the goal must be at most 2000 characters with its secret values redacted, got 2009",
+            refused.Message
+        );
     }
 
     // Upstream also reads the status of each act step in the attempt's timeline and validates the report.
     [Theory]
     [InlineData("blocked", RunStatus.Blocked, 3)]
     [InlineData("passed", RunStatus.Passed, 0)]
-    public async Task Reports_the_run_status_when_the_first_charter_ends_and_the_second_was_blocked(string firstStatus, RunStatus expectedStatus, int exitCode)
+    public async Task Reports_the_run_status_when_the_first_charter_ends_and_the_second_was_blocked(
+        string firstStatus,
+        RunStatus expectedStatus,
+        int exitCode
+    )
     {
         var plans = 0;
         var model = Model(
-            _ => ++plans switch
-            {
-                1 => ExploreModel.Step("Catalog", "Explore the catalog"),
-                2 => ExploreModel.Step("Account", "Explore the account"),
-                _ => ExploreModel.Finish("Account was unavailable; no product issues were confirmed."),
-            },
-            _ => plans == 1 && firstStatus == "passed"
-                ? ExploreModel.Done("passed", "Catalog is reachable")
-                : ExploreModel.Done("blocked", "Required service is unavailable", "ENVIRONMENT_UNAVAILABLE"));
+            _ =>
+                ++plans switch
+                {
+                    1 => ExploreModel.Step("Catalog", "Explore the catalog"),
+                    2 => ExploreModel.Step("Account", "Explore the account"),
+                    _ => ExploreModel.Finish("Account was unavailable; no product issues were confirmed."),
+                },
+            _ =>
+                plans == 1 && firstStatus == "passed"
+                    ? ExploreModel.Done("passed", "Catalog is reachable")
+                    : ExploreModel.Done("blocked", "Required service is unavailable", "ENVIRONMENT_UNAVAILABLE")
+        );
         var outcome = await Explorer.ExploreAsync(Options(TempRoot(), model.Model, []));
 
         Assert.Equal(expectedStatus, outcome.Status);
         Assert.Equal(exitCode, outcome.ExitCode);
         Assert.Equal(
-            [firstStatus == "passed" ? ReportExploreStepStatus.Passed : ReportExploreStepStatus.Blocked, ReportExploreStepStatus.Blocked],
-            outcome.Explore.Steps.Select(step => step.Status));
+            [
+                firstStatus == "passed" ? ReportExploreStepStatus.Passed : ReportExploreStepStatus.Blocked,
+                ReportExploreStepStatus.Blocked,
+            ],
+            outcome.Explore.Steps.Select(step => step.Status)
+        );
         Assert.Empty(outcome.Explore.Findings);
         if (expectedStatus == RunStatus.Blocked)
         {
@@ -397,15 +570,23 @@ public sealed class E2eExploreTests
         var plans = 0;
         var model = Model(
             _ => ++plans == 1 ? ExploreModel.Step("Look", "Look around") : ExploreModel.Finish("Looked around."),
-            _ => ExploreModel.Done("passed", "unused"));
+            _ => ExploreModel.Done("passed", "unused")
+        );
         var root = TempRoot();
         var notices = new List<string>();
 
         // The first target leaves its name to the platform; the run must still explore exactly that one.
         var several = E2EConfig.Parse(
-            "{ \"targets\": [{ \"platform\": \"web\", \"app\": { \"url\": \"" + ExploreHarness.Url + "\" } }, { \"name\": \"second\", \"platform\": \"web\", \"app\": { \"url\": \"" + ExploreHarness.Url + "\" } }], \"actionTimeout\": 10000 }",
-            root);
-        var outcome = await Explorer.ExploreAsync(Options(root, model.Model, notices, goal: "Look around", maxSteps: 1, config: several));
+            "{ \"targets\": [{ \"platform\": \"web\", \"app\": { \"url\": \""
+                + ExploreHarness.Url
+                + "\" } }, { \"name\": \"second\", \"platform\": \"web\", \"app\": { \"url\": \""
+                + ExploreHarness.Url
+                + "\" } }], \"actionTimeout\": 10000 }",
+            root
+        );
+        var outcome = await Explorer.ExploreAsync(
+            Options(root, model.Model, notices, goal: "Look around", maxSteps: 1, config: several)
+        );
         Assert.Equal(RunStatus.Passed, outcome.Status);
         Assert.Equal(["exploring target \"web\"; pass --target to explore another"], notices);
 
@@ -413,12 +594,26 @@ public sealed class E2eExploreTests
         Assert.Contains("button \"Increment\"", model.LoopCalls.First().Messages[0].Content, StringComparison.Ordinal);
 
         var configPath = Path.Combine(root, "bad.config.json");
-        await File.WriteAllTextAsync(configPath, """{ "targets": [{ "name": "web", "platform": "web" }], "workers": 2 }""");
-        var invalid = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(new ExploreOptions { Cwd = root, ConfigPath = configPath, Goal = "Look around" }));
+        await File.WriteAllTextAsync(
+            configPath,
+            """{ "targets": [{ "name": "web", "platform": "web" }], "workers": 2 }"""
+        );
+        var invalid = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Explorer.ExploreAsync(
+                new ExploreOptions
+                {
+                    Cwd = root,
+                    ConfigPath = configPath,
+                    Goal = "Look around",
+                }
+            )
+        );
         Assert.Equal("INVALID_CONFIG", invalid.Code);
         Assert.Contains("config key \"workers\" is not supported", invalid.Message, StringComparison.Ordinal);
 
-        var unknown = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], target: "nope")));
+        var unknown = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Explorer.ExploreAsync(Options(root, model.Model, [], target: "nope"))
+        );
         Assert.Equal("UNKNOWN_TARGET", unknown.Code);
         Assert.Equal("unknown target ID \"nope\"; the config declares \"web\"", unknown.Message);
     }
@@ -430,21 +625,36 @@ public sealed class E2eExploreTests
         var plans = 0;
         var seen = new List<IReadOnlyList<string>>();
         var model = Model(
-            _ => ++plans == 1 ? ExploreModel.Step("Look", "Look around") : ExploreModel.Finish("Seen everything there was."),
+            _ =>
+                ++plans == 1
+                    ? ExploreModel.Step("Look", "Look around")
+                    : ExploreModel.Finish("Seen everything there was."),
             call =>
             {
                 seen.Add(call.ToolNames);
                 return call.Turn == 1 ? ModelResponses.Call("ping", new { }) : ExploreModel.Done("passed", "looked");
-            });
+            }
+        );
         var other = new ScriptedModel(_ => ModelResponses.Done("passed", "not this one"));
-        var ping = new AgentTool("answers pong", JsonNode.Parse("""{ "type": "object", "properties": {} }""")!.AsObject(), mutates: false, (_, _) => Task.FromResult("pong"));
+        var ping = new AgentTool(
+            "answers pong",
+            JsonNode.Parse("""{ "type": "object", "properties": {} }""")!.AsObject(),
+            mutates: false,
+            (_, _) => Task.FromResult("pong")
+        );
         var agents = new Dictionary<string, AgentOptions>
         {
             ["default"] = new() { Model = other },
-            ["ux"] = new() { Model = model.Model, Tools = new Dictionary<string, AgentTool> { ["ping"] = ping } },
+            ["ux"] = new()
+            {
+                Model = model.Model,
+                Tools = new Dictionary<string, AgentTool> { ["ping"] = ping },
+            },
         };
         var notices = new List<string>();
-        var outcome = await Explorer.ExploreAsync(Options(TempRoot(), null, notices, goal: "Look around", maxSteps: 1, agents: agents, agentName: "ux"));
+        var outcome = await Explorer.ExploreAsync(
+            Options(TempRoot(), null, notices, goal: "Look around", maxSteps: 1, agents: agents, agentName: "ux")
+        );
 
         Assert.Equal(RunStatus.Passed, outcome.Status);
         Assert.Equal(["exploring with agent \"ux\""], notices);
@@ -453,10 +663,15 @@ public sealed class E2eExploreTests
         Assert.Equal(0, other.CallCount);
         Assert.Contains("ping", seen[0]);
         Assert.Contains(ExploreExecutor.FindingToolName, seen[0]);
-        Assert.Contains("pong", model.LoopCalls.Last().Messages.Where(message => message.Role == "tool").Select(message => message.Content));
+        Assert.Contains(
+            "pong",
+            model.LoopCalls.Last().Messages.Where(message => message.Role == "tool").Select(message => message.Content)
+        );
 
         var root = TempRoot();
-        var unknown = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], agentName: "nope")));
+        var unknown = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Explorer.ExploreAsync(Options(root, model.Model, [], agentName: "nope"))
+        );
         Assert.Equal("INVALID_CONFIG", unknown.Code);
         Assert.Equal("unknown agent \"nope\"; configured: default", unknown.Message);
     }
@@ -472,11 +687,20 @@ public sealed class E2eExploreTests
             ["custom"] = new() { Executor = custom },
         };
         var notices = new List<string>();
-        var error = await Assert.ThrowsAsync<AgentException>(() => Explorer.ExploreAsync(Options(TempRoot(), null, notices, agents: agents, agentName: "custom")));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            Explorer.ExploreAsync(Options(TempRoot(), null, notices, agents: agents, agentName: "custom"))
+        );
 
         Assert.Equal("MODEL_UNAVAILABLE", error.Code);
-        Assert.Contains("explore runs the built-in agent, which requires a model, and agents.custom has none", error.Message, StringComparison.Ordinal);
-        Assert.Contains("agents.custom is a custom executor (\"math-brain\"); explore runs the built-in agent instead", notices);
+        Assert.Contains(
+            "explore runs the built-in agent, which requires a model, and agents.custom has none",
+            error.Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "agents.custom is a custom executor (\"math-brain\"); explore runs the built-in agent instead",
+            notices
+        );
         Assert.Equal(0, model.Model.CallCount);
     }
 
@@ -484,16 +708,26 @@ public sealed class E2eExploreTests
     public async Task Replaces_a_custom_executor_with_the_built_in_agent_on_the_model_it_brought_and_is_blocked_when_nothing_is_explored()
     {
         var model = Model(_ => ExploreModel.Finish("Nothing here."), _ => ExploreModel.Done("passed", "unused"));
-        var custom = new TestExecutor("house-brain", (_, _) => Task.FromResult(Passed("never runs"))) { Model = model.Model };
+        var custom = new TestExecutor("house-brain", (_, _) => Task.FromResult(Passed("never runs")))
+        {
+            Model = model.Model,
+        };
         var notices = new List<string>();
-        var outcome = await Explorer.ExploreAsync(Options(TempRoot(), null, notices, agent: new AgentOptions { Executor = custom }));
+        var outcome = await Explorer.ExploreAsync(
+            Options(TempRoot(), null, notices, agent: new AgentOptions { Executor = custom })
+        );
 
         Assert.Equal(RunStatus.Blocked, outcome.Status);
         Assert.Equal(ReportExploreEnded.Finished, outcome.Explore.Ended);
         Assert.Empty(outcome.Explore.Steps);
         Assert.Empty(outcome.Explore.Findings);
         Assert.Equal("AUTOMATION_UNSUPPORTED", outcome.Error!.Code);
-        Assert.Equal(["agents.default is a custom executor (\"house-brain\"); explore runs the built-in agent instead, with the model that executor brought"], notices);
+        Assert.Equal(
+            [
+                "agents.default is a custom executor (\"house-brain\"); explore runs the built-in agent instead, with the model that executor brought",
+            ],
+            notices
+        );
     }
 
     [Fact]
@@ -514,27 +748,48 @@ public sealed class E2eExploreTests
             {
                 if (call.Turn == 1)
                 {
-                    return ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(call.Request, "textbox \"Password\""), name = "ada.password" });
+                    return ModelResponses.Call(
+                        "type_secret",
+                        new
+                        {
+                            target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(
+                                call.Request,
+                                "textbox \"Password\""
+                            ),
+                            name = "ada.password",
+                        }
+                    );
                 }
 
                 fillResult = call.LastToolResult;
                 return ExploreModel.Done("passed", "Filled the password");
-            });
+            }
+        );
         var root = TempRoot();
-        var outcome = await Explorer.ExploreAsync(Options(
-            root,
-            model.Model,
-            [],
-            goal: "Sign in and look around",
-            maxSteps: 1,
-            engine: ExploreHarness.Engine(WorldWithAPassword(value => typed = value)),
-            config: ExploreHarness.Config(root, "\"actionTimeout\": 10000, \"credentials\": { \"ada\": { \"username\": \"ada@example.test\", \"password\": \"bookworm\" } }")));
+        var outcome = await Explorer.ExploreAsync(
+            Options(
+                root,
+                model.Model,
+                [],
+                goal: "Sign in and look around",
+                maxSteps: 1,
+                engine: ExploreHarness.Engine(WorldWithAPassword(value => typed = value)),
+                config: ExploreHarness.Config(
+                    root,
+                    "\"actionTimeout\": 10000, \"credentials\": { \"ada\": { \"username\": \"ada@example.test\", \"password\": \"bookworm\" } }"
+                )
+            )
+        );
 
         Assert.Null(outcome.Error);
         Assert.Equal(RunStatus.Passed, outcome.Status);
         Assert.Contains("- ada (username: ada@example.test)", planPrompts[0], StringComparison.Ordinal);
         Assert.Contains("type_secret", model.LoopCalls.First().Tools.Select(tool => tool.Name));
-        Assert.Contains("\"password\":\"<secret:ada.password> (password)\"", model.LoopCalls.First().Messages[0].Content, StringComparison.Ordinal);
+        Assert.Contains(
+            "\"password\":\"<secret:ada.password> (password)\"",
+            model.LoopCalls.First().Messages[0].Content,
+            StringComparison.Ordinal
+        );
         Assert.Contains("ada.password", fillResult, StringComparison.Ordinal);
         Assert.Equal("bookworm", typed);
 
@@ -549,9 +804,22 @@ public sealed class E2eExploreTests
     {
         var model = Model(_ => ExploreModel.Finish("Nothing here."), _ => ExploreModel.Done("passed", "unused"));
         var notices = new List<string>();
-        await Explorer.ExploreAsync(Options(TempRoot(), model.Model, notices, engine: new RecordingEngine(ExploreHarness.Engine()), video: RecordingMode.OnFirstRetry));
+        await Explorer.ExploreAsync(
+            Options(
+                TempRoot(),
+                model.Model,
+                notices,
+                engine: new RecordingEngine(ExploreHarness.Engine()),
+                video: RecordingMode.OnFirstRetry
+            )
+        );
 
-        Assert.Equal(["video: 'on-first-retry' records retries only, and explore runs its goal once, so no videos will be recorded; pass --video on"], notices);
+        Assert.Equal(
+            [
+                "video: 'on-first-retry' records retries only, and explore runs its goal once, so no videos will be recorded; pass --video on",
+            ],
+            notices
+        );
     }
 
     [Fact]
@@ -561,22 +829,38 @@ public sealed class E2eExploreTests
         var model = Model(_ => ExploreModel.Finish(""), _ => ExploreModel.Done("passed", "unused"));
 
         // A config that resolves, so only the option can be what rejects.
-        var goal = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], goal: new string('x', 2_001))));
+        var goal = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Explorer.ExploreAsync(Options(root, model.Model, [], goal: new string('x', 2_001)))
+        );
         Assert.Equal("INVALID_CONFIG", goal.Code);
-        var steps = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], maxSteps: 101)));
+        var steps = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Explorer.ExploreAsync(Options(root, model.Model, [], maxSteps: 101))
+        );
         Assert.Equal("INVALID_CONFIG", steps.Code);
         Assert.Equal("maxSteps must be an integer from 1 through 100, got 101", steps.Message);
-        var timeout = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], timeout: TimeSpan.FromMilliseconds(7_200_001))));
+        var timeout = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Explorer.ExploreAsync(Options(root, model.Model, [], timeout: TimeSpan.FromMilliseconds(7_200_001)))
+        );
         Assert.Equal("INVALID_CONFIG", timeout.Code);
 
         // The largest budgets get past the options, to the missing model.
-        var largest = await Assert.ThrowsAsync<AgentException>(() => Explorer.ExploreAsync(Options(root, null, [], maxSteps: 100, timeout: TimeSpan.FromMilliseconds(7_200_000))));
+        var largest = await Assert.ThrowsAsync<AgentException>(() =>
+            Explorer.ExploreAsync(Options(root, null, [], maxSteps: 100, timeout: TimeSpan.FromMilliseconds(7_200_000)))
+        );
         Assert.Equal("MODEL_UNAVAILABLE", largest.Code);
 
-        var credentials = Enumerable.Range(0, 400).ToDictionary(
-            index => "account-" + index,
-            index => new UserCredential(new string('u', 200) + "@example.test", Secret.Create("password", "password")));
-        var inventory = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], credentials: credentials)));
+        var credentials = Enumerable
+            .Range(0, 400)
+            .ToDictionary(
+                index => "account-" + index,
+                index => new UserCredential(
+                    new string('u', 200) + "@example.test",
+                    Secret.Create("password", "password")
+                )
+            );
+        var inventory = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Explorer.ExploreAsync(Options(root, model.Model, [], credentials: credentials))
+        );
         Assert.Equal("INVALID_CONFIG", inventory.Code);
         Assert.Contains("400 account(s) serialize to", inventory.Message, StringComparison.Ordinal);
         Assert.Equal(0, model.Model.CallCount);
@@ -588,12 +872,27 @@ public sealed class E2eExploreTests
         var model = Model(_ => ExploreModel.Finish("Looked around."), _ => ExploreModel.Done("passed", "unused"));
         var device = new DeviceEngine(new DocumentWorld().Map("/", page => page.Button("Greet")));
         var root = TempRoot();
-        var config = E2EConfig.Parse("""{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }], "actionTimeout": 10000 }""", root, _ => null);
-        await Explorer.ExploreAsync(Options(root, model.Model, [], goal: "Look around", maxSteps: 1, config: config, engine: device));
+        var config = E2EConfig.Parse(
+            """{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }], "actionTimeout": 10000 }""",
+            root,
+            _ => null
+        );
+        await Explorer.ExploreAsync(
+            Options(root, model.Model, [], goal: "Look around", maxSteps: 1, config: config, engine: device)
+        );
 
-        using var report = JsonDocument.Parse(await File.ReadAllTextAsync(Assert.Single(Files(root), file => Path.GetFileName(file) == "report.json")));
-        var steps = report.RootElement.GetProperty("run").GetProperty("results")[0].GetProperty("attempts")[0].GetProperty("steps");
-        Assert.Equal(["app.open", "agent.extract"], steps.EnumerateArray().Select(step => step.GetProperty("api").GetString()));
+        using var report = JsonDocument.Parse(
+            await File.ReadAllTextAsync(Assert.Single(Files(root), file => Path.GetFileName(file) == "report.json"))
+        );
+        var steps = report
+            .RootElement.GetProperty("run")
+            .GetProperty("results")[0]
+            .GetProperty("attempts")[0]
+            .GetProperty("steps");
+        Assert.Equal(
+            ["app.open", "agent.extract"],
+            steps.EnumerateArray().Select(step => step.GetProperty("api").GetString())
+        );
         Assert.Equal(["restart", "observe"], device.Operations.Take(2));
     }
 
@@ -606,6 +905,7 @@ public sealed class E2eExploreTests
 
         public EngineCapabilities Capabilities => inner.Capabilities | EngineCapabilities.Video;
 
-        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) => inner.StartAsync(options, cancellationToken);
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            inner.StartAsync(options, cancellationToken);
     }
 }

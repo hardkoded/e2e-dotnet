@@ -9,7 +9,8 @@ public sealed class TemplateTextAndExpandTextTests
 {
     private static List<ParamTemplate> Templates(string name, string full) => [new("/name", name), new("/full", full)];
 
-    private static Dictionary<string, string> Filled(IEnumerable<ParamTemplate> templates) => templates.ToDictionary(template => template.Pointer, template => template.Value);
+    private static Dictionary<string, string> Filled(IEnumerable<ParamTemplate> templates) =>
+        templates.ToDictionary(template => template.Pointer, template => template.Value);
 
     [Fact]
     public void Round_trips_claims_the_longer_value_first_and_never_templates_inside_a_placeholder()
@@ -18,10 +19,14 @@ public sealed class TemplateTextAndExpandTextTests
         var templated = CacheKeys.TemplateText("tap \"Ada name\" then \"name\" in the name column", recorded);
 
         Assert.Equal("tap \"{{param:/full}}\" then \"{{param:/name}}\" in the {{param:/name}} column", templated);
-        Assert.Equal("tap \"Ada name\" then \"name\" in the name column", CacheKeys.ExpandText(templated, Filled(recorded)));
+        Assert.Equal(
+            "tap \"Ada name\" then \"name\" in the name column",
+            CacheKeys.ExpandText(templated, Filled(recorded))
+        );
         Assert.Equal(
             "tap \"Grace Hopper\" then \"Grace\" in the Grace column",
-            CacheKeys.ExpandText(templated, Filled(Templates("Grace", "Grace Hopper"))));
+            CacheKeys.ExpandText(templated, Filled(Templates("Grace", "Grace Hopper")))
+        );
 
         // A value that is part of a slot ("ull" in "full") is not found inside the slot written a moment earlier.
         Assert.Equal("{{param:/full}}", CacheKeys.TemplateText("Ada", [new("/full", "Ada"), new("/x", "ull")]));
@@ -31,7 +36,9 @@ public sealed class TemplateTextAndExpandTextTests
     public void Refuses_to_expand_a_placeholder_the_current_call_did_not_mark()
     {
         Assert.Null(CacheKeys.ExpandText("tap \"{{param:/name}}\"", new Dictionary<string, string>()));
-        Assert.Null(CacheKeys.ExpandText("tap \"{{param:/name}}\"", new Dictionary<string, string> { ["/title"] = "x" }));
+        Assert.Null(
+            CacheKeys.ExpandText("tap \"{{param:/name}}\"", new Dictionary<string, string> { ["/title"] = "x" })
+        );
         Assert.Equal("no placeholders", CacheKeys.ExpandText("no placeholders", new Dictionary<string, string>()));
     }
 }

@@ -10,9 +10,19 @@ namespace E2E.Tests.TraceAnchors;
 /// <summary><c>describeDelta</c>, a radio the pick replaces with its summary.</summary>
 public sealed class ARadioThePickReplacesWithItsSummaryTests
 {
-    private static readonly SemanticNode[] Picker = [Node("radio", "Standard"), Node(text: "Standard"), Node("radio", "Express"), Node(text: "Express")];
+    private static readonly SemanticNode[] Picker =
+    [
+        Node("radio", "Standard"),
+        Node(text: "Standard"),
+        Node("radio", "Express"),
+        Node(text: "Express"),
+    ];
     private static readonly SemanticNode[] Start = [Heading, .. Picker, DeliveryState("unset")];
-    private static readonly SemanticNode[] Summary = [Node(text: "Express delivery selected"), Node("button", "Change delivery")];
+    private static readonly SemanticNode[] Summary =
+    [
+        Node(text: "Express delivery selected"),
+        Node("button", "Change delivery"),
+    ];
     private static readonly SemanticNode[] End = [Heading, .. Summary, DeliveryState("Express")];
     private static readonly (List<RecordedTarget> Appeared, List<RecordedTarget> Gone) Delta = Describe(Start, End);
     private static readonly CacheEntry Recorded = new() { Appeared = Delta.Appeared, Gone = Delta.Gone };
@@ -36,7 +46,13 @@ public sealed class ARadioThePickReplacesWithItsSummaryTests
     public void Still_fails_a_replay_whose_pick_left_the_radios_on_screen()
     {
         Assert.NotNull(Anchors.Mismatch(Recorded, Project(Start), Project(Start)));
-        Assert.NotNull(Anchors.Mismatch(Recorded, Project([Heading, .. Picker, .. Summary, DeliveryState("Express")]), Project(Start)));
+        Assert.NotNull(
+            Anchors.Mismatch(
+                Recorded,
+                Project([Heading, .. Picker, .. Summary, DeliveryState("Express")]),
+                Project(Start)
+            )
+        );
     }
 
     private static SemanticNode DeliveryState(string text) => Node("status", "Delivery state", text: text);

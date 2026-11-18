@@ -38,7 +38,9 @@ internal static class HostTrace
     {
         ArgumentNullException.ThrowIfNull(options);
         var single = options.Attempt;
-        var document = await ReportFile.SingleAsync(single, options.ProjectRoot, options.ResultsDir, options.Redact).ConfigureAwait(false);
+        var document = await ReportFile
+            .SingleAsync(single, options.ProjectRoot, options.ResultsDir, options.Redact)
+            .ConfigureAwait(false);
         var report = ReportSerializer.Read(document);
         var result = report.Run.Results[0];
         var page = FailureText.RenderTracePage(
@@ -48,7 +50,8 @@ internal static class HostTrace
             new TracePageOptions
             {
                 Standalone = true,
-                ArtifactsDir = Source.ProjectRelativePath(options.ProjectRoot, options.ResultsDir) ?? options.ResultsDir.Replace('\\', '/'),
+                ArtifactsDir = Source.ProjectRelativePath(options.ProjectRoot, options.ResultsDir)
+                    ?? options.ResultsDir.Replace('\\', '/'),
                 PageDir = string.Join('/', options.Segments),
                 ReadArtifact = reportPath =>
                 {
@@ -61,7 +64,8 @@ internal static class HostTrace
                         return null;
                     }
                 },
-            });
+            }
+        );
         await WriteReport.WriteTextReportAsync(options.TracePath, options.Redact(page)).ConfigureAwait(false);
         return report;
     }

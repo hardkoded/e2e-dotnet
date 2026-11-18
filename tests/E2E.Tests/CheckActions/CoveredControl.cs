@@ -42,16 +42,28 @@ public sealed class CoveredControl
     public static readonly string ElementPlusPage = "<style>" + ElementPlusCss + "</style>" + ElementPlusControls;
 
     /// <summary>Upstream's <c>ELEMENT_PLUS_CASES</c>: the control's name and its test id.</summary>
-    public static readonly (string Name, string Id)[] ElementPlusCases = [("radio-button", "install"), ("checkbox", "agree"), ("radio", "large")];
+    public static readonly (string Name, string Id)[] ElementPlusCases =
+    [
+        ("radio-button", "install"),
+        ("checkbox", "agree"),
+        ("radio", "large"),
+    ];
 
-    private readonly Func<string, string, CancellationToken, Func<Task>?, Task<(string Code, string Message)?>> _perform;
+    private readonly Func<
+        string,
+        string,
+        CancellationToken,
+        Func<Task>?,
+        Task<(string Code, string Message)?>
+    > _perform;
     private readonly Func<string, Task<bool>> _isChecked;
     private readonly Func<string, Task<string>> _evaluate;
 
     private CoveredControl(
         Func<string, string, CancellationToken, Func<Task>?, Task<(string Code, string Message)?>> perform,
         Func<string, Task<bool>> isChecked,
-        Func<string, Task<string>> evaluate)
+        Func<string, Task<string>> evaluate
+    )
     {
         _perform = perform;
         _isChecked = isChecked;
@@ -59,7 +71,12 @@ public sealed class CoveredControl
     }
 
     /// <summary>Performs <paramref name="verb"/> (<c>check</c>, <c>uncheck</c>, or <c>tap</c>) on the control and returns the failure it ended with, as the engine reports it, or null.</summary>
-    public Task<(string Code, string Message)?> PerformAsync(string id, string verb, CancellationToken cancellationToken = default, Func<Task>? hold = null) => _perform(id, verb, cancellationToken, hold);
+    public Task<(string Code, string Message)?> PerformAsync(
+        string id,
+        string verb,
+        CancellationToken cancellationToken = default,
+        Func<Task>? hold = null
+    ) => _perform(id, verb, cancellationToken, hold);
 
     /// <summary>Whether the input with <paramref name="id"/> is checked in the page, or in the shadow root of <c>#host</c>.</summary>
     public Task<bool> IsCheckedAsync(string id) => _isChecked(id);
@@ -68,20 +85,39 @@ public sealed class CoveredControl
     public Task<string> EvaluateAsync(string expression) => _evaluate(expression);
 
     /// <summary>Runs <paramref name="test"/> on <paramref name="body"/> through the element an observation names, or through a screen locator.</summary>
-    public static Task RunAsync(bool locator, string body, Func<CoveredControl, Task> test, TimeSpan? actionTimeout = null) =>
+    public static Task RunAsync(
+        bool locator,
+        string body,
+        Func<CoveredControl, Task> test,
+        TimeSpan? actionTimeout = null
+    ) =>
         locator ? RunThroughLocatorAsync(body, test, actionTimeout) : RunThroughElementAsync(body, test, actionTimeout);
 
-    private static async Task RunThroughElementAsync(string body, Func<CoveredControl, Task> test, TimeSpan? actionTimeout)
+    private static async Task RunThroughElementAsync(
+        string body,
+        Func<CoveredControl, Task> test,
+        TimeSpan? actionTimeout
+    )
     {
         await CheckPage.RunAsync(
             body,
             async session =>
             {
-                async Task<(string Code, string Message)?> Perform(string id, string verb, CancellationToken token, Func<Task>? hold)
+                async Task<(string Code, string Message)?> Perform(
+                    string id,
+                    string verb,
+                    CancellationToken token,
+                    Func<Task>? hold
+                )
                 {
                     var observation = await session.ObserveAsync(CancellationToken.None);
                     var node = CheckPage.Flatten(observation.Roots).First(candidate => candidate.TestId == id);
-                    LocatorAction action = verb switch { "check" => new LocatorAction.Check(), "uncheck" => new LocatorAction.Uncheck(), _ => new LocatorAction.Tap() };
+                    LocatorAction action = verb switch
+                    {
+                        "check" => new LocatorAction.Check(),
+                        "uncheck" => new LocatorAction.Uncheck(),
+                        _ => new LocatorAction.Tap(),
+                    };
                     if (hold is not null)
                     {
                         await hold();
@@ -98,21 +134,38 @@ public sealed class CoveredControl
                     }
                 }
 
-                await test(new CoveredControl(
-                    Perform,
-                    async id => await CheckPage.EvaluateAsync<bool>(session, $"() => document.getElementById('{id}')?.checked ?? document.getElementById('host').shadowRoot.getElementById('{id}').checked"),
-                    async expression => await CheckPage.EvaluateAsync<string>(session, expression)));
+                await test(
+                    new CoveredControl(
+                        Perform,
+                        async id =>
+                            await CheckPage.EvaluateAsync<bool>(
+                                session,
+                                $"() => document.getElementById('{id}')?.checked ?? document.getElementById('host').shadowRoot.getElementById('{id}').checked"
+                            ),
+                        async expression => await CheckPage.EvaluateAsync<string>(session, expression)
+                    )
+                );
             },
-            actionTimeout);
+            actionTimeout
+        );
     }
 
-    private static async Task RunThroughLocatorAsync(string body, Func<CoveredControl, Task> test, TimeSpan? actionTimeout)
+    private static async Task RunThroughLocatorAsync(
+        string body,
+        Func<CoveredControl, Task> test,
+        TimeSpan? actionTimeout
+    )
     {
         await CheckPage.RunWithScreenAsync(
             body,
             async session =>
             {
-                async Task<(string Code, string Message)?> Perform(string id, string verb, CancellationToken token, Func<Task>? hold)
+                async Task<(string Code, string Message)?> Perform(
+                    string id,
+                    string verb,
+                    CancellationToken token,
+                    Func<Task>? hold
+                )
                 {
                     var control = session.Screen.GetByTestId(id);
                     if (hold is not null)
@@ -122,25 +175,36 @@ public sealed class CoveredControl
 
                     try
                     {
-                        await (verb switch
-                        {
-                            "check" => control.CheckAsync(cancellationToken: token),
-                            "uncheck" => control.UncheckAsync(cancellationToken: token),
-                            _ => control.TapAsync(cancellationToken: token),
-                        });
+                        await (
+                            verb switch
+                            {
+                                "check" => control.CheckAsync(cancellationToken: token),
+                                "uncheck" => control.UncheckAsync(cancellationToken: token),
+                                _ => control.TapAsync(cancellationToken: token),
+                            }
+                        );
                         return null;
                     }
                     catch (TestException failure)
                     {
-                        return failure.InnerException is EngineException error ? (error.Code, error.Message) : (failure.Code, failure.Message);
+                        return failure.InnerException is EngineException error
+                            ? (error.Code, error.Message)
+                            : (failure.Code, failure.Message);
                     }
                 }
 
-                await test(new CoveredControl(
-                    Perform,
-                    async id => await session.Browser.EvaluateAsync<bool>($"() => document.getElementById('{id}')?.checked ?? document.getElementById('host').shadowRoot.getElementById('{id}').checked"),
-                    async expression => await session.Browser.EvaluateAsync<string>(expression) ?? ""));
+                await test(
+                    new CoveredControl(
+                        Perform,
+                        async id =>
+                            await session.Browser.EvaluateAsync<bool>(
+                                $"() => document.getElementById('{id}')?.checked ?? document.getElementById('host').shadowRoot.getElementById('{id}').checked"
+                            ),
+                        async expression => await session.Browser.EvaluateAsync<string>(expression) ?? ""
+                    )
+                );
             },
-            actionTimeout);
+            actionTimeout
+        );
     }
 }

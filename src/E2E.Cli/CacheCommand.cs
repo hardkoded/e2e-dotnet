@@ -65,7 +65,8 @@ internal static partial class CacheCommand
         TextWriter stderr,
         bool interactive,
         string? cwd = null,
-        IReadOnlyDictionary<string, string?>? env = null)
+        IReadOnlyDictionary<string, string?>? env = null
+    )
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
@@ -99,7 +100,19 @@ internal static partial class CacheCommand
             var contents = ReadContents(directory);
             return parsed.Command switch
             {
-                "ls" => List(contents, stdout, stderr, new Colors(interactive && string.IsNullOrEmpty(env is null ? Environment.GetEnvironmentVariable("NO_COLOR") : env.GetValueOrDefault("NO_COLOR")))),
+                "ls" => List(
+                    contents,
+                    stdout,
+                    stderr,
+                    new Colors(
+                        interactive
+                            && string.IsNullOrEmpty(
+                                env is null
+                                    ? Environment.GetEnvironmentVariable("NO_COLOR")
+                                    : env.GetValueOrDefault("NO_COLOR")
+                            )
+                    )
+                ),
                 "stats" => Stats(contents, stdout, stderr),
                 _ => Clear(contents, stdout, stderr),
             };
@@ -121,14 +134,22 @@ internal static partial class CacheCommand
         if (args.Config is not null)
         {
             var absolute = Path.GetFullPath(args.Config, cwd);
-            path = File.Exists(absolute) ? absolute : throw E2EConfig.ExplicitConfigNotFound(cwd, args.Config, absolute);
+            path = File.Exists(absolute)
+                ? absolute
+                : throw E2EConfig.ExplicitConfigNotFound(cwd, args.Config, absolute);
         }
         else
         {
-            path = E2EConfig.Find(cwd) ?? throw new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one");
+            path = E2EConfig.Find(cwd)
+                ?? throw new ConfigurationException(
+                    "CONFIG_NOT_FOUND",
+                    "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one"
+                );
         }
 
-        Func<string, string?> environment = env is null ? Environment.GetEnvironmentVariable : name => env.GetValueOrDefault(name);
+        Func<string, string?> environment = env is null
+            ? Environment.GetEnvironmentVariable
+            : name => env.GetValueOrDefault(name);
         var config = E2EConfig.Load(path, environment, new CliOverrides { CacheDir = args.CacheDir });
         return Path.GetFullPath(config.Cache.Directory);
     }
@@ -149,7 +170,12 @@ internal static partial class CacheCommand
             return new CacheContents(directory, entries, unreadable, foreign);
         }
 
-        foreach (var name in Directory.EnumerateFileSystemEntries(directory).Select(path => Path.GetFileName(path)).Order(StringComparer.Ordinal))
+        foreach (
+            var name in Directory
+                .EnumerateFileSystemEntries(directory)
+                .Select(path => Path.GetFileName(path))
+                .Order(StringComparer.Ordinal)
+        )
         {
             if (EntryFile().Match(name) is not { Success: true } match)
             {
@@ -175,15 +201,18 @@ internal static partial class CacheCommand
                 continue;
             }
 
-            entries.Add(new CacheEntrySummary(
-                keyHash,
-                file.Length,
-                file.LastWriteTimeUtc,
-                entry.Actions.Count,
-                entry.Truncated == true,
-                entry.Test,
-                entry.TargetId,
-                entry.Instruction is null ? null : Identity.InstructionDigest(entry.Instruction)));
+            entries.Add(
+                new CacheEntrySummary(
+                    keyHash,
+                    file.Length,
+                    file.LastWriteTimeUtc,
+                    entry.Actions.Count,
+                    entry.Truncated == true,
+                    entry.Test,
+                    entry.TargetId,
+                    entry.Instruction is null ? null : Identity.InstructionDigest(entry.Instruction)
+                )
+            );
         }
 
         return new CacheContents(directory, entries, unreadable, foreign);
@@ -203,23 +232,39 @@ internal static partial class CacheCommand
         }
 
         var now = DateTime.UtcNow;
-        var rows = contents.Entries
-            .OrderBy(entry => entry.TestId ?? "", StringComparer.InvariantCulture)
+        var rows = contents
+            .Entries.OrderBy(entry => entry.TestId ?? "", StringComparer.InvariantCulture)
             .ThenBy(entry => entry.TargetId ?? "", StringComparer.InvariantCulture)
             .ThenBy(entry => entry.CreatedAt)
-            .Select(entry => new[]
-            {
-                entry.TestId ?? "-",
-                entry.TargetId ?? "-",
-                entry.InstructionDigest is { } digest ? digest[..Math.Min(DigestPrefixChars, digest.Length)] : "-",
-                FormatAge(entry.CreatedAt, now),
-                entry.Actions.ToString(CultureInfo.InvariantCulture) + (entry.Truncated ? " (truncated)" : ""),
-            })
+            .Select(entry =>
+                new[]
+                {
+                    entry.TestId ?? "-",
+                    entry.TargetId ?? "-",
+                    entry.InstructionDigest is { } digest ? digest[..Math.Min(DigestPrefixChars, digest.Length)] : "-",
+                    FormatAge(entry.CreatedAt, now),
+                    entry.Actions.ToString(CultureInfo.InvariantCulture) + (entry.Truncated ? " (truncated)" : ""),
+                }
+            )
             .ToList();
         string[] header = ["TEST", "TARGET", "INSTRUCTION", "AGE", "ACTIONS"];
-        var widths = header.Select((title, column) => Math.Max(Format.VisibleWidth(title), rows.Max(row => Format.VisibleWidth(row[column])))).ToArray();
+        var widths = header
+            .Select(
+                (title, column) =>
+                    Math.Max(Format.VisibleWidth(title), rows.Max(row => Format.VisibleWidth(row[column])))
+            )
+            .ToArray();
         string Line(string[] cells) =>
-            string.Join("  ", cells.Select((cell, column) => column == cells.Length - 1 ? cell : cell + new string(' ', widths[column] - Format.VisibleWidth(cell)))).TrimEnd();
+            string.Join(
+                    "  ",
+                    cells.Select(
+                        (cell, column) =>
+                            column == cells.Length - 1
+                                ? cell
+                                : cell + new string(' ', widths[column] - Format.VisibleWidth(cell))
+                    )
+                )
+                .TrimEnd();
         stdout.WriteLine(colors.Bold(Line(header)));
         foreach (var row in rows)
         {
@@ -281,9 +326,11 @@ internal static partial class CacheCommand
             }
         }
 
-        stdout.WriteLine(removed == 0
-            ? "no replay cache entries to clear in " + contents.Directory
-            : "cleared " + removed.ToString(CultureInfo.InvariantCulture) + " file(s) from " + contents.Directory);
+        stdout.WriteLine(
+            removed == 0
+                ? "no replay cache entries to clear in " + contents.Directory
+                : "cleared " + removed.ToString(CultureInfo.InvariantCulture) + " file(s) from " + contents.Directory
+        );
         WarnAboutSkipped(contents, stderr);
         return 0;
     }
@@ -315,12 +362,16 @@ internal static partial class CacheCommand
     {
         if (contents.Unreadable.Count > 0)
         {
-            stderr.WriteLine($"{contents.Unreadable.Count} file(s) in {contents.Directory} are not readable trace-1 entries; a run treats each as a miss");
+            stderr.WriteLine(
+                $"{contents.Unreadable.Count} file(s) in {contents.Directory} are not readable trace-1 entries; a run treats each as a miss"
+            );
         }
 
         if (contents.Foreign.Count > 0)
         {
-            stderr.WriteLine($"{contents.Foreign.Count} file(s) in {contents.Directory} are not cache files and were left alone: {string.Join(", ", contents.Foreign)}");
+            stderr.WriteLine(
+                $"{contents.Foreign.Count} file(s) in {contents.Directory} are not cache files and were left alone: {string.Join(", ", contents.Foreign)}"
+            );
         }
     }
 
@@ -341,7 +392,9 @@ internal static partial class CacheCommand
         }
 
         var hours = minutes / 60;
-        return hours < 24 ? hours.ToString(CultureInfo.InvariantCulture) + "h" : (hours / 24).ToString(CultureInfo.InvariantCulture) + "d";
+        return hours < 24
+            ? hours.ToString(CultureInfo.InvariantCulture) + "h"
+            : (hours / 24).ToString(CultureInfo.InvariantCulture) + "d";
     }
 
     private static string FormatBytes(long bytes)
@@ -384,7 +437,11 @@ internal static partial class CacheCommand
                     }
                     else
                     {
-                        return new CacheArgs { Error = "option '" + name + (name == "--config" ? " <path>" : " <dir>") + "' argument missing" };
+                        return new CacheArgs
+                        {
+                            Error =
+                                "option '" + name + (name == "--config" ? " <path>" : " <dir>") + "' argument missing",
+                        };
                     }
 
                     if (name == "--config")
@@ -405,12 +462,18 @@ internal static partial class CacheCommand
 
                     if (command is not null)
                     {
-                        return new CacheArgs { Error = "too many arguments for '" + command + "'. Expected 0 arguments but got 1." };
+                        return new CacheArgs
+                        {
+                            Error = "too many arguments for '" + command + "'. Expected 0 arguments but got 1.",
+                        };
                     }
 
                     if (arg is not ("ls" or "clear" or "stats"))
                     {
-                        return new CacheArgs { Error = "unknown command '" + arg + "' (expected one of " + Subcommands + ")" };
+                        return new CacheArgs
+                        {
+                            Error = "unknown command '" + arg + "' (expected one of " + Subcommands + ")",
+                        };
                     }
 
                     command = arg;
@@ -418,7 +481,14 @@ internal static partial class CacheCommand
             }
         }
 
-        return command is null ? new CacheArgs { Help = true } : new CacheArgs { Command = command, Config = config, CacheDir = cacheDir };
+        return command is null
+            ? new CacheArgs { Help = true }
+            : new CacheArgs
+            {
+                Command = command,
+                Config = config,
+                CacheDir = cacheDir,
+            };
     }
 
     private sealed class CacheArgs
@@ -443,7 +513,13 @@ internal static partial class CacheCommand
         bool Truncated,
         string? TestId,
         string? TargetId,
-        string? InstructionDigest);
+        string? InstructionDigest
+    );
 
-    private sealed record CacheContents(string Directory, IReadOnlyList<CacheEntrySummary> Entries, IReadOnlyList<string> Unreadable, IReadOnlyList<string> Foreign);
+    private sealed record CacheContents(
+        string Directory,
+        IReadOnlyList<CacheEntrySummary> Entries,
+        IReadOnlyList<string> Unreadable,
+        IReadOnlyList<string> Foreign
+    );
 }

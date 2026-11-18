@@ -47,7 +47,11 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
             Assert.Equal(0, (await RunInitAsync()).ExitCode);
             Untouched(target);
             Assert.True(IsLink(Path_(".claude/skills/e2e-dotnet")));
-            Assert.Contains("Symlink, not touching: .claude/skills/e2e-dotnet -> " + Real(target), Output, StringComparison.Ordinal);
+            Assert.Contains(
+                "Symlink, not touching: .claude/skills/e2e-dotnet -> " + Real(target),
+                Output,
+                StringComparison.Ordinal
+            );
             Assert.DoesNotContain(".claude/skills/e2e-dotnet/ (", Output, StringComparison.Ordinal);
             Assert.NotNull(Json("e2e.config.json")["targets"]);
             Assert.NotNull(Json(".mcp.json")["mcpServers"]!["e2e"]);
@@ -77,7 +81,11 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
             Directory.CreateDirectory(Path_(".claude/skills"));
             Link(Path_(".claude/skills/e2e-dotnet"), target, directory: true);
             Assert.Equal(0, (await RunInitAsync()).ExitCode);
-            Assert.Contains("Symlink, not touching: .claude/skills/e2e-dotnet -> " + Real(target), Output, StringComparison.Ordinal);
+            Assert.Contains(
+                "Symlink, not touching: .claude/skills/e2e-dotnet -> " + Real(target),
+                Output,
+                StringComparison.Ordinal
+            );
             Assert.DoesNotContain("Broken, not touching", Output, StringComparison.Ordinal);
             Assert.True(Directory.Exists(Path.Combine(target, "SKILL.md")));
             Assert.Equal(["SKILL.md"], Directory.EnumerateFileSystemEntries(target).Select(Path.GetFileName));
@@ -104,7 +112,11 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
         Link(Path_(".agents/skills/e2e-dotnet"), Path.Combine("..", "..", "shared", "e2e-dotnet"), directory: true);
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
         Untouched(target);
-        Assert.Contains("Symlink, not touching: .agents/skills/e2e-dotnet -> " + Real(target), Output, StringComparison.Ordinal);
+        Assert.Contains(
+            "Symlink, not touching: .agents/skills/e2e-dotnet -> " + Real(target),
+            Output,
+            StringComparison.Ordinal
+        );
         Assert.False(Exists(".claude"));
     }
 
@@ -121,7 +133,10 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
         {
             var target = Path.Combine(elsewhere, "e2e-dotnet");
             LinkSkill(".claude/skills", target);
-            var question = new ConfirmCall("Replace the symlink .claude/skills/e2e-dotnet -> " + Real(target) + " with a copy of the skill?", false);
+            var question = new ConfirmCall(
+                "Replace the symlink .claude/skills/e2e-dotnet -> " + Real(target) + " with a copy of the skill?",
+                false
+            );
             Prompts.NextConfirm(false, true);
             Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
             Assert.Equal(3, Prompts.ConfirmCalls.Count);
@@ -138,7 +153,11 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
             Assert.Equal("Apply these changes?", Prompts.ConfirmCalls[4].Message);
             Assert.False(IsLink(Path_(".claude/skills/e2e-dotnet")));
             Assert.Matches(SkillFrontmatter(), Read(".claude/skills/e2e-dotnet/SKILL.md"));
-            Assert.Contains("# Setting up e2e for .NET", Read(".claude/skills/e2e-dotnet/references/setup.md"), StringComparison.Ordinal);
+            Assert.Contains(
+                "# Setting up e2e for .NET",
+                Read(".claude/skills/e2e-dotnet/references/setup.md"),
+                StringComparison.Ordinal
+            );
             Untouched(target);
             Assert.Contains("Replaced .claude/skills/e2e-dotnet/", Output, StringComparison.Ordinal);
         }
@@ -160,7 +179,11 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
         var link = Path_(".claude/skills/e2e-dotnet");
         Link(link, Path.Combine("..", "..", "gone", "e2e-dotnet"), directory: true);
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
-        Assert.Contains("Symlink, not touching: .claude/skills/e2e-dotnet -> " + Path.Combine(Dir, "gone", "e2e-dotnet"), Output, StringComparison.Ordinal);
+        Assert.Contains(
+            "Symlink, not touching: .claude/skills/e2e-dotnet -> " + Path.Combine(Dir, "gone", "e2e-dotnet"),
+            Output,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("Broken, not touching", Output, StringComparison.Ordinal);
         Assert.True(IsLink(link));
         Assert.False(Exists("gone"));
@@ -182,16 +205,38 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
         Prompts.NextConfirm(true, true);
         Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
         Assert.Equal(
-            new ConfirmCall("Replace the symlink .claude/skills/e2e-dotnet -> " + Path.Combine(Dir, "gone", "e2e-dotnet") + " with a link to ../../.agents/skills/e2e-dotnet?", false),
-            Prompts.ConfirmCalls[0]);
-        Assert.Contains("  - Create .agents/skills/e2e-dotnet/\n", Output.Replace("\r\n", "\n"), StringComparison.Ordinal);
-        Assert.Contains("  - Link .claude/skills/e2e-dotnet -> ../../.agents/skills/e2e-dotnet (replacing the symlink)\n", Output.Replace("\r\n", "\n"), StringComparison.Ordinal);
+            new ConfirmCall(
+                "Replace the symlink .claude/skills/e2e-dotnet -> "
+                    + Path.Combine(Dir, "gone", "e2e-dotnet")
+                    + " with a link to ../../.agents/skills/e2e-dotnet?",
+                false
+            ),
+            Prompts.ConfirmCalls[0]
+        );
+        Assert.Contains(
+            "  - Create .agents/skills/e2e-dotnet/\n",
+            Output.Replace("\r\n", "\n"),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "  - Link .claude/skills/e2e-dotnet -> ../../.agents/skills/e2e-dotnet (replacing the symlink)\n",
+            Output.Replace("\r\n", "\n"),
+            StringComparison.Ordinal
+        );
         Assert.Equal("Apply these changes?", Prompts.ConfirmCalls[1].Message);
         Assert.Equal(Path.Combine("..", "..", ".agents", "skills", "e2e-dotnet"), new FileInfo(link).LinkTarget);
         Assert.Matches(SkillFrontmatter(), Read(".claude/skills/e2e-dotnet/SKILL.md"));
-        Assert.Contains("# Setting up e2e for .NET", Read(".claude/skills/e2e-dotnet/references/setup.md"), StringComparison.Ordinal);
+        Assert.Contains(
+            "# Setting up e2e for .NET",
+            Read(".claude/skills/e2e-dotnet/references/setup.md"),
+            StringComparison.Ordinal
+        );
         Assert.False(Exists("gone"));
-        Assert.Contains("Linked .claude/skills/e2e-dotnet -> ../../.agents/skills/e2e-dotnet (replaced the symlink)", Output, StringComparison.Ordinal);
+        Assert.Contains(
+            "Linked .claude/skills/e2e-dotnet -> ../../.agents/skills/e2e-dotnet (replaced the symlink)",
+            Output,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -209,7 +254,11 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
             LinkSkill(".claude/skills", target);
             WriteCopy(".agents/skills");
             Assert.Equal(0, (await RunInitAsync()).ExitCode);
-            Assert.Contains("Symlink, not touching: .claude/skills/e2e-dotnet -> " + Real(target), Output, StringComparison.Ordinal);
+            Assert.Contains(
+                "Symlink, not touching: .claude/skills/e2e-dotnet -> " + Real(target),
+                Output,
+                StringComparison.Ordinal
+            );
             Assert.DoesNotContain("Linked", Output, StringComparison.Ordinal);
             Assert.True(IsLink(Path_(".claude/skills/e2e-dotnet")));
             Untouched(target);
@@ -235,7 +284,11 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
             LinkSkill(".agents/skills", target);
             WriteCopy(".claude/skills", "stale\n");
             Assert.Equal(0, (await RunInitAsync()).ExitCode);
-            Assert.Contains("Symlink, not touching: .agents/skills/e2e-dotnet -> " + Real(target), Output, StringComparison.Ordinal);
+            Assert.Contains(
+                "Symlink, not touching: .agents/skills/e2e-dotnet -> " + Real(target),
+                Output,
+                StringComparison.Ordinal
+            );
             Assert.True(Directory.Exists(Path_(".claude/skills/e2e-dotnet")));
             Assert.False(IsLink(Path_(".claude/skills/e2e-dotnet")));
             Assert.Matches(SkillFrontmatter(), Read(".claude/skills/e2e-dotnet/SKILL.md"));
@@ -265,8 +318,15 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
         Link(Path_(".claude/skills"), shared, directory: true);
         Prompts.NextConfirm(true, false);
         Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
-        Assert.Equal(["Apply these changes?", "Install dependencies with dotnet restore?"], Prompts.ConfirmCalls.Select(call => call.Message));
-        Assert.Contains("Symlink, not touching: .claude/skills/e2e-dotnet/ (.claude/skills -> " + Real(shared) + ")", Output, StringComparison.Ordinal);
+        Assert.Equal(
+            ["Apply these changes?", "Install dependencies with dotnet restore?"],
+            Prompts.ConfirmCalls.Select(call => call.Message)
+        );
+        Assert.Contains(
+            "Symlink, not touching: .claude/skills/e2e-dotnet/ (.claude/skills -> " + Real(shared) + ")",
+            Output,
+            StringComparison.Ordinal
+        );
         Untouched(target);
         Assert.True(IsLink(Path_(".claude/skills")));
     }

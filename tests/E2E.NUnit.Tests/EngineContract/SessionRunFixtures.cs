@@ -15,15 +15,17 @@ internal static class NestedSessionRun
     public static IReadOnlyDictionary<string, ITestResult> Run(params string[] testNames)
     {
         return Task.Run(() =>
-        {
-            var runner = new NUnitTestAssemblyRunner(new DefaultTestAssemblyBuilder());
-            runner.Load(typeof(NestedSessionRun).Assembly, new Dictionary<string, object>());
-            var names = string.Concat(testNames.Select(name => $"<name>{name}</name>"));
-            var result = runner.Run(TestListener.NULL, TestFilter.FromXml($"<filter><or>{names}</or></filter>"));
-            var leaves = new Dictionary<string, ITestResult>(StringComparer.Ordinal);
-            Collect(result, leaves);
-            return (IReadOnlyDictionary<string, ITestResult>)leaves;
-        }).GetAwaiter().GetResult();
+            {
+                var runner = new NUnitTestAssemblyRunner(new DefaultTestAssemblyBuilder());
+                runner.Load(typeof(NestedSessionRun).Assembly, new Dictionary<string, object>());
+                var names = string.Concat(testNames.Select(name => $"<name>{name}</name>"));
+                var result = runner.Run(TestListener.NULL, TestFilter.FromXml($"<filter><or>{names}</or></filter>"));
+                var leaves = new Dictionary<string, ITestResult>(StringComparer.Ordinal);
+                Collect(result, leaves);
+                return (IReadOnlyDictionary<string, ITestResult>)leaves;
+            })
+            .GetAwaiter()
+            .GetResult();
     }
 
     private static void Collect(ITestResult result, Dictionary<string, ITestResult> leaves)
@@ -47,7 +49,8 @@ public abstract class SessionFixtureBase : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -60,7 +63,14 @@ public abstract class SessionFixtureBase : E2ETest
     protected async Task SignInAsync(string value)
     {
         await App.OpenAsync("/browser");
-        await Browser.SetCookiesAsync([new BrowserCookie { Name = "account", Value = value, Url = await Browser.UrlAsync() }]);
+        await Browser.SetCookiesAsync([
+            new BrowserCookie
+            {
+                Name = "account",
+                Value = value,
+                Url = await Browser.UrlAsync(),
+            },
+        ]);
     }
 
     protected async Task<string?> SignedInAsync()

@@ -20,9 +20,13 @@ public sealed class RunnerEngineContractTests
         // Upstream fails the run with COLLECTION_ERROR before any setup runs, and no attempt starts. TUnit has no such step: the setup fails
         // at session.save(), and the consumer, which no setup saved, fails when it is consumed.
         await Assert.That(results["CaptureSession"].Result).IsEqualTo("Failed");
-        await Assert.That(results["CaptureSession"].Message).Contains("has no engine state capability for session.save()");
+        await Assert
+            .That(results["CaptureSession"].Message)
+            .Contains("has no engine state capability for session.save()");
         await Assert.That(results["Consumes_session"].Result).IsEqualTo("Failed");
-        await Assert.That(results["Consumes_session"].Message).Contains("has no engine state capability for session restore");
+        await Assert
+            .That(results["Consumes_session"].Message)
+            .Contains("has no engine state capability for session restore");
     }
 
     [Test]
@@ -32,8 +36,14 @@ public sealed class RunnerEngineContractTests
         // and the check that the dependent sees the cookie replaces upstream's check of the fake state's data. The consumer makes the checks.
         var (results, _) = await NestedSessionRun.RunAsync(typeof(RoundTripFixture));
 
-        await Assert.That(results["CaptureSession"].Result).IsEqualTo("Passed").Because(results["CaptureSession"].Message);
-        await Assert.That(results["Consumes_session"].Result).IsEqualTo("Passed").Because(results["Consumes_session"].Message);
+        await Assert
+            .That(results["CaptureSession"].Result)
+            .IsEqualTo("Passed")
+            .Because(results["CaptureSession"].Message);
+        await Assert
+            .That(results["Consumes_session"].Result)
+            .IsEqualTo("Passed")
+            .Because(results["Consumes_session"].Message);
     }
 
     [Test]
@@ -55,10 +65,16 @@ public sealed class RunnerEngineContractTests
         // .NET-only: upstream's session contract is checked by its collector and by SessionStaging; the TUnit surface needs its own tests.
         var (results, _) = await NestedSessionRun.RunAsync(typeof(SessionContractBreaksFixture));
 
-        await Assert.That(results["SavesNothing"].Message).Contains("setup must save each declared session exactly once; missing: [acct]");
+        await Assert
+            .That(results["SavesNothing"].Message)
+            .Contains("setup must save each declared session exactly once; missing: [acct]");
         await Assert.That(results["SavesTwice"].Message).Contains("session \"twice\" saved twice");
-        await Assert.That(results["SavesUndeclared"].Message).Contains("session \"other\" was not declared by this setup test");
+        await Assert
+            .That(results["SavesUndeclared"].Message)
+            .Contains("session \"other\" was not declared by this setup test");
         await Assert.That(results["Saves_outside_a_setup_test"].Message).Contains("only available in a setup test");
-        await Assert.That(results["Restores_a_session_nobody_saved"].Message).Contains("session \"never-saved\" was not produced");
+        await Assert
+            .That(results["Restores_a_session_nobody_saved"].Message)
+            .Contains("session \"never-saved\" was not produced");
     }
 }

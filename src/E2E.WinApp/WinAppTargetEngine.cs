@@ -25,7 +25,10 @@ public static class WinAppTargetEngine
         ArgumentNullException.ThrowIfNull(environment);
         if (target.Platform != "windows")
         {
-            throw new ConfigurationException("INVALID_CONFIG", $"target \"{target.Name}\" has platform {target.Platform}, not windows");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"target \"{target.Name}\" has platform {target.Platform}, not windows"
+            );
         }
 
         var app = new WinAppApp

@@ -24,36 +24,53 @@ public sealed class ASecretFillTheEngineRejectsTests
     {
         var world = new DocumentWorld().Map("/", page =>
         {
-            page.Roots.Add(new DocumentElement
-            {
-                Role = "textbox",
-                Name = "Token",
-                OnFill = value => throw new InvalidOperationException($"the field detached after {value} was typed"),
-            });
+            page.Roots.Add(
+                new DocumentElement
+                {
+                    Role = "textbox",
+                    Name = "Token",
+                    OnFill = value =>
+                        throw new InvalidOperationException($"the field detached after {value} was typed"),
+                }
+            );
         });
         var executor = new TestExecutor("rejected-fill", async (context, _) =>
         {
             var observation = await context.ObserveAsync();
-            var failure = await Record.ExceptionAsync(() => context.Actions.TypeSecretAsync(TargetFor(observation.Text, "textbox \"Token\""), "token"));
+            var failure = await Record.ExceptionAsync(() =>
+                context.Actions.TypeSecretAsync(TargetFor(observation.Text, "textbox \"Token\""), "token")
+            );
             return Failed(failure?.ToString() ?? "no failure");
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(world),
-            AgentExecutor = executor,
-            BaseUrl = "https://app.test",
-            TestTitle = "fills a token the engine rejects",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(world),
+                AgentExecutor = executor,
+                BaseUrl = "https://app.test",
+                TestTitle = "fills a token the engine rejects",
+            }
+        );
         await session.App.OpenAsync("/");
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync(
-            "fill the token",
-            new ActOptions { Params = new Dictionary<string, object?> { ["token"] = Secret.Create("token", Token) } }));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            session.Agent.ActAsync(
+                "fill the token",
+                new ActOptions
+                {
+                    Params = new Dictionary<string, object?> { ["token"] = Secret.Create("token", Token) },
+                }
+            )
+        );
         session.Complete(error);
 
         var act = session.StepRecords.Single(step => step.Api == "agent.act");
         Assert.Equal(StepStatus.Failed, act.Status);
-        Assert.Contains("the field detached after <secret:token> was typed", act.Error!.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "the field detached after <secret:token> was typed",
+            act.Error!.Message,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(Token, JsonSerializer.Serialize(session.StepRecords), StringComparison.Ordinal);
     }
 }
