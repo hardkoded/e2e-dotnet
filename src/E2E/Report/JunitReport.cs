@@ -24,6 +24,7 @@ public sealed record JunitReportOptions
 /// order, so the output is completion-time independent), one <c>&lt;testcase&gt;</c> per test-target pair, plus a <c>run</c> suite for run-level errors.
 /// A pair a test filter left out is a skipped case naming the filter. Like every reporter it reads the document, never runner state, and it can never
 /// change run status. Not ported, since the report has no such records: serial groups and the <c>test.fail</c> expected-failure note.
+/// .NET-only: <c>CaseOutcome</c> (an enum where upstream uses a string union in <c>RenderedCase.outcome</c>) and <c>PosixJoin</c> (upstream calls Node's <c>path.posix.join</c>, which .NET has no equivalent of).
 /// </summary>
 public static partial class JunitReport
 {
