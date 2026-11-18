@@ -660,7 +660,9 @@ internal static partial class Init
             && example is null
             && !Package
                 .DeclaredDependencies(pkg)
-                .Any(name => name.StartsWith("TUnit", StringComparison.OrdinalIgnoreCase));
+                .Any(name => name.StartsWith("TUnit", StringComparison.OrdinalIgnoreCase))
+            // A PackageReference with a Version fails the restore under central package management (NU1008).
+            && !Ci.UsesCentralPackageVersions(pkg.Original ?? Package.SerializePackage(pkg), cwd, repositoryRoot);
         if (junit)
         {
             var added = Package.AddDependencies(pkg, [new(Ci.JunitLogger, Ci.JunitLoggerVersion)]);
@@ -985,7 +987,8 @@ internal static partial class Init
             appDir,
             manager,
             yarnBerry,
-            junit
+            junit,
+            appFolder is null || manager != "npm" || Ci.HasNpmLockfile(appFolder, repositoryRoot)
         );
         var absolute = Path.Combine(repositoryRoot, file.File);
         System.IO.Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
@@ -1104,7 +1107,7 @@ internal static partial class Init
         if (!junit)
         {
             log.Warn(
-                "The pipeline writes no JUnit report: the junit logger needs a VSTest project, and this one runs on Microsoft.Testing.Platform"
+                "The pipeline writes no JUnit report: the junit logger comes from the JunitXml.TestLogger package, which init adds to a VSTest project that sets its package versions inline. Add the package yourself, and --logger \"junit;LogFilePath=...\" to the test command, if you want one"
             );
         }
     }

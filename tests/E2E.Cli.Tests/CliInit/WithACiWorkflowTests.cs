@@ -378,7 +378,8 @@ public sealed class WithACiWorkflowTests : CliInitTestBase
     }
 
     [Fact]
-    public async Task Reads_the_target_names_and_platforms_from_an_existing_config()
+    // Partial: the JSON config's platforms stand in for upstream's engine declarations, and each job names its target with E2E_TARGET.
+    public async Task Partial_Reads_the_target_names_and_platforms_from_an_existing_config()
     {
         await File.WriteAllTextAsync(Path_(ProjectFile()), EngineProject);
         await File.WriteAllTextAsync(
@@ -391,6 +392,10 @@ public sealed class WithACiWorkflowTests : CliInitTestBase
             ["web", "ios", "android"],
             Regex.Matches(workflow, @"^  (web|ios|android):$", RegexOptions.Multiline).Select(m => m.Groups[1].Value)
         );
+        // Each job keeps the name the config gave its target.
+        Assert.Contains("E2E_TARGET: chromium\n", workflow, StringComparison.Ordinal);
+        Assert.Contains("E2E_TARGET: iphone\n", workflow, StringComparison.Ordinal);
+        Assert.Contains("E2E_TARGET: pixel\n", workflow, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -521,5 +526,19 @@ public sealed class WithACiWorkflowTests : CliInitTestBase
             Output,
             StringComparison.Ordinal
         );
+    }
+
+    [Fact]
+    // .NET-only: a project with central package versions cannot take a PackageReference that sets a Version (NU1008).
+    public async Task Adds_no_logger_package_to_a_project_with_central_package_versions()
+    {
+        await File.WriteAllTextAsync(
+            Path_("Directory.Packages.props"),
+            "<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup></Project>"
+        );
+        await RunInitAsync(new InitOptions { Yes = true, Ci = "github-actions" });
+        Assert.DoesNotContain("JunitXml.TestLogger", Read(ProjectFile()), StringComparison.Ordinal);
+        Assert.DoesNotContain("junit", Read(Workflow), StringComparison.Ordinal);
+        Assert.Contains("The pipeline writes no JUnit report", Output, StringComparison.Ordinal);
     }
 }

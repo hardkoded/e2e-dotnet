@@ -102,6 +102,7 @@ internal sealed record CiTarget(string Name, string Platform);
 /// <param name="AppDir">The folder of the Expo or React Native app, <c>''</c> for the repository root (upstream's <c>projectDir</c>, which is where its <c>package.json</c> is).</param>
 /// <param name="Manager">The app's package manager: <c>npm</c>, <c>pnpm</c>, <c>yarn</c>, or <c>bun</c> (upstream's <c>manager</c>).</param>
 /// <param name="YarnBerry">Yarn 2 or later, whose frozen install is <c>--immutable</c> (upstream's <c>yarnBerry</c>).</param>
+/// <param name="NpmLockfile">Whether an npm lockfile is committed, which <c>npm ci</c> needs; without one the install is <c>npm install</c>.</param>
 /// <param name="Junit">Whether the test project writes a JUnit report with the <c>junit</c> logger (upstream's <c>--reporter list,junit</c>).</param>
 internal sealed record WorkflowContext(
     string ProjectFile,
@@ -112,7 +113,8 @@ internal sealed record WorkflowContext(
     string AppDir = "",
     string Manager = "npm",
     bool YarnBerry = false,
-    bool Junit = true
+    bool Junit = true,
+    bool NpmLockfile = true
 );
 
 /// <summary>One CI service <c>e2e init --ci</c> writes a pipeline for (upstream's <c>CiService</c>).</summary>
@@ -467,6 +469,66 @@ internal static partial class Ci
         }
     }
 
+    /// <summary>.NET-only: whether an npm lockfile is committed in <paramref name="appDir"/> or a folder above it, up to <paramref name="repositoryRoot"/>, which <c>npm ci</c> needs.</summary>
+    internal static bool HasNpmLockfile(string appDir, string repositoryRoot)
+    {
+        var stop = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
+        for (
+            var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(appDir));
+            ;
+            current = Path.GetDirectoryName(current)!
+        )
+        {
+            if (
+                System.IO.File.Exists(Path.Combine(current, "package-lock.json"))
+                || System.IO.File.Exists(Path.Combine(current, "npm-shrinkwrap.json"))
+            )
+            {
+                return true;
+            }
+
+            if (string.Equals(current, stop, StringComparison.OrdinalIgnoreCase) || Path.GetDirectoryName(current) is null)
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// .NET-only: whether the project takes its package versions from a <c>Directory.Packages.props</c> (central package
+    /// management), where a <c>PackageReference</c> with a <c>Version</c> fails the restore with NU1008. Looks in the project file and in every folder up to
+    /// <paramref name="repositoryRoot"/>.
+    /// </summary>
+    internal static bool UsesCentralPackageVersions(string projectText, string projectDir, string repositoryRoot)
+    {
+        if (CentralVersions().IsMatch(projectText))
+        {
+            return true;
+        }
+
+        var stop = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
+        for (
+            var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectDir));
+            ;
+            current = Path.GetDirectoryName(current)!
+        )
+        {
+            foreach (var name in new[] { "Directory.Packages.props", "Directory.Build.props" })
+            {
+                var file = Path.Combine(current, name);
+                if (System.IO.File.Exists(file) && CentralVersions().IsMatch(System.IO.File.ReadAllText(file)))
+                {
+                    return true;
+                }
+            }
+
+            if (string.Equals(current, stop, StringComparison.OrdinalIgnoreCase) || Path.GetDirectoryName(current) is null)
+            {
+                return false;
+            }
+        }
+    }
+
     /// <summary>.NET-only: the package manager of the app in <paramref name="appDir"/>, from its lockfile (upstream reads <c>packageManager</c> and the lockfile); npm when there is none.</summary>
     internal static (string Manager, bool YarnBerry) DetectManager(string appDir, string? repositoryRoot = null)
     {
@@ -745,8 +807,9 @@ internal static partial class Ci
             .Replace("@BUILD@", BuildCommand(context), StringComparison.Ordinal)
             .Replace("@TEST@", GithubTestCommand(context), StringComparison.Ordinal)
             .Replace("@PLAYWRIGHT@", PlaywrightScript(context), StringComparison.Ordinal)
-            .Replace("@APK@", ApkPath(context), StringComparison.Ordinal)
-            .Replace("@BUILDDIR@", Join(context.AppDir, "build"), StringComparison.Ordinal);
+            .Replace("@APK@", Quote(ApkPath(context)), StringComparison.Ordinal)
+            .Replace("@BUILDDIRTEXT@", Join(context.AppDir, "build"), StringComparison.Ordinal)
+            .Replace("@BUILDDIR@", Quote(Join(context.AppDir, "build")), StringComparison.Ordinal);
         return Junit(
             Template
                 .Replace("@STEPS@", Indent(expanded, 6), StringComparison.Ordinal)
@@ -804,7 +867,7 @@ internal static partial class Ci
                 xcrun simctl bootstatus "$UDID"
                 APP=$(find @BUILDDIR@ -maxdepth 5 -name '*.app' -type d | head -n 1)
                 if [ -z "$APP" ]; then
-                  echo "::error::No .app under @BUILDDIR@/"
+                  echo "::error::No .app under @BUILDDIRTEXT@/"
                   exit 1
                 fi
                 xcrun simctl install "$UDID" "$APP"
@@ -914,7 +977,9 @@ internal static partial class Ci
             ],
             "yarn" => ["command -v yarn || npm install --global yarn", "yarn install --frozen-lockfile"],
             "bun" => ["npm install --global bun", "bun install --frozen-lockfile"],
-            _ => ["npm ci"],
+            _ when context.NpmLockfile => ["npm ci"],
+            // `npm ci` needs a committed lockfile.
+            _ => ["npm install"],
         };
 
     /// <summary>The iOS build's commands and the comment above them (upstream's <c>iosBuild</c>); every build leaves the <c>.app</c> under <c>build/</c>.</summary>
@@ -1086,8 +1151,8 @@ internal static partial class Ci
                             + (context.Junit ? " --logger \"junit;LogFilePath=$CI_PROJECT_DIR/.e2e/junit.xml\"" : ""),
                         StringComparison.Ordinal
                     )
-                    .Replace("@APK@", ApkPath(context), StringComparison.Ordinal)
-                    .Replace("@BUILDDIR@", Join(context.AppDir, "build"), StringComparison.Ordinal),
+                    .Replace("@APK@", Quote(ApkPath(context)), StringComparison.Ordinal)
+                    .Replace("@BUILDDIR@", Quote(Join(context.AppDir, "build")), StringComparison.Ordinal),
                 context.Junit
             )
             + "\n";
@@ -1295,6 +1360,9 @@ internal static partial class Ci
 
     [GeneratedRegex(@"^stages:[ \t]*(.*)$", RegexOptions.None, 1000)]
     private static partial Regex TopLevelStages();
+
+    [GeneratedRegex(@"<ManagePackageVersionsCentrally>\s*true\s*</ManagePackageVersionsCentrally>", RegexOptions.IgnoreCase, 1000)]
+    private static partial Regex CentralVersions();
 
     [GeneratedRegex(@"^---.*$", RegexOptions.Multiline, 1000)]
     private static partial Regex DocumentSeparator();

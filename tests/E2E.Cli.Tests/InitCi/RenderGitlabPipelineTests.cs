@@ -29,7 +29,8 @@ public sealed class RenderGitlabPipelineTests : InitCiTestBase
     }
 
     [Fact]
-    public void Writes_only_the_web_job_without_the_mobile_base_or_its_comment_when_the_config_has_no_phone_target()
+    // Partial: the script runs dotnet test with the junit logger where upstream runs e2e run --reporter list,junit.
+    public void Partial_Writes_only_the_web_job_without_the_mobile_base_or_its_comment_when_the_config_has_no_phone_target()
     {
         var pipeline = Ci.RenderGitlabPipeline(Base);
         Assert.Equal(["e2e-web"], Names(pipeline, @"^(\S+):$"));
@@ -170,5 +171,27 @@ public sealed class RenderGitlabPipelineTests : InitCiTestBase
             Ci.RenderGitlabPipeline(Base with { Jobs = AllJobs, Junit = false }),
             StringComparison.Ordinal
         );
+    }
+
+    [Fact]
+    // .NET-only: a folder name with a space is one shell word, and npm ci needs a committed lockfile.
+    public void Quotes_the_artifact_paths_and_installs_with_npm_install_when_no_lockfile_is_committed()
+    {
+        var pipeline = Ci.RenderGitlabPipeline(
+            Base with
+            {
+                Jobs = PhoneJobs,
+                AppDir = "apps/My App",
+                NpmLockfile = false,
+            }
+        );
+        Assert.Contains("find 'apps/My App/build' -maxdepth 5", pipeline, StringComparison.Ordinal);
+        Assert.Contains("install -r 'apps/My App/android/app/build/outputs/apk/release/app-release.apk'", pipeline, StringComparison.Ordinal);
+        Assert.Contains("    - npm install\n", pipeline, StringComparison.Ordinal);
+        Assert.DoesNotContain("npm ci", pipeline, StringComparison.Ordinal);
+        var github = Ci.RenderGithubWorkflow(Base with { Jobs = PhoneJobs, AppDir = "apps/My App" });
+        Assert.Contains("find 'apps/My App/build' -maxdepth 5", github, StringComparison.Ordinal);
+        Assert.Contains("adb install -r 'apps/My App/android/app", github, StringComparison.Ordinal);
+        Assert.Contains("No .app under apps/My App/build/", github, StringComparison.Ordinal);
     }
 }
