@@ -164,8 +164,8 @@ public sealed class LineTextTests
     }
 
     /// <summary>
-    /// Every node of one observation of <paramref name="body"/> that paints and is not aria-hidden, in document order. The port also lists
-    /// hidden, aria-hidden, and zero-size nodes, flagged as such; upstream's tree leaves them out.
+    /// Every node of one observation of <paramref name="body"/> that paints, in document order. The port also lists
+    /// hidden and zero-size nodes, flagged as such; upstream's tree leaves them out.
     /// </summary>
     private static async Task<List<SemanticNode>> ObserveAsync(string body)
     {
@@ -173,7 +173,7 @@ public sealed class LineTextTests
         await using var engine = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         return WebSemanticsTests
             .Flatten((await engine.ObserveAsync(CancellationToken.None)).Roots)
-            .Where(node => !node.States.Hidden && !node.States.AriaHidden && node.Rect is { Width: > 0, Height: > 0 })
+            .Where(node => !node.States.Hidden && node.Rect is { Width: > 0, Height: > 0 })
             .ToList();
     }
 

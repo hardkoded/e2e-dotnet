@@ -52,7 +52,7 @@ public sealed class NodeStates
     /// <summary>The node does not render: <c>display: none</c>, <c>visibility</c>, skipped content, a closed <c>details</c>. This is what <c>isVisible</c> reads.</summary>
     public bool Hidden { get; init; }
 
-    /// <summary>The node, or an ancestor, is <c>aria-hidden</c>. It may still paint, so it can be visible, but role queries and the agent skip it.</summary>
+    /// <summary>The node, or an ancestor, is <c>aria-hidden</c>. It may still paint, so it can be visible, but the tree walk leaves it out: role queries and the agent never see it.</summary>
     public bool AriaHidden { get; init; }
 
     public bool Secure { get; init; }

@@ -30,6 +30,21 @@ public sealed class TruncatedFlagTests(ChromiumPage chromium) : IClassFixture<Ch
         Assert.Equal(5, chromium.NodeCount);
     }
 
+    // Port-only: upstream has no in-view budget pass (`tally`), so no upstream `it` covers it.
+    [Fact]
+    public async Task Does_not_spend_the_node_budget_on_an_aria_hidden_subtree()
+    {
+        var hidden = string.Concat(Enumerable.Range(0, 6).Select(index => $"<button>Hidden {index}</button>"));
+        await chromium.Page.SetContentAsync(
+            $"<main><div aria-hidden=\"true\">{hidden}</div><div style=\"height:5000px\"></div><button>Far below</button></main>"
+        );
+
+        var nodes = await chromium.CaptureAsync(5);
+        Assert.False(chromium.Truncated);
+        Assert.Contains(nodes, node => node.Name == "Far below");
+        Assert.DoesNotContain(nodes, node => node.Name?.StartsWith("Hidden", StringComparison.Ordinal) == true);
+    }
+
     [Fact]
     public async Task Reports_a_child_frame_the_budget_could_not_enter()
     {

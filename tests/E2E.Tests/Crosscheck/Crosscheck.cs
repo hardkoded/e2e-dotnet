@@ -260,13 +260,6 @@ public static partial class Crosscheck
                 continue;
             }
 
-            // The port's reader lists an aria-hidden node with its flag and every consumer of the tree skips it; upstream's walk leaves it
-            // out. It is out of the tree being compared here too, as the agent reads it.
-            if (node.AriaHidden)
-            {
-                continue;
-            }
-
             compared += 1;
             if (!chrome.ById.TryGetValue(node.Id, out var ax))
             {
