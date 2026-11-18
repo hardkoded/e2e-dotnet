@@ -246,6 +246,27 @@ public static class AgentTools
         Parse("""{ "type": "object", "properties": {} }""")
     );
 
+    // With saveScreenshot (upstream's grammarTools option), screenshot also takes an optional PNG path and saves the masked screenshot there.
+    private static readonly ModelTool ScreenshotWithPath = Tool(
+        ScreenshotName,
+        Screenshot.Description
+            + " With path, also saves the masked full-resolution screenshot as a PNG file and returns its absolute path.",
+        Parse(
+            """
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "pattern": "\\.[pP][nN][gG]$",
+                  "description": "PNG file to save it to, inside the project and relative to its root, e.g. \"screenshots/checkout.png\""
+                }
+              }
+            }
+            """
+        )
+    );
+
     private static readonly JsonElement PointXY = Parse(
         """
         {
@@ -585,7 +606,12 @@ public static class AgentTools
                 .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var offered = project.Select(pair => Project(pair.Key, pair.Value)).ToList();
         var guard = options?.Guard;
-        var act = new ActTools(host.Scope, host.Feed, DefaultAgent.PresenterFor(context));
+        var act = new ActTools(
+            host.Scope,
+            host.Feed,
+            DefaultAgent.PresenterFor(context),
+            saveScreenshot: options?.SaveScreenshot
+        );
         return GrammarToolDefinitions(
                 host.Scope.EngineCapabilities,
                 offered,
@@ -593,7 +619,8 @@ public static class AgentTools
                 host.Scope.Session.PointerActionKinds,
                 host.Scope.Session.CanDismissKeyboard,
                 options?.Secrets ?? context.Step.Secrets,
-                options?.SecretsListedByCaller == true
+                options?.SecretsListedByCaller == true,
+                options?.SaveScreenshot is not null
             )
             .Where(definition => !asserting || AssertionOffers(definition.Name, project, context.Step.Vision))
             .Select(definition => new ToolLoopTool(definition, async (call, token) =>
@@ -731,7 +758,8 @@ public static class AgentTools
         IReadOnlyCollection<string>? pointerKinds = null,
         bool dismissKeyboard = false,
         IReadOnlyList<ExecutorSecret>? secrets = null,
-        bool secretsListedByCaller = false
+        bool secretsListedByCaller = false,
+        bool saveScreenshot = false
     ) =>
         GrammarToolDefinitions(
             ActContext.VerbsOf(capabilities, actionKinds, pointerKinds ?? [], dismissKeyboard),
@@ -739,7 +767,8 @@ public static class AgentTools
             actionKinds,
             project,
             secrets,
-            secretsListedByCaller
+            secretsListedByCaller,
+            saveScreenshot
         );
 
     /// <summary>The same over the verbs the engine's declarations unlock (upstream's <c>verbs</c> of <c>createGrammarTools</c>): each tool is shaped by them.</summary>
@@ -749,7 +778,8 @@ public static class AgentTools
         IReadOnlyCollection<string>? actionKinds = null,
         IReadOnlyList<ModelTool>? project = null,
         IReadOnlyList<ExecutorSecret>? secrets = null,
-        bool secretsListedByCaller = false
+        bool secretsListedByCaller = false,
+        bool saveScreenshot = false
     )
     {
         var tools = new List<ModelTool> { Observe };
@@ -830,7 +860,7 @@ public static class AgentTools
             tools.Add(DismissKeyboard);
         }
 
-        tools.Add(Screenshot);
+        tools.Add(saveScreenshot ? ScreenshotWithPath : Screenshot);
         tools.AddRange(CreatePointTools(verbs, keyboard));
         if (project is not null)
         {
@@ -1172,6 +1202,13 @@ public sealed class GrammarToolsOptions
     /// description names them. Upstream's <c>secretsListedByCaller</c> (<c>GrammarToolSetup</c>, which the public grammar does not take).
     /// </summary>
     internal bool SecretsListedByCaller { get; init; }
+
+    /// <summary>
+    /// Saves a screenshot to a file, given as the caller wrote it, and returns the absolute path. With it, <c>screenshot</c> takes an optional
+    /// <c>path</c>; <c>e2e mcp</c> sets it, the testing agent does not. Upstream's <c>saveScreenshot</c> (<c>GrammarToolSetup</c>, which the public
+    /// grammar does not take); the port's takes the call's token too.
+    /// </summary>
+    internal Func<string, CancellationToken, Task<string>>? SaveScreenshot { get; init; }
 }
 
 /// <summary>
