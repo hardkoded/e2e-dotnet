@@ -19,10 +19,10 @@ public sealed class TheTreeWalkThroughHiddenContentTests(ChromiumPage chromium) 
             """
         );
         var nodes = await chromium.CaptureAsync();
-        // The tree lists a hidden node with its state where upstream leaves it out, so only the shown ones count.
+        // Upstream's exact list. The one exclusion is port-only: the port lists an aria-hidden node with a flag (#1761).
         Assert.Equal(
             ["Shown child"],
-            nodes.Where(node => node.Role == "button" && !node.Hidden && !node.AriaHidden).Select(node => node.Name)
+            nodes.Where(node => node.Role == "button" && !node.AriaHidden).Select(node => node.Name)
         );
         var skipping = nodes.Single(node => node.TestId == "skipping");
         Assert.False(skipping.Hidden);
