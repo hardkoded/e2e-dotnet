@@ -8,7 +8,7 @@ namespace E2E.Tests.Visibility;
 public sealed class TheTreeWalkThroughHiddenContentTests(ChromiumPage chromium) : IClassFixture<ChromiumPage>
 {
     [Fact]
-    public async Task Partial_Walks_into_a_visibility_hidden_subtree_for_a_child_that_shows_again_and_stops_at_aria_hidden_and_skipped_content()
+    public async Task Walks_into_a_visibility_hidden_subtree_for_a_child_that_shows_again_and_stops_at_aria_hidden_and_skipped_content()
     {
         await chromium.Page.SetContentAsync(
             """
@@ -19,13 +19,8 @@ public sealed class TheTreeWalkThroughHiddenContentTests(ChromiumPage chromium) 
             """
         );
         var nodes = await chromium.CaptureAsync();
-        // Partial: upstream asserts every button of the tree is `Shown child`, with no hidden state. The aria-hidden button is out of the tree
-        // here as there, but the port still lists a node it reads hidden (a visibility or content-visibility one) with its state, so the
-        // shown ones are counted (#1758).
-        Assert.Equal(
-            ["Shown child"],
-            nodes.Where(node => node.Role == "button" && !node.Hidden).Select(node => node.Name)
-        );
+        // Upstream's exact list: the aria-hidden button is out of the tree.
+        Assert.Equal(["Shown child"], nodes.Where(node => node.Role == "button").Select(node => node.Name));
         var skipping = nodes.Single(node => node.TestId == "skipping");
         Assert.False(skipping.Hidden);
         // The container keeps its box and paints none of its text, which innerText reads empty too.

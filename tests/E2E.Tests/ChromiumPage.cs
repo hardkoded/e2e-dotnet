@@ -78,89 +78,67 @@ public sealed class ChromiumPage : IAsyncLifetime
     }
 
     /// <summary>
-    /// The reader's node for the element <paramref name="locator"/> names. The reader walks the document, so this
-    /// reads it whole and picks the node by the ref the walk stamped on that element.
+    /// The reader's node for the element <paramref name="locator"/> names, read in node mode on that element alone, as upstream's
+    /// <c>readSemanticsFunction</c> is evaluated on a locator: the element's own hidden state reads up the flat tree, and a hidden
+    /// element has a read though the tree leaves it out.
     /// </summary>
     public async Task<ReadNode?> ReadAsync(ILocator locator)
     {
-        var nodes = await CaptureAsync();
-        var reference = await locator.EvaluateAsync<string?>(PageScript.RefOf);
-        return nodes.FirstOrDefault(node => node.Ref == reference) ?? await ReadElementAsync(locator);
+        var read = await locator.EvaluateAsync<JsonElement?>(NodeRead, "data-testid");
+        return read is { ValueKind: JsonValueKind.Object } raw ? ToReadNode(raw, "") : null;
     }
 
-    // The walk leaves an aria-hidden subtree out of the tree, as upstream's does; the reader's node mode still reads that element on
-    // its own (upstream's `read(element, { mode: 'node' })`), which is how the visibility of such a node is read.
-    private static async Task<ReadNode?> ReadElementAsync(ILocator locator)
-    {
-        var read = await locator.EvaluateAsync<JsonElement>(
-            $$"""
-            (el) => {
-            {{ReadSemantics.Prelude}}
-            {{ReadSemantics.NodeMode}}
-              return nodeOf(el, "data-testid");
-            }
-            """
-        );
-        return new ReadNode(
-            "",
-            StringOf(read, "role"),
-            StringOf(read, "name"),
-            StringOf(read, "text"),
-            StringOf(read, "value"),
-            StringOf(read, "selection"),
-            StringOf(read, "testId"),
-            read.GetProperty("focused").GetBoolean(),
-            read.GetProperty("secure").GetBoolean(),
-            read.GetProperty("hidden").GetBoolean(),
-            read.GetProperty("ariaHidden").GetBoolean(),
-            read.GetProperty("selected").GetBoolean(),
-            read.GetProperty("checked").GetBoolean(),
-            read.GetProperty("disabled").GetBoolean(),
-            new Dictionary<string, string>(),
-            null
-        );
-    }
+    private static readonly string NodeRead = $$"""
+        (el, testIdAttribute) => {
+        {{ReadSemantics.Prelude}}
+        {{ReadSemantics.NodeMode}}
+          return nodeOf(el, testIdAttribute);
+        }
+        """;
 
     private static void Flatten(JsonElement list, List<ReadNode> into)
     {
         foreach (var node in list.EnumerateArray())
         {
-            var rect = node.GetProperty("rect");
-            into.Add(
-                new ReadNode(
-                    node.GetProperty("ref").GetString()!,
-                    StringOf(node, "role"),
-                    StringOf(node, "name"),
-                    StringOf(node, "text"),
-                    StringOf(node, "value"),
-                    StringOf(node, "selection"),
-                    StringOf(node, "testId"),
-                    node.GetProperty("focused").GetBoolean(),
-                    node.GetProperty("secure").GetBoolean(),
-                    node.GetProperty("hidden").GetBoolean(),
-                    node.GetProperty("ariaHidden").GetBoolean(),
-                    node.GetProperty("selected").GetBoolean(),
-                    node.GetProperty("checked").GetBoolean(),
-                    node.GetProperty("disabled").GetBoolean(),
-                    node.GetProperty("attributes")
-                        .EnumerateObject()
-                        .ToDictionary(
-                            attribute => attribute.Name,
-                            attribute => attribute.Value.GetString() ?? "",
-                            StringComparer.Ordinal
-                        ),
-                    rect.ValueKind == JsonValueKind.Null
-                        ? null
-                        : new BoundingBox(
-                            rect.GetProperty("x").GetDouble(),
-                            rect.GetProperty("y").GetDouble(),
-                            rect.GetProperty("width").GetDouble(),
-                            rect.GetProperty("height").GetDouble()
-                        )
-                )
-            );
+            into.Add(ToReadNode(node, node.GetProperty("ref").GetString()!));
             Flatten(node.GetProperty("children"), into);
         }
+    }
+
+    private static ReadNode ToReadNode(JsonElement node, string reference)
+    {
+        var rect = node.GetProperty("rect");
+        return new ReadNode(
+            reference,
+            StringOf(node, "role"),
+            StringOf(node, "name"),
+            StringOf(node, "text"),
+            StringOf(node, "value"),
+            StringOf(node, "selection"),
+            StringOf(node, "testId"),
+            node.GetProperty("focused").GetBoolean(),
+            node.GetProperty("secure").GetBoolean(),
+            node.GetProperty("hidden").GetBoolean(),
+            node.GetProperty("ariaHidden").GetBoolean(),
+            node.GetProperty("selected").GetBoolean(),
+            node.GetProperty("checked").GetBoolean(),
+            node.GetProperty("disabled").GetBoolean(),
+            node.GetProperty("attributes")
+                .EnumerateObject()
+                .ToDictionary(
+                    attribute => attribute.Name,
+                    attribute => attribute.Value.GetString() ?? "",
+                    StringComparer.Ordinal
+                ),
+            rect.ValueKind == JsonValueKind.Null
+                ? null
+                : new BoundingBox(
+                    rect.GetProperty("x").GetDouble(),
+                    rect.GetProperty("y").GetDouble(),
+                    rect.GetProperty("width").GetDouble(),
+                    rect.GetProperty("height").GetDouble()
+                )
+        );
     }
 
     private static string? StringOf(JsonElement node, string name)

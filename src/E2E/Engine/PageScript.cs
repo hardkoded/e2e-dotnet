@@ -153,6 +153,12 @@ internal static class PageScript
             const box = rectOf(el);
             return (box === null || box.width <= 0 || box.height <= 0) && !isDrawnByLabel(el, getComputedStyle(el));
           };
+          // A checkbox or radio with no box that a label of its own draws: upstream lists it past its hidden state (drawnByLabel), so the walk keeps it.
+          const isDrawnBoxless = (el) => {
+            if (!(el instanceof HTMLInputElement) || (el.type !== "checkbox" && el.type !== "radio")) return false;
+            const box = rectOf(el);
+            return (box === null || box.width <= 0 || box.height <= 0) && isDrawnByLabel(el, getComputedStyle(el));
+          };
           // An iframe is a boundary node whatever its role: upstream emits it before any role check,
           // so <iframe role="none"> stays listed, with the role none.
           const listed = (el, role) => el.tagName === "IFRAME" || hasRole(role) || !!el.getAttribute(testIdAttribute) || ownsText(el);
@@ -261,15 +267,21 @@ internal static class PageScript
             }
             return true;
           };
-          const tally = (el, visible) => {
+          // parentHidden is the verdict walk carries down: a hidden node is not listed, so it is not counted.
+          const tally = (el, visible, parentHidden) => {
             // A datalist is display: none, so upstream's tree drops it with its options; Chrome has no node for them either.
             if (!el || skip.has(el.tagName) || el.tagName === "DATALIST" || isInert(el)) return 0;
             const place = modal === undefined ? "inside" : modal.placeOf(el);
             if (place === "outside") return 0;
             if (el.tagName === "IFRAME" && (ariaHidden(el) || hidden(el))) return 0;
             let n = 0;
+            const style = getComputedStyle(el);
+            const isHidden = !!parentHidden || hidden(el, style);
+            // Upstream returns at a hidden select, so its options are neither listed nor counted.
+            if (isHidden && el.tagName === "SELECT") return 0;
+            const childrenHidden = !!parentHidden || hidesSubtree(el, style);
             const role = roleOf(el);
-            if (place !== "ancestor" && listed(el, role) && !textOnly(el, role) && !isBoxlessUndrawn(el)) {
+            if (place !== "ancestor" && listed(el, role) && !textOnly(el, role) && !isBoxlessUndrawn(el) && (!isHidden || isDrawnBoxless(el))) {
               const counted = !visible || inView(el);
               if (counted) n++;
               if (el.tagName === "SELECT") {
@@ -279,21 +291,21 @@ internal static class PageScript
                   if (offered >= maxSelectOptions) break;
                   if (!isOfferedOption(option)) continue;
                   offered += 1;
-                  for (const child of option.children) n += tally(child, visible);
+                  for (const child of option.children) n += tally(child, visible, isHidden);
                   const optionShadow = shadowOf(option);
-                  if (optionShadow) for (const child of optionShadow.children) n += tally(child, visible);
+                  if (optionShadow) for (const child of optionShadow.children) n += tally(child, visible, isHidden);
                 }
                 return n + offered;
               }
             }
-            for (const child of el.children) n += tally(child, visible);
+            for (const child of el.children) n += tally(child, visible, childrenHidden);
             const shadow = shadowOf(el);
-            if (shadow) for (const child of shadow.children) n += tally(child, visible);
+            if (shadow) for (const child of shadow.children) n += tally(child, visible, childrenHidden);
             return n;
           };
           // A node under an ancestor that hides its subtree is hidden too.
           // parentHidden is that ancestor's verdict, not its own visibility.
-          const walk = (el, into, parentHidden) => {
+          const walk = (el, into, parentHidden, offered) => {
             // aria-hidden removes the node and everything under it from the tree, as upstream's walk does.
             if (!el || skip.has(el.tagName) || el.tagName === "DATALIST" || ariaHidden(el) || isInert(el) || full) return;
             // Outside an open modal dialog everything is inert; the dialog's ancestors are walked to reach it and list nothing.
@@ -307,6 +319,10 @@ internal static class PageScript
             // A frame the page hides is no boundary of the tree.
             if (isFrame && isHidden) return;
             if (isBoxlessUndrawn(el)) return;
+            // Upstream returns at a hidden iframe or select (the frame case is above).
+            if (isHidden && el.tagName === "SELECT") return;
+            // Upstream's walk lists a node only when it is not hidden; a select's offered options are listed on purpose, so not "hidden".
+            if (isHidden && !isFrame && !offered && !isDrawnBoxless(el)) { walkChildren(el, into, childrenHidden); return; }
             if (place !== "ancestor" && listed(el, role)) {
               const textNode = textOnly(el, role);
               if (textNode ? textCount >= max : count >= max) {
@@ -352,7 +368,7 @@ internal static class PageScript
                   if (!isOfferedOption(option)) continue;
                   offered += 1;
                   const before = node.children.length;
-                  walk(option, node.children, isHidden);
+                  walk(option, node.children, isHidden, true);
                   if (node.children.length > before) node.children[before].hidden = isHidden;
                 }
                 return;
