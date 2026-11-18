@@ -454,7 +454,7 @@ internal sealed class SessionCatalog
 
         if (capabilities.HasFlag(EngineCapabilities.Screenshot))
         {
-            Add("screenshot", Screenshot(context, projectRoot, attemptDir, screen));
+            Add("screenshot", Screenshot(context, projectRoot, attemptDir, screen, capabilities, kinds, pointerKinds));
 
             // The point tools come after the screenshot they read their points from, as upstream's grammar lists them.
             foreach (
@@ -927,7 +927,8 @@ internal sealed class SessionCatalog
         string agentTool,
         JsonElement args,
         CancellationToken token,
-        JsonObject? mapped = null
+        JsonObject? mapped = null,
+        Func<string, CancellationToken, Task<string>>? saveScreenshot = null
     )
     {
         ToolOutcome outcome;
@@ -949,7 +950,8 @@ internal sealed class SessionCatalog
                     agentTool,
                     JsonSerializer.SerializeToElement(mapped ?? new JsonObject()),
                     token,
-                    screen
+                    screen,
+                    saveScreenshot
                 )
                 .ConfigureAwait(false);
         }
@@ -977,74 +979,38 @@ internal sealed class SessionCatalog
         return label + " failed: " + (code is null ? "" : code + ": ") + message;
     }
 
+    // Upstream's grammarTools serves screenshot; with saveScreenshot it takes the optional path and saves the masked capture there.
     private static CatalogTool Screenshot(
         ISessionContext context,
         string projectRoot,
         string attemptDir,
-        ScreenPresenter screen
+        ScreenPresenter screen,
+        EngineCapabilities capabilities,
+        IReadOnlyCollection<string> kinds,
+        IReadOnlyCollection<string>? pointerKinds
     )
     {
+        var definition = AgentTools
+            .GrammarToolDefinitions(capabilities, null, kinds, pointerKinds ?? [], saveScreenshot: true)
+            .Single(tool => tool.Name == AgentTools.ScreenshotName);
         return new CatalogTool
         {
-            Description =
-                "Take a screenshot of the viewport, attached as an image. Secure fields are covered. With path, also saves the masked full-resolution screenshot as a PNG file and returns its absolute path.",
-            InputSchema = Schema(
-                [],
-                (
-                    "path",
-                    Property(
-                        "string",
-                        "PNG file to save it to, inside the project and relative to its root, e.g. \"screenshots/checkout.png\""
-                    ),
-                    false
-                )
-            ),
+            Description = definition.Description,
+            InputSchema = definition.Parameters,
             Execute = async (args, token) =>
             {
-                var file = Text(args, "path");
-                if (file is not null && !file.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new ConfigurationException(
-                        "INVALID_ARGUMENT",
-                        "call screenshot: path: a .png file; tools {tool: \"screenshot\"} shows its arguments"
-                    );
-                }
-
-                var shot = await context.Session.Engine.ScreenshotAsync(token).ConfigureAwait(false);
-                var (width, height) = PngSize(shot.Png);
-                var text =
-                    "Screenshot attached: "
-                    + width.ToString(CultureInfo.InvariantCulture)
-                    + " by "
-                    + height.ToString(CultureInfo.InvariantCulture)
-                    + " pixels ("
-                    + shot.Scale.ToString("0.##", CultureInfo.InvariantCulture)
-                    + " per CSS pixel).";
-                await context
-                    .Session.Agent.NoteScreenshotAsync(
+                var outcome = await RunAsync(
+                        context,
                         screen,
-                        new ExecutorPixels(
-                            shot.Png,
-                            "image/png",
-                            width,
-                            height,
-                            shot.Scale,
-                            shot.MaskedRegionCount ?? 0
-                        ),
-                        token
+                        AgentTools.ScreenshotName,
+                        AgentTools.ScreenshotName,
+                        args,
+                        token,
+                        JsonNode.Parse(args.GetRawText())?.AsObject(),
+                        (file, saveToken) => SaveScreenshotAsync(context, projectRoot, attemptDir, file, saveToken)
                     )
                     .ConfigureAwait(false);
-                if (file is not null)
-                {
-                    text +=
-                        "\nSaved to "
-                        + context.Session.Redactor.Redact(
-                            await SaveScreenshotAsync(context, projectRoot, attemptDir, file, token)
-                                .ConfigureAwait(false)
-                        );
-                }
-
-                return new ScreenshotOutput(shot.Png, text);
+                return new ScreenshotOutput(outcome.Pixels!.Data, outcome.Content);
             },
             ToModelOutput = (_, output, _) =>
             {
@@ -1113,14 +1079,6 @@ internal sealed class SessionCatalog
 
         return destination;
     }
-
-    private static (int Width, int Height) PngSize(byte[] png) =>
-        png.Length < 24
-            ? (0, 0)
-            : (
-                BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(16)),
-                BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(20))
-            );
 
     private static CatalogTool Locate(ISessionContext context)
     {
