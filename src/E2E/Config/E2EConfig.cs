@@ -179,10 +179,15 @@ public sealed class E2EConfig
     public IReadOnlyList<TargetConfig> Targets { get; private set; } = [];
 
     /// <summary>
-    /// The only target the config declares. .NET-only: a fixture, a host, or a command with no target of its own reads it. With several
-    /// targets it throws <c>TARGET_REQUIRED</c> (upstream's <c>selectTarget</c>): name one from <see cref="Targets"/>.
+    /// The target the run is on: the one <c>E2E_TARGET</c> names (the port's counterpart of <c>e2e run --target</c>, one name), else the only
+    /// one the config declares. .NET-only: a fixture, a host, or a command with no target of its own reads it. With several
+    /// targets and no <c>E2E_TARGET</c> it throws <c>TARGET_REQUIRED</c> (upstream's <c>selectTarget</c>): set <c>E2E_TARGET</c> or name one from <see cref="Targets"/>.
     /// </summary>
-    public TargetConfig Target => SelectTarget.Select(Targets, null, "name one of them from E2EConfig.Targets");
+    public TargetConfig Target =>
+        SelectTarget.Select(Targets, SelectedTarget, "set E2E_TARGET or name one of them from E2EConfig.Targets");
+
+    /// <summary>The name <c>E2E_TARGET</c> gave when the config loaded; null when it was unset or blank.</summary>
+    private string? SelectedTarget { get; init; }
 
     /// <summary>Whole-test timeout. Upstream <c>timeout</c>, 120 s by default.</summary>
     public TimeSpan Timeout { get; private init; } = E2EDefaults.TestTimeout;
@@ -632,6 +637,7 @@ public sealed class E2EConfig
                 ConfigPath = configPath,
                 ProjectRoot = projectRoot,
                 Ci = ci,
+                SelectedTarget = environment("E2E_TARGET")?.Trim() is { Length: > 0 } target ? target : null,
                 Targets = ReadTargets(Property(root, "targets"), projectRoot, trace, video),
                 Timeout = Milliseconds(root, "timeout", E2EDefaults.TestTimeout),
                 LaunchTimeout = Milliseconds(root, "launchTimeout", E2EDefaults.LaunchTimeout),

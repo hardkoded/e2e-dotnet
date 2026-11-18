@@ -4,26 +4,46 @@
 
 namespace E2E.Cli.Tests.InitCi;
 
-/// <summary>Upstream's <c>describe('ciJobs')</c>. The jobs name no targets: the port picks one in the fixture, not with <c>--target</c>.</summary>
+/// <summary>Upstream's <c>describe('ciJobs')</c>.</summary>
 public sealed class CiJobsTests
 {
-    [Fact]
-    // Partial: a job is a flag, since the port has no --target to name its targets, and no build kind to pass.
-    public void Partial_Gives_each_phone_platform_its_job_and_runs_everything_else_in_the_web_job()
-    {
-        Assert.Equal(new CiJobs(true, false, false), Ci.GetCiJobs([new("web", "web")]));
-        Assert.Equal(
-            new CiJobs(true, true, true),
-            Ci.GetCiJobs([new("chromium", "web"), new("api", "custom"), new("iphone", "ios"), new("pixel", "android")])
+    private static readonly IosBuild Ios = new IosBuild.Expo();
+    private static readonly AndroidBuild Android = new AndroidBuild.Expo(true);
+
+    /// <summary>A job set as text, since a record holding a list does not compare by its items: <c>web=all</c> or <c>web=a,b</c>, and <c>ios=names</c>.</summary>
+    private static string Shape(CiJobs jobs) =>
+        string.Join(
+            ";",
+            new[]
+            {
+                jobs.Web is null
+                    ? null
+                    : "web=" + (jobs.Web.Targets is null ? "all" : string.Join(",", jobs.Web.Targets)),
+                jobs.Ios is null ? null : "ios=" + string.Join(",", jobs.Ios.Targets),
+                jobs.Android is null ? null : "android=" + string.Join(",", jobs.Android.Targets),
+            }.Where(part => part is not null)
         );
-        Assert.Equal(new CiJobs(false, true, false), Ci.GetCiJobs([new("ios", "ios"), new("ipad", "ios")]));
+
+    [Fact]
+    public void Gives_each_phone_platform_its_job_and_runs_everything_else_in_the_web_job()
+    {
+        Assert.Equal("web=all", Shape(Ci.GetCiJobs([new("web", "web")], Ios, Android)));
+        var both = Ci.GetCiJobs(
+            [new("chromium", "web"), new("api", "custom"), new("iphone", "ios"), new("pixel", "android")],
+            Ios,
+            Android
+        );
+        Assert.Equal("web=chromium,api;ios=iphone;android=pixel", Shape(both));
+        Assert.Equal(Ios, both.Ios!.Build);
+        Assert.Equal(Android, both.Android!.Build);
+        Assert.Equal("ios=ios,ipad", Shape(Ci.GetCiJobs([new("ios", "ios"), new("ipad", "ios")], Ios, Android)));
     }
 
     [Fact]
-    public void Partial_Runs_targets_of_other_platforms_such_as_HTTP_tests_in_the_web_job_beside_phone_jobs_too()
+    public void Runs_targets_of_other_platforms_such_as_HTTP_tests_in_the_web_job_beside_phone_jobs_too()
     {
-        Assert.Equal(new CiJobs(true, false, false), Ci.GetCiJobs([new("default", "custom")]));
-        Assert.Equal(new CiJobs(true, true, false), Ci.GetCiJobs([new("api", "custom"), new("ios", "ios")]));
-        Assert.False(Ci.GetCiJobs([]).Any);
+        Assert.Equal("web=all", Shape(Ci.GetCiJobs([new("default", "custom")], Ios, Android)));
+        Assert.Equal("web=api;ios=ios", Shape(Ci.GetCiJobs([new("api", "custom"), new("ios", "ios")], Ios, Android)));
+        Assert.False(Ci.GetCiJobs([], Ios, Android).Any);
     }
 }

@@ -5,12 +5,10 @@
 namespace E2E.Cli.Tests.InitCi;
 
 /// <summary>
-/// Upstream's <c>describe('renderGithubWorkflow')</c>. The port writes the pipeline as text and has no package manager, Node
-/// version, or Expo and React Native build, so these <c>it</c>s are not ported: "writes the template unchanged ..." (there is
-/// no template file), "builds a bare React Native app with its workspace ...", "skips Expo prebuild when android/ is already
-/// there", "sets up every job for a workspace member ...", "points the cache at a lockfile below the root ...", the
-/// package manager <c>it.each</c>, "sets up Bun ...", "keys the caches on Bun's older bun.lockb ...", and "keeps a folder
-/// name with a space as one value".
+/// Upstream's <c>describe('renderGithubWorkflow')</c>. The port writes the pipeline as text and has no workspace or Node
+/// version file, so these <c>it</c>s are not ported: "writes the template unchanged ..." (there is no template file), "sets up
+/// every job for a workspace member ...", "points the cache at a lockfile below the root ...", the package manager
+/// <c>it.each</c>, "sets up Bun ...", and "keys the caches on Bun's older bun.lockb ...".
 /// </summary>
 public sealed class RenderGithubWorkflowTests : InitCiTestBase
 {
@@ -36,7 +34,7 @@ public sealed class RenderGithubWorkflowTests : InitCiTestBase
     // Partial: the phone jobs run the whole project, since the port picks a target in the fixture, not with a flag.
     public void Partial_Writes_only_the_phone_jobs_for_a_mobile_only_config()
     {
-        var workflow = Ci.RenderGithubWorkflow(Base with { Jobs = new CiJobs(false, true, true) });
+        var workflow = Ci.RenderGithubWorkflow(Base with { Jobs = PhoneJobs });
         Assert.Equal(["ios", "android"], Names(workflow, @"^  (web|ios|android):$"));
         Assert.Contains(
             "adb install -r android/app/build/outputs/apk/release/app-release.apk",
@@ -57,10 +55,9 @@ public sealed class RenderGithubWorkflowTests : InitCiTestBase
     }
 
     [Fact]
-    // Partial: the port has no Expo or React Native build, so every phone build is the step that fails until it is replaced.
-    public void Partial_Writes_a_build_step_that_fails_until_it_is_replaced_saying_where_the_build_goes()
+    public void Writes_a_build_step_that_fails_until_it_is_replaced_for_any_other_app_saying_where_the_build_goes()
     {
-        var workflow = Ci.RenderGithubWorkflow(Base with { Jobs = new CiJobs(false, true, true) });
+        var workflow = Ci.RenderGithubWorkflow(Base with { Jobs = CustomJobs });
         Assert.Contains(
             "# Replace this step with your app's Release build for the iOS simulator, with the .app under build/.",
             workflow,
@@ -126,5 +123,127 @@ public sealed class RenderGithubWorkflowTests : InitCiTestBase
         var workflow = Ci.RenderGithubWorkflow(Base with { ProjectFile = "My App/My App.csproj" });
         Assert.Contains("dotnet build -c Release 'My App/My App.csproj'", workflow, StringComparison.Ordinal);
         Assert.Contains("pwsh 'My App/bin/Release/net10.0/playwright.ps1' install", workflow, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // Partial: upstream's run step names its targets with --target; the port sets E2E_TARGET for a job that runs one.
+    public void Partial_Writes_only_the_phone_jobs_for_a_mobile_only_config_each_naming_its_target()
+    {
+        var workflow = Ci.RenderGithubWorkflow(
+            Base with
+            {
+                Secrets = [],
+                Jobs = PhoneJobs with { Ios = new CiPhoneJob<IosBuild>(["iphone"], new IosBuild.Expo()) },
+            }
+        );
+        Assert.Contains("jobs:\n  ios:\n", workflow, StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"(?m)^ +$", workflow);
+        Assert.Contains("        env:\n          E2E_TARGET: iphone\n", workflow, StringComparison.Ordinal);
+        Assert.Contains("          E2E_TARGET: android\n", workflow, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // Partial: upstream names several targets in one --target; E2E_TARGET takes one, so a job with several sets none.
+    public void Partial_Runs_the_web_job_on_every_target_off_the_phones_when_a_config_has_both()
+    {
+        var one = Ci.RenderGithubWorkflow(Base with { Secrets = [], Jobs = AllJobs });
+        Assert.Contains("E2E_TARGET: web\n", one, StringComparison.Ordinal);
+        var several = Ci.RenderGithubWorkflow(
+            Base with
+            {
+                Secrets = [],
+                Jobs = AllJobs with { Web = new CiWebJob(["web", "api"]) },
+            }
+        );
+        Assert.DoesNotContain("E2E_TARGET: web", several, StringComparison.Ordinal);
+        Assert.DoesNotContain("E2E_TARGET: api", several, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // Partial: bare React Native builds in the app's folder; the install and the pods commands are the same as upstream's.
+    public void Partial_Builds_a_bare_React_Native_app_with_its_workspace_through_Bundler_when_it_has_a_Gemfile()
+    {
+        var workflow = Ci.RenderGithubWorkflow(
+            Base with
+            {
+                Jobs = new CiJobs(
+                    null,
+                    new CiPhoneJob<IosBuild>(["ios"], new IosBuild.ReactNative("MyApp", true)),
+                    new CiPhoneJob<AndroidBuild>(["android"], new AndroidBuild.ReactNative())
+                ),
+            }
+        );
+        Assert.Contains(
+            "      # Installs the pods, then builds the workspace for the simulator into build/.\n      - name: Build the app\n        run: |\n"
+                + "          bundle install\n          (cd ios && bundle exec pod install)\n          xcodebuild -workspace ios/MyApp.xcworkspace -scheme MyApp -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build\n",
+            workflow,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "# Only the emulator's ABI: building all four takes about 25 minutes longer.\n      - name: Build the app\n        run: (cd android && ./gradlew :app:assembleRelease -PreactNativeArchitectures=x86_64)\n",
+            workflow,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("run: npm ci\n", workflow, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Skips_Expo_prebuild_when_android_is_already_there()
+    {
+        var workflow = Ci.RenderGithubWorkflow(
+            Base with
+            {
+                Jobs = new CiJobs(null, null, new CiPhoneJob<AndroidBuild>(["android"], new AndroidBuild.Expo(false))),
+            }
+        );
+        Assert.DoesNotContain("expo prebuild", workflow, StringComparison.Ordinal);
+        Assert.Contains("run: (cd android && ./gradlew :app:assembleRelease", workflow, StringComparison.Ordinal);
+        Assert.Contains(
+            "expo prebuild",
+            Ci.RenderGithubWorkflow(Base with { Jobs = PhoneJobs }),
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
+    // .NET-only: the app's folder is where the install and the build run, and where the APK and the .app are.
+    public void Builds_an_app_in_a_folder_there_and_installs_its_output_from_there()
+    {
+        var workflow = Ci.RenderGithubWorkflow(
+            Base with
+            {
+                Jobs = PhoneJobs,
+                AppDir = "apps/mobile",
+                Manager = "pnpm",
+            }
+        );
+        Assert.Contains("working-directory: apps/mobile", workflow, StringComparison.Ordinal);
+        Assert.Contains("pnpm exec expo run:ios", workflow, StringComparison.Ordinal);
+        Assert.Contains("pnpm install --frozen-lockfile", workflow, StringComparison.Ordinal);
+        Assert.Contains(
+            "adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk",
+            workflow,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("find apps/mobile/build -maxdepth 5", workflow, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // .NET-only: upstream's --reporter list,junit; the port's junit logger writes .e2e/junit.xml, which the report upload keeps.
+    public void Writes_a_JUnit_report_with_the_junit_logger_and_keeps_it()
+    {
+        var workflow = Ci.RenderGithubWorkflow(Base with { Jobs = AllJobs });
+        Assert.Equal(
+            3,
+            System
+                .Text.RegularExpressions.Regex.Matches(
+                    workflow,
+                    @"--logger ""junit;LogFilePath=\$\{\{ github\.workspace \}\}/\.e2e/junit\.xml"""
+                )
+                .Count
+        );
+        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(workflow, @"\.e2e/junit\.xml\n").Count);
+        var without = Ci.RenderGithubWorkflow(Base with { Jobs = AllJobs, Junit = false });
+        Assert.DoesNotContain("junit", without, StringComparison.Ordinal);
     }
 }

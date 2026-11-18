@@ -146,7 +146,7 @@ stored. Entries recorded before these fields existed count once a
 
 ## Output
 
-The port writes no `junit.xml` of its own. It writes `.e2e/report.json`, for scripts
+The port writes no `junit.xml` of its own (the `junit` logger of `JunitXml.TestLogger` does, for `dotnet test`). It writes `.e2e/report.json`, for scripts
 rather than reading (`jq`, CI tools; topic `debugging`), a trace page,
 `.e2e/results/<result>/trace.md`, for each attempt its `trace` mode keeps, and a
 video when `video` is on. The report holds every result of the test process,
@@ -265,8 +265,13 @@ jobs:
 per platform the config's targets run on (web, iOS, Android) and the project's
 model key; `--ci gitlab` writes the same jobs as `.gitlab-ci.yml` (or
 `.gitlab/e2e.gitlab-ci.yml` to include beside an existing one), its mobile jobs
-on self-managed runners. The mobile jobs have a build step that fails until you
-replace it with your app's build. It leaves existing pipeline files alone. Set
+on self-managed runners. A job that runs one target sets `E2E_TARGET` to its
+name (upstream's `--target`, one name), so the whole test project runs on it. The
+mobile jobs build an Expo or bare React Native app found in the nearest
+`package.json` above the test project; for any other app they have a build step
+that fails until you replace it with your app's build. The jobs write
+`.e2e/junit.xml` with the `junit` logger of `JunitXml.TestLogger`, which init adds
+to the project (not for TUnit). It leaves existing pipeline files alone. Set
 `app.command` in the config so the runner starts the app.
 
 - Install the browser in its own step, so the download stays out of the
