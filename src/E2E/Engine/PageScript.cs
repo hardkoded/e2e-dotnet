@@ -276,11 +276,14 @@ internal static class PageScript
                 let offered = 0;
                 for (const option of el.options) {
                   if (offered >= maxSelectOptions) break;
-                  if (isOfferedOption(option)) offered += 1;
+                  if (!isOfferedOption(option)) continue;
+                  offered += 1;
+                  for (const child of option.children) n += tally(child, visible);
+                  const optionShadow = shadowOf(option);
+                  if (optionShadow) for (const child of optionShadow.children) n += tally(child, visible);
                 }
                 return n + offered;
               }
-              if (isLeaf(el, role)) return n;
             }
             for (const child of el.children) n += tally(child, visible);
             const shadow = shadowOf(el);
@@ -318,7 +321,7 @@ internal static class PageScript
               }
               if (!textNode && offBudget < max && !inView(el)) {
                 if (offCount >= offBudget) {
-                  if (isLeaf(el, role) || el.tagName === "SELECT") return;
+                  if (el.tagName === "SELECT") return;
                   walkChildren(el, into, childrenHidden, isAriaHidden);
                   return;
                 }
@@ -355,7 +358,7 @@ internal static class PageScript
                 }
                 return;
               }
-              if (isLeaf(el, role)) return;
+              // Upstream lists every child, so a leaf role lists the nodes it holds too.
               walkChildren(el, node.children, childrenHidden, isAriaHidden);
               return;
             }
