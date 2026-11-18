@@ -279,7 +279,7 @@ internal sealed class DecisionStep
 
         _transcript.Add(TranscriptLine(request));
         var answers = await Decide
-            .DecideAsync(_ctx, _options.Model, request, _options.ProviderOptions)
+            .DecideAsync(_ctx, _options.Model, request, _options.ProviderOptions, Signal)
             .ConfigureAwait(false);
         _transcript.Add(JsonSerializer.Serialize(answers, TranscriptOptions));
         return answers;
@@ -311,7 +311,8 @@ internal sealed class DecisionStep
                     Field = field,
                     Page = page,
                     RecentActions = [.. _history.Skip(Math.Max(0, _history.Count - spec.History))],
-                }
+                },
+                Signal
             )
             .ConfigureAwait(false);
     }

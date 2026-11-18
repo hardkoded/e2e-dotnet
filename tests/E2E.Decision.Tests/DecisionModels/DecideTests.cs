@@ -205,4 +205,20 @@ public sealed class DecideTests
         Assert.Equal("operation", error.QuestionId);
         Assert.Empty(model.Calls);
     }
+
+    [Fact]
+    public async Task Surfaces_a_cancel_of_the_caller_token_during_the_call_as_cancellation()
+    {
+        using var caller = new CancellationTokenSource();
+        var model = new ScriptedDecisionModel(_ =>
+        {
+            caller.Cancel();
+            return Answer(new DecisionAnswer { Type = "choice", Choice = "tap" });
+        });
+        var (ctx, _) = Context();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Decide.DecideAsync(ctx, model, Request(), null, caller.Token)
+        );
+    }
 }

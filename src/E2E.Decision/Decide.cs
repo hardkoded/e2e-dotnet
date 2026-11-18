@@ -81,13 +81,14 @@ public static class Decide
         StepExecutorContext ctx,
         IDecisionModel model,
         DecisionRequest request,
-        IReadOnlyDictionary<string, JsonElement>? providerOptions = null
+        IReadOnlyDictionary<string, JsonElement>? providerOptions = null,
+        CancellationToken cancellationToken = default
     )
     {
         ArgumentNullException.ThrowIfNull(ctx);
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(request);
-        var signal = ctx.Attempt.CancellationToken;
+        var signal = cancellationToken.CanBeCanceled ? cancellationToken : ctx.Attempt.CancellationToken;
         // The screenshot rides beside the JSON state as a file part; a text-only provider rejects it before the request.
         List<DecisionStatePart> state = [new DecisionJsonPart(request.State)];
         if (request.Screenshot is { } screenshot)
@@ -99,7 +100,7 @@ public static class Decide
         try
         {
             result = await Budget
-                .RecordedAsync(ctx, model.Provider, model.ModelId, async () =>
+                .RecordedAsync(ctx, model.Provider, model.ModelId, signal, async () =>
                 {
                     var decided = await ExperimentalDecide
                         .RunAsync(

@@ -190,14 +190,15 @@ public static class Text
         StepExecutorContext ctx,
         IAgentModel model,
         Ask<T> spec,
-        FieldInput input
+        FieldInput input,
+        CancellationToken cancellationToken = default
     )
     {
         ArgumentNullException.ThrowIfNull(ctx);
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(spec);
         ArgumentNullException.ThrowIfNull(input);
-        var signal = ctx.Attempt.CancellationToken;
+        var signal = cancellationToken.CanBeCanceled ? cancellationToken : ctx.Attempt.CancellationToken;
         // The agent model names itself `provider/model`; the call is recorded under both.
         var slash = model.Name.IndexOf('/', StringComparison.Ordinal);
         var provider = slash > 0 ? model.Name[..slash] : model.Name;
