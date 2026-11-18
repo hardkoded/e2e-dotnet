@@ -487,7 +487,10 @@ internal static partial class Ci
                 return true;
             }
 
-            if (string.Equals(current, stop, StringComparison.OrdinalIgnoreCase) || Path.GetDirectoryName(current) is null)
+            if (
+                string.Equals(current, stop, StringComparison.OrdinalIgnoreCase)
+                || Path.GetDirectoryName(current) is null
+            )
             {
                 return false;
             }
@@ -522,7 +525,10 @@ internal static partial class Ci
                 }
             }
 
-            if (string.Equals(current, stop, StringComparison.OrdinalIgnoreCase) || Path.GetDirectoryName(current) is null)
+            if (
+                string.Equals(current, stop, StringComparison.OrdinalIgnoreCase)
+                || Path.GetDirectoryName(current) is null
+            )
             {
                 return false;
             }
@@ -1361,7 +1367,11 @@ internal static partial class Ci
     [GeneratedRegex(@"^stages:[ \t]*(.*)$", RegexOptions.None, 1000)]
     private static partial Regex TopLevelStages();
 
-    [GeneratedRegex(@"<ManagePackageVersionsCentrally>\s*true\s*</ManagePackageVersionsCentrally>", RegexOptions.IgnoreCase, 1000)]
+    [GeneratedRegex(
+        @"<ManagePackageVersionsCentrally(?:\s[^>]*)?>\s*true\s*</ManagePackageVersionsCentrally>",
+        RegexOptions.IgnoreCase,
+        1000
+    )]
     private static partial Regex CentralVersions();
 
     [GeneratedRegex(@"^---.*$", RegexOptions.Multiline, 1000)]

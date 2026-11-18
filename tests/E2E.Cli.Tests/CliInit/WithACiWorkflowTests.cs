@@ -541,4 +541,16 @@ public sealed class WithACiWorkflowTests : CliInitTestBase
         Assert.DoesNotContain("junit", Read(Workflow), StringComparison.Ordinal);
         Assert.Contains("The pipeline writes no JUnit report", Output, StringComparison.Ordinal);
     }
+
+    [Fact]
+    // .NET-only: the property may carry an attribute, such as a Condition.
+    public async Task Reads_central_package_versions_set_with_a_conditioned_property()
+    {
+        await File.WriteAllTextAsync(
+            Path_("Directory.Build.props"),
+            "<Project><PropertyGroup><ManagePackageVersionsCentrally Condition=\"'1' == '1'\">true</ManagePackageVersionsCentrally></PropertyGroup></Project>"
+        );
+        await RunInitAsync(new InitOptions { Yes = true, Ci = "github-actions" });
+        Assert.DoesNotContain("JunitXml.TestLogger", Read(ProjectFile()), StringComparison.Ordinal);
+    }
 }

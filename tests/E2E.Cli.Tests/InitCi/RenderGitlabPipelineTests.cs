@@ -186,7 +186,11 @@ public sealed class RenderGitlabPipelineTests : InitCiTestBase
             }
         );
         Assert.Contains("find 'apps/My App/build' -maxdepth 5", pipeline, StringComparison.Ordinal);
-        Assert.Contains("install -r 'apps/My App/android/app/build/outputs/apk/release/app-release.apk'", pipeline, StringComparison.Ordinal);
+        Assert.Contains(
+            "install -r 'apps/My App/android/app/build/outputs/apk/release/app-release.apk'",
+            pipeline,
+            StringComparison.Ordinal
+        );
         Assert.Contains("    - npm install\n", pipeline, StringComparison.Ordinal);
         Assert.DoesNotContain("npm ci", pipeline, StringComparison.Ordinal);
         var github = Ci.RenderGithubWorkflow(Base with { Jobs = PhoneJobs, AppDir = "apps/My App" });
