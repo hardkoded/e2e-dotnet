@@ -157,6 +157,28 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         );
     }
 
+    [Fact]
+    public void Keeps_screenshot_strict_once_saveScreenshot_adds_a_path_field()
+    {
+        var tool = AgentTools
+            .GrammarToolDefinitions(Everything, null, EngineActionKinds.Locator, saveScreenshot: true)
+            .Single(tool => tool.Name == "screenshot");
+        var schema = SchemaOf(tool);
+        Assert.True(schema.IsValid(Input("{}")));
+        Assert.True(schema.IsValid(Input("""{ "path": "screenshots/home.png" }""")));
+        Assert.False(schema.IsValid(Input("""{ "path": "screenshots/home.jpg" }""")));
+        var padded = Input("""{ "path": "screenshots/home.png", "description": "check" }""");
+        Assert.False(schema.IsValid(padded));
+        var refusal = AgentTools.SchemaTool(tool, Call(tool.Name, padded));
+        Assert.NotNull(refusal);
+        var issues = JsonNode
+            .Parse(
+                refusal[(refusal.IndexOf("Error message: ", StringComparison.Ordinal) + "Error message: ".Length)..]
+            )!
+            .AsArray();
+        Assert.Equal(["unrecognized_keys"], issues.Select(issue => (string?)issue!["code"]));
+    }
+
     private static IReadOnlyList<ModelTool> OverVerbs(params ExecutorVerb[] verbs) =>
         AgentTools.GrammarToolDefinitions(new HashSet<ExecutorVerb>(verbs));
 

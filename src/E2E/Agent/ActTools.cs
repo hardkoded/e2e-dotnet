@@ -25,7 +25,8 @@ internal sealed partial class ActTools(
     AttemptScope scope,
     ObservationFeed feed,
     ScreenPresenter screen,
-    bool session = false
+    bool session = false,
+    Func<string, CancellationToken, Task<string>>? saveScreenshot = null
 )
 {
     private static readonly HashSet<string> ActionTools = new(
@@ -101,7 +102,25 @@ internal sealed partial class ActTools(
         {
             try
             {
-                return Outcome(await DescribeAsync(null, token, pixels: true).ConfigureAwait(false));
+                var shown = Outcome(await DescribeAsync(null, token, pixels: true).ConfigureAwait(false));
+                var file =
+                    saveScreenshot is not null
+                    && call.Arguments.ValueKind == JsonValueKind.Object
+                    && call.Arguments.TryGetProperty("path", out var path)
+                    && path.ValueKind == JsonValueKind.String
+                        ? path.GetString()
+                        : null;
+                if (file is null)
+                {
+                    return shown;
+                }
+
+                return new ToolOutcome
+                {
+                    Content = shown.Content + "\nSaved to " + await saveScreenshot!(file, token).ConfigureAwait(false),
+                    Pixels = shown.Pixels,
+                    Succeeded = true,
+                };
             }
             catch (E2EException ex) when (!token.IsCancellationRequested && !StepExecutors.IsRuntimeHardStop(ex))
             {
