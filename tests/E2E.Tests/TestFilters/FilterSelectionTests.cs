@@ -48,6 +48,7 @@ public sealed class FilterSelectionTests
         var kept = await Filters.FilterSelection(first, options);
         Assert.Empty(kept.Records);
         Assert.Null(kept.Changes);
+        Assert.Empty(kept.Relevance);
         Assert.Same(first, kept.Selection);
         Assert.Equal(["warning: --changed-since: the config has no filters, so every test runs"], notices);
 
@@ -74,6 +75,7 @@ public sealed class FilterSelectionTests
         var kept = await Filters.FilterSelection(first, options);
         Assert.Empty(kept.Records);
         Assert.Equal(new ReportChanges(Skipped: "--last-failed"), kept.Changes);
+        Assert.Empty(kept.Relevance);
         Assert.Same(first, kept.Selection);
         Assert.Equal(["--last-failed: the tests the last run owes run without filters"], notices);
         Assert.Equal(0, calls);

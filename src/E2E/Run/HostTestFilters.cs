@@ -136,7 +136,7 @@ internal static class HostTestFilters
         };
         var first = Selector.Select(collection, resolved, selectionFilters, passWithNoTests: true);
         var filtered = changedSince is null
-            ? new FilteredSelection(first, [], null)
+            ? new FilteredSelection(first, [], null, new Dictionary<string, double>())
             : await TestFilters
                 .FilterSelection(
                     first,
