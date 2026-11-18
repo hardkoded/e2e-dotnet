@@ -77,7 +77,7 @@ public sealed class LineTextTests
     public async Task Lists_the_children_of_a_wrapper_with_no_text_of_its_own_as_before()
     {
         var nodes = await ObserveAsync("<div><span>One</span><span>Two</span></div><button><span>Save</span></button>");
-        Assert.Equal(["One", "Two", """button "Save" Save"""], Lines(nodes));
+        Assert.Equal(["One", "Two", """button "Save" Save""", "Save"], Lines(nodes));
     }
 
     [Fact]

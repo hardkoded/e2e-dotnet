@@ -280,7 +280,6 @@ internal static class PageScript
                 }
                 return n + offered;
               }
-              if (isLeaf(el, role)) return n;
             }
             for (const child of el.children) n += tally(child, visible);
             const shadow = shadowOf(el);
@@ -355,7 +354,7 @@ internal static class PageScript
                 }
                 return;
               }
-              if (isLeaf(el, role)) return;
+              // Upstream lists every child, so a leaf role lists the nodes it holds too.
               walkChildren(el, node.children, childrenHidden, isAriaHidden);
               return;
             }
