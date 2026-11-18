@@ -1,0 +1,215 @@
+---
+title: Vercel Previews
+description: Test Vercel preview and production deployments with GitHub Actions, and hold production releases until the tests pass.
+---
+
+This ports upstream's Vercel Previews page (`docs/ci/vercel-previews.mdx`, with its `docs/examples/vercel/e2e.config.ts`). The workflow runs `dotnet test` where upstream runs `npx e2e run`, and the config is C# code, because `e2e.config.json` holds no code. The port has no CI index page, so this page sits under Integrations next to [Pull request comments](/integrations/github/) and [GitLab CI/CD](/integrations/gitlab/).
+
+[Vercel](https://vercel.com) gives each app deployment its own URL. GitHub Actions runs the tests against it. A [Deployment Check](https://vercel.com/docs/deployment-checks) holds the production release until the tests pass.
+
+The page ports without upstream's demo video (`/images/vercel-previews.mp4`) and its `SetupPrompt` card. The port has neither component.
+
+## Set up manually
+
+Start with a [web suite](/get-started/web/) and a Vercel project connected to its GitHub repository.
+
+### Configure the deployment URL
+
+Read `APP_URL` to test a deployment. Without it, the config starts your local app. Adapt the command and port. The JSON file can't read an environment variable, so a fixture base class builds the config in code and adds the engine with the bypass header:
+
+```csharp title="VercelTest.cs"
+using E2E.Engine;
+using E2E.NUnit;
+
+public abstract class VercelTest : E2ETest
+{
+    private static readonly string? AppUrl = Environment.GetEnvironmentVariable("APP_URL");
+    private static readonly string? BypassSecret = Environment.GetEnvironmentVariable(
+        "VERCEL_AUTOMATION_BYPASS_SECRET"
+    );
+    private static readonly string AppEnvironment =
+        Environment.GetEnvironmentVariable("DEPLOYMENT_ENVIRONMENT") == "production" ? "production" : "test";
+
+    private static readonly Lazy<E2EConfig> VercelConfig = new(() =>
+    {
+        var app = AppUrl is { Length: > 0 }
+            ? $$"""{ "url": "{{AppUrl}}", "identity": "my-app", "environment": "{{AppEnvironment}}" }"""
+            : $$"""
+                {
+                  "url": "http://localhost:3000",
+                  "identity": "my-app",
+                  "environment": "{{AppEnvironment}}",
+                  "command": { "executable": "npm", "args": ["run", "dev"], "reuseExisting": true }
+                }
+                """;
+        var json = $$"""
+            {
+              "targets": [{ "name": "web", "platform": "web", "app": {{app}} }],
+              "agents": { "default": { "provider": "gateway", "model": "openai/gpt-6-luna-fast" } }
+            }
+            """;
+        return E2EConfig
+            .Parse(json, Directory.GetCurrentDirectory())
+            .WithTarget(
+                "web",
+                new WebEngine(
+                    new WebEngineOptions
+                    {
+                        Headers = BypassSecret is { Length: > 0 }
+                            ? new Dictionary<string, string> { ["x-vercel-protection-bypass"] = BypassSecret }
+                            : null,
+                    }
+                )
+            );
+    });
+
+    protected override E2EConfig Config => VercelConfig.Value;
+}
+```
+
+Derive your test classes from `VercelTest`, and use `App.OpenAsync()` so navigation follows the configured URL.
+
+- `Headers` goes to the app's origin only. See [`WebEngineOptions.Headers`](/api/E2E.Engine/WebEngineOptions/) for the origins that receive it.
+- The `identity` is fixed and the `environment` is `test` for a preview, so local and preview runs share [recordings](#reuse-agent-recordings) across URLs. Production has its own cache entries.
+
+### Enable events and deployment access
+
+In your Vercel project's **Settings > Git**, enable [`repository_dispatch` events](https://vercel.com/docs/git/vercel-for-github#repository-dispatch-events). Under **Settings > Deployment Protection**, create a [Protection Bypass for Automation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation) secret. The config sends it as the `x-vercel-protection-bypass` header.
+
+In GitHub's **Settings > Secrets and variables > Actions**, add:
+
+| Secret | Used for |
+| --- | --- |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | Opening protected preview and unreleased production deployments |
+| `AI_GATEWAY_API_KEY` | Model calls with the config above; locator-only suites need none |
+
+:::note
+The port does not skip agent tests when no model credential is set. Give CI the key to run the whole suite.
+:::
+
+### Add the workflow
+
+Use `vercel.deployment.ready`, which fires after the build and before Deployment Checks. Set `APP_URL` to the event's deployment URL so tests reach the build awaiting promotion.
+
+```yaml title=".github/workflows/e2e.yml"
+name: e2e
+
+on:
+  repository_dispatch:
+    types: [vercel.deployment.ready]
+
+run-name: e2e - ${{ github.event.client_payload.environment }} - ${{ github.event.client_payload.git.shortSha }}
+
+permissions:
+  contents: read
+  actions: read
+  statuses: write
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: vercel/repository-dispatch/actions/status@30f760c6640485cd92f8c785ef361382555fb712 # v1
+        with:
+          name: e2e - ${{ github.event.client_payload.environment }}
+      - uses: vercel/repository-dispatch/actions/checkout@30f760c6640485cd92f8c785ef361382555fb712 # v1
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build -c Release MyApp.E2E
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/Directory.Build.props') }}
+      - run: pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Run e2e against the deployment
+        run: dotnet test -c Release --no-build MyApp.E2E --logger "junit;LogFilePath=$GITHUB_WORKSPACE/.e2e/junit.xml"
+        env:
+          APP_URL: ${{ github.event.client_payload.url }}
+          DEPLOYMENT_ENVIRONMENT: ${{ github.event.client_payload.environment }}
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+      - name: Upload the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-report-${{ github.event.client_payload.environment }}
+          path: |
+            .e2e/report.json
+            .e2e/junit.xml
+            .e2e/results
+          if-no-files-found: warn
+          retention-days: 7
+```
+
+The `junit` logger is the [JunitXml.TestLogger](https://github.com/spekt/junit.testlogger) package, which you add to the test project. The port has no JUnit reporter of its own.
+
+Vercel's checkout action selects the deployed commit. Its status action reports the job result on that commit. Separate `e2e - preview` and `e2e - production` statuses prevent one environment's result from overwriting the other's.
+
+:::note
+Put the workflow on the default branch before testing a deployment. Workflow edits on a pull request do not change the workflow Vercel triggers.
+:::
+
+Run this workflow only for trusted deployment code. It builds and runs that commit with repository secrets and a write token. See [Model key](/integrations/gitlab/#model-key) for how the port handles model credentials.
+
+### Gate production on the result
+
+After the first production run, open Vercel's **Settings > Build and Deployment > Deployment Checks**. Select **Add Checks**, choose **GitHub**, and select `e2e - production`.
+
+Future production builds wait for the check before Vercel assigns their production domains. A failing check leaves the previous deployment live. Keep the status name in Vercel and the workflow identical. See [Deployment Checks](https://vercel.com/docs/deployment-checks#adding-github-checks).
+
+## Reuse agent recordings
+
+[Commit the replay cache](/features/caching/) to replay recorded `ActAsync` steps in CI. The config's fixed `identity` and `test` environment let local and preview runs share recordings across URLs. Production uses its own cache entries because its environment differs.
+
+CI reads recordings by default and calls the model on a cache miss. `AssertAsync`, `WaitForAsync`, and `ExtractAsync` always run live, so recordings do not remove the need for a model key.
+
+## Post results on the pull request
+
+The dispatch payload has no pull request number. Look it up from the deployed commit for the [`E2E.GitHub` reporter](/integrations/github/).
+
+Follow the reporter's [setup](/integrations/github/#setup) to add `E2E.GitHub` and list `GitHubReporter` in `reporters`. Add `pull-requests: write` to the workflow permissions. Insert this step before **Run e2e against the deployment**:
+
+```yaml
+      - name: Find the pull request
+        id: pull-request
+        run: |
+          number=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
+            --jq '[.[] | select(.state == "open")][0].number // empty')
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.client_payload.git.sha }}
+```
+
+Replace the run step. The temporary event file gives the reporter the pull request number and deployed commit for its source links:
+
+```yaml
+      - name: Run e2e against the deployment
+        run: |
+          export GITHUB_SHA="$SHA"
+          if [ -n "$PULL_REQUEST" ]; then
+            jq -n --argjson number "$PULL_REQUEST" --arg sha "$SHA" \
+              '{pull_request: {number: $number, head: {sha: $sha}}}' > "$RUNNER_TEMP/pull-request.json"
+            export GITHUB_EVENT_PATH="$RUNNER_TEMP/pull-request.json"
+          fi
+          dotnet test -c Release --no-build MyApp.E2E --logger "junit;LogFilePath=$GITHUB_WORKSPACE/.e2e/junit.xml"
+        env:
+          PULL_REQUEST: ${{ steps.pull-request.outputs.number }}
+          SHA: ${{ github.event.client_payload.git.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          APP_URL: ${{ github.event.client_payload.url }}
+          DEPLOYMENT_ENVIRONMENT: ${{ github.event.client_payload.environment }}
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+```
+
+The reporter updates one comment on reruns and writes the job summary. Without an open pull request, it writes only the summary.
+
+## Next
+
+- [Pull request comments](/integrations/github/): read failures, screenshots, and traces from the pull request.
+- [GitLab CI/CD](/integrations/gitlab/): the same CI defaults on GitLab.
