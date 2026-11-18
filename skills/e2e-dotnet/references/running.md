@@ -154,6 +154,8 @@ passing ones included, whatever the `trace` mode, and is written again after eac
 attempt, so a run that stops early leaves the attempts so far. Its `run.status`
 and `run.finishedAt` are those of the attempts so far until the last one ends.
 Processes that share an output directory overwrite one another's report.
+List `E2E.Reports.JunitReporter, E2E` in `reporters` of `e2e.config.json` to write `junit.xml` beside `report.json`
+(one suite per file, a `run` suite for run-level errors, the failure screenshot as an `[[ATTACHMENT|path]]` line).
 Use the test runner's own reporters. On VSTest (NUnit and xUnit v3 by default):
 `dotnet test --logger "trx;LogFileName=e2e.trx"` or
 `--logger "console;verbosity=detailed"`. On Microsoft.Testing.Platform (MTP;
