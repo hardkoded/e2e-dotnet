@@ -262,7 +262,8 @@ internal static class PageScript
             return true;
           };
           const tally = (el, visible) => {
-            if (!el || skip.has(el.tagName) || isInert(el)) return 0;
+            // A datalist is display: none, so upstream's tree drops it with its options; Chrome has no node for them either.
+            if (!el || skip.has(el.tagName) || el.tagName === "DATALIST" || isInert(el)) return 0;
             const place = modal === undefined ? "inside" : modal.placeOf(el);
             if (place === "outside") return 0;
             if (el.tagName === "IFRAME" && (ariaHidden(el) || hidden(el))) return 0;
@@ -295,7 +296,7 @@ internal static class PageScript
           // parentAria is whether an ancestor is aria-hidden: the node paints
           // and is visible, but the accessibility tree drops it.
           const walk = (el, into, parentHidden, parentAria) => {
-            if (!el || skip.has(el.tagName) || isInert(el) || full) return;
+            if (!el || skip.has(el.tagName) || el.tagName === "DATALIST" || isInert(el) || full) return;
             // Outside an open modal dialog everything is inert; the dialog's ancestors are walked to reach it and list nothing.
             const place = modal === undefined ? "inside" : modal.placeOf(el);
             if (place === "outside") return;
