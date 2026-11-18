@@ -1,0 +1,422 @@
+// Copyright 2026 TesterArmy.
+// Modified by Dario Kondratiuk.
+// SPDX-License-Identifier: Apache-2.0
+
+namespace E2E.Tests.Crosscheck;
+
+/// <summary>One page of the cross-check: a family of HTML and ARIA semantics the tree maps (upstream's <c>FixturePage</c>).</summary>
+public sealed record FixturePage(string Name, string Html);
+
+/// <summary>
+/// Pages the cross-check reads on every test run (upstream's <c>fixtures.ts</c>). Each one packs one family of HTML and ARIA
+/// semantics the tree maps, so a change to the reader that moves any node away from Chrome or Playwright shows up as a line in
+/// <c>expected.txt</c>. Add a page for a bug when the family is not here yet.
+/// </summary>
+public static class CrosscheckFixtures
+{
+    public static readonly IReadOnlyList<FixturePage> FixturePages =
+    [
+        new(
+            "shadow section landmarks",
+            """
+            <article><div id="article-shadow"></div></article>
+            <div role="region" aria-label="News"><div id="region-shadow"></div></div>
+            <div id="page-shadow"></div>
+            <script>
+              for (const id of ['article-shadow', 'region-shadow', 'page-shadow']) {
+                const root = document.getElementById(id).attachShadow({ mode: 'open' });
+                root.innerHTML = '<div></div>';
+                root.firstElementChild.attachShadow({ mode: 'open' }).innerHTML =
+                  '<header aria-label="' + id + ' header">Heading</header><footer aria-label="' + id + ' footer">Footer</footer>';
+              }
+            </script>
+            """
+        ),
+        new(
+            "inferred table headers",
+            """
+            <table><tr><th>Item</th><td>Value</td></tr></table>
+            <table><tr><td>Value</td><th>Last item</th></tr></table>
+            <table><tr><th>Column</th><th>Other column</th></tr></table>
+            <table><tr><th scope="col">Explicit column</th><td>Value</td></tr></table>
+            <table><tr><th scope="row">Explicit row</th><th>Column</th></tr></table>
+            """
+        ),
+        new(
+            "explicitly hidden select choices",
+            """
+            <select aria-label="Plan" size="8">
+              <option selected>Visible</option><option disabled>Disabled</option>
+              <option hidden>Hidden</option><option style="display:none">No display</option>
+              <optgroup hidden label="Hidden group"><option>Hidden group choice</option></optgroup>
+            </select>
+            """
+        ),
+        new(
+            "role fallback tokens",
+            """
+            <button role="unknown button">Save</button>
+            <button role="unknown widget">Submit</button>
+            <a href="/next" role="unknown button link">Continue</a>
+            <div role="unknown img" aria-label="Chart" style="width:10px;height:10px"></div>
+            <div role="unknown button" aria-label="Not a role" style="width:10px;height:10px"></div>
+            <table role="unknown grid"><tr><td>Cell</td></tr></table>
+            """
+        ),
+        new(
+            "boolean attribute casing",
+            """
+            <div role="tablist"><button role="tab" aria-selected="TRUE">All</button><button role="tab" aria-selected="TrUe">Recent</button><button role="tab" aria-selected="FALSE">Archived</button></div>
+            <div aria-hidden="TRUE"><button aria-hidden="false">Hidden action</button></div>
+            <button>Save<span aria-hidden="TrUe"> decoration</span></button>
+            <button aria-hidden="FALSE">Shown</button>
+            <button aria-labelledby="upper-reference">Fallback</button>
+            <div aria-hidden="TRUE"><span id="upper-reference">Label <i style="display:none">whole</i></span></div>
+            <div role="button">Pick <div role="listbox"><div role="option" aria-selected="true">Chosen</div><div role="option" aria-selected="false">Other</div></div></div>
+            """
+        ),
+        new(
+            "inputs",
+            """
+            <label>Full name <input type="text"></label>
+            <label for="mail">Email</label><input id="mail" type="email">
+            <input type="search" placeholder="Search products">
+            <input type="password" aria-label="Password">
+            <input type="number" aria-label="Quantity" value="2">
+            <input type="range" aria-label="Volume" min="0" max="10" value="3">
+            <input type="date" aria-label="Start date">
+            <input type="color" aria-label="Accent colour">
+            <input type="file" aria-label="Attachments">
+            <input type="tel" title="Phone">
+            <input type="url" placeholder="https://example.test">
+            <textarea aria-label="Notes"></textarea>
+            <select aria-label="Size"><option>Small</option><option selected>Medium</option></select>
+            <select aria-label="Toppings" multiple><option>Cheese</option><option selected>Olives</option></select>
+            <select aria-label="Shade" size="3"><option>Red</option><option selected>Green</option><option>Blue</option></select>
+            <input aria-label="Destination" list="cities"><datalist id="cities"><option>Oslo</option><option>Lima</option></datalist>
+            <input type="custom" aria-label="Origin" list="cities">
+            <input type="hidden" value="secret">
+            """
+        ),
+        new(
+            "buttons and links",
+            """
+            <button>Save</button>
+            <button aria-label="Close dialog">×</button>
+            <input type="submit" value="Send">
+            <input type="reset">
+            <input type="button" value="Preview">
+            <input type="image" alt="Go" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAAAAAAALAAAAAABAAEAAAIBRAA7">
+            <a href="/pricing">Pricing</a>
+            <a>Not a link</a>
+            <a href="/docs" aria-label="Documentation"><svg width="10" height="10"></svg></a>
+            <div role="button" tabindex="0">Custom action</div>
+            <button aria-pressed="true">Bold</button>
+            <button aria-pressed="false">Italic</button>
+            <a href="/decor" role="presentation">Decorative link</a>
+            <button role="none">Still a button</button>
+            <button role="none" disabled>Disabled presentation</button>
+            <h2 role="none" tabindex="0junk">Junk tabindex</h2>
+            <img alt="" tabindex="0" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAAAAAAALAAAAAABAAEAAAIBRAA7">
+            """
+        ),
+        new(
+            "checked states",
+            """
+            <label><input type="checkbox" checked> Remember me</label>
+            <label><input type="checkbox"> Subscribe</label>
+            <label><input type="radio" name="plan" checked> Monthly</label>
+            <label><input type="radio" name="plan"> Yearly</label>
+            <div role="checkbox" aria-checked="true" tabindex="0">Custom agree</div>
+            <div role="switch" aria-checked="false" tabindex="0">Dark mode</div>
+            <div role="radio" aria-checked="true" tabindex="0">Custom option</div>
+            <label><input type="checkbox" aria-checked="false" checked> Native wins</label>
+            """
+        ),
+        new(
+            "controls drawn by their label",
+            """
+            <style>.shrunk { opacity: 0; width: 0; height: 0; margin: 0; position: absolute; z-index: -1 }</style>
+            <label><input type="checkbox">Plain</label>
+            <label><span><input class="shrunk" type="checkbox"><span class="box"></span></span><span>Agree</span></label>
+            <label><input class="shrunk" type="checkbox" checked>Newsletter</label>
+            <label><input class="shrunk" type="radio" name="size">Large</label>
+            <input class="shrunk" type="checkbox" id="unlabelled-shrunk" aria-label="Unlabelled">
+            <input class="shrunk" type="checkbox" id="hidden-label"><label for="hidden-label" style="display: none">Hidden label</label>
+            <label><input class="shrunk" type="checkbox" style="visibility: hidden">Invisible</label>
+            <label style="display: contents"><input class="shrunk" type="checkbox"><span class="box"></span>Contents</label>
+            <label><input class="shrunk" type="checkbox"><span class="box"></span>Accept <a href="#terms">the terms</a></label>
+            """
+        ),
+        new(
+            "disabled states",
+            """
+            <button disabled>Disabled native</button>
+            <button aria-disabled="true">Disabled by aria</button>
+            <fieldset disabled><legend>Shipping</legend><input aria-label="Street"><button>Inside fieldset</button></fieldset>
+            <div aria-disabled="true"><button>Under aria-disabled</button></div>
+            <select disabled aria-label="Country"><option>Poland</option></select>
+            <input disabled aria-label="Locked field">
+            """
+        ),
+        new(
+            "expanded and selected",
+            """
+            <details open><summary>Open details</summary><p>Body</p></details>
+            <details><summary>Closed details</summary><p>Hidden body</p></details>
+            <button aria-expanded="true" aria-controls="m">Menu</button>
+            <ul id="m" role="menu"><li role="menuitem">Rename</li><li role="menuitemcheckbox" aria-checked="true">Pin</li></ul>
+            <div role="tablist"><button role="tab" aria-selected="true">Overview</button><button role="tab" aria-selected="false">Settings</button></div>
+            <div role="tabpanel" aria-label="Overview panel">Panel</div>
+            <div role="listbox" aria-label="Fruit"><div role="option" aria-selected="true">Apple</div><div role="option">Pear</div></div>
+            <input role="combobox" aria-label="City" aria-expanded="false">
+            <ul role="tree" aria-label="Files"><li role="treeitem" aria-expanded="true">src</li></ul>
+            """
+        ),
+        new(
+            "landmarks and headings",
+            """
+            <header>Site header</header>
+            <nav aria-label="Primary"><a href="/">Home</a></nav>
+            <main>
+              <h1>Title</h1><h2>Subtitle</h2><h3>Section</h3>
+              <div role="heading" aria-level="4">Custom heading</div>
+              <section aria-label="Promotions"><p>Sale</p></section>
+              <section><p>Unnamed section</p></section>
+              <form aria-label="Search form"><input aria-label="Query"></form>
+              <article><h2>Post</h2></article>
+              <aside>Related</aside>
+            </main>
+            <footer>Site footer</footer>
+            <div role="alert">Saved</div>
+            <div role="status">3 items</div>
+            <output>42</output>
+            <hr>
+            <progress value="3" max="10" aria-label="Upload"></progress>
+            """
+        ),
+        new(
+            "tables and lists",
+            """
+            <table>
+              <caption>Orders</caption>
+              <thead><tr><th scope="col">Order</th><th scope="col">Total</th></tr></thead>
+              <tbody><tr><th scope="row">#1</th><td>$10</td></tr><tr><td>#2</td><td>$20</td></tr></tbody>
+            </table>
+            <div role="grid" aria-label="Seats"><div role="row"><div role="gridcell">A1</div><div role="gridcell">A2</div></div></div>
+            <table role="grid" aria-label="Schedule"><tr><td>Monday</td><td>Tuesday</td></tr></table>
+            <table role=" grid" aria-label="Roster"><tr><td>Ada</td><td>Grace</td></tr></table>
+            <div role=" button" tabindex="0">Padded role</div>
+            <ul><li>First</li><li>Second <button>Remove</button></li></ul>
+            <ol><li>Step one</li></ol>
+            <menu><li>Menu entry</li></menu>
+            <dl><dt>Term</dt><dd>Definition</dd></dl>
+            """
+        ),
+        new(
+            "names",
+            """
+            <span id="l1">Billing</span><span id="l2">address</span>
+            <input aria-labelledby="l1 l2">
+            <input aria-label="Wins over label" id="both"><label for="both">Loses</label>
+            <button aria-describedby="d1">Delete</button><span id="d1">Permanently removes the file</span>
+            <button title="Tooltip only"></button>
+            <button><span title="Child tooltip"><svg width="10" height="10"></svg></span></button>
+            <button><span title="Blockified tooltip" style="display:flex"><svg width="10" height="10"></svg></span></button>
+            <button aria-labelledby="l3">Own text</button><span id="l3" title="Spaced reference"> </span>
+            <button><img alt="Trash" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAAAAAAALAAAAAABAAEAAAIBRAA7"> Empty trash</button>
+            <button>  Spaced   out   label  </button>
+            <button><span aria-hidden="true">★</span> Star</button>
+            <button><span style="display:none">Hidden</span>Visible</button>
+            <label>Wrapped <select><option>One</option></select></label>
+            <img alt="Company logo" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAAAAAAALAAAAAABAAEAAAIBRAA7">
+            <svg role="img" aria-label="Chart" width="10" height="10"></svg>
+            <svg role="presentation" aria-label="Painted chart" width="10" height="10"></svg>
+            <div role="presentation" aria-checked="true">Decorative state</div>
+            <figure><img alt="Cat" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAAAAAAALAAAAAABAAEAAAIBRAA7"><figcaption>A cat</figcaption></figure>
+            """
+        ),
+        new(
+            "descendants in a name from content",
+            """
+            <ul role="tree" aria-label="Files">
+              <li role="treeitem" aria-expanded="true"><span>src</span>
+                <ul role="group">
+                  <li role="treeitem" aria-expanded="true"><span>lib</span><ul role="group"><li role="treeitem">a.ts</li></ul></li>
+                  <li role="treeitem">index.ts</li>
+                </ul>
+              </li>
+            </ul>
+            <div role="tablist"><button role="tab" aria-selected="true">Inbox <span role="status">3</span></button></div>
+            <button><span role="img">*</span> Party</button>
+            <h2>Title <span role="note">Note text</span></h2>
+            <a href="/quote" title="Quote"><blockquote>Quote text</blockquote></a>
+            <a href="/contact"><address>1 Main St</address></a>
+            """
+        ),
+        new(
+            "generated content",
+            """
+            <style>
+              .arrow::before { content: "\2192"; }
+              .glyph::before { content: "\f090"; }
+              .badge::after { content: " new"; }
+              .quiet::before { content: "\2605" / ""; }
+            </style>
+            <button><i class="arrow"> Login</i></button>
+            <button><i class="glyph"> Sign in</i></button>
+            <a href="/inbox" class="badge">Inbox</a>
+            <button class="quiet">Favourite</button>
+            <a href="/exit" aria-label="Log out"><i class="glyph"></i></a>
+            <a href="/leave" title="Sign out"><i class="glyph"></i></a>
+            """
+        ),
+        new(
+            "hidden content",
+            """
+            <button aria-hidden="true">Aria hidden</button>
+            <button style="display:none">Display none</button>
+            <button style="visibility:hidden">Visibility hidden</button>
+            <button style="opacity:0">Transparent</button>
+            <div hidden><button>Hidden attribute</button></div>
+            <button style="position:absolute;left:-9999px">Off screen</button>
+            <div inert><button>Inert</button></div>
+            <button>Save <span inert>draft</span></button>
+            <button>Shown</button>
+            """
+        ),
+        new(
+            "shadow and custom elements",
+            """
+            <open-card></open-card>
+            <script>
+              customElements.define('open-card', class extends HTMLElement {
+                connectedCallback() {
+                  const root = this.attachShadow({ mode: 'open' });
+                  root.innerHTML = '<label>Code <input></label><button>Apply</button><slot></slot>';
+                }
+              });
+            </script>
+            <div role="button" tabindex="0"><span>Nested</span> <b>content</b></div>
+            <div contenteditable="true" aria-label="Editor">Hello</div>
+            <div contenteditable="true" aria-label="Decorated editor"><h2 role="presentation">Editor title</h2><img alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAAAAAAALAAAAAABAAEAAAIBRAA7"></div>
+            """
+        ),
+        new(
+            "modal dialog over the page",
+            """
+            <main><h1>Store</h1><button>Behind the modal</button><a href="/cart">Cart</a><input aria-label="Search"></main>
+            <iframe title="Offers" srcdoc="<button>Inside the frame</button>"></iframe>
+            <div id="late-popover" popover><button>Popover opened after</button></div>
+            <dialog id="consent" aria-label="Cookie consent"><p>We use cookies.</p><button>Accept</button></dialog>
+            <script>
+              document.getElementById('consent').showModal();
+              document.getElementById('late-popover').showPopover();
+            </script>
+            """
+        ),
+        new(
+            "stacked modal dialogs shown in reverse order",
+            """
+            <main><button>Page button</button></main>
+            <dialog id="first" aria-label="First in the document"><button>First dialog button</button></dialog>
+            <dialog id="second" aria-label="Second in the document"><button>Second dialog button</button></dialog>
+            <script>
+              document.getElementById('second').showModal();
+              document.getElementById('first').showModal();
+              // On a dialog already modal, showModal() changes nothing, so the first stays on top.
+              document.getElementById('second').showModal();
+              // Focus no longer names the dialog on top, so the recorded show order must.
+              document.activeElement.blur();
+            </script>
+            """
+        ),
+        new(
+            "modal dialog the show order never saw",
+            """
+            <main><button>Page button</button></main>
+            <dialog id="first" aria-label="Shown by script"><button id="next" commandfor="second" command="show-modal">Next step</button></dialog>
+            <dialog id="second" aria-label="Shown by a command"><button>Command dialog button</button></dialog>
+            <script>
+              document.getElementById('first').showModal();
+              // A show-modal command opens the second without calling showModal(), so the record never sees it.
+              document.getElementById('next').click();
+              document.activeElement.blur();
+            </script>
+            """
+        ),
+        new(
+            "modal dialog a command reopens",
+            """
+            <main><button>Page button</button></main>
+            <dialog id="reopened" aria-label="Reopened by a command"><button>Reopened dialog button</button></dialog>
+            <dialog id="between" aria-label="Shown while it was closed"><button id="again" commandfor="reopened" command="show-modal">Back</button></dialog>
+            <script>
+              document.getElementById('reopened').showModal();
+              document.getElementById('reopened').close();
+              document.getElementById('between').showModal();
+              // A show-modal command opens the first dialog again, on top, without calling showModal().
+              document.getElementById('again').click();
+              document.activeElement.blur();
+            </script>
+            """
+        ),
+        new(
+            "modal dialog nested in a modal dialog",
+            """
+            <dialog id="outer" aria-label="Edit order"><button>Save order</button>
+              <dialog id="inner" aria-label="Discard changes"><button>Discard</button></dialog>
+            </dialog>
+            <script>
+              document.getElementById('outer').showModal();
+              // Focus lands in the inner dialog, which the outer one also holds.
+              document.getElementById('inner').showModal();
+            </script>
+            """
+        ),
+        new(
+            "modal dialog in a closed shadow root",
+            """
+            <main><button>Page button</button></main>
+            <consent-banner><button>Slotted accept</button></consent-banner>
+            <script>
+              customElements.define('consent-banner', class extends HTMLElement {
+                connectedCallback() {
+                  const root = this.attachShadow({ mode: 'closed' });
+                  root.innerHTML = '<p>Behind the banner</p><dialog aria-label="Shadow consent"><slot></slot><button>Shadow decline</button></dialog>';
+                  root.querySelector('dialog').showModal();
+                }
+              });
+            </script>
+            """
+        ),
+        new(
+            "modal dialog slotted into a shadow root",
+            """
+            <dialog-frame><dialog aria-label="Slotted dialog"><button>Slotted dialog button</button></dialog></dialog-frame>
+            <button>Outside button</button>
+            <script>
+              customElements.define('dialog-frame', class extends HTMLElement {
+                connectedCallback() {
+                  this.attachShadow({ mode: 'open' }).innerHTML = '<div><button>Frame chrome</button><slot></slot></div>';
+                  this.querySelector('dialog').showModal();
+                }
+              });
+            </script>
+            """
+        ),
+        new(
+            "list rebuilt every millisecond",
+            """
+            <div id="rebuilt-list"></div>
+            <script>
+              const rebuild = () => {
+                document.getElementById('rebuilt-list').innerHTML = '<button type="button">Tap me</button><button type="button">Decoy</button>';
+              };
+              rebuild();
+              setInterval(rebuild, 1);
+            </script>
+            """
+        ),
+    ];
+}
