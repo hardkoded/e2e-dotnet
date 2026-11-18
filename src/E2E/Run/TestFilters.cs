@@ -715,7 +715,7 @@ internal static class TestFilters
         }
     }
 
-    /// <summary>A score as a refusal names it, as JavaScript spells a number: <c>NaN</c>, <c>Infinity</c>, <c>-0.01</c>.</summary>
+    /// <summary>A score as a refusal names it, as upstream's <c>describeValue</c> spells a number: <c>NaN</c>, <c>Infinity</c>, <c>-0.01</c>. .NET-only name: the port's <c>Command.DescribeValue</c> takes a JSON element, which has no <c>NaN</c> or infinity.</summary>
     private static string DescribeNumber(double value) =>
         double.IsNaN(value) ? "NaN"
         : double.IsPositiveInfinity(value) ? "Infinity"

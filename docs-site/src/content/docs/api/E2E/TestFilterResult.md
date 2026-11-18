@@ -68,8 +68,9 @@ public IReadOnlyDictionary<string, double>? Relevance { get; init; }
 ```
 
 
-How likely each test is to fail on this change, from 0 to 1, by [Id](/api/E2E/TestFilterCandidate/#E2E_TestFilterCandidate_Id). Each target starts the files of the
-likeliest tests first, in bands at 75%, 50%, and 25%, and targets go by the band of their best file, ties in config order. A test no
-filter scores counts as 0, and one several filters score keeps its highest. It never leaves a test out.
+How likely each test is to fail on this change, from 0 to 1, by [Id](/api/E2E/TestFilterCandidate/#E2E_TestFilterCandidate_Id). Upstream's runner starts the files of
+the likeliest tests first, in bands at 75%, 50%, and 25%, and targets by the band of their best file; here the scores are kept and
+`Units.OrderWorkPlans` orders plans with them, but the test framework owns the order of a `dotnet test` run, so they do not
+reorder it. A test no filter scores counts as 0, and one several filters score keeps its highest. It never leaves a test out.
 
 **Value:** [IReadOnlyDictionary&lt;string, double&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
