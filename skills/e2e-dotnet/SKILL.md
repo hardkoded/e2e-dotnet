@@ -557,6 +557,7 @@ lines you changed:
   its selector engines in the browser's default context on every connect and
   reconnect, so the mask also covers secure fields inside closed shadow roots.
 - Inert content: the agent doesn't see an element with the `inert` attribute and everything under it, nor everything outside a modal `<dialog>` opened with `showModal()` or a `show-modal` command (with several open, only the one shown last stays; when e2e can't tell which one that is, it leaves out nothing). Locators still find inert content, and `ToBeVisibleAsync` still passes.
+- `GrammarToolsOptions.SaveScreenshot` (a callback taking the path as written and returning the absolute path) gives the grammar `screenshot` tool an optional `.png` `path`: the result then adds `Saved to <path>`. The testing agent sets none, so its `screenshot` takes no fields.
 - The `e2e mcp` `screenshot` tool takes an optional `path`: a `.png` inside the
   project, relative to its root. It saves the same masked capture there and
   returns the absolute path. A path outside the project, a hidden file, or one

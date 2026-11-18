@@ -258,7 +258,7 @@ public static class AgentTools
               "properties": {
                 "path": {
                   "type": "string",
-                  "pattern": "\\.png\\z",
+                  "pattern": "\\.[pP][nN][gG]$",
                   "description": "PNG file to save it to, inside the project and relative to its root, e.g. \"screenshots/checkout.png\""
                 }
               }

@@ -166,6 +166,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         var schema = SchemaOf(tool);
         Assert.True(schema.IsValid(Input("{}")));
         Assert.True(schema.IsValid(Input("""{ "path": "screenshots/home.png" }""")));
+        Assert.True(schema.IsValid(Input("""{ "path": "screenshots/HOME.PNG" }""")));
         Assert.False(schema.IsValid(Input("""{ "path": "screenshots/home.jpg" }""")));
         var padded = Input("""{ "path": "screenshots/home.png", "description": "check" }""");
         Assert.False(schema.IsValid(padded));

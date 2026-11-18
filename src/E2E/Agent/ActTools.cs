@@ -102,14 +102,22 @@ internal sealed partial class ActTools(
         {
             try
             {
-                var shown = Outcome(await DescribeAsync(null, token, pixels: true).ConfigureAwait(false));
-                var file =
+                // Upstream's zod schema: an optional string ending in .png, checked before the tool runs.
+                string? file = null;
+                if (
                     saveScreenshot is not null
                     && call.Arguments.ValueKind == JsonValueKind.Object
                     && call.Arguments.TryGetProperty("path", out var path)
-                    && path.ValueKind == JsonValueKind.String
-                        ? path.GetString()
-                        : null;
+                )
+                {
+                    file = path.ValueKind == JsonValueKind.String ? path.GetString() : null;
+                    if (file is null || !file.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ToolOutcome.Fail("screenshot path must be a .png file.");
+                    }
+                }
+
+                var shown = Outcome(await DescribeAsync(null, token, pixels: true).ConfigureAwait(false));
                 if (file is null)
                 {
                     return shown;
