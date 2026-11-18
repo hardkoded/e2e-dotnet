@@ -112,7 +112,7 @@ public sealed class SecretsCutShortByObservationLimitsTests
         var model = new ScriptedModel(request =>
         {
             var last = request.Messages[^1];
-            if (request.Messages[0].Content?.StartsWith("Statement:", StringComparison.Ordinal) == true)
+            if (request.Messages[0].Content?.Contains("Statement:", StringComparison.Ordinal) == true)
             {
                 return ModelResponses.Done("passed", "the echo is shown");
             }
