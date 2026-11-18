@@ -497,6 +497,25 @@ internal static partial class Ci
         }
     }
 
+    /// <summary>Whether an MSBuild file sets <c>ManagePackageVersionsCentrally</c> to <c>true</c>, whatever its attributes (a <c>Condition</c> may hold any character, <c>&gt;</c> included).</summary>
+    private static bool SetsCentralVersions(string text)
+    {
+        try
+        {
+            return System
+                .Xml.Linq.XDocument.Parse(text)
+                .Descendants()
+                .Any(element =>
+                    element.Name.LocalName == "ManagePackageVersionsCentrally"
+                    && string.Equals(element.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase)
+                );
+        }
+        catch (System.Xml.XmlException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// .NET-only: whether the project takes its package versions from a <c>Directory.Packages.props</c> (central package
     /// management), where a <c>PackageReference</c> with a <c>Version</c> fails the restore with NU1008. Looks in the project file and in every folder up to
@@ -504,7 +523,7 @@ internal static partial class Ci
     /// </summary>
     internal static bool UsesCentralPackageVersions(string projectText, string projectDir, string repositoryRoot)
     {
-        if (CentralVersions().IsMatch(projectText))
+        if (SetsCentralVersions(projectText))
         {
             return true;
         }
@@ -519,7 +538,7 @@ internal static partial class Ci
             foreach (var name in new[] { "Directory.Packages.props", "Directory.Build.props" })
             {
                 var file = Path.Combine(current, name);
-                if (System.IO.File.Exists(file) && CentralVersions().IsMatch(System.IO.File.ReadAllText(file)))
+                if (System.IO.File.Exists(file) && SetsCentralVersions(System.IO.File.ReadAllText(file)))
                 {
                     return true;
                 }
@@ -1366,13 +1385,6 @@ internal static partial class Ci
 
     [GeneratedRegex(@"^stages:[ \t]*(.*)$", RegexOptions.None, 1000)]
     private static partial Regex TopLevelStages();
-
-    [GeneratedRegex(
-        @"<ManagePackageVersionsCentrally(?:\s[^>]*)?>\s*true\s*</ManagePackageVersionsCentrally>",
-        RegexOptions.IgnoreCase,
-        1000
-    )]
-    private static partial Regex CentralVersions();
 
     [GeneratedRegex(@"^---.*$", RegexOptions.Multiline, 1000)]
     private static partial Regex DocumentSeparator();

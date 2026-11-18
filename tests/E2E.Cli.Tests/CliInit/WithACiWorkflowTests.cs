@@ -548,7 +548,7 @@ public sealed class WithACiWorkflowTests : CliInitTestBase
     {
         await File.WriteAllTextAsync(
             Path_("Directory.Build.props"),
-            "<Project><PropertyGroup><ManagePackageVersionsCentrally Condition=\"'1' == '1'\">true</ManagePackageVersionsCentrally></PropertyGroup></Project>"
+            "<Project><PropertyGroup><ManagePackageVersionsCentrally Condition=\"'1' >= '1'\">true</ManagePackageVersionsCentrally></PropertyGroup></Project>"
         );
         await RunInitAsync(new InitOptions { Yes = true, Ci = "github-actions" });
         Assert.DoesNotContain("JunitXml.TestLogger", Read(ProjectFile()), StringComparison.Ordinal);
