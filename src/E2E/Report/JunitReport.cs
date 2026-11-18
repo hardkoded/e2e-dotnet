@@ -26,8 +26,18 @@ public sealed record JunitReportOptions
 /// change run status. Not ported, since the report has no such records: serial groups and the <c>test.fail</c> expected-failure note.
 /// .NET-only: <c>CaseOutcome</c> (an enum where upstream uses a string union in <c>RenderedCase.outcome</c>) and <c>PosixJoin</c> (upstream calls Node's <c>path.posix.join</c>, which .NET has no equivalent of).
 /// </summary>
-public static partial class JunitReport
+public static class JunitReport
 {
+    /// <summary>
+    /// Code units XML 1.0 forbids beyond the control range <see cref="TextRules.SanitizeRecordedText"/> already replaces: the two noncharacters U+FFFE
+    /// and U+FFFF, and a surrogate half without its partner. One of them makes a parser reject the whole document.
+    /// </summary>
+    private static readonly Regex XmlForbidden = new(
+        "[\\uFFFE\\uFFFF]|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]",
+        RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(5)
+    );
+
     private sealed class SuiteCounts
     {
         public int Tests { get; set; }
@@ -103,18 +113,11 @@ public static partial class JunitReport
     }
 
     /// <summary>
-    /// Code units XML 1.0 forbids beyond the control range <see cref="TextRules.SanitizeRecordedText"/> already replaces: the two noncharacters U+FFFE
-    /// and U+FFFF, and a surrogate half without its partner. One of them makes a parser reject the whole document.
-    /// </summary>
-    [GeneratedRegex("[￾￿]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]")]
-    private static partial Regex XmlForbidden();
-
-    /// <summary>
     /// Escapes text content; every character XML 1.0 forbids becomes U+FFFD. A carriage return is a reference, since a parser reads a raw one as a
     /// newline.
     /// </summary>
     private static string Text(string value) =>
-        XmlForbidden()
+        XmlForbidden
             .Replace(TextRules.SanitizeRecordedText(value), "�")
             .Replace("&", "&amp;")
             .Replace("<", "&lt;")

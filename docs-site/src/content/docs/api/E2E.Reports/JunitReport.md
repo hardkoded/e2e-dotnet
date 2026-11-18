@@ -23,6 +23,7 @@ JUnit XML reporter: the report-1 document as `junit.xml` (upstream's `report/jun
 order, so the output is completion-time independent), one `<testcase>` per test-target pair, plus a `run` suite for run-level errors.
 A pair a test filter left out is a skipped case naming the filter. Like every reporter it reads the document, never runner state, and it can never
 change run status. Not ported, since the report has no such records: serial groups and the `test.fail` expected-failure note.
+.NET-only: `CaseOutcome` (an enum where upstream uses a string union in `RenderedCase.outcome`) and `PosixJoin` (upstream calls Node's `path.posix.join`, which .NET has no equivalent of).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
