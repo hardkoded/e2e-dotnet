@@ -123,6 +123,8 @@ public sealed class VisibilityAgreesWithPlaywrightTests(ChromiumPage chromium) :
         var node = await chromium.ReadAsync(locator);
         Assert.NotNull(node);
         Assert.False(node.Hidden);
+        // The observation tree lists it too (the read above is its own, so it does not show that).
+        Assert.Contains(await chromium.CaptureAsync(), listed => listed.TestId == "shrunk-checkbox");
         Assert.True(await locator.IsHiddenAsync(), "playwright hidden");
     }
 

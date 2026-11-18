@@ -267,14 +267,18 @@ internal static class PageScript
             }
             return true;
           };
-          const tally = (el, visible) => {
+          // parentHidden is the verdict walk carries down: a hidden node is not listed, so it is not counted.
+          const tally = (el, visible, parentHidden) => {
             if (!el || skip.has(el.tagName) || isInert(el)) return 0;
             const place = modal === undefined ? "inside" : modal.placeOf(el);
             if (place === "outside") return 0;
             if (el.tagName === "IFRAME" && (ariaHidden(el) || hidden(el))) return 0;
             let n = 0;
+            const style = getComputedStyle(el);
+            const isHidden = !!parentHidden || hidden(el, style);
+            const childrenHidden = !!parentHidden || hidesSubtree(el, style);
             const role = roleOf(el);
-            if (place !== "ancestor" && listed(el, role) && !textOnly(el, role) && !isBoxlessUndrawn(el)) {
+            if (place !== "ancestor" && listed(el, role) && !textOnly(el, role) && !isBoxlessUndrawn(el) && (!isHidden || isDrawnBoxless(el))) {
               const counted = !visible || inView(el);
               if (counted) n++;
               if (el.tagName === "SELECT") {
@@ -284,16 +288,16 @@ internal static class PageScript
                   if (offered >= maxSelectOptions) break;
                   if (!isOfferedOption(option)) continue;
                   offered += 1;
-                  for (const child of option.children) n += tally(child, visible);
+                  for (const child of option.children) n += tally(child, visible, isHidden);
                   const optionShadow = shadowOf(option);
-                  if (optionShadow) for (const child of optionShadow.children) n += tally(child, visible);
+                  if (optionShadow) for (const child of optionShadow.children) n += tally(child, visible, isHidden);
                 }
                 return n + offered;
               }
             }
-            for (const child of el.children) n += tally(child, visible);
+            for (const child of el.children) n += tally(child, visible, childrenHidden);
             const shadow = shadowOf(el);
-            if (shadow) for (const child of shadow.children) n += tally(child, visible);
+            if (shadow) for (const child of shadow.children) n += tally(child, visible, childrenHidden);
             return n;
           };
           // A node under an ancestor that hides its subtree is hidden too.
