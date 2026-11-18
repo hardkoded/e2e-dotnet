@@ -15,6 +15,13 @@
         "husky"
       ],
       "rollForward": false
+    },
+    "slopwatch.cmd": {
+      "version": "0.5.0",
+      "commands": [
+        "slopwatch"
+      ],
+      "rollForward": false
     }
   }
 }

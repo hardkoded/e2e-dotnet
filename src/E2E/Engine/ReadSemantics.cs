@@ -111,8 +111,9 @@ internal static class ReadSemantics
           // hidden, which keeps the element's own box and renders nothing under
           // it. visibility is not in it, since a child may set visibility:
           // visible and paint again; nor is aria-hidden, which only the
-          // accessibility tree drops.
-          const hidesSubtree = (el, style) => style.display === "none" || style.contentVisibility === "hidden";
+          // accessibility tree drops. A closed details body is in it too: no
+          // descendant can undo the fold.
+          const hidesSubtree = (el, style) => style.display === "none" || style.contentVisibility === "hidden" || inClosedDetails(el);
           // Port only: upstream has no paragraph role, so it needs no test for content inside a host.
           const inEditingHost = (el) => {
             if (el.parentElement?.closest("[contenteditable]") == null) return false;
@@ -919,8 +920,8 @@ internal static class ReadSemantics
               mixed: mixedOf(el),
               // A box with no width or height; an option has none while its select is closed.
               emptyBox: !isHidden && el.tagName !== "OPTION" && (() => { const box = rectOf(el); return box !== null && (box.width <= 0 || box.height <= 0); })(),
-              expandedAbsent: !["true", "false"].includes(el.getAttribute("aria-expanded") || "") && el.tagName !== "DETAILS",
-              expanded: el.getAttribute("aria-expanded") === "true" || (el.tagName === "DETAILS" && el.open),
+              expandedAbsent: !["true", "false"].includes(el.getAttribute("aria-expanded") || ""),
+              expanded: el.getAttribute("aria-expanded") === "true",
               selected: el.tagName === "OPTION" ? !!el.selected : (el.getAttribute("aria-selected") || "").toLowerCase() === "true",
               pressed: el.getAttribute("aria-pressed") === "true",
               focused: el === focused,

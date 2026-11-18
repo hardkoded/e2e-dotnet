@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  SLOPWATCH_EXCLUDE: "**/node_modules/**,**/bin/**,**/obj/**,.claude/**,.tmp*/**,docs/_site/**,docs/api/**,coverage/**,**/.vs/**"
+
 jobs:
   csharpier:
     name: csharpier
@@ -47,6 +50,11 @@ jobs:
 
       - name: Restore
         run: dotnet restore E2E.slnx
+
+      - name: Slopwatch
+        run: |
+          dotnet tool restore
+          dotnet slopwatch analyze -d . --fail-on error --exclude "$SLOPWATCH_EXCLUDE"
 
       # CSharpier owns whitespace and layout (see the csharpier job), so `dotnet format` checks only code style and
       # analyzers. Its whitespace pass would undo CSharpier's layout.
