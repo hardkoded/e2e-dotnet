@@ -56,3 +56,20 @@ public string? Note { get; init; }
 One line about the whole decision, such as `the diff is too large to judge`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_TestFilterResult_Relevance_"></a>
+<a id="E2E_TestFilterResult_Relevance"></a>
+
+### Relevance
+
+
+```csharp
+public IReadOnlyDictionary<string, double>? Relevance { get; init; }
+```
+
+
+How likely each test is to fail on this change, from 0 to 1, by [Id](/api/E2E/TestFilterCandidate/#E2E_TestFilterCandidate_Id). Each target starts the files of the
+likeliest tests first, in bands at 75%, 50%, and 25%, and targets go by the band of their best file, ties in config order. A test no
+filter scores counts as 0, and one several filters score keeps its highest. It never leaves a test out.
+
+**Value:** [IReadOnlyDictionary&lt;string, double&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
