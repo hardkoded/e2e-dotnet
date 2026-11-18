@@ -916,23 +916,24 @@ internal static partial class Init
         var (ios, android) = appFolder is null
             ? (new IosBuild.Custom(), (AndroidBuild)new AndroidBuild.Custom())
             : Ci.DetectMobileBuilds(appFolder, name => Ci.DependsOn(appFolder, name));
+        var (manager, yarnBerry) = appFolder is null ? ("npm", false) : Ci.DetectManager(appFolder, repositoryRoot);
+        IReadOnlyList<CiTarget> ciTargets = [];
         CiJobs jobs;
         if (existingConfigText is null)
         {
-            jobs = Ci.GetCiJobs(
-                [
-                    .. newTargets.Select(target => new CiTarget(
-                        target["name"]!.GetValue<string>(),
-                        target["platform"]!.GetValue<string>()
-                    )),
-                ],
-                ios,
-                android
-            );
+            ciTargets =
+            [
+                .. newTargets.Select(target => new CiTarget(
+                    target["name"]!.GetValue<string>(),
+                    target["platform"]!.GetValue<string>()
+                )),
+            ];
+            jobs = Ci.GetCiJobs(ciTargets, ios, android);
         }
         else if (config is not null)
         {
-            jobs = Ci.GetCiJobs(Ci.ConfigTargets(config), ios, android);
+            ciTargets = Ci.ConfigTargets(config);
+            jobs = Ci.GetCiJobs(ciTargets, ios, android);
         }
         else if (
             declared.Contains("E2E", StringComparer.OrdinalIgnoreCase)
@@ -971,17 +972,19 @@ internal static partial class Init
                 : Ci.GatewaysInConfig(config);
         var secrets = gateways.SelectMany(gateway => gateway.Keys?.Take(1) ?? []).ToList();
         var absoluteProject = Path.Combine(cwd, projectFile);
+        var appDir =
+            appFolder is null || (ios is IosBuild.Custom && android is AndroidBuild.Custom)
+                ? ""
+                : Ci.PosixRelative(repositoryRoot, appFolder);
         var context = new WorkflowContext(
             Ci.PosixRelative(repositoryRoot, absoluteProject),
             Ci.DotnetVersionOf(projectText),
             secrets,
             jobs,
             file.JobSuffix,
-            appFolder is null || (ios is IosBuild.Custom && android is AndroidBuild.Custom)
-                ? ""
-                : Ci.PosixRelative(repositoryRoot, appFolder),
-            appFolder is null ? "npm" : Ci.DetectManager(appFolder).Manager,
-            appFolder is not null && Ci.DetectManager(appFolder).YarnBerry,
+            appDir,
+            manager,
+            yarnBerry,
             junit
         );
         var absolute = Path.Combine(repositoryRoot, file.File);
@@ -1017,11 +1020,15 @@ internal static partial class Init
         foreach (
             var (custom, label, artifact) in new[]
             {
-                (jobs.Ios?.Build is IosBuild.Custom, "iOS", "a .app for the simulator under build/"),
+                (
+                    jobs.Ios?.Build is IosBuild.Custom,
+                    "iOS",
+                    $"a .app for the simulator under {(appDir.Length == 0 ? "" : appDir + "/")}build/"
+                ),
                 (
                     jobs.Android?.Build is AndroidBuild.Custom,
                     "Android",
-                    "an APK at android/app/build/outputs/apk/release/app-release.apk"
+                    $"an APK at {(appDir.Length == 0 ? "" : appDir + "/")}android/app/build/outputs/apk/release/app-release.apk"
                 ),
             }
         )
@@ -1075,10 +1082,22 @@ internal static partial class Init
             );
         }
 
-        if ((jobs.Web?.Targets?.Count > 1 || jobs.Ios?.Targets.Count > 1 || jobs.Android?.Targets.Count > 1))
+        var webTargets = jobs.Web?.Targets?.Count
+            ?? ciTargets.Count(target => target.Platform is not ("ios" or "android"));
+        if (webTargets > 1 || jobs.Ios?.Targets.Count > 1 || jobs.Android?.Targets.Count > 1)
         {
             log.Warn(
                 "A job that runs several targets does not name one: the port takes one target per run, from E2E_TARGET, so set it per job or let the tests choose the target (E2EFixture.TargetName)"
+            );
+        }
+
+        if (
+            jobs.Web is not null && (jobs.Ios is not null || jobs.Android is not null)
+            || jobs.Ios is not null && jobs.Android is not null
+        )
+        {
+            log.Warn(
+                "Each job runs the whole test project on its target (E2E_TARGET): give each job a --filter for the tests of its platform if they differ"
             );
         }
 

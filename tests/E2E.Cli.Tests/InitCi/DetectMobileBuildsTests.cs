@@ -72,4 +72,18 @@ public sealed class DetectMobileBuildsTests : InitCiTestBase
         Write(".yarnrc.yml", "");
         Assert.Equal(("yarn", true), Ci.DetectManager(Dir));
     }
+
+    [Fact]
+    // .NET-only: a workspace app keeps its lockfile at the workspace root; a target name YAML would read as a boolean is quoted.
+    public void Reads_the_lockfile_of_the_workspace_root_and_quotes_a_target_name_YAML_reads_as_a_boolean()
+    {
+        Write("pnpm-lock.yaml", "");
+        Directory.CreateDirectory(Path_("apps/mobile"));
+        Assert.Equal(("pnpm", false), Ci.DetectManager(Path_("apps/mobile"), Dir));
+        Assert.Equal(("npm", false), Ci.DetectManager(Path_("apps/mobile")));
+        var workflow = Ci.RenderGithubWorkflow(
+            new WorkflowContext("a.csproj", "10.0", [], new CiJobs(new CiWebJob(["null"]), null, null))
+        );
+        Assert.Contains("E2E_TARGET: \"null\"", workflow, StringComparison.Ordinal);
+    }
 }

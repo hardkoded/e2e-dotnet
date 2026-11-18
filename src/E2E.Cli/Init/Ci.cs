@@ -159,6 +159,9 @@ internal static partial class Ci
     /// <summary>.NET-only: the version of <see cref="JunitLogger"/> init adds to a project.</summary>
     public const string JunitLoggerVersion = "8.1.0";
 
+    /// <summary>Words YAML reads as a boolean or null, which a name must not be left bare as.</summary>
+    private static readonly string[] YamlReserved = ["true", "false", "yes", "no", "on", "off", "null", "y", "n"];
+
     /// <summary>Phone platforms run in their own job, on a runner with a simulator or an emulator.</summary>
     private static readonly string[] Phones = ["ios", "android"];
 
@@ -418,15 +421,22 @@ internal static partial class Ci
     /// </summary>
     internal static string? FindAppDir(string projectDir, string repositoryRoot)
     {
-        var root = Path.GetFullPath(repositoryRoot);
-        for (var current = Path.GetFullPath(projectDir); ; current = Path.GetDirectoryName(current)!)
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
+        for (
+            var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectDir));
+            ;
+            current = Path.GetDirectoryName(current)!
+        )
         {
             if (System.IO.File.Exists(Path.Combine(current, "package.json")))
             {
                 return current;
             }
 
-            if (current == root || Path.GetDirectoryName(current) is null)
+            if (
+                string.Equals(current, root, StringComparison.OrdinalIgnoreCase)
+                || Path.GetDirectoryName(current) is null
+            )
             {
                 return null;
             }
@@ -450,16 +460,46 @@ internal static partial class Ci
                 (document?[section] as JsonObject)?.ContainsKey(name) == true
             );
         }
-        catch (Exception cause) when (cause is JsonException or IOException)
+        catch (Exception cause)
+            when (cause is JsonException or IOException or InvalidOperationException or UnauthorizedAccessException)
         {
             return false;
         }
     }
 
     /// <summary>.NET-only: the package manager of the app in <paramref name="appDir"/>, from its lockfile (upstream reads <c>packageManager</c> and the lockfile); npm when there is none.</summary>
-    internal static (string Manager, bool YarnBerry) DetectManager(string appDir)
+    internal static (string Manager, bool YarnBerry) DetectManager(string appDir, string? repositoryRoot = null)
     {
-        bool Has(string file) => System.IO.File.Exists(Path.Combine(appDir, file));
+        // A workspace app keeps its lockfile at the workspace root: the nearest folder up to the repository with one.
+        var stop = repositoryRoot is null ? null : Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
+        var found = appDir;
+        for (
+            var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(appDir));
+            ;
+            current = Path.GetDirectoryName(current)!
+        )
+        {
+            if (
+                new[] { "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "package-lock.json" }.Any(file =>
+                    System.IO.File.Exists(Path.Combine(current, file))
+                )
+            )
+            {
+                found = current;
+                break;
+            }
+
+            if (
+                stop is null
+                || string.Equals(current, stop, StringComparison.OrdinalIgnoreCase)
+                || Path.GetDirectoryName(current) is null
+            )
+            {
+                break;
+            }
+        }
+
+        bool Has(string file) => System.IO.File.Exists(Path.Combine(found, file));
         if (Has("pnpm-lock.yaml"))
         {
             return ("pnpm", false);
@@ -818,7 +858,10 @@ internal static partial class Ci
 
     /// <summary>A target name as a YAML value: bare when it is plain, else double-quoted.</summary>
     private static string YamlScalar(string value) =>
-        value.Length > 0 && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.')
+        value.Length > 0
+        && char.IsAsciiLetter(value[0])
+        && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.')
+        && !YamlReserved.Contains(value, StringComparer.OrdinalIgnoreCase)
             ? value
             : System.Text.Json.JsonSerializer.Serialize(value);
 
@@ -894,9 +937,11 @@ internal static partial class Ci
                 ]
             ),
             _ => new(
-                ["Replace this step with your app's Release build for the iOS simulator, with the .app under build/."],
                 [
-                    "echo \"Replace this step with your app's build for the simulator, with the .app under build/\" >&2",
+                    $"Replace this step with your app's Release build for the iOS simulator, with the .app under {Join(context.AppDir, "build")}/.",
+                ],
+                [
+                    $"echo \"Replace this step with your app's build for the simulator, with the .app under {Join(context.AppDir, "build")}/\" >&2",
                     "exit 1",
                 ]
             ),
