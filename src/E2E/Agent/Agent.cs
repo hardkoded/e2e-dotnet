@@ -221,18 +221,6 @@ public sealed partial class Agent
             );
         }
 
-        async Task<Look> ObserveBetweenAsync()
-        {
-            try
-            {
-                return await ObserveAsync().ConfigureAwait(false);
-            }
-            catch (AgentException ex) when (ex.Code == "STEP_TIMEOUT")
-            {
-                throw new AgentException("STEP_TIMEOUT", "waitFor timed out; last judgment: " + last, ex);
-            }
-        }
-
         try
         {
             var look = await ObserveAsync().ConfigureAwait(false);
@@ -258,56 +246,17 @@ public sealed partial class Agent
 
                 last = string.IsNullOrWhiteSpace(verdict.Summary) ? last : Explain(verdict, vision);
 
-                // The next judgment waits for a changed screen. A change is judged as soon as it is seen when the screen was seen
-                // holding still for the interval before it, or had not changed since the wait began (the condition coming true).
-                // Only stillness an observation saw counts: nothing is observed while a judgment runs. A change inside a run of
-                // changes is judged at most once per interval after the previous judgment returned.
-                var judged = look;
-                var judgedAt = DateTime.UtcNow;
-                var shape = judged.Shape;
-                var judgeAtOnce = false;
-                while (true)
-                {
-                    if (DateTime.UtcNow >= deadline)
-                    {
-                        throw new AgentException("STEP_TIMEOUT", "waitFor timed out; last judgment: " + last);
-                    }
-
-                    if (_scope.ModelCalls - callsBefore >= maxCalls)
-                    {
-                        throw new AgentException(
-                            "STEP_BUDGET_EXHAUSTED",
-                            "waitFor exhausted its model-call budget; last judgment: " + last
-                        );
-                    }
-
-                    var tick = interval < ChangePoll ? interval : ChangePoll;
-                    var remaining = deadline - DateTime.UtcNow;
-                    if (remaining > TimeSpan.Zero)
-                    {
-                        await Task.Delay(tick < remaining ? tick : remaining, token).ConfigureAwait(false);
-                    }
-
-                    look = await ObserveBetweenAsync().ConfigureAwait(false);
-                    var now = DateTime.UtcNow;
-                    if (!string.Equals(look.Shape, shape, StringComparison.Ordinal))
-                    {
-                        judgeAtOnce = screen.ChangedAt is null || screen.ObservedAt - screen.ChangedAt >= interval;
-                        screen.ChangedAt = now;
-                        shape = look.Shape;
-                    }
-
-                    screen.ObservedAt = now;
-                    if (string.Equals(shape, judged.Shape, StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    if (judgeAtOnce || now - judgedAt >= interval)
-                    {
-                        break;
-                    }
-                }
+                look = await WaitForNextJudgmentAsync(
+                        look,
+                        screen,
+                        interval,
+                        last,
+                        deadline,
+                        maxCalls - (_scope.ModelCalls - callsBefore),
+                        ObserveAsync,
+                        token
+                    )
+                    .ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException ex)
@@ -317,6 +266,83 @@ public sealed partial class Agent
             )
         {
             throw new AgentException("STEP_TIMEOUT", "waitFor timed out; last judgment: " + last, ex);
+        }
+    }
+
+    /// <summary>
+    /// Waits until the next judgment is worth spending, and returns the look to spend it on. A false judgment is followed by
+    /// engine-only observations until one of them changes. A change is judged as soon as it is seen when the screen was seen
+    /// holding still for <paramref name="interval"/> before it, or had not changed since the wait began (the condition coming
+    /// true). Only stillness an observation saw counts: nothing is observed while a judgment runs. A change inside a run of
+    /// changes is judged at most once per interval after the previous judgment returned. Throws rather than returning on
+    /// exhaustion, and checks before every observation, so a timeout reports the caller's last judgment.
+    /// </summary>
+    private async Task<Look> WaitForNextJudgmentAsync(
+        Look since,
+        ScreenChanges screen,
+        TimeSpan interval,
+        string lastExplanation,
+        DateTime deadline,
+        int callsLeft,
+        Func<Task<Look>> observe,
+        CancellationToken token
+    )
+    {
+        var callsStart = _scope.ModelCalls;
+        var tick = interval < ChangePoll ? interval : ChangePoll;
+        var judgedAt = DateTime.UtcNow;
+        var judgedShape = since.Shape;
+        var shape = judgedShape;
+        var judgeAtOnce = false;
+        while (true)
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                throw new AgentException("STEP_TIMEOUT", "waitFor timed out; last judgment: " + lastExplanation);
+            }
+
+            if (_scope.ModelCalls - callsStart >= callsLeft)
+            {
+                throw new AgentException(
+                    "STEP_BUDGET_EXHAUSTED",
+                    "waitFor exhausted its model-call budget; last judgment: " + lastExplanation
+                );
+            }
+
+            var remaining = deadline - DateTime.UtcNow;
+            if (remaining > TimeSpan.Zero)
+            {
+                await Task.Delay(tick < remaining ? tick : remaining, token).ConfigureAwait(false);
+            }
+
+            Look look;
+            try
+            {
+                look = await observe().ConfigureAwait(false);
+            }
+            catch (AgentException ex) when (ex.Code == "STEP_TIMEOUT")
+            {
+                throw new AgentException("STEP_TIMEOUT", "waitFor timed out; last judgment: " + lastExplanation, ex);
+            }
+
+            var now = DateTime.UtcNow;
+            if (!string.Equals(look.Shape, shape, StringComparison.Ordinal))
+            {
+                judgeAtOnce = screen.ChangedAt is null || screen.ObservedAt - screen.ChangedAt >= interval;
+                screen.ChangedAt = now;
+                shape = look.Shape;
+            }
+
+            screen.ObservedAt = now;
+            if (string.Equals(shape, judgedShape, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (judgeAtOnce || now - judgedAt >= interval)
+            {
+                return look;
+            }
         }
     }
 
