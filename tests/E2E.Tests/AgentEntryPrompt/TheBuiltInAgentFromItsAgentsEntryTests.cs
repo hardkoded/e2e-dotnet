@@ -113,14 +113,8 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
         session.Complete();
     }
 
-    /// <summary>
-    /// Partial: upstream's <c>puts the title in a judgment prompt after its fixed request, outside its system message</c> (tester-army/e2e#1823)
-    /// also asserts the title follows the fixed request text of the user message, more than 1000 characters in. The port keeps that text in the
-    /// judgment's system message, so the title opens the user message, after the whole cached prefix. This checks the rest: the title, the
-    /// shared prefix across two tests, and a system message without it.
-    /// </summary>
     [Fact]
-    public async Task Keeps_the_title_of_a_judgment_prompt_out_of_its_system_message_and_the_system_the_same_across_tests()
+    public async Task Puts_the_title_in_a_judgment_prompt_after_its_fixed_request_outside_its_system_message()
     {
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "shown"));
         await using var first = await StartAsync(model, file: "BillingTests", title: "billing > upgrades the plan");
@@ -130,13 +124,15 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
         await second.Agent.AssertAsync("the plan is downgraded");
         second.Complete();
 
-        Assert.StartsWith(
-            "Test: billing > upgrades the plan\n\n",
-            model.Requests[0].Messages[0].Content,
-            StringComparison.Ordinal
+        var (firstPrompt, secondPrompt) = (model.Requests[0].Messages[0].Content!, model.Requests[1].Messages[0].Content!);
+        Assert.Matches(@"\n\nTest: billing > upgrades the plan\n\nStatement: ", firstPrompt);
+        // Two tests share every line before their titles, so a provider can cache them.
+        Assert.Equal(
+            firstPrompt[..firstPrompt.IndexOf("Test:", StringComparison.Ordinal)],
+            secondPrompt[..secondPrompt.IndexOf("Test:", StringComparison.Ordinal)]
         );
+        Assert.True(firstPrompt.IndexOf("Test:", StringComparison.Ordinal) > 1000);
         Assert.DoesNotContain("Test:", model.Requests[0].System, StringComparison.Ordinal);
-        Assert.Equal(model.Requests[0].System, model.Requests[1].System);
     }
 
     /// <summary>
