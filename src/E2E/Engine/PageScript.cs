@@ -153,6 +153,12 @@ internal static class PageScript
             const box = rectOf(el);
             return (box === null || box.width <= 0 || box.height <= 0) && !isDrawnByLabel(el, getComputedStyle(el));
           };
+          // A checkbox or radio with no box that a label of its own draws: upstream lists it past its hidden state (drawnByLabel), so the walk keeps it.
+          const isDrawnBoxless = (el) => {
+            if (!(el instanceof HTMLInputElement) || (el.type !== "checkbox" && el.type !== "radio")) return false;
+            const box = rectOf(el);
+            return (box === null || box.width <= 0 || box.height <= 0) && isDrawnByLabel(el, getComputedStyle(el));
+          };
           // An iframe is a boundary node whatever its role: upstream emits it before any role check,
           // so <iframe role="none"> stays listed, with the role none.
           const listed = (el, role) => el.tagName === "IFRAME" || hasRole(role) || !!el.getAttribute(testIdAttribute) || ownsText(el);
@@ -291,7 +297,7 @@ internal static class PageScript
           // parentHidden is that ancestor's verdict, not its own visibility.
           // parentAria is whether an ancestor is aria-hidden: the node paints
           // and is visible, but the accessibility tree drops it.
-          const walk = (el, into, parentHidden, parentAria) => {
+          const walk = (el, into, parentHidden, parentAria, offered) => {
             if (!el || skip.has(el.tagName) || isInert(el) || full) return;
             // Outside an open modal dialog everything is inert; the dialog's ancestors are walked to reach it and list nothing.
             const place = modal === undefined ? "inside" : modal.placeOf(el);
@@ -305,6 +311,8 @@ internal static class PageScript
             // A frame the page hides is no boundary of the tree.
             if (isFrame && (isHidden || isAriaHidden)) return;
             if (isBoxlessUndrawn(el)) return;
+            // Upstream's walk lists a node only when it is not hidden; a select's offered options are listed on purpose, so not "hidden".
+            if (isHidden && !isFrame && !offered && !isDrawnBoxless(el)) { walkChildren(el, into, childrenHidden, isAriaHidden); return; }
             if (place !== "ancestor" && listed(el, role)) {
               const textNode = textOnly(el, role);
               if (textNode ? textCount >= max : count >= max) {
@@ -350,7 +358,7 @@ internal static class PageScript
                   if (!isOfferedOption(option)) continue;
                   offered += 1;
                   const before = node.children.length;
-                  walk(option, node.children, isHidden, isAriaHidden);
+                  walk(option, node.children, isHidden, isAriaHidden, true);
                   if (node.children.length > before) node.children[before].hidden = isHidden;
                 }
                 return;
