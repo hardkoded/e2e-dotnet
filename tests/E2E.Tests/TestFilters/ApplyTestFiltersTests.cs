@@ -294,6 +294,7 @@ public sealed partial class ApplyTestFiltersTests
         var note = applied.Decisions[0].Note ?? "";
         Assert.Equal([new FilterDecision("areas", 3, note, FilterOutcome.Failed)], applied.Decisions);
         Assert.Empty(applied.Excluded);
+        Assert.Empty(applied.Relevance);
         Assert.Equal([$"warning: areas {note}"], notices);
         return note;
     }
@@ -382,6 +383,68 @@ public sealed partial class ApplyTestFiltersTests
         Assert.Equal($"{Prefix}exclude names {capped}, which no collected test has; exclude takes test.id", id);
         Assert.DoesNotContain(SecretKey, id, StringComparison.Ordinal);
     }
+
+    /// <summary>Partial: a score is a double in C#, so only a number outside 0 to 1 is refused, not a string, a null, or a list.</summary>
+    [Fact]
+    public async Task Partial_refuses_a_score_that_is_not_a_number_from_0_to_1_naming_the_first_test_and_what_it_was()
+    {
+        var candidates = CandidatesOf("signs in", "pays", "refunds");
+        var pays = IdOf(candidates, "pays");
+        (double Score, string Got)[] rows =
+        [
+            (-0.01, "-0.01"),
+            (1.01, "1.01"),
+            (double.NaN, "NaN"),
+            (double.PositiveInfinity, "Infinity"),
+            (double.NegativeInfinity, "-Infinity"),
+        ];
+        foreach (var (score, got) in rows)
+        {
+            var note = await Refusal(_ => Scoring((pays, score)));
+            Assert.Equal(
+                $"{Prefix}the relevance of {System.Text.Json.JsonSerializer.Serialize(pays)} must be a number from 0 to 1, got {got}",
+                note
+            );
+        }
+
+        var two = await Refusal(c => Scoring((IdOf(c, "signs in"), 0.5), (pays, 2), (IdOf(c, "refunds"), 3)));
+        Assert.Equal($"{Prefix}the relevance of \"{pays}\" must be a number from 0 to 1, got 2", two);
+    }
+
+    [Fact]
+    public async Task A_score_for_an_id_no_collected_test_has_a_title_among_them_saying_relevance_takes_test_id()
+    {
+        const string Unscored = ", which no collected test has; relevance takes test.id";
+        var candidates = CandidatesOf("signs in", "pays", "refunds");
+        var id = IdOf(candidates, "pays");
+        var typo = await Refusal(
+            _ => Scoring(($"{id}x", 1)),
+            new HashSet<string>(candidates.Select(candidate => candidate.Id))
+        );
+        Assert.Equal($"{Prefix}relevance names \"{id}x\"{Unscored}", typo);
+        var title = await Refusal(_ => Scoring(("pays", 1)));
+        Assert.Equal($"{Prefix}relevance names \"pays\"{Unscored}", title);
+    }
+
+    /// <summary>Partial: the score key a filter chose is quoted redacted and cut, as upstream's is; the unknown key and the whole answer have no C# counterpart (see the exclude <c>it</c>).</summary>
+    [Fact]
+    public async Task Partial_redacts_and_cuts_what_it_echoes_like_a_reason_a_secret_as_a_score_key_quoting_at_most_200_code_points()
+    {
+        var longText = string.Concat(Enumerable.Repeat("\U0001F600", 20_000));
+        var score = await Refusal(_ => Scoring(($"{SecretKey}{longText}", 1)));
+        var marker = SecretMarker().Match(score).Value;
+        var capped =
+            $"\"{marker}{string.Concat(Enumerable.Repeat("\U0001F600", 199 - marker.EnumerateRunes().Count()))}…\"";
+        Assert.Equal($"{Prefix}relevance names {capped}, which no collected test has; relevance takes test.id", score);
+        Assert.DoesNotContain(SecretKey, score, StringComparison.Ordinal);
+    }
+
+    private static TestFilterResult Scoring(params (string Id, double Score)[] scores) =>
+        new()
+        {
+            Exclude = new Dictionary<string, string>(),
+            Relevance = scores.ToDictionary(pair => pair.Id, pair => pair.Score),
+        };
 
     public static TheoryData<string, Func<Task<TestFilterResult>>> Throws() =>
         new()

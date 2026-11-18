@@ -13,12 +13,19 @@ internal sealed record TestExclusion(string Filter, string Reason);
 internal sealed record FilterDecision(string Name, int Candidates, string? Note = null, FilterOutcome? Outcome = null);
 
 /// <summary>What the filters decided: every test they left out, by test id, and one decision per filter that ran (upstream's <c>AppliedTestFilters</c>).</summary>
+/// <param name="Excluded">Every test the filters left out, by test id.</param>
+/// <param name="Relevance">The highest score any filter gave each test it scored, by test id.</param>
+/// <param name="Decisions">One decision per filter that ran.</param>
 internal sealed record AppliedTestFilters(
     IReadOnlyDictionary<string, TestExclusion> Excluded,
+    IReadOnlyDictionary<string, double> Relevance,
     IReadOnlyList<FilterDecision> Decisions
 );
 
-/// <summary>How one filter call ended (upstream's <c>FilterCall</c>): with its answer, checked; or thrown, refused, or abandoned past the deadline, with the note that says so.</summary>
+/// <summary>
+/// How one filter call ended (upstream's <c>FilterCall</c>): with its answer, checked; or thrown, refused, or abandoned past the deadline, with
+/// the note that says so and the scores the exception it threw carried, none for the other two.
+/// </summary>
 internal sealed record FilterCall
 {
     /// <summary>How the call ended; <c>null</c> when it answered.</summary>
@@ -29,10 +36,20 @@ internal sealed record FilterCall
 
     /// <summary>The note that says why the call did not answer.</summary>
     public string? Note { get; init; }
+
+    /// <summary>The scores the exception a failed call threw carried; none for a call that answered, was refused, or timed out.</summary>
+    public IReadOnlyList<KeyValuePair<string, double>> Relevance { get; init; } = [];
 }
 
-/// <summary>A filter's answer once checked: what it left out, with each reason, and its note, redacted and cut; no note when it left none (upstream's <c>CheckedResult</c>).</summary>
-internal sealed record CheckedResult(IReadOnlyList<KeyValuePair<string, string>> Exclude, string? Note);
+/// <summary>A filter's answer once checked: what it left out, with each reason, the scores it gave the tests it was handed, and its note, redacted and cut; no note when it left none (upstream's <c>CheckedResult</c>).</summary>
+internal sealed record CheckedResult(
+    IReadOnlyList<KeyValuePair<string, string>> Exclude,
+    IReadOnlyList<KeyValuePair<string, double>> Relevance,
+    string? Note
+);
+
+/// <summary>The scores the exception a filter threw carried, and why they were dropped when they failed the check or could not be read (upstream's <c>ThrownScores</c>).</summary>
+internal sealed record ThrownScores(IReadOnlyList<KeyValuePair<string, double>> Scores, string? Dropped = null);
 
 /// <summary>What <see cref="TestFilters.ApplyTestFilters"/> hands each filter and where its lines go (upstream's <c>TestFilterScope</c>).</summary>
 internal sealed class TestFilterScope
@@ -90,11 +107,15 @@ internal sealed class FilterSelectionOptions
     public TimeSpan? Timeout { get; init; }
 }
 
-/// <summary>A selection once the test filters had their say, the report's record of them, and the change they judged; no change when the config has no filter (upstream's <c>FilteredSelection</c>).</summary>
+/// <summary>
+/// A selection once the test filters had their say, the report's record of them, the change they judged (none when the config has no filter),
+/// and how likely they rated each test to fail, by test id: empty when no filter ran or none scored a test (upstream's <c>FilteredSelection</c>).
+/// </summary>
 internal sealed record FilteredSelection(
     Selection Selection,
     IReadOnlyList<ReportFilter> Records,
-    ReportChanges? Changes
+    ReportChanges? Changes,
+    IReadOnlyDictionary<string, double> Relevance
 );
 
 /// <summary>Test filters: what they are given, calling them, and what they decided (upstream's <c>run/test-filters.ts</c>).</summary>
@@ -108,6 +129,12 @@ internal static class TestFilters
 
     /// <summary>The most code points an error quotes of a key or test id a filter chose.</summary>
     private const int MaxQuoted = 200;
+
+    /// <summary>The most code points of why a thrown exception's scores were dropped that a note keeps, so the failure's own message still fits after it.</summary>
+    private const int MaxDropped = 300;
+
+    /// <summary>What a run with no scored test carries, shared since nothing writes to it (upstream's <c>NO_RELEVANCE</c>).</summary>
+    private static readonly IReadOnlyDictionary<string, double> NoRelevance = new Dictionary<string, double>();
 
     /// <summary>What <c>--changed-since</c> says when the config has no test filter for it to run.</summary>
     private const string NoFilters = "warning: --changed-since: the config has no filters, so every test runs";
@@ -135,14 +162,14 @@ internal static class TestFilters
                 notice(NoFilters);
             }
 
-            return new FilteredSelection(first, [], null);
+            return new FilteredSelection(first, [], null, NoRelevance);
         }
 
         // `first` stands, for `record.Skipped`, said as `message` or `<why>, so no filter ran`.
         FilteredSelection Skip(ReportChanges record, string? message = null)
         {
             notice(message ?? $"{record.Skipped}, so no filter ran");
-            return new FilteredSelection(first, [], record);
+            return new FilteredSelection(first, [], record, NoRelevance);
         }
 
         if (selectionFilters.LastFailed is not null)
@@ -227,7 +254,27 @@ internal static class TestFilters
             }
         }
 
-        return new FilteredSelection(selection, records, new ReportChanges(changes.Base, changes.Files.Count));
+        return new FilteredSelection(
+            selection,
+            records,
+            new ReportChanges(changes.Base, changes.Files.Count),
+            applied.Relevance
+        );
+    }
+
+    /// <summary>
+    /// The run notice for how many of the tests <paramref name="selection"/> runs a filter scored, which the run starts first, likeliest first;
+    /// null when the scores leave every test in one relevance band, so the order is the one without them (upstream's <c>rankingNotice</c>).
+    /// </summary>
+    public static string? RankingNotice(Selection selection, IReadOnlyDictionary<string, double> relevance)
+    {
+        var tests = FilterCandidates(selection);
+        if (tests.Select(test => Units.RelevanceBand(relevance.GetValueOrDefault(test.Id))).Distinct().Count() < 2)
+        {
+            return null;
+        }
+
+        return $"ranked {tests.Count(test => relevance.ContainsKey(test.Id))} of {tests.Count} tests by relevance, likeliest first";
     }
 
     /// <summary>
@@ -305,7 +352,9 @@ internal static class TestFilters
     /// <summary>
     /// Calls each filter in order on the tests the ones before it kept, so the result is their intersection. A filter whose input is empty
     /// is not called. A filter that throws, answers with something invalid, or runs past <c>scope.Timeout</c> leaves nothing out: the run
-    /// warns and the next filter is called on every test it was given. Reasons, notes, log lines, and what a refused answer quotes are
+    /// warns and the next filter is called on every test it was given. A failed filter scores nothing either, except that a
+    /// <see cref="TestFilterException"/> it throws may carry <c>Relevance</c>, checked as a result's is; nothing a call throws past its
+    /// deadline is read. A test several filters scored keeps its highest score. Reasons, notes, log lines, and what a refused answer quotes are
     /// redacted and cut before anything prints or records them.
     /// </summary>
     public static async Task<AppliedTestFilters> ApplyTestFilters(
@@ -316,6 +365,7 @@ internal static class TestFilters
     {
         var excluded = new Dictionary<string, TestExclusion>(StringComparer.Ordinal);
         var order = new List<string>();
+        var relevance = new OrderedValues<double>();
         var decisions = new List<FilterDecision>();
         var remaining = candidates;
         foreach (var filter in filters)
@@ -329,6 +379,11 @@ internal static class TestFilters
 
             IReadOnlyList<TestFilterCandidate> input = [.. remaining];
             var call = await CallFilter(filter, input, scope).ConfigureAwait(false);
+            foreach (var (id, score) in call.Outcome is null ? call.Result!.Relevance : call.Relevance)
+            {
+                relevance.Set(id, relevance.TryGetValue(id, out var best) ? Math.Max(best, score) : score);
+            }
+
             if (call.Outcome is { } outcome)
             {
                 // Said now, not with the summaries: an interrupt during a later filter would drop them.
@@ -337,7 +392,7 @@ internal static class TestFilters
                 continue;
             }
 
-            var (exclude, note) = call.Result!;
+            var (exclude, _, note) = call.Result!;
             foreach (var (id, reason) in exclude)
             {
                 if (!excluded.ContainsKey(id))
@@ -352,7 +407,7 @@ internal static class TestFilters
             remaining = [.. remaining.Where(candidate => !excluded.ContainsKey(candidate.Id))];
         }
 
-        return new AppliedTestFilters(new OrderedExclusions(order, excluded), decisions);
+        return new AppliedTestFilters(new OrderedValues<TestExclusion>(order, excluded), relevance, decisions);
     }
 
     /// <summary>
@@ -397,13 +452,20 @@ internal static class TestFilters
             Redact = text => redactor.RedactFragments(text),
         };
 
-        // A call that leaves nothing out, its note ending in the detail, so a long one is what the cut shortens.
-        FilterCall Failed(string problem, Exception detail) =>
-            new()
+        // A call that leaves nothing out, its note ending in the detail, so a long one is what the cut shortens, and scoring what `thrown`
+        // kept; why `thrown` dropped any is said before it, cut to `MaxDropped`.
+        FilterCall Failed(string problem, Exception detail, ThrownScores? thrown = null)
+        {
+            var ignored = thrown?.Dropped is null
+                ? ""
+                : $", ignoring its relevance ({ReportFormat.Ellipsize(TextRules.Collapse(redactor.Redact(thrown.Dropped)), MaxDropped)})";
+            return new FilterCall
             {
                 Outcome = FilterOutcome.Failed,
-                Note = Cut($"{problem}, so it leaves nothing out: {redactor.Redact(ErrorMessage(detail))}"),
+                Note = Cut($"{problem}{ignored}, so it leaves nothing out: {redactor.Redact(ErrorMessage(detail))}"),
+                Relevance = thrown?.Scores ?? [],
             };
+        }
 
         try
         {
@@ -429,7 +491,11 @@ internal static class TestFilters
                                 Outcome = FilterOutcome.TimedOut,
                                 Note = Cut($"did not finish within {budget}, so it leaves nothing out"),
                             }
-                            : Failed("failed", cause);
+                            : Failed(
+                                "failed",
+                                cause,
+                                ThrownScoresOf(cause, input, scope.CollectedIds, redactor.Redact)
+                            );
                     }
 
                     try
@@ -569,6 +635,7 @@ internal static class TestFilters
             );
         }
 
+        var scores = CheckedRelevance(raw.Relevance, ids, collectedIds, redact);
         var kept = Cut(redact(raw.Note ?? ""));
         return new CheckedResult(
             [
@@ -576,28 +643,125 @@ internal static class TestFilters
                     .Where(entry => ids.Contains(entry.Key))
                     .Select(entry => KeyValuePair.Create(entry.Key, Cut(redact(entry.Value)))),
             ],
+            scores,
             kept.Length == 0 ? null : kept
         );
     }
 
-    /// <summary>A dictionary that enumerates in the order its keys were first set, as a JavaScript <c>Map</c> does.</summary>
-    private sealed class OrderedExclusions(List<string> order, Dictionary<string, TestExclusion> values)
-        : IReadOnlyDictionary<string, TestExclusion>
+    /// <summary>
+    /// The scores a filter's <c>Relevance</c> gives the tests it was handed, each a number from 0 to 1 by the id of a collected test; none when
+    /// it has no <c>Relevance</c>. Scores for a collected test it was not handed are dropped, as <c>Exclude</c> drops them (upstream's
+    /// <c>checkedRelevance</c>). Partial: the type rules out a value that is not a number and a relevance that is not a dictionary.
+    /// </summary>
+    private static List<KeyValuePair<string, double>> CheckedRelevance(
+        IReadOnlyDictionary<string, double>? relevance,
+        IReadOnlySet<string> ids,
+        IReadOnlySet<string> collectedIds,
+        Func<string, string> redact
+    )
     {
-        public IEnumerable<string> Keys => order;
+        if (relevance is null)
+        {
+            return [];
+        }
 
-        public IEnumerable<TestExclusion> Values => order.Select(key => values[key]);
+        var entries = relevance.ToList();
+        var stranger = entries.FirstOrDefault(entry => !ids.Contains(entry.Key) && !collectedIds.Contains(entry.Key));
+        if (stranger.Key is not null)
+        {
+            throw new InvalidOperationException(
+                $"relevance names {Quoted(stranger.Key, redact)}, which no collected test has; relevance takes test.id"
+            );
+        }
 
-        public int Count => order.Count;
+        var unscored = entries.FirstOrDefault(entry => !(entry.Value >= 0 && entry.Value <= 1));
+        if (unscored.Key is not null)
+        {
+            throw new InvalidOperationException(
+                $"the relevance of {Quoted(unscored.Key, redact)} must be a number from 0 to 1, got {DescribeNumber(unscored.Value)}"
+            );
+        }
 
-        public TestExclusion this[string key] => values[key];
+        return [.. entries.Where(entry => ids.Contains(entry.Key))];
+    }
 
-        public bool ContainsKey(string key) => values.ContainsKey(key);
+    /// <summary>
+    /// The scores in the <c>Relevance</c> of what a filter threw, checked as a result's are: a filter that fails can still know how likely some
+    /// tests are to fail, such as the ones the change touches, and the run starts those first. None when it carries none; none, with the
+    /// reason, when they fail the check or cannot be read, since the failure is what the warning reports (upstream's <c>thrownScores</c>).
+    /// </summary>
+    private static ThrownScores ThrownScoresOf(
+        Exception cause,
+        IReadOnlyList<TestFilterCandidate> input,
+        IReadOnlySet<string> collectedIds,
+        Func<string, string> redact
+    )
+    {
+        try
+        {
+            var relevance = (cause as TestFilterException)?.Relevance;
+            return new ThrownScores(
+                CheckedRelevance(
+                    relevance,
+                    input.Select(candidate => candidate.Id).ToHashSet(StringComparer.Ordinal),
+                    collectedIds,
+                    redact
+                )
+            );
+        }
+        catch (Exception problem)
+        {
+            return new ThrownScores([], ErrorMessage(problem));
+        }
+    }
 
-        public bool TryGetValue(string key, out TestExclusion value) => values.TryGetValue(key, out value!);
+    /// <summary>A score as a refusal names it, as upstream's <c>describeValue</c> spells a number: <c>NaN</c>, <c>Infinity</c>, <c>-0.01</c>. .NET-only name: the port's <c>Command.DescribeValue</c> takes a JSON element, which has no <c>NaN</c> or infinity.</summary>
+    private static string DescribeNumber(double value) =>
+        double.IsNaN(value) ? "NaN"
+        : double.IsPositiveInfinity(value) ? "Infinity"
+        : double.IsNegativeInfinity(value) ? "-Infinity"
+        : value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
 
-        public IEnumerator<KeyValuePair<string, TestExclusion>> GetEnumerator() =>
-            order.Select(key => KeyValuePair.Create(key, values[key])).GetEnumerator();
+    /// <summary>A dictionary that enumerates in the order its keys were first set, as a JavaScript <c>Map</c> does.</summary>
+    private sealed class OrderedValues<TValue> : IReadOnlyDictionary<string, TValue>
+    {
+        private readonly List<string> _order;
+        private readonly Dictionary<string, TValue> _values;
+
+        public OrderedValues()
+            : this([], new Dictionary<string, TValue>(StringComparer.Ordinal)) { }
+
+        public OrderedValues(List<string> order, Dictionary<string, TValue> values)
+        {
+            _order = order;
+            _values = values;
+        }
+
+        public IEnumerable<string> Keys => _order;
+
+        public IEnumerable<TValue> Values => _order.Select(key => _values[key]);
+
+        public int Count => _order.Count;
+
+        public TValue this[string key] => _values[key];
+
+        /// <summary>Sets a key, which keeps its place when it was set before.</summary>
+        public void Set(string key, TValue value)
+        {
+            if (!_values.ContainsKey(key))
+            {
+                _order.Add(key);
+            }
+
+            _values[key] = value;
+        }
+
+        public bool ContainsKey(string key) => _values.ContainsKey(key);
+
+        public bool TryGetValue(string key, out TValue value) => _values.TryGetValue(key, out value!);
+
+        public IEnumerator<KeyValuePair<string, TValue>> GetEnumerator() =>
+            _order.Select(key => KeyValuePair.Create(key, _values[key])).GetEnumerator();
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }

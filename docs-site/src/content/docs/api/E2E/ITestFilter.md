@@ -21,7 +21,10 @@ public interface ITestFilter
 
 Leaves collected tests out of a run before anything starts (upstream's `TestFilter`, `types.ts`). A host that selects
 tests calls it through `TestFilters.ApplyTestFilters`, at most once. A call that throws, returns an invalid result, or
-runs past 5 minutes leaves nothing out. .NET-only: the interface prefix and the `Async` suffix.
+runs past 5 minutes leaves nothing out. A failed call scores nothing either, unless the exception it throws is a
+[TestFilterException](/api/E2E/TestFilterException/) with a `Relevance`: the run checks it as it checks a result's, keeps the scores, and
+still warns of the failure. A call past 5 minutes is abandoned, and nothing it throws after that is read. .NET-only: the interface prefix and
+the `Async` suffix.
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
 

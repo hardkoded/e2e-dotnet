@@ -7,7 +7,10 @@ namespace E2E;
 /// <summary>
 /// Leaves collected tests out of a run before anything starts (upstream's <c>TestFilter</c>, <c>types.ts</c>). A host that selects
 /// tests calls it through <c>TestFilters.ApplyTestFilters</c>, at most once. A call that throws, returns an invalid result, or
-/// runs past 5 minutes leaves nothing out. .NET-only: the interface prefix and the <c>Async</c> suffix.
+/// runs past 5 minutes leaves nothing out. A failed call scores nothing either, unless the exception it throws is a
+/// <see cref="TestFilterException"/> with a <c>Relevance</c>: the run checks it as it checks a result's, keeps the scores, and
+/// still warns of the failure. A call past 5 minutes is abandoned, and nothing it throws after that is read. .NET-only: the interface prefix and
+/// the <c>Async</c> suffix.
 /// </summary>
 public interface ITestFilter
 {
@@ -74,6 +77,35 @@ public sealed class TestFilterResult
     /// <summary>The tests to leave out, by <see cref="TestFilterCandidate.Id"/>, each with the reason the report shows.</summary>
     public required IReadOnlyDictionary<string, string> Exclude { get; init; }
 
+    /// <summary>
+    /// How likely each test is to fail on this change, from 0 to 1, by <see cref="TestFilterCandidate.Id"/>. Upstream's runner starts the files of
+    /// the likeliest tests first, in bands at 75%, 50%, and 25%, and targets by the band of their best file; here the scores are kept and
+    /// <c>Units.OrderWorkPlans</c> orders plans with them, but the test framework owns the order of a <c>dotnet test</c> run, so they do not
+    /// reorder it. A test no filter scores counts as 0, and one several filters score keeps its highest. It never leaves a test out.
+    /// </summary>
+    public IReadOnlyDictionary<string, double>? Relevance { get; init; }
+
     /// <summary>One line about the whole decision, such as <c>the diff is too large to judge</c>.</summary>
     public string? Note { get; init; }
+}
+
+/// <summary>
+/// What a filter throws when it cannot finish but still knows how likely some tests are to fail, such as the ones the change touches. .NET-only:
+/// upstream reads a <c>relevance</c> property off whatever the filter throws, which C# has no way to name without a type.
+/// </summary>
+public class TestFilterException : Exception
+{
+    /// <summary>Creates the exception.</summary>
+    public TestFilterException() { }
+
+    /// <summary>Creates the exception with a message.</summary>
+    public TestFilterException(string message)
+        : base(message) { }
+
+    /// <summary>Creates the exception with a message and the exception that caused it.</summary>
+    public TestFilterException(string message, Exception innerException)
+        : base(message, innerException) { }
+
+    /// <summary>Shaped like <see cref="TestFilterResult.Relevance"/>; the run checks it as it checks a result's. Null scores nothing.</summary>
+    public virtual IReadOnlyDictionary<string, double>? Relevance { get; init; }
 }
