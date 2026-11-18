@@ -7,8 +7,10 @@ namespace E2E.Tests.Visibility;
 [Collection(BrowserCollection.Name)]
 public sealed class TheTreeWalkThroughABoxWithNoSizeTests
 {
+    // Partial: upstream asserts the empty wrapper is not in the tree. A box with no size is not hidden here (COMPATIBILITY.md), so the
+    // port lists it, shown; this test checks the rest (the fixed control, the root not hidden) and that the wrapper is listed and not hidden.
     [Fact]
-    public async Task Lists_the_fixed_controls_and_the_empty_wrapper_under_a_zero_height_page_and_marks_neither_the_wrapper_nor_the_root_as_hidden()
+    public async Task Partial_Lists_the_fixed_controls_under_a_zero_height_page_and_wrapper_and_neither_the_wrapper_nor_the_root_as_hidden()
     {
         var nodes = await VisibilitySupport.ObserveAsync(
             """

@@ -277,6 +277,8 @@ internal static class PageScript
             let n = 0;
             const style = getComputedStyle(el);
             const isHidden = !!parentHidden || hidden(el, style);
+            // Upstream returns at a hidden select, so its options are neither listed nor counted.
+            if (isHidden && el.tagName === "SELECT") return 0;
             const childrenHidden = !!parentHidden || hidesSubtree(el, style);
             const role = roleOf(el);
             if (place !== "ancestor" && listed(el, role) && !textOnly(el, role) && !isBoxlessUndrawn(el) && (!isHidden || isDrawnBoxless(el))) {
@@ -319,6 +321,8 @@ internal static class PageScript
             // A frame the page hides is no boundary of the tree.
             if (isFrame && (isHidden || isAriaHidden)) return;
             if (isBoxlessUndrawn(el)) return;
+            // Upstream returns at a hidden iframe or select (the frame case is above).
+            if (isHidden && el.tagName === "SELECT") return;
             // Upstream's walk lists a node only when it is not hidden; a select's offered options are listed on purpose, so not "hidden".
             if (isHidden && !isFrame && !offered && !isDrawnBoxless(el)) { walkChildren(el, into, childrenHidden, isAriaHidden); return; }
             if (place !== "ancestor" && listed(el, role)) {
