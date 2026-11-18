@@ -118,14 +118,13 @@ public sealed partial class JunitReporterTests : IDisposable
     }
 
     [Theory]
-    [InlineData("CI_PROJECT_DIR", true)]
-    [InlineData("the project root", false)]
-    public async Task Writes_no_attachment_when_the_artifacts_are_outside(string name, bool ci)
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Writes_no_attachment_when_the_artifacts_are_outside_CI_PROJECT_DIR_or_the_project_root(bool ci)
     {
         var project = NewDir();
         Environment.SetEnvironmentVariable("CI_PROJECT_DIR", ci ? NewDir() : null);
 
         Assert.Null(await AttachmentFor(project, Path.Combine(NewDir(), "results")));
-        Assert.NotEmpty(name);
     }
 }
