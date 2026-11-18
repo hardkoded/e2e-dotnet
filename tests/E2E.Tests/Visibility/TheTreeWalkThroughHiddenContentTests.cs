@@ -20,7 +20,10 @@ public sealed class TheTreeWalkThroughHiddenContentTests(ChromiumPage chromium) 
         );
         var nodes = await chromium.CaptureAsync();
         // Upstream's exact list: the aria-hidden button is out of the tree.
-        Assert.Equal(["Shown child"], nodes.Where(node => node.Role == "button").Select(node => node.Name));
+        Assert.Equal(
+            [("Shown child", false)],
+            nodes.Where(node => node.Role == "button").Select(node => (node.Name, node.Hidden))
+        );
         var skipping = nodes.Single(node => node.TestId == "skipping");
         Assert.False(skipping.Hidden);
         // The container keeps its box and paints none of its text, which innerText reads empty too.
