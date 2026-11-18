@@ -49,6 +49,7 @@ public sealed class SettleExpectedFailureTests
         Assert.Equal(AttemptStatus.Failed, settled.Status);
         Assert.Same(error, settled.Error);
         Assert.Null(settled.ExpectedFailure);
+        Assert.Empty(settled.SecondaryErrors);
     }
 
     [Fact]
@@ -59,12 +60,14 @@ public sealed class SettleExpectedFailureTests
         Assert.Equal(AttemptStatus.Passed, settled.Status);
         Assert.Null(settled.Error);
         Assert.Equal(new ExpectedFailureInfo("known gap", error), settled.ExpectedFailure);
+        Assert.Empty(settled.SecondaryErrors);
 
         var timeout = Failure("test", "TEST_TIMEOUT");
         var timedOut = Settle(Attempt(AttemptStatus.TimedOut, timeout), "slow");
         Assert.Equal(AttemptStatus.Passed, timedOut.Status);
         Assert.Null(timedOut.Error);
         Assert.Equal(new ExpectedFailureInfo("slow", timeout), timedOut.ExpectedFailure);
+        Assert.Empty(timedOut.SecondaryErrors);
     }
 
     [Fact]
@@ -77,6 +80,9 @@ public sealed class SettleExpectedFailureTests
         Assert.False(settled.Error?.Retryable);
         Assert.Contains("\"known gap\"", settled.Error?.Message);
         Assert.Equal(new ExpectedFailureInfo("known gap"), settled.ExpectedFailure);
+
+        var literal = Settle(Attempt(AttemptStatus.Passed), "日本語 \"q\"");
+        Assert.Contains("(\"日本語 \\\"q\\\"\")", literal.Error?.Message);
     }
 
     [Fact]
@@ -171,6 +177,7 @@ public sealed class SettleExpectedFailureTests
         var skipped = Settle(Attempt(AttemptStatus.Skipped), "gap");
         Assert.Equal(AttemptStatus.Skipped, skipped.Status);
         Assert.Null(skipped.ExpectedFailure);
+        Assert.Empty(skipped.SecondaryErrors);
 
         var skip = new ReportSkip("explicit", "n/a");
         var error = Failure("test");
@@ -179,5 +186,6 @@ public sealed class SettleExpectedFailureTests
         Assert.Same(error, failed.Error);
         Assert.Same(skip, failed.Skip);
         Assert.Null(failed.ExpectedFailure);
+        Assert.Empty(failed.SecondaryErrors);
     }
 }

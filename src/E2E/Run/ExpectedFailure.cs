@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using E2E.Internal;
 
@@ -37,6 +38,12 @@ internal sealed record ExpectedFailureSerializer(
 /// </summary>
 internal static class ExpectedFailure
 {
+    /// <summary>Quotes like <c>JSON.stringify</c>: non-ASCII text stays literal.</summary>
+    private static readonly JsonSerializerOptions Quoting = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
     /// <summary>The report schema's bound on a reason.</summary>
     private const int MaxReasonBytes = 8192;
 
@@ -70,7 +77,7 @@ internal static class ExpectedFailure
             record.Error = serializer.Serialize(
                 new TestException(
                     "UNEXPECTED_PASS",
-                    $"test is marked test.fail ({JsonSerializer.Serialize(reason)}) but passed; remove the mark if it is fixed"
+                    $"test is marked test.fail ({JsonSerializer.Serialize(reason, Quoting)}) but passed; remove the mark if it is fixed"
                 )
             );
             record.ExpectedFailure = new ExpectedFailureInfo(reason);
