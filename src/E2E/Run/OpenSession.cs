@@ -128,7 +128,9 @@ public sealed class E2EHost : IAsyncDisposable
         {
             var cwd = Path.GetFullPath(options.Cwd ?? Directory.GetCurrentDirectory());
             var config = OpenSession.LoadHostConfig(cwd, options.Config, options.ConfigPath, options.Env);
-            OpenSession.RegisterStaticSecrets(config.AllSecrets);
+            // Not shared with other sessions: upstream shares a run's config for the life of its worker, which runs one test at a time, and a
+            // .NET process runs hosts side by side. A test's own launch host shares its secrets (Launch.LaunchAsync).
+            OpenSession.SeedProcess(config.AllSecrets);
             var declared = SelectTarget.Select(config.Targets, options.Target, "pass `Target` to E2EHost.OpenAsync");
             var engine = options.EngineFactory?.Invoke(declared)
                 ?? TargetEngines.Create(declared, options.Headed ? false : null, null);
