@@ -243,6 +243,72 @@ public sealed class CoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Cuts_the_calls_still_running_when_a_session_or_its_host_closes_each_by_name_and_closes_cleanly()
+    {
+        var fake = new CoreFakeEngine(
+            scene:
+            [
+                new SemanticNode
+                {
+                    Ref = "price",
+                    Role = "text",
+                    Name = "Price",
+                    Text = "$9",
+                    TestId = "sale-price",
+                },
+            ]
+        )
+        {
+            OnNavigateTask = url =>
+                url.EndsWith("/slow", StringComparison.Ordinal) ? new TaskCompletionSource().Task : null,
+        };
+        var opened = await HostOf(fake, new LaunchOptions { App = FakeApp });
+        var session = await opened.NewSessionAsync();
+        await session.App.OpenAsync("/");
+        var missing = session.Screen.GetByRole("button", "Missing");
+        static async Task<Exception?> Failed(Task call)
+        {
+            try
+            {
+                await call;
+                return null;
+            }
+            catch (Exception cause)
+            {
+                return cause;
+            }
+        }
+
+        // A step that returns its own task and one an async method wraps end the same way.
+        var tap = Failed(missing.TapAsync());
+        var wait = Failed(missing.WaitForAsync());
+
+        // Closing is how a program cancels: what it cut is the caller's to handle, never a failure of the close.
+        await session.CloseAsync();
+
+        foreach (var (failure, api) in new[] { (await tap, "locator.tap"), (await wait, "locator.waitFor") })
+        {
+            var cut = Assert.IsAssignableFrom<E2EException>(failure);
+            Assert.Equal("CANCELLED", cut.Code);
+            Assert.StartsWith("the session closed while " + api + " \"", cut.Message, StringComparison.Ordinal);
+            Assert.EndsWith("\" was running", cut.Message, StringComparison.Ordinal);
+            Assert.Contains(nameof(CoreTests), cut.StackTrace, StringComparison.Ordinal);
+        }
+
+        var next = await opened.NewSessionAsync();
+        var open = Failed(next.App.OpenAsync("/slow"));
+        await opened.CloseAsync();
+        var opening = Assert.IsAssignableFrom<E2EException>(await open);
+        Assert.Equal("CANCELLED", opening.Code);
+        Assert.Equal("the session closed while app.open \"/slow\" was running", opening.Message);
+
+        // A call made after the close has nothing to name.
+        var after = await Assert.ThrowsAnyAsync<E2EException>(() => next.App.OpenAsync("/"));
+        Assert.Equal("CANCELLED", after.Code);
+        Assert.Equal("the session is closed", after.Message);
+    }
+
+    [Fact]
     public async Task Saves_state_in_memory_exports_it_only_encrypted_and_restores_it_on_a_host_of_the_same_engine_and_app()
     {
         var fake = new CoreFakeEngine(state: true);

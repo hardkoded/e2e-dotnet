@@ -53,6 +53,12 @@ internal sealed class StepRecorder
     // The tasks of abandoned steps, for the wait before teardown.
     private readonly List<Task> _abandonedTasks = [];
 
+    // What each step named by NameRunning fails with once the cancellation it was named for reaches it.
+    private readonly Dictionary<string, Exception> _named = [];
+
+    // Completes with a step's name when NameRunning reaches it, so a step whose work ignores the cancellation is cut at once.
+    private readonly Dictionary<string, TaskCompletionSource<Exception>> _cutsOnClose = [];
+
     // Highest timeline index among passed verification steps, or -1 when none has.
     private int _lastVerified = -1;
 
@@ -180,6 +186,9 @@ internal sealed class StepRecorder
             }
 
             _running.Add(record.Id);
+            _cutsOnClose[record.Id] = new TaskCompletionSource<Exception>(
+                TaskCreationOptions.RunContinuationsAsynchronously
+            );
         }
 
         FileEarlyNavigations(record);
@@ -247,12 +256,19 @@ internal sealed class StepRecorder
 
             return result;
         }
-        catch (Exception cause)
+        catch (Exception thrown)
         {
+            // A step that failed on its own keeps that failure: only the cancellation a close caused is replaced by the name.
+            var cause = NamedFailure(record, thrown);
             if (IsAbandoned(record))
             {
                 AbandonedWork.MarkRejection(cause);
-                throw;
+                if (ReferenceEquals(cause, thrown))
+                {
+                    throw;
+                }
+
+                ExceptionDispatchInfo.Throw(cause);
             }
 
             record.DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
@@ -263,7 +279,17 @@ internal sealed class StepRecorder
                     ? StepStatus.Cancelled
                 : cause is AgentException { Blocked: true } ? StepStatus.Blocked
                 : StepStatus.Failed;
-            record.Error = ErrorSerializer.Serialize(cause, _projectRoot, _redact);
+            record.Error = ErrorSerializer.Serialize(
+                cause,
+                _projectRoot,
+                _redact,
+                IsNamed(record, cause) ? record.Source : null
+            );
+            if (!ReferenceEquals(cause, thrown))
+            {
+                ExceptionDispatchInfo.Throw(cause);
+            }
+
             if (!_redactThrown || _redact is null || record.Status == StepStatus.Cancelled)
             {
                 throw;
@@ -292,6 +318,8 @@ internal sealed class StepRecorder
             {
                 _running.Remove(record.Id);
                 _pending.Remove(record.Id);
+                _named.Remove(record.Id);
+                _cutsOnClose.Remove(record.Id);
 
                 // An abandoned step reported its end when the body returned; what it did since is not the test's.
                 wasAbandoned = _abandoned.Remove(record.Id);
@@ -312,20 +340,31 @@ internal sealed class StepRecorder
     // Waits for the step's work, or cuts it when the recorder's cancellation fires: the step fails and its body is abandoned.
     private async Task<T> CutAsync<T>(Task<T> work, StepRecord record)
     {
-        if (!_cancellation.CanBeCanceled)
+        TaskCompletionSource<Exception>? closed;
+        lock (_gate)
+        {
+            _cutsOnClose.TryGetValue(record.Id, out closed);
+        }
+
+        if (!_cancellation.CanBeCanceled && closed is null)
         {
             return await work.ConfigureAwait(false);
         }
 
         var cut = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var registration = _cancellation.Register(() => cut.TrySetResult());
-        if (await Task.WhenAny(work, cut.Task).ConfigureAwait(false) == work)
+        var first = await Task.WhenAny(work, cut.Task, closed?.Task ?? cut.Task).ConfigureAwait(false);
+        if (first == work)
         {
             return await work.ConfigureAwait(false);
         }
 
         Observe(work);
-        throw new TestException(ErrorSerializer.Cancelled, record.Api + " cancelled");
+
+        // A close names the step and cuts it, though its work never looks at the cancellation.
+        throw closed is { Task.IsCompletedSuccessfully: true }
+            ? await closed.Task.ConfigureAwait(false)
+            : new TestException(ErrorSerializer.Cancelled, record.Api + " cancelled");
     }
 
     /// <summary>
@@ -351,7 +390,7 @@ internal sealed class StepRecorder
             var error = new TestException(
                 "STEP_NOT_AWAITED",
                 TextRules.WithHint(
-                    "the test body returned before " + step.Api + " " + Quoted(step.Label) + more + " finished",
+                    "the test body returned before " + CallName(step) + more + " finished",
                     "put `await` in front of every step call"
                 )
             );
@@ -381,6 +420,35 @@ internal sealed class StepRecorder
         }
 
         return first;
+    }
+
+    /// <summary>
+    /// Names every step still running in the error it fails with once the cancellation the session's close causes reaches it: what
+    /// <paramref name="error"/> builds for the call, whose argument is the step's api and, when it has one, its quoted label. Call it right before
+    /// that cancellation. Unlike <see cref="AbandonRunning"/>, nothing is recorded as not awaited and no rejection is observed: a program closes a
+    /// session to cancel what runs on it, and the calls it cut are its own to handle. Upstream's <c>nameRunning</c>.
+    /// </summary>
+    public void NameRunning(Func<string, Exception> error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        List<StepRecord> running;
+        lock (_gate)
+        {
+            running = [.. _steps.Where(step => _running.Contains(step.Id))];
+        }
+
+        foreach (var step in running)
+        {
+            var named = error(CallName(step));
+            TaskCompletionSource<Exception>? cut;
+            lock (_gate)
+            {
+                _named[step.Id] = named;
+                _cutsOnClose.TryGetValue(step.Id, out cut);
+            }
+
+            cut?.TrySetResult(named);
+        }
     }
 
     /// <summary>Completes once every abandoned step has settled, however it did; the caller bounds the wait.</summary>
@@ -760,6 +828,38 @@ internal sealed class StepRecorder
     private StepRecord? CurrentLocked() =>
         _scope.Value is { } record && _running.Contains(record.Id) && !_abandoned.Contains(record.Id) ? record : null;
 
+    // The name a close cut the step by, when what the step threw is the cancellation: a step that failed on its own keeps its failure.
+    private Exception NamedFailure(StepRecord record, Exception thrown)
+    {
+        Exception? named;
+        lock (_gate)
+        {
+            _named.TryGetValue(record.Id, out named);
+        }
+
+        return
+            named is not null
+            && (
+                thrown is OperationCanceledException
+                || string.Equals(
+                    ErrorSerializer.Classify(thrown).Code,
+                    ErrorSerializer.Cancelled,
+                    StringComparison.Ordinal
+                )
+            )
+            ? named
+            : thrown;
+    }
+
+    // Whether the failure is the name a close gave the step: the line it was called on stands in for the frames of the failure.
+    private bool IsNamed(StepRecord record, Exception cause)
+    {
+        lock (_gate)
+        {
+            return _named.TryGetValue(record.Id, out var named) && ReferenceEquals(named, cause);
+        }
+    }
+
     private bool IsAbandoned(StepRecord record)
     {
         lock (_gate)
@@ -793,6 +893,10 @@ internal sealed class StepRecorder
                 Identity = new StepProgressIdentity(_attempt.Id, _attempt.Index, record.Id, record.Index),
             }
         );
+
+    // A step as an error message names it: its api, and its quoted label when it has one.
+    private static string CallName(StepRecord step) =>
+        step.Label.Length == 0 ? step.Api : step.Api + " " + Quoted(step.Label);
 
     private static string Quoted(string label) =>
         "\"" + (label.Length > MaxQuotedLabelChars ? label[..(MaxQuotedLabelChars - 3)] + "..." : label) + "\"";

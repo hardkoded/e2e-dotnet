@@ -75,6 +75,9 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
     /// <summary>Throws when a session opens this URL's path; the message is the engine's own.</summary>
     public Func<string, Exception?>? OnNavigate { get; init; }
 
+    /// <summary>A navigation that returns its own task: one that never completes is a call a close has to cut.</summary>
+    public Func<string, Task?>? OnNavigateTask { get; init; }
+
     /// <summary>Throws when a session captures its state.</summary>
     public Func<Exception?>? OnCapture { get; init; }
 
@@ -131,7 +134,9 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
         }
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) =>
-            owner.OnNavigate?.Invoke(url) is { } failure ? Task.FromException(failure) : Task.CompletedTask;
+            owner.OnNavigate?.Invoke(url) is { } failure
+                ? Task.FromException(failure)
+                : owner.OnNavigateTask?.Invoke(url) ?? Task.CompletedTask;
 
         public Task OpenLinkAsync(string url, OperationContext context, CancellationToken cancellationToken)
         {
