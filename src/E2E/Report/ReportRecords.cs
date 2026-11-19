@@ -291,6 +291,10 @@ internal sealed record ReportResult
 /// <summary>Helpers over the records of a run (upstream's <c>run/records.ts</c>).</summary>
 internal static class ReportRecords
 {
+    /// <summary>The <c>test.fail</c> mark of a result's last attempt, or null (upstream's <c>expectedFailureOf</c>).</summary>
+    public static ExpectedFailureInfo? ExpectedFailureOf(IEnumerable<ReportAttempt> attempts) =>
+        attempts.LastOrDefault()?.ExpectedFailure;
+
     /// <summary>The cleanup-phase secondary errors of attempts whose cleanup failed (upstream's <c>cleanupErrorsOf</c>).</summary>
     public static IEnumerable<ReportError> CleanupErrorsOf(IEnumerable<ReportAttempt> attempts) =>
         attempts

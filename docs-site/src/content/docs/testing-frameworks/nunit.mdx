@@ -123,7 +123,7 @@ On Microsoft.Testing.Platform, `--filter` works as above. Use `--report-trx --re
 - `[Test]` marks a test. `[TestCase]` rows work too.
 - `[Retry(n)]`: the first attempt can replay the cache. Later attempts run live and still record. Each `[Repeat]` iteration is a first attempt.
 - `Assert.Ignore(reason)` or `Assume.That(...)` skips a test from inside its body.
-- `[Property("E2E.Fail", "reason")]` marks a test as expected to fail (upstream's `test.fail`; `NUnitSessionTestRunner.ExpectedFailureProperty` is the name). A product failure or a timeout passes the test, and the report keeps the reason and the error under `expectedFailure`. A test that passes fails with `UNEXPECTED_PASS`. A skip, an infrastructure error, a blocked agent verdict, or a hook failure still decides the test, as unmarked. NUnit has no expected-failure outcome, so the run shows the test as passed.
+- `[Property("E2E.Fail", "reason")]` marks a test as expected to fail (upstream's `test.fail`; `NUnitSessionTestRunner.ExpectedFailureProperty` is the name). A product failure or a timeout passes the test, and the report keeps the reason and the error under `expectedFailure`. A test that passes fails with `UNEXPECTED_PASS`. A skip, an infrastructure error, a blocked agent verdict, or a hook failure still decides the test, as unmarked. NUnit has no expected-failure outcome, so the run shows the test as passed. The `e2e` list reporter marks it `(failed as expected)` with the reason and the covered error's first line under it, the Markdown report and the trace page say `failed as expected` / `Expected to fail: <reason>` with the error. The port has no JUnit reporter of its own, so that report (`junit.xml` from the logger) does not carry the note.
 
 ### Parallelism
 

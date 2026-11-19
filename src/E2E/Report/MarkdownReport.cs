@@ -663,13 +663,16 @@ public static class MarkdownReport
     /// <summary>One table row; every cell has already escaped the separator.</summary>
     private static string Row(IEnumerable<string> cells) => "| " + string.Join(" | ", cells) + " |";
 
-    /// <summary><c>⚠️ | title (1 failed attempt first) | 1 step · 4 calls | 3.4s</c>: one test's row, how it ended noted when it did not simply pass. The file's row above names the target.</summary>
+    /// <summary><c>⚠️ | title (1 failed attempt first) | 1 step · 4 calls | 3.4s</c>: one test's row, how it ended noted when it did not simply pass or failed as <c>test.fail</c> expected. The file's row above names the target.</summary>
     private static string TestRow(Entry entry, bool withAgent)
     {
         var (result, final) = entry;
         var skipped = result.Status == ResultStatus.Skipped;
+        var expected = result.Attempts.LastOrDefault()?.ExpectedFailure;
         var note =
             skipped ? "skipped: " + Cell(result.Skip?.Reason ?? "skipped")
+            : expected?.Error is { } covered
+                ? $"failed as expected: {Cell(expected.Reason)}, {Cell(covered.Code)}: {Cell(covered.Message)}"
             : result.Status == ResultStatus.Flaky ? Plural(final.FailedAttempts, "failed attempt") + " first"
             : "";
         var name = TestName(result) + (note.Length == 0 ? "" : " (" + note + ")");
