@@ -56,6 +56,9 @@ internal sealed class StepRecorder
     // What each step named by NameRunning fails with once the cancellation it was named for reaches it.
     private readonly Dictionary<string, Exception> _named = [];
 
+    // The reason a close aborts with, once NameRunning was called before any other abort reached the signal; null when none did.
+    private Exception? _closeReason;
+
     // Completes with a step's name when NameRunning reaches it, so a step whose work ignores the cancellation is cut at once.
     private readonly Dictionary<string, TaskCompletionSource<Exception>> _cutsOnClose = [];
 
@@ -145,7 +148,14 @@ internal sealed class StepRecorder
         // timeline keeps the steps that ran.
         if (_signal?.Invoke() is { IsCancellationRequested: true } cut)
         {
-            return Task.FromCanceled<T>(cut);
+            // The close's abort carries its reason, as upstream's signal does; any other abort is a plain cancellation.
+            Exception? reason;
+            lock (_gate)
+            {
+                reason = _closeReason;
+            }
+
+            return reason is null ? Task.FromCanceled<T>(cut) : Task.FromException<T>(reason);
         }
 
         // The label is published, reported, and traced as is: a secret the test spelled into an instruction or a locator stops here, once.
@@ -425,15 +435,23 @@ internal sealed class StepRecorder
     /// <summary>
     /// Names every step still running in the error it fails with once the cancellation the session's close causes reaches it: what
     /// <paramref name="error"/> builds for the call, whose argument is the step's api and, when it has one, its quoted label. Call it right before
-    /// that cancellation. Unlike <see cref="AbandonRunning"/>, nothing is recorded as not awaited and no rejection is observed: a program closes a
+    /// that cancellation. <paramref name="reason"/> is what the close aborts with: a step started after it fails with the reason itself, and when
+    /// another abort reached the signal first, no step is named and each keeps its failure. Unlike <see cref="AbandonRunning"/>, nothing is recorded as not awaited and no rejection is observed: a program closes a
     /// session to cancel what runs on it, and the calls it cut are its own to handle. Upstream's <c>nameRunning</c>.
     /// </summary>
-    public void NameRunning(Func<string, Exception> error)
+    public void NameRunning(Exception reason, Func<string, Exception> error)
     {
+        ArgumentNullException.ThrowIfNull(reason);
         ArgumentNullException.ThrowIfNull(error);
         List<StepRecord> running;
         lock (_gate)
         {
+            if (_signal?.Invoke().IsCancellationRequested == true)
+            {
+                return;
+            }
+
+            _closeReason = reason;
             running = [.. _steps.Where(step => _running.Contains(step.Id))];
         }
 
