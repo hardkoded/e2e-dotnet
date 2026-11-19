@@ -10,9 +10,10 @@ namespace E2E.Tests;
 /// <summary>Stops the worker processes a test started, as upstream's tests kill theirs in <c>onTestFinished</c>.</summary>
 internal static class ProcessCleanup
 {
-    /// <summary>Kills each process tree and waits for it to exit, so the files it held can be deleted; one that cannot be stopped does not keep the others running.</summary>
+    /// <summary>Kills each process tree and waits for it to exit, so the files it held can be deleted; one that cannot be stopped does not keep the others running, and the ones that did not exit are reported once all were tried.</summary>
     public static void KillAll(IEnumerable<Process> children)
     {
+        List<string> running = [];
         foreach (var child in children)
         {
             try
@@ -22,7 +23,10 @@ internal static class ProcessCleanup
                     child.Kill(entireProcessTree: true);
                 }
 
-                child.WaitForExit(5_000);
+                if (!child.WaitForExit(5_000))
+                {
+                    running.Add(child.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                }
             }
             catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
             {
@@ -32,6 +36,13 @@ internal static class ProcessCleanup
             {
                 child.Dispose();
             }
+        }
+
+        if (running.Count > 0)
+        {
+            throw new TimeoutException(
+                "worker processes still running after being killed: " + string.Join(", ", running)
+            );
         }
     }
 }
