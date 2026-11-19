@@ -10,7 +10,7 @@ namespace E2E.Decision.Tests.TypeSafeAiProvider;
 
 /// <summary>Upstream's <c>describe('TypeSafe provider')</c> of <c>typesafe-ai-provider.test.ts</c>.</summary>
 [Collection("TypeSafeAiEnvironment")]
-public sealed class TypeSafeAiProviderTests
+public sealed class TypeSafeProviderTests
 {
     [Fact]
     public void Provides_the_experimental_decision_capability()
@@ -26,7 +26,7 @@ public sealed class TypeSafeAiProviderTests
     }
 
     [Fact]
-    public void Retains_the_deprecated_factory_alias()
+    public void Partial_Retains_the_deprecated_factory_alias()
     {
         var provider = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider();
 
