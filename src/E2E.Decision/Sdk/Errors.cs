@@ -75,6 +75,42 @@ public sealed class ApiCallException(
     public bool IsRetryable { get; } = isRetryable ?? (statusCode is null or 408 or 409 or 429 or >= 500);
 }
 
+/// <summary>The AI SDK's <c>DownloadError</c> (<c>@ai-sdk/provider-utils</c>): a file the SDK could not download.</summary>
+public sealed class DownloadException : Exception
+{
+    /// <summary>Creates the error. Without <paramref name="message"/>, it reads as upstream's: the status, or the inner error.</summary>
+    public DownloadException(
+        string url,
+        int? statusCode = null,
+        string? statusText = null,
+        string? message = null,
+        Exception? innerException = null
+    )
+        : base(
+            message
+                ?? (
+                    innerException is null
+                        ? "Failed to download " + url + ": " + statusCode + " " + statusText
+                        : "Failed to download " + url + ": " + innerException.Message
+                ),
+            innerException
+        )
+    {
+        Url = url;
+        StatusCode = statusCode;
+        StatusText = statusText;
+    }
+
+    /// <summary>The URL that failed.</summary>
+    public string Url { get; }
+
+    /// <summary>The HTTP status of the answer; null when none came.</summary>
+    public int? StatusCode { get; }
+
+    /// <summary>The reason phrase of the answer.</summary>
+    public string? StatusText { get; }
+}
+
 /// <summary>The AI SDK's <c>UnsupportedFunctionalityError</c>: the provider cannot take an input, such as a file of an unsupported media type.</summary>
 public sealed class UnsupportedFunctionalityException(string functionality)
     : Exception("'" + functionality + "' functionality not supported.")

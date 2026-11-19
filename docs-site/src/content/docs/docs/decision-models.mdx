@@ -85,6 +85,8 @@ using E2E.Decision.Sdk.TypeSafeAi;
 var model = new TypeSafeAiProvider().DecisionModel("jev-latest");
 ```
 
+`TYPESAFE_AI_BASE_URL` routes the provider through a trusted proxy or a self-hosted TypeSafe-compatible server. The default base URL is `https://api.typesafe.ai/v1`. `TypeSafeAiProviderSettings.BaseUrl` takes precedence over the variable. The configured server receives the API key and the decision input.
+
 `OpenAIDecisionModel` takes images too. Vercel AI Gateway rejects the screenshot for every decision model, so keep `Vision` off there.
 
 TypeSafe takes PNG and JPEG images. Each image gets a reference that the request puts in the state at the image's position (or, when the state already contains the reference, leaves alone). Name your own in the part's `typesafe` provider options, `{ "reference": "[photo]", "insertReference": false }`, to point at the image from a question's instructions or criteria. `longContext: true` in the call's `typesafe` provider options raises the context limits to 262k tokens, at the cost of speed and accuracy.
@@ -136,6 +138,24 @@ var result = await ExperimentalDecide.RunAsync(new DecideOptions
 - `IsEnabled = false` turns the integrations off for the call.
 - The call also runs inside the AI SDK's tracing channel. `DiagnosticsChannel.GetTracingChannel(TelemetryTracingChannel.AiSdkTelemetryTracingChannel)` (`"ai:telemetry"`, the stand-in for Node's `diagnostics_channel`) takes a `TracingChannelSubscribers`, and its `Start` subscriber receives a `TelemetryTracingChannelMessage` of type `TelemetryTracingEventType.ExperimentalDecide` whose `Event` is the start event with `AiVersion` and the runtime context filtered by `IncludeRuntimeContext`. `AsyncEnd` receives the same message with `Result` set, or `Error` set when the call fails; `RecordInputs = false` or `RecordOutputs = false` hides the result and replaces the error with a generic one. With no subscribers the call runs as before. `Start.BindStore` runs a store for the length of the call.
 - The port has no global integration registry: a call with no `Integrations` has none.
+
+## Files at a URL
+
+A state part can be a file at a URL: `new DecisionFileUrlPart("image/png", new Uri("https://example.com/package.png"))`. `ExperimentalDecide.RunAsync` downloads it before the decision model is called and hands the model a `DecisionFilePart` with the bytes. The downloaded media type replaces a partial one such as `image`, never a full one such as `image/png`.
+
+The call never fetches a URL on its own. Without `DecideOptions.ExperimentalDownload` (the AI SDK's `experimental_download`), a URL file part fails with a `DownloadException` before the model request. Create the function with `CreateDownload.Create`:
+
+```csharp
+var result = await ExperimentalDecide.RunAsync(new DecideOptions
+{
+    Model = model,
+    Questions = questions,
+    ExperimentalDownload = CreateDownload.Create(new CreateDownloadOptions { MaxBytes = 10_000_000 }),
+    State = [new DecisionFileUrlPart("image", new Uri("https://example.com/package.png"))],
+});
+```
+
+The download refuses a non-http(s) URL, `localhost` and internal names, and literal private IP addresses, and checks every redirect hop. It does not resolve DNS, so a name that resolves to a private address gets through. For untrusted URLs, set `CreateDownloadOptions.Fetch` to a transport that validates DNS when it connects. A failed download, including an error status or a body over `MaxBytes` (2 GiB by default), throws `DownloadException` and no decision-model call is made.
 
 ## Limits
 

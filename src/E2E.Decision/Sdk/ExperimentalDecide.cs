@@ -26,6 +26,12 @@ public sealed class DecideOptions
     /// <summary>Retries of a call that fails with a retryable error. Null is the AI SDK's default, 2.</summary>
     public int? MaxRetries { get; init; }
 
+    /// <summary>
+    /// The download function URL file state needs (<c>experimental_download</c>). Use <see cref="CreateDownload.Create"/> with a transport that
+    /// validates DNS at connection time for untrusted URLs. The model's own HTTP client is not used.
+    /// </summary>
+    public DownloadFunction? ExperimentalDownload { get; init; }
+
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
     /// <summary>The provider options, keyed by provider name.</summary>
@@ -133,12 +139,15 @@ public static class ExperimentalDecide
 
                 try
                 {
+                    var preparedState = await DecisionState
+                        .PrepareAsync(options.State, options.ExperimentalDownload, cancellationToken)
+                        .ConfigureAwait(false);
                     var modelCallEvent = new DecisionModelCallStartEvent
                     {
                         CallId = callId,
                         Provider = model.Provider,
                         ModelId = model.ModelId,
-                        State = options.State,
+                        State = preparedState,
                         Questions = options.Questions,
                     };
                     await Notify
@@ -157,7 +166,7 @@ public static class ExperimentalDecide
                                     .DoDecideAsync(
                                         new DecisionModelCall
                                         {
-                                            State = options.State,
+                                            State = preparedState,
                                             Questions = options.Questions,
                                             MaxOutputTokens = options.MaxOutputTokens,
                                             Reasoning = options.Reasoning,
@@ -186,7 +195,7 @@ public static class ExperimentalDecide
                                 CallId = callId,
                                 Provider = model.Provider,
                                 ModelId = model.ModelId,
-                                State = options.State,
+                                State = preparedState,
                                 Questions = options.Questions,
                                 Answers = result.Answers,
                                 Usage = result.Usage,
