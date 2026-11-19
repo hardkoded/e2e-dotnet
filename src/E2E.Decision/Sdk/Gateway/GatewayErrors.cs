@@ -471,17 +471,35 @@ public static class GatewayErrors
             return EmptyObject;
         }
 
+        // secureJsonParse: a body that is not JSON, or carries a forbidden key, stays the raw text.
+        return TryParseSecureJson(error.ResponseBody, out var parsed)
+            ? parsed
+            : JsonSerializer.SerializeToElement(error.ResponseBody);
+    }
+
+    private static bool TryParseSecureJson(string text, out JsonElement parsed)
+    {
+        parsed = default;
+        JsonDocument document;
         try
         {
-            using var document = JsonDocument.Parse(error.ResponseBody);
-            if (!HasForbiddenKey(document.RootElement))
-            {
-                return document.RootElement.Clone();
-            }
+            document = JsonDocument.Parse(text);
         }
-        catch (JsonException) { }
+        catch (JsonException)
+        {
+            return false;
+        }
 
-        return JsonSerializer.SerializeToElement(error.ResponseBody);
+        using (document)
+        {
+            if (HasForbiddenKey(document.RootElement))
+            {
+                return false;
+            }
+
+            parsed = document.RootElement.Clone();
+            return true;
+        }
     }
 
     // isTimeoutError: upstream matches undici's timeout codes; .NET's HttpClient timeout is a TimeoutException, or a cancellation caused by one.
