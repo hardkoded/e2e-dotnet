@@ -185,9 +185,6 @@ public sealed class DecisionModelCall
     /// <summary>Reasoning effort: <c>provider-default</c>, <c>none</c>, <c>minimal</c>, <c>low</c>, <c>medium</c>, <c>high</c>, <c>xhigh</c>, or <c>max</c>.</summary>
     public string? Reasoning { get; init; }
 
-    /// <summary>Transport retries for this call. Null keeps the provider's own.</summary>
-    public int? MaxRetries { get; init; }
-
     public IReadOnlyDictionary<string, string> Headers { get; init; } = new Dictionary<string, string>();
 
     /// <summary>The provider options, keyed by provider name. Each value is a JSON object.</summary>

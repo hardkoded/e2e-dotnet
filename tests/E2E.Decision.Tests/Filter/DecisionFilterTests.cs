@@ -1273,6 +1273,23 @@ public sealed class DecisionFilterTests : IDisposable
     }
 
     [Fact]
+    public async Task Retries_a_call_that_fails_with_a_retryable_error_up_to_3_times()
+    {
+        var busy = new ApiCallException(
+            "Too many requests",
+            429,
+            new Dictionary<string, string> { ["retry-after-ms"] = "0" }
+        );
+        var model = ScriptedJudge(_ => 0, (_, _) => throw busy);
+        using var repo = CartRepo();
+        var error = await Assert.ThrowsAnyAsync<Exception>(() =>
+            Filter(model).FilterAsync([Adds, Removes, SignsIn], FilterContext(repo))
+        );
+        Assert.Contains("Failed after 4 attempts. Last error: AI_APICallError: Too many requests", error.Message);
+        Assert.Equal(4, model.Requests.Count);
+    }
+
+    [Fact]
     public async Task Throws_making_no_call_when_git_cannot_diff_against_the_base()
     {
         var model = ScriptedJudge(_ => 0);

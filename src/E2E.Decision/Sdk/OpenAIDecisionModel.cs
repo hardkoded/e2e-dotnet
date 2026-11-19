@@ -121,9 +121,29 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
         ModelEndpoint.AddHeaders(message, _options.Headers);
         ModelEndpoint.AddHeaders(message, call.Headers);
         message.Content = new StringContent(body.ToJsonString(Text), System.Text.Encoding.UTF8, "application/json");
-        var text = await ModelHttp
-            .SendAsync(_http, message, Redactor.None, cancellationToken, maxRetries: call.MaxRetries)
-            .ConfigureAwait(false);
+        string text;
+        try
+        {
+            // The retries belong to ExperimentalDecide, as the AI SDK retries around doDecide: one attempt here.
+            text = await ModelHttp
+                .SendAsync(_http, message, Redactor.None, cancellationToken, maxRetries: 0)
+                .ConfigureAwait(false);
+        }
+        catch (AgentException error) when (error.Code == "MODEL_PROVIDER_FAILED" && !error.Blocked)
+        {
+            throw new ApiCallException(
+                error.Message,
+                error.ProviderStatus,
+                error.ProviderRetryHeaders,
+                // A request that got no answer is retried; so is a retryable status; a timeout is neither.
+                error.ProviderStatus
+                    is { } status
+                    ? null
+                    : error.NoProviderAnswer,
+                error
+            );
+        }
+
         using var document = ParseDocument(text);
         var root = document.RootElement;
         var parsed = ParseAnswers(root);
