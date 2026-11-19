@@ -82,6 +82,7 @@ public sealed class DerivedReasonTests
         Assert.Equal(DerivedReason.Date, Reason("12/31/2026", "pick the last day"));
         Assert.Equal(DerivedReason.Date, Reason("19-09-2026", "pick tomorrow"));
         Assert.Equal(DerivedReason.Date, Reason("09:30", "book the morning slot"));
+        Assert.Equal(DerivedReason.Date, Reason("9:30am", "book the morning slot"));
         Assert.Equal(DerivedReason.Date, Reason("September 19, 2026", "schedule this for tomorrow"));
         Assert.Equal(DerivedReason.Date, Reason("Sept. 19", "schedule this for tomorrow"));
         Assert.Equal(DerivedReason.Date, Reason("19 Sep 2026", "schedule this for tomorrow"));
