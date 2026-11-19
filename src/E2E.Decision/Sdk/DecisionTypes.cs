@@ -214,6 +214,26 @@ public interface IDecisionModel
     Task<DecisionModelResult> DoDecideAsync(DecisionModelCall call, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// A deprecated decision model shape (the AI SDK's <c>Experimental_EvaluationModelV4</c>): the same model with <c>doEvaluate</c> in place
+/// of <c>doDecide</c>. <see cref="ResolveModel.ResolveDecisionModel"/> adapts it to an <see cref="IDecisionModel"/>.
+/// </summary>
+public interface IEvaluationModel
+{
+    string Provider { get; }
+
+    string ModelId { get; }
+
+    /// <summary>The specification version this model implements. Only <c>v4</c> is accepted.</summary>
+    string SpecificationVersion { get; }
+
+    /// <summary>The question types this model can answer.</summary>
+    IReadOnlyList<string> SupportedQuestionTypes { get; }
+
+    /// <summary>Answers every question of <paramref name="call"/> in one request.</summary>
+    Task<DecisionModelResult> DoEvaluateAsync(DecisionModelCall call, CancellationToken cancellationToken);
+}
+
 /// <summary>What <see cref="ExperimentalDecide.RunAsync"/> returns (the AI SDK's <c>DecisionResult</c>).</summary>
 public sealed class DecisionResult
 {

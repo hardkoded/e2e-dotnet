@@ -811,7 +811,7 @@ Decision models: `Executor.DecisionExecutor(new DecisionExecutorOptions { Model 
 (`E2E.Decision`) is an `IStepExecutor` that acts through a decision model, which answers
 `choice` questions with probabilities, and a small text model for field values. Set it as
 `AgentOptions.Executor`. `MinProbability` and `MinConfidence` (0 to 1) block weaker actions,
-`Vision = true` adds a masked screenshot (and `tap_at` / `type_at` for drawn controls with a
+`Model` is optional: a deprecated evaluation model (`IEvaluationModel`, the `doEvaluate` shape) goes in `EvaluationModel` and runs through the same loop; set one of the two. `Vision = true` adds a masked screenshot (and `tap_at` / `type_at` for drawn controls with a
 text model), and `ProviderOptions` go with every decide call. Not ported: the `--debug` agent step
 table and the Gateway and TypeSafe AI decision models. To see every model call, use
 `E2E_AI_TRACE=1` (topic `debugging`).

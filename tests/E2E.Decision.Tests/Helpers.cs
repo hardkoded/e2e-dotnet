@@ -100,6 +100,17 @@ internal static class Helpers
         return (model, requests);
     }
 
+    /// <summary>Upstream's <c>scriptedDecision</c> with <c>legacy</c>: the same scripted model in the deprecated evaluation model shape (<c>doEvaluate</c>).</summary>
+    public static (ScriptedLegacyModel Model, List<EvalRequest> Requests) ScriptedLegacyDecision(
+        Func<string, IReadOnlyList<string>, int, ScriptedAnswer> resolve,
+        IReadOnlyList<string>? supported = null,
+        Exception? throws = null
+    )
+    {
+        var (model, requests) = ScriptedDecision(resolve, supported, throws);
+        return (new ScriptedLegacyModel(model), requests);
+    }
+
     /// <summary>Upstream's <c>scriptedText</c>: a scripted language model that returns queued texts as JSON.</summary>
     public static ScriptedTextModel ScriptedText(params string?[] texts) =>
         ScriptedOutputs([.. texts.Select(text => (object)new Dictionary<string, object?> { ["text"] = text })]);
@@ -152,6 +163,21 @@ internal static class Helpers
 
         /// <summary>Present only when the executor sent provider options.</summary>
         public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
+    }
+
+    /// <summary>The deprecated evaluation model <see cref="ScriptedLegacyDecision"/> builds.</summary>
+    public sealed class ScriptedLegacyModel(ScriptedChoiceModel inner) : IEvaluationModel
+    {
+        public string Provider => inner.Provider;
+
+        public string ModelId => inner.ModelId;
+
+        public string SpecificationVersion => inner.SpecificationVersion;
+
+        public IReadOnlyList<string> SupportedQuestionTypes => inner.SupportedQuestionTypes;
+
+        public Task<DecisionModelResult> DoEvaluateAsync(DecisionModelCall call, CancellationToken cancellationToken) =>
+            inner.DoDecideAsync(call, cancellationToken);
     }
 
     /// <summary>The model <see cref="ScriptedDecision"/> builds.</summary>

@@ -68,10 +68,13 @@ public sealed class ConstructionTests
             "DecisionExecutor({ model }) got scripted/scripted-1, which does not answer choice questions"
         );
 
-    /// <summary>Partial: the port has no deprecated evaluation model (<c>doEvaluate</c>), so only the decision model half runs.</summary>
     [Fact]
-    public void Partial_Accepts_a_decision_model_and_a_deprecated_evaluation_model() =>
+    public void Accepts_a_decision_model_and_a_deprecated_evaluation_model()
+    {
         Assert.Equal("decision", Build(Options(Done())).Name);
+        var (legacy, _) = ScriptedLegacyDecision((_, _, _) => Pick("done"));
+        Assert.Equal("decision", Build(new DecisionExecutorOptions { EvaluationModel = legacy }).Name);
+    }
 
     [Fact]
     public void Rejects_providerOptions_that_are_a_provider_mapped_to_a_non_object()
