@@ -51,6 +51,29 @@ Caps prose at &lt;code class="paramref"&gt;maxChars&lt;/code&gt;, marking the cu
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Internal_TextRules_BoundIsAmbiguous_"></a>
+<a id="E2E_Internal_TextRules_BoundIsAmbiguous_System_String_System_Int32_"></a>
+
+### BoundIsAmbiguous(string, int)
+
+
+```csharp
+public static bool BoundIsAmbiguous(string text, int maxChars)
+```
+
+
+Upstream's `boundIsAmbiguous`: whether `Bound(text, maxChars)` could equal what `Bound` makes of a different
+text: it cuts &lt;code class="paramref"&gt;text&lt;/code&gt;, or &lt;code class="paramref"&gt;text&lt;/code&gt; already ends like a cut.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `text` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `maxChars` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
+
+**Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Internal_TextRules_Collapse_"></a>
 <a id="E2E_Internal_TextRules_Collapse_System_String_"></a>
 
@@ -175,7 +198,7 @@ public static string SanitizeRecordedText(string text)
 ```
 
 
-Upstream's `sanitizeRecordedText` (`internal/errors.ts`): [SanitizeText(string)](TextRules.md#E2E_Internal_TextRules_SanitizeText_System_String_) that keeps `\r\n` line breaks, for
+Upstream's `sanitizeRecordedText` (`internal/errors.ts`): [SanitizeText(string)](#E2E_Internal_TextRules_SanitizeText_System_String_) that keeps `\r\n` line breaks, for
 text the run records (serialized errors and skip reasons). A lone `\r` still becomes U+FFFD, since on a terminal it rewinds the
 line and the text after it overwrites the text before.
 

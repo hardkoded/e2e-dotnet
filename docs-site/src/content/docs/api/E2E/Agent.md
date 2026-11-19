@@ -112,8 +112,9 @@ public Task WaitForAsync(string statement, WaitForOptions? options = null, Cance
 ```
 
 
-Waits until the statement holds on screen. It judges at once, then again after each [Interval](/api/E2E/WaitForOptions/#E2E_WaitForOptions_Interval) once the
-screen has changed. A capture that outlives [Timeout](/api/E2E/WaitForOptions/#E2E_WaitForOptions_Timeout) fails `STEP_TIMEOUT`
+Waits until the statement holds on screen. It judges at once, then again whenever the screen changed: as soon as the change is
+seen when the screen had held still for [Interval](/api/E2E/WaitForOptions/#E2E_WaitForOptions_Interval) before it (or had not changed since the wait began),
+and at most once per [Interval](/api/E2E/WaitForOptions/#E2E_WaitForOptions_Interval) while it keeps changing. A capture that outlives [Timeout](/api/E2E/WaitForOptions/#E2E_WaitForOptions_Timeout) fails `STEP_TIMEOUT`
 (`agent.waitFor exceeded its N ms timeout`); once a judgment has been made, the timeout reads
 `waitFor timed out; last judgment: ...` and carries that failure as its cause.
 

@@ -70,6 +70,21 @@ public int DeclarationIndex { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
+<a id="E2E_Reports_ReportResult_ExpectedFailure_"></a>
+<a id="E2E_Reports_ReportResult_ExpectedFailure"></a>
+
+### ExpectedFailure
+
+
+```csharp
+public ExpectedFailureRecord? ExpectedFailure { get; init; }
+```
+
+
+Why the test was expected to fail, when its last attempt was marked `test.fail`; the attempt holds the failure. Null in older reports.
+
+**Value:** [ExpectedFailureRecord](/api/E2E.Reports/ExpectedFailureRecord/)
+
 <a id="E2E_Reports_ReportResult_File_"></a>
 <a id="E2E_Reports_ReportResult_File"></a>
 
