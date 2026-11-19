@@ -41,17 +41,10 @@ public static class CreateDownload
             catch
             {
                 await batch.CancelAsync().ConfigureAwait(false);
-                foreach (var task in tasks)
-                {
-                    try
-                    {
-                        await task.ConfigureAwait(false);
-                    }
-                    catch
-                    {
-                        // The first error is the one thrown; the siblings' are cancellations.
-                    }
-                }
+                // Wait for the siblings and observe their errors: the first error is the one thrown, theirs are cancellations.
+                await Task.WhenAll(tasks)
+                    .ContinueWith(static all => all.Exception, TaskScheduler.Default)
+                    .ConfigureAwait(false);
 
                 throw;
             }
