@@ -72,19 +72,12 @@ public sealed class Channel
         ArgumentNullException.ThrowIfNull(transform);
         lock (_gate)
         {
-            _stores =
-            [
-                .. _stores,
-                (
-                    store,
-                    message =>
-                    {
-                        var previous = store.Value;
-                        store.Value = transform(message);
-                        return () => store.Value = previous;
-                    }
-                ),
-            ];
+            _stores = [.. _stores, (store, message =>
+                {
+                    var previous = store.Value;
+                    store.Value = transform(message);
+                    return () => store.Value = previous;
+                })];
         }
     }
 
@@ -137,7 +130,12 @@ public sealed class Channel
         return RunStore(stores, 0, message, execute);
     }
 
-    private T RunStore<T>((object Store, Func<object, Action> Enter)[] stores, int index, object message, Func<T> execute)
+    private T RunStore<T>(
+        (object Store, Func<object, Action> Enter)[] stores,
+        int index,
+        object message,
+        Func<T> execute
+    )
     {
         if (index == stores.Length)
         {
@@ -189,7 +187,11 @@ public sealed class TracingChannel
 
     /// <summary><c>tracingChannel.hasSubscribers</c>.</summary>
     public bool HasSubscribers =>
-        Start.HasSubscribers || End.HasSubscribers || AsyncStart.HasSubscribers || AsyncEnd.HasSubscribers || Error.HasSubscribers;
+        Start.HasSubscribers
+        || End.HasSubscribers
+        || AsyncStart.HasSubscribers
+        || AsyncEnd.HasSubscribers
+        || Error.HasSubscribers;
 
     /// <summary><c>tracingChannel.subscribe</c>.</summary>
     public void Subscribe(TracingChannelSubscribers subscribers)
@@ -265,26 +267,23 @@ public sealed class TracingChannel
             return execute();
         }
 
-        return Start.RunStores(
-            message,
-            () =>
+        return Start.RunStores(message, () =>
+        {
+            try
             {
-                try
-                {
-                    return TraceCompletionAsync(execute(), message);
-                }
-                catch (Exception error)
-                {
-                    message.Error = error;
-                    Error.Publish(message);
-                    throw;
-                }
-                finally
-                {
-                    End.Publish(message);
-                }
+                return TraceCompletionAsync(execute(), message);
             }
-        );
+            catch (Exception error)
+            {
+                message.Error = error;
+                Error.Publish(message);
+                throw;
+            }
+            finally
+            {
+                End.Publish(message);
+            }
+        });
     }
 
     private async Task<T> TraceCompletionAsync<T>(Task<T> task, TelemetryTracingChannelMessage message)

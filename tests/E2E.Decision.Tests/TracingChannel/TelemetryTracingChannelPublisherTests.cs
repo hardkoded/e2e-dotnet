@@ -14,7 +14,10 @@ public sealed class TelemetryTracingChannelPublisherTests
 {
     private static Task Decide(DecideOptions options) => ExperimentalDecide.RunAsync(options);
 
-    private static DecideOptions Options(TelemetryOptions? telemetry, IReadOnlyDictionary<string, object?>? runtimeContext)
+    private static DecideOptions Options(
+        TelemetryOptions? telemetry,
+        IReadOnlyDictionary<string, object?>? runtimeContext
+    )
     {
         var (model, _) = Setup(
             new DecisionModelResult
@@ -38,8 +41,15 @@ public sealed class TelemetryTracingChannelPublisherTests
     [Fact]
     public async Task Partial_includes_the_SDK_version_with_allowlisted_context_on_every_tracing_span()
     {
-        var runtimeContext = new Dictionary<string, object?> { ["requestId"] = "request-1", ["accessToken"] = "secret-token" };
-        var telemetry = new TelemetryOptions { IncludeRuntimeContext = new Dictionary<string, bool> { ["requestId"] = true } };
+        var runtimeContext = new Dictionary<string, object?>
+        {
+            ["requestId"] = "request-1",
+            ["accessToken"] = "secret-token",
+        };
+        var telemetry = new TelemetryOptions
+        {
+            IncludeRuntimeContext = new Dictionary<string, bool> { ["requestId"] = true },
+        };
 
         var messages = await CollectTracingChannelStartMessages(() => Decide(Options(telemetry, runtimeContext)));
 
@@ -84,7 +94,10 @@ public sealed class TelemetryTracingChannelPublisherTests
         var messages = await CollectTracingChannelStartMessages(() =>
             Decide(
                 Options(
-                    new TelemetryOptions { IncludeRuntimeContext = new Dictionary<string, bool> { ["requestId"] = true } },
+                    new TelemetryOptions
+                    {
+                        IncludeRuntimeContext = new Dictionary<string, bool> { ["requestId"] = true },
+                    },
                     new Dictionary<string, object?> { ["requestId"] = "request-1", ["secret"] = "hidden" }
                 )
             )

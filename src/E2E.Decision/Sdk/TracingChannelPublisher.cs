@@ -56,7 +56,7 @@ internal static class TracingChannelPublisher
                 )
                 .ConfigureAwait(false);
         }
-        catch when (executeTask is not null)
+        catch
         {
             // Tracing threw, or the call failed: the call's own outcome wins.
         }

@@ -53,14 +53,11 @@ internal static class TracingChannelTestHelpers
         {
             AsyncEnd = message => events.Add($"asyncEnd {((TelemetryTracingChannelMessage)message).Type}"),
         };
-        tracingChannel.Start.BindStore(
-            store,
-            message =>
-            {
-                events.Add($"bindStart {((TelemetryTracingChannelMessage)message).Type}");
-                return (TelemetryTracingChannelMessage)message;
-            }
-        );
+        tracingChannel.Start.BindStore(store, message =>
+        {
+            events.Add($"bindStart {((TelemetryTracingChannelMessage)message).Type}");
+            return (TelemetryTracingChannelMessage)message;
+        });
         tracingChannel.Subscribe(subscribers);
         try
         {

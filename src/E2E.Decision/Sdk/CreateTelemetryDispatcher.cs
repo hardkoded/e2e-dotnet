@@ -40,12 +40,16 @@ internal sealed class TelemetryDispatcher
                 Type = type,
                 Event = Augment(@event) with
                 {
-                    RuntimeContext = FilterIncludedContext.Filter(@event.RuntimeContext, _telemetry?.IncludeRuntimeContext),
+                    RuntimeContext = FilterIncludedContext.Filter(
+                        @event.RuntimeContext,
+                        _telemetry?.IncludeRuntimeContext
+                    ),
                 },
             },
             execute,
             // Raw operation results may contain both inputs and outputs.
-            _telemetry?.RecordInputs != false && _telemetry?.RecordOutputs != false
+            _telemetry?.RecordInputs != false
+                && _telemetry?.RecordOutputs != false
         );
 
     /// <summary><c>experimental_onDecideStart</c>.</summary>
