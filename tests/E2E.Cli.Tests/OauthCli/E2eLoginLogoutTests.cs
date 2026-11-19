@@ -40,7 +40,9 @@ public sealed class E2eLoginLogoutTests : IDisposable
     [Fact]
     public async Task Turns_an_unknown_provider_into_one_error_naming_the_providers_not_a_stack_trace()
     {
-        var error = await Assert.ThrowsAsync<OAuthException>(() => Run("logout", "nope"));
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            Program.LogoutAsync("nope", new StringWriter(), TextReader.Null, false, CancellationToken.None)
+        );
 
         Assert.Equal(OAuthException.Misconfigured, error.Code);
         Assert.Contains("openai, github-copilot, opencode-console, spacexsi", error.Message, StringComparison.Ordinal);
