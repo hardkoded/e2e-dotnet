@@ -281,7 +281,7 @@ lines you changed:
   while a stable change exists on either side of the step's delta (something
   appeared or disappeared), and reads it in an alert as one placeholder,
   so `Saved at 2026-10-24T15:41:27.955Z` and `Saved at 2026-10-24T15:30:00Z`
-  are the same alert. A count that names what it counts (`3 records imported`)
+  are the same alert. A count that names what it counts (`3 records imported`, `42件`)
   is dropped only from a side that has a stable change of its own, so it stays
   even when the opposite side has one. A run summary would count the cache by step in a
   `Cache  4 replayed · 1 handed off · 1 missed · 1 not saved` row (not saved: steps of
