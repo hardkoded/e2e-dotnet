@@ -30,7 +30,7 @@ public sealed class EnvCredentialStoreTests
             var read = await store.GetAsync("github-copilot");
             Assert.Equal(("a", "r", 123L, "acct"), (read!.Access, read.Refresh, read.Expires, read.Get("accountId")));
             Assert.Equal(["github-copilot"], await store.ListAsync());
-            var set = await Assert.ThrowsAsync<OAuthException>(() => store.SetAsync("spacexai", creds));
+            var set = await Assert.ThrowsAsync<OAuthException>(() => store.SetAsync("spacexsi", creds));
             Assert.Equal(OAuthException.Misconfigured, set.Code);
             Assert.Contains(CredentialStores.EnvironmentVariable, set.Message, StringComparison.Ordinal);
             Assert.Equal(
@@ -43,6 +43,16 @@ public sealed class EnvCredentialStoreTests
         {
             Assert.IsType<FileCredentialStore>(CredentialStores.Default());
         }
+    }
+
+    [Fact]
+    public async Task Reads_a_login_the_variable_holds_under_a_legacy_key()
+    {
+        var store = new EnvironmentCredentialStore(
+            """{ "spacexai": { "access": "a", "refresh": "r", "expires": 123 } }"""
+        );
+        Assert.Equal("a", (await store.GetAsync("spacexsi"))!.Access);
+        Assert.Equal(["spacexsi"], await store.ListAsync());
     }
 
     [Fact]

@@ -11,9 +11,11 @@ A ChatGPT Plus/Pro, GitHub Copilot, OpenCode Console (Zen and Go), or SuperGrok/
 
 ```bash
 dotnet tool install --global E2E.Cli
-e2e login github-copilot    # or openai, opencode-console, spacexai
+e2e login github-copilot    # or openai, opencode-console, spacexsi
 e2e models github-copilot   # the same provider id as the login
 ```
+
+`spacexai` and `grok` also name the SuperGrok login on `login`, `logout`, and `models`. A login an older release stored under `spacexai` is still read, and stays under that key so that release still finds it.
 
 Then set `"provider": "chatgpt"` (or `copilot`, `opencode-console`, `grok`) with one of those ids, or use `Subscriptions.ChatGpt("gpt-6-luna")` in code. `e2e login openai --device` works without a browser, and `e2e login github-copilot` reuses `gh auth token` (or takes `--client-id` of your own OAuth App, and `--enterprise-url` for GitHub Enterprise). The login is stored in `~/.config/e2e/oauth.json`, the file upstream's `npx e2e login` writes, so a login made with either tool serves both. `E2E_OAUTH_CREDENTIALS` holding that JSON stands in for the file, and `OPENCODE_API_KEY` (a Console service account API key or an OpenCode Go subscription API key) replaces an OpenCode Console login, for the model and for `e2e models opencode-console`. Use API keys in CI.
 

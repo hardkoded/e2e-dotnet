@@ -7,8 +7,8 @@ using System.Text.Json.Nodes;
 namespace E2E.OAuth;
 
 /// <summary>
-/// SuperGrok and X Premium+ through SpaceXAI's OAuth server: RFC 8628 device authorization for the Grok CLI's
-/// public client. The token is a plain bearer against the ordinary SpaceXAI API. Refresh tokens rotate.
+/// SuperGrok and X Premium+ through SpaceXSI's OAuth server: RFC 8628 device authorization for the Grok CLI's
+/// public client. The token is a plain bearer against the ordinary SpaceXSI API. Refresh tokens rotate.
 /// </summary>
 public sealed class XaiProvider : IOAuthProvider
 {
@@ -40,9 +40,9 @@ public sealed class XaiProvider : IOAuthProvider
         _modelsUrl = modelsUrl;
     }
 
-    public string Id => "spacexai";
+    public string Id => "spacexsi";
 
-    public string Name => "SpaceXAI";
+    public string Name => "SpaceXSI";
 
     public async Task<OAuthCredentials> LoginAsync(
         OAuthLoginCallbacks callbacks,
