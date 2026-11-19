@@ -28,6 +28,26 @@ internal sealed class TelemetryDispatcher
         _integrations = telemetry?.IsEnabled == false ? [] : telemetry?.Integrations ?? [];
     }
 
+    /// <summary>
+    /// <c>runInTracingChannelSpan</c>: runs <paramref name="execute"/> inside the AI SDK tracing channel, publishing the start event with
+    /// the telemetry settings, the SDK version and the runtime context filtered by <see cref="TelemetryOptions.IncludeRuntimeContext"/>
+    /// (<c>augmentEvent</c> with <c>filterContext</c>). The call's result is published only when inputs and outputs are both recorded.
+    /// </summary>
+    internal Task<T> RunInTracingChannelSpanAsync<T>(string type, DecideStartEvent @event, Func<Task<T>> execute) =>
+        TracingChannelPublisher.RunWithTracingChannelSpanAsync(
+            new TelemetryTracingChannelMessage
+            {
+                Type = type,
+                Event = Augment(@event) with
+                {
+                    RuntimeContext = FilterIncludedContext.Filter(@event.RuntimeContext, _telemetry?.IncludeRuntimeContext),
+                },
+            },
+            execute,
+            // Raw operation results may contain both inputs and outputs.
+            _telemetry?.RecordInputs != false && _telemetry?.RecordOutputs != false
+        );
+
     /// <summary><c>experimental_onDecideStart</c>.</summary>
     internal Task OnDecideStartAsync(DecideStartEvent @event)
     {

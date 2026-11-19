@@ -817,7 +817,8 @@ table and the Gateway and TypeSafe AI decision models. To see every model call, 
 `E2E_AI_TRACE=1` (topic `debugging`). `ExperimentalDecide.RunAsync` (`E2E.Decision.Sdk`, the AI SDK's
 `experimental_decide`) takes `OnStart` and `OnEnd` callbacks, a `RuntimeContext`, and `Telemetry` (`TelemetryOptions` with
 `ITelemetry` integrations for the decide and decision-model call events; `RecordInputs`, `RecordOutputs`,
-`IncludeRuntimeContext`). The decision executor does not set them.
+`IncludeRuntimeContext`), and publishes the call to the `ai:telemetry` tracing channel
+(`DiagnosticsChannel.GetTracingChannel(...)`, message type `experimental_decide`). The decision executor does not set them.
 
 ## Custom executors
 

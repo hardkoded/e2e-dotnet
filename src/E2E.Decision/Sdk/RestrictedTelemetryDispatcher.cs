@@ -13,6 +13,10 @@ internal sealed class RestrictedTelemetryDispatcher(TelemetryOptions? telemetry)
 {
     private readonly TelemetryDispatcher _dispatcher = new(telemetry);
 
+    /// <summary>The dispatcher's <c>runInTracingChannelSpan</c>.</summary>
+    internal Task<T> RunInTracingChannelSpanAsync<T>(string type, DecideStartEvent @event, Func<Task<T>> execute) =>
+        _dispatcher.RunInTracingChannelSpanAsync(type, @event, execute);
+
     /// <summary>The restricted dispatcher's <c>onStart</c>.</summary>
     internal Task OnStartAsync(DecideStartEvent @event) =>
         _dispatcher.OnDecideStartAsync(
