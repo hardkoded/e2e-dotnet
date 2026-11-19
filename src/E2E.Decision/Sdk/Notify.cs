@@ -45,6 +45,7 @@ internal static class Notify
         catch (Exception)
         {
             // As the AI SDK: an error in a callback does not break the call.
+            return;
         }
     }
 }
