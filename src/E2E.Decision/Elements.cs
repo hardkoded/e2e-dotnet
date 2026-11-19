@@ -126,7 +126,8 @@ public sealed class SpaceObservation
 
     public required TraceViewport Viewport { get; init; }
 
-    public required IReadOnlyList<ExecutorNode> Tree { get; init; }
+    /// <summary>The tree root. Upstream's action space leaves it out of pointer operations.</summary>
+    public required ExecutorNode Tree { get; init; }
 
     /// <summary>Granted pixels; with the <c>tapAt</c> verb and a step that locates they open <c>tap_at</c>.</summary>
     public ExecutorPixels? Pixels { get; init; }
@@ -398,9 +399,11 @@ public static partial class Elements
                 }
 
                 // Pointer and scroll operations reach any labeled node, not only controls: a card menu that opens on hover, a file row
-                // that takes a right-click, a footnote to bring into view. A port tree lists the page's top-level nodes with no root
-                // of its own, so no node is left out as upstream leaves out its root.
-                var pointable = (interactive || (PassiveRoles.Contains(role) && !childSelect)) && NodeLabel(node) != "";
+                // that takes a right-click, a footnote to bring into view. The tree root is no target, a drop destination included.
+                var pointable =
+                    (interactive || (PassiveRoles.Contains(role) && !childSelect))
+                    && NodeLabel(node) != ""
+                    && !ReferenceEquals(node, observation.Tree);
                 if (pointable)
                 {
                     if (verbs.Contains(ExecutorVerb.Hover))
@@ -456,10 +459,7 @@ public static partial class Elements
             }
         }
 
-        foreach (var node in observation.Tree)
-        {
-            Visit(node, false);
-        }
+        Visit(observation.Tree, false);
 
         // Controls before passive rows, viewport nodes first within each, then tree order; drop the rest past the cap so the model can
         // scroll to them, and never block on a large screen. A control below the fold still outranks any amount of visible prose.
@@ -604,7 +604,7 @@ public static partial class Elements
 
         if (
             verbs.Contains(ExecutorVerb.DismissKeyboard)
-            && (observation.KeyboardVisible ?? observation.Tree.Any(KeyboardShowing))
+            && (observation.KeyboardVisible ?? KeyboardShowing(observation.Tree))
         )
         {
             controls.Add(Control.DismissKeyboard);
@@ -758,10 +758,7 @@ public static partial class Elements
             }
         }
 
-        foreach (var node in observation.Tree)
-        {
-            Visit(node);
-        }
+        Visit(observation.Tree);
 
         return Hash.Fnv1a(parts);
     }

@@ -51,7 +51,7 @@ internal static class ElementsHelpers
             {
                 Path = "/form",
                 Viewport = new TraceViewport(800, 600),
-                Tree = children,
+                Tree = new ExecutorNode { Id = "root", Children = children },
                 KeyboardVisible = keyboardVisible,
             },
             true
