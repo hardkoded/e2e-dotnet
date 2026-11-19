@@ -379,7 +379,7 @@ public sealed partial class RenderJunitReportTests
     }
 
     [Fact]
-    public void Keeps_a_carriage_return_in_the_failure_message_and_body_as_a_character_reference()
+    public void Partial_keeps_a_carriage_return_in_the_failure_message_and_body_as_a_character_reference()
     {
         var xml = Render(
             Document([

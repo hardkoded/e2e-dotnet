@@ -41,6 +41,6 @@ public string? ArtifactsDir { get; init; }
 
 
 Where artifact files are located relative to the repository root or CI working directory (such as GitLab's `$CI_PROJECT_DIR`). When
-set, a test with a failure screenshot gains `<system-out>[[ATTACHMENT|<path>]]</system-out>`.
+set, a test whose failure screenshot has a local `Path` (a URL-only screenshot gets none) gains `<system-out>[[ATTACHMENT|<path>]]</system-out>`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)

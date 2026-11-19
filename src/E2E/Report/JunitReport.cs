@@ -16,7 +16,7 @@ public sealed record JunitReportOptions
 {
     /// <summary>
     /// Where artifact files are located relative to the repository root or CI working directory (such as GitLab's <c>$CI_PROJECT_DIR</c>). When
-    /// set, a test with a failure screenshot gains <c>&lt;system-out&gt;[[ATTACHMENT|&lt;path&gt;]]&lt;/system-out&gt;</c>.
+    /// set, a test whose failure screenshot has a local <c>Path</c> (a URL-only screenshot gets none) gains <c>&lt;system-out&gt;[[ATTACHMENT|&lt;path&gt;]]&lt;/system-out&gt;</c>.
     /// </summary>
     public string? ArtifactsDir { get; init; }
 }

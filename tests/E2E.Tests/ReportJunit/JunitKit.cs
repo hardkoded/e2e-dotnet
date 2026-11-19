@@ -119,6 +119,9 @@ internal static partial class JunitKit
         {
             throw new InvalidOperationException($"expected one root element, found {roots}");
         }
+
+        // A real parser also rejects what the token checks cannot see, such as a duplicate attribute.
+        System.Xml.Linq.XDocument.Parse(xml);
     }
 
     /// <summary>Renders and asserts well-formedness, so every case also parses.</summary>

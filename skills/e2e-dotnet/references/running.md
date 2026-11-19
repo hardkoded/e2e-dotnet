@@ -154,7 +154,7 @@ stored. Entries recorded before these fields existed count once a
 
 ## Output
 
-`dotnet test` writes `junit.xml` through the `junit` logger of `JunitXml.TestLogger`. The `E2E.Reports.JunitReporter` reporter (listed in `reporters`, option `outputFile`) writes the report's own JUnit document, `junit.xml` beside `report.json`, with `failed as expected: <reason>` for a `test.fail` pass. It writes `.e2e/report.json`, for scripts
+`dotnet test` writes `junit.xml` through the `junit` logger of `JunitXml.TestLogger`. The `E2E.Reports.JunitReporter` reporter (listed in `reporters`, option `outputFile`) writes the report's own JUnit document, `junit.xml` beside `report.json` by default (`outputFile` sets another path, from the project root), with `failed as expected: <reason>` for a `test.fail` pass. It writes `.e2e/report.json`, for scripts
 rather than reading (`jq`, CI tools; topic `debugging`), a trace page,
 `.e2e/results/<result>/trace.md`, for each attempt its `trace` mode keeps, and a
 video when `video` is on. The report holds every result of the test process,
