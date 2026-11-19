@@ -18,6 +18,8 @@ public sealed class StepRecorderNameRunningTests
         "the session closed while " + call + " was running"
     );
 
+    private static TestException Closed() => new("CANCELLED", "the session is closed");
+
     private static Task Never() => new TaskCompletionSource().Task;
 
     private static async Task<Exception?> Failure(Task step)
@@ -62,7 +64,7 @@ public sealed class StepRecorderNameRunningTests
                 );
                 await Never();
             }));
-        steps.NameRunning(Cut);
+        steps.NameRunning(Closed(), Cut);
         await end.CancelAsync();
 
         var named = Assert.IsAssignableFrom<E2EException>(await outer);
@@ -84,34 +86,34 @@ public sealed class StepRecorderNameRunningTests
     {
         var (steps, end) = Recorder();
         var back = Failure(steps.RunAsync(StepKind.App, "app.back", "", Never));
-        steps.NameRunning(Cut);
+        steps.NameRunning(Closed(), Cut);
         await end.CancelAsync();
         Assert.Equal("the session closed while app.back was running", (await back)?.Message);
     }
 
-    /// <summary>Partial: upstream's step holds the abort reason itself; a started-after step here is refused with the cancelled token, not named.</summary>
     [Fact]
-    public async Task Partial_Leaves_a_step_started_after_the_abort_unnamed()
+    public async Task Leaves_a_step_started_after_the_abort_with_the_reason_itself()
     {
         var (steps, end) = Recorder();
-        steps.NameRunning(Cut);
+        var reason = Closed();
+        steps.NameRunning(reason, Cut);
         await end.CancelAsync();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
             steps.RunAsync(StepKind.App, "app.open", "/", Never)
         );
+        Assert.Same(reason, failure);
     }
 
-    /// <summary>Partial: upstream's other abort is an abort reason that reached the signal first; here it is a step that failed with its own error before the cancellation.</summary>
+    /// <summary>Partial: upstream's step fails with the other abort's reason itself (<c>toBe(timeout)</c>); a cancelled token carries no reason here, so the step fails with its cancellation, unnamed.</summary>
     [Fact]
-    public async Task Partial_Keeps_the_failure_of_a_step_that_failed_on_its_own()
+    public async Task Partial_Keeps_the_failure_of_a_step_another_abort_reached_first()
     {
         var (steps, end) = Recorder();
-        var timeout = new TestException("TEST_TIMEOUT", "session timed out after 1000 ms");
-        var failing = new TaskCompletionSource();
-        var step = Failure(steps.RunAsync(StepKind.App, "app.open", "/", () => failing.Task));
-        failing.SetException(timeout);
-        Assert.Same(timeout, await step);
-        steps.NameRunning(Cut);
+        var step = Failure(steps.RunAsync(StepKind.App, "app.open", "/", Never));
         await end.CancelAsync();
+        steps.NameRunning(Closed(), Cut);
+        var failure = await step;
+        Assert.NotNull(failure);
+        Assert.DoesNotContain("the session closed while", failure.Message, StringComparison.Ordinal);
     }
 }

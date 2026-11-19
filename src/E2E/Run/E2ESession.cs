@@ -905,7 +905,7 @@ public sealed class E2ESession : IAsyncDisposable
             soft = CloseSoftFailures();
             if (_cancelsOnClose is { } cancels)
             {
-                _scope.Steps.NameRunning(cancels.Cut);
+                _scope.Steps.NameRunning(cancels.Closed(), cancels.Cut);
             }
             else
             {
