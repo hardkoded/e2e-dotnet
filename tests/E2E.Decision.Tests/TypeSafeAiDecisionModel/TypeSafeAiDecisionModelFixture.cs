@@ -90,7 +90,7 @@ internal static class TypeSafeAiDecisionModelFixture
     {
         var server = new TestServer();
         server.RespondJson(Url, NativeResponse.ToJsonString());
-        var provider = new TypeSafeAiProvider(
+        var provider = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider(
             new TypeSafeAiProviderSettings { ApiKey = "test-api-key", HttpClient = server.Client }
         );
         return (server, provider.DecisionModel(modelId));

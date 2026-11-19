@@ -7,6 +7,7 @@ using static E2E.Decision.Tests.GatewayDecisionModel.GatewayDecisionModelFixture
 namespace E2E.Decision.Tests.GatewayDecisionModel;
 
 /// <summary>Upstream's <c>describe('URL construction')</c> of <c>gateway-decision-model.test.ts</c>.</summary>
+[Collection("GatewayProviderEnvironment")]
 public sealed class UrlConstructionTests
 {
     [Fact]

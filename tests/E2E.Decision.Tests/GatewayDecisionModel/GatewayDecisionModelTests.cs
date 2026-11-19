@@ -10,6 +10,7 @@ using static E2E.Decision.Tests.GatewayDecisionModel.GatewayDecisionModelFixture
 namespace E2E.Decision.Tests.GatewayDecisionModel;
 
 /// <summary>Upstream's <c>describe('GatewayDecisionModel')</c> of <c>gateway-decision-model.test.ts</c>.</summary>
+[Collection("GatewayProviderEnvironment")]
 public sealed class GatewayDecisionModelTests
 {
     public static TheoryData<string, string> StatePartsCases =>
@@ -180,7 +181,7 @@ public sealed class GatewayDecisionModelTests
     {
         var server = new TestServer();
         PrepareJsonResponse(server);
-        var provider = new GatewayProvider(
+        var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
             new GatewayProviderSettings
             {
                 BaseUrl = "https://api.test.com",
