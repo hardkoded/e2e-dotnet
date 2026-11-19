@@ -37,6 +37,8 @@ public sealed class TodoTests : E2ETest
 }
 ```
 
+A deprecated evaluation model (`IEvaluationModel`) works too: set it as `EvaluationModel` instead of `Model`. Set one of the two.
+
 Tests are plain `ActAsync` and `AssertAsync` calls. Set `OPENAI_API_KEY` for `OpenAIDecisionModel`.
 
 ## What the model can do

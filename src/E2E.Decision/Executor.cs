@@ -39,10 +39,7 @@ public static partial class Executor
 
         var model = options.Model
             ?? (options.EvaluationModel is { } legacy ? ResolveModel.ResolveDecisionModel(legacy) : null);
-        Model.CheckModel(
-            options.Model ?? (object?)options.EvaluationModel,
-            new ModelNeeds("DecisionExecutor", "choice", Example)
-        );
+        Model.CheckModel(model, new ModelNeeds("DecisionExecutor", "choice", Example));
         var gates = new Gates(options.MinProbability, options.MinConfidence);
         if (!InUnit(gates.MinProbability) || !InUnit(gates.MinConfidence))
         {

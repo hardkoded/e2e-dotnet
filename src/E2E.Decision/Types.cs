@@ -10,7 +10,7 @@ namespace E2E.Decision;
 public sealed class DecisionExecutorOptions
 {
     /// <summary>
-    /// A decision model that answers <c>choice</c> questions with a probability distribution, such as an <see cref="OpenAIDecisionModel"/>.
+    /// A decision model that answers <c>choice</c> questions with a probability distribution, such as an <see cref="OpenAIDecisionModel"/>. Set this or <see cref="EvaluationModel"/>; the executor throws <c>INVALID_CONFIG</c> when neither is set.
     /// An answer without <see cref="DecisionAnswer.Probabilities"/> counts as a committed choice: probability 1, and the provider-reported confidence, which is 0 only when the provider reports none.
     /// </summary>
     public IDecisionModel? Model { get; init; }
