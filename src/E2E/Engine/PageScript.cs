@@ -345,7 +345,7 @@ internal static class PageScript
               if (textNode) textCount++;
               else count++;
               // What the element reports on its own is the reader's, shared with node mode; the walk adds its own fields.
-              const fields = fieldsOf(el, role, { isHidden, isAriaHidden: false, focused, testIdAttribute, textLimit });
+              const fields = fieldsOf(el, role, { isHidden, focused, testIdAttribute, textLimit });
               const secure = fields.secure;
               const ownsChildren = !isLeaf(el, role) && el.tagName !== "SELECT" && !isFrame;
               const node = {

@@ -50,7 +50,7 @@ internal static class FilterHelpers
             var json = call.State.OfType<DecisionJsonPart>().FirstOrDefault();
             var instructions = call.Questions.ToDictionary(
                 pair => pair.Key,
-                pair => pair.Value.Instructions?.ToText() ?? "",
+                pair => pair.Value.Instructions?.Text ?? pair.Value.Instructions?.Json?.ToString() ?? "",
                 StringComparer.Ordinal
             );
             var request = new DecideRequest(json?.Value, instructions, cancellationToken, call.ProviderOptions);

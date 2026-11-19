@@ -32,7 +32,6 @@ public sealed record CheckNode(
     string? Name,
     int? Level,
     bool Hidden,
-    bool AriaHidden,
     IReadOnlyDictionary<string, bool> States
 );
 
@@ -359,7 +358,6 @@ public static partial class Crosscheck
                         ? level.GetInt32()
                         : null,
                     node.GetProperty("hidden").GetBoolean(),
-                    node.GetProperty("ariaHidden").GetBoolean(),
                     states
                 )
             );

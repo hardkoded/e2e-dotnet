@@ -272,7 +272,7 @@ internal sealed class DecisionStep
         {
             Path = path,
             Viewport = observation.Viewport ?? new TraceViewport(0, 0),
-            Tree = tree,
+            Tree = new ExecutorNode { Id = "root", Children = tree },
             KeyboardVisible = observation.KeyboardVisible,
             Pixels = screenshot is null ? null : observation.Pixels,
             Locates = screenshot is not null && _locates,

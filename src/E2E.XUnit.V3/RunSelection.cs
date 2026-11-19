@@ -26,7 +26,36 @@ internal static class RunSelection
         StringComparer.Ordinal
     );
 
+    private static IReadOnlyDictionary<string, double> _relevance = new Dictionary<string, double>(
+        StringComparer.Ordinal
+    );
+
     private static readonly Lock Gate = new();
+
+    /// <summary>Keeps the scores the test filters gave the tests of this run, by test key, for the orderers that start the likeliest tests first.</summary>
+    public static void SetRelevance(IReadOnlyDictionary<string, double> relevance) =>
+        Volatile.Write(ref _relevance, relevance);
+
+    /// <summary>How likely the test filters rated a test to fail on this change, from 0 to 1; 0 for a test none scored.</summary>
+    public static double RelevanceOf(Type fixture, string? method) =>
+        method is not null && Volatile.Read(ref _relevance).TryGetValue(KeyOf(fixture, method), out var score)
+            ? score
+            : 0;
+
+    /// <summary>The relevance band (upstream's <c>relevanceBand</c>) of the best-scored test of a class.</summary>
+    internal static int BandOfClass(string className)
+    {
+        var best = 0;
+        foreach (var (key, score) in Volatile.Read(ref _relevance))
+        {
+            if (key.StartsWith(className + ".", StringComparison.Ordinal))
+            {
+                best = Math.Max(best, Units.RelevanceBand(score));
+            }
+        }
+
+        return best;
+    }
 
     public static void Set(IReadOnlyDictionary<string, string> excluded) => Volatile.Write(ref _excluded, excluded);
 

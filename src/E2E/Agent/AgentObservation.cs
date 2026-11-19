@@ -541,7 +541,7 @@ internal static partial class AgentObservation
         foreach (var node in nodes)
         {
             var children = ProjectTree(node.Children, redactor, appOrigin);
-            if (node.States.Hidden || node.States.AriaHidden)
+            if (node.States.Hidden)
             {
                 projected.AddRange(children);
                 continue;
@@ -616,13 +616,13 @@ internal static partial class AgentObservation
             return false;
         }
 
-        var visible = observation.Roots.Where(root => !(root.States.Hidden || root.States.AriaHidden)).ToList();
+        var visible = observation.Roots.Where(root => !root.States.Hidden).ToList();
         return visible.Count == 0
             || (
                 visible.Count == 1
                 && visible[0].Role is { } role
                 && EmptyRoots.Contains(role)
-                && visible[0].Children.All(child => child.States.Hidden || child.States.AriaHidden)
+                && visible[0].Children.All(child => child.States.Hidden)
             );
     }
 
