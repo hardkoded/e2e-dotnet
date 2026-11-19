@@ -2,14 +2,12 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Text.Json.Nodes;
 using E2E.Decision.Sdk;
-using static E2E.Decision.Tests.TypesafeAiDecisionModel.TypesafeAiDecisionModelTests;
+using static E2E.Decision.Tests.TypeSafeAiDecisionModel.TypeSafeAiDecisionModelFixture;
 
-namespace E2E.Decision.Tests.TypesafeAiDecisionModel;
+namespace E2E.Decision.Tests.TypeSafeAiDecisionModel;
 
-/// <summary>Ports <c>describe('HTTP errors')</c> of <c>packages/typesafe-ai/src/typesafe-ai-decision-model.test.ts</c> of the AI SDK (<c>vercel/ai</c>).</summary>
-[Collection("TypesafeAi")]
+/// <summary>Upstream's <c>describe('HTTP errors')</c> of <c>typesafe-ai-decision-model.test.ts</c>.</summary>
 public sealed class HttpErrorsTests
 {
     [Theory]
@@ -17,13 +15,13 @@ public sealed class HttpErrorsTests
     [InlineData(422)]
     [InlineData(429)]
     [InlineData(529)]
-    public async Task Preserves_status_and_retryability(int status)
+    public async Task Preserves_status_and_retryability_for_status(int status)
     {
-        var server = new TypeSafeServer();
-        server.RespondError(status, """{"detail":"Provider error"}""");
+        var (server, model) = Create();
+        server.RespondError(Url, status, """{"detail":"Provider error"}""");
 
         var error = await Assert.ThrowsAsync<ApiCallException>(() =>
-            server.Model().DoDecideAsync(Options(), CancellationToken.None)
+            model.DoDecideAsync(Options(), CancellationToken.None)
         );
 
         Assert.Equal(status, error.StatusCode);
@@ -42,11 +40,11 @@ public sealed class HttpErrorsTests
     [InlineData("""{"message":"Overloaded"}""", "Overloaded")]
     public async Task Handles_provider_error_envelopes(string body, string message)
     {
-        var server = new TypeSafeServer();
-        server.RespondError(422, body);
+        var (server, model) = Create();
+        server.RespondError(Url, 422, body);
 
         var error = await Assert.ThrowsAsync<ApiCallException>(() =>
-            server.Model().DoDecideAsync(Options(), CancellationToken.None)
+            model.DoDecideAsync(Options(), CancellationToken.None)
         );
 
         Assert.Equal(422, error.StatusCode);
@@ -56,11 +54,11 @@ public sealed class HttpErrorsTests
     [Fact]
     public async Task Surfaces_a_bare_error_type_code_observed_in_production_as_max_tokens_exceeded()
     {
-        var server = new TypeSafeServer();
-        server.RespondError(400, """{"error_type":"max_tokens_exceeded"}""");
+        var (server, model) = Create();
+        server.RespondError(Url, 400, """{"error_type":"max_tokens_exceeded"}""");
 
         var error = await Assert.ThrowsAsync<ApiCallException>(() =>
-            server.Model().DoDecideAsync(Options(), CancellationToken.None)
+            model.DoDecideAsync(Options(), CancellationToken.None)
         );
 
         Assert.Equal(400, error.StatusCode);
@@ -70,14 +68,15 @@ public sealed class HttpErrorsTests
     [Fact]
     public async Task Prefers_a_prose_field_over_the_error_type_code()
     {
-        var server = new TypeSafeServer();
+        var (server, model) = Create();
         server.RespondError(
+            Url,
             400,
             """{"error_type":"max_tokens_exceeded","message":"Input exceeds the model context window"}"""
         );
 
         var error = await Assert.ThrowsAsync<ApiCallException>(() =>
-            server.Model().DoDecideAsync(Options(), CancellationToken.None)
+            model.DoDecideAsync(Options(), CancellationToken.None)
         );
 
         Assert.Equal("Input exceeds the model context window", error.Message);
@@ -86,11 +85,11 @@ public sealed class HttpErrorsTests
     [Fact]
     public async Task Still_falls_back_when_the_body_carries_no_recognised_field()
     {
-        var server = new TypeSafeServer();
-        server.RespondError(400, """{"unrecognised":"shape"}""");
+        var (server, model) = Create();
+        server.RespondError(Url, 400, """{"unrecognised":"shape"}""");
 
         var error = await Assert.ThrowsAsync<ApiCallException>(() =>
-            server.Model().DoDecideAsync(Options(), CancellationToken.None)
+            model.DoDecideAsync(Options(), CancellationToken.None)
         );
 
         Assert.Equal("TypeSafe request failed", error.Message);
@@ -99,11 +98,9 @@ public sealed class HttpErrorsTests
     [Fact]
     public async Task Rejects_malformed_successful_responses()
     {
-        var server = new TypeSafeServer();
-        server.RespondJson(JsonNode.Parse("""{"answers":{"test":{"type":"noul"}}}""")!);
+        var (server, model) = Create();
+        server.RespondJson(Url, """{"answers":{"test":{"type":"noul"}}}""");
 
-        await Assert.ThrowsAsync<ApiCallException>(() =>
-            server.Model().DoDecideAsync(Options(), CancellationToken.None)
-        );
+        await Assert.ThrowsAsync<ApiCallException>(() => model.DoDecideAsync(Options(), CancellationToken.None));
     }
 }

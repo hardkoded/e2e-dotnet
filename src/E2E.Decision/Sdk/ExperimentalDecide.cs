@@ -302,6 +302,13 @@ public static class ExperimentalDecide
                     continue;
                 }
 
+                if (error is Gateway.GatewayException { IsRetryable: true })
+                {
+                    await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
+                    backoff *= RetryBackoffFactor;
+                    continue;
+                }
+
                 if (tries == 1)
                 {
                     // Not wrapped when a non-retryable error occurs on the first try.
@@ -322,7 +329,16 @@ public static class ExperimentalDecide
 
     /// <summary>The AI SDK's <c>getErrorMessage</c>, which prints an error as JavaScript's <c>toString</c> does: its name, then its message.</summary>
     private static string ErrorMessage(Exception error) =>
-        (error is ApiCallException ? "AI_APICallError" : "Error") + ": " + error.Message;
+        (
+            error switch
+            {
+                ApiCallException => "AI_APICallError",
+                Gateway.GatewayException gateway => gateway.Name,
+                _ => "Error",
+            }
+        )
+        + ": "
+        + error.Message;
 
     /// <summary>
     /// The AI SDK's <c>getRetryDelayInMs</c>: the provider's <c>retry-after-ms</c>, else its <c>retry-after</c> (seconds or an HTTP date),

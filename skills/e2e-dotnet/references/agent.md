@@ -813,12 +813,11 @@ Decision models: `Executor.DecisionExecutor(new DecisionExecutorOptions { Model 
 `AgentOptions.Executor`. `MinProbability` and `MinConfidence` (0 to 1) block weaker actions,
 `Model` is optional: a deprecated evaluation model (`IEvaluationModel`, the `doEvaluate` shape) goes in `EvaluationModel` and runs through the same loop; set one of the two. `Vision = true` adds a masked screenshot (and `tap_at` / `type_at` for drawn controls with a
 text model), and `ProviderOptions` go with every decide call. Not ported: the `--debug` agent step
-table and the Gateway decision model. To see every model call, use
+table. Other decision models: `new TypeSafeAiProvider().DecisionModel("jev-latest")` (`E2E.Decision.Sdk.TypeSafeAi`, reads `TYPESAFE_AI_API_KEY`, takes PNG and JPEG screenshots and `box` questions) and `new GatewayProvider().DecisionModel("typesafe-ai/jev")` (`E2E.Decision.Sdk.Gateway`, reads `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN`, rejects screenshots, so keep `Vision` off; the `gateway` provider options carry fallbacks such as `{ "models": [{ "model": "openai/gpt-6-luna-decisions", "when": { "confidenceBelow": 0.6 } }] }`). To see every model call, use
 `E2E_AI_TRACE=1` (topic `debugging`). `ExperimentalDecide.RunAsync` (`E2E.Decision.Sdk`, the AI SDK's
 `experimental_decide`) takes `OnStart` and `OnEnd` callbacks, a `RuntimeContext`, and `Telemetry` (`TelemetryOptions` with
 `ITelemetry` integrations for the decide and decision-model call events; `RecordInputs`, `RecordOutputs`,
 `IncludeRuntimeContext`). The decision executor does not set them.
-`TypeSafeAi.Default.DecisionModel("jev-latest")` (`E2E.Decision.Sdk`, key `TYPESAFE_AI_API_KEY`) is the TypeSafe AI decision model: it answers `choice`, `score`, `boolean`, and `box` questions (a `DecisionQuestion` with `Type = "box"` returns `Answer.Box`: `Top`, `Bottom`, `Left`, `Right` in [0, 1], and the confidence in `ProviderMetadata.typesafe.confidence`). Image `DecisionFilePart`s (PNG or JPEG) go as a multipart request with `TypeSafeAiFilePartProviderOptions` (`Reference`, `InsertReference`); `TypeSafeAiDecisionModelOptions.LongContext` raises the context limits to 262k tokens.
 
 ## Custom executors
 
@@ -842,7 +841,8 @@ is; an engine that reports only a route gives that route. This follows upstream'
 
 Set one as `AgentOptions.Executor` for a named agent, `E2ESessionOptions.AgentExecutor`
 for the default agent, or override `AgentExecutor` in the fixture. A config
-file cannot hold one: an executor is code. The entry still takes `Model`,
+file cannot hold one: an executor is code, so `E2EConfig.WithExecutor(executor, agent)` puts one on a
+loaded config (`agent` is the run's agent when null; upstream's `agents.*.executor` in `e2e.config.ts`). The entry still takes `Model`,
 `Judge`, `Context`, and the budgets, and refuses `System` and `Tools` beside an
 executor (`INVALID_CONFIG`): pass those to the executor. A model or judge the
 executor brings is the agent's, and an entry that names another is
