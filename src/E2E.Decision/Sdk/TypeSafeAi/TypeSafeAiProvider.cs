@@ -43,6 +43,9 @@ public sealed class TypeSafeAiProvider
         _baseUrl = (_settings.BaseUrl ?? ModelHttp.Environment("TYPESAFE_AI_BASE_URL") ?? DefaultBaseUrl).TrimEnd('/');
     }
 
+    /// <summary>Upstream's <c>specificationVersion</c>.</summary>
+    public string SpecificationVersion => "v4";
+
     /// <summary>Creates a decision model (upstream's <c>decisionModel</c>).</summary>
     public DecisionTypeSafeAiModel DecisionModel(string modelId) =>
         new(

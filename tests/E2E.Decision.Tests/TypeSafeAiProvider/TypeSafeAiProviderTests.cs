@@ -15,8 +15,10 @@ public sealed class TypeSafeAiProviderTests
     [Fact]
     public void Provides_the_experimental_decision_capability()
     {
-        var model = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider().DecisionModel("jev-latest");
+        var provider = E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider.TypeSafeAi;
+        var model = provider.DecisionModel("jev-latest");
 
+        Assert.Equal("v4", provider.SpecificationVersion);
         Assert.Equal("v4", model.SpecificationVersion);
         Assert.Equal("typesafe.decision", model.Provider);
         Assert.Equal("jev-latest", model.ModelId);
