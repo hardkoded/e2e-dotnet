@@ -13,6 +13,13 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <None
+      Include="TypesafeAiDecisionModel\Fixtures\*.json"
+      CopyToOutputDirectory="PreserveNewest"
+      LinkBase="TypesafeAiDecisionModel\Fixtures"
+    />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\E2E.Decision\E2E.Decision.csproj" />
   </ItemGroup>
 </Project>

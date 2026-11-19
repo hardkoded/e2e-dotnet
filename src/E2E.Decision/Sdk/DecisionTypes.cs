@@ -150,7 +150,14 @@ public sealed record DecisionTextPart(string Text) : DecisionStatePart;
 public sealed record DecisionJsonPart(JsonElement Value) : DecisionStatePart;
 
 /// <summary>A file, such as a screenshot, as bytes with its media type.</summary>
-public sealed record DecisionFilePart(string MediaType, byte[] Data) : DecisionStatePart;
+public sealed record DecisionFilePart(string MediaType, byte[] Data) : DecisionStatePart
+{
+    /// <summary>The file's name, when it has one.</summary>
+    public string? Filename { get; init; }
+
+    /// <summary>The provider options of this file, keyed by provider name. Each value is a JSON object.</summary>
+    public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
+}
 
 /// <summary>What a decision model answers a call with (the AI SDK's <c>DecisionModelV4Result</c>).</summary>
 public sealed class DecisionModelResult
@@ -168,6 +175,12 @@ public sealed class DecisionModelResult
 
     /// <summary>The id of the model that served the call, when the response names one.</summary>
     public string? ResponseModelId { get; init; }
+
+    /// <summary>The headers of the provider's response, lowercase names (the AI SDK's <c>response.headers</c>).</summary>
+    public IReadOnlyDictionary<string, string>? ResponseHeaders { get; init; }
+
+    /// <summary>The provider's response body as it came (the AI SDK's <c>response.body</c>).</summary>
+    public JsonElement? ResponseBody { get; init; }
 
     /// <summary>Settings the provider did not support, as text.</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];

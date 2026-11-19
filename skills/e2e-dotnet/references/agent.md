@@ -813,11 +813,12 @@ Decision models: `Executor.DecisionExecutor(new DecisionExecutorOptions { Model 
 `AgentOptions.Executor`. `MinProbability` and `MinConfidence` (0 to 1) block weaker actions,
 `Model` is optional: a deprecated evaluation model (`IEvaluationModel`, the `doEvaluate` shape) goes in `EvaluationModel` and runs through the same loop; set one of the two. `Vision = true` adds a masked screenshot (and `tap_at` / `type_at` for drawn controls with a
 text model), and `ProviderOptions` go with every decide call. Not ported: the `--debug` agent step
-table and the Gateway and TypeSafe AI decision models. To see every model call, use
+table and the Gateway decision model. To see every model call, use
 `E2E_AI_TRACE=1` (topic `debugging`). `ExperimentalDecide.RunAsync` (`E2E.Decision.Sdk`, the AI SDK's
 `experimental_decide`) takes `OnStart` and `OnEnd` callbacks, a `RuntimeContext`, and `Telemetry` (`TelemetryOptions` with
 `ITelemetry` integrations for the decide and decision-model call events; `RecordInputs`, `RecordOutputs`,
 `IncludeRuntimeContext`). The decision executor does not set them.
+`TypeSafeAi.Default.DecisionModel("jev-latest")` (`E2E.Decision.Sdk`, key `TYPESAFE_AI_API_KEY`) is the TypeSafe AI decision model: it answers `choice`, `score`, `boolean`, and `box` questions (a `DecisionQuestion` with `Type = "box"` returns `Answer.Box`: `Top`, `Bottom`, `Left`, `Right` in [0, 1], and the confidence in `ProviderMetadata.typesafe.confidence`). Image `DecisionFilePart`s (PNG or JPEG) go as a multipart request with `TypeSafeAiFilePartProviderOptions` (`Reference`, `InsertReference`); `TypeSafeAiDecisionModelOptions.LongContext` raises the context limits to 262k tokens.
 
 ## Custom executors
 

@@ -121,4 +121,42 @@ var result = await ExperimentalDecide.RunAsync(new DecideOptions
 - A question the provider refuses fails the step with `MODEL_OUTPUT_INVALID`.
 - A question has at most 255 options, TypeSafe's limit. On a larger screen, nodes in the viewport come first and the rest count as omitted, so the model can scroll.
 - The tree the executor reads lists the page's top-level nodes. It has no root node of its own, so unlike upstream a top-level labeled node is a target for pointer operations too.
-- The port ships `OpenAIDecisionModel` only. The Gateway and TypeSafe AI decision models are not ported.
+- The port ships `OpenAIDecisionModel` and the TypeSafe AI decision model (`TypeSafeAi.Default.DecisionModel(...)`). The Gateway decision model is not ported.
+
+## TypeSafe AI decision models
+
+`TypeSafeAi.Default.DecisionModel("jev-latest")` (`E2E.Decision.Sdk`) answers `choice`, `score`, `boolean`, and `box` questions through TypeSafe AI. Set `TYPESAFE_AI_API_KEY`, or pass `ApiKey` to `TypeSafeAi.Create(new TypeSafeAiProviderSettings { ... })`. `BaseUrl` defaults to `TYPESAFE_AI_BASE_URL`, then `https://api.typesafe.ai/v1`.
+
+### Box questions
+
+A `box` question locates one target in an image and takes no criteria. Instructions are optional; include them when the state does not make the target clear. The answer has `Type == "box"` and a `Box` with `Top`, `Bottom`, `Left`, and `Right`: fractions in `[0, 1]` from the top-left corner, with `Left < Right` and `Top < Bottom`. The provider's confidence is in `ProviderMetadata.typesafe.confidence`, keyed by question id.
+
+```csharp
+var result = await ExperimentalDecide.RunAsync(new DecideOptions
+{
+    Model = TypeSafeAi.Default.DecisionModel("jev-latest"),
+    State = [new DecisionFilePart("image/png", File.ReadAllBytes("cat.png"))],
+    Questions = new Dictionary<string, DecisionQuestion>
+    {
+        ["target"] = new DecisionQuestion { Type = "box", Instructions = "The cat in the image" },
+    },
+});
+```
+
+The feature is experimental, and a box comes back even when the object is absent. Ask a `boolean` question beside it to check visibility. A box question sends `TypeSafe-Danger-Zone-Images: true`, so it needs a Jev 1.14 or later model.
+
+### Long context
+
+Jev allows 64k tokens per request and 32k per question by default. `new TypeSafeAiDecisionModelOptions { LongContext = true }.ToProviderOptions()` as the call's provider options raises both to 262k tokens and sends `TypeSafe-Danger-Zone-Long-Context: true`. Long context is slower and less accurate, so enable it only when needed. Other entries under `typesafe` produce an unsupported-option warning.
+
+### Image input
+
+Pass PNG or JPEG images as `DecisionFilePart` state. The provider uploads them in a multipart request and adds `TypeSafe-Danger-Zone-Images: true`. Other formats are rejected before the request.
+
+Each image has an asset reference: a random one, or `TypeSafeAiFilePartProviderOptions.Reference`. When the state already contains the reference, the state is sent as written (JSON state stays an object). Otherwise the provider inserts the reference at the file's position. Every occurrence of a reference in state, instructions, or criteria sends another copy of the image, so put an image in the state once and refer to it by path in the questions.
+
+Set `InsertReference = false` (with an explicit `Reference`) to send an image only where a question references it, such as a known picture to compare against. `InsertReference = true` inserts the reference even when the state already holds it. References must be nonblank and unique within a request.
+
+### Rounded values and errors
+
+TypeSafe rounds probabilities and scores to two decimal places, which `Rounding` reports. Score legends are in `ProviderMetadata.typesafe.legend`, keyed by question id. A failed call throws `ApiCallException` with the provider's message and status; `ExperimentalDecide` retries a `429` or `529`.
