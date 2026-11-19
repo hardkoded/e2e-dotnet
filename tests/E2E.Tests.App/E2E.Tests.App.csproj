@@ -5,4 +5,8 @@
     <RootNamespace>E2E.Tests.App</RootNamespace>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- The refresh and lock workers of the OAuth tests run the library's own code in separate processes. -->
+    <ProjectReference Include="..\..\src\E2E\E2E.csproj" />
+  </ItemGroup>
 </Project>

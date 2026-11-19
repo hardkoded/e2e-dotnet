@@ -172,6 +172,38 @@ public sealed class CreateOAuthFetchTests
     }
 
     [Fact]
+    public async Task Uses_the_token_another_process_stored_while_this_one_waited_for_the_lock_sending_no_refresh()
+    {
+        var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
+        var store = new MemoryCredentialStore(new() { ["test"] = Credentials("stale", "rt-0", 1) });
+        // Another process refreshed and wrote a fresh token while this one waited for the lock.
+        store.WhileWaiting = id => store.SetAsync(id, Credentials("theirs", "rt-1", RotatingProvider.Later()));
+        var provider = new RotatingProvider();
+        using var http = Client(provider, store, api);
+
+        await http.GetAsync(new Uri(Url));
+
+        Assert.Empty(provider.Refreshes);
+        Assert.Equal(["Bearer theirs"], api.Requests.Select(request => request.Header("authorization")));
+    }
+
+    [Fact]
+    public async Task Refreshes_a_token_another_process_stored_when_that_token_is_expiring_too()
+    {
+        var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
+        var store = new MemoryCredentialStore(new() { ["test"] = Credentials("stale", "rt-0", 1) });
+        // Another process wrote a different token while this one waited for the lock, and that token lapses too.
+        store.WhileWaiting = id => store.SetAsync(id, Credentials("other", "rt-1", RotatingProvider.Soon()));
+        var provider = new RotatingProvider();
+        using var http = Client(provider, store, api);
+
+        await http.GetAsync(new Uri(Url));
+
+        Assert.Equal(["rt-1"], provider.Refreshes);
+        Assert.Equal(["Bearer fresh-1"], api.Requests.Select(request => request.Header("authorization")));
+    }
+
+    [Fact]
     public async Task Shares_one_refresh_between_separate_file_stores_over_the_same_file()
     {
         var directory = Path.Combine(Path.GetTempPath(), "e2e-oauth-fetch-" + Guid.NewGuid().ToString("N"));
@@ -206,6 +238,139 @@ public sealed class CreateOAuthFetchTests
             {
                 Directory.Delete(directory, recursive: true);
             }
+        }
+    }
+
+    [Fact]
+    public async Task Refreshes_an_expired_login_once_for_workers_in_separate_processes()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "e2e-oauth-fetch-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var port = ManagedProcess.AppProgram.FreePort();
+        var vendorUrl = "http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        using var listener = new HttpListener();
+        listener.Prefixes.Add(vendorUrl + "/");
+        listener.Start();
+        var children = new List<System.Diagnostics.Process>();
+        try
+        {
+            var file = Path.Combine(directory, "oauth.json");
+            await new FileCredentialStore(file).SetAsync("test", Credentials("at-0", "rt-0", 1));
+            var live = (Access: "at-0", Refresh: "rt-0");
+            var issued = 0;
+            var tokenRequests = 0;
+            var serving = Task.Run(async () =>
+            {
+                while (listener.IsListening)
+                {
+                    HttpListenerContext context;
+                    try
+                    {
+                        context = await listener.GetContextAsync();
+                    }
+                    catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException)
+                    {
+                        return;
+                    }
+
+                    _ = Task.Run(async () =>
+                    {
+                        using var response = context.Response;
+                        if (context.Request.Url!.AbsolutePath != "/token")
+                        {
+                            response.StatusCode =
+                                context.Request.Headers["Authorization"] == "Bearer " + live.Access ? 200 : 401;
+                            await response.OutputStream.WriteAsync("{}"u8.ToArray());
+                            return;
+                        }
+
+                        string form;
+                        using (var reader = new StreamReader(context.Request.InputStream))
+                        {
+                            form = await reader.ReadToEndAsync();
+                        }
+
+                        Interlocked.Increment(ref tokenRequests);
+                        var presented = System.Web.HttpUtility.ParseQueryString(form)["refresh_token"];
+                        if (presented != live.Refresh)
+                        {
+                            response.StatusCode = 400;
+                            await response.OutputStream.WriteAsync(
+                                """{"error":"invalid_grant","error_description":"refresh_token_reused"}"""u8.ToArray()
+                            );
+                            return;
+                        }
+
+                        issued++;
+                        live = ("at-" + issued, "rt-" + issued);
+                        // Long enough for every worker to reach the token endpoint while the first refresh is still out.
+                        await Task.Delay(500);
+                        await response.OutputStream.WriteAsync(
+                            System.Text.Encoding.UTF8.GetBytes(
+                                "{\"access_token\":\""
+                                    + live.Access
+                                    + "\",\"refresh_token\":\""
+                                    + live.Refresh
+                                    + "\",\"expires_in\":3600}"
+                            )
+                        );
+                    });
+                }
+            });
+
+            // Killed when the test ends, even on a timeout, so a worker that hangs is not left running.
+            var runs = Enumerable
+                .Range(0, 4)
+                .Select(async _ =>
+                {
+                    var info = new System.Diagnostics.ProcessStartInfo(ManagedProcess.AppProgram.Executable)
+                    {
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                    };
+                    foreach (var arg in new[] { "refresh-worker", file, vendorUrl + "/token", vendorUrl + "/api" })
+                    {
+                        info.ArgumentList.Add(arg);
+                    }
+
+                    var child = System.Diagnostics.Process.Start(info)!;
+                    lock (children)
+                    {
+                        children.Add(child);
+                    }
+
+                    var error = child.StandardError.ReadToEndAsync();
+                    var output = await child.StandardOutput.ReadToEndAsync();
+                    await child.WaitForExitAsync();
+                    Assert.True(child.ExitCode == 0, await error);
+                    return output;
+                })
+                .ToList();
+            var statuses = await Task.WhenAll(runs).WaitAsync(TimeSpan.FromSeconds(60));
+
+            Assert.Equal(["200", "200", "200", "200"], statuses);
+            Assert.Equal(1, Volatile.Read(ref tokenRequests));
+            listener.Stop();
+            await serving;
+        }
+        finally
+        {
+            foreach (var child in children)
+            {
+                try
+                {
+                    child.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Already exited.
+                }
+
+                child.Dispose();
+            }
+
+            Directory.Delete(directory, recursive: true);
         }
     }
 
@@ -298,6 +463,67 @@ public sealed class CreateOAuthFetchTests
     }
 
     [Fact]
+    public async Task Waits_for_another_process_to_store_a_rotated_token_only_after_releasing_the_refresh_lock()
+    {
+        var store = new MemoryCredentialStore(new() { ["test"] = Credentials("stale", "rt-0", 1) });
+        var provider = new RotatingProvider();
+        provider.Refreshes.Add("rt-0");
+        using var http = Client(provider, store, new FakeApi(_ => (HttpStatusCode.OK, "{}")));
+
+        var error = await Assert.ThrowsAsync<OAuthException>(() => http.GetAsync(new Uri("http://127.0.0.1:1/")));
+
+        Assert.Equal(OAuthException.LoginRequired, error.Code);
+        // The re-read alone; the 2 s poll runs after release, so waiters on a revoked login do not wait it out in turn.
+        Assert.Equal(1, store.ReadsWhileHeld);
+    }
+
+    [Fact]
+    public async Task Fails_with_LOGIN_REQUIRED_when_the_token_another_process_stored_is_rejected_too()
+    {
+        var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
+        var store = new MemoryCredentialStore(new() { ["test"] = Credentials("stale", "rt-0", 1) });
+        store.WhileWaiting = id => store.SetAsync(id, Credentials("other", "rt-1", RotatingProvider.Soon()));
+        var provider = new RotatingProvider
+        {
+            Fail = credentials => new OAuthException(
+                OAuthException.LoginRequired,
+                "refresh token " + credentials.Refresh + " was revoked"
+            ),
+        };
+        using var http = Client(provider, store, api);
+
+        var error = await Assert.ThrowsAsync<OAuthException>(() => http.GetAsync(new Uri(Url)));
+
+        Assert.Equal(OAuthException.LoginRequired, error.Code);
+        // The poll waits for a token other than the one this refresh sent, not the one it read before the lock.
+        Assert.Equal(["rt-1"], provider.Refreshes);
+        Assert.Empty(api.Requests);
+    }
+
+    [Fact]
+    public async Task Passes_on_any_other_refresh_failure_as_it_is_without_waiting_for_another_process()
+    {
+        var store = new MemoryCredentialStore(new() { ["test"] = Credentials("stale", "rt-0", 1) });
+        var provider = new RotatingProvider
+        {
+            Fail = _ => new OAuthException(OAuthException.FlowFailed, "the token response is missing refresh_token"),
+        };
+        using var http = Client(
+            provider,
+            store,
+            new FakeApi(_ => (HttpStatusCode.OK, "{}")),
+            "run `npx e2e login test`"
+        );
+
+        var error = await Assert.ThrowsAsync<OAuthException>(() => http.GetAsync(new Uri("http://127.0.0.1:1/")));
+
+        Assert.Equal(OAuthException.FlowFailed, error.Code);
+        Assert.Equal("the token response is missing refresh_token", error.Message);
+        // The read before the refresh and the re-read inside the lock; no poll for a rotated token.
+        Assert.Equal(2, store.Reads);
+    }
+
+    [Fact]
     public async Task Retries_once_with_a_refreshed_token_after_a_401_also_for_a_Request_input()
     {
         var api = new FakeApi(request =>
@@ -348,6 +574,14 @@ public sealed class CreateOAuthFetchTests
         Assert.Equal("Test rejected the stored token (401: Bad credentials); run `npx e2e login test`", error.Message);
         Assert.Single(api.Requests);
     }
+
+    private static OAuthCredentials Credentials(string access, string refresh, long expires) =>
+        new()
+        {
+            Access = access,
+            Refresh = refresh,
+            Expires = expires,
+        };
 
     private static HttpClient Client(
         IOAuthProvider provider,

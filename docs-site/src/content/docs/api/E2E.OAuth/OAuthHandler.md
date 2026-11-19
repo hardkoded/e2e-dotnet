@@ -22,8 +22,8 @@ public sealed class OAuthHandler : DelegatingHandler, IDisposable
 The handler a subscription model's [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient) sends through. Per request it reads the stored
 credentials, refreshes them ahead of expiry, replaces any API key header with the bearer token, and lets the
 provider adjust the request. On a 401 it refreshes once and retries, or, with nothing to refresh, reports that
-the user signs in again. One refresh serves every model and every concurrent call over the same store,
-because vendors that rotate refresh tokens reject the second concurrent refresh.
+the user signs in again. One refresh serves every model, every concurrent call, and every worker process over the same
+credentials file, because vendors that rotate refresh tokens reject the second concurrent refresh.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [HttpMessageHandler](https://learn.microsoft.com/dotnet/api/system.net.http.httpmessagehandler) → [DelegatingHandler](https://learn.microsoft.com/dotnet/api/system.net.http.delegatinghandler)
 

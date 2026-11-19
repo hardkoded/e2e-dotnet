@@ -17,8 +17,51 @@ internal sealed class MemoryCredentialStore(Dictionary<string, OAuthCredentials>
         StringComparer.Ordinal
     );
 
-    public Task<OAuthCredentials?> GetAsync(string providerId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_entries.TryGetValue(providerId, out var credentials) ? credentials : null);
+    private int _reads;
+    private int _readsWhileHeld;
+    private volatile bool _held;
+
+    /// <summary>Runs on entering <see cref="ExclusiveAsync{T}"/>, as upstream's tests replace <c>store.exclusive</c> to store what another process did while this one waited for the lock.</summary>
+    public Func<string, Task>? WhileWaiting { get; set; }
+
+    /// <summary>Every <see cref="GetAsync"/>.</summary>
+    public int Reads => _reads;
+
+    /// <summary>The <see cref="GetAsync"/> calls made inside <see cref="ExclusiveAsync{T}"/>.</summary>
+    public int ReadsWhileHeld => _readsWhileHeld;
+
+    public Task<OAuthCredentials?> GetAsync(string providerId, CancellationToken cancellationToken = default)
+    {
+        Interlocked.Increment(ref _reads);
+        if (_held)
+        {
+            Interlocked.Increment(ref _readsWhileHeld);
+        }
+
+        return Task.FromResult(_entries.TryGetValue(providerId, out var credentials) ? credentials : null);
+    }
+
+    public async Task<T> ExclusiveAsync<T>(
+        string providerId,
+        Func<Task<T>> refresh,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _held = true;
+        try
+        {
+            if (WhileWaiting is not null)
+            {
+                await WhileWaiting(providerId);
+            }
+
+            return await refresh();
+        }
+        finally
+        {
+            _held = false;
+        }
+    }
 
     public Task SetAsync(string providerId, OAuthCredentials credentials, CancellationToken cancellationToken = default)
     {
@@ -37,6 +80,9 @@ internal sealed class MemoryCredentialStore(Dictionary<string, OAuthCredentials>
 internal sealed class RotatingProvider : IOAuthProvider
 {
     public List<string> Refreshes { get; } = [];
+
+    /// <summary>Fails the refresh with this error, once it has recorded the token it sent.</summary>
+    public Func<OAuthCredentials, Exception?>? Fail { get; set; }
 
     public string Id => "test";
 
@@ -63,6 +109,11 @@ internal sealed class RotatingProvider : IOAuthProvider
 
             Refreshes.Add(credentials.Refresh);
             n = Refreshes.Count;
+        }
+
+        if (Fail?.Invoke(credentials) is { } failure)
+        {
+            throw failure;
         }
 
         await Task.Delay(20, cancellationToken);

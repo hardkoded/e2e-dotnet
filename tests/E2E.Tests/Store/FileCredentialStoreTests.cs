@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.OAuth;
+using Microsoft.Extensions.Time.Testing;
 
 namespace E2E.Tests.Store;
 
@@ -128,6 +129,64 @@ public sealed class FileCredentialStoreTests : IDisposable
         File.SetLastWriteTimeUtc(file + ".lock", DateTime.UtcNow.AddSeconds(-60));
         await store.SetAsync("y", Creds);
         Assert.Equal(["x", "y"], (await store.ListAsync()).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task Holds_a_lock_for_each_login_while_it_refreshes()
+    {
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        var store = new FileCredentialStore(file);
+        await store.SetAsync("a", Creds);
+        var finishA = new TaskCompletionSource();
+        var first = store.ExclusiveAsync("a", async () =>
+        {
+            await finishA.Task;
+            return 0;
+        });
+        var enteredSecond = false;
+        var second = store.ExclusiveAsync("a", () =>
+        {
+            enteredSecond = true;
+            return Task.FromResult(0);
+        });
+        Assert.Equal("b", await store.ExclusiveAsync("b", () => Task.FromResult("b")));
+        Assert.False(enteredSecond);
+        finishA.SetResult();
+        await Task.WhenAll(first, second);
+        Assert.True(enteredSecond);
+    }
+
+    [Fact]
+    public async Task Gives_up_with_TIMEOUT_after_30_s_of_another_worker_refreshing()
+    {
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        var store = new FileCredentialStore(file);
+        await store.SetAsync("x", Creds);
+        var lockPath = file + ".x.refresh.lock";
+        await File.WriteAllTextAsync(lockPath, "elsewhere.example 1 other");
+        // Touched in the future, so the lock stays fresh however long the wait runs.
+        File.SetLastWriteTimeUtc(lockPath, DateTime.UtcNow.AddHours(1));
+        var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var pending = store.ExclusiveAsync("x", () => Task.FromResult(0), clock);
+        for (var step = 0; step < 29_000 / 25; step++)
+        {
+            clock.Advance(TimeSpan.FromMilliseconds(25));
+            await Task.Delay(1);
+        }
+
+        Assert.False(pending.IsCompleted);
+        for (var step = 0; step < 2_000 / 25 && !pending.IsCompleted; step++)
+        {
+            clock.Advance(TimeSpan.FromMilliseconds(25));
+            await Task.Delay(1);
+        }
+
+        var error = await Assert.ThrowsAsync<OAuthException>(() => pending);
+        Assert.Equal(OAuthException.Timeout, error.Code);
+        Assert.Equal(
+            "another e2e process is still refreshing the x login after 30 s; run again once it finishes",
+            error.Message
+        );
     }
 
     [Fact]

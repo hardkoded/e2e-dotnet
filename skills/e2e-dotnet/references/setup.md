@@ -134,6 +134,10 @@ Pick the model in `agents.<name>.provider` and `model`:
   `npx e2e login` writes, so a login made with either tool serves both.
 - A cancelled model call stops waiting for a token refresh. The refresh keeps
   running for the other calls that share it.
+- When a login saved with `e2e login` expires, parallel workers refresh it
+  once between them. A worker waits up to 30 seconds for another worker's
+  refresh. After that its step fails with `MODEL_PROVIDER_FAILED`, unless the
+  step's own timeout ends it first, as `STEP_TIMEOUT`.
 - Subscriptions are for local runs. Use API keys in CI.
 
 ## The config

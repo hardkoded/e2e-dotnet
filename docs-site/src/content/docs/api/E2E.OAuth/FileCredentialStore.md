@@ -1,6 +1,6 @@
 ---
 title: "FileCredentialStore"
-description: "One JSON file keyed by provider id, mode 0600. Writes hold an advisory lock and replace the file atomically, so two runs refreshing at once neither tear the..."
+description: "One JSON file keyed by provider id, mode 0600. Writes hold an advisory lock and replace the file atomically, so two runs writing at once neither tear the..."
 editUrl: false
 prev: false
 next: false
@@ -20,8 +20,9 @@ public sealed class FileCredentialStore : ICredentialStore
 
 
 One JSON file keyed by provider id, mode 0600. Writes hold an advisory lock and replace the file atomically,
-so two runs refreshing at once neither tear the file nor lose each other's entries. Entries this store does
-not understand are kept as they are.
+so two runs writing at once neither tear the file nor lose each other's entries. A refresh holds a lock for its
+login from its read to its write, so worker processes send a rotating refresh token once between them. Entries
+this store does not understand are kept as they are.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -64,6 +65,33 @@ public string FilePath { get; }
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 ## Methods
+
+<a id="E2E_OAuth_FileCredentialStore_ExclusiveAsync__1_"></a>
+<a id="E2E_OAuth_FileCredentialStore_ExclusiveAsync__1_System_String_System_Func{System_Threading_Tasks_Task{``0}}_System_Threading_CancellationToken_"></a>
+
+### ExclusiveAsync&lt;T&gt;(string, Func&lt;Task&lt;T&gt;&gt;, CancellationToken)
+
+
+```csharp
+public Task<T> ExclusiveAsync<T>(string providerId, Func<Task<T>> refresh, CancellationToken cancellationToken = default)
+```
+
+
+Runs `refresh` holding this login's lock file, so worker processes refresh it one at a time.
+
+**Type Parameters**
+
+`T`
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `providerId` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `refresh` | [Func](https://learn.microsoft.com/dotnet/api/system.func-1)&lt;[Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)&lt;T&gt;&gt; |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;T&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_OAuth_FileCredentialStore_GetAsync_"></a>
 <a id="E2E_OAuth_FileCredentialStore_GetAsync_System_String_System_Threading_CancellationToken_"></a>

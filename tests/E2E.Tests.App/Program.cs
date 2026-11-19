@@ -22,6 +22,8 @@ using System.Text;
 //   leak <token>                   prints the token to stderr three ways (whole, split across two writes, no newline), then "printed" to stdout
 //   print <code|stay> <line>...    prints each line to stdout, then exits with the code or stays up
 //   print-template <template>      prints the template with ${NAME} replaced by that environment variable, then stays up
+//   file-lock-worker <lock> <log> <exitedPid> <startAtUnixMs> <stop>  takes the lock over and over until <stop> exists, logging +pid on entering, -pid on leaving, xpid on crashing with the lock held, !pid when its lock was removed or replaced
+//   refresh-worker <file> <tokenUrl> <apiUrl>  makes one call over the login stored in <file>, refreshing at <tokenUrl>, and prints the status <apiUrl> answered
 //   write-env <file>               writes the environment, one NAME=VALUE per line, to the file, then exits
 if (args.Length == 0)
 {
@@ -61,6 +63,10 @@ switch (args[0])
         );
     case "wrap":
         return await Wrap(args[1], args.Skip(2).ToArray());
+    case "file-lock-worker":
+        return await FileLockWorker(args[1], args[2], args[3], args[4], args[5]);
+    case "refresh-worker":
+        return await RefreshWorker(args[1], args[2], args[3]);
     case "idle":
         await Task.Delay(Timeout.Infinite);
         return 0;
@@ -218,4 +224,130 @@ static async Task<int> Wrap(string pidFile, string[] childArgs)
     });
     await Task.Delay(Timeout.Infinite);
     return 0;
+}
+
+// The crash-loop lock test's process, as upstream's helpers/file-lock-worker.ts: from the time in startAt until the stop file exists it
+// takes the lock over and over. Each time it logs `+pid` on entering, then either leaves with `-pid` or, as if it crashed while holding
+// the lock, logs `xpid` and leaves the lock naming the exited pid. It logs `!pid` when its lock was removed or replaced while it held it.
+static async Task<int> FileLockWorker(string lockPath, string log, string exitedPid, string startAt, string stop)
+{
+    string? ReadLock()
+    {
+        try
+        {
+            using var stream = new FileStream(
+                lockPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete
+            );
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
+    var pid = Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    var wait =
+        long.Parse(startAt, System.Globalization.CultureInfo.InvariantCulture)
+        - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    if (wait > 0)
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(wait));
+    }
+
+    while (!File.Exists(stop))
+    {
+        await E2E.Internal.FileLock.WithFileLockAsync(
+            lockPath,
+            TimeSpan.FromSeconds(20),
+            () => new InvalidOperationException("lock wait timed out"),
+            async () =>
+            {
+                File.AppendAllText(log, "+" + pid + "\n");
+                var token = ReadLock() ?? "";
+                await Task.Delay(1);
+                if (ReadLock() != token)
+                {
+                    File.AppendAllText(log, "!" + pid + "\n");
+                }
+
+                if (Random.Shared.NextDouble() < 0.5)
+                {
+                    File.AppendAllText(log, "-" + pid + "\n");
+                    return;
+                }
+
+                // What a crash leaves: this host's lock, naming a pid that no longer runs.
+                var host = token.Split(' ')[0];
+                File.AppendAllText(log, "x" + pid + "\n");
+                File.WriteAllText(lockPath, host + " " + exitedPid + " crashed");
+            }
+        );
+    }
+
+    return 0;
+}
+
+// One worker process for the cross-process refresh test, as upstream's oauth/helpers/refresh-worker.ts: one call over the login stored in
+// the file, refreshing against the token endpoint, printing the status the API answered.
+static async Task<int> RefreshWorker(string file, string tokenUrl, string apiUrl)
+{
+    var provider = new TokenEndpointProvider(tokenUrl);
+    using var http = new HttpClient(new E2E.OAuth.OAuthHandler(provider, new E2E.OAuth.FileCredentialStore(file)));
+    using var response = await http.GetAsync(new Uri(apiUrl));
+    Console.Out.Write(((int)response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture));
+    return 0;
+}
+
+sealed class TokenEndpointProvider(string tokenUrl) : E2E.OAuth.IOAuthProvider
+{
+    public string Id => "test";
+
+    public string Name => "Test";
+
+    public Task<E2E.OAuth.OAuthCredentials> LoginAsync(
+        E2E.OAuth.OAuthLoginCallbacks callbacks,
+        E2E.OAuth.OAuthLoginOptions options,
+        CancellationToken cancellationToken
+    ) => throw new InvalidOperationException("not used");
+
+    public async Task<E2E.OAuth.OAuthCredentials> RefreshAsync(
+        E2E.OAuth.OAuthCredentials credentials,
+        CancellationToken cancellationToken
+    )
+    {
+        var tokens = await E2E.OAuth.TokenEndpoint.RequestAsync(
+            new HttpClient(),
+            "Test",
+            tokenUrl,
+            new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["refresh_token"] = credentials.Refresh,
+            },
+            E2E.OAuth.OAuthException.LoginRequired,
+            cancellationToken
+        );
+        return new E2E.OAuth.OAuthCredentials
+        {
+            Access = tokens.AccessToken,
+            Refresh = tokens.RefreshToken ?? "",
+            Expires = E2E.OAuth.TokenEndpoint.ExpiryFrom(tokens.ExpiresIn),
+        };
+    }
+
+    public Task PrepareAsync(
+        HttpRequestMessage request,
+        E2E.OAuth.OAuthCredentials credentials,
+        CancellationToken cancellationToken
+    ) => Task.CompletedTask;
+
+    public Task<IReadOnlyList<E2E.OAuth.SubscriptionModel>> ListModelsAsync(
+        HttpClient http,
+        CancellationToken cancellationToken
+    ) => Task.FromResult<IReadOnlyList<E2E.OAuth.SubscriptionModel>>([]);
 }

@@ -17,6 +17,8 @@ e2e models github-copilot   # the same provider id as the login
 
 Then set `"provider": "chatgpt"` (or `copilot`, `opencode-console`, `grok`) with one of those ids, or use `Subscriptions.ChatGpt("gpt-6-luna")` in code. `e2e login openai --device` works without a browser, and `e2e login github-copilot` reuses `gh auth token` (or takes `--client-id` of your own OAuth App, and `--enterprise-url` for GitHub Enterprise). The login is stored in `~/.config/e2e/oauth.json`, the file upstream's `npx e2e login` writes, so a login made with either tool serves both. `E2E_OAUTH_CREDENTIALS` holding that JSON stands in for the file, and `OPENCODE_API_KEY` (a Console service account API key or an OpenCode Go subscription API key) replaces an OpenCode Console login, for the model and for `e2e models opencode-console`. Use API keys in CI.
 
+When a login saved with `e2e login` expires, parallel workers refresh it once between them. A worker waits up to 30 seconds for another worker's refresh. After that its step fails with `MODEL_PROVIDER_FAILED`, unless the step's own timeout ends it first, as `STEP_TIMEOUT`.
+
 A Claude Pro or Max plan cannot serve the agent. Anthropic allows that login only in its own apps. To run Claude on a subscription, use GitHub Copilot. Copilot writes model ids with a dot (`claude-sonnet-5.5`), where the Anthropic API uses a dash (`claude-sonnet-5-5`), so take the id from `e2e models github-copilot`:
 
 ```json
