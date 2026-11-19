@@ -263,8 +263,8 @@ public static class Decide
                 return new AgentException("MODEL_OUTPUT_INVALID", "The decision model returned an invalid answer.");
             case ApiCallException { InnerException: AgentException provider }:
                 return provider;
-            case RetryError { LastError: ApiCallException { InnerException: AgentException provider } }:
-                return provider;
+            case RetryError { LastError: { } last }:
+                return DecideError(last);
             default:
                 return new AgentException("MODEL_PROVIDER_FAILED", "The decision model call failed.");
         }

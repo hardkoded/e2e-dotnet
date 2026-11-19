@@ -139,6 +139,12 @@ public static class ExperimentalDecide
     /// </summary>
     private static async Task<T> RetryAsync<T>(int maxRetries, Func<Task<T>> call, CancellationToken cancellationToken)
     {
+        if (maxRetries == 0)
+        {
+            // As the AI SDK's retryWithExponentialBackoff: no retries, no wrapping.
+            return await call().ConfigureAwait(false);
+        }
+
         var errors = new List<Exception>();
         var backoff = InitialRetryDelay;
         while (true)
@@ -163,7 +169,7 @@ public static class ExperimentalDecide
                     );
                 }
 
-                if (error is ApiCallException { IsRetryable: true } api && tries <= maxRetries)
+                if (error is ApiCallException { IsRetryable: true } api)
                 {
                     await Task.Delay(RetryDelay(api, backoff), cancellationToken).ConfigureAwait(false);
                     backoff *= RetryBackoffFactor;
