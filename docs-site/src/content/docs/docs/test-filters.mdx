@@ -81,6 +81,35 @@ A failed filter scores nothing either, unless it throws a `TestFilterException` 
 
 The reporters read these from the report. The markdown reporter prints the filter lines and a "left out by filters" section. A run in which every test is left out still writes `report.json`. Nothing is written when no filter had a say (no base ref).
 
+## The decision filter
+
+`Filter.DecisionFilter` from `E2E.Decision` asks a [decision model](/docs/decision-models/) which tests a change can affect and leaves out the ones it rates unlikely. This ports upstream's `decisionFilter`:
+
+```csharp
+using E2E.Decision;
+using E2E.Decision.Sdk;
+
+[SetUpFixture]
+public sealed class AppCommands : E2ERunFixture
+{
+    protected override IReadOnlyList<ITestFilter> Filters =>
+        [Filter.DecisionFilter(new DecisionFilterOptions { Model = new OpenAIDecisionModel("gpt-6-luna") })];
+}
+```
+
+Any decision model that answers `boolean` questions works. `ProviderOptions` goes with every call, such as `{ "gateway": { "zeroDataRetention": true } }`. A model that cannot answer `boolean` questions, or `ProviderOptions` that are not provider names mapped to option objects, fail `DecisionFilter` with `INVALID_CONFIG`.
+
+The model reads the diff of what the commits since the base change, the test files, and the setup files that save their sessions, with secrets redacted. It gets a file only the working tree changes, uncommitted or untracked, by name alone, never its contents. A test is left out when the model rates both the test and its setup under 20% likely affected.
+
+The filter runs every test, with a note that says why, when:
+
+- the config the run loaded changed, whatever its name, or a file named `e2e.config.ts` (`.mts`, `.js`, `.mjs`), Gradle's `libs.versions.toml`, or a lockfile such as `pnpm-lock.yaml`, `Podfile.lock`, `go.sum`, or `Cargo.lock` changed in the project's directory, inside it, or in a directory above it. A sibling project's file goes to the model;
+- the diff is over 60 kB, or git prints none.
+
+A test whose test file, setup file, or stored screenshots changed runs without asking. A test the model could not judge runs too, because its file is too large to send with the diff or its call failed; after 3 failed calls no more are made. When every call fails, as without a key, or git or a file read fails, the filter throws a `TestFilterException`: the run warns and runs every test. The exception's `Relevance` carries the scores the change alone gives.
+
+The filter scores every test it is handed (1 for a test the change touches, the model's answer for one it judged, 0.5 for one it did not), and its note ends with what the calls spent, such as `11 calls, 307.6k tokens, $0.0129`.
+
 ## Writing a filter
 
 ```csharp
