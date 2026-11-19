@@ -23,6 +23,18 @@ public sealed class RelevanceFixture : E2ETest
     public void Gamma() { }
 }
 
+/// <summary>Two tests where the likelier one depends on the other.</summary>
+[Explicit("Only ordered by RelevanceOrderTests")]
+public sealed class DependentFixture : E2ETest
+{
+    [Test]
+    public void First() { }
+
+    [Test]
+    [DependsOnTest(nameof(First))]
+    public void Second() { }
+}
+
 /// <summary>
 /// .NET-only (upstream orders its work plans in the runner, which the port has not; NUnit builds its test tree before the run fixture runs):
 /// the scores the filters gave reorder the tests of the tree, likeliest first, and keep NUnit's order for tests of one band.
@@ -53,6 +65,25 @@ public sealed class RelevanceOrderTests
     }
 
     [Test]
+    public void Keeps_the_order_NUnit_gave_when_a_test_depends_on_another()
+    {
+        E2E.NUnit.RunSelection.SetRelevance(
+            new Dictionary<string, double> { [typeof(DependentFixture).FullName + ".Second"] = 0.9 }
+        );
+        try
+        {
+            var item = BuildItem(typeof(DependentFixture));
+            E2E.NUnit.RunSelection.OrderByRelevance(item);
+
+            Assert.That(item.Children.Select(child => child.Test.Name), Is.EqualTo(new[] { "First", "Second" }));
+        }
+        finally
+        {
+            E2E.NUnit.RunSelection.SetRelevance(new Dictionary<string, double>());
+        }
+    }
+
+    [Test]
     public void Keeps_the_order_NUnit_gave_when_no_test_is_scored()
     {
         var fixture = BuildItem();
@@ -63,13 +94,13 @@ public sealed class RelevanceOrderTests
     }
 
     // The tree NUnit built for this assembly, down to the fixture; an explicit fixture is still in it.
-    private static CompositeWorkItem BuildItem()
+    private static CompositeWorkItem BuildItem(Type? type = null)
     {
         var assembly = new DefaultTestAssemblyBuilder().Build(
             typeof(RelevanceFixture).Assembly,
             new Dictionary<string, object>()
         );
-        var suite = Find(assembly, typeof(RelevanceFixture).FullName!)!;
+        var suite = Find(assembly, (type ?? typeof(RelevanceFixture)).FullName!)!;
         return (CompositeWorkItem)WorkItemBuilder.CreateWorkItem(suite, TestFilter.Empty, true)!;
     }
 

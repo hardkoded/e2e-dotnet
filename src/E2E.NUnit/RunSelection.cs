@@ -45,9 +45,15 @@ internal static class RunSelection
 
         try
         {
-            return typeof(TestWorker)
+            // A nested fixture that NUnit runs directly leaves the enclosing item in the worker, whose children NUnit is walking.
+            return
+                typeof(TestWorker)
                     .GetField("_currentWorkItem", BindingFlags.Instance | BindingFlags.NonPublic)
-                    ?.GetValue(worker) as CompositeWorkItem;
+                    ?.GetValue(worker)
+                    is CompositeWorkItem item
+                && ReferenceEquals(item.Test, TestExecutionContext.CurrentContext.CurrentTest)
+                ? item
+                : null;
         }
         catch (Exception ex) when (ex is TargetException or ArgumentException or FieldAccessException)
         {
@@ -67,23 +73,36 @@ internal static class RunSelection
             OrderByRelevance(child);
         }
 
+        // NUnit puts a test or fixture after the one it depends on; the order it gave then stays.
+        if (item.Children.Any(child => HasDependency(child.Test)))
+        {
+            return;
+        }
+
         var ordered = item
             .Children.OrderBy(child =>
                 child.Test.Properties.Get(PropertyNames.Order) is int order ? order : int.MaxValue
             )
-            .ThenByDescending(child => BandOf(child.Test))
+            .ThenByDescending(BandOf)
             .ToList();
         item.Children.Clear();
         item.Children.AddRange(ordered);
     }
 
+    private static bool HasDependency(ITest test) =>
+        test.Method?.GetCustomAttributes<DependsOnTestAttribute>(true).Any() == true
+        || test.TypeInfo?.Type.GetCustomAttributes<DependsOnFixtureAttribute>(true).Any() == true;
+
+    // A suite ranks by the work items that will run, so a test the filter dropped does not lift it.
+    private static int BandOf(WorkItem item) =>
+        item is CompositeWorkItem composite
+            ? composite.Children.Count == 0
+                ? 0
+                : composite.Children.Max(BandOf)
+            : BandOf(item.Test);
+
     private static int BandOf(ITest test)
     {
-        if (test is TestSuite suite)
-        {
-            return suite.Tests.Count == 0 ? 0 : suite.Tests.Max(BandOf);
-        }
-
         return
             test.TypeInfo?.Type is { } type
             && test.Method?.Name is { } method
