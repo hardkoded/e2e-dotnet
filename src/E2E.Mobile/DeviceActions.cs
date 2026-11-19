@@ -404,6 +404,13 @@ public sealed class DeviceActions : IDeviceActions
             throw DeviceSupport.NotActionable($"node {target.Id} has no bounds to swipe within");
         }
 
+        if (target.OriginUnknown)
+        {
+            throw DeviceSupport.NotActionable(
+                $"perform swipe failed: the {DeviceErrors.OriginUnknownBounds} Nothing was sent. Swipe the screen with screen.swipe({{ direction }}), or between screen points with screen.swipe({{ from, to }}) not taken from those bounds."
+            );
+        }
+
         var (from, to) = DeviceSupport.SwipeWithin(
             new Rect(rect.X, rect.Y, rect.Width, rect.Height),
             direction,
