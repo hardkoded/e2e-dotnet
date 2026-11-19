@@ -300,6 +300,12 @@ internal static partial class FailureText
     /// <summary>What a step that names no line in the project reports as its file (upstream's <c>UNKNOWN_STEP_SOURCE</c>).</summary>
     private const string UnknownSource = "unknown";
 
+    /// <summary>The failure screenshot artifact of the told attempt, if one was recorded (upstream's <c>failureScreenshot</c>).</summary>
+    public static ArtifactRecord? FailureScreenshot(ReportAttempt told) =>
+        told.Failure?.Screenshot is { } id
+            ? told.Artifacts.FirstOrDefault(artifact => string.Equals(artifact.Id, id, StringComparison.Ordinal))
+            : null;
+
     /// <summary>Artifacts of the told attempt by id, the failure's own first, one per kind.</summary>
     public static IReadOnlyList<ArtifactRecord> EvidenceOf(ReportAttempt told)
     {

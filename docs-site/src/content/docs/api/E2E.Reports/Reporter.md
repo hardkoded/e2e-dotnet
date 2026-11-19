@@ -29,6 +29,8 @@ builds the reporters when the run starts, so [OnEvent(RunEvent)](#E2E_Reports_Re
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
+**Derived:** [JunitReporter](/api/E2E.Reports/JunitReporter/)
+
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)
 
 ## Properties
