@@ -11,7 +11,8 @@ namespace E2E.Tests.Errors;
 /// </summary>
 public sealed class RedactingAnErrorAProgramCatchesItselfTests
 {
-    private static string Redact(string text) => text.Replace("hunter2-secret", "<secret:pw>", StringComparison.Ordinal);
+    private static string Redact(string text) =>
+        text.Replace("hunter2-secret", "<secret:pw>", StringComparison.Ordinal);
 
     [Fact]
     public void Rewrites_the_text_fields_of_its_details_and_keeps_the_counts()
@@ -27,7 +28,12 @@ public sealed class RedactingAnErrorAProgramCatchesItselfTests
         };
 
         Assert.Equal(
-            new ErrorDetails { Locator = "getByText(\"<secret:pw>\")", Name = "<secret:pw>", Matches = 0 },
+            new ErrorDetails
+            {
+                Locator = "getByText(\"<secret:pw>\")",
+                Name = "<secret:pw>",
+                Matches = 0,
+            },
             ErrorSerializer.RedactErrorDetails(error.Details, Redact)
         );
     }

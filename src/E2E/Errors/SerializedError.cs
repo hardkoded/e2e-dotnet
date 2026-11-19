@@ -236,9 +236,8 @@ internal static class ErrorSerializer
     // Details as the report carries them: text redacted, sanitized, and bounded, empty text dropped, nothing when nothing is left.
     private static ErrorDetails? BoundedDetails(ErrorDetails details, Func<string, string> redact)
     {
-        var bounded = MapDetailText(
-            details,
-            text => TextRules.TruncateUtf8(TextRules.SanitizeRecordedText(redact(text)), MaxDetailBytes)
+        var bounded = MapDetailText(details, text =>
+            TextRules.TruncateUtf8(TextRules.SanitizeRecordedText(redact(text)), MaxDetailBytes)
         );
         return bounded == new ErrorDetails() ? null : bounded;
     }
