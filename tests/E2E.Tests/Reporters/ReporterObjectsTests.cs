@@ -185,12 +185,10 @@ public sealed class ReporterObjectsTests : IDisposable
             FinishedRun run,
             CancellationToken cancellationToken
         ) =>
-            Task.FromResult<IReadOnlyList<E2E.Reports.ReportFile>?>(
-                [
-                    new E2E.Reports.ReportFile("reports/run.txt", run.Status.ToString().ToLowerInvariant()),
-                    new E2E.Reports.ReportFile(Path.Combine(run.ProjectRoot, "report.json"), "clobbered"),
-                ]
-            );
+            Task.FromResult<IReadOnlyList<E2E.Reports.ReportFile>?>([
+                new E2E.Reports.ReportFile("reports/run.txt", run.Status.ToString().ToLowerInvariant()),
+                new E2E.Reports.ReportFile(Path.Combine(run.ProjectRoot, "report.json"), "clobbered"),
+            ]);
     }
 
     private sealed class RecordingReporter : Reporter

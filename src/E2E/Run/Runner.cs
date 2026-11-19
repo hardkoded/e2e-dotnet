@@ -418,43 +418,53 @@ internal static class Runner
     )
     {
         var fileRows = await Task.WhenAll(
-                reporters.Select(async Task<IReadOnlyList<ReporterSummaryRow>> (reporter) =>
-                {
-                    var files = await BoundedAsync<IReadOnlyList<Reports.ReportFile>>(
-                            reporter,
-                            false,
-                            token => reporter.ReportFilesAsync(finished, token),
-                            timeout,
-                            force
-                        )
-                        .ConfigureAwait(false);
-                    return files is null
-                        ? []
-                        : await WriteReportFilesAsync(reporter, files, finished).ConfigureAwait(false);
-                })
+                reporters.Select(
+                    async Task<IReadOnlyList<ReporterSummaryRow>> (reporter) =>
+                    {
+                        var files = await BoundedAsync<IReadOnlyList<Reports.ReportFile>>(
+                                reporter,
+                                false,
+                                token => reporter.ReportFilesAsync(finished, token),
+                                timeout,
+                                force
+                            )
+                            .ConfigureAwait(false);
+                        return files is null
+                            ? []
+                            : await WriteReportFilesAsync(reporter, files, finished).ConfigureAwait(false);
+                    }
+                )
             )
             .ConfigureAwait(false);
         var finishedRows = await Task.WhenAll(
-                reporters.Select(async Task<IReadOnlyList<ReporterSummaryRow>> (reporter) =>
-                {
-                    var result = await BoundedAsync<IReadOnlyList<ReporterSummaryRow>>(reporter, true, token => reporter.OnRunFinishedAsync(finished, token), timeout, force)
-                        .ConfigureAwait(false);
-                    if (result is null)
+                reporters.Select(
+                    async Task<IReadOnlyList<ReporterSummaryRow>> (reporter) =>
                     {
-                        return [];
-                    }
+                        var result = await BoundedAsync<IReadOnlyList<ReporterSummaryRow>>(
+                                reporter,
+                                true,
+                                token => reporter.OnRunFinishedAsync(finished, token),
+                                timeout,
+                                force
+                            )
+                            .ConfigureAwait(false);
+                        if (result is null)
+                        {
+                            return [];
+                        }
 
-                    var rows = result.Where(row => row is { Label.Length: > 0, Text.Length: > 0 }).ToList();
-                    if (rows.Count < result.Count)
-                    {
-                        Warn(
-                            reporter,
-                            $"returned {result.Count - rows.Count} row(s) without a label and text; dropped"
-                        );
-                    }
+                        var rows = result.Where(row => row is { Label.Length: > 0, Text.Length: > 0 }).ToList();
+                        if (rows.Count < result.Count)
+                        {
+                            Warn(
+                                reporter,
+                                $"returned {result.Count - rows.Count} row(s) without a label and text; dropped"
+                            );
+                        }
 
-                    return rows;
-                })
+                        return rows;
+                    }
+                )
             )
             .ConfigureAwait(false);
         return [.. fileRows.Concat(finishedRows).SelectMany(rows => rows)];
@@ -527,7 +537,11 @@ internal static class Runner
         List<ReporterSummaryRow> rows = [];
         foreach (var file in files)
         {
-            if (file is not { Path.Length: > 0, Content: not null } || file.Label is { Length: 0 } || file.Note is { Length: 0 })
+            if (
+                file is not { Path.Length: > 0, Content: not null }
+                || file.Label is { Length: 0 }
+                || file.Note is { Length: 0 }
+            )
             {
                 Warn(reporter, "returned something other than report files; wrote none");
                 return [];
