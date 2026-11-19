@@ -77,6 +77,22 @@ internal static class DecideTestHelpers
 
         public List<TelemetryErrorEvent> Errors { get; } = [];
 
+        public List<TelemetryEvent> Starts { get; } = [];
+
+        public List<TelemetryEvent> Ends { get; } = [];
+
+        public Task OnStartAsync(TelemetryEvent @event)
+        {
+            Starts.Add(@event);
+            return Task.CompletedTask;
+        }
+
+        public Task OnEndAsync(TelemetryEvent @event)
+        {
+            Ends.Add(@event);
+            return Task.CompletedTask;
+        }
+
         public Task OnDecideStartAsync(DecideStartEvent @event)
         {
             DecideStarts.Add(@event);

@@ -132,13 +132,31 @@ var result = await ExperimentalDecide.RunAsync(new DecideOptions
 });
 ```
 
-`DecideOptions.Telemetry` takes `TelemetryOptions` with `Integrations`, a list of `ITelemetry`. An integration overrides the members it listens to: `OnDecideStartAsync`, `OnDecisionModelCallStartAsync`, `OnDecisionModelCallEndAsync`, `OnDecideEndAsync`, and `OnErrorAsync`. The decision model call events cover the logical model call, so a retried call fires one start, and one end only if a retry succeeds. Every integration event carries the call's `RecordInputs`, `RecordOutputs`, `FunctionId`, and `AiVersion`. A call that sets no `Integrations` uses the global ones added with `TelemetryRegistry.RegisterTelemetry(params ITelemetry[])`, in registration order; `TelemetryOptions.Integrations` replaces them, and `IsEnabled = false` ignores them.
+`DecideOptions.Telemetry` takes `TelemetryOptions` with `Integrations`, a list of `ITelemetry`. An integration overrides the members it listens to: `OnDecideStartAsync`, `OnDecisionModelCallStartAsync`, `OnDecisionModelCallEndAsync`, `OnDecideEndAsync`, and `OnErrorAsync`. It also has the generic `OnStartAsync` and `OnEndAsync`, which upstream fires for its other operations; decide never calls them. The decision model call events cover the logical model call, so a retried call fires one start, and one end only if a retry succeeds. Every integration event carries the call's `RecordInputs`, `RecordOutputs`, `FunctionId`, and `AiVersion`. A call that sets no `Integrations` uses the global ones added with `TelemetryRegistry.RegisterTelemetry(params ITelemetry[])`, in registration order; `TelemetryOptions.Integrations` replaces them, and `IsEnabled = false` ignores them.
 
 - `RecordInputs = false` empties the state, the questions, and the provider options of the events an integration receives. `RecordOutputs = false` empties the answers. Either one also drops the provider metadata and replaces the error with a generic one.
 - `RecordInputs = false` does not remove `Headers`: integrations still receive them on the decide start and end events. Do not place credentials in `Headers` if an integration exports telemetry.
 - An integration receives no runtime context unless `IncludeRuntimeContext` marks a top-level key `true`. `OnStart` and `OnEnd` always get the whole context.
 - `IsEnabled = false` turns the integrations off for the call.
 - The port has no global integration registry: a call with no `Integrations` has none.
+
+## Files at a URL
+
+A state part can be a file at a URL: `new DecisionFileUrlPart("image/png", new Uri("https://example.com/package.png"))`. `ExperimentalDecide.RunAsync` downloads it before the decision model is called and hands the model a `DecisionFilePart` with the bytes. The downloaded media type replaces a partial one such as `image`, never a full one such as `image/png`.
+
+The call never fetches a URL on its own. Without `DecideOptions.ExperimentalDownload` (the AI SDK's `experimental_download`), a URL file part fails with a `DownloadException` before the model request. Create the function with `CreateDownload.Create`:
+
+```csharp
+var result = await ExperimentalDecide.RunAsync(new DecideOptions
+{
+    Model = model,
+    Questions = questions,
+    ExperimentalDownload = CreateDownload.Create(new CreateDownloadOptions { MaxBytes = 10_000_000 }),
+    State = [new DecisionFileUrlPart("image", new Uri("https://example.com/package.png"))],
+});
+```
+
+The download refuses a non-http(s) URL, `localhost` and internal names, and literal private IP addresses, and checks every redirect hop. It does not resolve DNS, so a name that resolves to a private address gets through. For untrusted URLs, set `CreateDownloadOptions.Fetch` to a transport that validates DNS when it connects. A failed download, including an error status or a body over `MaxBytes` (2 GiB by default), throws `DownloadException` and no decision-model call is made.
 
 ## Limits
 
@@ -150,4 +168,4 @@ var result = await ExperimentalDecide.RunAsync(new DecideOptions
 - A question the provider refuses fails the step with `MODEL_OUTPUT_INVALID`.
 - A question has at most 255 options, TypeSafe's limit. On a larger screen, nodes in the viewport come first and the rest count as omitted, so the model can scroll.
 - The tree the executor reads lists the page's top-level nodes. It has no root node of its own, so unlike upstream a top-level labeled node is a target for pointer operations too.
-- The port ships `OpenAIDecisionModel`, `GatewayDecisionModel`, and `DecisionTypeSafeAiModel`. The Gateway reads its OIDC token from `VERCEL_OIDC_TOKEN` only; it does not run `vercel env pull`. A TypeSafe call has no workflow serialization.
+- The port ships `OpenAIDecisionModel`, `GatewayDecisionModel`, and `DecisionTypeSafeAiModel`. The Gateway reads its OIDC token from `VERCEL_OIDC_TOKEN` only; it does not run `vercel env pull`. `DecisionTypeSafeAiModel.WorkflowSerialize` and `WorkflowDeserialize` carry a TypeSafe model across a workflow boundary (upstream's `WORKFLOW_SERIALIZE` and `WORKFLOW_DESERIALIZE`). The `HttpClient` is not serialized, so a restored model uses its own default client unless you pass one. The headers are resolved when serialized; without them, the restored model reads `TYPESAFE_AI_API_KEY` at each call.

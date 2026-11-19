@@ -5,96 +5,83 @@
 namespace E2E.Decision.Sdk;
 
 /// <summary>
-/// The AI SDK's <c>ModelCapability</c> (<c>@ai-sdk/provider</c>'s <c>model-capabilities.ts</c>): support declared by a provider's model catalog. It is
-/// supported, unsupported, <see cref="Unknown"/> (distinct from unsupported), or available under a <see cref="Condition"/>, which is documentation.
+/// The AI SDK's <c>ModelCapability</c>: <c>true</c>, <c>false</c>, <c>'unknown'</c>, or <c>{ condition }</c>. A condition is documentation,
+/// not an expression to execute.
 /// </summary>
 public sealed record ModelCapability
 {
-    private ModelCapability() { }
-
     /// <summary>Supported.</summary>
-    public static ModelCapability Supported { get; } = new() { IsSupported = true };
+    public static ModelCapability Supported { get; } = new() { Value = true };
 
     /// <summary>Unsupported.</summary>
-    public static ModelCapability Unsupported { get; } = new() { IsSupported = false };
+    public static ModelCapability Unsupported { get; } = new() { Value = false };
 
-    /// <summary>Upstream's <c>'unknown'</c>.</summary>
-    public static ModelCapability Unknown { get; } = new() { IsUnknown = true };
+    /// <summary>Upstream's <c>'unknown'</c>: distinct from unsupported.</summary>
+    public static ModelCapability Unknown { get; } = new();
 
-    /// <summary>True for a supported capability.</summary>
-    public bool IsSupported { get; private init; }
+    /// <summary>True or false for a plain boolean capability; null for <c>'unknown'</c> and for a condition.</summary>
+    public bool? Value { get; init; }
 
-    /// <summary>True for an <c>unknown</c> capability.</summary>
-    public bool IsUnknown { get; private init; }
+    /// <summary>Upstream's <c>{ condition }</c>: when support is available.</summary>
+    public string? Condition { get; init; }
 
-    /// <summary>Upstream's <c>{ condition }</c>: when the support is available.</summary>
-    public string? Condition { get; private init; }
-
-    /// <summary>A capability available under <paramref name="condition"/>.</summary>
+    /// <summary>Upstream's <c>{ condition }</c>.</summary>
     public static ModelCapability WithCondition(string condition) => new() { Condition = condition };
+
+    /// <summary>A boolean capability.</summary>
+    public static ModelCapability From(bool value) => value ? Supported : Unsupported;
 }
 
-/// <summary>The <c>decision</c> section of the AI SDK's <c>ModelCapabilities</c>.</summary>
-public sealed record DecisionModelCapabilities
+/// <summary>A provider option, declared once at the provider level. Upstream's <c>ProviderOptionDefinition</c>.</summary>
+public sealed record ProviderOptionDefinition(string Description);
+
+/// <summary>The decision question types of <c>ModelCapabilities.decision.questionTypes</c>.</summary>
+public sealed record DecisionQuestionTypeCapabilities(
+    ModelCapability Boolean,
+    ModelCapability Choice,
+    ModelCapability Score,
+    ModelCapability Box
+);
+
+/// <summary>The decision inputs of <c>ModelCapabilities.decision.inputs</c>.</summary>
+public sealed record DecisionInputCapabilities(ModelCapability Image);
+
+/// <summary>Upstream's <c>ModelCapabilities.decision</c>.</summary>
+public sealed record DecisionCapabilities(
+    DecisionQuestionTypeCapabilities QuestionTypes,
+    DecisionInputCapabilities Inputs,
+    ModelCapability Reasoning,
+    ModelCapability MaxOutputTokens
+)
 {
-    /// <summary>The question types the model answers.</summary>
-    public required DecisionQuestionTypeCapabilities QuestionTypes { get; init; }
-
-    /// <summary>The inputs the model takes.</summary>
-    public required DecisionInputCapabilities Inputs { get; init; }
-
-    /// <summary>Whether the model takes a reasoning option.</summary>
-    public required ModelCapability Reasoning { get; init; }
-
-    /// <summary>Whether the model takes a max output tokens option.</summary>
-    public required ModelCapability MaxOutputTokens { get; init; }
-
-    /// <summary>A description of the model.</summary>
+    /// <summary>A model description, which TypeSafe's catalog adds to the decision section.</summary>
     public string? Description { get; init; }
 }
 
-/// <summary>The <c>questionTypes</c> of <see cref="DecisionModelCapabilities"/>.</summary>
-public sealed record DecisionQuestionTypeCapabilities
-{
-    public required ModelCapability Boolean { get; init; }
-
-    public required ModelCapability Choice { get; init; }
-
-    public required ModelCapability Score { get; init; }
-
-    public required ModelCapability Box { get; init; }
-}
-
-/// <summary>The <c>inputs</c> of <see cref="DecisionModelCapabilities"/>.</summary>
-public sealed record DecisionInputCapabilities
-{
-    public required ModelCapability Image { get; init; }
-}
-
-/// <summary>The AI SDK's <c>ModelCapabilities</c>. Only the <c>decision</c> section is modeled; omitted sections are undeclared.</summary>
+/// <summary>Upstream's <c>ModelCapabilities</c>. Only the decision section exists in the port.</summary>
 public sealed record ModelCapabilities
 {
-    /// <summary>What the model decides.</summary>
-    public DecisionModelCapabilities? Decision { get; init; }
+    /// <summary>Omitted means undeclared, not explicitly unsupported.</summary>
+    public DecisionCapabilities? Decision { get; init; }
 }
 
-/// <summary>The AI SDK's <c>ProviderOptionDefinition</c>: a provider option, declared once at the provider level.</summary>
-public sealed record ProviderOptionDefinition(string Description);
-
-/// <summary>
-/// The AI SDK's <c>ModelProviderOptions</c>: per-model support for the options of the provider's option definitions, keyed by section
-/// (such as <c>decision</c>) then option name.
-/// </summary>
-public sealed record ModelProviderOptions(
-    IReadOnlyDictionary<string, IReadOnlyDictionary<string, ModelCapability>> Sections
-);
-
-/// <summary>The AI SDK's <c>ModelEntry</c>: one provider-owned model record.</summary>
-public sealed record ModelEntry
+/// <summary>Upstream's <c>ModelProviderOptions</c>: per-model support for a provider's options, keyed by section and option name.</summary>
+public sealed record ModelProviderOptions
 {
-    /// <summary>What the model can do.</summary>
-    public required ModelCapabilities Capabilities { get; init; }
+    /// <summary>The decision section.</summary>
+    public IReadOnlyDictionary<string, ModelCapability>? Decision { get; init; }
+}
 
-    /// <summary>Support for the provider's options. Omitted sections or options are undeclared, not unsupported.</summary>
+/// <summary>Upstream's <c>ProviderOptionDefinitions</c>: the provider options a provider accepts, grouped by operation.</summary>
+public sealed record ProviderOptionDefinitions
+{
+    /// <summary>The decision section.</summary>
+    public IReadOnlyDictionary<string, ProviderOptionDefinition>? Decision { get; init; }
+}
+
+/// <summary>Upstream's <c>ModelEntry</c>: one provider-owned model record.</summary>
+public sealed record ModelEntry(ModelCapabilities Capabilities)
+{
+    /// <summary>Omitted sections or options are undeclared, not explicitly unsupported.</summary>
     public ModelProviderOptions? ProviderOptions { get; init; }
 }

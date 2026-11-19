@@ -7,14 +7,6 @@ namespace E2E.Decision.Sdk.TypeSafeAi;
 /// <summary>The AI SDK's <c>typesafe-ai-model-catalog.ts</c>: the decision models TypeSafe lists and the questions they answer.</summary>
 public static class TypeSafeAiModelCatalog
 {
-    private static readonly Dictionary<string, string> ModelDescriptions = new()
-    {
-        ["jev-1.13.0"] = "Jev 1.13 release.",
-        ["jev-1.14.0"] = "Jev 1.14 release.",
-        ["jev-latest"] = "Alias for the latest stable release.",
-        ["jev-preview"] = "Alias for the latest release, including previews.",
-    };
-
     /// <summary>Upstream's <c>typeSafeAiDecisionModelIds</c>. Any other string is accepted as a model id too.</summary>
     public static IReadOnlyList<string> TypeSafeAiDecisionModelIds { get; } =
     ["jev-1.13.0", "jev-1.14.0", "jev-latest", "jev-preview"];
@@ -23,14 +15,19 @@ public static class TypeSafeAiModelCatalog
     public static IReadOnlyList<string> TypeSafeAiSupportedQuestionTypes { get; } =
     ["choice", "score", "boolean", "box"];
 
-    /// <summary>Upstream's <c>typeSafeAiProviderOptions</c>: the provider options of a decision call and of an image file part.</summary>
-    public static IReadOnlyDictionary<
-        string,
-        IReadOnlyDictionary<string, ProviderOptionDefinition>
-    > TypeSafeAiProviderOptions { get; } =
-        new Dictionary<string, IReadOnlyDictionary<string, ProviderOptionDefinition>>
+    private static readonly Dictionary<string, string> ModelDescriptions = new()
+    {
+        ["jev-1.13.0"] = "Jev 1.13 release.",
+        ["jev-1.14.0"] = "Jev 1.14 release.",
+        ["jev-latest"] = "Alias for the latest stable release.",
+        ["jev-preview"] = "Alias for the latest release, including previews.",
+    };
+
+    /// <summary>Upstream's <c>typeSafeAiProviderOptions</c>: the provider options the decision operation accepts.</summary>
+    public static ProviderOptionDefinitions TypeSafeAiProviderOptions { get; } =
+        new()
         {
-            ["decision"] = new Dictionary<string, ProviderOptionDefinition>
+            Decision = new Dictionary<string, ProviderOptionDefinition>
             {
                 ["longContext"] = new(
                     "Enable experimental long context mode with 262k tokens per request and per question; slower and less accurate than default mode."
@@ -44,51 +41,43 @@ public static class TypeSafeAiModelCatalog
             },
         };
 
-    /// <summary>
-    /// Upstream's <c>typeSafeAiModelCatalog</c>, named <c>ModelCatalog</c> because a member cannot take the name of its class: the entry of each
-    /// known decision model id.
-    /// </summary>
+    /// <summary>Upstream's <c>typeSafeAiModelCatalog</c>: one entry per id of <see cref="TypeSafeAiDecisionModelIds"/>.</summary>
     public static IReadOnlyDictionary<string, ModelEntry> ModelCatalog { get; } =
         TypeSafeAiDecisionModelIds.ToDictionary(id => id, GetTypeSafeAiDecisionModelEntry);
 
-    /// <summary>Upstream's <c>getTypeSafeAiDecisionModelEntry</c>: the catalog entry of a decision model; an id the catalog does not list gets <c>unknown</c> long context.</summary>
+    /// <summary>Upstream's <c>getTypeSafeAiDecisionModelEntry</c>. A model id outside the catalog reports long context as unknown.</summary>
     public static ModelEntry GetTypeSafeAiDecisionModelEntry(string modelId)
     {
         var known = TypeSafeAiDecisionModelIds.Contains(modelId);
-        return new ModelEntry
+        var decision = new DecisionCapabilities(
+            new DecisionQuestionTypeCapabilities(
+                ModelCapability.Supported,
+                ModelCapability.Supported,
+                ModelCapability.Supported,
+                ModelCapability.Supported
+            ),
+            new DecisionInputCapabilities(ModelCapability.Supported),
+            ModelCapability.Unsupported,
+            ModelCapability.Unsupported
+        )
         {
-            Capabilities = new ModelCapabilities
+            Description = ModelDescriptions.GetValueOrDefault(modelId),
+        };
+        return new ModelEntry(new ModelCapabilities { Decision = decision })
+        {
+            ProviderOptions = new ModelProviderOptions
             {
-                Decision = new DecisionModelCapabilities
+                Decision = new Dictionary<string, ModelCapability>
                 {
-                    QuestionTypes = new DecisionQuestionTypeCapabilities
-                    {
-                        Boolean = ModelCapability.Supported,
-                        Choice = ModelCapability.Supported,
-                        Score = ModelCapability.Supported,
-                        Box = ModelCapability.Supported,
-                    },
-                    Inputs = new DecisionInputCapabilities { Image = ModelCapability.Supported },
-                    Reasoning = ModelCapability.Unsupported,
-                    MaxOutputTokens = ModelCapability.Unsupported,
-                    Description = ModelDescriptions.GetValueOrDefault(modelId),
+                    ["longContext"] = known ? ModelCapability.Supported : ModelCapability.Unknown,
+                    ["reference"] = ModelCapability.WithCondition(
+                        "Image file parts only; references must be nonempty and unique within a request."
+                    ),
+                    ["insertReference"] = ModelCapability.WithCondition(
+                        "Image file parts only; false requires an explicit reference."
+                    ),
                 },
             },
-            ProviderOptions = new ModelProviderOptions(
-                new Dictionary<string, IReadOnlyDictionary<string, ModelCapability>>
-                {
-                    ["decision"] = new Dictionary<string, ModelCapability>
-                    {
-                        ["longContext"] = known ? ModelCapability.Supported : ModelCapability.Unknown,
-                        ["reference"] = ModelCapability.WithCondition(
-                            "Image file parts only; references must be nonempty and unique within a request."
-                        ),
-                        ["insertReference"] = ModelCapability.WithCondition(
-                            "Image file parts only; false requires an explicit reference."
-                        ),
-                    },
-                }
-            ),
         };
     }
 }
