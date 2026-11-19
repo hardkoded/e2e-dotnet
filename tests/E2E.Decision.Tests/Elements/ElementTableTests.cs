@@ -28,7 +28,7 @@ public sealed class ElementTableTests
             {
                 Path = path,
                 Viewport = new TraceViewport(800, 600),
-                Tree = tree,
+                Tree = new ExecutorNode { Id = "root", Children = tree },
                 Pixels = pixels,
                 Locates = locates,
             },
@@ -248,11 +248,27 @@ public sealed class ElementTableTests
         Assert.Null(space.ControlNamed("tap"));
     }
 
-    // Partial: the port tree lists the page's top-level nodes with no synthetic root, so the upstream root (a named
-    // region holding one button) is a pointable node here and a drag is offered; only the single-node and cap checks hold.
     [Fact]
-    public void Partial_Never_offers_drag_with_no_second_node_to_drop_on_nor_onto_the_root_or_past_the_cap()
+    public void Never_offers_drag_with_no_second_node_to_drop_on_nor_onto_the_root_or_past_the_cap()
     {
+        var root = global::E2E.Decision.Elements.ActionSpace(
+            Context().Ctx,
+            new SpaceObservation
+            {
+                Path = "/",
+                Viewport = new TraceViewport(800, 600),
+                Tree = new ExecutorNode
+                {
+                    Id = "root",
+                    Role = "region",
+                    Name = "Main",
+                    Children = [Node("go", "button", "Go")],
+                },
+            },
+            true
+        );
+        Assert.False(root.Targets.ContainsKey(Operation.Drag));
+        Assert.DoesNotContain(Operation.Drag, root.Elements[0].Operations);
         var single = SpaceFor([Node("go", "button", "Go")]);
         Assert.False(single.Targets.ContainsKey(Operation.Drag));
         Assert.DoesNotContain(Operation.Drag, single.Elements[0].Operations);
