@@ -4,6 +4,7 @@
 
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using E2E.Internal;
 
 namespace E2E.OAuth;
 
@@ -19,6 +20,12 @@ public interface ICredentialStore
 
     /// <summary>Every provider id with stored credentials.</summary>
     Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs <paramref name="refresh"/> while no other process refreshes <paramref name="providerId"/>'s login from this store, so a
+    /// rotating refresh token is sent once however many workers need it.
+    /// </summary>
+    Task<T> ExclusiveAsync<T>(string providerId, Func<Task<T>> refresh, CancellationToken cancellationToken = default);
 }
 
 /// <summary>The stores the subscription models and the CLI use.</summary>
@@ -106,14 +113,21 @@ public static class CredentialStores
 /// </summary>
 public sealed class FileCredentialStore : ICredentialStore
 {
-    private static readonly TimeSpan LockRetry = TimeSpan.FromMilliseconds(25);
-    private static readonly TimeSpan LockStale = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan LockWait = TimeSpan.FromSeconds(5);
 
+    /// <summary>A token request has no deadline of its own, so a waiter gives up on its own.</summary>
+    private static readonly TimeSpan RefreshLockWait = TimeSpan.FromSeconds(30);
+
+    private readonly TimeProvider _clock;
+
     public FileCredentialStore(string path)
+        : this(path, TimeProvider.System) { }
+
+    internal FileCredentialStore(string path, TimeProvider clock)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         FilePath = Path.GetFullPath(path);
+        _clock = clock;
     }
 
     public string FilePath { get; }
@@ -159,6 +173,30 @@ public sealed class FileCredentialStore : ICredentialStore
         return Task.FromResult(CredentialStores.StoredIds(Read()));
     }
 
+    /// <summary>Runs <paramref name="refresh"/> holding this login's lock file, so worker processes refresh it one at a time.</summary>
+    public Task<T> ExclusiveAsync<T>(
+        string providerId,
+        Func<Task<T>> refresh,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var lockPath = FilePath + "." + CredentialStores.StoredKey(Read(), providerId) + ".refresh.lock";
+        return FileLock.WithFileLockAsync(
+            lockPath,
+            RefreshLockWait,
+            () =>
+            {
+                var waited =
+                    RefreshLockWait.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " s";
+                var message = "another e2e process is still refreshing the " + providerId + " login after " + waited;
+                return new OAuthException(OAuthException.Timeout, message + "; run again once it finishes");
+            },
+            refresh,
+            cancellationToken,
+            _clock
+        );
+    }
+
     private Dictionary<string, JsonNode?> Read()
     {
         string text;
@@ -184,97 +222,58 @@ public sealed class FileCredentialStore : ICredentialStore
         }
 
         var lockPath = FilePath + ".lock";
-        await AcquireAsync(lockPath, cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var all = Read();
-            change(all);
-            var json = new JsonObject();
-            foreach (var (id, entry) in all)
-            {
-                json[id] = entry;
-            }
-
-            var temp = FilePath + "." + Environment.ProcessId + "." + DateTime.UtcNow.Ticks + ".tmp";
-            var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
-            if (!OperatingSystem.IsWindows())
-            {
-                options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-            }
-
-            try
-            {
-                await using (var stream = new FileStream(temp, options))
-                await using (var writer = new StreamWriter(stream))
-                {
-                    await writer
-                        .WriteAsync(json.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n")
-                        .ConfigureAwait(false);
-                }
-
-                File.Move(temp, FilePath, overwrite: true);
-            }
-            catch
-            {
-                File.Delete(temp);
-                throw;
-            }
-        }
-        finally
-        {
-            File.Delete(lockPath);
-        }
-    }
-
-    /// <summary>
-    /// An advisory lock file created exclusively. A lock older than the stale bound was left by a dead process and
-    /// is claimed by renaming it, which only one waiter can win.
-    /// </summary>
-    private static async Task AcquireAsync(string lockPath, CancellationToken cancellationToken)
-    {
-        var deadline = DateTime.UtcNow + LockWait;
-        while (true)
-        {
-            try
-            {
-                using (new FileStream(lockPath, FileMode.CreateNew, FileAccess.Write)) { }
-
-                return;
-            }
-            catch (IOException)
-            {
-                if (!File.Exists(lockPath))
-                {
-                    continue;
-                }
-
-                if (DateTime.UtcNow - File.GetLastWriteTimeUtc(lockPath) > LockStale)
-                {
-                    try
-                    {
-                        var claimed = lockPath + "." + Environment.ProcessId + "." + DateTime.UtcNow.Ticks + ".stale";
-                        File.Move(lockPath, claimed);
-                        File.Delete(claimed);
-                    }
-                    catch (IOException)
-                    {
-                        // Another waiter claimed it first; try the lock again.
-                    }
-
-                    continue;
-                }
-
-                if (DateTime.UtcNow > deadline)
-                {
-                    throw new OAuthException(
+        await FileLock
+            .WithFileLockAsync(
+                lockPath,
+                LockWait,
+                () =>
+                    new OAuthException(
                         OAuthException.Misconfigured,
                         lockPath + " is held by another process; remove it if that process is gone"
-                    );
-                }
+                    ),
+                async () =>
+                {
+                    var all = Read();
+                    change(all);
+                    var json = new JsonObject();
+                    foreach (var (id, entry) in all)
+                    {
+                        json[id] = entry;
+                    }
 
-                await Task.Delay(LockRetry, cancellationToken).ConfigureAwait(false);
-            }
-        }
+                    var temp = FilePath + "." + Environment.ProcessId + "." + DateTime.UtcNow.Ticks + ".tmp";
+                    var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
+                    if (!OperatingSystem.IsWindows())
+                    {
+                        options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+                    }
+
+                    try
+                    {
+                        await using (var stream = new FileStream(temp, options))
+                        await using (var writer = new StreamWriter(stream))
+                        {
+                            await writer
+                                .WriteAsync(
+                                    json.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n"
+                                )
+                                .ConfigureAwait(false);
+                        }
+
+                        File.Move(temp, FilePath, overwrite: true);
+                    }
+                    catch
+                    {
+                        File.Delete(temp);
+                        throw;
+                    }
+
+                    return true;
+                },
+                cancellationToken,
+                _clock
+            )
+            .ConfigureAwait(false);
     }
 }
 
@@ -316,6 +315,16 @@ public sealed class EnvironmentCredentialStore : ICredentialStore
     public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
     {
         return Task.FromResult(CredentialStores.StoredIds(_entries));
+    }
+
+    /// <summary>Each process holds its own copy of the variable, so there is nothing to share a refresh with.</summary>
+    public Task<T> ExclusiveAsync<T>(
+        string providerId,
+        Func<Task<T>> refresh,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return refresh();
     }
 
     private static OAuthException ReadOnly()

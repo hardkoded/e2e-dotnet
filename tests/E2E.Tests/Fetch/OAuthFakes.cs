@@ -17,8 +17,14 @@ internal sealed class MemoryCredentialStore(Dictionary<string, OAuthCredentials>
         StringComparer.Ordinal
     );
 
-    public Task<OAuthCredentials?> GetAsync(string providerId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_entries.TryGetValue(providerId, out var credentials) ? credentials : null);
+    /// <summary>Called on every read, as a test wraps <c>store.get</c> upstream.</summary>
+    public Action? OnGet { get; set; }
+
+    public Task<OAuthCredentials?> GetAsync(string providerId, CancellationToken cancellationToken = default)
+    {
+        OnGet?.Invoke();
+        return Task.FromResult(_entries.TryGetValue(providerId, out var credentials) ? credentials : null);
+    }
 
     public Task SetAsync(string providerId, OAuthCredentials credentials, CancellationToken cancellationToken = default)
     {
@@ -31,6 +37,23 @@ internal sealed class MemoryCredentialStore(Dictionary<string, OAuthCredentials>
 
     public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<string>>([.. _entries.Keys]);
+
+    /// <summary>Replaced by a test to act as another process holding the lock, as upstream's tests assign <c>store.exclusive</c>.</summary>
+    public Func<string, Func<Task<object?>>, Task<object?>>? Exclusive { get; set; }
+
+    public async Task<T> ExclusiveAsync<T>(
+        string providerId,
+        Func<Task<T>> refresh,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (Exclusive is null)
+        {
+            return await refresh();
+        }
+
+        return (T)(await Exclusive(providerId, async () => await refresh()))!;
+    }
 }
 
 /// <summary>Refreshes rotate the refresh token and reject a token that was already rotated, like SpaceXSI and ChatGPT do.</summary>
