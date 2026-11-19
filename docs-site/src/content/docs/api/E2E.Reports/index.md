@@ -20,6 +20,7 @@ Public types in the `E2E.Reports` namespace.
 | [ArtifactRecord](/api/E2E.Reports/ArtifactRecord/) | A file or link an attempt kept (upstream's ArtifactRecord, run/records.ts). |
 | [CacheRecordedBy](/api/E2E.Reports/CacheRecordedBy/) | The model that recorded a cache entry. |
 | [CollectSetupStep](/api/E2E.Reports/CollectSetupStep/) | Upstream's { kind: 'collect' } step. |
+| [ExpectedFailureRecord](/api/E2E.Reports/ExpectedFailureRecord/) | Why an attempt or a test was expected to fail (upstream's inline expectedFailure object of ReportAttempt and ReportResult, report/build.ts). Error is the failure that made the attempt pass, kept on the attempt only. |
 | [ExploreEvent](/api/E2E.Reports/ExploreEvent/) | Upstream's explore fact: one moment of an e2e explore run, the exploration starting as its test begins, the step in progress, each finding the moment it is reported, and the end. The record is run.explore in the report. |
 | [FailureEvidence](/api/E2E.Reports/FailureEvidence/) | What the runner saw when a failure landed (upstream's FailureEvidence). |
 | [FilterSetupStep](/api/E2E.Reports/FilterSetupStep/) | Upstream's { kind: 'filter' } step. |

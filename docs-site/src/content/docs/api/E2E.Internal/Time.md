@@ -66,7 +66,7 @@ public static readonly TimeSpan PollInterval
 ```
 
 
-Canonical polling cadence for locator and assertion loops.
+Canonical polling cadence for locator and assertion loops, and the longest pause between two reads of a wait.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
@@ -224,6 +224,30 @@ nothing: the poll ends there, and a negation passes if it had held long enough b
 | `options` | [PollConditionOptions](/api/E2E.Internal/PollConditionOptions/) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Internal_Time_PollDelay_"></a>
+<a id="E2E_Internal_Time_PollDelay_System_TimeSpan_"></a>
+
+### PollDelay(TimeSpan)
+
+
+```csharp
+public static TimeSpan PollDelay(TimeSpan elapsed)
+```
+
+
+The pause before a wait's next read, &lt;code class="paramref"&gt;elapsed&lt;/code&gt; after the wait started (upstream's `pollDelay`): until the next time on the
+wait's timeline (20 ms, 50 ms, then every multiple of [PollInterval](#E2E_Internal_Time_PollInterval)) at least 10 ms away, and never longer than
+[PollInterval](#E2E_Internal_Time_PollInterval). The timeline holds every multiple of the interval, so a state that arrives late is seen no later than a wait
+reading every [PollInterval](#E2E_Internal_Time_PollInterval) would see it; an engine whose reads outlast the early times reads as one did.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `elapsed` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+
+**Returns:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
 <a id="E2E_Internal_Time_Sleep_"></a>
 <a id="E2E_Internal_Time_Sleep_System_TimeSpan_System_TimeProvider_System_Threading_CancellationToken_"></a>

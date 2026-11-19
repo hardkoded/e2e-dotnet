@@ -370,7 +370,6 @@ public Task ToHaveRoleAsync(string role, TimeSpan? timeout = null, CancellationT
 ```
 
 
-
 **Parameters**
 
 | Name | Type | Description |

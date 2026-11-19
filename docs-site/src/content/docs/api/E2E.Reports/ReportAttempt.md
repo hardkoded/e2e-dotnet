@@ -113,6 +113,21 @@ What stopped the attempt.
 
 **Value:** [ReportError](/api/E2E.Reports/ReportError/)
 
+<a id="E2E_Reports_ReportAttempt_ExpectedFailure_"></a>
+<a id="E2E_Reports_ReportAttempt_ExpectedFailure"></a>
+
+### ExpectedFailure
+
+
+```csharp
+public ExpectedFailureRecord? ExpectedFailure { get; init; }
+```
+
+
+Present when the attempt was marked `test.fail`: the reason, and the failure that made a passed attempt pass. Null in older reports.
+
+**Value:** [ExpectedFailureRecord](/api/E2E.Reports/ExpectedFailureRecord/)
+
 <a id="E2E_Reports_ReportAttempt_Failure_"></a>
 <a id="E2E_Reports_ReportAttempt_Failure"></a>
 
