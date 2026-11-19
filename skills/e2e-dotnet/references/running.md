@@ -75,8 +75,8 @@ Entries live under `cache.dir` (`.e2e/cache/` by default), one file per key
 it resolves from the config file's directory, a leading `~` or `~/` is the
 home directory, a blank value is ignored, and the mode stays as configured.
 `E2E_NO_CACHE=1` (or `true`) is upstream's `--no-cache`: it runs with the cache
-`off` whatever the config says, in CI too, so every step runs on the live agent
-and nothing is recorded or evicted. Use it to evaluate a new model, or for the
+`off` whatever the config says, in CI too. Each step still runs, and calls the
+model instead of replaying cached actions; nothing is recorded or evicted. Use it to evaluate a new model, or for the
 one live run after a test passes.
 `E2E_CACHE_DIR_OVERRIDE` is upstream's `--cache-dir` for one run: it wins over
 `E2E_CACHE_DIR` and `cache.dir`, `~` is the home directory, a blank value is
