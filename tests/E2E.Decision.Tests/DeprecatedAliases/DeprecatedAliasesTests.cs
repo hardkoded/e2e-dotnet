@@ -9,11 +9,11 @@ using static E2E.Decision.Tests.Decide.DecideTestHelpers;
 
 namespace E2E.Decision.Tests.DeprecatedAliases;
 
-/// <summary>The AI SDK's <c>decide/deprecated-aliases.test.ts</c>, the two telemetry <c>it</c>s.</summary>
+/// <summary>The AI SDK's <c>decide/deprecated-aliases.test.ts</c>, the two telemetry <c>it</c>s. Both are partial: they run <c>ExperimentalDecide.RunAsync</c> with a current <c>IDecisionModel</c>, not <c>experimental_evaluate</c> with the deprecated <c>LegacyModel</c>, which the port does not have.</summary>
 public sealed class DeprecatedAliasesTests
 {
     [Fact]
-    public async Task Dispatches_deprecated_telemetry_callbacks_once_with_decision_operation_names()
+    public async Task Partial_dispatches_deprecated_telemetry_callbacks_once_with_decision_operation_names()
     {
         var integration = new DeprecatedOnlyTelemetry();
         var (model, _) = Setup();
@@ -41,7 +41,7 @@ public sealed class DeprecatedAliasesTests
     }
 
     [Fact]
-    public async Task Prefers_each_decision_telemetry_callback_over_its_deprecated_alias()
+    public async Task Partial_prefers_each_decision_telemetry_callback_over_its_deprecated_alias()
     {
         var integration = new CurrentAndDeprecatedTelemetry();
         var (model, _) = Setup();
