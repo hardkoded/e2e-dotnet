@@ -49,6 +49,32 @@ public static class CredentialStores
             : new EnvironmentCredentialStore(fromEnv);
     }
 
+    /// <summary>Keys an earlier release stored a login under, to the provider id that reads it now. Kept as is so that release still finds the login.</summary>
+    private static readonly Dictionary<string, string> LegacyKeys = new(StringComparer.Ordinal)
+    {
+        ["spacexai"] = "spacexsi",
+    };
+
+    internal static string CurrentId(string key) => LegacyKeys.TryGetValue(key, out var current) ? current : key;
+
+    /// <summary>The key <paramref name="providerId"/>'s login is stored under: the id itself, else a legacy key that maps to it, else the id.</summary>
+    internal static string StoredKey(Dictionary<string, JsonNode?> all, string providerId)
+    {
+        if (all.ContainsKey(providerId))
+        {
+            return providerId;
+        }
+
+        return all.Keys.FirstOrDefault(key => CurrentId(key) == providerId) ?? providerId;
+    }
+
+    internal static IReadOnlyList<string> StoredIds(Dictionary<string, JsonNode?> all) =>
+        [
+            .. all.Where(pair => OAuthCredentials.FromJson(pair.Value) is not null)
+                .Select(pair => CurrentId(pair.Key))
+                .Distinct(StringComparer.Ordinal),
+        ];
+
     internal static Dictionary<string, JsonNode?> ParseFile(string text, string source)
     {
         JsonNode? parsed;
@@ -94,29 +120,43 @@ public sealed class FileCredentialStore : ICredentialStore
 
     public Task<OAuthCredentials?> GetAsync(string providerId, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(Read().TryGetValue(providerId, out var entry) ? OAuthCredentials.FromJson(entry) : null);
+        var all = Read();
+        return Task.FromResult(
+            all.TryGetValue(CredentialStores.StoredKey(all, providerId), out var entry)
+                ? OAuthCredentials.FromJson(entry)
+                : null
+        );
     }
 
     public Task SetAsync(string providerId, OAuthCredentials credentials, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(credentials);
-        return UpdateAsync(all => all[providerId] = credentials.ToJson(), cancellationToken);
+        return UpdateAsync(
+            all => all[CredentialStores.StoredKey(all, providerId)] = credentials.ToJson(),
+            cancellationToken
+        );
     }
 
     public async Task<bool> RemoveAsync(string providerId, CancellationToken cancellationToken = default)
     {
         var removed = false;
-        await UpdateAsync(all => removed = all.Remove(providerId), cancellationToken).ConfigureAwait(false);
+        await UpdateAsync(
+                all =>
+                {
+                    foreach (var key in all.Keys.Where(key => CredentialStores.CurrentId(key) == providerId).ToList())
+                    {
+                        removed |= all.Remove(key);
+                    }
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         return removed;
     }
 
     public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<string> ids = Read()
-            .Where(pair => OAuthCredentials.FromJson(pair.Value) is not null)
-            .Select(pair => pair.Key)
-            .ToList();
-        return Task.FromResult(ids);
+        return Task.FromResult(CredentialStores.StoredIds(Read()));
     }
 
     private Dictionary<string, JsonNode?> Read()
@@ -251,7 +291,9 @@ public sealed class EnvironmentCredentialStore : ICredentialStore
     public Task<OAuthCredentials?> GetAsync(string providerId, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(
-            _entries.TryGetValue(providerId, out var entry) ? OAuthCredentials.FromJson(entry) : null
+            _entries.TryGetValue(CredentialStores.StoredKey(_entries, providerId), out var entry)
+                ? OAuthCredentials.FromJson(entry)
+                : null
         );
     }
 
@@ -273,11 +315,7 @@ public sealed class EnvironmentCredentialStore : ICredentialStore
 
     public Task<IReadOnlyList<string>> ListAsync(CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<string> ids = _entries
-            .Where(pair => OAuthCredentials.FromJson(pair.Value) is not null)
-            .Select(pair => pair.Key)
-            .ToList();
-        return Task.FromResult(ids);
+        return Task.FromResult(CredentialStores.StoredIds(_entries));
     }
 
     private static OAuthException ReadOnly()

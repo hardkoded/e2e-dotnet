@@ -327,6 +327,31 @@ public sealed class E2EConfig
     }
 
     /// <summary>
+    /// A copy of the config whose agent <paramref name="agent"/> (the run's agent when null) runs <paramref name="executor"/>, in place of the
+    /// built-in agent (upstream's <c>agents.default.executor</c>, such as <c>decisionExecutor(...)</c>). .NET-only: the config file cannot hold an
+    /// executor (it is code, so <c>agents.*.executor</c> is refused there), so code sets it, as it sets <see cref="WithModel"/>. Throws
+    /// <c>INVALID_CONFIG</c> for an executor with no name, or for an entry that sets <c>system</c> or <c>tools</c> beside it, as
+    /// <see cref="AgentOptions.Executor"/> does.
+    /// </summary>
+    public E2EConfig WithExecutor(IStepExecutor executor, string? agent = null)
+    {
+        ArgumentNullException.ThrowIfNull(executor);
+        var name = agent ?? AgentNames[0];
+        if (!Agents.TryGetValue(name, out var entry))
+        {
+            throw Invalid("agent \"" + name + "\" is not in the config; agents: " + string.Join(", ", Agents.Keys));
+        }
+
+        var withExecutor = entry.WithExecutor(executor);
+        ResolvedAgent.From(name, withExecutor.CreateOptions());
+        var copy = (E2EConfig)MemberwiseClone();
+        copy.Agents = new ReadOnlyDictionary<string, AgentConfig>(
+            new Dictionary<string, AgentConfig>(Agents, StringComparer.Ordinal) { [name] = withExecutor }
+        );
+        return copy;
+    }
+
+    /// <summary>
     /// A copy of the config with the <c>secrets</c> entry <paramref name="name"/> computed by <paramref name="provider"/> on every fill, in place
     /// of a value baked at load (upstream's <c>secrets: { name: () =&gt; string | Promise&lt;string&gt; }</c>, <c>SecretConfig</c>). .NET-only: the
     /// config file cannot hold a function, so code sets it, as it sets <see cref="WithCacheStore"/>. It replaces a file entry of the same name.
@@ -1733,7 +1758,8 @@ public sealed class E2EConfig
                         + (
                             key switch
                             {
-                                "executor" => ": an executor is code, so set AgentOptions.Executor",
+                                "executor" =>
+                                    ": an executor is code, so set AgentOptions.Executor, or call E2EConfig.WithExecutor",
                                 "store" when label == "cache config" =>
                                     ": a store is code, so call E2EConfig.WithCacheStore",
                                 "store" => ": a store is code, so call E2EConfig.WithArtifactStore",
@@ -2121,12 +2147,23 @@ public sealed class AgentConfig
 
     private IAgentModel? _modelInstance;
     private IAgentModel? _judgeInstance;
+    private IStepExecutor? _executor;
+
+    /// <summary>The executor <see cref="E2EConfig.WithExecutor"/> gave, or null for the built-in agent. The config file cannot name one.</summary>
+    public IStepExecutor? Executor => _executor;
 
     /// <summary>The model for <see cref="Model"/>, or null when no model is set. A model instance <see cref="E2EConfig.WithModel"/> gave wins.</summary>
     public IAgentModel? CreateModel() => _modelInstance ?? Create(Model);
 
     /// <summary>The model for <see cref="Judge"/>, or null when no judge is set. A judge instance <see cref="E2EConfig.WithModel"/> gave wins.</summary>
     public IAgentModel? CreateJudge() => _judgeInstance ?? Create(Judge);
+
+    internal AgentConfig WithExecutor(IStepExecutor executor)
+    {
+        var copy = (AgentConfig)MemberwiseClone();
+        copy._executor = executor;
+        return copy;
+    }
 
     internal AgentConfig WithModelInstances(IAgentModel model, IAgentModel? judge)
     {
@@ -2152,6 +2189,7 @@ public sealed class AgentConfig
             MaxInputTokens = MaxInputTokens,
             ProviderOptions = ProviderOptions,
             Tools = Tools,
+            Executor = _executor,
         };
     }
 

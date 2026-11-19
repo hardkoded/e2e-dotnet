@@ -135,7 +135,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
     [InlineData("chatgpt", "openai", "chatgpt", "gpt-6-luna")]
     [InlineData("copilot", "github-copilot", "copilot", "claude-sonnet-5")]
     [InlineData("opencode-console", "opencode-console", "opencode-console", "deepseek-v4.1-flash")]
-    [InlineData("grok", "spacexai", "grok", "grok-4")]
+    [InlineData("grok", "spacexsi", "grok", "grok-4")]
     // Partial: the model is a provider id in e2e.config.json, with no import line and no SDK packages.
     public async Task Partial_Writes_a_subscription_model_and_names_the_sign_in_as_the_next_step(
         string gateway,

@@ -30,6 +30,18 @@ namespace E2E.Mobile;
 /// </summary>
 public static partial class DeviceErrors
 {
+    /// <summary>
+    /// The snapshot warning agent-device 0.21.37 adds, word for word, when a capture could not place its window on the
+    /// screen. It refuses its own ref actions on that capture with <c>window-origin-unknown</c>, but takes points a caller
+    /// sends, so a gesture aimed from the capture's rects is checked here.
+    /// </summary>
+    internal const string OriginWarning =
+        "This snapshot cannot establish the window origin on screen. Coordinate-derived element interactions are unavailable until a capture measures the viewport.";
+
+    /// <summary>What that capture means for a caller, after "The " or "the ": the one wording a refused tap and a refused node swipe share.</summary>
+    internal const string OriginUnknownBounds =
+        "app's window has no known position on the screen, so node bounds, boundingBox() included, may be offset from screen coordinates.";
+
     private const string PresentationCode = "IOS_SNAPSHOT_ENGINE_FAILED";
 
     private const string RunnerRecovery =
@@ -89,7 +101,7 @@ public static partial class DeviceErrors
         ["target_covered"] = null,
         ["tap_keyboard_occludes_target"] = null,
         ["window-origin-unknown"] =
-            "Nothing was sent. The app's window has no known position on the screen, so node bounds, boundingBox() included, may be offset from screen coordinates. For a tap, tap a screen point with screen.tapAt(), not one taken from those bounds.",
+            $"Nothing was sent. The {OriginUnknownBounds} For a tap, tap a screen point with screen.tapAt(), not one taken from those bounds.",
     };
 
     /// <summary>
