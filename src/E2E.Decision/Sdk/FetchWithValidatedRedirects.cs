@@ -27,7 +27,8 @@ internal static class FetchWithValidatedRedirects
     )
     {
         var currentHeaders = headers is null ? null : SanitizeRequestHeaders.Sanitize(headers);
-        var fetch = customFetch ?? ((request, token) => SharedClient.SendAsync(request, token));
+        var fetch = customFetch
+            ?? ((request, token) => SharedClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token));
         var currentUrl = url;
         // The bound also acts as a backstop against an unterminated redirect chain.
         for (var redirectCount = 0; redirectCount <= MaxDownloadRedirects; redirectCount++)

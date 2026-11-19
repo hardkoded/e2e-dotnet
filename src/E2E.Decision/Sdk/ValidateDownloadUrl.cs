@@ -147,7 +147,13 @@ internal static class ValidateDownloadUrl
                 && groups[4] == 0
                 && groups[5] == 0
             ) // 64:ff9b::/96 (NAT64)
-            || (groups[0] == 0x0064 && groups[1] == 0xff9b && groups[2] == 0x0001); // 64:ff9b:1::/48 (NAT64 local-use)
+        ;
+        // 64:ff9b:1::/48 (NAT64 local-use) places the IPv4 address by the translator's prefix length, so the whole prefix fails closed.
+        if (groups[0] == 0x0064 && groups[1] == 0xff9b && groups[2] == 0x0001)
+        {
+            return true;
+        }
+
         return embedsIPv4 && IsPrivateIPv4(bytes[12..16]);
     }
 }

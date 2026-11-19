@@ -9,6 +9,8 @@ namespace E2E.Decision.Sdk;
 /// <summary>The AI SDK's <c>download</c> (<c>util/download/download.ts</c>). Named <c>Downloads</c> because a C# class cannot share its namespace member's name with a method.</summary>
 internal static class Downloads
 {
+    private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(10);
+
     /// <summary>Downloads a file from a URL. Throws <see cref="DownloadException"/> when the download fails or passes <paramref name="maxBytes"/>.</summary>
     internal static async Task<DownloadedFile> DownloadAsync(
         Uri url,
@@ -19,6 +21,10 @@ internal static class Downloads
     {
         var urlText = url.ToString();
         HttpResponseMessage? response = null;
+        // .NET-only: the default client's timeout ends with the headers (ResponseHeadersRead), so the body read needs its own bound.
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(DownloadTimeout);
+        var linked = timeout.Token;
         try
         {
             response = await FetchUntrustedUrl
@@ -26,7 +32,7 @@ internal static class Downloads
                     urlText,
                     new Dictionary<string, string> { ["user-agent"] = "ai-sdk/e2e-dotnet" },
                     fetch,
-                    cancellationToken
+                    linked
                 )
                 .ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -36,12 +42,7 @@ internal static class Downloads
             }
 
             var data = await ReadResponseWithSizeLimit
-                .ReadAsync(
-                    response,
-                    urlText,
-                    maxBytes ?? ReadResponseWithSizeLimit.DefaultMaxDownloadSize,
-                    cancellationToken
-                )
+                .ReadAsync(response, urlText, maxBytes ?? ReadResponseWithSizeLimit.DefaultMaxDownloadSize, linked)
                 .ConfigureAwait(false);
             return new DownloadedFile(data, response.Content.Headers.ContentType is { } type ? MediaType(type) : null);
         }

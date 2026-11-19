@@ -18,7 +18,8 @@ internal static class DecisionState
         CancellationToken cancellationToken
     )
     {
-        var files = state.OfType<DecisionFileUrlPart>().ToList();
+        var snapshot = state.ToList();
+        var files = snapshot.OfType<DecisionFileUrlPart>().ToList();
         if (files.Count == 0)
         {
             return state;
@@ -39,8 +40,8 @@ internal static class DecisionState
             )
             .ConfigureAwait(false);
         var fileIndex = 0;
-        var prepared = new List<DecisionStatePart>(state.Count);
-        foreach (var part in state)
+        var prepared = new List<DecisionStatePart>(snapshot.Count);
+        foreach (var part in snapshot)
         {
             if (part is not DecisionFileUrlPart file)
             {

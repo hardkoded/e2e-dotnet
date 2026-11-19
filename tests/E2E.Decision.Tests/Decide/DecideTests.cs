@@ -118,6 +118,7 @@ public sealed class DecideTests
         var (model, calls) = Setup();
         byte[] bytes = [0x89, 0x50, 0x4e, 0x47];
         var fetchCalls = 0;
+        Uri? requestedUrl = null;
 
         await ExperimentalDecide.RunAsync(
             new DecideOptions
@@ -127,9 +128,10 @@ public sealed class DecideTests
                 ExperimentalDownload = CreateDownload.Create(
                     new CreateDownloadOptions
                     {
-                        Fetch = (_, _) =>
+                        Fetch = (request, _) =>
                         {
                             fetchCalls++;
+                            requestedUrl = request.RequestUri;
                             var response = new HttpResponseMessage { Content = new ByteArrayContent(bytes) };
                             response.Content.Headers.ContentType = new("image/png");
                             return Task.FromResult(response);
@@ -141,6 +143,7 @@ public sealed class DecideTests
         );
 
         Assert.Equal(1, fetchCalls);
+        Assert.Equal(new Uri("https://example.com/package.png"), requestedUrl);
         var file = Assert.IsType<DecisionFilePart>(Assert.Single(Assert.Single(calls).State));
         Assert.Equal("image/png", file.MediaType);
         Assert.Equal(bytes, file.Data);

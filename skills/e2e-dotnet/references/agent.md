@@ -819,7 +819,9 @@ table and the Gateway and TypeSafe AI decision models. To see every model call, 
 `ITelemetry` integrations for the decide and decision-model call events; `RecordInputs`, `RecordOutputs`,
 `IncludeRuntimeContext`). The decision executor does not set them. A state part can be a file at a URL
 (`DecisionFileUrlPart`); `DecideOptions.ExperimentalDownload` (`CreateDownload.Create(...)`) must download it, or the call
-fails with `DownloadException` before any request. The model receives the bytes as a `DecisionFilePart`.
+fails with `DownloadException` before the model request. The model receives the bytes as a `DecisionFilePart`.
+The default `CreateDownload.Create()` transport does not resolve DNS. For untrusted URLs, set `CreateDownloadOptions.Fetch` to a
+transport that validates DNS when it connects; otherwise a name that resolves to a private address can be fetched.
 
 ## Custom executors
 
