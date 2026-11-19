@@ -221,6 +221,7 @@ public sealed class Host : IAsyncDisposable
     private readonly LaunchApp? _app;
     private readonly bool _headed;
     private readonly Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, Session> _newSession;
+    private readonly Action _withdrawSecrets;
     private readonly Lock _gate = new();
     private readonly Lazy<Task> _closing;
     private Session? _open;
@@ -237,9 +238,11 @@ public sealed class Host : IAsyncDisposable
         TimeSpan? timeout,
         LaunchApp? app,
         bool headed,
+        Action withdrawSecrets,
         Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, Session>? newSession = null
     )
     {
+        _withdrawSecrets = withdrawSecrets;
         _newSession = newSession
             ?? (
                 (attempt, sessionIdentity, internals, onClosed) =>
@@ -378,6 +381,8 @@ public sealed class Host : IAsyncDisposable
         finally
         {
             Launch.Unclaim(_engine);
+            // The host's values are shared with the sessions beside it for as long as it is open.
+            _withdrawSecrets();
         }
 
         if (_ownsArtifacts)
@@ -542,6 +547,7 @@ public static class Launch
             ? Directory.CreateTempSubdirectory("e2e-core-").FullName
             : Path.GetFullPath(options.ArtifactsDir, projectRoot);
         Host? host = null;
+        Action withdrawSecrets = static () => { };
         try
         {
             return host = await OpeningRedaction
@@ -573,7 +579,7 @@ public static class Launch
                             Sessions.TargetIdentity(target, target, engine, resolved).AppIdentity,
                             resolved.Identity
                         );
-                        OpenSession.RegisterStaticSecrets(
+                        withdrawSecrets = Secrecy.ShareStaticSecrets(
                             secrets.Select(pair => E2E.Secret.Create(pair.Key, pair.Value))
                         );
                         var worker = await Standalone
@@ -604,6 +610,7 @@ public static class Launch
                             options.Timeout,
                             app,
                             options.Headed,
+                            withdrawSecrets,
                             newSession
                         );
                     }
@@ -617,6 +624,7 @@ public static class Launch
         }
         catch when (host is null)
         {
+            withdrawSecrets();
             if (ownsArtifacts)
             {
                 try

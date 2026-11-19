@@ -319,12 +319,24 @@ public sealed class E2EHost : IAsyncDisposable
 internal static class OpenSession
 {
     private static readonly Lock Gate = new();
-    private static readonly List<Secret> Secrets = [];
+    private static readonly List<(string Name, string Value)> Secrets = [];
     private static readonly HashSet<(string Name, string Value)> Known = [];
     private static Redactor _redactor = Redactor.None;
 
-    /// <summary>Makes the config's secrets known to the process before the first engine call, so an opening failure is redacted like any text. Upstream's <c>registerStaticSecrets</c>.</summary>
+    /// <summary>
+    /// Shares the static values of <paramref name="secrets"/> with every session in the process from now on, and seeds the process ledger with
+    /// them, so output before any session opens is covered too. What a run does with its config: the sessions of a <c>launch()</c> host a test
+    /// opens redact its values. Upstream's <c>registerStaticSecrets</c> (<c>run/secrecy.ts</c>).
+    /// </summary>
     public static void RegisterStaticSecrets(IEnumerable<Secret> secrets)
+    {
+        var list = secrets.ToList();
+        SeedProcess(list);
+        _ = Secrecy.Share(list.Select(secret => (secret.Name, secret.Value)));
+    }
+
+    /// <summary>Seeds the process ledger with the static values of <paramref name="secrets"/>, so an opening failure is redacted like any text. Upstream's <c>seedProcess</c>.</summary>
+    internal static void SeedProcess(IEnumerable<Secret> secrets)
     {
         lock (Gate)
         {
@@ -332,11 +344,24 @@ internal static class OpenSession
             {
                 if (Known.Add((secret.Name, secret.Value)))
                 {
-                    Secrets.Add(secret);
+                    Secrets.Add((secret.Name, secret.Value));
                 }
             }
 
             _redactor = Redactor.For(Secrets);
+        }
+    }
+
+    /// <summary>The process ledger keeps a value a session learned for good: text the process emits stays covered after the session is gone. Upstream's <c>processSecrets.register</c>.</summary>
+    internal static void Learned(string name, string value)
+    {
+        lock (Gate)
+        {
+            if (Known.Add((name, value)))
+            {
+                Secrets.Add((name, value));
+                _redactor = Redactor.For(Secrets);
+            }
         }
     }
 
@@ -407,11 +432,16 @@ internal static class OpenSession
     internal static string Redact(string text)
     {
         Redactor redactor;
+        (string Name, string Value)[] own;
         lock (Gate)
         {
             redactor = _redactor;
+            own = [.. Secrets];
         }
 
-        return redactor.Redact(text);
+        // The process ledger redacts what the sessions beside it share too, without holding it.
+        return Secrecy.Beside() is { Count: > 0 } beside
+            ? Redactor.For(own.Concat(beside).Distinct().ToArray()).Redact(text)
+            : redactor.Redact(text);
     }
 }

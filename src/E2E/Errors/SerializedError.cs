@@ -189,14 +189,19 @@ internal static class ErrorSerializer
         );
     }
 
-    // Details as the report carries them: text redacted, sanitized, and bounded, empty text dropped, nothing when nothing is left.
-    private static ErrorDetails? BoundedDetails(ErrorDetails details, Func<string, string> redact)
+    /// <summary>
+    /// <paramref name="details"/> with each text field passed through <paramref name="rewrite"/>, an empty result dropped; the counts as they were.
+    /// Upstream's <c>mapDetailText</c>.
+    /// </summary>
+    private static ErrorDetails MapDetailText(ErrorDetails details, Func<string, string> rewrite)
     {
-        string? Text(string? text) =>
-            string.IsNullOrEmpty(text)
-                ? null
-                : TextRules.TruncateUtf8(TextRules.SanitizeRecordedText(redact(text)), MaxDetailBytes);
-        var bounded = new ErrorDetails
+        string? Text(string? text)
+        {
+            var mapped = text is null ? "" : rewrite(text);
+            return mapped.Length == 0 ? null : mapped;
+        }
+
+        return new ErrorDetails
         {
             Locator = Text(details.Locator),
             Expected = Text(details.Expected),
@@ -207,6 +212,34 @@ internal static class ErrorSerializer
             TestId = Text(details.TestId),
             WaitedMs = details.WaitedMs,
         };
+    }
+
+    /// <summary>
+    /// The details of an error a program catches itself with their text fields redacted. Upstream's <c>redactErrorDetails</c>, which rewrites
+    /// the error's <c>details</c> in place: a .NET error's <c>Details</c> is read-only, so the redacted details are returned for the caller to
+    /// rebuild the error with, as <see cref="ErrorRedaction.Cause"/> does.
+    /// </summary>
+    public static ErrorDetails? RedactErrorDetails(ErrorDetails? details, Func<string, string> redact) =>
+        details is null ? null : MapDetailText(details, redact);
+
+    /// <summary>
+    /// A serialized error with <paramref name="redact"/> run over its message and details: what a record taken from another session's is put
+    /// through. Upstream's <c>redactSerializedError</c>, which also redacts the stack; the port's <see cref="SerializedError"/> keeps none.
+    /// </summary>
+    public static SerializedError RedactSerializedError(SerializedError error, Func<string, string> redact) =>
+        error with
+        {
+            Message = redact(error.Message),
+            Details = RedactErrorDetails(error.Details, redact),
+        };
+
+    // Details as the report carries them: text redacted, sanitized, and bounded, empty text dropped, nothing when nothing is left.
+    private static ErrorDetails? BoundedDetails(ErrorDetails details, Func<string, string> redact)
+    {
+        var bounded = MapDetailText(
+            details,
+            text => TextRules.TruncateUtf8(TextRules.SanitizeRecordedText(redact(text)), MaxDetailBytes)
+        );
         return bounded == new ErrorDetails() ? null : bounded;
     }
 

@@ -1131,6 +1131,7 @@ public sealed class E2ESession : IAsyncDisposable
         {
             _errorRedaction.Dispose();
             _credentials?.Dispose();
+            _scope.ReleaseSessionLedger();
             _scope.Ended.Dispose();
             _budget.Dispose();
             WriteDebug(_scope.Debug, _debugOutput, _scope.Steps.All());

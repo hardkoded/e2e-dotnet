@@ -1804,6 +1804,7 @@ internal sealed class AttemptScope : ISecretFillRuntime
 {
     private readonly List<Secret> _secrets = [];
     private readonly List<(string Name, string Value)> _registered = [];
+    private readonly Secrecy.Sharing _sharing = new();
     private Built? _redactor;
 
     /// <summary>
@@ -2058,14 +2059,24 @@ internal sealed class AttemptScope : ISecretFillRuntime
         {
             var built = _redactor;
             var count = _secrets.Count + _registered.Count;
-            if (built is not null && built.Count == count)
+            var revision = Secrecy.BesideRevision;
+            if (built is not null && built.Count == count && built.Revision == revision)
             {
                 return built.Redactor;
             }
 
+            // The values the sessions beside this one share are redacted without being held: Learned() carries none of them.
             built = new Built(
-                Redactor.For(_secrets.Select(secret => (secret.Name, secret.Value)).Concat(_registered).ToArray()),
-                count
+                Redactor.For(
+                    _secrets
+                        .Select(secret => (secret.Name, secret.Value))
+                        .Concat(_registered)
+                        .Concat(Secrecy.Beside())
+                        .Distinct()
+                        .ToArray()
+                ),
+                count,
+                revision
             );
             _redactor = built;
             return built.Redactor;
@@ -2372,8 +2383,18 @@ internal sealed class AttemptScope : ISecretFillRuntime
         if (!_registered.Contains((name, value)))
         {
             _registered.Add((name, value));
+            // Shared with the sessions open beside this one from this moment, until it ends.
+            _sharing.Add(name, value);
         }
+
+        OpenSession.Learned(name, value);
     }
+
+    /// <summary>
+    /// Stops sharing what this attempt's session knows, once it has ended: its values are its own again, redacted by its own redactor in what
+    /// is still reported of it. Upstream's <c>releaseSessionLedger</c> (<c>run/secrecy.ts</c>).
+    /// </summary>
+    public void ReleaseSessionLedger() => _sharing.Withdraw();
 
     Secret? ISecretFillRuntime.RegisteredSecret(string name) =>
         _secrets.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
@@ -2415,7 +2436,7 @@ internal sealed class AttemptScope : ISecretFillRuntime
     }
 
     /// <summary>A redactor and how many secrets it was built from. One object, so a reader never sees one without the other.</summary>
-    private sealed record Built(Redactor Redactor, int Count);
+    private sealed record Built(Redactor Redactor, int Count, int Revision);
 }
 
 internal sealed class PendingAct
