@@ -189,7 +189,12 @@ internal static class Helpers
                         .Range(0, question.Levels!.Count)
                         .Select(level => level.ToString(System.Globalization.CultureInfo.InvariantCulture))
                         .ToList();
-                    questions[id] = new QuestionRecord("score", question.Instructions, null, question.Levels);
+                    questions[id] = new QuestionRecord(
+                        "score",
+                        question.Instructions?.ToText(),
+                        null,
+                        question.Levels!.Select(level => level?.ToText()).ToList()
+                    );
                     var answer = resolve(id, levels, index);
                     var score = answer.Score
                         ?? double.Parse(answer.Choice, System.Globalization.CultureInfo.InvariantCulture);
@@ -224,7 +229,7 @@ internal static class Helpers
                     throw new InvalidOperationException("scripted model answers choice and score questions only");
                 }
 
-                questions[id] = new QuestionRecord("choice", question.Instructions, question.Choices, null);
+                questions[id] = new QuestionRecord("choice", question.Instructions?.ToText(), question.Choices, null);
                 var keys = question.Choices!.Select(choice => choice.Value).ToList();
                 var chosen = resolve(id, keys, index);
                 answers[id] = new DecisionAnswer

@@ -314,7 +314,7 @@ public sealed class ContextTests
         var criteria = requests[1].Questions["target"].Choices!;
         Assert.Equal(
             ["[1] checkbox \"Buy milk\" checked", "[2] checkbox \"Walk the dog\" unchecked"],
-            criteria.Take(2).Select(choice => choice.Description)
+            criteria.Take(2).Select(choice => choice.Description?.ToText())
         );
         Assert.Equal(["dog", true], fixture.Actions.Of("check").Single());
     }
@@ -352,7 +352,7 @@ public sealed class ContextTests
         var criteria = requests[1].Questions["target"].Choices!;
         Assert.Equal(
             ["[1] tab \"Profile\" selected", "[2] tab \"Settings\""],
-            criteria.Take(2).Select(choice => choice.Description)
+            criteria.Take(2).Select(choice => choice.Description?.ToText())
         );
         Assert.Equal(["settings"], fixture.Actions.Of("tap").Single());
     }
