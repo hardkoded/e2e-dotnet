@@ -24,6 +24,12 @@ public sealed class DecisionInput
         Json = json;
     }
 
+    /// <summary>
+    /// An explicit JSON <c>null</c>, as upstream's <c>instructions: null</c> or <c>criteria: { false: null }</c> reads. A C# <c>null</c> leaves the
+    /// field out. .NET-only: JavaScript tells an absent field from a <c>null</c> one, C# needs a value for the second.
+    /// </summary>
+    public static DecisionInput Null { get; } = new(null, JsonDocument.Parse("null").RootElement);
+
     /// <summary>The text, when the input is a string.</summary>
     public string? Text { get; }
 
@@ -58,6 +64,12 @@ public sealed class DecisionQuestion
     /// <summary>The options of a <c>choice</c> question, in order.</summary>
     public IReadOnlyList<DecisionChoice>? Choices { get; init; }
 
+    /// <summary>
+    /// A <c>boolean</c> question whose <c>criteria</c> is an explicit JSON <c>null</c> (upstream's <c>criteria: null</c>). .NET-only: C# has no
+    /// way to tell it from absent criteria.
+    /// </summary>
+    public bool NullCriteria { get; init; }
+
     /// <summary>The descriptions of the ordered levels of a <c>score</c> question: level <c>i</c> is the <c>i</c>th entry.</summary>
     public IReadOnlyList<DecisionInput?>? Levels { get; init; }
 
@@ -84,6 +96,10 @@ public sealed class DecisionQuestion
             Instructions = instructions,
             Levels = levels,
         };
+
+    /// <summary>A <c>box</c> question: where in an image something is.</summary>
+    public static DecisionQuestion Box(DecisionInput? instructions) =>
+        new() { Type = "box", Instructions = instructions };
 
     /// <summary>A <c>boolean</c> question.</summary>
     public static DecisionQuestion Boolean(
@@ -149,8 +165,39 @@ public sealed record DecisionTextPart(string Text) : DecisionStatePart;
 /// <summary>A JSON value the model reads as data.</summary>
 public sealed record DecisionJsonPart(JsonElement Value) : DecisionStatePart;
 
-/// <summary>A file, such as a screenshot, as bytes with its media type.</summary>
-public sealed record DecisionFilePart(string MediaType, byte[] Data) : DecisionStatePart;
+/// <summary>
+/// A file, such as a screenshot, as bytes with its media type (the AI SDK's <c>file</c> part). The data is the bytes, or the same bytes as
+/// base64 text in <see cref="Base64"/>; <see cref="DataType"/> names another kind (<c>url</c>, <c>reference</c>, or <c>text</c>) a provider may reject.
+/// </summary>
+public sealed record DecisionFilePart(string MediaType, byte[] Data) : DecisionStatePart
+{
+    /// <summary>The file's name.</summary>
+    public string? Filename { get; init; }
+
+    /// <summary>The data as base64 text, when it came that way; <see cref="Data"/> is then ignored.</summary>
+    public string? Base64 { get; init; }
+
+    /// <summary>The kind of data the part carries: <c>data</c>, <c>url</c>, <c>reference</c>, or <c>text</c>.</summary>
+    public string DataType { get; init; } = "data";
+
+    /// <summary>The URL of a <c>url</c> part.</summary>
+    public Uri? Url { get; init; }
+
+    /// <summary>The provider references of a <c>reference</c> part.</summary>
+    public JsonElement? Reference { get; init; }
+
+    /// <summary>The text of a <c>text</c> part.</summary>
+    public string? Text { get; init; }
+
+    /// <summary>The options for this part, keyed by provider name. Each value is a JSON value.</summary>
+    public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
+
+    /// <summary>The file's bytes.</summary>
+    public byte[] GetBytes() => Base64 is null ? Data : Convert.FromBase64String(Base64);
+
+    /// <summary>The file's bytes as base64 text.</summary>
+    public string GetBase64() => Base64 ?? Convert.ToBase64String(Data);
+}
 
 /// <summary>
 /// A file at a URL (the AI SDK's <c>FilePart</c> with URL data). <see cref="ExperimentalDecide"/> downloads it through
@@ -175,6 +222,12 @@ public sealed class DecisionModelResult
 
     /// <summary>The id of the model that served the call, when the response names one.</summary>
     public string? ResponseModelId { get; init; }
+
+    /// <summary>The provider's response headers (upstream's <c>response.headers</c>), lowercase names.</summary>
+    public IReadOnlyDictionary<string, string>? ResponseHeaders { get; init; }
+
+    /// <summary>The provider's response body, as it sent it (upstream's <c>response.body</c>).</summary>
+    public JsonElement? ResponseBody { get; init; }
 
     /// <summary>Settings the provider did not support, as text.</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];

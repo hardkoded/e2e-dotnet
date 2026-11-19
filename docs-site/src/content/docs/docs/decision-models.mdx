@@ -5,7 +5,7 @@ description: Run bounded actions with a decision model and a small text model in
 
 `E2E.Decision` runs `ActAsync` and `AssertAsync` through a decision model instead of an LLM agent. For each action, the decision model picks an operation, then an element, from the goal, the recent actions, and the newest semantic tree. It never writes free text: a small text model writes field values. The runner still authorizes every action. This ports upstream's `@e2e-dev/decision` (`decisionExecutor`). The same package holds `Filter.DecisionFilter`, which runs only the tests a change can affect: see [Test filters](/docs/test-filters/#the-decision-filter).
 
-Any decision model that answers `choice` questions with probabilities works, such as `OpenAIDecisionModel` with `gpt-6-luna`. A model id string or a language model in `Model` fails the executor's construction with `INVALID_CONFIG`.
+Any decision model that answers `choice` questions with probabilities works, such as TypeSafe Jev (`DecisionTypeSafeAiModel`), `OpenAIDecisionModel` with `gpt-6-luna`, or a Vercel AI Gateway model (`GatewayDecisionModel`) such as `typesafe-ai/jev`. A model id string or a language model in `Model` fails the executor's construction with `INVALID_CONFIG`.
 
 ## Install and configure
 
@@ -77,7 +77,17 @@ Probability is the chosen option's share of the answer distribution. Confidence 
 
 `Vision = true` adds a masked screenshot to every observation. Assertions and completion checks see it, so the model can judge drawn content the tree doesn't show. The operation and target questions read the tree only. `AssertAsync(..., new AssertOptions { Vision = VisionMode.On })` and `VisionMode.Only` also require `Vision = true` on the executor. Without it, the call fails with `UNSUPPORTED_CAPABILITY`.
 
-The model must accept images and answer `score` questions. `OpenAIDecisionModel` does.
+The model must accept images and answer `score` questions. TypeSafe Jev does, with a TypeSafe API key in `TYPESAFE_AI_API_KEY`:
+
+```csharp
+using E2E.Decision.Sdk.TypeSafeAi;
+
+var model = new TypeSafeAiProvider().DecisionModel("jev-latest");
+```
+
+`OpenAIDecisionModel` takes images too. Vercel AI Gateway rejects the screenshot for every decision model, so keep `Vision` off there.
+
+TypeSafe takes PNG and JPEG images. Each image gets a reference that the request puts in the state at the image's position (or, when the state already contains the reference, leaves alone). Name your own in the part's `typesafe` provider options, `{ "reference": "[photo]", "insertReference": false }`, to point at the image from a question's instructions or criteria. `longContext: true` in the call's `typesafe` provider options raises the context limits to 262k tokens, at the cost of speed and accuracy.
 
 With a text model, vision also offers `tap_at` for a control the tree doesn't list. The text model names the control, such as "the 3 key on the keypad", and the decision model finds it on the screenshot, then on two zoomed crops. A point tap costs four decide calls and one text call, or one of each to repeat a tap on the same page.
 
@@ -85,7 +95,22 @@ When the engine can type into whatever has focus, vision also offers `type_at` f
 
 ## Provider options
 
-The executor's `ProviderOptions` go with every decide call, completion checks included, and reach the decision model only. The text model takes the agent entry's `ProviderOptions`, so a setting for one model never reaches the other. Each value maps a provider name to an option object, and any other shape fails the construction with `INVALID_CONFIG`.
+The executor's `ProviderOptions` go with every decide call, completion checks included, and reach the decision model only. The text model takes the agent entry's `ProviderOptions`, so a setting for one model never reaches the other. Each value maps a provider name to an option object, and any other shape fails the construction with `INVALID_CONFIG`. Use them for options such as zero data retention on Vercel AI Gateway:
+
+```csharp
+using E2E.Decision.Sdk.Gateway;
+
+var model = new GatewayProvider().DecisionModel("typesafe-ai/jev");
+// ProviderOptions = { ["gateway"] = { "zeroDataRetention": true } }
+```
+
+`GatewayProvider` reads `AI_GATEWAY_API_KEY` or, without it, `VERCEL_OIDC_TOKEN`. AI Gateway can rerun an uncertain decision on another model. Add a conditional entry to `gateway.models`, and it reaches every decide call. A triggered fallback bills both models:
+
+```json
+{ "gateway": { "models": [{ "model": "openai/gpt-6-luna-decisions", "when": { "confidenceBelow": 0.6 } }] } }
+```
+
+The entry must come first and there can be only one. A `when` is a `confidenceBelow` (0 to 1) or a `probabilityBetween` pair, optionally for one `question`, or an `any`, `all`, or `atLeast` group of up to 20 conditions, nested at most five levels. A bad entry fails the call with `invalid gateway provider options` before any request.
 
 ## Lifecycle callbacks and telemetry
 
@@ -139,4 +164,4 @@ The download refuses a non-http(s) URL, `localhost` and internal names, and lite
 - A question the provider refuses fails the step with `MODEL_OUTPUT_INVALID`.
 - A question has at most 255 options, TypeSafe's limit. On a larger screen, nodes in the viewport come first and the rest count as omitted, so the model can scroll.
 - The tree the executor reads lists the page's top-level nodes. It has no root node of its own, so unlike upstream a top-level labeled node is a target for pointer operations too.
-- The port ships `OpenAIDecisionModel` only. The Gateway and TypeSafe AI decision models are not ported.
+- The port ships `OpenAIDecisionModel`, `GatewayDecisionModel`, and `DecisionTypeSafeAiModel`. The Gateway reads its OIDC token from `VERCEL_OIDC_TOKEN` only; it does not run `vercel env pull`. A TypeSafe call has no workflow serialization.

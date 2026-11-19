@@ -68,6 +68,9 @@ public sealed class ApiCallException(
     /// <summary>The provider's response headers, lowercase names.</summary>
     public IReadOnlyDictionary<string, string>? ResponseHeaders { get; } = responseHeaders;
 
+    /// <summary>The body of the provider's answer, when it sent one.</summary>
+    public string? ResponseBody { get; init; }
+
     /// <summary>Whether the call may be sent again. Upstream's default: no answer at all, or a 408, 409, 429, or 5xx.</summary>
     public bool IsRetryable { get; } = isRetryable ?? (statusCode is null or 408 or 409 or 429 or >= 500);
 }
@@ -106,4 +109,11 @@ public sealed class DownloadException : Exception
 
     /// <summary>The reason phrase of the answer.</summary>
     public string? StatusText { get; }
+}
+
+/// <summary>The AI SDK's <c>UnsupportedFunctionalityError</c>: the provider cannot take an input, such as a file of an unsupported media type.</summary>
+public sealed class UnsupportedFunctionalityException(string functionality)
+    : Exception("'" + functionality + "' functionality not supported.")
+{
+    public string Functionality { get; } = functionality;
 }
