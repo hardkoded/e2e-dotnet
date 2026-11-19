@@ -187,7 +187,7 @@ internal static class FileLock
             // Closing flushes the buffer again, and that can throw as the write did.
             stream.Dispose();
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Debug.WriteLine("closing the failed lock " + lockPath + ": " + ex.Message);
         }
