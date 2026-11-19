@@ -61,6 +61,14 @@ args = ["mcp"]
 
 Start a new Codex session from the project directory after the tool is installed. To add Codex to an existing setup, run `e2e init --yes --skills none --mcp .codex/config.toml`. Re-running `init` keeps the comments and the other settings of the file and repairs only `command` and `args`.
 
+OpenCode takes another shape, in the project's `opencode.json`. Write the
+file; `opencode mcp add e2e -- <command>` writes the global config instead.
+`e2e init` does not write it.
+
+```json
+{ "mcp": { "e2e": { "type": "local", "command": ["e2e", "mcp"] } } }
+```
+
 In a clone of the e2e-dotnet repo, run it as
 `dotnet run --project src/E2E.Cli -- mcp`.
 
