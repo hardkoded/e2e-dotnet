@@ -11,6 +11,49 @@ public sealed class ConfigTests
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-config-root");
 
     [Fact]
+    public void WithExecutor_carries_a_code_executor_on_the_agent_the_file_cannot_name_one_for()
+    {
+        var config = Parse("""{ "agents": { "default": {}, "fast": {} } }""");
+        var executor = new NamedExecutor("custom-brain");
+
+        var run = config.WithExecutor(executor);
+        var fast = config.WithExecutor(executor, "fast");
+
+        Assert.Same(executor, run.Agents["default"].CreateOptions().Executor);
+        Assert.Null(run.Agents["fast"].CreateOptions().Executor);
+        Assert.Same(executor, fast.Agents["fast"].CreateOptions().Executor);
+        Assert.Null(config.Agents["default"].CreateOptions().Executor);
+    }
+
+    [Fact]
+    public void WithExecutor_refuses_an_unnamed_executor_an_unknown_agent_and_a_system_beside_it()
+    {
+        var config = Parse("""{ "agents": { "default": { "system": "be brief" } } }""");
+
+        var beside = Assert.Throws<ConfigurationException>(() => config.WithExecutor(new NamedExecutor("x")));
+        Assert.Contains("agents.default.system", beside.Message);
+        Assert.Contains("replaces it", beside.Message);
+
+        var plain = Parse("""{ "agents": { "default": {} } }""");
+        Assert.Contains(
+            "must be a StepExecutor",
+            Assert.Throws<ConfigurationException>(() => plain.WithExecutor(new NamedExecutor(" "))).Message
+        );
+        Assert.Contains(
+            "\"nope\" is not in the config",
+            Assert.Throws<ConfigurationException>(() => plain.WithExecutor(new NamedExecutor("x"), "nope")).Message
+        );
+    }
+
+    private sealed class NamedExecutor(string name) : IStepExecutor
+    {
+        public string Name => name;
+
+        public Task<StepVerdict> RunStepAsync(StepExecutorContext context, CancellationToken cancellationToken) =>
+            Task.FromResult(new StepVerdict(StepVerdictStatus.Passed, "ok"));
+    }
+
+    [Fact]
     public void Parses_the_upstream_shape()
     {
         var config = Parse(
@@ -203,7 +246,7 @@ public sealed class ConfigTests
     )]
     [InlineData(
         """{ "agents": { "default": { "executor": {} } } }""",
-        "agents.default key \"executor\" is not supported by the .NET port: an executor is code, so set AgentOptions.Executor"
+        "agents.default key \"executor\" is not supported by the .NET port: an executor is code, so set AgentOptions.Executor, or call E2EConfig.WithExecutor"
     )]
     [InlineData(
         """{ "agents": { "default": { "maxSteps": 101 } } }""",

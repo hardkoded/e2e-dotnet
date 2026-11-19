@@ -841,7 +841,8 @@ is; an engine that reports only a route gives that route. This follows upstream'
 
 Set one as `AgentOptions.Executor` for a named agent, `E2ESessionOptions.AgentExecutor`
 for the default agent, or override `AgentExecutor` in the fixture. A config
-file cannot hold one: an executor is code. The entry still takes `Model`,
+file cannot hold one: an executor is code, so `E2EConfig.WithExecutor(executor, agent)` puts one on a
+loaded config (`agent` is the run's agent when null; upstream's `agents.*.executor` in `e2e.config.ts`). The entry still takes `Model`,
 `Judge`, `Context`, and the budgets, and refuses `System` and `Tools` beside an
 executor (`INVALID_CONFIG`): pass those to the executor. A model or judge the
 executor brings is the agent's, and an entry that names another is
