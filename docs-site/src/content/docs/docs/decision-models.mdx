@@ -3,7 +3,7 @@ title: Decision models
 description: Run bounded actions with a decision model and a small text model instead of a full LLM agent.
 ---
 
-`E2E.Decision` runs `ActAsync` and `AssertAsync` through a decision model instead of an LLM agent. For each action, the decision model picks an operation, then an element, from the goal, the recent actions, and the newest semantic tree. It never writes free text: a small text model writes field values. The runner still authorizes every action. This ports upstream's `@e2e-dev/decision` (`decisionExecutor`).
+`E2E.Decision` runs `ActAsync` and `AssertAsync` through a decision model instead of an LLM agent. For each action, the decision model picks an operation, then an element, from the goal, the recent actions, and the newest semantic tree. It never writes free text: a small text model writes field values. The runner still authorizes every action. This ports upstream's `@e2e-dev/decision` (`decisionExecutor`). The same package holds `Filter.DecisionFilter`, which runs only the tests a change can affect: see [Test filters](/docs/test-filters/#the-decision-filter).
 
 Any decision model that answers `choice` questions with probabilities works, such as `OpenAIDecisionModel` with `gpt-6-luna`. A model id string or a language model in `Model` fails the executor's construction with `INVALID_CONFIG`.
 
