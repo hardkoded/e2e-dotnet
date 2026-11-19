@@ -885,6 +885,11 @@ internal sealed class DecisionStep
             + value;
     }
 
+    private static JsonNode? TranscriptNode(DecisionInput? input) =>
+        input is null ? null
+        : input.Json is { } json ? JsonNode.Parse(json.GetRawText())
+        : JsonValue.Create(input.Text);
+
     /// <summary>One transcript line: the request without its pixels, which are named by size.</summary>
     private static string TranscriptLine(DecisionRequest request)
     {
@@ -894,7 +899,7 @@ internal sealed class DecisionStep
             var record = new JsonObject { ["type"] = question.Type };
             if (question.Instructions is not null)
             {
-                record["instructions"] = question.Instructions;
+                record["instructions"] = TranscriptNode(question.Instructions);
             }
 
             if (question.Choices is { } choices)
@@ -902,14 +907,14 @@ internal sealed class DecisionStep
                 var criteria = new JsonObject();
                 foreach (var choice in choices)
                 {
-                    criteria[choice.Value] = choice.Description;
+                    criteria[choice.Value] = TranscriptNode(choice.Description);
                 }
 
                 record["criteria"] = criteria;
             }
             else if (question.Levels is { } levels)
             {
-                record["criteria"] = new JsonArray([.. levels.Select(level => (JsonNode?)level)]);
+                record["criteria"] = new JsonArray([.. levels.Select(TranscriptNode)]);
             }
 
             questions[id] = record;

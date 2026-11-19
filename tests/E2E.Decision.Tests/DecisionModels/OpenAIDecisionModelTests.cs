@@ -98,6 +98,38 @@ public sealed class OpenAIDecisionModelTests
     }
 
     [Fact]
+    public async Task Detects_the_image_type_from_the_bytes_when_the_supplied_type_is_a_wildcard()
+    {
+        var handler = new ScriptedHandler(
+            """{"answers":[{"type":"refusal","name":"operation"},{"type":"refusal","name":"verdict"}]}"""
+        );
+        using var model = Model(handler);
+        var call = new DecisionModelCall
+        {
+            State = [new DecisionFilePart("image/*", [0x89, 0x50, 0x4e, 0x47])],
+            Questions = Call.Questions,
+        };
+
+        await model.DoDecideAsync(call, CancellationToken.None);
+
+        var content = JsonDocument.Parse(handler.Body!).RootElement.GetProperty("input")[0].GetProperty("content");
+        Assert.Equal("data:image/png;base64,iVBORw==", content[0].GetProperty("image_url").GetString());
+    }
+
+    [Fact]
+    public async Task Rejects_a_wildcard_image_type_whose_bytes_match_no_supported_type()
+    {
+        using var model = Model(new ScriptedHandler("{}"));
+        var call = new DecisionModelCall
+        {
+            State = [new DecisionFilePart("image/*", [1, 2, 3])],
+            Questions = Call.Questions,
+        };
+
+        await Assert.ThrowsAsync<NotSupportedException>(() => model.DoDecideAsync(call, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Fails_a_question_the_response_leaves_unanswered()
     {
         using var model = Model(
@@ -127,14 +159,14 @@ public sealed class OpenAIDecisionModelTests
         );
     }
 
-    private static OpenAIDecisionModel Model(ScriptedHandler handler) =>
+    internal static OpenAIDecisionModel Model(ScriptedHandler handler) =>
         new(
             "gpt-6-luna",
             new OpenAIDecisionModelOptions { ApiKey = "sk-test", BaseUrl = "https://api.test/v1" },
             new HttpClient(handler)
         );
 
-    private sealed class ScriptedHandler(string response) : HttpMessageHandler
+    internal sealed class ScriptedHandler(string response) : HttpMessageHandler
     {
         public string? Url { get; private set; }
 

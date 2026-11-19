@@ -293,7 +293,7 @@ public sealed partial class DecisionExecutorThroughTheBuiltCliAndRealChromiumTes
                 }
                 else
                 {
-                    choice = PickTarget(question.Instructions ?? "", entries, goal);
+                    choice = PickTarget(question.Instructions?.ToText() ?? "", entries, goal);
                 }
 
                 answers[id] = new DecisionAnswer
@@ -342,7 +342,7 @@ public sealed partial class DecisionExecutorThroughTheBuiltCliAndRealChromiumTes
 
         private static string PickTarget(string instructions, IReadOnlyList<DecisionChoice> entries, string goal)
         {
-            string Label(DecisionChoice entry) => entry.Description ?? "";
+            string Label(DecisionChoice entry) => entry.Description?.ToText() ?? "";
             if (goal.Contains("target 5", StringComparison.Ordinal))
             {
                 var hit = entries.FirstOrDefault(entry => Label(entry).Contains("target 5", StringComparison.Ordinal));

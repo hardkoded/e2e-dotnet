@@ -7,6 +7,43 @@ using System.Text.Json;
 namespace E2E.Decision.Sdk;
 
 /// <summary>
+/// An instruction or a criterion description (the AI SDK's <c>DecisionModelV4Input</c>): text, or a JSON value the provider
+/// serializes into the prompt. A string converts implicitly.
+/// </summary>
+public sealed class DecisionInput
+{
+    // JSON.stringify leaves non-ASCII and HTML characters unescaped.
+    private static readonly JsonSerializerOptions Compact = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    private DecisionInput(string? text, JsonElement? json)
+    {
+        Text = text;
+        Json = json;
+    }
+
+    /// <summary>The text, when the input is a string.</summary>
+    public string? Text { get; }
+
+    /// <summary>The value, when the input is JSON.</summary>
+    public JsonElement? Json { get; }
+
+    /// <summary>Converts a string to an input; null stays null.</summary>
+    public static implicit operator DecisionInput?(string? text) => text is null ? null : new DecisionInput(text, null);
+
+    /// <summary>A structured (object, array, number, boolean, or null) input.</summary>
+    public static DecisionInput FromJson(JsonElement value) => new(null, value.Clone());
+
+    /// <summary>The text a provider puts in its prompt: a string as is, JSON compact (<c>JSON.stringify</c>).</summary>
+    public string ToText() => Text ?? JsonSerializer.Serialize(Json!.Value, Compact);
+
+    /// <inheritdoc />
+    public override string ToString() => ToText();
+}
+
+/// <summary>
 /// One decision question (the AI SDK's <c>DecisionModelV4Question</c>). A <c>choice</c> question carries its options, a
 /// <c>score</c> question its ordered levels, and a <c>boolean</c> question instructions or at least one criterion.
 /// </summary>
@@ -16,22 +53,22 @@ public sealed class DecisionQuestion
     public required string Type { get; init; }
 
     /// <summary>What to decide. Null when the criteria say it all.</summary>
-    public string? Instructions { get; init; }
+    public DecisionInput? Instructions { get; init; }
 
     /// <summary>The options of a <c>choice</c> question, in order.</summary>
     public IReadOnlyList<DecisionChoice>? Choices { get; init; }
 
     /// <summary>The descriptions of the ordered levels of a <c>score</c> question: level <c>i</c> is the <c>i</c>th entry.</summary>
-    public IReadOnlyList<string?>? Levels { get; init; }
+    public IReadOnlyList<DecisionInput?>? Levels { get; init; }
 
     /// <summary>What makes a <c>boolean</c> question true.</summary>
-    public string? TrueCriteria { get; init; }
+    public DecisionInput? TrueCriteria { get; init; }
 
     /// <summary>What makes a <c>boolean</c> question false.</summary>
-    public string? FalseCriteria { get; init; }
+    public DecisionInput? FalseCriteria { get; init; }
 
     /// <summary>A <c>choice</c> question.</summary>
-    public static DecisionQuestion Choice(string? instructions, IReadOnlyList<DecisionChoice> choices) =>
+    public static DecisionQuestion Choice(DecisionInput? instructions, IReadOnlyList<DecisionChoice> choices) =>
         new()
         {
             Type = "choice",
@@ -40,7 +77,7 @@ public sealed class DecisionQuestion
         };
 
     /// <summary>A <c>score</c> question over ordered levels.</summary>
-    public static DecisionQuestion Score(string? instructions, IReadOnlyList<string?> levels) =>
+    public static DecisionQuestion Score(DecisionInput? instructions, IReadOnlyList<DecisionInput?> levels) =>
         new()
         {
             Type = "score",
@@ -50,9 +87,9 @@ public sealed class DecisionQuestion
 
     /// <summary>A <c>boolean</c> question.</summary>
     public static DecisionQuestion Boolean(
-        string? instructions,
-        string? trueCriteria = null,
-        string? falseCriteria = null
+        DecisionInput? instructions,
+        DecisionInput? trueCriteria = null,
+        DecisionInput? falseCriteria = null
     ) =>
         new()
         {
@@ -64,7 +101,7 @@ public sealed class DecisionQuestion
 }
 
 /// <summary>One option of a <c>choice</c> question.</summary>
-public sealed record DecisionChoice(string Value, string? Description = null);
+public sealed record DecisionChoice(string Value, DecisionInput? Description = null);
 
 /// <summary>Edges in [0, 1], measured from the image's top-left corner.</summary>
 public sealed record DecisionBox(double Top, double Bottom, double Left, double Right);

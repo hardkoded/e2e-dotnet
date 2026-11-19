@@ -337,7 +337,7 @@ public static class Questions
         var goal = ctx.Step.Instruction;
         var lead = "Goal of this step: " + goal + "\n\nThe control to tap now: " + target;
         var scale = image.Scale;
-        List<string?> Levels(int count, double size, string axis) =>
+        List<DecisionInput?> Levels(int count, double size, string axis) =>
             [
                 .. Enumerable
                     .Range(0, count)

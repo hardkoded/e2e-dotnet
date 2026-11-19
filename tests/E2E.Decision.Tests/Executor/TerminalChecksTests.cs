@@ -185,7 +185,10 @@ public sealed class TerminalChecksTests
         await RunAsync(model, Context(new ContextOptions { Tree = tree }));
 
         var criteria = requests[1].Questions["target"].Choices!;
-        Assert.Equal(["option \"Small\"", "option \"Large\""], criteria.Take(2).Select(choice => choice.Description));
+        Assert.Equal(
+            ["option \"Small\"", "option \"Large\""],
+            criteria.Take(2).Select(choice => choice.Description?.ToText())
+        );
         Assert.Equal(["1:0", "1:1", "none"], criteria.Select(choice => choice.Value));
     }
 }
