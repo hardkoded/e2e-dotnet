@@ -75,6 +75,7 @@ public sealed class ApiCallException(
 /// <summary>The AI SDK's <c>DownloadError</c> (<c>@ai-sdk/provider-utils</c>): a file the SDK could not download.</summary>
 public sealed class DownloadException : Exception
 {
+    /// <summary>Creates the error. Without <paramref name="message"/>, it reads as upstream's: the status, or the inner error.</summary>
     public DownloadException(
         string url,
         int? statusCode = null,
@@ -97,9 +98,12 @@ public sealed class DownloadException : Exception
         StatusText = statusText;
     }
 
+    /// <summary>The URL that failed.</summary>
     public string Url { get; }
 
+    /// <summary>The HTTP status of the answer; null when none came.</summary>
     public int? StatusCode { get; }
 
+    /// <summary>The reason phrase of the answer.</summary>
     public string? StatusText { get; }
 }

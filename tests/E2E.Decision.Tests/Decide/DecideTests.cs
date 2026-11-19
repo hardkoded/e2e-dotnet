@@ -113,7 +113,7 @@ public sealed class DecideTests
     }
 
     [Fact]
-    public async Task Downloads_image_URLs_and_sends_their_bytes_to_the_decision_model()
+    public async Task Partial_Downloads_image_URLs_and_sends_their_bytes_to_the_decision_model()
     {
         var (model, calls) = Setup();
         byte[] bytes = [0x89, 0x50, 0x4e, 0x47];
@@ -179,7 +179,7 @@ public sealed class DecideTests
     }
 
     [Fact]
-    public async Task Rejects_remote_file_state_without_a_download_hook()
+    public async Task Partial_Rejects_remote_file_state_without_a_download_hook()
     {
         var (model, calls) = Setup();
 

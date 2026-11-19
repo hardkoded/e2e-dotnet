@@ -25,15 +25,36 @@ public static class CreateDownload
     public static DownloadFunction Create(CreateDownloadOptions? options = null) =>
         async (requests, cancellationToken) =>
         {
-            var results = await Task.WhenAll(
-                    requests.Select(request =>
-                        request.IsUrlSupportedByModel
-                            ? Task.FromResult<DownloadedFile?>(null)
-                            : DownloadAsync(request, options, cancellationToken)
-                    )
+            // One failed download cancels its siblings, so a failed call leaves no download reading in the background.
+            using var batch = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var tasks = requests
+                .Select(request =>
+                    request.IsUrlSupportedByModel
+                        ? Task.FromResult<DownloadedFile?>(null)
+                        : DownloadAsync(request, options, batch.Token)
                 )
-                .ConfigureAwait(false);
-            return results;
+                .ToList();
+            try
+            {
+                return await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+            catch
+            {
+                await batch.CancelAsync().ConfigureAwait(false);
+                foreach (var task in tasks)
+                {
+                    try
+                    {
+                        await task.ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // The first error is the one thrown; the siblings' are cancellations.
+                    }
+                }
+
+                throw;
+            }
         };
 
     private static async Task<DownloadedFile?> DownloadAsync(

@@ -21,6 +21,8 @@ internal static class ReadResponseWithSizeLimit
         CancellationToken cancellationToken
     )
     {
+        // A byte array cannot hold more than Array.MaxLength, whatever the caller allows.
+        maxBytes = Math.Min(maxBytes, Array.MaxLength);
         if (response.Content.Headers.ContentLength is { } length && length > maxBytes)
         {
             throw new DownloadException(

@@ -39,6 +39,18 @@ internal static class DecisionState
                 cancellationToken
             )
             .ConfigureAwait(false);
+        if (downloaded.Count != files.Count)
+        {
+            throw new DownloadException(
+                files[0].Url.ToString(),
+                message: "The download function returned "
+                    + downloaded.Count
+                    + " results for "
+                    + files.Count
+                    + " requests."
+            );
+        }
+
         var fileIndex = 0;
         var prepared = new List<DecisionStatePart>(snapshot.Count);
         foreach (var part in snapshot)
@@ -57,11 +69,23 @@ internal static class DecisionState
             // The downloaded media type replaces a partial one (such as `image`), never a full one.
             var mediaType =
                 result.MediaType is not null && !IsFullMediaType(file.MediaType) ? result.MediaType : file.MediaType;
-            prepared.Add(new DecisionFilePart(mediaType, result.Data));
+            // As upstream, an image is told by its bytes, whatever the server or the part said.
+            prepared.Add(new DecisionFilePart(DetectImageMediaType(result.Data) ?? mediaType, result.Data));
         }
 
         return prepared;
     }
+
+    /// <summary>The image part of the AI SDK's <c>detectMediaType</c> (<c>topLevelType: 'image'</c>): PNG, JPEG, GIF, and WebP signatures.</summary>
+    private static string? DetectImageMediaType(byte[] data) =>
+        data switch
+        {
+            [0x89, 0x50, 0x4e, 0x47, ..] => "image/png",
+            [0xff, 0xd8, 0xff, ..] => "image/jpeg",
+            [0x47, 0x49, 0x46, 0x38, ..] => "image/gif",
+            [0x52, 0x49, 0x46, 0x46, _, _, _, _, 0x57, 0x45, 0x42, 0x50, ..] => "image/webp",
+            _ => null,
+        };
 
     /// <summary>The AI SDK's <c>isFullMediaType</c>: a type and a subtype that is not a wildcard.</summary>
     private static bool IsFullMediaType(string mediaType)

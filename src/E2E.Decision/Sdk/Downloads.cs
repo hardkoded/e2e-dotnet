@@ -2,8 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Net.Http.Headers;
-
 namespace E2E.Decision.Sdk;
 
 /// <summary>The AI SDK's <c>download</c> (<c>util/download/download.ts</c>). Named <c>Downloads</c> because a C# class cannot share its namespace member's name with a method.</summary>
@@ -44,7 +42,7 @@ internal static class Downloads
             var data = await ReadResponseWithSizeLimit
                 .ReadAsync(response, urlText, maxBytes ?? ReadResponseWithSizeLimit.DefaultMaxDownloadSize, linked)
                 .ConfigureAwait(false);
-            return new DownloadedFile(data, response.Content.Headers.ContentType is { } type ? MediaType(type) : null);
+            return new DownloadedFile(data, response.Content.Headers.ContentType?.MediaType);
         }
         catch (DownloadException)
         {
@@ -63,7 +61,4 @@ internal static class Downloads
             response?.Dispose();
         }
     }
-
-    /// <summary>The <c>content-type</c> header as the server sent it (parameters included), as <c>headers.get('content-type')</c>.</summary>
-    private static string MediaType(MediaTypeHeaderValue type) => type.ToString();
 }
