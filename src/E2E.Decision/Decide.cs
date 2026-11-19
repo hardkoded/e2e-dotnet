@@ -5,6 +5,7 @@
 using System.Globalization;
 using System.Text.Json;
 using E2E.Decision.Sdk;
+using E2E.Internal;
 
 namespace E2E.Decision;
 
@@ -260,6 +261,10 @@ public static class Decide
                 );
             case InvalidResponseDataException:
                 return new AgentException("MODEL_OUTPUT_INVALID", "The decision model returned an invalid answer.");
+            case ApiCallException { InnerException: AgentException provider }:
+                return provider;
+            case RetryError { LastError: { } last }:
+                return DecideError(last);
             default:
                 return new AgentException("MODEL_PROVIDER_FAILED", "The decision model call failed.");
         }

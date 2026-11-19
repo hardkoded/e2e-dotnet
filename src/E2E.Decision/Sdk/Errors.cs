@@ -49,3 +49,25 @@ public sealed class DecisionUnsupportedQuestionTypeException(
 {
     public string QuestionId { get; } = questionId;
 }
+
+/// <summary>
+/// The AI SDK's <c>APICallError</c>: a provider call that failed. <see cref="ExperimentalDecide.RunAsync"/> retries it when
+/// <see cref="IsRetryable"/>, waiting for the provider's <c>retry-after-ms</c> or <c>retry-after</c> header when it is reasonable.
+/// </summary>
+public sealed class ApiCallException(
+    string message,
+    int? statusCode = null,
+    IReadOnlyDictionary<string, string>? responseHeaders = null,
+    bool? isRetryable = null,
+    Exception? innerException = null
+) : Exception(message, innerException)
+{
+    /// <summary>The HTTP status of the provider's answer; null when no answer came.</summary>
+    public int? StatusCode { get; } = statusCode;
+
+    /// <summary>The provider's response headers, lowercase names.</summary>
+    public IReadOnlyDictionary<string, string>? ResponseHeaders { get; } = responseHeaders;
+
+    /// <summary>Whether the call may be sent again. Upstream's default: no answer at all, or a 408, 409, 429, or 5xx.</summary>
+    public bool IsRetryable { get; } = isRetryable ?? (statusCode is null or 408 or 409 or 429 or >= 500);
+}
