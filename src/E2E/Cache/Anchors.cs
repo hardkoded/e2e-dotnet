@@ -80,6 +80,15 @@ internal static class Anchors
             @"\b\d+\s+(?:results?|items?|rows?|entries|records?|matches|total)\b",
             RegexOptions.CultureInvariant | RegexOptions.IgnoreCase
         ),
+        // CJK counts put the counter word right after the digits (42件), with no word boundary or space for the English patterns to match.
+        // As in English, the counter has to end the word: after it comes the end, a non-letter, a particle (の, を, が, 의, 이, 는, ...),
+        // or a "records"/"results" noun. で is left out, since 3行で書く is not a count, and a Korean particle only counts when no Hangul
+        // follows it (2024 개도국 is a word). A counter that starts a longer word (3个月, 2024 개발자) or an ordinal (第3条) is not a count.
+        // The (?<![A-Za-z0-9_]) is upstream's JavaScript \b, and \z its end-of-input $.
+        new(
+            @"(?<!第\s*)(?<![A-Za-z0-9_])[0-9]+\s*(?:件|個|个|項目?|项目?|条|筆|笔|行|개|건|행)(?=\z|[^\p{L}]|[の中をがはも]|[의이가을를은는도](?![가-힣])|记录|記錄|記録|结果|結果)",
+            RegexOptions.CultureInvariant
+        ),
     ];
 
     /// <summary>

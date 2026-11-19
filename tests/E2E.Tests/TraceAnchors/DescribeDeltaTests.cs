@@ -247,6 +247,118 @@ public sealed class DescribeDeltaTests
         Assert.Equal(["|~41 items"], Shapes(gone));
     }
 
+    [Theory]
+    [InlineData("41件", "42件")]
+    [InlineData("41 件", "42 件")]
+    [InlineData("41個", "42個")]
+    [InlineData("41項目", "42項目")]
+    [InlineData("41筆", "42筆")]
+    [InlineData("共 41 条", "共 42 条")]
+    [InlineData("41个", "42个")]
+    [InlineData("41项", "42项")]
+    [InlineData("41笔", "42笔")]
+    [InlineData("총 41건", "총 42건")]
+    [InlineData("41 개", "42 개")]
+    [InlineData("41개", "42개")]
+    [InlineData("共 41 条记录", "共 42 条记录")]
+    [InlineData("41개의 결과", "42개의 결과")]
+    [InlineData("41行", "42行")]
+    [InlineData("41행", "42행")]
+    [InlineData("41 개의 상품", "42 개의 상품")]
+    [InlineData("41件 表示中", "42件 表示中")]
+    [InlineData("全41件中", "全42件中")]
+    [InlineData("41件の結果", "42件の結果")]
+    [InlineData("共 41 条结果", "共 42 条结果")]
+    [InlineData("41件記録しました", "42件記録しました")]
+    [InlineData("共 41 筆結果", "共 42 筆結果")]
+    [InlineData("41筆記錄", "42筆記錄")]
+    [InlineData("41件を表示", "42件を表示")]
+    [InlineData("41件が見つかりました", "42件が見つかりました")]
+    [InlineData("41件は削除済み", "42件は削除済み")]
+    [InlineData("41件も", "42件も")]
+    [InlineData("41건이 검색되었습니다", "42건이 검색되었습니다")]
+    [InlineData("41개가 있습니다", "42개가 있습니다")]
+    [InlineData("41건을 처리했습니다", "42건을 처리했습니다")]
+    [InlineData("41개를 선택", "42개를 선택")]
+    [InlineData("41건은 처리되었습니다", "42건은 처리되었습니다")]
+    [InlineData("41개는 품절", "42개는 품절")]
+    [InlineData("41건도 확인", "42건도 확인")]
+    public void Reads_a_count_with_a_CJK_counter_the_way_it_reads_an_English_one(string from, string to)
+    {
+        var (appeared, gone) = Describe(
+            [Heading, Node(text: from)],
+            [Heading, Node(text: to), Node(text: "Item added")]
+        );
+
+        Assert.Equal(["|~Item added"], Shapes(appeared));
+        Assert.Equal(["|~" + from], Shapes(gone));
+    }
+
+    [Fact]
+    public void Skips_a_CJK_count_on_a_screen_the_step_navigated_to()
+    {
+        Assert.Equal(
+            ["|~インポートしたレコード"],
+            Shapes(
+                Describe(
+                    [Heading],
+                    [Heading, Node(text: "全9件中 1〜9件を表示"), Node(text: "インポートしたレコード")],
+                    routeMoved: true
+                ).Appeared
+            )
+        );
+    }
+
+    [Theory]
+    [InlineData("ThinkPad X1笔记本电脑")]
+    [InlineData("ThinkPad X1 筆記型電腦")]
+    [InlineData("iPhone 15个人版")]
+    [InlineData("3個人版")]
+    [InlineData("3개월 무료 체험이 시작되었습니다")]
+    [InlineData("3个月会员已开通")]
+    [InlineData("3個月會員已開通")]
+    [InlineData("第3条 個人情報の取扱い")]
+    [InlineData("2024 개발자 컨퍼런스")]
+    [InlineData("2025 건강검진 결과")]
+    [InlineData("2024 행사 일정")]
+    [InlineData("iPhone 15 개봉기")]
+    [InlineData("2 行动计划")]
+    [InlineData("2024 行程安排")]
+    [InlineData("3行目を編集")]
+    [InlineData("2024 行业报告")]
+    [InlineData("2024 行業報告")]
+    [InlineData("3 行動計画")]
+    [InlineData("1 个性化设置")]
+    [InlineData("3個性派")]
+    [InlineData("2 条件满足")]
+    [InlineData("3件目の注文")]
+    [InlineData("3個目のボタン")]
+    [InlineData("3 笔记本")]
+    [InlineData("X13个")]
+    [InlineData("2024 项目计划")]
+    [InlineData("2024 筆電")]
+    [InlineData("1 行星")]
+    [InlineData("3条款")]
+    [InlineData("15 個体")]
+    [InlineData("2025건강검진")]
+    [InlineData("2024개발자")]
+    [InlineData("3개국어")]
+    [InlineData("3行で書く")]
+    [InlineData("2024 개도국 지원")]
+    public void Keeps_text_on_a_screen_the_step_navigated_to_since_the_digits_are_not_a_count(string text)
+    {
+        Assert.Equal(
+            ["|~" + text, "|~インポートしたレコード"],
+            Shapes(
+                Describe(
+                    [Heading],
+                    [Heading, Node(text: text), Node(text: "インポートしたレコード")],
+                    routeMoved: true
+                ).Appeared
+            )
+        );
+    }
+
     [Fact]
     public void Is_empty_when_nothing_changed()
     {
