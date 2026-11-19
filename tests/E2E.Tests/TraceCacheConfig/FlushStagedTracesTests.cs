@@ -4,6 +4,8 @@
 
 using System.Text;
 using System.Text.Json;
+using E2E.Internal;
+using Recorder = E2E.Cache.TraceRecorder;
 
 namespace E2E.Tests.TraceCacheConfig;
 
@@ -174,6 +176,78 @@ public sealed class FlushStagedTracesTests
     }
 
     [Fact]
+    public void Writes_the_identity_digest_into_a_confirmed_kept_entry_that_cut_a_long_test_id_before_entries_kept_one()
+    {
+        var store = new MemoryCache();
+        var step = Step();
+        step.Test += new string('x', 400);
+        var recordedFor = Recorder.RecordedProvenance(step, text => text);
+        Assert.Matches("^[a-f0-9]{64}$", recordedFor.IdentityDigest);
+        var legacy = Trace("replayed flow");
+        legacy.SetStep(recordedFor);
+        legacy.IdentityDigest = null;
+        store.Write(KeyA, legacy);
+
+        E2ESession.Flush(store, [KeptFor(KeyA, store, recordedFor)], preserve: false);
+
+        Assert.Equal(recordedFor.IdentityDigest, store.Read(KeyA).Entry!.IdentityDigest);
+    }
+
+    [Fact]
+    public void Leaves_a_confirmed_kept_entry_that_already_keeps_the_steps_identity_digest_exactly_as_stored()
+    {
+        var store = new MemoryCache();
+        var step = Step();
+        step.Test += new string('x', 400);
+        var recordedFor = Recorder.RecordedProvenance(step, text => text);
+        Assert.Matches("^[a-f0-9]{64}$", recordedFor.IdentityDigest);
+        var entry = Trace("replayed flow");
+        entry.SetStep(recordedFor);
+        store.Write(KeyA, entry);
+        var stored = store.Entries[KeyA];
+
+        var writes = E2ESession.Flush(store, [KeptFor(KeyA, store, recordedFor, stepIndex: 1)], preserve: false);
+
+        Assert.Same(stored, store.Entries[KeyA]);
+        Assert.Equal(CacheWrite.Kept, writes[1]);
+    }
+
+    [Fact]
+    public void Replaces_the_identity_digest_of_a_confirmed_kept_entry_whose_names_redact_differently_now()
+    {
+        var store = new MemoryCache();
+        var step = Step();
+        step.Test += new string('x', 400) + " as hunter2";
+        var entry = Trace("replayed flow");
+        entry.SetStep(Recorder.RecordedProvenance(step, text => text));
+        store.Write(KeyA, entry);
+        var recordedFor = Recorder.RecordedProvenance(step, Redactor.For([("password", "hunter2")]).Redact);
+
+        E2ESession.Flush(store, [KeptFor(KeyA, store, recordedFor)], preserve: false);
+
+        Assert.Equal(recordedFor.IdentityDigest, store.Read(KeyA).Entry!.IdentityDigest);
+        Assert.NotEqual(entry.IdentityDigest, recordedFor.IdentityDigest);
+    }
+
+    [Fact]
+    public void Drops_the_identity_digest_of_a_confirmed_kept_entry_whose_names_no_longer_need_one()
+    {
+        var store = new MemoryCache();
+        var step = Step();
+        step.Test = new string('x', 290) + "hunter2";
+        var recorded = Recorder.RecordedProvenance(step, Redactor.For([("password", "hunter2")]).Redact);
+        Assert.Matches("^[a-f0-9]{64}$", recorded.IdentityDigest);
+        var entry = Trace("replayed flow");
+        entry.SetStep(recorded);
+        store.Write(KeyA, entry);
+        var recordedFor = Recorder.RecordedProvenance(step, text => text);
+
+        E2ESession.Flush(store, [KeptFor(KeyA, store, recordedFor)], preserve: false);
+
+        Assert.Null(store.Read(KeyA).Entry!.IdentityDigest);
+    }
+
+    [Fact]
     public void Writes_what_was_confirmed_and_leaves_every_unconfirmed_entry_as_stored_when_the_failure_implicates_nothing()
     {
         var keyC = new string('c', 64);
@@ -285,6 +359,23 @@ public sealed class FlushStagedTracesTests
             ReplayedWhole = true,
             Entry = store.Read(key).Entry,
             Step = Step(),
+        };
+    }
+
+    // An act a replay finished whole for the step <paramref name="step"/>, as an entry stores it.
+    private static PendingAct KeptFor(string key, IStepCache store, CacheEntry step, int? stepIndex = null)
+    {
+        return new PendingAct
+        {
+            Key = key,
+            StepIndex = stepIndex,
+            Completed = true,
+            Verified = true,
+            ReadEntry = true,
+            ConsumedReplay = true,
+            ReplayedWhole = true,
+            Entry = store.Read(key).Entry,
+            Step = step,
         };
     }
 

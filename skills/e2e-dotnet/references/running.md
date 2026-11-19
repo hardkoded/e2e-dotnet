@@ -138,6 +138,14 @@ entry. A cache directory outside the project is named by its absolute path with
 no commit to ask for, and a custom `cache.store` is named as the place the new
 entry is written.
 
+An entry keeps the test id, target name, and agent name cut to 300 characters. When one of
+them is longer, the entry also stores
+`identityDigest`, the SHA-256 of the whole redacted names, and the strict check compares it, so
+two steps whose names agree in their first 299 characters stay apart. A step whose
+test id (the `testId` in `report.json`), target name, or agent name is over 300 characters still runs live
+under `cache.strict` when an earlier version recorded it under another key, until a `read-write`
+run of this version replays it and writes the digest in.
+
 Each entry records the step it was made for: the test title, the engine,
 the instruction, a params digest, the repeat index, and the agent name. A
 secret value in the test title or agent name is masked before it is

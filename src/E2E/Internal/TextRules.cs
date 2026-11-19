@@ -105,6 +105,13 @@ public static partial class TextRules
     }
 
     /// <summary>
+    /// Upstream's <c>boundIsAmbiguous</c>: whether <c>Bound(text, maxChars)</c> could equal what <see cref="Bound"/> makes of a different
+    /// text: it cuts <paramref name="text"/>, or <paramref name="text"/> already ends like a cut.
+    /// </summary>
+    public static bool BoundIsAmbiguous(string text, int maxChars) =>
+        text.Length > maxChars || (text.Length >= maxChars - 1 && text.EndsWith('…'));
+
+    /// <summary>
     /// Upstream's <c>sanitizeText</c> (<c>internal/errors.ts</c>): strips ANSI escape sequences, then every C0 and C1
     /// control character except tab and newline becomes U+FFFD. Libraries color their own messages; left in, the color codes
     /// reach a report as literal text.
