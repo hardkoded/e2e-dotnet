@@ -880,15 +880,17 @@ public sealed class E2ESession : IAsyncDisposable
             var abandoned = await guests.AbandonRunningAsync().ConfigureAwait(false);
             if (abandoned.Count > 0)
             {
-                // The attempt's own settle still runs; the first of the errors is the test's.
+                // The attempt's own settle still runs; the first of the errors is the test's, and the settle's own failure is secondary.
                 try
                 {
                     await SettleOwnAsync(cancellationToken).ConfigureAwait(false);
                 }
-#pragma warning disable CA1031 // The test fails with what the body left running; the settle's own failure is secondary.
-                catch (Exception)
+#pragma warning disable CA1031 // The test fails with what the body left running.
+                catch (Exception secondary)
 #pragma warning restore CA1031
-                { }
+                {
+                    abandoned[0].Data["secondary"] = secondary.GetType().Name;
+                }
 
                 throw abandoned[0];
             }
