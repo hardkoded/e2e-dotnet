@@ -37,7 +37,7 @@ public sealed class DecideTests
     }
 
     [Fact]
-    public async Task Carries_the_model_response_headers_and_body_onto_the_result_and_the_end_event()
+    public async Task Partial_decides_answers_to_mixed_questions_in_one_call_and_preserves_distributions_and_metadata()
     {
         using var body = System.Text.Json.JsonDocument.Parse("""{"raw":true}""");
         var headers = new Dictionary<string, string> { ["x-request-id"] = "request" };
