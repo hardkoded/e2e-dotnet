@@ -744,16 +744,16 @@ public sealed partial class Agent
     )
     {
         return new CacheEntry
-            {
-                Schema = FileStepCache.SchemaVersion,
-                Test = testId,
-                TargetId = _scope.TargetName,
-                Instruction = _scope.Redactor.Redact(instruction.Trim()),
-                Engine = _scope.EnginePlatform,
-                ParamsDigest = CacheKeys.ParamsDigest(parameters),
-                CallIndex = callIndex,
-                Agent = agent,
-                KeyedBy = keyContext,
+        {
+            Schema = FileStepCache.SchemaVersion,
+            Test = testId,
+            TargetId = _scope.TargetName,
+            Instruction = _scope.Redactor.Redact(instruction.Trim()),
+            Engine = _scope.EnginePlatform,
+            ParamsDigest = CacheKeys.ParamsDigest(parameters),
+            CallIndex = callIndex,
+            Agent = agent,
+            KeyedBy = keyContext,
         };
     }
 }
