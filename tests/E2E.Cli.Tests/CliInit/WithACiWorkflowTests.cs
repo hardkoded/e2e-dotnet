@@ -187,8 +187,8 @@ public sealed class WithACiWorkflowTests : CliInitTestBase
     }
 
     [Fact]
-    // .NET-only: a TUnit project runs on Microsoft.Testing.Platform, which has no VSTest loggers.
-    public async Task Writes_no_JUnit_report_for_a_TUnit_project()
+    // .NET-only: a TUnit project runs on Microsoft.Testing.Platform, which has no VSTest loggers; it uses TUnit's own JUnit report.
+    public async Task Writes_a_JUnit_report_with_TUnit_s_own_option_for_a_TUnit_project()
     {
         await RunInitAsync(
             new InitOptions
@@ -198,9 +198,17 @@ public sealed class WithACiWorkflowTests : CliInitTestBase
                 Framework = "tunit",
             }
         );
-        Assert.DoesNotContain("junit", Read(Workflow), StringComparison.Ordinal);
+        var workflow = Read(Workflow);
+        Assert.Contains("dotnet run -c Release --no-build --project", workflow, StringComparison.Ordinal);
+        Assert.Contains(
+            "--results-directory \"${{ github.workspace }}/.e2e\" --report-junit --report-junit-filename junit.xml",
+            workflow,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(".e2e/junit.xml", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("--logger", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("JunitXml.TestLogger", Read(ProjectFile()), StringComparison.Ordinal);
-        Assert.Contains("The pipeline writes no JUnit report", Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("The pipeline writes no JUnit report", Output, StringComparison.Ordinal);
     }
 
     [Fact]

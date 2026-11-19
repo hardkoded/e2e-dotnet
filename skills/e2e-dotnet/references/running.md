@@ -271,7 +271,7 @@ mobile jobs build an Expo or bare React Native app found in the nearest
 `package.json` above the test project; for any other app they have a build step
 that fails until you replace it with your app's build. The jobs write
 `.e2e/junit.xml` with the `junit` logger of `JunitXml.TestLogger`, which init adds
-to the project (not for TUnit, nor for a project with central package versions, which init leaves unchanged). It leaves existing pipeline files alone. Set
+to the project (not for a project with central package versions, which init leaves unchanged). A TUnit project has no VSTest loggers, so its jobs use `dotnet run` with TUnit's own `--report-junit`, which writes the same file. It leaves existing pipeline files alone. Set
 `app.command` in the config so the runner starts the app.
 
 - Install the browser in its own step, so the download stays out of the

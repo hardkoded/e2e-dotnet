@@ -174,6 +174,20 @@ public sealed class RenderGitlabPipelineTests : InitCiTestBase
     }
 
     [Fact]
+    // .NET-only: a TUnit project runs on Microsoft.Testing.Platform, so GitLab runs it with dotnet run and TUnit's own JUnit report.
+    public void Runs_a_TUnit_project_with_dotnet_run_and_its_own_JUnit_report()
+    {
+        var pipeline = Ci.RenderGitlabPipeline(Base with { Jobs = AllJobs, TestingPlatform = true });
+        Assert.Contains(
+            "--results-directory \"$CI_PROJECT_DIR/.e2e\" --report-junit --report-junit-filename junit.xml",
+            pipeline,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("--logger", pipeline, StringComparison.Ordinal);
+        Assert.Contains("      junit: .e2e/junit.xml\n", pipeline, StringComparison.Ordinal);
+    }
+
+    [Fact]
     // .NET-only: a folder name with a space is one shell word, and npm ci needs a committed lockfile.
     public void Quotes_the_artifact_paths_and_installs_with_npm_install_when_no_lockfile_is_committed()
     {

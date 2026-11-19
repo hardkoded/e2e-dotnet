@@ -655,12 +655,13 @@ internal static partial class Init
 
         // The pipelines write a JUnit report with the junit logger, which `dotnet test` takes from this package. A TUnit project runs on
         // Microsoft.Testing.Platform, which has no VSTest loggers; an example keeps the project it has.
+        var testingPlatform = Package
+            .DeclaredDependencies(pkg)
+            .Any(name => name.StartsWith("TUnit", StringComparison.OrdinalIgnoreCase));
         var junit =
             writesCi
             && example is null
-            && !Package
-                .DeclaredDependencies(pkg)
-                .Any(name => name.StartsWith("TUnit", StringComparison.OrdinalIgnoreCase))
+            && !testingPlatform
             // A PackageReference with a Version fails the restore under central package management (NU1008).
             && !Ci.UsesCentralPackageVersions(pkg.Original ?? Package.SerializePackage(pkg), cwd, repositoryRoot);
         if (junit)
@@ -840,6 +841,7 @@ internal static partial class Init
                 [.. engines.Select(id => Engines.GetEnginePreset(id).Target())],
                 declared,
                 junit,
+                writesCi && example is null && testingPlatform,
                 log
             );
         }
@@ -909,6 +911,7 @@ internal static partial class Init
         IReadOnlyList<JsonObject> newTargets,
         IReadOnlyList<string> declared,
         bool junit,
+        bool tunitJunit,
         InitLog log
     )
     {
@@ -987,8 +990,9 @@ internal static partial class Init
             appDir,
             manager,
             yarnBerry,
-            junit,
-            appFolder is null || manager != "npm" || Ci.HasNpmLockfile(appFolder, repositoryRoot)
+            junit || tunitJunit,
+            appFolder is null || manager != "npm" || Ci.HasNpmLockfile(appFolder, repositoryRoot),
+            tunitJunit
         );
         var absolute = Path.Combine(repositoryRoot, file.File);
         System.IO.Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
@@ -1104,7 +1108,7 @@ internal static partial class Init
             );
         }
 
-        if (!junit)
+        if (!junit && !tunitJunit)
         {
             log.Warn(
                 "The pipeline writes no JUnit report: the junit logger comes from the JunitXml.TestLogger package, which init adds to a VSTest project that sets its package versions inline. Add the package yourself, and --logger \"junit;LogFilePath=...\" to the test command, if you want one"

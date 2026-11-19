@@ -102,8 +102,9 @@ internal sealed record CiTarget(string Name, string Platform);
 /// <param name="AppDir">The folder of the Expo or React Native app, <c>''</c> for the repository root (upstream's <c>projectDir</c>, which is where its <c>package.json</c> is).</param>
 /// <param name="Manager">The app's package manager: <c>npm</c>, <c>pnpm</c>, <c>yarn</c>, or <c>bun</c> (upstream's <c>manager</c>).</param>
 /// <param name="YarnBerry">Yarn 2 or later, whose frozen install is <c>--immutable</c> (upstream's <c>yarnBerry</c>).</param>
+/// <param name="Junit">Whether the test project writes a JUnit report (upstream's <c>--reporter list,junit</c>): with the <c>junit</c> logger, or with TUnit's own report option when <paramref name="TestingPlatform"/> is set.</param>
 /// <param name="NpmLockfile">Whether an npm lockfile is committed, which <c>npm ci</c> needs; without one the install is <c>npm install</c>.</param>
-/// <param name="Junit">Whether the test project writes a JUnit report with the <c>junit</c> logger (upstream's <c>--reporter list,junit</c>).</param>
+/// <param name="TestingPlatform">.NET-only: whether the test project is a TUnit project, which runs on Microsoft.Testing.Platform (no VSTest loggers) and so runs with <c>dotnet run</c> and writes its JUnit report with <c>--report-junit</c>.</param>
 internal sealed record WorkflowContext(
     string ProjectFile,
     string DotnetVersion,
@@ -114,7 +115,8 @@ internal sealed record WorkflowContext(
     string Manager = "npm",
     bool YarnBerry = false,
     bool Junit = true,
-    bool NpmLockfile = true
+    bool NpmLockfile = true,
+    bool TestingPlatform = false
 );
 
 /// <summary>One CI service <c>e2e init --ci</c> writes a pipeline for (upstream's <c>CiService</c>).</summary>
@@ -933,9 +935,18 @@ internal static partial class Ci
             E2E_DEVICE: emulator-5554
         """;
 
-    private static string GithubTestCommand(WorkflowContext context) =>
-        $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}"
-        + (context.Junit ? " --logger \"junit;LogFilePath=${{ github.workspace }}/.e2e/junit.xml\"" : "");
+    private static string GithubTestCommand(WorkflowContext context) => TestCommand(context, "${{ github.workspace }}");
+
+    /// <summary>
+    /// The command that runs the tests and writes the JUnit report to <c>.e2e/junit.xml</c> under <paramref name="workspace"/>. .NET-only:
+    /// the <c>junit</c> logger for a VSTest project; for TUnit, <c>dotnet run</c> with its <c>--report-junit</c> option, since
+    /// Microsoft.Testing.Platform has no loggers and <c>dotnet test</c> refuses such a project.
+    /// </summary>
+    private static string TestCommand(WorkflowContext context, string workspace) =>
+        context.TestingPlatform
+            ? $"dotnet run -c Release --no-build --project {Quote(context.ProjectFile)} -- --results-directory \"{workspace}/.e2e\" --report-junit --report-junit-filename junit.xml"
+            : $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}"
+                + (context.Junit ? $" --logger \"junit;LogFilePath={workspace}/.e2e/junit.xml\"" : "");
 
     /// <summary>
     /// The env lines that point a job's run at its one target: <c>E2E_TARGET</c>, the port's counterpart of upstream's
@@ -1170,12 +1181,7 @@ internal static partial class Ci
                     .Replace("@DOTNET@", context.DotnetVersion, StringComparison.Ordinal)
                     .Replace("@BUILD@", BuildCommand(context), StringComparison.Ordinal)
                     .Replace("@PLAYWRIGHT@", PlaywrightScript(context), StringComparison.Ordinal)
-                    .Replace(
-                        "@TEST@",
-                        $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}"
-                            + (context.Junit ? " --logger \"junit;LogFilePath=$CI_PROJECT_DIR/.e2e/junit.xml\"" : ""),
-                        StringComparison.Ordinal
-                    )
+                    .Replace("@TEST@", TestCommand(context, "$CI_PROJECT_DIR"), StringComparison.Ordinal)
                     .Replace("@APK@", Quote(ApkPath(context)), StringComparison.Ordinal)
                     .Replace("@BUILDDIR@", Quote(Join(context.AppDir, "build")), StringComparison.Ordinal),
                 context.Junit
