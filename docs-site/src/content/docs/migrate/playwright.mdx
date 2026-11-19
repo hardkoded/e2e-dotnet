@@ -189,6 +189,7 @@ Every row works today. For an API that is not here, check [What e2e doesn't have
 | `ToBeAttachedAsync()` | the same; passes on a hidden match too |
 | `Expect(locator).ToHaveClassAsync(cls)` | `Expect.That(Browser).ToHaveClassAsync(locator, cls)`; a DOM fact is asserted through `Browser`; `class=""` matches an empty list and a missing attribute does not |
 | `Expect(Page).ToHaveURLAsync()`, `ToHaveTitleAsync()` | `Expect.That(Browser).ToHaveURLAsync()`, `ToHaveTitleAsync()`; `ToHaveURLAsync` takes `ignoreCase` |
+| `Expect(locator, new() { Message })`, `Expect(Page, new() { Message }).ToHaveScreenshotAsync()` | `Expect.That(locator, "message")`, `Expect.That(Screen, "message")` for the page; the message opens the failure, see [Soft assertions and evidence](/features/assertions/) |
 | `Expect(Page).ToHaveScreenshotAsync()`, `Expect(locator).ToHaveScreenshotAsync()` | `Expect.That(Screen).ToHaveScreenshotAsync(name)`, `Expect.That(locator).ToHaveScreenshotAsync()`, web only, with `Threshold`, `MaxDiffPixels`, `MaxDiffPixelRatio`, `Mask`, `MaskColor`, and `Timeout`. Set `E2E_UPDATE_SNAPSHOTS=1` to rewrite |
 | `Assert.That(value, ...)`, `Assert.AreEqual` | the framework's asserts, unchanged |
 | `Expect(async () => { ... }).ToPassAsync()` | `Expect.Poll(read).ToBeAsync(...)` or `ToSatisfyAsync(predicate)` retries a read, not a block. Its timeout is 5 s (`PollOptions.Timeout`), not the test timeout, with one fixed `PollOptions.Interval`, default 100 ms |
@@ -311,7 +312,7 @@ Planned is on the roadmap. Not yet has no date. Not planned is left out on purpo
 | `Expect(async () => { ... }).ToPassAsync()` with custom intervals | `Expect.Poll(read).ToBeAsync(...)`; it takes one `Interval` |
 | `ToBeEmptyAsync()`, `ToBeEditableAsync()`, `IsEditableAsync()`, `ToBeInViewportAsync()`, `ToHaveAccessibleDescriptionAsync()`, `ToBeCheckedAsync(new() { Indeterminate })`, `UseInnerText` | `ToHaveValueAsync("")` on a form control, `ToHaveTextAsync("")` on other elements; `ToBeEnabledAsync()`; `Expect.Poll` over `BoundingBoxAsync()`; a `GetByRole` query |
 | `Locator.ScreenshotAsync()`, `ToHaveScreenshotAsync(new() { FullPage, Clip, Animations, Caret, Scale, StylePath })` | The viewport or one locator in `ToHaveScreenshotAsync`; `App.ScreenshotAsync(label)` captures the viewport |
-| `Expect(locator, new() { Message })` | Drop the message. The failure names the locator and the matcher; `Timeout` on each call |
+| `Expect(locator, new() { Message })` | `Expect.That(locator, "message")`; the message opens the failure. `Timeout` on each call |
 | A custom matcher | An async helper that calls `Expect.That` |
 | `Playwright.Devices["iPhone 15"]`, `IsMobile`, `HasTouch`, `DeviceScaleFactor` | `WebEngineOptions.Viewport` and `UserAgent`; a mobile target for real touch |
 | `Page.WaitForURLAsync(glob)`, `Page.WaitForFunctionAsync(fn)`, `Page.ViewportSize` | A `Regex`; `Expect.Poll(() => Browser.EvaluateAsync<bool>(expression)).ToBeAsync(true)`; `Browser.EvaluateAsync<T>("() => ({ width: innerWidth, height: innerHeight })")` |

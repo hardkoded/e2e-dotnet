@@ -38,7 +38,7 @@ public sealed class ExpectSoftTests
         var screen = session.Screen;
 
         await Expect.Soft(screen.GetByRole("status", "Pro")).ToBeVisibleAsync();
-        await Expect.Soft(screen.GetByRole("button", "Upgrade to Pro")).Not.ToBeVisibleAsync();
+        await Expect.Soft(screen.GetByRole("button", "Upgrade to Pro"), "the form closed").Not.ToBeVisibleAsync();
         await Expect.Soft(screen.GetByRole("heading", "Billing")).ToBeVisibleAsync();
         await Expect.Soft(screen.GetByRole("heading", "Billing")).ToHaveTextAsync("Invoices");
 
@@ -49,7 +49,7 @@ public sealed class ExpectSoftTests
         Assert.StartsWith("1. ", headings[1], StringComparison.Ordinal);
         Assert.Contains("toBeVisible failed", headings[1], StringComparison.Ordinal);
         Assert.StartsWith("2. ", headings[2], StringComparison.Ordinal);
-        Assert.Contains("toBeVisible failed", headings[2], StringComparison.Ordinal);
+        Assert.Equal("2. the form closed: expect.not.toBeVisible failed", headings[2]);
         Assert.StartsWith("3. ", headings[3], StringComparison.Ordinal);
         Assert.Contains("toHaveText failed", headings[3], StringComparison.Ordinal);
         Assert.Equal(4, headings.Length);

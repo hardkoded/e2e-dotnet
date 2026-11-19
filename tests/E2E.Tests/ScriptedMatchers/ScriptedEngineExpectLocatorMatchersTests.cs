@@ -175,6 +175,25 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
                 () => Expect.That(screen.GetByRole("button", "Submit")).Not.ToBeVisibleAsync(timeout: Fast),
                 [".not.toBeVisible failed", "expected: not visible", "observed: visible (match count 1)"]
             ),
+            (
+                "a message opens a locator failure",
+                () =>
+                    Expect
+                        .That(screen.GetByText("Hidden content"), "the hidden note shows")
+                        .ToBeVisibleAsync(timeout: Fast),
+                [
+                    "the hidden note shows: expect.toBeVisible failed\nlocator: getByText(\"Hidden content\")",
+                    "expected: visible",
+                ]
+            ),
+            (
+                "a message opens a negated locator failure",
+                () =>
+                    Expect
+                        .That(screen.GetByRole("button", "Submit"), "the form submitted")
+                        .Not.ToBeVisibleAsync(timeout: Fast),
+                ["the form submitted: expect.not.toBeVisible failed", "expected: not visible"]
+            ),
         };
 
         foreach (var (name, run, fragments) in failures)
@@ -189,6 +208,26 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
             Assert.False(string.IsNullOrEmpty(error.Details?.Locator), name);
             Assert.False(string.IsNullOrEmpty(error.Details?.Expected), name);
         }
+    }
+
+    [Fact]
+    public async Task Opens_a_failure_with_the_callers_message_and_keeps_the_step_named_by_its_matcher_and_locator()
+    {
+        using var scene = ReferenceScene.Create();
+        var screen = scene.Screen;
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.That(screen.GetByText("Hidden content"), "the hidden note shows").ToBeVisibleAsync(timeout: Fast)
+        );
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.StartsWith(
+            "the hidden note shows: expect.toBeVisible failed\n",
+            error.Message,
+            StringComparison.Ordinal
+        );
+        var unlabelled = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.That(screen.GetByText("Hidden content")).ToBeVisibleAsync(timeout: Fast)
+        );
+        Assert.StartsWith("expect.toBeVisible failed\n", unlabelled.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -241,5 +280,30 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
         Assert.Contains("(match count 2)", ambiguous.Message, StringComparison.Ordinal);
         Assert.Equal(2, ambiguous.Details?.Matches);
         Assert.Equal("getByText(\"Duplicated\")", ambiguous.Details?.Locator);
+
+        var labelled = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.That(screen.GetByText("Duplicated"), "the banner shows").ToBeVisibleAsync(timeout: Fast)
+        );
+        Assert.Equal("LOCATOR_AMBIGUOUS", labelled.Code);
+        Assert.StartsWith("the banner shows: expect.toBeVisible failed\n", labelled.Message, StringComparison.Ordinal);
+        Assert.Equal(ambiguous.Details?.Matches, labelled.Details?.Matches);
+        Assert.Equal(ambiguous.Details?.Locator, labelled.Details?.Locator);
+
+        // The screenshot comparison reads the locator before it captures, so a context that never captures is enough.
+        scene.Screen.Screenshots = new ScreenshotContext
+        {
+            ProjectRoot = Path.GetTempPath(),
+            Suffix = "-fake",
+            Title = "ambiguous",
+            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-ambiguous-results"),
+            Capture = (_, _) => throw new InvalidOperationException("the locator is ambiguous, so nothing is captured"),
+        };
+        var screenshot = await Assert.ThrowsAsync<TestException>(() =>
+            Expect
+                .That(screen.GetByText("Duplicated"), "the banner shows")
+                .ToHaveScreenshotAsync("duplicated", new ScreenshotOptions { Timeout = TimeSpan.FromSeconds(3) })
+        );
+        Assert.Equal("LOCATOR_AMBIGUOUS", screenshot.Code);
+        Assert.StartsWith("the banner shows: ", screenshot.Message, StringComparison.Ordinal);
     }
 }
