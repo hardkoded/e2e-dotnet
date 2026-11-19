@@ -184,7 +184,7 @@ internal static class TokenUtil
             ?? throw new VercelOidcTokenError(
                 "Unable to find user data directory. Please reach out to Vercel support."
             );
-        var tokenPath = Path.Combine(dir, "com.vercel.token", projectId + ".json");
+        var tokenPath = GetTokenPath(dir, projectId);
         var tokenDir = Path.GetDirectoryName(tokenPath)!;
         FileModes.CreateRestrictedDirectory(tokenDir);
 
@@ -198,13 +198,24 @@ internal static class TokenUtil
             ?? throw new VercelOidcTokenError(
                 "Unable to find user data directory. Please reach out to Vercel support."
             );
-        var tokenPath = Path.Combine(dir, "com.vercel.token", projectId + ".json");
+        var tokenPath = GetTokenPath(dir, projectId);
         if (!File.Exists(tokenPath))
         {
             return null;
         }
 
         return AssertVercelOidcTokenResponse(JsonNode.Parse(File.ReadAllText(tokenPath)));
+    }
+
+    // .NET-only: the project id comes from .vercel/project.json, so it must name a file inside the cache directory.
+    private static string GetTokenPath(string dir, string projectId)
+    {
+        if (projectId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || projectId is "." or "..")
+        {
+            throw new VercelOidcTokenError("Invalid project id. Try running `vc link` to re-link your project.");
+        }
+
+        return Path.Combine(dir, "com.vercel.token", projectId + ".json");
     }
 
     /// <summary>Decodes the payload segment of a JWT.</summary>
