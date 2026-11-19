@@ -72,7 +72,8 @@ public sealed class Channel
         ArgumentNullException.ThrowIfNull(transform);
         lock (_gate)
         {
-            _stores = [.. _stores, (store, message =>
+            // As Node's bindStore, binding a store again replaces its transform.
+            _stores = [.. _stores.Where(bound => !ReferenceEquals(bound.Store, store)), (store, message =>
                 {
                     var previous = store.Value;
                     store.Value = transform(message);
@@ -270,9 +271,10 @@ public sealed class TracingChannel
 
         return Start.RunStores(message, () =>
         {
+            Task<T> task;
             try
             {
-                return TraceCompletionAsync(execute(), message);
+                task = execute();
             }
             catch (Exception error)
             {
@@ -284,6 +286,9 @@ public sealed class TracingChannel
             {
                 End.Publish(message);
             }
+
+            // As Node, the completion handlers run after end is published, even for a task that is already done.
+            return TraceCompletionAsync(task, message);
         });
     }
 

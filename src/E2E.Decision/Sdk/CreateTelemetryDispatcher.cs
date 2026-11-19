@@ -34,26 +34,32 @@ internal sealed class TelemetryDispatcher
     /// <summary>
     /// <c>runInTracingChannelSpan</c>: runs <paramref name="execute"/> inside the AI SDK tracing channel, publishing the start event with
     /// the telemetry settings, the SDK version and the runtime context filtered by <see cref="TelemetryOptions.IncludeRuntimeContext"/>
-    /// (<c>augmentEvent</c> with <c>filterContext</c>). The call's result is published only when inputs and outputs are both recorded.
+    /// and the inputs hidden by <c>RecordInputs</c> (<c>augmentEvent</c> with <c>filterContext</c>, then <c>filterTelemetryEvent</c>). The call's result is published only when inputs and outputs are both recorded.
     /// </summary>
     internal Task<T> RunInTracingChannelSpanAsync<T>(string type, DecideStartEvent @event, Func<Task<T>> execute) =>
-        TracingChannelPublisher.RunWithTracingChannelSpanAsync(
-            new TelemetryTracingChannelMessage
-            {
-                Type = type,
-                Event = Augment(@event) with
+        // Explicitly disabled telemetry has no tracing span: upstream's dispatcher is empty, so the call runs bare.
+        _telemetry?.IsEnabled == false
+            ? execute()
+            : TracingChannelPublisher.RunWithTracingChannelSpanAsync(
+                new TelemetryTracingChannelMessage
                 {
-                    RuntimeContext = FilterIncludedContext.Filter(
-                        @event.RuntimeContext,
-                        _telemetry?.IncludeRuntimeContext
+                    Type = type,
+                    Event = FilterTelemetryEvent.Filter(
+                        Augment(@event) with
+                        {
+                            RuntimeContext = FilterIncludedContext.Filter(
+                                @event.RuntimeContext,
+                                _telemetry?.IncludeRuntimeContext
+                            ),
+                        },
+                        _telemetry
                     ),
                 },
-            },
-            execute,
-            // Raw operation results may contain both inputs and outputs.
-            _telemetry?.RecordInputs != false
-                && _telemetry?.RecordOutputs != false
-        );
+                execute,
+                // Raw operation results may contain both inputs and outputs.
+                _telemetry?.RecordInputs != false
+                    && _telemetry?.RecordOutputs != false
+            );
 
     /// <summary><c>onStart</c>. Decide does not call it.</summary>
     internal Task OnStartAsync(TelemetryEvent @event)

@@ -49,9 +49,6 @@ public static class TelemetryTracingEventType
 
     /// <summary><c>'experimental_decide'</c>.</summary>
     public const string ExperimentalDecide = "experimental_decide";
-
-    /// <summary><c>'experimental_extract'</c>.</summary>
-    public const string ExperimentalExtract = "experimental_extract";
 }
 
 /// <summary>
