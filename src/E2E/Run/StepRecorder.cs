@@ -31,6 +31,7 @@ internal sealed class StepRecorder
     private readonly Func<string, string>? _redact;
     private readonly CancellationToken _cancellation;
     private readonly Func<CancellationToken>? _signal;
+    private readonly Func<Exception?>? _reason;
     private readonly AiTraceScope? _aiTrace;
     private readonly bool _redactThrown;
     private readonly int? _retainSteps;
@@ -92,6 +93,7 @@ internal sealed class StepRecorder
         _redact = options.Redact;
         _cancellation = options.Cancellation;
         _signal = options.Signal;
+        _reason = options.Reason;
         _aiTrace = options.AiTrace;
         _redactThrown = options.RedactThrown;
         _retainSteps = options.RetainSteps;
@@ -155,6 +157,7 @@ internal sealed class StepRecorder
                 reason = _closeReason;
             }
 
+            reason ??= _reason?.Invoke();
             return reason is null ? Task.FromCanceled<T>(cut) : Task.FromException<T>(reason);
         }
 
@@ -374,7 +377,7 @@ internal sealed class StepRecorder
         // A close names the step and cuts it, though its work never looks at the cancellation.
         throw closed is { Task.IsCompletedSuccessfully: true }
             ? await closed.Task.ConfigureAwait(false)
-            : new TestException(ErrorSerializer.Cancelled, record.Api + " cancelled");
+            : _reason?.Invoke() ?? new TestException(ErrorSerializer.Cancelled, record.Api + " cancelled");
     }
 
     /// <summary>
@@ -855,8 +858,7 @@ internal sealed class StepRecorder
             _named.TryGetValue(record.Id, out named);
         }
 
-        return
-            named is not null
+        return named is not null
             && (
                 thrown is OperationCanceledException
                 || string.Equals(
@@ -865,7 +867,9 @@ internal sealed class StepRecorder
                     StringComparison.Ordinal
                 )
             )
-            ? named
+                ? named
+            : named is null && thrown is OperationCanceledException && _signal?.Invoke().IsCancellationRequested == true
+                ? _reason?.Invoke() ?? thrown
             : thrown;
     }
 

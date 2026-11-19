@@ -532,6 +532,10 @@ public sealed class E2ESession : IAsyncDisposable
                 ReplayTimeout = options.ReplayTimeout,
                 StepTimeout = options.StepTimeout,
                 Token = () => budget.Token,
+                Reason = () =>
+                    timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested
+                        ? TimeoutFailure(options.TestTimeout, null)
+                        : null,
                 TestFailed = () => softFailures.Any || testFailed(),
             };
             created = scope;
@@ -1553,14 +1557,18 @@ public sealed class E2ESession : IAsyncDisposable
         return VerdictOf(error, StatusOf(error, cancellationToken));
     }
 
-    private TestException TimeoutFailure(Exception cause) =>
-        new(
-            "TEST_TIMEOUT",
+    private TestException TimeoutFailure(Exception cause) => TimeoutFailure(_testTimeout, cause);
+
+    private static TestException TimeoutFailure(TimeSpan testTimeout, Exception? cause)
+    {
+        var message =
             "test timed out after "
-                + ((long)_testTimeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + " ms in phase body",
-            cause
-        );
+            + ((long)testTimeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture)
+            + " ms in phase body";
+        return cause is null
+            ? new TestException("TEST_TIMEOUT", message)
+            : new TestException("TEST_TIMEOUT", message, cause);
+    }
 
     private Exception? VerdictOf(Exception? error, AttemptStatus status)
     {
