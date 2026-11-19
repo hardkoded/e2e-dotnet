@@ -80,7 +80,7 @@ internal static class FileLock
                     heartbeat.Dispose();
                     if (ReadLock(lockPath) == token)
                     {
-                        File.Delete(lockPath);
+                        Remove(lockPath);
                     }
                 };
             }
@@ -109,17 +109,22 @@ internal static class FileLock
         }
 
         FileStream stream;
-        try
+        for (var attempt = 0; ; attempt++)
         {
-            stream = new FileStream(lockPath, options);
-        }
-        catch (DirectoryNotFoundException)
-        {
-            throw;
-        }
-        catch (IOException)
-        {
-            return false;
+            try
+            {
+                stream = new FileStream(lockPath, options);
+                break;
+            }
+            catch (IOException) when (File.Exists(lockPath))
+            {
+                // Another holder created it first.
+                return false;
+            }
+            catch (IOException) when (attempt == 0 && Directory.Exists(Path.GetDirectoryName(lockPath)))
+            {
+                // It existed and went away between the create and the check: try once more. Any other failure is the caller's.
+            }
         }
 
         try
@@ -176,7 +181,15 @@ internal static class FileLock
     {
         try
         {
-            return File.ReadAllText(lockPath);
+            // Shared for delete, so the holder can remove the lock while a waiter reads it, as Node's reads allow.
+            using var stream = new FileStream(
+                lockPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete
+            );
+            using var reader = new StreamReader(stream, Utf8);
+            return reader.ReadToEnd();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -251,7 +264,7 @@ internal static class FileLock
         {
             if (Abandoned(breaker, clock))
             {
-                File.Delete(breaker);
+                Remove(breaker);
             }
 
             return false;
@@ -261,14 +274,24 @@ internal static class FileLock
         {
             if (Abandoned(lockPath, clock))
             {
-                File.Delete(lockPath);
+                Remove(lockPath);
             }
 
             return true;
         }
         finally
         {
-            File.Delete(breaker);
+            Remove(breaker);
         }
+    }
+
+    /// <summary>Removes <paramref name="path"/>; a file another process holds open stays for the next waiter, and never replaces the work's own result.</summary>
+    private static void Remove(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 }
