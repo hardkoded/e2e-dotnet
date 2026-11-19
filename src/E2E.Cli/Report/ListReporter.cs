@@ -921,6 +921,7 @@ internal sealed partial class ListReporter
             Usage = details.Usage,
             FirstErrorLine = details.Error is null ? null : Format.Bounded(details.Error.Message).Split('\n')[0],
             SkipReason = result.Skip is null ? null : Format.Bounded(result.Skip.Reason),
+            ExpectedFailure = ExpectedFailureLine(result.Attempts),
             CleanupErrors = details.CleanupErrors,
             Steps = steps,
             Replays = details.Replays,
@@ -1130,11 +1131,17 @@ internal sealed partial class ListReporter
         switch (line.Status)
         {
             case ResultStatus.Passed:
-                return [$"   {_pc.Green(Format.Check)} {title} {duration}{ai}", .. CleanupLines(line)];
+                return
+                [
+                    $"   {_pc.Green(Format.Check)} {title}{ExpectedTag(line)} {duration}{ai}",
+                    .. ExpectedFailureLines(line),
+                    .. CleanupLines(line),
+                ];
             case ResultStatus.Flaky:
                 return
                 [
-                    $"   {_pc.Yellow(Format.Check)} {title} {_pc.Yellow("(flaky)")} {duration}{ai}",
+                    $"   {_pc.Yellow(Format.Check)} {title} {_pc.Yellow("(flaky)")}{ExpectedTag(line)} {duration}{ai}",
+                    .. ExpectedFailureLines(line),
                     .. CleanupLines(line),
                 ];
             case ResultStatus.Skipped:
@@ -1163,6 +1170,37 @@ internal sealed partial class ListReporter
                 return rows;
             }
         }
+    }
+
+    /// <summary>The list row's mark for a result whose <c>test.fail</c> mark covered its last attempt's failure (upstream's <c>expectedFailureLine</c>).</summary>
+    private static (string Reason, string ErrorLine)? ExpectedFailureLine(IReadOnlyList<ReportAttempt> attempts)
+    {
+        if (ReportRecords.ExpectedFailureOf(attempts) is not { Error: { } error } mark)
+        {
+            return null;
+        }
+
+        var first = Format.Bounded($"{error.Code}: {error.Message}").Split('\n')[0];
+        return (Format.Bounded(mark.Reason), first);
+    }
+
+    /// <summary>The <c> (failed as expected)</c> tag after the title of a test whose <c>test.fail</c> mark covered its failure.</summary>
+    private string ExpectedTag(TestLine line) =>
+        line.ExpectedFailure is null ? string.Empty : " " + _pc.Dim("(failed as expected)");
+
+    /// <summary>The reason and the covered failure's first line under a test that failed as expected.</summary>
+    private List<string> ExpectedFailureLines(TestLine line)
+    {
+        if (line.ExpectedFailure is not { } mark)
+        {
+            return [];
+        }
+
+        var glance = Format.FitColumns(
+            $"{mark.Reason}: {mark.ErrorLine}",
+            Format.TerminalColumns() - ErrorGlanceIndent
+        );
+        return [$"     {_pc.Dim($"{FRight} {glance}")}"];
     }
 
     /// <summary>One yellow glance line per cleanup failure under the test (upstream's <c>cleanupLines</c>).</summary>

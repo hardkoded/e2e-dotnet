@@ -100,6 +100,9 @@ internal sealed record TestLine
 
     public string? SkipReason { get; init; }
 
+    /// <summary>The <c>test.fail</c> mark that covered this test's failure: its reason and the covered error's first line. Null when none did.</summary>
+    public (string Reason, string ErrorLine)? ExpectedFailure { get; init; }
+
     /// <summary>The cleanup failures shown as glance lines under a passed or flaky test.</summary>
     public IReadOnlyList<ReportError> CleanupErrors { get; init; } = [];
 

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cli.Report;
+using E2E.Internal;
 using E2E.Reports;
 using static E2E.Cli.Tests.ReportList.ListReporterKit;
 using AttemptStatus = E2E.Internal.AttemptStatus;
@@ -182,6 +183,32 @@ public sealed class FileBlocksTests
         );
         Assert.Equal(
             [" ✓ |chromium| tests/a.e2e.ts (1 test | 1 flaky) 150ms", "   ✓ suite > case (flaky) 150ms"],
+            output.Lines
+        );
+    }
+
+    [Fact]
+    public void Marks_a_test_that_failed_as_test_fail_expected_with_the_reason_and_the_failure()
+    {
+        var output = new Capture { Raw = _ => { } };
+        var reporter = PlainReporter(output, live: true);
+        reporter.Handle(Plan(("tests/a.e2e.ts", 1)));
+        var error = new ReportError("ASSERTION_FAILED", "expected 1, got 0\nmore");
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Passed,
+                    file: "tests/a.e2e.ts",
+                    attempts: [Attempt() with { ExpectedFailure = new ExpectedFailureInfo("known gap", error) }]
+                )
+            )
+        );
+        Assert.Equal(
+            [
+                " ✓ |chromium| tests/a.e2e.ts (1 test) 120ms",
+                "   ✓ suite > case (failed as expected) 120ms",
+                "     → known gap: ASSERTION_FAILED: expected 1, got 0",
+            ],
             output.Lines
         );
     }

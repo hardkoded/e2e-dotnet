@@ -878,7 +878,16 @@ internal static partial class FailureText
             lines.Add("");
         }
 
-        if (told.Error is { } error)
+        // A test that failed as `test.fail` expected tells that failure, also below an earlier attempt's.
+        var mark = result.Attempts.LastOrDefault()?.ExpectedFailure;
+        if (mark is not null)
+        {
+            lines.Add("Expected to fail: " + Cell(mark.Reason));
+            lines.Add("");
+        }
+
+        var errors = new[] { told.Error, mark?.Error }.OfType<ReportError>().ToList();
+        foreach (var error in errors)
         {
             var phase = error.Phase is null or ErrorPhase.Body
                 ? ""
@@ -902,7 +911,8 @@ internal static partial class FailureText
                 lines.AddRange(DetailLines(error).Select(line => line + "  "));
             }
         }
-        else if (result.Status != ResultStatus.Passed)
+
+        if (errors.Count == 0 && result.Status != ResultStatus.Passed)
         {
             lines.Add("_" + StatusWord(result.Status) + ": no error was recorded._");
         }
