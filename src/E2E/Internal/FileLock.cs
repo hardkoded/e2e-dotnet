@@ -124,6 +124,7 @@ internal static class FileLock
             catch (IOException) when (attempt == 0 && Directory.Exists(Path.GetDirectoryName(lockPath)))
             {
                 // It existed and went away between the create and the check: try once more. Any other failure is the caller's.
+                continue;
             }
         }
 
@@ -154,8 +155,11 @@ internal static class FileLock
                 return Environment.MachineName + "/" + link;
             }
         }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // No pid namespace to name: the host alone.
+            return Environment.MachineName;
+        }
 
         return Environment.MachineName;
     }
@@ -163,16 +167,17 @@ internal static class FileLock
     /// <summary>This process on this host, and a random part no other holder shares.</summary>
     private static string LockToken() => HolderHost() + " " + Environment.ProcessId + " " + Guid.NewGuid();
 
-    /// <summary>Marks the lock as held now.</summary>
-    private static void Touch(string lockPath, TimeProvider clock)
+    /// <summary>Marks the lock as held now; false when it was released meanwhile.</summary>
+    private static bool Touch(string lockPath, TimeProvider clock)
     {
         try
         {
             File.SetLastWriteTimeUtc(lockPath, clock.GetUtcNow().UtcDateTime);
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Released meanwhile.
+            return false;
         }
     }
 
@@ -286,12 +291,16 @@ internal static class FileLock
     }
 
     /// <summary>Removes <paramref name="path"/>; a file another process holds open stays for the next waiter, and never replaces the work's own result.</summary>
-    private static void Remove(string path)
+    private static bool Remove(string path)
     {
         try
         {
             File.Delete(path);
+            return true;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 }
