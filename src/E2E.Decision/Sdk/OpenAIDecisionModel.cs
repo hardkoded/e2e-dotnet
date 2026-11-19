@@ -344,7 +344,15 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                     break;
                 case DecisionFilePart file:
                     // Direct DoDecideAsync calls can bypass the media type detection of the decide call.
-                    var mediaType = IsFullMediaType(file.MediaType) ? file.MediaType : DetectImageMediaType(file.Data);
+                    if (file.DataType != "data")
+                    {
+                        throw new UnsupportedFunctionalityException(
+                            "OpenAI decision file input: " + file.DataType + " data"
+                        );
+                    }
+
+                    var bytes = file.GetBytes();
+                    var mediaType = IsFullMediaType(file.MediaType) ? file.MediaType : DetectImageMediaType(bytes);
                     if (mediaType is null || !ImageMediaTypes.Contains(mediaType, StringComparer.Ordinal))
                     {
                         throw new NotSupportedException(
@@ -356,7 +364,7 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                         new JsonObject
                         {
                             ["type"] = "input_image",
-                            ["image_url"] = "data:" + mediaType + ";base64," + Convert.ToBase64String(file.Data),
+                            ["image_url"] = "data:" + mediaType + ";base64," + Convert.ToBase64String(bytes),
                         }
                     );
                     break;
