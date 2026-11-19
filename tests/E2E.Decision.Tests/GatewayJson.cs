@@ -8,5 +8,11 @@ namespace E2E.Decision.Tests;
 
 internal static class GatewayJson
 {
-    public static JsonElement Parse(string json) => JsonDocument.Parse(json).RootElement.Clone();
+    public static JsonElement Parse(string json) => Clone(json);
+
+    private static JsonElement Clone(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
+    }
 }

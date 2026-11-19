@@ -18,4 +18,22 @@ public sealed class ErrorInheritanceChainTests
         Assert.IsAssignableFrom<GatewayException>(error);
         Assert.IsType<GatewayAuthenticationException>(error);
     }
+
+    [Fact]
+    public void Should_have_proper_stack_traces()
+    {
+        GatewayAuthenticationException? error = null;
+        try
+        {
+            throw new GatewayAuthenticationException("Test error");
+        }
+        catch (GatewayAuthenticationException caught)
+        {
+            error = caught;
+        }
+
+        Assert.NotNull(error.StackTrace);
+        Assert.Contains("Should_have_proper_stack_traces", error.StackTrace);
+        Assert.Contains("Test error", error.Message);
+    }
 }

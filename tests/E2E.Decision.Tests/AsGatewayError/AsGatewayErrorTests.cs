@@ -23,19 +23,19 @@ public sealed class AsGatewayErrorTests
 
     // caller cancellation
     [Fact]
-    public void Should_rethrow_a_TimeoutError_DOMException_unchanged() =>
+    public void Partial_Should_rethrow_a_cancellation_unchanged() =>
         AssertRethrown(new OperationCanceledException("Request cancelled"));
 
     [Fact]
-    public void Should_rethrow_an_AbortError_DOMException_unchanged() =>
+    public void Partial_Should_rethrow_a_task_cancellation_unchanged() =>
         AssertRethrown(new TaskCanceledException("Request cancelled"));
 
     [Fact]
-    public void Should_rethrow_an_Error_named_AbortError_unchanged() =>
+    public void Partial_Should_rethrow_a_cancellation_with_a_caller_token_unchanged() =>
         AssertRethrown(new OperationCanceledException("Request cancelled", new CancellationToken(true)));
 
     [Fact]
-    public void Should_rethrow_an_Error_named_TimeoutError_unchanged() =>
+    public void Partial_Should_rethrow_a_cancellation_with_an_inner_error_unchanged() =>
         AssertRethrown(new OperationCanceledException("Request cancelled", new InvalidOperationException()));
 
     private static void AssertRethrown(Exception error) =>
@@ -43,7 +43,7 @@ public sealed class AsGatewayErrorTests
 
     // timeout error detection
     [Fact]
-    public void Should_detect_error_with_UND_ERR_HEADERS_TIMEOUT_code()
+    public void Partial_Should_detect_a_TimeoutException()
     {
         var result = GatewayErrors.AsGatewayError(new TimeoutException("Request timeout"));
 
@@ -52,11 +52,11 @@ public sealed class AsGatewayErrorTests
     }
 
     [Fact]
-    public void Should_detect_error_with_UND_ERR_BODY_TIMEOUT_code() =>
+    public void Partial_Should_detect_a_second_TimeoutException() =>
         Assert.IsType<GatewayTimeoutException>(GatewayErrors.AsGatewayError(new TimeoutException("Body timeout")));
 
     [Fact]
-    public void Should_detect_error_with_UND_ERR_CONNECT_TIMEOUT_code() =>
+    public void Partial_Should_detect_a_cancellation_caused_by_a_timeout() =>
         Assert.IsType<GatewayTimeoutException>(
             GatewayErrors.AsGatewayError(
                 new TaskCanceledException("Connect timeout", new TimeoutException("Connect timeout"))
@@ -110,7 +110,7 @@ public sealed class AsGatewayErrorTests
 
     // APICallError with timeout cause
     [Fact]
-    public void Should_detect_timeout_when_APICallError_has_UND_ERR_HEADERS_TIMEOUT_in_cause()
+    public void Partial_Should_detect_timeout_when_APICallError_has_a_TimeoutException_in_cause()
     {
         var api = ApiCall("Cannot connect to API: Request timeout", new TimeoutException("Request timeout"));
 
