@@ -87,6 +87,14 @@ public sealed class OidcAuthenticationTests
         Assert.Equal("test-request-id", server.Calls[0].RequestHeaders["ai-o11y-request-id"]);
     }
 
+    [Fact]
+    public void Matches_the_x_vercel_id_of_a_request_context_callback_case_insensitively()
+    {
+        using var _ = VercelRequestContext.Use(() => new Dictionary<string, string?> { ["X-Vercel-Id"] = "req_1" });
+
+        Assert.Equal("req_1", Env.GetVercelRequestId());
+    }
+
     private static IDisposable WithoutApiKey()
     {
         var previous = Environment.GetEnvironmentVariable("AI_GATEWAY_API_KEY");

@@ -61,11 +61,7 @@ internal static class AuthConfigStore
     {
         var authPath = GetAuthConfigPath();
         var authDir = Path.GetDirectoryName(authPath)!;
-        if (!Directory.Exists(authDir))
-        {
-            Directory.CreateDirectory(authDir);
-            FileModes.RestrictDirectory(authDir);
-        }
+        FileModes.CreateRestrictedDirectory(authDir);
 
         var json = new JsonObject();
         if (config.Token is not null)

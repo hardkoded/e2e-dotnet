@@ -52,7 +52,7 @@ public static class VercelRequestContext
     /// Makes <paramref name="get"/> the provider of the request headers of the current async flow, until the returned
     /// scope is disposed. Maps to the <c>get</c> method of the <c>@vercel/request-context</c> object. The function runs
     /// on every lookup. A null <paramref name="get"/> is a context without a <c>get</c> method, and a function that
-    /// returns null is a context without headers: both read as no headers.
+    /// returns null is a context without headers: both read as no headers. Header names match case-insensitively.
     /// </summary>
     public static IDisposable Use(Func<IReadOnlyDictionary<string, string?>?>? get)
     {
@@ -136,6 +136,20 @@ internal static class VercelEnvironment
     internal static string? GetContextHeader(string name)
     {
         var headers = VercelRequestContext.Headers;
-        return headers is not null && headers.TryGetValue(name, out var value) ? value : null;
+        if (headers is null)
+        {
+            return null;
+        }
+
+        // A callback may return a case-sensitive dictionary; header names match case-insensitively, as in the dictionary overload.
+        foreach (var pair in headers)
+        {
+            if (string.Equals(pair.Key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return pair.Value;
+            }
+        }
+
+        return null;
     }
 }

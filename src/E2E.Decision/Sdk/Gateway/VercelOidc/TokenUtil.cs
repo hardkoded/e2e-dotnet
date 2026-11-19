@@ -186,11 +186,7 @@ internal static class TokenUtil
             );
         var tokenPath = Path.Combine(dir, "com.vercel.token", projectId + ".json");
         var tokenDir = Path.GetDirectoryName(tokenPath)!;
-        if (!Directory.Exists(tokenDir))
-        {
-            Directory.CreateDirectory(tokenDir);
-            FileModes.RestrictDirectory(tokenDir);
-        }
+        FileModes.CreateRestrictedDirectory(tokenDir);
 
         FileModes.WriteRestricted(tokenPath, token.Raw.ToJsonString(), groupAccess: true);
     }

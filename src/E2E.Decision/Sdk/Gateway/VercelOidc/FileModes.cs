@@ -105,6 +105,36 @@ internal static class FileModes
         }
     }
 
+    /// <summary>
+    /// Creates a directory with mode 0770 (upstream's <c>mkdirSync(dir, { mode: 504, recursive: true })</c>). An existing directory keeps its mode.
+    /// </summary>
+    public static void CreateRestrictedDirectory(string path)
+    {
+#if NET
+        if (OperatingSystem.IsWindows())
+        {
+            Directory.CreateDirectory(path);
+            return;
+        }
+
+        Directory.CreateDirectory(
+            path,
+            UnixFileMode.UserRead
+                | UnixFileMode.UserWrite
+                | UnixFileMode.UserExecute
+                | UnixFileMode.GroupRead
+                | UnixFileMode.GroupWrite
+                | UnixFileMode.GroupExecute
+        );
+#else
+        if (!Directory.Exists(path))
+        {
+            Directory.CreateDirectory(path);
+            RestrictDirectory(path);
+        }
+#endif
+    }
+
     /// <summary>Sets mode 0770 on a directory this code created.</summary>
     public static void RestrictDirectory(string path) =>
         SetMode(path, UserRead | UserWrite | UserExecute | GroupRead | GroupWrite | GroupExecute);
