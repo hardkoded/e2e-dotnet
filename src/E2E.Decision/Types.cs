@@ -43,8 +43,14 @@ public sealed class DecisionExecutorOptions
 /// <summary>Options for a test filter that asks a decision model which tests a change can affect (upstream's <c>DecisionFilterOptions</c>).</summary>
 public sealed class DecisionFilterOptions
 {
-    /// <summary>A decision model that answers <c>boolean</c> questions with a probability.</summary>
-    public required IDecisionModel Model { get; init; }
+    /// <summary>A decision model that answers <c>boolean</c> questions with a probability. Required unless <see cref="ModelId"/> is set, which is refused.</summary>
+    public IDecisionModel? Model { get; init; }
+
+    /// <summary>
+    /// Stands for upstream's <c>model: 'typesafe-ai/jev'</c> model-id string, which this port types as <see cref="Model"/>. A model id
+    /// is not a decision model, so setting it without <see cref="Model"/> is refused at config load as <c>INVALID_CONFIG</c>.
+    /// </summary>
+    public string? ModelId { get; init; }
 
     /// <summary>Provider options sent with every decide call.</summary>
     public IReadOnlyDictionary<string, System.Text.Json.JsonElement>? ProviderOptions { get; init; }
