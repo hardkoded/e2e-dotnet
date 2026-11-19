@@ -45,6 +45,22 @@ public sealed record FinishedRun(
 public sealed record ReporterSummaryRow(string Label, string Text);
 
 /// <summary>
+/// One file a reporter's <see cref="Reporter.ReportFilesAsync"/> asks the runner to write (upstream's <c>ReportFile</c>, <c>run-types.ts</c>). The runner writes it
+/// atomically, creating its directory, and its row prints under the summary when it has a <see cref="Label"/>. Inside <c>namespace E2E</c> the internal
+/// <c>E2E.ReportFile</c> (the .NET-only <c>report.json</c> store) wins the name, so code there writes <c>E2E.Reports.ReportFile</c>.
+/// </summary>
+/// <param name="Path">Where it goes: absolute, or relative to the project root. Never <c>report.json</c> itself.</param>
+/// <param name="Content">The text to write.</param>
+public sealed record ReportFile(string Path, string Content)
+{
+    /// <summary>The summary row's label; its text is the path from the project root. No row without one.</summary>
+    public string? Label { get; init; }
+
+    /// <summary>Printed after the path in the summary row, such as <c>(one file, 2.1 MB)</c>.</summary>
+    public string? Note { get; init; }
+}
+
+/// <summary>
 /// A reporter, listed in the <c>reporters</c> of <c>e2e.config.json</c> (upstream's <c>Reporter</c>, <c>types.ts</c>). <see cref="OnRunFinishedAsync"/> runs
 /// once, when the test run is over and <c>report.json</c> is final; the run is awaited for one minute, and the rows it returns print under the run's
 /// output. The token is cancelled when that budget runs out or the run is forced to stop, so a reporter hands it to its requests and leaves nothing
@@ -66,7 +82,17 @@ public abstract class Reporter
     /// </summary>
     public virtual void OnEvent(RunEvent runEvent) { }
 
-    /// <summary>Runs once the report is written; the returned rows print under the run's output. Null prints nothing.</summary>
+    /// <summary>
+    /// The files to write for the finished run (upstream's <c>reportFiles</c>); the runner writes them, atomically, and prints the row of each with a
+    /// <see cref="ReportFile.Label"/>. Awaited one minute, even after a forced stop, so a file left from the previous run never sits beside this run's
+    /// <c>report.json</c>. It runs before <see cref="OnRunFinishedAsync"/>, which runs once every file is written.
+    /// </summary>
+    public virtual Task<IReadOnlyList<ReportFile>?> ReportFilesAsync(
+        FinishedRun run,
+        CancellationToken cancellationToken
+    ) => Task.FromResult<IReadOnlyList<ReportFile>?>([]);
+
+    /// <summary>Runs once the report and the report files are written; the returned rows print under the run's output. Null prints nothing.</summary>
     public virtual Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(
         FinishedRun run,
         CancellationToken cancellationToken

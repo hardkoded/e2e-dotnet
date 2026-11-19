@@ -404,9 +404,11 @@ internal static class Runner
     public static readonly TimeSpan ReporterTimeout = TimeSpan.FromMinutes(1);
 
     /// <summary>
-    /// Awaits every reporter's <c>OnRunFinishedAsync</c> at once, each within <paramref name="timeout"/> and until <paramref name="force"/> (a forced
-    /// stop of the run), and collects the rows they return. A reporter that throws, runs out of time, or returns a row without a label and text is one
-    /// line on stderr; it can never change the run's outcome. Giving up on a reporter that is still running sets <see cref="AbandonedWork.LeftWorkBehind"/>.
+    /// Finishes every reporter (upstream's <c>finishReporters</c>): first the files each one's <see cref="Reporter.ReportFilesAsync"/> renders, which the runner
+    /// writes, then every <c>OnRunFinishedAsync</c> at once, and returns the rows of both, the files' first. Each call has <paramref name="timeout"/> and a token
+    /// that is cancelled on it; a forced stop (<paramref name="force"/>) also cancels <c>OnRunFinishedAsync</c>, and never a report file, which would otherwise
+    /// leave the previous run's beside this run's <c>report.json</c>. A reporter given up on sets <see cref="AbandonedWork.LeftWorkBehind"/>. A reporter that
+    /// throws, runs out of time, or returns a row without a label and text is one line on stderr; it can never change the run's outcome.
     /// </summary>
     internal static async Task<IReadOnlyList<ReporterSummaryRow>> RunReportersAsync(
         IReadOnlyList<Reporter> reporters,
@@ -415,79 +417,153 @@ internal static class Runner
         CancellationToken force
     )
     {
-        var budget = Time.BudgetText((long)timeout.TotalMilliseconds);
-        const string forced = "abandoned: the run was forced to stop";
-        var outcomes = await Task.WhenAll(
-                reporters.Select(
-                    async Task<IReadOnlyList<ReporterSummaryRow>> (reporter) =>
-                    {
-                        if (force.IsCancellationRequested)
-                        {
-                            Warn(reporter, forced);
-                            return [];
-                        }
-
-                        using var abandon = CancellationTokenSource.CreateLinkedTokenSource(force);
-                        abandon.CancelAfter(timeout);
-                        try
-                        {
-                            // On the thread pool, so a reporter that blocks before it returns a task cannot hold the budget off (a JavaScript promise cannot block its own timer).
-                            var running = Task.Run(
-                                () => reporter.OnRunFinishedAsync(finished, abandon.Token),
-                                CancellationToken.None
-                            );
-
-                            // The reporter may ignore its token; the run stops waiting for it all the same.
-                            var gone = new TaskCompletionSource();
-                            using var registration = abandon.Token.Register(() => gone.TrySetResult());
-                            if (await Task.WhenAny(running, gone.Task).ConfigureAwait(false) != running)
-                            {
-                                _ = running.ContinueWith(
-                                    static task => _ = task.Exception,
-                                    TaskContinuationOptions.OnlyOnFaulted
-                                );
-                                AbandonedWork.LeaveWorkBehind();
-                                Warn(
-                                    reporter,
-                                    force.IsCancellationRequested ? forced : $"did not finish within {budget}"
-                                );
-                                return [];
-                            }
-
-                            var result = await running.ConfigureAwait(false);
-                            if (result is null)
-                            {
-                                return [];
-                            }
-
-                            var rows = result.Where(row => row is { Label.Length: > 0, Text.Length: > 0 }).ToList();
-                            if (rows.Count < result.Count)
-                            {
-                                Warn(
-                                    reporter,
-                                    $"returned {result.Count - rows.Count} row(s) without a label and text; dropped"
-                                );
-                            }
-
-                            return rows;
-                        }
-                        catch (OperationCanceledException) when (abandon.IsCancellationRequested)
-                        {
-                            // A reporter that honors its token ends cancelled: that is the run giving up on it, not a failure of its own.
-                            AbandonedWork.LeaveWorkBehind();
-                            Warn(reporter, force.IsCancellationRequested ? forced : $"did not finish within {budget}");
-                            return [];
-                        }
-                        catch (Exception ex)
-                        {
-                            Warn(reporter, $"failed: {ex.Message}");
-                            return [];
-                        }
-                    }
-                )
+        var fileRows = await Task.WhenAll(
+                reporters.Select(async Task<IReadOnlyList<ReporterSummaryRow>> (reporter) =>
+                {
+                    var files = await BoundedAsync<IReadOnlyList<Reports.ReportFile>>(
+                            reporter,
+                            false,
+                            token => reporter.ReportFilesAsync(finished, token),
+                            timeout,
+                            force
+                        )
+                        .ConfigureAwait(false);
+                    return files is null
+                        ? []
+                        : await WriteReportFilesAsync(reporter, files, finished).ConfigureAwait(false);
+                })
             )
             .ConfigureAwait(false);
-        return [.. outcomes.SelectMany(rows => rows)];
+        var finishedRows = await Task.WhenAll(
+                reporters.Select(async Task<IReadOnlyList<ReporterSummaryRow>> (reporter) =>
+                {
+                    var result = await BoundedAsync<IReadOnlyList<ReporterSummaryRow>>(reporter, true, token => reporter.OnRunFinishedAsync(finished, token), timeout, force)
+                        .ConfigureAwait(false);
+                    if (result is null)
+                    {
+                        return [];
+                    }
+
+                    var rows = result.Where(row => row is { Label.Length: > 0, Text.Length: > 0 }).ToList();
+                    if (rows.Count < result.Count)
+                    {
+                        Warn(
+                            reporter,
+                            $"returned {result.Count - rows.Count} row(s) without a label and text; dropped"
+                        );
+                    }
+
+                    return rows;
+                })
+            )
+            .ConfigureAwait(false);
+        return [.. fileRows.Concat(finishedRows).SelectMany(rows => rows)];
+    }
+
+    /// <summary>Awaits <paramref name="call"/> within the budget, and until a forced stop when <paramref name="forceable"/>; null when it failed or returned null, a stderr line said why when it failed.</summary>
+    private static async Task<T?> BoundedAsync<T>(
+        Reporter reporter,
+        bool forceable,
+        Func<CancellationToken, Task<T?>> call,
+        TimeSpan timeout,
+        CancellationToken force
+    )
+        where T : class
+    {
+        var budget = Time.BudgetText((long)timeout.TotalMilliseconds);
+        const string forced = "abandoned: the run was forced to stop";
+        if (forceable && force.IsCancellationRequested)
+        {
+            Warn(reporter, forced);
+            return null;
+        }
+
+        using var abandon = forceable
+            ? CancellationTokenSource.CreateLinkedTokenSource(force)
+            : new CancellationTokenSource();
+        abandon.CancelAfter(timeout);
+        try
+        {
+            // On the thread pool, so a reporter that blocks before it returns a task cannot hold the budget off (a JavaScript promise cannot block its own timer).
+            var running = Task.Run(() => call(abandon.Token), CancellationToken.None);
+
+            // The reporter may ignore its token; the run stops waiting for it all the same.
+            var gone = new TaskCompletionSource();
+            using var registration = abandon.Token.Register(() => gone.TrySetResult());
+            if (await Task.WhenAny(running, gone.Task).ConfigureAwait(false) != running)
+            {
+                _ = running.ContinueWith(static task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                AbandonedWork.LeaveWorkBehind();
+                Warn(reporter, forceable && force.IsCancellationRequested ? forced : $"did not finish within {budget}");
+                return null;
+            }
+
+            return await running.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (abandon.IsCancellationRequested)
+        {
+            // A reporter that honors its token ends cancelled: that is the run giving up on it, not a failure of its own.
+            AbandonedWork.LeaveWorkBehind();
+            Warn(reporter, forceable && force.IsCancellationRequested ? forced : $"did not finish within {budget}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Warn(reporter, $"failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Writes each file a reporter's <c>ReportFilesAsync</c> asked for, atomically and creating its directory, never over the run's own <c>report.json</c>
+    /// (upstream's <c>writeReportFiles</c>), and returns the rows naming the ones with a label. A file that could not be written is one line on stderr.
+    /// </summary>
+    private static async Task<IReadOnlyList<ReporterSummaryRow>> WriteReportFilesAsync(
+        Reporter reporter,
+        IReadOnlyList<Reports.ReportFile> files,
+        FinishedRun finished
+    )
+    {
+        List<ReporterSummaryRow> rows = [];
+        foreach (var file in files)
+        {
+            if (file is not { Path.Length: > 0, Content: not null } || file.Label is { Length: 0 } || file.Note is { Length: 0 })
+            {
+                Warn(reporter, "returned something other than report files; wrote none");
+                return [];
+            }
+        }
+
+        foreach (var file in files)
+        {
+            var target = Path.GetFullPath(file.Path, finished.ProjectRoot);
+            if (target == Path.GetFullPath(finished.ReportPath))
+            {
+                Warn(reporter, $"cannot write {file.Path}: it is the run's report");
+                continue;
+            }
+
+            try
+            {
+                await WriteReport.WriteTextReportAsync(target, file.Content).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Warn(reporter, $"could not write {file.Path}: {ex.Message}");
+                continue;
+            }
+
+            if (file.Label is null)
+            {
+                continue;
+            }
+
+            var relative = Path.GetRelativePath(finished.ProjectRoot, target);
+            var shown = relative.Length == 0 || relative == "." ? target : relative;
+            rows.Add(new ReporterSummaryRow(file.Label, file.Note is null ? shown : $"{shown} {file.Note}"));
+        }
+
+        return rows;
     }
 
     private static void Warn(Reporter reporter, string detail)

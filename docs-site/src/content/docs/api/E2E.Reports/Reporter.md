@@ -83,7 +83,7 @@ public virtual Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(Finis
 ```
 
 
-Runs once the report is written; the returned rows print under the run's output. Null prints nothing.
+Runs once the report and the report files are written; the returned rows print under the run's output. Null prints nothing.
 
 **Parameters**
 
@@ -93,3 +93,27 @@ Runs once the report is written; the returned rows print under the run's output.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IReadOnlyList&lt;ReporterSummaryRow&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Reports_Reporter_ReportFilesAsync_"></a>
+<a id="E2E_Reports_Reporter_ReportFilesAsync_E2E_Reports_FinishedRun_System_Threading_CancellationToken_"></a>
+
+### ReportFilesAsync(FinishedRun, CancellationToken)
+
+
+```csharp
+public virtual Task<IReadOnlyList<ReportFile>?> ReportFilesAsync(FinishedRun run, CancellationToken cancellationToken)
+```
+
+
+The files to write for the finished run (upstream's `reportFiles`); the runner writes them, atomically, and prints the row of each with a
+[Label](/api/E2E.Reports/ReportFile/#E2E_Reports_ReportFile_Label). Awaited one minute, even after a forced stop, so a file left from the previous run never sits beside this run's
+`report.json`. It runs before `OnRunFinishedAsync`, which runs once every file is written.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `run` | [FinishedRun](/api/E2E.Reports/FinishedRun/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;IReadOnlyList&lt;ReportFile&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)

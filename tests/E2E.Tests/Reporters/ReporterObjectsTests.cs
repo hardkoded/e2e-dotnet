@@ -156,6 +156,43 @@ public sealed class ReporterObjectsTests : IDisposable
         );
     }
 
+    [Fact]
+    public async Task Writes_report_files_after_a_forced_stop_but_never_over_report_json()
+    {
+        var pages = new PagesReporter();
+        using var force = new CancellationTokenSource();
+        await force.CancelAsync();
+
+        var (finished, stderr) = await _kit.RunAsync([pages], Runner.ReporterTimeout, force.Token);
+
+        Assert.Equal(
+            finished.Status.ToString().ToLowerInvariant(),
+            (await File.ReadAllTextAsync(Path.Combine(_kit.ProjectRoot, "reports", "run.txt"))).ToLowerInvariant()
+        );
+        Assert.NotEqual("clobbered", await File.ReadAllTextAsync(finished.ReportPath));
+        Assert.Contains(
+            $"e2e: reporter \"pages\" cannot write {Path.Combine(_kit.ProjectRoot, "report.json")}: it is the run's report",
+            stderr,
+            StringComparison.Ordinal
+        );
+    }
+
+    private sealed class PagesReporter : Reporter
+    {
+        public override string Name => "pages";
+
+        public override Task<IReadOnlyList<E2E.Reports.ReportFile>?> ReportFilesAsync(
+            FinishedRun run,
+            CancellationToken cancellationToken
+        ) =>
+            Task.FromResult<IReadOnlyList<E2E.Reports.ReportFile>?>(
+                [
+                    new E2E.Reports.ReportFile("reports/run.txt", run.Status.ToString().ToLowerInvariant()),
+                    new E2E.Reports.ReportFile(Path.Combine(run.ProjectRoot, "report.json"), "clobbered"),
+                ]
+            );
+    }
+
     private sealed class RecordingReporter : Reporter
     {
         public override string Name => Label;

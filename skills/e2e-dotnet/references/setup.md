@@ -269,7 +269,12 @@ and in CI.
   `Status`, `ExitCode`, `ProjectRoot`, `ReportPath`, `ArtifactsRoot`, `Traces`, `AiTracePath`). `Traces` maps
   each result id to the trace page the test kept, as a path from the project
   root (empty when none did); `AiTracePath` is the AI trace file this process
-  wrote, or null. It is awaited for one minute; the `ReporterSummaryRow`s it returns print to
+  wrote, or null. `Reporter.ReportFilesAsync(FinishedRun, CancellationToken)`
+  returns the `ReportFile`s (`Path`, `Content`, optional `Label` and `Note`) the
+  runner writes atomically before `OnRunFinishedAsync`, creating their
+  directories; a file with a `Label` prints a row (`Label  path`) first. It
+  is awaited for one minute even after a forced stop, and a file may not be
+  `report.json`. `OnRunFinishedAsync` is awaited for one minute; the `ReporterSummaryRow`s it returns print to
   standard output. A throw, a timeout, or a row with no label or text is one
   line on stderr and never changes the outcome. Without the run fixture no
   reporter runs. `FinishedRun.LastRun` is the report of the run a `--last-failed` rerun
