@@ -56,12 +56,13 @@ internal static class TracingChannelPublisher
                 )
                 .ConfigureAwait(false);
         }
-        catch
+        catch (Exception)
         {
-            // Tracing threw, or the call failed: the call's own outcome wins.
+            // Tracing threw, or the call failed: the call's own outcome wins, and the call never runs twice.
+            return await (executeTask ?? execute()).ConfigureAwait(false);
         }
 
-        return executeTask is null ? await execute().ConfigureAwait(false) : await executeTask.ConfigureAwait(false);
+        return await (executeTask ?? execute()).ConfigureAwait(false);
     }
 
     private static Task<T> RunAsync<T>(Func<Task<T>> execute)

@@ -113,6 +113,7 @@ public sealed class Channel
 #pragma warning restore CA1031
             {
                 // Diagnostics subscribers should never affect SDK behavior.
+                continue;
             }
         }
     }
