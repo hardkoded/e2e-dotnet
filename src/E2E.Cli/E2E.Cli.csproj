@@ -50,4 +50,8 @@
       LogicalName="skill/%(RecursiveDir)%(Filename)%(Extension)"
     />
   </ItemGroup>
+  <!-- The CI pipelines e2e init writes are edited from these templates, which stay complete pipelines. -->
+  <ItemGroup>
+    <EmbeddedResource Include="templates\ci\*.yml" LogicalName="templates/ci/%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

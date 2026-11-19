@@ -5,14 +5,25 @@
 namespace E2E.Cli.Tests.InitCi;
 
 /// <summary>
-/// Upstream's <c>describe('renderGitlabPipeline')</c>. The port has no template file, workspace, or Node image, so
-/// "writes the template unchanged ...", "installs at the workspace root and runs in the project folder", "changes into a
+/// Upstream's <c>describe('renderGitlabPipeline')</c>. The port has no workspace or Node image, so
+/// "installs at the workspace root and runs in the project folder", "changes into a
 /// project below the root before the install ...", the package manager <c>it.each</c>, and "installs Bun into the node
 /// image ..." are not ported.
 /// </summary>
 public sealed class RenderGitlabPipelineTests : InitCiTestBase
 {
     private static readonly string[] Jobs = [".e2e-mobile", "e2e-ios", "e2e-android"];
+
+    [Fact]
+    // The template is the port's own: a .NET project, dotnet test, and E2E_TARGET where upstream's has e2e run --target.
+    public void Partial_Writes_the_template_unchanged_for_npm_at_the_repository_root_and_Expo_on_both_phones_with_no_key_in_the_file()
+    {
+        // CI/CD variables reach the job's environment on their own; the file names no key.
+        Assert.Equal(
+            Ci.ReadTemplateText("gitlab-ci.yml"),
+            Ci.RenderGitlabPipeline(Base with { Secrets = ["AI_GATEWAY_API_KEY"], Jobs = AllJobs })
+        );
+    }
 
     [Fact]
     // Partial: the header names this repository, and the pipeline starts at the mobile base.

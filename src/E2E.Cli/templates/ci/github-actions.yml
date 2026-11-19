@@ -1,0 +1,179 @@
+# Written by `e2e init --ci github-actions`: the e2e tests on every pull request
+# and every push to main, one job per platform. See https://github.com/hardkoded/e2e-dotnet
+name: e2e
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: "**/*.csproj"
+      - name: Build
+        run: dotnet build -c Release MyApp.E2E/MyApp.E2E.csproj
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/Directory.Build.props') }}
+      - name: Install browsers
+        run: pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+      - name: Run e2e
+        run: dotnet test -c Release --no-build MyApp.E2E/MyApp.E2E.csproj --logger "junit;LogFilePath=${{ github.workspace }}/.e2e/junit.xml"
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          E2E_TARGET: web
+      - name: Upload the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-web
+          path: |
+            .e2e/report.json
+            .e2e/junit.xml
+            .e2e/results
+          # .e2e is a hidden directory, which upload-artifact skips when it expands a folder.
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: "**/*.csproj"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Install JavaScript dependencies
+        run: npm ci
+      # Expo generates ios/ (CNG): expo run:ios prebuilds it, installs the pods, and builds without a simulator.
+      - name: Build the app
+        run: npx expo run:ios --configuration Release --device generic --no-bundler --output build/ios
+      - name: Build the tests
+        run: dotnet build -c Release MyApp.E2E/MyApp.E2E.csproj
+      # Boots the image's own iPhone 17 Pro on a pinned runtime: a simulator made with `simctl create`
+      # can spend minutes on its first boot. Bump the runtime on purpose, after a local run on it,
+      # since the accessibility tree changes between iOS releases.
+      - name: Boot a simulator and install the app
+        env:
+          IOS_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-5
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available -j | jq -r --arg rt "$IOS_RUNTIME" '.devices[$rt][]? | select(.name == "iPhone 17 Pro") | .udid' | head -n 1)
+          if [ -z "$UDID" ]; then
+            echo "::error::No iPhone 17 Pro on $IOS_RUNTIME"
+            xcrun simctl list runtimes
+            exit 1
+          fi
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID"
+          APP=$(find build -maxdepth 5 -name '*.app' -type d | head -n 1)
+          if [ -z "$APP" ]; then
+            echo "::error::No .app under build/"
+            exit 1
+          fi
+          xcrun simctl install "$UDID" "$APP"
+          # A target with device set from the E2E_DEVICE variable drives this simulator, whatever else the image has.
+          echo "E2E_DEVICE=$UDID" >> "$GITHUB_ENV"
+      - name: Run e2e
+        run: dotnet test -c Release --no-build MyApp.E2E/MyApp.E2E.csproj --logger "junit;LogFilePath=${{ github.workspace }}/.e2e/junit.xml"
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          E2E_TARGET: ios
+      - name: Upload the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-ios
+          path: |
+            .e2e/report.json
+            .e2e/junit.xml
+            .e2e/results
+          # .e2e is a hidden directory, which upload-artifact skips when it expands a folder.
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: "**/*.csproj"
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Install JavaScript dependencies
+        run: npm ci
+      # Expo generates android/ (CNG) and signs release builds with the debug keystore.
+      # Only the emulator's ABI: building all four takes about 25 minutes longer.
+      - name: Build the app
+        run: |
+          npx expo prebuild --platform android --no-install
+          (cd android && ./gradlew :app:assembleRelease -PreactNativeArchitectures=x86_64)
+      - name: Build the tests
+        run: dotnet build -c Release MyApp.E2E/MyApp.E2E.csproj
+      - name: Run e2e
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          arch: x86_64
+          target: google_apis
+          profile: pixel_7
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            dotnet test -c Release --no-build MyApp.E2E/MyApp.E2E.csproj --logger "junit;LogFilePath=${{ github.workspace }}/.e2e/junit.xml"
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          E2E_TARGET: android
+          # The emulator the action boots, for a target with device set from the E2E_DEVICE variable.
+          E2E_DEVICE: emulator-5554
+      - name: Upload the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-android
+          path: |
+            .e2e/report.json
+            .e2e/junit.xml
+            .e2e/results
+          # .e2e is a hidden directory, which upload-artifact skips when it expands a folder.
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
