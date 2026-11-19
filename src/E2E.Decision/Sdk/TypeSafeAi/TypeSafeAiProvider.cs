@@ -37,9 +37,7 @@ public sealed class TypeSafeAiProvider
     public TypeSafeAiProvider(TypeSafeAiProviderSettings? settings = null)
     {
         _settings = settings ?? new TypeSafeAiProviderSettings();
-        _baseUrl = (
-            _settings.BaseUrl ?? System.Environment.GetEnvironmentVariable("TYPESAFE_AI_BASE_URL") ?? DefaultBaseUrl
-        ).TrimEnd('/');
+        _baseUrl = (_settings.BaseUrl ?? ModelHttp.Environment("TYPESAFE_AI_BASE_URL") ?? DefaultBaseUrl).TrimEnd('/');
     }
 
     /// <summary>Creates a decision model (upstream's <c>decisionModel</c>).</summary>

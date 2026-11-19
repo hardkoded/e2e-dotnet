@@ -134,7 +134,12 @@ public sealed class GatewayProvider
             headers[name] = value;
         }
 
-        headers["User-Agent"] = ModelHttp.RequestHeaders["User-Agent"];
+        // withUserAgentSuffix: the port's agent follows a User-Agent the caller set.
+        var agent = ModelHttp.RequestHeaders["User-Agent"];
+        headers["User-Agent"] =
+            headers.TryGetValue("User-Agent", out var userAgent) && !string.IsNullOrEmpty(userAgent)
+                ? userAgent + " " + agent
+                : agent;
         return headers;
     }
 
