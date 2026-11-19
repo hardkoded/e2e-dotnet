@@ -115,6 +115,7 @@ internal static class FileLock
                         catch (Exception)
                         {
                             // A missed beat costs nothing; a throw on a timer thread would end the process.
+                            return;
                         }
                     },
                     null,
@@ -196,6 +197,7 @@ internal static class FileLock
             catch (IOException) when (attempt == 0)
             {
                 // Gone again already: the holder released between the two calls.
+                continue;
             }
         }
     }
@@ -337,6 +339,7 @@ internal class FileLockSystem(TimeProvider? clock = null)
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // A file another process holds open on Windows, or one that vanished: the holder check on the next turn decides.
+            return;
         }
     }
 
@@ -350,6 +353,7 @@ internal class FileLockSystem(TimeProvider? clock = null)
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Released meanwhile.
+            return;
         }
     }
 

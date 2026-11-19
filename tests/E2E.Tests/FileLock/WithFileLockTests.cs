@@ -276,9 +276,12 @@ public sealed class WithFileLockTests : IDisposable
                 catch (InvalidOperationException)
                 {
                     // Already exited.
+                    continue;
                 }
-
-                child.Dispose();
+                finally
+                {
+                    child.Dispose();
+                }
             }
         }
 

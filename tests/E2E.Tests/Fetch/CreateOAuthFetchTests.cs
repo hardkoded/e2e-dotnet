@@ -365,9 +365,12 @@ public sealed class CreateOAuthFetchTests
                 catch (InvalidOperationException)
                 {
                     // Already exited.
+                    continue;
                 }
-
-                child.Dispose();
+                finally
+                {
+                    child.Dispose();
+                }
             }
 
             Directory.Delete(directory, recursive: true);
