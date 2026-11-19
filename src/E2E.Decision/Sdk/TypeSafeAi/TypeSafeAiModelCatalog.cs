@@ -24,7 +24,10 @@ public static class TypeSafeAiModelCatalog
     ["choice", "score", "boolean", "box"];
 
     /// <summary>Upstream's <c>typeSafeAiProviderOptions</c>: the provider options of a decision call and of an image file part.</summary>
-    public static IReadOnlyDictionary<string, IReadOnlyDictionary<string, ProviderOptionDefinition>> TypeSafeAiProviderOptions { get; } =
+    public static IReadOnlyDictionary<
+        string,
+        IReadOnlyDictionary<string, ProviderOptionDefinition>
+    > TypeSafeAiProviderOptions { get; } =
         new Dictionary<string, IReadOnlyDictionary<string, ProviderOptionDefinition>>
         {
             ["decision"] = new Dictionary<string, ProviderOptionDefinition>

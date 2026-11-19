@@ -6,7 +6,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Decision.Sdk;
 using E2E.Decision.Sdk.TypeSafeAi;
-
 using Provider = E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider;
 
 namespace E2E.Decision.Tests.TypeSafeAiDecisionModel;

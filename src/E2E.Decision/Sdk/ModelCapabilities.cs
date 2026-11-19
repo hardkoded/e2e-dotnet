@@ -85,7 +85,9 @@ public sealed record ProviderOptionDefinition(string Description);
 /// The AI SDK's <c>ModelProviderOptions</c>: per-model support for the options of the provider's option definitions, keyed by section
 /// (such as <c>decision</c>) then option name.
 /// </summary>
-public sealed record ModelProviderOptions(IReadOnlyDictionary<string, IReadOnlyDictionary<string, ModelCapability>> Sections);
+public sealed record ModelProviderOptions(
+    IReadOnlyDictionary<string, IReadOnlyDictionary<string, ModelCapability>> Sections
+);
 
 /// <summary>The AI SDK's <c>ModelEntry</c>: one provider-owned model record.</summary>
 public sealed record ModelEntry
