@@ -4,6 +4,7 @@
 
 using System.Reflection;
 using TUnit.Core;
+using TUnit.Core.Enums;
 
 namespace E2E.TUnit;
 
@@ -18,7 +19,63 @@ internal static class RunSelection
         StringComparer.Ordinal
     );
 
+    private static IReadOnlyDictionary<string, double> _relevance = new Dictionary<string, double>(
+        StringComparer.Ordinal
+    );
+
     private static readonly Lock Gate = new();
+
+    /// <summary>
+    /// Keeps the scores the test filters gave the tests of this run, by test key, for <see cref="RankRegistered"/> (.NET-only: upstream's runner
+    /// orders its work plans itself, and TUnit owns the order of the tests).
+    /// </summary>
+    public static void SetRelevance(IReadOnlyDictionary<string, double> relevance)
+    {
+        lock (Gate)
+        {
+            // Merged, keeping the highest score per test, so a second run fixture in the assembly never lowers one.
+            var merged = new Dictionary<string, double>(_relevance, StringComparer.Ordinal);
+            foreach (var (key, score) in relevance)
+            {
+                merged[key] = merged.TryGetValue(key, out var existing) ? Math.Max(existing, score) : score;
+            }
+
+            Volatile.Write(ref _relevance, merged);
+        }
+    }
+
+    /// <summary>Forgets every score (for the tests of this adapter).</summary>
+    internal static void ClearRelevance() =>
+        Volatile.Write(ref _relevance, new Dictionary<string, double>(StringComparer.Ordinal));
+
+    /// <summary>
+    /// Starts a registered test in the TUnit priority of its relevance band (upstream's <c>relevanceBand</c>), as a file ranks in <c>orderWorkPlans</c>;
+    /// tests in one band keep TUnit's order. TUnit reads the priority when it plans the run, so this is called as each test registers, after the
+    /// run fixture's discovery hook has scored the tests. A test keeps a higher priority of its own, such as a setup test's (see <c>E2ESetupAttribute</c>).
+    /// </summary>
+    public static void RankRegistered(global::TUnit.Core.TestContext context)
+    {
+        var details = context.Metadata.TestDetails;
+        var ranked = PriorityOf(Units.RelevanceBand(RelevanceOf(KeyOf(details.ClassType, details.MethodName))));
+        if (ranked > context.Parallelism.ExecutionPriority)
+        {
+            context.Parallelism.ExecutionPriority = ranked;
+        }
+    }
+
+    /// <summary>How likely the test filters rated a test to fail on this change, from 0 to 1; 0 for a test none scored.</summary>
+    public static double RelevanceOf(string key) =>
+        Volatile.Read(ref _relevance).TryGetValue(key, out var score) ? score : 0;
+
+    /// <summary>The TUnit priority of a relevance band: the unscored band 0 is <see cref="Priority.Normal"/>, and each band above runs earlier.</summary>
+    internal static Priority PriorityOf(int band) =>
+        band switch
+        {
+            <= 0 => Priority.Normal,
+            1 => Priority.AboveNormal,
+            2 => Priority.High,
+            _ => Priority.Critical,
+        };
 
     public static void Set(IReadOnlyDictionary<string, string> excluded) => Volatile.Write(ref _excluded, excluded);
 

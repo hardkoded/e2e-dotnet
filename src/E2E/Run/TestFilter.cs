@@ -80,8 +80,8 @@ public sealed class TestFilterResult
     /// <summary>
     /// How likely each test is to fail on this change, from 0 to 1, by <see cref="TestFilterCandidate.Id"/>. Upstream's runner starts the files of
     /// the likeliest tests first, in bands at 75%, 50%, and 25%, and targets by the band of their best file; here the scores are kept and
-    /// <c>Units.OrderWorkPlans</c> orders plans with them, but the test framework owns the order of a <c>dotnet test</c> run: xUnit v3 starts the
-    /// likeliest tests first (see <c>RelevanceTestCollectionOrderer</c>); NUnit and TUnit do not reorder. A test no filter scores counts as 0, and one several filters score keeps its highest. It never leaves a test out.
+    /// <c>Units.OrderWorkPlans</c> orders plans with them, but the test framework owns the order of a <c>dotnet test</c> run: all three adapters start the
+    /// likeliest tests first (see <c>RelevanceTestCollectionOrderer</c> and the <c>RunSelection</c> of <c>E2E.NUnit</c> and <c>E2E.TUnit</c>). A test no filter scores counts as 0, and one several filters score keeps its highest. It never leaves a test out.
     /// </summary>
     public IReadOnlyDictionary<string, double>? Relevance { get; init; }
 
