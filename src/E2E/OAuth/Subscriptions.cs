@@ -39,7 +39,7 @@ public static class Subscriptions
         return new CopilotModel(model, Client(new CopilotProvider(), store));
     }
 
-    /// <summary>A SuperGrok or X Premium+ subscription over the ordinary SpaceXAI API.</summary>
+    /// <summary>A SuperGrok or X Premium+ subscription over the ordinary SpaceXSI API.</summary>
     public static OpenAiCompatibleModel Grok(string model, ICredentialStore? store = null)
     {
         return new OpenAiCompatibleModel(
@@ -94,7 +94,20 @@ public static class Subscriptions
 public static class OAuthProviders
 {
     /// <summary>Upstream's provider ids, in its order.</summary>
-    public static IReadOnlyList<string> Ids { get; } = ["openai", "github-copilot", "opencode-console", "spacexai"];
+    public static IReadOnlyList<string> Ids { get; } = ["openai", "github-copilot", "opencode-console", "spacexsi"];
+
+    private static IReadOnlyDictionary<string, string> ProviderAliases { get; } =
+        new Dictionary<string, string>(StringComparer.Ordinal) { ["spacexai"] = "spacexsi", ["grok"] = "spacexsi" };
+
+    /// <summary>The ids and their aliases, in upstream's order (<c>PROVIDER_NAMES</c>): what <c>login</c>, <c>logout</c>, and <c>models</c> accept.</summary>
+    public static IReadOnlyList<string> Names { get; } = [.. Ids, .. ProviderAliases.Keys];
+
+    /// <summary>The provider id that <c>id</c> names: an alias resolves to its id, any other name is returned as it is.</summary>
+    public static string CanonicalProviderId(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        return ProviderAliases.TryGetValue(id, out var canonical) ? canonical : id;
+    }
 
     /// <summary>Test seam: providers that stand in for the built-in ones, by id.</summary>
     internal static Dictionary<string, IOAuthProvider> Replacements { get; } = new(StringComparer.Ordinal);
@@ -112,7 +125,7 @@ public static class OAuthProviders
             "openai" => new CodexProvider(),
             "github-copilot" => new CopilotProvider(),
             "opencode-console" => new OpenCodeConsoleProvider(),
-            "spacexai" => new XaiProvider(),
+            "spacexsi" => new XaiProvider(),
             _ => throw new OAuthException(
                 OAuthException.Misconfigured,
                 "unknown provider \"" + id + "\"; expected one of " + string.Join(", ", Ids)
@@ -174,9 +187,9 @@ public static class OAuthProviders
         return id switch
         {
             "openai" => "ChatGPT Plus/Pro, the Codex sign-in",
-            "github-copilot" => "GitHub Copilot: OpenAI, Anthropic, Google, and SpaceXAI models",
+            "github-copilot" => "GitHub Copilot: OpenAI, Anthropic, Google, and SpaceXSI models",
             "opencode-console" => "your OpenCode Console workspace (OpenCode Zen and Go)",
-            "spacexai" => "SuperGrok or X Premium+",
+            "spacexsi" => "SuperGrok or X Premium+",
             _ => id,
         };
     }

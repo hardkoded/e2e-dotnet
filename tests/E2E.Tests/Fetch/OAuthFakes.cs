@@ -33,7 +33,7 @@ internal sealed class MemoryCredentialStore(Dictionary<string, OAuthCredentials>
         Task.FromResult<IReadOnlyList<string>>([.. _entries.Keys]);
 }
 
-/// <summary>Refreshes rotate the refresh token and reject a token that was already rotated, like SpaceXAI and ChatGPT do.</summary>
+/// <summary>Refreshes rotate the refresh token and reject a token that was already rotated, like SpaceXSI and ChatGPT do.</summary>
 internal sealed class RotatingProvider : IOAuthProvider
 {
     public List<string> Refreshes { get; } = [];

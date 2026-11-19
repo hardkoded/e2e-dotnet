@@ -817,7 +817,9 @@ table. Other decision models: `new TypeSafeAiProvider().DecisionModel("jev-lates
 `E2E_AI_TRACE=1` (topic `debugging`). `ExperimentalDecide.RunAsync` (`E2E.Decision.Sdk`, the AI SDK's
 `experimental_decide`) takes `OnStart` and `OnEnd` callbacks, a `RuntimeContext`, and `Telemetry` (`TelemetryOptions` with
 `ITelemetry` integrations for the decide and decision-model call events; `RecordInputs`, `RecordOutputs`,
-`IncludeRuntimeContext`). The decision executor does not set them. A state part can be a file at a URL
+`IncludeRuntimeContext`). A call with no `TelemetryOptions.Integrations` uses the global integrations added with
+`TelemetryRegistry.RegisterTelemetry(...)` (`GetGlobalTelemetryIntegrations()` lists them). The decision executor does not set them.
+A state part can be a file at a URL
 (`DecisionFileUrlPart`); `DecideOptions.ExperimentalDownload` (`CreateDownload.Create(...)`) must download it, or the call
 fails with `DownloadException` before the model request. The model receives the bytes as a `DecisionFilePart`.
 The default `CreateDownload.Create()` transport does not resolve DNS. For untrusted URLs, set `CreateDownloadOptions.Fetch` to a
