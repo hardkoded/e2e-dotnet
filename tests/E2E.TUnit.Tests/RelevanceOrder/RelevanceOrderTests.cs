@@ -42,7 +42,7 @@ public sealed class RelevanceOrderTests
         }
         finally
         {
-            E2E.TUnit.RunSelection.SetRelevance(new Dictionary<string, double>());
+            E2E.TUnit.RunSelection.ClearRelevance();
             context.Parallelism.ExecutionPriority = before;
         }
     }

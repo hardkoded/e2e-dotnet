@@ -144,7 +144,7 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
     public EventReceiverStage Stage => EventReceiverStage.Late;
 
     /// <summary>.NET-only: starts the likeliest tests first, in the priority of the relevance band that <see cref="E2ERunFixture"/> gave them (see <c>RunSelection.RankRegistered</c>).</summary>
-    public ValueTask OnTestRegistered(TestRegisteredContext context)
+    ValueTask ITestRegisteredEventReceiver.OnTestRegistered(TestRegisteredContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
         RunSelection.RankRegistered(context.TestContext);

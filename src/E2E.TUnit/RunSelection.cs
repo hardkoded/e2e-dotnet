@@ -29,8 +29,24 @@ internal static class RunSelection
     /// Keeps the scores the test filters gave the tests of this run, by test key, for <see cref="RankRegistered"/> (.NET-only: upstream's runner
     /// orders its work plans itself, and TUnit owns the order of the tests).
     /// </summary>
-    public static void SetRelevance(IReadOnlyDictionary<string, double> relevance) =>
-        Volatile.Write(ref _relevance, relevance);
+    public static void SetRelevance(IReadOnlyDictionary<string, double> relevance)
+    {
+        lock (Gate)
+        {
+            // Merged, keeping the highest score per test, so a second run fixture in the assembly never lowers one.
+            var merged = new Dictionary<string, double>(_relevance, StringComparer.Ordinal);
+            foreach (var (key, score) in relevance)
+            {
+                merged[key] = merged.TryGetValue(key, out var existing) ? Math.Max(existing, score) : score;
+            }
+
+            Volatile.Write(ref _relevance, merged);
+        }
+    }
+
+    /// <summary>Forgets every score (for the tests of this adapter).</summary>
+    internal static void ClearRelevance() =>
+        Volatile.Write(ref _relevance, new Dictionary<string, double>(StringComparer.Ordinal));
 
     /// <summary>
     /// Starts a registered test in the TUnit priority of its relevance band (upstream's <c>relevanceBand</c>), as a file ranks in <c>orderWorkPlans</c>;

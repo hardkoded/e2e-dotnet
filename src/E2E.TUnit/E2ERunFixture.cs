@@ -52,6 +52,12 @@ public abstract class E2ERunFixture
     [Before(HookType.TestDiscovery)]
     public static async Task SelectTestsAsync(CancellationToken cancellationToken)
     {
+        // A listing of the tests (`--list-tests`, an IDE refreshing its tree) runs no test, so it selects nothing and starts nothing.
+        if (Environment.GetCommandLineArgs().Contains("--list-tests", StringComparer.Ordinal))
+        {
+            return;
+        }
+
         var fixtures = DeclaredIn(ReflectionAssembly.GetEntryAssembly());
         lock (Gate)
         {
