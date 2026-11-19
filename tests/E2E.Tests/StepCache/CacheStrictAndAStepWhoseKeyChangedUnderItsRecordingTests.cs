@@ -157,7 +157,7 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
         Enumerable.Repeat("checkout for a signed in customer with a saved card ", 6)
     );
 
-    // Upstream claims the whole step and the session stores it; the port claims the step as an entry stores it.
+    // The step as the session claims it, before redaction: the session records its provenance, as upstream's does.
     private static CacheEntry StepWith(string field, string value)
     {
         var step = ExampleStep;
@@ -175,8 +175,10 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
                 break;
         }
 
-        return Recorder.RecordedProvenance(step, text => text);
+        return step;
     }
+
+    private static CacheEntry Stored(CacheEntry step) => Recorder.RecordedProvenance(step, text => text);
 
     private static string FieldOf(CacheEntry step, string field) =>
         (
@@ -197,7 +199,7 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
     [InlineData("agent")]
     public async Task Runs_live_when_only_another_step_that_starts_the_same_way_was_recorded(string field)
     {
-        var session = SessionFor(StepWith(field, Long + " first"), StepWith(field, Long + " second"));
+        var session = SessionFor(Stored(StepWith(field, Long + " first")), StepWith(field, Long + " second"));
 
         Assert.Null(await session.BeginAsync());
         Assert.Equal(("missed", "no-entry"), (session.CacheInfo?.Mode, session.CacheInfo?.Reason));
@@ -210,9 +212,9 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
     public async Task Fails_with_REPLAY_STALE_when_its_own_recording_sits_under_another_key(string field)
     {
         var step = StepWith(field, Long + " first");
-        Assert.Equal(Trace.MaxTraceDescriptorChars, FieldOf(step, field).Length);
+        Assert.Equal(Trace.MaxTraceDescriptorChars, FieldOf(Stored(step), field).Length);
 
-        var error = await Assert.ThrowsAsync<AgentException>(SessionFor(step, step).BeginAsync);
+        var error = await Assert.ThrowsAsync<AgentException>(SessionFor(Stored(step), step).BeginAsync);
 
         Assert.Equal("REPLAY_STALE", error.Code);
     }
@@ -224,7 +226,7 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
     public async Task Runs_live_against_an_entry_that_cut_it_before_entries_kept_an_identity_digest(string field)
     {
         var step = StepWith(field, Long + " first");
-        var legacy = step.Copy();
+        var legacy = Stored(step);
         legacy.IdentityDigest = null;
 
         Assert.Null(await SessionFor(legacy, step).BeginAsync());
@@ -238,7 +240,7 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
         string field
     )
     {
-        var legacy = StepWith(field, Long + " first");
+        var legacy = Stored(StepWith(field, Long + " first"));
         legacy.IdentityDigest = null;
         var step = StepWith(field, FieldOf(legacy, field));
 
@@ -256,9 +258,9 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
         foreach (var length in new[] { Trace.MaxTraceDescriptorChars - 1, Trace.MaxTraceDescriptorChars })
         {
             var step = StepWith(field, new string('x', length - 1) + "…");
-            Assert.Matches("^[a-f0-9]{64}$", step.IdentityDigest);
+            Assert.Matches("^[a-f0-9]{64}$", Stored(step).IdentityDigest);
 
-            var error = await Assert.ThrowsAsync<AgentException>(SessionFor(step, step).BeginAsync);
+            var error = await Assert.ThrowsAsync<AgentException>(SessionFor(Stored(step), step).BeginAsync);
 
             Assert.Equal("REPLAY_STALE", error.Code);
         }
@@ -271,10 +273,10 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
     public async Task Fails_with_REPLAY_STALE_at_exactly_300_characters_which_an_entry_keeps_whole(string field)
     {
         var step = StepWith(field, new string('x', Trace.MaxTraceDescriptorChars));
-        Assert.Equal(new string('x', Trace.MaxTraceDescriptorChars), FieldOf(step, field));
-        Assert.Null(step.IdentityDigest);
+        Assert.Equal(new string('x', Trace.MaxTraceDescriptorChars), FieldOf(Stored(step), field));
+        Assert.Null(Stored(step).IdentityDigest);
 
-        var error = await Assert.ThrowsAsync<AgentException>(SessionFor(step, step).BeginAsync);
+        var error = await Assert.ThrowsAsync<AgentException>(SessionFor(Stored(step), step).BeginAsync);
 
         Assert.Equal("REPLAY_STALE", error.Code);
     }

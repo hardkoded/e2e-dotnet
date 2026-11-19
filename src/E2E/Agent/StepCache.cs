@@ -34,7 +34,7 @@ internal interface IStepCacheHost : IReplayHost
     PreparedObservation? FirstActedOn { get; }
 }
 
-/// <summary>Upstream's <c>ClaimedKey</c>: the key a step claimed and the step it names, which an entry records as its provenance.</summary>
+/// <summary>Upstream's <c>ClaimedKey</c>: the key a step claimed and the step it names, before redaction; the session records it as provenance.</summary>
 internal sealed record ClaimedKey(string Key, CacheEntry Step);
 
 /// <summary>
@@ -117,7 +117,8 @@ internal sealed class StepTraceSession
         {
             Key = options.Claim.Key,
             ParamCollision = CacheKeys.TemplatesCollide(projected, templates),
-            Step = options.Claim.Step,
+            // Upstream's StepTraceSession claims the whole step and records its provenance itself (recordedProvenance).
+            Step = TraceRecorder.RecordedProvenance(options.Claim.Step, host.Redact.Redact),
             StepIndex = options.StepIndex,
         };
     }
