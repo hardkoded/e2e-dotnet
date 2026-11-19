@@ -137,9 +137,9 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                 error.ProviderRetryHeaders,
                 // A request that got no answer is retried; so is a retryable status; a timeout is neither.
                 error.ProviderStatus
-                    is { } status
-                    ? null
-                    : error.NoProviderAnswer,
+                    is null
+                    ? error.NoProviderAnswer
+                    : null,
                 error
             );
         }
