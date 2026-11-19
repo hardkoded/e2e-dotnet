@@ -87,6 +87,8 @@ var model = new TypeSafeAiProvider().DecisionModel("jev-latest");
 
 `OpenAIDecisionModel` takes images too. Vercel AI Gateway rejects the screenshot for every decision model, so keep `Vision` off there.
 
+`TypeSafeAiProviderSettings.BaseUrl` defaults to the `TYPESAFE_AI_BASE_URL` environment variable, then `https://api.typesafe.ai/v1`; `TypeSafeAiProvider.TypeSafeAi` is the provider that environment configures. TypeSafe has no language, embedding, or image models, so `LanguageModel`, `EmbeddingModel`, and `ImageModel` throw `NoSuchModelException`. `TypeSafeAiModelCatalog` lists the decision models (`ModelCatalog`, `GetTypeSafeAiDecisionModelEntry`) and their provider options (`TypeSafeAiProviderOptions`).
+
 TypeSafe takes PNG and JPEG images. Each image gets a reference that the request puts in the state at the image's position (or, when the state already contains the reference, leaves alone). Name your own in the part's `typesafe` provider options, `{ "reference": "[photo]", "insertReference": false }`, to point at the image from a question's instructions or criteria. `longContext: true` in the call's `typesafe` provider options raises the context limits to 262k tokens, at the cost of speed and accuracy.
 
 With a text model, vision also offers `tap_at` for a control the tree doesn't list. The text model names the control, such as "the 3 key on the keypad", and the decision model finds it on the screenshot, then on two zoomed crops. A point tap costs four decide calls and one text call, or one of each to repeat a tap on the same page.

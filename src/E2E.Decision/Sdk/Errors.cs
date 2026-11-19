@@ -18,6 +18,17 @@ public sealed class InvalidResponseDataException(string message, object? answers
     public object? Answers { get; } = answers;
 }
 
+/// <summary>The AI SDK's <c>NoSuchModelError</c>: the provider has no model of that type or id.</summary>
+public sealed class NoSuchModelException(string modelId, string modelType)
+    : Exception("No such " + modelType + ": " + modelId)
+{
+    /// <summary>The model id asked for.</summary>
+    public string ModelId { get; } = modelId;
+
+    /// <summary>The kind of model asked for, such as <c>languageModel</c>.</summary>
+    public string ModelType { get; } = modelType;
+}
+
 /// <summary>The AI SDK's <c>LoadAPIKeyError</c>: the provider has no API key.</summary>
 public sealed class LoadApiKeyException(string message) : Exception(message);
 

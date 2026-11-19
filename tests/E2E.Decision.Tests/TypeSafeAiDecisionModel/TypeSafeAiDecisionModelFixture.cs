@@ -7,6 +7,8 @@ using System.Text.Json.Nodes;
 using E2E.Decision.Sdk;
 using E2E.Decision.Sdk.TypeSafeAi;
 
+using Provider = E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider;
+
 namespace E2E.Decision.Tests.TypeSafeAiDecisionModel;
 
 /// <summary>The constants and helpers at the top of upstream's <c>typesafe-ai-decision-model.test.ts</c>.</summary>
@@ -90,7 +92,7 @@ internal static class TypeSafeAiDecisionModelFixture
     {
         var server = new TestServer();
         server.RespondJson(Url, NativeResponse.ToJsonString());
-        var provider = new TypeSafeAiProvider(
+        var provider = new Provider(
             new TypeSafeAiProviderSettings { ApiKey = "test-api-key", HttpClient = server.Client }
         );
         return (server, provider.DecisionModel(modelId));
