@@ -166,15 +166,23 @@ internal static class FileLock
         {
             // Writes the whole token: a cut-off one could name a pid that has exited.
             system.WriteToken(stream, Utf8.GetBytes(token));
+            stream.Dispose();
         }
         catch
         {
-            stream.Dispose();
-            system.Remove(lockPath);
+            try
+            {
+                // Closing flushes the buffer again, and that can throw as the write did.
+                stream.Dispose();
+            }
+            finally
+            {
+                system.Remove(lockPath);
+            }
+
             throw;
         }
 
-        stream.Dispose();
         return true;
     }
 

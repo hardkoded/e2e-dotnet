@@ -149,10 +149,20 @@ public sealed class FileCredentialStoreTests : IDisposable
             enteredSecond = true;
             return Task.FromResult(0);
         });
-        Assert.Equal("b", await store.ExclusiveAsync("b", () => Task.FromResult("b")));
-        Assert.False(enteredSecond);
-        finishA.SetResult();
-        await Task.WhenAll(first, second);
+        try
+        {
+            Assert.Equal(
+                "b",
+                await store.ExclusiveAsync("b", () => Task.FromResult("b")).WaitAsync(TimeSpan.FromSeconds(10))
+            );
+            Assert.False(enteredSecond);
+        }
+        finally
+        {
+            finishA.TrySetResult();
+        }
+
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(10));
         Assert.True(enteredSecond);
     }
 
@@ -181,7 +191,7 @@ public sealed class FileCredentialStoreTests : IDisposable
             await Task.Delay(1);
         }
 
-        var error = await Assert.ThrowsAsync<OAuthException>(() => pending);
+        var error = await Assert.ThrowsAsync<OAuthException>(() => pending.WaitAsync(TimeSpan.FromSeconds(10)));
         Assert.Equal(OAuthException.Timeout, error.Code);
         Assert.Equal(
             "another e2e process is still refreshing the x login after 30 s; run again once it finishes",

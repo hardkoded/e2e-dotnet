@@ -71,32 +71,38 @@ public sealed class WithFileLockTests : IDisposable
 
     [Theory]
     [InlineData("this process")]
-    // Run as root, pid 1 can be signalled, so this checks a running process instead.
     [InlineData("a process of another user")]
     [InlineData("another host")]
     [InlineData("no pid")]
     public async Task Waits_for_a_fresh_lock_held_by_(string holder)
     {
-        if (holder == "a process of another user" && OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
         var lockPath = TempLock();
-        File.WriteAllText(
-            lockPath,
-            holder switch
+        // Run as root, pid 1 can be signalled, so upstream checks a running process instead; a started one runs on every system.
+        using var other = holder == "a process of another user" ? Process.Start(AppProgram.Executable, ["idle"]) : null;
+        try
+        {
+            File.WriteAllText(
+                lockPath,
+                holder switch
+                {
+                    "this process" => HeldBy(Environment.ProcessId),
+                    "a process of another user" => HeldBy(other!.Id),
+                    "another host" => "elsewhere.example " + ExitedPid() + " other",
+                    _ => Host + " unknown other",
+                }
+            );
+            var (entered, pending) = await EntersAtOnce(lockPath);
+            Assert.False(entered);
+            File.Delete(lockPath);
+            await pending;
+        }
+        finally
+        {
+            if (other is not null)
             {
-                "this process" => HeldBy(Environment.ProcessId),
-                "a process of another user" => HeldBy(1),
-                "another host" => "elsewhere.example " + ExitedPid() + " other",
-                _ => Host + " unknown other",
+                ProcessCleanup.KillAll([other]);
             }
-        );
-        var (entered, pending) = await EntersAtOnce(lockPath);
-        Assert.False(entered);
-        File.Delete(lockPath);
-        await pending;
+        }
     }
 
     [Fact]
@@ -267,22 +273,7 @@ public sealed class WithFileLockTests : IDisposable
         }
         finally
         {
-            foreach (var child in children)
-            {
-                try
-                {
-                    child.Kill(entireProcessTree: true);
-                }
-                catch (InvalidOperationException)
-                {
-                    // Already exited.
-                    continue;
-                }
-                finally
-                {
-                    child.Dispose();
-                }
-            }
+            ProcessCleanup.KillAll(children);
         }
 
         string? holder = null;
@@ -357,7 +348,7 @@ public sealed class WithFileLockTests : IDisposable
     public async Task Keeps_a_held_lock_fresh_so_waiters_never_take_it_as_untouched()
     {
         var lockPath = TempLock();
-        var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var clock = new CountingClock(DateTimeOffset.UtcNow);
         var system = new LockSystem { FakeClock = clock };
         await Hold(
             lockPath,
@@ -367,14 +358,13 @@ public sealed class WithFileLockTests : IDisposable
                 // A holder touches its lock several times within the stale bound.
                 clock.Advance(TimeSpan.FromSeconds(3));
                 Assert.True(File.GetLastWriteTimeUtc(lockPath) > DateTime.UtcNow.AddSeconds(-5));
+                Assert.Equal(1, clock.ActiveTimers);
                 return Task.CompletedTask;
             },
             system
         );
-        var touches = system.Touches;
-        // Released: the heartbeat is gone.
-        clock.Advance(TimeSpan.FromSeconds(30));
-        Assert.Equal(touches, system.Touches);
+        // Released: the heartbeat is cleared.
+        Assert.Equal(0, clock.ActiveTimers);
     }
 
     [Fact]
@@ -436,21 +426,30 @@ public sealed class WithFileLockTests : IDisposable
         var lockPath = TempLock();
         Task second = Task.CompletedTask;
         var finishSecond = new TaskCompletionSource();
-        await Hold(lockPath, async () =>
+        try
         {
-            // Untouched past the stale bound, so a second attempt from this process takes it over.
-            Age(lockPath, -60);
-            var inside = new TaskCompletionSource();
-            second = Hold(lockPath, () =>
+            await Hold(lockPath, async () =>
             {
-                inside.SetResult();
-                return finishSecond.Task;
+                // Untouched past the stale bound, so a second attempt from this process takes it over.
+                Age(lockPath, -60);
+                var inside = new TaskCompletionSource();
+                second = Hold(lockPath, () =>
+                {
+                    inside.SetResult();
+                    return finishSecond.Task;
+                });
+                // A second attempt that fails reports its error instead of leaving this wait open.
+                var settled = await Task.WhenAny(inside.Task, second).WaitAsync(TimeSpan.FromSeconds(10));
+                await settled;
             });
-            await inside.Task;
-        });
-        Assert.True(File.Exists(lockPath));
-        finishSecond.SetResult();
-        await second;
+            Assert.True(File.Exists(lockPath));
+        }
+        finally
+        {
+            finishSecond.TrySetResult();
+            await second;
+        }
+
         Assert.False(File.Exists(lockPath));
     }
 
@@ -472,7 +471,9 @@ public sealed class WithFileLockTests : IDisposable
         await AdvanceAsync(clock, TimeSpan.FromSeconds(29));
         Assert.False(pending.IsCompleted);
         await AdvanceAsync(clock, TimeSpan.FromSeconds(2));
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => pending);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            pending.WaitAsync(TimeSpan.FromSeconds(10))
+        );
         Assert.Equal("busy", error.Message);
     }
 
@@ -486,7 +487,9 @@ public sealed class WithFileLockTests : IDisposable
         var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var pending = Hold(lockPath, () => Task.CompletedTask, new LockSystem { FakeClock = clock });
         await AdvanceAsync(clock, TimeSpan.FromSeconds(6));
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => pending);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            pending.WaitAsync(TimeSpan.FromSeconds(10))
+        );
         Assert.Equal("busy", error.Message);
     }
 
@@ -577,7 +580,12 @@ public sealed class WithFileLockTests : IDisposable
             new ProcessStartInfo(AppProgram.Executable, ["exit", "0"]) { UseShellExecute = false }
         )!;
         var pid = process.Id;
-        process.WaitForExit();
+        if (!process.WaitForExit(10_000))
+        {
+            ProcessCleanup.KillAll([process]);
+            throw new TimeoutException("the helper process did not exit");
+        }
+
         return pid;
     }
 
@@ -621,6 +629,43 @@ public sealed class WithFileLockTests : IDisposable
         {
             clock.Advance(left < step ? left : step);
             await Task.Delay(1);
+        }
+    }
+
+    /// <summary>A fake clock that counts the timers not yet disposed, as upstream's <c>vi.getTimerCount()</c>.</summary>
+    private sealed class CountingClock(DateTimeOffset start) : FakeTimeProvider(start)
+    {
+        private int _active;
+
+        public int ActiveTimers => Volatile.Read(ref _active);
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            Interlocked.Increment(ref _active);
+            return new Counted(base.CreateTimer(callback, state, dueTime, period), this);
+        }
+
+        private sealed class Counted(ITimer inner, CountingClock owner) : ITimer
+        {
+            private int _disposed;
+
+            public bool Change(TimeSpan dueTime, TimeSpan period) => inner.Change(dueTime, period);
+
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) == 0)
+                {
+                    Interlocked.Decrement(ref owner._active);
+                }
+
+                inner.Dispose();
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return ValueTask.CompletedTask;
+            }
         }
     }
 

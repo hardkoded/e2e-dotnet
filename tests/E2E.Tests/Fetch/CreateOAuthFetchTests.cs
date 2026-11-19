@@ -356,23 +356,7 @@ public sealed class CreateOAuthFetchTests
         }
         finally
         {
-            foreach (var child in children)
-            {
-                try
-                {
-                    child.Kill(entireProcessTree: true);
-                }
-                catch (InvalidOperationException)
-                {
-                    // Already exited.
-                    continue;
-                }
-                finally
-                {
-                    child.Dispose();
-                }
-            }
-
+            ProcessCleanup.KillAll(children);
             Directory.Delete(directory, recursive: true);
         }
     }

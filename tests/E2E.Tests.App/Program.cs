@@ -250,6 +250,18 @@ static async Task<int> FileLockWorker(string lockPath, string log, string exited
         }
     }
 
+    // Shared with the other workers and with the test, which reads the log while they append to it.
+    void Log(string line)
+    {
+        using var stream = new FileStream(
+            log,
+            FileMode.Append,
+            FileAccess.Write,
+            FileShare.ReadWrite | FileShare.Delete
+        );
+        stream.Write(System.Text.Encoding.UTF8.GetBytes(line + "\n"));
+    }
+
     var pid = Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture);
     var wait =
         long.Parse(startAt, System.Globalization.CultureInfo.InvariantCulture)
@@ -267,23 +279,23 @@ static async Task<int> FileLockWorker(string lockPath, string log, string exited
             () => new InvalidOperationException("lock wait timed out"),
             async () =>
             {
-                File.AppendAllText(log, "+" + pid + "\n");
+                Log("+" + pid);
                 var token = ReadLock() ?? "";
                 await Task.Delay(1);
                 if (ReadLock() != token)
                 {
-                    File.AppendAllText(log, "!" + pid + "\n");
+                    Log("!" + pid);
                 }
 
                 if (Random.Shared.NextDouble() < 0.5)
                 {
-                    File.AppendAllText(log, "-" + pid + "\n");
+                    Log("-" + pid);
                     return;
                 }
 
                 // What a crash leaves: this host's lock, naming a pid that no longer runs.
                 var host = token.Split(' ')[0];
-                File.AppendAllText(log, "x" + pid + "\n");
+                Log("x" + pid);
                 File.WriteAllText(lockPath, host + " " + exitedPid + " crashed");
             }
         );
