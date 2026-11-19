@@ -97,8 +97,7 @@ public static class VercelRequestContext
 /// </summary>
 internal static class VercelEnvironment
 {
-    private static readonly AsyncLocal<Func<CancellationToken, Task<string>>?> s_oidcTokenOverride =
-        new();
+    private static readonly AsyncLocal<Func<CancellationToken, Task<string>>?> s_oidcTokenOverride = new();
 
     /// <summary>Environment variable that carries the Vercel OIDC token.</summary>
     public const string OidcTokenEnvironmentVariable = "VERCEL_OIDC_TOKEN";

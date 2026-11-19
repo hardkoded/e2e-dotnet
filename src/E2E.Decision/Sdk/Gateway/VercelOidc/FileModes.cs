@@ -30,11 +30,7 @@ internal static class FileModes
             var mode = UserRead | UserWrite | (groupAccess ? GroupRead | GroupWrite : 0);
 #if NET
             // The file is created with its mode, so no other user can open it first.
-            var options = new FileStreamOptions
-            {
-                Mode = FileMode.CreateNew,
-                Access = FileAccess.Write,
-            };
+            var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
             if (!OperatingSystem.IsWindows())
             {
                 options.UnixCreateMode = (UnixFileMode)mode;
@@ -128,9 +124,7 @@ internal static class FileModes
         File.SetUnixFileMode(path, (UnixFileMode)mode);
 #else
         var modeType = typeof(File).Assembly.GetType("System.IO.UnixFileMode");
-        var method = modeType is null
-            ? null
-            : typeof(File).GetMethod("SetUnixFileMode", [typeof(string), modeType]);
+        var method = modeType is null ? null : typeof(File).GetMethod("SetUnixFileMode", [typeof(string), modeType]);
         if (method is null)
         {
             throw new PlatformNotSupportedException(

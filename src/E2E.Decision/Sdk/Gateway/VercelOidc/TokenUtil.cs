@@ -79,8 +79,7 @@ internal static class TokenUtil
             {
                 Token = tokens.AccessToken,
                 ExpiresAt =
-                    Math.Floor((double)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000)
-                    + tokens.ExpiresIn,
+                    Math.Floor((double)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000) + tokens.ExpiresIn,
             };
             if (!string.IsNullOrEmpty(tokens.RefreshToken))
             {
@@ -118,20 +117,14 @@ internal static class TokenUtil
         using var client = OAuth.CreateHttpClient();
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + authToken);
-        using var response = await client
-            .SendAsync(request, cancellationToken)
-            .ConfigureAwait(false);
+        using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            throw new VercelOidcTokenError(
-                "Failed to refresh OIDC token: " + response.ReasonPhrase
-            );
+            throw new VercelOidcTokenError("Failed to refresh OIDC token: " + response.ReasonPhrase);
         }
 
 #if NET
-        var text = await response
-            .Content.ReadAsStringAsync(cancellationToken)
-            .ConfigureAwait(false);
+        var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 #else
         var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 #endif
@@ -168,9 +161,7 @@ internal static class TokenUtil
         var prjPath = Path.Combine(dir, ".vercel", "project.json");
         if (!File.Exists(prjPath))
         {
-            throw new VercelOidcTokenError(
-                "project.json not found, have you linked your project with `vc link?`"
-            );
+            throw new VercelOidcTokenError("project.json not found, have you linked your project with `vc link?`");
         }
 
         var prj = JsonNode.Parse(File.ReadAllText(prjPath)) as JsonObject;

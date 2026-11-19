@@ -45,9 +45,7 @@ internal static class OAuth
     internal static HttpClient CreateHttpClient()
     {
         var handler = HandlerOverride;
-        var client = handler is null
-            ? new HttpClient()
-            : new HttpClient(handler, disposeHandler: false);
+        var client = handler is null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
         client.Timeout = TimeSpan.FromSeconds(30);
         return client;
     }
@@ -84,9 +82,7 @@ internal static class OAuth
         using (response)
         {
 #if NET
-            var text = await response
-                .Content.ReadAsStringAsync(cancellationToken)
-                .ConfigureAwait(false);
+            var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 #else
             var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 #endif
@@ -105,10 +101,7 @@ internal static class OAuth
                 return (new InvalidOperationException("Invalid token response"), null);
             }
 
-            if (
-                body["access_token"] is not JsonValue accessToken
-                || !accessToken.TryGetValue<string>(out var access)
-            )
+            if (body["access_token"] is not JsonValue accessToken || !accessToken.TryGetValue<string>(out var access))
             {
                 return (new InvalidOperationException("Missing access_token in response"), null);
             }
@@ -122,18 +115,12 @@ internal static class OAuth
                 return (new InvalidOperationException("Invalid token_type in response"), null);
             }
 
-            if (
-                body["expires_in"] is not JsonValue expiresIn
-                || !expiresIn.TryGetValue<double>(out var expires)
-            )
+            if (body["expires_in"] is not JsonValue expiresIn || !expiresIn.TryGetValue<double>(out var expires))
             {
                 return (new InvalidOperationException("Missing expires_in in response"), null);
             }
 
-            var refresh =
-                body["refresh_token"] is JsonValue r && r.TryGetValue<string>(out var rt)
-                    ? rt
-                    : null;
+            var refresh = body["refresh_token"] is JsonValue r && r.TryGetValue<string>(out var rt) ? rt : null;
             return (null, new OAuthTokens(access, expires, refresh));
         }
     }
@@ -159,18 +146,14 @@ internal static class OAuth
                 VercelIssuer + "/.well-known/openid-configuration"
             );
             request.Headers.TryAddWithoutValidation("User-Agent", s_userAgent);
-            using var response = await client
-                .SendAsync(request, cancellationToken)
-                .ConfigureAwait(false);
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException("Failed to discover OAuth endpoints");
             }
 
 #if NET
-            var text = await response
-                .Content.ReadAsStringAsync(cancellationToken)
-                .ConfigureAwait(false);
+            var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 #else
             var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 #endif

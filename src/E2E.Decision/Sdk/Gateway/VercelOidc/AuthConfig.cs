@@ -44,19 +44,10 @@ internal static class AuthConfigStore
 
             return new AuthConfig
             {
-                Token =
-                    json["token"] is JsonValue token && token.TryGetValue<string>(out var t)
-                        ? t
-                        : null,
-                ExpiresAt =
-                    json["expiresAt"] is JsonValue exp && exp.TryGetValue<double>(out var e)
-                        ? e
-                        : null,
+                Token = json["token"] is JsonValue token && token.TryGetValue<string>(out var t) ? t : null,
+                ExpiresAt = json["expiresAt"] is JsonValue exp && exp.TryGetValue<double>(out var e) ? e : null,
                 RefreshToken =
-                    json["refreshToken"] is JsonValue refresh
-                    && refresh.TryGetValue<string>(out var r)
-                        ? r
-                        : null,
+                    json["refreshToken"] is JsonValue refresh && refresh.TryGetValue<string>(out var r) ? r : null,
             };
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -92,10 +83,7 @@ internal static class AuthConfigStore
             json["refreshToken"] = config.RefreshToken;
         }
 
-        FileModes.WriteRestricted(
-            authPath,
-            json.ToJsonString(new JsonSerializerOptions { WriteIndented = true })
-        );
+        FileModes.WriteRestricted(authPath, json.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
     /// <summary>True when the token is present and not expired within the buffer. A token without an expiry is valid.</summary>
@@ -111,9 +99,7 @@ internal static class AuthConfigStore
             return true;
         }
 
-        var nowInSeconds = Math.Floor(
-            (double)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000
-        );
+        var nowInSeconds = Math.Floor((double)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000);
         var bufferInSeconds = expirationBufferMs / 1000;
         return expiresAt >= nowInSeconds + bufferInSeconds;
     }

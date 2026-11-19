@@ -57,10 +57,7 @@ internal static class TokenIo
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            throw new VercelOidcTokenError(
-                "Token refresh only supported in node server environments",
-                exception
-            );
+            throw new VercelOidcTokenError("Token refresh only supported in node server environments", exception);
         }
 
         return null;

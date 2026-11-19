@@ -11,10 +11,7 @@ internal static class Token
     private static readonly SemaphoreSlim s_refreshLock = new(1, 1);
 
     /// <summary>Refreshes the OIDC token from the cache or the Vercel API and publishes it in <c>VERCEL_OIDC_TOKEN</c>.</summary>
-    public static async Task RefreshTokenAsync(
-        VercelOidcTokenOptions? options,
-        CancellationToken cancellationToken
-    )
+    public static async Task RefreshTokenAsync(VercelOidcTokenOptions? options, CancellationToken cancellationToken)
     {
         var projectId = options?.Project;
         var teamId = options?.Team;
@@ -44,25 +41,17 @@ internal static class Token
             var maybeToken = TokenUtil.LoadToken(projectId!);
             if (
                 maybeToken is null
-                || TokenUtil.IsExpired(
-                    TokenUtil.GetTokenPayload(maybeToken.Token),
-                    options?.ExpirationBufferMs ?? 0
-                )
+                || TokenUtil.IsExpired(TokenUtil.GetTokenPayload(maybeToken.Token), options?.ExpirationBufferMs ?? 0)
             )
             {
-                var authToken = await TokenUtil
-                    .GetVercelTokenAsync(options, cancellationToken)
-                    .ConfigureAwait(false);
+                var authToken = await TokenUtil.GetVercelTokenAsync(options, cancellationToken).ConfigureAwait(false);
                 maybeToken = await TokenUtil
                     .GetVercelOidcTokenAsync(authToken, projectId!, teamId, cancellationToken)
                     .ConfigureAwait(false);
                 TokenUtil.SaveToken(maybeToken, projectId!);
             }
 
-            Environment.SetEnvironmentVariable(
-                VercelEnvironment.OidcTokenEnvironmentVariable,
-                maybeToken.Token
-            );
+            Environment.SetEnvironmentVariable(VercelEnvironment.OidcTokenEnvironmentVariable, maybeToken.Token);
         }
         finally
         {

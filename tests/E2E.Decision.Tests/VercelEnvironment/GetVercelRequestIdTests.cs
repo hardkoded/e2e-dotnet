@@ -13,7 +13,9 @@ public sealed class GetVercelRequestIdTests
     [Fact]
     public void Should_get_request_ID_from_request_headers_when_available()
     {
-        using var _ = VercelRequestContext.Use(new Dictionary<string, string?> { ["x-vercel-id"] = "req_1234567890abcdef" });
+        using var _ = VercelRequestContext.Use(
+            new Dictionary<string, string?> { ["x-vercel-id"] = "req_1234567890abcdef" }
+        );
 
         Assert.Equal("req_1234567890abcdef", Env.GetVercelRequestId());
     }

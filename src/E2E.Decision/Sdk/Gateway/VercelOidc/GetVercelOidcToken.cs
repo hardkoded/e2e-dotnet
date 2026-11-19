@@ -41,10 +41,7 @@ internal static class VercelOidcToken
         {
             if (
                 token.Length == 0
-                || TokenUtil.IsExpired(
-                    TokenUtil.GetTokenPayload(token),
-                    options?.ExpirationBufferMs ?? 0
-                )
+                || TokenUtil.IsExpired(TokenUtil.GetTokenPayload(token), options?.ExpirationBufferMs ?? 0)
             )
             {
                 await Token.RefreshTokenAsync(options, cancellationToken).ConfigureAwait(false);
@@ -53,10 +50,7 @@ internal static class VercelOidcToken
         }
         catch (Exception error) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new VercelOidcTokenError(
-                (err is null ? "" : err.Message + "\n") + error.Message,
-                error
-            );
+            throw new VercelOidcTokenError((err is null ? "" : err.Message + "\n") + error.Message, error);
         }
 
         return token;
@@ -73,9 +67,7 @@ internal static class VercelOidcToken
         var token = VercelEnvironment.GetContextHeader("x-vercel-oidc-token");
         if (token is null)
         {
-            token = Environment.GetEnvironmentVariable(
-                VercelEnvironment.OidcTokenEnvironmentVariable
-            );
+            token = Environment.GetEnvironmentVariable(VercelEnvironment.OidcTokenEnvironmentVariable);
         }
 
         if (string.IsNullOrEmpty(token))

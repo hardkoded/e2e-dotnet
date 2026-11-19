@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Decision.Sdk.Gateway;
-using Env = E2E.Decision.Sdk.Gateway.VercelEnvironment;
 using static E2E.Decision.Tests.GatewayDecisionModel.GatewayDecisionModelFixture;
+using Env = E2E.Decision.Sdk.Gateway.VercelEnvironment;
 
 namespace E2E.Decision.Tests.GatewayDecisionModel;
 
@@ -19,7 +19,9 @@ public sealed class OidcAuthenticationTests
     {
         var server = new TestServer();
         PrepareJsonResponse(server);
-        var provider = new GatewayProvider(new GatewayProviderSettings { BaseUrl = "https://api.test.com", HttpClient = server.Client });
+        var provider = new GatewayProvider(
+            new GatewayProviderSettings { BaseUrl = "https://api.test.com", HttpClient = server.Client }
+        );
 
         using var _ = WithoutApiKey();
         Env.OidcTokenOverride = _ => Task.FromResult("mock-oidc-token");
@@ -41,7 +43,9 @@ public sealed class OidcAuthenticationTests
     {
         var server = new TestServer();
         PrepareJsonResponse(server);
-        var provider = new GatewayProvider(new GatewayProviderSettings { BaseUrl = "https://api.test.com", HttpClient = server.Client });
+        var provider = new GatewayProvider(
+            new GatewayProviderSettings { BaseUrl = "https://api.test.com", HttpClient = server.Client }
+        );
 
         using var _ = WithoutApiKey();
         Env.OidcTokenOverride = _ => throw new InvalidOperationException("OIDC token not available");
