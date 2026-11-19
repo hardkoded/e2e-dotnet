@@ -25,6 +25,12 @@ internal sealed record FailureEvidenceOptions
     /// <summary>Redacts the screen and the query it is compared with.</summary>
     public required Redactor Redactor { get; init; }
 
+    /// <summary>
+    /// Whether the step that failed ran on the session. False for a step of a session the test drives beside it (<see cref="Launch"/>): the screen is
+    /// still the test's own to show, but the failed locator was never asked of it. Upstream's <c>ownStep</c>.
+    /// </summary>
+    public bool OwnStep { get; init; } = true;
+
     /// <summary>The app base URL's origin, whose link targets the screen lists as paths.</summary>
     public string? AppOrigin { get; init; }
 
@@ -131,7 +137,9 @@ internal sealed partial record FailureEvidence
                 // An unwritable directory: the tree stays unrecorded.
             }
 
-            var candidates = LocatorCandidates(options.Error, observation, options.Redactor, options.AppOrigin);
+            var candidates = options.OwnStep
+                ? LocatorCandidates(options.Error, observation, options.Redactor, options.AppOrigin)
+                : [];
             if (candidates.Count > 0)
             {
                 evidence = evidence with { Candidates = candidates };

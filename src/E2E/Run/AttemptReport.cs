@@ -233,6 +233,7 @@ internal static class AttemptReport
             record.StartedAt,
             Redaction: record.Redaction,
             Ref: record.Ref,
-            Producer: record.Producer
+            Producer: record.Producer,
+            Actor: record.Actor
         );
 }
