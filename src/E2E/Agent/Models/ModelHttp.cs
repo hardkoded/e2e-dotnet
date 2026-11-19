@@ -174,7 +174,10 @@ internal static class ModelHttp
                 }
 
                 throw Spent(
-                    new AgentException("MODEL_PROVIDER_FAILED", "The model provider could not be reached.", ex),
+                    new AgentException("MODEL_PROVIDER_FAILED", "The model provider could not be reached.", ex)
+                    {
+                        NoProviderAnswer = true,
+                    },
                     attempts
                 );
             }
@@ -225,7 +228,22 @@ internal static class ModelHttp
         {
             ProviderStatus = (int)response.StatusCode,
             ProviderErrorCode = ErrorCode(body),
+            ProviderRetryHeaders = RetryHeaders(response),
         };
+
+    private static Dictionary<string, string>? RetryHeaders(HttpResponseMessage response)
+    {
+        Dictionary<string, string>? headers = null;
+        foreach (var name in new[] { "retry-after-ms", "retry-after" })
+        {
+            if (response.Headers.TryGetValues(name, out var values) && values.FirstOrDefault() is { } value)
+            {
+                (headers ??= [])[name] = value;
+            }
+        }
+
+        return headers;
+    }
 
     /// <summary>
     /// The AI SDK throws a <c>RetryError</c> (<c>reason: 'maxRetriesExceeded'</c>) once its retries are spent. The port keeps the

@@ -110,6 +110,12 @@ public sealed class AgentException : E2EException
     /// <summary>The HTTP status of the provider's error answer that ended a model call; null for any other failure. Upstream reads it off the AI SDK's <c>APICallError</c>.</summary>
     internal int? ProviderStatus { get; init; }
 
+    /// <summary>The <c>retry-after-ms</c> and <c>retry-after</c> headers of that answer, lowercase names; null when it had neither.</summary>
+    internal IReadOnlyDictionary<string, string>? ProviderRetryHeaders { get; init; }
+
+    /// <summary>True when the model call failed before any answer came (a refused or reset connection, or no reply in time).</summary>
+    internal bool NoProviderAnswer { get; init; }
+
     /// <summary>The <c>error.code</c> of that answer's JSON body when it is a short string; null when the body has none.</summary>
     internal string? ProviderErrorCode { get; init; }
 

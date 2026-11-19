@@ -54,7 +54,6 @@ public sealed class DecideTests
         var decisions = await Decide.DecideAsync(ctx, model, Request());
 
         Assert.Equal(new Decision("tap", 0.9, 0.7), decisions["operation"]);
-        Assert.Equal(3, model.Calls[0].MaxRetries);
         var call = Assert.Single(usage);
         Assert.Equal(("scripted", 10, 2), (call.Provider, call.InputTokens, call.OutputTokens));
     }

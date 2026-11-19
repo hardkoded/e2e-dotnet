@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using System.Text.Json;
+using E2E.Internal;
 
 namespace E2E.Decision.Sdk;
 
@@ -22,7 +23,7 @@ public sealed class DecideOptions
     /// <summary>Reasoning effort, for models that support it.</summary>
     public string? Reasoning { get; init; }
 
-    /// <summary>Retries of transient provider failures. Null keeps the provider's own.</summary>
+    /// <summary>Retries of a call that fails with a retryable error. Null is the AI SDK's default, 2.</summary>
     public int? MaxRetries { get; init; }
 
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
@@ -38,6 +39,14 @@ public sealed class DecideOptions
 public static class ExperimentalDecide
 {
     private const double Tolerance = 1e-6;
+
+    /// <summary>The AI SDK's default <c>maxRetries</c>.</summary>
+    private const int DefaultMaxRetries = 2;
+
+    /// <summary>The AI SDK's first backoff, doubled for each retry.</summary>
+    private static readonly TimeSpan InitialRetryDelay = TimeSpan.FromSeconds(2);
+
+    private const int RetryBackoffFactor = 2;
 
     /// <summary>Decides answers to typed questions against one shared state.</summary>
     public static async Task<DecisionResult> RunAsync(
@@ -75,18 +84,31 @@ public static class ExperimentalDecide
             }
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        var result = await model
-            .DoDecideAsync(
-                new DecisionModelCall
+        var maxRetries = options.MaxRetries ?? DefaultMaxRetries;
+        if (maxRetries < 0)
+        {
+            throw new InvalidArgumentException("maxRetries", "maxRetries must be >= 0");
+        }
+
+        var result = await RetryAsync(
+                maxRetries,
+                async () =>
                 {
-                    State = options.State,
-                    Questions = options.Questions,
-                    MaxOutputTokens = options.MaxOutputTokens,
-                    Reasoning = options.Reasoning,
-                    MaxRetries = options.MaxRetries,
-                    Headers = options.Headers ?? new Dictionary<string, string>(),
-                    ProviderOptions = options.ProviderOptions,
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return await model
+                        .DoDecideAsync(
+                            new DecisionModelCall
+                            {
+                                State = options.State,
+                                Questions = options.Questions,
+                                MaxOutputTokens = options.MaxOutputTokens,
+                                Reasoning = options.Reasoning,
+                                Headers = options.Headers ?? new Dictionary<string, string>(),
+                                ProviderOptions = options.ProviderOptions,
+                            },
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
                 },
                 cancellationToken
             )
@@ -108,6 +130,114 @@ public static class ExperimentalDecide
             ProviderMetadata = result.ProviderMetadata,
             ResponseModelId = result.ResponseModelId ?? model.ModelId,
         };
+    }
+
+    /// <summary>
+    /// The AI SDK's <c>retryWithExponentialBackoffRespectingRetryHeaders</c>: runs <paramref name="call"/>, and sends it again, up to
+    /// <paramref name="maxRetries"/> times, while it fails with a retryable <see cref="ApiCallException"/>. The first non-retryable failure
+    /// is thrown as is; a failure after retries, or a spent budget, is a <see cref="RetryError"/>. Cancelling ends the wait between attempts.
+    /// </summary>
+    private static async Task<T> RetryAsync<T>(int maxRetries, Func<Task<T>> call, CancellationToken cancellationToken)
+    {
+        if (maxRetries == 0)
+        {
+            // As the AI SDK's retryWithExponentialBackoff: no retries, no wrapping.
+            return await call().ConfigureAwait(false);
+        }
+
+        var errors = new List<Exception>();
+        var backoff = InitialRetryDelay;
+        while (true)
+        {
+            try
+            {
+                return await call().ConfigureAwait(false);
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                var message = ErrorMessage(error);
+                errors.Add(error);
+                var tries = errors.Count;
+                if (tries > maxRetries)
+                {
+                    throw new RetryError(
+                        "Failed after "
+                            + tries.ToString(CultureInfo.InvariantCulture)
+                            + " attempts. Last error: "
+                            + message,
+                        errors
+                    );
+                }
+
+                if (error is ApiCallException { IsRetryable: true } api)
+                {
+                    await Task.Delay(RetryDelay(api, backoff), cancellationToken).ConfigureAwait(false);
+                    backoff *= RetryBackoffFactor;
+                    continue;
+                }
+
+                if (tries == 1)
+                {
+                    // Not wrapped when a non-retryable error occurs on the first try.
+                    throw;
+                }
+
+                throw new RetryError(
+                    "Failed after "
+                        + tries.ToString(CultureInfo.InvariantCulture)
+                        + " attempts with non-retryable error: '"
+                        + message
+                        + "'",
+                    errors
+                );
+            }
+        }
+    }
+
+    /// <summary>The AI SDK's <c>getErrorMessage</c>, which prints an error as JavaScript's <c>toString</c> does: its name, then its message.</summary>
+    private static string ErrorMessage(Exception error) =>
+        (error is ApiCallException ? "AI_APICallError" : "Error") + ": " + error.Message;
+
+    /// <summary>
+    /// The AI SDK's <c>getRetryDelayInMs</c>: the provider's <c>retry-after-ms</c>, else its <c>retry-after</c> (seconds or an HTTP date),
+    /// when it is not negative and under a minute (or under the backoff); otherwise the exponential backoff.
+    /// </summary>
+    private static TimeSpan RetryDelay(ApiCallException error, TimeSpan backoff)
+    {
+        var headers = error.ResponseHeaders;
+        if (headers is null)
+        {
+            return backoff;
+        }
+
+        double? ms = null;
+        if (
+            headers.TryGetValue("retry-after-ms", out var millis)
+            && double.TryParse(millis, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedMs)
+        )
+        {
+            ms = parsedMs;
+        }
+
+        if (ms is null && headers.TryGetValue("retry-after", out var after))
+        {
+            if (double.TryParse(after, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
+            {
+                ms = seconds * 1000;
+            }
+            else if (DateTimeOffset.TryParse(after, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+            {
+                ms = (date - DateTimeOffset.UtcNow).TotalMilliseconds;
+            }
+        }
+
+        return
+            ms is { } delay
+            && double.IsFinite(delay)
+            && delay >= 0
+            && (delay < 60_000 || delay < backoff.TotalMilliseconds)
+            ? TimeSpan.FromMilliseconds(delay)
+            : backoff;
     }
 
     /// <summary>The AI SDK's <c>validateDecisionInput</c>: the state and the questions, before any request.</summary>

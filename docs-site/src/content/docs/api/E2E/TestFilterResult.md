@@ -70,7 +70,7 @@ public IReadOnlyDictionary<string, double>? Relevance { get; init; }
 
 How likely each test is to fail on this change, from 0 to 1, by [Id](/api/E2E/TestFilterCandidate/#E2E_TestFilterCandidate_Id). Upstream's runner starts the files of
 the likeliest tests first, in bands at 75%, 50%, and 25%, and targets by the band of their best file; here the scores are kept and
-`Units.OrderWorkPlans` orders plans with them, but the test framework owns the order of a `dotnet test` run: xUnit v3 and TUnit start the
-likeliest tests first (see `RelevanceTestCollectionOrderer` and `E2E.TUnit.RunSelection`); NUnit does not reorder. A test no filter scores counts as 0, and one several filters score keeps its highest. It never leaves a test out.
+`Units.OrderWorkPlans` orders plans with them, but the test framework owns the order of a `dotnet test` run: all three adapters start the
+likeliest tests first (see `RelevanceTestCollectionOrderer` and the `RunSelection` of `E2E.NUnit` and `E2E.TUnit`). A test no filter scores counts as 0, and one several filters score keeps its highest. It never leaves a test out.
 
 **Value:** [IReadOnlyDictionary&lt;string, double&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using NUnit.Framework;
+using NUnit.Framework.Internal;
 
 namespace E2E.NUnit;
 
@@ -77,6 +78,7 @@ public abstract class E2ERunFixture
             var lastFailed = HostTestFilters.ResolveLastFailed(LastFailed);
             if (changedSince is not null || lastFailed)
             {
+                var running = RunSelection.CurrentWorkItem();
                 var selection = await HostTestFilters
                     .ExcludeAsync(
                         config,
@@ -85,10 +87,17 @@ public abstract class E2ERunFixture
                         discovered,
                         line => global::NUnit.Framework.TestContext.Progress.WriteLine(line),
                         global::NUnit.Framework.TestContext.CurrentContext.CancellationToken,
-                        lastFailed
+                        lastFailed,
+                        ordered: running is not null
                     )
                     .ConfigureAwait(false);
                 RunSelection.Add(selection.Excluded);
+                RunSelection.SetRelevance(selection.Relevance ?? new Dictionary<string, double>());
+                if (running is not null)
+                {
+                    RunSelection.OrderByRelevance(running);
+                }
+
                 HostRun.RerunDir = selection.RerunDir;
                 excluded = selection.Excluded;
                 await HostTestFilters
