@@ -30,6 +30,21 @@ public sealed class DecideOptions
 
     /// <summary>The provider options, keyed by provider name.</summary>
     public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
+
+    /// <summary>Optional telemetry configuration.</summary>
+    public TelemetryOptions? Telemetry { get; init; }
+
+    /// <summary>User-defined runtime context. Treat runtime context as immutable.</summary>
+    public IReadOnlyDictionary<string, object?>? RuntimeContext { get; init; }
+
+    /// <summary>Called when the decide operation begins.</summary>
+    public Func<DecideStartEvent, Task>? OnStart { get; init; }
+
+    /// <summary>Called when the decide operation completes.</summary>
+    public Func<DecideEndEvent, Task>? OnEnd { get; init; }
+
+    /// <summary>Internal. For test use only (<c>_internal.generateCallId</c>). May change without notice.</summary>
+    internal Func<string>? GenerateCallId { get; init; }
 }
 
 /// <summary>
@@ -90,46 +105,154 @@ public static class ExperimentalDecide
             throw new InvalidArgumentException("maxRetries", "maxRetries must be >= 0");
         }
 
-        var result = await RetryAsync(
-                maxRetries,
-                async () =>
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    return await model
-                        .DoDecideAsync(
-                            new DecisionModelCall
-                            {
-                                State = options.State,
-                                Questions = options.Questions,
-                                MaxOutputTokens = options.MaxOutputTokens,
-                                Reasoning = options.Reasoning,
-                                Headers = options.Headers ?? new Dictionary<string, string>(),
-                                ProviderOptions = options.ProviderOptions,
-                            },
-                            cancellationToken
-                        )
-                        .ConfigureAwait(false);
-                },
-                cancellationToken
-            )
-            .ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        ValidateAnswers(options.Questions, result.Answers, result.Rounding);
-        var refused = options.Questions.Keys.Where(id => result.Answers[id].Type == "refusal").ToList();
-        if (refused.Count > 0)
+        var callId = (options.GenerateCallId ?? GenerateCallId)();
+        var telemetryDispatcher = new TelemetryDispatcher(options.Telemetry);
+        var startEvent = new DecideStartEvent
         {
-            throw new DecisionRefusalException(refused, model.Provider, model.ModelId);
-        }
-
-        return new DecisionResult
-        {
-            Answers = result.Answers,
-            Usage = new DecisionUsage(result.Usage?.InputTokens, result.Usage?.OutputTokens),
-            Warnings = result.Warnings,
-            Rounding = result.Rounding,
-            ProviderMetadata = result.ProviderMetadata,
-            ResponseModelId = result.ResponseModelId ?? model.ModelId,
+            CallId = callId,
+            RuntimeContext = options.RuntimeContext ?? new Dictionary<string, object?>(),
+            Provider = model.Provider,
+            ModelId = model.ModelId,
+            State = options.State,
+            Questions = options.Questions,
+            MaxOutputTokens = options.MaxOutputTokens,
+            Reasoning = options.Reasoning,
+            MaxRetries = maxRetries,
+            Headers = options.Headers,
+            ProviderOptions = options.ProviderOptions ?? new Dictionary<string, JsonElement>(),
         };
+        await TelemetryDispatcher
+            .NotifyAsync(startEvent, [options.OnStart, telemetryDispatcher.OnStartAsync], cancellationToken)
+            .ConfigureAwait(false);
+
+        try
+        {
+            var modelCallEvent = new DecisionModelCallStartEvent
+            {
+                CallId = callId,
+                Provider = model.Provider,
+                ModelId = model.ModelId,
+                State = options.State,
+                Questions = options.Questions,
+            };
+            await TelemetryDispatcher
+                .NotifyAsync(modelCallEvent, [telemetryDispatcher.OnDecisionModelCallStartAsync], cancellationToken)
+                .ConfigureAwait(false);
+            var result = await RetryAsync(
+                    maxRetries,
+                    async () =>
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        return await model
+                            .DoDecideAsync(
+                                new DecisionModelCall
+                                {
+                                    State = options.State,
+                                    Questions = options.Questions,
+                                    MaxOutputTokens = options.MaxOutputTokens,
+                                    Reasoning = options.Reasoning,
+                                    Headers = options.Headers ?? new Dictionary<string, string>(),
+                                    ProviderOptions = options.ProviderOptions,
+                                },
+                                cancellationToken
+                            )
+                            .ConfigureAwait(false);
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            ValidateAnswers(options.Questions, result.Answers, result.Rounding);
+            var refused = options.Questions.Keys.Where(id => result.Answers[id].Type == "refusal").ToList();
+            if (refused.Count > 0)
+            {
+                throw new DecisionRefusalException(refused, model.Provider, model.ModelId);
+            }
+
+            await TelemetryDispatcher
+                .NotifyAsync(
+                    new DecisionModelCallEndEvent
+                    {
+                        CallId = callId,
+                        Provider = model.Provider,
+                        ModelId = model.ModelId,
+                        State = options.State,
+                        Questions = options.Questions,
+                        Answers = result.Answers,
+                        Usage = result.Usage,
+                        Warnings = result.Warnings,
+                        Rounding = result.Rounding,
+                        ProviderMetadata = result.ProviderMetadata,
+                        ResponseModelId = result.ResponseModelId,
+                    },
+                    [telemetryDispatcher.OnDecisionModelCallEndAsync],
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            var decisionResult = new DecisionResult
+            {
+                Answers = result.Answers,
+                Usage = new DecisionUsage(result.Usage?.InputTokens, result.Usage?.OutputTokens),
+                Warnings = result.Warnings,
+                Rounding = result.Rounding,
+                ProviderMetadata = result.ProviderMetadata,
+                ResponseModelId = result.ResponseModelId ?? model.ModelId,
+            };
+            await TelemetryDispatcher
+                .NotifyAsync(
+                    new DecideEndEvent
+                    {
+                        CallId = startEvent.CallId,
+                        RuntimeContext = startEvent.RuntimeContext,
+                        Provider = startEvent.Provider,
+                        ModelId = startEvent.ModelId,
+                        State = startEvent.State,
+                        Questions = startEvent.Questions,
+                        MaxOutputTokens = startEvent.MaxOutputTokens,
+                        Reasoning = startEvent.Reasoning,
+                        MaxRetries = startEvent.MaxRetries,
+                        Headers = startEvent.Headers,
+                        ProviderOptions = startEvent.ProviderOptions,
+                        Answers = decisionResult.Answers,
+                        Usage = decisionResult.Usage,
+                        Warnings = decisionResult.Warnings,
+                        Rounding = decisionResult.Rounding,
+                        ProviderMetadata = decisionResult.ProviderMetadata,
+                        ResponseModelId = decisionResult.ResponseModelId,
+                        Timestamp = decisionResult.Timestamp,
+                    },
+                    [options.OnEnd, telemetryDispatcher.OnEndAsync],
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            return decisionResult;
+        }
+        catch (Exception error)
+        {
+            // A failing integration must not hide the error the call failed with.
+            await TelemetryDispatcher
+                .NotifyAsync(
+                    error,
+                    [failure => telemetryDispatcher.OnErrorAsync(callId, failure)],
+                    CancellationToken.None
+                )
+                .ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    /// <summary>The AI SDK's <c>createIdGenerator({ prefix: 'call', size: 24 })</c>: <c>call-</c> and 24 random letters and digits.</summary>
+    private static string GenerateCallId()
+    {
+        const string alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        return "call-" + string.Create(24, alphabet, static (span, chars) =>
+            {
+                for (var i = 0; i < span.Length; i++)
+                {
+                    span[i] = chars[System.Security.Cryptography.RandomNumberGenerator.GetInt32(chars.Length)];
+                }
+            });
     }
 
     /// <summary>
