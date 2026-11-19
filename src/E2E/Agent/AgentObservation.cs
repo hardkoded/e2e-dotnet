@@ -147,8 +147,8 @@ internal static partial class AgentObservation
 
     private static readonly Regex Focus = new(@" \[focused\]", RegexOptions.CultureInvariant);
 
-    /// <summary><c>12:05</c>, <c>0:59</c>, <c>23:59:59</c>: a value that changes on its own once a second or minute.</summary>
-    private static readonly Regex Clock = new(@"\b\d{1,2}:\d{2}(?::\d{2})?\b", RegexOptions.CultureInvariant);
+    /// <summary><c>12:05</c>, <c>0:59</c>, <c>23:59:59</c>, <c>5:42pm</c>: a value that changes on its own once a second or minute.</summary>
+    private static readonly Regex Clock = Dates.ClockTime;
 
     private static readonly HashSet<string> EmptyRoots = new(["document", "screen", "window"], StringComparer.Ordinal);
 

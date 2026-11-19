@@ -159,6 +159,21 @@ public static partial class Program
         var provider = positional.FirstOrDefault();
         if (args[0] is "login" or "logout" or "models" && provider is not null)
         {
+            // Upstream registers PROVIDER_NAMES as commander `.choices(...)` on the provider argument: an unknown one exits 2.
+            if (!OAuthProviders.Names.Contains(provider, StringComparer.Ordinal))
+            {
+                await stderr
+                    .WriteLineAsync(
+                        "error: command-argument value '"
+                            + provider
+                            + "' is invalid for argument 'provider'. Allowed choices are "
+                            + string.Join(", ", OAuthProviders.Names)
+                            + "."
+                    )
+                    .ConfigureAwait(false);
+                return 2;
+            }
+
             provider = OAuthProviders.CanonicalProviderId(provider);
         }
         switch (args[0])
@@ -306,7 +321,7 @@ public static partial class Program
         return 0;
     }
 
-    private static async Task<int> LogoutAsync(
+    internal static async Task<int> LogoutAsync(
         string? providerId,
         TextWriter stdout,
         TextReader stdin,
