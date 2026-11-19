@@ -101,6 +101,6 @@ A user cannot hit these upstream codes in the port. It has no suite runner and n
 | Code | Upstream | Why the port has none |
 | --- | --- | --- |
 | `ONLY_IN_CI` | A focused test (`test.only`) reached a CI run (configuration, exit 2) | NUnit and xUnit have no `test.only`. The selection step carries the check, but no public path marks a test as focused, so it is not reachable from a test |
-| `RUNNER_BUSY` | A suite overlapped another suite, an opening or open host, or a live attempt; or an `e2e mcp` `run_tests` started while another was running (configuration, exit 2) | The port has no suite runner and no `run_tests` tool. The iOS device layer has a code with the same name, for an automation runner still finishing a command; it is a device code, not this one |
+| `RUNNER_BUSY` | A suite overlapped another suite, an opening or open host, or a live attempt (configuration, exit 2) | The port has no suite runner, and `e2e mcp` has no tool that runs tests (upstream removed `run_tests`). The iOS device layer has a code with the same name, for an automation runner still finishing a command; it is a device code, not this one |
 
 The runner codes upstream lists besides these (`CONFIG_*`, `WORKER_*`, `TEST_TIMEOUT`, the `e2e mcp` session codes, and so on) belong to features the port does not have, or that NUnit and xUnit own. [COMPATIBILITY.md](https://github.com/hardkoded/e2e-dotnet/blob/main/COMPATIBILITY.md) lists them.
