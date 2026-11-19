@@ -40,7 +40,12 @@ internal static class Downloads
             }
 
             var data = await ReadResponseWithSizeLimit
-                .ReadAsync(response, urlText, maxBytes ?? ReadResponseWithSizeLimit.DefaultMaxDownloadSize, linked)
+                .ReadAsync(
+                    response,
+                    urlText,
+                    maxBytes ?? ReadResponseWithSizeLimit.DefaultMaxDownloadSize,
+                    cancellationToken: linked
+                )
                 .ConfigureAwait(false);
             return new DownloadedFile(data, response.Content.Headers.ContentType?.MediaType);
         }

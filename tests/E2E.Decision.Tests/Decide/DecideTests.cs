@@ -125,7 +125,7 @@ public sealed class DecideTests
             {
                 Model = model,
                 Questions = QuestionMap,
-                ExperimentalDownload = CreateDownload.Create(
+                ExperimentalDownload = Sdk.CreateDownload.Create(
                     new CreateDownloadOptions
                     {
                         Fetch = (request, _) =>
@@ -162,7 +162,7 @@ public sealed class DecideTests
                 {
                     Model = model,
                     Questions = QuestionMap,
-                    ExperimentalDownload = CreateDownload.Create(
+                    ExperimentalDownload = Sdk.CreateDownload.Create(
                         new CreateDownloadOptions
                         {
                             Fetch = (_, _) =>

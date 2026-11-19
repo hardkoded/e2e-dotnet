@@ -30,22 +30,48 @@ internal static class FetchUntrustedUrl
     };
 
     /// <summary>
-    /// Fetches an untrusted URL with first-hop credential isolation and validated redirects: only allowlisted request metadata is sent on the
-    /// first hop. Upstream's <c>credentialedOrigin</c>, <c>trustedOrigin</c>, and <c>untrustedFirstHopHeaders</c> are not ported, since
-    /// nothing in the port passes them.
+    /// Fetches an untrusted URL with first-hop credential isolation and validated redirects. Without a matching
+    /// <paramref name="credentialedOrigin"/> (or <paramref name="trustedOrigin"/> when it is omitted), only allowlisted request metadata is
+    /// sent on the first hop; <paramref name="untrustedFirstHopHeaders"/> adds non-credential header names to that list. Proxy, metadata,
+    /// cookie, and hop-by-hop headers are sanitized even for a matching origin. Both origins must come from developer configuration, never
+    /// from response data.
     /// </summary>
     internal static Task<HttpResponseMessage> FetchAsync(
         string url,
         IReadOnlyDictionary<string, string>? headers,
         FetchFunction? fetch,
-        CancellationToken cancellationToken
-    ) =>
-        FetchWithValidatedRedirects.FetchAsync(
+        CancellationToken cancellationToken,
+        string? credentialedOrigin = null,
+        IEnumerable<string>? untrustedFirstHopHeaders = null,
+        string? trustedOrigin = null,
+        int? maxRedirects = null
+    )
+    {
+        Dictionary<string, string>? firstHopHeaders = null;
+        if (headers is not null)
+        {
+            firstHopHeaders = SanitizeRequestHeaders.Sanitize(headers);
+            var origin = credentialedOrigin ?? trustedOrigin;
+            if (origin is null || !IsSameOrigin.Check(url, origin))
+            {
+                var allowedHeaders = new HashSet<string>(
+                    SafeUntrustedFirstHopHeaders,
+                    StringComparer.OrdinalIgnoreCase
+                );
+                allowedHeaders.UnionWith(untrustedFirstHopHeaders ?? []);
+                firstHopHeaders = firstHopHeaders
+                    .Where(header => allowedHeaders.Contains(header.Key))
+                    .ToDictionary(header => header.Key, header => header.Value, StringComparer.Ordinal);
+            }
+        }
+
+        return FetchWithValidatedRedirects.FetchAsync(
             url,
-            headers
-                ?.Where(header => SafeUntrustedFirstHopHeaders.Contains(header.Key))
-                .ToDictionary(header => header.Key, header => header.Value, StringComparer.OrdinalIgnoreCase),
+            firstHopHeaders,
             fetch,
-            cancellationToken
+            cancellationToken,
+            trustedOrigin,
+            maxRedirects ?? FetchWithValidatedRedirects.DefaultMaxRedirects
         );
+    }
 }
