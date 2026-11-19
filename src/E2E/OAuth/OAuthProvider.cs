@@ -11,7 +11,7 @@ namespace E2E.OAuth;
 /// </summary>
 public interface IOAuthProvider
 {
-    /// <summary>The id in the credentials file and on the command line: <c>openai</c>, <c>github-copilot</c>, <c>opencode-console</c>, <c>spacexai</c>.</summary>
+    /// <summary>The id in the credentials file and on the command line: <c>openai</c>, <c>github-copilot</c>, <c>opencode-console</c>, <c>spacexsi</c>.</summary>
     string Id { get; }
 
     /// <summary>The vendor's name for messages.</summary>

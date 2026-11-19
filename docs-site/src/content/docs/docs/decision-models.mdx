@@ -85,6 +85,8 @@ using E2E.Decision.Sdk.TypeSafeAi;
 var model = new TypeSafeAiProvider().DecisionModel("jev-latest");
 ```
 
+`TYPESAFE_AI_BASE_URL` routes the provider through a trusted proxy or a self-hosted TypeSafe-compatible server. The default base URL is `https://api.typesafe.ai/v1`. `TypeSafeAiProviderSettings.BaseUrl` takes precedence over the variable. The configured server receives the API key and the decision input.
+
 `OpenAIDecisionModel` takes images too. Vercel AI Gateway rejects the screenshot for every decision model, so keep `Vision` off there.
 
 `TypeSafeAiProviderSettings.BaseUrl` defaults to the `TYPESAFE_AI_BASE_URL` environment variable, then `https://api.typesafe.ai/v1`; `TypeSafeAiProvider.TypeSafeAi` is the provider that environment configures. TypeSafe has no language, embedding, or image models, so `LanguageModel`, `EmbeddingModel`, and `ImageModel` throw `NoSuchModelException`. `TypeSafeAiModelCatalog` lists the decision models (`ModelCatalog`, `GetTypeSafeAiDecisionModelEntry`) and their provider options (`TypeSafeAiProviderOptions`).
@@ -130,7 +132,7 @@ var result = await ExperimentalDecide.RunAsync(new DecideOptions
 });
 ```
 
-`DecideOptions.Telemetry` takes `TelemetryOptions` with `Integrations`, a list of `ITelemetry`. An integration overrides the members it listens to: `OnDecideStartAsync`, `OnDecisionModelCallStartAsync`, `OnDecisionModelCallEndAsync`, `OnDecideEndAsync`, and `OnErrorAsync`. The decision model call events cover the logical model call, so a retried call fires one start, and one end only if a retry succeeds. Every integration event carries the call's `RecordInputs`, `RecordOutputs`, `FunctionId`, and `AiVersion`.
+`DecideOptions.Telemetry` takes `TelemetryOptions` with `Integrations`, a list of `ITelemetry`. An integration overrides the members it listens to: `OnDecideStartAsync`, `OnDecisionModelCallStartAsync`, `OnDecisionModelCallEndAsync`, `OnDecideEndAsync`, and `OnErrorAsync`. The decision model call events cover the logical model call, so a retried call fires one start, and one end only if a retry succeeds. Every integration event carries the call's `RecordInputs`, `RecordOutputs`, `FunctionId`, and `AiVersion`. A call that sets no `Integrations` uses the global ones added with `TelemetryRegistry.RegisterTelemetry(params ITelemetry[])`, in registration order; `TelemetryOptions.Integrations` replaces them, and `IsEnabled = false` ignores them.
 
 - `RecordInputs = false` empties the state, the questions, and the provider options of the events an integration receives. `RecordOutputs = false` empties the answers. Either one also drops the provider metadata and replaces the error with a generic one.
 - `RecordInputs = false` does not remove `Headers`: integrations still receive them on the decide start and end events. Do not place credentials in `Headers` if an integration exports telemetry.

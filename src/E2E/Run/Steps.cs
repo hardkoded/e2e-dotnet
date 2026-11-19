@@ -424,6 +424,12 @@ internal sealed record StepRecorderOptions
     /// <summary>The running phase's signal, read when a step starts: a step that starts with it already cut is refused, and not recorded.</summary>
     public Func<CancellationToken>? Signal { get; init; }
 
+    /// <summary>
+    /// What the running phase's signal aborted with, read when a cancelled step fails (upstream's <c>signal.reason</c>): a step another abort reached first fails
+    /// with it, as <c>NameRunning</c> leaves it, instead of a bare cancellation. Null when the signal carries none.
+    /// </summary>
+    public Func<Exception?>? Reason { get; init; }
+
     /// <summary>The attempt's AI trace attribution; each step narrows it to its own api and label. Null when the attempt is not traced.</summary>
     public AiTraceScope? AiTrace { get; init; }
 

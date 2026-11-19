@@ -18,7 +18,7 @@ public sealed class E2eModelsTests : IDisposable
     private const string Logins = """
         {
           "github-copilot": { "access": "gho", "refresh": "", "expires": 0 },
-          "spacexai": { "access": "x", "refresh": "", "expires": 0 }
+          "spacexsi": { "access": "x", "refresh": "", "expires": 0 }
         }
         """;
 
@@ -44,12 +44,12 @@ public sealed class E2eModelsTests : IDisposable
     {
         var none = await Assert.ThrowsAsync<OAuthException>(() => RunAsync("models"));
         Assert.Equal(
-            "no login is stored; sign in with e2e login <openai|github-copilot|opencode-console|spacexai>, or set OPENCODE_API_KEY",
+            "no login is stored; sign in with e2e login <openai|github-copilot|opencode-console|spacexsi>, or set OPENCODE_API_KEY",
             none.Message
         );
 
-        var named = await Assert.ThrowsAsync<OAuthException>(() => RunAsync("models", "spacexai"));
-        Assert.Equal("no SpaceXAI login is stored; run `e2e login spacexai`", named.Message);
+        var named = await Assert.ThrowsAsync<OAuthException>(() => RunAsync("models", "spacexsi"));
+        Assert.Equal("no SpaceXSI login is stored; run `e2e login spacexsi`", named.Message);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public sealed class E2eModelsTests : IDisposable
     {
         Environment.SetEnvironmentVariable(
             CredentialStores.EnvironmentVariable,
-            """{ "spacexai": { "access": "x", "refresh": "", "expires": 0 } }"""
+            """{ "spacexsi": { "access": "x", "refresh": "", "expires": 0 } }"""
         );
         Environment.SetEnvironmentVariable("OPENCODE_API_KEY", "oc_sk_env");
         OAuthProviders.Replacements["opencode-console"] = new ModelsDouble("opencode-console", "OpenCode Console", () =>
@@ -66,7 +66,7 @@ public sealed class E2eModelsTests : IDisposable
         {
             KeyVariable = "OPENCODE_API_KEY",
         };
-        OAuthProviders.Replacements["spacexai"] = new ModelsDouble("spacexai", "SpaceXAI", () =>
+        OAuthProviders.Replacements["spacexsi"] = new ModelsDouble("spacexsi", "SpaceXSI", () =>
             [new SubscriptionModel("grok-4")]
         );
 
@@ -74,7 +74,7 @@ public sealed class E2eModelsTests : IDisposable
 
         Assert.Equal(0, code);
         Assert.Equal(
-            "OpenCode Console (opencode-console): 1 model\n  go/deepseek-v4.1-flash\n\nSpaceXAI (spacexai): 1 model\n  grok-4\n",
+            "OpenCode Console (opencode-console): 1 model\n  go/deepseek-v4.1-flash\n\nSpaceXSI (spacexsi): 1 model\n  grok-4\n",
             stdout
         );
     }
@@ -86,7 +86,7 @@ public sealed class E2eModelsTests : IDisposable
         OAuthProviders.Replacements["github-copilot"] = new ModelsDouble("github-copilot", "GitHub Copilot", () =>
             throw new OAuthException(OAuthException.FlowFailed, "GitHub Copilot did not list its models: 503: down")
         );
-        OAuthProviders.Replacements["spacexai"] = new ModelsDouble("spacexai", "SpaceXAI", () =>
+        OAuthProviders.Replacements["spacexsi"] = new ModelsDouble("spacexsi", "SpaceXSI", () =>
             [
                 new SubscriptionModel("grok-4", Detail: "vision; also grok-4-latest"),
                 new SubscriptionModel("grok-4-fast\u001b[31m", "grok-4-fast\u001b[31m"),
@@ -105,7 +105,7 @@ public sealed class E2eModelsTests : IDisposable
         Assert.Contains(
             string.Join(
                 '\n',
-                "SpaceXAI (spacexai): 3 models",
+                "SpaceXSI (spacexsi): 3 models",
                 "  grok-4       vision; also grok-4-latest",
                 "  grok-4-fast",
                 "  grok-3",
@@ -116,10 +116,32 @@ public sealed class E2eModelsTests : IDisposable
         );
         Assert.DoesNotContain('\u001b', stdout);
 
-        OAuthProviders.Replacements["spacexai"] = new ModelsDouble("spacexai", "SpaceXAI", () => []);
-        var (emptyCode, emptyOut, _) = await RunAsync("models", "spacexai");
+        OAuthProviders.Replacements["spacexsi"] = new ModelsDouble("spacexsi", "SpaceXSI", () => []);
+        var (emptyCode, emptyOut, _) = await RunAsync("models", "spacexsi");
         Assert.Equal(0, emptyCode);
-        Assert.Equal("SpaceXAI (spacexai): no models listed\n", emptyOut);
+        Assert.Equal("SpaceXSI (spacexsi): no models listed\n", emptyOut);
+    }
+
+    [Theory]
+    [InlineData("spacexai")]
+    [InlineData("grok")]
+    public async Task Takes_alias_as_an_alias_of_spacexsi(string alias)
+    {
+        var listed = new List<string>();
+        OAuthProviders.Replacements["spacexsi"] = new ModelsDouble("spacexsi", "SpaceXSI", () =>
+        {
+            listed.Add("spacexsi");
+            return [];
+        });
+
+        var (code, stdout, _) = await RunAsync("models", alias);
+        Assert.Equal(0, code);
+        Assert.Equal(["spacexsi"], listed);
+        Assert.Equal("SpaceXSI (spacexsi): no models listed\n", stdout);
+
+        var (logoutCode, logoutOut, _) = await RunAsync("logout", alias);
+        Assert.Equal(0, logoutCode);
+        Assert.Equal("No SpaceXSI login was stored.\n", logoutOut);
     }
 
     private static async Task<(int Code, string Stdout, string Stderr)> RunAsync(params string[] args)

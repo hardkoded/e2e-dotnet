@@ -8,7 +8,6 @@ using System.Text.Json.Nodes;
 using E2E.Decision.Sdk;
 using E2E.Decision.Sdk.TypeSafeAi;
 using static E2E.Decision.Tests.TypeSafeAiDecisionModel.TypeSafeAiDecisionModelFixture;
-using Provider = E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider;
 
 namespace E2E.Decision.Tests.TypeSafeAiDecisionModel;
 
@@ -89,7 +88,7 @@ public sealed class TypeSafeAiDecisionModelTests
             NativeResponse.ToJsonString(),
             new Dictionary<string, string> { ["x-request-id"] = "test-id" }
         );
-        var custom = new Provider(
+        var custom = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider(
             new TypeSafeAiProviderSettings
             {
                 ApiKey = "custom-key",
@@ -122,7 +121,7 @@ public sealed class TypeSafeAiDecisionModelTests
     {
         var server = new TestServer();
         server.RespondJson(Url, NativeResponse.ToJsonString());
-        var environmentModel = new Provider(
+        var environmentModel = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider(
             new TypeSafeAiProviderSettings { HttpClient = server.Client }
         ).DecisionModel("jev-latest");
         var previous = Environment.GetEnvironmentVariable("TYPESAFE_AI_API_KEY");
@@ -313,7 +312,7 @@ public sealed class TypeSafeAiDecisionModelTests
     {
         using var cancellation = new CancellationTokenSource();
         var handler = new CancellingHandler(cancellation);
-        var model = new Provider(
+        var model = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider(
             new TypeSafeAiProviderSettings { ApiKey = "test", HttpClient = new HttpClient(handler) }
         ).DecisionModel("jev-latest");
 
