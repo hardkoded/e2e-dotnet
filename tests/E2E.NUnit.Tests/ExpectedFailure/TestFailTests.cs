@@ -21,7 +21,7 @@ namespace E2E.NUnit.Tests.ExpectedFailure;
 public sealed class TestFailTests
 {
     [Test]
-    public void Partial_passes_a_marked_test_that_fails_fails_one_that_passes_and_keeps_a_skip()
+    public async Task Partial_passes_a_marked_test_that_fails_fails_one_that_passes_and_keeps_a_skip()
     {
         Assert.That(
             NestedRun.Run(nameof(ExpectedFailureFixture.Registered_fails)).ResultState.Status,
@@ -49,8 +49,8 @@ public sealed class TestFailTests
             Is.EqualTo(TestStatus.Skipped)
         );
 
-        // The JUnit text of the report the run wrote: the cases of this fixture only, since the process's report holds every test that ran.
-        var report = ReportOfFixtureAsync().GetAwaiter().GetResult();
+        // The JUnit text rendered from the report the run wrote: the cases of this fixture only, since the process's report holds every test that ran.
+        var report = await ReportOfFixtureAsync();
         var junit = JunitReport.RenderJunitReport(report);
         Assert.That(junit, Does.Contain("failed as expected: known gap"));
         Assert.That(junit, Does.Contain("type=\"UNEXPECTED_PASS\""));
@@ -64,7 +64,11 @@ public sealed class TestFailTests
     {
         var file = typeof(ExpectedFailureFixture).FullName;
         var runs = await ReportFile.FinishedRunsAsync();
-        var run = runs.First(finished => finished.Report.Run.Results.Any(result => IsOfFixture(result, file))).Report;
+        var found = runs.FirstOrDefault(finished =>
+            finished.Report.Run.Results.Any(result => IsOfFixture(result, file))
+        )?.Report;
+        Assert.That(found, Is.Not.Null, "the process wrote no report with the results of the fixture");
+        var run = found!;
         return run with
         {
             Run = run.Run with { Results = [.. run.Run.Results.Where(result => IsOfFixture(result, file))] },
