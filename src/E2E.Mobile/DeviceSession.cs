@@ -916,6 +916,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             )
         );
         projected.KeyboardVisible = KeyboardShowing(raw);
+        projected.OriginUnknown = raw.Warnings?.Contains(DeviceErrors.OriginWarning) == true;
         _latestScreen = projected;
         if (projected.Viewport is { } read && (_knownViewport is not { } known || SameScreen(read, known)))
         {
@@ -1001,7 +1002,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         string? KeyboardKind = null,
         Rect? KeyboardFrame = null,
         long? RefsGeneration = null,
-        bool? KeyboardProbeVisible = null
+        bool? KeyboardProbeVisible = null,
+        IReadOnlyList<string>? Warnings = null
     )
     {
         public static RawSnapshot Empty { get; } = new([], false, null, null, false);
@@ -1050,7 +1052,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
                 Number(data["refsGeneration"]) is { } generation ? (long)generation : null,
                 data["keyboard"]?["visible"] is JsonValue probe && probe.TryGetValue<bool>(out var probed)
                     ? probed
-                    : null
+                    : null,
+                data["warnings"] is JsonArray warnings ? [.. warnings.Select(Text).OfType<string>()] : null
             );
         }
     }

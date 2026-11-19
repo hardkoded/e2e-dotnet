@@ -32,7 +32,7 @@ Public types in the `E2E.OAuth` namespace.
 | [OpenCodeConsoleProvider](/api/E2E.OAuth/OpenCodeConsoleProvider/) | OpenCode Zen and Go through an OpenCode Console sign-in. Console speaks RFC 8628 device authorization; approving the code binds the login to one workspace, and its token is a bearer for both the Console API and inference. Refresh tokens rotate. The workspace config says which models are served and over which protocol: Zen is its opencode provider, Go opencode-go. Go ids take a go/ prefix here. |
 | [SubscriptionModel](/api/E2E.OAuth/SubscriptionModel/) | One model a subscription serves: the id a config passes, and how the vendor describes it. |
 | [Subscriptions](/api/E2E.OAuth/Subscriptions/) | Subscription logins as agent models, upstream's chatgpt(), copilot(), grok(), and opencodeConsole(). Each reads the login e2e login stored (or E2E_OAUTH_CREDENTIALS), refreshes it as needed, and touches nothing until the first call. Use API keys in CI. |
-| [XaiProvider](/api/E2E.OAuth/XaiProvider/) | SuperGrok and X Premium+ through SpaceXAI's OAuth server: RFC 8628 device authorization for the Grok CLI's public client. The token is a plain bearer against the ordinary SpaceXAI API. Refresh tokens rotate. |
+| [XaiProvider](/api/E2E.OAuth/XaiProvider/) | SuperGrok and X Premium+ through SpaceXSI's OAuth server: RFC 8628 device authorization for the Grok CLI's public client. The token is a plain bearer against the ordinary SpaceXSI API. Refresh tokens rotate. |
 
 ## Interfaces
 

@@ -20,13 +20,16 @@ internal sealed class TelemetryDispatcher
     private readonly IReadOnlyList<ITelemetry> _integrations;
 
     /// <summary>
-    /// Creates the dispatcher. When telemetry is explicitly disabled, it has no integrations. The global integration registry of the AI SDK
-    /// (<c>telemetry-registry.ts</c>) is not ported, so a call with no <see cref="TelemetryOptions.Integrations"/> has none.
+    /// Creates the dispatcher. When telemetry is explicitly disabled, it has no integrations. A call with no
+    /// <see cref="TelemetryOptions.Integrations"/> uses the global integrations of <see cref="TelemetryRegistry"/>.
     /// </summary>
     internal TelemetryDispatcher(TelemetryOptions? telemetry)
     {
         _telemetry = telemetry;
-        _integrations = telemetry?.IsEnabled == false ? [] : telemetry?.Integrations ?? [];
+        _integrations =
+            telemetry?.IsEnabled == false
+                ? []
+                : telemetry?.Integrations ?? TelemetryRegistry.GetGlobalTelemetryIntegrations();
     }
 
     /// <summary><c>experimental_onDecideStart</c>.</summary>

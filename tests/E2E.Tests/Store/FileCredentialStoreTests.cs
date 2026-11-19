@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json.Nodes;
 using E2E.OAuth;
 
 namespace E2E.Tests.Store;
@@ -19,6 +20,15 @@ public sealed class FileCredentialStoreTests : IDisposable
 
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "e2e-oauth-" + Guid.NewGuid().ToString("N"));
 
+    private static OAuthCredentials Renewed(string access = "renewed") =>
+        new()
+        {
+            Access = access,
+            Refresh = "r",
+            Expires = 123,
+            Extra = new Dictionary<string, string> { ["accountId"] = "acct" },
+        };
+
     public void Dispose()
     {
         if (Directory.Exists(_directory))
@@ -32,8 +42,8 @@ public sealed class FileCredentialStoreTests : IDisposable
     {
         var file = Path.Combine(_directory, "nested", "oauth.json");
         var store = new FileCredentialStore(file);
-        Assert.Null(await store.GetAsync("spacexai"));
-        await store.SetAsync("spacexai", Creds);
+        Assert.Null(await store.GetAsync("spacexsi"));
+        await store.SetAsync("spacexsi", Creds);
         if (!OperatingSystem.IsWindows())
         {
             Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file));
@@ -43,13 +53,56 @@ public sealed class FileCredentialStoreTests : IDisposable
             );
         }
 
-        var read = await store.GetAsync("spacexai");
+        var read = await store.GetAsync("spacexsi");
         Assert.Equal(("a", "r", 123L, "acct"), (read!.Access, read.Refresh, read.Expires, read.Get("accountId")));
-        Assert.Equal(["spacexai"], await store.ListAsync());
-        await store.RemoveAsync("spacexai");
+        Assert.Equal(["spacexsi"], await store.ListAsync());
+        await store.RemoveAsync("spacexsi");
         Assert.Empty(await store.ListAsync());
         Assert.Equal("{}\n", await File.ReadAllTextAsync(file));
         Assert.False(File.Exists(file + ".lock"));
+    }
+
+    [Fact]
+    public async Task Reads_a_login_an_earlier_release_stored_under_a_legacy_key_and_keeps_it_under_that_key_so_that_release_still_finds_it()
+    {
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        var store = new FileCredentialStore(file);
+        await store.SetAsync("openai", Creds);
+        await File.WriteAllTextAsync(file, new JsonObject { ["spacexai"] = Creds.ToJson() }.ToJsonString());
+        Assert.Equal("a", (await store.GetAsync("spacexsi"))!.Access);
+        Assert.Equal(["spacexsi"], await store.ListAsync());
+        await store.SetAsync("spacexsi", Renewed());
+        var stored = JsonNode.Parse(await File.ReadAllTextAsync(file))!.AsObject();
+        Assert.Equal(["spacexai"], stored.Select(pair => pair.Key));
+        Assert.Equal("renewed", (string?)stored["spacexai"]!["access"]);
+        Assert.True(await store.RemoveAsync("spacexsi"));
+        Assert.Equal("{}\n", await File.ReadAllTextAsync(file));
+    }
+
+    [Fact]
+    public async Task Prefers_the_login_under_the_id_to_one_under_its_legacy_key()
+    {
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        var store = new FileCredentialStore(file);
+        await store.SetAsync("openai", Creds);
+        await File.WriteAllTextAsync(
+            file,
+            new JsonObject { ["spacexai"] = Creds.ToJson(), ["spacexsi"] = Renewed("newer").ToJson() }.ToJsonString()
+        );
+        Assert.Equal("newer", (await store.GetAsync("spacexsi"))!.Access);
+        Assert.Equal(["spacexsi"], await store.ListAsync());
+        await store.RemoveAsync("spacexsi");
+        Assert.Empty(await store.ListAsync());
+    }
+
+    [Fact]
+    public async Task Reads_no_login_under_a_CLI_alias_since_no_release_stored_one_there()
+    {
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        var store = new FileCredentialStore(file);
+        await store.SetAsync("openai", Creds);
+        await File.WriteAllTextAsync(file, new JsonObject { ["grok"] = Creds.ToJson() }.ToJsonString());
+        Assert.Null(await store.GetAsync("spacexsi"));
     }
 
     [Fact]
