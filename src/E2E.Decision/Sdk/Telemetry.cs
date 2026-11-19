@@ -22,6 +22,22 @@ public interface ITelemetry
     /// <summary>Called when an experimental decision operation completes (<c>experimental_onDecideEnd</c>).</summary>
     Task OnDecideEndAsync(DecideEndEvent @event) => Task.CompletedTask;
 
+    /// <summary>Deprecated alias of <see cref="OnDecideStartAsync"/> (<c>experimental_onEvaluateStart</c>); ignored when the integration implements the current member.</summary>
+    [Obsolete("Use OnDecideStartAsync.")]
+    Task OnEvaluateStartAsync(DecideStartEvent @event) => Task.CompletedTask;
+
+    /// <summary>Deprecated alias of <see cref="OnDecisionModelCallStartAsync"/> (<c>experimental_onEvaluationModelCallStart</c>).</summary>
+    [Obsolete("Use OnDecisionModelCallStartAsync.")]
+    Task OnEvaluationModelCallStartAsync(DecisionModelCallStartEvent @event) => Task.CompletedTask;
+
+    /// <summary>Deprecated alias of <see cref="OnDecisionModelCallEndAsync"/> (<c>experimental_onEvaluationModelCallEnd</c>).</summary>
+    [Obsolete("Use OnDecisionModelCallEndAsync.")]
+    Task OnEvaluationModelCallEndAsync(DecisionModelCallEndEvent @event) => Task.CompletedTask;
+
+    /// <summary>Deprecated alias of <see cref="OnDecideEndAsync"/> (<c>experimental_onEvaluateEnd</c>).</summary>
+    [Obsolete("Use OnDecideEndAsync.")]
+    Task OnEvaluateEndAsync(DecideEndEvent @event) => Task.CompletedTask;
+
     /// <summary>Called when the operation fails (<c>onError</c>).</summary>
     Task OnErrorAsync(TelemetryErrorEvent @event) => Task.CompletedTask;
 }
