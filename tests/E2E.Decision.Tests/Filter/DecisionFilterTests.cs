@@ -1345,6 +1345,13 @@ public sealed class DecisionFilterTests : IDisposable
         );
 
     [Fact]
+    public void Refuses_a_model_id_at_config_load_as_INVALID_CONFIG_naming_DecisionFilter() =>
+        AssertInvalidConfig(
+            () => E2E.Decision.Filter.DecisionFilter(new DecisionFilterOptions { ModelId = "typesafe-ai/jev" }),
+            $"DecisionFilter({{ model }}) got the string \"typesafe-ai/jev\"; {Example}"
+        );
+
+    [Fact]
     public void Refuses_a_decision_model_without_boolean_questions_at_config_load_as_INVALID_CONFIG_naming_DecisionFilter() =>
         AssertInvalidConfig(
             () => Filter(ScriptedDecision((_, _, _) => Pick("done")).Model),
