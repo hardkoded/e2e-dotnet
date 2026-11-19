@@ -111,12 +111,13 @@ Whether to run only the tests the previous run did not pass (upstream's `--last-
 
 
 ```csharp
-[Before(HookType.TestSession)]
+[Before(HookType.TestDiscovery)]
 public static Task SelectTestsAsync(CancellationToken cancellationToken)
 ```
 
 
-Creates the run fixtures the test assembly declares and starts each, before the first test.
+Creates the run fixtures the test assembly declares and starts each, before the first test is registered: TUnit reads a test's execution
+priority when it plans the run, so the likeliest tests start first only when the filters have scored them by then (see `RunSelection.RankRegistered`).
 
 **Parameters**
 

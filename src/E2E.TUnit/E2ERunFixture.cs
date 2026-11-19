@@ -45,8 +45,11 @@ public abstract class E2ERunFixture
 
     private HostRun? _run;
 
-    /// <summary>Creates the run fixtures the test assembly declares and starts each, before the first test.</summary>
-    [Before(HookType.TestSession)]
+    /// <summary>
+    /// Creates the run fixtures the test assembly declares and starts each, before the first test is registered: TUnit reads a test's execution
+    /// priority when it plans the run, so the likeliest tests start first only when the filters have scored them by then (see <c>RunSelection.RankRegistered</c>).
+    /// </summary>
+    [Before(HookType.TestDiscovery)]
     public static async Task SelectTestsAsync(CancellationToken cancellationToken)
     {
         var fixtures = DeclaredIn(ReflectionAssembly.GetEntryAssembly());
@@ -165,9 +168,19 @@ public abstract class E2ERunFixture
             if (changedSince is not null || lastFailed)
             {
                 var selection = await HostTestFilters
-                    .ExcludeAsync(config, Filters, changedSince, discovered, Console.Error.WriteLine, token, lastFailed)
+                    .ExcludeAsync(
+                        config,
+                        Filters,
+                        changedSince,
+                        discovered,
+                        Console.Error.WriteLine,
+                        token,
+                        lastFailed,
+                        ordered: true
+                    )
                     .ConfigureAwait(false);
                 RunSelection.Add(selection.Excluded);
+                RunSelection.SetRelevance(selection.Relevance ?? new Dictionary<string, double>());
                 HostRun.RerunDir = selection.RerunDir;
                 excluded = selection.Excluded;
                 await HostTestFilters.WriteReportAsync(config, selection, token).ConfigureAwait(false);

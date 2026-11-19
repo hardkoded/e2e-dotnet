@@ -137,6 +137,27 @@ derived `[After(Test)]` hook, only after every hook has run.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_TUnit_E2ETest_OnTestRegistered_"></a>
+<a id="E2E_TUnit_E2ETest_OnTestRegistered_TUnit_Core_TestRegisteredContext_"></a>
+
+### OnTestRegistered(TestRegisteredContext)
+
+
+```csharp
+public ValueTask OnTestRegistered(TestRegisteredContext context)
+```
+
+
+.NET-only: starts the likeliest tests first, in the priority of the relevance band that [E2ERunFixture](/api/E2E.TUnit/E2ERunFixture/) gave them (see `RunSelection.RankRegistered`).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `context` | `TestRegisteredContext` |  |
+
+**Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
+
 <a id="E2E_TUnit_E2ETest_OnTestEnd_"></a>
 <a id="E2E_TUnit_E2ETest_OnTestEnd_TUnit_Core_TestContext_"></a>
 

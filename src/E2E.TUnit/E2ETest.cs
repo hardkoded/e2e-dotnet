@@ -23,7 +23,7 @@ namespace E2E.TUnit;
 /// Settings come from <see cref="E2EFixture"/>.
 /// </summary>
 [TestExecutor<LooksBeforeTeardownExecutor>]
-public abstract class E2ETest : E2EFixture, ITestEndEventReceiver
+public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegisteredEventReceiver
 {
     /// <summary>
     /// The test's title: its cache identity, and the <c>Test:</c> line every prompt's context opens with.
@@ -142,6 +142,14 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver
 
     /// <inheritdoc cref="Order"/>
     public EventReceiverStage Stage => EventReceiverStage.Late;
+
+    /// <summary>.NET-only: starts the likeliest tests first, in the priority of the relevance band that <see cref="E2ERunFixture"/> gave them (see <c>RunSelection.RankRegistered</c>).</summary>
+    public ValueTask OnTestRegistered(TestRegisteredContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        RunSelection.RankRegistered(context.TestContext);
+        return ValueTask.CompletedTask;
+    }
 
     /// <inheritdoc cref="Order"/>
     public async ValueTask OnTestEnd(TUnitContext context)
