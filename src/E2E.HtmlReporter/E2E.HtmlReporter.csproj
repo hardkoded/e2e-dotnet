@@ -24,16 +24,19 @@
   </ItemGroup>
   <!-- The page is upstream's React app, built by Vite into one HTML file with the payload placeholder in it (upstream's `vite build`). -->
   <Target
+    Name="InstallReportPageTools"
+    Inputs="package-lock.json;package.json"
+    Outputs="$(AppDir)node_modules/.package-lock.json"
+  >
+    <Exec Command="npm ci --legacy-peer-deps --no-audit --no-fund" WorkingDirectory="$(AppDir)" />
+  </Target>
+  <Target
     Name="BuildReportPage"
     BeforeTargets="BeforeBuild;AssignTargetPaths"
+    DependsOnTargets="InstallReportPageTools"
     Inputs="@(AppInputs)"
     Outputs="$(AppTemplate)"
   >
-    <Exec
-      Command="npm ci --legacy-peer-deps --no-audit --no-fund"
-      WorkingDirectory="$(AppDir)"
-      Condition="!Exists('$(AppDir)node_modules')"
-    />
     <Exec Command="npm run build" WorkingDirectory="$(AppDir)" />
   </Target>
   <Target Name="EmbedReportPage" BeforeTargets="AssignTargetPaths" DependsOnTargets="BuildReportPage">

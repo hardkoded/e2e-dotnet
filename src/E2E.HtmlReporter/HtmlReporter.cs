@@ -51,9 +51,6 @@ public class HtmlReporter : Reporter, IConfigurableReporter
     /// <summary>A reporter with the default options. The public constructor the config builds it with.</summary>
     public HtmlReporter() { }
 
-    /// <summary>A reporter with these options. For a class that derives from this one and is listed in the config.</summary>
-    protected HtmlReporter(HtmlReporterOptions options) => _options = options;
-
     /// <inheritdoc />
     public override string Name => "html";
 
@@ -117,10 +114,7 @@ public class HtmlReporter : Reporter, IConfigurableReporter
     )
     {
         var outputFile = options.OutputFile is null
-            ? Path.Combine(
-                Path.GetDirectoryName(run.ArtifactsRoot.TrimEnd(Path.DirectorySeparatorChar))!,
-                "report.html"
-            )
+            ? Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(run.ArtifactsRoot))!, "report.html")
             : Path.GetFullPath(options.OutputFile, run.ProjectRoot);
         var report = JsonNode.Parse(
             await File.ReadAllTextAsync(run.ReportPath, cancellationToken).ConfigureAwait(false)
@@ -285,9 +279,9 @@ public class HtmlReporter : Reporter, IConfigurableReporter
                 wanted[file] = lines = [];
             }
 
-            for (var at = Math.Max(1, line - FrameBefore); at <= line + FrameAfter; at++)
+            for (long at = Math.Max(1L, (long)line - FrameBefore); at <= (long)line + FrameAfter; at++)
             {
-                lines.Add(at);
+                lines.Add((int)at);
             }
         });
         var frames = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
