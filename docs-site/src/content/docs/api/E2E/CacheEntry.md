@@ -148,6 +148,23 @@ Nodes on screen when the step began and gone when it passed.
 
 **Value:** [List&lt;RecordedTarget&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
+<a id="E2E_CacheEntry_IdentityDigest_"></a>
+<a id="E2E_CacheEntry_IdentityDigest"></a>
+
+### IdentityDigest
+
+
+```csharp
+public string? IdentityDigest { get; set; }
+```
+
+
+Upstream's `recordedFor.identityDigest`: SHA-256 of the whole redacted test id, target id, and agent name, only when one of them
+is longer than an entry keeps or ends like a cut (`TextRules.BoundIsAmbiguous`): two steps whose stored text is the same
+share the digest only when their names differ in a secret value alone. Null on an entry recorded before it was stored, or whose names are kept whole.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_CacheEntry_Instruction_"></a>
 <a id="E2E_CacheEntry_Instruction"></a>
 

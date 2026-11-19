@@ -1681,11 +1681,17 @@ public sealed class E2ESession : IAsyncDisposable
         return outcomes;
     }
 
-    // A verified whole replay proved which step an entry recorded before the provenance fields belongs to,
-    // so it writes them in. Strict mode matches only entries that record the whole step. Every other entry stays as stored.
+    // A verified whole replay proved which step an entry belongs to when its stored provenance lacks the occurrence fields, or its
+    // identity digest is not the step's (missing while the step has one, different, or present while the step has none), so it writes
+    // the step's provenance in. Strict mode matches only entries that record the whole step. Every other entry stays as stored.
     private static void CompleteProvenance(IStepCache cache, string key, CacheEntry? step)
     {
-        if (step is null || cache.Read(key).Entry is not { CallIndex: null } existing)
+        if (
+            step is null
+            || cache.Read(key).Entry is not { } existing
+            || existing.CallIndex is not null
+                && string.Equals(existing.IdentityDigest, step.IdentityDigest, StringComparison.Ordinal)
+        )
         {
             return;
         }

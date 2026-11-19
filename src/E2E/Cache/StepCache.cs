@@ -49,6 +49,13 @@ public sealed class CacheEntry
     public string? Agent { get; set; }
 
     /// <summary>
+    /// Upstream's <c>recordedFor.identityDigest</c>: SHA-256 of the whole redacted test id, target id, and agent name, only when one of them
+    /// is longer than an entry keeps or ends like a cut (<c>TextRules.BoundIsAmbiguous</c>): two steps whose stored text is the same
+    /// share the digest only when their names differ in a secret value alone. Null on an entry recorded before it was stored, or whose names are kept whole.
+    /// </summary>
+    public string? IdentityDigest { get; set; }
+
+    /// <summary>
     /// The configured model that recorded the step, as <see cref="IAgentModel.Name"/> spells it (provider and model id together).
     /// Null on an entry recorded before it was stored, or by an agent with no configured model. It never keys the entry.
     /// </summary>
@@ -127,9 +134,13 @@ public sealed class CacheEntry
         IsDescriptor(Test)
         && IsDescriptor(TargetId)
         && IsDescriptor(Agent)
-        && ParamsDigest is null or { Length: 64 }
-        && (ParamsDigest is null || ParamsDigest.All(char.IsAsciiHexDigitLower))
+        && IsOptionalDigest(ParamsDigest)
+        && IsOptionalDigest(IdentityDigest)
         && CallIndex is null or >= 0;
+
+    // Upstream's isOptionalDigest: absent, or a lowercase SHA-256 hex digest.
+    private static bool IsOptionalDigest(string? value) =>
+        value is null || value.Length == 64 && value.All(char.IsAsciiHexDigitLower);
 
     private static bool IsDescriptor(string? value) =>
         value is null || !string.IsNullOrWhiteSpace(value) && value.Length <= Trace.MaxTraceDescriptorChars;
@@ -154,6 +165,7 @@ public sealed class CacheEntry
         ParamsDigest = step.ParamsDigest;
         CallIndex = step.CallIndex;
         Agent = step.Agent;
+        IdentityDigest = step.IdentityDigest;
         KeyedBy = step.KeyedBy;
     }
 }
@@ -853,7 +865,7 @@ public sealed class FileStepCache : IStepCache
         }
 
         return JsonSerializer.Serialize(
-            new object[]
+            new object?[]
             {
                 step.Test,
                 step.Engine,
@@ -861,6 +873,7 @@ public sealed class FileStepCache : IStepCache
                 step.ParamsDigest,
                 step.CallIndex.Value,
                 step.Agent,
+                step.IdentityDigest,
             }
         );
     }

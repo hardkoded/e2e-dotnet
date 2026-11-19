@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using static E2E.Tests.StepCache.StepCacheHarness;
+using Recorder = E2E.Cache.TraceRecorder;
 
 namespace E2E.Tests.StepCache;
 
@@ -150,5 +151,131 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
         );
 
         Assert.Null(await session.BeginAsync());
+    }
+
+    private static readonly string Long = string.Concat(
+        Enumerable.Repeat("checkout for a signed in customer with a saved card ", 6)
+    );
+
+    // Upstream claims the whole step and the session stores it; the port claims the step as an entry stores it.
+    private static CacheEntry StepWith(string field, string value)
+    {
+        var step = ExampleStep;
+        step.TargetId = "web";
+        switch (field)
+        {
+            case "testId":
+                step.Test = value;
+                break;
+            case "targetId":
+                step.TargetId = value;
+                break;
+            default:
+                step.Agent = value;
+                break;
+        }
+
+        return Recorder.RecordedProvenance(step, text => text);
+    }
+
+    private static string FieldOf(CacheEntry step, string field) =>
+        (
+            field switch
+            {
+                "testId" => step.Test,
+                "targetId" => step.TargetId,
+                _ => step.Agent,
+            }
+        )!;
+
+    private static StepTraceSession SessionFor(CacheEntry stored, CacheEntry step) =>
+        MakeSession(Rekeyed(entry => entry.SetStep(stored)), MakeHost(["/"]), step: step);
+
+    [Theory]
+    [InlineData("testId")]
+    [InlineData("targetId")]
+    [InlineData("agent")]
+    public async Task Runs_live_when_only_another_step_that_starts_the_same_way_was_recorded(string field)
+    {
+        var session = SessionFor(StepWith(field, Long + " first"), StepWith(field, Long + " second"));
+
+        Assert.Null(await session.BeginAsync());
+        Assert.Equal(("missed", "no-entry"), (session.CacheInfo?.Mode, session.CacheInfo?.Reason));
+    }
+
+    [Theory]
+    [InlineData("testId")]
+    [InlineData("targetId")]
+    [InlineData("agent")]
+    public async Task Fails_with_REPLAY_STALE_when_its_own_recording_sits_under_another_key(string field)
+    {
+        var step = StepWith(field, Long + " first");
+        Assert.Equal(Trace.MaxTraceDescriptorChars, FieldOf(step, field).Length);
+
+        var error = await Assert.ThrowsAsync<AgentException>(SessionFor(step, step).BeginAsync);
+
+        Assert.Equal("REPLAY_STALE", error.Code);
+    }
+
+    [Theory]
+    [InlineData("testId")]
+    [InlineData("targetId")]
+    [InlineData("agent")]
+    public async Task Runs_live_against_an_entry_that_cut_it_before_entries_kept_an_identity_digest(string field)
+    {
+        var step = StepWith(field, Long + " first");
+        var legacy = step.Copy();
+        legacy.IdentityDigest = null;
+
+        Assert.Null(await SessionFor(legacy, step).BeginAsync());
+    }
+
+    [Theory]
+    [InlineData("testId")]
+    [InlineData("targetId")]
+    [InlineData("agent")]
+    public async Task Runs_live_when_its_whole_name_equals_the_cut_name_of_another_step_stored_without_an_identity_digest(
+        string field
+    )
+    {
+        var legacy = StepWith(field, Long + " first");
+        legacy.IdentityDigest = null;
+        var step = StepWith(field, FieldOf(legacy, field));
+
+        Assert.Null(await SessionFor(legacy, step).BeginAsync());
+    }
+
+    [Theory]
+    [InlineData("testId")]
+    [InlineData("targetId")]
+    [InlineData("agent")]
+    public async Task Fails_with_REPLAY_STALE_when_its_whole_name_ends_like_a_cut_and_its_own_recording_sits_under_another_key(
+        string field
+    )
+    {
+        foreach (var length in new[] { Trace.MaxTraceDescriptorChars - 1, Trace.MaxTraceDescriptorChars })
+        {
+            var step = StepWith(field, new string('x', length - 1) + "…");
+            Assert.Matches("^[a-f0-9]{64}$", step.IdentityDigest);
+
+            var error = await Assert.ThrowsAsync<AgentException>(SessionFor(step, step).BeginAsync);
+
+            Assert.Equal("REPLAY_STALE", error.Code);
+        }
+    }
+
+    [Theory]
+    [InlineData("testId")]
+    [InlineData("targetId")]
+    [InlineData("agent")]
+    public async Task Fails_with_REPLAY_STALE_at_exactly_300_characters_which_an_entry_keeps_whole(string field)
+    {
+        var step = StepWith(field, new string('x', Trace.MaxTraceDescriptorChars));
+        Assert.Equal(new string('x', Trace.MaxTraceDescriptorChars), FieldOf(step, field));
+        Assert.Null(step.IdentityDigest);
+
+        var error = await Assert.ThrowsAsync<AgentException>(SessionFor(step, step).BeginAsync);
+
+        Assert.Equal("REPLAY_STALE", error.Code);
     }
 }

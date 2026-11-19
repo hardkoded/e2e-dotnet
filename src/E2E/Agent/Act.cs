@@ -744,17 +744,20 @@ public sealed partial class Agent
         TraceKeyContext keyContext
     )
     {
-        return new CacheEntry
-        {
-            Schema = FileStepCache.SchemaVersion,
-            Test = TextRules.Bound(_scope.Redactor.Redact(testId), Trace.MaxTraceDescriptorChars),
-            TargetId = TextRules.Bound(_scope.Redactor.Redact(_scope.TargetName), Trace.MaxTraceDescriptorChars),
-            Instruction = _scope.Redactor.Redact(instruction.Trim()),
-            Engine = _scope.EnginePlatform,
-            ParamsDigest = CacheKeys.ParamsDigest(parameters),
-            CallIndex = callIndex,
-            Agent = TextRules.Bound(_scope.Redactor.Redact(agent), Trace.MaxTraceDescriptorChars),
-            KeyedBy = keyContext,
-        };
+        return TraceRecorder.RecordedProvenance(
+            new CacheEntry
+            {
+                Schema = FileStepCache.SchemaVersion,
+                Test = testId,
+                TargetId = _scope.TargetName,
+                Instruction = _scope.Redactor.Redact(instruction.Trim()),
+                Engine = _scope.EnginePlatform,
+                ParamsDigest = CacheKeys.ParamsDigest(parameters),
+                CallIndex = callIndex,
+                Agent = agent,
+                KeyedBy = keyContext,
+            },
+            _scope.Redactor.Redact
+        );
     }
 }

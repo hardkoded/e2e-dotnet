@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using E2E.Engine;
 using E2E.Internal;
 using static E2E.Agent;
@@ -23,6 +25,11 @@ namespace E2E.Cache;
 /// <param name="maxActions">Upstream's <c>maxActions</c> option: the action cap, at most <see cref="Trace.MaxTraceActions"/>.</param>
 internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time = null, int? maxActions = null)
 {
+    private static readonly JsonSerializerOptions IdentityJson = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
     private readonly List<RecordedAction> _actions = [];
     private readonly int _maxActions = Math.Min(maxActions ?? Trace.MaxTraceActions, Trace.MaxTraceActions);
     private bool _truncated;
@@ -355,6 +362,32 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         _actions.Clear();
         _truncated = false;
         _lastActionAtMs = null;
+    }
+
+    /// <summary>
+    /// Upstream's <c>recordedProvenance</c>: the step as an entry stores it. The test id, target id, and agent name are redacted, then cut
+    /// to <see cref="Trace.MaxTraceDescriptorChars"/>; when one of the redacted names is longer than an entry keeps or ends like a cut, the
+    /// entry also keeps <see cref="CacheEntry.IdentityDigest"/>, the SHA-256 of the whole redacted names, so two steps whose cut names agree
+    /// stay apart. Returns a copy; <paramref name="step"/> is not changed.
+    /// </summary>
+    public static CacheEntry RecordedProvenance(CacheEntry step, Func<string, string> redact)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+        ArgumentNullException.ThrowIfNull(redact);
+        var testId = redact(step.Test ?? "");
+        var targetId = redact(step.TargetId ?? "");
+        var agent = step.Agent is null ? null : redact(step.Agent);
+        var ambiguous = new[] { testId, targetId, agent ?? "" }.Any(text =>
+            TextRules.BoundIsAmbiguous(text, Trace.MaxTraceDescriptorChars)
+        );
+        var recorded = step.Copy();
+        recorded.Test = step.Test is null ? null : Trace.BoundDescriptor(testId);
+        recorded.TargetId = step.TargetId is null ? null : Trace.BoundDescriptor(targetId);
+        recorded.Agent = Trace.BoundDescriptor(agent);
+        recorded.IdentityDigest = ambiguous
+            ? Ids.Sha256Hex(JsonSerializer.Serialize(new[] { testId, targetId, agent }, IdentityJson))
+            : null;
+        return recorded;
     }
 
     /// <summary>
