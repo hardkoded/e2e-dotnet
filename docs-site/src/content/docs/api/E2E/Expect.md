@@ -220,7 +220,7 @@ public static SoftBrowserExpect Soft(Browser browser)
 ```
 
 
-The browser matchers, but a failure is kept as [Soft(Locator)](#E2E_Expect_Soft_E2E_Locator_) keeps one.
+The browser matchers, but a failure is kept as `Soft` keeps one.
 
 **Parameters**
 
@@ -230,45 +230,48 @@ The browser matchers, but a failure is kept as [Soft(Locator)](#E2E_Expect_Soft_
 
 **Returns:** [SoftBrowserExpect](/api/E2E/SoftBrowserExpect/)
 
-<a id="E2E_Expect_Soft_E2E_Locator_"></a>
+<a id="E2E_Expect_Soft_E2E_Locator_System_String_"></a>
 
-### Soft(Locator)
+### Soft(Locator, string?)
 
 
 ```csharp
-public static SoftLocatorExpect Soft(Locator locator)
+public static SoftLocatorExpect Soft(Locator locator, string? message = null)
 ```
 
 
 The locator matchers, but a failure is kept on the session instead of
 thrown and the body runs on. The test fails at the end with every kept
 failure. `E2ETest` records each one as an NUnit assertion failure.
+&lt;code class="paramref"&gt;message&lt;/code&gt; opens every failure, as `That` does.
 
 **Parameters**
 
 | Name | Type | Description |
 | --- | --- | --- |
 | `locator` | [Locator](/api/E2E/Locator/) |  |
+| `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [SoftLocatorExpect](/api/E2E/SoftLocatorExpect/)
 
-<a id="E2E_Expect_Soft_E2E_Screen_"></a>
+<a id="E2E_Expect_Soft_E2E_Screen_System_String_"></a>
 
-### Soft(Screen)
+### Soft(Screen, string?)
 
 
 ```csharp
-public static SoftScreenExpect Soft(Screen screen)
+public static SoftScreenExpect Soft(Screen screen, string? message = null)
 ```
 
 
-The screen matcher, but a failure is kept as [Soft(Locator)](#E2E_Expect_Soft_E2E_Locator_) keeps one.
+The screen matcher, but a failure is kept as `Soft` keeps one.
 
 **Parameters**
 
 | Name | Type | Description |
 | --- | --- | --- |
 | `screen` | [Screen](/api/E2E/Screen/) |  |
+| `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [SoftScreenExpect](/api/E2E/SoftScreenExpect/)
 
@@ -282,7 +285,7 @@ public static SoftValueExpectation<T> Soft<T>(Screen screen, T actual, string? m
 ```
 
 
-The value matchers, but a failure is kept on &lt;code class="paramref"&gt;screen&lt;/code&gt;'s session instead of thrown, as [Soft(Locator)](#E2E_Expect_Soft_E2E_Locator_)
+The value matchers, but a failure is kept on &lt;code class="paramref"&gt;screen&lt;/code&gt;'s session instead of thrown, as `Soft`
 keeps one. Upstream's `expect.soft(value)` finds the running attempt on its own; a .NET call has no ambient attempt, so it names the session
 through its screen.
 
@@ -385,31 +388,35 @@ Waits for the browser's URL or title with [BrowserExpect](/api/E2E/BrowserExpect
 
 **Returns:** [BrowserExpect](/api/E2E/BrowserExpect/)
 
-<a id="E2E_Expect_That_E2E_Locator_"></a>
+<a id="E2E_Expect_That_E2E_Locator_System_String_"></a>
 
-### That(Locator)
+### That(Locator, string?)
 
 
 ```csharp
-public static LocatorExpect That(Locator locator)
+public static LocatorExpect That(Locator locator, string? message = null)
 ```
 
+
+Waits for &lt;code class="paramref"&gt;locator&lt;/code&gt; with [LocatorExpect](/api/E2E/LocatorExpect/). &lt;code class="paramref"&gt;message&lt;/code&gt; opens every failure of the check,
+`Not` included, and the `LOCATOR_AMBIGUOUS` error.
 
 **Parameters**
 
 | Name | Type | Description |
 | --- | --- | --- |
 | `locator` | [Locator](/api/E2E/Locator/) |  |
+| `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [LocatorExpect](/api/E2E/LocatorExpect/)
 
-<a id="E2E_Expect_That_E2E_Screen_"></a>
+<a id="E2E_Expect_That_E2E_Screen_System_String_"></a>
 
-### That(Screen)
+### That(Screen, string?)
 
 
 ```csharp
-public static ScreenExpect That(Screen screen)
+public static ScreenExpect That(Screen screen, string? message = null)
 ```
 
 
@@ -420,6 +427,7 @@ Compares the whole screen against a stored screenshot with `ToHaveScreenshotAsyn
 | Name | Type | Description |
 | --- | --- | --- |
 | `screen` | [Screen](/api/E2E/Screen/) |  |
+| `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [ScreenExpect](/api/E2E/ScreenExpect/)
 

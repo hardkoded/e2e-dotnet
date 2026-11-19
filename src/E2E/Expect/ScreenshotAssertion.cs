@@ -18,6 +18,7 @@ internal static partial class ScreenshotAssertion
         Screen screen,
         ScreenshotContext store,
         string api,
+        string? message,
         ScreenshotCall call,
         string file,
         string shown,
@@ -30,6 +31,9 @@ internal static partial class ScreenshotAssertion
         public ScreenshotContext Store { get; } = store;
 
         public string Api { get; } = api;
+
+        /// <summary>The caller's message, which opens every failure.</summary>
+        public string? Message { get; } = message;
 
         public ScreenshotCall Call { get; } = call;
 
@@ -48,6 +52,7 @@ internal static partial class ScreenshotAssertion
         Screen screen,
         Locator? subject,
         bool negated,
+        string? message,
         string? name,
         ScreenshotOptions? options,
         string? callerFile,
@@ -57,7 +62,17 @@ internal static partial class ScreenshotAssertion
             StepKind.Assertion,
             "expect." + (negated ? "not." : "") + "toHaveScreenshot",
             Subject(subject),
-            () => ExpectScreenshotCoreAsync(screen, subject, negated, name, options, callerFile, cancellationToken),
+            () =>
+                ExpectScreenshotCoreAsync(
+                    screen,
+                    subject,
+                    negated,
+                    message,
+                    name,
+                    options,
+                    callerFile,
+                    cancellationToken
+                ),
             verifies: true
         );
 
@@ -65,6 +80,7 @@ internal static partial class ScreenshotAssertion
         Screen screen,
         Locator? subject,
         bool negated,
+        string? message,
         string? name,
         ScreenshotOptions? options,
         string? callerFile,
@@ -87,7 +103,33 @@ internal static partial class ScreenshotAssertion
 
         var reads = screen.Reads(deadline);
         var capturer = new Capturer(screen, store, api, subject, call, reads);
-        var run = new Run(screen, store, api, call, file, shown, capturer.CaptureAsync, reads);
+        var run = new Run(
+            screen,
+            store,
+            api,
+            message,
+            call,
+            file,
+            shown,
+            async token =>
+            {
+                try
+                {
+                    return await capturer.CaptureAsync(token).ConfigureAwait(false);
+                }
+                catch (TestException ex)
+                {
+                    var labelled = ExpectHeading.LabelAmbiguous(ex, message);
+                    if (ReferenceEquals(labelled, ex))
+                    {
+                        throw;
+                    }
+
+                    throw labelled;
+                }
+            },
+            reads
+        );
         var expected = System.IO.File.Exists(file) ? ReadStored(run) : null;
         if (expected is not null && (negated || !store.Update) && store.HasWritten(file))
         {
@@ -460,7 +502,10 @@ internal static partial class ScreenshotAssertion
         Exception? cause = null
     )
     {
-        var text = "expect(" + Subject(subject) + ")." + run.Api + " failed\n" + message;
+        var text =
+            ExpectHeading.WithMessage(run.Message, "expect(" + Subject(subject) + ")." + run.Api + " failed")
+            + "\n"
+            + message;
         return ErrorRedaction.Failure(
             "ASSERTION_FAILED",
             text,

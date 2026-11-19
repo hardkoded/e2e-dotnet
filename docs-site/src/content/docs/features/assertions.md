@@ -7,6 +7,14 @@ sidebar:
 
 ## Soft checks
 
+- `Expect.That(locator, message)`, `Expect.That(screen, message)`, and their `Expect.Soft` forms take an optional message. It opens each assertion failure of the matchers, `Not` included, before the matcher and the locator, and the `LOCATOR_AMBIGUOUS` error of a locator that matches more than one node (also from `ToHaveScreenshotAsync`). An invalid option or a denied read fails without it. `Expect.That(Browser)` takes none; its failure names the matcher.
+
+  ```csharp
+  await Expect.That(Screen.GetByTestId("cart-empty"), "the cart is empty").ToBeVisibleAsync();
+  // ASSERTION_FAILED: the cart is empty: expect.toBeVisible failed
+  // locator: getByTestId("cart-empty")
+  ```
+
 - `Expect.Soft(locator)` and `Expect.Soft(screen)` record each failure and let the test go on. On NUnit the failures land on the test result, as inside `Assert.EnterMultipleScope`, and the test fails when it ends with every failure listed. On xUnit v3 they stay on the session, and the test fails when it is disposed, with every failure in one message.
 - `Expect.Soft(Browser)` keeps the failures of `ToHaveURLAsync`, `ToHaveTitleAsync`, and `ToHaveClassAsync` the same way.
 - `Expect.Soft(screen, value, message)` keeps the failure of a value check the same way (see [Value checks](#value-checks)).

@@ -27,7 +27,7 @@ public static class Expect
     public static ValueExpectation<T> That<T>(T actual, string? message = null) => new(actual, negated: false, message);
 
     /// <summary>
-    /// The value matchers, but a failure is kept on <paramref name="screen"/>'s session instead of thrown, as <see cref="Soft(Locator)"/>
+    /// The value matchers, but a failure is kept on <paramref name="screen"/>'s session instead of thrown, as <see cref="Soft(Locator, string?)"/>
     /// keeps one. Upstream's <c>expect.soft(value)</c> finds the running attempt on its own; a .NET call has no ambient attempt, so it names the session
     /// through its screen.
     /// </summary>
@@ -92,10 +92,14 @@ public static class Expect
         return new StringMatchingMatcher(sample);
     }
 
-    public static LocatorExpect That(Locator locator)
+    /// <summary>
+    /// Waits for <paramref name="locator"/> with <see cref="LocatorExpect"/>. <paramref name="message"/> opens every failure of the check,
+    /// <c>Not</c> included, and the <c>LOCATOR_AMBIGUOUS</c> error.
+    /// </summary>
+    public static LocatorExpect That(Locator locator, string? message = null)
     {
         ArgumentNullException.ThrowIfNull(locator);
-        return new LocatorExpect(locator, negated: false);
+        return new LocatorExpect(locator, negated: false, message);
     }
 
     /// <summary>Waits for the browser's URL or title with <see cref="BrowserExpect"/>. A passing matcher verifies the previous act.</summary>
@@ -106,31 +110,32 @@ public static class Expect
     }
 
     /// <summary>Compares the whole screen against a stored screenshot with <see cref="ScreenExpect.ToHaveScreenshotAsync(string?, ScreenshotOptions?, string?)"/>.</summary>
-    public static ScreenExpect That(Screen screen)
+    public static ScreenExpect That(Screen screen, string? message = null)
     {
         ArgumentNullException.ThrowIfNull(screen);
-        return new ScreenExpect(screen, negated: false);
+        return new ScreenExpect(screen, negated: false, message);
     }
 
     /// <summary>
     /// The locator matchers, but a failure is kept on the session instead of
     /// thrown and the body runs on. The test fails at the end with every kept
     /// failure. <c>E2ETest</c> records each one as an NUnit assertion failure.
+    /// <paramref name="message"/> opens every failure, as <see cref="That(Locator, string?)"/> does.
     /// </summary>
-    public static SoftLocatorExpect Soft(Locator locator)
+    public static SoftLocatorExpect Soft(Locator locator, string? message = null)
     {
         ArgumentNullException.ThrowIfNull(locator);
-        return new SoftLocatorExpect(new LocatorExpect(locator, negated: false), locator.Screen.SoftFailures);
+        return new SoftLocatorExpect(new LocatorExpect(locator, negated: false, message), locator.Screen.SoftFailures);
     }
 
-    /// <summary>The screen matcher, but a failure is kept as <see cref="Soft(Locator)"/> keeps one.</summary>
-    public static SoftScreenExpect Soft(Screen screen)
+    /// <summary>The screen matcher, but a failure is kept as <see cref="Soft(Locator, string?)"/> keeps one.</summary>
+    public static SoftScreenExpect Soft(Screen screen, string? message = null)
     {
         ArgumentNullException.ThrowIfNull(screen);
-        return new SoftScreenExpect(new ScreenExpect(screen, negated: false), screen.SoftFailures);
+        return new SoftScreenExpect(new ScreenExpect(screen, negated: false, message), screen.SoftFailures);
     }
 
-    /// <summary>The browser matchers, but a failure is kept as <see cref="Soft(Locator)"/> keeps one.</summary>
+    /// <summary>The browser matchers, but a failure is kept as <see cref="Soft(Locator, string?)"/> keeps one.</summary>
     public static SoftBrowserExpect Soft(Browser browser)
     {
         ArgumentNullException.ThrowIfNull(browser);
@@ -169,15 +174,17 @@ public sealed class LocatorExpect
 {
     private readonly Locator _locator;
     private readonly bool _negated;
+    private readonly string? _message;
 
-    internal LocatorExpect(Locator locator, bool negated)
+    internal LocatorExpect(Locator locator, bool negated, string? message)
     {
         _locator = locator;
         _negated = negated;
+        _message = message;
     }
 
     /// <summary>Inverts the matcher. A negated matcher passes after its condition has been false for 1000 ms in a row.</summary>
-    public LocatorExpect Not => new(_locator, !_negated);
+    public LocatorExpect Not => new(_locator, !_negated, _message);
 
     /// <summary>
     /// Waits for the one match to look like its stored screenshot, the box of the node cut from the screen. See <see cref="ScreenExpect.ToHaveScreenshotAsync(string?, ScreenshotOptions?, string?)"/>.
@@ -191,6 +198,7 @@ public sealed class LocatorExpect
             _locator.Screen,
             _locator,
             _negated,
+            _message,
             name,
             options,
             callerFile,
@@ -731,7 +739,7 @@ public sealed class LocatorExpect
         var code = verdict.StrictCount > 1 ? "LOCATOR_AMBIGUOUS" : "ASSERTION_FAILED";
         var message = string.Join(
             "\n",
-            "expect." + name + " failed",
+            ExpectHeading.WithMessage(_message, "expect." + name + " failed"),
             "locator: " + _locator.Query.Describe(),
             "expected: " + (_negated ? "not " : "") + describeExpected,
             "observed: " + verdict.Observed + " (match count " + Number(matches.Count) + ")"
@@ -952,15 +960,17 @@ public sealed class ScreenExpect
 {
     private readonly Screen _screen;
     private readonly bool _negated;
+    private readonly string? _message;
 
-    internal ScreenExpect(Screen screen, bool negated)
+    internal ScreenExpect(Screen screen, bool negated, string? message)
     {
         _screen = screen;
         _negated = negated;
+        _message = message;
     }
 
     /// <summary>Inverts the matcher: waits for the screen to differ from its stored screenshot.</summary>
-    public ScreenExpect Not => new(_screen, !_negated);
+    public ScreenExpect Not => new(_screen, !_negated, _message);
 
     /// <summary>
     /// Waits for the screen to look like its stored screenshot, <c>&lt;test file&gt;-snapshots/&lt;name&gt;-&lt;target&gt;-&lt;os&gt;.png</c>
@@ -980,7 +990,16 @@ public sealed class ScreenExpect
                     "toHaveScreenshot compares the whole screen or one locator; call it on screen, or on a locator inside the frame"
                 )
             )
-            : ScreenshotAssertion.ExpectScreenshotAsync(_screen, null, _negated, name, options, callerFile, default);
+            : ScreenshotAssertion.ExpectScreenshotAsync(
+                _screen,
+                null,
+                _negated,
+                _message,
+                name,
+                options,
+                callerFile,
+                default
+            );
 
     /// <inheritdoc cref="ToHaveScreenshotAsync(string?, ScreenshotOptions?, string?)"/>
     public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null) =>

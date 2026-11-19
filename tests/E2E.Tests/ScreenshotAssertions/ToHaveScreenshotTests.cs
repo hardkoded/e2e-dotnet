@@ -478,4 +478,70 @@ public sealed class ToHaveScreenshotTests
         Assert.Equal("ASSERTION_FAILED", error?.Code);
         Assert.Contains("no stored screenshot", error!.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Opens_a_locator_and_a_screen_screenshot_failure_with_the_callers_message_when_none_is_stored_in_CI_too_and_on_a_mismatch()
+    {
+        var engine = new ScreenEngine();
+        using var project = new ScreenProject(engine);
+        var cases = new (string Title, string Message, Func<Screen, Task> Run)[]
+        {
+            ("button", "the button kept its style", screen =>
+                Expect
+                    .That(screen.GetByRole("button"), "the button kept its style")
+                    .ToHaveScreenshotAsync("button", Quick)
+            ),
+            ("page", "the page kept its look", screen =>
+                Expect.That(screen, "the page kept its look").ToHaveScreenshotAsync("page", Quick)
+            ),
+        };
+
+        foreach (var (title, message, run) in cases)
+        {
+            var inCi = await project.RunAsync("labelled", title, run, ci: true);
+            Assert.StartsWith(message + ": expect", inCi!.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "toHaveScreenshot failed\nno stored screenshot at ",
+                inCi.Message,
+                StringComparison.Ordinal
+            );
+            Assert.Contains("CI writes none", inCi.Message, StringComparison.Ordinal);
+        }
+
+        foreach (var (title, message, run) in cases)
+        {
+            var written = await project.RunAsync("labelled", title, run);
+            Assert.StartsWith(message + ": expect", written!.Message, StringComparison.Ordinal);
+            Assert.Contains("no stored screenshot at ", written.Message, StringComparison.Ordinal);
+        }
+
+        engine.Current = () => ScreenEngine.Shot(ScreenEngine.White, ScreenEngine.Red);
+        foreach (var (title, message, run) in cases)
+        {
+            var changed = await project.RunAsync("labelled", title, run);
+            Assert.Equal("ASSERTION_FAILED", changed?.Code);
+            Assert.StartsWith(message + ": expect", changed!.Message, StringComparison.Ordinal);
+            Assert.Contains("toHaveScreenshot failed\n", changed.Message, StringComparison.Ordinal);
+            Assert.Contains("pixels", changed.Message, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task Opens_a_negated_locator_and_screen_screenshot_failure_with_the_callers_message()
+    {
+        using var project = new ScreenProject(new ScreenEngine());
+        var locator = await project.RunAsync("negated", "labelled", screen =>
+            Expect.That(screen.GetByRole("button"), "the button restyled").Not.ToHaveScreenshotAsync("button")
+        );
+        Assert.Equal("ASSERTION_FAILED", locator?.Code);
+        Assert.StartsWith("the button restyled: expect", locator!.Message, StringComparison.Ordinal);
+        Assert.Contains("not.toHaveScreenshot failed\nno stored screenshot", locator.Message, StringComparison.Ordinal);
+
+        var page = await project.RunAsync("negated", "labelled screen", screen =>
+            Expect.That(screen, "the page changed").Not.ToHaveScreenshotAsync("page")
+        );
+        Assert.Equal("ASSERTION_FAILED", page?.Code);
+        Assert.StartsWith("the page changed: expect", page!.Message, StringComparison.Ordinal);
+        Assert.Contains("not.toHaveScreenshot failed\nno stored screenshot", page.Message, StringComparison.Ordinal);
+    }
 }
