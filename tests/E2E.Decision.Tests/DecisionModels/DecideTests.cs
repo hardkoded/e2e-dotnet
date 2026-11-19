@@ -9,7 +9,7 @@ using static E2E.Decision.Tests.Helpers;
 namespace E2E.Decision.Tests.DecisionModels;
 
 /// <summary>
-/// .NET-only: the parts of the decide call (<c>ExperimentalDecide</c>, the AI SDK's <c>experimental_decide</c>) and <c>Decide.DecideAsync</c> that no
+/// .NET-only: the parts of the decide call (<c>ExperimentalDecide</c>, the AI SDK's <c>experimental_decide</c>) and <c>E2E.Decision.Decide.DecideAsync</c> that no
 /// upstream <c>it</c> covers through the decision executor: the transport retries, score answers and their ties, the SDK's input validation, and a
 /// model's own timeout. What the executor tests cover (committed choices, refusals, a missing key, abort, the config checks) is ported there.
 /// </summary>
@@ -51,7 +51,7 @@ public sealed class DecideTests
         );
         var (ctx, usage) = Context();
 
-        var decisions = await Decide.DecideAsync(ctx, model, Request());
+        var decisions = await E2E.Decision.Decide.DecideAsync(ctx, model, Request());
 
         Assert.Equal(new Decision("tap", 0.9, 0.7), decisions["operation"]);
         var call = Assert.Single(usage);
@@ -87,7 +87,7 @@ public sealed class DecideTests
             },
         };
 
-        var decisions = await Decide.DecideAsync(Context().Ctx, model, request);
+        var decisions = await E2E.Decision.Decide.DecideAsync(Context().Ctx, model, request);
 
         Assert.Equal(new Decision("1", 1, 0, 1.5), decisions["operation"]);
     }
@@ -121,7 +121,7 @@ public sealed class DecideTests
             },
         };
 
-        var decisions = await Decide.DecideAsync(Context().Ctx, model, request);
+        var decisions = await E2E.Decision.Decide.DecideAsync(Context().Ctx, model, request);
 
         Assert.Equal("1", decisions["operation"].Choice);
     }
@@ -131,7 +131,9 @@ public sealed class DecideTests
     {
         var model = new ScriptedDecisionModel(_ => throw new TaskCanceledException("timed out"));
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => Decide.DecideAsync(Context().Ctx, model, Request()));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            E2E.Decision.Decide.DecideAsync(Context().Ctx, model, Request())
+        );
 
         Assert.Equal("MODEL_PROVIDER_FAILED", error.Code);
     }
@@ -217,7 +219,7 @@ public sealed class DecideTests
         var (ctx, _) = Context();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            Decide.DecideAsync(ctx, model, Request(), null, caller.Token)
+            E2E.Decision.Decide.DecideAsync(ctx, model, Request(), null, caller.Token)
         );
     }
 }
