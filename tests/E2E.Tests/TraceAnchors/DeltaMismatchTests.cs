@@ -121,7 +121,10 @@ public sealed class DeltaMismatchTests
         {
             SemanticNode[] after = [Heading, Node("status", text: "Profile saved"), Node(text: "Last saved " + time)];
 
-            Assert.Equal(["status|~Profile saved"], Shapes(Describe([Heading], after).Appeared));
+            var delta = Describe([Heading], after);
+
+            Assert.Equal(["status|~Profile saved"], Shapes(delta.Appeared));
+            Assert.Empty(delta.Gone);
         }
 
         static SemanticNode Expiring(string at) => Node("alert", text: "Session expires at " + at);
