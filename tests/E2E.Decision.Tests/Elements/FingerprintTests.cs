@@ -21,7 +21,7 @@ public sealed class FingerprintTests
                 {
                     Path = path,
                     Viewport = new TraceViewport(800, 600),
-                    Tree = tree,
+                    Tree = new ExecutorNode { Id = "root", Children = tree },
                     KeyboardVisible = keyboardVisible,
                 },
                 true

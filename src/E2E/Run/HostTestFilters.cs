@@ -38,6 +38,7 @@ internal sealed record DiscoveredTest(
 /// <param name="Previous">The report a <c>--last-failed</c> rerun selected from; null for any other run.</param>
 /// <param name="Collected">The tests the host found, which decide what a rerun still carries; set with <paramref name="Previous"/>.</param>
 /// <param name="RerunDir">The directory the rerun's attempts go in, inside each test's (<c>rerun-&lt;n&gt;</c>); set with <paramref name="Previous"/>.</param>
+/// <param name="Relevance">The highest score any filter gave each test, by the test's key (<c>Type.FullName.method</c>); empty when no filter scored one.</param>
 internal sealed record HostSelection(
     IReadOnlyDictionary<string, string> Excluded,
     IReadOnlyList<ReportResult> Results,
@@ -45,7 +46,8 @@ internal sealed record HostSelection(
     ReportChanges? Changes,
     PreviousRun? Previous = null,
     RerunCollection? Collected = null,
-    string? RerunDir = null
+    string? RerunDir = null,
+    IReadOnlyDictionary<string, double>? Relevance = null
 );
 
 /// <summary>
@@ -99,7 +101,8 @@ internal static class HostTestFilters
         IReadOnlyList<DiscoveredTest> discovered,
         Action<string> notice,
         CancellationToken cancellationToken,
-        bool lastFailed = false
+        bool lastFailed = false,
+        bool ordered = false
     )
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -153,6 +156,21 @@ internal static class HostTestFilters
                 )
                 .ConfigureAwait(false);
 
+        // The notice follows the filters' own summaries, and only a framework that orders its tests by relevance says it (upstream's runner always does).
+        if (ordered && TestFilters.RankingNotice(filtered.Selection, filtered.Relevance) is { } ranking)
+        {
+            Say(ranking);
+        }
+
+        var relevance = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var (id, score) in filtered.Relevance)
+        {
+            if (keys.TryGetValue(id, out var key))
+            {
+                relevance[key] = score;
+            }
+        }
+
         var excluded = new Dictionary<string, string>(StringComparer.Ordinal);
         var results = new List<ReportResult>();
         foreach (var pair in filtered.Selection.Pairs.Where(pair => pair.Skip is { Cause: "filtered" }))
@@ -186,7 +204,8 @@ internal static class HostTestFilters
                     new HashSet<string>(collection.Tests.Select(test => test.Id), StringComparer.Ordinal),
                     new HashSet<string>(StringComparer.Ordinal)
                 ),
-            rerunDir
+            rerunDir,
+            relevance
         );
     }
 
