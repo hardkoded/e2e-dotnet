@@ -77,7 +77,7 @@ public string Id { get; }
 ```
 
 
-The id in the credentials file and on the command line: `openai`, `github-copilot`, `opencode-console`, `spacexai`.
+The id in the credentials file and on the command line: `openai`, `github-copilot`, `opencode-console`, `spacexsi`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

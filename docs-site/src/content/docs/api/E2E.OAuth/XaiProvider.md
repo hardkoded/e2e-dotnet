@@ -1,6 +1,6 @@
 ---
 title: "XaiProvider"
-description: "SuperGrok and X Premium+ through SpaceXAI's OAuth server: RFC 8628 device authorization for the Grok CLI's public client. The token is a plain bearer against..."
+description: "SuperGrok and X Premium+ through SpaceXSI's OAuth server: RFC 8628 device authorization for the Grok CLI's public client. The token is a plain bearer against..."
 editUrl: false
 prev: false
 next: false
@@ -19,8 +19,8 @@ public sealed class XaiProvider : IOAuthProvider
 ```
 
 
-SuperGrok and X Premium+ through SpaceXAI's OAuth server: RFC 8628 device authorization for the Grok CLI's
-public client. The token is a plain bearer against the ordinary SpaceXAI API. Refresh tokens rotate.
+SuperGrok and X Premium+ through SpaceXSI's OAuth server: RFC 8628 device authorization for the Grok CLI's
+public client. The token is a plain bearer against the ordinary SpaceXSI API. Refresh tokens rotate.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -77,7 +77,7 @@ public string Id { get; }
 ```
 
 
-The id in the credentials file and on the command line: `openai`, `github-copilot`, `opencode-console`, `spacexai`.
+The id in the credentials file and on the command line: `openai`, `github-copilot`, `opencode-console`, `spacexsi`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

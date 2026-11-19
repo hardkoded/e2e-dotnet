@@ -280,7 +280,7 @@ A ChatGPT Plus/Pro, GitHub Copilot, OpenCode Console (Zen and Go), or SuperGrok/
 
 ```bash
 dotnet tool install --global E2E.Cli
-e2e login openai            # or github-copilot, opencode-console, spacexai
+e2e login openai            # or github-copilot, opencode-console, spacexsi
 e2e models openai           # the model ids the plan serves
 ```
 

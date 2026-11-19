@@ -109,7 +109,7 @@ public static OpenAiCompatibleModel Grok(string model, ICredentialStore? store =
 ```
 
 
-A SuperGrok or X Premium+ subscription over the ordinary SpaceXAI API.
+A SuperGrok or X Premium+ subscription over the ordinary SpaceXSI API.
 
 **Parameters**
 

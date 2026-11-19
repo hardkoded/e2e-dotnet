@@ -17,7 +17,7 @@ internal static class LoginModel
         {
             "chatgpt" => "openai",
             "copilot" => "github-copilot",
-            "grok" => "spacexai",
+            "grok" => "spacexsi",
             "opencode-console" => "opencode-console",
             _ => null,
         };
