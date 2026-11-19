@@ -8,7 +8,7 @@ using System.Text.Json.Nodes;
 namespace E2E.Decision.Sdk.Gateway.VercelOidc;
 
 /// <summary>A successful OAuth token response.</summary>
-internal sealed record OAuthTokens(string AccessToken, double ExpiresIn, string? RefreshToken);
+internal sealed record TokenSet(string AccessToken, double ExpiresIn, string? RefreshToken);
 
 /// <summary>Maps to <c>oauth.ts</c> in <c>@vercel/oidc</c>: the Vercel CLI refresh-token grant.</summary>
 internal static class OAuth
@@ -74,7 +74,7 @@ internal static class OAuth
     }
 
     /// <summary>Reads a token response. Returns the error or the tokens.</summary>
-    public static async Task<(Exception? Error, OAuthTokens? Tokens)> ProcessTokenResponseAsync(
+    public static async Task<(Exception? Error, TokenSet? Tokens)> ProcessTokenResponseAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken
     )
@@ -121,7 +121,7 @@ internal static class OAuth
             }
 
             var refresh = body["refresh_token"] is JsonValue r && r.TryGetValue<string>(out var rt) ? rt : null;
-            return (null, new OAuthTokens(access, expires, refresh));
+            return (null, new TokenSet(access, expires, refresh));
         }
     }
 
