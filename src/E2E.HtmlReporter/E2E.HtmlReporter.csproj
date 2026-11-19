@@ -32,14 +32,18 @@
   </Target>
   <Target
     Name="BuildReportPage"
-    BeforeTargets="BeforeBuild;AssignTargetPaths"
     DependsOnTargets="InstallReportPageTools"
     Inputs="@(AppInputs)"
     Outputs="$(AppTemplate)"
   >
     <Exec Command="npm run build" WorkingDirectory="$(AppDir)" />
   </Target>
-  <Target Name="EmbedReportPage" BeforeTargets="AssignTargetPaths" DependsOnTargets="BuildReportPage">
+  <!--
+    The page does not depend on the target framework, so every inner build asks for the one build of it that a fixed framework makes. MSBuild runs that
+    instance once, so the inner builds of a multi-targeted build do not run npm in the same folder at the same time.
+  -->
+  <Target Name="EmbedReportPage" BeforeTargets="AssignTargetPaths">
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="BuildReportPage" Properties="TargetFramework=net10.0" />
     <ItemGroup>
       <EmbeddedResource Include="$(AppTemplate)" LogicalName="app/index.html" />
     </ItemGroup>
