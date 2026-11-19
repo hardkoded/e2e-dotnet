@@ -81,15 +81,8 @@ internal static class FileModes
         }
         catch
         {
-            try
-            {
-                File.Delete(temp);
-            }
-            catch (Exception exception)
-                when (exception is IOException or UnauthorizedAccessException)
-            {
-                // The original failure is the one to report.
-            }
+            // The original failure is the one to report.
+            TryDelete(() => File.Delete(temp));
 
             throw;
         }
@@ -97,16 +90,22 @@ internal static class FileModes
         {
             if (stagingDir is not null)
             {
-                try
-                {
-                    Directory.Delete(stagingDir, recursive: true);
-                }
-                catch (Exception exception)
-                    when (exception is IOException or UnauthorizedAccessException)
-                {
-                    // Best effort: the staging directory is empty and private.
-                }
+                // Best effort: the staging directory is empty and private.
+                TryDelete(() => Directory.Delete(stagingDir, recursive: true));
             }
+        }
+    }
+
+    private static bool TryDelete(Action delete)
+    {
+        try
+        {
+            delete();
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 
