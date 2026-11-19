@@ -233,6 +233,11 @@ internal static class FilterHelpers
     {
         public void Dispose()
         {
+            if (!Directory.Exists(Root))
+            {
+                return;
+            }
+
             // Git marks its object files read-only, which blocks the delete on Windows.
             foreach (var file in Directory.EnumerateFiles(Root, "*", SearchOption.AllDirectories))
             {
