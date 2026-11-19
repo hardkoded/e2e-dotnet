@@ -266,7 +266,7 @@ public interface IDecisionModel
 
 /// <summary>
 /// A deprecated decision model shape (the AI SDK's <c>Experimental_EvaluationModelV4</c>): the same model with <c>doEvaluate</c> in place
-/// of <c>doDecide</c>. <see cref="ResolveModel.ResolveDecisionModel"/> adapts it to an <see cref="IDecisionModel"/>.
+/// of <c>doDecide</c>. <see cref="ResolveModel.ResolveDecisionModel(IEvaluationModel)"/> adapts it to an <see cref="IDecisionModel"/>.
 /// </summary>
 public interface IEvaluationModel
 {

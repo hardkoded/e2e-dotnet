@@ -11,7 +11,14 @@ namespace E2E.Decision.Sdk;
 /// <summary>What <see cref="ExperimentalDecide.RunAsync"/> takes (the arguments of the AI SDK's <c>experimental_decide</c>).</summary>
 public sealed class DecideOptions
 {
-    public required IDecisionModel Model { get; init; }
+    /// <summary>The model that decides. Set exactly one of <see cref="Model"/>, <see cref="EvaluationModel"/>, and <see cref="ModelId"/>.</summary>
+    public IDecisionModel? Model { get; init; }
+
+    /// <summary>Deprecated: use <see cref="Model"/>. A deprecated evaluation model (<c>doEvaluate</c>).</summary>
+    public IEvaluationModel? EvaluationModel { get; init; }
+
+    /// <summary>A model id, resolved through <see cref="ResolveModel.AiSdkDefaultProvider"/> (the Gateway when none is set).</summary>
+    public string? ModelId { get; init; }
 
     public required IReadOnlyList<DecisionStatePart> State { get; init; }
 
@@ -53,6 +60,9 @@ public sealed class DecideOptions
 /// </summary>
 public static class ExperimentalDecide
 {
+    /// <summary>Deprecated: use <see cref="RunAsync"/>. The AI SDK's <c>experimental_evaluate</c>, the same function as <c>experimental_decide</c>.</summary>
+    public static readonly Func<DecideOptions, CancellationToken, Task<DecisionResult>> ExperimentalEvaluate = RunAsync;
+
     private const double Tolerance = 1e-6;
 
     /// <summary>The AI SDK's default <c>maxRetries</c>.</summary>
@@ -73,7 +83,7 @@ public static class ExperimentalDecide
     )
     {
         ArgumentNullException.ThrowIfNull(options);
-        var model = options.Model;
+        var model = ResolveOptionsModel(options);
         if (options.MaxOutputTokens is < 1)
         {
             throw new InvalidArgumentException("maxOutputTokens", "must be an integer >= 1");
@@ -246,6 +256,26 @@ public static class ExperimentalDecide
     }
 
     /// <summary>The AI SDK's <c>createIdGenerator({ prefix: 'call', size: 24 })</c>: <c>call-</c> and 24 random letters and digits.</summary>
+    // The AI SDK's `resolveDecisionModel(model)`: a model id, a decision model, or a deprecated evaluation model.
+    private static IDecisionModel ResolveOptionsModel(DecideOptions options)
+    {
+        var given =
+            (options.Model is null ? 0 : 1)
+            + (options.EvaluationModel is null ? 0 : 1)
+            + (options.ModelId is null ? 0 : 1);
+        if (given != 1)
+        {
+            throw new InvalidArgumentException("model", "set exactly one of Model, EvaluationModel, and ModelId");
+        }
+
+        return options.Model
+            ?? (
+                options.EvaluationModel is { } evaluationModel
+                    ? ResolveModel.ResolveDecisionModel(evaluationModel)
+                    : ResolveModel.ResolveDecisionModel(options.ModelId!)
+            );
+    }
+
     private static string GenerateCallId()
     {
         const string alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";

@@ -32,7 +32,7 @@ public sealed class GatewayProviderSettings
 /// The AI SDK's <c>createGateway</c> and the <c>gateway</c> provider (<c>gateway-provider.ts</c>), for its decision models:
 /// <c>gateway.decisionModel('typesafe-ai/jev')</c>.
 /// </summary>
-public sealed class GatewayProvider
+public sealed class GatewayProvider : IDecisionProvider
 {
     private const string ProtocolVersion = "0.0.1";
     private const string AuthMethodHeader = "ai-gateway-auth-method";
@@ -71,6 +71,10 @@ public sealed class GatewayProvider
 
     /// <summary>Deprecated: use <see cref="Decision"/>.</summary>
     public GatewayDecisionModel Evaluation(string modelId) => DecisionModel(modelId);
+
+    IDecisionModel? IDecisionProvider.DecisionModel(string modelId) => DecisionModel(modelId);
+
+    IEvaluationModel? IDecisionProvider.EvaluationModel(string modelId) => EvaluationModel(modelId);
 
     // getGatewayAuthToken: a non-empty API key (the option, else the environment) is used as is; an empty one falls through to OIDC.
     private Task<IReadOnlyDictionary<string, string?>> GetHeadersAsync(CancellationToken cancellationToken)
