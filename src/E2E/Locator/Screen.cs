@@ -2143,7 +2143,7 @@ internal static class LocatorResolver
         if (
             node.Role is null
             || !string.Equals(node.Role, query.Role, StringComparison.OrdinalIgnoreCase)
-            || ((node.States.Hidden || node.States.AriaHidden) && !includeHidden)
+            || (node.States.Hidden && !includeHidden)
         )
         {
             return false;

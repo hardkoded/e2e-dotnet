@@ -639,7 +639,7 @@ One node of an observation tree. `Ref` is valid only for the observation it came
 | `Placeholder` | The field's placeholder. |
 | `InputPurpose` | What a field takes, deciding which secrets may fill it: `username`, `password`, `one-time-code`, `generic-secret`, or `none`. |
 | `Level` | Heading level of a heading node. |
-| `States` | `NodeStates`: `Checked`, `Disabled`, `Expanded`, `Focused`, `Hidden`, `AriaHidden`, `Secure`, `Selected`, `Pressed`, and the .NET-only `CheckedReported`, `ExpandedAbsent`, `Mixed`, `EmptyBox`. `Secure` marks a field whose value is never observed. |
+| `States` | `NodeStates`: `Checked`, `Disabled`, `Expanded`, `Focused`, `Hidden`, `Secure`, `Selected`, `Pressed`, and the .NET-only `CheckedReported`, `ExpandedAbsent`, `Mixed`, `EmptyBox`. `Secure` marks a field whose value is never observed. |
 | `Attributes` | Platform attributes by name, what `GetAttributeAsync` reads. A secure field never reports its value. |
 | `Rect` | The node's `BoundingBox` in the top-level viewport's CSS pixels, including nodes inside nested documents. |
 | `Origin` | The `Point` an offset into the node is measured from, when it is not `Rect`'s top-left corner. |

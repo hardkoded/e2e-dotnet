@@ -27,21 +27,6 @@ Boolean states a platform can report for one node.
 
 ## Properties
 
-<a id="E2E_Engine_NodeStates_AriaHidden_"></a>
-<a id="E2E_Engine_NodeStates_AriaHidden"></a>
-
-### AriaHidden
-
-
-```csharp
-public bool AriaHidden { get; init; }
-```
-
-
-The node, or an ancestor, is `aria-hidden`. It may still paint, so it can be visible, but the tree walk leaves it out: role queries and the agent never see it.
-
-**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
 <a id="E2E_Engine_NodeStates_Checked_"></a>
 <a id="E2E_Engine_NodeStates_Checked"></a>
 

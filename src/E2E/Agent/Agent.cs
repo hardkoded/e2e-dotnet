@@ -1170,7 +1170,7 @@ public sealed partial class Agent
         var parents = within is null ? null : AgentActions.ParentsOf(observation.Tree);
         foreach (var node in LocatorResolver.Walk(observation.Tree))
         {
-            if (node.States.Hidden || node.States.AriaHidden)
+            if (node.States.Hidden)
             {
                 continue;
             }

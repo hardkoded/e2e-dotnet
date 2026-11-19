@@ -878,9 +878,9 @@ internal static class ReadSemantics
           // A text limit cuts and collapses whitespace; none reads the text as it is.
           const clip = (value, limit) => limit === null ? value || "" : cut(value, limit);
           // Everything one element reports on its own. `state` carries what the caller knows about the element's place: whether it is hidden
-          // or aria-hidden (a tree walk carries both down), the focused element, the test id attribute, and the text limit (null for none).
+          // (a tree walk carries it down), the focused element, the test id attribute, and the text limit (null for none).
           const fieldsOf = (el, role, state) => {
-            const { isHidden, isAriaHidden, focused, testIdAttribute, textLimit } = state;
+            const { isHidden, focused, testIdAttribute, textLimit } = state;
             const isFrame = el.tagName === "IFRAME";
             // An editor's document is its value, as a textarea's text is: kept as
             // rendered, spaces and newlines included. An empty editor renders
@@ -926,7 +926,6 @@ internal static class ReadSemantics
               pressed: el.getAttribute("aria-pressed") === "true",
               focused: el === focused,
               hidden: isHidden,
-              ariaHidden: isAriaHidden,
               secure,
               frame: isFrame,
               attributes: attributesOf(el, secure, testIdAttribute),
@@ -936,18 +935,15 @@ internal static class ReadSemantics
               origin: originOf(el),
             };
           };
-          // One element read on its own: hidden when it is or an ancestor in the flat tree hides its subtree, aria-hidden when it or an
-          // ancestor is, the verdicts the tree walk carries down.
+          // One element read on its own: hidden when it is or an ancestor in the flat tree hides its subtree, the verdict the tree
+          // walk carries down.
           const nodeOf = (el, testIdAttribute) => {
             let isHidden = false;
-            let isAriaHidden = false;
             for (let parent = parentOrHostOf(el); parent !== null; parent = parentOrHostOf(parent)) {
               if (hidesSubtree(parent, getComputedStyle(parent))) isHidden = true;
-              if (ariaHidden(parent)) isAriaHidden = true;
             }
             return fieldsOf(el, roleOf(el), {
               isHidden: isHidden || hidden(el),
-              isAriaHidden: isAriaHidden || ariaHidden(el),
               focused: focusedElementOf(),
               testIdAttribute,
               textLimit: null,

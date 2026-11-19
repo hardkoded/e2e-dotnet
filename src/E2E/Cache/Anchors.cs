@@ -135,7 +135,6 @@ internal static class Anchors
             var placeholder = Field(node.Placeholder);
             if (
                 node.States.Hidden
-                || node.States.AriaHidden
                 || (name is null && text is null && testId is null && placeholder is null)
             )
             {
