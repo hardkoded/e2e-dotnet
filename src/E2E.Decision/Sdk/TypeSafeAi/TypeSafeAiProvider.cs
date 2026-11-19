@@ -9,7 +9,7 @@ namespace E2E.Decision.Sdk.TypeSafeAi;
 /// <summary>The AI SDK's <c>TypeSafeAiProviderSettings</c> (<c>typesafe-ai-provider.ts</c>).</summary>
 public sealed class TypeSafeAiProviderSettings
 {
-    /// <summary>The base URL prefix for API calls. Defaults to <c>https://api.typesafe.ai/v1</c>.</summary>
+    /// <summary>The base URL prefix for API calls. Defaults to the <c>TYPESAFE_AI_BASE_URL</c> environment variable, then <c>https://api.typesafe.ai/v1</c>.</summary>
     public string? BaseUrl { get; init; }
 
     /// <summary>The API key, sent as the bearer. Defaults to the <c>TYPESAFE_AI_API_KEY</c> environment variable, read at each call.</summary>
@@ -37,7 +37,7 @@ public sealed class TypeSafeAiProvider
     public TypeSafeAiProvider(TypeSafeAiProviderSettings? settings = null)
     {
         _settings = settings ?? new TypeSafeAiProviderSettings();
-        _baseUrl = (_settings.BaseUrl ?? DefaultBaseUrl).TrimEnd('/');
+        _baseUrl = (_settings.BaseUrl ?? ModelHttp.Environment("TYPESAFE_AI_BASE_URL") ?? DefaultBaseUrl).TrimEnd('/');
     }
 
     /// <summary>Creates a decision model (upstream's <c>decisionModel</c>).</summary>

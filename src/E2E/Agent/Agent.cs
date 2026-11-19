@@ -2042,6 +2042,9 @@ internal sealed class AttemptScope : ISecretFillRuntime
 
     public Func<CancellationToken> Token { get; init; } = static () => CancellationToken.None;
 
+    /// <summary>What <see cref="Token"/> aborted with, when it carries a reason (upstream's <c>signal.reason</c>); the steps cut by it fail with it.</summary>
+    public Func<Exception?>? Reason { get; init; }
+
     /// <summary>True once the test has failed. Verification stops there, so a later teardown check proves nothing.</summary>
     public Func<bool> TestFailed { get; init; } = static () => false;
 
@@ -2088,6 +2091,7 @@ internal sealed class AttemptScope : ISecretFillRuntime
                     Redact = text => Redactor.Redact(text),
                     AiTrace = AiTraceScope,
                     Signal = () => Token(),
+                    Reason = Reason,
                     RedactThrown = RedactThrown,
                     RetainSteps = RetainSteps,
                 }
