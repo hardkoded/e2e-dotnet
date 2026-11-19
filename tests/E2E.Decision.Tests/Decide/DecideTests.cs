@@ -36,6 +36,44 @@ public sealed class DecideTests
         Assert.Single(integration.ModelCallEnds);
     }
 
+    [Fact]
+    public async Task Carries_the_model_response_headers_and_body_onto_the_result_and_the_end_event()
+    {
+        using var body = System.Text.Json.JsonDocument.Parse("""{"raw":true}""");
+        var headers = new Dictionary<string, string> { ["x-request-id"] = "request" };
+        var (model, _) = Setup(
+            new DecisionModelResult
+            {
+                Answers = AnswerMap,
+                ResponseModelId = "actual-model",
+                ResponseHeaders = headers,
+                ResponseBody = body.RootElement.Clone(),
+            }
+        );
+        DecideEndEvent? ended = null;
+
+        var result = await ExperimentalDecide.RunAsync(
+            new DecideOptions
+            {
+                Model = model,
+                State = [new DecisionTextPart("text")],
+                Questions = QuestionMap,
+                OnEnd = e =>
+                {
+                    ended = e;
+                    return Task.CompletedTask;
+                },
+            }
+        );
+
+        Assert.Equal("actual-model", result.ResponseModelId);
+        Assert.Equal(headers, result.ResponseHeaders);
+        Assert.Equal("""{"raw":true}""", result.ResponseBody!.Value.GetRawText());
+        Assert.NotNull(ended);
+        Assert.Equal(headers, ended.ResponseHeaders);
+        Assert.Equal("""{"raw":true}""", ended.ResponseBody!.Value.GetRawText());
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("provider-default")]

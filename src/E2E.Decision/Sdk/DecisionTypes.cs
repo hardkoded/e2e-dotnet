@@ -300,5 +300,11 @@ public sealed class DecisionResult
     /// <summary>The id of the model that served the call: the response's, or the requested one.</summary>
     public required string ResponseModelId { get; init; }
 
+    /// <summary>The provider's response headers (upstream's <c>response.headers</c>), lowercase names.</summary>
+    public IReadOnlyDictionary<string, string>? ResponseHeaders { get; init; }
+
+    /// <summary>The provider's response body, as it sent it (upstream's <c>response.body</c>).</summary>
+    public JsonElement? ResponseBody { get; init; }
+
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
 }

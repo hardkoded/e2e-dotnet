@@ -201,6 +201,8 @@ public static class ExperimentalDecide
                 Rounding = result.Rounding,
                 ProviderMetadata = result.ProviderMetadata,
                 ResponseModelId = result.ResponseModelId ?? model.ModelId,
+                ResponseHeaders = result.ResponseHeaders,
+                ResponseBody = result.ResponseBody,
             };
             await Notify
                 .NotifyAsync(
@@ -223,6 +225,8 @@ public static class ExperimentalDecide
                         Rounding = decisionResult.Rounding,
                         ProviderMetadata = decisionResult.ProviderMetadata,
                         ResponseModelId = decisionResult.ResponseModelId,
+                        ResponseHeaders = decisionResult.ResponseHeaders,
+                        ResponseBody = decisionResult.ResponseBody,
                         Timestamp = decisionResult.Timestamp,
                     },
                     [options.OnEnd, telemetryDispatcher.OnEndAsync],
