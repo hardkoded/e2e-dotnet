@@ -104,16 +104,23 @@ public sealed class StepRecorderNameRunningTests
         Assert.Same(reason, failure);
     }
 
-    /// <summary>Partial: upstream's step fails with the other abort's reason itself (<c>toBe(timeout)</c>); a cancelled token carries no reason here, so the step fails with its cancellation, unnamed.</summary>
     [Fact]
-    public async Task Partial_Keeps_the_failure_of_a_step_another_abort_reached_first()
+    public async Task Keeps_the_failure_of_a_step_another_abort_reached_first()
     {
-        var (steps, end) = Recorder();
+        var timeout = new TestException("TEST_TIMEOUT", "session timed out after 1000 ms");
+        var end = new CancellationTokenSource();
+        var steps = new StepRecorder(
+            "attempt",
+            new StepRecorderOptions
+            {
+                Cancellation = end.Token,
+                Signal = () => end.Token,
+                Reason = () => end.IsCancellationRequested ? timeout : null,
+            }
+        );
         var step = Failure(steps.RunAsync(StepKind.App, "app.open", "/", Never));
         await end.CancelAsync();
         steps.NameRunning(Closed(), Cut);
-        var failure = await step;
-        Assert.NotNull(failure);
-        Assert.DoesNotContain("the session closed while", failure.Message, StringComparison.Ordinal);
+        Assert.Same(timeout, await step);
     }
 }

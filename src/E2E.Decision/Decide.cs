@@ -49,7 +49,7 @@ public static class Decide
             .RunAsync(
                 new DecideOptions
                 {
-                    Model = options.Model,
+                    Model = options.Model!,
                     State = state,
                     Questions = questions.ToDictionary(
                         pair => pair.Key,

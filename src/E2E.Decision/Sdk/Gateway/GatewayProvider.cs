@@ -28,6 +28,9 @@ public sealed class GatewayProviderSettings
     public HttpClient? HttpClient { get; init; }
 }
 
+/// <summary>The token and method <see cref="GatewayProvider.GetGatewayAuthTokenAsync"/> gives.</summary>
+public sealed record GatewayAuthToken(string Token, string AuthMethod);
+
 /// <summary>
 /// The AI SDK's <c>createGateway</c> and the <c>gateway</c> provider (<c>gateway-provider.ts</c>), for its decision models:
 /// <c>gateway.decisionModel('typesafe-ai/jev')</c>.
@@ -72,37 +75,40 @@ public sealed class GatewayProvider
     /// <summary>Deprecated: use <see cref="Decision"/>.</summary>
     public GatewayDecisionModel Evaluation(string modelId) => DecisionModel(modelId);
 
-    // getHeaders: createAuthHeaders over getGatewayAuthToken; a failure to resolve the credential is a GatewayAuthenticationError.
-    private async Task<IReadOnlyDictionary<string, string?>> GetHeadersAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Upstream's <c>getGatewayAuthToken</c>: a non-empty API key (the option, else <c>AI_GATEWAY_API_KEY</c>) is used as is, with no trimming;
+    /// otherwise the Vercel OIDC token. Callers wrap a failure here in a <see cref="GatewayAuthenticationException"/> ("No authentication provided").
+    /// </summary>
+    public static async Task<GatewayAuthToken> GetGatewayAuthTokenAsync(
+        GatewayProviderSettings settings,
+        CancellationToken cancellationToken = default
+    )
     {
-        try
-        {
-            return CreateAuthHeaders(await GetGatewayAuthTokenAsync(cancellationToken).ConfigureAwait(false));
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            throw GatewayAuthenticationException.CreateContextualError(false, false, 401, exception);
-        }
-    }
-
-    // getGatewayAuthToken: a non-empty API key (the option, else the environment) is used as is; an empty one falls through to the Vercel OIDC token (getVercelOidcToken from @vercel/oidc).
-    private async Task<(string Token, string AuthMethod)> GetGatewayAuthTokenAsync(CancellationToken cancellationToken)
-    {
-        var apiKey = !string.IsNullOrEmpty(_settings.ApiKey)
-            ? _settings.ApiKey
-            : ModelHttp.Environment("AI_GATEWAY_API_KEY");
+        cancellationToken.ThrowIfCancellationRequested();
+        var apiKey = settings.ApiKey ?? System.Environment.GetEnvironmentVariable("AI_GATEWAY_API_KEY");
         if (!string.IsNullOrEmpty(apiKey))
         {
-            return (apiKey, "api-key");
+            return new GatewayAuthToken(apiKey, "api-key");
         }
 
+        // getVercelOidcToken (@vercel/oidc), through vercel-environment.ts.
         var oidcToken = await VercelEnvironment.GetVercelOidcTokenAsync(cancellationToken).ConfigureAwait(false);
-        return (oidcToken, "oidc");
+        return new GatewayAuthToken(oidcToken, "oidc");
     }
 
-    // createAuthHeaders
-    private IReadOnlyDictionary<string, string?> CreateAuthHeaders((string Token, string AuthMethod) auth)
+    // getHeaders: a failure to authenticate is wrapped in a GatewayAuthenticationException with the failure as its cause.
+    private async Task<IReadOnlyDictionary<string, string?>> GetHeadersAsync(CancellationToken cancellationToken)
     {
+        GatewayAuthToken auth;
+        try
+        {
+            auth = await GetGatewayAuthTokenAsync(_settings, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            throw GatewayAuthenticationException.CreateContextualError(false, false, 401, error);
+        }
+
         var headers = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {
             ["Authorization"] = "Bearer " + auth.Token,
@@ -119,6 +125,12 @@ public sealed class GatewayProvider
             headers[name] = value;
         }
 
+        // withUserAgentSuffix: the port's agent follows a User-Agent the caller set.
+        var agent = ModelHttp.RequestHeaders["User-Agent"];
+        headers["User-Agent"] =
+            headers.TryGetValue("User-Agent", out var userAgent) && !string.IsNullOrEmpty(userAgent)
+                ? userAgent + " " + agent
+                : agent;
         return headers;
     }
 
