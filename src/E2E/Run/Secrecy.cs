@@ -3,38 +3,56 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using SharedSecrets = System.Tuple<System.Collections.Generic.Dictionary<(string Name, string Value), int[]>, int[]>;
 
 namespace E2E;
 
 /// <summary>What one live session knows about secrets: the values to redact.</summary>
 internal static class Secrecy
 {
-    private static readonly Lock SharedGate = new();
+    private const int Owners = 0;
+    private const int Permanent = 1;
+    private const int Revision = 0;
+    private const int Hosts = 1;
 
-    /// <summary>Every value shared now, by name and value, with how many owners share it. Upstream's <c>SharedSecrets.values</c>.</summary>
-    private static readonly Dictionary<(string Name, string Value), SharedValue> Shared = [];
-
-    private static int _revision;
+    private static readonly RealmSlot<SharedSecrets> SharedSlot = new(Brands.SharedSecretsBrand);
 
     /// <summary>
-    /// The hosts open now (<see cref="ShareStaticSecrets"/>). A session's learned values are visible beside it only while one is: upstream
-    /// runs one test at a time in a worker, so the sessions beside a test's are the ones it opened, where a .NET test framework runs tests
-    /// side by side in one process and one test must not redact another's values.
+    /// What the sessions in one process share, held in a process-wide slot and not in a static: a host can load a second copy of this
+    /// assembly (a plugin in its own load context), and a host of one copy must still reach the sessions of the other. Plain framework
+    /// data, so two copies, even two versions, agree on its shape. Upstream's <c>SharedSecrets</c>. The tuple is, in order: every value
+    /// shared now, by name and value, with its counts (<c>[owners, permanent]</c>), and the counters (<c>[revision, hosts]</c>), where
+    /// <c>hosts</c> is the hosts open now (<see cref="ShareStaticSecrets"/>). A session's learned values are visible beside it only while
+    /// one is: upstream runs one test at a time in a worker, so the sessions beside a test's are the ones it opened, where a .NET test
+    /// framework runs tests side by side in one process and one test must not redact another's values. Its dictionary is the lock.
     /// </summary>
-    private static int _hosts;
+    private static SharedSecrets Shared()
+    {
+        lock (RealmSlot<SharedSecrets>.Gate)
+        {
+            var state = SharedSlot.Get();
+            if (state is null)
+            {
+                state = Tuple.Create(new Dictionary<(string Name, string Value), int[]>(), new int[2]);
+                SharedSlot.Set(state);
+            }
+
+            return state;
+        }
+    }
 
     /// <summary>
     /// Counts the times a value appeared or disappeared; one more owner of a value already shared changes nothing. Upstream's
-    /// <c>SecretsBeside.revision</c>. The port keeps it in a static, where upstream holds it on <c>globalThis</c> so that two copies of the
-    /// package agree: one process loads one copy of this assembly.
+    /// <c>SecretsBeside.revision</c>.
     /// </summary>
     public static int BesideRevision
     {
         get
         {
-            lock (SharedGate)
+            var state = Shared();
+            lock (state.Item1)
             {
-                return _revision;
+                return state.Item2[Revision];
             }
         }
     }
@@ -42,9 +60,15 @@ internal static class Secrecy
     /// <summary>Every value shared now. Upstream's <c>SecretsBeside.values</c>.</summary>
     public static IReadOnlyList<(string Name, string Value)> Beside()
     {
-        lock (SharedGate)
+        var state = Shared();
+        lock (state.Item1)
         {
-            return [.. Shared.Where(pair => pair.Value.Permanent > 0 || _hosts > 0).Select(pair => pair.Key)];
+            return
+            [
+                .. state
+                    .Item1.Where(pair => pair.Value[Permanent] > 0 || state.Item2[Hosts] > 0)
+                    .Select(pair => pair.Key),
+            ];
         }
     }
 
@@ -57,11 +81,12 @@ internal static class Secrecy
         var list = secrets.ToList();
         OpenSession.SeedProcess(list);
         var sharing = Share(list.Select(secret => (secret.Name, secret.Value)));
-        lock (SharedGate)
+        var state = Shared();
+        lock (state.Item1)
         {
-            if (_hosts++ == 0)
+            if (state.Item2[Hosts]++ == 0)
             {
-                _revision++;
+                state.Item2[Revision]++;
             }
         }
 
@@ -74,11 +99,11 @@ internal static class Secrecy
             }
 
             sharing.Withdraw();
-            lock (SharedGate)
+            lock (state.Item1)
             {
-                if (--_hosts == 0)
+                if (--state.Item2[Hosts] == 0)
                 {
-                    _revision++;
+                    state.Item2[Revision]++;
                 }
             }
         };
@@ -144,71 +169,64 @@ internal static class Secrecy
         }
     }
 
-    private sealed class SharedValue
-    {
-        public int Owners;
-
-        /// <summary>How many of the owners share the value for the life of the process.</summary>
-        public int Permanent;
-    }
-
     /// <summary>One owner's share of values: more are added as it learns them, and all leave when it withdraws. Upstream's <c>Sharing</c>.</summary>
     internal sealed class Sharing(bool permanent = false)
     {
         private readonly HashSet<(string Name, string Value)> _mine = [];
+        private readonly SharedSecrets _state = Shared();
 
         public void Add(string name, string value)
         {
-            lock (SharedGate)
+            lock (_state.Item1)
             {
                 if (!_mine.Add((name, value)))
                 {
                     return;
                 }
 
-                if (Shared.TryGetValue((name, value), out var held))
+                if (_state.Item1.TryGetValue((name, value), out var held))
                 {
-                    held.Owners++;
-                    if (permanent && held.Permanent++ == 0 && _hosts == 0)
+                    held[Owners]++;
+                    if (permanent && held[Permanent]++ == 0 && _state.Item2[Hosts] == 0)
                     {
-                        _revision++;
+                        _state.Item2[Revision]++;
                     }
 
                     return;
                 }
 
-                Shared[(name, value)] = new SharedValue { Owners = 1, Permanent = permanent ? 1 : 0 };
-                if (permanent || _hosts > 0)
+                _state.Item1[(name, value)] = [1, permanent ? 1 : 0];
+                if (permanent || _state.Item2[Hosts] > 0)
                 {
-                    _revision++;
+                    _state.Item2[Revision]++;
                 }
             }
         }
 
         public void Withdraw()
         {
-            lock (SharedGate)
+            lock (_state.Item1)
             {
                 foreach (var key in _mine)
                 {
-                    if (!Shared.TryGetValue(key, out var held))
+                    if (!_state.Item1.TryGetValue(key, out var held))
                     {
                         continue;
                     }
 
-                    held.Owners--;
+                    held[Owners]--;
                     if (permanent)
                     {
-                        held.Permanent--;
+                        held[Permanent]--;
                     }
 
-                    if (held.Owners > 0)
+                    if (held[Owners] > 0)
                     {
                         continue;
                     }
 
-                    Shared.Remove(key);
-                    _revision++;
+                    _state.Item1.Remove(key);
+                    _state.Item2[Revision]++;
                 }
 
                 _mine.Clear();

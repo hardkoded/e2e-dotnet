@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using System.Runtime.Loader;
+using E2E.Internal;
 
 namespace E2E.Tests.SessionSecrecy;
 
@@ -16,9 +18,8 @@ public sealed class SharedSecretsCollection
 /// <summary>
 /// The <c>describe('secrets shared by the sessions in one process')</c> of upstream's <c>session-secrecy.test.ts</c>. A session is an
 /// <see cref="AttemptScope"/>: its <c>Redactor</c> is upstream's <c>sessionLedger(...).redact</c>, <c>Learned()</c> its <c>entries()</c> and
-/// <c>carriedSecrets</c>, <c>Register</c> its <c>adoptSecrets</c>, and <c>ReleaseSessionLedger</c> its <c>releaseSessionLedger</c>. Not ported:
-/// 'reaches the sessions of another copy of the module, as a project with two installs loads', because one process loads one copy of the
-/// assembly, and 'rebuilds a ledger only when a value appears or disappears' compares upstream's private <c>compiled</c> field; the port
+/// <c>carriedSecrets</c>, <c>Register</c> its <c>adoptSecrets</c>, and <c>ReleaseSessionLedger</c> its <c>releaseSessionLedger</c>. The other copy of the module is a second
+/// load of the assembly in its own <see cref="AssemblyLoadContext"/>. Not ported: 'rebuilds a ledger only when a value appears or disappears' compares upstream's private <c>compiled</c> field; the port
 /// checks the same rule through <c>Redactor</c> identity below.
 /// </summary>
 [Collection(SharedSecretsCollection.Name)]
@@ -41,11 +42,7 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
     // The process starts every test with no shared value, as upstream's files each get a worker of their own.
     internal static void ClearShared()
     {
-        var type = typeof(Secrecy);
-        var flags = BindingFlags.Static | BindingFlags.NonPublic;
-        ((System.Collections.IDictionary)type.GetField("Shared", flags)!.GetValue(null)!).Clear();
-        type.GetField("_revision", flags)!.SetValue(null, 0);
-        type.GetField("_hosts", flags)!.SetValue(null, 0);
+        AppDomain.CurrentDomain.SetData(Brands.SharedSecretsBrand, null);
     }
 
     /// <summary>
@@ -151,5 +148,52 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
         Assert.Equal("<secret:fresh>", watching.Redactor.Redact("a-value-nobody-shared-9920"));
         Assert.NotSame(built, watching.Redactor);
         withdraw();
+    }
+
+    [Fact]
+    public void Reaches_the_sessions_of_another_copy_of_the_module_as_a_project_with_two_installs_loads()
+    {
+        var mine = NewSession();
+        var other = new CopyLoadContext();
+        try
+        {
+            var assembly = other.LoadFromAssemblyPath(typeof(Secrecy).Assembly.Location);
+            Assert.NotSame(typeof(Secrecy).Assembly, assembly);
+            var copySecrecy = assembly.GetType("E2E.Secrecy")!;
+            var copyOpenSession = assembly.GetType("E2E.OpenSession")!;
+            var copySecret = assembly.GetType("E2E.Secret")!;
+            Assert.NotSame(typeof(Secrecy), copySecrecy);
+
+            const string fromCopy = "declared-in-the-other-copy-6120";
+            var secret = copySecret
+                .GetMethod("Create", [typeof(string), typeof(string), typeof(string)])!
+                .Invoke(null, ["other", fromCopy, null]);
+            var shareStatic = copySecrecy.GetMethod("ShareStaticSecrets", BindingFlags.Static | BindingFlags.Public)!;
+            var secrets = Array.CreateInstance(copySecret, 1);
+            secrets.SetValue(secret, 0);
+            var withdraw = (Action)shareStatic.Invoke(null, [secrets])!;
+            Assert.Equal("<secret:other>", mine.Redactor.Redact(fromCopy));
+            Assert.Equal("<secret:other>", global::E2E.OpenSession.Redact(fromCopy));
+            withdraw();
+            Assert.Equal(fromCopy, mine.Redactor.Redact(fromCopy));
+
+            const string fromHere = "declared-in-this-copy-7245";
+            global::E2E.OpenSession.RegisterStaticSecrets([Secret.Create("here", fromHere)]);
+            var copyRedact = copyOpenSession.GetMethod(
+                "Redact",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic
+            )!;
+            Assert.Equal("<secret:here>", (string)copyRedact.Invoke(null, [fromHere])!);
+        }
+        finally
+        {
+            other.Unload();
+        }
+    }
+
+    /// <summary>A load context that holds a second copy of the assembly under test; the framework and the other dependencies stay shared.</summary>
+    private sealed class CopyLoadContext() : AssemblyLoadContext("second-install", isCollectible: true)
+    {
+        protected override Assembly? Load(AssemblyName assemblyName) => null;
     }
 }
