@@ -134,8 +134,9 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
         }
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) =>
-            owner.OnNavigate?.Invoke(url) is { } failure ? Task.FromException(failure)
-            : owner.OnNavigateTask?.Invoke(url) ?? Task.CompletedTask;
+            owner.OnNavigate?.Invoke(url) is { } failure
+                ? Task.FromException(failure)
+                : owner.OnNavigateTask?.Invoke(url) ?? Task.CompletedTask;
 
         public Task OpenLinkAsync(string url, OperationContext context, CancellationToken cancellationToken)
         {

@@ -13,8 +13,10 @@ namespace E2E.Tests.StepNameRunning;
 /// </summary>
 public sealed class StepRecorderNameRunningTests
 {
-    private static readonly Func<string, Exception> Cut = call =>
-        new TestException("CANCELLED", "the session closed while " + call + " was running");
+    private static readonly Func<string, Exception> Cut = call => new TestException(
+        "CANCELLED",
+        "the session closed while " + call + " was running"
+    );
 
     private static Task Never() => new TaskCompletionSource().Task;
 
@@ -31,7 +33,9 @@ public sealed class StepRecorderNameRunningTests
         }
     }
 
-    private static (StepRecorder Steps, CancellationTokenSource End) Recorder([System.Runtime.CompilerServices.CallerFilePath] string file = "")
+    private static (StepRecorder Steps, CancellationTokenSource End) Recorder(
+        [System.Runtime.CompilerServices.CallerFilePath] string file = ""
+    )
     {
         var end = new CancellationTokenSource();
         var steps = new StepRecorder(
@@ -51,20 +55,13 @@ public sealed class StepRecorderNameRunningTests
     {
         var (steps, end) = Recorder();
         Task<Exception?>? inner = null;
-        var outer = Failure(
-            steps.RunAsync(
-                StepKind.Agent,
-                "agent.act",
-                "check out",
-                async () =>
-                {
-                    inner = Failure(
-                        steps.RunAsync(StepKind.Locator, "locator.tap", "getByRole(\"button\", \"Pay\")", Never)
-                    );
-                    await Never();
-                }
-            )
-        );
+        var outer = Failure(steps.RunAsync(StepKind.Agent, "agent.act", "check out", async () =>
+            {
+                inner = Failure(
+                    steps.RunAsync(StepKind.Locator, "locator.tap", "getByRole(\"button\", \"Pay\")", Never)
+                );
+                await Never();
+            }));
         steps.NameRunning(Cut);
         await end.CancelAsync();
 

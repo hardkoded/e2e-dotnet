@@ -186,7 +186,9 @@ internal sealed class StepRecorder
             }
 
             _running.Add(record.Id);
-            _cutsOnClose[record.Id] = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _cutsOnClose[record.Id] = new TaskCompletionSource<Exception>(
+                TaskCreationOptions.RunContinuationsAsynchronously
+            );
         }
 
         FileEarlyNavigations(record);
@@ -839,7 +841,11 @@ internal sealed class StepRecorder
             named is not null
             && (
                 thrown is OperationCanceledException
-                || string.Equals(ErrorSerializer.Classify(thrown).Code, ErrorSerializer.Cancelled, StringComparison.Ordinal)
+                || string.Equals(
+                    ErrorSerializer.Classify(thrown).Code,
+                    ErrorSerializer.Cancelled,
+                    StringComparison.Ordinal
+                )
             )
             ? named
             : thrown;
