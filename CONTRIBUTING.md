@@ -11,7 +11,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `src/E2E.GitHub` | The GitHub pull request comment reporter (`GitHubReporter`), packed as `E2E.GitHub` |
 | `src/E2E.Mobile` | Mobile engine: the snapshot model, locators, errors, the agent-device client, the device pool and providers, and the session over agent-device |
 | `src/E2E.Acp` | The ACP step executor (`AcpExecutor`), packed as `E2E.Acp` |
-| `src/E2E.Decision` | Decision-model support: the decide call, the step-budget accounting, and the OpenAI Decisions API model, packed as `E2E.Decision` |
+| `src/E2E.Decision` | Decision-model support: the decide call, the step-budget accounting, the decision executor, and the OpenAI Decisions API model, packed as `E2E.Decision` |
 | `src/E2E.Kernel` | Kernel hosted browsers for `WebEngineOptions.Browser`, packed as `E2E.Kernel` |
 | `src/E2E.Limrun` | Limrun hosted simulators and emulators for `MobileEngine`, packed as `E2E.Limrun` |
 | `src/E2E.BrowserStack` | BrowserStack App Automate real devices for `MobileEngine`, packed as `E2E.BrowserStack` |

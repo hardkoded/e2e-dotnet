@@ -807,7 +807,13 @@ own tools. A step that stays within the grammar verbs replays with no model
 call, so prefer the target's `App.BundleId` over `open_app` when every test
 starts in the same app. A tool of your own that needs a raw driver session gets the running device's from `MobileTools.UnstableDeviceSession(engines)` (the `RawDeviceSession` of `Device.UnstableRaw`; throws `INVALID_STATE` outside an attempt; its client calls are not steps and skip redaction, so declare a mutating tool `mutates: true`; unstable). `open_app` takes an optional `app`: without one it returns to the app under test (the target's `App.BundleId`, or the app the build installed), so the agent can recover after a system sheet or another app took the screen. `samples/MobileApp.E2ETests` shows it in use.
 
-Not ported: decision models and the `--debug` agent step table. To see every model call, use
+Decision models: `Executor.DecisionExecutor(new DecisionExecutorOptions { Model = new OpenAIDecisionModel("gpt-6-luna"), TextModel = ... })`
+(`E2E.Decision`) is an `IStepExecutor` that acts through a decision model, which answers
+`choice` questions with probabilities, and a small text model for field values. Set it as
+`AgentOptions.Executor`. `MinProbability` and `MinConfidence` (0 to 1) block weaker actions,
+`Vision = true` adds a masked screenshot (and `tap_at` / `type_at` for drawn controls with a
+text model), and `ProviderOptions` go with every decide call. Not ported: the `--debug` agent step
+table and the Gateway and TypeSafe AI decision models. To see every model call, use
 `E2E_AI_TRACE=1` (topic `debugging`).
 
 ## Custom executors

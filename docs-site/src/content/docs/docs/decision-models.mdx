@@ -1,0 +1,98 @@
+---
+title: Decision models
+description: Run bounded actions with a decision model and a small text model instead of a full LLM agent.
+---
+
+`E2E.Decision` runs `ActAsync` and `AssertAsync` through a decision model instead of an LLM agent. For each action, the decision model picks an operation, then an element, from the goal, the recent actions, and the newest semantic tree. It never writes free text: a small text model writes field values. The runner still authorizes every action. This ports upstream's `@e2e-dev/decision` (`decisionExecutor`).
+
+Any decision model that answers `choice` questions with probabilities works, such as `OpenAIDecisionModel` with `gpt-6-luna`. A model id string or a language model in `Model` fails the executor's construction with `INVALID_CONFIG`.
+
+## Install and configure
+
+```
+dotnet add package E2E.Decision
+```
+
+Set the executor on the agent. An executor is code, so a config file cannot hold one:
+
+```csharp
+using E2E;
+using E2E.Decision;
+using E2E.Decision.Sdk;
+using E2E.NUnit;
+
+public sealed class TodoTests : E2ETest
+{
+    protected override IAgentModel? CreateModel() => /* the small text model */ null;
+
+    protected override IStepExecutor? AgentExecutor =>
+        Executor.DecisionExecutor(
+            new DecisionExecutorOptions
+            {
+                Model = new OpenAIDecisionModel("gpt-6-luna"),
+                // The text model. Without one, set the agent's Model instead.
+                TextModel = CreateModel(),
+            }
+        );
+}
+```
+
+Tests are plain `ActAsync` and `AssertAsync` calls. Set `OPENAI_API_KEY` for `OpenAIDecisionModel`.
+
+## What the model can do
+
+Each turn offers the operations the engine supports on the elements of the newest screen: `tap`, `type`, `typeSecret`, `submit`, `select`, `check`, `upload`, `hover`, `secondary_tap` (a right-click), `double_tap`, `long_press`, `drag`, `scroll_to`, `scroll_up`, `scroll_down`, and `back`. Hover, right-click, drag, and scroll-to also reach labeled nodes that are not controls, such as a card that opens a menu on hover, and a drag can drop onto any of them. `tap` also reaches text fields, to open a date picker or a suggestion list. While an on-screen keyboard shows on an engine that can dismiss it, such as the mobile engine, the executor also offers `dismiss_keyboard`, even when the keyboard is missing from the tree.
+
+Every operation that acts on an element asks for its target, even when only one element fits it. Every target question has a `none` option, so a provider with no fitting target answers `none` instead of refusing. `none` blocks the step.
+
+## How text gets typed
+
+When the decision model picks `type`, the text model writes the value from the goal, the params, the field's label, and the page text. The executor types exactly that string. With no value in the goal, it types nothing and the decision model picks again. For `upload`, the text model lists the project-relative paths the goal or params name, and the runner authorizes each one. Model output never becomes a selector, a URL, or a key.
+
+Password fields never reach the text model. Only `typeSecret` fills a secret, from its declared handle.
+
+The text model also answers `WaitForAsync` and `ExtractAsync`. Instead of `TextModel`, you can set `Model` on the agent entry. With neither, the executor never offers `type`, `upload`, `tap_at`, or `type_at`.
+
+## Finishing a step
+
+When the decision model answers `done` or `failed`, the executor checks the claim on a fresh screen with one question: is the step's task complete? The check never sees model reasoning or a secret.
+
+A confirmed `done` passes the step, and a confirmed `failed` fails it with `ACTION_FAILED`. An unconfirmed claim goes back to the decision model as history. A second one ends the step: `ACTION_FAILED` when the screen contradicts the goal, else `blocked` with `AUTOMATION_UNSUPPORTED`.
+
+## Gates
+
+Both gates are off by default, so the executor follows the most probable choice. Set `MinProbability` or `MinConfidence` to block weaker actions, reject weaker completion checks, and fail weaker assertions as inconclusive:
+
+```csharp
+var executor = Executor.DecisionExecutor(
+    new DecisionExecutorOptions { Model = model, MinProbability = 0.9, MinConfidence = 0.8 }
+);
+```
+
+Probability is the chosen option's share of the answer distribution. Confidence is the provider's own statistic, 0 when it reports none. OpenAI rounds both to two decimals. Measure accuracy on your own tests before you set a threshold.
+
+## Vision
+
+`Vision = true` adds a masked screenshot to every observation. Assertions and completion checks see it, so the model can judge drawn content the tree doesn't show. The operation and target questions read the tree only. `AssertAsync(..., new AssertOptions { Vision = VisionMode.On })` and `VisionMode.Only` also require `Vision = true` on the executor. Without it, the call fails with `UNSUPPORTED_CAPABILITY`.
+
+The model must accept images and answer `score` questions. `OpenAIDecisionModel` does.
+
+With a text model, vision also offers `tap_at` for a control the tree doesn't list. The text model names the control, such as "the 3 key on the keypad", and the decision model finds it on the screenshot, then on two zoomed crops. A point tap costs four decide calls and one text call, or one of each to repeat a tap on the same page.
+
+When the engine can type into whatever has focus, vision also offers `type_at` for a drawn field. The text model names the field and the value from the goal, the decision model finds the field on the screenshot, and the executor taps it and types the value at the caret, after any text already there. It costs two decide calls and one text call.
+
+## Provider options
+
+The executor's `ProviderOptions` go with every decide call, completion checks included, and reach the decision model only. The text model takes the agent entry's `ProviderOptions`, so a setting for one model never reaches the other. Each value maps a provider name to an option object, and any other shape fails the construction with `INVALID_CONFIG`.
+
+## Limits
+
+- No `navigate`. In-app navigation is a `tap` on a link. URLs belong in test code.
+- No multi-select `listbox` and no `scrollUntil`. `type_at` never clears a drawn field first, so it suits empty fields.
+- The text model that names a drawn control doesn't see pixels. It can't follow an instruction that exists only as drawn text, such as a wizard that paints "tap the circle".
+- Every decide call and text call counts against `MaxModelCalls`.
+- Three actions in a row that fail or change nothing block the step with `AUTOMATION_UNSUPPORTED`.
+- A question the provider refuses fails the step with `MODEL_OUTPUT_INVALID`.
+- A question has at most 255 options, TypeSafe's limit. On a larger screen, nodes in the viewport come first and the rest count as omitted, so the model can scroll.
+- The tree the executor reads lists the page's top-level nodes. It has no root node of its own, so unlike upstream a top-level labeled node is a target for pointer operations too.
+- The port ships `OpenAIDecisionModel` only. The Gateway and TypeSafe AI decision models are not ported.

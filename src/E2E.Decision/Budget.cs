@@ -23,16 +23,27 @@ public static class Budget
     /// Upstream's <c>recorded</c>. Runs one model call against the step budget: cancelled before it starts or after it returns, and
     /// recorded with its timing and tokens even when it throws. Errors propagate untouched for the caller to map.
     /// </summary>
+    public static Task<T> RecordedAsync<T>(
+        StepExecutorContext ctx,
+        string provider,
+        string modelId,
+        Func<Task<Recorded<T>>> call
+    ) => RecordedAsync(ctx, provider, modelId, ctx.Attempt.CancellationToken, call);
+
+    /// <summary>
+    /// <see cref="RecordedAsync{T}(StepExecutorContext, string, string, Func{Task{Recorded{T}}})"/> under <paramref name="signal"/>: the
+    /// attempt's token linked with the caller's (.NET-only: the runtime hands an executor both).
+    /// </summary>
     public static async Task<T> RecordedAsync<T>(
         StepExecutorContext ctx,
         string provider,
         string modelId,
+        CancellationToken signal,
         Func<Task<Recorded<T>>> call
     )
     {
         ArgumentNullException.ThrowIfNull(ctx);
         ArgumentNullException.ThrowIfNull(call);
-        var signal = ctx.Attempt.CancellationToken;
         signal.ThrowIfCancellationRequested();
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         var startedAt = DateTimeOffset.UtcNow;
