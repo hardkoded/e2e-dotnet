@@ -111,6 +111,24 @@ var result = await ExperimentalDecide.RunAsync(new DecideOptions
 - `IsEnabled = false` turns the integrations off for the call.
 - The port has no global integration registry: a call with no `Integrations` has none.
 
+## Files at a URL
+
+A state part can be a file at a URL: `new DecisionFileUrlPart("image/png", new Uri("https://example.com/package.png"))`. `ExperimentalDecide.RunAsync` downloads it before the decision model is called and hands the model a `DecisionFilePart` with the bytes. The downloaded media type replaces a partial one such as `image`, never a full one such as `image/png`.
+
+The call never fetches a URL on its own. Without `DecideOptions.ExperimentalDownload` (the AI SDK's `experimental_download`), a URL file part fails with a `DownloadException` before any request. Create the function with `CreateDownload.Create`:
+
+```csharp
+var result = await ExperimentalDecide.RunAsync(new DecideOptions
+{
+    Model = model,
+    Questions = questions,
+    ExperimentalDownload = CreateDownload.Create(new CreateDownloadOptions { MaxBytes = 10_000_000 }),
+    State = [new DecisionFileUrlPart("image", new Uri("https://example.com/package.png"))],
+});
+```
+
+The download refuses a non-http(s) URL, `localhost` and internal names, and literal private IP addresses, and checks every redirect hop. It does not resolve DNS, so a name that resolves to a private address gets through. For untrusted URLs, set `CreateDownloadOptions.Fetch` to a transport that validates DNS when it connects. A failed download, including an error status or a body over `MaxBytes` (2 GiB by default), throws `DownloadException` and no decision-model call is made.
+
 ## Limits
 
 - No `navigate`. In-app navigation is a `tap` on a link. URLs belong in test code.

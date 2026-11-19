@@ -71,3 +71,35 @@ public sealed class ApiCallException(
     /// <summary>Whether the call may be sent again. Upstream's default: no answer at all, or a 408, 409, 429, or 5xx.</summary>
     public bool IsRetryable { get; } = isRetryable ?? (statusCode is null or 408 or 409 or 429 or >= 500);
 }
+
+/// <summary>The AI SDK's <c>DownloadError</c> (<c>@ai-sdk/provider-utils</c>): a file the SDK could not download.</summary>
+public sealed class DownloadException : Exception
+{
+    public DownloadException(
+        string url,
+        int? statusCode = null,
+        string? statusText = null,
+        string? message = null,
+        Exception? innerException = null
+    )
+        : base(
+            message
+                ?? (
+                    innerException is null
+                        ? "Failed to download " + url + ": " + statusCode + " " + statusText
+                        : "Failed to download " + url + ": " + innerException.Message
+                ),
+            innerException
+        )
+    {
+        Url = url;
+        StatusCode = statusCode;
+        StatusText = statusText;
+    }
+
+    public string Url { get; }
+
+    public int? StatusCode { get; }
+
+    public string? StatusText { get; }
+}
