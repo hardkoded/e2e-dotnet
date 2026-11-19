@@ -67,6 +67,21 @@ public sealed class ActLoopTests
     }
 
     [Fact]
+    public async Task Runs_a_deprecated_evaluation_model_through_the_same_loop()
+    {
+        var (model, requests) = ScriptedLegacyDecision(Script(Tap0Done));
+        var fixture = Context(new ContextOptions { Tree = Buttons });
+
+        var verdict = await global::E2E
+            .Decision.Executor.DecisionExecutor(new DecisionExecutorOptions { EvaluationModel = model })
+            .RunStepAsync(fixture.Ctx, CancellationToken.None);
+
+        AssertVerdict(verdict, StepVerdictStatus.Passed);
+        Assert.Equal(1, fixture.Actions.Count("tap"));
+        Assert.Equal(4, requests.Count);
+    }
+
+    [Fact]
     public async Task Dispatches_a_lone_target_with_no_target_question()
     {
         var (model, requests) = ScriptedDecision(Script(Tap0Done));

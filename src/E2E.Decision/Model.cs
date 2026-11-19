@@ -38,6 +38,11 @@ public static class Model
             throw new ConfigurationException("INVALID_CONFIG", caller + "({ model }) got " + got + "; " + example);
         }
 
+        if (model is IEvaluationModel evaluation and not IDecisionModel)
+        {
+            model = ResolveModel.ResolveDecisionModel(evaluation);
+        }
+
         if (model is not IDecisionModel decision)
         {
             var kind = model is IAgentModel language

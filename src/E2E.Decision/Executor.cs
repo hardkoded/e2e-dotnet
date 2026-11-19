@@ -37,7 +37,12 @@ public static partial class Executor
             );
         }
 
-        Model.CheckModel(options.Model, new ModelNeeds("DecisionExecutor", "choice", Example));
+        var model = options.Model
+            ?? (options.EvaluationModel is { } legacy ? ResolveModel.ResolveDecisionModel(legacy) : null);
+        Model.CheckModel(
+            options.Model ?? (object?)options.EvaluationModel,
+            new ModelNeeds("DecisionExecutor", "choice", Example)
+        );
         var gates = new Gates(options.MinProbability, options.MinConfidence);
         if (!InUnit(gates.MinProbability) || !InUnit(gates.MinConfidence))
         {
@@ -48,7 +53,7 @@ public static partial class Executor
         }
 
         Model.CheckProviderOptions(options.ProviderOptions, "DecisionExecutor");
-        return new DecisionStepExecutor(options, gates);
+        return new DecisionStepExecutor(options, model!, gates);
     }
 
     /// <summary>
@@ -109,7 +114,8 @@ public static partial class Executor
 }
 
 /// <summary>The executor <see cref="Executor.DecisionExecutor"/> builds: it runs each step through a <see cref="DecisionStep"/>.</summary>
-internal sealed class DecisionStepExecutor(DecisionExecutorOptions options, Gates gates) : IStepExecutor
+internal sealed class DecisionStepExecutor(DecisionExecutorOptions options, IDecisionModel model, Gates gates)
+    : IStepExecutor
 {
     public string Name => "decision";
 
@@ -129,7 +135,7 @@ internal sealed class DecisionStepExecutor(DecisionExecutorOptions options, Gate
             context.Attempt.CancellationToken,
             cancellationToken
         );
-        return await new DecisionStep(context, options, gates, linked.Token).RunAsync().ConfigureAwait(false);
+        return await new DecisionStep(context, options, model, gates, linked.Token).RunAsync().ConfigureAwait(false);
     }
 }
 
@@ -190,6 +196,7 @@ internal sealed class DecisionStep
 
     private readonly StepExecutorContext _ctx;
     private readonly DecisionExecutorOptions _options;
+    private readonly IDecisionModel _model;
     private readonly Gates _gates;
     private readonly List<StepTurn> _turns = [];
     private readonly List<string> _transcript = [];
@@ -214,17 +221,24 @@ internal sealed class DecisionStep
     private int _rejectedTerminals;
     private bool _attached;
 
-    public DecisionStep(StepExecutorContext ctx, DecisionExecutorOptions options, Gates gates, CancellationToken signal)
+    public DecisionStep(
+        StepExecutorContext ctx,
+        DecisionExecutorOptions options,
+        IDecisionModel model,
+        Gates gates,
+        CancellationToken signal
+    )
     {
         _signal = signal;
         _ctx = ctx;
         _options = options;
+        _model = model;
         _gates = gates;
         _history = Executor.SeedHistory(ctx);
         _language = ctx.Model;
         _canType = _language is not null && ctx.Target.Verbs.Contains(ExecutorVerb.Type);
         _vision = options.Vision;
-        _locates = _language is not null && options.Model.SupportedQuestionTypes.Contains("score");
+        _locates = _language is not null && model.SupportedQuestionTypes.Contains("score");
         _locator = new PointLocator(ctx, AskAsync, gates);
     }
 
@@ -279,7 +293,7 @@ internal sealed class DecisionStep
 
         _transcript.Add(TranscriptLine(request));
         var answers = await Decide
-            .DecideAsync(_ctx, _options.Model, request, _options.ProviderOptions, Signal)
+            .DecideAsync(_ctx, _model, request, _options.ProviderOptions, Signal)
             .ConfigureAwait(false);
         _transcript.Add(JsonSerializer.Serialize(answers, TranscriptOptions));
         return answers;
