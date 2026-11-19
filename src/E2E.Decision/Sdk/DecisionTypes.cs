@@ -199,6 +199,13 @@ public sealed record DecisionFilePart(string MediaType, byte[] Data) : DecisionS
     public string GetBase64() => Base64 ?? Convert.ToBase64String(Data);
 }
 
+/// <summary>
+/// A file at a URL (the AI SDK's <c>FilePart</c> with URL data). <see cref="ExperimentalDecide"/> downloads it through
+/// <see cref="DecideOptions.ExperimentalDownload"/> and hands the model a <see cref="DecisionFilePart"/> with the bytes. .NET-only name: C#
+/// has no union of bytes and a URL, so the URL form is its own part.
+/// </summary>
+public sealed record DecisionFileUrlPart(string MediaType, Uri Url) : DecisionStatePart;
+
 /// <summary>What a decision model answers a call with (the AI SDK's <c>DecisionModelV4Result</c>).</summary>
 public sealed class DecisionModelResult
 {
