@@ -732,8 +732,7 @@ public sealed partial class Agent
     }
 
     /// <summary>
-    /// The step an entry is recorded for, as the entry stores it. None of it is replay input, so a
-    /// secret value in the test title, instruction, or agent name is masked like any other recorded string.
+    /// The step an entry is recorded for, before redaction: the session records its provenance (upstream's <c>recordedProvenance</c>).
     /// </summary>
     private CacheEntry Provenance(
         string testId,
@@ -744,8 +743,7 @@ public sealed partial class Agent
         TraceKeyContext keyContext
     )
     {
-        return TraceRecorder.RecordedProvenance(
-            new CacheEntry
+        return new CacheEntry
             {
                 Schema = FileStepCache.SchemaVersion,
                 Test = testId,
@@ -756,8 +754,6 @@ public sealed partial class Agent
                 CallIndex = callIndex,
                 Agent = agent,
                 KeyedBy = keyContext,
-            },
-            _scope.Redactor.Redact
-        );
+        };
     }
 }
