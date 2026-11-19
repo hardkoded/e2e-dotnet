@@ -149,4 +149,90 @@ public sealed class DecideTests
         Assert.Same(QuestionMap, Assert.Single(starts).Questions);
         Assert.Same(QuestionMap, Assert.Single(ends).Questions);
     }
+
+    [Fact]
+    public async Task Partial_Downloads_image_URLs_and_sends_their_bytes_to_the_decision_model()
+    {
+        var (model, calls) = Setup();
+        byte[] bytes = [0x89, 0x50, 0x4e, 0x47];
+        var fetchCalls = 0;
+        Uri? requestedUrl = null;
+
+        await ExperimentalDecide.RunAsync(
+            new DecideOptions
+            {
+                Model = model,
+                Questions = QuestionMap,
+                ExperimentalDownload = Sdk.CreateDownload.Create(
+                    new CreateDownloadOptions
+                    {
+                        Fetch = (request, _) =>
+                        {
+                            fetchCalls++;
+                            requestedUrl = request.RequestUri;
+                            var response = new HttpResponseMessage { Content = new ByteArrayContent(bytes) };
+                            response.Content.Headers.ContentType = new("image/png");
+                            return Task.FromResult(response);
+                        },
+                    }
+                ),
+                State = [new DecisionFileUrlPart("image", new Uri("https://example.com/package.png"))],
+            }
+        );
+
+        Assert.Equal(1, fetchCalls);
+        Assert.Equal(new Uri("https://example.com/package.png"), requestedUrl);
+        var file = Assert.IsType<DecisionFilePart>(Assert.Single(Assert.Single(calls).State));
+        Assert.Equal("image/png", file.MediaType);
+        Assert.Equal(bytes, file.Data);
+    }
+
+    // Partial: upstream stubs the global fetch behind createDownload(); the port's default HTTP client cannot be stubbed, so the 404
+    // comes through the Fetch option.
+    [Fact]
+    public async Task Partial_Stops_before_provider_IO_when_an_image_download_fails()
+    {
+        var (model, calls) = Setup();
+
+        var error = await Assert.ThrowsAsync<DownloadException>(() =>
+            ExperimentalDecide.RunAsync(
+                new DecideOptions
+                {
+                    Model = model,
+                    Questions = QuestionMap,
+                    ExperimentalDownload = Sdk.CreateDownload.Create(
+                        new CreateDownloadOptions
+                        {
+                            Fetch = (_, _) =>
+                                Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound)),
+                        }
+                    ),
+                    State = [new DecisionFileUrlPart("image/png", new Uri("https://example.com/missing.png"))],
+                }
+            )
+        );
+
+        Assert.Equal(404, error.StatusCode);
+        Assert.Empty(calls);
+    }
+
+    [Fact]
+    public async Task Partial_Rejects_remote_file_state_without_a_download_hook()
+    {
+        var (model, calls) = Setup();
+
+        var error = await Assert.ThrowsAsync<DownloadException>(() =>
+            ExperimentalDecide.RunAsync(
+                new DecideOptions
+                {
+                    Model = model,
+                    Questions = QuestionMap,
+                    State = [new DecisionFileUrlPart("image/png", new Uri("https://attacker.example/package.png"))],
+                }
+            )
+        );
+
+        Assert.Contains("experimental_download", error.Message);
+        Assert.Empty(calls);
+    }
 }
