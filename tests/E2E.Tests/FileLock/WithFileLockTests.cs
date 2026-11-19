@@ -595,7 +595,13 @@ public sealed class WithFileLockTests : IDisposable
 
     private static InvalidOperationException Busy() => new("busy");
 
-    private static int Crashes(string log) => File.ReadAllText(log).Split('\n').Count(line => line.StartsWith('x'));
+    /// <summary>The crashes logged so far; read with sharing, as workers append to the log meanwhile.</summary>
+    private static int Crashes(string log)
+    {
+        using var stream = new FileStream(log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd().Split('\n').Count(line => line.StartsWith('x'));
+    }
 
     /// <summary>Holds the lock at <paramref name="lockPath"/> for <paramref name="work"/>, giving up after 5 s.</summary>
     private static Task<T> Hold<T>(string lockPath, Func<Task<T>> work, FileLockSystem? system = null) =>
