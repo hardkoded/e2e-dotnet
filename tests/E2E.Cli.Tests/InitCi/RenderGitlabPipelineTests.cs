@@ -16,7 +16,7 @@ public sealed class RenderGitlabPipelineTests : InitCiTestBase
 
     [Fact]
     // The template is the port's own: a .NET project, dotnet test, and E2E_TARGET where upstream's has e2e run --target.
-    public void Writes_the_template_unchanged_for_npm_at_the_repository_root_and_Expo_on_both_phones_with_no_key_in_the_file()
+    public void Partial_Writes_the_template_unchanged_for_npm_at_the_repository_root_and_Expo_on_both_phones_with_no_key_in_the_file()
     {
         // CI/CD variables reach the job's environment on their own; the file names no key.
         Assert.Equal(

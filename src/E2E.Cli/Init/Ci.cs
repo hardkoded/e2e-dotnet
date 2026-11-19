@@ -880,7 +880,11 @@ internal static partial class Ci
         }
 
         // The first job left keeps no blank line from the one it followed in the template.
-        jobs.Items[0].Key.SpaceBefore = false;
+        if (jobs.Items.Count > 0)
+        {
+            jobs.Items[0].Key.SpaceBefore = false;
+        }
+
         if (context.Jobs.Web is { } web)
         {
             var job = jobs.Get<YamlMap>("web");
@@ -1181,7 +1185,11 @@ internal static partial class Ci
             SetUpGitlabArtifacts(root.Get<YamlMap>(".e2e-mobile"), context);
         }
 
-        root.Items[0].Key.SpaceBefore = false;
+        if (root.Items.Count > 0)
+        {
+            root.Items[0].Key.SpaceBefore = false;
+        }
+
         if (context.JobSuffix is { } suffix)
         {
             foreach (var pair in root.Items)

@@ -14,7 +14,7 @@ public sealed class RenderGithubWorkflowTests : InitCiTestBase
 {
     [Fact]
     // The template is the port's own: a .NET project, dotnet test, and E2E_TARGET where upstream's has e2e run --target.
-    public void Writes_the_template_unchanged_for_npm_at_the_repository_root_Expo_on_both_phones_and_the_model_key_from_secrets()
+    public void Partial_Writes_the_template_unchanged_for_npm_at_the_repository_root_Expo_on_both_phones_and_the_model_key_from_secrets()
     {
         Assert.Equal(Ci.ReadTemplateText("github-actions.yml"), Ci.RenderGithubWorkflow(Base with { Jobs = AllJobs }));
     }

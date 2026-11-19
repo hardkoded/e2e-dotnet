@@ -232,6 +232,10 @@ internal enum YamlScalarStyle
 /// <summary>A scalar: its text, and the comment after it on its line.</summary>
 internal sealed partial class YamlScalar : YamlNode
 {
+    private static readonly JsonSerializerOptions Quoting = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
     private static readonly string[] Reserved = ["true", "false", "yes", "no", "on", "off", "null", "y", "n", "~"];
     private string _raw;
     private string _value;
@@ -292,7 +296,7 @@ internal sealed partial class YamlScalar : YamlNode
         }
 
         style = YamlScalarStyle.Quoted;
-        return JsonSerializer.Serialize(value);
+        return JsonSerializer.Serialize(value, Quoting);
     }
 
     private static bool IsPlain(string value) =>
