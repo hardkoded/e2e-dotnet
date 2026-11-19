@@ -102,7 +102,7 @@ Pick the model in `agents.<name>.provider` and `model`:
 | Claude on a subscription | `copilot` | `e2e login github-copilot` (reuses `gh auth token`, or your own `--client-id`) |
 | OpenAI on a subscription | `chatgpt` | `e2e login openai` (`--device` without a browser) |
 | OpenCode Console (Zen and Go) | `opencode-console` | `e2e login opencode-console`, or `OPENCODE_API_KEY`: a Console service account API key or an OpenCode Go subscription API key. `e2e models opencode-console` reads the key when it is set |
-| SuperGrok or X Premium+ | `grok` | `e2e login spacexai` |
+| SuperGrok or X Premium+ | `grok` | `e2e login spacexsi` |
 | Claude on an API key | `anthropic` | `ANTHROPIC_API_KEY`, a workspace key (`sk-ant-api03-...`) |
 | OpenAI on an API key | `openai` (the default) | `OPENAI_API_KEY` |
 | Other | `openai-responses`, `azure`, `google`, `bedrock`, `xai`, `openrouter`, `gateway`, `openai-compatible` | The provider's key; see the README (`bedrock`: `AWS_BEARER_TOKEN_BEDROCK`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, or the AWS credential chain: profile, SSO, container and instance roles) |

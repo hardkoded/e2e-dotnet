@@ -24,6 +24,7 @@ public enum ActionOrigin
 /// <summary>
 /// Action data only: a bound node never retains a projected snapshot through parent links. <c>RefsGeneration</c> is the
 /// capture <c>Ref</c> and <c>ControlRef</c> came from, pinned on every action so agent-device refuses them once a newer capture supersedes it.
+/// <c>OriginUnknown</c> is whether the capture <c>Node.Rect</c> came from could not place its window on the screen.
 /// <c>TakesText</c> is whether <c>fill</c> and <c>clear</c> may type into the node, judged with the children <c>Node</c> leaves out.
 /// </summary>
 internal sealed record NodeBinding(
@@ -34,7 +35,8 @@ internal sealed record NodeBinding(
     IReadOnlyDictionary<string, bool> States,
     long? RefsGeneration,
     bool TakesText,
-    bool KeyboardVisible
+    bool KeyboardVisible,
+    bool OriginUnknown
 );
 
 public sealed partial class DeviceSession
@@ -343,7 +345,8 @@ public sealed partial class DeviceSession
             entry.States,
             snapshot.RefsGeneration,
             SnapshotProjection.MayTakeText(entry.Node),
-            snapshot.KeyboardVisible
+            snapshot.KeyboardVisible,
+            snapshot.OriginUnknown
         );
 
     /// <summary>The same control in the newest capture: the binding itself when it came from that capture, else found there again where it was.</summary>

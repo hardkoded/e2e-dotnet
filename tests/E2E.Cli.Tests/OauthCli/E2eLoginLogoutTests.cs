@@ -34,7 +34,7 @@ public sealed class E2eLoginLogoutTests : IDisposable
         var error = await Assert.ThrowsAsync<OAuthException>(() => Run("login"));
 
         Assert.Equal(OAuthException.Misconfigured, error.Code);
-        Assert.Equal("name a provider: openai, github-copilot, opencode-console, spacexai", error.Message);
+        Assert.Equal("name a provider: openai, github-copilot, opencode-console, spacexsi", error.Message);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class E2eLoginLogoutTests : IDisposable
         var error = await Assert.ThrowsAsync<OAuthException>(() => Run("logout", "nope"));
 
         Assert.Equal(OAuthException.Misconfigured, error.Code);
-        Assert.Contains("openai, github-copilot, opencode-console, spacexai", error.Message, StringComparison.Ordinal);
+        Assert.Contains("openai, github-copilot, opencode-console, spacexsi", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain('\n', error.Message);
     }
 

@@ -72,7 +72,7 @@ internal static class Gateways
         new(
             "copilot",
             "GitHub Copilot subscription",
-            "your Copilot plan: OpenAI, Anthropic, Google, and SpaceXAI models",
+            "your Copilot plan: OpenAI, Anthropic, Google, and SpaceXSI models",
             "copilot",
             "claude-sonnet-5",
             "Your GitHub Copilot subscription serves the model; sign in once with `e2e login github-copilot`, `e2e models github-copilot` lists the ids.",
@@ -93,8 +93,8 @@ internal static class Gateways
             "your SuperGrok or X Premium+ plan",
             "grok",
             "grok-4",
-            "Your SuperGrok subscription serves the model; sign in once with `e2e login spacexai`, `e2e models spacexai` lists the ids.",
-            Login: "spacexai"
+            "Your SuperGrok subscription serves the model; sign in once with `e2e login spacexsi`, `e2e models spacexsi` lists the ids.",
+            Login: "spacexsi"
         ),
     ];
 

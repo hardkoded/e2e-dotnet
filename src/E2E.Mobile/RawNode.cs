@@ -128,4 +128,7 @@ public sealed class ProjectedSnapshot
     /// <c>ProjectedScreen</c> (<c>ProjectedSnapshot &amp; { keyboardVisible }</c>), which C# has no intersection type for.
     /// </summary>
     internal bool KeyboardVisible { get; set; }
+
+    /// <summary>Whether the capture could not place its window on the screen, so its rects may be window-local.</summary>
+    internal bool OriginUnknown { get; set; }
 }
