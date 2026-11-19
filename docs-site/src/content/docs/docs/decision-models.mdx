@@ -89,7 +89,7 @@ The executor's `ProviderOptions` go with every decide call, completion checks in
 
 ## Lifecycle callbacks and telemetry
 
-`ExperimentalDecide.RunAsync` (the AI SDK's `experimental_decide`, in `E2E.Decision.Sdk`) reports its lifecycle two ways. `DecideOptions.OnStart` runs when the operation begins, before the decision model is called, and `DecideOptions.OnEnd` runs when it completes. Both take the whole event, with the call id, the provider and model ids, the state, the questions, `MaxOutputTokens`, `Reasoning`, `MaxRetries`, the headers, the provider options, and the `RuntimeContext` you passed. `DecideEndEvent` adds the answers, the usage, the warnings, the rounding, the provider metadata, and the response model id and timestamp. A callback that throws does not fail the call.
+`ExperimentalDecide.RunAsync` (the AI SDK's `experimental_decide`, in `E2E.Decision.Sdk`) reports its lifecycle two ways. `DecideOptions.OnStart` runs when the operation begins, before the decision model is called, and `DecideOptions.OnEnd` runs when it completes. Both take the whole event, with the call id, the provider and model ids, the state, the questions, `MaxOutputTokens`, `Reasoning`, `MaxRetries`, the headers, the provider options, and the `RuntimeContext` you passed. `DecideEndEvent` adds the answers, the usage, the warnings, the rounding, the provider metadata, and the response model id and timestamp. `OnEnd` and the model-call end event fire only after the call completes. If the call fails, including when its retries run out, the model-call start event has fired, neither end event fires, and each integration receives `OnErrorAsync`. A callback that throws does not fail the call, and a caller's cancellation ends the wait for the callbacks.
 
 ```csharp
 var result = await ExperimentalDecide.RunAsync(new DecideOptions
@@ -106,6 +106,7 @@ var result = await ExperimentalDecide.RunAsync(new DecideOptions
 `DecideOptions.Telemetry` takes `TelemetryOptions` with `Integrations`, a list of `ITelemetry`. An integration overrides the members it listens to: `OnDecideStartAsync`, `OnDecisionModelCallStartAsync`, `OnDecisionModelCallEndAsync`, `OnDecideEndAsync`, and `OnErrorAsync`. The decision model call events cover the logical model call, so a retried call fires one start and one end. Every integration event carries the call's `RecordInputs`, `RecordOutputs`, `FunctionId`, and `AiVersion`.
 
 - `RecordInputs = false` empties the state, the questions, and the provider options of the events an integration receives. `RecordOutputs = false` empties the answers. Either one also drops the provider metadata and replaces the error with a generic one.
+- `RecordInputs = false` does not remove `Headers`: integrations still receive them on the decide start and end events. Do not place credentials in `Headers` if an integration exports telemetry.
 - An integration receives no runtime context unless `IncludeRuntimeContext` marks a top-level key `true`. `OnStart` and `OnEnd` always get the whole context.
 - `IsEnabled = false` turns the integrations off for the call.
 - The port has no global integration registry: a call with no `Integrations` has none.

@@ -63,6 +63,9 @@ public static class ExperimentalDecide
 
     private const int RetryBackoffFactor = 2;
 
+    /// <summary>.NET-only: how long a telemetry integration may take to handle the error before the call's own error is rethrown.</summary>
+    private static readonly TimeSpan ErrorCallbackTimeout = TimeSpan.FromSeconds(5);
+
     /// <summary>Decides answers to typed questions against one shared state.</summary>
     public static async Task<DecisionResult> RunAsync(
         DecideOptions options,
@@ -106,7 +109,7 @@ public static class ExperimentalDecide
         }
 
         var callId = (options.GenerateCallId ?? GenerateCallId)();
-        var telemetryDispatcher = new TelemetryDispatcher(options.Telemetry);
+        var telemetryDispatcher = new RestrictedTelemetryDispatcher(options.Telemetry);
         var startEvent = new DecideStartEvent
         {
             CallId = callId,
@@ -121,7 +124,7 @@ public static class ExperimentalDecide
             Headers = options.Headers,
             ProviderOptions = options.ProviderOptions ?? new Dictionary<string, JsonElement>(),
         };
-        await TelemetryDispatcher
+        await Notify
             .NotifyAsync(startEvent, [options.OnStart, telemetryDispatcher.OnStartAsync], cancellationToken)
             .ConfigureAwait(false);
 
@@ -135,7 +138,7 @@ public static class ExperimentalDecide
                 State = options.State,
                 Questions = options.Questions,
             };
-            await TelemetryDispatcher
+            await Notify
                 .NotifyAsync(modelCallEvent, [telemetryDispatcher.OnDecisionModelCallStartAsync], cancellationToken)
                 .ConfigureAwait(false);
             var result = await RetryAsync(
@@ -169,7 +172,7 @@ public static class ExperimentalDecide
                 throw new DecisionRefusalException(refused, model.Provider, model.ModelId);
             }
 
-            await TelemetryDispatcher
+            await Notify
                 .NotifyAsync(
                     new DecisionModelCallEndEvent
                     {
@@ -199,7 +202,7 @@ public static class ExperimentalDecide
                 ProviderMetadata = result.ProviderMetadata,
                 ResponseModelId = result.ResponseModelId ?? model.ModelId,
             };
-            await TelemetryDispatcher
+            await Notify
                 .NotifyAsync(
                     new DecideEndEvent
                     {
@@ -231,7 +234,7 @@ public static class ExperimentalDecide
         catch (Exception error)
         {
             // A failing integration must not hide the error the call failed with.
-            await TelemetryDispatcher
+            await Notify
                 .NotifyAsync(
                     error,
                     [failure => telemetryDispatcher.OnErrorAsync(callId, failure)],

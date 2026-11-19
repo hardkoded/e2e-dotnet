@@ -12,7 +12,7 @@ namespace E2E.Decision.Tests.Decide;
 public sealed class TelemetryTests
 {
     [Fact]
-    public async Task Emits_operation_and_model_call_lifecycle_events()
+    public async Task Partial_emits_operation_and_model_call_lifecycle_events()
     {
         var integration = new RecordingTelemetry();
         var decideStarts = new List<DecideStartEvent>();
@@ -147,5 +147,59 @@ public sealed class TelemetryTests
         Assert.Equal("test-call-id", failed.CallId);
         Assert.Same(error, failed.Error);
         Assert.Equal("7.0.177", failed.AiVersion);
+    }
+
+    // .NET-only (the isolation and filtering the review of #1861 asked for; no upstream `it`).
+    [Fact]
+    public async Task Partial_keeps_the_start_inputs_when_only_outputs_are_hidden_and_isolates_failing_integrations()
+    {
+        var recording = new RecordingTelemetry();
+        var (model, _) = Setup();
+
+        await ExperimentalDecide.RunAsync(
+            new DecideOptions
+            {
+                Model = model,
+                State = [new DecisionTextPart("text")],
+                Questions = QuestionMap,
+                Telemetry = new TelemetryOptions
+                {
+                    Integrations = [new ThrowingTelemetry(), recording],
+                    RecordOutputs = false,
+                },
+            }
+        );
+
+        var start = Assert.Single(recording.DecideStarts);
+        Assert.Single(start.State);
+        Assert.Equal(QuestionMap, start.Questions);
+        Assert.Empty(Assert.Single(recording.DecideEnds).Answers);
+    }
+
+    [Fact]
+    public async Task Partial_a_hanging_callback_does_not_outlast_the_callers_cancellation()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            ExperimentalDecide.RunAsync(
+                new DecideOptions
+                {
+                    Model = Setup().Model,
+                    State = [new DecisionTextPart("text")],
+                    Questions = QuestionMap,
+                    OnStart = _ => new TaskCompletionSource().Task,
+                },
+                cts.Token
+            )
+        );
+    }
+
+    private sealed class ThrowingTelemetry : ITelemetry
+    {
+        public Task OnDecideStartAsync(DecideStartEvent @event) => throw new InvalidOperationException("sync");
+
+        public Task OnDecideEndAsync(DecideEndEvent @event) =>
+            Task.FromException(new InvalidOperationException("async"));
     }
 }

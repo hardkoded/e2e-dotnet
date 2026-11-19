@@ -814,7 +814,10 @@ Decision models: `Executor.DecisionExecutor(new DecisionExecutorOptions { Model 
 `Model` is optional: a deprecated evaluation model (`IEvaluationModel`, the `doEvaluate` shape) goes in `EvaluationModel` and runs through the same loop; set one of the two. `Vision = true` adds a masked screenshot (and `tap_at` / `type_at` for drawn controls with a
 text model), and `ProviderOptions` go with every decide call. Not ported: the `--debug` agent step
 table and the Gateway and TypeSafe AI decision models. To see every model call, use
-`E2E_AI_TRACE=1` (topic `debugging`).
+`E2E_AI_TRACE=1` (topic `debugging`). `ExperimentalDecide.RunAsync` (`E2E.Decision.Sdk`, the AI SDK's
+`experimental_decide`) takes `OnStart` and `OnEnd` callbacks, a `RuntimeContext`, and `Telemetry` (`TelemetryOptions` with
+`ITelemetry` integrations for the decide and decision-model call events; `RecordInputs`, `RecordOutputs`,
+`IncludeRuntimeContext`). The decision executor does not set them.
 
 ## Custom executors
 
