@@ -5,13 +5,20 @@
 namespace E2E.Cli.Tests.InitCi;
 
 /// <summary>
-/// Upstream's <c>describe('renderGithubWorkflow')</c>. The port writes the pipeline as text and has no workspace or Node
-/// version file, so these <c>it</c>s are not ported: "writes the template unchanged ..." (there is no template file), "sets up
+/// Upstream's <c>describe('renderGithubWorkflow')</c>. The port has no workspace or Node
+/// version file, so these <c>it</c>s are not ported: "sets up
 /// every job for a workspace member ...", "points the cache at a lockfile below the root ...", the package manager
 /// <c>it.each</c>, "sets up Bun ...", and "keys the caches on Bun's older bun.lockb ...".
 /// </summary>
 public sealed class RenderGithubWorkflowTests : InitCiTestBase
 {
+    [Fact]
+    // The template is the port's own: a .NET project, dotnet test, and E2E_TARGET where upstream's has e2e run --target.
+    public void Writes_the_template_unchanged_for_npm_at_the_repository_root_Expo_on_both_phones_and_the_model_key_from_secrets()
+    {
+        Assert.Equal(Ci.ReadTemplateText("github-actions.yml"), Ci.RenderGithubWorkflow(Base with { Jobs = AllJobs }));
+    }
+
     [Fact]
     // Partial: the job runs dotnet test, and the web job is the only one in a config with no phone target.
     public void Partial_Writes_only_the_web_job_when_the_config_has_no_phone_target()

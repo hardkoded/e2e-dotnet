@@ -140,7 +140,7 @@ internal sealed record CiService(
 /// platform the config's targets run on. The port runs <c>dotnet test</c> where upstream runs <c>e2e run</c>, installs
 /// Chromium with the project's <c>playwright.ps1</c> where upstream runs <c>e2e-web install</c>, and has no Node, package
 /// manager, or Expo/React Native build to detect: the iOS and Android jobs always get a build step to replace. The pipelines
-/// are written as text, not edited from the YAML templates of upstream's <c>templates/ci/</c>, since the port has no YAML library.
+/// are edited from the YAML templates in <c>templates/ci/</c> (the port's own, embedded in the tool), with <see cref="YamlDocument"/> keeping their comments.
 /// </summary>
 internal static partial class Ci
 {
@@ -160,9 +160,6 @@ internal static partial class Ci
 
     /// <summary>.NET-only: the version of <see cref="JunitLogger"/> init adds to a project.</summary>
     public const string JunitLoggerVersion = "8.1.0";
-
-    /// <summary>Words YAML reads as a boolean or null, which a name must not be left bare as.</summary>
-    private static readonly string[] YamlReserved = ["true", "false", "yes", "no", "on", "off", "null", "y", "n"];
 
     /// <summary>Phone platforms run in their own job, on a runner with a simulator or an emulator.</summary>
     private static readonly string[] Phones = ["ios", "android"];
@@ -710,257 +707,219 @@ internal static partial class Ci
     }
 
     /// <summary>
-    /// The GitHub Actions workflow: one job per platform in <c>Jobs</c>, on pull requests and on pushes to main. The
-    /// actions are pinned to the commits upstream's template pins.
+    /// A pipeline template from <c>templates/ci/</c> (upstream's <c>readTemplate</c>), embedded in the tool. Each is a complete
+    /// pipeline for a project at the repository root, so linters and the docs read it as it is; init edits a copy for the project.
+    /// </summary>
+    internal static YamlDocument ReadTemplate(string name) => YamlDocument.Parse(ReadTemplateText(name));
+
+    /// <summary>The text of a template of <c>templates/ci/</c>.</summary>
+    internal static string ReadTemplateText(string name)
+    {
+        using var stream = typeof(Ci).Assembly.GetManifestResourceStream("templates/ci/" + name)
+            ?? throw new InvalidOperationException($"The CI template {name} is not embedded.");
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>The map in <paramref name="items"/> whose <paramref name="key"/> holds a value <paramref name="matches"/>, which the template guarantees (upstream's <c>findItem</c>).</summary>
+    private static YamlMap FindItem(IEnumerable<YamlNode> items, string key, Func<string, bool> matches) =>
+        items.OfType<YamlMap>().FirstOrDefault(item => item.Get(key) is YamlScalar value && matches(value.Value))
+        ?? throw new InvalidOperationException($"The CI template has no step with {key} that matches.");
+
+    /// <summary>The model key the templates read, which the config's own keys replace (upstream's <c>TEMPLATE_SECRET</c>).</summary>
+    private const string TemplateSecret = "AI_GATEWAY_API_KEY";
+
+    /// <summary>The variable a job that runs one target names it in.</summary>
+    private const string TargetVariable = "E2E_TARGET";
+
+    /// <summary>The command <c>dotnet test</c> the templates run, which the project's own replaces.</summary>
+    private const string TemplateTestPrefix = "dotnet test ";
+
+    /// <summary>The path of the report the templates keep.</summary>
+    private const string JunitReport = ".e2e/junit.xml";
+
+    /// <summary>
+    /// Sets up the parts every GitHub job shares: the SDK version, the build of the tests, and the report the job uploads.
+    /// </summary>
+    private static void SetUpGithubJob(YamlMap job, WorkflowContext context)
+    {
+        var steps = job.Get<YamlSeq>("steps").Items;
+        var setup = FindItem(steps, "uses", uses => uses.StartsWith("actions/setup-dotnet@", StringComparison.Ordinal));
+        setup.Get<YamlMap>("with").Set("dotnet-version", context.DotnetVersion + ".x");
+        foreach (
+            var build in steps
+                .OfType<YamlMap>()
+                .Where(step => step.Get("name") is YamlScalar { Value: "Build" or "Build the tests" })
+        )
+        {
+            build.Set("run", BuildCommand(context));
+        }
+
+        if (!context.Junit)
+        {
+            var path = FindItem(steps, "name", name => name == "Upload the report")
+                .Get<YamlMap>("with")
+                .Get<YamlScalar>("path");
+            path.Value = string.Join("\n", path.Value.Split('\n').Where(line => line != JunitReport));
+        }
+    }
+
+    /// <summary>Points the job's run step at the project's tests, with the model keys and the target the job runs.</summary>
+    private static void FinishGithubJob(
+        YamlMap job,
+        WorkflowContext context,
+        YamlMap run,
+        IReadOnlyList<string>? targets
+    )
+    {
+        var steps = job.Get<YamlSeq>("steps").Items;
+        if (run.Get("with") is YamlMap with)
+        {
+            // The emulator action runs a script, line by line, instead of a run step.
+            var script = with.Get<YamlScalar>("script");
+            script.Value = string.Join(
+                "\n",
+                script
+                    .Value.Split('\n')
+                    .Select(line =>
+                        line.StartsWith(TemplateTestPrefix, StringComparison.Ordinal) ? GithubTestCommand(context)
+                        : line.StartsWith("adb install -r ", StringComparison.Ordinal)
+                            ? "adb install -r " + Quote(ApkPath(context))
+                        : line
+                    )
+            );
+        }
+        else
+        {
+            run.Set("run", GithubTestCommand(context));
+        }
+
+        // The template's model key stands for the config's; the rest of the env, such as the emulator's E2E_DEVICE, stays.
+        var env = new YamlMap();
+        foreach (var secret in context.Secrets)
+        {
+            env.Set(secret, "${{ secrets." + secret + " }}");
+        }
+
+        if (TargetName(targets) is { } target)
+        {
+            env.Set(TargetVariable, target);
+        }
+
+        if (run.Get("env") is YamlMap old)
+        {
+            env.Items.AddRange(old.Items.Where(pair => pair.Key.Value is not (TemplateSecret or TargetVariable)));
+        }
+
+        if (env.Items.Count == 0)
+        {
+            run.Delete("env");
+        }
+        else
+        {
+            run.Set("env", env);
+        }
+    }
+
+    /// <summary>Replaces a phone job's app steps with the project's: Node and the install, then the build in the app's folder; a custom app gets the build step that fails until it is replaced.</summary>
+    private static void SetGithubBuild(YamlMap job, WorkflowContext context, AppBuild build, bool custom)
+    {
+        var steps = job.Get<YamlSeq>("steps");
+        var buildStep = FindItem(steps.Items, "name", name => name == "Build the app");
+        if (custom)
+        {
+            steps.Items.Remove(
+                FindItem(steps.Items, "uses", uses => uses.StartsWith("actions/setup-node@", StringComparison.Ordinal))
+            );
+            steps.Items.Remove(FindItem(steps.Items, "name", name => name == "Install JavaScript dependencies"));
+        }
+        else
+        {
+            var install = FindItem(steps.Items, "name", name => name == "Install JavaScript dependencies");
+            install.Set("run", RunValue(InstallLines(context)));
+            if (context.AppDir.Length > 0)
+            {
+                install.SetBefore("working-directory", context.AppDir, "run");
+                buildStep.SetBefore("working-directory", context.AppDir, "run");
+            }
+        }
+
+        buildStep.CommentBefore = string.Join("\n", build.Comment);
+        buildStep.Set("run", RunValue(build.Lines));
+    }
+
+    /// <summary>
+    /// The GitHub Actions workflow: one job per platform in <c>Jobs</c>, on pull requests and on pushes to main. The template
+    /// (<c>templates/ci/github-actions.yml</c>) holds all three; a platform with no job is deleted, and the actions stay pinned to
+    /// the commits upstream's template pins.
     /// </summary>
     internal static string RenderGithubWorkflow(WorkflowContext context)
     {
-        var jobs = new List<string>();
+        var doc = ReadTemplate("github-actions.yml");
+        var jobs = ((YamlMap)doc.Contents!).Get<YamlMap>("jobs");
+        YamlMap ByName(YamlMap job, string name) =>
+            FindItem(job.Get<YamlSeq>("steps").Items, "name", value => value == name);
+
+        foreach (
+            var (platform, present) in new[]
+            {
+                ("web", context.Jobs.Web is not null),
+                ("ios", context.Jobs.Ios is not null),
+                ("android", context.Jobs.Android is not null),
+            }
+        )
+        {
+            if (!present)
+            {
+                jobs.Delete(platform);
+            }
+            else
+            {
+                SetUpGithubJob(jobs.Get<YamlMap>(platform), context);
+            }
+        }
+
+        // The first job left keeps no blank line from the one it followed in the template.
+        jobs.Items[0].Key.SpaceBefore = false;
         if (context.Jobs.Web is { } web)
         {
-            jobs.Add(GithubJob("web", "ubuntu-latest", 30, context, GithubWebSteps, web.Targets));
+            var job = jobs.Get<YamlMap>("web");
+            ByName(job, "Install browsers")
+                .Set("run", $"pwsh {PlaywrightScript(context)} install --with-deps chromium");
+            FinishGithubJob(job, context, ByName(job, "Run e2e"), web.Targets);
         }
 
         if (context.Jobs.Ios is { } ios)
         {
-            jobs.Add(
-                GithubJob(
-                    "ios",
-                    "macos-26",
-                    90,
-                    context,
-                    GithubIosSteps.Replace(
-                        "@APPBUILD@",
-                        GithubBuildSteps(context, IosBuildOf(context, ios.Build), ios.Build is IosBuild.Custom),
-                        StringComparison.Ordinal
-                    ),
-                    ios.Targets
-                )
-            );
+            var job = jobs.Get<YamlMap>("ios");
+            SetGithubBuild(job, context, IosBuildOf(context, ios.Build), ios.Build is IosBuild.Custom);
+            var boot = ByName(job, "Boot a simulator and install the app").Get<YamlScalar>("run");
+            var buildDir = Join(context.AppDir, "build");
+            boot.Value = boot
+                .Value.Replace("find build ", $"find {Quote(buildDir)} ", StringComparison.Ordinal)
+                .Replace("No .app under build/", $"No .app under {buildDir}/", StringComparison.Ordinal);
+            FinishGithubJob(job, context, ByName(job, "Run e2e"), ios.Targets);
         }
 
         if (context.Jobs.Android is { } android)
         {
-            jobs.Add(
-                GithubJob(
-                    "android",
-                    "ubuntu-latest",
-                    60,
-                    context,
-                    GithubAndroidSteps.Replace(
-                        "@APPBUILD@",
-                        GithubBuildSteps(
-                            context,
-                            AndroidBuildOf(context, android.Build),
-                            android.Build is AndroidBuild.Custom
-                        ),
-                        StringComparison.Ordinal
-                    ),
-                    android.Targets
-                )
-            );
+            var job = jobs.Get<YamlMap>("android");
+            SetGithubBuild(job, context, AndroidBuildOf(context, android.Build), android.Build is AndroidBuild.Custom);
+            FinishGithubJob(job, context, ByName(job, "Run e2e"), android.Targets);
         }
 
-        const string Header = """
-            # Written by `e2e init --ci github-actions`: the e2e tests on every pull request
-            # and every push to main, one job per platform. See https://github.com/hardkoded/e2e-dotnet
-            name: e2e
-
-            on:
-              pull_request:
-              push:
-                branches: [main]
-
-            permissions:
-              contents: read
-
-            concurrency:
-              group: ${{ github.workflow }}-${{ github.ref }}
-              cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
-            jobs:
-
-            """;
-        return Header + string.Join("\n\n", jobs) + "\n";
+        return doc.ToString();
     }
-
-    private static string GithubJob(
-        string name,
-        string runner,
-        int minutes,
-        WorkflowContext context,
-        string steps,
-        IReadOnlyList<string>? targets
-    )
-    {
-        const string Template = """
-              @NAME@:
-                runs-on: @RUNNER@
-                timeout-minutes: @MINUTES@
-                steps:
-                  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-                  - uses: actions/setup-dotnet@v4
-                    with:
-                      dotnet-version: @DOTNET@.x
-                      cache: true
-                      cache-dependency-path: "**/*.csproj"
-            @STEPS@
-                  - name: Upload the report
-                    if: ${{ !cancelled() }}
-                    uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-                    with:
-                      name: e2e-@NAME@
-                      path: |
-                        .e2e/report.json
-                        .e2e/junit.xml@J@
-                        .e2e/results
-                      # .e2e is a hidden directory, which upload-artifact skips when it expands a folder.
-                      include-hidden-files: true
-                      if-no-files-found: warn
-                      retention-days: 7
-            """;
-        var secrets = string.Join(
-            "\n",
-            [
-                .. context.Secrets.Select(secret => "    " + secret + ": ${{ secrets." + secret + " }}"),
-                .. TargetEnv(targets).Select(line => "    " + line),
-            ]
-        );
-        var expanded = steps
-            .Replace("@ENV@", secrets.Length == 0 ? "" : "\n  env:\n" + secrets, StringComparison.Ordinal)
-            .Replace("@SECRETS@\n", secrets.Length == 0 ? "" : secrets + "\n", StringComparison.Ordinal)
-            .Replace("@BUILD@", BuildCommand(context), StringComparison.Ordinal)
-            .Replace("@TEST@", GithubTestCommand(context), StringComparison.Ordinal)
-            .Replace("@PLAYWRIGHT@", PlaywrightScript(context), StringComparison.Ordinal)
-            .Replace("@APK@", Quote(ApkPath(context)), StringComparison.Ordinal)
-            .Replace("@BUILDDIRTEXT@", Join(context.AppDir, "build"), StringComparison.Ordinal)
-            .Replace("@BUILDDIR@", Quote(Join(context.AppDir, "build")), StringComparison.Ordinal);
-        return Junit(
-            Template
-                .Replace("@STEPS@", Indent(expanded, 6), StringComparison.Ordinal)
-                .Replace("@NAME@", name, StringComparison.Ordinal)
-                .Replace("@RUNNER@", runner, StringComparison.Ordinal)
-                .Replace(
-                    "@MINUTES@",
-                    minutes.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    StringComparison.Ordinal
-                )
-                .Replace("@DOTNET@", context.DotnetVersion, StringComparison.Ordinal),
-            context.Junit
-        );
-    }
-
-    private const string GithubRunStep = """
-        - name: Run e2e
-          run: @TEST@@ENV@
-        """;
-
-    private const string GithubWebSteps =
-        """
-            - name: Build
-              run: @BUILD@
-            - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              with:
-                path: ~/.cache/ms-playwright
-                key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/Directory.Build.props') }}
-            - name: Install browsers
-              run: pwsh @PLAYWRIGHT@ install --with-deps chromium
-            """
-        + "\n"
-        + GithubRunStep;
-
-    private const string GithubIosSteps =
-        """
-            @APPBUILD@
-            - name: Build the tests
-              run: @BUILD@
-            # Boots the image's own iPhone 17 Pro on a pinned runtime: a simulator made with `simctl create`
-            # can spend minutes on its first boot. Bump the runtime on purpose, after a local run on it,
-            # since the accessibility tree changes between iOS releases.
-            - name: Boot a simulator and install the app
-              env:
-                IOS_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-5
-              run: |
-                set -euo pipefail
-                UDID=$(xcrun simctl list devices available -j | jq -r --arg rt "$IOS_RUNTIME" '.devices[$rt][]? | select(.name == "iPhone 17 Pro") | .udid' | head -n 1)
-                if [ -z "$UDID" ]; then
-                  echo "::error::No iPhone 17 Pro on $IOS_RUNTIME"
-                  xcrun simctl list runtimes
-                  exit 1
-                fi
-                xcrun simctl boot "$UDID"
-                xcrun simctl bootstatus "$UDID"
-                APP=$(find @BUILDDIR@ -maxdepth 5 -name '*.app' -type d | head -n 1)
-                if [ -z "$APP" ]; then
-                  echo "::error::No .app under @BUILDDIRTEXT@/"
-                  exit 1
-                fi
-                xcrun simctl install "$UDID" "$APP"
-                # A target with device set from the E2E_DEVICE variable drives this simulator, whatever else the image has.
-                echo "E2E_DEVICE=$UDID" >> "$GITHUB_ENV"
-            """
-        + "\n"
-        + GithubRunStep;
-
-    private const string GithubAndroidSteps = """
-        - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
-          with:
-            distribution: temurin
-            java-version: 17
-        - name: Enable KVM
-          run: |
-            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-            sudo udevadm control --reload-rules
-            sudo udevadm trigger --name-match=kvm
-        @APPBUILD@
-        - name: Build the tests
-          run: @BUILD@
-        - name: Run e2e
-          uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
-          with:
-            api-level: 36
-            arch: x86_64
-            target: google_apis
-            profile: pixel_7
-            emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-            disable-animations: true
-            script: |
-              adb install -r @APK@
-              @TEST@
-          env:
-        @SECRETS@
-            # The emulator the action boots, for a target with device set from the E2E_DEVICE variable.
-            E2E_DEVICE: emulator-5554
-        """;
 
     private static string GithubTestCommand(WorkflowContext context) =>
         $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}"
         + (context.Junit ? " --logger \"junit;LogFilePath=${{ github.workspace }}/.e2e/junit.xml\"" : "");
 
     /// <summary>
-    /// The env lines that point a job's run at its one target: <c>E2E_TARGET</c>, the port's counterpart of upstream's
-    /// <c>--target</c> (one name). A job with several targets sets none and every test uses the config's own choice.
+    /// The target a job that runs one names in <c>E2E_TARGET</c>, the port's counterpart of upstream's <c>--target</c> (one
+    /// name). A job with several sets none and every test uses the config's own choice.
     /// </summary>
-    private static string[] TargetEnv(IReadOnlyList<string>? targets) =>
-        targets is { Count: 1 } ? ["E2E_TARGET: " + YamlScalar(targets[0])] : [];
-
-    /// <summary>A target name as a YAML value: bare when it is plain, else double-quoted.</summary>
-    private static string YamlScalar(string value) =>
-        value.Length > 0
-        && char.IsAsciiLetter(value[0])
-        && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.')
-        && !YamlReserved.Contains(value, StringComparer.OrdinalIgnoreCase)
-            ? value
-            : System.Text.Json.JsonSerializer.Serialize(value);
-
-    /// <summary>The lines of <paramref name="text"/> that end in the <c>@J@</c> marker: kept without it when the JUnit report is on, else dropped.</summary>
-    private static string Junit(string text, bool on) =>
-        string.Join(
-            "\n",
-            text.Split('\n')
-                .Where(line => on || !line.EndsWith("@J@", StringComparison.Ordinal))
-                .Select(line => line.EndsWith("@J@", StringComparison.Ordinal) ? line[..^3] : line)
-        );
+    private static string? TargetName(IReadOnlyList<string>? targets) => targets is { Count: 1 } ? targets[0] : null;
 
     /// <summary>`dir/file`, or `file` at the root (upstream's <c>join</c>).</summary>
     private static string Join(string dir, string file) => dir.Length == 0 ? file : dir + "/" + file;
@@ -1059,38 +1018,8 @@ internal static partial class Ci
         };
     }
 
-    /// <summary>
-    /// A phone job's app steps for GitHub: for an Expo or React Native app, Node and the install, then the build in the app's
-    /// folder; for any other app, the build step that fails until it is replaced.
-    /// </summary>
-    private static string GithubBuildSteps(WorkflowContext context, AppBuild build, bool custom)
-    {
-        var steps = new List<string>();
-        var directory = context.AppDir.Length == 0 ? "" : "  working-directory: " + Quote(context.AppDir) + "\n";
-        if (!custom)
-        {
-            steps.Add(
-                "- uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0\n  with:\n    node-version: 24\n"
-                    + "- name: Install JavaScript dependencies\n"
-                    + directory
-                    + "  run: "
-                    + RunValue(InstallLines(context))
-            );
-        }
-
-        steps.Add(
-            string.Concat(build.Comment.Select(line => "# " + line + "\n"))
-                + "- name: Build the app\n"
-                + (custom ? "" : directory)
-                + "  run: "
-                + RunValue(build.Lines)
-        );
-        return string.Join("\n", steps);
-    }
-
-    /// <summary>The value of a <c>run:</c> key at the step's own indentation: one command inline, several as a block.</summary>
-    private static string RunValue(string[] lines) =>
-        lines.Length == 1 ? lines[0] : "|\n" + string.Join("\n", lines.Select(line => "    " + line));
+    /// <summary>The value of a <c>run:</c> key: one command as it is, several as a block of lines.</summary>
+    private static string RunValue(string[] lines) => lines.Length == 1 ? lines[0] : string.Join("\n", lines) + "\n";
 
     /// <summary>A path as one shell word: quoted when it holds a space or a character the shell or YAML reads.</summary>
     private static string Quote(string path) =>
@@ -1107,214 +1036,165 @@ internal static partial class Ci
         return Quote($"{directory}bin/Release/net{context.DotnetVersion}/playwright.ps1");
     }
 
-    /// <summary>
-    /// The GitLab CI/CD pipeline: one job per platform in <c>Jobs</c>, in merge request pipelines and on the default branch.
-    /// The web job runs in a <c>dotnet/sdk</c> image on GitLab's runners; the mobile jobs need self-managed ones. The rules sit
-    /// on the jobs, not in a <c>workflow:</c> block, so the same file works as <c>.gitlab-ci.yml</c> and as a file another pipeline includes.
-    /// </summary>
-    internal static string RenderGitlabPipeline(WorkflowContext context)
+    /// <summary>The artifacts of a GitLab job, without the JUnit report when the tests write none.</summary>
+    private static void SetUpGitlabArtifacts(YamlMap job, WorkflowContext context)
     {
-        var parts = new List<string>();
-        if (context.Jobs.Web is { } web)
+        if (context.Junit)
         {
-            parts.Add(
-                GitlabWeb.Replace(
-                    "    @TARGETVAR@\n",
-                    string.Concat(TargetEnv(web.Targets).Select(line => "    " + line + "\n")),
-                    StringComparison.Ordinal
-                )
-            );
+            return;
         }
 
-        if (context.Jobs.Ios is not null || context.Jobs.Android is not null)
-        {
-            parts.Add(GitlabMobile);
-        }
-
-        if (context.Jobs.Ios is { } ios)
-        {
-            parts.Add(
-                GitlabPhone(
-                    GitlabIos,
-                    ios.Targets,
-                    GitlabBuildItems(context, IosBuildOf(context, ios.Build), ios.Build is IosBuild.Custom)
-                )
-            );
-        }
-
-        if (context.Jobs.Android is { } android)
-        {
-            parts.Add(
-                GitlabPhone(
-                    GitlabAndroid,
-                    android.Targets,
-                    GitlabBuildItems(
-                        context,
-                        AndroidBuildOf(context, android.Build),
-                        android.Build is AndroidBuild.Custom
-                    )
-                )
-            );
-        }
-
-        const string Header = """
-            # Written by `e2e init --ci gitlab`: the e2e tests in every merge request and on
-            # the default branch, one job per platform. See https://github.com/hardkoded/e2e-dotnet
-
-            """;
-        return Header
-            + "\n"
-            + Junit(
-                string.Join("\n\n", parts)
-                    .Replace("@SUFFIX@", context.JobSuffix ?? "", StringComparison.Ordinal)
-                    .Replace("@DOTNET@", context.DotnetVersion, StringComparison.Ordinal)
-                    .Replace("@BUILD@", BuildCommand(context), StringComparison.Ordinal)
-                    .Replace("@PLAYWRIGHT@", PlaywrightScript(context), StringComparison.Ordinal)
-                    .Replace(
-                        "@TEST@",
-                        $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}"
-                            + (context.Junit ? " --logger \"junit;LogFilePath=$CI_PROJECT_DIR/.e2e/junit.xml\"" : ""),
-                        StringComparison.Ordinal
-                    )
-                    .Replace("@APK@", Quote(ApkPath(context)), StringComparison.Ordinal)
-                    .Replace("@BUILDDIR@", Quote(Join(context.AppDir, "build")), StringComparison.Ordinal),
-                context.Junit
-            )
-            + "\n";
+        var artifacts = job.Get<YamlMap>("artifacts");
+        var paths = artifacts.Get<YamlSeq>("paths");
+        paths.Items.RemoveAll(item => item is YamlScalar { Value: JunitReport });
+        artifacts.Delete("reports");
     }
 
-    /// <summary>A phone job: its <c>E2E_TARGET</c> variable when it runs one target, and the app's build items.</summary>
-    private static string GitlabPhone(string job, IReadOnlyList<string> targets, string items) =>
-        job.Replace(
-                "  @TARGETVARS@\n",
-                TargetEnv(targets) is [var line] ? "  variables:\n    " + line + "\n" : "",
-                StringComparison.Ordinal
-            )
-            .Replace("    @APPBUILD@\n", items, StringComparison.Ordinal);
+    /// <summary>A GitLab job's variable that names the one target it runs, or none for a job with several.</summary>
+    private static void SetGitlabTarget(YamlMap job, IReadOnlyList<string>? targets)
+    {
+        var variables = job.Get<YamlMap>("variables");
+        if (TargetName(targets) is { } target)
+        {
+            variables.Set(TargetVariable, target);
+        }
+        else
+        {
+            variables.Delete(TargetVariable);
+            if (variables.Items.Count == 0)
+            {
+                job.Delete("variables");
+            }
+        }
+    }
 
     /// <summary>
-    /// A phone job's app build as script items on a self-managed shell runner: for an Expo or React Native app the install and the
-    /// build in the app's folder, then back to the project; for any other app the step that fails until it is replaced.
+    /// A phone job's script on a self-managed shell runner: for an Expo or React Native app the install and the build in the
+    /// app's folder, then back to the project; for any other app the step that fails until it is replaced. Then the template's
+    /// own lines: the tests' build, the device, and the run.
     /// </summary>
-    private static string GitlabBuildItems(WorkflowContext context, AppBuild build, bool custom)
+    private static void GitlabMobileScript(
+        YamlMap job,
+        WorkflowContext context,
+        AppBuild build,
+        bool custom,
+        IReadOnlyList<string>? targets
+    )
     {
-        var comment = string.Concat(build.Comment.Select(line => "    # " + line + "\n"));
-        if (custom)
+        SetGitlabTarget(job, targets);
+        var script = job.Get<YamlSeq>("script");
+        var rest = script
+            .Items.OfType<YamlScalar>()
+            .SkipWhile(item => !item.Value.StartsWith("dotnet build ", StringComparison.Ordinal))
+            .ToList();
+        var buildDir = Quote(Join(context.AppDir, "build"));
+        foreach (var item in rest)
         {
-            return comment + "    - " + string.Join(" && ", build.Lines) + "\n";
+            item.Value = item.Value switch
+            {
+                var line when line.StartsWith("dotnet build ", StringComparison.Ordinal) => BuildCommand(context),
+                var line when line.StartsWith(TemplateTestPrefix, StringComparison.Ordinal) => GitlabTestCommand(
+                    context
+                ),
+                var line => line.Replace("find build ", $"find {buildDir} ", StringComparison.Ordinal)
+                    .Replace("install -r " + Apk, "install -r " + Quote(ApkPath(context)), StringComparison.Ordinal),
+            };
         }
 
         var enter = context.AppDir.Length == 0 ? [] : new[] { $"cd \"$CI_PROJECT_DIR/{context.AppDir}\"" };
         string[] leave = context.AppDir.Length == 0 ? [] : ["cd \"$CI_PROJECT_DIR\""];
-        return string.Concat(enter.Concat(InstallLines(context)).Select(line => "    - " + line + "\n"))
-            + comment
-            + string.Concat(build.Lines.Concat(leave).Select(line => "    - " + line + "\n"));
+        string[] buildLines = custom ? [string.Join(" && ", build.Lines)] : [.. build.Lines, .. leave];
+        string[] before = custom ? [] : [.. enter, .. InstallLines(context)];
+        var items = new List<YamlNode>(before.Concat(buildLines).Select(line => (YamlNode)new YamlScalar(line)));
+        items[before.Length].CommentBefore = string.Join("\n", build.Comment);
+        script.Items.Clear();
+        script.Items.AddRange(items);
+        script.Items.AddRange(rest);
     }
 
-    private const string GitlabWeb = """
-        e2e-web@SUFFIX@:
-          image: mcr.microsoft.com/dotnet/sdk:@DOTNET@
-          interruptible: true
-          timeout: 30 minutes
-          rules:
-            - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-            - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-          variables:
-            # GitLab caches only paths inside the project.
-            NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget
-            PLAYWRIGHT_BROWSERS_PATH: $CI_PROJECT_DIR/.cache/ms-playwright
-            @TARGETVAR@
-          cache:
-            key:
-              files:
-                - "**/*.csproj"
-            paths:
-              - .nuget/
-              - .cache/ms-playwright/
-          script:
-            - @BUILD@
-            - pwsh @PLAYWRIGHT@ install --with-deps chromium
-            - @TEST@
-          artifacts:
-            when: always
-            expire_in: 7 days
-            paths:
-              - .e2e/report.json
-              - .e2e/junit.xml@J@
-              - .e2e/results/
-            reports:@J@
-              junit: .e2e/junit.xml@J@
-        """;
+    private static string GitlabTestCommand(WorkflowContext context) =>
+        $"dotnet test -c Release --no-build {Quote(context.ProjectFile)}"
+        + (context.Junit ? " --logger \"junit;LogFilePath=$CI_PROJECT_DIR/.e2e/junit.xml\"" : "");
 
-    private const string GitlabMobile = """
-        # GitLab's hosted runners can't run a simulator or an emulator, so the mobile jobs run on
-        # self-managed runners with the shell executor: a Mac with Xcode, and Linux with KVM, a JDK,
-        # the Android SDK, and the .NET SDK. Replace the tags with your runners' tags.
-        .e2e-mobile@SUFFIX@:
-          interruptible: true
-          timeout: 90 minutes
-          rules:
-            - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-            - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-          artifacts:
-            when: always
-            expire_in: 7 days
-            paths:
-              - .e2e/report.json
-              - .e2e/junit.xml@J@
-              - .e2e/results/
-              # The Android job's emulator output, for a boot that fails.
-              - .e2e/emulator.log
-            reports:@J@
-              junit: .e2e/junit.xml@J@
-        """;
-
-    private const string GitlabIos = """
-        e2e-ios@SUFFIX@:
-          extends: .e2e-mobile@SUFFIX@
-          tags: [macos]
-          @TARGETVARS@
-          script:
-            @APPBUILD@
-            - @BUILD@
-            # A simulator of the job's own on a pinned runtime, so the run never drives a device another job left booted.
-            - export E2E_DEVICE=$(xcrun simctl create "e2e-$CI_JOB_ID" "iPhone 17 Pro" com.apple.CoreSimulator.SimRuntime.iOS-26-5)
-            - echo "$E2E_DEVICE" > "$CI_PROJECT_DIR/.simulator-udid"
-            - xcrun simctl bootstatus "$E2E_DEVICE" -b
-            - xcrun simctl install "$E2E_DEVICE" "$(find @BUILDDIR@ -maxdepth 5 -name '*.app' -type d | head -n 1)"
-            - @TEST@
-          after_script:
-            # after_script starts a new shell in the project directory, after a failed script too, but not after a timeout.
-            - xcrun simctl delete "$(cat "$CI_PROJECT_DIR/.simulator-udid")" || true
-        """;
-
-    private const string GitlabAndroid = """
-        e2e-android@SUFFIX@:
-          extends: .e2e-mobile@SUFFIX@
-          tags: [linux-kvm]
-          @TARGETVARS@
-          script:
-            @APPBUILD@
-            - @BUILD@
-            # An emulator of the job's own: the port comes from CI_CONCURRENT_ID, so parallel jobs on one runner don't share one.
-            # It boots an AVD named e2e that you create on the runner.
-            - mkdir -p .e2e
-            - PORT=$((5554 + 2 * CI_CONCURRENT_ID))
-            - export E2E_DEVICE=emulator-$PORT
-            - adb -s $E2E_DEVICE emu kill || true
-            - $ANDROID_HOME/emulator/emulator -avd e2e -read-only -port $PORT -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > .e2e/emulator.log 2>&1 &
-            - timeout 300 adb -s $E2E_DEVICE wait-for-device
-            - timeout 300 sh -c 'until [ "$(adb -s $E2E_DEVICE shell getprop sys.boot_completed | tr -d "\r")" = 1 ]; do sleep 2; done'
-            - adb -s $E2E_DEVICE install -r @APK@
-            - @TEST@
-          after_script:
-            - adb -s emulator-$((5554 + 2 * CI_CONCURRENT_ID)) emu kill || true
-        """;
-
-    private static string Indent(string text, int spaces)
+    /// <summary>
+    /// The GitLab CI/CD pipeline: one job per platform in <c>Jobs</c>, in merge request pipelines and on the default branch.
+    /// The template (<c>templates/ci/gitlab-ci.yml</c>) holds the web job in a <c>dotnet/sdk</c> image on GitLab's runners and
+    /// the mobile jobs, which need self-managed ones; a platform with no job is deleted. The rules sit on the jobs, not in a
+    /// <c>workflow:</c> block, so the same file works as <c>.gitlab-ci.yml</c> and as a file another pipeline includes.
+    /// </summary>
+    internal static string RenderGitlabPipeline(WorkflowContext context)
     {
-        var pad = new string(' ', spaces);
-        return string.Join("\n", text.Split('\n').Select(line => line.Length == 0 ? line : pad + line));
+        var doc = ReadTemplate("gitlab-ci.yml");
+        var root = (YamlMap)doc.Contents!;
+        if (context.Jobs.Web is not { } web)
+        {
+            root.Delete("e2e-web");
+        }
+        else
+        {
+            var job = root.Get<YamlMap>("e2e-web");
+            job.Set("image", "mcr.microsoft.com/dotnet/sdk:" + context.DotnetVersion);
+            SetGitlabTarget(job, web.Targets);
+            var script = job.Get<YamlSeq>("script").Items.OfType<YamlScalar>().ToList();
+            script[0].Value = BuildCommand(context);
+            script[1].Value = $"pwsh {PlaywrightScript(context)} install --with-deps chromium";
+            script[2].Value = GitlabTestCommand(context);
+            SetUpGitlabArtifacts(job, context);
+        }
+
+        if (context.Jobs.Ios is not { } ios)
+        {
+            root.Delete("e2e-ios");
+        }
+        else
+        {
+            GitlabMobileScript(
+                root.Get<YamlMap>("e2e-ios"),
+                context,
+                IosBuildOf(context, ios.Build),
+                ios.Build is IosBuild.Custom,
+                ios.Targets
+            );
+        }
+
+        if (context.Jobs.Android is not { } android)
+        {
+            root.Delete("e2e-android");
+        }
+        else
+        {
+            GitlabMobileScript(
+                root.Get<YamlMap>("e2e-android"),
+                context,
+                AndroidBuildOf(context, android.Build),
+                android.Build is AndroidBuild.Custom,
+                android.Targets
+            );
+        }
+
+        if (context.Jobs.Ios is null && context.Jobs.Android is null)
+        {
+            root.Delete(".e2e-mobile");
+        }
+        else
+        {
+            SetUpGitlabArtifacts(root.Get<YamlMap>(".e2e-mobile"), context);
+        }
+
+        root.Items[0].Key.SpaceBefore = false;
+        if (context.JobSuffix is { } suffix)
+        {
+            foreach (var pair in root.Items)
+            {
+                pair.Key.Value += suffix;
+                if (pair.Value is YamlMap { } map && map.Get("extends") is YamlScalar extended)
+                {
+                    extended.Value += suffix;
+                }
+            }
+        }
+
+        return doc.ToString();
     }
 
     private static bool AnchorLine(string line, string anchor) =>
