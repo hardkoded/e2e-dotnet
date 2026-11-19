@@ -24,9 +24,9 @@ public sealed class ConstructorTests
     [Theory]
     [InlineData("openai", "/oauth/token", "ChatGPT token request failed (401: invalid_grant); run `e2e login openai`")]
     [InlineData(
-        "spacexai",
+        "spacexsi",
         "/oauth2/token",
-        "SpaceXAI token request failed (401: invalid_grant); run `e2e login spacexai`"
+        "SpaceXSI token request failed (401: invalid_grant); run `e2e login spacexsi`"
     )]
     [InlineData(
         "opencode-console",
@@ -50,7 +50,7 @@ public sealed class ConstructorTests
         IOAuthProvider provider = id switch
         {
             "openai" => new CodexProvider(new HttpClient(issuer), issuer: "https://auth.test"),
-            "spacexai" => new XaiProvider(new HttpClient(issuer), issuer: "https://auth.test"),
+            "spacexsi" => new XaiProvider(new HttpClient(issuer), issuer: "https://auth.test"),
             _ => new OpenCodeConsoleProvider(new HttpClient(issuer), consoleUrl: "https://console.test/console"),
         };
         // A login whose token lapses inside the refresh skew, so the first call refreshes before it sends anything.

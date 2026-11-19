@@ -15,7 +15,7 @@ public sealed class LogoutTests
         var store = new MemoryCredentialStore(
             new Dictionary<string, OAuthCredentials>
             {
-                ["spacexai"] = new()
+                ["spacexsi"] = new()
                 {
                     Access = "a",
                     Refresh = "r",
@@ -25,7 +25,7 @@ public sealed class LogoutTests
         );
 
         Assert.False(await OAuthProviders.LogoutAsync("openai", store));
-        Assert.True(await OAuthProviders.LogoutAsync("spacexai", store));
+        Assert.True(await OAuthProviders.LogoutAsync("spacexsi", store));
         Assert.Empty(await store.ListAsync());
 
         // A read-only source is not asked to remove what it does not hold.

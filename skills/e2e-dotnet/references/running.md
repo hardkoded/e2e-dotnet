@@ -22,7 +22,7 @@ e2e guide [topic]                                    # print this skill; topics:
                                                      # explore, mcp, running, setup, writing-tests,
                                                      # writing-tests-nunit, writing-tests-xunit
 e2e login|logout|models [provider]                   # subscription logins: openai,
-                                                     # github-copilot, opencode-console, spacexai
+                                                     # github-copilot, opencode-console, spacexsi
 e2e install [chromium ...] [--with-deps]             # download browsers (topic setup)
 e2e mcp                                              # MCP server for a coding agent (topic mcp)
 e2e doctor [--config <path>] [--target <ids>] [--headed] [--check-model] [--json] # can explore and mcp start: runtime,
