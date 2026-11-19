@@ -104,7 +104,7 @@ var model = new GatewayProvider().DecisionModel("typesafe-ai/jev");
 // ProviderOptions = { ["gateway"] = { "zeroDataRetention": true } }
 ```
 
-`GatewayProvider` reads `AI_GATEWAY_API_KEY` or, without it, `VERCEL_OIDC_TOKEN`. AI Gateway can rerun an uncertain decision on another model. Add a conditional entry to `gateway.models`, and it reaches every decide call. A triggered fallback bills both models:
+`GatewayProvider` reads `AI_GATEWAY_API_KEY` or, without it, the Vercel OIDC token. Like `getVercelOidcToken` in `@vercel/oidc`, it reads `VERCEL_OIDC_TOKEN` and, when that is missing or expired, refreshes the token with the credentials of the Vercel CLI (`vercel login`) for the project linked in `.vercel/project.json`, then publishes it in `VERCEL_OIDC_TOKEN`. A host that serves Vercel requests supplies the request context with `VercelRequestContext.Use(headers)`: its `x-vercel-oidc-token` header is the OIDC token and its `x-vercel-id` header goes out as `ai-o11y-request-id`. AI Gateway can rerun an uncertain decision on another model. Add a conditional entry to `gateway.models`, and it reaches every decide call. A triggered fallback bills both models:
 
 ```json
 { "gateway": { "models": [{ "model": "openai/gpt-6-luna-decisions", "when": { "confidenceBelow": 0.6 } }] } }
@@ -146,4 +146,4 @@ var result = await ExperimentalDecide.RunAsync(new DecideOptions
 - A question the provider refuses fails the step with `MODEL_OUTPUT_INVALID`.
 - A question has at most 255 options, TypeSafe's limit. On a larger screen, nodes in the viewport come first and the rest count as omitted, so the model can scroll.
 - The tree the executor reads lists the page's top-level nodes. It has no root node of its own, so unlike upstream a top-level labeled node is a target for pointer operations too.
-- The port ships `OpenAIDecisionModel`, `GatewayDecisionModel`, and `DecisionTypeSafeAiModel`. The Gateway reads its OIDC token from `VERCEL_OIDC_TOKEN` only; it does not run `vercel env pull`. A TypeSafe call has no workflow serialization.
+- The port ships `OpenAIDecisionModel`, `GatewayDecisionModel`, and `DecisionTypeSafeAiModel`. A TypeSafe call has no workflow serialization.
