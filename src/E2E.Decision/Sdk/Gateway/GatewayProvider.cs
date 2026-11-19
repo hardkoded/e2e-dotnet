@@ -28,6 +28,9 @@ public sealed class GatewayProviderSettings
     public HttpClient? HttpClient { get; init; }
 }
 
+/// <summary>The token and method <see cref="GatewayProvider.GetGatewayAuthTokenAsync"/> gives.</summary>
+public sealed record GatewayAuthToken(string Token, string AuthMethod);
+
 /// <summary>
 /// The AI SDK's <c>createGateway</c> and the <c>gateway</c> provider (<c>gateway-provider.ts</c>), for its decision models:
 /// <c>gateway.decisionModel('typesafe-ai/jev')</c>.
@@ -72,24 +75,54 @@ public sealed class GatewayProvider
     /// <summary>Deprecated: use <see cref="Decision"/>.</summary>
     public GatewayDecisionModel Evaluation(string modelId) => DecisionModel(modelId);
 
-    // getGatewayAuthToken: a non-empty API key (the option, else the environment) is used as is; an empty one falls through to OIDC.
-    private Task<IReadOnlyDictionary<string, string?>> GetHeadersAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Upstream's <c>getGatewayAuthToken</c>: a non-empty API key (the option, else <c>AI_GATEWAY_API_KEY</c>) is used as is, with no trimming;
+    /// otherwise the Vercel OIDC token. Callers wrap a failure here in a <see cref="GatewayAuthenticationException"/> ("No authentication provided").
+    /// </summary>
+    public static Task<GatewayAuthToken> GetGatewayAuthTokenAsync(
+        GatewayProviderSettings settings,
+        CancellationToken cancellationToken = default
+    )
     {
-        var apiKey = !string.IsNullOrEmpty(_settings.ApiKey)
-            ? _settings.ApiKey
-            : ModelHttp.Environment("AI_GATEWAY_API_KEY");
-        var oidc = string.IsNullOrEmpty(apiKey) ? ModelHttp.Environment("VERCEL_OIDC_TOKEN") : null;
-        var token = !string.IsNullOrEmpty(apiKey) ? apiKey : oidc;
-        if (string.IsNullOrEmpty(token))
+        cancellationToken.ThrowIfCancellationRequested();
+        var apiKey = settings.ApiKey ?? System.Environment.GetEnvironmentVariable("AI_GATEWAY_API_KEY");
+        if (!string.IsNullOrEmpty(apiKey))
         {
-            throw GatewayAuthenticationException.CreateContextualError(false, false);
+            return Task.FromResult(new GatewayAuthToken(apiKey, "api-key"));
+        }
+
+        return Task.FromResult(new GatewayAuthToken(GetVercelOidcToken(), "oidc"));
+    }
+
+    // vercel-environment.ts getVercelOidcToken (@vercel/oidc): the token of the VERCEL_OIDC_TOKEN environment variable.
+    private static string GetVercelOidcToken()
+    {
+        var token = System.Environment.GetEnvironmentVariable("VERCEL_OIDC_TOKEN");
+        return !string.IsNullOrEmpty(token)
+            ? token
+            : throw new InvalidOperationException(
+                "Could not get the Vercel OIDC token: the 'VERCEL_OIDC_TOKEN' environment variable is not set."
+            );
+    }
+
+    // getHeaders: a failure to authenticate is wrapped in a GatewayAuthenticationException with the failure as its cause.
+    private async Task<IReadOnlyDictionary<string, string?>> GetHeadersAsync(CancellationToken cancellationToken)
+    {
+        GatewayAuthToken auth;
+        try
+        {
+            auth = await GetGatewayAuthTokenAsync(_settings, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            throw GatewayAuthenticationException.CreateContextualError(false, false, 401, error);
         }
 
         var headers = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Authorization"] = "Bearer " + token,
+            ["Authorization"] = "Bearer " + auth.Token,
             ["ai-gateway-protocol-version"] = ProtocolVersion,
-            [AuthMethodHeader] = string.IsNullOrEmpty(apiKey) ? "oidc" : "api-key",
+            [AuthMethodHeader] = auth.AuthMethod,
         };
         if (_settings.TeamIdOrSlug is not null)
         {
@@ -101,7 +134,8 @@ public sealed class GatewayProvider
             headers[name] = value;
         }
 
-        return Task.FromResult<IReadOnlyDictionary<string, string?>>(headers);
+        headers["User-Agent"] = ModelHttp.RequestHeaders["User-Agent"];
+        return headers;
     }
 
     // createO11yHeaders: the Vercel deployment the process runs in, when it runs in one.

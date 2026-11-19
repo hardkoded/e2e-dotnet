@@ -85,6 +85,8 @@ using E2E.Decision.Sdk.TypeSafeAi;
 var model = new TypeSafeAiProvider().DecisionModel("jev-latest");
 ```
 
+`TYPESAFE_AI_BASE_URL` routes the provider through a trusted proxy or a self-hosted TypeSafe-compatible server. The default base URL is `https://api.typesafe.ai/v1`. `TypeSafeAiProviderSettings.BaseUrl` takes precedence over the variable. The configured server receives the API key and the decision input.
+
 `OpenAIDecisionModel` takes images too. Vercel AI Gateway rejects the screenshot for every decision model, so keep `Vision` off there.
 
 TypeSafe takes PNG and JPEG images. Each image gets a reference that the request puts in the state at the image's position (or, when the state already contains the reference, leaves alone). Name your own in the part's `typesafe` provider options, `{ "reference": "[photo]", "insertReference": false }`, to point at the image from a question's instructions or criteria. `longContext: true` in the call's `typesafe` provider options raises the context limits to 262k tokens, at the cost of speed and accuracy.

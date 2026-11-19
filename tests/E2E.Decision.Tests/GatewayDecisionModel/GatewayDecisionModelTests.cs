@@ -180,7 +180,7 @@ public sealed class GatewayDecisionModelTests
     {
         var server = new TestServer();
         PrepareJsonResponse(server);
-        var provider = new GatewayProvider(
+        var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
             new GatewayProviderSettings
             {
                 BaseUrl = "https://api.test.com",
