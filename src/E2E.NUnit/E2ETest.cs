@@ -4,6 +4,7 @@
 
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using E2E.Internal;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -48,9 +49,23 @@ public abstract class E2ETest : E2EFixture
         );
     }
 
+    /// <summary>
+    /// Marks the running test expected to fail when <paramref name="condition"/> holds (upstream's <c>test.fail(condition, reason)</c>).
+    /// It does not throw: the body runs on, and the verdict follows <c>settleExpectedFailure</c>. A blank <paramref name="reason"/> becomes
+    /// <c>expected to fail</c>. A mark from a teardown, a setup test, or a serial group member is a test error, <c>INVALID_ARGUMENT</c>.
+    /// </summary>
+    public void Fail(bool condition = true, string? reason = null) =>
+        ExpectedFailureMarks.MarkRunningTestExpectedToFail(CurrentSession, condition, reason, IsSerial, _bodyDone);
+
+    /// <summary>Set once the test method returned: what runs after it (a derived [TearDown]) comes after the verdict is reached.</summary>
+    internal void BodyDone() => _bodyDone = true;
+
+    private bool _bodyDone;
+
     [SetUp]
     public async Task StartE2ESessionAsync()
     {
+        _bodyDone = false;
         var current = global::NUnit.Framework.TestContext.CurrentContext;
         if (RunSelection.ReasonFor(GetType(), current.Test.MethodName) is { } leftOut)
         {
