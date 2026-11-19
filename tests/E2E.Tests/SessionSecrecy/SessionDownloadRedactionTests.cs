@@ -39,6 +39,7 @@ public sealed class SessionDownloadRedactionTests : IDisposable
     [Fact]
     public void Rewrites_downloads_whenever_the_ledger_redacts_a_value_its_own_or_one_of_a_session_open_beside_it()
     {
+        var host = SecretsSharedBySessionsInOneProcessTests.OpenHost();
         var unsecret = NewSession();
         Assert.False(Secrecy.RedactsDownloads(unsecret.Redactor));
         var beside = NewSession(("password", "static-config-password-5521"));
@@ -49,5 +50,6 @@ public sealed class SessionDownloadRedactionTests : IDisposable
         Assert.False(Secrecy.RedactsDownloads(unsecret.Redactor));
         unsecret.Register("token", "provider-minted-token-8804");
         Assert.True(Secrecy.RedactsDownloads(unsecret.Redactor));
+        host();
     }
 }

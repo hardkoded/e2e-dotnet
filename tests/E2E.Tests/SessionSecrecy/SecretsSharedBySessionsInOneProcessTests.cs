@@ -45,7 +45,14 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
         var flags = BindingFlags.Static | BindingFlags.NonPublic;
         ((System.Collections.IDictionary)type.GetField("Shared", flags)!.GetValue(null)!).Clear();
         type.GetField("_revision", flags)!.SetValue(null, 0);
+        type.GetField("_hosts", flags)!.SetValue(null, 0);
     }
+
+    /// <summary>
+    /// A host open beside the sessions, as in every upstream test of the describe: learned values are visible beside a session only while
+    /// one is (see <c>Secrecy.Beside</c>).
+    /// </summary>
+    internal static Action OpenHost() => Secrecy.ShareStaticSecrets([]);
 
     private AttemptScope NewSession(params (string Name, string Value)[] known)
     {
@@ -59,6 +66,7 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
     {
         var scope = new AttemptScope
         {
+            SharesSecrets = true,
             Session = null!,
             Agents = new Dictionary<string, ResolvedAgent>(),
             Cache = null,
@@ -112,6 +120,7 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
     public void Shares_what_a_session_learned_with_the_sessions_beside_it_opened_before_or_after_until_the_session_ends()
     {
         const string value = "learned-mid-session-3317";
+        var host = OpenHost();
         var learner = NewSession();
         var before = NewSession();
         learner.Register("code", value);
@@ -123,6 +132,7 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
         // A one-time code is fresh on every fill: it leaves with its session, which still redacts it in what is reported of it.
         Assert.Equal(value, before.Redactor.Redact(value));
         Assert.Equal("<secret:code>", learner.Redactor.Redact(value));
+        host();
     }
 
     [Fact]

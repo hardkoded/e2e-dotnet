@@ -17,6 +17,13 @@ internal static class Secrecy
     private static int _revision;
 
     /// <summary>
+    /// The hosts open now (<see cref="ShareStaticSecrets"/>). A session's learned values are visible beside it only while one is: upstream
+    /// runs one test at a time in a worker, so the sessions beside a test's are the ones it opened, where a .NET test framework runs tests
+    /// side by side in one process and one test must not redact another's values.
+    /// </summary>
+    private static int _hosts;
+
+    /// <summary>
     /// Counts the times a value appeared or disappeared; one more owner of a value already shared changes nothing. Upstream's
     /// <c>SecretsBeside.revision</c>. The port keeps it in a static, where upstream holds it on <c>globalThis</c> so that two copies of the
     /// package agree: one process loads one copy of this assembly.
@@ -37,7 +44,7 @@ internal static class Secrecy
     {
         lock (SharedGate)
         {
-            return [.. Shared.Keys];
+            return [.. Shared.Where(pair => pair.Value.Permanent > 0 || _hosts > 0).Select(pair => pair.Key)];
         }
     }
 
@@ -49,13 +56,38 @@ internal static class Secrecy
     {
         var list = secrets.ToList();
         OpenSession.SeedProcess(list);
-        return Share(list.Select(secret => (secret.Name, secret.Value))).Withdraw;
+        var sharing = Share(list.Select(secret => (secret.Name, secret.Value)));
+        lock (SharedGate)
+        {
+            if (_hosts++ == 0)
+            {
+                _revision++;
+            }
+        }
+
+        var withdrawn = 0;
+        return () =>
+        {
+            if (Interlocked.Exchange(ref withdrawn, 1) != 0)
+            {
+                return;
+            }
+
+            sharing.Withdraw();
+            lock (SharedGate)
+            {
+                if (--_hosts == 0)
+                {
+                    _revision++;
+                }
+            }
+        };
     }
 
     /// <summary>Shares <paramref name="entries"/> with every redactor in the process, on behalf of one owner. Upstream's <c>share</c>.</summary>
-    public static Sharing Share(IEnumerable<(string Name, string Value)> entries)
+    public static Sharing Share(IEnumerable<(string Name, string Value)> entries, bool permanent = false)
     {
-        var sharing = new Sharing();
+        var sharing = new Sharing(permanent);
         foreach (var (name, value) in entries)
         {
             sharing.Add(name, value);
@@ -115,10 +147,13 @@ internal static class Secrecy
     private sealed class SharedValue
     {
         public int Owners;
+
+        /// <summary>How many of the owners share the value for the life of the process.</summary>
+        public int Permanent;
     }
 
     /// <summary>One owner's share of values: more are added as it learns them, and all leave when it withdraws. Upstream's <c>Sharing</c>.</summary>
-    internal sealed class Sharing
+    internal sealed class Sharing(bool permanent = false)
     {
         private readonly HashSet<(string Name, string Value)> _mine = [];
 
@@ -134,11 +169,19 @@ internal static class Secrecy
                 if (Shared.TryGetValue((name, value), out var held))
                 {
                     held.Owners++;
+                    if (permanent && held.Permanent++ == 0 && _hosts == 0)
+                    {
+                        _revision++;
+                    }
+
                     return;
                 }
 
-                Shared[(name, value)] = new SharedValue { Owners = 1 };
-                _revision++;
+                Shared[(name, value)] = new SharedValue { Owners = 1, Permanent = permanent ? 1 : 0 };
+                if (permanent || _hosts > 0)
+                {
+                    _revision++;
+                }
             }
         }
 
@@ -154,6 +197,11 @@ internal static class Secrecy
                     }
 
                     held.Owners--;
+                    if (permanent)
+                    {
+                        held.Permanent--;
+                    }
+
                     if (held.Owners > 0)
                     {
                         continue;

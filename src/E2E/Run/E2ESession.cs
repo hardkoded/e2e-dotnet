@@ -468,6 +468,7 @@ public sealed class E2ESession : IAsyncDisposable
             AttemptScope? created = null;
             var scope = new AttemptScope
             {
+                SharesSecrets = true,
                 AttemptId = attemptId,
                 ArtifactsDir = attemptDir,
                 RerunDir = options.RerunDir,

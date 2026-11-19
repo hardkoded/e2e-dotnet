@@ -332,7 +332,7 @@ internal static class OpenSession
     {
         var list = secrets.ToList();
         SeedProcess(list);
-        _ = Secrecy.Share(list.Select(secret => (secret.Name, secret.Value)));
+        _ = Secrecy.Share(list.Select(secret => (secret.Name, secret.Value)), permanent: true);
     }
 
     /// <summary>Seeds the process ledger with the static values of <paramref name="secrets"/>, so an opening failure is redacted like any text. Upstream's <c>seedProcess</c>.</summary>
