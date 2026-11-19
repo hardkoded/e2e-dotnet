@@ -1301,7 +1301,7 @@
       "baselinedAt": "2026-11-18T15:41:48.2142729+00:00"
     },
     {
-      "hash": "6281f0db53256172",
+      "hash": "4fd82bd085f44cfa",
       "ruleId": "SW003",
       "filePath": "src/E2E.NUnit/E2ETest.cs",
       "lineNumber": 137,
