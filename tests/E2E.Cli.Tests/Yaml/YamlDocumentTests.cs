@@ -74,4 +74,29 @@ public sealed class YamlDocumentTests
             doc.ToString()
         );
     }
+
+    [Fact]
+    public void Keeps_a_comment_after_a_block_key_a_quoted_hash_in_a_flow_list_and_trailing_spaces_in_a_block()
+    {
+        const string Source = "jobs: # all\n  a:\n    tags: [\"qa #1\"] # runner\n    run: |\n      echo  \n";
+        Assert.Equal(Source, YamlDocument.Parse(Source).ToString());
+    }
+
+    [Fact]
+    public void Keeps_the_comment_after_a_scalar_that_takes_a_scalars_place()
+    {
+        var doc = YamlDocument.Parse("run: old # why\n");
+        ((YamlMap)doc.Contents!).Set("run", "new");
+        Assert.Equal("run: new # why\n", doc.ToString());
+    }
+
+    [Fact]
+    public void Quotes_text_a_CI_service_reads_as_a_number_or_null_and_keeps_every_trailing_newline()
+    {
+        var doc = YamlDocument.Parse("k: v\n");
+        var map = (YamlMap)doc.Contents!;
+        map.Set("hex", "0x2a");
+        map.Set("two", "a\n\n");
+        Assert.Equal("k: v\nhex: \"0x2a\"\ntwo: \"a\\n\\n\"\n", doc.ToString());
+    }
 }

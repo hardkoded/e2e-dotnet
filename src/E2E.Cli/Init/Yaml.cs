@@ -161,6 +161,15 @@ internal sealed class YamlMap : YamlNode
         var node = Create(value);
         if (Find(key) is var at and >= 0)
         {
+            // A scalar that takes a scalar's place keeps the comment after it, as the yaml library does.
+            if (
+                Items[at].Value is YamlScalar { LineComment: { } comment }
+                && node is YamlScalar { LineComment: null } next
+            )
+            {
+                next.LineComment = comment;
+            }
+
             Items[at].Value = node;
         }
         else
@@ -169,21 +178,22 @@ internal sealed class YamlMap : YamlNode
         }
     }
 
-    /// <summary>Sets <paramref name="key"/> right before <paramref name="before"/>, or at the end when <paramref name="before"/> is absent (upstream's <c>setBefore</c>).</summary>
-    public void SetBefore(string key, object value, string before)
+    /// <summary>Adds <paramref name="key"/> at <paramref name="index"/>, or at the end for -1.</summary>
+    public void Insert(int index, string key, object value)
     {
-        Delete(key);
         var pair = new YamlPair(new YamlScalar(key), Create(value));
-        var at = Find(before);
-        if (at < 0)
+        if (index < 0)
         {
             Items.Add(pair);
         }
         else
         {
-            Items.Insert(at, pair);
+            Items.Insert(index, pair);
         }
     }
+
+    /// <summary>The position of <paramref name="key"/>, or -1.</summary>
+    public int IndexOf(string key) => Find(key);
 
     /// <summary>Removes <paramref name="key"/>; whether it was there.</summary>
     public bool Delete(string key)
@@ -236,6 +246,14 @@ internal sealed partial class YamlScalar : YamlNode
     {
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
+
+    /// <summary>Plain text a CI service's YAML reads as a number, a date, or null: hex and octal integers, <c>.inf</c>, <c>.nan</c>, dates, <c>~</c>.</summary>
+    private static readonly Regex NonString = new(
+        @"^(?:[-+]?0[xob][0-9a-fA-F_]+|[-+]?\.(?:inf|nan)|~|\d{4}-\d{2}-\d{2}.*|[-+]?[0-9][0-9_,]*(?:\.[0-9_]*)?(?:[eE][-+]?[0-9]+)?|[-+]?\.[0-9_]+)$",
+        RegexOptions.IgnoreCase,
+        TimeSpan.FromSeconds(1)
+    );
+
     private static readonly string[] Reserved = ["true", "false", "yes", "no", "on", "off", "null", "y", "n", "~"];
     private string _raw;
     private string _value;
@@ -283,7 +301,11 @@ internal sealed partial class YamlScalar : YamlNode
 
     private static string Render(string value, out YamlScalarStyle style)
     {
-        if (value.Contains('\n', StringComparison.Ordinal))
+        if (
+            value.Contains('\n', StringComparison.Ordinal)
+            && !value.EndsWith("\n\n", StringComparison.Ordinal)
+            && value != "\n"
+        )
         {
             style = YamlScalarStyle.Literal;
             return string.Empty;
@@ -307,7 +329,9 @@ internal sealed partial class YamlScalar : YamlNode
         && !value.Contains(" #", StringComparison.Ordinal)
         && !value.EndsWith(':')
         && !Reserved.Contains(value, StringComparer.OrdinalIgnoreCase)
-        && !double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+        && !value.Contains('\n', StringComparison.Ordinal)
+        && !double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out _)
+        && !NonString.IsMatch(value);
 
     private static string Unquote(string raw) =>
         raw[0] == '"'
@@ -320,20 +344,20 @@ internal sealed partial class YamlParser
 {
     private static readonly Regex Key = KeyPattern();
     private readonly List<(int Indent, string Text)> _lines;
+    private readonly List<string> _raw;
     private int _at;
 
     public YamlParser(string text)
     {
+        _raw = [.. text.TrimEnd('\n').Split('\n').Select(line => line.TrimEnd('\r'))];
         _lines =
         [
-            .. text.TrimEnd('\n')
-                .Split('\n')
-                .Select(line =>
-                {
-                    var trimmed = line.TrimEnd('\r').TrimEnd();
-                    var content = trimmed.TrimStart(' ');
-                    return (trimmed.Length - content.Length, content);
-                }),
+            .. _raw.Select(line =>
+            {
+                var trimmed = line.TrimEnd();
+                var content = trimmed.TrimStart(' ');
+                return (trimmed.Length - content.Length, content);
+            }),
         ];
     }
 
@@ -412,7 +436,7 @@ internal sealed partial class YamlParser
             );
             key.Before = trivia;
             _at++;
-            map.Items.Add(new YamlPair(key, ParseValue(indent, line.Text[match.Length..])));
+            map.Items.Add(new YamlPair(key, ParseValue(indent, line.Text[match.Length..], key)));
             var mark = _at;
             trivia = Trivia();
             if (!AtItem(indent, seq: false))
@@ -424,8 +448,15 @@ internal sealed partial class YamlParser
         }
     }
 
-    private YamlNode? ParseValue(int keyIndent, string rest)
+    private YamlNode? ParseValue(int keyIndent, string rest, YamlScalar key)
     {
+        if (rest.Length > 0 && rest[0] == '#')
+        {
+            // `key: # comment` over a block: the comment stays on the key's line.
+            key.LineComment = rest;
+            rest = string.Empty;
+        }
+
         if (rest.Length > 0)
         {
             return ParseInline(rest, keyIndent);
@@ -519,7 +550,10 @@ internal sealed partial class YamlParser
         var lines = new List<(int Indent, string Text)>();
         while (_at < _lines.Count && (_lines[_at].Text.Length == 0 || _lines[_at].Indent > parentIndent))
         {
-            lines.Add(_lines[_at]);
+            // The block's own text keeps its trailing spaces.
+            lines.Add(
+                _lines[_at].Text.Length == 0 ? _lines[_at] : (_lines[_at].Indent, _raw[_at][_lines[_at].Indent..])
+            );
             _at++;
         }
 
@@ -586,6 +620,35 @@ internal sealed partial class YamlParser
             return (rest[..(end + 1)], tail.Length == 0 ? null : tail);
         }
 
+        if (rest[0] == '[')
+        {
+            // A flow list ends at its closing bracket; a # inside a quoted element is not a comment.
+            char? open = null;
+            for (var i = 1; i < rest.Length; i++)
+            {
+                if (open is { } q)
+                {
+                    open = rest[i] == q ? null : open;
+                }
+                else if (rest[i] is '"' or '\'')
+                {
+                    open = rest[i];
+                }
+                else if (rest[i] == ']')
+                {
+                    var tail = rest[(i + 1)..].Trim();
+                    if (tail.Length > 0 && tail[0] != '#')
+                    {
+                        throw Fail("Text after a flow list", _at - 1);
+                    }
+
+                    return (rest[..(i + 1)], tail.Length == 0 ? null : tail);
+                }
+            }
+
+            throw Fail("A flow list over several lines", _at - 1);
+        }
+
         var hash = rest.IndexOf(" #", StringComparison.Ordinal);
         return hash < 0 ? (rest.TrimEnd(), null) : (rest[..hash].TrimEnd(), rest[(hash + 1)..]);
     }
@@ -621,7 +684,11 @@ internal static class YamlWriter
         foreach (var pair in map.Items)
         {
             WriteBefore(pair.Key, indent, lines);
-            var head = pad + (pair.Key.Style == YamlScalarStyle.Quoted ? pair.Key.Raw : pair.Key.Value) + ":";
+            var head =
+                pad
+                + (pair.Key.Style == YamlScalarStyle.Quoted ? pair.Key.Raw : pair.Key.Value)
+                + ":"
+                + (pair.Key.LineComment is null || pair.Value is YamlScalar ? "" : " " + pair.Key.LineComment);
             switch (pair.Value)
             {
                 case null:

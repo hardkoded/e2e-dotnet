@@ -718,13 +718,20 @@ internal static partial class Ci
         using var stream = typeof(Ci).Assembly.GetManifestResourceStream("templates/ci/" + name)
             ?? throw new InvalidOperationException($"The CI template {name} is not embedded.");
         using var reader = new StreamReader(stream, Encoding.UTF8);
-        return reader.ReadToEnd();
+        return reader.ReadToEnd().Replace("\r\n", "\n", StringComparison.Ordinal);
     }
 
     /// <summary>The map in <paramref name="items"/> whose <paramref name="key"/> holds a value <paramref name="matches"/>, which the template guarantees (upstream's <c>findItem</c>).</summary>
     private static YamlMap FindItem(IEnumerable<YamlNode> items, string key, Func<string, bool> matches) =>
         items.OfType<YamlMap>().FirstOrDefault(item => item.Get(key) is YamlScalar value && matches(value.Value))
         ?? throw new InvalidOperationException($"The CI template has no step with {key} that matches.");
+
+    /// <summary>Sets <paramref name="key"/> in <paramref name="map"/> right before <paramref name="before"/>, or at the end when <paramref name="before"/> is absent (upstream's <c>setBefore</c>).</summary>
+    private static void SetBefore(YamlMap map, string key, object value, string before)
+    {
+        map.Delete(key);
+        map.Insert(map.IndexOf(before), key, value);
+    }
 
     /// <summary>The model key the templates read, which the config's own keys replace (upstream's <c>TEMPLATE_SECRET</c>).</summary>
     private const string TemplateSecret = "AI_GATEWAY_API_KEY";
@@ -839,8 +846,8 @@ internal static partial class Ci
             install.Set("run", RunValue(InstallLines(context)));
             if (context.AppDir.Length > 0)
             {
-                install.SetBefore("working-directory", context.AppDir, "run");
-                buildStep.SetBefore("working-directory", context.AppDir, "run");
+                SetBefore(install, "working-directory", context.AppDir, "run");
+                SetBefore(buildStep, "working-directory", context.AppDir, "run");
             }
         }
 
