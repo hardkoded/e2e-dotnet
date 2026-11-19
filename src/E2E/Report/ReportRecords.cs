@@ -205,6 +205,9 @@ internal sealed record ReportAttempt
 
     public IReadOnlyList<ReportArtifact> Artifacts { get; init; } = [];
 
+    /// <summary>Set when the attempt was marked <c>test.fail</c> (upstream's <c>attempt.expectedFailure</c>).</summary>
+    public ExpectedFailureInfo? ExpectedFailure { get; init; }
+
     /// <summary>What else failed after the error: a teardown hook, the engine's cleanup.</summary>
     public IReadOnlyList<ReportError> SecondaryErrors { get; init; } = [];
 

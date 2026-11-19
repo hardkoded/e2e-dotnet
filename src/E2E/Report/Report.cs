@@ -312,7 +312,23 @@ public sealed record ReportResult
 
     public SkipInfo? Skip { get; init; }
 
+    /// <summary>Why the test was expected to fail, when its last attempt was marked <c>test.fail</c>; the attempt holds the failure. Null in older reports.</summary>
+    public ExpectedFailureRecord? ExpectedFailure { get; init; }
+
     public IReadOnlyList<ReportAttempt> Attempts { get; init; } = [];
+}
+
+/// <summary>
+/// Why an attempt or a test was expected to fail (upstream's inline <c>expectedFailure</c> object of <c>ReportAttempt</c> and <c>ReportResult</c>,
+/// <c>report/build.ts</c>). <see cref="Error"/> is the failure that made the attempt pass, kept on the attempt only.
+/// </summary>
+public sealed record ExpectedFailureRecord
+{
+    /// <summary>The reason the test is marked expected to fail.</summary>
+    public string Reason { get; init; } = "";
+
+    /// <summary>The failure that made a marked attempt pass. Null when the attempt did not fail with an error the mark covers.</summary>
+    public ReportError? Error { get; init; }
 }
 
 /// <summary>How an attempt ended.</summary>
@@ -392,6 +408,9 @@ public sealed record ReportAttempt
 
     /// <summary>Why the body skipped itself.</summary>
     public SkipInfo? Skip { get; init; }
+
+    /// <summary>Present when the attempt was marked <c>test.fail</c>: the reason, and the failure that made a passed attempt pass. Null in older reports.</summary>
+    public ExpectedFailureRecord? ExpectedFailure { get; init; }
 
     /// <summary>What else failed after the error: a teardown hook, the engine's cleanup.</summary>
     public IReadOnlyList<ReportError> SecondaryErrors { get; init; } = [];
