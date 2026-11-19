@@ -858,7 +858,8 @@ internal sealed class StepRecorder
             _named.TryGetValue(record.Id, out named);
         }
 
-        return named is not null
+        return
+            named is not null
             && (
                 thrown is OperationCanceledException
                 || string.Equals(
@@ -867,9 +868,7 @@ internal sealed class StepRecorder
                     StringComparison.Ordinal
                 )
             )
-                ? named
-            : named is null && thrown is OperationCanceledException && _signal?.Invoke().IsCancellationRequested == true
-                ? _reason?.Invoke() ?? thrown
+            ? named
             : thrown;
     }
 
