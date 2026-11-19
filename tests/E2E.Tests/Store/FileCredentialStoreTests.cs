@@ -160,9 +160,10 @@ public sealed class FileCredentialStoreTests : IDisposable
         finally
         {
             finishA.TrySetResult();
+            // Both attempts finish, whether or not an assertion above failed.
+            await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(10));
         }
 
-        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(10));
         Assert.True(enteredSecond);
     }
 
@@ -177,26 +178,36 @@ public sealed class FileCredentialStoreTests : IDisposable
         // Touched in the future, so the lock stays fresh however long the wait runs.
         File.SetLastWriteTimeUtc(lockPath, DateTime.UtcNow.AddHours(1));
         var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
-        var pending = store.ExclusiveAsync("x", () => Task.FromResult(0), clock);
-        for (var step = 0; step < 29_000 / 25; step++)
+        using var attempt = new CancellationTokenSource();
+        var pending = store.ExclusiveAsync("x", () => Task.FromResult(0), clock, attempt.Token);
+        try
         {
-            clock.Advance(TimeSpan.FromMilliseconds(25));
-            await Task.Delay(1);
-        }
+            for (var step = 0; step < 29_000 / 25; step++)
+            {
+                clock.Advance(TimeSpan.FromMilliseconds(25));
+                await Task.Delay(1);
+            }
 
-        Assert.False(pending.IsCompleted);
-        for (var step = 0; step < 2_000 / 25 && !pending.IsCompleted; step++)
+            Assert.False(pending.IsCompleted);
+            for (var step = 0; step < 2_000 / 25 && !pending.IsCompleted; step++)
+            {
+                clock.Advance(TimeSpan.FromMilliseconds(25));
+                await Task.Delay(1);
+            }
+
+            var error = await Assert.ThrowsAsync<OAuthException>(() => pending.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal(OAuthException.Timeout, error.Code);
+            Assert.Equal(
+                "another e2e process is still refreshing the x login after 30 s; run again once it finishes",
+                error.Message
+            );
+        }
+        finally
         {
-            clock.Advance(TimeSpan.FromMilliseconds(25));
-            await Task.Delay(1);
+            // A missed deadline leaves the attempt waiting: cancel it and observe how it ends.
+            await attempt.CancelAsync();
+            await Record.ExceptionAsync(() => pending.WaitAsync(TimeSpan.FromSeconds(10)));
         }
-
-        var error = await Assert.ThrowsAsync<OAuthException>(() => pending.WaitAsync(TimeSpan.FromSeconds(10)));
-        Assert.Equal(OAuthException.Timeout, error.Code);
-        Assert.Equal(
-            "another e2e process is still refreshing the x login after 30 s; run again once it finishes",
-            error.Message
-        );
     }
 
     [Fact]

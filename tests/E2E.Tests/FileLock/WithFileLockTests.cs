@@ -461,20 +461,29 @@ public sealed class WithFileLockTests : IDisposable
         // Touched in the future, so the lock stays fresh however far the fake clock moves.
         Age(lockPath, 3_600);
         var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        using var attempt = new CancellationTokenSource();
         var pending = Lock.WithFileLockAsync(
             lockPath,
             TimeSpan.FromSeconds(30),
             Busy,
             () => Task.CompletedTask,
-            new LockSystem { FakeClock = clock }
+            new LockSystem { FakeClock = clock },
+            attempt.Token
         );
-        await AdvanceAsync(clock, TimeSpan.FromSeconds(29));
-        Assert.False(pending.IsCompleted);
-        await AdvanceAsync(clock, TimeSpan.FromSeconds(2));
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            pending.WaitAsync(TimeSpan.FromSeconds(10))
-        );
-        Assert.Equal("busy", error.Message);
+        try
+        {
+            await AdvanceAsync(clock, TimeSpan.FromSeconds(29));
+            Assert.False(pending.IsCompleted);
+            await AdvanceAsync(clock, TimeSpan.FromSeconds(2));
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                pending.WaitAsync(TimeSpan.FromSeconds(10))
+            );
+            Assert.Equal("busy", error.Message);
+        }
+        finally
+        {
+            await DrainAsync(attempt, pending);
+        }
     }
 
     [Fact]
@@ -485,12 +494,20 @@ public sealed class WithFileLockTests : IDisposable
         Age(lockPath, -60);
         File.WriteAllText(lockPath + ".break", HeldBy(Environment.ProcessId));
         var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
-        var pending = Hold(lockPath, () => Task.CompletedTask, new LockSystem { FakeClock = clock });
-        await AdvanceAsync(clock, TimeSpan.FromSeconds(6));
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            pending.WaitAsync(TimeSpan.FromSeconds(10))
-        );
-        Assert.Equal("busy", error.Message);
+        using var attempt = new CancellationTokenSource();
+        var pending = Hold(lockPath, () => Task.CompletedTask, new LockSystem { FakeClock = clock }, attempt.Token);
+        try
+        {
+            await AdvanceAsync(clock, TimeSpan.FromSeconds(6));
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                pending.WaitAsync(TimeSpan.FromSeconds(10))
+            );
+            Assert.Equal("busy", error.Message);
+        }
+        finally
+        {
+            await DrainAsync(attempt, pending);
+        }
     }
 
     [Fact]
@@ -515,11 +532,20 @@ public sealed class WithFileLockTests : IDisposable
                 }
             },
         };
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            Hold(lockPath, () => Task.CompletedTask, system)
-        );
-        Assert.Equal("busy", error.Message);
-        Assert.True(takeovers < 10);
+        using var attempt = new CancellationTokenSource();
+        var pending = Hold(lockPath, () => Task.CompletedTask, system, attempt.Token);
+        try
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                pending.WaitAsync(TimeSpan.FromSeconds(10))
+            );
+            Assert.Equal("busy", error.Message);
+            Assert.True(takeovers < 10);
+        }
+        finally
+        {
+            await DrainAsync(attempt, pending);
+        }
     }
 
     [Fact]
@@ -607,10 +633,21 @@ public sealed class WithFileLockTests : IDisposable
     private static Task<T> Hold<T>(string lockPath, Func<Task<T>> work, FileLockSystem? system = null) =>
         Lock.WithFileLockAsync(lockPath, TimeSpan.FromSeconds(5), Busy, work, system);
 
-    private static Task Hold(string lockPath, Func<Task> work, FileLockSystem? system = null) =>
-        Lock.WithFileLockAsync(lockPath, TimeSpan.FromSeconds(5), Busy, work, system);
+    private static Task Hold(
+        string lockPath,
+        Func<Task> work,
+        FileLockSystem? system = null,
+        CancellationToken cancellationToken = default
+    ) => Lock.WithFileLockAsync(lockPath, TimeSpan.FromSeconds(5), Busy, work, system, cancellationToken);
 
-    /// <summary>Whether <see cref="Hold(string, Func{Task}, FileLockSystem?)"/> enters within 150 ms; the attempt is left to finish once the lock is removed.</summary>
+    /// <summary>Cancels an attempt that may still be waiting and observes how it ends, so a failed assertion leaves nothing running.</summary>
+    private static async Task DrainAsync(CancellationTokenSource attempt, Task pending)
+    {
+        await attempt.CancelAsync();
+        await Record.ExceptionAsync(() => pending.WaitAsync(TimeSpan.FromSeconds(10)));
+    }
+
+    /// <summary>Whether <see cref="Hold(string, Func{Task}, FileLockSystem?, CancellationToken)"/> enters within 150 ms; the attempt is left to finish once the lock is removed.</summary>
     private static async Task<(bool Entered, Task Pending)> EntersAtOnce(string lockPath, FileLockSystem? system = null)
     {
         var entered = false;

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using System.Text;
 
 namespace E2E.Internal;
@@ -168,22 +169,32 @@ internal static class FileLock
             system.WriteToken(stream, Utf8.GetBytes(token));
             stream.Dispose();
         }
-        catch
+        catch (Exception ex)
         {
-            try
-            {
-                // Closing flushes the buffer again, and that can throw as the write did.
-                stream.Dispose();
-            }
-            finally
-            {
-                system.Remove(lockPath);
-            }
-
-            throw;
+            var failure = ExceptionDispatchInfo.Capture(ex);
+            Discard(stream, lockPath, system);
+            failure.Throw();
         }
 
         return true;
+    }
+
+    /// <summary>Closes the stream of a lock whose write failed and removes the lock; a close that fails too does not replace the write's error.</summary>
+    private static void Discard(FileStream stream, string lockPath, FileLockSystem system)
+    {
+        try
+        {
+            // Closing flushes the buffer again, and that can throw as the write did.
+            stream.Dispose();
+        }
+        catch (IOException ex)
+        {
+            Debug.WriteLine("closing the failed lock " + lockPath + ": " + ex.Message);
+        }
+        finally
+        {
+            system.Remove(lockPath);
+        }
     }
 
     /// <summary>
