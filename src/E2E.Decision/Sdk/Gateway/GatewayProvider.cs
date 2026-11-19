@@ -35,8 +35,6 @@ public sealed class GatewayProviderSettings
 public sealed class GatewayProvider
 {
     private const string ProtocolVersion = "0.0.1";
-    private const string AuthMethodHeader = "ai-gateway-auth-method";
-    private const string TeamHeader = "x-vercel-ai-gateway-team";
     private const string DefaultBaseUrl = "https://ai-gateway.vercel.sh/v4/ai";
 
     private readonly GatewayProviderSettings _settings;
@@ -89,11 +87,11 @@ public sealed class GatewayProvider
         {
             ["Authorization"] = "Bearer " + token,
             ["ai-gateway-protocol-version"] = ProtocolVersion,
-            [AuthMethodHeader] = string.IsNullOrEmpty(apiKey) ? "oidc" : "api-key",
+            [GatewayHeaders.GatewayAuthMethodHeader] = string.IsNullOrEmpty(apiKey) ? "oidc" : "api-key",
         };
         if (_settings.TeamIdOrSlug is not null)
         {
-            headers[TeamHeader] = _settings.TeamIdOrSlug;
+            headers[GatewayHeaders.VercelAiGatewayTeamHeader] = _settings.TeamIdOrSlug;
         }
 
         foreach (var (name, value) in _settings.Headers ?? new Dictionary<string, string>())

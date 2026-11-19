@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 
 namespace E2E.Decision.Sdk.Gateway;
@@ -289,19 +290,24 @@ public sealed class GatewayResponseException : GatewayException
         string? response = null,
         Exception? cause = null,
         string? generationId = null,
-        bool? isRetryable = null
+        bool? isRetryable = null,
+        string? validationError = null
     )
         : base(message, statusCode, cause, generationId, isRetryable)
     {
         Response = response;
+        ValidationError = validationError;
     }
 
     public override string Name => "GatewayResponseError";
 
     public override string Type => "response_error";
 
-    /// <summary>The body that did not parse, as text.</summary>
+    /// <summary>The body that did not parse, as text: a JSON string is its text, JSON null is null, anything else is its JSON.</summary>
     public string? Response { get; }
+
+    /// <summary>Why the body is not the shape the Gateway documents (upstream keeps the Zod error).</summary>
+    public string? ValidationError { get; }
 }
 
 /// <summary>The AI SDK's <c>createGatewayErrorFromResponse</c> and <c>asGatewayError</c>.</summary>
@@ -319,24 +325,22 @@ public static class GatewayErrors
         bool? isRetryable = null
     )
     {
-        if (
-            response is not { ValueKind: JsonValueKind.Object } root
-            || !root.TryGetProperty("error", out var error)
-            || error.ValueKind != JsonValueKind.Object
-            || !error.TryGetProperty("message", out var messageElement)
-            || messageElement.ValueKind != JsonValueKind.String
-            || !IsNullishString(error, "type")
-            || !IsNullishCode(error)
-            || !IsNullishString(root, "generationId")
-        )
+        var validationError = Validate(response, out var root, out var error, out var messageElement);
+        if (validationError is not null)
         {
             return new GatewayResponseException(
                 "Invalid error response format: " + defaultMessage,
                 statusCode,
-                response?.GetRawText(),
+                response switch
+                {
+                    { ValueKind: JsonValueKind.String } text => text.GetString(),
+                    null or { ValueKind: JsonValueKind.Null } => null,
+                    { } other => other.GetRawText(),
+                },
                 cause,
                 response is { ValueKind: JsonValueKind.Object } body ? String(body, "generationId") : null,
-                isRetryable
+                isRetryable,
+                validationError
             );
         }
 
@@ -393,14 +397,26 @@ public static class GatewayErrors
     public static GatewayException AsGatewayError(Exception error, string? authMethod = null)
     {
         ArgumentNullException.ThrowIfNull(error);
+
+        // Caller cancellation is not a gateway failure and must not become a retryable 500.
+        if (error is OperationCanceledException && !IsTimeoutError(error))
+        {
+            ExceptionDispatchInfo.Capture(error).Throw();
+        }
+
         if (error is GatewayException gateway)
         {
             return gateway;
         }
 
+        if (IsTimeoutError(error))
+        {
+            return GatewayTimeoutException.CreateTimeoutError(error.Message, cause: error);
+        }
+
         if (error is ApiCallException api)
         {
-            if (api.InnerException is TimeoutException)
+            if (api.InnerException is { } inner && IsTimeoutError(inner))
             {
                 return GatewayTimeoutException.CreateTimeoutError(api.Message, cause: api);
             }
@@ -424,9 +440,32 @@ public static class GatewayErrors
         );
     }
 
-    // extract-api-call-response.ts: the body parsed when it is JSON, else the raw text (which then fails the error schema).
-    private static JsonElement? ExtractApiCallResponse(ApiCallException error)
+    /// <summary>
+    /// Upstream's <c>parseAuthMethod</c> (<c>parse-auth-method.ts</c>): the <c>ai-gateway-auth-method</c> header when it is exactly
+    /// <c>api-key</c> or <c>oidc</c>, else null.
+    /// </summary>
+    internal static string? ParseAuthMethod(IReadOnlyDictionary<string, string?>? headers)
     {
+        var method = headers
+            ?.FirstOrDefault(pair =>
+                string.Equals(pair.Key, GatewayHeaders.GatewayAuthMethodHeader, StringComparison.OrdinalIgnoreCase)
+            )
+            .Value;
+        return method is "api-key" or "oidc" ? method : null;
+    }
+
+    /// <summary>
+    /// Upstream's <c>extractApiCallResponse</c> (<c>extract-api-call-response.ts</c>): the parsed <c>data</c> when the call has it, else
+    /// the body parsed as JSON, else the raw body text, else an empty object. A body with a prototype-polluting key is not parsed
+    /// (<c>secureJsonParse</c>).
+    /// </summary>
+    internal static JsonElement? ExtractApiCallResponse(ApiCallException error)
+    {
+        if (error.ParsedData is not null)
+        {
+            return error.ParsedData;
+        }
+
         if (error.ResponseBody is null)
         {
             return EmptyObject;
@@ -435,12 +474,85 @@ public static class GatewayErrors
         try
         {
             using var document = JsonDocument.Parse(error.ResponseBody);
-            return document.RootElement.Clone();
+            if (!HasForbiddenKey(document.RootElement))
+            {
+                return document.RootElement.Clone();
+            }
         }
-        catch (JsonException)
+        catch (JsonException) { }
+
+        return JsonSerializer.SerializeToElement(error.ResponseBody);
+    }
+
+    // isTimeoutError: upstream matches undici's timeout codes; .NET's HttpClient timeout is a TimeoutException, or a cancellation caused by one.
+    private static bool IsTimeoutError(Exception error) =>
+        error is TimeoutException || (error is OperationCanceledException && error.InnerException is TimeoutException);
+
+    private static bool HasForbiddenKey(JsonElement element)
+    {
+        switch (element.ValueKind)
         {
-            return JsonSerializer.SerializeToElement(error.ResponseBody);
+            case JsonValueKind.Object:
+                foreach (var property in element.EnumerateObject())
+                {
+                    if (
+                        property.Name == "__proto__"
+                        || (
+                            property.Name == "constructor"
+                            && property.Value.ValueKind == JsonValueKind.Object
+                            && property.Value.TryGetProperty("prototype", out _)
+                        )
+                        || HasForbiddenKey(property.Value)
+                    )
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            case JsonValueKind.Array:
+                return element.EnumerateArray().Any(HasForbiddenKey);
+            default:
+                return false;
         }
+    }
+
+    // The Gateway's error schema: { error: { message: string, type?: string|null, code?: string|number|null, param?: unknown }, generationId?: string|null }.
+    private static string? Validate(
+        JsonElement? response,
+        out JsonElement root,
+        out JsonElement error,
+        out JsonElement messageElement
+    )
+    {
+        root = error = messageElement = default;
+        if (response is not { ValueKind: JsonValueKind.Object } body)
+        {
+            return "Expected an object response";
+        }
+
+        root = body;
+        if (!root.TryGetProperty("error", out error) || error.ValueKind != JsonValueKind.Object)
+        {
+            return "error: Required object";
+        }
+
+        if (!error.TryGetProperty("message", out messageElement) || messageElement.ValueKind != JsonValueKind.String)
+        {
+            return "error.message: Expected string";
+        }
+
+        if (!IsNullishString(error, "type"))
+        {
+            return "error.type: Expected string";
+        }
+
+        if (!IsNullishCode(error))
+        {
+            return "error.code: Expected string or number";
+        }
+
+        return IsNullishString(root, "generationId") ? null : "generationId: Expected string";
     }
 
     private static bool IsNullishString(JsonElement element, string name) =>

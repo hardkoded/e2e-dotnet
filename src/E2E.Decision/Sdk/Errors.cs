@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
+
 namespace E2E.Decision.Sdk;
 
 /// <summary>The AI SDK's <c>InvalidArgumentError</c>: a call argument the SDK rejects before any request.</summary>
@@ -70,6 +72,9 @@ public sealed class ApiCallException(
 
     /// <summary>The body of the provider's answer, when it sent one.</summary>
     public string? ResponseBody { get; init; }
+
+    /// <summary>The body the provider SDK already parsed, when it did (upstream <c>APICallError.data</c>; <c>Exception.Data</c> is taken). Null means there is none.</summary>
+    public JsonElement? ParsedData { get; init; }
 
     /// <summary>Whether the call may be sent again. Upstream's default: no answer at all, or a 408, 409, 429, or 5xx.</summary>
     public bool IsRetryable { get; } = isRetryable ?? (statusCode is null or 408 or 409 or 429 or >= 500);

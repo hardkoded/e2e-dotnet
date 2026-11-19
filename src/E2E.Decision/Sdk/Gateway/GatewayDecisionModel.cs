@@ -38,8 +38,6 @@ public sealed class GatewayDecisionModelConfig : GatewayConfig
 /// </summary>
 public sealed class GatewayDecisionModel : IDecisionModel, IEvaluationModel, IDisposable
 {
-    private const string AuthMethodHeader = "ai-gateway-auth-method";
-
     private readonly GatewayDecisionModelConfig _config;
     private readonly HttpClient _http;
     private readonly bool _ownsClient;
@@ -130,7 +128,7 @@ public sealed class GatewayDecisionModel : IDecisionModel, IEvaluationModel, IDi
         }
         catch (Exception error) when (error is ApiCallException or GatewayException)
         {
-            throw GatewayErrors.AsGatewayError(error, ParseAuthMethod(configured));
+            throw GatewayErrors.AsGatewayError(error, GatewayErrors.ParseAuthMethod(configured));
         }
     }
 
@@ -163,14 +161,6 @@ public sealed class GatewayDecisionModel : IDecisionModel, IEvaluationModel, IDi
         {
             return string.IsNullOrEmpty(text) ? "unknown error" : text;
         }
-    }
-
-    private static string? ParseAuthMethod(IReadOnlyDictionary<string, string?>? headers)
-    {
-        var method = headers
-            ?.FirstOrDefault(pair => string.Equals(pair.Key, AuthMethodHeader, StringComparison.OrdinalIgnoreCase))
-            .Value;
-        return method is "api-key" or "oidc" ? method : null;
     }
 
     // parseProviderOptions({ provider: 'gateway', schema: gatewayDecisionProviderOptionsSchema }), then the options as sent.
