@@ -81,9 +81,19 @@ public class E2ERunFixture : IAsyncLifetime
             if (changedSince is not null || lastFailed)
             {
                 var selection = await HostTestFilters
-                    .ExcludeAsync(config, Filters, changedSince, discovered, Console.Error.WriteLine, token, lastFailed)
+                    .ExcludeAsync(
+                        config,
+                        Filters,
+                        changedSince,
+                        discovered,
+                        Console.Error.WriteLine,
+                        token,
+                        lastFailed,
+                        ordered: IsRanked(testAssembly)
+                    )
                     .ConfigureAwait(false);
                 RunSelection.Add(selection.Excluded);
+                RunSelection.SetRelevance(selection.Relevance ?? new Dictionary<string, double>());
                 HostRun.RerunDir = selection.RerunDir;
                 excluded = selection.Excluded;
                 await HostTestFilters.WriteReportAsync(config, selection, token).ConfigureAwait(false);
@@ -126,6 +136,17 @@ public class E2ERunFixture : IAsyncLifetime
             }
         }
     }
+
+    // The tests start likeliest first only when the assembly registered the collection orderer, which the method orderer of E2ETest completes.
+    private static bool IsRanked(Assembly assembly) =>
+        assembly
+            .GetCustomAttributesData()
+            .Any(data =>
+                data.AttributeType.Name == "TestCollectionOrdererAttribute"
+                && data.ConstructorArguments.Any(argument =>
+                    argument.Value as Type == typeof(RelevanceTestCollectionOrderer)
+                )
+            );
 
     // The assembly xUnit is running: already loaded in the usual case, so it is matched by path before anything is loaded.
     private static Assembly? TestAssemblyOf(string? path) =>
