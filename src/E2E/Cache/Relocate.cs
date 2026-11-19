@@ -302,7 +302,7 @@ internal static class Relocate
         var described = new List<DescribedNode>();
         foreach (var node in LocatorResolver.Walk(observation.Tree))
         {
-            if (node.States.Hidden || node.States.AriaHidden)
+            if (node.States.Hidden)
             {
                 continue;
             }

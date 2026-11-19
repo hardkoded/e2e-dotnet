@@ -168,7 +168,7 @@ internal static class Reading
     {
         foreach (var node in nodes)
         {
-            if (node.States.Hidden || node.States.AriaHidden)
+            if (node.States.Hidden)
             {
                 continue;
             }

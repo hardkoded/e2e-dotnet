@@ -225,7 +225,7 @@ internal sealed partial record FailureEvidence
                 return;
             }
 
-            var shown = !(node.States.Hidden || node.States.AriaHidden);
+            var shown = !node.States.Hidden;
             if (shown)
             {
                 var line = SnapshotText.FormatNode(node, depth, redactor, appOrigin);

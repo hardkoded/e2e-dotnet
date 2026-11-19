@@ -167,7 +167,7 @@ internal static class StepScreens
         var bytes = 0;
         bool Walk(SemanticNode node)
         {
-            var shown = !(node.States.Hidden || node.States.AriaHidden);
+            var shown = !node.States.Hidden;
             if (shown)
             {
                 var text = SnapshotText.Describe(node, options.Redactor, options.AppOrigin);
