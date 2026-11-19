@@ -20,6 +20,7 @@ public sealed class E2ESession : IAsyncDisposable
     private readonly AttemptScope _scope;
     private readonly CancellationTokenSource _timeout;
     private readonly AttemptBudget _budget;
+    private CancelsOnClose? _cancelsOnClose;
     private readonly IEngineSession _engine;
     private readonly IDisposable _errorRedaction;
     private IDisposable? _credentials;
@@ -226,7 +227,7 @@ public sealed class E2ESession : IAsyncDisposable
         }
 
         // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
-        var budget = new AttemptBudget(timeout, options.Closed);
+        var budget = new AttemptBudget(timeout, options.CancelsOnClose?.Closed);
 
         var debug = new DebugTrace(options.Debug);
         var projectRoot = Path.GetFullPath(
@@ -679,6 +680,7 @@ public sealed class E2ESession : IAsyncDisposable
                     options.DebugOutput
                 )
                 {
+                    _cancelsOnClose = options.CancelsOnClose,
                     _video = video,
                     _recordings = recordings,
                     _trace = trace,
@@ -900,7 +902,14 @@ public sealed class E2ESession : IAsyncDisposable
         try
         {
             soft = CloseSoftFailures();
-            abandoned = _scope.Steps.AbandonRunning();
+            if (_cancelsOnClose is { } cancels)
+            {
+                _scope.Steps.NameRunning(cancels.Cut);
+            }
+            else
+            {
+                abandoned = _scope.Steps.AbandonRunning();
+            }
         }
 #pragma warning disable CA1031 // The close result is cached, so a failure here is one of the failures it returns, never a faulted task.
         catch (Exception cause)
@@ -917,7 +926,7 @@ public sealed class E2ESession : IAsyncDisposable
             }
         }
 
-        if (abandoned is not null)
+        if (abandoned is not null || _cancelsOnClose is not null)
         {
             // The work the test left running stops with the session, as upstream's close cancels the operations it still holds.
             try
@@ -1719,6 +1728,11 @@ public sealed class E2ESession : IAsyncDisposable
     }
 }
 
+/// <summary>What closing a session does to what runs on it. Upstream's <c>cancelsOnClose</c> of <c>StandaloneSessionOptions</c>.</summary>
+/// <param name="Closed">What an operation started after the close fails with.</param>
+/// <param name="Cut">What a step still running at the close fails with; the argument is its api and, when it has one, its quoted label.</param>
+internal sealed record CancelsOnClose(Func<E2EException> Closed, Func<string, E2EException> Cut);
+
 /// <summary>How to open one <see cref="E2ESession"/>. Retries set <see cref="Attempt"/> above 1 so the cache records but does not replay, except under <see cref="CacheStrict"/>, where every attempt replays.</summary>
 public sealed class E2ESessionOptions
 {
@@ -1727,8 +1741,11 @@ public sealed class E2ESessionOptions
     /// <summary>Throws a failed step's error classified and redacted, for a program with no report around it. Upstream's <c>redactThrown</c> of <c>StandaloneSessionOptions</c>.</summary>
     internal bool RedactThrown { get; init; }
 
-    /// <summary>What an operation fails with once the session has closed; a bare cancellation when absent. Upstream's <c>StandaloneSessionOptions.closed</c>.</summary>
-    internal Func<E2EException>? Closed { get; init; }
+    /// <summary>
+    /// Makes closing the way the session's owner cancels what runs on it. Absent, a step still running at close was not awaited and fails the
+    /// attempt as <c>STEP_NOT_AWAITED</c>. Upstream's <c>StandaloneSessionOptions.cancelsOnClose</c>.
+    /// </summary>
+    internal CancelsOnClose? CancelsOnClose { get; init; }
 
     /// <summary>Whether the engine shows its surface; handed to the engine's start. Upstream's <c>headed</c>.</summary>
     internal bool Headed { get; init; }

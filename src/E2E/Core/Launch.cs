@@ -420,7 +420,10 @@ public sealed class Host : IAsyncDisposable
             ActionTimeout = _timeout ?? E2EDefaults.ActionTimeout,
             AssertionTimeout = _timeout ?? E2EDefaults.AssertionTimeout,
             Headed = _headed,
-            Closed = () => new EngineException(EngineErrorCodes.Cancelled, "the session is closed"),
+            CancelsOnClose = new CancelsOnClose(
+                () => new EngineException(EngineErrorCodes.Cancelled, "the session is closed"),
+                call => new EngineException(EngineErrorCodes.Cancelled, "the session closed while " + call + " was running")
+            ),
             // No report stands between an operation's error and the program, so the error itself is classified and redacted.
             RedactThrown = true,
             RetainSteps = Launch.RetainedSteps,
