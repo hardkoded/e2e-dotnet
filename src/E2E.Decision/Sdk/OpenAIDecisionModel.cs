@@ -323,7 +323,9 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                     );
                     break;
                 case DecisionFilePart file:
-                    if (!ImageMediaTypes.Contains(file.MediaType, StringComparer.Ordinal))
+                    // Direct DoDecideAsync calls can bypass the media type detection of the decide call.
+                    var mediaType = IsFullMediaType(file.MediaType) ? file.MediaType : DetectImageMediaType(file.Data);
+                    if (mediaType is null || !ImageMediaTypes.Contains(mediaType, StringComparer.Ordinal))
                     {
                         throw new NotSupportedException(
                             "'OpenAI decision image media type: " + file.MediaType + "' functionality not supported."
@@ -334,7 +336,7 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                         new JsonObject
                         {
                             ["type"] = "input_image",
-                            ["image_url"] = "data:" + file.MediaType + ";base64," + Convert.ToBase64String(file.Data),
+                            ["image_url"] = "data:" + mediaType + ";base64," + Convert.ToBase64String(file.Data),
                         }
                     );
                     break;
@@ -346,6 +348,55 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
         }
 
         return [new JsonObject { ["role"] = "user", ["content"] = content }];
+    }
+
+    // detect-media-type.ts isFullMediaType: a type/subtype whose subtype is neither empty nor a wildcard.
+    private static bool IsFullMediaType(string mediaType)
+    {
+        var slash = mediaType.IndexOf('/', StringComparison.Ordinal);
+        return slash != -1 && slash < mediaType.Length - 1 && mediaType.Substring(slash + 1) != "*";
+    }
+
+    // detectMediaType({ topLevelType: 'image' }) for the signatures of the image types the Decisions API accepts.
+    private static string? DetectImageMediaType(byte[] data)
+    {
+        static bool StartsWith(byte[] data, params int[] prefix)
+        {
+            if (data.Length < prefix.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < prefix.Length; i++)
+            {
+                // -1 matches any byte.
+                if (prefix[i] != -1 && data[i] != prefix[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        if (
+            StartsWith(data, 0x47, 0x49, 0x46, 0x38, 0x37, 0x61) || StartsWith(data, 0x47, 0x49, 0x46, 0x38, 0x39, 0x61)
+        )
+        {
+            return "image/gif";
+        }
+
+        if (StartsWith(data, 0x89, 0x50, 0x4e, 0x47))
+        {
+            return "image/png";
+        }
+
+        if (StartsWith(data, 0xff, 0xd8))
+        {
+            return "image/jpeg";
+        }
+
+        return StartsWith(data, 0x52, 0x49, 0x46, 0x46, -1, -1, -1, -1, 0x57, 0x45, 0x42, 0x50) ? "image/webp" : null;
     }
 
     private static bool IsInputJsonData(JsonElement value, string serialized)
@@ -394,17 +445,17 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                 List<string> parts = [];
                 if (question.Instructions is not null)
                 {
-                    parts.Add(question.Instructions);
+                    parts.Add(question.Instructions.ToText());
                 }
 
                 if (question.TrueCriteria is not null)
                 {
-                    parts.Add("Criteria for true:\n" + question.TrueCriteria);
+                    parts.Add("Criteria for true:\n" + question.TrueCriteria.ToText());
                 }
 
                 if (question.FalseCriteria is not null)
                 {
-                    parts.Add("Criteria for false:\n" + question.FalseCriteria);
+                    parts.Add("Criteria for false:\n" + question.FalseCriteria.ToText());
                 }
 
                 return new JsonObject
@@ -428,7 +479,7 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                     var choice = new JsonObject { ["value"] = option.Value };
                     if (option.Description is not null)
                     {
-                        choice["description"] = option.Description;
+                        choice["description"] = option.Description.ToText();
                     }
 
                     choices.Add(choice);
@@ -436,7 +487,7 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
 
                 return WithOptions(
                     new JsonObject { ["type"] = "choice", ["name"] = name },
-                    question.Instructions,
+                    question.Instructions?.ToText(),
                     "choices",
                     choices
                 );
@@ -457,7 +508,7 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
                     var level = new JsonObject { ["label"] = index.ToString(CultureInfo.InvariantCulture) };
                     if (description is not null)
                     {
-                        level["description"] = description;
+                        level["description"] = description.ToText();
                     }
 
                     levels.Add(level);
@@ -466,7 +517,7 @@ public sealed class OpenAIDecisionModel : IDecisionModel, IDisposable
 
                 return WithOptions(
                     new JsonObject { ["type"] = "score", ["name"] = name },
-                    question.Instructions,
+                    question.Instructions?.ToText(),
                     "levels",
                     levels
                 );

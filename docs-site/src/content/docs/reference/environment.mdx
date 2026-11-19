@@ -120,7 +120,7 @@ See [Caching and self-healing](/features/caching/).
 
 #### `E2E_NO_CACHE`
 
-Upstream's `--no-cache`, for one run. Set to `1` or `true`, it turns the cache `off`: nothing replays and nothing is recorded or evicted, so the live agent runs every step.
+Upstream's `--no-cache`, for one run. Set to `1` or `true`, it turns the cache `off`: nothing replays and nothing is recorded or evicted. Each step still runs and calls the model instead of replaying cached actions.
 
 - It overrides `cache.mode`, including an explicit `read-write`, and applies in CI.
 - It overrides a custom `cache.store` too.
