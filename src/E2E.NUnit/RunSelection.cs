@@ -4,6 +4,9 @@
 
 using System.Reflection;
 using NUnit.Framework;
+using NUnit.Framework.Interfaces;
+using NUnit.Framework.Internal;
+using NUnit.Framework.Internal.Execution;
 
 namespace E2E.NUnit;
 
@@ -18,7 +21,95 @@ internal static class RunSelection
         StringComparer.Ordinal
     );
 
+    private static IReadOnlyDictionary<string, double> _relevance = new Dictionary<string, double>(
+        StringComparer.Ordinal
+    );
+
     private static readonly Lock Gate = new();
+
+    /// <summary>Keeps the scores the test filters gave the tests of this run, by test key, for <see cref="OrderByRelevance"/>.</summary>
+    public static void SetRelevance(IReadOnlyDictionary<string, double> relevance) =>
+        Volatile.Write(ref _relevance, relevance);
+
+    /// <summary>
+    /// The work item NUnit is running the setup of, when it can be reached: the executing worker keeps it in a private field, so a NUnit that renames the
+    /// field gives null and the tests keep NUnit's order. NUnit builds the work items of the whole tree before any fixture runs, so this is the only
+    /// place the order can still change (.NET-only; upstream's runner orders its own work plans).
+    /// </summary>
+    internal static CompositeWorkItem? CurrentWorkItem()
+    {
+        if (TestExecutionContext.CurrentContext.TestWorker is not { } worker)
+        {
+            return null;
+        }
+
+        try
+        {
+            // A nested fixture that NUnit runs directly leaves the enclosing item in the worker, whose children NUnit is walking.
+            return
+                typeof(TestWorker)
+                    .GetField("_currentWorkItem", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.GetValue(worker)
+                    is CompositeWorkItem item
+                && ReferenceEquals(item.Test, TestExecutionContext.CurrentContext.CurrentTest)
+                ? item
+                : null;
+        }
+        catch (Exception ex) when (ex is TargetException or ArgumentException or FieldAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Starts the likeliest tests first (upstream's <c>orderWorkPlans</c>). Puts the children of <paramref name="item"/> and of every suite below it in
+    /// descending order of the relevance band (<c>relevanceBand</c>) of their best-scored test, in a stable sort that leaves an <c>[Order]</c> ranking,
+    /// such as the one of <see cref="E2ESetupAttribute"/>, ahead of it.
+    /// </summary>
+    internal static void OrderByRelevance(CompositeWorkItem item)
+    {
+        foreach (var child in item.Children.OfType<CompositeWorkItem>())
+        {
+            OrderByRelevance(child);
+        }
+
+        // NUnit puts a test or fixture after the one it depends on; the order it gave then stays.
+        if (item.Children.Any(child => HasDependency(child.Test)))
+        {
+            return;
+        }
+
+        var ordered = item
+            .Children.OrderBy(child =>
+                child.Test.Properties.Get(PropertyNames.Order) is int order ? order : int.MaxValue
+            )
+            .ThenByDescending(BandOf)
+            .ToList();
+        item.Children.Clear();
+        item.Children.AddRange(ordered);
+    }
+
+    private static bool HasDependency(ITest test) =>
+        test.Method?.GetCustomAttributes<DependsOnTestAttribute>(true).Any() == true
+        || test.TypeInfo?.Type.GetCustomAttributes<DependsOnFixtureAttribute>(true).Any() == true;
+
+    // A suite ranks by the work items that will run, so a test the filter dropped does not lift it.
+    private static int BandOf(WorkItem item) =>
+        item is CompositeWorkItem composite
+            ? composite.Children.Count == 0
+                ? 0
+                : composite.Children.Max(BandOf)
+            : BandOf(item.Test);
+
+    private static int BandOf(ITest test)
+    {
+        return
+            test.TypeInfo?.Type is { } type
+            && test.Method?.Name is { } method
+            && Volatile.Read(ref _relevance).TryGetValue(KeyOf(type, method), out var score)
+            ? Units.RelevanceBand(score)
+            : 0;
+    }
 
     public static void Set(IReadOnlyDictionary<string, string> excluded) => Volatile.Write(ref _excluded, excluded);
 
