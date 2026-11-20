@@ -4,6 +4,7 @@
 
 using System.Text.Json.Nodes;
 using E2E.OAuth;
+using Microsoft.Extensions.Time.Testing;
 
 namespace E2E.Tests.Store;
 
@@ -80,6 +81,21 @@ public sealed class FileCredentialStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task Refreshes_a_login_stored_under_a_legacy_key_holding_the_lock_an_earlier_release_holds_for_it()
+    {
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        var store = new FileCredentialStore(file);
+        await store.SetAsync("openai", Creds);
+        await File.WriteAllTextAsync(file, new JsonObject { ["spacexai"] = Creds.ToJson() }.ToJsonString());
+        await store.ExclusiveAsync("spacexsi", () =>
+        {
+            Assert.True(File.Exists(file + ".spacexai.refresh.lock"));
+            Assert.False(File.Exists(file + ".spacexsi.refresh.lock"));
+            return Task.FromResult(true);
+        });
+    }
+
+    [Fact]
     public async Task Prefers_the_login_under_the_id_to_one_under_its_legacy_key()
     {
         var file = Path.Combine(_directory, "nested", "oauth.json");
@@ -103,6 +119,54 @@ public sealed class FileCredentialStoreTests : IDisposable
         await store.SetAsync("openai", Creds);
         await File.WriteAllTextAsync(file, new JsonObject { ["grok"] = Creds.ToJson() }.ToJsonString());
         Assert.Null(await store.GetAsync("spacexsi"));
+    }
+
+    [Fact]
+    public async Task Holds_a_lock_for_each_login_while_it_refreshes()
+    {
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        var store = new FileCredentialStore(file);
+        await store.SetAsync("a", Creds);
+        var finishA = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = store.ExclusiveAsync("a", async () =>
+        {
+            await finishA.Task;
+            return true;
+        });
+        var enteredSecond = false;
+        var second = store.ExclusiveAsync("a", () =>
+        {
+            enteredSecond = true;
+            return Task.FromResult(true);
+        });
+        Assert.Equal("b", await store.ExclusiveAsync("b", () => Task.FromResult("b")));
+        Assert.False(enteredSecond);
+        finishA.SetResult();
+        await Task.WhenAll(first, second);
+        Assert.True(enteredSecond);
+    }
+
+    [Fact]
+    public async Task Gives_up_with_TIMEOUT_after_30_s_of_another_worker_refreshing()
+    {
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var store = new FileCredentialStore(file, clock);
+        await store.SetAsync("x", Creds);
+        var lockPath = file + ".x.refresh.lock";
+        await File.WriteAllTextAsync(lockPath, "elsewhere.example 1 other");
+        // Touched in the future, so the lock stays fresh however far the fake clock moves.
+        File.SetLastWriteTimeUtc(lockPath, DateTime.UtcNow.AddHours(1));
+        var pending = store.ExclusiveAsync("x", () => Task.FromResult(true));
+        await AdvanceAsync(clock, TimeSpan.FromSeconds(29));
+        Assert.False(pending.IsCompleted);
+        await AdvanceAsync(clock, TimeSpan.FromSeconds(2));
+        var error = await Assert.ThrowsAsync<OAuthException>(() => pending);
+        Assert.Equal(OAuthException.Timeout, error.Code);
+        Assert.Equal(
+            "another e2e process is still refreshing the x login after 30 s; run again once it finishes",
+            error.Message
+        );
     }
 
     [Fact]
@@ -198,6 +262,16 @@ public sealed class FileCredentialStoreTests : IDisposable
                 CredentialStores.DefaultPath(),
                 StringComparison.Ordinal
             );
+        }
+    }
+
+    /// <summary>Steps the fake clock in small turns, with a real yield before each, so a waiter's delay is seen between steps.</summary>
+    private static async Task AdvanceAsync(FakeTimeProvider clock, TimeSpan by)
+    {
+        for (var elapsed = TimeSpan.Zero; elapsed < by; elapsed += TimeSpan.FromMilliseconds(25))
+        {
+            await Task.Delay(1);
+            clock.Advance(TimeSpan.FromMilliseconds(25));
         }
     }
 

@@ -60,6 +60,28 @@ full name, so each test keeps its own replay.
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_NUnit_E2ETest_Fail_"></a>
+<a id="E2E_NUnit_E2ETest_Fail_System_Boolean_System_String_"></a>
+
+### Fail(bool, string?)
+
+
+```csharp
+public void Fail(bool condition = true, string? reason = null)
+```
+
+
+Marks the running test expected to fail when &lt;code class="paramref"&gt;condition&lt;/code&gt; holds (upstream's `test.fail(condition, reason)`).
+It does not throw: the body runs on, and the verdict follows `settleExpectedFailure`. A blank &lt;code class="paramref"&gt;reason&lt;/code&gt; becomes
+`expected to fail`. A mark from a teardown, a setup test, or a serial group member is a test error, `INVALID_ARGUMENT`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `condition` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
+| `reason` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
 <a id="E2E_NUnit_E2ETest_FinishE2ESerialGroupAsync_"></a>
 <a id="E2E_NUnit_E2ETest_FinishE2ESerialGroupAsync"></a>
 

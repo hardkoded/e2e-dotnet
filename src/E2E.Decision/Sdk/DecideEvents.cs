@@ -92,6 +92,12 @@ public record DecideEndEvent : DecideStartEvent
     /// <summary>The resolved model ID of the response.</summary>
     public required string ResponseModelId { get; init; }
 
+    /// <summary>The provider's response headers (upstream's <c>response.headers</c>), lowercase names.</summary>
+    public IReadOnlyDictionary<string, string>? ResponseHeaders { get; init; }
+
+    /// <summary>The provider's response body, as it sent it (upstream's <c>response.body</c>).</summary>
+    public JsonElement? ResponseBody { get; init; }
+
     /// <summary>The timestamp of the response.</summary>
     public required DateTimeOffset Timestamp { get; init; }
 }
