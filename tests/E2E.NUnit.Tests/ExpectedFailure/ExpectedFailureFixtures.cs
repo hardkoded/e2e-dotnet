@@ -7,6 +7,39 @@ using E2E;
 namespace E2E.NUnit.Tests.ExpectedFailure;
 
 /// <summary>
+/// Where each fixture's attempts and <c>report.json</c> go, so a test reads the report of the run it started (upstream's <c>runProject</c> returns
+/// the run's outcome). The "times out" test runs in the same run as <see cref="ExpectedFailureFixture"/>, as upstream's first <c>it</c> does.
+/// </summary>
+internal static class ExpectedFailureResults
+{
+    private static readonly string Root = Path.Combine(
+        Path.GetTempPath(),
+        "e2e-expected-failure-" + Guid.NewGuid().ToString("N")
+    );
+
+    /// <summary>The <c>results</c> directory of the run of <paramref name="fixture"/>; <c>report.json</c> is its sibling.</summary>
+    public static string Of(Type fixture) => Path.Combine(Root, RunOf(fixture).Name, "results");
+
+    // The fixtures of one upstream test share a run, as the files of its project do.
+    private static Type RunOf(Type fixture) =>
+        fixture == typeof(ExpectedFailureTimeoutFixture) ? typeof(ExpectedFailureFixture)
+        : fixture == typeof(MarkedLateFixture) ? typeof(MarkedEarlyFixture)
+        : fixture == typeof(ExpectedFailureSetupFixture) || fixture == typeof(ExpectedFailureSerialFixture)
+            ? typeof(ExpectedFailureSerialFixture)
+        : fixture;
+
+    public static string ReportOf(Type fixture) => Path.Combine(Path.GetDirectoryName(Of(fixture))!, "report.json");
+
+    public static void Clear()
+    {
+        if (Directory.Exists(Root))
+        {
+            Directory.Delete(Root, recursive: true);
+        }
+    }
+}
+
+/// <summary>
 /// The tests of upstream's <c>expected-failure.test.ts</c> (<c>describe('test.fail')</c>), as an NUnit body would write them: the mark is the
 /// property <c>E2E.Fail</c> on the test, or set in its body. The fixture is explicit, so a normal run never starts it.
 /// </summary>
@@ -22,6 +55,8 @@ public sealed class ExpectedFailureFixture : E2ETest
     protected override E2EConfig Config => FixtureConfig;
 
     protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override string? ResultsDirectory => ExpectedFailureResults.Of(GetType());
 
     [Test]
     [Property(NUnitSessionTestRunner.ExpectedFailureProperty, "expected to fail")]
@@ -94,6 +129,8 @@ public sealed class ExpectedFailureTimeoutFixture : E2ETest
 
     protected override string? BaseUrl => E2E.Playground.Testbed.Url;
 
+    protected override string? ResultsDirectory => ExpectedFailureResults.Of(GetType());
+
     protected override TimeSpan TestTimeout => TimeSpan.FromSeconds(5);
 
     [Test]
@@ -118,6 +155,8 @@ public abstract class ExpectedFailureFixtureBase : E2ETest
     protected override E2EConfig Config => FixtureConfig;
 
     protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override string? ResultsDirectory => ExpectedFailureResults.Of(GetType());
 }
 
 /// <summary><c>describe('marked early')</c> of upstream's hook test: the mark comes from a <c>beforeEach</c> hook, a <c>[SetUp]</c> here.</summary>
