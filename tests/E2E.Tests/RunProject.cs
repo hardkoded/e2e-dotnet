@@ -41,9 +41,6 @@ internal sealed record RunProjectOptions
     /// <summary>Upstream's <c>runOptions.env</c>: the run environment, in place of the fixture's (<c>CI</c> unset).</summary>
     public IReadOnlyDictionary<string, string?>? Env { get; init; }
 
-    /// <summary>The config's <c>secrets</c> that are functions, by name (.NET-only: the config JSON holds no function).</summary>
-    public IReadOnlyDictionary<string, SecretProvider>? SecretProviders { get; init; }
-
     /// <summary>Upstream's <c>runOptions.noCache</c>.</summary>
     public bool NoCache { get; init; }
 
@@ -82,7 +79,6 @@ internal static class RunProject
                 StrictCache = options.StrictCache,
                 Engine = options.Engine,
                 Agents = options.Agents,
-                SecretProviders = options.SecretProviders,
             }
         );
     }

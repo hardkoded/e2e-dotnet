@@ -35,7 +35,7 @@ public sealed class SecretsOfALaunchHostOpenedInsideATestTests : IAsyncLifetime
     private RunOutcome _outcome = null!;
     private FixtureProject _project = null!;
 
-    // The one provider the run is given and the test's own handle resolves through.
+    // Upstream's run config holds `CODE: () => value`; the config JSON holds no function, so the test's own handle resolves through this provider.
     private static readonly SecretProvider CodeProvider = _ => Task.FromResult(CodeValue);
 
     private static SemanticNode Node(
@@ -195,7 +195,6 @@ public sealed class SecretsOfALaunchHostOpenedInsideATestTests : IAsyncLifetime
                     fills: true
                 ),
                 Config = config,
-                SecretProviders = new Dictionary<string, SecretProvider> { ["CODE"] = _ => Task.FromResult(CodeValue) },
             }
         );
     }

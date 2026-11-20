@@ -59,12 +59,6 @@ internal sealed record RunOptions
     /// models and executors (.NET-only: <c>e2e.config.json</c> names a provider and a model id only).
     /// </summary>
     public IReadOnlyDictionary<string, AgentOptions>? Agents { get; init; }
-
-    /// <summary>
-    /// Secrets the config computes on every fill, by name (.NET-only: upstream's config file is code and holds <c>secrets: { name: () =&gt; string }</c>;
-    /// <c>e2e.config.json</c> cannot). Each replaces the config's entry of the same name, as <see cref="E2EConfig.WithSecretProvider"/> does.
-    /// </summary>
-    public IReadOnlyDictionary<string, SecretProvider>? SecretProviders { get; init; }
 }
 
 /// <summary>What a run ended with. Upstream's <c>RunOutcome</c> (<c>run/runner.ts</c>), with the report of the tests that ran.</summary>
@@ -131,11 +125,6 @@ internal static class Runner
                 CacheStrict = options.StrictCache,
             }
         );
-        foreach (var (name, provider) in options.SecretProviders ?? new Dictionary<string, SecretProvider>())
-        {
-            config = config.WithSecretProvider(name, provider);
-        }
-
         // The run's static values are known to every session of the process for as long as it lives, so a host a test launches redacts them too.
         OpenSession.RegisterStaticSecrets(config.AllSecrets);
         var results = new List<E2E.Reports.ReportResult>();
