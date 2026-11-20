@@ -24,8 +24,13 @@ internal static class Dates
     /// <summary>An ISO 8601 calendar date (<c>YYYY-MM-DD</c>).</summary>
     public static readonly Regex IsoDate = new(@"\b\d{4}-\d{2}-\d{2}\b", Ecma);
 
-    /// <summary>A clock time (<c>HH:MM</c> or <c>HH:MM:SS</c>).</summary>
-    public static readonly Regex ClockTime = new(@"\b\d{1,2}:\d{2}(?::\d{2})?\b", Ecma);
+    /// <summary>
+    /// A clock time (<c>HH:MM</c> or <c>HH:MM:SS</c>), also with am or pm written against it (<c>5:42pm</c>); the match is the digits alone.
+    /// </summary>
+    public static readonly Regex ClockTime = new(
+        @"\b\d{1,2}:\d{2}(?::\d{2})?(?=\b|[ap]\.?m\b)",
+        Ecma | RegexOptions.IgnoreCase
+    );
 
     /// <summary>A month followed by day with optional year (e.g. <c>October 26th</c>, <c>Sep 8, 2026</c>).</summary>
     public static readonly Regex MonthDayDate = new(

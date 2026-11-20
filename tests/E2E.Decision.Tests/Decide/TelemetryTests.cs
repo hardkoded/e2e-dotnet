@@ -51,6 +51,9 @@ public sealed class TelemetryTests
             }
         );
 
+        Assert.Empty(integration.Starts);
+        Assert.Empty(integration.Ends);
+
         var start = Assert.Single(integration.DecideStarts);
         Assert.Equal("test-call-id", start.CallId);
         Assert.Equal("ai.decide", start.OperationId);

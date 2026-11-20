@@ -115,6 +115,33 @@ public sealed class DeltaMismatchTests
     }
 
     [Fact]
+    public void Reads_a_clock_time_with_am_or_pm_written_against_it_as_volatile_as_it_does_one_with_a_space()
+    {
+        foreach (var time in new[] { "5:42pm", "5:42PM", "5:42:07am", "5:42p.m.", "5:42 PM" })
+        {
+            SemanticNode[] after = [Heading, Node("status", text: "Profile saved"), Node(text: "Last saved " + time)];
+
+            var delta = Describe([Heading], after);
+
+            Assert.Equal(["status|~Profile saved"], Shapes(delta.Appeared));
+            Assert.Empty(delta.Gone);
+        }
+
+        static SemanticNode Expiring(string at) => Node("alert", text: "Session expires at " + at);
+
+        Assert.True(Holds([Anchor("alert", text: "Session expires at 5:42pm")], [Expiring("5:45pm")]));
+        Assert.False(
+            Holds([Anchor("alert", text: "Session expires at 5:42pm")], [Node("alert", text: "Session expired")])
+        );
+        foreach (var text in new[] { "Ratio 16:10amp", "Build 5:42pmx" })
+        {
+            SemanticNode[] after = [Heading, Node("status", text: "Profile saved"), Node(text: text)];
+
+            Assert.Equal(2, Describe([Heading], after).Appeared.Count);
+        }
+    }
+
+    [Fact]
     public void Skips_a_date_with_an_ordinal_suffix_as_volatile_when_the_step_has_a_stable_result()
     {
         SemanticNode[] after = [Heading, Node("status", text: "Task created"), Node(text: "Due October 26th")];

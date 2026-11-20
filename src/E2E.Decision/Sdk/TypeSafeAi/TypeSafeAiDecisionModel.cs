@@ -29,6 +29,11 @@ public sealed class TypeSafeAiDecisionModelConfig
     public HttpClient? HttpClient { get; init; }
 }
 
+/// <summary>What crosses a workflow boundary for a model (the object upstream's <c>serializeModelOptions</c> returns).</summary>
+/// <param name="ModelId">The model id.</param>
+/// <param name="Config">The JSON-serializable config: <c>provider</c>, <c>baseURL</c>, and the resolved <c>headers</c> when there are any.</param>
+public sealed record SerializedModelOptions(string ModelId, JsonObject Config);
+
 /// <summary>
 /// Answers questions through TypeSafe's SystemOne API, <c>POST /systemone</c> (the AI SDK's <c>DecisionTypeSafeAiModel</c> in
 /// <c>@ai-sdk/typesafe-ai</c>). It answers <c>choice</c>, <c>score</c>, <c>boolean</c>, and <c>box</c> questions, takes PNG and JPEG images, and
@@ -74,6 +79,67 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
         {
             _http.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Serializes a model for a workflow step boundary (upstream's <c>[WORKFLOW_SERIALIZE]</c>). The client is not serializable, so it is omitted.
+    /// The headers function is resolved now and kept when it completes synchronously.
+    /// </summary>
+    public static SerializedModelOptions WorkflowSerialize(DecisionTypeSafeAiModel model)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        var config = new JsonObject { ["provider"] = model._config.Provider, ["baseURL"] = model._config.BaseUrl };
+        if (model._config.Headers is not null)
+        {
+            var pending = model._config.Headers(CancellationToken.None);
+            if (!pending.IsCompleted)
+            {
+                throw new InvalidOperationException("Cannot serialize asynchronous model options.");
+            }
+
+            var headers = new JsonObject();
+            foreach (var (name, value) in pending.GetAwaiter().GetResult())
+            {
+                headers[name] = value;
+            }
+
+            config["headers"] = headers;
+        }
+
+        return new SerializedModelOptions(model.ModelId, config);
+    }
+
+    /// <summary>
+    /// Restores a model from <see cref="WorkflowSerialize"/> (upstream's <c>[WORKFLOW_DESERIALIZE]</c>). Without serialized headers the model reads
+    /// <c>TYPESAFE_AI_API_KEY</c> at each call. <paramref name="httpClient"/> stands in for the <c>fetch</c> a config can carry upstream.
+    /// </summary>
+    public static DecisionTypeSafeAiModel WorkflowDeserialize(
+        SerializedModelOptions options,
+        HttpClient? httpClient = null
+    )
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var config = options.Config;
+        Func<CancellationToken, Task<IReadOnlyDictionary<string, string?>>>? headers = null;
+        if (config["headers"] is JsonObject serialized)
+        {
+            IReadOnlyDictionary<string, string?> resolved = serialized.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value?.GetValue<string>()
+            );
+            headers = _ => Task.FromResult(resolved);
+        }
+
+        return new DecisionTypeSafeAiModel(
+            options.ModelId,
+            new TypeSafeAiDecisionModelConfig
+            {
+                Provider = config["provider"]!.GetValue<string>(),
+                BaseUrl = config["baseURL"]!.GetValue<string>(),
+                Headers = headers,
+                HttpClient = httpClient,
+            }
+        );
     }
 
     /// <summary>Deprecated: use <see cref="DoDecideAsync"/>.</summary>
