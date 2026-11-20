@@ -509,6 +509,9 @@ public sealed record ArtifactRecord
     /// <summary>When a recording began.</summary>
     public DateTimeOffset? StartedAt { get; init; }
 
+    /// <summary>The session that produced the artifact when it is not the test's own: one the test opened with <see cref="Launch"/>.</summary>
+    public string? Actor { get; init; }
+
     public ArtifactRedaction Redaction { get; init; }
 
     public ArtifactProducer Producer { get; init; } = new();
@@ -597,6 +600,12 @@ public sealed record ReportStep
     public string Api { get; init; } = "";
 
     public string Label { get; init; } = "";
+
+    /// <summary>
+    /// The session the step ran on, when it is not the test's own: one the test drives beside it through <see cref="Launch"/>, named in the order
+    /// they joined it (<c>launch-1</c>). Null for a step of the test's own session.
+    /// </summary>
+    public string? Actor { get; init; }
 
     public ReportSource Source { get; init; } = new();
 

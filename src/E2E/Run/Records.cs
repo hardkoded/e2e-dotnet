@@ -11,6 +11,20 @@ internal sealed record FailureBeforeSkip(
     IReadOnlyList<ReportArtifact> Artifacts
 );
 
+/// <summary>A video a session recorded, as its owner hands it on: a file still on disk, or a link a hosted service keeps. Upstream's <c>SessionVideo</c> (<c>run/records.ts</c>).</summary>
+internal abstract record SessionVideo;
+
+/// <summary>A video file still on disk.</summary>
+/// <param name="Path">The absolute path of the file.</param>
+/// <param name="StartedAt">When the recording began, when it is known.</param>
+internal sealed record SessionVideoFile(string Path, DateTimeOffset? StartedAt = null) : SessionVideo;
+
+/// <summary>A video a hosted service keeps.</summary>
+/// <param name="Url">Where the service keeps it.</param>
+/// <param name="MediaType">Its media type.</param>
+/// <param name="StartedAt">When the recording began.</param>
+internal sealed record SessionVideoLink(string Url, string MediaType, DateTimeOffset StartedAt) : SessionVideo;
+
 /// <summary>Reads over a result's records (upstream's <c>run/records.ts</c>).</summary>
 internal static class Records
 {

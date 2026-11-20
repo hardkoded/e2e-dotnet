@@ -123,6 +123,38 @@ The document is `session-state-1` ([schema](https://github.com/hardkoded/e2e-dot
 
 A state restores only on a host of the same engine, platform, and app. Another is `SESSION_MISMATCH`. Two addresses of one app, such as `localhost` and `127.0.0.1`, are two apps unless both hosts set the same `LaunchApp.Identity`. A wrong key or a changed byte is `SESSION_INVALID`, and an expired state is `SESSION_EXPIRED`.
 
+## Open a host inside a test
+
+A test that your framework runs, with `E2ETest` from `E2E.NUnit` or `E2E.XUnit.V3`, can open a host for a second session: another user, or a phone beside the browser.
+
+```csharp
+[Test]
+public async Task The_reviewer_sees_the_note()
+{
+    await App.OpenAsync("/board");
+    await using var host = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions
+    {
+        App = new LaunchApp { Url = "https://shop.example.com" },
+    });
+    var reviewer = await host.NewSessionAsync();
+    await reviewer.App.OpenAsync("/board");
+    await Screen.GetByLabel("Note").FillAsync("hello");
+    await reviewer.Screen.GetByText("hello").WaitForAsync();
+}
+```
+
+The test's report covers the session:
+
+| In the report | Behavior |
+| --- | --- |
+| Steps | Each step of the session, under `launch-1`, `launch-2`, in the order the test opened the sessions, among the test's own. `ReportStep.Actor` names the session; it is null for the test's own steps. |
+| Model usage | Counted with the test's. |
+| Video | Kept beside the test's when the test records one, as `video/launch-1.webm`; `ArtifactRecord.Actor` names the session. The session must be opened inside the test. |
+| A host or session the test opened | Closed when the test ends, if still open. A host or session opened outside every test, at the top of a file or in a fixture, is left open, and its steps are recorded in each test that uses it. |
+| A step left running | Fails the test with `STEP_NOT_AWAITED`, and its session is closed. So does a `NewSessionAsync` or `LaunchAsync` call the test did not await. |
+
+A live step reaches the reporters as a `StepProgress` whose `Identity.Actor` is the session's name.
+
 ## Pass secrets
 
 Give secret values to `LaunchAsync`, then fill them by name.

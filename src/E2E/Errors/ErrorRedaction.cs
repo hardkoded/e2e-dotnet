@@ -59,6 +59,18 @@ internal static class ErrorRedaction
             : new TestException(code, redact(message), inner) { Details = redacted };
     }
 
+    /// <summary>A serialized error with <paramref name="redact"/> run over its message and details: what a record taken from another session's is put through. Upstream's <c>redactSerializedError</c>.</summary>
+    public static SerializedError RedactSerializedError(SerializedError error, Func<string, string> redact)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        ArgumentNullException.ThrowIfNull(redact);
+        return error with
+        {
+            Message = redact(error.Message),
+            Details = error.Details is null ? null : Redact(error.Details, redact),
+        };
+    }
+
     private static ErrorDetails Redact(ErrorDetails details, Func<string, string> redact) =>
         details with
         {

@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Decision.Sdk;
 using E2E.Decision.Sdk.TypeSafeAi;
 using static E2E.Decision.Tests.TypeSafeAiDecisionModel.TypeSafeAiDecisionModelFixture;
 
@@ -9,13 +10,15 @@ namespace E2E.Decision.Tests.TypeSafeAiProvider;
 
 /// <summary>Upstream's <c>describe('TypeSafe provider')</c> of <c>typesafe-ai-provider.test.ts</c>.</summary>
 [Collection("TypeSafeAiEnvironment")]
-public sealed class TypeSafeAiProviderTests
+public sealed class TypeSafeProviderTests
 {
     [Fact]
     public void Provides_the_experimental_decision_capability()
     {
-        var model = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider().DecisionModel("jev-latest");
+        var provider = E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider.TypeSafeAi;
+        var model = provider.DecisionModel("jev-latest");
 
+        Assert.Equal("v4", provider.SpecificationVersion);
         Assert.Equal("v4", model.SpecificationVersion);
         Assert.Equal("typesafe.decision", model.Provider);
         Assert.Equal("jev-latest", model.ModelId);
@@ -23,13 +26,40 @@ public sealed class TypeSafeAiProviderTests
     }
 
     [Fact]
-    public void Retains_the_deprecated_factory_alias()
+    public void Partial_Retains_the_deprecated_factory_alias()
     {
         var provider = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider();
 
 #pragma warning disable CS0618 // The test is of the deprecated alias.
         Assert.Equal("typesafe.decision", provider.EvaluationModel("jev-latest").Provider);
 #pragma warning restore CS0618
+    }
+
+    [Theory]
+    [InlineData("languageModel")]
+    [InlineData("embeddingModel")]
+    [InlineData("imageModel")]
+    public void Rejects_unsupported_factories(string factory)
+    {
+        var provider = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider();
+
+        var error = Assert.Throws<NoSuchModelException>(() =>
+        {
+            switch (factory)
+            {
+                case "languageModel":
+                    provider.LanguageModel("unknown");
+                    break;
+                case "embeddingModel":
+                    provider.EmbeddingModel("unknown");
+                    break;
+                default:
+                    provider.ImageModel("unknown");
+                    break;
+            }
+        });
+        Assert.Equal(factory, error.ModelType);
+        Assert.Equal("unknown", error.ModelId);
     }
 
     [Fact]

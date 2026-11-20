@@ -14,10 +14,13 @@ internal sealed record ArtifactRegistration
 {
     /// <summary>When a time-based artifact (a video segment) began recording.</summary>
     public DateTimeOffset? StartedAt { get; init; }
+
+    /// <summary>The session that produced it when it is not the test's own; see <see cref="StepRecord.Actor"/>.</summary>
+    public string? Actor { get; init; }
 }
 
 /// <summary>A provider-hosted recording (upstream's <c>ArtifactSink.link</c> argument).</summary>
-internal sealed record ArtifactLink(string MediaType, DateTimeOffset StartedAt);
+internal sealed record ArtifactLink(string MediaType, DateTimeOffset StartedAt, string? Actor = null);
 
 /// <summary>
 /// Where an attempt registers the files and links it produced (upstream's <c>ArtifactSink</c>, <c>run/fixtures.ts</c>). Registration is
