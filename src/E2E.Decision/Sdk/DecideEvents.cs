@@ -89,6 +89,9 @@ public record DecideEndEvent : DecideStartEvent
     /// <summary>Optional provider-specific metadata.</summary>
     public JsonElement? ProviderMetadata { get; init; }
 
+    /// <summary>The ID of the response (upstream's <c>response.id</c>), when the provider sends one.</summary>
+    public string? ResponseId { get; init; }
+
     /// <summary>The resolved model ID of the response.</summary>
     public required string ResponseModelId { get; init; }
 
@@ -147,6 +150,12 @@ public record DecisionModelCallEndEvent : DecisionModelCallStartEvent
 
     /// <summary>Optional provider-specific metadata.</summary>
     public JsonElement? ProviderMetadata { get; init; }
+
+    /// <summary>The id of the response (upstream's <c>response.id</c>), when the provider sends one.</summary>
+    public string? ResponseId { get; init; }
+
+    /// <summary>The timestamp of the response (upstream's <c>response.timestamp</c>), when the provider sends one.</summary>
+    public DateTimeOffset? Timestamp { get; init; }
 
     /// <summary>The id of the model that served the call, when the response names one.</summary>
     public string? ResponseModelId { get; init; }

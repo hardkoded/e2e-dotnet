@@ -180,7 +180,10 @@ public static class ExperimentalDecide
                                             Questions = options.Questions,
                                             MaxOutputTokens = options.MaxOutputTokens,
                                             Reasoning = options.Reasoning,
-                                            Headers = options.Headers ?? new Dictionary<string, string>(),
+                                            Headers = ProviderUtils.WithUserAgentSuffix(
+                                                options.Headers,
+                                                "ai/" + TelemetryDispatcher.AiVersion
+                                            ),
                                             ProviderOptions = options.ProviderOptions,
                                         },
                                         cancellationToken
@@ -212,12 +215,16 @@ public static class ExperimentalDecide
                                 Warnings = result.Warnings,
                                 Rounding = result.Rounding,
                                 ProviderMetadata = result.ProviderMetadata,
+                                ResponseId = result.ResponseId,
+                                Timestamp = result.ResponseTimestamp,
                                 ResponseModelId = result.ResponseModelId,
                             },
                             [telemetryDispatcher.OnDecisionModelCallEndAsync],
                             cancellationToken
                         )
                         .ConfigureAwait(false);
+
+                    LogWarnings.Log(result.Warnings, model.Provider, model.ModelId);
 
                     var decisionResult = new DecisionResult
                     {
@@ -226,6 +233,8 @@ public static class ExperimentalDecide
                         Warnings = result.Warnings,
                         Rounding = result.Rounding,
                         ProviderMetadata = result.ProviderMetadata,
+                        ResponseId = result.ResponseId,
+                        Timestamp = result.ResponseTimestamp ?? DateTimeOffset.UtcNow,
                         ResponseModelId = result.ResponseModelId ?? model.ModelId,
                         ResponseHeaders = result.ResponseHeaders,
                         ResponseBody = result.ResponseBody,
@@ -250,6 +259,7 @@ public static class ExperimentalDecide
                                 Warnings = decisionResult.Warnings,
                                 Rounding = decisionResult.Rounding,
                                 ProviderMetadata = decisionResult.ProviderMetadata,
+                                ResponseId = decisionResult.ResponseId,
                                 ResponseModelId = decisionResult.ResponseModelId,
                                 ResponseHeaders = decisionResult.ResponseHeaders,
                                 ResponseBody = decisionResult.ResponseBody,

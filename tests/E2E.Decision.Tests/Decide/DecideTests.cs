@@ -40,38 +40,88 @@ public sealed class DecideTests
     public async Task Partial_decides_answers_to_mixed_questions_in_one_call_and_preserves_distributions_and_metadata()
     {
         using var body = System.Text.Json.JsonDocument.Parse("""{"raw":true}""");
+        using var metadata = System.Text.Json.JsonDocument.Parse("""{"test":{"confidence":0.8}}""");
+        var warning = "Provider note";
+        var timestamp = new DateTimeOffset(2026, 9, 16, 12, 0, 0, TimeSpan.Zero);
         var headers = new Dictionary<string, string> { ["x-request-id"] = "request" };
-        var (model, _) = Setup(
+        var logged = new List<LogWarningsOptions>();
+        DecideEndEvent? ended = null;
+        var (model, calls) = Setup(
             new DecisionModelResult
             {
                 Answers = AnswerMap,
+                Warnings = [warning],
+                Usage = new DecisionUsage(30, 4),
+                ProviderMetadata = metadata.RootElement.Clone(),
+                ResponseId = "response",
+                ResponseTimestamp = timestamp,
                 ResponseModelId = "actual-model",
                 ResponseHeaders = headers,
                 ResponseBody = body.RootElement.Clone(),
             }
         );
-        DecideEndEvent? ended = null;
-
-        var result = await ExperimentalDecide.RunAsync(
-            new DecideOptions
+        using var cancellation = new CancellationTokenSource();
+        using var stateValue = System.Text.Json.JsonDocument.Parse("""{"message":"refund","history":["hello"]}""");
+        var state = new DecisionJsonPart(stateValue.RootElement.Clone());
+        LogWarnings.AiSdkLogWarnings = options =>
+        {
+            lock (logged)
             {
-                Model = model,
-                State = [new DecisionTextPart("text")],
-                Questions = QuestionMap,
-                OnEnd = e =>
-                {
-                    ended = e;
-                    return Task.CompletedTask;
-                },
+                logged.Add(options);
             }
-        );
+        };
 
+        DecisionResult result;
+        try
+        {
+            result = await ExperimentalDecide.RunAsync(
+                new DecideOptions
+                {
+                    Model = model,
+                    State = [state],
+                    Questions = QuestionMap,
+                    OnEnd = e =>
+                    {
+                        ended = e;
+                        return Task.CompletedTask;
+                    },
+                    Headers = new Dictionary<string, string> { ["custom"] = "value" },
+                    ProviderOptions = new Dictionary<string, System.Text.Json.JsonElement>
+                    {
+                        ["test"] = System.Text.Json.JsonDocument.Parse("""{"option":true}""").RootElement.Clone(),
+                    },
+                },
+                cancellation.Token
+            );
+        }
+        finally
+        {
+            LogWarnings.AiSdkLogWarnings = null;
+        }
+
+        var call = Assert.Single(calls);
+        var statePart = Assert.IsType<DecisionJsonPart>(Assert.Single(call.State));
+        Assert.Equal("""{"message":"refund","history":["hello"]}""", statePart.Value.GetRawText());
+        Assert.Same(QuestionMap, call.Questions);
+        Assert.Equal("value", call.Headers["custom"]);
+        Assert.Contains("ai/", call.Headers["user-agent"]);
+        Assert.Equal("""{"option":true}""", call.ProviderOptions!["test"].GetRawText());
+        Assert.Equal(AnswerMap, result.Answers);
+        Assert.Equal(30, result.Usage.InputTokens);
+        Assert.Equal(4, result.Usage.OutputTokens);
+        Assert.Equal(34, result.Usage.TotalTokens);
+        Assert.Equal("""{"test":{"confidence":0.8}}""", result.ProviderMetadata!.Value.GetRawText());
+        Assert.Equal("response", result.ResponseId);
+        Assert.Equal(timestamp, result.Timestamp);
         Assert.Equal("actual-model", result.ResponseModelId);
         Assert.Equal(headers, result.ResponseHeaders);
         Assert.Equal("""{"raw":true}""", result.ResponseBody!.Value.GetRawText());
-        Assert.NotNull(ended);
-        Assert.Equal(headers, ended.ResponseHeaders);
-        Assert.Equal("""{"raw":true}""", ended.ResponseBody!.Value.GetRawText());
+        Assert.Equal([warning], result.Warnings);
+        Assert.Equal("response", ended!.ResponseId);
+        Assert.Equal(timestamp, ended.Timestamp);
+        var entry = Assert.Single(logged, l => l.Warnings.Contains(warning));
+        Assert.Equal(model.Provider, entry.Provider);
+        Assert.Equal(model.ModelId, entry.Model);
     }
 
     [Theory]
