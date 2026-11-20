@@ -246,6 +246,10 @@ public sealed class Host : IAsyncDisposable
         ISessionGuest,
         Session
     > _newSession;
+    private readonly Action _withdrawSecrets;
+
+    /// <summary>Whether the test that launched the host has taken charge of its end: it then withdraws the host's secrets at its own end, not at the host's.</summary>
+    private bool _owned;
     private readonly Lock _gate = new();
     private readonly Lazy<Task> _closing;
     private Session? _open;
@@ -262,9 +266,11 @@ public sealed class Host : IAsyncDisposable
         TimeSpan? timeout,
         LaunchApp? app,
         bool headed,
+        Action withdrawSecrets,
         Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, ISessionGuest, Session>? newSession = null
     )
     {
+        _withdrawSecrets = withdrawSecrets;
         _newSession = newSession
             ?? (
                 (attempt, sessionIdentity, internals, onClosed, guest) =>
@@ -314,7 +320,7 @@ public sealed class Host : IAsyncDisposable
     }
 
     /// <summary>Hands a test the host this seat was reserved for; false when the test gave the seat up, and the host is the caller's to close.</summary>
-    internal bool TakeBy(IGuestSeat<IGuestHost, bool> seat) => seat.Take(new GuestHost(this));
+    internal bool TakeBy(IGuestSeat<IGuestHost, bool> seat) => _owned = seat.Take(new GuestHost(this));
 
     private async Task<Session> OpenGuestSessionAsync(
         NewSessionOptions? options,
@@ -453,6 +459,12 @@ public sealed class Host : IAsyncDisposable
         finally
         {
             Launch.Unclaim(_engine);
+            // The host's values are shared with the sessions beside it for as long as it is open. A test that launched the host keeps them
+            // shared until the test ends: it may close the host early and go on reading screens that show them.
+            if (!_owned)
+            {
+                _withdrawSecrets();
+            }
         }
 
         if (_ownsArtifacts)
@@ -517,8 +529,7 @@ public sealed class Host : IAsyncDisposable
     {
         public Task CloseAsync() => host.CloseAsync();
 
-        // The host's secrets are not shared with the sessions beside it yet (upstream's withdrawSecrets), so there is nothing to withdraw.
-        public void Release() { }
+        public void Release() => host._withdrawSecrets();
     }
 
     // What the attempt a test runs in takes charge of: closing the session and cutting what it left running. Upstream's GuestSession.
@@ -645,6 +656,7 @@ public static class Launch
             ? Directory.CreateTempSubdirectory("e2e-core-").FullName
             : Path.GetFullPath(options.ArtifactsDir, projectRoot);
         Host? host = null;
+        Action withdrawSecrets = static () => { };
         try
         {
             host = await OpeningRedaction
@@ -676,7 +688,7 @@ public static class Launch
                             Sessions.TargetIdentity(target, target, engine, resolved).AppIdentity,
                             resolved.Identity
                         );
-                        OpenSession.RegisterStaticSecrets(
+                        withdrawSecrets = Secrecy.ShareStaticSecrets(
                             secrets.Select(pair => E2E.Secret.Create(pair.Key, pair.Value))
                         );
                         var worker = await Standalone
@@ -707,6 +719,7 @@ public static class Launch
                             options.Timeout,
                             app,
                             options.Headed,
+                            withdrawSecrets,
                             newSession
                         );
                     }
@@ -736,6 +749,7 @@ public static class Launch
         }
         catch (Exception opening) when (host is null)
         {
+            withdrawSecrets();
             if (seat?.Signal.IsCancellationRequested == true)
             {
                 owner?.GaveUp(opening);

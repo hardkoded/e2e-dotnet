@@ -15,6 +15,7 @@ namespace E2E.Tests.LaunchInTestReport;
 /// in the order they began, its video is among the test's artifacts, and the attempt owns its end: a session the test left open, or left a step
 /// running on, is closed with it. The <c>it</c> that need a test timeout, a worker fixture, a hook, or a serial group are not here: the port has none.
 /// </summary>
+[Collection(E2E.Tests.SessionSecrecy.SharedSecretsCollection.Name)]
 public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyncLifetime
 {
     private static readonly LaunchApp FakeApp = new() { Url = "http://127.0.0.1:4500" };

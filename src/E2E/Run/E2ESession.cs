@@ -395,6 +395,7 @@ public sealed class E2ESession : IAsyncDisposable
             launch.Dispose();
         }
 
+        AttemptScope? created = null;
         try
         {
             // The saved session restores before the video starts, and the values its saving session learned join the ledger the attempt starts with.
@@ -500,9 +501,9 @@ public sealed class E2ESession : IAsyncDisposable
                 : null;
             var softFailures = new SoftFailures(options.OnSoftFailure);
             var testFailed = options.TestFailed ?? (static () => false);
-            AttemptScope? created = null;
             var scope = new AttemptScope
             {
+                SharesSecrets = true,
                 AttemptId = attemptId,
                 ArtifactsDir = attemptDir,
                 RerunDir = options.RerunDir,
@@ -764,7 +765,8 @@ public sealed class E2ESession : IAsyncDisposable
         }
         catch
         {
-            // The attempt never took ownership, so release what it started.
+            // The attempt never took ownership, so release what it started, and stop sharing what its scope learned.
+            created?.ReleaseSessionLedger();
             var cleanup = engine.DisposeAsync().AsTask();
             await (
                 Bounded(options.CleanupTimeout) ? cleanup.WaitAsync(options.CleanupTimeout) : cleanup
@@ -1233,14 +1235,20 @@ public sealed class E2ESession : IAsyncDisposable
         {
             _errorRedaction.Dispose();
             _credentials?.Dispose();
+            _scope.ReleaseSessionLedger();
             _scope.Ended.Dispose();
             _budget.Dispose();
             WriteDebug(_scope.Debug, _debugOutput, _scope.Steps.All());
             WriteAiTrace(_scope);
-            await WriteTracePageAsync().ConfigureAwait(false);
-
-            // The hosts the test launched share their secrets until the artifacts have settled: a download still being rewritten is redacted with them.
-            _guests?.Release();
+            try
+            {
+                await WriteTracePageAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                // The hosts the test launched share their secrets until the artifacts have settled: a download still being rewritten is redacted with them.
+                _guests?.Release();
+            }
         }
 
         if (videoFailure is not null)

@@ -748,8 +748,13 @@ internal static partial class FailureText
     /// attempt cut into several segments (a restart opens a new page) names the segment too: <c>, video-part2 0:03</c>. A step before the
     /// attempt's video began is at 0:00; one outside every recording a step stopped gets nothing.
     /// </summary>
-    private static string VideoOffset(ReportStep step, IReadOnlyList<TimedVideo> videos)
+    private static string VideoOffset(ReportStep step, IReadOnlyList<TimedVideo> all)
     {
+        // A step is in the recording of the session it ran on, never in one of a session beside it.
+        var videos = all.Where(candidate =>
+                string.Equals(candidate.Artifact.Actor, step.Actor, StringComparison.Ordinal)
+            )
+            .ToList();
         var at = step.StartedAt;
         var timed = videos.LastOrDefault(candidate =>
             candidate.StartsAt <= at && (candidate.EndsAt is not { } end || at < end)
@@ -761,10 +766,13 @@ internal static partial class FailureText
 
         var video = timed.Artifact;
         var seconds = Math.Max(0, (long)Math.Floor((at - timed.StartsAt).TotalSeconds));
-        var name =
-            videos.Count > 1 && video.Path is not null
-                ? System.IO.Path.GetFileNameWithoutExtension(video.Path)
-                : "video";
+        // A session's recording goes by the session's name; the test's own parts by their file's.
+        var name = video.Actor
+            ?? (
+                all.Count > 1 && video.Path is not null
+                    ? System.IO.Path.GetFileNameWithoutExtension(video.Path)
+                    : "video"
+            );
         return ", "
             + name
             + " "
@@ -979,7 +987,10 @@ internal static partial class FailureText
                         + ". "
                         + StepGlyph(step.Status)
                         + " "
-                        + Code(step.Api, MaxIdChars)
+                        + ReportFormat.WithActor(
+                            step.Actor is null ? null : Cell(step.Actor, MaxIdChars),
+                            Code(step.Api, MaxIdChars)
+                        )
                         + (label.Length == 0 ? "" : " " + label)
                         + " ("
                         + FormatDuration(step.DurationMs)
@@ -1044,7 +1055,7 @@ internal static partial class FailureText
 
         if (told.Failure is { } failure)
         {
-            AddScreenAtFailure(lines, told, failure, options);
+            AddScreenAtFailure(lines, told, failure, options, at?.Step.Actor);
         }
 
         if (told.SecondaryErrors.Count > 0)
@@ -1089,10 +1100,12 @@ internal static partial class FailureText
         List<string> lines,
         ReportAttempt told,
         FailureEvidence failure,
-        TracePageOptions options
+        TracePageOptions options,
+        string? actor
     )
     {
-        lines.AddRange(["## Screen at failure", ""]);
+        // A failure on a session beside the test's own is shown with the test's own screen, which is the one the runner can read.
+        lines.AddRange([actor is null ? "## Screen at failure" : "## Screen of the test's own session at failure", ""]);
         var screen = failure.Screen is null
             ? null
             : told.Artifacts.FirstOrDefault(artifact =>

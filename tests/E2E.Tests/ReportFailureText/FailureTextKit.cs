@@ -25,7 +25,8 @@ internal static class FailureTextKit
         string? explanation = null,
         IReadOnlyList<StepTurn>? turns = null,
         IEnumerable<string>? artifacts = null,
-        DateTimeOffset? startedAt = null
+        DateTimeOffset? startedAt = null,
+        string? actor = null
     )
     {
         var step = new StepRecord
@@ -46,6 +47,7 @@ internal static class FailureTextKit
             Metrics = metrics,
             Explanation = explanation,
             Turns = turns,
+            Actor = actor,
         };
         step.Artifacts.AddRange(artifacts ?? []);
         return step;

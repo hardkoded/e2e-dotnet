@@ -172,6 +172,41 @@ public sealed class FetchWithValidatedRedirectsTests
         Assert.Equal(1, second.Disposed);
     }
 
+    [Fact]
+    public async Task Fails_closed_on_an_opaque_redirect_outside_the_browser()
+    {
+        var fetch = new FetchMock().Once(OpaqueRedirect);
+
+        await Assert.ThrowsAsync<DownloadException>(() =>
+            Sdk.FetchWithValidatedRedirects.FetchAsync(
+                "https://example.com/redirect",
+                null,
+                fetch.Fetch,
+                CancellationToken.None
+            )
+        );
+        Assert.Single(fetch.Calls);
+    }
+
+    [Fact]
+    public async Task Follows_redirects_natively_on_an_opaque_redirect_in_the_browser()
+    {
+        using var browser = IsBrowserRuntime.Simulate();
+        var fetch = new FetchMock().Once(OpaqueRedirect).Once(Ok);
+
+        using var response = await Sdk.FetchWithValidatedRedirects.FetchAsync(
+            "https://example.com/file",
+            null,
+            fetch.Fetch,
+            CancellationToken.None
+        );
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal(2, fetch.Calls.Count);
+        Assert.Equal("https://example.com/file", fetch.Calls[1].Url);
+        Assert.Equal("follow", fetch.Calls[1].Redirect);
+    }
+
     [Theory]
     [MemberData(nameof(RedirectStatusData))]
     public async Task Partial_Does_not_wait_for_cancellation_before_following_a_redirect(int status)
