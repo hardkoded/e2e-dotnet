@@ -202,6 +202,33 @@ public sealed class RenderMarkdownReportTests
             "**E** at step 1 of 1: `screen.tap only`, after 900ms",
             Render(Page(ReportRunStatus.Failed, [single]))
         );
+
+        // A step of a session the test opened beside its own says whose it is.
+        var guest = Named(
+            "two",
+            ResultStatus.Failed,
+            attempts:
+            [
+                Attempt(
+                    AttemptStatus.Failed,
+                    error: new ReportError("E", "m"),
+                    steps:
+                    [
+                        Step(
+                            0,
+                            "only",
+                            actor: "launch-1",
+                            status: StepStatus.Failed,
+                            error: ReportBuilders.Error("E", "m")
+                        ),
+                    ]
+                ),
+            ]
+        );
+        Assert.Contains(
+            "**E** at step 1 of 1 on launch-1: `screen.tap only`, after 900ms",
+            Render(Page(ReportRunStatus.Failed, [guest]))
+        );
     }
 
     [Fact]

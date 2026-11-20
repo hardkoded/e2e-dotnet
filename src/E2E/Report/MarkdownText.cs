@@ -228,6 +228,12 @@ internal static class ReportFormat
         return counters;
     }
 
+    /// <summary>
+    /// A step's call under the session it ran on when that is not the test's own, <c>launch-1 › locator.tap</c>: how the terminal and the
+    /// trace page list such a step. <paramref name="actor"/> and <paramref name="call"/> come already escaped for the format (upstream's <c>withActor</c>).
+    /// </summary>
+    public static string WithActor(string? actor, string call) => actor is null ? call : actor + " › " + call;
+
     /// <summary>The title suffix of a repeated run past the first: <c> (repeat #2)</c>; empty for the first.</summary>
     public static string RepeatSuffix(int repeat) =>
         repeat == 0 ? "" : " (repeat #" + repeat.ToString(CultureInfo.InvariantCulture) + ")";
