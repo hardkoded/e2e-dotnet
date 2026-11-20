@@ -25,7 +25,7 @@ Configure a model in `e2e.config.json` (`agents.<name>.model`), or pass one in c
 | `AZURE_API_KEY`, `AZURE_RESOURCE_NAME` | `AZURE_RESOURCE_NAME=acme` | value | The key of the `azure` provider, and the resource its base URL is built from when `baseUrl` is not set |
 | `XAI_API_KEY` | `XAI_API_KEY=<key>` | value | The key of the `xai` provider |
 | `OPENROUTER_API_KEY` | `OPENROUTER_API_KEY=<key>` | value | The key of the `openrouter` provider |
-| `AI_GATEWAY_API_KEY`, `VERCEL_OIDC_TOKEN` | `AI_GATEWAY_API_KEY=<key>` | value | The key of the `gateway` provider. Without `AI_GATEWAY_API_KEY`, the Vercel OIDC token is used |
+| `AI_GATEWAY_API_KEY`, `VERCEL_OIDC_TOKEN` | `AI_GATEWAY_API_KEY=<key>` | value | The key of the `gateway` provider. Without `AI_GATEWAY_API_KEY`, the Vercel OIDC token is used: `VERCEL_OIDC_TOKEN`, refreshed with the Vercel CLI credentials when missing or expired |
 | `LLM_API_KEY` | `LLM_API_KEY=<key>` | value | The key of the `openai-compatible` provider |
 | `AWS_BEARER_TOKEN_BEDROCK` | `AWS_BEARER_TOKEN_BEDROCK=<token>` | value | The `bedrock` provider's bearer token |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | `AWS_ACCESS_KEY_ID=<id>` | value | The `bedrock` provider signs its requests (SigV4) with them when no bearer token is set. The session token is optional. .NET-only |

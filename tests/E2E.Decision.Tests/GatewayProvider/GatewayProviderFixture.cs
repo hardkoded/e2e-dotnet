@@ -4,6 +4,7 @@
 
 using E2E.Decision.Sdk.Gateway;
 using static E2E.Decision.Tests.GatewayDecisionModel.GatewayDecisionModelFixture;
+using Env = E2E.Decision.Sdk.Gateway.VercelEnvironment;
 
 namespace E2E.Decision.Tests.GatewayProvider;
 
@@ -33,10 +34,17 @@ internal static class GatewayProviderFixture
                 Environment.SetEnvironmentVariable(name, variables.GetValueOrDefault(name));
             }
 
+            // Upstream mocks getVercelOidcToken (vi.mocked): it gives the VERCEL_OIDC_TOKEN set here, or fails like an unavailable token.
+            Env.OidcTokenOverride = _ =>
+                Environment.GetEnvironmentVariable("VERCEL_OIDC_TOKEN") is { Length: > 0 } token
+                    ? Task.FromResult(token)
+                    : throw new InvalidOperationException("OIDC token not available");
+
             await action();
         }
         finally
         {
+            Env.OidcTokenOverride = null;
             foreach (var (name, value) in previous)
             {
                 Environment.SetEnvironmentVariable(name, value);
