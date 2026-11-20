@@ -30,9 +30,15 @@ public sealed class ALaunchSessionOpenedInsideAnXUnitTestTests : E2ETest
             new WebEngine(new WebEngineOptions()),
             new LaunchOptions { App = new LaunchApp { Url = E2E.Playground.Testbed.Url } }
         );
-        var second = await host.NewSessionAsync();
-        await second.App.OpenAsync("/");
-        await host.CloseAsync();
+        try
+        {
+            var second = await host.NewSessionAsync();
+            await second.App.OpenAsync("/");
+        }
+        finally
+        {
+            await host.CloseAsync();
+        }
 
         Assert.Contains("launch-1", CurrentSession!.StepRecords.Select(step => step.Actor));
     }

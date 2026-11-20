@@ -83,6 +83,7 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         };
     }
 
+    // A derived fixture that overrides this must not make the override async around the base call, or the slot is lost to the body.
     // Not async: StartSessionAsync reserves the slot a host the test body launches finds its attempt through, in the flow of its caller, and xUnit
     // runs the body in the flow it called this method from. An async method would keep the slot to itself.
     public virtual ValueTask InitializeAsync()
