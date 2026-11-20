@@ -40,7 +40,7 @@ Set up a target with the [mobile guide](/get-started/mobile/) and a model with t
 | `tags`, `--include-tags`, `--exclude-tags` | `[Category("smoke")]` (NUnit) or `[Trait("TestCategory", "smoke")]` (xUnit); `dotnet test --filter "TestCategory=smoke"`, `"TestCategory!=smoke"` |
 | `env` and `${VAR}` | constants in the test, and `Params` in a goal: `Agent.ActAsync("sign in as {email}", new ActOptions { Params = ... })` |
 | `MAESTRO_*` variables | `Environment.GetEnvironmentVariable`; a password or token goes under `credentials` or `secrets`, which the model never sees, see [Authentication](/features/signing-in/) |
-| `--format junit` | the `dotnet test` loggers, such as `--logger trx` (`--report-trx` on Microsoft.Testing.Platform; see [Testing frameworks](/testing-frameworks/#vstest-and-microsofttestingplatform)), or a JUnit logger package |
+| `--format junit` | the `dotnet test` loggers, such as `--logger trx` (`--report-trx` on Microsoft.Testing.Platform; see [Testing frameworks](/testing-frameworks/#vstest-and-microsofttestingplatform)), a JUnit logger package, or `E2E.Reports.JunitReporter` in `reporters` of `e2e.config.json` |
 | `--shards`, `--shard-split` | The framework's parallelism on one machine; the port has no `--shard` |
 | `maestro record` | `E2E_VIDEO=on dotnet test`, one MP4 of the device per attempt, or a hosted provider's own recording |
 | `maestro hierarchy` | `await Screen.DebugAsync()` in a test prints the screen's tree; `Screen.TreeAsync()` returns it |

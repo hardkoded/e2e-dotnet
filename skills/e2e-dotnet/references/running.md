@@ -154,7 +154,7 @@ stored. Entries recorded before these fields existed count once a
 
 ## Output
 
-The port writes no `junit.xml` of its own (the `junit` logger of `JunitXml.TestLogger` does, for `dotnet test`). It writes `.e2e/report.json`, for scripts
+List `E2E.Reports.JunitReporter` in `reporters` of `e2e.config.json` (`{ "type": "E2E.Reports.JunitReporter", "options": { "outputFile": "reports/junit.xml" } }`) to write the run as JUnit XML, `junit.xml` beside `report.json` by default: one suite per test file, a `failed as expected` note, the failure screenshot as `[[ATTACHMENT|...]]` for GitLab, and a failure on a session the test launched as `CODE (phase) on launch-1: message`. The `junit` logger of `JunitXml.TestLogger` is the other way, for `dotnet test`. It writes `.e2e/report.json`, for scripts
 rather than reading (`jq`, CI tools; topic `debugging`), a trace page,
 `.e2e/results/<result>/trace.md`, for each attempt its `trace` mode keeps, and a
 video when `video` is on. The report holds every result of the test process,

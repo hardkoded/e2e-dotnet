@@ -145,7 +145,7 @@ jobs:
           retention-days: 7
 ```
 
-The `junit` logger is the [JunitXml.TestLogger](https://github.com/spekt/junit.testlogger) package, which you add to the test project. The port has no JUnit reporter of its own.
+The `junit` logger is the [JunitXml.TestLogger](https://github.com/spekt/junit.testlogger) package, which you add to the test project. The port's own `E2E.Reports.JunitReporter` (listed in `reporters` of `e2e.config.json`) writes `junit.xml` beside `report.json` without the package.
 
 Vercel's checkout action selects the deployed commit. Its status action reports the job result on that commit. Separate `e2e - preview` and `e2e - production` statuses prevent one environment's result from overwriting the other's.
 
