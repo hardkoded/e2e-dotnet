@@ -50,7 +50,22 @@ internal static class TracingChannelPublisher
                             return default(T);
                         }
 
-                        return await executeTask.ConfigureAwait(false);
+                        // tracePromise publishes the error on the channel. Keep the application's error separately from the
+                        // redacted telemetry copy. A decide result holds no provider metadata, so it is published as it is.
+                        try
+                        {
+                            return await executeTask.ConfigureAwait(false);
+                        }
+                        catch (Exception error)
+                        {
+                            var redacted = RedactTelemetryCredentials.Redact(error);
+                            if (ReferenceEquals(redacted, error))
+                            {
+                                throw;
+                            }
+
+                            throw redacted ?? new InvalidOperationException(OperationFailed);
+                        }
                     },
                     message
                 )
