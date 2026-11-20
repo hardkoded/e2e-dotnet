@@ -65,7 +65,7 @@ public sealed class RedactionBeforeAndAfterASessionOpensTests : IDisposable
     {
         var ledger = Secrecy.StaticSecretLedger(_secrets);
         Assert.Same(ledger, Secrecy.StaticSecretLedger(_secrets));
-        Secrecy.SessionLedger(NewSession(), _secrets).Register("token", ProviderValue);
+        Secrecy.SessionLedger(NewSession(), _secrets).Register("token", "provider-minted-token-6616");
         Assert.Equal([("password", StaticValue)], ledger.Entries());
     }
 }
