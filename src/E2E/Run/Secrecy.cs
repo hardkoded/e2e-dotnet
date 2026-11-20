@@ -32,9 +32,9 @@ internal static class Secrecy
                 )
         );
 
-    /// <summary><see cref="StaticSecretLedger(IReadOnlyList{Secret})"/> over a run's resolved static values.</summary>
+    /// <summary><see cref="StaticSecretLedger(IReadOnlyList{Secret})"/> over a run's resolved values; a provider-backed secret holds no value there and is left out.</summary>
     public static StaticLedger StaticSecretLedger(IReadOnlyList<(string Name, string Value)> secrets) =>
-        StaticLedgers.GetValue(secrets, static list => new StaticLedger([.. (IReadOnlyList<(string Name, string Value)>)list]));
+        StaticLedgers.GetValue(secrets, static list => new StaticLedger([.. ((IReadOnlyList<(string Name, string Value)>)list).Where(entry => entry.Value.Length > 0)]));
 
     /// <summary>
     /// Every secret value one session may have seen: the session's <see cref="AttemptScope"/>, seeded with the static secret values known up
