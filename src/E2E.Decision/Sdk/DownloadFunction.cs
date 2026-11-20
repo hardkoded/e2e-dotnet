@@ -40,13 +40,29 @@ public static class CreateDefaultDownloadFunction
     {
         download ??= static (request, token) => Downloads.DownloadAsync(request.Url, null, null, token);
         return async (requestedDownloads, token) =>
-            await Task.WhenAll(
-                    requestedDownloads.Select(async requestedDownload =>
-                        requestedDownload.IsUrlSupportedByModel
-                            ? null
-                            : await download(requestedDownload, cancellationToken ?? token).ConfigureAwait(false)
-                    )
+        {
+            var tasks = requestedDownloads
+                .Select(async requestedDownload =>
+                    requestedDownload.IsUrlSupportedByModel
+                        ? null
+                        : await download(requestedDownload, cancellationToken ?? token).ConfigureAwait(false)
                 )
-                .ConfigureAwait(false);
+                .ToList();
+            // Like Promise.all, fail as soon as one download fails, without cancelling the others. Their later failures are observed.
+            var pending = new List<Task<DownloadedFile?>>(tasks);
+            while (pending.Count > 0)
+            {
+                var done = await Task.WhenAny(pending).ConfigureAwait(false);
+                if (done.IsFaulted || done.IsCanceled)
+                {
+                    _ = Task.WhenAll(pending).ContinueWith(static _ => { }, TaskScheduler.Default);
+                    await done.ConfigureAwait(false);
+                }
+
+                pending.Remove(done);
+            }
+
+            return [.. tasks.Select(static task => task.Result)];
+        };
     }
 }

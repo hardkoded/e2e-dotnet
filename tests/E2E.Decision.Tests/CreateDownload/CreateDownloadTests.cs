@@ -60,4 +60,57 @@ public sealed class CreateDownloadTests
         var call = Assert.Single(fetch.Calls);
         Assert.Equal("https://files.example.com/unsupported", call.Url);
     }
+
+    // .NET-only (upstream's Promise.all does not cancel the remaining downloads): no upstream `it` covers cancelling siblings.
+    [Fact]
+    public async Task A_failed_download_in_a_batch_cancels_its_siblings_and_throws_its_own_error()
+    {
+        var siblingCancelled = false;
+        FetchFunction fetch = async (request, token) =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/first")
+            {
+                // Stops with a failure of its own once cancelled: it must not replace the error that started the cancel.
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    siblingCancelled = true;
+                    throw new InvalidOperationException("stopped");
+                }
+            }
+
+            return new HttpResponseMessage(System.Net.HttpStatusCode.NotFound);
+        };
+        var download = Sdk.CreateDownload.Create(new CreateDownloadOptions { Fetch = fetch });
+
+        var error = await Assert.ThrowsAsync<DownloadException>(() =>
+            download.DownloadAsync([
+                new DownloadRequest(new Uri("https://files.example.com/first"), false),
+                new DownloadRequest(new Uri("https://files.example.com/second"), false),
+            ])
+        );
+
+        Assert.Equal(404, error.StatusCode);
+        Assert.True(siblingCancelled);
+    }
+
+    // .NET-only: a caller cancel must surface as cancellation, even when a download fails while it stops.
+    [Fact]
+    public async Task A_caller_cancel_during_a_batch_surfaces_as_cancellation_not_as_a_download_failure()
+    {
+        using var cts = new CancellationTokenSource();
+        FetchFunction fetch = (_, _) =>
+        {
+            cts.Cancel();
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError));
+        };
+        var download = Sdk.CreateDownload.Create(new CreateDownloadOptions { Fetch = fetch });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            download.DownloadAsync([new DownloadRequest(new Uri("https://files.example.com/file"), false)], cts.Token)
+        );
+    }
 }

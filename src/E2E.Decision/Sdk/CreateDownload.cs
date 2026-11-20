@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 
 namespace E2E.Decision.Sdk;
@@ -43,11 +44,13 @@ public sealed class Download
     {
         // One failed download cancels its siblings, so a failed call leaves no download reading in the background.
         using var batch = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        // The first failure, recorded before the siblings are cancelled, so nothing a sibling throws while it stops can replace it.
+        var initiating = new StrongBox<Exception?>();
         var tasks = requests
             .Select(request =>
                 request.IsUrlSupportedByModel
                     ? Task.FromResult<DownloadedFile?>(null)
-                    : DownloadOneAsync(request, batch)
+                    : DownloadOneAsync(request, batch, initiating)
             )
             .ToList();
         try
@@ -59,14 +62,11 @@ public sealed class Download
             await batch.CancelAsync().ConfigureAwait(false);
             // Wait for the siblings and observe their errors.
             await Task.WhenAll(tasks).ContinueWith(static _ => { }, TaskScheduler.Default).ConfigureAwait(false);
-            // A cancelled sibling can come first in the list, so throw the failure that started the cancel, unless the caller cancelled.
-            if (!cancellationToken.IsCancellationRequested)
+            // A cancel by the caller surfaces as cancellation, whatever a download threw while it stopped.
+            cancellationToken.ThrowIfCancellationRequested();
+            if (initiating.Value is { } error)
             {
-                var failed = tasks.FirstOrDefault(static task => task.IsFaulted);
-                if (failed?.Exception?.InnerException is { } error)
-                {
-                    ExceptionDispatchInfo.Capture(error).Throw();
-                }
+                ExceptionDispatchInfo.Capture(error).Throw();
             }
 
             throw;
@@ -74,14 +74,19 @@ public sealed class Download
     }
 
     // A failing download cancels the batch at once, so its siblings stop while they are still reading instead of after they finish.
-    private async Task<DownloadedFile?> DownloadOneAsync(DownloadRequest request, CancellationTokenSource batch)
+    private async Task<DownloadedFile?> DownloadOneAsync(
+        DownloadRequest request,
+        CancellationTokenSource batch,
+        StrongBox<Exception?> initiating
+    )
     {
         try
         {
             return await DownloadAsync(request.Url, batch.Token).ConfigureAwait(false);
         }
-        catch
+        catch (Exception error)
         {
+            Interlocked.CompareExchange(ref initiating.Value, error, null);
             await batch.CancelAsync().ConfigureAwait(false);
             throw;
         }
