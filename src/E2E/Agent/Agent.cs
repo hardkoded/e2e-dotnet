@@ -2384,6 +2384,11 @@ internal sealed class AttemptScope : ISecretFillRuntime
             )
             {
                 _secrets.Add(secret);
+                // A value the session was handed is known to it from now on: shared with the sessions beside it until it ends, as one it learned is.
+                if (SharesSecrets)
+                {
+                    _sharing.Add(secret.Name, secret.Value);
+                }
             }
         }
     }

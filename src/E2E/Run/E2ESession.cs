@@ -1240,10 +1240,15 @@ public sealed class E2ESession : IAsyncDisposable
             _budget.Dispose();
             WriteDebug(_scope.Debug, _debugOutput, _scope.Steps.All());
             WriteAiTrace(_scope);
-            await WriteTracePageAsync().ConfigureAwait(false);
-
-            // The hosts the test launched share their secrets until the artifacts have settled: a download still being rewritten is redacted with them.
-            _guests?.Release();
+            try
+            {
+                await WriteTracePageAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                // The hosts the test launched share their secrets until the artifacts have settled: a download still being rewritten is redacted with them.
+                _guests?.Release();
+            }
         }
 
         if (videoFailure is not null)
