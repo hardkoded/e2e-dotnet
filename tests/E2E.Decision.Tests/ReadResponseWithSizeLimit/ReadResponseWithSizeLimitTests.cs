@@ -35,6 +35,25 @@ public sealed class ReadResponseWithSizeLimitTests
         Assert.Equal(new byte[] { 1, 2, 3 }, result);
     }
 
+    // Upstream spies on Uint8Array.prototype.set to see the chunk passed to concatenation. A .NET stream copies into the reader's own
+    // buffer and the result is built by MemoryStream.ToArray(), so the same property is asserted on the result: it holds exactly the
+    // bytes of the chunk, and it is not the oversized backing buffer.
+    [Fact]
+    public async Task Should_concatenate_compact_chunks_instead_of_oversized_backing_buffers()
+    {
+        var backing = new byte[64 * 1024];
+        var chunk = new ArraySegment<byte>(backing, 17, 3);
+        byte[] expected = [1, 2, 3];
+        expected.CopyTo(backing, 17);
+        using var mock = MockResponse.CreateWithChunk(chunk);
+
+        var result = await ReadAsync(mock, "http://example.com/file");
+
+        Assert.Equal(expected, result);
+        Assert.Equal(chunk.Count, result.Length);
+        Assert.NotSame(backing, result);
+    }
+
     [Fact]
     public async Task Should_read_response_within_limit_successfully()
     {
