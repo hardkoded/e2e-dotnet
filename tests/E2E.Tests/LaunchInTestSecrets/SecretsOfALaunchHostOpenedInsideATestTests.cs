@@ -35,6 +35,9 @@ public sealed class SecretsOfALaunchHostOpenedInsideATestTests : IAsyncLifetime
     private RunOutcome _outcome = null!;
     private FixtureProject _project = null!;
 
+    // The one provider the run is given and the test's own handle resolves through.
+    private static readonly SecretProvider CodeProvider = _ => Task.FromResult(CodeValue);
+
     private static SemanticNode Node(
         string reference,
         string role,
@@ -87,7 +90,7 @@ public sealed class SecretsOfALaunchHostOpenedInsideATestTests : IAsyncLifetime
         var invite = new Dictionary<string, string> { ["INVITE"] = HostValue };
         var code = E2EConfig
             .Parse("""{ "secrets": {} }""", _project.Dir, _ => null)
-            .WithSecretProvider("CODE", _ => Task.FromResult(CodeValue))
+            .WithSecretProvider("CODE", CodeProvider)
             .Secrets.Get("CODE");
 
         return [new InMemoryTest(Shown, async session =>
@@ -215,8 +218,14 @@ public sealed class SecretsOfALaunchHostOpenedInsideATestTests : IAsyncLifetime
         }
         finally
         {
-            _project.Cleanup();
-            E2E.Tests.SessionSecrecy.SecretsSharedBySessionsInOneProcessTests.ClearShared();
+            try
+            {
+                _project.Cleanup();
+            }
+            finally
+            {
+                E2E.Tests.SessionSecrecy.SecretsSharedBySessionsInOneProcessTests.ClearShared();
+            }
         }
     }
 

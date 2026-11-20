@@ -417,7 +417,7 @@ public sealed class CoreTests : IAsyncLifetime
         Assert.Contains("<secret:PHONE>", failure.Details?.Locator, StringComparison.Ordinal);
         Assert.DoesNotContain(
             phoneSecret,
-            $"{failure.Message} {failure.StackTrace} {failure.Details?.Locator}",
+            $"{failure.Message} {failure.StackTrace} {System.Text.Json.JsonSerializer.Serialize(failure.Details)}",
             StringComparison.Ordinal
         );
 
