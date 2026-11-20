@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.ExceptionServices;
+
 namespace E2E.Decision.Sdk;
 
 /// <summary>What <see cref="CreateDownload.Create"/> takes (the options of the AI SDK's <c>createDownload</c>).</summary>
@@ -45,7 +47,7 @@ public sealed class Download
             .Select(request =>
                 request.IsUrlSupportedByModel
                     ? Task.FromResult<DownloadedFile?>(null)
-                    : DownloadOneAsync(request, batch.Token)
+                    : DownloadOneAsync(request, batch)
             )
             .ToList();
         try
@@ -55,19 +57,35 @@ public sealed class Download
         catch
         {
             await batch.CancelAsync().ConfigureAwait(false);
-            // Wait for the siblings and observe their errors: the first error is the one thrown, theirs are cancellations.
-            await Task.WhenAll(tasks)
-                .ContinueWith(static all => all.Exception, TaskScheduler.Default)
-                .ConfigureAwait(false);
+            // Wait for the siblings and observe their errors.
+            await Task.WhenAll(tasks).ContinueWith(static _ => { }, TaskScheduler.Default).ConfigureAwait(false);
+            // A cancelled sibling can come first in the list, so throw the failure that started the cancel, unless the caller cancelled.
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                var failed = tasks.FirstOrDefault(static task => task.IsFaulted);
+                if (failed?.Exception?.InnerException is { } error)
+                {
+                    ExceptionDispatchInfo.Capture(error).Throw();
+                }
+            }
 
             throw;
         }
     }
 
-    private async Task<DownloadedFile?> DownloadOneAsync(
-        DownloadRequest request,
-        CancellationToken cancellationToken
-    ) => await DownloadAsync(request.Url, cancellationToken).ConfigureAwait(false);
+    // A failing download cancels the batch at once, so its siblings stop while they are still reading instead of after they finish.
+    private async Task<DownloadedFile?> DownloadOneAsync(DownloadRequest request, CancellationTokenSource batch)
+    {
+        try
+        {
+            return await DownloadAsync(request.Url, batch.Token).ConfigureAwait(false);
+        }
+        catch
+        {
+            await batch.CancelAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
 }
 
 /// <summary>The AI SDK's <c>createDownload</c> (<c>util/download/create-download.ts</c>).</summary>

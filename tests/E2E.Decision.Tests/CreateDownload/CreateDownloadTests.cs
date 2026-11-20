@@ -14,7 +14,7 @@ public sealed class CreateDownloadTests
     // The signal is the caller's token linked with the download's own bound, so the test checks that cancelling the caller's reaches fetch
     // (upstream compares the signal by identity).
     [Fact]
-    public async Task Forwards_the_fetch_transport_abort_signal_and_download_size_limit()
+    public async Task Partial_forwards_the_fetch_transport_abort_signal_and_download_size_limit()
     {
         using var cts = new CancellationTokenSource();
         var cancelledInFetch = false;
