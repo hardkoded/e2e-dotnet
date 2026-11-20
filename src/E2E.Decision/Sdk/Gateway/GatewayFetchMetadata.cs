@@ -10,10 +10,9 @@ namespace E2E.Decision.Sdk.Gateway;
 public sealed record GatewayFetchMetadataResponse(IReadOnlyList<GatewayLanguageModelEntry> Models);
 
 /// <summary>Upstream's <c>GatewayCreditsResponse</c>.</summary>
-public sealed record GatewayCreditsResponse(string Balance, string TotalUsed)
-{
-    // The remaining gateway credit balance available for API usage is Balance; the total consumed is TotalUsed.
-}
+/// <param name="Balance">The remaining gateway credit balance available for API usage.</param>
+/// <param name="TotalUsed">The total amount of gateway credits that have been consumed.</param>
+public sealed record GatewayCreditsResponse(string Balance, string TotalUsed);
 
 /// <summary>The AI SDK's <c>GatewayFetchMetadata</c> (<c>gateway-fetch-metadata.ts</c>): the models and the credits of the Gateway.</summary>
 public sealed class GatewayFetchMetadata(GatewayConfig config)

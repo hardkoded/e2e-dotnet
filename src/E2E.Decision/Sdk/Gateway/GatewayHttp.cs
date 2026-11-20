@@ -62,12 +62,27 @@ internal static class GatewayHttp
         }
     }
 
-    private static string FormEncode(string value) =>
-        EncodeUriComponent(value)
-            .Replace("%20", "+")
-            .Replace("!", "%21")
-            .Replace("'", "%27")
-            .Replace("(", "%28")
-            .Replace(")", "%29")
-            .Replace("*", "%2A");
+    // URLSearchParams: letters, digits, and *-._ stay; a space is +; every other byte is %XX.
+    private static string FormEncode(string value)
+    {
+        var builder = new System.Text.StringBuilder();
+        foreach (var b in System.Text.Encoding.UTF8.GetBytes(value))
+        {
+            var c = (char)b;
+            if (b < 0x80 && (char.IsAsciiLetterOrDigit(c) || c is '*' or '-' or '.' or '_'))
+            {
+                builder.Append(c);
+            }
+            else if (c == ' ')
+            {
+                builder.Append('+');
+            }
+            else
+            {
+                builder.Append('%').Append(b.ToString("X2", System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
+
+        return builder.ToString();
+    }
 }

@@ -32,6 +32,22 @@ internal static class Zod
                 : throw Invalid(path + "." + name, "expected string")
             : null;
 
+    /// <summary><c>z.optional(z.string())</c>: absent is fine, null is not.</summary>
+    public static string? OptionalString(JsonElement parent, string name, string path) =>
+        parent.TryGetProperty(name, out var value)
+            ? value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : throw Invalid(path + "." + name, "expected string")
+            : null;
+
+    /// <summary><c>z.optional(z.number())</c>: absent is fine, null is not.</summary>
+    public static double? OptionalNumber(JsonElement parent, string name, string path) =>
+        parent.TryGetProperty(name, out var value)
+            ? value.ValueKind == JsonValueKind.Number
+                ? value.GetDouble()
+                : throw Invalid(path + "." + name, "expected number")
+            : null;
+
     public static double Number(JsonElement parent, string name, string path) =>
         parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number
             ? value.GetDouble()

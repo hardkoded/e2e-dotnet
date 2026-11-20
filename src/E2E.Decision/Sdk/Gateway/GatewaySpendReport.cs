@@ -160,7 +160,7 @@ public sealed class GatewaySpendReport(GatewayConfig config)
         )
         {
             var row = Zod.Object(element, Path);
-            var credentialType = Zod.NullishString(row, "credential_type", Path);
+            var credentialType = Zod.OptionalString(row, "credential_type", Path);
             if (credentialType is not (null or "byok" or "system"))
             {
                 throw Zod.Invalid(Path + ".credential_type", "expected 'byok' or 'system'");
@@ -169,21 +169,21 @@ public sealed class GatewaySpendReport(GatewayConfig config)
             results.Add(
                 new GatewaySpendReportRow
                 {
-                    Day = Zod.NullishString(row, "day", Path),
-                    Hour = Zod.NullishString(row, "hour", Path),
-                    User = Zod.NullishString(row, "user", Path),
-                    Model = Zod.NullishString(row, "model", Path),
-                    Tag = Zod.NullishString(row, "tag", Path),
-                    Provider = Zod.NullishString(row, "provider", Path),
+                    Day = Zod.OptionalString(row, "day", Path),
+                    Hour = Zod.OptionalString(row, "hour", Path),
+                    User = Zod.OptionalString(row, "user", Path),
+                    Model = Zod.OptionalString(row, "model", Path),
+                    Tag = Zod.OptionalString(row, "tag", Path),
+                    Provider = Zod.OptionalString(row, "provider", Path),
                     CredentialType = credentialType,
                     TotalCost = Zod.Number(row, "total_cost", Path),
-                    MarketCost = Zod.NullishNumber(row, "market_cost", Path),
-                    InputTokens = Zod.NullishNumber(row, "input_tokens", Path),
-                    OutputTokens = Zod.NullishNumber(row, "output_tokens", Path),
-                    CachedInputTokens = Zod.NullishNumber(row, "cached_input_tokens", Path),
-                    CacheCreationInputTokens = Zod.NullishNumber(row, "cache_creation_input_tokens", Path),
-                    ReasoningTokens = Zod.NullishNumber(row, "reasoning_tokens", Path),
-                    RequestCount = Zod.NullishNumber(row, "request_count", Path),
+                    MarketCost = Zod.OptionalNumber(row, "market_cost", Path),
+                    InputTokens = Zod.OptionalNumber(row, "input_tokens", Path),
+                    OutputTokens = Zod.OptionalNumber(row, "output_tokens", Path),
+                    CachedInputTokens = Zod.OptionalNumber(row, "cached_input_tokens", Path),
+                    CacheCreationInputTokens = Zod.OptionalNumber(row, "cache_creation_input_tokens", Path),
+                    ReasoningTokens = Zod.OptionalNumber(row, "reasoning_tokens", Path),
+                    RequestCount = Zod.OptionalNumber(row, "request_count", Path),
                 }
             );
         }
