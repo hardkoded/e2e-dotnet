@@ -698,6 +698,8 @@ public sealed class E2ESession : IAsyncDisposable
             catch
             {
                 hold?.Dispose();
+                // No session was returned to release it: stop sharing what the scope learned.
+                created?.ReleaseSessionLedger();
                 throw;
             }
         }

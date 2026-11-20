@@ -83,33 +83,30 @@ internal static class ErrorRedaction
         {
             EngineException engine => new EngineException(engine.Code, message, engine.Retryable, inner)
             {
-                Details = Detail(engine, redact),
+                Details = redactedDetails,
             },
             AgentException agent when inner is null => new AgentException(agent.Code, message, agent.Blocked)
             {
                 Screenshot = agent.Screenshot,
                 FromActionHook = agent.FromActionHook,
-                Details = Detail(agent, redact),
+                Details = redactedDetails,
             },
             AgentException agent => new AgentException(agent.Code, message, agent.Blocked, inner)
             {
                 Screenshot = agent.Screenshot,
                 FromActionHook = agent.FromActionHook,
-                Details = Detail(agent, redact),
+                Details = redactedDetails,
             },
             ConfigurationException config when inner is null => new ConfigurationException(config.Code, message)
             {
-                Details = Detail(config, redact),
+                Details = redactedDetails,
             },
             ConfigurationException config => new ConfigurationException(config.Code, message, inner)
             {
-                Details = Detail(config, redact),
+                Details = redactedDetails,
             },
-            E2EException e2e when inner is null => new TestException(e2e.Code, message)
-            {
-                Details = Detail(e2e, redact),
-            },
-            E2EException e2e => new TestException(e2e.Code, message, inner) { Details = Detail(e2e, redact) },
+            E2EException e2e when inner is null => new TestException(e2e.Code, message) { Details = redactedDetails },
+            E2EException e2e => new TestException(e2e.Code, message, inner) { Details = redactedDetails },
             _ when inner is null => new TestException("ERROR", message),
             _ => new TestException("ERROR", message, inner),
         };
