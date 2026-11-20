@@ -2,13 +2,14 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+#pragma warning disable CS0618 // the deprecated aliases are the subject of these tests
+
 using E2E.Decision.Sdk;
 
 namespace E2E.Decision.Tests.DeprecatedAliases;
 
 /// <summary>
-/// The AI SDK's <c>decide/deprecated-aliases.test.ts</c>, the <c>it</c>s on the function alias and the provider factories. The two
-/// telemetry <c>it</c>s of that file belong to the deprecated telemetry callbacks (#1899).
+/// The AI SDK's <c>decide/deprecated-aliases.test.ts</c>.
 /// </summary>
 [Collection(DefaultProviderCollection.Name)]
 public sealed class DeprecatedAliasesTests : IDisposable
@@ -120,6 +121,53 @@ public sealed class DeprecatedAliasesTests : IDisposable
         Assert.Equal(0, preferring.EvaluationModelCalls);
     }
 
+    [Fact]
+    public async Task Dispatches_deprecated_telemetry_callbacks_once_with_decision_operation_names()
+    {
+        var integration = new DeprecatedOnlyTelemetry();
+
+        await ExperimentalDecide.ExperimentalEvaluate(
+            new DecideOptions
+            {
+                EvaluationModel = new LegacyModel(),
+                State = State,
+                Questions = Questions,
+                Telemetry = new TelemetryOptions { Integrations = [integration] },
+            },
+            CancellationToken.None
+        );
+
+        Assert.Equal(
+            [
+                (nameof(ITelemetry.OnEvaluateStartAsync), "ai.decide"),
+                (nameof(ITelemetry.OnEvaluationModelCallStartAsync), "ai.decide.doDecide"),
+                (nameof(ITelemetry.OnEvaluationModelCallEndAsync), "ai.decide.doDecide"),
+                (nameof(ITelemetry.OnEvaluateEndAsync), "ai.decide"),
+            ],
+            integration.Calls
+        );
+    }
+
+    [Fact]
+    public async Task Prefers_each_decision_telemetry_callback_over_its_deprecated_alias()
+    {
+        var integration = new CurrentAndDeprecatedTelemetry();
+
+        await ExperimentalDecide.ExperimentalEvaluate(
+            new DecideOptions
+            {
+                EvaluationModel = new LegacyModel(),
+                State = State,
+                Questions = Questions,
+                Telemetry = new TelemetryOptions { Integrations = [integration] },
+            },
+            CancellationToken.None
+        );
+
+        Assert.Equal(4, integration.Current);
+        Assert.Equal(0, integration.Deprecated);
+    }
+
     private static DecideOptions Options(
         string? modelId = null,
         IDecisionModel? model = null,
@@ -133,6 +181,65 @@ public sealed class DeprecatedAliasesTests : IDisposable
             State = State,
             Questions = Questions,
         };
+
+    private sealed class DeprecatedOnlyTelemetry : ITelemetry
+    {
+        public List<(string Call, string OperationId)> Calls { get; } = [];
+
+        public Task OnEvaluateStartAsync(DecideStartEvent @event) =>
+            Record(nameof(OnEvaluateStartAsync), @event.OperationId);
+
+        public Task OnEvaluationModelCallStartAsync(DecisionModelCallStartEvent @event) =>
+            Record(nameof(OnEvaluationModelCallStartAsync), @event.OperationId);
+
+        public Task OnEvaluationModelCallEndAsync(DecisionModelCallEndEvent @event) =>
+            Record(nameof(OnEvaluationModelCallEndAsync), @event.OperationId);
+
+        public Task OnEvaluateEndAsync(DecideEndEvent @event) => Record(nameof(OnEvaluateEndAsync), @event.OperationId);
+
+        private Task Record(string call, string operationId)
+        {
+            Calls.Add((call, operationId));
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class CurrentAndDeprecatedTelemetry : ITelemetry
+    {
+        public int Current { get; private set; }
+
+        public int Deprecated { get; private set; }
+
+        public Task OnDecideStartAsync(DecideStartEvent @event) => Count(current: true);
+
+        public Task OnEvaluateStartAsync(DecideStartEvent @event) => Count(current: false);
+
+        public Task OnDecisionModelCallStartAsync(DecisionModelCallStartEvent @event) => Count(current: true);
+
+        public Task OnEvaluationModelCallStartAsync(DecisionModelCallStartEvent @event) => Count(current: false);
+
+        public Task OnDecisionModelCallEndAsync(DecisionModelCallEndEvent @event) => Count(current: true);
+
+        public Task OnEvaluationModelCallEndAsync(DecisionModelCallEndEvent @event) => Count(current: false);
+
+        public Task OnDecideEndAsync(DecideEndEvent @event) => Count(current: true);
+
+        public Task OnEvaluateEndAsync(DecideEndEvent @event) => Count(current: false);
+
+        private Task Count(bool current)
+        {
+            if (current)
+            {
+                Current++;
+            }
+            else
+            {
+                Deprecated++;
+            }
+
+            return Task.CompletedTask;
+        }
+    }
 
     private sealed class LegacyModel : IEvaluationModel
     {
