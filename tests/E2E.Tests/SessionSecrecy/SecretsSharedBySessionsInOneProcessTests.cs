@@ -177,6 +177,10 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
             withdraw();
             Assert.Equal(fromCopy, mine.Redactor.Redact(fromCopy));
 
+            // A session opened through the other copy, whose own redactor reads what is shared.
+            var copyScope = assembly.GetType("E2E.AttemptScope")!;
+            var theirs = Activator.CreateInstance(copyScope)!;
+            copyScope.GetProperty("SharesSecrets")!.SetValue(theirs, true);
             const string fromHere = "declared-in-this-copy-7245";
             global::E2E.OpenSession.RegisterStaticSecrets([Secret.Create("here", fromHere)]);
             var copyRedact = copyOpenSession.GetMethod(
@@ -184,6 +188,13 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
                 BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic
             )!;
             Assert.Equal("<secret:here>", (string)copyRedact.Invoke(null, [fromHere])!);
+            var theirRedactor = copyScope.GetProperty("Redactor")!.GetValue(theirs)!;
+            Assert.Equal(
+                "<secret:here>",
+                (string)theirRedactor.GetType().GetMethod("Redact")!.Invoke(theirRedactor, [fromHere])!
+            );
+            // Each copy keeps its own ledgers: the other copy's session is ended through that copy.
+            copyScope.GetMethod("ReleaseSessionLedger")!.Invoke(theirs, []);
         }
         finally
         {

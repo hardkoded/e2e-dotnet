@@ -125,7 +125,7 @@ A state restores only on a host of the same engine, platform, and app. Another i
 
 ## Pass secrets
 
-Give secret values to `LaunchAsync`, then fill them by name. A host shares its secret values with every session open beside it while it is open, so a session redacts a value only another session was given, and what a session learned (a provider's value, a one-time code) is redacted in the sessions beside it while a host is open. What a session holds stays its own: a saved state carries none of the host's values.
+Give secret values to `LaunchAsync`, then fill them by name. A host shares its secret values with every session open beside it while it is open, so a session redacts a value only another session was given, and what a session learned (a provider's value, a one-time code) is redacted in the sessions beside it while a host is open. What a session holds stays its own: a saved state carries the values the session knows, the host's configured values included, and none it only borrows through shared redaction.
 
 ```csharp
 await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions
