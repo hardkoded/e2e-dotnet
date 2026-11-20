@@ -167,6 +167,8 @@ public sealed class SecretsOfALaunchHostOpenedInsideATestTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // The run registers its secrets for the process, so the process starts the file with none shared.
+        E2E.Tests.SessionSecrecy.SecretsSharedBySessionsInOneProcessTests.ClearShared();
         _project = RunProject.CreateProject();
         var config = JsonSerializer.Serialize(
             new Dictionary<string, object>
@@ -197,12 +199,25 @@ public sealed class SecretsOfALaunchHostOpenedInsideATestTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        foreach (var host in _hosts)
+        try
         {
-            await host.DisposeAsync();
+            foreach (var host in _hosts)
+            {
+                try
+                {
+                    await host.DisposeAsync();
+                }
+                catch (AggregateException)
+                {
+                    // A host already closed by its test is checked by the tests that look at it.
+                }
+            }
         }
-
-        _project.Cleanup();
+        finally
+        {
+            _project.Cleanup();
+            E2E.Tests.SessionSecrecy.SecretsSharedBySessionsInOneProcessTests.ClearShared();
+        }
     }
 
     private R.ReportAttempt AttemptOf(string title) => RunProject.ResultByTitle(_outcome, title).Attempts[0];
