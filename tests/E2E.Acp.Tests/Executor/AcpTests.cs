@@ -860,7 +860,8 @@ public sealed class AcpTests : IDisposable
         );
 
         Assert.Contains("onAction failed: hook failed", error.Message, StringComparison.Ordinal);
-        Assert.Contains(agent.Log(), entry => entry.ContainsKey("cancelled"));
+        // The agent logs the cancel after the step already ended.
+        await EventuallyAsync(() => Assert.Contains(agent.Log(), entry => entry.ContainsKey("cancelled")));
     }
 
     [Fact]

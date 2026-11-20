@@ -28,7 +28,10 @@ internal sealed class ScriptedAgent(IStepExecutor executor, string logFile)
             [
                 .. reader
                     .ReadToEnd()
-                    .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                    // The agent appends while this reads: a last line without its newline is half written, so leave it for the next read.
+                    .Split('\n')
+                    .SkipLast(1)
+                    .Where(line => line.Length > 0)
                     .Select(line => JsonNode.Parse(line)!.AsObject()),
             ];
         }
@@ -145,7 +148,7 @@ internal static class AcpHarness
     /// <summary>The wait for something a child process does: it can start or answer seconds late on a busy machine.</summary>
     public static async Task EventuallyAsync(Action check)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(15);
+        var deadline = DateTime.UtcNow.AddSeconds(60);
         while (true)
         {
             try
