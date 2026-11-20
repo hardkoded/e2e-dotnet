@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Decision.Sdk.Gateway;
+using Vercel.Oidc;
 using static E2E.Decision.Tests.GatewayDecisionModel.GatewayDecisionModelFixture;
 using Env = E2E.Decision.Sdk.Gateway.VercelEnvironment;
 
