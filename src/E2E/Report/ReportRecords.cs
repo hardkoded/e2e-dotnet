@@ -127,6 +127,7 @@ internal sealed record ReportError(
 /// <param name="Redaction">What the runner claims for the file when it rewrote it (a text-like download); null leaves the kind to decide.</param>
 /// <param name="Ref">The reference the host's <c>IArtifactStore</c> returned for the artifact; null when there is none.</param>
 /// <param name="Producer">Who made it; a recording a step stopped covers the video only until that step ends.</param>
+/// <param name="Actor">The session that produced it when it is not the test's own: one the test opened with <c>Launch</c>.</param>
 internal sealed record ReportArtifact(
     string Id,
     string Kind,
@@ -136,7 +137,8 @@ internal sealed record ReportArtifact(
     long? Size = null,
     ArtifactRedaction? Redaction = null,
     string? Ref = null,
-    ArtifactProducer? Producer = null
+    ArtifactProducer? Producer = null,
+    string? Actor = null
 );
 
 /// <summary>What was seen when a failure landed (upstream's <c>FailureEvidence</c>).</summary>

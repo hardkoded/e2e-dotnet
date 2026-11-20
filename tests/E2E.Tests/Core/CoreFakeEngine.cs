@@ -13,12 +13,14 @@ namespace E2E.Tests.Core;
 /// the <c>restoredStates</c>, <c>inits</c>, <c>attemptsStarted</c> and <c>disposes</c> counts the core tests read, and the <c>device</c> and <c>links</c> options:
 /// a device engine pins an app and relaunches it, and one with links opens them, as <c>session.openLink</c> does.
 /// </summary>
-internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
+internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>, IPreparableEngine
 {
     private readonly List<EngineState> _restored = [];
     private readonly List<(SemanticNode Node, LocatorAction Action)> _performed = [];
     private int _starts;
     private int _disposes;
+    private int _inits;
+    private int _finishes;
 
     private readonly List<string> _openedLinks = [];
     private readonly List<(string Method, TimeSpan? Timeout)> _operations = [];
@@ -27,9 +29,12 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
         IReadOnlyList<SemanticNode>? scene = null,
         bool state = false,
         bool device = false,
-        bool links = false
+        bool links = false,
+        bool video = false,
+        IReadOnlyList<string>? videoLinks = null
     )
     {
+        VideoLinks = videoLinks ?? [];
         Scene = scene
             ??
             [
@@ -45,7 +50,30 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
             | EngineCapabilities.Actions
             | (state ? EngineCapabilities.State : 0)
             | (device ? EngineCapabilities.PinnedApp : 0)
-            | (links ? EngineCapabilities.OpenLink : 0);
+            | (links ? EngineCapabilities.OpenLink : 0)
+            | (video ? EngineCapabilities.Video : 0);
+    }
+
+    /// <summary>Links <c>StopVideoAsync</c> reports before its file, as <c>video/mp4</c> segments starting with it. Upstream's <c>videoLinks</c>.</summary>
+    public IReadOnlyList<string> VideoLinks { get; }
+
+    /// <summary>Runs when an attempt starts, before it is handed out. Upstream's <c>onStartAttempt</c>.</summary>
+    public Func<Task>? OnStartAttempt { get; init; }
+
+    /// <summary>What the engine counted. Upstream's <c>stats()</c>: <c>inits</c> and <c>disposes</c> are the engine's prepare and finish, <c>attemptsStarted</c> and <c>attemptsEnded</c> are its sessions' start and dispose.</summary>
+    public (int Inits, int AttemptsStarted, int AttemptsEnded, int Disposes) Stats() =>
+        (Volatile.Read(ref _inits), Starts, Disposes, Volatile.Read(ref _finishes));
+
+    public Task<EnginePrepareResult> PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken)
+    {
+        Interlocked.Increment(ref _inits);
+        return Task.FromResult(new EnginePrepareResult());
+    }
+
+    public Task FinishAsync(EngineFinishInfo info, CancellationToken cancellationToken)
+    {
+        Interlocked.Increment(ref _finishes);
+        return Task.CompletedTask;
     }
 
     /// <summary>The links the sessions opened through <c>OpenLinkAsync</c>, in order.</summary>
@@ -103,10 +131,15 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
     public CoreFakeFixtures CreateFixtures(IEngineSession session, E2E.Session controls) =>
         new("gadget on " + Platform);
 
-    public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
+    public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
         Interlocked.Increment(ref _starts);
-        return Task.FromResult<IEngineSession>(new Session(this, options.ArtifactsDir));
+        if (OnStartAttempt is { } onStart)
+        {
+            await onStart().ConfigureAwait(false);
+        }
+
+        return new Session(this, options.ArtifactsDir);
     }
 
     private void Record(string method, OperationContext context, TimeSpan? timeout = null)
@@ -212,6 +245,39 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
             }
 
             return Task.CompletedTask;
+        }
+
+        private string? _videoStartedAt;
+
+        public Task StartVideoAsync(CancellationToken cancellationToken)
+        {
+            _videoStartedAt = DateTimeOffset.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+            return Task.CompletedTask;
+        }
+
+        // Writes one small video/fake.webm into the attempt directory and reports it, after the links.
+        public Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken)
+        {
+            if (artifactsDir is null || _videoStartedAt is not { } startedAt)
+            {
+                return Task.FromResult<IReadOnlyList<VideoSegment>>([]);
+            }
+
+            Directory.CreateDirectory(Path.Combine(artifactsDir, "video"));
+            File.WriteAllBytes(Path.Combine(artifactsDir, "video", "fake.webm"), [0x1A, 0x45, 0xDF, 0xA3]);
+            _videoStartedAt = null;
+            return Task.FromResult<IReadOnlyList<VideoSegment>>([
+                .. owner.VideoLinks.Select(url =>
+                    (VideoSegment)
+                        new VideoLink
+                        {
+                            Url = url,
+                            MediaType = "video/mp4",
+                            StartedAt = startedAt,
+                        }
+                ),
+                new VideoFile { Path = "video/fake.webm", StartedAt = startedAt },
+            ]);
         }
 
         public ValueTask DisposeAsync()

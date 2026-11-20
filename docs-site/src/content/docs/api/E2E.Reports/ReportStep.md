@@ -29,6 +29,21 @@ One call of the test (upstream's `ReportStep`).
 
 ## Properties
 
+<a id="E2E_Reports_ReportStep_Actor_"></a>
+<a id="E2E_Reports_ReportStep_Actor"></a>
+
+### Actor
+
+
+```csharp
+public string? Actor { get; init; }
+```
+
+
+The session the step ran on, when it is not the test's own: one the test drives beside it through [Launch](/api/E2E/Launch/), named in the order they joined it (`launch-1`). Null for a step of the test's own session.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Reports_ReportStep_Agent_"></a>
 <a id="E2E_Reports_ReportStep_Agent"></a>
 

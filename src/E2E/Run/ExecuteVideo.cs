@@ -60,6 +60,13 @@ internal sealed class ExecuteVideo
     }
 
     /// <summary>
+    /// The video a session was given in place of its target's mode (<see cref="E2ESessionOptions.VideoRecording"/>): recorded when the engine can, and
+    /// none otherwise, since the one who gave it asked for a best effort.
+    /// </summary>
+    public static VideoRecording? PlanGiven(E2ESessionOptions options, VideoRecording given) =>
+        (options.Engine.Capabilities & EngineCapabilities.Video) != 0 ? given : null;
+
+    /// <summary>
     /// Starts the video within the launch timeout. A required video's failure fails the start; a default one's is dropped.
     /// A cancel of <paramref name="cancellationToken"/> is never dropped.
     /// </summary>

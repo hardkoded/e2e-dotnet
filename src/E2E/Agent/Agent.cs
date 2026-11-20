@@ -2087,6 +2087,7 @@ internal sealed class AttemptScope : ISecretFillRuntime
                 {
                     Attempt = (AttemptId, Attempt - 1),
                     OnProgress = OnProgress,
+                    Mirror = Mirror,
                     ProjectRoot = ProjectRoot,
                     Redact = text => Redactor.Redact(text),
                     AiTrace = AiTraceScope,
@@ -2105,6 +2106,9 @@ internal sealed class AttemptScope : ISecretFillRuntime
 
     /// <summary>Live progress of the attempt's steps; null feeds none.</summary>
     public Action<StepProgress>? OnProgress { get; init; }
+
+    /// <summary>Takes each progress with the record it is of; see <see cref="StepRecorderOptions.Mirror"/>.</summary>
+    public Action<StepProgress, StepRecord>? Mirror { get; init; }
 
     public List<PendingAct> Acts { get; } = [];
 

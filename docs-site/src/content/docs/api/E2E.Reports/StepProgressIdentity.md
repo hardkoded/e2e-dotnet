@@ -30,13 +30,13 @@ Whose progress a notification is: IDs join live progress to the report. Step ind
 ## Constructors
 
 <a id="E2E_Reports_StepProgressIdentity__ctor_"></a>
-<a id="E2E_Reports_StepProgressIdentity__ctor_System_String_System_Int32_System_String_System_Int32_"></a>
+<a id="E2E_Reports_StepProgressIdentity__ctor_System_String_System_Int32_System_String_System_Int32_System_String_"></a>
 
-### StepProgressIdentity(string, int, string, int)
+### StepProgressIdentity(string, int, string, int, string?)
 
 
 ```csharp
-public StepProgressIdentity(string AttemptId, int AttemptIndex, string StepId, int StepIndex)
+public StepProgressIdentity(string AttemptId, int AttemptIndex, string StepId, int StepIndex, string? Actor = null)
 ```
 
 
@@ -46,12 +46,28 @@ Whose progress a notification is: IDs join live progress to the report. Step ind
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `AttemptId` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
-| `AttemptIndex` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
-| `StepId` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
-| `StepIndex` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
+| `AttemptId` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The attempt the step is of. |
+| `AttemptIndex` | [int](https://learn.microsoft.com/dotnet/api/system.int32) | The attempt's index. |
+| `StepId` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The step's id. |
+| `StepIndex` | [int](https://learn.microsoft.com/dotnet/api/system.int32) | The step's index. |
+| `Actor` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The session the step ran on when it is not the test's own, such as `launch-1`; absent for the test's own session. |
 
 ## Properties
+
+<a id="E2E_Reports_StepProgressIdentity_Actor_"></a>
+<a id="E2E_Reports_StepProgressIdentity_Actor"></a>
+
+### Actor
+
+
+```csharp
+public string? Actor { get; init; }
+```
+
+
+The session the step ran on when it is not the test's own, such as `launch-1`; absent for the test's own session.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_Reports_StepProgressIdentity_AttemptId_"></a>
 <a id="E2E_Reports_StepProgressIdentity_AttemptId"></a>

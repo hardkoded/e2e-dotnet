@@ -433,6 +433,80 @@ public sealed class CoreTests : IAsyncLifetime
         await session.CloseAsync();
     }
 
+    private sealed class GuestSeat<TOpened, TTaken>(CancellationToken signal, Func<TOpened, TTaken?> take)
+        : IGuestSeat<TOpened, TTaken>
+    {
+        public CancellationToken Signal { get; } = signal;
+
+        public TTaken? Take(TOpened opened) => take(opened);
+    }
+
+    private sealed class SeatsOnlyForTheFirstHost : IAttemptGuests
+    {
+        private int _seats;
+
+        // The first host is taken, with a session nobody takes; the second host is not taken either.
+        private readonly GuestSeat<IGuestHost, bool> _gaveUpHost = new(new CancellationTokenSource().Token, _ => false);
+        private readonly GuestSeat<IGuestSession, IGuestSteps> _gaveUpSession = new(
+            new CancellationTokenSource().Token,
+            _ => null
+        );
+
+        public bool Video => false;
+
+        public IGuestSeat<IGuestHost, bool> Host() =>
+            Interlocked.Increment(ref _seats) == 1
+                ? new GuestSeat<IGuestHost, bool>(new CancellationTokenSource().Token, _ => true)
+                : _gaveUpHost;
+
+        public IGuestSeat<IGuestSession, IGuestSteps> Session() => _gaveUpSession;
+
+        public IGuestSteps Visit(string root) => throw new NotSupportedException();
+
+        public void GaveUp(Exception error) { }
+    }
+
+    [Fact]
+    public async Task Closes_a_host_and_a_session_whose_test_gave_up_its_seat_while_it_was_opening()
+    {
+        using var ended = new CancellationTokenSource();
+        using var published = Attempts.PublishAttempt(
+            new PublishedAttempt { AttemptId = "a1", Guests = new SeatsOnlyForTheFirstHost() },
+            ended.Token
+        );
+        try
+        {
+            var kept = new CoreFakeEngine();
+            var opened = await HostOf(kept);
+            var failure = await Assert.ThrowsAsync<EngineException>(() => opened.NewSessionAsync());
+            Assert.Equal("CANCELLED", failure.Code);
+            Assert.Contains("ended before it was open", failure.Message, StringComparison.Ordinal);
+            var started = kept.Stats();
+            Assert.Equal((1, 1), (started.AttemptsStarted, started.AttemptsEnded));
+
+            var dropped = new CoreFakeEngine();
+            var dropping = await Assert.ThrowsAsync<EngineException>(() =>
+                Launch.LaunchAsync(
+                    (IEngine)dropped,
+                    new LaunchOptions
+                    {
+                        App = FakeApp,
+                        Cwd = _dir,
+                        Env = new Dictionary<string, string?>(),
+                    }
+                )
+            );
+            Assert.Equal("CANCELLED", dropping.Code);
+            Assert.Contains("ended before it was open", dropping.Message, StringComparison.Ordinal);
+            var finished = dropped.Stats();
+            Assert.Equal((1, 1), (finished.Inits, finished.Disposes));
+        }
+        finally
+        {
+            await ended.CancelAsync();
+        }
+    }
+
     [Fact]
     public async Task Hands_secrets_out_by_name_and_redacts_their_values_from_what_the_screen_reads()
     {

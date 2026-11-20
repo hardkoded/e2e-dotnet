@@ -245,13 +245,27 @@ public abstract class E2EFixture
     /// <paramref name="testFailed"/> says whether the framework already failed the test.
     /// <paramref name="testMethod"/> is the test's method, which carries its <see cref="AgentAttribute"/> and <see cref="AgentContextAttribute"/>.
     /// </summary>
-    protected async Task StartSessionAsync(
+    protected Task StartSessionAsync(
         string title,
         int attempt,
         Action<TestException>? onSoftFailure,
         Func<bool> testFailed,
         CancellationToken cancellationToken,
         System.Reflection.MethodBase? testMethod = null
+    )
+    {
+        // Reserved in the caller's own flow, which the test body that follows shares: a host the body launches finds this attempt through it.
+        Attempts.Reserve();
+        return StartSessionCoreAsync(title, attempt, onSoftFailure, testFailed, cancellationToken, testMethod);
+    }
+
+    private async Task StartSessionCoreAsync(
+        string title,
+        int attempt,
+        Action<TestException>? onSoftFailure,
+        Func<bool> testFailed,
+        CancellationToken cancellationToken,
+        System.Reflection.MethodBase? testMethod
     )
     {
         if (string.IsNullOrWhiteSpace(title))
@@ -344,6 +358,7 @@ public abstract class E2EFixture
                 new E2ESessionOptions
                 {
                     Engine = engine,
+                    OffersGuests = true,
                     Credentials = Config.Credentials,
                     Config = ResolvedConfigOf(defaultModel, defaultJudge, agents),
                     AppIdentity = identity,
