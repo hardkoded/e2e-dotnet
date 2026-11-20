@@ -220,6 +220,12 @@ public sealed class DecisionModelResult
     /// <summary>What the provider reported beside the answers, by provider name (for example the per-question <c>confidence</c>).</summary>
     public JsonElement? ProviderMetadata { get; init; }
 
+    /// <summary>The id of the response (upstream's <c>response.id</c>), when the provider sends one.</summary>
+    public string? ResponseId { get; init; }
+
+    /// <summary>The timestamp of the response (upstream's <c>response.timestamp</c>), when the provider sends one.</summary>
+    public DateTimeOffset? ResponseTimestamp { get; init; }
+
     /// <summary>The id of the model that served the call, when the response names one.</summary>
     public string? ResponseModelId { get; init; }
 
@@ -313,5 +319,9 @@ public sealed class DecisionResult
     /// <summary>The provider's response body, as it sent it (upstream's <c>response.body</c>).</summary>
     public JsonElement? ResponseBody { get; init; }
 
+    /// <summary>The id of the response (upstream's <c>response.id</c>), when the model's response has one.</summary>
+    public string? ResponseId { get; init; }
+
+    /// <summary>The model response's timestamp, or the time the result was made.</summary>
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
 }
