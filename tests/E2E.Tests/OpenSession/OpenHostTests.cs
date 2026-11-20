@@ -5,8 +5,15 @@
 namespace E2E.Tests.OpenSession;
 
 /// <summary>.NET-only: <c>PublicOwnership</c> and <c>RedactOpening</c> (upstream's <c>run/public-ownership.ts</c> and <c>redactOpening</c>), which upstream's tests reach only through a runner.</summary>
-public sealed class OpenHostTests
+[Collection(SessionSecrecy.SharedSecretsCollection.Name)]
+public sealed class OpenHostTests : IDisposable
 {
+    // RegisterStaticSecrets shares a value for the life of the process, which every session in the process then redacts: the test runs alone
+    // and leaves no value shared, as upstream's file gets a worker of its own.
+    public OpenHostTests() => SessionSecrecy.SecretsSharedBySessionsInOneProcessTests.ClearShared();
+
+    public void Dispose() => SessionSecrecy.SecretsSharedBySessionsInOneProcessTests.ClearShared();
+
     [Fact]
     public async Task Holds_the_process_for_a_host_from_before_the_config_loads_until_it_closes()
     {
