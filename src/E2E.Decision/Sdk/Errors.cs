@@ -18,17 +18,6 @@ public sealed class InvalidResponseDataException(string message, object? answers
     public object? Answers { get; } = answers;
 }
 
-/// <summary>The AI SDK's <c>NoSuchModelError</c>: the provider has no model of that type or id.</summary>
-public sealed class NoSuchModelException(string modelId, string modelType)
-    : Exception("No such " + modelType + ": " + modelId)
-{
-    /// <summary>The model id asked for.</summary>
-    public string ModelId { get; } = modelId;
-
-    /// <summary>The kind of model asked for, such as <c>languageModel</c>.</summary>
-    public string ModelType { get; } = modelType;
-}
-
 /// <summary>The AI SDK's <c>LoadAPIKeyError</c>: the provider has no API key.</summary>
 public sealed class LoadApiKeyException(string message) : Exception(message);
 
@@ -127,4 +116,32 @@ public sealed class UnsupportedFunctionalityException(string functionality)
     : Exception("'" + functionality + "' functionality not supported.")
 {
     public string Functionality { get; } = functionality;
+}
+
+/// <summary>The AI SDK's <c>NoSuchModelError</c>: no model of that type has that id.</summary>
+public class NoSuchModelException(string modelId, string modelType, string? message = null)
+    : Exception(message ?? "No such " + modelType + ": " + modelId)
+{
+    public string ModelId { get; } = modelId;
+
+    /// <summary>The kind of model, such as <c>decisionModel</c>.</summary>
+    public string ModelType { get; } = modelType;
+}
+
+/// <summary>The AI SDK's <c>NoSuchProviderError</c>: the registry has no provider with that id.</summary>
+public sealed class NoSuchProviderException(
+    string modelId,
+    string modelType,
+    string providerId,
+    IReadOnlyList<string> availableProviders
+)
+    : NoSuchModelException(
+        modelId,
+        modelType,
+        "No such provider: " + providerId + " (available providers: " + string.Join(",", availableProviders) + ")"
+    )
+{
+    public string ProviderId { get; } = providerId;
+
+    public IReadOnlyList<string> AvailableProviders { get; } = availableProviders;
 }
