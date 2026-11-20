@@ -26,6 +26,12 @@ public sealed class GatewayProviderSettings
 
     /// <summary>The client that sends the requests.</summary>
     public HttpClient? HttpClient { get; init; }
+
+    /// <summary>How frequently to refresh the metadata cache in milliseconds. Defaults to 5 minutes.</summary>
+    public double? MetadataCacheRefreshMillis { get; init; }
+
+    /// <summary>Upstream's <c>_internal.currentDate</c>, for testing purposes only.</summary>
+    internal Func<DateTimeOffset>? CurrentDate { get; init; }
 }
 
 /// <summary>The token and method <see cref="GatewayProvider.GetGatewayAuthTokenAsync"/> gives.</summary>
@@ -42,6 +48,10 @@ public sealed class GatewayProvider : IDecisionProvider
 
     private readonly GatewayProviderSettings _settings;
     private readonly string _baseUrl;
+    private readonly Lock _metadataLock = new();
+    private Task<GatewayFetchMetadataResponse>? _pendingMetadata;
+    private GatewayFetchMetadataResponse? _metadataCache;
+    private DateTimeOffset _lastFetchTime = DateTimeOffset.MinValue;
 
     /// <summary>Upstream's <c>createGateway</c>.</summary>
     public GatewayProvider(GatewayProviderSettings? settings = null)
@@ -62,6 +72,64 @@ public sealed class GatewayProvider : IDecisionProvider
                 O11yHeaders = GetO11yHeadersAsync,
                 HttpClient = _settings.HttpClient,
             }
+        );
+
+    /// <summary>The default provider (upstream's <c>export const gateway = createGateway()</c>).</summary>
+    public static GatewayProvider Gateway { get; } = new();
+
+    /// <summary>Returns available providers and models for use with the remote provider (upstream's <c>getAvailableModels</c>).</summary>
+    public Task<GatewayFetchMetadataResponse> GetAvailableModelsAsync(CancellationToken cancellationToken = default)
+    {
+        Task<GatewayFetchMetadataResponse> pending;
+        GatewayFetchMetadataResponse? cache;
+        lock (_metadataLock)
+        {
+            var now = _settings.CurrentDate?.Invoke() ?? DateTimeOffset.UtcNow;
+            var refresh = TimeSpan.FromMilliseconds(_settings.MetadataCacheRefreshMillis ?? 1000 * 60 * 5);
+            if (_pendingMetadata is null || now - _lastFetchTime > refresh)
+            {
+                _lastFetchTime = now;
+                _pendingMetadata = FetchAvailableModelsAsync();
+            }
+
+            pending = _pendingMetadata;
+            cache = _metadataCache;
+        }
+
+        return cache is not null ? Task.FromResult(cache) : pending.WaitAsync(cancellationToken);
+    }
+
+    /// <summary>Returns credit information for the authenticated user (upstream's <c>getCredits</c>).</summary>
+    public Task<GatewayCreditsResponse> GetCreditsAsync(CancellationToken cancellationToken = default) =>
+        WithAuthMethodAsync(
+            (config, token) => new GatewayFetchMetadata(config).GetCreditsAsync(token),
+            cancellationToken
+        );
+
+    /// <summary>
+    /// Returns a spend report with cost, token, and request count data, aggregated by the specified dimension (upstream's
+    /// <c>getSpendReport</c>).
+    /// </summary>
+    public Task<GatewaySpendReportResponse> GetSpendReportAsync(
+        GatewaySpendReportParams parameters,
+        CancellationToken cancellationToken = default
+    ) =>
+        WithAuthMethodAsync(
+            (config, token) => new GatewaySpendReport(config).GetSpendReportAsync(parameters, token),
+            cancellationToken
+        );
+
+    /// <summary>
+    /// Returns detailed information about a specific generation by its ID, including cost, token usage, latency, and provider details
+    /// (upstream's <c>getGenerationInfo</c>).
+    /// </summary>
+    public Task<GatewayGenerationInfo> GetGenerationInfoAsync(
+        GatewayGenerationInfoParams parameters,
+        CancellationToken cancellationToken = default
+    ) =>
+        WithAuthMethodAsync(
+            (config, token) => new GatewayGenerationInfoFetcher(config).GetGenerationInfoAsync(parameters, token),
+            cancellationToken
         );
 
     /// <summary>Creates a decision model (upstream's <c>decision</c>).</summary>
@@ -159,5 +227,50 @@ public sealed class GatewayProvider : IDecisionProvider
         }
 
         return Task.FromResult<IReadOnlyDictionary<string, string?>>(headers);
+    }
+
+    // getAvailableModels: the fetch is shared by every caller until the cache is refreshed, so it takes no caller's token.
+    private async Task<GatewayFetchMetadataResponse> FetchAvailableModelsAsync()
+    {
+        var metadata = await WithAuthMethodAsync(
+                (config, token) => new GatewayFetchMetadata(config).GetAvailableModelsAsync(token),
+                CancellationToken.None
+            )
+            .ConfigureAwait(false);
+        lock (_metadataLock)
+        {
+            _metadataCache = metadata;
+        }
+
+        return metadata;
+    }
+
+    // The getCredits / getSpendReport / getGenerationInfo wrapper: a failure becomes a Gateway error that names the auth method the
+    // request used.
+    private async Task<T> WithAuthMethodAsync<T>(
+        Func<GatewayConfig, CancellationToken, Task<T>> call,
+        CancellationToken cancellationToken
+    )
+    {
+        IReadOnlyDictionary<string, string?>? resolvedHeaders = null;
+        var config = new GatewayConfig
+        {
+            BaseUrl = _baseUrl,
+            HttpClient = _settings.HttpClient,
+            Headers = async token =>
+            {
+                var headers = await GetHeadersAsync(token).ConfigureAwait(false);
+                resolvedHeaders = headers;
+                return headers;
+            },
+        };
+        try
+        {
+            return await call(config, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            throw GatewayErrors.AsGatewayError(error, GatewayErrors.ParseAuthMethod(resolvedHeaders));
+        }
     }
 }
