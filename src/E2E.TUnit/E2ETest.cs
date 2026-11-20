@@ -65,15 +65,19 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
         LooksBeforeTeardownExecutor.Forget(context);
         RunSelection.SkipIfLeftOut(GetType(), details.MethodName);
         RunSelection.SkipIfSetupRan(GetType(), details.MethodName);
-        await StartSessionAsync(
-                CacheTitle(context),
-                context.Execution.CurrentRetryAttempt + 1,
-                null,
-                () => LooksBeforeTeardownExecutor.OutcomeOf(context) is { Failure: not null },
-                cancellationToken,
-                TestMethodOf(details)
-            )
-            .ConfigureAwait(false);
+        var started = StartSessionAsync(
+            CacheTitle(context),
+            context.Execution.CurrentRetryAttempt + 1,
+            null,
+            () => LooksBeforeTeardownExecutor.OutcomeOf(context) is { Failure: not null },
+            cancellationToken,
+            TestMethodOf(details)
+        );
+
+        // StartSessionAsync reserved the slot a host the test body launches finds its attempt through, in this hook's flow; TUnit hands the body only
+        // the async-local values a hook asks it to.
+        context.AddAsyncLocalValues();
+        await started.ConfigureAwait(false);
     }
 
     /// <summary>

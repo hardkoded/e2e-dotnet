@@ -62,8 +62,10 @@ public abstract class E2ETest : E2EFixture
 
     private bool _bodyDone;
 
+    // Not async: StartSessionAsync reserves the slot a host the test body launches finds its attempt through, in the flow of its caller. An
+    // async [SetUp] would keep the slot to itself, and NUnit runs the body in the flow of the method it calls, not in the one an async method ends in.
     [SetUp]
-    public async Task StartE2ESessionAsync()
+    public Task StartE2ESessionAsync()
     {
         _bodyDone = false;
         var current = global::NUnit.Framework.TestContext.CurrentContext;
@@ -88,19 +90,18 @@ public abstract class E2ETest : E2EFixture
 
             if (HasSession)
             {
-                return;
+                return Task.CompletedTask;
             }
         }
 
-        await StartSessionAsync(
-                CacheTitle(current.Test),
-                AttemptOf(current),
-                RecordSoftFailure,
-                HasFailed,
-                current.CancellationToken,
-                TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo
-            )
-            .ConfigureAwait(false);
+        return StartSessionAsync(
+            CacheTitle(current.Test),
+            AttemptOf(current),
+            RecordSoftFailure,
+            HasFailed,
+            current.CancellationToken,
+            TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo
+        );
     }
 
     [TearDown]
