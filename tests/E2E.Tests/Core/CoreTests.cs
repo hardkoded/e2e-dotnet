@@ -13,6 +13,7 @@ namespace E2E.Tests.Core;
 /// Upstream's <c>describe('e2e/core')</c> (<c>tests/integration/core.test.ts</c>): hosts, sessions, saved state, secrets, timeouts, link bases, and the
 /// agent's cache. The <c>it</c> that need a feature the port has not ported are not here, or are partial; the <c>it</c> of <c>describe('createAgent')</c> are in <c>CreateAgentTests</c>.
 /// </summary>
+[Collection(E2E.Tests.SessionSecrecy.SharedSecretsCollection.Name)]
 public sealed class CoreTests : IAsyncLifetime
 {
     private static readonly LaunchApp FakeApp = new() { Url = "http://127.0.0.1:4500" };

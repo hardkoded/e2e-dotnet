@@ -740,7 +740,8 @@ internal sealed partial class ListReporter
                 running.Current = new CurrentStep(
                     progress.Api,
                     progress.Label ?? string.Empty,
-                    progress.Kind ?? Reports.StepKind.Agent
+                    progress.Kind ?? Reports.StepKind.Agent,
+                    progress.Identity?.Actor
                 );
                 _window.Redraw();
                 break;
@@ -809,7 +810,8 @@ internal sealed partial class ListReporter
                     progress.Label ?? string.Empty,
                     progress.Status is { } status ? Enum.Parse<StepStatus>(status.ToString()) : StepStatus.Passed,
                     progress.DurationMs,
-                    progress.ModelCalls
+                    progress.ModelCalls,
+                    progress.Identity?.Actor
                 );
                 if (_live)
                 {

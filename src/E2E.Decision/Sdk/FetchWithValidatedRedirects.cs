@@ -12,6 +12,16 @@ internal static class FetchWithValidatedRedirects
     /// <summary>The request option that carries the <c>redirect</c> mode (<c>error</c>, <c>manual</c>, or <c>follow</c>) of <see cref="FetchEndpointAsync"/>.</summary>
     internal static readonly HttpRequestOptionsKey<string> RedirectOption = new("redirect");
 
+    /// <summary>
+    /// The request option a fetch sets to <see cref="OpaqueRedirectType"/> on a response's request to model a fetch response whose
+    /// <c>type</c> is <c>opaqueredirect</c>: .NET's <see cref="HttpResponseMessage"/> has no such type, and a <c>manual</c> redirect
+    /// reads as a plain 3xx response.
+    /// </summary>
+    internal static readonly HttpRequestOptionsKey<string> ResponseTypeOption = new("responseType");
+
+    /// <summary>The <see cref="ResponseTypeOption"/> value of an unreadable redirect response.</summary>
+    internal const string OpaqueRedirectType = "opaqueredirect";
+
     private static readonly HttpClient SharedClient = new(
         new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }
     );
@@ -35,6 +45,22 @@ internal static class FetchWithValidatedRedirects
         var currentHeaders = headers is null ? null : SanitizeRequestHeaders.Sanitize(headers);
         var fetch = customFetch ?? DefaultSend;
         var currentUrl = url;
+
+        HttpRequestMessage PerHopRequest(string redirect)
+        {
+            var hop = new HttpRequestMessage(HttpMethod.Get, currentUrl);
+            hop.Options.Set(RedirectOption, redirect);
+            if (currentHeaders is not null)
+            {
+                foreach (var (name, value) in currentHeaders)
+                {
+                    hop.Headers.TryAddWithoutValidation(name, value);
+                }
+            }
+
+            return hop;
+        }
+
         // The bound also acts as a backstop against an unterminated redirect chain.
         for (var redirectCount = 0; redirectCount <= maxRedirects; redirectCount++)
         {
@@ -44,16 +70,23 @@ internal static class FetchWithValidatedRedirects
                 ValidateDownloadUrl.Validate(currentUrl);
             }
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, currentUrl);
-            if (currentHeaders is not null)
+            using var request = PerHopRequest("manual");
+            var response = await fetch(request, cancellationToken).ConfigureAwait(false);
+            if (IsOpaqueRedirect(response))
             {
-                foreach (var (name, value) in currentHeaders)
+                response.Dispose();
+                if (!IsBrowserRuntime.Value)
                 {
-                    request.Headers.TryAddWithoutValidation(name, value);
+                    throw new DownloadException(
+                        url,
+                        message: "Redirect from " + currentUrl + " could not be validated and was blocked"
+                    );
                 }
+
+                using var followRequest = PerHopRequest("follow");
+                return await fetch(followRequest, cancellationToken).ConfigureAwait(false);
             }
 
-            var response = await fetch(request, cancellationToken).ConfigureAwait(false);
             // Redirect status codes per the fetch spec: 300 and 304 are not redirects, even with a Location header.
             if (
                 (int)response.StatusCode is 301 or 302 or 303 or 307 or 308
@@ -103,7 +136,7 @@ internal static class FetchWithValidatedRedirects
         if (trustedOrigin is null || !IsSameOrigin.Check(url, trustedOrigin))
         {
             ValidateDownloadUrl.Validate(url);
-            if (requireDnsValidation && customFetch is null)
+            if (requireDnsValidation && customFetch is null && !IsBrowserRuntime.Value)
             {
                 throw new DownloadException(
                     url,
@@ -117,6 +150,10 @@ internal static class FetchWithValidatedRedirects
         var fetch = customFetch ?? DefaultSend;
         return fetch(request, cancellationToken);
     }
+
+    private static bool IsOpaqueRedirect(HttpResponseMessage response) =>
+        response.RequestMessage?.Options.TryGetValue(ResponseTypeOption, out var type) == true
+        && type == OpaqueRedirectType;
 
     // The default transport. Like a runtime's native fetch, it answers a data: URL itself, because HttpClient has no data scheme.
     private static Task<HttpResponseMessage> DefaultSend(

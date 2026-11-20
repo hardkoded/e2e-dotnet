@@ -153,11 +153,11 @@ The test's report covers the session:
 | A host or session the test opened | Closed when the test ends, if still open. A host or session opened outside every test, at the top of a file or in a fixture, is left open, and its steps are recorded in each test that uses it. |
 | A step left running | Fails the test with `STEP_NOT_AWAITED`, and its session is closed. So does a `NewSessionAsync` or `LaunchAsync` call the test did not await. |
 
-A live step reaches the reporters as a `StepProgress` whose `Identity.Actor` is the session's name.
+A live step reaches the reporters as a `StepProgress` whose `Identity.Actor` is the session's name. The list reporter, the trace page, and the Markdown report name the session too: `launch-1 › locator.tap` in a step's line, and `at step 3 of 5 on launch-1` for a failure on it. A failure on a session beside the test's own is shown with the test's own screen.
 
 ## Pass secrets
 
-Give secret values to `LaunchAsync`, then fill them by name.
+Give secret values to `LaunchAsync`, then fill them by name. A host shares its secret values with every session open beside it while it is open (a host a test launched stays shared until the test ends, even if the test closes it earlier), so a session redacts a value only another session was given, and what a session learned (a provider's value, a one-time code) is redacted in the sessions beside it while a host is open. What a session holds stays its own: a saved state carries the values the session knows, the host's configured values included, and none it only borrows through shared redaction.
 
 ```csharp
 await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions

@@ -76,6 +76,25 @@ public sealed class FetchWithValidatedEndpointTests
     }
 
     [Fact]
+    public async Task Partial_Preserves_browser_fetch_with_strict_DNS_validation_enabled()
+    {
+        // Upstream stubs globalThis.fetch and asserts it is called once. The port cannot stub its default transport, so a data: URL, which
+        // that transport answers itself, shows the strict DNS validation does not reject the default transport in a browser.
+        using var browser = IsBrowserRuntime.Simulate();
+        using var response = await Sdk.FetchWithValidatedRedirects.FetchEndpointAsync(
+            "data:text/plain,metadata",
+            null,
+            null,
+            null,
+            "error",
+            true,
+            CancellationToken.None
+        );
+
+        Assert.True(response.IsSuccessStatusCode);
+    }
+
+    [Fact]
     public async Task Uses_a_custom_fetch_with_strict_DNS_validation_enabled()
     {
         var customFetch = new FetchMock().Always(Ok);

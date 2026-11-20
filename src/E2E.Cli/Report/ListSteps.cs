@@ -64,7 +64,7 @@ internal static class ListSteps
                 ? $" · {step.ModelCalls} model call{(step.ModelCalls == 1 ? string.Empty : "s")}"
                 : string.Empty;
         var outcome = passed ? string.Empty : " " + StepNames.Of(step.Status);
-        var head = $"{glyph} {context}{pc.Dim(step.Api)} ";
+        var head = $"{glyph} {context}{pc.Dim(ReportFormat.WithActor(step.Actor, step.Api))} ";
         var tail = pc.Dim($"{Format.FormatTime(TimeSpan.FromMilliseconds(step.DurationMs))}{calls}{outcome}");
         var room = maxWidth is { } width
             ? width - Format.VisibleWidth(head) - Format.VisibleWidth(tail) - LabelChrome
