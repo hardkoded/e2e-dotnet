@@ -171,35 +171,67 @@ public sealed class OAuthHandler : DelegatingHandler
 
     private async Task<OAuthCredentials> RefreshOnceAsync(OAuthCredentials stale, CancellationToken cancellationToken)
     {
-        // Another process may have refreshed already: prefer what the store holds now.
-        var latest = await CurrentAsync(cancellationToken).ConfigureAwait(false);
-        if (latest.Access != stale.Access && !Expiring(latest))
-        {
-            return latest;
-        }
-
-        try
-        {
-            var renewed = await _provider.RefreshAsync(latest, cancellationToken).ConfigureAwait(false);
-            await PersistAsync(renewed, cancellationToken).ConfigureAwait(false);
-            return renewed;
-        }
-        catch (OAuthException ex) when (ex.Code == OAuthException.LoginRequired)
-        {
-            // A rotated refresh token may have been stored by another process meanwhile.
-            for (var attempt = 0; attempt < RotationAttempts; attempt++)
-            {
-                var current = await CurrentAsync(cancellationToken).ConfigureAwait(false);
-                if (current.Refresh != latest.Refresh)
+        var outcome = await _store
+            .ExclusiveAsync(
+                _provider.Id,
+                async () =>
                 {
-                    return current;
-                }
+                    // Another process may have refreshed already: prefer what the store holds now.
+                    var latest = await CurrentAsync(cancellationToken).ConfigureAwait(false);
+                    if (latest.Access != stale.Access && !Expiring(latest))
+                    {
+                        return new RefreshOutcome(latest, null, null);
+                    }
 
-                await Task.Delay(RotationWait, cancellationToken).ConfigureAwait(false);
+                    try
+                    {
+                        // No deadline: the vendor may rotate the token before a late answer, and dropping that answer loses the login.
+                        var renewed = await _provider.RefreshAsync(latest, cancellationToken).ConfigureAwait(false);
+                        await PersistAsync(renewed, cancellationToken).ConfigureAwait(false);
+                        return new RefreshOutcome(renewed, null, null);
+                    }
+                    catch (OAuthException ex) when (ex.Code == OAuthException.LoginRequired)
+                    {
+                        return new RefreshOutcome(null, ex, latest);
+                    }
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        if (outcome.Renewed is not null)
+        {
+            return outcome.Renewed;
+        }
+
+        // After the lock, so waiters on a revoked login do not wait out each other's poll.
+        var rotated = await RotatedElsewhereAsync(outcome.Sent!, cancellationToken).ConfigureAwait(false);
+        if (rotated is not null)
+        {
+            return rotated;
+        }
+
+        var rejected = outcome.Rejected!;
+        throw new OAuthException(OAuthException.LoginRequired, rejected.Message + "; " + _remedy, rejected);
+    }
+
+    /// <summary>After a rejected refresh token: the credentials another process stored meanwhile, if any.</summary>
+    private async Task<OAuthCredentials?> RotatedElsewhereAsync(
+        OAuthCredentials rejected,
+        CancellationToken cancellationToken
+    )
+    {
+        for (var attempt = 0; attempt < RotationAttempts; attempt++)
+        {
+            var latest = await CurrentAsync(cancellationToken).ConfigureAwait(false);
+            if (latest.Refresh != rejected.Refresh)
+            {
+                return latest;
             }
 
-            throw new OAuthException(OAuthException.LoginRequired, ex.Message + "; " + _remedy, ex);
+            await Task.Delay(RotationWait, cancellationToken).ConfigureAwait(false);
         }
+
+        return null;
     }
 
     private async Task PersistAsync(OAuthCredentials renewed, CancellationToken cancellationToken)
@@ -221,6 +253,8 @@ public sealed class OAuthHandler : DelegatingHandler
         return credentials.Expires != 0
             && credentials.Expires - RefreshSkewMs <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
+
+    private sealed record RefreshOutcome(OAuthCredentials? Renewed, OAuthException? Rejected, OAuthCredentials? Sent);
 
     private sealed class SharedState
     {
