@@ -83,6 +83,21 @@ internal static class RunProject
         );
     }
 
+    /// <summary>Every text file under <paramref name="directory"/>, with its path, as <c>contentsUnder</c> reads a run's written files (images and videos are left out).</summary>
+    public static IReadOnlyList<(string File, string Content)> ContentsUnder(string directory) =>
+        Directory.Exists(directory)
+            ?
+            [
+                .. Directory
+                    .EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                    .Where(file =>
+                        !file.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                        && !file.EndsWith(".webm", StringComparison.OrdinalIgnoreCase)
+                    )
+                    .Select(file => (file.Replace('\\', '/'), File.ReadAllText(file))),
+            ]
+            : [];
+
     /// <summary>
     /// Finds one result by test title. A miss names the titles the run did produce and its run-level errors, since an empty run usually means
     /// collection failed and the error says which. Upstream's <c>resultByTitle</c>.

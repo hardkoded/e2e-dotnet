@@ -125,6 +125,9 @@ internal static class Runner
                 CacheStrict = options.StrictCache,
             }
         );
+        // The run's static values are shared with the hosts a test launches for as long as the run lasts (upstream's registerStaticSecrets keeps them for
+        // the worker's life; a .NET process runs other tests side by side, so the share is withdrawn when the run ends).
+        var sharing = Secrecy.Share(config.AllSecrets.Select(secret => (secret.Name, secret.Value)));
         var results = new List<E2E.Reports.ReportResult>();
         Report? first = null;
         var exitCodes = new List<int>();
@@ -216,6 +219,7 @@ internal static class Runner
         }
         finally
         {
+            sharing.Withdraw();
             // The engines the run prepared are finished on every exit path, as upstream's run does: a failure is a cleanup failure of the run.
             await prepared
                 .FinishAsync(

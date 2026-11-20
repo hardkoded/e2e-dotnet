@@ -157,7 +157,7 @@ A live step reaches the reporters as a `StepProgress` whose `Identity.Actor` is 
 
 ## Pass secrets
 
-Give secret values to `LaunchAsync`, then fill them by name. A host shares its secret values with every session open beside it while it is open (a host a test launched stays shared until the test ends, even if the test closes it earlier), so a session redacts a value only another session was given, and what a session learned (a provider's value, a one-time code) is redacted in the sessions beside it while a host is open. What a session holds stays its own: a saved state carries the values the session knows, the host's configured values included, and none it only borrows through shared redaction.
+Give secret values to `LaunchAsync`, then fill them by name. A host shares its secret values with every session open beside it while it is open (a host a test launched stays shared until the test ends, even if the test closes it earlier), so a session redacts a value only another session was given, and a host a test launches redacts the `secrets` the run's config declares, and what a session learned (a provider's value, a one-time code) is redacted in the sessions beside it while a host is open. What a session holds stays its own: a saved state carries the values the session knows, the host's configured values included, and none it only borrows through shared redaction.
 
 ```csharp
 await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions

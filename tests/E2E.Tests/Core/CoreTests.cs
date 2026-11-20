@@ -362,6 +362,80 @@ public sealed class CoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Redacts_in_each_session_the_values_every_other_host_was_given_and_carries_none_of_them_in_its_saved_state()
+    {
+        const string browserSecret = "browser-only-secret-5511";
+        const string phoneSecret = "phone-only-secret-8823";
+        static CoreFakeEngine Showing(string text, bool state = false) =>
+            new(
+                [
+                    new SemanticNode
+                    {
+                        Ref = "echo",
+                        Role = "paragraph",
+                        Name = "",
+                        Text = text,
+                    },
+                ],
+                state: state
+            );
+
+        var browser = await HostOf(
+            Showing($"the phone sent {phoneSecret}", state: true),
+            new LaunchOptions
+            {
+                App = FakeApp,
+                Secrets = new Dictionary<string, string> { ["BROWSER"] = browserSecret },
+                Timeout = TimeSpan.FromMilliseconds(200),
+            }
+        );
+        var onBrowser = await browser.NewSessionAsync();
+        await onBrowser.App.OpenAsync("/");
+        Assert.Contains(phoneSecret, await onBrowser.Screen.TreeAsync(), StringComparison.Ordinal);
+
+        // A session opened before the other host redacts its values from the moment it declares them; one opened after does too.
+        var phone = await HostOf(
+            Showing($"the browser sent {browserSecret}"),
+            new LaunchOptions
+            {
+                App = FakeApp,
+                Secrets = new Dictionary<string, string> { ["PHONE"] = phoneSecret },
+            }
+        );
+        Assert.Contains("the phone sent <secret:PHONE>", await onBrowser.Screen.TreeAsync(), StringComparison.Ordinal);
+        var onPhone = await phone.NewSessionAsync();
+        await onPhone.App.OpenAsync("/");
+        Assert.Contains(
+            "the browser sent <secret:BROWSER>",
+            await onPhone.Screen.TreeAsync(),
+            StringComparison.Ordinal
+        );
+
+        var failure = await Assert.ThrowsAsync<TestException>(() => onBrowser.Screen.GetByText(phoneSecret).TapAsync());
+        Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
+        Assert.Contains("<secret:PHONE>", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("<secret:PHONE>", failure.Details?.Locator, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            phoneSecret,
+            $"{failure.Message} {failure.StackTrace} {System.Text.Json.JsonSerializer.Serialize(failure.Details)}",
+            StringComparison.Ordinal
+        );
+
+        // The browser session redacts the phone's value and does not hold it: its exported state names its own secret alone.
+        var exported = Encoding.Latin1.GetString(
+            await (await onBrowser.SaveStateAsync()).ExportAsync(
+                new SessionStateKeyOptions { Key = [.. Enumerable.Repeat((byte)7, 32)] }
+            )
+        );
+        Assert.Contains("BROWSER", exported, StringComparison.Ordinal);
+        Assert.DoesNotContain("PHONE", exported, StringComparison.Ordinal);
+
+        // A program's host shares its values while it is open, and no longer.
+        await phone.CloseAsync();
+        Assert.Contains(phoneSecret, await onBrowser.Screen.TreeAsync(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Carries_every_secret_value_a_saved_session_knew_so_a_host_launched_without_them_still_redacts_what_the_app_echoes()
     {
         var saving = await HostOf(

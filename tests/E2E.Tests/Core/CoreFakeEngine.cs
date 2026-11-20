@@ -17,6 +17,8 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>, IPreparableEng
 {
     private readonly List<EngineState> _restored = [];
     private readonly List<(SemanticNode Node, LocatorAction Action)> _performed = [];
+    private readonly bool _fills;
+    private readonly Dictionary<string, string> _filled = [];
     private int _starts;
     private int _disposes;
     private int _inits;
@@ -31,9 +33,11 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>, IPreparableEng
         bool device = false,
         bool links = false,
         bool video = false,
-        IReadOnlyList<string>? videoLinks = null
+        IReadOnlyList<string>? videoLinks = null,
+        bool fills = false
     )
     {
+        _fills = fills;
         VideoLinks = videoLinks ?? [];
         Scene = scene
             ??
@@ -111,6 +115,34 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>, IPreparableEng
 
     public IReadOnlyList<SemanticNode> Scene { get; }
 
+    // With <c>fills</c>, a field shows what was filled into it, as upstream's scripted scene does.
+    private IReadOnlyList<SemanticNode> Observed()
+    {
+        lock (_performed)
+        {
+            if (_filled.Count == 0)
+            {
+                return Scene;
+            }
+
+            return
+            [
+                .. Scene.Select(node =>
+                    _filled.TryGetValue(node.Ref, out var value)
+                        ? new SemanticNode
+                        {
+                            Ref = node.Ref,
+                            Role = node.Role,
+                            Name = node.Name,
+                            Text = node.Text,
+                            Value = value,
+                        }
+                        : node
+                ),
+            ];
+        }
+    }
+
     public int Starts => Volatile.Read(ref _starts);
 
     public int Disposes => Volatile.Read(ref _disposes);
@@ -183,7 +215,7 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>, IPreparableEng
         }
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(new Observation { Route = "/", Roots = owner.Scene });
+            Task.FromResult(new Observation { Route = "/", Roots = owner.Observed() });
 
         public Task<Observation> ObserveAsync(OperationContext context, CancellationToken cancellationToken)
         {
@@ -217,6 +249,10 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>, IPreparableEng
             lock (owner._performed)
             {
                 owner._performed.Add((node, action));
+                if (owner._fills && action is LocatorAction.Fill fill)
+                {
+                    owner._filled[node.Ref] = fill.Value;
+                }
             }
 
             return Task.CompletedTask;
