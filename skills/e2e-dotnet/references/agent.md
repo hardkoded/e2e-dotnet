@@ -826,6 +826,7 @@ A state part can be a file at a URL
 fails with `DownloadException` before the model request. The model receives the bytes as a `DecisionFilePart`.
 The default `CreateDownload.Create()` transport does not resolve DNS. For untrusted URLs, set `CreateDownloadOptions.Fetch` to a
 transport that validates DNS when it connects; otherwise a name that resolves to a private address can be fetched.
+`CreateDownload.Create(...)` returns a `Download`: `DownloadAsync(url, ct)` downloads one URL, `DownloadAsync(requests, ct)` is the array form. `CreateDefaultDownloadFunction.Create(download, ct)` is the AI SDK's `createDefaultDownloadFunction`.
 
 ## Custom executors
 

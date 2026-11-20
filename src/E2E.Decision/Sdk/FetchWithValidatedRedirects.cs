@@ -45,6 +45,7 @@ internal static class FetchWithValidatedRedirects
             }
 
             using var request = new HttpRequestMessage(HttpMethod.Get, currentUrl);
+            request.Options.Set(RedirectOption, "manual");
             if (currentHeaders is not null)
             {
                 foreach (var (name, value) in currentHeaders)

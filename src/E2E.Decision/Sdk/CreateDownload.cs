@@ -14,48 +14,66 @@ public sealed class CreateDownloadOptions
     public FetchFunction? Fetch { get; init; }
 }
 
+/// <summary>
+/// The AI SDK's <c>Download</c> type: the function <see cref="CreateDownload.Create"/> returns. Called with a single URL, it downloads that
+/// URL. Called with an array of requests, it behaves like the default <c>experimental_download</c> of <c>decide</c>: URLs the model supports
+/// are passed through (null), all others are downloaded. A <see cref="Download"/> converts to a <see cref="DownloadFunction"/>, so it can be
+/// passed as <see cref="DecideOptions.ExperimentalDownload"/>.
+/// </summary>
+public sealed class Download
+{
+    private readonly CreateDownloadOptions? _options;
+
+    internal Download(CreateDownloadOptions? options) => _options = options;
+
+    /// <summary>Converts to the array form, for <see cref="DecideOptions.ExperimentalDownload"/>.</summary>
+    public static implicit operator DownloadFunction(Download download) => download.DownloadAsync;
+
+    /// <summary>Downloads a single URL. Throws <see cref="DownloadException"/> when the download fails.</summary>
+    public Task<DownloadedFile> DownloadAsync(Uri url, CancellationToken cancellationToken = default) =>
+        Downloads.DownloadAsync(url, _options?.MaxBytes, _options?.Fetch, cancellationToken);
+
+    /// <summary>Downloads every URL the model does not support, and answers null for the others.</summary>
+    public async Task<IReadOnlyList<DownloadedFile?>> DownloadAsync(
+        IReadOnlyList<DownloadRequest> requests,
+        CancellationToken cancellationToken = default
+    )
+    {
+        // One failed download cancels its siblings, so a failed call leaves no download reading in the background.
+        using var batch = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var tasks = requests
+            .Select(request =>
+                request.IsUrlSupportedByModel
+                    ? Task.FromResult<DownloadedFile?>(null)
+                    : DownloadOneAsync(request, batch.Token)
+            )
+            .ToList();
+        try
+        {
+            return await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+        catch
+        {
+            await batch.CancelAsync().ConfigureAwait(false);
+            // Wait for the siblings and observe their errors: the first error is the one thrown, theirs are cancellations.
+            await Task.WhenAll(tasks)
+                .ContinueWith(static all => all.Exception, TaskScheduler.Default)
+                .ConfigureAwait(false);
+
+            throw;
+        }
+    }
+
+    private async Task<DownloadedFile?> DownloadOneAsync(DownloadRequest request, CancellationToken cancellationToken) =>
+        await DownloadAsync(request.Url, cancellationToken).ConfigureAwait(false);
+}
+
 /// <summary>The AI SDK's <c>createDownload</c> (<c>util/download/create-download.ts</c>).</summary>
 public static class CreateDownload
 {
     /// <summary>
-    /// Creates a download function that downloads every URL the model does not support. Pass it as
-    /// <see cref="DecideOptions.ExperimentalDownload"/>. Upstream's also answers a single request (for <c>transcribe</c> and
-    /// <c>experimental_generateVideo</c>); the port has neither, so only the array form exists.
+    /// Creates a download function with configurable options. Pass it as <see cref="DecideOptions.ExperimentalDownload"/>, or call it with a
+    /// single URL.
     /// </summary>
-    public static DownloadFunction Create(CreateDownloadOptions? options = null) =>
-        async (requests, cancellationToken) =>
-        {
-            // One failed download cancels its siblings, so a failed call leaves no download reading in the background.
-            using var batch = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var tasks = requests
-                .Select(request =>
-                    request.IsUrlSupportedByModel
-                        ? Task.FromResult<DownloadedFile?>(null)
-                        : DownloadAsync(request, options, batch.Token)
-                )
-                .ToList();
-            try
-            {
-                return await Task.WhenAll(tasks).ConfigureAwait(false);
-            }
-            catch
-            {
-                await batch.CancelAsync().ConfigureAwait(false);
-                // Wait for the siblings and observe their errors: the first error is the one thrown, theirs are cancellations.
-                await Task.WhenAll(tasks)
-                    .ContinueWith(static all => all.Exception, TaskScheduler.Default)
-                    .ConfigureAwait(false);
-
-                throw;
-            }
-        };
-
-    private static async Task<DownloadedFile?> DownloadAsync(
-        DownloadRequest request,
-        CreateDownloadOptions? options,
-        CancellationToken cancellationToken
-    ) =>
-        await Downloads
-            .DownloadAsync(request.Url, options?.MaxBytes, options?.Fetch, cancellationToken)
-            .ConfigureAwait(false);
+    public static Download Create(CreateDownloadOptions? options = null) => new(options);
 }
