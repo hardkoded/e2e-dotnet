@@ -90,11 +90,12 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
             Assert.Equal("saw <secret:invite>", ledger.Redactor.Redact($"saw {value}"));
             // What a session holds stays its own: a saved state carries none of the host's values.
             Assert.Empty(ledger.Entries());
+            Assert.Empty(Secrecy.CarriedSecrets(ledger, new List<(string Name, string Value)>()));
             // A download of either session may hold the value, so it is rewritten.
             Assert.True(Secrecy.RedactsDownloads(ledger.Redactor));
         }
 
-        Assert.Equal("label <secret:invite>", global::E2E.OpenSession.Redact($"label {value}"));
+        Assert.Equal("label <secret:invite>", Secrecy.RedactForSession(null, new List<Secret>(), $"label {value}"));
         withdraw();
         Assert.Equal($"saw {value}", before.Redactor.Redact($"saw {value}"));
         Assert.Equal($"saw {value}", after.Redactor.Redact($"saw {value}"));
@@ -119,7 +120,7 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
         var host = OpenHost();
         var learner = NewSession();
         var before = NewSession();
-        learner.Register("code", value);
+        Secrecy.AdoptSecrets(learner, [("code", value)]);
         var after = NewSession();
         Assert.Equal("<secret:code>", before.Redactor.Redact(value));
         Assert.Equal("<secret:code>", after.Redactor.Redact(value));

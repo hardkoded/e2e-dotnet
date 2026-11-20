@@ -41,18 +41,20 @@ internal static class Secrecy
     /// front; provider-backed values join as they resolve. Its values are shared with the sessions open beside it until
     /// <see cref="AttemptScope.ReleaseSessionLedger"/>, and it redacts theirs. Upstream's <c>sessionLedger</c>.
     /// </summary>
-    public static AttemptScope SessionLedger(AttemptScope session, IReadOnlyList<Secret> secrets) =>
-        Seeded(session, StaticSecretLedger(secrets).Entries());
+    public static AttemptScope SessionLedger(AttemptScope session, IReadOnlyList<Secret> secrets)
+    {
+        foreach (var (name, value) in StaticSecretLedger(secrets).Entries())
+        {
+            session.Register(name, value);
+        }
+
+        return session;
+    }
 
     /// <summary><see cref="SessionLedger(AttemptScope, IReadOnlyList{Secret})"/> over a run's resolved static values.</summary>
-    public static AttemptScope SessionLedger(
-        AttemptScope session,
-        IReadOnlyList<(string Name, string Value)> secrets
-    ) => Seeded(session, StaticSecretLedger(secrets).Entries());
-
-    private static AttemptScope Seeded(AttemptScope session, IReadOnlyList<(string Name, string Value)> own)
+    public static AttemptScope SessionLedger(AttemptScope session, IReadOnlyList<(string Name, string Value)> secrets)
     {
-        foreach (var (name, value) in own)
+        foreach (var (name, value) in StaticSecretLedger(secrets).Entries())
         {
             session.Register(name, value);
         }
