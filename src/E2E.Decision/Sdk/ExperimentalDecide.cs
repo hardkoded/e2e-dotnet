@@ -180,7 +180,7 @@ public static class ExperimentalDecide
                                             Questions = options.Questions,
                                             MaxOutputTokens = options.MaxOutputTokens,
                                             Reasoning = options.Reasoning,
-                                            Headers = WithUserAgentSuffix(
+                                            Headers = ProviderUtils.WithUserAgentSuffix(
                                                 options.Headers,
                                                 "ai/" + TelemetryDispatcher.AiVersion
                                             ),
@@ -306,22 +306,6 @@ public static class ExperimentalDecide
                     ? ResolveModel.ResolveDecisionModel(evaluationModel)
                     : ResolveModel.ResolveDecisionModel(options.ModelId!)
             );
-    }
-
-    // withUserAgentSuffix: the headers with the suffix appended to a user-agent the caller set, or as the user-agent.
-    private static Dictionary<string, string> WithUserAgentSuffix(
-        IReadOnlyDictionary<string, string>? headers,
-        string suffix
-    )
-    {
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (name, value) in headers ?? new Dictionary<string, string>())
-        {
-            result[name] = value;
-        }
-
-        result["user-agent"] = result.TryGetValue("user-agent", out var existing) ? existing + " " + suffix : suffix;
-        return result;
     }
 
     private static string GenerateCallId()

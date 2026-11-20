@@ -24,6 +24,28 @@ internal sealed record ApiResponse(
 /// </summary>
 internal static class ProviderUtils
 {
+    /// <summary>
+    /// Upstream's <c>withUserAgentSuffix</c> (<c>provider-utils/src/with-user-agent-suffix.ts</c>): the headers with the suffix appended to
+    /// the <c>user-agent</c> the caller set, or as the <c>user-agent</c> when there is none or it is empty.
+    /// </summary>
+    public static Dictionary<string, string> WithUserAgentSuffix(
+        IReadOnlyDictionary<string, string>? headers,
+        string suffix
+    )
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, value) in headers ?? new Dictionary<string, string>())
+        {
+            result[name] = value;
+        }
+
+        result["user-agent"] =
+            result.TryGetValue("user-agent", out var existing) && !string.IsNullOrEmpty(existing)
+                ? existing + " " + suffix
+                : suffix;
+        return result;
+    }
+
     /// <summary>Upstream's <c>combineHeaders</c>: later headers replace earlier ones of the same name, and a null value drops the header.</summary>
     public static Dictionary<string, string> CombineHeaders(params IReadOnlyDictionary<string, string?>?[] headers)
     {

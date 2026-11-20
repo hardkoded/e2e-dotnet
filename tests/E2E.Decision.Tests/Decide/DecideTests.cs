@@ -61,7 +61,8 @@ public sealed class DecideTests
             }
         );
         using var cancellation = new CancellationTokenSource();
-        var state = new DecisionTextPart("refund");
+        using var stateValue = System.Text.Json.JsonDocument.Parse("""{"message":"refund","history":["hello"]}""");
+        var state = new DecisionJsonPart(stateValue.RootElement.Clone());
         LogWarnings.AiSdkLogWarnings = options =>
         {
             lock (logged)
@@ -99,7 +100,8 @@ public sealed class DecideTests
         }
 
         var call = Assert.Single(calls);
-        Assert.Equal([state], call.State);
+        var statePart = Assert.IsType<DecisionJsonPart>(Assert.Single(call.State));
+        Assert.Equal("""{"message":"refund","history":["hello"]}""", statePart.Value.GetRawText());
         Assert.Same(QuestionMap, call.Questions);
         Assert.Equal("value", call.Headers["custom"]);
         Assert.Contains("ai/", call.Headers["user-agent"]);
@@ -107,6 +109,7 @@ public sealed class DecideTests
         Assert.Equal(AnswerMap, result.Answers);
         Assert.Equal(30, result.Usage.InputTokens);
         Assert.Equal(4, result.Usage.OutputTokens);
+        Assert.Equal(34, result.Usage.TotalTokens);
         Assert.Equal("""{"test":{"confidence":0.8}}""", result.ProviderMetadata!.Value.GetRawText());
         Assert.Equal("response", result.ResponseId);
         Assert.Equal(timestamp, result.Timestamp);
