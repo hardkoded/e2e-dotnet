@@ -206,14 +206,7 @@ public sealed class SecretsOfALaunchHostOpenedInsideATestTests : IAsyncLifetime
         {
             foreach (var host in _hosts)
             {
-                try
-                {
-                    await host.DisposeAsync();
-                }
-                catch (AggregateException)
-                {
-                    // A host already closed by its test is checked by the tests that look at it.
-                }
+                await host.DisposeAsync();
             }
         }
         finally
