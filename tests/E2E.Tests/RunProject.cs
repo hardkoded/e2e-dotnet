@@ -41,6 +41,9 @@ internal sealed record RunProjectOptions
     /// <summary>Upstream's <c>runOptions.env</c>: the run environment, in place of the fixture's (<c>CI</c> unset).</summary>
     public IReadOnlyDictionary<string, string?>? Env { get; init; }
 
+    /// <summary>The config's <c>secrets</c> that are functions, by name (.NET-only: the config JSON holds no function).</summary>
+    public IReadOnlyDictionary<string, SecretProvider>? SecretProviders { get; init; }
+
     /// <summary>Upstream's <c>runOptions.noCache</c>.</summary>
     public bool NoCache { get; init; }
 
@@ -79,9 +82,25 @@ internal static class RunProject
                 StrictCache = options.StrictCache,
                 Engine = options.Engine,
                 Agents = options.Agents,
+                SecretProviders = options.SecretProviders,
             }
         );
     }
+
+    /// <summary>Every text file under <paramref name="directory"/>, with its path, as <c>contentsUnder</c> reads a run's written files (images and videos are left out).</summary>
+    public static IReadOnlyList<(string File, string Content)> ContentsUnder(string directory) =>
+        Directory.Exists(directory)
+            ?
+            [
+                .. Directory
+                    .EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                    .Where(file =>
+                        !file.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                        && !file.EndsWith(".webm", StringComparison.OrdinalIgnoreCase)
+                    )
+                    .Select(file => (file.Replace('\\', '/'), File.ReadAllText(file))),
+            ]
+            : [];
 
     /// <summary>
     /// Finds one result by test title. A miss names the titles the run did produce and its run-level errors, since an empty run usually means
