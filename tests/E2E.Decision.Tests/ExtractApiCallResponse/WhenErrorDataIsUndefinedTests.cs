@@ -8,8 +8,8 @@ using E2E.Decision.Sdk.Gateway;
 
 namespace E2E.Decision.Tests.ExtractApiCallResponse;
 
-/// <summary>Upstream's <c>describe('extractResponseFromAPICallError')</c> of <c>extract-api-call-response.test.ts</c>.</summary>
-public sealed class ExtractResponseFromApiCallErrorTests
+/// <summary>Upstream's <c>describe('when error.data is undefined')</c> in <c>describe('extractResponseFromAPICallError')</c> of <c>extract-api-call-response.test.ts</c>.</summary>
+public sealed class WhenErrorDataIsUndefinedTests
 {
     private static ApiCallException Error(int status, string? body, JsonElement? data = null) =>
         new("Request failed", status, new Dictionary<string, string>()) { ResponseBody = body, ParsedData = data };
@@ -17,34 +17,7 @@ public sealed class ExtractResponseFromApiCallErrorTests
     private static JsonElement Extract(ApiCallException error) => GatewayErrors.ExtractApiCallResponse(error)!.Value;
 
     // when error.data is available
-    [Fact]
-    public void Should_return_error_data_when_successfully_parsed_by_AI_SDK()
-    {
-        var parsed = GatewayJson.Parse("""{"error":{"message":"Parsed error","type":"authentication_error"}}""");
 
-        var result = Extract(Error(401, """{"different":"data"}""", parsed));
-
-        Assert.Equal(parsed.GetRawText(), result.GetRawText()); // Should prefer parsed data over responseBody
-    }
-
-    [Fact]
-    public void Should_return_error_data_even_when_it_is_null()
-    {
-        var result = Extract(Error(500, """{"fallback": "data"}""", GatewayJson.Parse("null")));
-
-        Assert.Equal(JsonValueKind.Null, result.ValueKind); // Should return null, not fallback to responseBody
-    }
-
-    [Fact]
-    public void Should_return_error_data_even_when_it_is_an_empty_object()
-    {
-        var result = Extract(Error(400, """{"fallback": "data"}""", GatewayJson.Parse("{}")));
-
-        Assert.Equal(JsonValueKind.Object, result.ValueKind);
-        Assert.Empty(result.EnumerateObject()); // Should return empty object, not fallback
-    }
-
-    // when error.data is undefined
     [Fact]
     public void Should_parse_and_return_responseBody_as_JSON_when_valid()
     {
@@ -93,39 +66,5 @@ public sealed class ExtractResponseFromApiCallErrorTests
             """{"error":{"message":"Complex error","type":"validation_error","details":{"field":"prompt","issues":[{"code":"too_long","message":"Prompt exceeds maximum length"},{"code":"invalid_format","message":"Contains invalid characters"}]}},"metadata":{"requestId":"12345","timestamp":"2024-01-01T00:00:00Z"}}""";
 
         Assert.Equal(complex, Extract(Error(400, complex)).GetRawText());
-    }
-
-    // when responseBody is not available
-    [Fact]
-    public void Should_return_empty_object_when_both_data_and_responseBody_are_undefined()
-    {
-        var result = Extract(Error(500, null));
-
-        Assert.Equal(JsonValueKind.Object, result.ValueKind);
-        Assert.Empty(result.EnumerateObject());
-    }
-
-    [Fact]
-    public void Should_return_empty_object_when_responseBody_is_null()
-    {
-        var result = Extract(Error(500, null));
-
-        Assert.Equal(JsonValueKind.Object, result.ValueKind);
-        Assert.Empty(result.EnumerateObject());
-    }
-
-    // edge cases
-    [Fact]
-    public void Should_handle_numeric_responseBody() => Assert.Equal(404, Extract(Error(500, "404")).GetInt32()); // Should parse as number
-
-    [Fact]
-    public void Should_handle_boolean_responseBody() => Assert.True(Extract(Error(500, "true")).GetBoolean()); // Should parse as boolean
-
-    [Fact]
-    public void Should_handle_array_responseBody()
-    {
-        var array = """["error1","error2","error3"]""";
-
-        Assert.Equal(array, Extract(Error(400, array)).GetRawText());
     }
 }
