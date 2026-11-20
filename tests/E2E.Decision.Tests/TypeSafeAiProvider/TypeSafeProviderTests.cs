@@ -4,7 +4,6 @@
 
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
 using System.Text.Json;
@@ -100,22 +99,22 @@ public sealed class TypeSafeProviderTests
         listener.Start();
         var served = Task.Run(async () =>
         {
-            var context = await listener.GetContextAsync();
-            var path = context.Request.Url!.AbsolutePath;
+            var httpContext = await listener.GetContextAsync();
+            var path = httpContext.Request.Url!.ToString();
             var body = Encoding.UTF8.GetBytes(NativeResponse.ToJsonString());
-            context.Response.ContentType = "application/json";
-            await context.Response.OutputStream.WriteAsync(body);
-            context.Response.Close();
+            httpContext.Response.ContentType = "application/json";
+            await httpContext.Response.OutputStream.WriteAsync(body);
+            httpContext.Response.Close();
             return path;
         });
         var previousKey = Environment.GetEnvironmentVariable("TYPESAFE_AI_API_KEY");
         var previousUrl = Environment.GetEnvironmentVariable("TYPESAFE_AI_BASE_URL");
         Environment.SetEnvironmentVariable("TYPESAFE_AI_API_KEY", "test-api-key");
         Environment.SetEnvironmentVariable("TYPESAFE_AI_BASE_URL", $"http://127.0.0.1:{port}/v1/");
-        var context = new AssemblyLoadContext("typesafe-ai-import", isCollectible: true);
+        var loadContext = new AssemblyLoadContext("typesafe-ai-import", isCollectible: true);
         try
         {
-            var assembly = context.LoadFromAssemblyPath(
+            var assembly = loadContext.LoadFromAssemblyPath(
                 typeof(E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider).Assembly.Location
             );
             var providerType = assembly.GetType(typeof(E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider).FullName!)!;
@@ -146,13 +145,13 @@ public sealed class TypeSafeProviderTests
             var task = (Task)model.GetType().GetMethod("DoDecideAsync")!.Invoke(model, [call, CancellationToken.None])!;
             await task;
 
-            Assert.Equal("/v1/systemone", await served);
+            Assert.Equal($"http://127.0.0.1:{port}/v1/systemone", await served.WaitAsync(TimeSpan.FromSeconds(10)));
         }
         finally
         {
             Environment.SetEnvironmentVariable("TYPESAFE_AI_API_KEY", previousKey);
             Environment.SetEnvironmentVariable("TYPESAFE_AI_BASE_URL", previousUrl);
-            context.Unload();
+            loadContext.Unload();
         }
     }
 
