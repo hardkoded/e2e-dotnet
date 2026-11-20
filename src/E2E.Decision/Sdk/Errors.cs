@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
+
 namespace E2E.Decision.Sdk;
 
 /// <summary>The AI SDK's <c>InvalidArgumentError</c>: a call argument the SDK rejects before any request.</summary>
@@ -71,6 +73,9 @@ public sealed class ApiCallException(
     /// <summary>The body of the provider's answer, when it sent one.</summary>
     public string? ResponseBody { get; init; }
 
+    /// <summary>The body the provider SDK already parsed, when it did (upstream <c>APICallError.data</c>; <c>Exception.Data</c> is taken). Null means there is none.</summary>
+    public JsonElement? ParsedData { get; init; }
+
     /// <summary>Whether the call may be sent again. Upstream's default: no answer at all, or a 408, 409, 429, or 5xx.</summary>
     public bool IsRetryable { get; } = isRetryable ?? (statusCode is null or 408 or 409 or 429 or >= 500);
 }
@@ -116,4 +121,32 @@ public sealed class UnsupportedFunctionalityException(string functionality)
     : Exception("'" + functionality + "' functionality not supported.")
 {
     public string Functionality { get; } = functionality;
+}
+
+/// <summary>The AI SDK's <c>NoSuchModelError</c>: no model of that type has that id.</summary>
+public class NoSuchModelException(string modelId, string modelType, string? message = null)
+    : Exception(message ?? "No such " + modelType + ": " + modelId)
+{
+    public string ModelId { get; } = modelId;
+
+    /// <summary>The kind of model, such as <c>decisionModel</c>.</summary>
+    public string ModelType { get; } = modelType;
+}
+
+/// <summary>The AI SDK's <c>NoSuchProviderError</c>: the registry has no provider with that id.</summary>
+public sealed class NoSuchProviderException(
+    string modelId,
+    string modelType,
+    string providerId,
+    IReadOnlyList<string> availableProviders
+)
+    : NoSuchModelException(
+        modelId,
+        modelType,
+        "No such provider: " + providerId + " (available providers: " + string.Join(",", availableProviders) + ")"
+    )
+{
+    public string ProviderId { get; } = providerId;
+
+    public IReadOnlyList<string> AvailableProviders { get; } = availableProviders;
 }

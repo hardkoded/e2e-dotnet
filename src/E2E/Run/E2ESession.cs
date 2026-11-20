@@ -974,6 +974,9 @@ public sealed class E2ESession : IAsyncDisposable
     /// </summary>
     internal string? ExpectedFailure { get; set; }
 
+    /// <summary>Whether this is a setup test: the one that declares the sessions others restore.</summary>
+    internal bool IsSetup => _sessions is { Staging: not null };
+
     /// <summary>The mark of the settled attempt: the reason, and the error that made a failed attempt pass. Null when the test is not marked or skipped.</summary>
     internal ExpectedFailureInfo? SettledMark => _expectedFailure;
 

@@ -298,6 +298,131 @@ public sealed class CreateOAuthFetchTests
     }
 
     [Fact]
+    public async Task Uses_the_token_another_process_stored_while_this_one_waited_for_the_lock_sending_no_refresh()
+    {
+        var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
+        var store = StaleStore(expires: 1);
+        // Another process refreshed and wrote a fresh token while this one waited for the lock.
+        store.Exclusive = async (providerId, refresh) =>
+        {
+            await store.SetAsync(providerId, Stored("theirs", "rt-1", RotatingProvider.Later()));
+            return await refresh();
+        };
+        var provider = new RotatingProvider();
+        using var http = Client(provider, store, api);
+
+        await http.GetAsync(new Uri(Url));
+
+        Assert.Empty(provider.Refreshes);
+        Assert.Equal(["Bearer theirs"], api.Requests.Select(request => request.Header("authorization")));
+    }
+
+    [Fact]
+    public async Task Refreshes_a_token_another_process_stored_when_that_token_is_expiring_too()
+    {
+        var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
+        var store = StaleStore(expires: 1);
+        // Another process wrote a different token while this one waited for the lock, and that token lapses too.
+        store.Exclusive = async (providerId, refresh) =>
+        {
+            await store.SetAsync(providerId, Stored("other", "rt-1", RotatingProvider.Soon()));
+            return await refresh();
+        };
+        var provider = new RotatingProvider();
+        using var http = Client(provider, store, api);
+
+        await http.GetAsync(new Uri(Url));
+
+        Assert.Equal(["rt-1"], provider.Refreshes);
+        Assert.Equal(["Bearer fresh-1"], api.Requests.Select(request => request.Header("authorization")));
+    }
+
+    [Fact]
+    public async Task Waits_for_another_process_to_store_a_rotated_token_only_after_releasing_the_refresh_lock()
+    {
+        var store = StaleStore(expires: 1);
+        var held = false;
+        var readsWhileHeld = 0;
+        store.Exclusive = async (_, refresh) =>
+        {
+            held = true;
+            try
+            {
+                return await refresh();
+            }
+            finally
+            {
+                held = false;
+            }
+        };
+        store.OnGet = () =>
+        {
+            if (held)
+            {
+                readsWhileHeld++;
+            }
+        };
+        var provider = new RotatingProvider();
+        provider.Refreshes.Add("rt-0");
+        using var http = Client(provider, store, new FakeApi(_ => (HttpStatusCode.OK, "{}")));
+
+        var error = await Assert.ThrowsAsync<OAuthException>(() => http.GetAsync(new Uri(Url)));
+
+        Assert.Equal(OAuthException.LoginRequired, error.Code);
+        // The re-read alone; the poll runs after release, so waiters on a revoked login do not wait it out in turn.
+        Assert.Equal(1, readsWhileHeld);
+    }
+
+    [Fact]
+    public async Task Fails_with_LOGIN_REQUIRED_when_the_token_another_process_stored_is_rejected_too()
+    {
+        var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
+        var store = StaleStore(expires: 1);
+        store.Exclusive = async (providerId, refresh) =>
+        {
+            await store.SetAsync(providerId, Stored("other", "rt-1", RotatingProvider.Soon()));
+            return await refresh();
+        };
+        var provider = new FailingProvider(token => new OAuthException(
+            OAuthException.LoginRequired,
+            "refresh token " + token + " was revoked"
+        ));
+        using var http = Client(provider, store, api);
+
+        var error = await Assert.ThrowsAsync<OAuthException>(() => http.GetAsync(new Uri(Url)));
+
+        Assert.Equal(OAuthException.LoginRequired, error.Code);
+        // The poll waits for a token other than the one this refresh sent, not the one it read before the lock.
+        Assert.Equal(["rt-1"], provider.Refreshes);
+        Assert.Empty(api.Requests);
+    }
+
+    [Fact]
+    public async Task Passes_on_any_other_refresh_failure_as_it_is_without_waiting_for_another_process()
+    {
+        var store = StaleStore(expires: 1);
+        var reads = 0;
+        store.OnGet = () => reads++;
+        var provider = new FailingProvider(_ => new OAuthException(
+            OAuthException.FlowFailed,
+            "the token response is missing refresh_token"
+        ));
+        using var http = Client(
+            provider,
+            store,
+            new FakeApi(_ => (HttpStatusCode.OK, "{}")),
+            "run `npx e2e login test`"
+        );
+
+        var error = await Assert.ThrowsAsync<OAuthException>(() => http.GetAsync(new Uri(Url)));
+
+        Assert.Equal(OAuthException.FlowFailed, error.Code);
+        Assert.Equal("the token response is missing refresh_token", error.Message);
+        // The read before the refresh and the re-read inside the lock; no poll for a rotated token.
+        Assert.Equal(2, reads);
+    }
+
+    [Fact]
     public async Task Retries_once_with_a_refreshed_token_after_a_401_also_for_a_Request_input()
     {
         var api = new FakeApi(request =>
@@ -355,6 +480,50 @@ public sealed class CreateOAuthFetchTests
         HttpMessageHandler api,
         string? loginHint = null
     ) => new(new OAuthHandler(provider, store, loginHint, api));
+
+    private static MemoryCredentialStore StaleStore(long expires) =>
+        new(new() { ["test"] = Stored("stale", "rt-0", expires) });
+
+    private static OAuthCredentials Stored(string access, string refresh, long expires) =>
+        new()
+        {
+            Access = access,
+            Refresh = refresh,
+            Expires = expires,
+        };
+
+    /// <summary>A provider whose refresh always fails with the error <paramref name="failure"/> builds from the refresh token it was sent.</summary>
+    private sealed class FailingProvider(Func<string, OAuthException> failure) : IOAuthProvider
+    {
+        public List<string> Refreshes { get; } = [];
+
+        public string Id => "test";
+
+        public string Name => "Test";
+
+        public Task<OAuthCredentials> LoginAsync(
+            OAuthLoginCallbacks callbacks,
+            OAuthLoginOptions options,
+            CancellationToken cancellationToken
+        ) => Task.FromResult(new OAuthCredentials { Access = "x", Refresh = "y" });
+
+        public Task<OAuthCredentials> RefreshAsync(OAuthCredentials credentials, CancellationToken cancellationToken)
+        {
+            Refreshes.Add(credentials.Refresh);
+            throw failure(credentials.Refresh);
+        }
+
+        public Task PrepareAsync(
+            HttpRequestMessage request,
+            OAuthCredentials credentials,
+            CancellationToken cancellationToken
+        ) => Task.CompletedTask;
+
+        public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+            HttpClient http,
+            CancellationToken cancellationToken
+        ) => Task.FromResult<IReadOnlyList<SubscriptionModel>>([]);
+    }
 
     /// <summary>A provider whose refresh waits until the test releases it, so a second request can queue behind it.</summary>
     private sealed class GatedProvider : IOAuthProvider

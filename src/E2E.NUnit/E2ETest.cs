@@ -4,6 +4,7 @@
 
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using E2E.Internal;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -48,9 +49,23 @@ public abstract class E2ETest : E2EFixture
         );
     }
 
+    /// <summary>
+    /// Marks the running test expected to fail when <paramref name="condition"/> holds (upstream's <c>test.fail(condition, reason)</c>).
+    /// It does not throw: the body runs on, and the verdict follows <c>settleExpectedFailure</c>. A blank <paramref name="reason"/> becomes
+    /// <c>expected to fail</c>. A mark from a teardown, a setup test, or a serial group member is a test error, <c>INVALID_ARGUMENT</c>.
+    /// </summary>
+    public void Fail(bool condition = true, string? reason = null) =>
+        ExpectedFailureMarks.MarkRunningTestExpectedToFail(CurrentSession, condition, reason, IsSerial, _bodyDone);
+
+    /// <summary>Set once the test method returned: what runs after it (a derived [TearDown]) comes after the verdict is reached.</summary>
+    internal void BodyDone() => _bodyDone = true;
+
+    private bool _bodyDone;
+
     [SetUp]
     public async Task StartE2ESessionAsync()
     {
+        _bodyDone = false;
         var current = global::NUnit.Framework.TestContext.CurrentContext;
         if (RunSelection.ReasonFor(GetType(), current.Test.MethodName) is { } leftOut)
         {
@@ -103,7 +118,7 @@ public abstract class E2ETest : E2EFixture
             return;
         }
 
-        FailSkippedAfterSoftFailure();
+        var skipped = FailSkippedAfterSoftFailure();
         var current = global::NUnit.Framework.TestContext.CurrentContext;
 
         // A handler that failed during the teardown, with no step after it, fails the attempt before the verdict.
@@ -161,7 +176,10 @@ public abstract class E2ETest : E2EFixture
         }
 
         // A test marked as expected to fail (the NUnit property E2E.Fail) has its verdict settled with the attempt.
-        if (current.Test.Properties.Get(NUnitSessionTestRunner.ExpectedFailureProperty)?.ToString() is { } mark)
+        if (
+            !skipped
+            && current.Test.Properties.Get(NUnitSessionTestRunner.ExpectedFailureProperty)?.ToString() is { } mark
+        )
         {
             session.ExpectedFailure = mark;
         }
@@ -337,13 +355,14 @@ public abstract class E2ETest : E2EFixture
     }
 
     // NUnit reports a test that skipped itself as skipped, whatever it recorded before.
-    // A failed Expect.Soft before the skip fails the test, as upstream does.
-    private static void FailSkippedAfterSoftFailure()
+    // A failed Expect.Soft before the skip fails the test, as upstream does. Returns whether the test skipped itself: the mark drops with the skip,
+    // also beside a failure (upstream's settleExpectedFailure returns early on a skip).
+    private static bool FailSkippedAfterSoftFailure()
     {
         var result = TestExecutionContext.CurrentContext.CurrentResult;
         if (result.ResultState.Status is not (TestStatus.Skipped or TestStatus.Inconclusive))
         {
-            return;
+            return false;
         }
 
         if (result.AssertionResults.Any(assertion => assertion.Status == AssertionStatus.Failed))
@@ -351,6 +370,8 @@ public abstract class E2ETest : E2EFixture
             // NUnit's message already lists the soft failures and the skip reason.
             result.SetResult(ResultState.Failure, result.Message, result.StackTrace);
         }
+
+        return true;
     }
 
     // NUnit counts both [Retry] and [Repeat] in CurrentRepeatCount. Only a retry is a later attempt.

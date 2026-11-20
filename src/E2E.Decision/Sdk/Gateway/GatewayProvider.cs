@@ -35,11 +35,9 @@ public sealed record GatewayAuthToken(string Token, string AuthMethod);
 /// The AI SDK's <c>createGateway</c> and the <c>gateway</c> provider (<c>gateway-provider.ts</c>), for its decision models:
 /// <c>gateway.decisionModel('typesafe-ai/jev')</c>.
 /// </summary>
-public sealed class GatewayProvider
+public sealed class GatewayProvider : IDecisionProvider
 {
     private const string ProtocolVersion = "0.0.1";
-    private const string AuthMethodHeader = "ai-gateway-auth-method";
-    private const string TeamHeader = "x-vercel-ai-gateway-team";
     private const string DefaultBaseUrl = "https://ai-gateway.vercel.sh/v4/ai";
 
     private readonly GatewayProviderSettings _settings;
@@ -74,6 +72,10 @@ public sealed class GatewayProvider
 
     /// <summary>Deprecated: use <see cref="Decision"/>.</summary>
     public GatewayDecisionModel Evaluation(string modelId) => DecisionModel(modelId);
+
+    IDecisionModel? IDecisionProvider.DecisionModel(string modelId) => DecisionModel(modelId);
+
+    IEvaluationModel? IDecisionProvider.EvaluationModel(string modelId) => EvaluationModel(modelId);
 
     /// <summary>
     /// Upstream's <c>getGatewayAuthToken</c>: a non-empty API key (the option, else <c>AI_GATEWAY_API_KEY</c>) is used as is, with no trimming;
@@ -122,11 +124,11 @@ public sealed class GatewayProvider
         {
             ["Authorization"] = "Bearer " + auth.Token,
             ["ai-gateway-protocol-version"] = ProtocolVersion,
-            [AuthMethodHeader] = auth.AuthMethod,
+            [GatewayHeaders.GatewayAuthMethodHeader] = auth.AuthMethod,
         };
         if (_settings.TeamIdOrSlug is not null)
         {
-            headers[TeamHeader] = _settings.TeamIdOrSlug;
+            headers[GatewayHeaders.VercelAiGatewayTeamHeader] = _settings.TeamIdOrSlug;
         }
 
         foreach (var (name, value) in _settings.Headers ?? new Dictionary<string, string>())
