@@ -146,6 +146,7 @@ var result = await ExperimentalDecide.RunAsync(new DecideOptions
 - `RecordInputs = false` does not remove `Headers`: integrations still receive them on the decide start and end events. Do not place credentials in `Headers` if an integration exports telemetry.
 - An integration receives no runtime context unless `IncludeRuntimeContext` marks a top-level key `true`. `OnStart` and `OnEnd` always get the whole context.
 - `IsEnabled = false` turns the integrations off for the call.
+- The call also runs inside the AI SDK's tracing channel. `DiagnosticsChannel.GetTracingChannel(TelemetryTracingChannel.AiSdkTelemetryTracingChannel)` (`"ai:telemetry"`, the stand-in for Node's `diagnostics_channel`) takes a `TracingChannelSubscribers`, and its `Start` subscriber receives a `TelemetryTracingChannelMessage` of type `TelemetryTracingEventType.ExperimentalDecide` whose `Event` is the start event with `AiVersion` and the runtime context filtered by `IncludeRuntimeContext`. `AsyncEnd` receives the same message with `Result` set, or `Error` set when the call fails; `RecordInputs = false` empties the state, questions and provider options of the start event, `IsEnabled = false` publishes nothing, and `RecordInputs = false` or `RecordOutputs = false` hides the result and replaces the error with a generic one. With no subscribers the call runs as before. `Start.BindStore` runs a store for the length of the call.
 - The port has no global integration registry: a call with no `Integrations` has none.
 
 ## Files at a URL
