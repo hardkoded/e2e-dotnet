@@ -114,10 +114,13 @@ public static partial class Filter
             throw new ConfigurationException("INVALID_CONFIG", "DecisionFilter() takes an options object; " + Example);
         }
 
-        Model.CheckModel(options.Model, new ModelNeeds("DecisionFilter", "boolean", Example));
+        Model.CheckModel(
+            options.Model ?? (object?)options.ModelId,
+            new ModelNeeds("DecisionFilter", "boolean", Example)
+        );
         Model.CheckProviderOptions(options.ProviderOptions, "DecisionFilter");
         return new DecisionTestFilter(
-            new DecisionFilterOptions { Model = options.Model, ProviderOptions = options.ProviderOptions }
+            new DecisionFilterOptions { Model = options.Model!, ProviderOptions = options.ProviderOptions }
         );
     }
 
@@ -161,7 +164,7 @@ public static partial class Filter
             return Result(new Dictionary<string, string>(), relevance, unasked);
         }
 
-        var modelId = options.Model.ModelId;
+        var modelId = options.Model!.ModelId;
         log("asking " + modelId + " about " + TestsIn(tests));
         var raw = await ChangeDiff(changes, signal).ConfigureAwait(false);
         if (raw.Length == 0)

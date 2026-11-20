@@ -813,11 +813,17 @@ Decision models: `Executor.DecisionExecutor(new DecisionExecutorOptions { Model 
 `AgentOptions.Executor`. `MinProbability` and `MinConfidence` (0 to 1) block weaker actions,
 `Model` is optional: a deprecated evaluation model (`IEvaluationModel`, the `doEvaluate` shape) goes in `EvaluationModel` and runs through the same loop; set one of the two. `Vision = true` adds a masked screenshot (and `tap_at` / `type_at` for drawn controls with a
 text model), and `ProviderOptions` go with every decide call. Not ported: the `--debug` agent step
-table. Other decision models: `new TypeSafeAiProvider().DecisionModel("jev-latest")` (`E2E.Decision.Sdk.TypeSafeAi`, reads `TYPESAFE_AI_API_KEY`, takes PNG and JPEG screenshots and `box` questions) and `new GatewayProvider().DecisionModel("typesafe-ai/jev")` (`E2E.Decision.Sdk.Gateway`, reads `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN`, rejects screenshots, so keep `Vision` off; the `gateway` provider options carry fallbacks such as `{ "models": [{ "model": "openai/gpt-6-luna-decisions", "when": { "confidenceBelow": 0.6 } }] }`). To see every model call, use
+table. Other decision models: `new TypeSafeAiProvider().DecisionModel("jev-latest")` (`E2E.Decision.Sdk.TypeSafeAi`, reads `TYPESAFE_AI_API_KEY`, and `TYPESAFE_AI_BASE_URL` unless `TypeSafeAiProviderSettings.BaseUrl` is set, takes PNG and JPEG screenshots and `box` questions) and `new GatewayProvider().DecisionModel("typesafe-ai/jev")` (`E2E.Decision.Sdk.Gateway`, reads `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN`, rejects screenshots, so keep `Vision` off; the `gateway` provider options carry fallbacks such as `{ "models": [{ "model": "openai/gpt-6-luna-decisions", "when": { "confidenceBelow": 0.6 } }] }`). To see every model call, use
 `E2E_AI_TRACE=1` (topic `debugging`). `ExperimentalDecide.RunAsync` (`E2E.Decision.Sdk`, the AI SDK's
 `experimental_decide`) takes `OnStart` and `OnEnd` callbacks, a `RuntimeContext`, and `Telemetry` (`TelemetryOptions` with
-`ITelemetry` integrations for the decide and decision-model call events; `RecordInputs`, `RecordOutputs`,
-`IncludeRuntimeContext`). The decision executor does not set them.
+`ITelemetry` integrations for the decide and decision-model call events, plus the generic `OnStartAsync`/`OnEndAsync`, which decide never calls; `RecordInputs`, `RecordOutputs`,
+`IncludeRuntimeContext`). A call with no `TelemetryOptions.Integrations` uses the global integrations added with
+`TelemetryRegistry.RegisterTelemetry(...)` (`GetGlobalTelemetryIntegrations()` lists them). The decision executor does not set them.
+A state part can be a file at a URL
+(`DecisionFileUrlPart`); `DecideOptions.ExperimentalDownload` (`CreateDownload.Create(...)`) must download it, or the call
+fails with `DownloadException` before the model request. The model receives the bytes as a `DecisionFilePart`.
+The default `CreateDownload.Create()` transport does not resolve DNS. For untrusted URLs, set `CreateDownloadOptions.Fetch` to a
+transport that validates DNS when it connects; otherwise a name that resolves to a private address can be fetched.
 
 ## Custom executors
 

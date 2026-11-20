@@ -12,7 +12,7 @@ namespace E2E.NUnit.Tests.ExpectedFailure;
 /// <see cref="ExpectedFailureFixture"/> through NUnit, with <c>[Property("E2E.Fail", reason)]</c> for the <c>fail</c> option and a property set in the
 /// body for <c>test.fail(...)</c>. The first <c>it</c> is <c>Partial_</c>: it checks the verdict <c>dotnet test</c> reports and not the report
 /// (<c>expectedFailure</c> on the result and the attempt, the error's code and category, the summary, the exit code, or the JUnit text), and
-/// leaves out "engine failure", "times out", and "soft failure then skipped" (no fixture here). The hook, retry, and rejection tests read the
+/// covers "engine failure", "times out", and "soft failure then skipped" by their verdict only. The hook, retry, and rejection tests read the
 /// NUnit verdict and the attempt counts, not the report (<c>attempts</c>, <c>status: 'flaky'</c>, the exit code, <c>run.errors</c>, <c>serialGroups</c>),
 /// so each is <c>Partial_</c> too. The retry test also leaves out "retries an unexpected pass" (NUnit decides a <c>[Retry]</c> from the body's result, before the teardown settles the mark, so an unexpected pass runs once) and "passes once, then fails as expected" (it needs that retry). <c>[Retry(2)]</c> stands for upstream's <c>retries: 2</c>: NUnit owns the retry policy.
 /// </summary>
@@ -45,6 +45,24 @@ public sealed class TestFailTests
         Assert.That(
             NestedRun.Run(nameof(ExpectedFailureFixture.Marked_then_skipped)).ResultState.Status,
             Is.EqualTo(TestStatus.Skipped)
+        );
+
+        // A skip wins beside a failure too: the attempt fails as an unmarked one would.
+        Assert.That(
+            NestedRun.Run(nameof(ExpectedFailureFixture.Soft_failure_then_skipped)).ResultState.Status,
+            Is.EqualTo(TestStatus.Failed)
+        );
+
+        // An engine failure is not a test failure: the mark does not cover it.
+        Assert.That(
+            NestedRun.Run(nameof(ExpectedFailureFixture.Engine_failure)).ResultState.Status,
+            Is.EqualTo(TestStatus.Failed)
+        );
+
+        // A timeout is a product failure the mark covers.
+        Assert.That(
+            NestedRun.Run(nameof(ExpectedFailureTimeoutFixture.Times_out)).ResultState.Status,
+            Is.EqualTo(TestStatus.Passed)
         );
     }
 

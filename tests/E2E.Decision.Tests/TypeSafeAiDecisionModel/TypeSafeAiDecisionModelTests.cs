@@ -88,7 +88,7 @@ public sealed class TypeSafeAiDecisionModelTests
             NativeResponse.ToJsonString(),
             new Dictionary<string, string> { ["x-request-id"] = "test-id" }
         );
-        var custom = new TypeSafeAiProvider(
+        var custom = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider(
             new TypeSafeAiProviderSettings
             {
                 ApiKey = "custom-key",
@@ -121,7 +121,7 @@ public sealed class TypeSafeAiDecisionModelTests
     {
         var server = new TestServer();
         server.RespondJson(Url, NativeResponse.ToJsonString());
-        var environmentModel = new TypeSafeAiProvider(
+        var environmentModel = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider(
             new TypeSafeAiProviderSettings { HttpClient = server.Client }
         ).DecisionModel("jev-latest");
         var previous = Environment.GetEnvironmentVariable("TYPESAFE_AI_API_KEY");
@@ -136,6 +136,61 @@ public sealed class TypeSafeAiDecisionModelTests
         }
 
         Assert.Equal("Bearer environment-key", server.Calls[0].RequestHeaders["authorization"]);
+    }
+
+    [Fact]
+    public async Task Serializes_and_restores_a_model_for_workflow_boundaries()
+    {
+        var server = new TestServer();
+        server.RespondJson(Url, NativeResponse.ToJsonString());
+        var original = new DecisionTypeSafeAiModel(
+            "jev-latest",
+            new TypeSafeAiDecisionModelConfig
+            {
+                Provider = "typesafe.decision",
+                BaseUrl = "https://api.typesafe.ai/v1",
+                Headers = _ =>
+                    Task.FromResult<IReadOnlyDictionary<string, string?>>(
+                        new Dictionary<string, string?> { ["Authorization"] = "Bearer restored-key" }
+                    ),
+                HttpClient = server.Client,
+            }
+        );
+
+        var serialized = DecisionTypeSafeAiModel.WorkflowSerialize(original);
+        Assert.False(serialized.Config.ContainsKey("fetch"));
+        Assert.False(serialized.Config.ContainsKey("httpClient"));
+        var restored = DecisionTypeSafeAiModel.WorkflowDeserialize(serialized, server.Client);
+        await restored.DoDecideAsync(Options(), CancellationToken.None);
+
+        Assert.Equal("Bearer restored-key", server.Calls[0].RequestHeaders["authorization"]);
+        Assert.Equal(["choice", "score", "boolean", "box"], restored.SupportedQuestionTypes);
+    }
+
+    [Fact]
+    public async Task Restores_authentication_from_the_environment_when_no_headers_are_serialized()
+    {
+        var server = new TestServer();
+        server.RespondJson(Url, NativeResponse.ToJsonString());
+        var previous = Environment.GetEnvironmentVariable("TYPESAFE_AI_API_KEY");
+        Environment.SetEnvironmentVariable("TYPESAFE_AI_API_KEY", "workflow-key");
+        try
+        {
+            var restored = DecisionTypeSafeAiModel.WorkflowDeserialize(
+                new SerializedModelOptions(
+                    "jev-latest",
+                    new JsonObject { ["provider"] = "typesafe.decision", ["baseURL"] = "https://api.typesafe.ai/v1" }
+                ),
+                server.Client
+            );
+            await restored.DoDecideAsync(Options(), CancellationToken.None);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("TYPESAFE_AI_API_KEY", previous);
+        }
+
+        Assert.Equal("Bearer workflow-key", server.Calls[0].RequestHeaders["authorization"]);
     }
 
     [Fact]
@@ -312,7 +367,7 @@ public sealed class TypeSafeAiDecisionModelTests
     {
         using var cancellation = new CancellationTokenSource();
         var handler = new CancellingHandler(cancellation);
-        var model = new TypeSafeAiProvider(
+        var model = new E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider(
             new TypeSafeAiProviderSettings { ApiKey = "test", HttpClient = new HttpClient(handler) }
         ).DecisionModel("jev-latest");
 
