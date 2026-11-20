@@ -83,23 +83,30 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         };
     }
 
-    public virtual async ValueTask InitializeAsync()
+    // Not async: StartSessionAsync reserves the slot a host the test body launches finds its attempt through, in the flow of its caller, and xUnit
+    // runs the body in the flow it called this method from. An async method would keep the slot to itself.
+    public virtual ValueTask InitializeAsync()
     {
         var current = Xunit.TestContext.Current;
         var test = current.Test
             ?? throw new InvalidOperationException("The E2E session starts inside a running xUnit test.");
         RunSelection.SkipIfLeftOut(GetType(), test.TestCase.TestMethodName);
         RunSelection.SkipIfSetupRan(GetType(), test.TestCase.TestMethodName);
-        await StartSessionAsync(
-                CacheTitle(test),
-                1,
-                null,
-                HasFailed,
-                current.CancellationToken,
-                (test.TestCase as IXunitTestCase)?.TestMethod?.Method
-            )
-            .ConfigureAwait(false);
-        Running[test.UniqueID] = this;
+        var started = StartSessionAsync(
+            CacheTitle(test),
+            1,
+            null,
+            HasFailed,
+            current.CancellationToken,
+            (test.TestCase as IXunitTestCase)?.TestMethod?.Method
+        );
+        return new ValueTask(RegisterRunningAsync(started, test.UniqueID));
+    }
+
+    private async Task RegisterRunningAsync(Task started, string uniqueId)
+    {
+        await started.ConfigureAwait(false);
+        Running[uniqueId] = this;
     }
 
     // The test body has ended and the class is not disposed yet: a failed body is looked at now, ahead of the teardown.
