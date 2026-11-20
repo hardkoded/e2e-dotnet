@@ -2,6 +2,12 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Net;
+using System.Net.Sockets;
+using System.Reflection;
+using System.Runtime.Loader;
+using System.Text;
+using System.Text.Json;
 using E2E.Decision.Sdk;
 using E2E.Decision.Sdk.TypeSafeAi;
 using static E2E.Decision.Tests.TypeSafeAiDecisionModel.TypeSafeAiDecisionModelFixture;
@@ -81,6 +87,88 @@ public sealed class TypeSafeProviderTests
             optionBaseUrl: "https://option.example/v1/",
             "https://option.example/v1/systemone"
         );
+
+    // Upstream's vi.resetModules() and re-import: a fresh load context re-runs the static initializer of TypeSafeAi.
+    // The singleton takes no transport, so a loopback listener stands in for upstream's spy on globalThis.fetch and
+    // the base URL points at it; the path after the host is upstream's.
+    [Fact]
+    public async Task Configures_the_default_provider_from_TYPESAFE_AI_BASE_URL_at_import_time()
+    {
+        var port = GetFreePort();
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+        listener.Start();
+        var served = Task.Run(async () =>
+        {
+            var context = await listener.GetContextAsync();
+            var path = context.Request.Url!.AbsolutePath;
+            var body = Encoding.UTF8.GetBytes(NativeResponse.ToJsonString());
+            context.Response.ContentType = "application/json";
+            await context.Response.OutputStream.WriteAsync(body);
+            context.Response.Close();
+            return path;
+        });
+        var previousKey = Environment.GetEnvironmentVariable("TYPESAFE_AI_API_KEY");
+        var previousUrl = Environment.GetEnvironmentVariable("TYPESAFE_AI_BASE_URL");
+        Environment.SetEnvironmentVariable("TYPESAFE_AI_API_KEY", "test-api-key");
+        Environment.SetEnvironmentVariable("TYPESAFE_AI_BASE_URL", $"http://127.0.0.1:{port}/v1/");
+        var context = new AssemblyLoadContext("typesafe-ai-import", isCollectible: true);
+        try
+        {
+            var assembly = context.LoadFromAssemblyPath(
+                typeof(E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider).Assembly.Location
+            );
+            var providerType = assembly.GetType(typeof(E2E.Decision.Sdk.TypeSafeAi.TypeSafeAiProvider).FullName!)!;
+            var provider = providerType.GetProperty("TypeSafeAi")!.GetValue(null);
+            var model = providerType.GetMethod("DecisionModel")!.Invoke(provider, ["jev-latest"])!;
+
+            var partType = assembly.GetType("E2E.Decision.Sdk.DecisionJsonPart")!;
+            var statePartType = assembly.GetType("E2E.Decision.Sdk.DecisionStatePart")!;
+            var questionType = assembly.GetType("E2E.Decision.Sdk.DecisionQuestion")!;
+            var state = Array.CreateInstance(statePartType, 1);
+            state.SetValue(
+                Activator.CreateInstance(
+                    partType,
+                    JsonDocument.Parse("""{"text":"The request used the configured endpoint."}""").RootElement
+                ),
+                0
+            );
+            var question = Activator.CreateInstance(questionType)!;
+            questionType.GetProperty("Type")!.SetValue(question, "boolean");
+            var questions = (System.Collections.IDictionary)
+                Activator.CreateInstance(typeof(Dictionary<,>).MakeGenericType(typeof(string), questionType))!;
+            questions["configured"] = question;
+            var callType = assembly.GetType("E2E.Decision.Sdk.DecisionModelCall")!;
+            var call = Activator.CreateInstance(callType)!;
+            callType.GetProperty("State")!.SetValue(call, state);
+            callType.GetProperty("Questions")!.SetValue(call, questions);
+
+            var task = (Task)model.GetType().GetMethod("DoDecideAsync")!.Invoke(model, [call, CancellationToken.None])!;
+            await task;
+
+            Assert.Equal("/v1/systemone", await served);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("TYPESAFE_AI_API_KEY", previousKey);
+            Environment.SetEnvironmentVariable("TYPESAFE_AI_BASE_URL", previousUrl);
+            context.Unload();
+        }
+    }
+
+    private static int GetFreePort()
+    {
+        var tcp = new TcpListener(IPAddress.Loopback, 0);
+        tcp.Start();
+        try
+        {
+            return ((IPEndPoint)tcp.LocalEndpoint).Port;
+        }
+        finally
+        {
+            tcp.Stop();
+        }
+    }
 
     private static async Task RequestUrlAsync(string? environmentBaseUrl, string? optionBaseUrl, string expectedUrl)
     {
