@@ -8,6 +8,22 @@
     "slug": "api/E2E"
   },
   {
+    "label": "E2E.Decision",
+    "slug": "api/E2E.Decision"
+  },
+  {
+    "label": "E2E.Decision.Sdk",
+    "slug": "api/E2E.Decision.Sdk"
+  },
+  {
+    "label": "E2E.Decision.Sdk.Gateway",
+    "slug": "api/E2E.Decision.Sdk.Gateway"
+  },
+  {
+    "label": "E2E.Decision.Sdk.TypeSafeAi",
+    "slug": "api/E2E.Decision.Sdk.TypeSafeAi"
+  },
+  {
     "label": "E2E.Engine",
     "slug": "api/E2E.Engine"
   },

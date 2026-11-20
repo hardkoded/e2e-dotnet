@@ -28,3 +28,10 @@ Generated from the XML documentation of `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, and 
 ## E2E.TUnit
 
 - [E2E.TUnit](/api/E2E.TUnit/) — The TUnit runner. Subclass E2ETest to get a session per test.
+
+## E2E.Decision
+
+- [E2E.Decision](/api/E2E.Decision/) — Public types in the `E2E.Decision` namespace.
+- [E2E.Decision.Sdk](/api/E2E.Decision.Sdk/) — Public types in the `E2E.Decision.Sdk` namespace.
+- [E2E.Decision.Sdk.Gateway](/api/E2E.Decision.Sdk.Gateway/) — Public types in the `E2E.Decision.Sdk.Gateway` namespace.
+- [E2E.Decision.Sdk.TypeSafeAi](/api/E2E.Decision.Sdk.TypeSafeAi/) — Public types in the `E2E.Decision.Sdk.TypeSafeAi` namespace.

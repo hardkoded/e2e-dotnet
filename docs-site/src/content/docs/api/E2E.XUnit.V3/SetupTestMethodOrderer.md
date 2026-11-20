@@ -1,6 +1,6 @@
 ---
 title: "SetupTestMethodOrderer"
-description: "Puts the setup tests (E2ESetupAttribute) of a class before its other tests, which keep xUnit's default order. .NET-only: upstream's runner orders a setup tes..."
+description: "Puts the setup tests (E2ESetupAttribute) of a class before its other tests, which start the likeliest first, by the relevance band the test filters gave them..."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,8 @@ public sealed class SetupTestMethodOrderer : ITestMethodOrderer
 ```
 
 
-Puts the setup tests ([E2ESetupAttribute](/api/E2E.XUnit.V3/E2ESetupAttribute/)) of a class before its other tests, which keep xUnit's default order. .NET-only:
+Puts the setup tests ([E2ESetupAttribute](/api/E2E.XUnit.V3/E2ESetupAttribute/)) of a class before its other tests, which start the likeliest first, by the relevance
+band the test filters gave them (upstream's `orderWorkPlans`), and otherwise keep xUnit's default order. .NET-only:
 upstream's runner orders a setup test before its dependents itself, and xUnit orders the test methods. [E2ETest](/api/E2E.XUnit.V3/E2ETest/) applies it;
 a class with its own `[TestMethodOrderer]` replaces it.
 

@@ -88,6 +88,21 @@ Project context told to every model call, at most 16384 UTF-8 bytes.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_AgentConfig_Executor_"></a>
+<a id="E2E_AgentConfig_Executor"></a>
+
+### Executor
+
+
+```csharp
+public IStepExecutor? Executor { get; }
+```
+
+
+The executor `WithExecutor` gave, or null for the built-in agent. The config file cannot name one.
+
+**Value:** [IStepExecutor](/api/E2E/IStepExecutor/)
+
 <a id="E2E_AgentConfig_Judge_"></a>
 <a id="E2E_AgentConfig_Judge"></a>
 

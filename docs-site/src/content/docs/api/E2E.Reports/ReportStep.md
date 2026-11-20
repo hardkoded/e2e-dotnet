@@ -40,7 +40,8 @@ public string? Actor { get; init; }
 ```
 
 
-The session the step ran on, when it is not the test's own: one the test drives beside it through [Launch](/api/E2E/Launch/), named in the order they joined it (`launch-1`). Null for a step of the test's own session.
+The session the step ran on, when it is not the test's own: one the test drives beside it through [Launch](/api/E2E/Launch/), named in the order
+they joined it (`launch-1`). Null for a step of the test's own session.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
