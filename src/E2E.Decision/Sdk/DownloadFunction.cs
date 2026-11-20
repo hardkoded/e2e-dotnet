@@ -23,3 +23,46 @@ public delegate Task<IReadOnlyList<DownloadedFile?>> DownloadFunction(
     IReadOnlyList<DownloadRequest> requests,
     CancellationToken cancellationToken
 );
+
+/// <summary>The type of the AI SDK's <c>download</c> (<c>typeof originalDownload</c>), which <see cref="CreateDefaultDownloadFunction.Create"/> takes. Receives the requested URL and the signal of the enclosing call.</summary>
+public delegate Task<DownloadedFile> DownloadFile(DownloadRequest request, CancellationToken cancellationToken);
+
+/// <summary>The AI SDK's <c>createDefaultDownloadFunction</c> (<c>util/download/download-function.ts</c>).</summary>
+public static class CreateDefaultDownloadFunction
+{
+    /// <summary>
+    /// Default download function. Downloads the file if it is not supported by the model. <paramref name="cancellationToken"/> (upstream's
+    /// <c>abortSignal</c>) wins over the token of the call.
+    /// </summary>
+    /// <param name="download">The single-request download. Defaults to the AI SDK's <c>download</c>.</param>
+    /// <param name="cancellationToken">A token passed to every download instead of the call's.</param>
+    public static DownloadFunction Create(DownloadFile? download = null, CancellationToken? cancellationToken = null)
+    {
+        download ??= static (request, token) => Downloads.DownloadAsync(request.Url, null, null, token);
+        return async (requestedDownloads, token) =>
+        {
+            var tasks = requestedDownloads
+                .Select(async requestedDownload =>
+                    requestedDownload.IsUrlSupportedByModel
+                        ? null
+                        : await download(requestedDownload, cancellationToken ?? token).ConfigureAwait(false)
+                )
+                .ToList();
+            // Like Promise.all, fail as soon as one download fails, without cancelling the others. Their later failures are observed.
+            var pending = new List<Task<DownloadedFile?>>(tasks);
+            while (pending.Count > 0)
+            {
+                var done = await Task.WhenAny(pending).ConfigureAwait(false);
+                if (done.IsFaulted || done.IsCanceled)
+                {
+                    _ = Task.WhenAll(pending).ContinueWith(static _ => { }, TaskScheduler.Default);
+                    await done.ConfigureAwait(false);
+                }
+
+                pending.Remove(done);
+            }
+
+            return [.. tasks.Select(static task => task.Result)];
+        };
+    }
+}

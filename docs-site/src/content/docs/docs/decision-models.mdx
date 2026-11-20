@@ -169,6 +169,8 @@ var result = await ExperimentalDecide.RunAsync(new DecideOptions
 
 The download refuses a non-http(s) URL, `localhost` and internal names, and literal private IP addresses, and checks every redirect hop. It does not resolve DNS, so a name that resolves to a private address gets through. For untrusted URLs, set `CreateDownloadOptions.Fetch` to a transport that validates DNS when it connects. A failed download, including an error status or a body over `MaxBytes` (2 GiB by default), throws `DownloadException` and no decision-model call is made.
 
+`CreateDownload.Create` returns a `Download`. Besides the array form that `ExperimentalDownload` takes, call `DownloadAsync(url, cancellationToken)` on it to download a single URL with the same guards. `CreateDefaultDownloadFunction.Create(download, cancellationToken)` builds the default function, which downloads every URL the model does not support, from any single-request `DownloadFile`; a token you pass replaces the call's token.
+
 ## Limits
 
 - No `navigate`. In-app navigation is a `tap` on a link. URLs belong in test code.
