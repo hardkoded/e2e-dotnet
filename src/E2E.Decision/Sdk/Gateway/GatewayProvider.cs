@@ -32,18 +32,6 @@ public sealed class GatewayProviderSettings
 
     /// <summary>Upstream's <c>_internal.currentDate</c>, for testing purposes only.</summary>
     internal Func<DateTimeOffset>? CurrentDate { get; init; }
-
-    /// <summary>
-    /// .NET-only: upstream's tests mock the <c>getVercelOidcToken</c> of <c>vercel-environment.ts</c>. This is that seam; it defaults to the
-    /// <c>VERCEL_OIDC_TOKEN</c> environment variable.
-    /// </summary>
-    internal Func<CancellationToken, Task<string>>? GetVercelOidcToken { get; init; }
-
-    /// <summary>
-    /// .NET-only: upstream's tests mock the <c>getVercelRequestId</c> of <c>vercel-environment.ts</c>, the <c>x-vercel-id</c> header of the Vercel
-    /// request context. This is that seam; there is no request context here, so it defaults to no request id.
-    /// </summary>
-    internal Func<CancellationToken, Task<string?>>? GetVercelRequestId { get; init; }
 }
 
 /// <summary>The token and method <see cref="GatewayProvider.GetGatewayAuthTokenAsync"/> gives.</summary>
@@ -161,7 +149,7 @@ public sealed class GatewayProvider : IDecisionProvider
     /// Upstream's <c>getGatewayAuthToken</c>: a non-empty API key (the option, else <c>AI_GATEWAY_API_KEY</c>) is used as is, with no trimming;
     /// otherwise the Vercel OIDC token. Callers wrap a failure here in a <see cref="GatewayAuthenticationException"/> ("No authentication provided").
     /// </summary>
-    public static Task<GatewayAuthToken> GetGatewayAuthTokenAsync(
+    public static async Task<GatewayAuthToken> GetGatewayAuthTokenAsync(
         GatewayProviderSettings settings,
         CancellationToken cancellationToken = default
     )
@@ -170,32 +158,12 @@ public sealed class GatewayProvider : IDecisionProvider
         var apiKey = settings.ApiKey ?? System.Environment.GetEnvironmentVariable("AI_GATEWAY_API_KEY");
         if (!string.IsNullOrEmpty(apiKey))
         {
-            return Task.FromResult(new GatewayAuthToken(apiKey, "api-key"));
+            return new GatewayAuthToken(apiKey, "api-key");
         }
 
-        return GetOidcAuthTokenAsync(settings, cancellationToken);
-    }
-
-    private static async Task<GatewayAuthToken> GetOidcAuthTokenAsync(
-        GatewayProviderSettings settings,
-        CancellationToken cancellationToken
-    )
-    {
-        var oidcToken = settings.GetVercelOidcToken is { } getToken
-            ? await getToken(cancellationToken).ConfigureAwait(false)
-            : GetVercelOidcToken();
+        // getVercelOidcToken (@vercel/oidc), through vercel-environment.ts.
+        var oidcToken = await VercelEnvironment.GetVercelOidcTokenAsync(cancellationToken).ConfigureAwait(false);
         return new GatewayAuthToken(oidcToken, "oidc");
-    }
-
-    // vercel-environment.ts getVercelOidcToken (@vercel/oidc): the token of the VERCEL_OIDC_TOKEN environment variable.
-    private static string GetVercelOidcToken()
-    {
-        var token = System.Environment.GetEnvironmentVariable("VERCEL_OIDC_TOKEN");
-        return !string.IsNullOrEmpty(token)
-            ? token
-            : throw new InvalidOperationException(
-                "Could not get the Vercel OIDC token: the 'VERCEL_OIDC_TOKEN' environment variable is not set."
-            );
     }
 
     // getHeaders: a failure to authenticate is wrapped in a GatewayAuthenticationException with the failure as its cause.
@@ -237,7 +205,7 @@ public sealed class GatewayProvider : IDecisionProvider
     }
 
     // createO11yHeaders: the Vercel deployment the process runs in, when it runs in one.
-    private async Task<IReadOnlyDictionary<string, string?>> GetO11yHeadersAsync(CancellationToken cancellationToken)
+    private static Task<IReadOnlyDictionary<string, string?>> GetO11yHeadersAsync(CancellationToken cancellationToken)
     {
         var headers = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (
@@ -246,25 +214,19 @@ public sealed class GatewayProvider : IDecisionProvider
                 ("ai-o11y-deployment-id", "VERCEL_DEPLOYMENT_ID"),
                 ("ai-o11y-environment", "VERCEL_ENV"),
                 ("ai-o11y-region", "VERCEL_REGION"),
+                ("ai-o11y-request-id", null),
                 ("ai-o11y-project-id", "VERCEL_PROJECT_ID"),
             }
         )
         {
-            if (ModelHttp.Environment(variable) is { Length: > 0 } value)
+            var value = variable is null ? VercelEnvironment.GetVercelRequestId() : ModelHttp.Environment(variable);
+            if (value is { Length: > 0 })
             {
                 headers[header] = value;
             }
         }
 
-        var requestId = _settings.GetVercelRequestId is { } getRequestId
-            ? await getRequestId(cancellationToken).ConfigureAwait(false)
-            : null;
-        if (!string.IsNullOrEmpty(requestId))
-        {
-            headers["ai-o11y-request-id"] = requestId;
-        }
-
-        return headers;
+        return Task.FromResult<IReadOnlyDictionary<string, string?>>(headers);
     }
 
     // getAvailableModels: the fetch is shared by every caller until the cache is refreshed, so it takes no caller's token.

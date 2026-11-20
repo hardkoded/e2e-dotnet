@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Decision.Sdk.Gateway;
+using Vercel.Oidc;
 using static E2E.Decision.Tests.GatewayProvider.GatewayProviderFixture;
+using Env = E2E.Decision.Sdk.Gateway.VercelEnvironment;
 
 namespace E2E.Decision.Tests.GatewayProvider;
 
@@ -147,9 +149,8 @@ public sealed class AuthenticationComprehensiveTests
         WithEnvironmentAsync(Environment("", ""), async () =>
         {
             var oidcError = new InvalidOperationException("OIDC token generation failed: project not linked");
-            var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
-                new GatewayProviderSettings { GetVercelOidcToken = _ => Task.FromException<string>(oidcError) }
-            );
+            Env.OidcTokenOverride = _ => Task.FromException<string>(oidcError);
+            var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider();
 
             var error = await Assert.ThrowsAsync<GatewayAuthenticationException>(() =>
                 provider.GetAvailableModelsAsync()

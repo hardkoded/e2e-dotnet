@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Decision.Sdk.Gateway;
+using Vercel.Oidc;
 using static E2E.Decision.Tests.GatewayDecisionModel.GatewayDecisionModelFixture;
 using static E2E.Decision.Tests.GatewayProvider.GatewayProviderFixture;
+using Env = E2E.Decision.Sdk.Gateway.VercelEnvironment;
 
 namespace E2E.Decision.Tests.GatewayProvider;
 
@@ -139,6 +141,9 @@ public sealed class CreateGatewayTests
             async () =>
             {
                 // Upstream reads config.o11yHeaders of the GatewayLanguageModel; the port reads the headers of the decision model's request.
+                using var _ = VercelRequestContext.Use(
+                    new Dictionary<string, string?> { ["x-vercel-id"] = "test-request-id" }
+                );
                 var server = new TestServer();
                 server.RespondJson(
                     "https://api.example.com/decision-model",
@@ -150,7 +155,6 @@ public sealed class CreateGatewayTests
                         BaseUrl = "https://api.example.com",
                         ApiKey = "test-api-key",
                         HttpClient = server.Client,
-                        GetVercelRequestId = _ => Task.FromResult<string?>("test-request-id"),
                     }
                 );
 

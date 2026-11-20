@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Decision.Sdk.Gateway;
+using Vercel.Oidc;
 using static E2E.Decision.Tests.GatewayDecisionModel.GatewayDecisionModelFixture;
+using Env = E2E.Decision.Sdk.Gateway.VercelEnvironment;
 
 namespace E2E.Decision.Tests.GatewayProvider;
 
@@ -33,10 +35,17 @@ internal static class GatewayProviderFixture
                 Environment.SetEnvironmentVariable(name, variables.GetValueOrDefault(name));
             }
 
+            // Upstream mocks getVercelOidcToken (vi.mocked): it gives the VERCEL_OIDC_TOKEN set here, or fails like an unavailable token.
+            Env.OidcTokenOverride = _ =>
+                Environment.GetEnvironmentVariable("VERCEL_OIDC_TOKEN") is { Length: > 0 } token
+                    ? Task.FromResult(token)
+                    : throw new InvalidOperationException("OIDC token not available");
+
             await action();
         }
         finally
         {
+            Env.OidcTokenOverride = null;
             foreach (var (name, value) in previous)
             {
                 Environment.SetEnvironmentVariable(name, value);
@@ -104,8 +113,15 @@ internal static class GatewayProviderFixture
         double? metadataCacheRefreshMillis = null,
         Func<DateTimeOffset>? currentDate = null,
         Func<CancellationToken, Task<string>>? getVercelOidcToken = null
-    ) =>
-        new(
+    )
+    {
+        // Upstream mocks getVercelOidcToken of vercel-environment.ts; the port's seam is the override of VercelEnvironment.
+        if (getVercelOidcToken is not null)
+        {
+            Env.OidcTokenOverride = getVercelOidcToken;
+        }
+
+        return new(
             new GatewayProviderSettings
             {
                 BaseUrl = baseUrl,
@@ -115,7 +131,7 @@ internal static class GatewayProviderFixture
                 HttpClient = server.Client,
                 MetadataCacheRefreshMillis = metadataCacheRefreshMillis,
                 CurrentDate = currentDate,
-                GetVercelOidcToken = getVercelOidcToken,
             }
         );
+    }
 }
