@@ -64,8 +64,10 @@ public sealed class Download
         }
     }
 
-    private async Task<DownloadedFile?> DownloadOneAsync(DownloadRequest request, CancellationToken cancellationToken) =>
-        await DownloadAsync(request.Url, cancellationToken).ConfigureAwait(false);
+    private async Task<DownloadedFile?> DownloadOneAsync(
+        DownloadRequest request,
+        CancellationToken cancellationToken
+    ) => await DownloadAsync(request.Url, cancellationToken).ConfigureAwait(false);
 }
 
 /// <summary>The AI SDK's <c>createDownload</c> (<c>util/download/create-download.ts</c>).</summary>
