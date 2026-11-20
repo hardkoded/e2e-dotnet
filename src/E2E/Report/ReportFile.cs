@@ -37,6 +37,9 @@ internal static class ReportFile
         /// <summary>The result as the document spells it, redacted; null until the next write builds it.</summary>
         public JsonNode? Node { get; set; }
 
+        /// <summary>The revision of the secrets beside the session (<see cref="Secrecy.BesideRevision"/>) when <see cref="Node"/> was built.</summary>
+        public int NodeRevision { get; set; }
+
         public Func<string, string> Redact { get; set; } = text => text;
     }
 
@@ -412,14 +415,18 @@ internal static class ReportFile
 
         // A result that gained no attempt keeps its wire form: only the test this call is about is built again.
         var nodes = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
+        var revision = Secrecy.BesideRevision;
         foreach (var result in document.Run.Results)
         {
             var entry = state.Results[result.Id];
-            if (entry.Node is null)
+
+            // A value another session learned after the node was built may sit in the result's text: build it again with the redactor.
+            if (entry.Node is null || entry.NodeRevision != revision)
             {
                 var node = ReportWire.Result(result, result.Platform, resultsRoot);
                 ReportWire.Redact(node, entry.Redact);
                 entry.Node = node;
+                entry.NodeRevision = revision;
             }
 
             nodes[result.Id] = entry.Node;
