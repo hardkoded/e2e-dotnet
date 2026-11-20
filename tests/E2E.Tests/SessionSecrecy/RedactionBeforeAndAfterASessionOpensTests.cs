@@ -14,6 +14,7 @@ namespace E2E.Tests.SessionSecrecy;
 public sealed class RedactionBeforeAndAfterASessionOpensTests : IDisposable
 {
     private const string StaticValue = "static-config-password-7730";
+
     // Not the values of the other describes: the process ledger keeps what it met, where upstream gives each file a worker.
     private const string ProviderValue = "provider-minted-token-6615";
 
