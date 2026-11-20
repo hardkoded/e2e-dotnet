@@ -109,4 +109,31 @@ public sealed class TelemetryTracingChannelPublisherTests
             Assert.IsType<DecideStartEvent>(decideMessage?.Event).RuntimeContext
         );
     }
+
+    /// <summary>.NET-only: no upstream <c>it</c> covers the decide start event with <c>recordInputs: false</c>, which upstream's <c>filterTelemetryEvent</c> hides.</summary>
+    [Fact]
+    public async Task Hides_the_decide_inputs_in_tracing_when_inputs_are_not_recorded()
+    {
+        var messages = await CollectTracingChannelStartMessages(() =>
+            Decide(Options(new TelemetryOptions { RecordInputs = false }, null))
+        );
+
+        var start = Assert.IsType<DecideStartEvent>(
+            messages.Find(message => message.Type == TelemetryTracingEventType.ExperimentalDecide)?.Event
+        );
+        Assert.Empty(start.State);
+        Assert.Empty(start.Questions);
+        Assert.Empty(start.ProviderOptions);
+    }
+
+    /// <summary>.NET-only: upstream's dispatcher is empty when <c>isEnabled</c> is <c>false</c>, so no span is published.</summary>
+    [Fact]
+    public async Task Does_not_trace_decide_when_telemetry_is_disabled()
+    {
+        var messages = await CollectTracingChannelStartMessages(() =>
+            Decide(Options(new TelemetryOptions { IsEnabled = false }, null))
+        );
+
+        Assert.Empty(messages);
+    }
 }
