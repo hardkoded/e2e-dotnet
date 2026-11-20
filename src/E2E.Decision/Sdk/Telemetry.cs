@@ -10,6 +10,17 @@ namespace E2E.Decision.Sdk;
 /// </summary>
 public interface ITelemetry
 {
+    /// <summary>
+    /// Called when an operation begins (<c>onStart</c>). Upstream fires it for text, object, embedding, reranking, speech, and transcription
+    /// operations, whose events the port does not have. Decide does not call it: it has <see cref="OnDecideStartAsync"/>.
+    /// </summary>
+    Task OnStartAsync(TelemetryEvent @event) => Task.CompletedTask;
+
+    /// <summary>
+    /// Called when an operation completes (<c>onEnd</c>). Decide does not call it: it has <see cref="OnDecideEndAsync"/>.
+    /// </summary>
+    Task OnEndAsync(TelemetryEvent @event) => Task.CompletedTask;
+
     /// <summary>Called when an experimental decision operation begins (<c>experimental_onDecideStart</c>).</summary>
     Task OnDecideStartAsync(DecideStartEvent @event) => Task.CompletedTask;
 

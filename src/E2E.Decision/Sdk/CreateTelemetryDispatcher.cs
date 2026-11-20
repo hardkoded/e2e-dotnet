@@ -32,6 +32,20 @@ internal sealed class TelemetryDispatcher
                 : telemetry?.Integrations ?? TelemetryRegistry.GetGlobalTelemetryIntegrations();
     }
 
+    /// <summary><c>onStart</c>. Decide does not call it.</summary>
+    internal Task OnStartAsync(TelemetryEvent @event)
+    {
+        var augmented = Augment(@event);
+        return MergeCallbacks(integration => integration.OnStartAsync(augmented));
+    }
+
+    /// <summary><c>onEnd</c>. Decide does not call it.</summary>
+    internal Task OnEndAsync(TelemetryEvent @event)
+    {
+        var augmented = Augment(@event);
+        return MergeCallbacks(integration => integration.OnEndAsync(augmented));
+    }
+
     /// <summary><c>experimental_onDecideStart</c>.</summary>
     internal Task OnDecideStartAsync(DecideStartEvent @event)
     {
@@ -127,6 +141,15 @@ internal sealed class TelemetryDispatcher
         await Task.Yield();
         await call(integration).ConfigureAwait(false);
     }
+
+    private TelemetryEvent Augment(TelemetryEvent @event) =>
+        @event with
+        {
+            RecordInputs = _telemetry?.RecordInputs,
+            RecordOutputs = _telemetry?.RecordOutputs,
+            FunctionId = _telemetry?.FunctionId,
+            AiVersion = AiVersion,
+        };
 
     private DecideStartEvent Augment(DecideStartEvent @event) =>
         @event with

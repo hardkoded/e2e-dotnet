@@ -8,12 +8,7 @@ using E2E.OAuth;
 
 namespace E2E.Cli.Tests.Cli;
 
-/// <summary>
-/// <c>describe('e2e logout argument parsing')</c>. Not ported: "rejects an unknown provider with exit code 2, naming the ids
-/// and their aliases". The port has no argument-choice check in its CLI: an unknown provider raises an
-/// <see cref="OAuthException"/> that <c>Main</c> prints as one line and exits 1 (covered by
-/// <c>E2eLoginLogoutTests</c>).
-/// </summary>
+/// <summary><c>describe('e2e logout argument parsing')</c>.</summary>
 [Collection(E2eLoginFlagsTests.Name)]
 public sealed class E2eLogoutArgumentParsingTests : IDisposable
 {
@@ -44,5 +39,27 @@ public sealed class E2eLogoutArgumentParsingTests : IDisposable
 
         Assert.Equal(0, code);
         Assert.Contains("No SpaceXSI login was stored.", stdout.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Rejects_an_unknown_provider_with_exit_code_2_naming_the_ids_and_their_aliases()
+    {
+        var stderr = new StringWriter();
+
+        var code = await Program.RunAsync(
+            ["logout", "xai"],
+            new StringWriter(),
+            stderr,
+            TextReader.Null,
+            interactive: false,
+            CancellationToken.None
+        );
+
+        Assert.Equal(2, code);
+        Assert.Contains(
+            "Allowed choices are openai, github-copilot, opencode-console, spacexsi, spacexai, grok.",
+            stderr.ToString(),
+            StringComparison.Ordinal
+        );
     }
 }
