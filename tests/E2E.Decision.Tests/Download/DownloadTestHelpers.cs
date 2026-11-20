@@ -21,6 +21,17 @@ internal static class DownloadTestHelpers
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
     }
 
+    /// <summary>The counterpart of upstream's <c>{ type: 'opaqueredirect', status: 0, ok: false }</c> response.</summary>
+    internal static HttpResponseMessage OpaqueRedirect()
+    {
+        var request = new HttpRequestMessage();
+        request.Options.Set(
+            Sdk.FetchWithValidatedRedirects.ResponseTypeOption,
+            Sdk.FetchWithValidatedRedirects.OpaqueRedirectType
+        );
+        return new HttpResponseMessage(0) { RequestMessage = request };
+    }
+
     internal static HttpResponseMessage Redirect(HttpStatusCode status, string location, HttpContent? content = null)
     {
         var response = new HttpResponseMessage(status) { Content = content ?? new ByteArrayContent([]) };
