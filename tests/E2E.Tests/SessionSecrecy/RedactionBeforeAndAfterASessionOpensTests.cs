@@ -4,12 +4,7 @@
 
 namespace E2E.Tests.SessionSecrecy;
 
-/// <summary>
-/// The <c>describe('redaction before and after a session opens')</c> of upstream's <c>session-secrecy.test.ts</c>. Not ported: 'makes the
-/// process ledger the default redactor once seeded, so a serialized error carries no secret' calls <c>serializeError</c> with no redactor,
-/// which reads the process ledger through <c>setErrorRedactor</c>; the port's <c>ErrorSerializer.Serialize</c> takes its redactor as a
-/// parameter and has no process default (issue #1977).
-/// </summary>
+/// <summary>The <c>describe('redaction before and after a session opens')</c> of upstream's <c>session-secrecy.test.ts</c>.</summary>
 [Collection(SharedSecretsCollection.Name)]
 public sealed class RedactionBeforeAndAfterASessionOpensTests : IDisposable
 {
@@ -68,5 +63,15 @@ public sealed class RedactionBeforeAndAfterASessionOpensTests : IDisposable
         Assert.Same(ledger, Secrecy.StaticSecretLedger(_secrets));
         Secrecy.SessionLedger(NewSession(), _secrets).Register("token", "provider-minted-token-6616");
         Assert.Equal([("password", StaticValue)], ledger.Entries());
+    }
+
+    [Fact]
+    public void Makes_the_process_ledger_the_default_redactor_once_seeded_so_a_serialized_error_carries_no_secret()
+    {
+        const string value = "process-wide-ledger-value-3391";
+        global::E2E.OpenSession.RegisterStaticSecrets(_secrets.Where(secret => secret.Provider is null));
+        global::E2E.OpenSession.Learned("token", value);
+        var serialized = ErrorSerializer.Serialize(new TestException("ASSERTION_FAILED", $"the app echoed {value}"));
+        Assert.Equal("the app echoed <secret:token>", serialized.Message);
     }
 }
