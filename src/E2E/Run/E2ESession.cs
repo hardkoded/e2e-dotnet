@@ -360,6 +360,7 @@ public sealed class E2ESession : IAsyncDisposable
             launch.Dispose();
         }
 
+        AttemptScope? created = null;
         try
         {
             // The saved session restores before the video starts, and the values its saving session learned join the ledger the attempt starts with.
@@ -465,7 +466,6 @@ public sealed class E2ESession : IAsyncDisposable
                 : null;
             var softFailures = new SoftFailures(options.OnSoftFailure);
             var testFailed = options.TestFailed ?? (static () => false);
-            AttemptScope? created = null;
             var scope = new AttemptScope
             {
                 SharesSecrets = true,
@@ -698,14 +698,13 @@ public sealed class E2ESession : IAsyncDisposable
             catch
             {
                 hold?.Dispose();
-                // No session was returned to release it: stop sharing what the scope learned.
-                created?.ReleaseSessionLedger();
                 throw;
             }
         }
         catch
         {
-            // The attempt never took ownership, so release what it started.
+            // The attempt never took ownership, so release what it started, and stop sharing what its scope learned.
+            created?.ReleaseSessionLedger();
             var cleanup = engine.DisposeAsync().AsTask();
             await (
                 Bounded(options.CleanupTimeout) ? cleanup.WaitAsync(options.CleanupTimeout) : cleanup
