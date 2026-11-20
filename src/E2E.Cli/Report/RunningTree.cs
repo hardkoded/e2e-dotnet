@@ -214,7 +214,12 @@ internal sealed class RunningTree(Colors pc, Func<string, string> badge)
             return [];
         }
 
-        List<string> rows = [pc.Dim($"{FDownRight} {current.Api} {ListSteps.QuotedLabel(current.Label)}")];
+        List<string> rows =
+        [
+            pc.Dim(
+                $"{FDownRight} {ReportFormat.WithActor(current.Actor, current.Api)} {ListSteps.QuotedLabel(current.Label)}"
+            ),
+        ];
         if (current.Kind != Reports.StepKind.Agent)
         {
             return [.. rows.Take(budget)];

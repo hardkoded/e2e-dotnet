@@ -402,10 +402,13 @@ public static class MarkdownReport
             at.Step.Kind == StepKind.Agent
                 ? Code(at.Step.Api, MaxIdChars) + " " + StepLabel(at.Step, MaxPathChars)
                 : Code(at.Step.Api + " " + at.Step.Label, MaxPathChars);
+        // A step of a session the test opened beside its own says whose it is.
+        var on = at.Step.Actor is null ? "" : " on " + Cell(at.Step.Actor, MaxIdChars);
         return "at step "
             + (at.Index + 1).ToString(CultureInfo.InvariantCulture)
             + " of "
             + steps.Count.ToString(CultureInfo.InvariantCulture)
+            + on
             + ": "
             + call
             + ", after "

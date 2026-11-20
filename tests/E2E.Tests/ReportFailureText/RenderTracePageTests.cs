@@ -7,6 +7,7 @@ using E2E.Tests.Traces;
 using static E2E.Tests.ReportFailureText.FailureTextKit;
 using ArtifactProducer = E2E.Reports.ArtifactProducer;
 using ArtifactProducerKind = E2E.Reports.ArtifactProducerKind;
+using ArtifactRedaction = E2E.Reports.ArtifactRedaction;
 using FailureText = E2E.Reports.FailureText;
 using Outcome = E2E.Reports.Outcome;
 using TracePageOptions = E2E.Reports.TracePageOptions;
@@ -80,6 +81,49 @@ public sealed class RenderTracePageTests
             lines[(at + 1)..(at + 4)]
         );
         Assert.DoesNotContain("console.txt", lines[at + 4], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Names_the_session_of_a_step_that_ran_on_one_the_test_opened_beside_its_own_and_places_it_in_that_sessions_recording()
+    {
+        DateTimeOffset At(int seconds) => new(2026, 10, 27, 10, 0, seconds, TimeSpan.Zero);
+        ReportArtifact Video(string id, string file, DateTimeOffset startedAt, string? actor = null) =>
+            new(
+                id,
+                "video",
+                "t/video/" + file,
+                StartedAt: startedAt,
+                Redaction: ArtifactRedaction.Incomplete,
+                Producer: new ArtifactProducer { Kind = ArtifactProducerKind.Attempt },
+                Actor: actor
+            );
+        var body = Page([
+            Failed(
+                steps:
+                [
+                    Step(0, api: "app.open", startedAt: At(0), durationMs: 500),
+                    Step(1, api: "app.open", actor: "launch-1", startedAt: At(6), durationMs: 500),
+                    Step(
+                        2,
+                        api: "locator.tap",
+                        status: StepStatus.Failed,
+                        error: ReportBuilders.Error(),
+                        startedAt: At(9),
+                        durationMs: 500
+                    ),
+                ],
+                artifacts: [Video("a:0", "video.webm", At(0)), Video("a:1", "launch-1.webm", At(4), "launch-1")]
+            ),
+        ]);
+        var steps = body.Split('\n')
+            .Where(line => System.Text.RegularExpressions.Regex.IsMatch(line, @"^\d+\. "))
+            .ToList();
+        Assert.Contains("`app.open`", steps[0]);
+        Assert.Contains(", video 0:00", steps[0]);
+        Assert.Matches(@"^2\. ✓ launch-1 › `app\.open`", steps[1]);
+        Assert.Contains(", launch-1 0:02", steps[1]);
+        // The test's own step stays in the test's own recording, though the session's began later.
+        Assert.Contains(", video 0:09", steps[2]);
     }
 
     [Fact]
