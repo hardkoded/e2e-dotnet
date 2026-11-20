@@ -106,9 +106,8 @@ internal sealed class TelemetryDispatcher
     /// <summary><c>onError</c>.</summary>
     internal Task OnErrorAsync(string callId, Exception error)
     {
-        var augmented = FilterTelemetryEvent.Filter(
-            Augment(new TelemetryErrorEvent { CallId = callId, Error = error }),
-            _telemetry
+        var augmented = RedactTelemetryCredentials.Redact(
+            FilterTelemetryEvent.Filter(Augment(new TelemetryErrorEvent { CallId = callId, Error = error }), _telemetry)
         );
         return MergeCallbacks(integration => integration.OnErrorAsync(augmented));
     }

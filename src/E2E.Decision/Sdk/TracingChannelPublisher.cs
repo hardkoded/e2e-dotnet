@@ -50,7 +50,22 @@ internal static class TracingChannelPublisher
                             return default(T);
                         }
 
-                        return await executeTask.ConfigureAwait(false);
+                        // tracePromise publishes its resolved value on the channel. Keep the application's result separately
+                        // from the redacted telemetry copy.
+                        try
+                        {
+                            return RedactTelemetryCredentials.Redact(await executeTask.ConfigureAwait(false));
+                        }
+                        catch (Exception error)
+                        {
+                            var redacted = RedactTelemetryCredentials.Redact(error);
+                            if (ReferenceEquals(redacted, error))
+                            {
+                                throw;
+                            }
+
+                            throw redacted;
+                        }
                     },
                     message
                 )
