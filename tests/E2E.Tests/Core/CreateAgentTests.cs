@@ -9,6 +9,7 @@ using static E2E.Tests.AgentAct.ExecutorKit;
 namespace E2E.Tests.Core;
 
 /// <summary>Upstream's <c>describe('createAgent')</c> (<c>tests/integration/core.test.ts</c>): an agent over a core session, and the replay cache it keeps by <c>cacheKey</c>.</summary>
+[Collection(E2E.Tests.SessionSecrecy.SharedSecretsCollection.Name)]
 public sealed class CreateAgentTests : IAsyncLifetime
 {
     private static readonly LaunchApp FakeApp = new() { Url = "http://127.0.0.1:4500" };
