@@ -17,6 +17,7 @@ internal sealed class AttemptBudget : IDisposable
     private readonly Func<E2EException>? _closed;
     private CancellationTokenSource _current;
     private bool _disposed;
+    private bool _cancelledByOwner;
 
     /// <summary>
     /// Starts with the test's own signal; the budget owns it and disposes it. <paramref name="closed"/> is what an operation fails with once the
@@ -28,6 +29,18 @@ internal sealed class AttemptBudget : IDisposable
         _sources = [test];
         _current = test;
         _closed = closed;
+    }
+
+    /// <summary>True while the test's own signal is the running phase's budget, and the budget's owner has not cancelled it with <see cref="CancelCurrentAsync"/>.</summary>
+    public bool TestSignalIsOwn
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return !_cancelledByOwner && !_disposed && _sources.Count > 0 && ReferenceEquals(_current, _sources[0]);
+            }
+        }
     }
 
     /// <summary>The signal the running phase's operations are cancelled with.</summary>
@@ -68,6 +81,7 @@ internal sealed class AttemptBudget : IDisposable
         lock (_gate)
         {
             current = _current;
+            _cancelledByOwner = true;
         }
 
         try

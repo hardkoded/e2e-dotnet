@@ -507,6 +507,7 @@ internal sealed class AttemptArtifacts
                         Kind = kind,
                         MediaType = mediaType,
                         StartedAt = startedAt,
+                        Actor = registration?.Actor,
                         Redaction = ArtifactPaths.RedactionByKind(kind),
                         Producer = ProducerOf(stepId),
                     }
@@ -535,6 +536,7 @@ internal sealed class AttemptArtifacts
                         MediaType = link.MediaType,
                         Url = url,
                         StartedAt = link.StartedAt,
+                        Actor = link.Actor,
                         Redaction = ArtifactPaths.RedactionByKind(ArtifactKind.Video),
                         Producer = ProducerOf(stepId),
                     }

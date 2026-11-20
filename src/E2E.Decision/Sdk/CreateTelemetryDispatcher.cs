@@ -19,13 +19,30 @@ internal sealed class TelemetryDispatcher
     private readonly IReadOnlyList<ITelemetry> _integrations;
 
     /// <summary>
-    /// Creates the dispatcher. When telemetry is explicitly disabled, it has no integrations. The global integration registry of the AI SDK
-    /// (<c>telemetry-registry.ts</c>) is not ported, so a call with no <see cref="TelemetryOptions.Integrations"/> has none.
+    /// Creates the dispatcher. When telemetry is explicitly disabled, it has no integrations. A call with no
+    /// <see cref="TelemetryOptions.Integrations"/> uses the global integrations of <see cref="TelemetryRegistry"/>.
     /// </summary>
     internal TelemetryDispatcher(TelemetryOptions? telemetry)
     {
         _telemetry = telemetry;
-        _integrations = telemetry?.IsEnabled == false ? [] : telemetry?.Integrations ?? [];
+        _integrations =
+            telemetry?.IsEnabled == false
+                ? []
+                : telemetry?.Integrations ?? TelemetryRegistry.GetGlobalTelemetryIntegrations();
+    }
+
+    /// <summary><c>onStart</c>. Decide does not call it.</summary>
+    internal Task OnStartAsync(TelemetryEvent @event)
+    {
+        var augmented = Augment(@event);
+        return MergeCallbacks(integration => integration.OnStartAsync(augmented));
+    }
+
+    /// <summary><c>onEnd</c>. Decide does not call it.</summary>
+    internal Task OnEndAsync(TelemetryEvent @event)
+    {
+        var augmented = Augment(@event);
+        return MergeCallbacks(integration => integration.OnEndAsync(augmented));
     }
 
     /// <summary><c>experimental_onDecideStart</c>.</summary>
@@ -81,6 +98,15 @@ internal sealed class TelemetryDispatcher
         await Task.Yield();
         await call(integration).ConfigureAwait(false);
     }
+
+    private TelemetryEvent Augment(TelemetryEvent @event) =>
+        @event with
+        {
+            RecordInputs = _telemetry?.RecordInputs,
+            RecordOutputs = _telemetry?.RecordOutputs,
+            FunctionId = _telemetry?.FunctionId,
+            AiVersion = AiVersion,
+        };
 
     private DecideStartEvent Augment(DecideStartEvent @event) =>
         @event with

@@ -813,11 +813,19 @@ Decision models: `Executor.DecisionExecutor(new DecisionExecutorOptions { Model 
 `AgentOptions.Executor`. `MinProbability` and `MinConfidence` (0 to 1) block weaker actions,
 `Model` is optional: a deprecated evaluation model (`IEvaluationModel`, the `doEvaluate` shape) goes in `EvaluationModel` and runs through the same loop; set one of the two. `Vision = true` adds a masked screenshot (and `tap_at` / `type_at` for drawn controls with a
 text model), and `ProviderOptions` go with every decide call. Not ported: the `--debug` agent step
-table and the Gateway and TypeSafe AI decision models. To see every model call, use
+table. Other decision models: `new TypeSafeAiProvider().DecisionModel("jev-latest")` (`E2E.Decision.Sdk.TypeSafeAi`, reads `TYPESAFE_AI_API_KEY`, and `TYPESAFE_AI_BASE_URL` unless `TypeSafeAiProviderSettings.BaseUrl` is set, takes PNG and JPEG screenshots and `box` questions) and `new GatewayProvider().DecisionModel("typesafe-ai/jev")` (`E2E.Decision.Sdk.Gateway`, reads `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN`, rejects screenshots, so keep `Vision` off; the `gateway` provider options carry fallbacks such as `{ "models": [{ "model": "openai/gpt-6-luna-decisions", "when": { "confidenceBelow": 0.6 } }] }`). To see every model call, use
+`E2E_AI_TRACE=1` (topic `debugging`). `DecideOptions` takes `Model`, a deprecated `EvaluationModel`, or a `ModelId` string (resolved by `ResolveModel.AiSdkDefaultProvider`, the Gateway when null); set exactly one. `ExperimentalDecide.ExperimentalEvaluate` is the deprecated alias of `RunAsync`. `IDecisionProvider` (`DecisionModel`, deprecated `EvaluationModel`), `new CustomProvider(new CustomProviderOptions { DecisionModels, FallbackProvider })`, and `ProviderRegistry.CreateProviderRegistry(providers, new ProviderRegistryOptions { Separator })` resolve models by id.
+A failed Gateway call throws a `GatewayException` (`StatusCode`, `GenerationId`, `IsRetryable`; subclasses such as `GatewayAuthenticationException` and `GatewayTimeoutException` name the failure, and `GatewayResponseException` carries a malformed body in `Response` and the reason in `ValidationError`). An `ApiCallException`'s `ParsedData` is the error body the provider SDK already parsed, which the Gateway reads before `ResponseBody`. A caller's cancellation is not wrapped.
 `E2E_AI_TRACE=1` (topic `debugging`). `ExperimentalDecide.RunAsync` (`E2E.Decision.Sdk`, the AI SDK's
 `experimental_decide`) takes `OnStart` and `OnEnd` callbacks, a `RuntimeContext`, and `Telemetry` (`TelemetryOptions` with
-`ITelemetry` integrations for the decide and decision-model call events; `RecordInputs`, `RecordOutputs`,
-`IncludeRuntimeContext`). The decision executor does not set them.
+`ITelemetry` integrations for the decide and decision-model call events, plus the generic `OnStartAsync`/`OnEndAsync`, which decide never calls; `RecordInputs`, `RecordOutputs`,
+`IncludeRuntimeContext`). A call with no `TelemetryOptions.Integrations` uses the global integrations added with
+`TelemetryRegistry.RegisterTelemetry(...)` (`GetGlobalTelemetryIntegrations()` lists them). The decision executor does not set them.
+A state part can be a file at a URL
+(`DecisionFileUrlPart`); `DecideOptions.ExperimentalDownload` (`CreateDownload.Create(...)`) must download it, or the call
+fails with `DownloadException` before the model request. The model receives the bytes as a `DecisionFilePart`.
+The default `CreateDownload.Create()` transport does not resolve DNS. For untrusted URLs, set `CreateDownloadOptions.Fetch` to a
+transport that validates DNS when it connects; otherwise a name that resolves to a private address can be fetched.
 
 ## Custom executors
 
@@ -841,7 +849,8 @@ is; an engine that reports only a route gives that route. This follows upstream'
 
 Set one as `AgentOptions.Executor` for a named agent, `E2ESessionOptions.AgentExecutor`
 for the default agent, or override `AgentExecutor` in the fixture. A config
-file cannot hold one: an executor is code. The entry still takes `Model`,
+file cannot hold one: an executor is code, so `E2EConfig.WithExecutor(executor, agent)` puts one on a
+loaded config (`agent` is the run's agent when null; upstream's `agents.*.executor` in `e2e.config.ts`). The entry still takes `Model`,
 `Judge`, `Context`, and the budgets, and refuses `System` and `Tools` beside an
 executor (`INVALID_CONFIG`): pass those to the executor. A model or judge the
 executor brings is the agent's, and an entry that names another is

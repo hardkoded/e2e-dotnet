@@ -266,13 +266,13 @@
       "baselinedAt": "2026-11-18T15:41:48.2139604+00:00"
     },
     {
-      "hash": "0ccaf45d9c08e7ab",
+      "hash": "36dd6f11d2fc0a5b",
       "ruleId": "SW003",
       "filePath": "src/E2E/Core/Launch.cs",
-      "lineNumber": 620,
+      "lineNumber": 750,
       "codeSnippet": "catch (Exception cause) when (cause is IOException or UnauthorizedAccessException)\n                {\n                    // Nothing was written there; a directory that stays is the system's to clean.\n                }",
       "message": "Empty catch block swallows exceptions without handling",
-      "baselinedAt": "2026-11-18T15:41:48.2139771+00:00"
+      "baselinedAt": "2026-11-19T23:29:10.1383433+00:00"
     },
     {
       "hash": "31d14cc411ba2fe4",
@@ -797,13 +797,13 @@
       "baselinedAt": "2026-11-18T15:41:48.2141259+00:00"
     },
     {
-      "hash": "71aa9bf548acd435",
+      "hash": "37287f3585403bd2",
       "ruleId": "SW003",
       "filePath": "src/E2E/Run/FailureEvidence.cs",
-      "lineNumber": 129,
+      "lineNumber": 135,
       "codeSnippet": "catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)\n            {\n                // An unwritable directory: the tree stays unrecorded.\n            }",
       "message": "Empty catch block swallows exceptions without handling",
-      "baselinedAt": "2026-11-18T15:41:48.2141278+00:00"
+      "baselinedAt": "2026-11-19T23:29:10.1381354+00:00"
     },
     {
       "hash": "8b2dd03def97bf17",
@@ -1301,7 +1301,7 @@
       "baselinedAt": "2026-11-18T15:41:48.2142729+00:00"
     },
     {
-      "hash": "4fd82bd085f44cfa",
+      "hash": "b0cf9847241c5d5c",
       "ruleId": "SW003",
       "filePath": "src/E2E.NUnit/E2ETest.cs",
       "lineNumber": 137,

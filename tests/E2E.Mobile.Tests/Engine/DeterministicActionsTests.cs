@@ -833,6 +833,144 @@ public sealed class DeterministicActionsTests
         Assert.True(h.Fake.LastArgs("interactions.swipe")!["from"]!["y"]!.GetValue<double>() > 320);
     }
 
+    private static JsonObject OriginUnknownSnapshot()
+    {
+        var snapshot = FakeDeviceClient.SettingsSnapshot();
+        snapshot["warnings"] = new JsonArray(DeviceErrors.OriginWarning);
+        return snapshot;
+    }
+
+    private static readonly string OriginUnknownSwipe =
+        $"perform swipe failed: the {DeviceErrors.OriginUnknownBounds} Nothing was sent. Swipe the screen with screen.swipe({{ direction }}), or between screen points with screen.swipe({{ from, to }}) not taken from those bounds.";
+
+    private static async Task RefusesNodeSwipe(
+        DeviceSession session,
+        SemanticNode node,
+        OperationContext context,
+        LocatorAction? action = null
+    )
+    {
+        var refused = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(node, action ?? Swipe(), context, CancellationToken.None)
+        );
+        Assert.Equal(EngineErrorCodes.NotActionable, refused.Code);
+        Assert.False(refused.Retryable);
+        Assert.Equal(OriginUnknownSwipe, refused.Message);
+    }
+
+    private static void SwipedWithin(Harness h, SemanticNode node, ScrollDirection direction)
+    {
+        var (from, to) = DeviceSupport.SwipeWithin(
+            new Rect(node.Rect!.X, node.Rect.Y, node.Rect.Width, node.Rect.Height),
+            direction,
+            null
+        );
+        var sent = h.Fake.LastArgs("interactions.swipe")!;
+        Assert.Equal(DeviceSession.PointNode(from).ToJsonString(), sent["from"]!.ToJsonString());
+        Assert.Equal(DeviceSession.PointNode(to).ToJsonString(), sent["to"]!.ToJsonString());
+    }
+
+    [Fact]
+    public async Task Refuses_a_node_swipe_aimed_from_a_capture_that_could_not_place_its_window_on_the_screen_and_sends_nothing()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => OriginUnknownSnapshot());
+        var scroller = await Observed(session, "Scroller");
+
+        await RefusesNodeSwipe(session, scroller, OperationContext.Test);
+        // The swipe shape a locator-scoped scrollUntilVisible sends (momentum: 'slow').
+        await RefusesNodeSwipe(
+            session,
+            scroller,
+            OperationContext.Test,
+            new LocatorAction.Swipe(ScrollDirection.Down, Momentum.Slow)
+        );
+        Assert.DoesNotContain("interactions.swipe", h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Refuses_the_agent_node_swipe_on_a_capture_without_the_window_origin()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => OriginUnknownSnapshot());
+        var scroller = await Observed(session, "Scroller");
+
+        var refused = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(scroller, Swipe(), OperationContext.Agent, CancellationToken.None)
+        );
+        Assert.Equal(EngineErrorCodes.NotActionable, refused.Code);
+        Assert.False(refused.Retryable);
+        Assert.DoesNotContain("interactions.swipe", h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Sends_the_same_node_swipe_when_the_capture_carries_only_part_of_the_origin_warning()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+        {
+            var snapshot = FakeDeviceClient.SettingsSnapshot();
+            snapshot["warnings"] = new JsonArray("This snapshot cannot establish the window origin on screen.");
+            return snapshot;
+        });
+        var scroller = await Observed(session, "Scroller");
+
+        await session.PerformAsync(scroller, Swipe(), OperationContext.Test, CancellationToken.None);
+        SwipedWithin(h, scroller, ScrollDirection.Down);
+    }
+
+    [Fact]
+    public async Task Refuses_a_node_swipe_when_only_the_re_read_that_supplied_its_bounds_lost_the_window_origin()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h);
+        var root = await RootOf(session);
+        var scroller = Named(root, "Scroller");
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => OriginUnknownSnapshot());
+
+        await session.PerformAsync(root, Swipe(), OperationContext.Test, CancellationToken.None);
+        await RefusesNodeSwipe(session, scroller, OperationContext.Test);
+        Assert.DoesNotContain("interactions.swipe", h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Swipes_a_node_again_once_a_later_capture_places_the_window()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h);
+        var root = await RootOf(session);
+        var scroller = Named(root, "Scroller");
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => OriginUnknownSnapshot());
+        await session.PerformAsync(root, Swipe(), OperationContext.Test, CancellationToken.None);
+        await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(scroller, Swipe(), OperationContext.Test, CancellationToken.None)
+        );
+
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
+        var placed = await Observed(session, "Scroller");
+        await session.PerformAsync(placed, Swipe(), OperationContext.Test, CancellationToken.None);
+        SwipedWithin(h, placed, ScrollDirection.Down);
+    }
+
+    [Fact]
+    public async Task Leaves_a_screen_swipe_and_a_ref_tap_on_a_capture_without_the_window_origin_to_agent_device()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => OriginUnknownSnapshot());
+        var root = await RootOf(session);
+        var about = Named(root, "About");
+
+        await session.PerformAsync(root, Swipe(), OperationContext.Agent, CancellationToken.None);
+        JsonAssert.Args("""{"direction":"down"}""", h.Fake.LastArgs("interactions.scroll"));
+        await session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Agent, CancellationToken.None);
+        Assert.Equal("@e4", h.Fake.LastArgs("interactions.press")!["ref"]!.GetValue<string>());
+        Assert.DoesNotContain("interactions.swipe", h.Fake.Methods());
+    }
+
     [Fact]
     public async Task Does_not_re_read_a_control_after_a_gesture_when_the_agent_made_it()
     {

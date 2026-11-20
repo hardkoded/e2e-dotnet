@@ -11,7 +11,14 @@ namespace E2E.Decision.Sdk;
 /// <summary>What <see cref="ExperimentalDecide.RunAsync"/> takes (the arguments of the AI SDK's <c>experimental_decide</c>).</summary>
 public sealed class DecideOptions
 {
-    public required IDecisionModel Model { get; init; }
+    /// <summary>The model that decides. Set exactly one of <see cref="Model"/>, <see cref="EvaluationModel"/>, and <see cref="ModelId"/>.</summary>
+    public IDecisionModel? Model { get; init; }
+
+    /// <summary>Deprecated: use <see cref="Model"/>. A deprecated evaluation model (<c>doEvaluate</c>).</summary>
+    public IEvaluationModel? EvaluationModel { get; init; }
+
+    /// <summary>A model id, resolved through <see cref="ResolveModel.AiSdkDefaultProvider"/> (the Gateway when none is set).</summary>
+    public string? ModelId { get; init; }
 
     public required IReadOnlyList<DecisionStatePart> State { get; init; }
 
@@ -25,6 +32,12 @@ public sealed class DecideOptions
 
     /// <summary>Retries of a call that fails with a retryable error. Null is the AI SDK's default, 2.</summary>
     public int? MaxRetries { get; init; }
+
+    /// <summary>
+    /// The download function URL file state needs (<c>experimental_download</c>). Use <see cref="CreateDownload.Create"/> with a transport that
+    /// validates DNS at connection time for untrusted URLs. The model's own HTTP client is not used.
+    /// </summary>
+    public DownloadFunction? ExperimentalDownload { get; init; }
 
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
@@ -53,6 +66,9 @@ public sealed class DecideOptions
 /// </summary>
 public static class ExperimentalDecide
 {
+    /// <summary>Deprecated: use <see cref="RunAsync"/>. The AI SDK's <c>experimental_evaluate</c>, the same function as <c>experimental_decide</c>.</summary>
+    public static readonly Func<DecideOptions, CancellationToken, Task<DecisionResult>> ExperimentalEvaluate = RunAsync;
+
     private const double Tolerance = 1e-6;
 
     /// <summary>The AI SDK's default <c>maxRetries</c>.</summary>
@@ -73,7 +89,7 @@ public static class ExperimentalDecide
     )
     {
         ArgumentNullException.ThrowIfNull(options);
-        var model = options.Model;
+        var model = ResolveOptionsModel(options);
         if (options.MaxOutputTokens is < 1)
         {
             throw new InvalidArgumentException("maxOutputTokens", "must be an integer >= 1");
@@ -130,12 +146,15 @@ public static class ExperimentalDecide
 
         try
         {
+            var preparedState = await DecisionState
+                .PrepareAsync(options.State, options.ExperimentalDownload, cancellationToken)
+                .ConfigureAwait(false);
             var modelCallEvent = new DecisionModelCallStartEvent
             {
                 CallId = callId,
                 Provider = model.Provider,
                 ModelId = model.ModelId,
-                State = options.State,
+                State = preparedState,
                 Questions = options.Questions,
             };
             await Notify
@@ -150,7 +169,7 @@ public static class ExperimentalDecide
                             .DoDecideAsync(
                                 new DecisionModelCall
                                 {
-                                    State = options.State,
+                                    State = preparedState,
                                     Questions = options.Questions,
                                     MaxOutputTokens = options.MaxOutputTokens,
                                     Reasoning = options.Reasoning,
@@ -179,7 +198,7 @@ public static class ExperimentalDecide
                         CallId = callId,
                         Provider = model.Provider,
                         ModelId = model.ModelId,
-                        State = options.State,
+                        State = preparedState,
                         Questions = options.Questions,
                         Answers = result.Answers,
                         Usage = result.Usage,
@@ -201,6 +220,8 @@ public static class ExperimentalDecide
                 Rounding = result.Rounding,
                 ProviderMetadata = result.ProviderMetadata,
                 ResponseModelId = result.ResponseModelId ?? model.ModelId,
+                ResponseHeaders = result.ResponseHeaders,
+                ResponseBody = result.ResponseBody,
             };
             await Notify
                 .NotifyAsync(
@@ -223,6 +244,8 @@ public static class ExperimentalDecide
                         Rounding = decisionResult.Rounding,
                         ProviderMetadata = decisionResult.ProviderMetadata,
                         ResponseModelId = decisionResult.ResponseModelId,
+                        ResponseHeaders = decisionResult.ResponseHeaders,
+                        ResponseBody = decisionResult.ResponseBody,
                         Timestamp = decisionResult.Timestamp,
                     },
                     [options.OnEnd, telemetryDispatcher.OnEndAsync],
@@ -246,6 +269,26 @@ public static class ExperimentalDecide
     }
 
     /// <summary>The AI SDK's <c>createIdGenerator({ prefix: 'call', size: 24 })</c>: <c>call-</c> and 24 random letters and digits.</summary>
+    // The AI SDK's `resolveDecisionModel(model)`: a model id, a decision model, or a deprecated evaluation model.
+    private static IDecisionModel ResolveOptionsModel(DecideOptions options)
+    {
+        var given =
+            (options.Model is null ? 0 : 1)
+            + (options.EvaluationModel is null ? 0 : 1)
+            + (options.ModelId is null ? 0 : 1);
+        if (given != 1)
+        {
+            throw new InvalidArgumentException("model", "set exactly one of Model, EvaluationModel, and ModelId");
+        }
+
+        return options.Model
+            ?? (
+                options.EvaluationModel is { } evaluationModel
+                    ? ResolveModel.ResolveDecisionModel(evaluationModel)
+                    : ResolveModel.ResolveDecisionModel(options.ModelId!)
+            );
+    }
+
     private static string GenerateCallId()
     {
         const string alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -302,6 +345,13 @@ public static class ExperimentalDecide
                     continue;
                 }
 
+                if (error is Gateway.GatewayException { IsRetryable: true })
+                {
+                    await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
+                    backoff *= RetryBackoffFactor;
+                    continue;
+                }
+
                 if (tries == 1)
                 {
                     // Not wrapped when a non-retryable error occurs on the first try.
@@ -322,7 +372,16 @@ public static class ExperimentalDecide
 
     /// <summary>The AI SDK's <c>getErrorMessage</c>, which prints an error as JavaScript's <c>toString</c> does: its name, then its message.</summary>
     private static string ErrorMessage(Exception error) =>
-        (error is ApiCallException ? "AI_APICallError" : "Error") + ": " + error.Message;
+        (
+            error switch
+            {
+                ApiCallException => "AI_APICallError",
+                Gateway.GatewayException gateway => gateway.Name,
+                _ => "Error",
+            }
+        )
+        + ": "
+        + error.Message;
 
     /// <summary>
     /// The AI SDK's <c>getRetryDelayInMs</c>: the provider's <c>retry-after-ms</c>, else its <c>retry-after</c> (seconds or an HTTP date),

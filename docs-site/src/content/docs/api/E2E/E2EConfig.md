@@ -583,6 +583,32 @@ of the same name. `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` stil
 
 **Returns:** [E2EConfig](./)
 
+<a id="E2E_E2EConfig_WithExecutor_"></a>
+<a id="E2E_E2EConfig_WithExecutor_E2E_IStepExecutor_System_String_"></a>
+
+### WithExecutor(IStepExecutor, string?)
+
+
+```csharp
+public E2EConfig WithExecutor(IStepExecutor executor, string? agent = null)
+```
+
+
+A copy of the config whose agent &lt;code class="paramref"&gt;agent&lt;/code&gt; (the run's agent when null) runs &lt;code class="paramref"&gt;executor&lt;/code&gt;, in place of the
+built-in agent (upstream's `agents.default.executor`, such as `decisionExecutor(...)`). .NET-only: the config file cannot hold an
+executor (it is code, so `agents.*.executor` is refused there), so code sets it, as it sets [WithModel(IAgentModel, IAgentModel?)](#E2E_E2EConfig_WithModel_E2E_IAgentModel_E2E_IAgentModel_). Throws
+`INVALID_CONFIG` for an executor with no name, or for an entry that sets `system` or `tools` beside it, as
+[Executor](/api/E2E/AgentOptions/#E2E_AgentOptions_Executor) does.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `executor` | [IStepExecutor](/api/E2E/IStepExecutor/) |  |
+| `agent` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** [E2EConfig](./)
+
 <a id="E2E_E2EConfig_WithModel_"></a>
 <a id="E2E_E2EConfig_WithModel_E2E_IAgentModel_E2E_IAgentModel_"></a>
 

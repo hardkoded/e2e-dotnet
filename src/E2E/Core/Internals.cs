@@ -74,3 +74,140 @@ internal sealed class FailureWatch
         }
     }
 }
+
+/// <summary>
+/// A session's part in the tests around it (<see cref="GuestSteps"/>): it tells a test of each step it takes, so the test's report covers them. Which
+/// test is decided once, when the session starts opening; see <see cref="SessionGuests.SessionGuest"/>. Upstream's <c>SessionGuest</c> (<c>core/internals.ts</c>).
+/// </summary>
+internal interface ISessionGuest
+{
+    /// <summary>Whether the session records a video for the test it is part of.</summary>
+    bool RecordsVideo { get; }
+
+    /// <summary>Cancelled when the test the session is opening for gives it up; a token that never cancels for a session no test owns.</summary>
+    CancellationToken Signal { get; }
+
+    /// <summary>Takes the error the opening failed with, which the test that gave it up has told already.</summary>
+    void Failed(Exception error);
+
+    /// <summary>Takes each progress of the session's recorder with its record of the step.</summary>
+    void Mirror(StepProgress progress, StepRecord record);
+
+    /// <summary>Hands over the open session. False when the test it was opening for gave it up: it is the caller's to close.</summary>
+    bool Attach(IGuestSession session);
+
+    /// <summary>Hands on the videos the session recorded.</summary>
+    Task VideosAsync(IReadOnlyList<SessionVideo> recordings);
+}
+
+/// <summary>What <see cref="Launch"/> asks of the test around it. Upstream's <c>currentGuests</c> and <c>sessionGuest</c> (<c>core/internals.ts</c>).</summary>
+internal static class SessionGuests
+{
+    /// <summary>
+    /// What the test running now offers the caller, when the caller is part of it. Upstream also offers nothing to a body past its timeout and to a worker
+    /// fixture's setup, which no test ends (<c>outlivesTest()</c> and <c>PollScope.over</c>): the port has neither a poll scope nor a worker fixture, so
+    /// there is no such work to tell apart yet.
+    /// </summary>
+    public static IAttemptGuests? CurrentGuests() => Attempts.CurrentAttempt()?.Guests;
+
+    /// <summary>
+    /// The guest of a session being opened now. Opened by a running test, it is that test's for good: named now, recorded on video if the test keeps
+    /// videos, and closed with the test. Opened outside every test, on a host from a hook or the top of a file, it visits whichever test is running
+    /// when it starts a step, and a step outside every test is told to nobody.
+    /// </summary>
+    public static ISessionGuest SessionGuest() =>
+        CurrentGuests() is { } opener ? new OwnedGuest(opener) : new VisitingGuest();
+
+    private sealed class OwnedGuest : ISessionGuest
+    {
+        private readonly IAttemptGuests _opener;
+        private readonly IGuestSeat<IGuestSession, IGuestSteps> _seat;
+        private IGuestSteps? _steps;
+
+        public OwnedGuest(IAttemptGuests opener)
+        {
+            _opener = opener;
+            _seat = opener.Session();
+        }
+
+        public bool RecordsVideo => _opener.Video;
+
+        public CancellationToken Signal => _seat.Signal;
+
+        public void Failed(Exception error)
+        {
+            if (_seat.Signal.IsCancellationRequested)
+            {
+                _opener.GaveUp(error);
+            }
+        }
+
+        public void Mirror(StepProgress progress, StepRecord record) =>
+            Volatile.Read(ref _steps)?.Progress(progress, record);
+
+        public bool Attach(IGuestSession session)
+        {
+            var steps = _seat.Take(session);
+            Volatile.Write(ref _steps, steps);
+            return steps is not null;
+        }
+
+        public async Task VideosAsync(IReadOnlyList<SessionVideo> recordings)
+        {
+            foreach (var recording in recordings)
+            {
+                if (Volatile.Read(ref _steps) is { } steps)
+                {
+                    await steps.VideoAsync(recording).ConfigureAwait(false);
+                }
+            }
+        }
+    }
+
+    private sealed class VisitingGuest : ISessionGuest
+    {
+        private readonly Lock _gate = new();
+        private IGuestSession? _session;
+
+        // The test the session last started a step in, and where that test takes its steps.
+        private (IAttemptGuests? Guests, IGuestSteps? Steps) _visited;
+
+        public bool RecordsVideo => false;
+
+        public CancellationToken Signal => CancellationToken.None;
+
+        public void Failed(Exception error) { }
+
+        public void Mirror(StepProgress progress, StepRecord record)
+        {
+            IGuestSteps? steps;
+            lock (_gate)
+            {
+                if (progress.Phase == StepProgressPhase.Start)
+                {
+                    var guests = CurrentGuests();
+                    if (!ReferenceEquals(guests, _visited.Guests))
+                    {
+                        _visited = (guests, _session is null ? null : guests?.Visit(_session.Root));
+                    }
+                }
+
+                steps = _visited.Steps;
+            }
+
+            steps?.Progress(progress, record);
+        }
+
+        public bool Attach(IGuestSession session)
+        {
+            lock (_gate)
+            {
+                _session = session;
+            }
+
+            return true;
+        }
+
+        public Task VideosAsync(IReadOnlyList<SessionVideo> recordings) => Task.CompletedTask;
+    }
+}

@@ -42,6 +42,21 @@ Upstream's provider ids, in its order.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
+<a id="E2E_OAuth_OAuthProviders_Names_"></a>
+<a id="E2E_OAuth_OAuthProviders_Names"></a>
+
+### Names
+
+
+```csharp
+public static IReadOnlyList<string> Names { get; }
+```
+
+
+The ids and their aliases, in upstream's order (`PROVIDER_NAMES`): what `login`, `logout`, and `models` accept.
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
 ## Methods
 
 <a id="E2E_OAuth_OAuthProviders_ApiKeyFor_"></a>
@@ -62,6 +77,27 @@ The provider's API key from its [ApiKeyEnv](/api/E2E.OAuth/IOAuthProvider/#E2E_O
 | Name | Type | Description |
 | --- | --- | --- |
 | `provider` | [IOAuthProvider](/api/E2E.OAuth/IOAuthProvider/) |  |
+
+**Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_OAuth_OAuthProviders_CanonicalProviderId_"></a>
+<a id="E2E_OAuth_OAuthProviders_CanonicalProviderId_System_String_"></a>
+
+### CanonicalProviderId(string)
+
+
+```csharp
+public static string CanonicalProviderId(string id)
+```
+
+
+The provider id that `id` names: an alias resolves to its id, any other name is returned as it is.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

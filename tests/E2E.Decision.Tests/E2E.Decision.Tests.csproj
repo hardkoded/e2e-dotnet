@@ -13,6 +13,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="TypeSafeAiDecisionModel\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\E2E.Decision\E2E.Decision.csproj" />
   </ItemGroup>
 </Project>

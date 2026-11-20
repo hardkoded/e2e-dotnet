@@ -34,16 +34,18 @@ public sealed class E2eLoginLogoutTests : IDisposable
         var error = await Assert.ThrowsAsync<OAuthException>(() => Run("login"));
 
         Assert.Equal(OAuthException.Misconfigured, error.Code);
-        Assert.Equal("name a provider: openai, github-copilot, opencode-console, spacexai", error.Message);
+        Assert.Equal("name a provider: openai, github-copilot, opencode-console, spacexsi", error.Message);
     }
 
     [Fact]
     public async Task Turns_an_unknown_provider_into_one_error_naming_the_providers_not_a_stack_trace()
     {
-        var error = await Assert.ThrowsAsync<OAuthException>(() => Run("logout", "nope"));
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            Program.LogoutAsync("nope", new StringWriter(), TextReader.Null, false, CancellationToken.None)
+        );
 
         Assert.Equal(OAuthException.Misconfigured, error.Code);
-        Assert.Contains("openai, github-copilot, opencode-console, spacexai", error.Message, StringComparison.Ordinal);
+        Assert.Contains("openai, github-copilot, opencode-console, spacexsi", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain('\n', error.Message);
     }
 

@@ -55,7 +55,7 @@ public sealed class RedactingAnErrorAProgramCatchesItselfTests
     [Fact]
     public void Partial_Rewrites_the_message_and_details_of_a_serialized_error_taken_from_another_sessions_record()
     {
-        var serialized = ErrorSerializer.RedactSerializedError(
+        var serialized = ErrorRedaction.RedactSerializedError(
             new SerializedError(
                 "test",
                 "ASSERTION_FAILED",

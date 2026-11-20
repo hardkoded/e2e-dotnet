@@ -30,11 +30,14 @@ internal sealed class LooksBeforeTeardownAttribute : Attribute, IWrapTestMethod
             }
             catch (Exception ex)
             {
+                (context.TestObject as E2ETest)?.BodyDone();
                 // The body failed first: a handler failure that lands after it is collected so it does not reach the next test, and the body's own failure stays the verdict.
                 Settle(context);
                 Look(context, ex);
                 throw;
             }
+
+            (context.TestObject as E2ETest)?.BodyDone();
 
             // A route or dialog handler that failed after the last step fails the attempt here, as a step would.
             var late = Settle(context);

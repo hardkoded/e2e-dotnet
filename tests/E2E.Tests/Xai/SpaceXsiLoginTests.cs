@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using System.Net;
+using System.Text.Json.Nodes;
 using System.Web;
 using E2E.OAuth;
 using E2E.Tests.Fetch;
@@ -11,7 +12,7 @@ using E2E.Tests.Fetch;
 namespace E2E.Tests.Xai;
 
 [Collection(InstantDeviceFlow.Name)]
-public sealed class SpaceXaiLoginTests
+public sealed class SpaceXsiLoginTests
 {
     [Fact]
     public async Task Runs_the_RFC_8628_device_flow_against_auth_x_ai_and_reads_expiry_from_the_JWT()
@@ -36,7 +37,7 @@ public sealed class SpaceXaiLoginTests
             Assert.Equal("urn:ietf:params:oauth:grant-type:device_code", form["grant_type"]);
             polls++;
 
-            // SpaceXAI answers pending with 400 and an error field.
+            // SpaceXSI answers pending with 400 and an error field.
             return polls switch
             {
                 1 => (
@@ -99,8 +100,12 @@ public sealed class SpaceXaiLoginTests
     }
 
     /// <summary>The port's model names no provider, and its user agent names the port's product, e2e-dotnet.</summary>
-    [Fact]
-    public async Task Serves_generateText_with_the_bearer_token_against_the_SpaceXAI_API()
+    [Theory]
+    [InlineData("spacexsi")]
+    [InlineData("spacexai")]
+    public async Task Serves_generateText_with_the_bearer_token_against_the_SpaceXSI_API_the_login_stored_under_stored(
+        string stored
+    )
     {
         var api = new FakeApi(_ =>
             (
@@ -108,16 +113,16 @@ public sealed class SpaceXaiLoginTests
                 """{ "id": "c1", "object": "chat.completion", "created": 1, "model": "grok-4", "choices": [{ "index": 0, "finish_reason": "stop", "message": { "role": "assistant", "content": "hello" } }], "usage": { "prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4 } }"""
             )
         );
-        var store = new MemoryCredentialStore(
-            new()
+        var store = new EnvironmentCredentialStore(
+            new JsonObject
             {
-                ["spacexai"] = new OAuthCredentials
+                [stored] = new OAuthCredentials
                 {
                     Access = "xai-tok",
                     Refresh = "rt",
                     Expires = 0,
-                },
-            }
+                }.ToJson(),
+            }.ToJsonString()
         );
         using var model = new OpenAiCompatibleModel(
             new OpenAiCompatibleModelOptions
@@ -157,7 +162,7 @@ public sealed class SpaceXaiLoginTests
         var store = new MemoryCredentialStore(
             new()
             {
-                ["spacexai"] = new OAuthCredentials
+                ["spacexsi"] = new OAuthCredentials
                 {
                     Access = "xai-tok",
                     Refresh = "rt",

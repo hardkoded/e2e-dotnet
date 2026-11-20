@@ -222,17 +222,6 @@ internal static class ErrorSerializer
     public static ErrorDetails? RedactErrorDetails(ErrorDetails? details, Func<string, string> redact) =>
         details is null ? null : MapDetailText(details, redact);
 
-    /// <summary>
-    /// A serialized error with <paramref name="redact"/> run over its message and details: what a record taken from another session's is put
-    /// through. Upstream's <c>redactSerializedError</c>, which also redacts the stack; the port's <see cref="SerializedError"/> keeps none.
-    /// </summary>
-    public static SerializedError RedactSerializedError(SerializedError error, Func<string, string> redact) =>
-        error with
-        {
-            Message = redact(error.Message),
-            Details = RedactErrorDetails(error.Details, redact),
-        };
-
     // Details as the report carries them: text redacted, sanitized, and bounded, empty text dropped, nothing when nothing is left.
     private static ErrorDetails? BoundedDetails(ErrorDetails details, Func<string, string> redact)
     {

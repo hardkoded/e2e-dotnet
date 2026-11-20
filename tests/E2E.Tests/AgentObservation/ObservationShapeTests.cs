@@ -90,6 +90,8 @@ public sealed class ObservationShapeTests
         // keep a settle from ever seeing two looks agree.
         Assert.Equal(ShapeOf("#e1 status \"Elapsed 00:12\""), ShapeOf("#e1 status \"Elapsed 00:13\""));
         Assert.Equal(ShapeOf("#e1 text \"12:05:59\""), ShapeOf("#e1 text \"12:06:00\""));
+        Assert.Equal(ShapeOf("#e1 text \"5:42pm\""), ShapeOf("#e1 text \"5:43pm\""));
+        Assert.NotEqual(ShapeOf("#e1 text \"5:42am\""), ShapeOf("#e1 text \"5:42pm\""));
         Assert.NotEqual(ShapeOf("#e1 status \"Items 12\""), ShapeOf("#e1 status \"Items 13\""));
     }
 

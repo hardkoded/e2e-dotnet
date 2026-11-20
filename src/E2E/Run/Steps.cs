@@ -267,6 +267,12 @@ internal sealed class StepRecord
 
     public required string Label { get; init; }
 
+    /// <summary>
+    /// The session the step ran on, when it is not the test's own: one the test drives beside it through <see cref="Launch"/>,
+    /// named in the order they joined it (<c>launch-1</c>), which is when the test opened one, or first used one opened outside it. Null for a step of the test's own session.
+    /// </summary>
+    public string? Actor { get; init; }
+
     /// <summary>The test line the step was called from; null when no project line was on the stack.</summary>
     public SourceLocation? Source { get; init; }
 
@@ -312,7 +318,7 @@ internal sealed class StepRecord
     public StepEvents Events { get; } = new();
 
     /// <summary>The configured agent an agent step ran with, by name.</summary>
-    public string? Agent { get; init; }
+    public string? Agent { get; set; }
 
     /// <summary>The hook the step ran in; null for a step of the test body.</summary>
     public StepPhase? Phase { get; init; }
@@ -325,8 +331,25 @@ internal sealed class StepRecord
     public StepScreen? Screen { get; set; }
 }
 
+/// <summary>Whether a step ran on the test's own session, not on one the test drives beside it. Upstream's <c>isOwnStep</c>.</summary>
+internal static class OwnSteps
+{
+    public static bool IsOwnStep(StepRecord step) => step.Actor is null;
+}
+
 /// <summary>Whose progress a notification is: IDs join live progress to the report. Step indexes are local to each test.</summary>
-internal sealed record StepProgressIdentity(string AttemptId, int AttemptIndex, string StepId, int StepIndex);
+/// <param name="AttemptId">The attempt the step is of.</param>
+/// <param name="AttemptIndex">The attempt's index.</param>
+/// <param name="StepId">The step's id.</param>
+/// <param name="StepIndex">The step's index.</param>
+/// <param name="Actor">The session the step ran on when it is not the test's own; see <see cref="StepRecord.Actor"/>.</param>
+internal sealed record StepProgressIdentity(
+    string AttemptId,
+    int AttemptIndex,
+    string StepId,
+    int StepIndex,
+    string? Actor = null
+);
 
 /// <summary>What a progress notification says.</summary>
 internal enum StepProgressPhase
@@ -412,6 +435,9 @@ internal sealed record StepRecorderOptions
     /// <summary>Live progress sink; null in contexts with no reporter to feed.</summary>
     public Action<StepProgress>? OnProgress { get; init; }
 
+    /// <summary>Takes each progress with the record it is of, for the recorder of a session whose steps a test's recorder mirrors (<see cref="GuestSteps"/>). Upstream's <c>mirror</c>.</summary>
+    public Action<StepProgress, StepRecord>? Mirror { get; init; }
+
     /// <summary>The project root; with it, every step and step error names the test line it came from.</summary>
     public string? ProjectRoot { get; init; }
 
@@ -423,6 +449,12 @@ internal sealed record StepRecorderOptions
 
     /// <summary>The running phase's signal, read when a step starts: a step that starts with it already cut is refused, and not recorded.</summary>
     public Func<CancellationToken>? Signal { get; init; }
+
+    /// <summary>
+    /// What the running phase's signal aborted with, read when a cancelled step fails (upstream's <c>signal.reason</c>): a step another abort reached first fails
+    /// with it, as <c>NameRunning</c> leaves it, instead of a bare cancellation. Null when the signal carries none.
+    /// </summary>
+    public Func<Exception?>? Reason { get; init; }
 
     /// <summary>The attempt's AI trace attribution; each step narrows it to its own api and label. Null when the attempt is not traced.</summary>
     public AiTraceScope? AiTrace { get; init; }

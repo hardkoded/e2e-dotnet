@@ -2049,6 +2049,9 @@ internal sealed class AttemptScope : ISecretFillRuntime
 
     public Func<CancellationToken> Token { get; init; } = static () => CancellationToken.None;
 
+    /// <summary>What <see cref="Token"/> aborted with, when it carries a reason (upstream's <c>signal.reason</c>); the steps cut by it fail with it.</summary>
+    public Func<Exception?>? Reason { get; init; }
+
     /// <summary>True once the test has failed. Verification stops there, so a later teardown check proves nothing.</summary>
     public Func<bool> TestFailed { get; init; } = static () => false;
 
@@ -2101,10 +2104,12 @@ internal sealed class AttemptScope : ISecretFillRuntime
                 {
                     Attempt = (AttemptId, Attempt - 1),
                     OnProgress = OnProgress,
+                    Mirror = Mirror,
                     ProjectRoot = ProjectRoot,
                     Redact = text => Redactor.Redact(text),
                     AiTrace = AiTraceScope,
                     Signal = () => Token(),
+                    Reason = Reason,
                     RedactThrown = RedactThrown,
                     RetainSteps = RetainSteps,
                 }
@@ -2118,6 +2123,9 @@ internal sealed class AttemptScope : ISecretFillRuntime
 
     /// <summary>Live progress of the attempt's steps; null feeds none.</summary>
     public Action<StepProgress>? OnProgress { get; init; }
+
+    /// <summary>Takes each progress with the record it is of; see <see cref="StepRecorderOptions.Mirror"/>.</summary>
+    public Action<StepProgress, StepRecord>? Mirror { get; init; }
 
     public List<PendingAct> Acts { get; } = [];
 

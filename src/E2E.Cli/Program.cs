@@ -38,7 +38,7 @@ public static partial class Program
           openai            ChatGPT Plus/Pro, the Codex sign-in (--device for a machine without a browser)
           github-copilot    GitHub Copilot (gh signed in, or --client-id of your OAuth App; --enterprise-url for GHE)
           opencode-console  OpenCode Console workspace (OpenCode Zen and Go)
-          spacexai          SuperGrok or X Premium+
+          spacexsi          SuperGrok or X Premium+
 
         e2e init scaffolds a test project (a .csproj and ExampleTests.cs) with e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore.
         It asks the questions no flag answered; --yes takes the defaults instead. e2e init --help lists its flags.
@@ -157,6 +157,25 @@ public static partial class Program
 
         var (positional, flags) = Parse(args.Skip(1));
         var provider = positional.FirstOrDefault();
+        if (args[0] is "login" or "logout" or "models" && provider is not null)
+        {
+            // Upstream registers PROVIDER_NAMES as commander `.choices(...)` on the provider argument: an unknown one exits 2.
+            if (!OAuthProviders.Names.Contains(provider, StringComparer.Ordinal))
+            {
+                await stderr
+                    .WriteLineAsync(
+                        "error: command-argument value '"
+                            + provider
+                            + "' is invalid for argument 'provider'. Allowed choices are "
+                            + string.Join(", ", OAuthProviders.Names)
+                            + "."
+                    )
+                    .ConfigureAwait(false);
+                return 2;
+            }
+
+            provider = OAuthProviders.CanonicalProviderId(provider);
+        }
         switch (args[0])
         {
             case "login":
@@ -302,7 +321,7 @@ public static partial class Program
         return 0;
     }
 
-    private static async Task<int> LogoutAsync(
+    internal static async Task<int> LogoutAsync(
         string? providerId,
         TextWriter stdout,
         TextReader stdin,

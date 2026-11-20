@@ -47,6 +47,9 @@ public sealed class E2ESession : IAsyncDisposable
     private readonly Lazy<Task<IReadOnlyList<Exception>>> _ending;
     private Func<Task<IReadOnlyList<Exception>>>? _hostedClose;
     private SessionEvents? _events;
+    private AttemptGuestSessions? _guests;
+    private IDisposable? _published;
+    private int _bodyEnded;
 
     private E2ESession(
         AttemptScope scope,
@@ -163,6 +166,33 @@ public sealed class E2ESession : IAsyncDisposable
     /// </summary>
     internal IReadOnlyList<VideoSegment> Videos { get; private set; } = [];
 
+    /// <summary>The videos the attempt recorded as its owner hands them on: a file still on disk by its absolute path, and a link a hosted service keeps. Upstream's <c>StandaloneAttempt.videos</c>.</summary>
+    internal IReadOnlyList<SessionVideo> SessionVideos() =>
+        [
+            .. Videos.Select(segment =>
+            {
+                var startedAt = DateTimeOffset.TryParse(
+                    segment.StartedAt,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeUniversal,
+                    out var parsed
+                )
+                    ? parsed
+                    : (DateTimeOffset?)null;
+                return segment switch
+                {
+                    VideoFile file => (SessionVideo)
+                        new SessionVideoFile(Path.Combine(ArtifactsDir, file.Path), startedAt),
+                    VideoLink link => new SessionVideoLink(
+                        link.Url,
+                        link.MediaType,
+                        startedAt ?? DateTimeOffset.UtcNow
+                    ),
+                    _ => throw new InvalidOperationException("unknown video segment"),
+                };
+            }),
+        ];
+
     /// <summary>What the session explored, set by an exploration before it is released: its verdict is told by its findings, and gets no trace page.</summary>
     internal ReportExplore? Exploration { get; set; }
 
@@ -217,7 +247,9 @@ public sealed class E2ESession : IAsyncDisposable
         var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
             ? null
             : Urls.NormalizeAppUrl(options.BaseUrl, "the base URL").Href;
-        var recording = ExecuteVideo.Plan(options);
+        var recording = options.VideoRecording is { } given
+            ? ExecuteVideo.PlanGiven(options, given)
+            : ExecuteVideo.Plan(options);
 
         var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         Deadline? budgetDeadline = null;
@@ -229,6 +261,9 @@ public sealed class E2ESession : IAsyncDisposable
 
         // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
         var budget = new AttemptBudget(timeout, options.CancelsOnClose?.Closed);
+
+        // The reason the test's own timeout aborts with, one error every step it cuts shares (upstream's signal.reason).
+        var timedOut = new Lazy<TestException>(() => TimeoutFailure(options.TestTimeout, null));
 
         var debug = new DebugTrace(options.Debug);
         var projectRoot = Path.GetFullPath(
@@ -473,6 +508,7 @@ public sealed class E2ESession : IAsyncDisposable
                 ArtifactsDir = attemptDir,
                 RerunDir = options.RerunDir,
                 OnProgress = events is null ? options.OnProgress : events.Progress(options.OnProgress),
+                Mirror = options.Mirror,
                 ArtifactStore = options.ArtifactStore,
                 Session = engine,
                 Screens = screens,
@@ -533,6 +569,12 @@ public sealed class E2ESession : IAsyncDisposable
                 ReplayTimeout = options.ReplayTimeout,
                 StepTimeout = options.StepTimeout,
                 Token = () => budget.Token,
+                Reason = () =>
+                    budget.TestSignalIsOwn
+                    && timeout.IsCancellationRequested
+                    && !cancellationToken.IsCancellationRequested
+                        ? timedOut.Value
+                        : null,
                 TestFailed = () => softFailures.Any || testFailed(),
             };
             created = scope;
@@ -692,6 +734,26 @@ public sealed class E2ESession : IAsyncDisposable
                     _events = events,
                     _testTimeout = options.TestTimeout,
                 };
+                if (options.OffersGuests)
+                {
+                    // The hosts and sessions the test opens beside its own: their steps are recorded with its own, and the attempt ends them.
+                    var guests = new AttemptGuestSessions(
+                        scope.Steps,
+                        () => scope.Artifacts?.Sink,
+                        new AttemptGuestOptions
+                        {
+                            Keep = recording?.Keep,
+                            CleanupTimeout = Bounded(options.CleanupTimeout)
+                                ? options.CleanupTimeout
+                                : Timeout.InfiniteTimeSpan,
+                        }
+                    );
+                    session._guests = guests;
+                    session._published = Attempts.PublishAttempt(
+                        new PublishedAttempt { AttemptId = scope.AttemptId, Guests = guests.Offer }
+                    );
+                }
+
                 events?.Started();
                 return session;
             }
@@ -822,6 +884,33 @@ public sealed class E2ESession : IAsyncDisposable
     /// the verdict. Upstream's <c>settleAttempt</c>.
     /// </summary>
     public async Task SettleAttemptAsync(CancellationToken cancellationToken = default)
+    {
+        // The first call is the body's end: what it left running on the sessions it opened fails the test, and is cut before teardown starts.
+        if (_guests is { } guests && Interlocked.Exchange(ref _bodyEnded, 1) == 0)
+        {
+            var abandoned = await guests.AbandonRunningAsync().ConfigureAwait(false);
+            if (abandoned.Count > 0)
+            {
+                // The attempt's own settle still runs; the first of the errors is the test's, and the settle's own failure is secondary.
+                try
+                {
+                    await SettleOwnAsync(cancellationToken).ConfigureAwait(false);
+                }
+#pragma warning disable CA1031 // The test fails with what the body left running.
+                catch (Exception secondary)
+#pragma warning restore CA1031
+                {
+                    abandoned[0].Data["secondary"] = secondary.GetType().Name;
+                }
+
+                throw abandoned[0];
+            }
+        }
+
+        await SettleOwnAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SettleOwnAsync(CancellationToken cancellationToken)
     {
         var settling = _scope.Session.SettleAttemptAsync(
             _scope.CleanupTimeout,
@@ -967,6 +1056,9 @@ public sealed class E2ESession : IAsyncDisposable
     /// </summary>
     internal string? ExpectedFailure { get; set; }
 
+    /// <summary>Whether this is a setup test: the one that declares the sessions others restore.</summary>
+    internal bool IsSetup => _sessions is { Staging: not null };
+
     /// <summary>The mark of the settled attempt: the reason, and the error that made a failed attempt pass. Null when the test is not marked or skipped.</summary>
     internal ExpectedFailureInfo? SettledMark => _expectedFailure;
 
@@ -1084,6 +1176,16 @@ public sealed class E2ESession : IAsyncDisposable
                 Videos = _video.Kept;
             }
 
+            // What the test opened and left open ends here, its videos among the attempt's own, before the engine goes.
+            if (_guests is { } guests)
+            {
+                foreach (var cause in await guests.SettleAsync(_status).ConfigureAwait(false))
+                {
+                    _cleanupErrors.Add(cause);
+                    CleanupFailed = true;
+                }
+            }
+
             await _scope
                 .Debug.Time("session.close", async () =>
                 {
@@ -1139,6 +1241,9 @@ public sealed class E2ESession : IAsyncDisposable
             WriteDebug(_scope.Debug, _debugOutput, _scope.Steps.All());
             WriteAiTrace(_scope);
             await WriteTracePageAsync().ConfigureAwait(false);
+
+            // The hosts the test launched share their secrets until the artifacts have settled: a download still being rewritten is redacted with them.
+            _guests?.Release();
         }
 
         if (videoFailure is not null)
@@ -1191,6 +1296,7 @@ public sealed class E2ESession : IAsyncDisposable
     // Tells the executors that hold state for the attempt it is over.
     private void EndAttempt()
     {
+        _published?.Dispose();
         try
         {
             _scope.Ended.Cancel();
@@ -1341,6 +1447,9 @@ public sealed class E2ESession : IAsyncDisposable
                         Capture = token => _scope.CaptureAsync(token),
                         Error = error,
                         Redactor = _scope.Redactor,
+                        OwnStep =
+                            StepRecords.LastOrDefault(step => step.Status != StepStatus.Passed) is not { } failed
+                            || OwnSteps.IsOwnStep(failed),
                         AppOrigin = _scope.AppOrigin,
                         MaxObservationBytes = ResolvedAgent.RunLimits(_scope.Agents.Values).MaxObservationBytes,
                         AttemptDir = trace.AttemptDir,
@@ -1556,14 +1665,18 @@ public sealed class E2ESession : IAsyncDisposable
         return VerdictOf(error, StatusOf(error, cancellationToken));
     }
 
-    private TestException TimeoutFailure(Exception cause) =>
-        new(
-            "TEST_TIMEOUT",
+    private TestException TimeoutFailure(Exception cause) => TimeoutFailure(_testTimeout, cause);
+
+    private static TestException TimeoutFailure(TimeSpan testTimeout, Exception? cause)
+    {
+        var message =
             "test timed out after "
-                + ((long)_testTimeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + " ms in phase body",
-            cause
-        );
+            + ((long)testTimeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture)
+            + " ms in phase body";
+        return cause is null
+            ? new TestException("TEST_TIMEOUT", message)
+            : new TestException("TEST_TIMEOUT", message, cause);
+    }
 
     private Exception? VerdictOf(Exception? error, AttemptStatus status)
     {
@@ -1814,6 +1927,19 @@ public sealed class E2ESessionOptions
 
     /// <summary>Whether the engine shows its surface; handed to the engine's start. Upstream's <c>headed</c>.</summary>
     internal bool Headed { get; init; }
+
+    /// <summary>Takes each progress of the session's steps with the record it is of, for a session whose steps a test's recorder mirrors (<see cref="GuestSteps"/>). Upstream's <c>mirror</c> of <c>StandaloneSessionOptions</c>.</summary>
+    internal Action<StepProgress, StepRecord>? Mirror { get; init; }
+
+    /// <summary>The video this session records, in place of what the target's mode says. Upstream's <c>video</c> of <c>StandaloneSessionOptions</c>.</summary>
+    internal VideoRecording? VideoRecording { get; init; }
+
+    /// <summary>
+    /// Whether the session takes in the hosts and sessions its test opens beside it with <see cref="Launch"/> (<see cref="AttemptGuestSessions"/>), and
+    /// is published for them to find (<see cref="Attempts.PublishAttempt"/>). A test's attempt does; a hosted one does not. Upstream's <c>guests</c> of
+    /// the attempt <c>execute.ts</c> publishes.
+    /// </summary>
+    internal bool OffersGuests { get; init; }
 
     /// <summary>How many finished steps the session keeps, for a program whose session has no report. Upstream's <c>retainSteps</c> of <c>StandaloneSessionOptions</c>.</summary>
     internal int? RetainSteps { get; init; }

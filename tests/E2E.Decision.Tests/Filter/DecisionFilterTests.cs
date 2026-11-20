@@ -1338,10 +1338,24 @@ public sealed class DecisionFilterTests : IDisposable
     }
 
     [Fact]
+    public void Accepts_the_AI_Gateways_typesafe_ai_jev() =>
+        Assert.Equal(
+            "decision",
+            Filter(new E2E.Decision.Sdk.Gateway.GatewayProvider().DecisionModel("typesafe-ai/jev")).Name
+        );
+
+    [Fact]
     public void Refuses_no_options_at_config_load_as_INVALID_CONFIG_naming_DecisionFilter() =>
         AssertInvalidConfig(
             () => E2E.Decision.Filter.DecisionFilter(null!),
             $"DecisionFilter() takes an options object; {Example}"
+        );
+
+    [Fact]
+    public void Refuses_a_model_id_at_config_load_as_INVALID_CONFIG_naming_DecisionFilter() =>
+        AssertInvalidConfig(
+            () => E2E.Decision.Filter.DecisionFilter(new DecisionFilterOptions { ModelId = "typesafe-ai/jev" }),
+            $"DecisionFilter({{ model }}) got the string \"typesafe-ai/jev\"; {Example}"
         );
 
     [Fact]
