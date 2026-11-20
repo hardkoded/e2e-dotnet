@@ -27,7 +27,18 @@ public enum StepActivity
 }
 
 /// <summary>Whose progress a notification is: IDs join live progress to the report. Step indexes are local to each test (upstream's <c>StepProgressIdentity</c>).</summary>
-public sealed record StepProgressIdentity(string AttemptId, int AttemptIndex, string StepId, int StepIndex);
+/// <param name="AttemptId">The attempt the step is of.</param>
+/// <param name="AttemptIndex">The attempt's index.</param>
+/// <param name="StepId">The step's id.</param>
+/// <param name="StepIndex">The step's index.</param>
+/// <param name="Actor">The session the step ran on when it is not the test's own, such as <c>launch-1</c>; absent for the test's own session.</param>
+public sealed record StepProgressIdentity(
+    string AttemptId,
+    int AttemptIndex,
+    string StepId,
+    int StepIndex,
+    string? Actor = null
+);
 
 /// <summary>
 /// Live progress notification for one step, streamed as the step runs (upstream's <c>StepProgress</c>, <c>run/steps.ts</c>). Derived from the same

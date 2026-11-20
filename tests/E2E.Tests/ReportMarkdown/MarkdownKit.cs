@@ -117,7 +117,8 @@ internal static class MarkdownKit
         StepMetrics? metrics = null,
         CacheInfo? cache = null,
         string? explanation = null,
-        ReportError? error = null
+        ReportError? error = null,
+        string? actor = null
     )
     {
         var step = FailureTextKit.Step(
@@ -130,7 +131,8 @@ internal static class MarkdownKit
             durationMs: durationMs,
             metrics: metrics,
             label: label,
-            explanation: explanation
+            explanation: explanation,
+            actor: actor
         );
         step.Cache = cache;
         return step;

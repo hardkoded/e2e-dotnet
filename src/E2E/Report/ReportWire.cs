@@ -311,6 +311,7 @@ internal static partial class ReportWire
             ("kind", StepNames.Of(step.Kind)),
             ("api", step.Api),
             ("label", Clip(step.Label, 8192)),
+            ("actor", step.Actor),
             ("source", Source(step.Source)),
             (
                 "phase",
@@ -491,6 +492,7 @@ internal static partial class ReportWire
             ("sha256", digest),
             ("ref", string.IsNullOrEmpty(artifact.Ref) ? null : artifact.Ref),
             ("startedAt", artifact.StartedAt is { } startedAt ? Timestamp(startedAt) : null),
+            ("actor", string.IsNullOrEmpty(artifact.Actor) ? null : artifact.Actor),
             ("redaction", complete ? "complete" : "incomplete"),
             (
                 "producer",

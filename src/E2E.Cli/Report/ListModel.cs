@@ -27,7 +27,14 @@ internal sealed class FileGroup(string file, string target)
 }
 
 /// <summary>One finished agent step of a pair, as the <c>End</c> progress reported it (upstream's <c>FinishedStep</c>).</summary>
-internal sealed record FinishedStep(string Api, string Label, StepStatus Status, long DurationMs, int ModelCalls);
+internal sealed record FinishedStep(
+    string Api,
+    string Label,
+    StepStatus Status,
+    long DurationMs,
+    int ModelCalls,
+    string? Actor = null
+);
 
 /// <summary>Whether an event is one the live window shows (upstream's <c>isShownEvent</c>): step events worth a glance; polls and policy decisions stay quiet.</summary>
 internal static class ListModel
@@ -37,11 +44,14 @@ internal static class ListModel
 }
 
 /// <summary>The step a running pair is executing right now (upstream's <c>CurrentStep</c>).</summary>
-internal sealed class CurrentStep(string api, string label, Reports.StepKind kind)
+internal sealed class CurrentStep(string api, string label, Reports.StepKind kind, string? actor = null)
 {
     public string Api { get; } = api;
 
     public string Label { get; } = label;
+
+    /// <summary>The session the step runs on when it is not the test's own.</summary>
+    public string? Actor { get; } = actor;
 
     /// <summary>Only an agent step has model turns to wait on.</summary>
     public Reports.StepKind Kind { get; } = kind;

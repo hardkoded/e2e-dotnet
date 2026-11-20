@@ -27,6 +27,7 @@ internal sealed class StepRecorder
     private readonly (string Id, int Index) _attempt;
     private readonly int _maxEventsPerStep;
     private readonly Action<StepProgress>? _onProgress;
+    private readonly Action<StepProgress, StepRecord>? _mirror;
     private readonly string? _projectRoot;
     private readonly Func<string, string>? _redact;
     private readonly CancellationToken _cancellation;
@@ -89,6 +90,7 @@ internal sealed class StepRecorder
         _attempt = options.Attempt ?? (attemptId, 0);
         _maxEventsPerStep = options.MaxEventsPerStep;
         _onProgress = options.OnProgress;
+        _mirror = options.Mirror;
         _projectRoot = options.ProjectRoot;
         _redact = options.Redact;
         _cancellation = options.Cancellation;
@@ -104,6 +106,21 @@ internal sealed class StepRecorder
     /// call stack names, when a test framework's setup or teardown method called it (see <see cref="StepHooks"/>).
     /// </summary>
     public StepPhase? Phase { get; set; }
+
+    /// <summary>The root step sources are read against.</summary>
+    public string? ProjectRoot => _projectRoot;
+
+    /// <summary>Whether a step is still executing.</summary>
+    public bool Busy
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _running.Count > 0;
+            }
+        }
+    }
 
     /// <summary>The step currently executing, when inside <see cref="RunAsync{T}"/>.</summary>
     public string? CurrentStepId => Current()?.Id;
@@ -126,13 +143,92 @@ internal sealed class StepRecorder
         }
     }
 
-    /// <summary>Steps whose execution has finished, e.g. as prior-step prompt context.</summary>
+    /// <summary>Steps of the test's own session whose execution has finished, e.g. as prior-step prompt context.</summary>
     public IReadOnlyList<StepRecord> Completed()
     {
         lock (_gate)
         {
-            return [.. _steps.Where(step => !_running.Contains(step.Id))];
+            return [.. _steps.Where(step => OwnSteps.IsOwnStep(step) && !_running.Contains(step.Id))];
         }
+    }
+
+    /// <summary>
+    /// Files a step another session runs (<see cref="GuestSteps"/>) and tells reporters it started. The step takes the next index, so the report tells
+    /// both sessions' steps in the order they began. It is the other session's in every other way: never the running step here, so it is not held and
+    /// it verifies nothing. Upstream's <c>guest</c>.
+    /// </summary>
+    public GuestRecord Guest(StepKind kind, string api, string label, string actor, SourceLocation? source)
+    {
+        StepRecord record;
+        lock (_gate)
+        {
+            record = File(kind, api, RedactText(label), actor, source, null, null);
+        }
+
+        Publish(
+            record,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Start,
+                Api = record.Api,
+                Kind = record.Kind,
+                Label = record.Label,
+            }
+        );
+        return new GuestRecord(
+            progress =>
+            {
+                if (progress.Phase == StepProgressPhase.Event && progress.Event is { } stepEvent)
+                {
+                    Push(record, stepEvent);
+                }
+                else
+                {
+                    Publish(record, progress);
+                }
+            },
+            result =>
+            {
+                lock (_gate)
+                {
+                    result.ApplyTo(record);
+                }
+
+                PublishEnd(record);
+            }
+        );
+    }
+
+    // The last step of the test's own session, the one an event with no running step belongs to.
+    private StepRecord? LastOwnLocked() => _steps.LastOrDefault(OwnSteps.IsOwnStep);
+
+    // Mints a step's record at the next index, started now in the running phase. Upstream's `file`. Holds _gate.
+    private StepRecord File(
+        StepKind kind,
+        string api,
+        string label,
+        string? actor,
+        SourceLocation? source,
+        string? agent,
+        StepPhase? phase
+    )
+    {
+        var index = _opened++;
+        var record = new StepRecord
+        {
+            Id = _attemptId + ":" + index.ToString(CultureInfo.InvariantCulture),
+            Index = index,
+            Kind = kind,
+            Api = api,
+            Label = label,
+            Actor = actor,
+            Source = source,
+            StartedAt = DateTimeOffset.UtcNow,
+            Agent = agent,
+            Phase = phase ?? Phase,
+        };
+        _steps.Add(record);
+        return record;
     }
 
     /// <summary>Runs one public API call as a recorded top-level step.</summary>
@@ -163,8 +259,6 @@ internal sealed class StepRecorder
 
         // The label is published, reported, and traced as is: a secret the test spelled into an instruction or a locator stops here, once.
         var label = RedactText(rawLabel);
-        var startedAt = DateTimeOffset.UtcNow;
-
         // Every step pays the capture, since the failing one is not known until it fails, and a report that names the line is worth it.
         var stack = new StackTrace(1, fNeedFileInfo: true);
         var source = _projectRoot is null ? null : Source.Locate(stack, _projectRoot);
@@ -172,20 +266,7 @@ internal sealed class StepRecorder
         StepRecord record;
         lock (_gate)
         {
-            var index = _opened++;
-            record = new StepRecord
-            {
-                Id = _attemptId + ":" + index.ToString(CultureInfo.InvariantCulture),
-                Index = index,
-                Kind = kind,
-                Api = api,
-                Label = label,
-                Source = source,
-                StartedAt = startedAt,
-                Agent = options.Agent,
-                Phase = phase,
-            };
-            _steps.Add(record);
+            record = File(kind, api, label, null, source, options.Agent, phase);
 
             // Only a finished step is dropped, and only from the front, so a long-running one keeps its record.
             while (
@@ -493,7 +574,7 @@ internal sealed class StepRecorder
         // Cleanup outside a scope may attach to the last step. Work inherited from a closed scope must never attach to a newer step.
         lock (_gate)
         {
-            var target = _scope.Value is null ? _steps.LastOrDefault() : CurrentLocked();
+            var target = _scope.Value is null ? LastOwnLocked() : CurrentLocked();
             target?.Artifacts.Add(artifactId);
         }
     }
@@ -503,7 +584,7 @@ internal sealed class StepRecorder
     {
         lock (_gate)
         {
-            return (_scope.Value is null ? _steps.LastOrDefault() : CurrentLocked())?.Id;
+            return (_scope.Value is null ? LastOwnLocked() : CurrentLocked())?.Id;
         }
     }
 
@@ -529,7 +610,7 @@ internal sealed class StepRecorder
         StepRecord? target;
         lock (_gate)
         {
-            target = CurrentLocked() ?? _steps.LastOrDefault();
+            target = CurrentLocked() ?? LastOwnLocked();
             if (appEvent is AppEvent.Navigation waiting && target is null)
             {
                 // A step takes no more events than this, so no more wait for one.
@@ -907,13 +988,20 @@ internal sealed class StepRecorder
         );
 
     // Publishes a phase with the owning record's identity, including nested and finishing steps.
-    private void Publish(StepRecord record, StepProgress progress) =>
-        _onProgress?.Invoke(
-            progress with
-            {
-                Identity = new StepProgressIdentity(_attempt.Id, _attempt.Index, record.Id, record.Index),
-            }
-        );
+    private void Publish(StepRecord record, StepProgress fact)
+    {
+        if (_onProgress is null && _mirror is null)
+        {
+            return;
+        }
+
+        var progress = fact with
+        {
+            Identity = new StepProgressIdentity(_attempt.Id, _attempt.Index, record.Id, record.Index, record.Actor),
+        };
+        _onProgress?.Invoke(progress);
+        _mirror?.Invoke(progress, record);
+    }
 
     // A step as an error message names it: its api, and its quoted label when it has one.
     private static string CallName(StepRecord step) =>

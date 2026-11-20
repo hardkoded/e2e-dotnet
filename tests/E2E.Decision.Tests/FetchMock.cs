@@ -47,6 +47,8 @@ internal sealed class FetchMock
     internal static HttpResponseMessage Ok() =>
         new(HttpStatusCode.OK) { Content = new ByteArrayContent([]) { Headers = { ContentType = new("image/png") } } };
 
+    internal static HttpResponseMessage OpaqueRedirect() => Download.DownloadTestHelpers.OpaqueRedirect();
+
     internal static HttpResponseMessage Redirect(string location, int status = 302, HttpContent? body = null)
     {
         var response = new HttpResponseMessage((HttpStatusCode)status);

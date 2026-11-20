@@ -36,6 +36,44 @@ public sealed class DecideTests
         Assert.Single(integration.ModelCallEnds);
     }
 
+    [Fact]
+    public async Task Partial_decides_answers_to_mixed_questions_in_one_call_and_preserves_distributions_and_metadata()
+    {
+        using var body = System.Text.Json.JsonDocument.Parse("""{"raw":true}""");
+        var headers = new Dictionary<string, string> { ["x-request-id"] = "request" };
+        var (model, _) = Setup(
+            new DecisionModelResult
+            {
+                Answers = AnswerMap,
+                ResponseModelId = "actual-model",
+                ResponseHeaders = headers,
+                ResponseBody = body.RootElement.Clone(),
+            }
+        );
+        DecideEndEvent? ended = null;
+
+        var result = await ExperimentalDecide.RunAsync(
+            new DecideOptions
+            {
+                Model = model,
+                State = [new DecisionTextPart("text")],
+                Questions = QuestionMap,
+                OnEnd = e =>
+                {
+                    ended = e;
+                    return Task.CompletedTask;
+                },
+            }
+        );
+
+        Assert.Equal("actual-model", result.ResponseModelId);
+        Assert.Equal(headers, result.ResponseHeaders);
+        Assert.Equal("""{"raw":true}""", result.ResponseBody!.Value.GetRawText());
+        Assert.NotNull(ended);
+        Assert.Equal(headers, ended.ResponseHeaders);
+        Assert.Equal("""{"raw":true}""", ended.ResponseBody!.Value.GetRawText());
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("provider-default")]

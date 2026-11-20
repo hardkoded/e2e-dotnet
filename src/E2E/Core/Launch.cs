@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using E2E.Engine;
+using E2E.Internal;
 
 namespace E2E;
 
@@ -89,10 +90,18 @@ public class Session : IAsyncDisposable
     private readonly StandaloneAttempt _attempt;
     private readonly StateIdentity _identity;
     private readonly Action _onClosed;
+    private readonly ISessionGuest _guest;
     private readonly Lazy<Task> _closing;
 
-    internal Session(StandaloneAttempt attempt, StateIdentity identity, SessionInternals internals, Action onClosed)
+    internal Session(
+        StandaloneAttempt attempt,
+        StateIdentity identity,
+        SessionInternals internals,
+        Action onClosed,
+        ISessionGuest guest
+    )
     {
+        _guest = guest;
         Internals = internals;
         _attempt = attempt;
         _session = attempt.Session;
@@ -169,6 +178,14 @@ public class Session : IAsyncDisposable
         try
         {
             errors.AddRange(await _attempt.CloseAsync().ConfigureAwait(false));
+            try
+            {
+                await _guest.VideosAsync(_attempt.Videos()).ConfigureAwait(false);
+            }
+            catch (Exception cause)
+            {
+                errors.Add(cause);
+            }
         }
         catch (Exception cause) when (errors.Count > 0)
         {
@@ -198,9 +215,10 @@ public sealed class Session<TFixtures> : Session
         StateIdentity identity,
         SessionInternals internals,
         Action onClosed,
+        ISessionGuest guest,
         Func<IEngineSession, Session, TFixtures> fixtures
     )
-        : base(attempt, identity, internals, onClosed) => Fixtures = fixtures(EngineSession, this);
+        : base(attempt, identity, internals, onClosed, guest) => Fixtures = fixtures(EngineSession, this);
 
     /// <summary>What the engine contributes beside <see cref="Session.Screen"/>, <see cref="Session.App"/>, and <see cref="Session.Platform"/>.</summary>
     public TFixtures Fixtures { get; }
@@ -220,7 +238,18 @@ public sealed class Host : IAsyncDisposable
     private readonly TimeSpan? _timeout;
     private readonly LaunchApp? _app;
     private readonly bool _headed;
-    private readonly Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, Session> _newSession;
+    private readonly Func<
+        StandaloneAttempt,
+        StateIdentity,
+        SessionInternals,
+        Action,
+        ISessionGuest,
+        Session
+    > _newSession;
+    private readonly Action _withdrawSecrets;
+
+    /// <summary>Whether the test that launched the host has taken charge of its end: it then withdraws the host's secrets at its own end, not at the host's.</summary>
+    private bool _owned;
     private readonly Lock _gate = new();
     private readonly Lazy<Task> _closing;
     private Session? _open;
@@ -237,13 +266,15 @@ public sealed class Host : IAsyncDisposable
         TimeSpan? timeout,
         LaunchApp? app,
         bool headed,
-        Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, Session>? newSession = null
+        Action withdrawSecrets,
+        Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, ISessionGuest, Session>? newSession = null
     )
     {
+        _withdrawSecrets = withdrawSecrets;
         _newSession = newSession
             ?? (
-                (attempt, sessionIdentity, internals, onClosed) =>
-                    new Session(attempt, sessionIdentity, internals, onClosed)
+                (attempt, sessionIdentity, internals, onClosed, guest) =>
+                    new Session(attempt, sessionIdentity, internals, onClosed, guest)
             );
         _headed = headed;
         _app = app;
@@ -281,53 +312,103 @@ public sealed class Host : IAsyncDisposable
     public Task<Session> NewSessionAsync(
         NewSessionOptions? options = null,
         CancellationToken cancellationToken = default
-    ) =>
-        OpeningRedaction.RedactOpening(async () =>
+    )
+    {
+        // Decided now, when the call is made: a session a running test opens is that test's, however long the opening takes.
+        var guest = SessionGuests.SessionGuest();
+        return OpenGuestSessionAsync(options, guest, cancellationToken);
+    }
+
+    /// <summary>Hands a test the host this seat was reserved for; false when the test gave the seat up, and the host is the caller's to close.</summary>
+    internal bool TakeBy(IGuestSeat<IGuestHost, bool> seat) => _owned = seat.Take(new GuestHost(this));
+
+    private async Task<Session> OpenGuestSessionAsync(
+        NewSessionOptions? options,
+        ISessionGuest guest,
+        CancellationToken cancellationToken
+    )
+    {
+        try
         {
-            if (_closing.IsValueCreated)
-            {
-                throw new EngineException("WORKER_PROTOCOL", "the host is closed");
-            }
-
-            var restored = options?.State is { } state ? SessionState.RestoredStateFor(state, _identity) : null;
-            var failures = new FailureWatch();
-            var attempt = await _host
-                .OpenAttemptAsync(SessionOptions(restored, failures), cancellationToken, hosted: true)
+            return await OpeningRedaction
+                .RedactOpening(() => OpenSessionAsync(options, guest, cancellationToken))
                 .ConfigureAwait(false);
-            try
+        }
+        catch (Exception cause)
+        {
+            guest.Failed(cause);
+            throw;
+        }
+    }
+
+    // Opens one session on the host, for the guest that was decided when the call was made.
+    private async Task<Session> OpenSessionAsync(
+        NewSessionOptions? options,
+        ISessionGuest guest,
+        CancellationToken cancellationToken
+    )
+    {
+        if (_closing.IsValueCreated)
+        {
+            throw new EngineException("WORKER_PROTOCOL", "the host is closed");
+        }
+
+        var restored = options?.State is { } state ? SessionState.RestoredStateFor(state, _identity) : null;
+        var failures = new FailureWatch();
+        var attempt = await _host
+            .OpenAttemptAsync(
+                SessionOptions(restored, failures, guest),
+                Time.Link(cancellationToken, guest.Signal),
+                hosted: true
+            )
+            .ConfigureAwait(false);
+        try
+        {
+            failures.Watch(attempt.Session.Recorder);
+            var session = _newSession(
+                attempt,
+                _identity,
+                new SessionInternals(attempt, _projectRoot, failures),
+                () => Release(attempt),
+                guest
+            );
+            if (_timeout is { } timeout)
             {
-                failures.Watch(attempt.Session.Recorder);
-                var session = _newSession(
-                    attempt,
-                    _identity,
-                    new SessionInternals(attempt, _projectRoot, failures),
-                    () => Release(attempt)
-                );
-                if (_timeout is { } timeout)
+                session.SetDefaultTimeout(timeout);
+            }
+
+            // What a program configured is known to the session from the start: the agent fills it by name, and every output redacts it.
+            attempt.Session.Remember(_secrets.Select(pair => E2E.Secret.Create(pair.Key, pair.Value)));
+            lock (_gate)
+            {
+                if (_closing.IsValueCreated)
                 {
-                    session.SetDefaultTimeout(timeout);
+                    throw new EngineException("WORKER_PROTOCOL", "the host is closed");
                 }
 
-                // What a program configured is known to the session from the start: the agent fills it by name, and every output redacts it.
-                attempt.Session.Remember(_secrets.Select(pair => E2E.Secret.Create(pair.Key, pair.Value)));
-                lock (_gate)
-                {
-                    if (_closing.IsValueCreated)
-                    {
-                        throw new EngineException("WORKER_PROTOCOL", "the host is closed");
-                    }
-
-                    _open = session;
-                }
-
-                return session;
+                _open = session;
             }
-            catch
+
+            if (!guest.Attach(new GuestSession(_projectRoot, session, attempt)))
             {
-                await attempt.CloseAsync().ConfigureAwait(false);
-                throw;
+                await session.CloseAsync().ConfigureAwait(false);
+                throw new EngineException(
+                    EngineErrorCodes.Cancelled,
+                    "the test that opened the session ended before it was open"
+                )
+                {
+                    Mapped = true,
+                };
             }
-        });
+
+            return session;
+        }
+        catch
+        {
+            await attempt.CloseAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
 
     /// <summary>Closes the open session, then the engine. Idempotent. Throws an <see cref="AggregateException"/> of the failures closing found. Upstream's <c>close</c>.</summary>
     public Task CloseAsync() => _closing.Value;
@@ -378,6 +459,12 @@ public sealed class Host : IAsyncDisposable
         finally
         {
             Launch.Unclaim(_engine);
+            // The host's values are shared with the sessions beside it for as long as it is open. A test that launched the host keeps them
+            // shared until the test ends: it may close the host early and go on reading screens that show them.
+            if (!_owned)
+            {
+                _withdrawSecrets();
+            }
         }
 
         if (_ownsArtifacts)
@@ -395,7 +482,7 @@ public sealed class Host : IAsyncDisposable
         Launch.ThrowClosingErrors(errors, "closing the host");
     }
 
-    private E2ESessionOptions SessionOptions(SavedSession? restored, FailureWatch failures) =>
+    private E2ESessionOptions SessionOptions(SavedSession? restored, FailureWatch failures, ISessionGuest guest) =>
         new()
         {
             Engine = _engine,
@@ -431,8 +518,31 @@ public sealed class Host : IAsyncDisposable
             RedactThrown = true,
             RetainSteps = Launch.RetainedSteps,
             OnProgress = failures.OnProgress,
+            Mirror = guest.Mirror,
+            // A test that keeps videos keeps one of each session it opens too, when the engine can record it; a program's own session records none.
+            VideoRecording = guest.RecordsVideo ? new VideoRecording(Keep.Always, VideoPolicy.BestEffort) : null,
             State = restored,
         };
+
+    // What the attempt a test runs in takes charge of: closing the host. Upstream's GuestHost.
+    private sealed class GuestHost(Host host) : IGuestHost
+    {
+        public Task CloseAsync() => host.CloseAsync();
+
+        public void Release() => host._withdrawSecrets();
+    }
+
+    // What the attempt a test runs in takes charge of: closing the session and cutting what it left running. Upstream's GuestSession.
+    private sealed class GuestSession(string root, Session session, StandaloneAttempt attempt) : IGuestSession
+    {
+        public string Root { get; } = root;
+
+        public bool Busy() => attempt.Session.Recorder.Busy;
+
+        public Exception? AbandonRunning() => attempt.Session.Recorder.AbandonRunning();
+
+        public Task CloseAsync() => session.CloseAsync();
+    }
 }
 
 /// <summary>
@@ -503,8 +613,8 @@ public static class Launch
         var host = await LaunchCoreAsync(
                 engine,
                 options,
-                (attempt, identity, internals, onClosed) =>
-                    new Session<TFixtures>(attempt, identity, internals, onClosed, engine.CreateFixtures),
+                (attempt, identity, internals, onClosed, guest) =>
+                    new Session<TFixtures>(attempt, identity, internals, onClosed, guest, engine.CreateFixtures),
                 cancellationToken
             )
             .ConfigureAwait(false);
@@ -514,7 +624,7 @@ public static class Launch
     private static async Task<Host> LaunchCoreAsync(
         IEngine engine,
         LaunchOptions? options,
-        Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, Session>? newSession,
+        Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, ISessionGuest, Session>? newSession,
         CancellationToken cancellationToken
     )
     {
@@ -525,6 +635,10 @@ public static class Launch
                 "launch takes an engine as its first argument and got null: pass an engine such as new WebEngine()"
             );
         }
+
+        // What the test launching the host offers, when one is, and the host's seat in it: reserved before anything is awaited, so the host is that test's and no later one's.
+        var owner = SessionGuests.CurrentGuests();
+        var seat = owner?.Host();
 
         options ??= new LaunchOptions();
         if (
@@ -542,9 +656,10 @@ public static class Launch
             ? Directory.CreateTempSubdirectory("e2e-core-").FullName
             : Path.GetFullPath(options.ArtifactsDir, projectRoot);
         Host? host = null;
+        Action withdrawSecrets = static () => { };
         try
         {
-            return host = await OpeningRedaction
+            host = await OpeningRedaction
                 .RedactOpening(async () =>
                 {
                     Claim(engine);
@@ -573,7 +688,7 @@ public static class Launch
                             Sessions.TargetIdentity(target, target, engine, resolved).AppIdentity,
                             resolved.Identity
                         );
-                        OpenSession.RegisterStaticSecrets(
+                        withdrawSecrets = Secrecy.ShareStaticSecrets(
                             secrets.Select(pair => E2E.Secret.Create(pair.Key, pair.Value))
                         );
                         var worker = await Standalone
@@ -584,7 +699,7 @@ public static class Launch
                                     TargetName = target,
                                     ProjectRoot = projectRoot,
                                     Env = options.Env,
-                                    CancellationToken = cancellationToken,
+                                    CancellationToken = Time.Link(cancellationToken, seat?.Signal ?? default),
                                     Headed = options.Headed,
                                     Notice = options.OnNotice is { } notice
                                         ? (_, message) => OpenSession.Notify(notice, message)
@@ -604,6 +719,7 @@ public static class Launch
                             options.Timeout,
                             app,
                             options.Headed,
+                            withdrawSecrets,
                             newSession
                         );
                     }
@@ -614,9 +730,31 @@ public static class Launch
                     }
                 })
                 .ConfigureAwait(false);
+            // A host a test launched is the test's to end: the attempt closes it if the test does not.
+            if (seat is not null && !host.TakeBy(seat))
+            {
+                await host.CloseAsync().ConfigureAwait(false);
+                var gaveUp = new EngineException(
+                    EngineErrorCodes.Cancelled,
+                    "the test that launched the host ended before it was open"
+                )
+                {
+                    Mapped = true,
+                };
+                owner?.GaveUp(gaveUp);
+                throw gaveUp;
+            }
+
+            return host;
         }
-        catch when (host is null)
+        catch (Exception opening) when (host is null)
         {
+            withdrawSecrets();
+            if (seat?.Signal.IsCancellationRequested == true)
+            {
+                owner?.GaveUp(opening);
+            }
+
             if (ownsArtifacts)
             {
                 try

@@ -43,6 +43,9 @@ internal sealed class StandaloneAttempt(E2ESession session, Func<Task<IReadOnlyL
 
     public E2ESession Session { get; } = session;
 
+    /// <summary>The videos the attempt recorded, files and hosted links, once it is closed. Upstream's <c>videos()</c>.</summary>
+    public IReadOnlyList<SessionVideo> Videos() => Session.SessionVideos();
+
     /// <summary>Ends the attempt, once, and returns what went wrong. A one-shot attempt (<see cref="Standalone.OpenAttemptAsync"/>) also finishes the engine.</summary>
     public Task<IReadOnlyList<Exception>> CloseAsync() => close();
 

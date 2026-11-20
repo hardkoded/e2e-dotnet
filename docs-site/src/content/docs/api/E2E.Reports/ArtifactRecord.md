@@ -29,6 +29,21 @@ A file or link an attempt kept (upstream's `ArtifactRecord`, `run/records.ts`).
 
 ## Properties
 
+<a id="E2E_Reports_ArtifactRecord_Actor_"></a>
+<a id="E2E_Reports_ArtifactRecord_Actor"></a>
+
+### Actor
+
+
+```csharp
+public string? Actor { get; init; }
+```
+
+
+The session that produced the artifact when it is not the test's own: one the test opened with [Launch](/api/E2E/Launch/).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Reports_ArtifactRecord_Id_"></a>
 <a id="E2E_Reports_ArtifactRecord_Id"></a>
 

@@ -140,128 +140,141 @@ public static class ExperimentalDecide
             Headers = options.Headers,
             ProviderOptions = options.ProviderOptions ?? new Dictionary<string, JsonElement>(),
         };
-        await Notify
-            .NotifyAsync(startEvent, [options.OnStart, telemetryDispatcher.OnStartAsync], cancellationToken)
-            .ConfigureAwait(false);
-
-        try
-        {
-            var preparedState = await DecisionState
-                .PrepareAsync(options.State, options.ExperimentalDownload, cancellationToken)
-                .ConfigureAwait(false);
-            var modelCallEvent = new DecisionModelCallStartEvent
+        return await telemetryDispatcher
+            .RunInTracingChannelSpanAsync(TelemetryTracingEventType.ExperimentalDecide, startEvent, async () =>
             {
-                CallId = callId,
-                Provider = model.Provider,
-                ModelId = model.ModelId,
-                State = preparedState,
-                Questions = options.Questions,
-            };
-            await Notify
-                .NotifyAsync(modelCallEvent, [telemetryDispatcher.OnDecisionModelCallStartAsync], cancellationToken)
-                .ConfigureAwait(false);
-            var result = await RetryAsync(
-                    maxRetries,
-                    async () =>
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        return await model
-                            .DoDecideAsync(
-                                new DecisionModelCall
-                                {
-                                    State = preparedState,
-                                    Questions = options.Questions,
-                                    MaxOutputTokens = options.MaxOutputTokens,
-                                    Reasoning = options.Reasoning,
-                                    Headers = options.Headers ?? new Dictionary<string, string>(),
-                                    ProviderOptions = options.ProviderOptions,
-                                },
-                                cancellationToken
-                            )
-                            .ConfigureAwait(false);
-                    },
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            ValidateAnswers(options.Questions, result.Answers, result.Rounding);
-            var refused = options.Questions.Keys.Where(id => result.Answers[id].Type == "refusal").ToList();
-            if (refused.Count > 0)
-            {
-                throw new DecisionRefusalException(refused, model.Provider, model.ModelId);
-            }
+                await Notify
+                    .NotifyAsync(startEvent, [options.OnStart, telemetryDispatcher.OnStartAsync], cancellationToken)
+                    .ConfigureAwait(false);
 
-            await Notify
-                .NotifyAsync(
-                    new DecisionModelCallEndEvent
+                try
+                {
+                    var preparedState = await DecisionState
+                        .PrepareAsync(options.State, options.ExperimentalDownload, cancellationToken)
+                        .ConfigureAwait(false);
+                    var modelCallEvent = new DecisionModelCallStartEvent
                     {
                         CallId = callId,
                         Provider = model.Provider,
                         ModelId = model.ModelId,
                         State = preparedState,
                         Questions = options.Questions,
+                    };
+                    await Notify
+                        .NotifyAsync(
+                            modelCallEvent,
+                            [telemetryDispatcher.OnDecisionModelCallStartAsync],
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+                    var result = await RetryAsync(
+                            maxRetries,
+                            async () =>
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+                                return await model
+                                    .DoDecideAsync(
+                                        new DecisionModelCall
+                                        {
+                                            State = preparedState,
+                                            Questions = options.Questions,
+                                            MaxOutputTokens = options.MaxOutputTokens,
+                                            Reasoning = options.Reasoning,
+                                            Headers = options.Headers ?? new Dictionary<string, string>(),
+                                            ProviderOptions = options.ProviderOptions,
+                                        },
+                                        cancellationToken
+                                    )
+                                    .ConfigureAwait(false);
+                            },
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    ValidateAnswers(options.Questions, result.Answers, result.Rounding);
+                    var refused = options.Questions.Keys.Where(id => result.Answers[id].Type == "refusal").ToList();
+                    if (refused.Count > 0)
+                    {
+                        throw new DecisionRefusalException(refused, model.Provider, model.ModelId);
+                    }
+
+                    await Notify
+                        .NotifyAsync(
+                            new DecisionModelCallEndEvent
+                            {
+                                CallId = callId,
+                                Provider = model.Provider,
+                                ModelId = model.ModelId,
+                                State = preparedState,
+                                Questions = options.Questions,
+                                Answers = result.Answers,
+                                Usage = result.Usage,
+                                Warnings = result.Warnings,
+                                Rounding = result.Rounding,
+                                ProviderMetadata = result.ProviderMetadata,
+                                ResponseModelId = result.ResponseModelId,
+                            },
+                            [telemetryDispatcher.OnDecisionModelCallEndAsync],
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+
+                    var decisionResult = new DecisionResult
+                    {
                         Answers = result.Answers,
-                        Usage = result.Usage,
+                        Usage = new DecisionUsage(result.Usage?.InputTokens, result.Usage?.OutputTokens),
                         Warnings = result.Warnings,
                         Rounding = result.Rounding,
                         ProviderMetadata = result.ProviderMetadata,
-                        ResponseModelId = result.ResponseModelId,
-                    },
-                    [telemetryDispatcher.OnDecisionModelCallEndAsync],
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-
-            var decisionResult = new DecisionResult
-            {
-                Answers = result.Answers,
-                Usage = new DecisionUsage(result.Usage?.InputTokens, result.Usage?.OutputTokens),
-                Warnings = result.Warnings,
-                Rounding = result.Rounding,
-                ProviderMetadata = result.ProviderMetadata,
-                ResponseModelId = result.ResponseModelId ?? model.ModelId,
-            };
-            await Notify
-                .NotifyAsync(
-                    new DecideEndEvent
-                    {
-                        CallId = startEvent.CallId,
-                        RuntimeContext = startEvent.RuntimeContext,
-                        Provider = startEvent.Provider,
-                        ModelId = startEvent.ModelId,
-                        State = startEvent.State,
-                        Questions = startEvent.Questions,
-                        MaxOutputTokens = startEvent.MaxOutputTokens,
-                        Reasoning = startEvent.Reasoning,
-                        MaxRetries = startEvent.MaxRetries,
-                        Headers = startEvent.Headers,
-                        ProviderOptions = startEvent.ProviderOptions,
-                        Answers = decisionResult.Answers,
-                        Usage = decisionResult.Usage,
-                        Warnings = decisionResult.Warnings,
-                        Rounding = decisionResult.Rounding,
-                        ProviderMetadata = decisionResult.ProviderMetadata,
-                        ResponseModelId = decisionResult.ResponseModelId,
-                        Timestamp = decisionResult.Timestamp,
-                    },
-                    [options.OnEnd, telemetryDispatcher.OnEndAsync],
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-            return decisionResult;
-        }
-        catch (Exception error)
-        {
-            // A failing integration must not hide the error the call failed with.
-            await Notify
-                .NotifyAsync(
-                    error,
-                    [failure => telemetryDispatcher.OnErrorAsync(callId, failure)],
-                    CancellationToken.None
-                )
-                .ConfigureAwait(false);
-            throw;
-        }
+                        ResponseModelId = result.ResponseModelId ?? model.ModelId,
+                        ResponseHeaders = result.ResponseHeaders,
+                        ResponseBody = result.ResponseBody,
+                    };
+                    await Notify
+                        .NotifyAsync(
+                            new DecideEndEvent
+                            {
+                                CallId = startEvent.CallId,
+                                RuntimeContext = startEvent.RuntimeContext,
+                                Provider = startEvent.Provider,
+                                ModelId = startEvent.ModelId,
+                                State = startEvent.State,
+                                Questions = startEvent.Questions,
+                                MaxOutputTokens = startEvent.MaxOutputTokens,
+                                Reasoning = startEvent.Reasoning,
+                                MaxRetries = startEvent.MaxRetries,
+                                Headers = startEvent.Headers,
+                                ProviderOptions = startEvent.ProviderOptions,
+                                Answers = decisionResult.Answers,
+                                Usage = decisionResult.Usage,
+                                Warnings = decisionResult.Warnings,
+                                Rounding = decisionResult.Rounding,
+                                ProviderMetadata = decisionResult.ProviderMetadata,
+                                ResponseModelId = decisionResult.ResponseModelId,
+                                ResponseHeaders = decisionResult.ResponseHeaders,
+                                ResponseBody = decisionResult.ResponseBody,
+                                Timestamp = decisionResult.Timestamp,
+                            },
+                            [options.OnEnd, telemetryDispatcher.OnEndAsync],
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+                    return decisionResult;
+                }
+                catch (Exception error)
+                {
+                    // A failing integration must not hide the error the call failed with.
+                    await Notify
+                        .NotifyAsync(
+                            error,
+                            [failure => telemetryDispatcher.OnErrorAsync(callId, failure)],
+                            CancellationToken.None
+                        )
+                        .ConfigureAwait(false);
+                    throw;
+                }
+            })
+            .ConfigureAwait(false);
     }
 
     /// <summary>The AI SDK's <c>createIdGenerator({ prefix: 'call', size: 24 })</c>: <c>call-</c> and 24 random letters and digits.</summary>

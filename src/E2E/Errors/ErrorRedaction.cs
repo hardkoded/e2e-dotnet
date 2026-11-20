@@ -53,22 +53,23 @@ internal static class ErrorRedaction
     )
     {
         var inner = Cause(cause, redact);
-        var redacted = details is null ? null : Redact(details, redact);
+        var redacted = ErrorSerializer.RedactErrorDetails(details, redact);
         return inner is null
             ? new TestException(code, redact(message)) { Details = redacted }
             : new TestException(code, redact(message), inner) { Details = redacted };
     }
 
-    private static ErrorDetails Redact(ErrorDetails details, Func<string, string> redact) =>
-        details with
+    /// <summary>A serialized error with <paramref name="redact"/> run over its message and details: what a record taken from another session's is put through. Upstream's <c>redactSerializedError</c>.</summary>
+    public static SerializedError RedactSerializedError(SerializedError error, Func<string, string> redact)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        ArgumentNullException.ThrowIfNull(redact);
+        return error with
         {
-            Locator = details.Locator is null ? null : redact(details.Locator),
-            Expected = details.Expected is null ? null : redact(details.Expected),
-            Observed = details.Observed is null ? null : redact(details.Observed),
-            Role = details.Role is null ? null : redact(details.Role),
-            Name = details.Name is null ? null : redact(details.Name),
-            TestId = details.TestId is null ? null : redact(details.TestId),
+            Message = redact(error.Message),
+            Details = ErrorSerializer.RedactErrorDetails(error.Details, redact),
         };
+    }
 
     internal static Exception? Cause(Exception? cause, Func<string, string> redact)
     {
@@ -79,7 +80,13 @@ internal static class ErrorRedaction
 
         var inner = Cause(cause.InnerException, redact);
         var message = redact(cause.Message);
-        if (inner == cause.InnerException && string.Equals(message, cause.Message, StringComparison.Ordinal))
+        // A value in the details alone is a secret that stays: the cause is rebuilt for it too.
+        var redactedDetails = cause is E2EException e2eCause ? Detail(e2eCause, redact) : null;
+        if (
+            inner == cause.InnerException
+            && string.Equals(message, cause.Message, StringComparison.Ordinal)
+            && (cause is not E2EException { Details: var details } || redactedDetails == details)
+        )
         {
             return cause;
         }
@@ -88,40 +95,37 @@ internal static class ErrorRedaction
         {
             EngineException engine => new EngineException(engine.Code, message, engine.Retryable, inner)
             {
-                Details = Detail(engine, redact),
+                Details = redactedDetails,
             },
             AgentException agent when inner is null => new AgentException(agent.Code, message, agent.Blocked)
             {
                 Screenshot = agent.Screenshot,
                 FromActionHook = agent.FromActionHook,
-                Details = Detail(agent, redact),
+                Details = redactedDetails,
             },
             AgentException agent => new AgentException(agent.Code, message, agent.Blocked, inner)
             {
                 Screenshot = agent.Screenshot,
                 FromActionHook = agent.FromActionHook,
-                Details = Detail(agent, redact),
+                Details = redactedDetails,
             },
             ConfigurationException config when inner is null => new ConfigurationException(config.Code, message)
             {
-                Details = Detail(config, redact),
+                Details = redactedDetails,
             },
             ConfigurationException config => new ConfigurationException(config.Code, message, inner)
             {
-                Details = Detail(config, redact),
+                Details = redactedDetails,
             },
-            E2EException e2e when inner is null => new TestException(e2e.Code, message)
-            {
-                Details = Detail(e2e, redact),
-            },
-            E2EException e2e => new TestException(e2e.Code, message, inner) { Details = Detail(e2e, redact) },
+            E2EException e2e when inner is null => new TestException(e2e.Code, message) { Details = redactedDetails },
+            E2EException e2e => new TestException(e2e.Code, message, inner) { Details = redactedDetails },
             _ when inner is null => new TestException("ERROR", message),
             _ => new TestException("ERROR", message, inner),
         };
     }
 
     private static ErrorDetails? Detail(E2EException error, Func<string, string> redact) =>
-        error.Details is { } details ? Redact(details, redact) : null;
+        ErrorSerializer.RedactErrorDetails(error.Details, redact);
 
     private sealed class Installed(Func<string, string> redact) : IDisposable
     {

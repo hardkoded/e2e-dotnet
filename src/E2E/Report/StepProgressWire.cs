@@ -21,7 +21,7 @@ internal static class StepProgressWire
         {
             Phase = Enum.Parse<Reports.StepProgressPhase>(progress.Phase.ToString()),
             Identity = progress.Identity is { } id
-                ? new Reports.StepProgressIdentity(id.AttemptId, id.AttemptIndex, id.StepId, id.StepIndex)
+                ? new Reports.StepProgressIdentity(id.AttemptId, id.AttemptIndex, id.StepId, id.StepIndex, id.Actor)
                 : null,
             Api = progress.Api,
             Kind = progress.Kind is { } kind ? Enum.Parse<Reports.StepKind>(kind.ToString()) : null,

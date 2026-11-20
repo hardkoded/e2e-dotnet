@@ -13,12 +13,26 @@ namespace E2E.Tests.ArtifactStore;
 /// registered (<c>describe('download redaction')</c> of <c>artifact-store.test.ts</c>, ported in <see cref="DownloadRedactionTests"/>). The
 /// port builds its report when the attempt ends, so the scope scans a download again with the values a later fill registered.
 /// </summary>
+[Collection(SessionSecrecy.SharedSecretsCollection.Name)]
 public sealed class DownloadRedactionSessionTests : IDisposable
 {
+    private readonly List<AttemptScope> _scopes = [];
+
+    public DownloadRedactionSessionTests() => SessionSecrecy.SecretsSharedBySessionsInOneProcessTests.ClearShared();
+
     private const string Secret = "download-secret-Qx7-2718";
     private readonly string _root = Directory.CreateTempSubdirectory("e2e-artifact-store-").FullName;
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    public void Dispose()
+    {
+        // A session shares what it learned with the sessions beside it until it ends.
+        foreach (var scope in _scopes)
+        {
+            scope.ReleaseSessionLedger();
+        }
+
+        Directory.Delete(_root, recursive: true);
+    }
 
     private string AttemptDir => Path.Combine(_root, "test", "attempt-1");
 
@@ -35,6 +49,7 @@ public sealed class DownloadRedactionSessionTests : IDisposable
             EnginePlatform = "web",
             ArtifactsDir = AttemptDir,
         };
+        _scopes.Add(scope);
         foreach (var (name, value) in filled)
         {
             scope.Register(name, value);
@@ -121,6 +136,7 @@ public sealed class DownloadRedactionSessionTests : IDisposable
             ArtifactsDir = attempt,
             RerunDir = "rerun-1",
         };
+        _scopes.Add(scope);
         const string later = "later-credential-Jk8-5931";
         await File.WriteAllTextAsync(Path.Combine(attempt, "downloads", "export.txt"), $"key={later}\n");
         scope.AttachArtifact("download", "downloads/export.txt");

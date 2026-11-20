@@ -30,6 +30,9 @@ public sealed class TypeSafeAiProvider
 {
     private const string DefaultBaseUrl = "https://api.typesafe.ai/v1";
 
+    /// <summary>Upstream's <c>typeSafeAi</c>: the provider the environment configures.</summary>
+    public static TypeSafeAiProvider TypeSafeAi { get; } = new();
+
     private readonly TypeSafeAiProviderSettings _settings;
     private readonly string _baseUrl;
 
@@ -39,6 +42,9 @@ public sealed class TypeSafeAiProvider
         _settings = settings ?? new TypeSafeAiProviderSettings();
         _baseUrl = (_settings.BaseUrl ?? ModelHttp.Environment("TYPESAFE_AI_BASE_URL") ?? DefaultBaseUrl).TrimEnd('/');
     }
+
+    /// <summary>Upstream's <c>specificationVersion</c>.</summary>
+    public string SpecificationVersion => "v4";
 
     /// <summary>Creates a decision model (upstream's <c>decisionModel</c>).</summary>
     public DecisionTypeSafeAiModel DecisionModel(string modelId) =>
@@ -52,6 +58,15 @@ public sealed class TypeSafeAiProvider
                 HttpClient = _settings.HttpClient,
             }
         );
+
+    /// <summary>Upstream's <c>languageModel</c>: TypeSafe has none, so it throws <see cref="NoSuchModelException"/>.</summary>
+    public void LanguageModel(string modelId) => throw new NoSuchModelException(modelId, "languageModel");
+
+    /// <summary>Upstream's <c>embeddingModel</c>: TypeSafe has none, so it throws <see cref="NoSuchModelException"/>.</summary>
+    public void EmbeddingModel(string modelId) => throw new NoSuchModelException(modelId, "embeddingModel");
+
+    /// <summary>Upstream's <c>imageModel</c>: TypeSafe has none, so it throws <see cref="NoSuchModelException"/>.</summary>
+    public void ImageModel(string modelId) => throw new NoSuchModelException(modelId, "imageModel");
 
     /// <summary>Deprecated: use <see cref="DecisionModel"/>.</summary>
     public DecisionTypeSafeAiModel EvaluationModel(string modelId) => DecisionModel(modelId);

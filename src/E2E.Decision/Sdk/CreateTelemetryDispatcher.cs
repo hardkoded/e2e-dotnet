@@ -6,9 +6,10 @@ namespace E2E.Decision.Sdk;
 
 /// <summary>
 /// The AI SDK's <c>createTelemetryDispatcher</c> (<c>telemetry/create-telemetry-dispatcher.ts</c>) for the decide events: it adds the call's
-/// telemetry settings and the SDK version to each event (<c>augmentEvent</c>), filters it (<c>filterTelemetryEvent</c>), and merges the
+/// telemetry settings and the SDK version to each event (<c>augmentEvent</c>), redacts credentials (<c>redactTelemetryCredentials</c>), filters it (<c>filterTelemetryEvent</c>), and merges the
 /// integrations' callbacks (<c>mergeCallbacks</c>).
 /// </summary>
+#pragma warning disable CS0618 // the deprecated aliases are dispatched on purpose
 internal sealed class TelemetryDispatcher
 {
     /// <summary>The AI SDK version the events report (<c>VERSION</c>).</summary>
@@ -31,6 +32,36 @@ internal sealed class TelemetryDispatcher
                 : telemetry?.Integrations ?? TelemetryRegistry.GetGlobalTelemetryIntegrations();
     }
 
+    /// <summary>
+    /// <c>runInTracingChannelSpan</c>: runs <paramref name="execute"/> inside the AI SDK tracing channel, publishing the start event with
+    /// the telemetry settings, the SDK version and the runtime context filtered by <see cref="TelemetryOptions.IncludeRuntimeContext"/>
+    /// and the inputs hidden by <c>RecordInputs</c> (<c>augmentEvent</c> with <c>filterContext</c>, then <c>filterTelemetryEvent</c>). The call's result is published only when inputs and outputs are both recorded.
+    /// </summary>
+    internal Task<T> RunInTracingChannelSpanAsync<T>(string type, DecideStartEvent @event, Func<Task<T>> execute) =>
+        // Explicitly disabled telemetry has no tracing span: upstream's dispatcher is empty, so the call runs bare.
+        _telemetry?.IsEnabled == false
+            ? execute()
+            : TracingChannelPublisher.RunWithTracingChannelSpanAsync(
+                new TelemetryTracingChannelMessage
+                {
+                    Type = type,
+                    Event = FilterTelemetryEvent.Filter(
+                        Augment(@event) with
+                        {
+                            RuntimeContext = FilterIncludedContext.Filter(
+                                @event.RuntimeContext,
+                                _telemetry?.IncludeRuntimeContext
+                            ),
+                        },
+                        _telemetry
+                    ),
+                },
+                execute,
+                // Raw operation results may contain both inputs and outputs.
+                _telemetry?.RecordInputs != false
+                    && _telemetry?.RecordOutputs != false
+            );
+
     /// <summary><c>onStart</c>. Decide does not call it.</summary>
     internal Task OnStartAsync(TelemetryEvent @event)
     {
@@ -49,35 +80,59 @@ internal sealed class TelemetryDispatcher
     internal Task OnDecideStartAsync(DecideStartEvent @event)
     {
         var augmented = FilterTelemetryEvent.Filter(Augment(@event), _telemetry);
-        return MergeCallbacks(integration => integration.OnDecideStartAsync(augmented));
+        return MergeCallbacks(integration =>
+            Implements(integration, nameof(ITelemetry.OnDecideStartAsync))
+                ? integration.OnDecideStartAsync(augmented)
+                : integration.OnEvaluateStartAsync(augmented)
+        );
     }
 
     /// <summary><c>experimental_onDecideEnd</c>.</summary>
     internal Task OnDecideEndAsync(DecideEndEvent @event)
     {
         var augmented = FilterTelemetryEvent.Filter(Augment(@event), _telemetry);
-        return MergeCallbacks(integration => integration.OnDecideEndAsync(augmented));
+        return MergeCallbacks(integration =>
+            Implements(integration, nameof(ITelemetry.OnDecideEndAsync))
+                ? integration.OnDecideEndAsync(augmented)
+                : integration.OnEvaluateEndAsync(augmented)
+        );
     }
 
     /// <summary><c>experimental_onDecisionModelCallStart</c>.</summary>
     internal Task OnDecisionModelCallStartAsync(DecisionModelCallStartEvent @event)
     {
         var augmented = FilterTelemetryEvent.Filter(Augment(@event), _telemetry);
-        return MergeCallbacks(integration => integration.OnDecisionModelCallStartAsync(augmented));
+        return MergeCallbacks(integration =>
+            Implements(integration, nameof(ITelemetry.OnDecisionModelCallStartAsync))
+                ? integration.OnDecisionModelCallStartAsync(augmented)
+                : integration.OnEvaluationModelCallStartAsync(augmented)
+        );
     }
 
     /// <summary><c>experimental_onDecisionModelCallEnd</c>.</summary>
     internal Task OnDecisionModelCallEndAsync(DecisionModelCallEndEvent @event)
     {
         var augmented = FilterTelemetryEvent.Filter(Augment(@event), _telemetry);
-        return MergeCallbacks(integration => integration.OnDecisionModelCallEndAsync(augmented));
+        return MergeCallbacks(integration =>
+            Implements(integration, nameof(ITelemetry.OnDecisionModelCallEndAsync))
+                ? integration.OnDecisionModelCallEndAsync(augmented)
+                : integration.OnEvaluationModelCallEndAsync(augmented)
+        );
     }
 
     /// <summary><c>onError</c>.</summary>
     internal Task OnErrorAsync(string callId, Exception error)
     {
         var augmented = FilterTelemetryEvent.Filter(
-            Augment(new TelemetryErrorEvent { CallId = callId, Error = error }),
+            Augment(
+                new TelemetryErrorEvent
+                {
+                    CallId = callId,
+                    // A redactor that throws leaves no error to show, as upstream's Error('AI SDK operation failed').
+                    Error = RedactTelemetryCredentials.Redact(error)
+                        ?? new InvalidOperationException("AI SDK operation failed"),
+                }
+            ),
             _telemetry
         );
         return MergeCallbacks(integration => integration.OnErrorAsync(augmented));
@@ -91,6 +146,24 @@ internal sealed class TelemetryDispatcher
     {
         await Task.WhenAll(_integrations.Select(integration => IsolatedAsync(call, integration)).ToList())
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Whether the integration implements the member itself, not through the interface's default. Upstream's
+    /// <c>integration[key] ?? integration[deprecatedKey]</c>: the current callback wins over its deprecated alias.
+    /// </summary>
+    private static bool Implements(ITelemetry integration, string member)
+    {
+        var map = integration.GetType().GetInterfaceMap(typeof(ITelemetry));
+        for (var i = 0; i < map.InterfaceMethods.Length; i++)
+        {
+            if (map.InterfaceMethods[i].Name == member)
+            {
+                return map.TargetMethods[i].DeclaringType != typeof(ITelemetry);
+            }
+        }
+
+        return false;
     }
 
     private static async Task IsolatedAsync(Func<ITelemetry, Task> call, ITelemetry integration)

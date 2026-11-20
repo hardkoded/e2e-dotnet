@@ -65,6 +65,33 @@ public string FilePath { get; }
 
 ## Methods
 
+<a id="E2E_OAuth_FileCredentialStore_ExclusiveAsync__1_"></a>
+<a id="E2E_OAuth_FileCredentialStore_ExclusiveAsync__1_System_String_System_Func_System_Threading_Tasks_Task{``0}__System_Threading_CancellationToken_"></a>
+
+### ExclusiveAsync&lt;T&gt;(string, Func&lt;Task&lt;T&gt;&gt;, CancellationToken)
+
+
+```csharp
+public Task<T> ExclusiveAsync<T>(string providerId, Func<Task<T>> refresh, CancellationToken cancellationToken = default)
+```
+
+
+Runs <code>refresh</code> holding this login's lock file, so worker processes refresh it one at a time.
+
+**Type Parameters**
+
+`T` 
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `providerId` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `refresh` | [Func](https://learn.microsoft.com/dotnet/api/system.func-1)&lt;[Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)&lt;T&gt;&gt; |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;T&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_OAuth_FileCredentialStore_GetAsync_"></a>
 <a id="E2E_OAuth_FileCredentialStore_GetAsync_System_String_System_Threading_CancellationToken_"></a>
 

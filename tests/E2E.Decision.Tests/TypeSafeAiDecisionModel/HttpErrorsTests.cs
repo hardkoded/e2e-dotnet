@@ -8,6 +8,7 @@ using static E2E.Decision.Tests.TypeSafeAiDecisionModel.TypeSafeAiDecisionModelF
 namespace E2E.Decision.Tests.TypeSafeAiDecisionModel;
 
 /// <summary>Upstream's <c>describe('HTTP errors')</c> of <c>typesafe-ai-decision-model.test.ts</c>.</summary>
+[Collection("TypeSafeAiEnvironment")]
 public sealed class HttpErrorsTests
 {
     [Theory]
