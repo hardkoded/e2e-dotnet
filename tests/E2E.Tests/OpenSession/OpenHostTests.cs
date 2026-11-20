@@ -36,7 +36,7 @@ public sealed class OpenHostTests
     public async Task Redacts_the_config_secrets_from_an_opening_failure_and_keeps_a_cancel_a_cancel()
     {
         const string value = "s3cr3t-token-value";
-        global::E2E.OpenSession.RegisterStaticSecrets([Secret.Create("api", value)]);
+        global::E2E.OpenSession.SeedProcess([Secret.Create("api", value)]);
         var failure = await Assert.ThrowsAsync<EngineException>(() =>
             global::E2E.OpeningRedaction.RedactOpening<int>(() =>
                 throw new EngineException(
