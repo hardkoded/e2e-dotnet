@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Decision.Sdk.Gateway;
+using static E2E.Decision.Tests.GatewayDecisionModel.GatewayDecisionModelFixture;
 using static E2E.Decision.Tests.GatewayProvider.GatewayProviderFixture;
 
 namespace E2E.Decision.Tests.GatewayProvider;
@@ -111,4 +112,57 @@ public sealed class CreateGatewayTests
 
             Assert.DoesNotContain(headers.Keys, name => name.StartsWith("ai-o11y-", StringComparison.Ordinal));
         });
+
+    [Fact]
+    public Task Should_fetch_available_models() => WithEnvironmentAsync(NoEnvironment, async () =>
+        {
+            var server = ServerFor("https://api.example.com", NoModelsBody);
+            var provider = ProviderOn(server, baseUrl: "https://api.example.com", apiKey: "test-api-key");
+
+            var models = await provider.GetAvailableModelsAsync();
+
+            Assert.Empty(models.Models);
+            // GatewayFetchMetadata gets the provider's baseURL.
+            Assert.Equal("https://api.example.com/config", server.Calls[0].RequestUrl);
+        });
+
+    [Fact]
+    public Task Should_pass_o11y_headers_to_the_model_when_environment_variables_are_set() =>
+        WithEnvironmentAsync(
+            new Dictionary<string, string?>
+            {
+                ["VERCEL_DEPLOYMENT_ID"] = "test-deployment",
+                ["VERCEL_ENV"] = "test",
+                ["VERCEL_REGION"] = "iad1",
+                ["VERCEL_PROJECT_ID"] = "prj_test123",
+            },
+            async () =>
+            {
+                // Upstream reads config.o11yHeaders of the GatewayLanguageModel; the port reads the headers of the decision model's request.
+                var server = new TestServer();
+                server.RespondJson(
+                    "https://api.example.com/decision-model",
+                    """{"answers":{"correct":{"type":"boolean","probability":0.97}}}"""
+                );
+                var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
+                    new GatewayProviderSettings
+                    {
+                        BaseUrl = "https://api.example.com",
+                        ApiKey = "test-api-key",
+                        HttpClient = server.Client,
+                        GetVercelRequestId = _ => Task.FromResult<string?>("test-request-id"),
+                    }
+                );
+
+                using var model = provider.DecisionModel("test-model");
+                await model.DoDecideAsync(Call(), CancellationToken.None);
+
+                var headers = server.Calls[0].RequestHeaders;
+                Assert.Equal("test-deployment", headers["ai-o11y-deployment-id"]);
+                Assert.Equal("test", headers["ai-o11y-environment"]);
+                Assert.Equal("iad1", headers["ai-o11y-region"]);
+                Assert.Equal("test-request-id", headers["ai-o11y-request-id"]);
+                Assert.Equal("prj_test123", headers["ai-o11y-project-id"]);
+            }
+        );
 }

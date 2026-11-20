@@ -20,10 +20,13 @@ internal sealed class TestServerCall(
     string url,
     IReadOnlyDictionary<string, string> headers,
     byte[] body,
-    string? contentType
+    string? contentType,
+    string method = "POST"
 )
 {
     public string RequestUrl { get; } = url;
+
+    public string RequestMethod { get; } = method;
 
     /// <summary>The request headers, lowercase names.</summary>
     public IReadOnlyDictionary<string, string> RequestHeaders { get; } = headers;
@@ -188,11 +191,26 @@ internal sealed class TestServer : HttpMessageHandler
         var url = request.RequestUri!.ToString();
         lock (_lock)
         {
-            _calls.Add(new TestServerCall(url, headers, body, contentType));
+            _calls.Add(new TestServerCall(url, headers, body, contentType, request.Method.Method));
         }
 
-        return _responses.TryGetValue(url, out var respond)
-            ? respond()
+        // A URL that ends in "*" answers every URL that starts with the rest, as upstream's 'https://api.example.com/*'.
+        var found = _responses.TryGetValue(url, out var respond);
+        if (!found)
+        {
+            foreach (var (pattern, candidate) in _responses)
+            {
+                if (pattern.EndsWith('*') && url.StartsWith(pattern[..^1], StringComparison.Ordinal))
+                {
+                    respond = candidate;
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        return found
+            ? respond!()
             : new HttpResponseMessage(HttpStatusCode.NotFound)
             {
                 Content = new StringContent("no response set for " + url),

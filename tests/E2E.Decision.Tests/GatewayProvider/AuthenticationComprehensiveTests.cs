@@ -146,11 +146,16 @@ public sealed class AuthenticationComprehensiveTests
     public Task Should_surface_OIDC_error_as_cause_when_authentication_fails() =>
         WithEnvironmentAsync(Environment("", ""), async () =>
         {
-            var error = await Assert.ThrowsAsync<GatewayAuthenticationException>(() =>
-                ResolveHeadersAsync(new GatewayProviderSettings())
+            var oidcError = new InvalidOperationException("OIDC token generation failed: project not linked");
+            var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
+                new GatewayProviderSettings { GetVercelOidcToken = _ => Task.FromException<string>(oidcError) }
             );
 
-            Assert.NotNull(error.InnerException);
+            var error = await Assert.ThrowsAsync<GatewayAuthenticationException>(() =>
+                provider.GetAvailableModelsAsync()
+            );
+
+            Assert.Same(oidcError, error.InnerException);
             Assert.Contains("No authentication provided", error.Message, StringComparison.Ordinal);
         });
 
@@ -210,4 +215,41 @@ public sealed class AuthenticationComprehensiveTests
                 Assert.Equal("oidc", headers["ai-gateway-auth-method"]);
             }
         );
+
+    [Fact]
+    public Task Should_work_in_local_development_with_API_key() =>
+        WithEnvironmentAsync(Environment(null, "local-dev-api-key"), async () =>
+        {
+            var server = ServerFor(DefaultBaseUrl, NoModelsBody);
+            var oidcCalls = 0;
+            var provider = ProviderOn(server, getVercelOidcToken: _ =>
+            {
+                oidcCalls++;
+                return Task.FromResult("never");
+            });
+
+            var models = await provider.GetAvailableModelsAsync();
+
+            Assert.NotNull(models);
+            Assert.Equal(0, oidcCalls);
+        });
+
+    [Fact]
+    public Task Should_work_with_explicit_API_key_override() =>
+        WithEnvironmentAsync(Environment("should-not-be-used", "should-not-be-used-either"), async () =>
+        {
+            var server = ServerFor(DefaultBaseUrl, NoModelsBody);
+            var oidcCalls = 0;
+            var provider = ProviderOn(server, apiKey: "explicit-user-api-key", getVercelOidcToken: _ =>
+            {
+                oidcCalls++;
+                return Task.FromResult("never");
+            });
+
+            var models = await provider.GetAvailableModelsAsync();
+
+            Assert.NotNull(models);
+            Assert.Equal(0, oidcCalls);
+            Assert.Equal("Bearer explicit-user-api-key", server.Calls[0].RequestHeaders["authorization"]);
+        });
 }

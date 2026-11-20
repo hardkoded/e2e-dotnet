@@ -64,6 +64,24 @@ internal static class ProviderUtils
             cancellationToken
         );
 
+    /// <summary>Upstream's <c>getFromApi</c>: one GET, no retry, and the failure as an <see cref="ApiCallException"/>.</summary>
+    public static async Task<ApiResponse> GetFromApiAsync(
+        HttpClient http,
+        string url,
+        IReadOnlyDictionary<string, string>? headers,
+        Func<int, string, string> errorToMessage,
+        CancellationToken cancellationToken
+    )
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Get, url);
+        foreach (var (name, value) in headers ?? new Dictionary<string, string>())
+        {
+            message.Headers.TryAddWithoutValidation(name, value);
+        }
+
+        return await SendAsync(http, message, errorToMessage, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Upstream's <c>postFormDataToApi</c>.</summary>
     public static Task<ApiResponse> PostFormDataToApiAsync(
         HttpClient http,
@@ -95,6 +113,16 @@ internal static class ProviderUtils
             }
         }
 
+        return await SendAsync(http, message, errorToMessage, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<ApiResponse> SendAsync(
+        HttpClient http,
+        HttpRequestMessage message,
+        Func<int, string, string> errorToMessage,
+        CancellationToken cancellationToken
+    )
+    {
         HttpResponseMessage response;
         try
         {
