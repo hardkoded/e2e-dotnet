@@ -6,7 +6,7 @@ using System.Reflection;
 
 namespace E2E.Tests.SessionSecrecy;
 
-/// <summary>Runs alone, after the parallel collections: the secrets the sessions of a process share are process-wide.</summary>
+/// <summary>Runs alone, after the parallel collections: the secrets the sessions of a process share are process-wide, so every test that opens a <c>launch()</c> host or reads what is shared beside a session joins it.</summary>
 [CollectionDefinition(Name, DisableParallelization = true)]
 public sealed class SharedSecretsCollection
 {
