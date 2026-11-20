@@ -578,10 +578,9 @@ public sealed class E2ESession : IAsyncDisposable
                 TestFailed = () => softFailures.Any || testFailed(),
             };
             created = scope;
-            foreach (var (name, value) in ledger)
-            {
-                scope.Register(name, value);
-            }
+            // Seeded with the static values of the run's config, as upstream's sessionLedger is; what it carries into a saved state leaves them out.
+            Secrecy.SessionLedger(scope, options.Config?.AllSecrets ?? []);
+            Secrecy.AdoptSecrets(scope, ledger);
 
             // A screen is read once, when its step ends, redacted with what the attempt knows by then.
             screens.Route(screen =>
@@ -805,7 +804,7 @@ public sealed class E2ESession : IAsyncDisposable
         }
 
         var state = await _engine.CaptureStateAsync(OperationContext.Test, linked.Token).ConfigureAwait(false);
-        staging.Stage(name, state, _scope.Learned());
+        staging.Stage(name, state, Secrecy.CarriedSecrets(_scope, _config?.AllSecrets ?? []));
     }
 
     /// <summary>
@@ -841,7 +840,7 @@ public sealed class E2ESession : IAsyncDisposable
         }
 
         var state = await _engine.CaptureStateAsync(OperationContext.Test, linked.Token).ConfigureAwait(false);
-        return new SavedSession(state, _scope.Learned());
+        return new SavedSession(state, Secrecy.CarriedSecrets(_scope, _config?.AllSecrets ?? []));
     }
 
     /// <summary>

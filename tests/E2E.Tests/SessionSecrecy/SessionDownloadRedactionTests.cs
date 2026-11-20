@@ -6,12 +6,7 @@ using E2E.Internal;
 
 namespace E2E.Tests.SessionSecrecy;
 
-/// <summary>
-/// The <c>describe('session download redaction')</c> of upstream's <c>session-secrecy.test.ts</c>. The port has no <c>SessionSecrecy</c>,
-/// <c>sessionLedger</c>, or <c>carriedSecrets</c> as functions, so the other two <c>describe</c>s of the file (carrying and adopting a
-/// session's secrets, the redaction before and after a session opens) are not ported. A session's ledger is its <see cref="AttemptScope"/>'s
-/// <c>Redactor</c>, which <c>RedactsDownloads</c> takes.
-/// </summary>
+/// <summary>The <c>describe('session download redaction')</c> of upstream's <c>session-secrecy.test.ts</c>. A session's ledger is its <see cref="AttemptScope"/>.</summary>
 [Collection(SharedSecretsCollection.Name)]
 public sealed class SessionDownloadRedactionTests : IDisposable
 {

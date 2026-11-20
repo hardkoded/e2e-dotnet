@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using E2E.Internal;
 using SharedSecrets = System.Tuple<System.Collections.Generic.Dictionary<(string Name, string Value), int[]>, int[]>;
 
@@ -14,6 +15,93 @@ internal static class Secrecy
     private const int Permanent = 1;
     private const int Revision = 0;
     private const int Hosts = 1;
+
+    private static readonly ConditionalWeakTable<object, StaticLedger> StaticLedgers = new();
+
+    /// <summary>
+    /// A ledger of the static values of <paramref name="secrets"/> alone, built once per list. What text produced before any session
+    /// exists is redacted with: every process resolving the same config redacts it alike. A provider-backed value is not known yet and is
+    /// not in it. Shared, so it is handed out read-only. Upstream's <c>staticSecretLedger</c>.
+    /// </summary>
+    public static StaticLedger StaticSecretLedger(IReadOnlyList<Secret> secrets) =>
+        StaticLedgers.GetValue(
+            secrets,
+            static list =>
+                new StaticLedger(
+                    [.. ((IReadOnlyList<Secret>)list).Where(secret => secret.Provider is null).Select(secret => (secret.Name, secret.Value))]
+                )
+        );
+
+    /// <summary><see cref="StaticSecretLedger(IReadOnlyList{Secret})"/> over a run's resolved static values.</summary>
+    public static StaticLedger StaticSecretLedger(IReadOnlyList<(string Name, string Value)> secrets) =>
+        StaticLedgers.GetValue(secrets, static list => new StaticLedger([.. (IReadOnlyList<(string Name, string Value)>)list]));
+
+    /// <summary>
+    /// Every secret value one session may have seen: the session's <see cref="AttemptScope"/>, seeded with the static secret values known up
+    /// front; provider-backed values join as they resolve. Its values are shared with the sessions open beside it until
+    /// <see cref="AttemptScope.ReleaseSessionLedger"/>, and it redacts theirs. Upstream's <c>sessionLedger</c>.
+    /// </summary>
+    public static AttemptScope SessionLedger(AttemptScope session, IReadOnlyList<Secret> secrets) =>
+        Seeded(session, StaticSecretLedger(secrets).Entries());
+
+    /// <summary><see cref="SessionLedger(AttemptScope, IReadOnlyList{Secret})"/> over a run's resolved static values.</summary>
+    public static AttemptScope SessionLedger(
+        AttemptScope session,
+        IReadOnlyList<(string Name, string Value)> secrets
+    ) => Seeded(session, StaticSecretLedger(secrets).Entries());
+
+    private static AttemptScope Seeded(AttemptScope session, IReadOnlyList<(string Name, string Value)> own)
+    {
+        foreach (var (name, value) in own)
+        {
+            session.Register(name, value);
+        }
+
+        return session;
+    }
+
+    /// <summary>
+    /// Redacts <paramref name="text"/> with every value <paramref name="session"/> has seen, or with the process ledger while no session is
+    /// open yet. Upstream's <c>redactForSession</c>.
+    /// </summary>
+    public static string RedactForSession(AttemptScope? session, IReadOnlyList<Secret> secrets, string text) =>
+        session is null ? OpenSession.Redact(text) : SessionLedger(session, secrets).Redactor.Redact(text);
+
+    /// <summary>
+    /// The values a session envelope carries: the provider-resolved values the session learned, which the consumer's session cannot learn
+    /// again on its own. Static config values are left out; every session registers those itself. Upstream's <c>carriedSecrets</c>.
+    /// </summary>
+    public static IReadOnlyList<(string Name, string Value)> CarriedSecrets(
+        AttemptScope ledger,
+        IReadOnlyList<(string Name, string Value)> secrets
+    ) => [.. ledger.Entries().Where(entry => !secrets.Contains(entry))];
+
+    /// <summary><see cref="CarriedSecrets(AttemptScope, IReadOnlyList{ValueTuple{string, string}})"/> against the config's <see cref="Secret"/> list.</summary>
+    public static IReadOnlyList<(string Name, string Value)> CarriedSecrets(
+        AttemptScope ledger,
+        IReadOnlyList<Secret> secrets
+    ) => CarriedSecrets(ledger, StaticSecretLedger(secrets).Entries());
+
+    /// <summary>Seeds a restored session's ledger with what the saving session knew, so a value the restored state echoes back is still redacted. Upstream's <c>adoptSecrets</c>.</summary>
+    public static void AdoptSecrets(AttemptScope ledger, IEnumerable<(string Name, string Value)> saved)
+    {
+        foreach (var (name, value) in saved)
+        {
+            ledger.Register(name, value);
+        }
+    }
+
+    /// <summary>The read-only ledger <see cref="StaticSecretLedger(IReadOnlyList{Secret})"/> hands out: upstream's <c>Pick&lt;SecretLedger, 'redact' | 'entries' | 'redactFragments'&gt;</c>.</summary>
+    internal sealed class StaticLedger(IReadOnlyList<(string Name, string Value)> entries)
+    {
+        private readonly Redactor _redactor = Redactor.For(entries);
+
+        public string Redact(string text) => _redactor.Redact(text);
+
+        public string RedactFragments(string text) => _redactor.RedactFragments(text);
+
+        public IReadOnlyList<(string Name, string Value)> Entries() => entries;
+    }
 
     private static readonly RealmSlot<SharedSecrets> SharedSlot = new(Brands.SharedSecretsBrand);
 
