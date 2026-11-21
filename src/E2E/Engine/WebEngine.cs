@@ -4508,11 +4508,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 case LocatorAction.Blur:
                     if (!await element.EvaluateAsync<bool>(PageScript.Blur).ConfigureAwait(false))
                     {
-                        throw new EngineException(
-                            EngineErrorCodes.NodeStale,
-                            "element is detached",
-                            retryable: true
-                        );
+                        throw new EngineException(EngineErrorCodes.NodeStale, "element is detached", retryable: true);
                     }
 
                     break;

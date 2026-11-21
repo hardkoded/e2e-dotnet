@@ -72,7 +72,9 @@ public sealed class EngineProtocolTests
         );
         Assert.Equal(
             EngineActionKinds.Pointer,
-            schema["properties"]!["pointerActions"]!["items"]!["enum"]!.AsArray().Select(kind => kind!.GetValue<string>())
+            schema["properties"]!["pointerActions"]!["items"]!["enum"]!
+                .AsArray()
+                .Select(kind => kind!.GetValue<string>())
         );
         Assert.True(
             Validate.IsValid(
