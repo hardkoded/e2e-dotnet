@@ -60,6 +60,21 @@ Optional provider-specific metadata.
 
 **Value:** [JsonElement?](https://learn.microsoft.com/dotnet/api/system.text.json.jsonelement)
 
+<a id="E2E_Decision_Sdk_DecisionModelCallEndEvent_ResponseId_"></a>
+<a id="E2E_Decision_Sdk_DecisionModelCallEndEvent_ResponseId"></a>
+
+### ResponseId
+
+
+```csharp
+public string? ResponseId { get; init; }
+```
+
+
+The id of the response (upstream's `response.id`), when the provider sends one.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Decision_Sdk_DecisionModelCallEndEvent_ResponseModelId_"></a>
 <a id="E2E_Decision_Sdk_DecisionModelCallEndEvent_ResponseModelId"></a>
 
@@ -89,6 +104,21 @@ public DecisionRounding? Rounding { get; init; }
 Provider-declared decimal precision for probabilities and scores.
 
 **Value:** [DecisionRounding](/api/E2E.Decision.Sdk/DecisionRounding/)
+
+<a id="E2E_Decision_Sdk_DecisionModelCallEndEvent_Timestamp_"></a>
+<a id="E2E_Decision_Sdk_DecisionModelCallEndEvent_Timestamp"></a>
+
+### Timestamp
+
+
+```csharp
+public DateTimeOffset? Timestamp { get; init; }
+```
+
+
+The timestamp of the response (upstream's `response.timestamp`), when the provider sends one.
+
+**Value:** [DateTimeOffset?](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
 
 <a id="E2E_Decision_Sdk_DecisionModelCallEndEvent_Usage_"></a>
 <a id="E2E_Decision_Sdk_DecisionModelCallEndEvent_Usage"></a>

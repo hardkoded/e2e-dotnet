@@ -56,6 +56,8 @@ Public types in the `E2E.Decision.Sdk` namespace.
 | [InvalidArgumentException](/api/E2E.Decision.Sdk/InvalidArgumentException/) | The AI SDK's InvalidArgumentError: a call argument the SDK rejects before any request. |
 | [InvalidResponseDataException](/api/E2E.Decision.Sdk/InvalidResponseDataException/) | The AI SDK's InvalidResponseDataError: the provider's answers break the contract of the questions. |
 | [LoadApiKeyException](/api/E2E.Decision.Sdk/LoadApiKeyException/) | The AI SDK's LoadAPIKeyError: the provider has no API key. |
+| [LogWarnings](/api/E2E.Decision.Sdk/LogWarnings/) | The AI SDK's logWarnings (logger/log-warnings.ts). |
+| [LogWarningsOptions](/api/E2E.Decision.Sdk/LogWarningsOptions/) | What the warning logger receives (the options of the AI SDK's LogWarningsFunction). |
 | [ModelCapabilities](/api/E2E.Decision.Sdk/ModelCapabilities/) | Upstream's ModelCapabilities. Only the decision section exists in the port. |
 | [ModelCapability](/api/E2E.Decision.Sdk/ModelCapability/) | The AI SDK's ModelCapability: true, false, 'unknown', or { condition }. A condition is documentation, not an expression to execute. |
 | [ModelEntry](/api/E2E.Decision.Sdk/ModelEntry/) | Upstream's ModelEntry: one provider-owned model record. |
