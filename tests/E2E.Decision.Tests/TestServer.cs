@@ -159,6 +159,17 @@ internal sealed class TestServer : HttpMessageHandler
             return response;
         };
 
+    /// <summary>Answers <paramref name="url"/> with server-sent event chunks (upstream's <c>{ type: 'stream-chunks' }</c>).</summary>
+    public void RespondStreamChunks(string url, IEnumerable<string> chunks)
+    {
+        var body = string.Concat(chunks);
+        _responses[url] = () =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "text/event-stream"),
+            };
+    }
+
     /// <summary>Answers <paramref name="url"/> with an error status and body (upstream's <c>{ type: 'error' }</c>).</summary>
     public void RespondError(string url, int status, string body) =>
         _responses[url] = () =>
