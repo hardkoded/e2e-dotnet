@@ -68,6 +68,10 @@ export default defineConfig({
                     ],
                 },
                 {
+                    label: "Frameworks",
+                    items: [{ label: "Next.js", slug: "frameworks/nextjs" }],
+                },
+                {
                     label: "Testing frameworks",
                     items: [
                         { label: "Overview", slug: "testing-frameworks" },

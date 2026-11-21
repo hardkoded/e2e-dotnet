@@ -531,6 +531,9 @@ public abstract class E2EFixture
     /// <summary>Whether a session is running, for an adapter whose tests share one.</summary>
     internal bool HasSession => _session is not null;
 
+    /// <summary>Hands the open session's attempt slot to the flow of the caller (see <see cref="E2ESession.HandOverAttempt"/>), for a later test of a serial group.</summary>
+    internal void HandOverAttempt() => _session?.HandOverAttempt();
+
     /// <summary>The running test's session, or null outside a test.</summary>
     internal E2ESession? CurrentSession => _session;
 

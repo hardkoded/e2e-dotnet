@@ -28,6 +28,8 @@ public sealed class E2ESession : IAsyncDisposable
     private readonly TextWriter? _debugOutput;
     private readonly long _bodyStarted = System.Diagnostics.Stopwatch.GetTimestamp();
     private int _state;
+    private int _teardown;
+    private readonly object _timeoutGate = new();
     private int _disposed;
     private ExecuteVideo? _video;
     private SessionRecordings? _recordings;
@@ -37,9 +39,11 @@ public sealed class E2ESession : IAsyncDisposable
     private FailureEvidence? _evidence;
     private Exception? _error;
     private TimeSpan _testTimeout;
+    private AttemptTimeout? _attemptTimeout;
 
     // What the teardown threw (a required video that did not finalize, the engine session's close): upstream's secondaryErrors of phase cleanup.
     private readonly List<Exception> _cleanupErrors = [];
+    private readonly List<Exception> _hookErrors = [];
     private long _bodyMs;
     private ExpectedFailureInfo? _expectedFailure;
     private AttemptStatus _status = AttemptStatus.Failed;
@@ -49,6 +53,7 @@ public sealed class E2ESession : IAsyncDisposable
     private SessionEvents? _events;
     private AttemptGuestSessions? _guests;
     private IDisposable? _published;
+    private PublishedAttempt? _publishedAttempt;
     private int _bodyEnded;
 
     private E2ESession(
@@ -259,11 +264,33 @@ public sealed class E2ESession : IAsyncDisposable
             budgetDeadline = new Deadline(options.TestTimeout, TimeProvider.System);
         }
 
+        // What test.setTimeout moves: the signal's timer and the deadline the screen and browser cap their steps with.
+        Screen? timedScreen = null;
+        Browser? timedBrowser = null;
+        var attemptTimeout = new AttemptTimeout(timeout, options.TestTimeout, TimeProvider.System, (moved, deadline) =>
+        {
+            // An open, a restart, and a link open take the test's timeout, the new one included.
+            if (timedBrowser is not null)
+            {
+                timedBrowser.DefaultLifecycleTimeout = moved;
+            }
+
+            if (timedScreen is not null)
+            {
+                timedScreen.BudgetDeadline = deadline;
+            }
+
+            if (timedBrowser is not null)
+            {
+                timedBrowser.BudgetDeadline = deadline;
+            }
+        });
+
         // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
         var budget = new AttemptBudget(timeout, options.CancelsOnClose?.Closed);
 
         // The reason the test's own timeout aborts with, one error every step it cuts shares (upstream's signal.reason).
-        var timedOut = new Lazy<TestException>(() => TimeoutFailure(options.TestTimeout, null));
+        var timedOut = new Lazy<TestException>(() => TimeoutFailure(attemptTimeout.Timeout, null));
 
         var debug = new DebugTrace(options.Debug);
         var projectRoot = Path.GetFullPath(
@@ -666,6 +693,8 @@ public sealed class E2ESession : IAsyncDisposable
             screen.PointerActionKinds = engine.PointerActionKinds;
             screen.BudgetDeadline = budgetDeadline;
             browser.BudgetDeadline = budgetDeadline;
+            timedScreen = screen;
+            timedBrowser = browser;
             screen.ProjectRoot = projectRoot;
             screen.RememberSecret = secret =>
                 scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
@@ -732,6 +761,7 @@ public sealed class E2ESession : IAsyncDisposable
                     _config = options.Config,
                     _events = events,
                     _testTimeout = options.TestTimeout,
+                    _attemptTimeout = attemptTimeout,
                 };
                 if (options.OffersGuests)
                 {
@@ -748,9 +778,12 @@ public sealed class E2ESession : IAsyncDisposable
                         }
                     );
                     session._guests = guests;
-                    session._published = Attempts.PublishAttempt(
-                        new PublishedAttempt { AttemptId = scope.AttemptId, Guests = guests.Offer }
-                    );
+                    session._publishedAttempt = new PublishedAttempt
+                    {
+                        AttemptId = scope.AttemptId,
+                        Guests = guests.Offer,
+                    };
+                    session._published = Attempts.PublishAttempt(session._publishedAttempt);
                 }
 
                 events?.Started();
@@ -773,6 +806,26 @@ public sealed class E2ESession : IAsyncDisposable
             timeout.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Names this session's attempt in the flow of the caller, for a later test of a serial group that shares the session: its setup does not start
+    /// a session, so nothing else reserves the slot a host the test body launches finds its attempt through. .NET-only (upstream keeps one slot per process).
+    /// Call it from a method that is not async, so the slot belongs to the flow of the test body that follows.
+    /// </summary>
+    internal void HandOverAttempt()
+    {
+        if (_publishedAttempt is null)
+        {
+            return;
+        }
+
+        // The new member's body ends on its own: what it leaves running on the guests it opened is abandoned at its first settle, as the first member's was.
+        Interlocked.Exchange(ref _bodyEnded, 0);
+        var previous = _published;
+        Attempts.Reserve();
+        _published = Attempts.PublishAttempt(_publishedAttempt);
+        previous?.Dispose();
     }
 
     /// <summary>
@@ -969,6 +1022,9 @@ public sealed class E2ESession : IAsyncDisposable
         }
     }
 
+    /// <summary>Records a hook that failed after the body (a failed <c>[TearDown]</c>), which the report tells as an <c>afterEach</c> secondary error beside the body's error.</summary>
+    internal void RecordHookFailure(Exception failure) => _hookErrors.Add(failure);
+
     /// <summary>
     /// Enters the teardown's budget, as upstream's <c>enter('afterEach')</c> does before each teardown: the session's operations run under a
     /// signal that follows <paramref name="interrupt"/> (the run's cancel), not the test timeout, so a body its timeout cut short can still drive
@@ -976,10 +1032,40 @@ public sealed class E2ESession : IAsyncDisposable
     /// </summary>
     internal void EnterTeardownBudget(CancellationToken interrupt)
     {
+        // With the gate a timeout change holds, so a change either lands before the cleanup deadlines or is refused.
+        lock (_timeoutGate)
+        {
+            Volatile.Write(ref _teardown, 1);
+        }
+
         _budget.Enter(interrupt);
         var deadline = Bounded(_scope.CleanupTimeout) ? new Deadline(_scope.CleanupTimeout, TimeProvider.System) : null;
         Screen.BudgetDeadline = deadline;
         Browser.BudgetDeadline = deadline;
+    }
+
+    /// <summary>Whether this session is a hosted one, which runs no e2e test (see <see cref="Host"/>).</summary>
+    internal bool IsHosted => _hostedClose is not null;
+
+    /// <summary>
+    /// What upstream's <c>phase !== 'beforeEach' &amp;&amp; phase !== 'body'</c> check (<c>run/execute.ts</c>) reads: the teardown budget was entered, so the
+    /// body and its hooks are over. .NET-only: the port has no <c>phase</c> variable, as the test framework runs the phases.
+    /// </summary>
+    internal bool InTeardown => Volatile.Read(ref _teardown) != 0;
+
+    /// <summary>
+    /// Moves the attempt's timeout (upstream's <c>attempt.setTimeout</c>); false once the attempt ended or its timeout fired, and
+    /// where the session has no test timeout to move.
+    /// </summary>
+    internal bool TrySetTimeout(TimeSpan timeout)
+    {
+        lock (_timeoutGate)
+        {
+            return !InTeardown
+                && Volatile.Read(ref _state) == 0
+                && _attemptTimeout is { } attemptTimeout
+                && attemptTimeout.Set(timeout);
+        }
     }
 
     /// <summary>
@@ -1507,7 +1593,8 @@ public sealed class E2ESession : IAsyncDisposable
                 Exploration,
                 _evidence,
                 _cleanupErrors,
-                _expectedFailure
+                _expectedFailure,
+                _hookErrors
             );
             if (_hostedClose is not null)
             {
@@ -1683,7 +1770,8 @@ public sealed class E2ESession : IAsyncDisposable
         return VerdictOf(error, StatusOf(error, cancellationToken));
     }
 
-    private TestException TimeoutFailure(Exception cause) => TimeoutFailure(_testTimeout, cause);
+    private TestException TimeoutFailure(Exception cause) =>
+        TimeoutFailure(_attemptTimeout?.Timeout ?? _testTimeout, cause);
 
     private static TestException TimeoutFailure(TimeSpan testTimeout, Exception? cause)
     {

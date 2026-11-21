@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Internal;
+
 namespace E2E;
 
 /// <summary>
@@ -106,5 +108,89 @@ internal sealed class AttemptBudget : IDisposable
 
             _sources.Clear();
         }
+    }
+}
+
+/// <summary>
+/// The test timeout one attempt runs on, and what <c>test.setTimeout</c> does to it (upstream's <c>AttemptTimeout</c>, <c>run/budget.ts</c>). The
+/// port enforces the timeout with the test's cancellation source, which upstream's race does with a timer; <see cref="Set"/> moves both the
+/// source's timer and the deadline that caps the session's steps. Upstream's <c>stop</c>, <c>refill</c>, <c>start</c>, and <c>race</c> serve
+/// <c>e2e run --step</c> and the runner's own race, which the port does not have.
+/// </summary>
+internal sealed class AttemptTimeout(
+    CancellationTokenSource test,
+    TimeSpan timeout,
+    TimeProvider clock,
+    Action<TimeSpan, Deadline> onMoved
+)
+{
+    private readonly DateTimeOffset _startedAt = clock.GetUtcNow();
+    private readonly object _gate = new();
+    private TimeSpan _current = timeout;
+
+    /// <summary>The timeout in force: the one given, or what <see cref="Set"/> changed it to (upstream's <c>timeoutMs</c>).</summary>
+    public TimeSpan Timeout
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _current;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gives the attempt a timeout of <paramref name="timeout"/>, counted from its start like the one it replaces: the deadline moves with it, and one
+    /// moved into the past cancels the test's signal at once. False, changing nothing, once the timeout fired: work the test left running
+    /// cannot move it any more.
+    /// </summary>
+    public bool Set(TimeSpan timeout)
+    {
+        var cancelNow = false;
+        lock (_gate)
+        {
+            if (test.IsCancellationRequested)
+            {
+                return false;
+            }
+
+            _current = timeout;
+            var deadline = new Deadline(_startedAt + timeout);
+            onMoved(timeout, deadline);
+            try
+            {
+                // Armed under the gate, so the last change published is the last one armed.
+                var left = deadline.Remaining(clock.GetUtcNow());
+                if (left == TimeSpan.Zero)
+                {
+                    cancelNow = true;
+                }
+                else
+                {
+                    test.CancelAfter(left);
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // The attempt ended and released its signal.
+                return false;
+            }
+        }
+
+        if (cancelNow)
+        {
+            // Outside the gate: cancelling runs the signal's callbacks, which can read Timeout.
+            try
+            {
+                test.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

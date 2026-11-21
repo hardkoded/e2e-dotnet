@@ -221,7 +221,8 @@ await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
 });
 ```
 
-The tools the model can call: `observe`, `tap`, `double_tap`, `long_press`,
+The tools the model can call (`observe` re-reads the screen after waiting on work in
+progress, or to check whether a press that commits something went through): `observe`, `tap`, `double_tap`, `long_press`,
 `right_click`, `hover`, `drag`, `type`,
 `type_secret` (a `Secret` from `Params`, by name), `press`, `select`,
 `check`, `upload`, `scroll`, `scroll_to`, `navigate`, `back`,
@@ -557,10 +558,29 @@ point with the viewport size and where the point sat inside the node under
 it. A replay re-finds that node and taps the same place in its live box; a
 viewport of another size hands the step over (`viewport-changed`).
 
+The built-in agent's prompt tells it to press Save, Submit, or another control that commits a
+change (save, submit, delete) once for each commit the step asks for. This is a model instruction, not a limit the tool enforces, so it lowers duplicate submissions without guaranteeing none. When the
+tap only closed the on-screen keyboard, it presses again at once. Otherwise it
+checks the screen before a second press, and presses again only when the screen
+shows the first press did not commit (a validation error that blocked the save
+and that the agent then corrected). A silent save can end the step as `failed`:
+say how to check it ("save the product, then confirm it appears in the product
+list"), and wait for the page before saving. The agent makes one press when the
+outcome is unclear.
+
 The loop watches for a run of failed calls too, of any tools and with any
 inputs: three in a row add a notice that asks the model to change approach,
 and five in a row leave it only `complete_step`. A call that worked starts the count
-over. A turn with no tool call counts as a failure and is answered with a
+over. Consecutive calls to `observe` or `screenshot` wait longer, including
+during assertion exploration:
+
+| Wait | Notice | Verdict |
+| --- | ---: | ---: |
+| Looks without a change to the listing, location, or tabs | 6 | 10 |
+| Total consecutive looks, even when the screen changes | 12 | 20 |
+
+A change to the listing, location, or tabs resets the first count. Pixel changes
+alone, such as a spinner, leave it in place. A turn with no tool call counts as a failure and is answered with a
 notice that asks for a tool call or `complete_step`.
 
 ## Budgets and cost
@@ -816,8 +836,9 @@ text model), and `ProviderOptions` go with every decide call. Not ported: the `-
 table. Other decision models: `new TypeSafeAiProvider().DecisionModel("jev-latest")` (`E2E.Decision.Sdk.TypeSafeAi`, reads `TYPESAFE_AI_API_KEY`, and `TYPESAFE_AI_BASE_URL` unless `TypeSafeAiProviderSettings.BaseUrl` is set, takes PNG and JPEG screenshots and `box` questions) and `new GatewayProvider().DecisionModel("typesafe-ai/jev")` (`E2E.Decision.Sdk.Gateway`, reads `AI_GATEWAY_API_KEY` or the Vercel OIDC token (`VERCEL_OIDC_TOKEN`, refreshed with the Vercel CLI credentials when missing or expired; a host supplies `x-vercel-id` and `x-vercel-oidc-token` with `VercelRequestContext.Use` (from the `Vercel.Oidc` package)), rejects screenshots, so keep `Vision` off; the `gateway` provider options carry fallbacks such as `{ "models": [{ "model": "openai/gpt-6-luna-decisions", "when": { "confidenceBelow": 0.6 } }] }`). To see every model call, use
 `E2E_AI_TRACE=1` (topic `debugging`). `DecideOptions` takes `Model`, a deprecated `EvaluationModel`, or a `ModelId` string (resolved by `ResolveModel.AiSdkDefaultProvider`, the Gateway when null); set exactly one. `ExperimentalDecide.ExperimentalEvaluate` is the deprecated alias of `RunAsync`. A decision model reports `DecisionModelResult.ResponseId` and `ResponseTimestamp`; `DecisionResult.ResponseId` and `Timestamp` (and the end events) carry them. Warnings go to `LogWarnings.AiSdkLogWarnings` (standard error when null), and the model gets a `user-agent` of `ai/<version>`. `IDecisionProvider` (`DecisionModel`, deprecated `EvaluationModel`), `new CustomProvider(new CustomProviderOptions { DecisionModels, FallbackProvider })`, and `ProviderRegistry.CreateProviderRegistry(providers, new ProviderRegistryOptions { Separator })` resolve models by id.
 `GatewayProvider` also reads account data: `GetAvailableModelsAsync()` (cached for `GatewayProviderSettings.MetadataCacheRefreshMillis`, 5 minutes by default; models of an unknown type are dropped), `GetCreditsAsync()` (`Balance`, `TotalUsed`, scoped by `TeamIdOrSlug`), `GetSpendReportAsync(new GatewaySpendReportParams { StartDate, EndDate, GroupBy, DatePart, UserId, Model, Provider, CredentialType, Tags })`, and `GetGenerationInfoAsync(new GatewayGenerationInfoParams { Id })`. `GatewayProvider.Gateway` is the default provider. They fail with a `GatewayException`.
-
 `GatewayProvider.ExperimentalBatch()` returns a `GatewayBatch` (upstream's `experimental_batch`) for durable batches of text requests: `DoStartBatchAsync(new BatchV4StartOptions { Requests, WebhookUrl, ProviderOptions })` (one model per batch; `ProviderOptions["gateway"]["idempotencyKey"]` is sent as the `idempotency-key` header), `DoGetBatchStatusAsync`, `DoCancelBatchAsync`, and `DoGetBatchResultsAsync`, which streams one `BatchV4ItemResult` per request once the batch is terminal. `GatewayProviderSettings.BatchResultDownloads.MaxLineBytes` bounds a result row (64 MiB by default). Cancellation and timeouts are rethrown as is, not wrapped in a `GatewayException`.
+
+`GatewayProvider.ExperimentalRealtime` (upstream's `experimental_realtime`): `Create("openai/gpt-realtime-2")` gives a `GatewayRealtimeModel` (`IRealtimeModelV4`), and the Live ids of `GatewayRealtimeModelSettings.GatewayLiveModelIds` give a `GatewayRealtimeModelLive`; `new GatewayRealtimeOptions { Api = "live" | "realtime" }` overrides the routing (any other value throws `InvalidArgumentException`). Server-side, `await ExperimentalRealtime.GetTokenAsync(new GatewayRealtimeGetTokenOptions { Model, ExpiresAfterSeconds, Api })` mints a `vcst_` client secret (`Token`, `Url`, `ExpiresAt`) with the Gateway credential and throws `InvalidOperationException` in a browser runtime; the browser builds the model (`GetWebSocketConfig(token, url)` carries the token and team in the `GatewayRealtimeAuth` subprotocols). `GetServerWebSocketConfigAsync()` gives a header-authenticated connection for a trusted server; only the conversation intent is supported. A Live session takes `Instructions`, `Voice`, `InputAudioFormat`/`OutputAudioFormat` (`audio/pcm` at 16000 or 24000 Hz, `audio/pcma`/`audio/pcmu` at 8000 Hz, the same both ways), and `ProviderOptions` (`gateway`, and `openai` `delegation`, `input`, `store`, `voice`).
 A failed Gateway call throws a `GatewayException` (`StatusCode`, `GenerationId`, `IsRetryable`; subclasses such as `GatewayAuthenticationException` and `GatewayTimeoutException` name the failure, and `GatewayResponseException` carries a malformed body in `Response` and the reason in `ValidationError`). An `ApiCallException`'s `ParsedData` is the error body the provider SDK already parsed, which the Gateway reads before `ResponseBody`. A caller's cancellation is not wrapped.
 `E2E_AI_TRACE=1` (topic `debugging`). `ExperimentalDecide.RunAsync` (`E2E.Decision.Sdk`, the AI SDK's
 `experimental_decide`) takes `OnStart` and `OnEnd` callbacks, a `RuntimeContext`, and `Telemetry` (`TelemetryOptions` with
