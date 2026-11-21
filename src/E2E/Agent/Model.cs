@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using E2E.Internal;
@@ -221,6 +222,8 @@ public sealed class ModelResponse
 /// <summary>Builds the tool calls a <see cref="ScriptedModel"/> (or a test) returns.</summary>
 public static class ModelResponses
 {
+    private static int s_callIds;
+
     public static ModelResponse Done(string status, string summary, string? errorCode = null)
     {
         return Call(
@@ -285,7 +288,12 @@ public static class ModelResponses
             [
                 new ModelToolCall
                 {
-                    Id = "call_" + name,
+                    // A provider's call ids are unique in a conversation, and the loop guard keeps what a look showed by id.
+                    Id =
+                        "call_"
+                        + name
+                        + "_"
+                        + Interlocked.Increment(ref s_callIds).ToString(CultureInfo.InvariantCulture),
                     Name = name,
                     Arguments = JsonSerializer.SerializeToElement(arguments, JsonDefaults.Options),
                 },

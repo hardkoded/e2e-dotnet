@@ -88,7 +88,7 @@ public static class AgentTools
 
     private static readonly ModelTool Observe = Tool(
         "observe",
-        "Look at the screen again. Action results already include the screen, so call this only after waiting for something in progress, never right after an action.",
+        "Look at the screen again and get what changed since the screen you last received. Action results already include their changes, so call this only after waiting for something in progress, or to check whether a press that commits something (a save, a submit, a delete) went through; never to re-read another action's result.",
         Parse("""{ "type": "object", "properties": {} }""")
     );
 
@@ -559,6 +559,7 @@ public static class AgentTools
     /// </summary>
     public const string VerdictRules =
         "Finish with complete_step when the step's goal is achieved, or you are certain it cannot be. "
+        + "Conclude from the newest screen and changes already in this conversation; never guess success. Observe again before concluding only when the newest result shows work still in progress (a spinner, \"Saving…\", a pending state), or when a press that commits something (a save, a submit, a delete) showed no confirmation. "
         + "complete_step status is passed, failed, or blocked. "
         + "blocked means credentials, the environment, or test setup prevented a verdict, and requires an errorCode.";
 
@@ -623,34 +624,61 @@ public static class AgentTools
                 options?.SaveScreenshot is not null
             )
             .Where(definition => !asserting || AssertionOffers(definition.Name, project, context.Step.Vision))
-            .Select(definition => new ToolLoopTool(definition, async (call, token) =>
-            {
-                // Upstream's schemaTool closes the schema of every grammar tool; a project tool's schema is the author's own.
-                if (!project.ContainsKey(definition.Name) && SchemaTool(definition, call) is { } refusal)
-                {
-                    return new ToolLoopResult(refusal, Failed: true, ErrorText: true);
-                }
+            .Select(definition =>
+                MarkWaiting(
+                    definition,
+                    project,
+                    options?.SaveScreenshot is null,
+                    new ToolLoopTool(definition, async (call, token) =>
+                    {
+                        // Upstream's schemaTool closes the schema of every grammar tool; a project tool's schema is the author's own.
+                        if (!project.ContainsKey(definition.Name) && SchemaTool(definition, call) is { } refusal)
+                        {
+                            return new ToolLoopResult(refusal, Failed: true, ErrorText: true);
+                        }
 
-                ToolOutcome? outcome = null;
-                async Task<string> Body()
-                {
-                    outcome = await act.ExecuteAsync(call, context.Actions, host.Accounting, project, token, context)
-                        .ConfigureAwait(false);
-                    return outcome.Content;
-                }
+                        ToolOutcome? outcome = null;
+                        async Task<string> Body()
+                        {
+                            outcome = await act.ExecuteAsync(
+                                    call,
+                                    context.Actions,
+                                    host.Accounting,
+                                    project,
+                                    token,
+                                    context
+                                )
+                                .ConfigureAwait(false);
+                            return outcome.Content;
+                        }
 
-                var content = guard is null
-                    ? await Body().ConfigureAwait(false)
-                    : await guard(Body).ConfigureAwait(false);
+                        var content = guard is null
+                            ? await Body().ConfigureAwait(false)
+                            : await guard(Body).ConfigureAwait(false);
 
-                // A guard that answered in the body's place (the step is concluding) leaves no outcome: a failed call. Text the guard
-                // changed on a body that ran keeps the body's result and its screenshot.
-                return outcome is null
-                    ? new ToolLoopResult(content, Failed: true, ErrorText: true)
-                    : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels, outcome.ErrorText);
-            }))
+                        // A guard that answered in the body's place (the step is concluding) leaves no outcome: a failed call. Text the guard
+                        // changed on a body that ran keeps the body's result and its screenshot.
+                        return outcome is null
+                            ? new ToolLoopResult(content, Failed: true, ErrorText: true)
+                            : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels, outcome.ErrorText);
+                    })
+                )
+            )
             .ToList();
     }
+
+    // Only the built-in observe and the plain screenshot just look, so waiting on a save by either is a wait. The screenshot variant that saves
+    // a file is not marked, and neither is a project tool under either name.
+    private static ToolLoopTool MarkWaiting(
+        ModelTool definition,
+        IReadOnlyDictionary<string, AgentTool> project,
+        bool plainScreenshot,
+        ToolLoopTool tool
+    ) =>
+        !project.ContainsKey(definition.Name)
+        && (definition.Name == "observe" || (definition.Name == ScreenshotName && plainScreenshot))
+            ? LoopGuards.MarkWaitingTool(tool)
+            : tool;
 
     // An assertion only looks: the read-only tools, the project tools that read, and no screenshot when it asked for the tree alone.
     private static bool AssertionOffers(

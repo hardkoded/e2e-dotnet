@@ -10,7 +10,7 @@ namespace E2E.Tests.AgentScreenUpdate;
 /// <summary><c>describe('ScreenPresenter')</c> of <c>agent-screen-update.test.ts</c>.</summary>
 public sealed class ScreenPresenterTests
 {
-    private static readonly string[] Home =
+    internal static readonly string[] Home =
     [
         "#n1 document \"Home\"",
         " #n2 heading \"Welcome\"",
@@ -227,6 +227,11 @@ public sealed class ScreenPresenterTests
             .Text;
         Assert.Contains("No screenshot can be taken in this step", after, StringComparison.Ordinal);
         Assert.Contains("look for another way rather than repeating it", after, StringComparison.Ordinal);
+        Assert.Contains(
+            "If a change was expected and the control commits something (a save, a submit), it may still have gone through: check before you commit again by any route. Otherwise",
+            after,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("needs a screenshot to see", after, StringComparison.Ordinal);
     }
 
@@ -252,6 +257,11 @@ public sealed class ScreenPresenterTests
             )
             .Text;
         Assert.Contains("had no visible effect", still, StringComparison.Ordinal);
+        Assert.Contains(
+            "If a change was expected and the control commits something (a save, a submit), it may still have gone through: check before you commit again by any route. Otherwise",
+            still,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("the screenshot changed", still, StringComparison.Ordinal);
         // A moved image is reported whether or not a change was expected.
         var observed = presenter

@@ -9,4 +9,7 @@ internal static class Brands
 {
     /// <summary>Slot holding the secret values the sessions open in the process share. Upstream's <c>sharedSecretsBrand</c>.</summary>
     public const string SharedSecretsBrand = "e2e.sharedSecrets.v1";
+
+    /// <summary>Slot holding the handlers of the tools that only wait on the screen. Upstream's <c>e2e.agent.waiting-handler.v1</c> registry symbol.</summary>
+    public const string WaitingHandlerBrand = "e2e.agent.waiting-handler.v1";
 }

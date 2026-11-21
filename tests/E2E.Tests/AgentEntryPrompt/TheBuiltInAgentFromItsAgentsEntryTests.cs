@@ -23,6 +23,64 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
     }
 
     [Fact]
+    public async Task Tells_the_act_loop_to_check_a_commit_before_it_presses_the_control_again()
+    {
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "done"));
+        await using var session = await StartAsync(model);
+
+        await session.Agent.ActAsync("save the product");
+
+        var system = model.Requests[0].System;
+        Assert.Contains(
+            "Never repeat a commit, by any route (the same control, Enter in a field, another submit button), before you check whether the first press committed.",
+            system,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Press it again only when the check shows that the first press did not commit, such as an error you corrected,",
+            system,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "or when the result reports only the keyboard closing: then the tap was spent closing the keyboard, so press again without that check.",
+            system,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "A step that asks for several commits (add two items, send two messages) presses once for each.",
+            system,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "while the check still shows the commit in progress, observe again instead of pressing.",
+            system,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "When the check shows neither and nothing in progress, do not press it again: do any check the step itself asks for, then conclude.",
+            system,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Do not leave the screen (navigate, go back, open another page) to confirm a commit unless the step asks for that.",
+            system,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "or to check whether a press that commits something went through (see below).",
+            system,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "or when a press that commits something (a save, a submit, a delete) showed no confirmation.",
+            system,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("means the decisive action did not land: act again", system, StringComparison.Ordinal);
+        session.Complete();
+    }
+
+    [Fact]
     public async Task Joins_the_context_with_the_test_level_agentContext()
     {
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "done"));

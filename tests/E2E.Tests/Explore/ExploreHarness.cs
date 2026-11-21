@@ -79,7 +79,7 @@ internal sealed class ExploreModel
         ModelResponses.Done(status, summary, code);
 
     public static ModelResponse ReportFinding(object input) =>
-        ModelResponses.Call(ExploreExecutor.FindingToolName, input);
+        ModelResponses.Call(global::E2E.ExploreExecutor.FindingToolName, input);
 
     /// <summary>The finding the scripted explorer reports on the home page.</summary>
     public static object CounterFinding(string? title = null, string kind = "issue", int severity = 3) =>
