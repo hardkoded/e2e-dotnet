@@ -334,6 +334,13 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
                 case TypeSafeSdk.NoulAnswer noul:
                     answers[id] = new DecisionAnswer { Type = "boolean", Probability = noul.Noul };
                     break;
+                default:
+                    throw new ApiCallException(
+                        "Failed to process successful response",
+                        200,
+                        isRetryable: false,
+                        innerException: new InvalidResponseDataException("unknown answer type: " + answer.Type)
+                    );
             }
         }
 
@@ -432,7 +439,8 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
             };
         }
         catch (Exception error)
-            when (error
+            when (received.Received
+                && error
                     is TypeSafeSdk.TypeSafeException
                         or JsonException
                         or InvalidOperationException
@@ -440,12 +448,7 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
                         or FormatException
             )
         {
-            // Past the response, the answers broke the SDK's reading of them. Before it, the request broke the SDK's checks.
-            if (!received.Received)
-            {
-                throw new InvalidArgumentException("request", error.Message);
-            }
-
+            // Past the response, the answers broke the SDK's reading of them.
             throw new ApiCallException(
                 "Failed to process successful response",
                 200,
@@ -453,19 +456,25 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
                 innerException: error
             );
         }
+        catch (TypeSafeSdk.TypeSafeException error)
+        {
+            // Before the response, the request broke the SDK's checks.
+            throw new InvalidArgumentException("request", error.Message);
+        }
         finally
         {
             response?.Response.Dispose();
         }
     }
 
-    // The SDK adds /v1 to its base URL; the provider's base URL already ends in it.
+    // .NET-only: the SDK adds /v1 to its base URL; the provider's base URL already ends in it.
     private static string SdkBaseUrl(string baseUrl)
     {
         var trimmed = baseUrl.TrimEnd('/');
         return trimmed.EndsWith("/v1", StringComparison.OrdinalIgnoreCase) ? trimmed[..^3] : trimmed;
     }
 
+    // .NET-only: the SDK sends the bearer itself, so the key is read back out of the Authorization header.
     private static string BearerKey(IReadOnlyDictionary<string, string> headers)
     {
         if (!headers.TryGetValue("Authorization", out var authorization))
@@ -492,7 +501,7 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
         return authorization[bearer.Length..].Trim();
     }
 
-    // Tells whether the SDK got a response, which separates a request it refused from an answer it could not read.
+    // .NET-only: tells whether the SDK got a response, which separates a request it refused from an answer it could not read.
     private sealed class ReceivedLogger : TypeSafeSdk.ITypeSafeLogger
     {
         public bool Received { get; private set; }
@@ -512,7 +521,7 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
         public void Error(string message, params object?[] args) { }
     }
 
-    // The questions as the SDK takes them: a boolean question is a noul, and the rest keep their shape.
+    // .NET-only: the questions as the SDK takes them: a boolean question is a noul, and the rest keep their shape.
     private static Dictionary<string, TypeSafeSdk.Question> SdkQuestions(
         IReadOnlyDictionary<string, DecisionQuestion> questions
     )
@@ -567,6 +576,7 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
         return result;
     }
 
+    // .NET-only: an input as the SDK takes it, a string or a JSON value.
     private static object? SdkValue(DecisionInput? input) =>
         input is null ? null
         : input.Text is { } text ? text
