@@ -221,7 +221,8 @@ await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
 });
 ```
 
-The tools the model can call: `observe`, `tap`, `double_tap`, `long_press`,
+The tools the model can call (`observe` re-reads the screen after waiting on work in
+progress, or to check whether a press that commits something went through): `observe`, `tap`, `double_tap`, `long_press`,
 `right_click`, `hover`, `drag`, `type`,
 `type_secret` (a `Secret` from `Params`, by name), `press`, `select`,
 `check`, `upload`, `scroll`, `scroll_to`, `navigate`, `back`,
@@ -557,10 +558,29 @@ point with the viewport size and where the point sat inside the node under
 it. A replay re-finds that node and taps the same place in its live box; a
 viewport of another size hands the step over (`viewport-changed`).
 
+The built-in agent presses Save, Submit, or another control that commits a
+change (save, submit, delete) once for each commit the step asks for. When the
+tap only closed the on-screen keyboard, it presses again at once. Otherwise it
+checks the screen before a second press, and presses again only when the screen
+shows the first press did not commit (a validation error that blocked the save
+and that the agent then corrected). A silent save can end the step as `failed`:
+say how to check it ("save the product, then confirm it appears in the product
+list"), and wait for the page before saving. The agent makes one press when the
+outcome is unclear.
+
 The loop watches for a run of failed calls too, of any tools and with any
 inputs: three in a row add a notice that asks the model to change approach,
 and five in a row leave it only `complete_step`. A call that worked starts the count
-over. A turn with no tool call counts as a failure and is answered with a
+over. Consecutive calls to `observe` or `screenshot` wait longer, including
+during assertion exploration:
+
+| Wait | Notice | Verdict |
+| --- | ---: | ---: |
+| Looks without a change to the listing, location, or tabs | 6 | 10 |
+| Total consecutive looks, even when the screen changes | 12 | 20 |
+
+A change to the listing, location, or tabs resets the first count. Pixel changes
+alone, such as a spinner, leave it in place. A turn with no tool call counts as a failure and is answered with a
 notice that asks for a tool call or `complete_step`.
 
 ## Budgets and cost

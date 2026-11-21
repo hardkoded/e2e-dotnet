@@ -1,0 +1,117 @@
+---
+title: Next.js
+description: Add E2E to a Next.js app, test it on `next dev` locally and on a production build in CI.
+---
+
+This ports upstream's Next.js page (`docs/frameworks/nextjs.mdx`, with its `docs/examples/nextjs/e2e.config.ts`). The port has no `e2e init` for a Next.js app, no `SetupPrompt` card, and no `with-next` starter, so the page starts from a [web suite](/get-started/web/) and leaves out "Start a new app". The config is C# code, because `e2e.config.json` can't read `CI`.
+
+This page adds E2E to an existing Next.js app. The runner starts `next dev` on your machine and `next start` in CI, and the web engine tests the app in Chromium.
+
+## Start the app from the config
+
+Set `app.command` so the first test starts your app and waits until `app.url` answers. A fixture base class builds the config in code, with `E2EConfig.IsCi()` choosing the command. It reads `CI` as E2E does: unset, `""`, `0`, and `false` mean a local run.
+
+```csharp title="NextTest.cs"
+using E2E.NUnit;
+
+public abstract class NextTest : E2ETest
+{
+    // Keep the `agents` entry your e2e.config.json had.
+    private static readonly Lazy<E2EConfig> NextConfig = new(() =>
+    {
+        // CI serves the production build: run `next build` before `dotnet test`.
+        var command = E2EConfig.IsCi()
+            ? """{ "executable": "npm", "args": ["run", "start"] }"""
+            : """{ "executable": "npm", "args": ["run", "dev"], "reuseExisting": true }""";
+        var json = $$"""
+            {
+              "targets": [{
+                "name": "web",
+                "platform": "web",
+                "app": { "url": "http://localhost:3000", "command": {{command}} }
+              }],
+              "agents": { "default": { "provider": "gateway", "model": "openai/gpt-6-luna-fast" } }
+            }
+            """;
+        return E2EConfig.Parse(json, Directory.GetCurrentDirectory());
+    });
+
+    protected override E2EConfig Config => NextConfig.Value;
+}
+```
+
+Derive your test classes from `NextTest`.
+
+- **Locally**, the first test starts `next dev`. With `reuseExisting`, it uses a dev server you already started on that port.
+- **In CI**, it starts `next start`, which serves the build. `reuseExisting` doesn't apply there.
+- **The port** in `app.url` must be the port that `dev` and `start` both listen on. Next.js uses 3000. When one script sets `--port`, set the same port in the other.
+
+For the other `command` options, such as `log`, `env`, and port `0`, see [Point at your app](/get-started/web/#2-point-at-your-app).
+
+## Run in CI
+
+Build the app before the tests. The CI service sets `CI`, so the config starts `next start`:
+
+```bash
+npm run build
+dotnet test
+```
+
+For a full workflow, take the [GitHub Actions](/integrations/github/) job and add the build step before the test step. To test each Vercel preview deployment instead, see [Vercel Previews](/integrations/vercel-previews/).
+
+## Fix Next.js problems
+
+### The page renders but never hydrates
+
+Next.js 16 blocks cross-origin requests to its dev resources. When the target opens `127.0.0.1` or `[::1]`, as [port `0`](/get-started/web/) does, `next dev` still identifies as `localhost`. The page renders, locators resolve, and clicks land, but no React handler runs.
+
+Add the host the target opens to `allowedDevOrigins`. Use `'[::1]'` when `app.url` opens `http://[::1]:0`:
+
+```ts title="next.config.ts"
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
+  allowedDevOrigins: ['127.0.0.1'],
+};
+
+export default nextConfig;
+```
+
+A `localhost` target and a production `next start` target need no entry.
+
+### GetByRole("alert") finds an extra element
+
+The App Router renders an empty `role="alert"` route announcer on every page. `Screen.GetByRole("alert")` matches it too. Pick your alert by its text:
+
+```csharp
+await Expect.That(Screen.GetByRole("alert").Filter("Enter a name first.")).ToBeVisibleAsync();
+```
+
+The agent doesn't see the route announcer, and the [replay cache](/features/caching/) doesn't count it as a change.
+
+### next dev recompiles while the tests run
+
+E2E writes its run output under `.e2e/`: results, logs, traces, and the replay cache. A watcher that reads this folder can rebuild the app again and again during a run.
+
+- Keep the `.e2e/` entry that `e2e init` adds to `.gitignore`. Tools that scan the project for source files, such as Tailwind CSS, skip ignored files.
+- With webpack, the `next dev` default before Next.js 16, add `.e2e` to the paths the watcher ignores:
+
+```ts title="next.config.ts"
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: ['**/.git/**', '**/.next/**', '**/node_modules/**', '**/.e2e/**'],
+      };
+    }
+    return config;
+  },
+};
+
+export default nextConfig;
+```
+
+This list keeps the Next.js defaults. When your config already sets `ignored`, add `'**/.e2e/**'` to it instead.
