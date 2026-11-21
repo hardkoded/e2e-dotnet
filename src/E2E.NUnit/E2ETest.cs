@@ -58,6 +58,22 @@ public abstract partial class E2ETest : E2EFixture
     public void Fail(bool condition = true, string? reason = null) =>
         ExpectedFailureMarks.MarkRunningTestExpectedToFail(CurrentSession, condition, reason, IsSerial, _bodyDone);
 
+    /// <summary>
+    /// Changes the running test's timeout from its body or a <c>[SetUp]</c>, counted from the start of the attempt like the configured
+    /// <c>timeout</c>, which it replaces for this attempt (upstream's <c>test.setTimeout(timeout)</c>). A timeout shorter than the time already
+    /// spent times the test out at once. A timeout that is not a positive whole number of milliseconds, or above 2147483647, a call from a teardown (after the test method returned), and one
+    /// from code the test left running after it ended are test errors, <c>INVALID_ARGUMENT</c>. A call outside a test throws
+    /// <see cref="InvalidOperationException"/> where upstream has <c>COLLECTION_ERROR</c>.
+    /// </summary>
+    public void SetTimeout(TimeSpan timeout)
+    {
+        var session = CurrentSession
+            ?? throw new InvalidOperationException(
+                "SetTimeout(timeout) must be called inside a test body or a [SetUp]; to set a test's timeout ahead of time, set the timeout in the configuration"
+            );
+        E2E.Internal.TestTimeout.SetRunningTestTimeout(session, timeout, _bodyDone);
+    }
+
     /// <summary>Set once the test method returned: what runs after it (a derived [TearDown]) comes after the verdict is reached.</summary>
     internal void BodyDone() => _bodyDone = true;
 

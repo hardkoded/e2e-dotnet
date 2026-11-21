@@ -144,6 +144,9 @@ public sealed class PollConditionOptions
 /// <summary>Deadline and polling helpers, as upstream's <c>internal/time.ts</c>.</summary>
 public static class Time
 {
+    /// <summary>The largest timer a timeout can ask for, in milliseconds (upstream's <c>MAX_TIMER_MS</c>).</summary>
+    internal const long MaxTimerMs = 2147483647;
+
     /// <summary>A budget as a message names it, exactly, in the largest unit that divides it: <c>5m</c>, <c>30s</c>, <c>1500ms</c> (upstream's <c>budgetText</c>).</summary>
     public static string BudgetText(long ms)
     {

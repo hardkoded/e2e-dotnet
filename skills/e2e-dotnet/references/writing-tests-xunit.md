@@ -81,6 +81,7 @@ public sealed class BillingTests : E2ETest
   from inside its body. A skip reason, static or from a
   running test, is secret-redacted, sanitized, and limited to 8,192 UTF-8 bytes
   before it is reported.
+- `SetTimeout(TimeSpan)` on `E2ETest` (upstream's `test.setTimeout`) changes the running test's timeout from its body or a set-up, counted from the start of the attempt like the configured `timeout`, which it replaces for this attempt; a value shorter than the time already spent times the test out at once. It cuts the calls the test awaits, not a plain `Task.Delay`. A value that is not a positive whole number of milliseconds, or above 2147483647, and code the test left running after it ended fail with `INVALID_ARGUMENT`; a call outside a test throws `InvalidOperationException`. This adapter cannot tell a teardown from the body, so it refuses a call from one only once the attempt has completed.
 
 ## Saved sessions
 

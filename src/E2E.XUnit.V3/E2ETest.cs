@@ -83,6 +83,23 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         };
     }
 
+    /// <summary>
+    /// Changes the running test's timeout from its body or a set-up, counted from the start of the attempt like the configured
+    /// <c>timeout</c>, which it replaces for this attempt (upstream's <c>test.setTimeout(timeout)</c>). A timeout shorter than the time already
+    /// spent times the test out at once. A timeout that is not a positive whole number of milliseconds, or above 2147483647, and a call from code
+    /// the test left running after its attempt ended are test errors, <c>INVALID_ARGUMENT</c>. A call outside a test throws
+    /// <see cref="InvalidOperationException"/> where upstream has <c>COLLECTION_ERROR</c>. The port cannot tell a teardown from the body here:
+    /// a call from one is refused only once the session has completed.
+    /// </summary>
+    public void SetTimeout(TimeSpan timeout)
+    {
+        var session = CurrentSession
+            ?? throw new InvalidOperationException(
+                "SetTimeout(timeout) must be called inside a test body or a set-up; to set a test's timeout ahead of time, set the timeout in the configuration"
+            );
+        E2E.Internal.TestTimeout.SetRunningTestTimeout(session, timeout);
+    }
+
     // A derived fixture that overrides this must not make the override async around the base call, or the slot is lost to the body.
     // Not async: StartSessionAsync reserves the slot a host the test body launches finds its attempt through, in the flow of its caller, and xUnit
     // runs the body in the flow it called this method from. An async method would keep the slot to itself.
