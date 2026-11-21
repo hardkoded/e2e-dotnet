@@ -40,6 +40,7 @@ public sealed class E2ESession : IAsyncDisposable
 
     // What the teardown threw (a required video that did not finalize, the engine session's close): upstream's secondaryErrors of phase cleanup.
     private readonly List<Exception> _cleanupErrors = [];
+    private readonly List<Exception> _hookErrors = [];
     private long _bodyMs;
     private ExpectedFailureInfo? _expectedFailure;
     private AttemptStatus _status = AttemptStatus.Failed;
@@ -969,6 +970,9 @@ public sealed class E2ESession : IAsyncDisposable
         }
     }
 
+    /// <summary>Records a hook that failed after the body (a failed <c>[TearDown]</c>), which the report tells as an <c>afterEach</c> secondary error beside the body's error.</summary>
+    internal void RecordHookFailure(Exception failure) => _hookErrors.Add(failure);
+
     /// <summary>
     /// Enters the teardown's budget, as upstream's <c>enter('afterEach')</c> does before each teardown: the session's operations run under a
     /// signal that follows <paramref name="interrupt"/> (the run's cancel), not the test timeout, so a body its timeout cut short can still drive
@@ -1507,7 +1511,8 @@ public sealed class E2ESession : IAsyncDisposable
                 Exploration,
                 _evidence,
                 _cleanupErrors,
-                _expectedFailure
+                _expectedFailure,
+                _hookErrors
             );
             if (_hostedClose is not null)
             {

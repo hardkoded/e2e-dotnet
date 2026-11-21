@@ -12,8 +12,7 @@ namespace E2E.NUnit.Tests.ExpectedFailure;
 /// <c>describe('test.fail')</c> of upstream's <c>tests/integration/expected-failure.test.ts</c>, whose tests run the CLI over a project. These run
 /// the fixtures through NUnit, with <c>[Property("E2E.Fail", reason)]</c> for the <c>fail</c> option and a property set in the body for
 /// <c>test.fail(...)</c>, then read the <c>report.json</c> the run wrote (the schema-checked <c>run.results</c>, <c>summary</c>, and <c>exitCode</c>).
-/// Each test is <c>Partial_</c> for what the port cannot check yet: the first leaves out the JUnit text (the port has no JUnit report); the hook test leaves out the
-/// <c>secondaryErrors</c> of the afterEach refusal (the adapter does not report a failed <c>[TearDown]</c> as a secondary error); the retry test leaves out
+/// Each test is <c>Partial_</c> for what the port cannot check yet: the first leaves out the JUnit text (the port has no JUnit report); the retry test leaves out
 /// "retries an unexpected pass" (NUnit decides a <c>[Retry]</c> from the body's result, before the teardown settles the mark, so an unexpected pass runs once)
 /// and "passes once, then fails as expected" (it needs that retry); the rejection test leaves out the <c>COLLECTION_ERROR</c> run error (the port throws
 /// <see cref="InvalidOperationException"/> where upstream collects) and <c>serialGroups[0].attempts[0].members[0].error</c> (the report has no serial groups).
@@ -142,7 +141,7 @@ public sealed class TestFailTests
     }
 
     [Test]
-    public void Partial_takes_a_mark_from_a_beforeEach_hook_and_refuses_one_from_an_afterEach_hook()
+    public void Takes_a_mark_from_a_beforeEach_hook_and_refuses_one_from_an_afterEach_hook()
     {
         Assert.That(
             NestedRun.Run(nameof(MarkedEarlyFixture.Fails_after_a_beforeEach_mark)).ResultState.Status,
@@ -164,6 +163,13 @@ public sealed class TestFailTests
         Assert.That((string?)lateResult["status"], Is.EqualTo("failed"));
         var lateAttempt = lateResult["attempts"]![0]!;
         Assert.That(lateAttempt["expectedFailure"], Is.Null);
+        Assert.That(
+            (string?)
+                lateAttempt["secondaryErrors"]!.AsArray().Single(error => (string?)error!["phase"] == "afterEach")![
+                    "message"
+                ],
+            Does.Contain("cannot mark a test from an afterEach hook")
+        );
     }
 
     [Test]

@@ -4,6 +4,7 @@
 
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Text.RegularExpressions;
 using E2E.Internal;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
@@ -26,7 +27,7 @@ namespace E2E.NUnit;
 /// Settings come from <see cref="E2EFixture"/>.
 /// </summary>
 [LooksBeforeTeardown]
-public abstract class E2ETest : E2EFixture
+public abstract partial class E2ETest : E2EFixture
 {
     /// <summary>
     /// The test's title: its cache identity, and the <c>Test:</c> line every prompt's context opens with. The default is the NUnit
@@ -121,6 +122,12 @@ public abstract class E2ETest : E2EFixture
 
         var skipped = FailSkippedAfterSoftFailure();
         var current = global::NUnit.Framework.TestContext.CurrentContext;
+
+        // A derived [TearDown] that threw ran before this one: NUnit keeps its failure in the result, which the report tells as an afterEach secondary error.
+        if (HookFailureOf(current.Result) is { } hookFailure)
+        {
+            session.RecordHookFailure(hookFailure);
+        }
 
         // A handler that failed during the teardown, with no step after it, fails the attempt before the verdict.
         Exception? late = null;
@@ -396,6 +403,26 @@ public abstract class E2ETest : E2EFixture
         return global::NUnit.Framework.TestContext.CurrentContext.Result.Outcome.Status
             == global::NUnit.Framework.Interfaces.TestStatus.Failed;
     }
+
+    // NUnit writes the failure of a [TearDown] into the result's message as "TearDown : <exception>", beside the body's own failure when there is
+    // one ("Multiple failures", each numbered), and its stack trace follows a "--TearDown" line.
+    private static Exception? HookFailureOf(global::NUnit.Framework.TestContext.ResultAdapter result)
+    {
+        if (result.Outcome.Site != global::NUnit.Framework.Interfaces.FailureSite.TearDown)
+        {
+            return null;
+        }
+
+        var found = HookFailure().Match(result.Message ?? "");
+        return found.Success ? new TestException("TEST_FAILED", found.Groups["text"].Value.Trim()) : null;
+    }
+
+    [GeneratedRegex(
+        @"^(?:\s*\d+\)\s*)?TearDown : (?<text>.*?)(?=\r?\n\s*--TearDown|\z)",
+        RegexOptions.Multiline | RegexOptions.Singleline | RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 1000
+    )]
+    private static partial Regex HookFailure();
 
     private static Exception? ErrorForCache(global::NUnit.Framework.TestContext.ResultAdapter result)
     {
