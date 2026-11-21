@@ -300,6 +300,7 @@ public class GatewayLanguageModel : ILanguageModelV4, IDisposable
         [EnumeratorCancellation] CancellationToken enumeratorToken = default
     )
     {
+        using var owned = response;
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(callToken, enumeratorToken);
         if (warnings.Count > 0)
         {
