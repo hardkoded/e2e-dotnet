@@ -122,7 +122,9 @@ internal static class ProviderUtils
     /// Upstream's <c>postJsonToApi</c> with <c>createJsonLinesResponseHandler</c> (<c>response-handler.ts</c>): one POST, and the answer's JSON Lines
     /// as a lazy stream of parsed lines. A line of more than <paramref name="maxLineBytes"/> bytes (the line feed excluded) fails the stream with a
     /// <see cref="DownloadException"/>; an empty line is skipped; <paramref name="validate"/> throws for a line that breaks the schema. The stream
-    /// owns the response and releases it when it ends, fails, or is stopped early.
+    /// owns the response and releases it when its enumeration ends, fails, or is stopped early, so the caller must enumerate it (upstream's stream
+    /// likewise holds the connection until it is consumed or cancelled). A read that gets no data within the model timeout fails with a
+    /// <see cref="TimeoutException"/>.
     /// </summary>
     public static async Task<IAsyncEnumerable<JsonNode>> PostJsonToApiForJsonLinesAsync(
         HttpClient http,
@@ -215,7 +217,20 @@ internal static class ProviderUtils
             var chunk = new byte[16 * 1024];
             while (true)
             {
-                var read = await stream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false);
+                int read;
+                using (var readTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                {
+                    readTimeout.CancelAfter(ModelHttp.Timeout);
+                    try
+                    {
+                        read = await stream.ReadAsync(chunk, readTimeout.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        throw new TimeoutException("The JSON Lines response stalled.");
+                    }
+                }
+
                 if (read == 0)
                 {
                     break;

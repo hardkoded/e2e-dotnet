@@ -101,7 +101,7 @@ public sealed class GatewayBatch : IBatchV4, IDisposable
             body["requests"] = requests;
             if (forwardedProviderOptions is not null)
             {
-                body["providerOptions"] = forwardedProviderOptions;
+                body["providerOptions"] = forwardedProviderOptions.DeepClone();
             }
 
             var response = await ProviderUtils
@@ -530,6 +530,22 @@ public sealed class GatewayBatch : IBatchV4, IDisposable
         };
     }
 
+    // The item error passes through the stream unvalidated upstream, so a row with an odd error never fails the rest of the results.
+    private static BatchV4Error ReadItemError(JsonObject error)
+    {
+        static string? Text(JsonNode? node) =>
+            node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+
+        return new BatchV4Error
+        {
+            Message = Text(error["message"]) ?? string.Empty,
+            Type = Text(error["type"]),
+            Code = Text(error["code"]),
+            StatusCode =
+                error["statusCode"] is JsonValue code && code.TryGetValue<double>(out var number) ? (int)number : null,
+        };
+    }
+
     // z.record(z.string(), z.record(z.string(), z.unknown()))
     private static JsonObject ReadProviderMetadata(JsonElement element)
     {
@@ -642,7 +658,7 @@ public sealed class GatewayBatch : IBatchV4, IDisposable
                 Id = line["id"]!.GetValue<string>(),
                 Status = status,
                 Result = result,
-                Error = line["error"] is JsonObject error ? ReadError(JsonSerializer.SerializeToElement(error)) : null,
+                Error = line["error"] is JsonObject error ? ReadItemError(error) : null,
                 ProviderMetadata = line["providerMetadata"] as JsonObject,
                 Raw = line,
             };

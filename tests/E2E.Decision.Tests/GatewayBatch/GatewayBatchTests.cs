@@ -14,9 +14,17 @@ public sealed class GatewayBatchTests
     {
         var model = CreateTestBatch(CreateServer().Client);
 
-        // The C# counterpart of the duck-type: the batch is an IBatchV4 with the start, status, and results operations.
-        var batch = Assert.IsAssignableFrom<E2E.Decision.Sdk.IBatchV4>(model);
-        foreach (var name in new[] { "DoStartBatchAsync", "DoGetBatchStatusAsync", "DoGetBatchResultsAsync" })
+        // The C# counterpart of the duck-type: the batch implements IBatchV4 with the start, status, results, and cancel operations.
+        Assert.IsAssignableFrom<E2E.Decision.Sdk.IBatchV4>(model);
+        foreach (
+            var name in new[]
+            {
+                "DoStartBatchAsync",
+                "DoGetBatchStatusAsync",
+                "DoGetBatchResultsAsync",
+                "DoCancelBatchAsync",
+            }
+        )
         {
             Assert.NotNull(typeof(E2E.Decision.Sdk.IBatchV4).GetMethod(name));
         }
