@@ -28,24 +28,24 @@ The AI SDK's `createGatewayErrorFromResponse` and `asGatewayError`.
 ## Methods
 
 <a id="E2E_Decision_Sdk_Gateway_GatewayErrors_AsGatewayError_"></a>
-<a id="E2E_Decision_Sdk_Gateway_GatewayErrors_AsGatewayError_System_Exception_System_String_"></a>
+<a id="E2E_Decision_Sdk_Gateway_GatewayErrors_AsGatewayError_System_Object_System_String_"></a>
 
-### AsGatewayError(Exception, string?)
+### AsGatewayError(object?, string?)
 
 
 ```csharp
-public static GatewayException AsGatewayError(Exception error, string? authMethod = null)
+public static GatewayException AsGatewayError(object? error, string? authMethod = null)
 ```
 
 
 Upstream's `asGatewayError`: a Gateway error stays; a client timeout becomes a timeout error; a failed call becomes the error
-its body names; anything else is a 500. A caller's cancellation is not a Gateway failure and is not wrapped.
+its body names; anything else, including a value that is not an exception, is a 500. A caller's cancellation is not a Gateway failure and is not wrapped.
 
 **Parameters**
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `error` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
+| `error` | [object](https://learn.microsoft.com/dotnet/api/system.object)? |  |
 | `authMethod` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [GatewayException](/api/E2E.Decision.Sdk.Gateway/GatewayException/)
