@@ -274,13 +274,19 @@ public static class ExperimentalDecide
                 catch (Exception error)
                 {
                     // A failing integration must not hide the error the call failed with.
-                    await Notify
-                        .NotifyAsync(
-                            error,
-                            [failure => telemetryDispatcher.OnErrorAsync(callId, failure)],
-                            CancellationToken.None
-                        )
-                        .ConfigureAwait(false);
+                    using var errorCallbacks = new CancellationTokenSource(ErrorCallbackTimeout);
+                    try
+                    {
+                        await Notify
+                            .NotifyAsync(
+                                error,
+                                [failure => telemetryDispatcher.OnErrorAsync(callId, failure)],
+                                errorCallbacks.Token
+                            )
+                            .ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (errorCallbacks.IsCancellationRequested) { }
+
                     throw;
                 }
             })
