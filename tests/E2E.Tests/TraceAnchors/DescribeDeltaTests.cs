@@ -283,6 +283,14 @@ public sealed class DescribeDeltaTests
     [InlineData("41건은 처리되었습니다", "42건은 처리되었습니다")]
     [InlineData("41개는 품절", "42개는 품절")]
     [InlineData("41건도 확인", "42건도 확인")]
+    [InlineData("41件です", "42件です")]
+    [InlineData("41件でした", "42件でした")]
+    [InlineData("全41件です。", "全42件です。")]
+    [InlineData("총 41건입니다", "총 42건입니다")]
+    [InlineData("41건이에요", "42건이에요")]
+    [InlineData("41건이었습니다", "42건이었습니다")]
+    [InlineData("41개예요", "42개예요")]
+    [InlineData("41개였습니다", "42개였습니다")]
     public void Reads_a_count_with_a_CJK_counter_the_way_it_reads_an_English_one(string from, string to)
     {
         var (appeared, gone) = Describe(
@@ -345,6 +353,12 @@ public sealed class DescribeDeltaTests
     [InlineData("3개국어")]
     [InlineData("3行で書く")]
     [InlineData("2024 개도국 지원")]
+    [InlineData("3行でも読める")]
+    [InlineData("3行ですべて書く")]
+    [InlineData("3個ですぐ届く")]
+    [InlineData("2行でしたためる")]
+    [InlineData("2024 개입 사례")]
+    [InlineData("2024 건이동 안내")]
     public void Keeps_text_on_a_screen_the_step_navigated_to_since_the_digits_are_not_a_count(string text)
     {
         Assert.Equal(
