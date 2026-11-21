@@ -27,10 +27,10 @@ Where credentials live between runs, keyed by provider id.
 
 ## Methods
 
-<a id="E2E_OAuth_ICredentialStore_ExclusiveAsync__1_"></a>
-<a id="E2E_OAuth_ICredentialStore_ExclusiveAsync__1_System_String_System_Func_System_Threading_Tasks_Task{``0}__System_Threading_CancellationToken_"></a>
+<a id="E2E_OAuth_ICredentialStore_ExclusiveAsync_"></a>
+<a id="E2E_OAuth_ICredentialStore_ExclusiveAsync__1_System_String_System_Func_System_Threading_Tasks_Task___0___System_Threading_CancellationToken_"></a>
 
-### ExclusiveAsync&lt;T&gt;(string, Func&lt;Task&lt;T&gt;&gt;, CancellationToken)
+### `ExclusiveAsync<T>(string, Func<Task<T>>, CancellationToken)`
 
 
 ```csharp
@@ -38,18 +38,21 @@ Task<T> ExclusiveAsync<T>(string providerId, Func<Task<T>> refresh, Cancellation
 ```
 
 
-Runs <code>refresh</code> while no other process refreshes <code>providerId</code>'s login from this store, so a rotating refresh token is sent once however many workers need it.
+Runs &lt;code class="paramref"&gt;refresh&lt;/code&gt; while no other process refreshes &lt;code class="paramref"&gt;providerId&lt;/code&gt;'s login from this store, so a
+rotating refresh token is sent once however many workers need it.
 
-**Type Parameters**
+**Type parameters**
 
-`T` 
+| Name | Description |
+| --- | --- |
+| `T` |  |
 
 **Parameters**
 
 | Name | Type | Description |
 | --- | --- | --- |
 | `providerId` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
-| `refresh` | [Func](https://learn.microsoft.com/dotnet/api/system.func-1)&lt;[Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)&lt;T&gt;&gt; |  |
+| `refresh` | [Func&lt;Task&lt;T&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-1) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;T&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)

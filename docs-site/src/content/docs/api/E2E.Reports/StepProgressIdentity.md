@@ -80,6 +80,8 @@ public string AttemptId { get; init; }
 ```
 
 
+The attempt the step is of.
+
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_Reports_StepProgressIdentity_AttemptIndex_"></a>
@@ -92,6 +94,8 @@ public string AttemptId { get; init; }
 public int AttemptIndex { get; init; }
 ```
 
+
+The attempt's index.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
@@ -106,6 +110,8 @@ public string StepId { get; init; }
 ```
 
 
+The step's id.
+
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_Reports_StepProgressIdentity_StepIndex_"></a>
@@ -118,5 +124,7 @@ public string StepId { get; init; }
 public int StepIndex { get; init; }
 ```
 
+
+The step's index.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)

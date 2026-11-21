@@ -16,7 +16,7 @@ Namespace: [E2E.TUnit](/api/E2E.TUnit/)
 
 ```csharp
 [TestExecutor<LooksBeforeTeardownExecutor>]
-public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, IEventReceiver
+public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegisteredEventReceiver, IEventReceiver
 ```
 
 
@@ -32,7 +32,7 @@ Settings come from [E2EFixture](/api/E2E/E2EFixture/).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [E2EFixture](/api/E2E/E2EFixture/)
 
-**Implements:** `ITestEndEventReceiver`, `IEventReceiver`
+**Implements:** `ITestEndEventReceiver`, `ITestRegisteredEventReceiver`, `IEventReceiver`
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.TUnit/E2ETest.cs)
 
