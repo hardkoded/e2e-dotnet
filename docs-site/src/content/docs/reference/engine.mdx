@@ -381,7 +381,7 @@ When a semantic read fails, an engine may return masked pixels in place of the t
 
 ### Actions
 
-`PerformAsync` carries out one `LocatorAction` on a node; `PerformAtAsync` carries out one `PointerAction` at a viewport `Point`. An engine declares the kinds it honors in `ActionKinds` and `PointerActionKinds`, by upstream's kind names (`EngineActionKinds.Locator` and `EngineActionKinds.Pointer`, upstream's `LOCATOR_ACTION_KINDS` and `POINTER_ACTION_KINDS`).
+`PerformAsync` carries out one `LocatorAction` on a node; `PerformAtAsync` carries out one `PointerAction` at a viewport `Point`. An engine declares the kinds it honors in `ActionKinds` and `PointerActionKinds`, by upstream's kind names (`EngineActionKinds.Locator` and `EngineActionKinds.Pointer`, upstream's `LOCATOR_ACTION_KINDS` and `POINTER_ACTION_KINDS`). `EngineActionKinds.Locator` lists the kinds of SPI v1; newer kinds are listed after it. `EngineActionKinds.KnownLocator` (upstream's `KNOWN_LOCATOR_ACTION_KINDS`) is every kind this version understands, and what a manifest's `actions` is checked against.
 
 | Kind | `LocatorAction` | `ActionKinds` | `PointerActionKinds` |
 | --- | --- | --- | --- |
@@ -394,6 +394,7 @@ When a semantic read fails, an engine may return masked pixels in place of the t
 | `press` | `Press(Key)` | yes | - |
 | `check`, `uncheck` | `Check`, `Uncheck` | yes | - |
 | `focus` | `Focus` | yes | - |
+| `blur` | `Blur` | yes | - |
 | `hover` | `Hover` | yes | yes |
 | `scrollIntoView` | `ScrollIntoView` | yes | - |
 | `selectOption` | `Select(Text, Option)` | yes | - |
@@ -620,7 +621,7 @@ An engine outside the `E2E` assembly can build and expose its own fixture type t
 
 `E2E.Engine` exports `ComputedStyles`, `IEngine`, `IEngineSession`, `IEngineFixtureHost`, `IPreparableEngine`, `IDoctorEngine`, `EngineCapabilities`, `EngineStartOptions`, `EngineFixtureContext`, `EngineScreenshot`, `EnginePrepareInfo`, `EnginePrepareResult`, `EngineFinishInfo`, `EngineInitInfo`, `EngineDoctorInfo`, `EngineDoctorCheck`, `EngineDoctorStatus`, `EngineAppInfo`, `OperationContext`, `OperationOrigin`, `Observation`, `ObserveOptions`, `SemanticNode`, `NodeStates`, `BoundingBox`, `TraceViewport`, `Point`, `LocatorAction`, `PointerAction`, `EngineActionKinds`, `ScrollDirection`, `Momentum`, `KeyModifier`, `KeyModifiers`, `ObservationLimits`, `AppLogEntry`, `ProviderRecording`, `ProviderRecordings`, `ProviderRecordingTarget`, `ProviderRecordContext`, `ProviderRecordingStopContext`, `ProviderRecordingResult`, `VideoSegment`, `VideoFile`, and `VideoLink`. `E2E` exports `AppLogSource`, `AppLogLevel`, `EngineException`, `EngineErrorCodes`, `EngineState`, `LocatorExpression`, `TextMatch`, `SelectOption`, `Secret`, `AppPermissionState`, `E2EException`, `TestException`, and `ConfigurationException`. `TraceViewport` is the port's name for upstream's `ViewportSize`, and `Point` for `ViewportPoint`.
 
-Upstream's `ENGINE_SPI_VERSION`, `LOCATOR_ACTION_KINDS` (`EngineActionKinds.Locator`), `POINTER_ACTION_KINDS` (`EngineActionKinds.Pointer`), `ENGINE_ERROR_CODES`, `RETRYABLE_ENGINE_ERROR_CODES` (`EngineErrorCodes.IsRetryable`), `JsonValue`, `WithoutUndefined`, `FixtureOperation`, and the engine protocol's exports have no public port. `OBSERVED_NAME_LIMIT` and `OBSERVED_TEXT_LIMIT` are `ObservationLimits.Name` and `ObservationLimits.Text`.
+Upstream's `ENGINE_SPI_VERSION`, `LOCATOR_ACTION_KINDS` (`EngineActionKinds.Locator`), `KNOWN_LOCATOR_ACTION_KINDS` (`EngineActionKinds.KnownLocator`), `POINTER_ACTION_KINDS` (`EngineActionKinds.Pointer`), `ENGINE_ERROR_CODES`, `RETRYABLE_ENGINE_ERROR_CODES` (`EngineErrorCodes.IsRetryable`), `JsonValue`, `WithoutUndefined`, `FixtureOperation`, and the engine protocol's exports have no public port. `OBSERVED_NAME_LIMIT` and `OBSERVED_TEXT_LIMIT` are `ObservationLimits.Name` and `ObservationLimits.Text`.
 
 ### SemanticNode
 

@@ -334,6 +334,60 @@ public sealed class ControlsTests
         });
 
     [Fact]
+    public Task Blur_removes_focus_only_from_the_matched_node() =>
+        RunAsync(
+            async (_, browser) =>
+            {
+                var first = browser.Locator("#first");
+                var second = browser.Locator("#second");
+
+                await first.FocusAsync();
+                await Expect.That(first).ToBeFocusedAsync();
+                await second.BlurAsync();
+                await Expect.That(first).ToBeFocusedAsync();
+
+                await first.BlurAsync(new ActionOptions { Timeout = TimeSpan.FromSeconds(1) });
+                await Expect.That(first).Not.ToBeFocusedAsync();
+            }
+        );
+
+    [Fact]
+    public Task Blur_works_on_an_input_matched_by_its_current_value() =>
+        RunAsync(
+            async (screen, browser) =>
+            {
+                var first = screen.GetByLabel("First");
+                await first.FillAsync("Find by value");
+                await browser.EvaluateAsync<object>("() => { document.querySelector('#first').blur = () => {}; }");
+                await first.FocusAsync();
+                await Expect.That(first).ToBeFocusedAsync();
+
+                await screen.GetByDisplayValue("Find by value").BlurAsync();
+                await Expect.That(first).Not.ToBeFocusedAsync();
+            }
+        );
+
+    [Fact]
+    public Task Blur_removes_focus_from_MathML_matched_by_label() =>
+        RunAsync(
+            async (screen, browser) =>
+            {
+                await browser.EvaluateAsync<object>(
+                    """
+                    () => {
+                      document.body.insertAdjacentHTML('beforeend', '<math><mi tabindex="0" aria-label="Formula" id="term">x</mi></math>');
+                      document.querySelector('#term').focus();
+                    }
+                    """
+                );
+                var term = screen.GetByLabel("Formula");
+                await Expect.That(term).ToBeFocusedAsync();
+                await term.BlurAsync();
+                await Expect.That(term).Not.ToBeFocusedAsync();
+            }
+        );
+
+    [Fact]
     public Task Press_spells_modifiers_the_way_the_app_sees_them() =>
         RunAsync(async screen =>
         {

@@ -16,6 +16,13 @@ namespace E2E.Tests.SurfaceOf;
 public sealed class SurfaceOfTests
 {
     [Fact]
+    public async Task Declares_support_for_blur_on_web()
+    {
+        await using var web = await StartAsync();
+        Assert.Contains("blur", web.ActionKinds);
+    }
+
+    [Fact]
     public async Task Returns_a_live_surface_for_a_playwright_handle_and_undefined_for_a_foreign_one()
     {
         await using var web = await StartAsync();

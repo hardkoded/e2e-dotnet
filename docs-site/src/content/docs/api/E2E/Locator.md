@@ -70,6 +70,28 @@ Fails with `POLICY_DENIED` when any match is a secure field.
 
 **Returns:** [Task&lt;IReadOnlyList&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
+<a id="E2E_Locator_BlurAsync_"></a>
+<a id="E2E_Locator_BlurAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### BlurAsync(ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task BlurAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Removes focus from the matched node if it is focused.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Locator_BoundingBoxAsync_"></a>
 <a id="E2E_Locator_BoundingBoxAsync_System_Threading_CancellationToken_"></a>
 
