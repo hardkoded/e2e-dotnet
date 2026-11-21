@@ -275,7 +275,7 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
                     {
                         Id = item.TryGetProperty("call_id", out var id)
                             ? id.GetString() ?? "call"
-                            : "call_" + calls.Count,
+                            : ModelHttp.FallbackCallId(),
                         Name = item.GetProperty("name").GetString() ?? "",
                         Arguments = ModelHttp.Arguments(
                             item.TryGetProperty("arguments", out var arguments) ? arguments.GetString() : null

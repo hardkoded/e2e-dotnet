@@ -257,7 +257,7 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
                         Id =
                             call.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String
                                 ? id.GetString() ?? "call"
-                                : "call_" + calls.Count,
+                                : ModelHttp.FallbackCallId(),
                         Name = function.GetProperty("name").GetString() ?? "",
                         Arguments =
                             arguments.ValueKind == JsonValueKind.Object

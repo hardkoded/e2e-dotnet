@@ -53,8 +53,46 @@ Public types in the `E2E.Decision.Sdk` namespace.
 | [DownloadRequest](/api/E2E.Decision.Sdk/DownloadRequest/) | One URL a DownloadFunction is asked for (an element of the options array of upstream's DownloadFunction). |
 | [EvaluationDecisionModel](/api/E2E.Decision.Sdk/EvaluationDecisionModel/) | A decision model that also has the deprecated doEvaluate (upstream's DecisionModelV4 & { doEvaluate }, what asEvaluationModel returns). .NET-only: C# needs a named type for the intersection. |
 | [ExperimentalDecide](/api/E2E.Decision.Sdk/ExperimentalDecide/) | The AI SDK's experimental_decide (ai/src/decide/decide.ts) and its input and answer validation (validate-decision.ts), which the SDK keeps in its ai package and the port has no such package for. .NET-only home. |
+| [ExtractionUnsupportedFieldTypeException](/api/E2E.Decision.Sdk/ExtractionUnsupportedFieldTypeException/) | The AI SDK's Experimental_ExtractionUnsupportedFieldTypeError: the extraction model does not support the type of a requested field. |
 | [InvalidArgumentException](/api/E2E.Decision.Sdk/InvalidArgumentException/) | The AI SDK's InvalidArgumentError: a call argument the SDK rejects before any request. |
 | [InvalidResponseDataException](/api/E2E.Decision.Sdk/InvalidResponseDataException/) | The AI SDK's InvalidResponseDataError: the provider's answers break the contract of the questions. |
+| [JsonParseException](/api/E2E.Decision.Sdk/JsonParseException/) | The AI SDK's JSONParseError: text that is not valid JSON. |
+| [LanguageModelV4AssistantMessage](/api/E2E.Decision.Sdk/LanguageModelV4AssistantMessage/) | An assistant message: text, file, custom, reasoning, reasoning file, tool call, and tool result parts. |
+| [LanguageModelV4CallOptions](/api/E2E.Decision.Sdk/LanguageModelV4CallOptions/) | The AI SDK's LanguageModelV4CallOptions (language-model-v4-call-options.ts). Upstream's abortSignal is the CancellationToken of DoGenerateAsync and DoStreamAsync. |
+| [LanguageModelV4CustomPart](/api/E2E.Decision.Sdk/LanguageModelV4CustomPart/) | Provider-specific content part of a prompt, with no standardized payload beyond provider options. |
+| [LanguageModelV4FilePart](/api/E2E.Decision.Sdk/LanguageModelV4FilePart/) | File content part of a prompt. |
+| [LanguageModelV4FunctionTool](/api/E2E.Decision.Sdk/LanguageModelV4FunctionTool/) | A tool that has a name, a description, and a JSON schema for its input (LanguageModelV4FunctionTool). |
+| [LanguageModelV4GenerateResult](/api/E2E.Decision.Sdk/LanguageModelV4GenerateResult/) | The AI SDK's LanguageModelV4GenerateResult (language-model-v4-generate-result.ts) of the Gateway. The Gateway passes the response through z.any(), so Content, FinishReason, Usage, and ProviderMetadata are the JSON the Gateway sent, unvalidated, and any other member of the response is in AdditionalProperties. |
+| [LanguageModelV4Message](/api/E2E.Decision.Sdk/LanguageModelV4Message/) | The AI SDK's LanguageModelV4Message (language-model/v4/language-model-v4-prompt.ts). A prompt (LanguageModelV4Prompt) is a list of messages. This is not the user-facing prompt: it is the standardized format a language model takes. |
+| [LanguageModelV4PromptPart](/api/E2E.Decision.Sdk/LanguageModelV4PromptPart/) | A content part of a prompt message. |
+| [LanguageModelV4ProviderTool](/api/E2E.Decision.Sdk/LanguageModelV4ProviderTool/) | A tool that is built into a provider (LanguageModelV4ProviderTool). |
+| [LanguageModelV4ReasoningFilePart](/api/E2E.Decision.Sdk/LanguageModelV4ReasoningFilePart/) | Reasoning file content part of a prompt: a file generated as part of reasoning. |
+| [LanguageModelV4ReasoningPart](/api/E2E.Decision.Sdk/LanguageModelV4ReasoningPart/) | Reasoning content part of a prompt. |
+| [LanguageModelV4RequestMetadata](/api/E2E.Decision.Sdk/LanguageModelV4RequestMetadata/) | The request of a language model result: the request information, for telemetry and debugging. |
+| [LanguageModelV4ResponseFormat](/api/E2E.Decision.Sdk/LanguageModelV4ResponseFormat/) | The responseFormat of LanguageModelV4CallOptions: text, or JSON with an optional schema. |
+| [LanguageModelV4ResponseMetadata](/api/E2E.Decision.Sdk/LanguageModelV4ResponseMetadata/) | The AI SDK's LanguageModelV4ResponseMetadata (language-model-v4-response-metadata.ts) with the headers and body of a result's response. |
+| [LanguageModelV4StreamPart](/api/E2E.Decision.Sdk/LanguageModelV4StreamPart/) | The AI SDK's LanguageModelV4StreamPart (language-model-v4-stream-part.ts) of the Gateway. The Gateway passes each part through z.any(), so Json is the part as the Gateway sent it, unvalidated. |
+| [LanguageModelV4StreamResult](/api/E2E.Decision.Sdk/LanguageModelV4StreamResult/) | The AI SDK's LanguageModelV4StreamResult (language-model-v4-stream-result.ts). The stream owns the HTTP response: it is released when the stream is read to its end, when its enumeration is disposed, or when it fails. |
+| [LanguageModelV4SystemMessage](/api/E2E.Decision.Sdk/LanguageModelV4SystemMessage/) | A system message. |
+| [LanguageModelV4TextPart](/api/E2E.Decision.Sdk/LanguageModelV4TextPart/) | Text content part of a prompt. |
+| [LanguageModelV4Tool](/api/E2E.Decision.Sdk/LanguageModelV4Tool/) | A tool of a call: a LanguageModelV4FunctionTool or a LanguageModelV4ProviderTool. |
+| [LanguageModelV4ToolApprovalResponsePart](/api/E2E.Decision.Sdk/LanguageModelV4ToolApprovalResponsePart/) | Tool approval response content part of a prompt: the user's decision to approve or deny a provider-executed tool call. |
+| [LanguageModelV4ToolCallPart](/api/E2E.Decision.Sdk/LanguageModelV4ToolCallPart/) | Tool call content part of a prompt: a tool call, usually generated by the model. |
+| [LanguageModelV4ToolChoice](/api/E2E.Decision.Sdk/LanguageModelV4ToolChoice/) | How the tool is selected (LanguageModelV4ToolChoice): automatic, none, required, or a specific tool. |
+| [LanguageModelV4ToolMessage](/api/E2E.Decision.Sdk/LanguageModelV4ToolMessage/) | A tool message: tool result and tool approval response parts. |
+| [LanguageModelV4ToolResultContentCustom](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultContentCustom/) | Custom content, for provider-specific content parts. |
+| [LanguageModelV4ToolResultContentFile](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultContentFile/) | File content. |
+| [LanguageModelV4ToolResultContentPart](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultContentPart/) | A part of a LanguageModelV4ToolResultOutputContent. |
+| [LanguageModelV4ToolResultContentText](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultContentText/) | Text content. |
+| [LanguageModelV4ToolResultOutput](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultOutput/) | The AI SDK's LanguageModelV4ToolResultOutput: the result of a tool call. One of LanguageModelV4ToolResultOutputText, LanguageModelV4ToolResultOutputJson, LanguageModelV4ToolResultOutputExecutionDenied, LanguageModelV4ToolResultOutputErrorText, LanguageModelV4ToolResultOutputErrorJson, or LanguageModelV4ToolResultOutputContent. |
+| [LanguageModelV4ToolResultOutputContent](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultOutputContent/) | Tool output made of content parts: text, files, and custom content. |
+| [LanguageModelV4ToolResultOutputErrorJson](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultOutputErrorJson/) | A tool error as JSON. |
+| [LanguageModelV4ToolResultOutputErrorText](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultOutputErrorText/) | A tool error as text. |
+| [LanguageModelV4ToolResultOutputExecutionDenied](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultOutputExecutionDenied/) | The user denied the execution of the tool call. |
+| [LanguageModelV4ToolResultOutputJson](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultOutputJson/) | JSON tool output. |
+| [LanguageModelV4ToolResultOutputText](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultOutputText/) | Text tool output that is sent directly to the API. |
+| [LanguageModelV4ToolResultPart](/api/E2E.Decision.Sdk/LanguageModelV4ToolResultPart/) | Tool result content part of a prompt: the result of the tool call with the matching ID. |
+| [LanguageModelV4UserMessage](/api/E2E.Decision.Sdk/LanguageModelV4UserMessage/) | A user message: text and file parts. |
 | [LoadApiKeyException](/api/E2E.Decision.Sdk/LoadApiKeyException/) | The AI SDK's LoadAPIKeyError: the provider has no API key. |
 | [LogWarnings](/api/E2E.Decision.Sdk/LogWarnings/) | The AI SDK's logWarnings (logger/log-warnings.ts). |
 | [LogWarningsOptions](/api/E2E.Decision.Sdk/LogWarningsOptions/) | What the warning logger receives (the options of the AI SDK's LogWarningsFunction). |
@@ -71,6 +109,12 @@ Public types in the `E2E.Decision.Sdk` namespace.
 | [ProviderRegistry](/api/E2E.Decision.Sdk/ProviderRegistry/) | The AI SDK's createProviderRegistry and DefaultProviderRegistry (provider-registry.ts), for decision models. |
 | [ProviderRegistryOptions](/api/E2E.Decision.Sdk/ProviderRegistryOptions/) | The decision members of the options of the AI SDK's createProviderRegistry (ai/src/registry/provider-registry.ts). |
 | [ResolveModel](/api/E2E.Decision.Sdk/ResolveModel/) | The AI SDK's packages/ai/src/model/resolve-model.ts (resolveDecisionModel, asEvaluationModel). |
+| [SharedV4FileData](/api/E2E.Decision.Sdk/SharedV4FileData/) | The AI SDK's SharedV4FileData (shared/v4/shared-v4-file-data.ts): file data as a tagged union, a SharedV4FileDataData, SharedV4FileDataUrl, SharedV4FileDataReference, or SharedV4FileDataText. |
+| [SharedV4FileDataData](/api/E2E.Decision.Sdk/SharedV4FileDataData/) | File data holding raw bytes (upstream's Uint8Array) or a base64-encoded string. |
+| [SharedV4FileDataReference](/api/E2E.Decision.Sdk/SharedV4FileDataReference/) | File data holding a provider reference ({ [provider]: id }). |
+| [SharedV4FileDataText](/api/E2E.Decision.Sdk/SharedV4FileDataText/) | File data holding inline text content, such as an inline text document. |
+| [SharedV4FileDataUrl](/api/E2E.Decision.Sdk/SharedV4FileDataUrl/) | File data holding a URL that points to the file. |
+| [SharedV4Warning](/api/E2E.Decision.Sdk/SharedV4Warning/) | The AI SDK's SharedV4Warning (shared/v4/shared-v4-warning.ts): a warning from the model, for example that a feature is unsupported or that a compatibility mode is used. Type is unsupported, compatibility, deprecated, or other; the fields that type does not have are null. |
 | [TelemetryErrorEvent](/api/E2E.Decision.Sdk/TelemetryErrorEvent/) | The event a telemetry integration's OnErrorAsync(TelemetryErrorEvent) receives when the operation fails. |
 | [TelemetryEvent](/api/E2E.Decision.Sdk/TelemetryEvent/) | What a telemetry integration adds to every event it receives (the AI SDK's augmentEvent of create-telemetry-dispatcher.ts): the call's telemetry settings and the SDK version. Null on an event a caller's OnStart or OnEnd callback receives. |
 | [TelemetryOptions](/api/E2E.Decision.Sdk/TelemetryOptions/) | Telemetry configuration (the AI SDK's TelemetryOptions, telemetry/telemetry-options.ts). |
@@ -89,6 +133,7 @@ Public types in the `E2E.Decision.Sdk` namespace.
 | [IDecisionModel](/api/E2E.Decision.Sdk/IDecisionModel/) | A model that answers typed questions with probabilities (the AI SDK's Experimental_DecisionModelV4). Only specification version v4 is accepted. |
 | [IDecisionProvider](/api/E2E.Decision.Sdk/IDecisionProvider/) | A provider that creates decision models (the AI SDK's DecisionProvider, ai/src/decide/decision-provider.ts). Both members are optional, as upstream's: a provider overrides the ones it has. A member that is not overridden returns null. |
 | [IEvaluationModel](/api/E2E.Decision.Sdk/IEvaluationModel/) | A deprecated decision model shape (the AI SDK's Experimental_EvaluationModelV4): the same model with doEvaluate in place of doDecide. ResolveDecisionModel(IEvaluationModel) adapts it to an IDecisionModel. |
+| [ILanguageModelV4](/api/E2E.Decision.Sdk/ILanguageModelV4/) | The AI SDK's LanguageModelV4 (language-model/v4/language-model-v4.ts): a language model that implements the language model interface version 4. |
 | [IProviderRegistryProvider](/api/E2E.Decision.Sdk/IProviderRegistryProvider/) | The decision members of the AI SDK's ProviderRegistryProvider (provider-registry.ts): models by providerId:modelId. |
 | [ITelemetry](/api/E2E.Decision.Sdk/ITelemetry/) | A telemetry integration (the decide members of the AI SDK's Telemetry, telemetry/telemetry.ts). Every member does nothing by default, so an integration overrides the ones it listens to. |
 | [ITelemetryRedactable](/api/E2E.Decision.Sdk/ITelemetryRedactable/) | A value that carries a provider-owned telemetry view (the AI SDK's withTelemetryRedaction, provider-utils/src/telemetry-redaction.ts). .NET-only name: upstream attaches the view to an object with a symbol; a .NET type implements this interface instead. The original value is never changed. |

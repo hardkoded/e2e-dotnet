@@ -357,7 +357,7 @@ public sealed class BedrockModel : IAgentModel, IDisposable
                 calls.Add(
                     new ModelToolCall
                     {
-                        Id = use.GetProperty("toolUseId").GetString() ?? "call_" + calls.Count,
+                        Id = use.GetProperty("toolUseId").GetString() ?? ModelHttp.FallbackCallId(),
                         Name = use.GetProperty("name").GetString() ?? "",
                         Arguments =
                             use.TryGetProperty("input", out var input) && input.ValueKind == JsonValueKind.Object
