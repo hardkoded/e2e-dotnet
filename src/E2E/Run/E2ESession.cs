@@ -791,6 +791,8 @@ public sealed class E2ESession : IAsyncDisposable
             return;
         }
 
+        // The new member's body ends on its own: what it leaves running on the guests it opened is abandoned at its first settle, as the first member's was.
+        Interlocked.Exchange(ref _bodyEnded, 0);
         var previous = _published;
         Attempts.Reserve();
         _published = Attempts.PublishAttempt(_publishedAttempt);

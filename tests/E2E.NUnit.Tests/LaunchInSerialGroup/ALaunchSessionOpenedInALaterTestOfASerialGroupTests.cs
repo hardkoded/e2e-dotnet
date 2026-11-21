@@ -48,4 +48,26 @@ public sealed class ALaunchSessionOpenedInALaterTestOfASerialGroupTests : E2ETes
 
         Assert.That(CurrentSession!.StepRecords.Select(step => step.Actor), Does.Contain("launch-1"));
     }
+
+    [Test, DependsOnTest(nameof(Records_the_steps_of_a_session_launched_in_the_second_test))]
+    public async Task Abandons_what_the_third_test_left_running_on_a_host_it_launched()
+    {
+        var host = await Launch.LaunchAsync(
+            new WebEngine(new WebEngineOptions()),
+            new LaunchOptions { App = new LaunchApp { Url = E2E.Playground.Testbed.Url } }
+        );
+        var pending = host.NewSessionAsync();
+        try
+        {
+            // The earlier members already settled once; this member's body ends at its own first settle.
+            var error = await Assert.ThrowsAsync<TestException>(() => CurrentSession!.SettleAttemptAsync());
+            Assert.That(error!.Code, Is.EqualTo("STEP_NOT_AWAITED"));
+        }
+        finally
+        {
+            await CurrentSession!.QuiesceGuestsAsync();
+            await pending.ContinueWith(_ => { }, TaskScheduler.Default);
+            await host.CloseAsync();
+        }
+    }
 }
