@@ -7,6 +7,15 @@ import { Aside } from '@astrojs/starlight/components';
 
 `Launch.LaunchAsync` drives a browser or an iOS or Android app from plain code. It uses the e2e engines, `Screen`, and `App`, without a test framework: there is no config file, no report, and no `Expect`. Use it for scripts, automation, scrapers, and bots. This page ports upstream's `docs/core.mdx` (`@e2e-dev/core`); the .NET library is one package, so there is nothing separate to install.
 
+## When to use it
+
+| You want to | Use |
+| --- | --- |
+| Write tests and run them locally and in CI, with reports | `E2ETest` from `E2E.NUnit` or `E2E.XUnit.V3`. |
+| Give a coding agent a live session on your app | `e2e mcp`. |
+| Drive an app from your own program: a script, a scraper, a bot, test data setup | `Launch.LaunchAsync`. |
+| Open a second browser or device inside a test | `Launch.LaunchAsync`. See [Open a host inside a test](#open-a-host-inside-a-test). |
+
 ## Drive a browser
 
 `Launch.LaunchAsync` prepares an engine and returns a `Host`. A `Session` is one isolated browser context on that host, and it holds `Screen`, `App`, `Platform`, and `Browser`. An engine that contributes fixtures (`IEngine<TFixtures>`, such as `MobileEngine` with `MobileFixtures`) makes `LaunchAsync` return a `Host<TFixtures>` whose sessions are `Session<TFixtures>`: `session.Fixtures.Device` is the device fixture. `WebEngine` is one too (`WebFixtures`): `session.Fixtures.Browser` is the browser fixture, and `session.Fixtures.App` is a `WebApp`, the `App` with `BaseUrl` always set, since a web target always declares `app.url`.
@@ -150,6 +159,7 @@ The test's report covers the session:
 | Steps | Each step of the session, under `launch-1`, `launch-2`, in the order the test opened the sessions, among the test's own. `ReportStep.Actor` names the session; it is null for the test's own steps. |
 | Model usage | Counted with the test's. |
 | Video | Kept beside the test's when the test records one, as `video/launch-1.webm`; `ArtifactRecord.Actor` names the session. The session must be opened inside the test. |
+| Secrets | The host redacts the secrets of its own `LaunchOptions.Secrets` and, in a test, the ones the run's config declares; the test's report redacts the host's until the test ends. |
 | A host or session the test opened | Closed when the test ends, if still open. A host or session opened outside every test, at the top of a file or in a fixture, is left open, and its steps are recorded in each test that uses it. |
 | A step left running | Fails the test with `STEP_NOT_AWAITED`, and its session is closed. So does a `NewSessionAsync` or `LaunchAsync` call the test did not await. |
 
@@ -168,7 +178,7 @@ await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptio
 await session.Screen.GetByLabel("Password").FillAsync(shop.Secret("SHOP_PASSWORD"));
 ```
 
-A value is at least 6 characters. It never appears in the errors a session throws, in `Screen.TreeAsync()`, or in what the agent reads. A read your code asks for, such as `TextContentAsync()`, returns the page's text as it is. An exported state holds the values the session knew, encrypted, so a host launched without them still redacts them. `Host.Secret` with a name that was not passed throws `SECRET_UNAVAILABLE`.
+Every session in the program redacts the values of every host open in it. A value is at least 6 characters. It never appears in the errors a session throws, including their `Details`, in `Screen.TreeAsync()`, or in what the agent reads. A read your code asks for, such as `TextContentAsync()`, returns the page's text as it is. An exported state holds the values the session knew, encrypted, so a host launched without them still redacts them. `Host.Secret` with a name that was not passed throws `SECRET_UNAVAILABLE`.
 
 ## Handle errors
 
