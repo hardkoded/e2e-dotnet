@@ -304,7 +304,7 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
                     calls.Add(
                         new ModelToolCall
                         {
-                            Id = block.GetProperty("id").GetString() ?? "call_" + calls.Count,
+                            Id = block.GetProperty("id").GetString() ?? ModelHttp.FallbackCallId(),
                             Name = block.GetProperty("name").GetString() ?? "",
                             Arguments =
                                 block.TryGetProperty("input", out var input) && input.ValueKind == JsonValueKind.Object

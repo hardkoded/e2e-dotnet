@@ -40,6 +40,24 @@ public UnsupportedFunctionalityException(string functionality)
 ```
 
 
+Keeps the one-argument signature of earlier versions.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `functionality` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+<a id="E2E_Decision_Sdk_UnsupportedFunctionalityException__ctor_System_String_System_String_"></a>
+
+### UnsupportedFunctionalityException(string, string?)
+
+
+```csharp
+public UnsupportedFunctionalityException(string functionality, string? message = null)
+```
+
+
 The AI SDK's `UnsupportedFunctionalityError`: the provider cannot take an input, such as a file of an unsupported media type.
 
 **Parameters**
@@ -47,6 +65,7 @@ The AI SDK's `UnsupportedFunctionalityError`: the provider cannot take an input,
 | Name | Type | Description |
 | --- | --- | --- |
 | `functionality` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 ## Properties
 

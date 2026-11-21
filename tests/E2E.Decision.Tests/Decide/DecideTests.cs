@@ -106,6 +106,7 @@ public sealed class DecideTests
         Assert.Equal("value", call.Headers["custom"]);
         Assert.Contains("ai/", call.Headers["user-agent"]);
         Assert.Equal("""{"option":true}""", call.ProviderOptions!["test"].GetRawText());
+        Assert.Equal(cancellation.Token, call.AbortSignal);
         Assert.Equal(AnswerMap, result.Answers);
         Assert.Equal(30, result.Usage.InputTokens);
         Assert.Equal(4, result.Usage.OutputTokens);

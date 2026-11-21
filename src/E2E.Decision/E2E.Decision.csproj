@@ -11,7 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\E2E\E2E.csproj" />
     <PackageReference Include="TypeSafe.AI.Sdk" Version="0.7.2" />
-    <PackageReference Include="Vercel.Oidc" Version="0.1.0" />
+    <PackageReference Include="Vercel.AI" Version="0.3.0" />
     <None Include="README.md" Pack="true" PackagePath="\" />
     <InternalsVisibleTo Include="E2E.Decision.Tests" />
   </ItemGroup>

@@ -616,7 +616,12 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             WebSession? session = null;
             try
             {
-                await RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
+                // A local launch registers them in its connection's acquire.
+                if (connect is not null)
+                {
+                    await BrowserConnection.RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
+                }
+
                 var credentials = _options.BasicAuth is { } basicAuth
                     ? await HttpCredentialsAsync(
                             basicAuth,
@@ -649,8 +654,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 }
                 else
                 {
-                    browser = await LaunchLocal(
-                            playwright,
+                    // The session owns the connection's browser and driver, and closes both when it ends.
+                    browser = await new BrowserConnection(playwright, LaunchLocal)
+                        .AcquireAsync(
                             new BrowserAcquireOptions
                             {
                                 Name = _options.BrowserName,
@@ -732,20 +738,6 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 "browser launch failed: " + WebErrors.Message(ex),
                 ex
             );
-        }
-    }
-
-    /// <summary>
-    /// Registers the engine's selector engines before any context exists, so every context the driver creates carries
-    /// them. Every locator and secure-field mask needs them.
-    /// </summary>
-    private static async Task RegisterSelectorEnginesAsync(IPlaywright playwright)
-    {
-        foreach (var (name, source) in SelectorEngines.All)
-        {
-            await playwright
-                .Selectors.RegisterAsync(name, new SelectorsRegisterOptions { Script = "(" + source + ")()" })
-                .ConfigureAwait(false);
         }
     }
 
@@ -4871,7 +4863,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             SessionBinding binding;
             try
             {
-                await RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
+                await BrowserConnection.RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
 
                 // As upstream, attaching a persistent attempt has the browser launch budget.
                 binding = await AttachWithinAsync(

@@ -91,8 +91,8 @@ public bool? ChromiumSandbox { get; init; }
 ```
 
 
-Whether a locally launched Chromium runs with its OS sandbox on; default `true` on macOS and Windows,
-`false` on Linux. A browser reached through [Connect](#E2E_Engine_WebEngineOptions_Connect) or [Browser](#E2E_Engine_WebEngineOptions_Browser) is launched by its host,
+Whether a locally launched Chromium runs with its OS sandbox on; default &lt;a href="https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/bool"&gt;true&lt;/a&gt; on macOS and Windows,
+&lt;a href="https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/bool"&gt;false&lt;/a&gt; on Linux. A browser reached through [Connect](#E2E_Engine_WebEngineOptions_Connect) or [Browser](#E2E_Engine_WebEngineOptions_Browser) is launched by its host,
 and Firefox and WebKit have no such option, so none of them read it.
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)

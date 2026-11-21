@@ -255,6 +255,9 @@ public sealed class DecisionModelCall
 
     /// <summary>The provider options, keyed by provider name. Each value is a JSON object.</summary>
     public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
+
+    /// <summary>The caller's cancellation token (upstream's <c>abortSignal</c>).</summary>
+    public CancellationToken AbortSignal { get; init; }
 }
 
 /// <summary>

@@ -34,7 +34,7 @@ Settings come from [E2EFixture](/api/E2E/E2EFixture/).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [E2EFixture](/api/E2E/E2EFixture/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ETest.cs)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs)
 
 ## Methods
 
