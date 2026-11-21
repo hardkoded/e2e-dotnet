@@ -365,7 +365,7 @@ public static class ExperimentalDecide
                     continue;
                 }
 
-                if (error is Gateway.GatewayException { IsRetryable: true })
+                if (error is Vercel.AI.Gateway.GatewayError { IsRetryable: true })
                 {
                     await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
                     backoff *= RetryBackoffFactor;
@@ -396,7 +396,8 @@ public static class ExperimentalDecide
             error switch
             {
                 ApiCallException => "AI_APICallError",
-                Gateway.GatewayException gateway => gateway.Name,
+                // The error's name, as upstream's getErrorMessage prints it: a Gateway error class is named as upstream's.
+                Vercel.AI.Gateway.GatewayError gateway => gateway.GetType().Name,
                 _ => "Error",
             }
         )

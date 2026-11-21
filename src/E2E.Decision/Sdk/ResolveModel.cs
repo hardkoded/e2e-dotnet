@@ -32,7 +32,7 @@ public static class ResolveModel
     public static IDecisionModel ResolveDecisionModel(string modelId)
     {
         ArgumentNullException.ThrowIfNull(modelId);
-        var provider = AiSdkDefaultProvider ?? new GatewayProvider();
+        var provider = AiSdkDefaultProvider ?? new GatewayDecisionProvider();
         return provider.ResolveDecisionModel(modelId) ?? throw new NoSuchModelException(modelId, "decisionModel");
     }
 
