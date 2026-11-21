@@ -22,7 +22,7 @@ public interface IEvaluationModel
 A deprecated decision model shape (the AI SDK's `Experimental_EvaluationModelV4`): the same model with `doEvaluate` in place
 of `doDecide`. [ResolveDecisionModel(IEvaluationModel)](/api/E2E.Decision.Sdk/ResolveModel/#E2E_Decision_Sdk_ResolveModel_ResolveDecisionModel_E2E_Decision_Sdk_IEvaluationModel_) adapts it to an [IDecisionModel](/api/E2E.Decision.Sdk/IDecisionModel/).
 
-**Derived:** [EvaluationDecisionModel](/api/E2E.Decision.Sdk/EvaluationDecisionModel/), [GatewayDecisionModel](/api/E2E.Decision.Sdk.Gateway/GatewayDecisionModel/), [DecisionTypeSafeAiModel](/api/E2E.Decision.Sdk.TypeSafeAi/DecisionTypeSafeAiModel/)
+**Derived:** [EvaluationDecisionModel](/api/E2E.Decision.Sdk/EvaluationDecisionModel/), [DecisionTypeSafeAiModel](/api/E2E.Decision.Sdk.TypeSafeAi/DecisionTypeSafeAiModel/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.Decision/Sdk/DecisionTypes.cs)
 

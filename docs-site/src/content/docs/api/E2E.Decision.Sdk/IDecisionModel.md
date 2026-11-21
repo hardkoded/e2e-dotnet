@@ -22,7 +22,7 @@ public interface IDecisionModel
 A model that answers typed questions with probabilities (the AI SDK's `Experimental_DecisionModelV4`). Only
 specification version `v4` is accepted.
 
-**Derived:** [EvaluationDecisionModel](/api/E2E.Decision.Sdk/EvaluationDecisionModel/), [GatewayDecisionModel](/api/E2E.Decision.Sdk.Gateway/GatewayDecisionModel/), [OpenAIDecisionModel](/api/E2E.Decision.Sdk/OpenAIDecisionModel/), [DecisionTypeSafeAiModel](/api/E2E.Decision.Sdk.TypeSafeAi/DecisionTypeSafeAiModel/)
+**Derived:** [EvaluationDecisionModel](/api/E2E.Decision.Sdk/EvaluationDecisionModel/), [OpenAIDecisionModel](/api/E2E.Decision.Sdk/OpenAIDecisionModel/), [DecisionTypeSafeAiModel](/api/E2E.Decision.Sdk.TypeSafeAi/DecisionTypeSafeAiModel/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.Decision/Sdk/DecisionTypes.cs)
 

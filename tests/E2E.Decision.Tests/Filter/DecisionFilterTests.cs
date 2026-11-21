@@ -1341,7 +1341,7 @@ public sealed class DecisionFilterTests : IDisposable
     public void Accepts_the_AI_Gateways_typesafe_ai_jev() =>
         Assert.Equal(
             "decision",
-            Filter(new E2E.Decision.Sdk.Gateway.GatewayProvider().DecisionModel("typesafe-ai/jev")).Name
+            Filter(new E2E.Decision.Sdk.Gateway.GatewayDecisionProvider().DecisionModel("typesafe-ai/jev")!).Name
         );
 
     [Fact]

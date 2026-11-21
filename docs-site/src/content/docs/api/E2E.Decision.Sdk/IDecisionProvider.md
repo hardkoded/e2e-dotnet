@@ -22,7 +22,7 @@ public interface IDecisionProvider
 A provider that creates decision models (the AI SDK's `DecisionProvider`, `ai/src/decide/decision-provider.ts`). Both members
 are optional, as upstream's: a provider overrides the ones it has. A member that is not overridden returns null.
 
-**Derived:** [CustomProvider](/api/E2E.Decision.Sdk/CustomProvider/), [GatewayProvider](/api/E2E.Decision.Sdk.Gateway/GatewayProvider/)
+**Derived:** [CustomProvider](/api/E2E.Decision.Sdk/CustomProvider/), [GatewayDecisionProvider](/api/E2E.Decision.Sdk.Gateway/GatewayDecisionProvider/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.Decision/Sdk/DecisionProvider.cs)
 

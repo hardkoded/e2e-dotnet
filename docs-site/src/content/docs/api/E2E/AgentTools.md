@@ -34,7 +34,7 @@ The built-in agent's tool vocabulary (upstream's `agent/primitives.ts`). `Create
 
 
 ```csharp
-public const string VerdictRules = "Finish with complete_step when the step's goal is achieved, or you are certain it cannot be. complete_step status is passed, failed, or blocked. blocked means credentials, the environment, or test setup prevented a verdict, and requires an errorCode."
+public const string VerdictRules = "Finish with complete_step when the step's goal is achieved, or you are certain it cannot be. Conclude from the newest screen and changes already in this conversation; never guess success. Observe again before concluding only when the newest result shows work still in progress (a spinner, \"Saving…\", a pending state), or when a press that commits something (a save, a submit, a delete) showed no confirmation. complete_step status is passed, failed, or blocked. blocked means credentials, the environment, or test setup prevented a verdict, and requires an errorCode."
 ```
 
 
