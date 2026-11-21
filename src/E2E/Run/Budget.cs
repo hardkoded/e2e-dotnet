@@ -147,7 +147,10 @@ internal sealed class AttemptTimeout(
         {
             lock (_gate)
             {
-                return clock.GetUtcNow() - _startedAt >= _current;
+                // A timeout that is zero or infinite never elapses, as the session's own timer is not armed for it.
+                return _current > TimeSpan.Zero
+                    && _current != System.Threading.Timeout.InfiniteTimeSpan
+                    && clock.GetUtcNow() - _startedAt >= _current;
             }
         }
     }
