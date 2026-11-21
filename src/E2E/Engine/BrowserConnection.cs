@@ -280,7 +280,10 @@ internal sealed class BrowserConnection(
 #pragma warning disable CA1031 // Disposal still owns a failed or abandoned launch.
         catch (Exception)
 #pragma warning restore CA1031
-        { }
+        {
+            // Nothing is left to close: a launch that failed never produced a browser.
+            pending = null;
+        }
     }
 
     private async Task<IBrowser> LaunchAsync(BrowserAcquireOptions options)
