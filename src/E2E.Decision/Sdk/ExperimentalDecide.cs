@@ -185,6 +185,7 @@ public static class ExperimentalDecide
                                                 "ai/" + TelemetryDispatcher.AiVersion
                                             ),
                                             ProviderOptions = options.ProviderOptions,
+                                            AbortSignal = cancellationToken,
                                         },
                                         cancellationToken
                                     )

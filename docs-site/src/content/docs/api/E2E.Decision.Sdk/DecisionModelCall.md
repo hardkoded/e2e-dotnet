@@ -27,6 +27,21 @@ What [DecisionModelCall](./) hands a decision model (the AI SDK's `DecisionModel
 
 ## Properties
 
+<a id="E2E_Decision_Sdk_DecisionModelCall_AbortSignal_"></a>
+<a id="E2E_Decision_Sdk_DecisionModelCall_AbortSignal"></a>
+
+### AbortSignal
+
+
+```csharp
+public CancellationToken AbortSignal { get; init; }
+```
+
+
+The caller's cancellation token (upstream's `abortSignal`).
+
+**Value:** [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken)
+
 <a id="E2E_Decision_Sdk_DecisionModelCall_Headers_"></a>
 <a id="E2E_Decision_Sdk_DecisionModelCall_Headers"></a>
 
