@@ -91,8 +91,19 @@ internal sealed class WorkerFixturePool
             });
             // A fixture whose setup failed is never torn down, so nothing else would observe its failure.
             _ = run.ContinueWith(static task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
-            await provided.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
-            _running.Add((fixture, release, run));
+            // Kept from now on: a run cancelled while the setup is pending still releases it, and a late use() is handed over to the teardown.
+            var entry = (fixture, release, run);
+            _running.Add(entry);
+            try
+            {
+                await provided.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception) when (provided.Task.IsFaulted)
+            {
+                // A setup that failed is never torn down.
+                _running.Remove(entry);
+                throw;
+            }
         }
     }
 
