@@ -4,6 +4,7 @@
 
 using System.Text.Json.Nodes;
 using E2E.NUnit.Tests.SkipAfterFailure;
+using E2E.Reports;
 using NUnit.Framework.Interfaces;
 
 namespace E2E.NUnit.Tests.ExpectedFailure;
@@ -12,7 +13,7 @@ namespace E2E.NUnit.Tests.ExpectedFailure;
 /// <c>describe('test.fail')</c> of upstream's <c>tests/integration/expected-failure.test.ts</c>, whose tests run the CLI over a project. These run
 /// the fixtures through NUnit, with <c>[Property("E2E.Fail", reason)]</c> for the <c>fail</c> option and a property set in the body for
 /// <c>test.fail(...)</c>, then read the <c>report.json</c> the run wrote (the schema-checked <c>run.results</c>, <c>summary</c>, and <c>exitCode</c>).
-/// Each test is <c>Partial_</c> for what the port cannot check yet: the first leaves out the JUnit text (the port has no JUnit report); the hook test leaves out the
+/// Each test but the first is <c>Partial_</c> for what the port cannot check yet: the hook test leaves out the
 /// <c>secondaryErrors</c> of the afterEach refusal (the adapter does not report a failed <c>[TearDown]</c> as a secondary error); the retry test leaves out
 /// "retries an unexpected pass" (NUnit decides a <c>[Retry]</c> from the body's result, before the teardown settles the mark, so an unexpected pass runs once)
 /// and "passes once, then fails as expected" (it needs that retry); the rejection test leaves out the <c>COLLECTION_ERROR</c> run error (the port throws
@@ -28,7 +29,7 @@ public sealed class TestFailTests
     public void RemoveResults() => ExpectedFailureResults.Clear();
 
     [Test]
-    public void Partial_passes_a_marked_test_that_fails_fails_one_that_passes_and_keeps_the_reason_and_error_in_the_report()
+    public void Passes_a_marked_test_that_fails_fails_one_that_passes_and_keeps_the_reason_and_error_in_the_report()
     {
         string[] tests =
         [
@@ -139,6 +140,10 @@ public sealed class TestFailTests
         Assert.That((int)run["summary"]!["failed"]!, Is.EqualTo(3));
         Assert.That((int)run["summary"]!["skipped"]!, Is.EqualTo(1));
         Assert.That((int)run["exitCode"]!, Is.EqualTo(3));
+
+        var junit = JunitReport.RenderJunitReport(ReportSerializer.Read(report.AsObject()));
+        Assert.That(junit, Does.Contain("failed as expected: known gap"));
+        Assert.That(junit, Does.Contain("type=\"UNEXPECTED_PASS\""));
     }
 
     [Test]

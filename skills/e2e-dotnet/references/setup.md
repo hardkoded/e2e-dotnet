@@ -244,6 +244,11 @@ and in CI.
   constructor is needed). Two
   processes, such as `dotnet test` and `e2e mcp`, still start one app each:
   give a shared app a fixed port and `reuseExisting`.
+- JUnit. `E2E.Reports.JunitReporter` is upstream's `junit()` reporter: list `"E2E.Reports.JunitReporter"` (or `{ "type": "E2E.Reports.JunitReporter", "options": { "outputFile": "ci/junit.xml" } }`) and it writes
+  `junit.xml` beside `report.json`, or `outputFile` from the project root, atomically, when the run ends; it writes nothing when the report was not written. The
+  file has a `<testsuite>` per test file, a `<testcase>` per test and target, a `run` suite for run-level errors, `failed as expected: <reason>` in `<system-out>` for a
+  `test.fail` pass, and `[[ATTACHMENT|<path>]]` for a failure screenshot when the artifacts are below `CI_PROJECT_DIR` (else the project root). `JunitReport.RenderJunitReport(Report, JunitReportOptions?)`
+  renders the text alone.
 - Reporters. `reporters` in `e2e.config.json` lists `E2E.Reports.Reporter`
   types (public constructor with no parameters), run in config order:
   `"reporters": ["MyApp.Tests.UploadReporter, MyApp.Tests"]`. An entry is a

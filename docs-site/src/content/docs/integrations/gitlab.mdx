@@ -48,7 +48,7 @@ e2e:
 
 - The rules are on the job, not in a `workflow:` block, so the same job works in a pipeline of its own or [beside your other jobs](#add-it-to-an-existing-pipeline).
 - GitLab caches only paths inside the project, so `PLAYWRIGHT_BROWSERS_PATH` moves the browsers there. The cache keeps them until a project file changes.
-- The `junit` logger is the [JunitXml.TestLogger](https://github.com/spekt/junit.testlogger) package, which you add to the test project. The port has no JUnit reporter of its own: `dotnet test` writes the report. With it, `reports: junit` shows the results in the merge request widget and on the pipeline's **Tests** tab. `when: always` keeps the reports when a test fails too.
+- The `junit` logger is the [JunitXml.TestLogger](https://github.com/spekt/junit.testlogger) package, which you add to the test project. `dotnet test` writes this report. The run's own `E2E.Reports.JunitReporter` (see the Reporters guide) writes the same kind of file from `report.json`, with the failure screenshots attached. With it, `reports: junit` shows the results in the merge request widget and on the pipeline's **Tests** tab. `when: always` keeps the reports when a test fails too.
 - Make the app's command listen on `127.0.0.1`, the host `APP_URL` names. In the container, a dev server that listens on `localhost` can bind only `::1`, and the run fails with `APP_UNREACHABLE`.
 - On GitLab.com, a new account must verify its identity before hosted runners take its jobs. Until then, each pipeline fails without starting a job.
 

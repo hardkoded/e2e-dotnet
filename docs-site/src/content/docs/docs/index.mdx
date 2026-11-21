@@ -63,6 +63,18 @@ The run ends when the run fixture is torn down (`E2ERunFixture`, see the setup r
 
 A reporter can also watch the run as it happens. Override `OnEvent(RunEvent)`: it gets `RunStartedEvent`, `PlanEvent`, `NoticeEvent`, `SetupEvent`, `TestStartedEvent`, `StepProgressEvent`, `OutputEvent`, `TestFinishedEvent`, `ExploreEvent`, `RunErrorEvent`, and `RunFinishedEvent`, each in a `RunEvent` with a `Seq` and an `At` time. `StepProgressEvent.Progress.Identity.Actor` names the session a step ran on when it is not the test's own: one the test opened with [`Launch.LaunchAsync`](/docs/core/#open-a-host-inside-a-test), as `launch-1`. Events arrive in `Seq` order, from any thread, so keep `OnEvent` quick and do not throw: a throw is one line on standard error, and that reporter gets no more events. A test that retries emits a start and a finish for each attempt. The port defines `OutputEvent` (a test's console output) but does not emit it, and emits no serial groups. An exploration (`Explore.ExploreAsync`) emits a `RunStartedEvent`, a `PlanEvent` of its one test, and an `ExploreEvent` for each of its moments, beside the events of that test. `e2e explore` prints them through the list reporter, as upstream's `e2e explore` does: the `RUN` header, each finding and step as it happens, then the `Findings` section, the `Assessment`, and the summary rows (`Findings`, `Steps`, `AI`, `Start at`, `Duration`). It has no live window.
 
+### Writing the report as JUnit XML
+
+`E2E.Reports.JunitReporter` (upstream's `junit()` reporter) writes the report as JUnit XML in `junit.xml` beside `report.json`, for the test summary of a CI service. List it in `reporters`:
+
+```json
+{ "reporters": ["E2E.Reports.JunitReporter"] }
+```
+
+The file has one `<testsuite>` per test file, one `<testcase>` per test and target, and a `run` suite with one `<error>` case for each run-level error, such as `APP_UNREACHABLE`. A test a test filter left out is a skipped case that names the filter. A test marked expected to fail whose failure the mark covered passes, with `failed as expected: <reason>` in its `<system-out>`; one that passed fails with `type="UNEXPECTED_PASS"`. A `<failure>` is a failure of the product, and an `<error>` is anything else that stopped a verdict. A test the run stopped is a skipped case, since JUnit has no interrupted outcome. When the artifacts sit below `CI_PROJECT_DIR` (or the project root), a failure screenshot adds `[[ATTACHMENT|<path>]]` to `<system-out>`, which GitLab shows in its test report. The reporter writes nothing when `report.json` was not written. `options.outputFile`, a path from the project root, replaces `junit.xml`; it cannot be `report.json`.
+
+To render the XML yourself, call `JunitReport.RenderJunitReport(run.Report, new JunitReportOptions { ArtifactsDir = ... })`. It reads only the public `Report` and returns the text; it writes no file.
+
 ### Rendering the report as markdown
 
 `MarkdownReport.RenderMarkdownReport` turns the report a reporter receives into one markdown page, for a pull request comment or a job summary (upstream's `renderMarkdownReport`). The page has a headline with the counts and what the run spent, a block for each failed test with the step it went wrong at and the line to look at, the flaky tests and what the test filters left out folded away, and every test as one table. A green run is the headline, the folds, and a footer.
