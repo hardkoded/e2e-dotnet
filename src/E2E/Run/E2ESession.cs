@@ -17,9 +17,6 @@ namespace E2E;
 /// </summary>
 public sealed class E2ESession : IAsyncDisposable
 {
-    /// <summary>The largest timer a timeout can ask for, in milliseconds (upstream's <c>MAX_TIMER_MS</c>, <c>internal/time.ts</c>).</summary>
-    private const long MaxTimerMs = 2147483647;
-
     private readonly AttemptScope _scope;
     private readonly CancellationTokenSource _timeout;
     private readonly AttemptBudget _budget;
@@ -1000,63 +997,21 @@ public sealed class E2ESession : IAsyncDisposable
         Browser.BudgetDeadline = deadline;
     }
 
+    /// <summary>Whether this session is a hosted one, which runs no e2e test (see <see cref="Host"/>).</summary>
+    internal bool IsHosted => _hostedClose is not null;
+
     /// <summary>
-    /// Gives the running test a timeout of <paramref name="timeout"/>, counted from the start of its attempt (upstream's <c>setRunningTestTimeout</c>,
-    /// <c>test.setTimeout</c>). <paramref name="late"/> is set once the test body returned: what runs after it is teardown, on the cleanup timeout.
-    /// A timeout that is not a positive whole number of milliseconds, or above 2147483647, a hosted session (it runs no test), a teardown, and
-    /// code the test left running after its timeout fired or its attempt ended are test errors, <c>INVALID_ARGUMENT</c>.
+    /// What upstream's <c>phase !== 'beforeEach' &amp;&amp; phase !== 'body'</c> check (<c>run/execute.ts</c>) reads: the teardown budget was entered, so the
+    /// body and its hooks are over. .NET-only: the port has no <c>phase</c> variable, as the test framework runs the phases.
     /// </summary>
-    internal void SetRunningTestTimeout(TimeSpan timeout, bool late = false)
-    {
-        var milliseconds = timeout.TotalMilliseconds;
-        if (timeout <= TimeSpan.Zero || timeout.Ticks % TimeSpan.TicksPerMillisecond != 0)
-        {
-            throw new TestException(
-                "INVALID_ARGUMENT",
-                "SetTimeout() timeout must be a positive whole number of milliseconds, got "
-                    + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)
-            );
-        }
+    internal bool InTeardown => Volatile.Read(ref _teardown) != 0;
 
-        if (milliseconds > MaxTimerMs)
-        {
-            throw new TestException(
-                "INVALID_ARGUMENT",
-                "SetTimeout() timeout must be at most "
-                    + MaxTimerMs.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    + " milliseconds, got "
-                    + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)
-            );
-        }
-
-        if (_hostedClose is not null)
-        {
-            throw new TestException(
-                "INVALID_ARGUMENT",
-                "SetTimeout() changes an e2e test's timeout, and a hosted session runs none: your test runner owns the test timeout, and a session's Timeout option sets the session deadline"
-            );
-        }
-
-        if (late || _attemptTimeout is null || Volatile.Read(ref _teardown) != 0)
-        {
-            throw LateTimeoutError();
-        }
-
-        if (Volatile.Read(ref _state) != 0 || !_attemptTimeout.Set(timeout))
-        {
-            throw new TestException(
-                "INVALID_ARGUMENT",
-                "SetTimeout() cannot change the timeout from code left running after its test ended: await the work the test starts"
-            );
-        }
-    }
-
-    /// <summary>The error for a timeout change from teardown, which runs on the cleanup timeout (upstream's <c>lateTimeoutError</c>).</summary>
-    internal static TestException LateTimeoutError(string from = "an afterEach hook or a fixture teardown") =>
-        new(
-            "INVALID_ARGUMENT",
-            $"SetTimeout() cannot change the timeout from {from}: teardown runs on CleanupTimeout, not the test timeout"
-        );
+    /// <summary>
+    /// Moves the attempt's timeout (upstream's <c>attempt.setTimeout</c>); false once the attempt ended or its timeout fired, and
+    /// where the session has no test timeout to move.
+    /// </summary>
+    internal bool TrySetTimeout(TimeSpan timeout) =>
+        Volatile.Read(ref _state) == 0 && _attemptTimeout is { } attemptTimeout && attemptTimeout.Set(timeout);
 
     /// <summary>
     /// Makes this session an upstream hosted one: <paramref name="close"/> is the owner's close, which ends it once through <see cref="EndAsync"/>

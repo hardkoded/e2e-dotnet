@@ -9,7 +9,7 @@ namespace E2E.Tests.OpenHostDeadline;
 /// <summary>
 /// Upstream's <c>describe('openHost: deadline')</c> (<c>tests/integration/open-host-deadline.test.ts</c>). Only the <c>it</c> tester-army/e2e#1921 adds is
 /// ported here; the others (hardkoded/e2e-dotnet#2002) are not yet. The <c>it</c> is <c>Partial_</c>: upstream calls the global <c>test.setTimeout</c>, which
-/// finds the session through <c>globalThis</c>; the port's <see cref="E2ESession.SetRunningTestTimeout"/> is the session's own, which the fixtures call.
+/// finds the session through <c>globalThis</c>; the port's <see cref="E2E.Internal.TestTimeout.SetRunningTestTimeout"/> takes the session, which the fixtures pass.
 /// </summary>
 public sealed class OpenHostDeadlineTests : IAsyncLifetime
 {
@@ -55,7 +55,7 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
             new OpenSessionOptions { Name = "hosted setTimeout", Timeout = TimeSpan.FromSeconds(5) }
         );
 
-        var refused = Assert.Throws<TestException>(() => session.SetRunningTestTimeout(TimeSpan.FromSeconds(60)));
+        var refused = Assert.Throws<TestException>(() => E2E.Internal.TestTimeout.SetRunningTestTimeout(session, TimeSpan.FromSeconds(60)));
         Assert.Equal("INVALID_ARGUMENT", refused.Code);
         Assert.Contains("a hosted session runs none", refused.Message);
         Assert.Empty(await session.CloseAsync());
