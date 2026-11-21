@@ -6,11 +6,20 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using E2E.Internal;
 
 namespace E2E.Tests;
 
 public sealed class ModelProviderTests
 {
+    [Fact]
+    public void Fallback_tool_call_ids_are_unique_across_turns()
+    {
+        var ids = Enumerable.Range(0, 100).Select(_ => ModelHttp.FallbackCallId()).ToHashSet();
+
+        Assert.Equal(100, ids.Count);
+    }
+
     [Fact]
     public async Task Responses_model_sends_the_conversation_without_storage_and_reads_function_calls()
     {

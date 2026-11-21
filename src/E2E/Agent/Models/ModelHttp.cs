@@ -517,6 +517,12 @@ internal static class ModelHttp
     }
 
     /// <summary>
+    /// A fallback tool-call id for a server that sends none. The loop guard keeps what each look showed by call id, so the id
+    /// is unique across turns, as the ids the AI SDK generates upstream are.
+    /// </summary>
+    public static string FallbackCallId() => "call_" + Guid.NewGuid().ToString("N");
+
+    /// <summary>
     /// Tool arguments as a JSON element; an empty string is an empty object. Text that is not valid JSON, such as a
     /// truncated answer, comes back as a JSON string of that text: the act loop fails that tool call and the model sees the
     /// failure, instead of the whole step ending on one bad call.
