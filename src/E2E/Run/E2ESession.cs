@@ -1508,7 +1508,8 @@ public sealed class E2ESession : IAsyncDisposable
                 trace.ResultsRoot,
                 _scope.Attempt,
                 kept,
-                _scope.Redactor.Redact
+                // Read the redactor at each call: a value another session learns later rebuilds it, and the report is redacted again with it.
+                text => _scope.Redactor.Redact(text)
             );
             // The document is a courtesy too: the page below is still written when it cannot be.
             try
