@@ -289,7 +289,11 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
                         Choice = choice.Choice,
                         Probabilities = new Dictionary<string, double>(choice.Probabilities),
                     };
-                    confidence[id] = choice.Confidence;
+                    if (choice.ReportedConfidence is { } choiceConfidence)
+                    {
+                        confidence[id] = choiceConfidence;
+                    }
+
                     break;
                 case TypeSafeSdk.ScoreAnswer score:
                     answers[id] = new DecisionAnswer
@@ -298,7 +302,11 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
                         Score = score.Score,
                         Probabilities = new Dictionary<string, double>(score.Probabilities),
                     };
-                    confidence[id] = score.Confidence;
+                    if (score.ReportedConfidence is { } scoreConfidence)
+                    {
+                        confidence[id] = scoreConfidence;
+                    }
+
                     if (score.Legend.Count > 0)
                     {
                         var levels = new JsonObject();
