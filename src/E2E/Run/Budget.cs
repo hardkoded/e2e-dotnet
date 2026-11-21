@@ -127,6 +127,16 @@ internal sealed class AttemptTimeout(
     private readonly DateTimeOffset _startedAt = clock.GetUtcNow();
     private readonly object _gate = new();
     private TimeSpan _current = timeout;
+    private bool _ended;
+
+    /// <summary>Ends this attempt's timeout: a later <see cref="Set"/> changes nothing (upstream's <c>ended</c>), as a serial member's does once the next one starts.</summary>
+    public void End()
+    {
+        lock (_gate)
+        {
+            _ended = true;
+        }
+    }
 
     /// <summary>The timeout in force: the one given, or what <see cref="Set"/> changed it to (upstream's <c>timeoutMs</c>).</summary>
     public TimeSpan Timeout
@@ -150,7 +160,7 @@ internal sealed class AttemptTimeout(
         var cancelNow = false;
         lock (_gate)
         {
-            if (test.IsCancellationRequested)
+            if (_ended || test.IsCancellationRequested)
             {
                 return false;
             }
