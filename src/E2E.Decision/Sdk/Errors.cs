@@ -20,6 +20,14 @@ public sealed class InvalidResponseDataException(string message, object? answers
     public object? Answers { get; } = answers;
 }
 
+/// <summary>The AI SDK's <c>JSONParseError</c>: text that is not valid JSON.</summary>
+public sealed class JsonParseException(string text, Exception cause)
+    : Exception("JSON parsing failed: Text: " + text + ".\nError message: " + cause.Message, cause)
+{
+    /// <summary>The text that failed to parse.</summary>
+    public string Text { get; } = text;
+}
+
 /// <summary>The AI SDK's <c>LoadAPIKeyError</c>: the provider has no API key.</summary>
 public sealed class LoadApiKeyException(string message) : Exception(message);
 
@@ -50,6 +58,36 @@ public sealed class DecisionUnsupportedQuestionTypeException(
     )
 {
     public string QuestionId { get; } = questionId;
+}
+
+/// <summary>The AI SDK's <c>Experimental_ExtractionUnsupportedFieldTypeError</c>: the extraction model does not support the type of a requested field.</summary>
+public sealed class ExtractionUnsupportedFieldTypeException(
+    string fieldId,
+    string fieldType,
+    string provider,
+    string modelId,
+    string? message = null
+)
+    : Exception(
+        message
+            ?? "Field \""
+                + fieldId
+                + "\" has type \""
+                + fieldType
+                + "\", which is not supported by provider \""
+                + provider
+                + "\" and model \""
+                + modelId
+                + "\"."
+    )
+{
+    public string FieldId { get; } = fieldId;
+
+    public string FieldType { get; } = fieldType;
+
+    public string Provider { get; } = provider;
+
+    public string ModelId { get; } = modelId;
 }
 
 /// <summary>
