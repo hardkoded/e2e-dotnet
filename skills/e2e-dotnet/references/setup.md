@@ -357,6 +357,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 | --- | --- |
 | `Headless` | Unset: headless, unless `E2E_HEADLESS` is `0` or `false`. |
 | `Viewport` | Default 1280 by 720; `null` follows the browser window. A test calls `Browser.SetViewportAsync()` to resize; the agent resizes with its `resize_viewport` tool. |
+| `ChromiumSandbox` | Whether a locally launched Chromium runs with its OS sandbox on; default `true` on macOS and Windows, `false` on Linux, where root and most containers cannot start it. A sandbox that cannot start fails with `ENGINE_FAILURE`, naming the option. `Connect`, a browser provider, Firefox, and WebKit do not read it. |
 | `TestIdAttribute` | What `GetByTestId` reads; default `data-testid`. |
 | `Headers` | Sent only on requests that start at the app's origin (scheme, host, and port of `app.url`) or one in `CredentialOrigins`; a request keeps them through its redirects, to any origin. Turns the browser HTTP cache off. |
 | `BasicAuth` | Credentials for a `401` challenge from the app's origin, or one `CredentialOrigins` lists (a redirect to `www` or `https:` is another origin). WebKit answers any origin when one of them is on a default port or an IPv6 host. |

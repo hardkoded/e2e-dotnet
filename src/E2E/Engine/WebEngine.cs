@@ -190,6 +190,13 @@ public sealed class WebEngineOptions
     public bool? Headless { get; init; }
 
     /// <summary>
+    /// Whether a locally launched Chromium runs with its OS sandbox on; default <see langword="true"/> on macOS and Windows,
+    /// <see langword="false"/> on Linux. A browser reached through <see cref="Connect"/> or <see cref="Browser"/> is launched by its host,
+    /// and Firefox and WebKit have no such option, so none of them read it.
+    /// </summary>
+    public bool? ChromiumSandbox { get; init; }
+
+    /// <summary>
     /// Initial viewport of every attempt's page; default 1280 by 720. <see langword="null"/>
     /// emulates no size: the page fills the browser window, whatever size it has.
     /// </summary>
@@ -362,6 +369,13 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
     /// <summary>Attaches to a CDP endpoint; tests replace it to stand in for the remote browser.</summary>
     internal Func<IPlaywright, CdpTarget, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp { get; init; } =
         BrowserConnection.ConnectCdpAsync;
+
+    /// <summary>Installs the browser before a launch (upstream <c>ensureBrowsersInstalled</c>); tests replace it so a launch needs no download.</summary>
+    internal Func<BrowserName, bool, CancellationToken, Task> EnsureBrowser { get; init; } = EnsureBrowserAsync;
+
+    /// <summary>Launches the browser locally (upstream <c>launchLocal</c>); tests replace it to see the launch options without a browser.</summary>
+    internal Func<IPlaywright, BrowserAcquireOptions, Task<IBrowser>> LaunchLocal { get; init; } =
+        BrowserConnection.LaunchLocalAsync;
 
     /// <summary>Registers the selector engines in a CDP default context (upstream <c>registerCdpSelectors</c>); .NET-only seam, so tests that stand in for the remote browser with a fake context replace it.</summary>
     internal Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors { get; init; } =
@@ -559,7 +573,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
 
             if (connect is null)
             {
-                await EnsureBrowserAsync(_options.BrowserName, options.Headed || !_headless, cancellationToken)
+                await EnsureBrowser(_options.BrowserName, options.Headed || !_headless, cancellationToken)
                     .ConfigureAwait(false);
             }
 
@@ -635,9 +649,16 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 }
                 else
                 {
-                    browser = await BrowserConnection
-                        .BrowserType(playwright, _options.BrowserName)
-                        .LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless && !options.Headed })
+                    browser = await LaunchLocal(
+                            playwright,
+                            new BrowserAcquireOptions
+                            {
+                                Name = _options.BrowserName,
+                                Headed = !(_headless && !options.Headed),
+                                ChromiumSandbox = _options.ChromiumSandbox
+                                    ?? BrowserConnection.DefaultChromiumSandbox(),
+                            }
+                        )
                         .ConfigureAwait(false);
                 }
 

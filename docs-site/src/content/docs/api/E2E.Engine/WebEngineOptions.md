@@ -80,6 +80,23 @@ The browser the engine launches: Chromium (the default), Firefox, or WebKit. .NE
 
 **Value:** [BrowserName](/api/E2E.Engine/BrowserName/)
 
+<a id="E2E_Engine_WebEngineOptions_ChromiumSandbox_"></a>
+<a id="E2E_Engine_WebEngineOptions_ChromiumSandbox"></a>
+
+### ChromiumSandbox
+
+
+```csharp
+public bool? ChromiumSandbox { get; init; }
+```
+
+
+Whether a locally launched Chromium runs with its OS sandbox on; default `true` on macOS and Windows,
+`false` on Linux. A browser reached through [Connect](#E2E_Engine_WebEngineOptions_Connect) or [Browser](#E2E_Engine_WebEngineOptions_Browser) is launched by its host,
+and Firefox and WebKit have no such option, so none of them read it.
+
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_WebEngineOptions_ColorScheme_"></a>
 <a id="E2E_Engine_WebEngineOptions_ColorScheme"></a>
 
