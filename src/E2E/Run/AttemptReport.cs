@@ -82,7 +82,8 @@ internal static class AttemptReport
         ReportExplore? explore = null,
         FailureEvidence? evidence = null,
         IReadOnlyList<Exception>? cleanupErrors = null,
-        ExpectedFailureInfo? expectedFailure = null
+        ExpectedFailureInfo? expectedFailure = null,
+        IReadOnlyList<Exception>? hookErrors = null
     )
     {
         var steps = scope.Steps.All();
@@ -148,6 +149,13 @@ internal static class AttemptReport
             Cleanup = cleanupErrors is { Count: > 0 } ? AttemptCleanup.Failed : AttemptCleanup.Complete,
             SecondaryErrors =
             [
+                // A hook that failed beside the body's error is told in its own phase (upstream's afterEach secondary errors).
+                .. (hookErrors ?? []).Select(cause =>
+                    ReportError.Of(
+                        ErrorSerializer.Serialize(cause, scope.ProjectRoot, scope.Redactor.Redact),
+                        "afterEach"
+                    )
+                ),
                 .. (cleanupErrors ?? []).Select(cause =>
                     ReportError.Of(
                         ErrorSerializer.Serialize(cause, scope.ProjectRoot, scope.Redactor.Redact),

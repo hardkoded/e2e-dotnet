@@ -9,6 +9,9 @@ namespace E2E.Decision.Sdk.Gateway;
 /// <summary>The AI SDK's <c>GatewayProviderSettings</c> (<c>gateway-provider.ts</c>) the decision models read.</summary>
 public sealed class GatewayProviderSettings
 {
+    /// <summary>Settings for downloading JSON Lines batch results (upstream's <c>batchResultDownloads</c>).</summary>
+    public GatewayBatchResultDownloads? BatchResultDownloads { get; init; }
+
     /// <summary>The base URL prefix for API calls. Defaults to <c>https://ai-gateway.vercel.sh/v4/ai</c>.</summary>
     public string? BaseUrl { get; init; }
 
@@ -32,6 +35,13 @@ public sealed class GatewayProviderSettings
 
     /// <summary>Upstream's <c>_internal.currentDate</c>, for testing purposes only.</summary>
     internal Func<DateTimeOffset>? CurrentDate { get; init; }
+}
+
+/// <summary>Upstream's <c>GatewayProviderSettings.batchResultDownloads</c>.</summary>
+public sealed class GatewayBatchResultDownloads
+{
+    /// <summary>Maximum UTF-8 bytes per row, excluding LF. Defaults to 64 MiB.</summary>
+    public int? MaxLineBytes { get; init; }
 }
 
 /// <summary>The token and method <see cref="GatewayProvider.GetGatewayAuthTokenAsync"/> gives.</summary>
@@ -58,7 +68,14 @@ public sealed class GatewayProvider : IDecisionProvider
     {
         _settings = settings ?? new GatewayProviderSettings();
         _baseUrl = (_settings.BaseUrl ?? DefaultBaseUrl).TrimEnd('/');
+        ExperimentalRealtime = new GatewayRealtimeFactory(CreateRealtimeModel);
     }
+
+    /// <summary>
+    /// Creates an experimental realtime model for bidirectional audio/text communication over WebSocket, normalized through the AI Gateway.
+    /// Known Live model IDs return a continuous Live model; <c>Api</c> overrides the routing (upstream's <c>experimental_realtime</c>).
+    /// </summary>
+    public GatewayRealtimeFactory ExperimentalRealtime { get; }
 
     /// <summary>
     /// Creates a language model (upstream's <c>languageModel</c>, <c>createLanguageModel</c>). It is also what calling the upstream provider
@@ -147,6 +164,20 @@ public sealed class GatewayProvider : IDecisionProvider
 
     /// <summary>Creates a model for reranking documents (upstream's <c>reranking</c>).</summary>
     public GatewayRerankingModel Reranking(string modelId) => RerankingModel(modelId);
+
+    /// <summary>Returns a batch service for processing batches with AI Gateway (upstream's <c>experimental_batch</c>).</summary>
+    public GatewayBatch ExperimentalBatch() =>
+        new(
+            new GatewayBatchConfig
+            {
+                Provider = "gateway",
+                MaxLineBytes = _settings.BatchResultDownloads?.MaxLineBytes,
+                BaseUrl = _baseUrl,
+                Headers = GetHeadersAsync,
+                O11yHeaders = GetO11yHeadersAsync,
+                HttpClient = _settings.HttpClient,
+            }
+        );
 
     /// <summary>Gateway-specific tools executed server-side (upstream's <c>tools</c>).</summary>
     public GatewayToolsApi Tools { get; } = new();
@@ -258,6 +289,115 @@ public sealed class GatewayProvider : IDecisionProvider
         // getVercelOidcToken (@vercel/oidc), through vercel-environment.ts.
         var oidcToken = await VercelEnvironment.GetVercelOidcTokenAsync(cancellationToken).ConfigureAwait(false);
         return new GatewayAuthToken(oidcToken, "oidc");
+    }
+
+    // createRealtimeModel: no server-environment guard here. Building the realtime model is just the event codec and WebSocket-config
+    // helper, which the browser needs with a server-minted client secret; the server-only boundary is minting (MintClientSecretAsync).
+    private IRealtimeModelV4 CreateRealtimeModel(string modelId, GatewayRealtimeOptions? realtimeOptions) =>
+        ResolveGatewayRealtimeApi(modelId, realtimeOptions) == "live"
+            ? new GatewayRealtimeModelLive(
+                modelId,
+                new GatewayRealtimeModelLiveConfig
+                {
+                    Provider = "gateway.live",
+                    BaseUrl = _baseUrl,
+                    TeamIdOrSlug = _settings.TeamIdOrSlug,
+                    CreateClientSecret = MintClientSecretAsync,
+                    GetHeaders = GetHeadersAsync,
+                }
+            )
+            : new GatewayRealtimeModel(
+                modelId,
+                new GatewayRealtimeModelConfig
+                {
+                    Provider = "gateway.realtime",
+                    BaseUrl = _baseUrl,
+                    TeamIdOrSlug = _settings.TeamIdOrSlug,
+                    CreateClientSecret = MintClientSecretAsync,
+                    GetHeaders = GetHeadersAsync,
+                }
+            );
+
+    // mintClientSecret: mints a short-lived client secret (vcst_) via the Gateway's /v1/realtime/client-secrets route, authenticated with
+    // the long-lived Gateway credential. The route lives at the gateway origin, not under the base URL path (/v4/ai). routeKind binds the
+    // token to a WebSocket surface; it is omitted for realtime (the gateway default) so older gateway deployments keep accepting it.
+    private async Task<GatewayClientSecret> MintClientSecretAsync(
+        GatewayClientSecretRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        AssertGatewayClientSecretServerEnvironment();
+        var headers = await GetHeadersAsync(cancellationToken).ConfigureAwait(false);
+        var url = new Uri(new Uri(_baseUrl), "/v1/realtime/client-secrets").ToString();
+        var body = new System.Text.Json.Nodes.JsonObject { ["model"] = request.ModelId };
+        if (request.RouteKind is not null)
+        {
+            body["routeKind"] = request.RouteKind;
+        }
+
+        if (request.ExpiresAfterSeconds is { } expiresIn)
+        {
+            body["expiresIn"] = expiresIn;
+        }
+
+        try
+        {
+            var combined = ProviderUtils.CombineHeaders(headers);
+            var response = await ProviderUtils
+                .PostJsonToApiAsync(
+                    _settings.HttpClient ?? GatewayHttp.Client(new GatewayConfig { BaseUrl = _baseUrl }),
+                    url,
+                    combined,
+                    body.ToJsonString(),
+                    GatewayHttp.ErrorMessage,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            return ProviderUtils.ProcessSuccessfulResponse(response, ReadClientSecret);
+        }
+        catch (Exception error)
+        {
+            throw GatewayErrors.AsGatewayError(error, GatewayErrors.ParseAuthMethod(headers));
+        }
+    }
+
+    // gatewayClientSecretResponseSchema: expiresAt is epoch seconds, and may be null.
+    private static GatewayClientSecret ReadClientSecret(System.Text.Json.JsonElement root)
+    {
+        const string path = "response";
+        Zod.Object(root, path);
+        return new GatewayClientSecret(
+            Zod.String(root, "token", path),
+            Zod.NullishNumber(root, "expiresAt", path) is { } expiresAt ? (long)expiresAt : null
+        );
+    }
+
+    // resolveGatewayRealtimeApi.
+    private static string ResolveGatewayRealtimeApi(string modelId, GatewayRealtimeOptions? options)
+    {
+        var api = options?.Api;
+        if (api is not null)
+        {
+            return api is "live" or "realtime"
+                ? api
+                : throw new InvalidArgumentException(
+                    "api",
+                    "AI Gateway realtime api must be \"live\" or \"realtime\"."
+                );
+        }
+
+        return GatewayRealtimeModelSettings.GatewayLiveModelIds.Contains(modelId) ? "live" : "realtime";
+    }
+
+    // assertGatewayClientSecretServerEnvironment.
+    private static void AssertGatewayClientSecretServerEnvironment()
+    {
+        if (IsBrowserRuntime.Value)
+        {
+            throw new InvalidOperationException(
+                "AI Gateway client secrets must be minted server-side: minting needs your Gateway credential, which must never reach the browser. Call gateway.experimental_realtime.getToken(), gateway.experimental_transcription.getToken(), or gateway.experimental_speech.getToken() from your server and pass the returned token to the client."
+            );
+        }
     }
 
     // getHeaders: a failure to authenticate is wrapped in a GatewayAuthenticationException with the failure as its cause.

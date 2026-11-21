@@ -4,6 +4,7 @@
 
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using E2E.Internal;
 
 namespace E2E.Decision.Sdk;
@@ -46,6 +47,9 @@ internal sealed record ParseResult(JsonElement? Value, Exception? Error);
 /// </summary>
 internal static class ProviderUtils
 {
+    // DEFAULT_MAX_JSON_LINE_BYTES: 64 MiB.
+    private const int DefaultMaxJsonLineBytes = 64 * 1024 * 1024;
+
     /// <summary>
     /// Upstream's <c>withUserAgentSuffix</c> (<c>provider-utils/src/with-user-agent-suffix.ts</c>): the headers with the suffix appended to
     /// the <c>user-agent</c> the caller set, or as the <c>user-agent</c> when there is none or it is empty.
@@ -135,6 +139,202 @@ internal static class ProviderUtils
         Func<int, string, string> errorToMessage,
         CancellationToken cancellationToken
     ) => PostAsync(http, url, headers, form, errorToMessage, cancellationToken);
+
+    /// <summary>
+    /// Upstream's <c>postJsonToApi</c> with <c>createJsonLinesResponseHandler</c> (<c>response-handler.ts</c>): one POST, and the answer's JSON Lines
+    /// as a lazy stream of parsed lines. A line of more than <paramref name="maxLineBytes"/> bytes (the line feed excluded) fails the stream with a
+    /// <see cref="DownloadException"/>; an empty line is skipped; <paramref name="validate"/> throws for a line that breaks the schema. The stream
+    /// owns the response and releases it when its enumeration ends, fails, or is stopped early, so the caller must enumerate it (upstream's stream
+    /// likewise holds the connection until it is consumed or cancelled). A read that gets no data within the model timeout fails with a
+    /// <see cref="TimeoutException"/>.
+    /// </summary>
+    public static async Task<IAsyncEnumerable<JsonNode>> PostJsonToApiForJsonLinesAsync(
+        HttpClient http,
+        string url,
+        IReadOnlyDictionary<string, string> headers,
+        string body,
+        Func<int, string, string> errorToMessage,
+        Action<JsonNode> validate,
+        int? maxLineBytes,
+        CancellationToken cancellationToken
+    )
+    {
+        // createJsonLinesResponseHandler checks its option when the handler is made, before any request.
+        var limit = maxLineBytes ?? DefaultMaxJsonLineBytes;
+        if (limit <= 0)
+        {
+            throw new InvalidArgumentException("maxLineBytes", "maxLineBytes must be a positive safe integer.");
+        }
+
+        using var content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+        using var message = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+        foreach (var (name, value) in headers)
+        {
+            if (!message.Headers.TryAddWithoutValidation(name, value))
+            {
+                content.Headers.Remove(name);
+                content.Headers.TryAddWithoutValidation(name, value);
+            }
+        }
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ApiCallException(
+                "Cannot connect to API: the request got no response within "
+                    + ((int)ModelHttp.Timeout.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + " seconds.",
+                isRetryable: false,
+                innerException: new TimeoutException()
+            );
+        }
+        catch (HttpRequestException error)
+        {
+            throw new ApiCallException(
+                "Cannot connect to API: " + error.Message,
+                isRetryable: true,
+                innerException: error
+            );
+        }
+
+        try
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                string text;
+                using (var readTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                {
+                    readTimeout.CancelAfter(ModelHttp.Timeout);
+                    try
+                    {
+                        text = await response.Content.ReadAsStringAsync(readTimeout.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        throw new TimeoutException("The error response body stalled.");
+                    }
+                }
+
+                var status = (int)response.StatusCode;
+                throw new ApiCallException(errorToMessage(status, text), status, ReadHeaders(response))
+                {
+                    ResponseBody = text,
+                };
+            }
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
+
+        return ParseJsonLinesAsync(response, url, validate, limit, cancellationToken);
+    }
+
+    // upstream's parseJsonLines: the line is bounded before it is decoded, and the stream is released when the consumer stops.
+    private static async IAsyncEnumerable<JsonNode> ParseJsonLinesAsync(
+        HttpResponseMessage response,
+        string url,
+        Action<JsonNode> validate,
+        int maxLineBytes,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken
+    )
+    {
+        using (response)
+        {
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            var line = new MemoryStream();
+            var chunk = new byte[16 * 1024];
+            while (true)
+            {
+                int read;
+                using (var readTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                {
+                    readTimeout.CancelAfter(ModelHttp.Timeout);
+                    try
+                    {
+                        read = await stream.ReadAsync(chunk, readTimeout.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        throw new TimeoutException("The JSON Lines response stalled.");
+                    }
+                }
+
+                if (read == 0)
+                {
+                    break;
+                }
+
+                var offset = 0;
+                while (offset < read)
+                {
+                    var lineEnd = Array.IndexOf(chunk, (byte)10, offset, read - offset);
+                    var segmentEnd = lineEnd == -1 ? read : lineEnd;
+                    if (line.Length + (segmentEnd - offset) > maxLineBytes)
+                    {
+                        throw new DownloadException(
+                            url,
+                            message: "JSON Lines response exceeded maximum line size of "
+                                + maxLineBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                                + " bytes."
+                        );
+                    }
+
+                    line.Write(chunk, offset, segmentEnd - offset);
+                    if (lineEnd == -1)
+                    {
+                        break;
+                    }
+
+                    offset = lineEnd + 1;
+                    if (ParseLine(line, validate) is { } parsed)
+                    {
+                        yield return parsed;
+                    }
+                }
+            }
+
+            if (ParseLine(line, validate) is { } last)
+            {
+                yield return last;
+            }
+        }
+    }
+
+    private static JsonNode? ParseLine(MemoryStream line, Action<JsonNode> validate)
+    {
+        var text = System.Text.Encoding.UTF8.GetString(line.GetBuffer(), 0, (int)line.Length);
+        line.SetLength(0);
+        text = text.EndsWith('\r') ? text[..^1] : text;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        JsonNode? node;
+        try
+        {
+            node = JsonNode.Parse(text);
+        }
+        catch (JsonException error)
+        {
+            throw new InvalidResponseDataException("JSON parsing failed: " + error.Message);
+        }
+
+        if (node is null)
+        {
+            throw new InvalidResponseDataException("Type validation failed: a JSON Lines line must not be null.");
+        }
+
+        validate(node);
+        return node;
+    }
 
     private static async Task<ApiResponse> PostAsync(
         HttpClient http,

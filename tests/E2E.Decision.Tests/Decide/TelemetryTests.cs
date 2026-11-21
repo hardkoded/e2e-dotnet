@@ -198,6 +198,37 @@ public sealed class TelemetryTests
         );
     }
 
+    // .NET-only (ExperimentalDecide.ErrorCallbackTimeout, issue #1980; no upstream `it`).
+    [Fact]
+    public async Task Partial_a_hanging_error_callback_does_not_hide_the_calls_own_error()
+    {
+        var error = new InvalidOperationException("decision failed");
+        var (model, _) = Setup();
+        model.FailOnce(error);
+
+        var thrown = await Assert
+            .ThrowsAsync<InvalidOperationException>(() =>
+                ExperimentalDecide.RunAsync(
+                    new DecideOptions
+                    {
+                        Model = model,
+                        State = [new DecisionTextPart("text")],
+                        Questions = QuestionMap,
+                        MaxRetries = 0,
+                        Telemetry = new TelemetryOptions { Integrations = [new HangingErrorTelemetry()] },
+                    }
+                )
+            )
+            .WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Same(error, thrown);
+    }
+
+    private sealed class HangingErrorTelemetry : ITelemetry
+    {
+        public Task OnErrorAsync(TelemetryErrorEvent @event) => new TaskCompletionSource().Task;
+    }
+
     private sealed class ThrowingTelemetry : ITelemetry
     {
         public Task OnDecideStartAsync(DecideStartEvent @event) => throw new InvalidOperationException("sync");

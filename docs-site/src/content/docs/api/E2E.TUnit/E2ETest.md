@@ -159,6 +159,30 @@ failures', or the result's own, and then the session is completed and disposed.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
 
+<a id="E2E_TUnit_E2ETest_SetTimeout_"></a>
+<a id="E2E_TUnit_E2ETest_SetTimeout_System_TimeSpan_"></a>
+
+### SetTimeout(TimeSpan)
+
+
+```csharp
+public void SetTimeout(TimeSpan timeout)
+```
+
+
+Changes the running test's timeout from its body or a set-up, counted from the start of the attempt like the configured
+`timeout`, which it replaces for this attempt (upstream's `test.setTimeout(timeout)`). A timeout shorter than the time already
+spent times the test out at once. A timeout that is not a positive whole number of milliseconds, or above 2147483647, and a call from code
+the test left running after its attempt ended are test errors, `INVALID_ARGUMENT`. A call outside a test throws
+[InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) where upstream has `COLLECTION_ERROR`. The port cannot tell a teardown from the body here:
+a call from one is refused only once the session has completed.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+
 <a id="E2E_TUnit_E2ETest_StartE2ESessionAsync_"></a>
 <a id="E2E_TUnit_E2ETest_StartE2ESessionAsync_TUnit_Core_TestContext_System_Threading_CancellationToken_"></a>
 

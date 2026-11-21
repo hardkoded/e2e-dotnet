@@ -16,6 +16,32 @@ public sealed class CreateGatewayTests
     private static readonly Dictionary<string, string?> NoEnvironment = [];
 
     [Fact]
+    public Task Should_create_a_provider_owned_batch_service() => WithEnvironmentAsync(NoEnvironment, async () =>
+        {
+            var server = new TestServer();
+            server.RespondJson(BaseUrl + "/batch/status", """{"batchId":"job_1","status":"pending"}""");
+            var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
+                new GatewayProviderSettings
+                {
+                    BaseUrl = BaseUrl,
+                    ApiKey = "test-api-key",
+                    HttpClient = server.Client,
+                }
+            );
+
+            // Upstream mocks GatewayBatch and reads its constructor config; the port has no module mocks, so the test reads the batch's provider
+            // and the request it makes with that config.
+            var batch = provider.ExperimentalBatch();
+            await batch.DoGetBatchStatusAsync(new E2E.Decision.Sdk.BatchV4OperationOptions { BatchId = "job_1" });
+
+            Assert.Equal("gateway.batch", batch.Provider);
+            var call = Assert.Single(server.Calls);
+            Assert.Equal(BaseUrl + "/batch/status", call.RequestUrl);
+            Assert.Equal("Bearer test-api-key", call.RequestHeaders["authorization"]);
+            Assert.Equal("api-key", call.RequestHeaders["ai-gateway-auth-method"]);
+        });
+
+    [Fact]
     public Task Should_create_provider_with_correct_configuration() => WithEnvironmentAsync(NoEnvironment, async () =>
         {
             var options = new GatewayProviderSettings

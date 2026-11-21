@@ -214,7 +214,7 @@ public sealed class LargeImagesWithExperimentalStreamingDecodingTests
                 .Range(0, (body.Length + 1998) / 1999)
                 .Select(i => body.Substring(i * 1999, Math.Min(1999, body.Length - i * 1999)))
                 .ToList(),
-            new Dictionary<string, string> { ["Content-Type"] = "application/json" }
+            "application/json"
         );
         using var model = CreateTestModel(server);
 

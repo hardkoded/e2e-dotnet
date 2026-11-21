@@ -4,6 +4,7 @@
 
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Text.RegularExpressions;
 using E2E.Internal;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
@@ -26,7 +27,7 @@ namespace E2E.NUnit;
 /// Settings come from <see cref="E2EFixture"/>.
 /// </summary>
 [LooksBeforeTeardown]
-public abstract class E2ETest : E2EFixture
+public abstract partial class E2ETest : E2EFixture
 {
     /// <summary>
     /// The test's title: its cache identity, and the <c>Test:</c> line every prompt's context opens with. The default is the NUnit
@@ -56,6 +57,22 @@ public abstract class E2ETest : E2EFixture
     /// </summary>
     public void Fail(bool condition = true, string? reason = null) =>
         ExpectedFailureMarks.MarkRunningTestExpectedToFail(CurrentSession, condition, reason, IsSerial, _bodyDone);
+
+    /// <summary>
+    /// Changes the running test's timeout from its body or a <c>[SetUp]</c>, counted from the start of the attempt like the configured
+    /// <c>timeout</c>, which it replaces for this attempt (upstream's <c>test.setTimeout(timeout)</c>). A timeout shorter than the time already
+    /// spent times the test out at once. A timeout that is not a positive whole number of milliseconds, or above 2147483647, a call from a teardown (after the test method returned), and one
+    /// from code the test left running after it ended are test errors, <c>INVALID_ARGUMENT</c>. A call outside a test throws
+    /// <see cref="InvalidOperationException"/> where upstream has <c>COLLECTION_ERROR</c>.
+    /// </summary>
+    public void SetTimeout(TimeSpan timeout)
+    {
+        var session = CurrentSession
+            ?? throw new InvalidOperationException(
+                "SetTimeout(timeout) must be called inside a test body or a [SetUp]; to set a test's timeout ahead of time, set the timeout in the configuration"
+            );
+        E2E.Internal.TestTimeout.SetRunningTestTimeout(session, timeout, _bodyDone);
+    }
 
     /// <summary>Set once the test method returned: what runs after it (a derived [TearDown]) comes after the verdict is reached.</summary>
     internal void BodyDone() => _bodyDone = true;
@@ -90,6 +107,7 @@ public abstract class E2ETest : E2EFixture
 
             if (HasSession)
             {
+                HandOverAttempt();
                 return Task.CompletedTask;
             }
         }
@@ -121,6 +139,12 @@ public abstract class E2ETest : E2EFixture
 
         var skipped = FailSkippedAfterSoftFailure();
         var current = global::NUnit.Framework.TestContext.CurrentContext;
+
+        // A derived [TearDown] that threw ran before this one: NUnit keeps its failure in the result, which the report tells as an afterEach secondary error.
+        if (HookFailureOf(current.Result) is { } hookFailure)
+        {
+            session.RecordHookFailure(hookFailure);
+        }
 
         // A handler that failed during the teardown, with no step after it, fails the attempt before the verdict.
         Exception? late = null;
@@ -396,6 +420,26 @@ public abstract class E2ETest : E2EFixture
         return global::NUnit.Framework.TestContext.CurrentContext.Result.Outcome.Status
             == global::NUnit.Framework.Interfaces.TestStatus.Failed;
     }
+
+    // NUnit writes the failure of a [TearDown] into the result's message as "TearDown : <exception>", beside the body's own failure when there is
+    // one ("Multiple failures", each numbered), and its stack trace follows a "--TearDown" line.
+    private static Exception? HookFailureOf(global::NUnit.Framework.TestContext.ResultAdapter result)
+    {
+        if (result.Outcome.Site != global::NUnit.Framework.Interfaces.FailureSite.TearDown)
+        {
+            return null;
+        }
+
+        var found = HookFailure().Match(result.Message ?? "");
+        return found.Success ? new TestException("TEST_FAILED", found.Groups["text"].Value.Trim()) : null;
+    }
+
+    [GeneratedRegex(
+        @"^(?:\s*\d+\)\s*)?TearDown : (?<text>.*?)(?=\r?\n\s*--TearDown|\z)",
+        RegexOptions.Multiline | RegexOptions.Singleline | RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 1000
+    )]
+    private static partial Regex HookFailure();
 
     private static Exception? ErrorForCache(global::NUnit.Framework.TestContext.ResultAdapter result)
     {

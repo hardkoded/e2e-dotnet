@@ -21,9 +21,13 @@ internal sealed class TestServerCall(
     IReadOnlyDictionary<string, string> headers,
     byte[] body,
     string? contentType,
-    string method = "POST"
+    string method = "POST",
+    CancellationToken requestToken = default
 )
 {
+    /// <summary>The token the request was sent with, the counterpart of upstream's <c>fetch</c> <c>signal</c>.</summary>
+    public CancellationToken RequestToken { get; } = requestToken;
+
     public string RequestUrl { get; } = url;
 
     public string RequestMethod { get; } = method;
@@ -159,28 +163,13 @@ internal sealed class TestServer : HttpMessageHandler
             return response;
         };
 
-    /// <summary>Answers <paramref name="url"/> with a body that arrives in chunks (upstream's <c>{ type: 'stream-chunks' }</c>).</summary>
-    public void RespondChunks(
-        string url,
-        IReadOnlyList<string> chunks,
-        IReadOnlyDictionary<string, string>? headers = null
-    ) =>
+    /// <summary>Answers <paramref name="url"/> with a body sent as <paramref name="chunks"/> (upstream's <c>{ type: 'stream-chunks' }</c>).</summary>
+    public void RespondChunks(string url, IReadOnlyList<string> chunks, string contentType) =>
         _responses[url] = () =>
-        {
-            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StreamContent(new ChunkedStream(chunks.Select(Encoding.UTF8.GetBytes).ToList())),
+                Content = new ChunkedContent(chunks) { Headers = { ContentType = new(contentType) } },
             };
-            foreach (var (name, value) in headers ?? new Dictionary<string, string>())
-            {
-                if (!response.Headers.TryAddWithoutValidation(name, value))
-                {
-                    response.Content.Headers.TryAddWithoutValidation(name, value);
-                }
-            }
-
-            return response;
-        };
 
     /// <summary>Answers <paramref name="url"/> with server-sent event chunks (upstream's <c>{ type: 'stream-chunks' }</c>).</summary>
     public void RespondStreamChunks(string url, IEnumerable<string> chunks)
@@ -225,7 +214,7 @@ internal sealed class TestServer : HttpMessageHandler
         var url = request.RequestUri!.ToString();
         lock (_lock)
         {
-            _calls.Add(new TestServerCall(url, headers, body, contentType, request.Method.Method));
+            _calls.Add(new TestServerCall(url, headers, body, contentType, request.Method.Method, cancellationToken));
         }
 
         // A URL that ends in "*" answers every URL that starts with the rest, as upstream's 'https://api.example.com/*'.
@@ -252,57 +241,96 @@ internal sealed class TestServer : HttpMessageHandler
     }
 }
 
-/// <summary>A read-only stream that gives one chunk per read.</summary>
-internal sealed class ChunkedStream(IReadOnlyList<byte[]> chunks) : Stream
+/// <summary>A response body written one chunk at a time, so a line can end in the middle of a chunk.</summary>
+internal sealed class ChunkedContent(IReadOnlyList<string> chunks) : HttpContent
 {
-    private int _index;
-
-    public override bool CanRead => true;
-
-    public override bool CanSeek => false;
-
-    public override bool CanWrite => false;
-
-    public override long Length => throw new NotSupportedException();
-
-    public override long Position
+    protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
     {
-        get => throw new NotSupportedException();
-        set => throw new NotSupportedException();
+        foreach (var chunk in chunks)
+        {
+            await stream.WriteAsync(Encoding.UTF8.GetBytes(chunk));
+            await stream.FlushAsync();
+        }
     }
 
-    public override void Flush() { }
+    protected override Task<Stream> CreateContentReadStreamAsync() =>
+        Task.FromResult<Stream>(new ChunkStream(chunks.Select(chunk => Encoding.UTF8.GetBytes(chunk)).ToList()));
 
-    public override int Read(byte[] buffer, int offset, int count)
+    protected override bool TryComputeLength(out long length)
     {
-        if (_index >= chunks.Count)
+        length = 0;
+        return false;
+    }
+
+    // Each read gives at most one chunk, as a network stream would.
+    private sealed class ChunkStream(List<byte[]> chunks) : Stream
+    {
+        private int _index;
+        private int _offset;
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
         {
-            return 0;
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
         }
 
-        var chunk = chunks[_index++];
-        chunk.CopyTo(buffer, offset);
-        return chunk.Length;
-    }
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
 
-    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-        Task.FromResult(Read(buffer, offset, count));
-
-    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-    {
-        if (_index >= chunks.Count)
+        public override int Read(Span<byte> buffer)
         {
-            return ValueTask.FromResult(0);
+            if (_index >= chunks.Count)
+            {
+                return 0;
+            }
+
+            // Keep the unread bytes of a chunk longer than the buffer for the next read.
+            var chunk = chunks[_index];
+            var count = Math.Min(buffer.Length, chunk.Length - _offset);
+            chunk.AsSpan(_offset, count).CopyTo(buffer);
+            _offset += count;
+            if (_offset == chunk.Length)
+            {
+                _index++;
+                _offset = 0;
+            }
+
+            return count;
         }
 
-        var chunk = chunks[_index++];
-        chunk.CopyTo(buffer);
-        return ValueTask.FromResult(chunk.Length);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            new(Read(buffer.Span));
+
+        public override void Flush() { }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
+}
 
-    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+/// <summary>The counterpart of upstream's <c>vi.fn().mockRejectedValue(error)</c> fetch: every request fails with the exception.</summary>
+internal sealed class ThrowingHandler(Exception error, CancellationTokenSource? cancelOnSend = null)
+    : HttpMessageHandler
+{
+    public int Calls { get; private set; }
 
-    public override void SetLength(long value) => throw new NotSupportedException();
-
-    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
+    {
+        Calls++;
+        cancelOnSend?.Cancel();
+        return Task.FromException<HttpResponseMessage>(error);
+    }
 }
