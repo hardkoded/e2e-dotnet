@@ -21,7 +21,12 @@ namespace E2E;
 /// Whether the model received a screenshot in this step. Text drawn in pixels is not in <paramref name="Shown"/>, so a value that is
 /// not literal may have been read off the image and counts as derived.
 /// </param>
-internal sealed record StepEvidence(IEnumerable<string>? Shown = null, bool? Pixels = null);
+/// <param name="InputPurpose">The purpose the engine reported for the field the value went into (<c>SemanticNode.InputPurpose</c>).</param>
+internal sealed record StepEvidence(
+    IEnumerable<string>? Shown = null,
+    bool? Pixels = null,
+    string? InputPurpose = null
+);
 
 /// <summary>
 /// Upstream's <c>agent/derived.ts</c>: whether a value the executor typed was derived at run time, and by which rule, so the trace must
@@ -40,7 +45,8 @@ internal sealed record StepEvidence(IEnumerable<string>? Shown = null, bool? Pix
 /// may have been read off the image), <c>WholeNode</c> (the value is the whole of what some node said, its name or its text,
 /// whitespace-normalized), <c>MintedToken</c> (the value is data-shaped, one token with a digit, and some node showed it as a word of
 /// its own; the digit is a glyph test standing in for provenance, so "1" typed beside a "Row 1" label is flagged too and the executor
-/// runs that part live), and <c>Date</c> (a date or a clock time, which the model reckons from today).
+/// runs that part live; also any value typed into a field the app marks as a one-time code: the app issues that code per run, and a code
+/// split over one box per digit puts a single digit in each fill, which no screen shows as a word of its own), and <c>Date</c> (a date or a clock time, which the model reckons from today).
 /// </para>
 /// <para>
 /// A bare word inside a sentence is none of these: "one" typed on a page that lists "Row one" is the model's own choice, and the
@@ -63,7 +69,21 @@ internal static partial class Derived
     {
         evidence ??= new StepEvidence();
         var needle = Normalize(value);
-        if (needle.Length == 0 || IsLiteral(needle, instruction, parameters))
+        if (needle.Length == 0)
+        {
+            return null;
+        }
+
+        if (evidence.InputPurpose == "one-time-code")
+        {
+            // One box per digit puts a single character in each fill, and "the 6-digit code" spells no code: only a longer value the
+            // step spells out whole replays, so neither a lone digit nor a chunk of some other number ever replays as last run's code.
+            return needle.EnumerateRunes().Count() > 1 && SpellsOutWhole(needle, instruction, parameters)
+                ? null
+                : E2E.DerivedReason.MintedToken;
+        }
+
+        if (IsLiteral(needle, instruction, parameters))
         {
             return null;
         }
@@ -101,6 +121,12 @@ internal static partial class Derived
     private static bool IsLiteral(string needle, string instruction, JsonObject? parameters) =>
         Normalize(instruction).Contains(needle, StringComparison.Ordinal)
         || ParamStrings(parameters).Any(text => Normalize(text).Contains(needle, StringComparison.Ordinal));
+
+    // Whether the instruction carries the value as a word of its own, or a param is that value: the stricter reading of a literal a
+    // one-time-code field gets, where a chunk of a longer number is no spelling of the code.
+    private static bool SpellsOutWhole(string needle, string instruction, JsonObject? parameters) =>
+        HasWord(Normalize(instruction), needle)
+        || ParamStrings(parameters).Any(text => string.Equals(Normalize(text), needle, StringComparison.Ordinal));
 
     // Whether a value looks like data rather than words: one token, no whitespace, with a digit in it. `TK-4972`, `123`, `n20123`
     // qualify; `Jane` and `one` do not, so those count as read off the screen only when a node says exactly that and nothing more.

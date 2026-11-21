@@ -897,6 +897,12 @@ internal static class ReadSemantics
             }
             const type = (el.getAttribute("type") || "").toLowerCase();
             const secure = type === "password" || el.getAttribute("autocomplete") === "current-password";
+            const autocomplete = (el.getAttribute("autocomplete") || "").toLowerCase();
+            const inputPurpose = secure ? "password"
+              : autocomplete === "username" ? "username"
+              : autocomplete === "current-password" || autocomplete === "new-password" ? "password"
+              : autocomplete === "one-time-code" ? "one-time-code"
+              : null;
             return {
               role,
               name: isFrame ? cut(el.getAttribute("title") || "", 256) || null : nameOf(el, role),
@@ -912,7 +918,7 @@ internal static class ReadSemantics
               selection: el === focused && !secure ? selectedTextOf(el)?.slice(0, textLimit ?? Infinity) ?? null : null,
               testId: el.getAttribute(testIdAttribute),
               placeholder: el.getAttribute("placeholder"),
-              inputPurpose: secure ? "password" : null,
+              inputPurpose,
               level: levelOf(el, role),
               disabled: disabledOf(el, role),
               checked: checkedOf(el),

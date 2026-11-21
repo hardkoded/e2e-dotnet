@@ -261,7 +261,7 @@ lines you changed:
   `cache.strict` set to false, then commit the changed entry under the cache directory. A `gap` is an action the cache can't repeat: a mutating
   project tool, or a value the agent read off the screen, typed after it saw a
   screenshot, or worked out from the date (the recording's `derived` field,
-  and `Cache.Derived` of a step whose replay stopped there, name the rule: `whole-node`, `minted-token`, `date`, or `pixels`). Values
+  and `Cache.Derived` of a step whose replay stopped there, name the rule: `whole-node`, `minted-token` (also any value typed into an `autocomplete="one-time-code"` field, where only a whole code the instruction or `params` spell out replays), `date`, or `pixels`). Values
   from the instruction or `Params`, and values the agent composed itself,
   replay, so put stable values in `Params`. `AssertAsync`, `WaitForAsync`,
   and `ExtractAsync` always call the model. Leave `cache.mode` at `read-write` rather than
