@@ -85,7 +85,7 @@ using E2E.Decision.Sdk.TypeSafeAi;
 var model = new TypeSafeAiProvider().DecisionModel("jev-latest");
 ```
 
-`TYPESAFE_AI_BASE_URL` routes the provider through a trusted proxy or a self-hosted TypeSafe-compatible server. The default base URL is `https://api.typesafe.ai/v1`. `TypeSafeAiProviderSettings.BaseUrl` takes precedence over the variable. The configured server receives the API key and the decision input.
+`TYPESAFE_AI_BASE_URL` routes the provider through a trusted proxy or a self-hosted TypeSafe-compatible server. The default base URL is `https://api.typesafe.ai/v1`. `TypeSafeAiProviderSettings.BaseUrl` takes precedence over the variable. The configured server receives the API key and the decision input. The provider sends requests through the TypeSafe .NET SDK, which adds `/v1` to the root of the base URL, so give a base URL that ends in `/v1`; a base URL without it is requested with `/v1` added.
 
 `OpenAIDecisionModel` takes images too. Vercel AI Gateway rejects the screenshot for every decision model, so keep `Vision` off there.
 
