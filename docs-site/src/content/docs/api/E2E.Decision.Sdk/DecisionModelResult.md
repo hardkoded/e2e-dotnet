@@ -87,6 +87,21 @@ The provider's response headers (upstream's `response.headers`), lowercase names
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_Decision_Sdk_DecisionModelResult_ResponseId_"></a>
+<a id="E2E_Decision_Sdk_DecisionModelResult_ResponseId"></a>
+
+### ResponseId
+
+
+```csharp
+public string? ResponseId { get; init; }
+```
+
+
+The id of the response (upstream's `response.id`), when the provider sends one.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Decision_Sdk_DecisionModelResult_ResponseModelId_"></a>
 <a id="E2E_Decision_Sdk_DecisionModelResult_ResponseModelId"></a>
 
@@ -101,6 +116,21 @@ public string? ResponseModelId { get; init; }
 The id of the model that served the call, when the response names one.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_Decision_Sdk_DecisionModelResult_ResponseTimestamp_"></a>
+<a id="E2E_Decision_Sdk_DecisionModelResult_ResponseTimestamp"></a>
+
+### ResponseTimestamp
+
+
+```csharp
+public DateTimeOffset? ResponseTimestamp { get; init; }
+```
+
+
+The timestamp of the response (upstream's `response.timestamp`), when the provider sends one.
+
+**Value:** [DateTimeOffset?](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
 
 <a id="E2E_Decision_Sdk_DecisionModelResult_Rounding_"></a>
 <a id="E2E_Decision_Sdk_DecisionModelResult_Rounding"></a>

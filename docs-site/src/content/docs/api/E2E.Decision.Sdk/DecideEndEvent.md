@@ -90,6 +90,21 @@ The provider's response headers (upstream's `response.headers`), lowercase names
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_Decision_Sdk_DecideEndEvent_ResponseId_"></a>
+<a id="E2E_Decision_Sdk_DecideEndEvent_ResponseId"></a>
+
+### ResponseId
+
+
+```csharp
+public string? ResponseId { get; init; }
+```
+
+
+The ID of the response (upstream's `response.id`), when the provider sends one.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Decision_Sdk_DecideEndEvent_ResponseModelId_"></a>
 <a id="E2E_Decision_Sdk_DecideEndEvent_ResponseModelId"></a>
 

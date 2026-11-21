@@ -83,6 +83,21 @@ The provider's response headers (upstream's `response.headers`), lowercase names
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_Decision_Sdk_DecisionResult_ResponseId_"></a>
+<a id="E2E_Decision_Sdk_DecisionResult_ResponseId"></a>
+
+### ResponseId
+
+
+```csharp
+public string? ResponseId { get; init; }
+```
+
+
+The id of the response (upstream's `response.id`), when the model's response has one.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Decision_Sdk_DecisionResult_ResponseModelId_"></a>
 <a id="E2E_Decision_Sdk_DecisionResult_ResponseModelId"></a>
 
@@ -121,6 +136,8 @@ public DecisionRounding? Rounding { get; init; }
 public DateTimeOffset Timestamp { get; init; }
 ```
 
+
+The model response's timestamp, or the time the result was made.
 
 **Value:** [DateTimeOffset](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
 
