@@ -55,7 +55,9 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
             new OpenSessionOptions { Name = "hosted setTimeout", Timeout = TimeSpan.FromSeconds(5) }
         );
 
-        var refused = Assert.Throws<TestException>(() => E2E.Internal.TestTimeout.SetRunningTestTimeout(session, TimeSpan.FromSeconds(60)));
+        var refused = Assert.Throws<TestException>(() =>
+            E2E.Internal.TestTimeout.SetRunningTestTimeout(session, TimeSpan.FromSeconds(60))
+        );
         Assert.Equal("INVALID_ARGUMENT", refused.Code);
         Assert.Contains("a hosted session runs none", refused.Message);
         Assert.Empty(await session.CloseAsync());
