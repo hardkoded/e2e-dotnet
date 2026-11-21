@@ -227,19 +227,17 @@ internal sealed partial class AcpSession
         return SendCancelAsync(_connection, _sessionId);
     }
 
-    private static async Task SendCancelAsync(JsonRpcConnection connection, string sessionId)
-    {
-        try
-        {
-            await connection
-                .NotifyAsync("session/cancel", new JsonObject { ["sessionId"] = sessionId }, CancellationToken.None)
-                .ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-            // The agent is gone or the connection closed: there is no turn left to cancel.
-        }
-    }
+    private static Task SendCancelAsync(JsonRpcConnection connection, string sessionId) =>
+        connection
+            .NotifyAsync("session/cancel", new JsonObject { ["sessionId"] = sessionId }, CancellationToken.None)
+            .ContinueWith(
+                // The agent is gone or the connection closed: there is no turn left to cancel, so the error is observed and dropped.
+                static task =>
+                    _ = task.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.None,
+                TaskScheduler.Default
+            );
 
     /// <summary>
     /// Ends the session: the agent process and everything under it, the tool server, and the temporary directory. Synchronous to the end,
