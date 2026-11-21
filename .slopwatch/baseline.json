@@ -1292,28 +1292,28 @@
       "baselinedAt": "2026-11-18T15:41:48.21427+00:00"
     },
     {
-      "hash": "44ead6b56ac67991",
+      "hash": "7de1b776ae77633a",
       "ruleId": "SW003",
       "filePath": "src/E2E.NUnit/E2ETest.cs",
-      "lineNumber": 115,
+      "lineNumber": 138,
       "codeSnippet": "catch (OperationCanceledException)\n        {\n            // The run was cancelled: the test's own result stands.\n        }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-18T15:41:48.2142729+00:00"
     },
     {
-      "hash": "b0cf9847241c5d5c",
+      "hash": "eb2faddc0ad20b8c",
       "ruleId": "SW003",
       "filePath": "src/E2E.NUnit/E2ETest.cs",
-      "lineNumber": 137,
+      "lineNumber": 160,
       "codeSnippet": "catch (OperationCanceledException)\n            {\n                // The run was cancelled: the test's own result stands.\n            }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-18T15:41:48.2142764+00:00"
     },
     {
-      "hash": "9555925c0656f86f",
+      "hash": "f9120e0285f550f2",
       "ruleId": "SW003",
       "filePath": "src/E2E.NUnit/E2ETest.cs",
-      "lineNumber": 225,
+      "lineNumber": 271,
       "codeSnippet": "catch (OperationCanceledException)\n        {\n            // The run was cancelled: the test's own result stands.\n        }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-18T15:41:48.2142787+00:00"
