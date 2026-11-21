@@ -60,6 +60,26 @@ public sealed class GatewayProvider : IDecisionProvider
         _baseUrl = (_settings.BaseUrl ?? DefaultBaseUrl).TrimEnd('/');
     }
 
+    /// <summary>
+    /// Creates a language model (upstream's <c>languageModel</c>, <c>createLanguageModel</c>). It is also what calling the upstream provider
+    /// as a function does: <c>gateway('anthropic/claude-sonnet-5')</c>.
+    /// </summary>
+    public GatewayLanguageModel LanguageModel(string modelId) =>
+        new(
+            modelId,
+            new GatewayChatConfig
+            {
+                Provider = "gateway",
+                BaseUrl = _baseUrl,
+                Headers = GetHeadersAsync,
+                O11yHeaders = GetO11yHeadersAsync,
+                HttpClient = _settings.HttpClient,
+            }
+        );
+
+    /// <summary>Creates a language model (upstream's <c>chat</c>, an alias of <c>languageModel</c>).</summary>
+    public GatewayLanguageModel Chat(string modelId) => LanguageModel(modelId);
+
     /// <summary>Creates a decision model (upstream's <c>decisionModel</c>).</summary>
     public GatewayDecisionModel DecisionModel(string modelId) =>
         new(

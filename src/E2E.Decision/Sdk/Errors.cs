@@ -20,6 +20,14 @@ public sealed class InvalidResponseDataException(string message, object? answers
     public object? Answers { get; } = answers;
 }
 
+/// <summary>The AI SDK's <c>JSONParseError</c>: text that is not valid JSON.</summary>
+public sealed class JsonParseException(string text, Exception cause)
+    : Exception("JSON parsing failed: Text: " + text + ".\nError message: " + cause.Message, cause)
+{
+    /// <summary>The text that failed to parse.</summary>
+    public string Text { get; } = text;
+}
+
 /// <summary>The AI SDK's <c>LoadAPIKeyError</c>: the provider has no API key.</summary>
 public sealed class LoadApiKeyException(string message) : Exception(message);
 
