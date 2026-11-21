@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Microsoft.Playwright;
 
 namespace E2E.Engine;
@@ -32,6 +33,19 @@ public sealed record CdpTarget
     public static implicit operator CdpTarget(string endpoint) => new() { Endpoint = endpoint };
 }
 
+/// <summary>What <see cref="BrowserConnection.LaunchLocalAsync"/> launches (upstream <c>BrowserAcquireOptions</c>, without its attach seam, which the engine owns).</summary>
+internal sealed record BrowserAcquireOptions
+{
+    /// <summary>Which browser to launch.</summary>
+    public BrowserName Name { get; init; } = BrowserName.Chromium;
+
+    /// <summary>Whether the browser opens headed.</summary>
+    public bool Headed { get; init; }
+
+    /// <summary>Whether a Chromium launch keeps its OS sandbox on; other browsers ignore it.</summary>
+    public bool ChromiumSandbox { get; init; }
+}
+
 /// <summary>The browser connection, as upstream <c>browser-connection.ts</c>: every attach goes through one bounded dial.</summary>
 internal static class BrowserConnection
 {
@@ -57,6 +71,49 @@ internal static class BrowserConnection
             BrowserName.Webkit => "webkit",
             _ => "chromium",
         };
+    }
+
+    /// <summary>
+    /// Chromium's sandbox is on where it starts out of the box (upstream <c>defaultChromiumSandbox</c>). On Linux it needs
+    /// unprivileged user namespaces, which root, most containers, and Ubuntu 23.10+ refuse, so there it is opt-in.
+    /// </summary>
+    public static bool DefaultChromiumSandbox(OSPlatform? platform = null) =>
+        (platform ?? CurrentPlatform()) != OSPlatform.Linux;
+
+    private static OSPlatform CurrentPlatform() =>
+        OperatingSystem.IsLinux() ? OSPlatform.Linux
+        : OperatingSystem.IsWindows() ? OSPlatform.Windows
+        : OSPlatform.OSX;
+
+    /// <summary>
+    /// Launches the browser locally (upstream <c>launchLocal</c>). A sandbox that cannot start fails with Playwright's whole launch
+    /// call log; the engine error names the option instead.
+    /// </summary>
+    public static async Task<IBrowser> LaunchLocalAsync(IPlaywright playwright, BrowserAcquireOptions options)
+    {
+        var launch = new BrowserTypeLaunchOptions { Headless = !options.Headed };
+        if (options.Name == BrowserName.Chromium)
+        {
+            launch.ChromiumSandbox = options.ChromiumSandbox;
+        }
+
+        try
+        {
+            return await BrowserType(playwright, options.Name).LaunchAsync(launch).ConfigureAwait(false);
+        }
+        catch (PlaywrightException cause)
+            when (options.Name == BrowserName.Chromium
+                && options.ChromiumSandbox
+                && cause.Message.Contains("Chromium sandboxing failed!", StringComparison.Ordinal)
+            )
+        {
+            // No inner exception: the runner follows the chain into the surfaced message, which would put the call log back.
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                "Chromium failed to launch because its sandbox cannot start on this host. Set WebEngineOptions.ChromiumSandbox to false to launch without the sandbox.",
+                retryable: false
+            );
+        }
     }
 
     /// <summary>Maps a browser name to its Playwright <see cref="IBrowserType"/> (upstream <c>browserType</c>).</summary>
