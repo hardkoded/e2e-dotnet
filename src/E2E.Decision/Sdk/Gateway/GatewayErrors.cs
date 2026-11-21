@@ -392,16 +392,14 @@ public static class GatewayErrors
 
     /// <summary>
     /// Upstream's <c>asGatewayError</c>: a Gateway error stays; a client timeout becomes a timeout error; a failed call becomes the error
-    /// its body names; anything else is a 500. A caller's cancellation is not a Gateway failure and is not wrapped.
+    /// its body names; anything else, including a value that is not an exception, is a 500. A caller's cancellation is not a Gateway failure and is not wrapped.
     /// </summary>
-    public static GatewayException AsGatewayError(Exception error, string? authMethod = null)
+    public static GatewayException AsGatewayError(object? error, string? authMethod = null)
     {
-        ArgumentNullException.ThrowIfNull(error);
-
         // Caller cancellation is not a gateway failure and must not become a retryable 500.
-        if (error is OperationCanceledException && !IsTimeoutError(error))
+        if (error is OperationCanceledException canceled && !IsTimeoutError(canceled))
         {
-            ExceptionDispatchInfo.Capture(error).Throw();
+            ExceptionDispatchInfo.Capture(canceled).Throw();
         }
 
         if (error is GatewayException gateway)
@@ -409,9 +407,9 @@ public static class GatewayErrors
             return gateway;
         }
 
-        if (IsTimeoutError(error))
+        if (error is Exception exception && IsTimeoutError(exception))
         {
-            return GatewayTimeoutException.CreateTimeoutError(error.Message, cause: error);
+            return GatewayTimeoutException.CreateTimeoutError(exception.Message, cause: exception);
         }
 
         if (error is ApiCallException api)
@@ -434,8 +432,8 @@ public static class GatewayErrors
         return CreateGatewayErrorFromResponse(
             EmptyObject,
             500,
-            "Gateway request failed: " + error.Message,
-            error,
+            error is Exception cause ? "Gateway request failed: " + cause.Message : "Unknown Gateway error",
+            error as Exception,
             authMethod
         );
     }

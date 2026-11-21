@@ -36,4 +36,32 @@ public sealed class NonTimeoutErrorsTests
 
         Assert.Same(existing, GatewayErrors.AsGatewayError(existing));
     }
+
+    [Fact]
+    public void Should_handle_non_Error_objects()
+    {
+        var result = GatewayErrors.AsGatewayError(new { message = "timeout occurred" });
+
+        Assert.IsNotType<GatewayTimeoutException>(result);
+        Assert.IsType<GatewayResponseException>(result);
+    }
+
+    [Fact]
+    public void Should_handle_null()
+    {
+        var result = GatewayErrors.AsGatewayError(null);
+
+        Assert.IsNotType<GatewayTimeoutException>(result);
+        Assert.IsType<GatewayResponseException>(result);
+    }
+
+    [Fact]
+    public void Should_handle_undefined()
+    {
+        // C# has no undefined; it is the same null as above.
+        var result = GatewayErrors.AsGatewayError(null);
+
+        Assert.IsNotType<GatewayTimeoutException>(result);
+        Assert.IsType<GatewayResponseException>(result);
+    }
 }
