@@ -1131,12 +1131,12 @@ public sealed class E2ESession : IAsyncDisposable
 
         // Upstream's standalone attempt fails as timed out when the deadline passed, whether or not its timer ran before close.
         TestException? timedOut = null;
-        if (_hostedClose is not null && _timeout.IsCancellationRequested)
+        if (_hostedClose is not null && _attemptTimeout is { Expired: true })
         {
             timedOut = new TestException(
                 "TEST_TIMEOUT",
                 "session timed out after "
-                    + ((long)(_attemptTimeout?.Timeout ?? _testTimeout).TotalMilliseconds).ToString(
+                    + ((long)_attemptTimeout.Timeout.TotalMilliseconds).ToString(
                         System.Globalization.CultureInfo.InvariantCulture
                     )
                     + " ms"

@@ -74,5 +74,5 @@ await using var session = await host.OpenSessionAsync(new OpenSessionOptions { N
 await session.Fixtures.App.OpenAsync("/");
 ```
 
-`OpenHostOptions.Config` takes an `E2EConfig` value instead of a file; `EngineFactory` builds the engine of a target, because a config file holds no engine. `session.CloseAsync()` returns the soft assertion, abandoned-step (`STEP_NOT_AWAITED`), and cleanup failures; `DisposeAsync` throws them as an `AggregateException`. `session.Steps()` and `OpenSessionOptions.OnStep` report the steps as `E2E.Reports` types.
+`OpenHostOptions.Config` takes an `E2EConfig` value instead of a file; `EngineFactory` builds the engine of a target, because a config file holds no engine. `session.CloseAsync()` returns the soft assertion, abandoned-step (`STEP_NOT_AWAITED`), timeout (`TEST_TIMEOUT`, when the session's deadline had passed), and cleanup failures; `DisposeAsync` throws them as an `AggregateException`. `session.Steps()` and `OpenSessionOptions.OnStep` report the steps as `E2E.Reports` types.
 

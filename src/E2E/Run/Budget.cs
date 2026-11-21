@@ -140,6 +140,18 @@ internal sealed class AttemptTimeout(
         }
     }
 
+    /// <summary>Whether the timeout in force has elapsed since the attempt started, whether or not the test's timer ran yet.</summary>
+    public bool Expired
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return clock.GetUtcNow() - _startedAt >= _current;
+            }
+        }
+    }
+
     /// <summary>
     /// Gives the attempt a timeout of <paramref name="timeout"/>, counted from its start like the one it replaces: the deadline moves with it, and one
     /// moved into the past cancels the test's signal at once. False, changing nothing, once the timeout fired: work the test left running
