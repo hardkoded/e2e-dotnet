@@ -159,6 +159,29 @@ internal sealed class TestServer : HttpMessageHandler
             return response;
         };
 
+    /// <summary>Answers <paramref name="url"/> with a body that arrives in chunks (upstream's <c>{ type: 'stream-chunks' }</c>).</summary>
+    public void RespondChunks(
+        string url,
+        IReadOnlyList<string> chunks,
+        IReadOnlyDictionary<string, string>? headers = null
+    ) =>
+        _responses[url] = () =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StreamContent(new ChunkedStream(chunks.Select(Encoding.UTF8.GetBytes).ToList())),
+            };
+            foreach (var (name, value) in headers ?? new Dictionary<string, string>())
+            {
+                if (!response.Headers.TryAddWithoutValidation(name, value))
+                {
+                    response.Content.Headers.TryAddWithoutValidation(name, value);
+                }
+            }
+
+            return response;
+        };
+
     /// <summary>Answers <paramref name="url"/> with an error status and body (upstream's <c>{ type: 'error' }</c>).</summary>
     public void RespondError(string url, int status, string body) =>
         _responses[url] = () =>
@@ -216,4 +239,59 @@ internal sealed class TestServer : HttpMessageHandler
                 Content = new StringContent("no response set for " + url),
             };
     }
+}
+
+/// <summary>A read-only stream that gives one chunk per read.</summary>
+internal sealed class ChunkedStream(IReadOnlyList<byte[]> chunks) : Stream
+{
+    private int _index;
+
+    public override bool CanRead => true;
+
+    public override bool CanSeek => false;
+
+    public override bool CanWrite => false;
+
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position
+    {
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
+    }
+
+    public override void Flush() { }
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        if (_index >= chunks.Count)
+        {
+            return 0;
+        }
+
+        var chunk = chunks[_index++];
+        chunk.CopyTo(buffer, offset);
+        return chunk.Length;
+    }
+
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+        Task.FromResult(Read(buffer, offset, count));
+
+    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        if (_index >= chunks.Count)
+        {
+            return ValueTask.FromResult(0);
+        }
+
+        var chunk = chunks[_index++];
+        chunk.CopyTo(buffer);
+        return ValueTask.FromResult(chunk.Length);
+    }
+
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+    public override void SetLength(long value) => throw new NotSupportedException();
+
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 }

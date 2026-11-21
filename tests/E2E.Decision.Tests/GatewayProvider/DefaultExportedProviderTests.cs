@@ -125,4 +125,14 @@ public sealed class DefaultExportedProviderTests
             Assert.Equal("vercel", headers["x-vercel-ai-gateway-team"]);
             Assert.True(oidcCalls > 0);
         });
+
+    [Fact]
+    public void Should_expose_imageModel_on_the_default_provider_and_construct_model()
+    {
+        using var model = E2E.Decision.Sdk.Gateway.GatewayProvider.Gateway.ImageModel("openai/gpt-image-1");
+
+        Assert.IsType<E2E.Decision.Sdk.Gateway.GatewayImageModel>(model);
+        Assert.Equal("gateway", model.Config.Provider);
+        Assert.Equal("https://ai-gateway.vercel.sh/v4/ai", model.Config.BaseUrl);
+    }
 }

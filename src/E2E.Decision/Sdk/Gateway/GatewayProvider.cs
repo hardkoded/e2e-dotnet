@@ -74,6 +74,60 @@ public sealed class GatewayProvider : IDecisionProvider
             }
         );
 
+    /// <summary>Creates a model for generating images (upstream's <c>imageModel</c>).</summary>
+    public GatewayImageModel ImageModel(string modelId) =>
+        new(
+            modelId,
+            new GatewayImageConfig
+            {
+                Provider = "gateway",
+                BaseUrl = _baseUrl,
+                Headers = GetHeadersAsync,
+                HttpClient = _settings.HttpClient,
+                O11yHeaders = GetO11yHeadersAsync,
+            }
+        );
+
+    /// <summary>Creates a model for generating images (upstream's <c>image</c>).</summary>
+    public GatewayImageModel Image(string modelId) => ImageModel(modelId);
+
+    /// <summary>Creates a model for generating text embeddings (upstream's <c>embeddingModel</c>).</summary>
+    public GatewayEmbeddingModel EmbeddingModel(string modelId) =>
+        new(
+            modelId,
+            new GatewayEmbeddingConfig
+            {
+                Provider = "gateway",
+                BaseUrl = _baseUrl,
+                Headers = GetHeadersAsync,
+                HttpClient = _settings.HttpClient,
+                O11yHeaders = GetO11yHeadersAsync,
+            }
+        );
+
+    /// <summary>Creates a model for generating text embeddings (upstream's <c>embedding</c>).</summary>
+    public GatewayEmbeddingModel Embedding(string modelId) => EmbeddingModel(modelId);
+
+    /// <summary>Deprecated: use <see cref="EmbeddingModel"/> (upstream's <c>textEmbeddingModel</c>).</summary>
+    public GatewayEmbeddingModel TextEmbeddingModel(string modelId) => EmbeddingModel(modelId);
+
+    /// <summary>Creates a model for reranking documents (upstream's <c>rerankingModel</c>).</summary>
+    public GatewayRerankingModel RerankingModel(string modelId) =>
+        new(
+            modelId,
+            new GatewayRerankingConfig
+            {
+                Provider = "gateway",
+                BaseUrl = _baseUrl,
+                Headers = GetHeadersAsync,
+                HttpClient = _settings.HttpClient,
+                O11yHeaders = GetO11yHeadersAsync,
+            }
+        );
+
+    /// <summary>Creates a model for reranking documents (upstream's <c>reranking</c>).</summary>
+    public GatewayRerankingModel Reranking(string modelId) => RerankingModel(modelId);
+
     /// <summary>The default provider (upstream's <c>export const gateway = createGateway()</c>).</summary>
     public static GatewayProvider Gateway { get; } = new();
 

@@ -69,6 +69,33 @@ internal static class Zod
     public static JsonElement Property(JsonElement parent, string name, string path) =>
         parent.TryGetProperty(name, out var value) ? value : throw Invalid(path + "." + name, "required");
 
+    /// <summary>
+    /// <c>z.optional(z.record(z.string(), z.record(z.string(), z.unknown())))</c> over <paramref name="parent"/>.providerMetadata; absent gives
+    /// null. <paramref name="entrySchema"/> checks each entry (for the image model's catchall object).
+    /// </summary>
+    public static IReadOnlyDictionary<string, JsonElement>? OptionalProviderMetadata(
+        JsonElement parent,
+        string path,
+        Action<JsonElement, string>? entrySchema = null
+    )
+    {
+        if (!parent.TryGetProperty("providerMetadata", out var value))
+        {
+            return null;
+        }
+
+        var metadata = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        foreach (var entry in Object(value, path + ".providerMetadata").EnumerateObject())
+        {
+            var entryPath = path + ".providerMetadata." + entry.Name;
+            Object(entry.Value, entryPath);
+            entrySchema?.Invoke(entry.Value, entryPath);
+            metadata[entry.Name] = entry.Value.Clone();
+        }
+
+        return metadata;
+    }
+
     public static InvalidResponseDataException Invalid(string path, string reason) =>
         new("Type validation failed: " + path + ": " + reason);
 }
