@@ -881,7 +881,7 @@ public sealed class E2ESession : IAsyncDisposable
     internal CancellationToken TimeoutSignal => _timeout.Token;
 
     /// <summary>The error a body the test's own timeout cut short fails with (upstream's <c>TestTimeoutError</c>).</summary>
-    internal TestException TimeoutError() => TimeoutFailure(_testTimeout, null);
+    internal TestException TestTimeoutError() => TimeoutFailure(_testTimeout, null);
 
     /// <summary>
     /// Stops what the body left in flight on the hosts and sessions it opened, however it ended: an opening under way is cancelled and a session with a

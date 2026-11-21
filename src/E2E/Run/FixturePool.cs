@@ -10,7 +10,7 @@ namespace E2E;
 /// names it, outside the test's attempt, and torn down when the run ends. What it hands over is <see cref="Value"/> (.NET-only: a test has no fixtures
 /// object to destructure).
 /// </summary>
-internal sealed class WorkerFixture(string name, Func<Func<object?, Task>, Task> fn)
+internal sealed class FixtureDefinition(string name, Func<Func<object?, Task>, Task> fn)
 {
     /// <summary>The fixture's name.</summary>
     public string Name { get; } = name;
@@ -28,10 +28,10 @@ internal sealed class WorkerFixture(string name, Func<Func<object?, Task>, Task>
 /// </summary>
 internal sealed class WorkerFixturePool
 {
-    private readonly List<(WorkerFixture Fixture, TaskCompletionSource Release, Task Run)> _running = [];
+    private readonly List<(FixtureDefinition Fixture, TaskCompletionSource Release, Task Run)> _running = [];
 
     /// <summary>Sets up the fixtures not yet set up. A failure of one is the failure of the test that named it, and the fixture is not torn down.</summary>
-    public async Task SetUpAsync(IReadOnlyList<WorkerFixture> fixtures)
+    public async Task AcquireAsync(IReadOnlyList<FixtureDefinition> fixtures, CancellationToken cancellationToken)
     {
         foreach (var fixture in fixtures)
         {
@@ -91,13 +91,13 @@ internal sealed class WorkerFixturePool
             });
             // A fixture whose setup failed is never torn down, so nothing else would observe its failure.
             _ = run.ContinueWith(static task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
-            await provided.Task.ConfigureAwait(false);
+            await provided.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
             _running.Add((fixture, release, run));
         }
     }
 
     /// <summary>Tears the fixtures down in reverse order of their setup and returns what failed.</summary>
-    public async Task<IReadOnlyList<Exception>> TearDownAsync(TimeSpan timeout)
+    public async Task<IReadOnlyList<Exception>> CloseAsync(TimeSpan timeout)
     {
         var failures = new List<Exception>();
         for (var index = _running.Count - 1; index >= 0; index--)

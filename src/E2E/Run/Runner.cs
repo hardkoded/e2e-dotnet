@@ -30,7 +30,7 @@ internal sealed record InMemoryTest(string Title, Func<E2ESession, Task> Body)
     public IReadOnlyList<Func<Task>> AfterEach { get; init; } = [];
 
     /// <summary>The worker fixtures the test names (<c>RegisteredTest.names</c> of <c>scope: 'worker'</c> fixtures): set up inside the first test that names them.</summary>
-    public IReadOnlyList<WorkerFixture> WorkerFixtures { get; init; } = [];
+    public IReadOnlyList<FixtureDefinition> WorkerFixtures { get; init; } = [];
 }
 
 /// <summary>
@@ -240,7 +240,7 @@ internal static class Runner
         finally
         {
             // The worker's fixtures end with the worker, after the last test and before what the run prepared: a failure is a cleanup failure of the run.
-            foreach (var failure in await workers.TearDownAsync(E2EDefaults.CleanupTimeout).ConfigureAwait(false))
+            foreach (var failure in await workers.CloseAsync(E2EDefaults.CleanupTimeout).ConfigureAwait(false))
             {
                 Console.Error.WriteLine(
                     $"e2e: worker fixture teardown failed: {Redactor.For(config.AllSecrets).Redact(failure.Message)}"
@@ -404,7 +404,7 @@ internal static class Runner
             try
             {
                 // A worker fixture is set up inside the first test that names it, and is no part of the test: what it launches is no test's to close.
-                await workers.SetUpAsync(test.WorkerFixtures).ConfigureAwait(false);
+                await workers.AcquireAsync(test.WorkerFixtures, cancellationToken).ConfigureAwait(false);
                 await StartSessionAsync(test.Title, attempt, null, () => false, cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -423,10 +423,10 @@ internal static class Runner
                 {
                     foreach (var hook in test.BeforeEach)
                     {
-                        await hook().ConfigureAwait(false);
+                        await CutBodyAsync(hook(), session, cancellationToken).ConfigureAwait(false);
                     }
 
-                    await RunBodyAsync(test, session, cancellationToken).ConfigureAwait(false);
+                    await CutBodyAsync(test.Body(session), session, cancellationToken).ConfigureAwait(false);
                     await session.SettleAttemptAsync(cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception ex)
@@ -453,7 +453,24 @@ internal static class Runner
                 {
                     try
                     {
-                        await hook().ConfigureAwait(false);
+                        // The hook gets the cleanup timeout: a hook that never returns must not hold the run.
+                        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        if (Config.CleanupTimeout > TimeSpan.Zero && Config.CleanupTimeout != Timeout.InfiniteTimeSpan)
+                        {
+                            budget.CancelAfter(Config.CleanupTimeout);
+                        }
+
+                        await CutAsync(
+                                hook(),
+                                budget.Token,
+                                () =>
+                                    new TestException(
+                                        "TEST_TIMEOUT",
+                                        "an afterEach hook did not finish within the cleanup timeout"
+                                    ),
+                                cancellationToken
+                            )
+                            .ConfigureAwait(false);
                     }
                     catch (Exception ex)
                         when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
@@ -461,6 +478,17 @@ internal static class Runner
                         // A failing hook fails the test unless the body already did.
                         error ??= ex;
                     }
+                }
+
+                // A failure the engine held from a path no step awaited, during the hooks, is the test's too (upstream's second settleAttempt, before the verdict).
+                try
+                {
+                    await session.SettleAttemptAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                    when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    error ??= ex;
                 }
 
                 session.Complete(error, cancellationToken);
@@ -475,26 +503,32 @@ internal static class Runner
     }
 
     /// <summary>
-    /// Runs the body against the test's own timeout (upstream's <c>cutBody</c> race, <c>run/execute.ts</c>): a body still running when it fires is given up on and fails
-    /// with <c>TEST_TIMEOUT</c>, though what it awaits is not the test's own session.
+    /// Runs the body (or a <c>beforeEach</c> hook) against the test's own timeout (upstream's <c>cutBody</c> race, <c>run/execute.ts</c>): work still running when it fires
+    /// is given up on and fails with <c>TEST_TIMEOUT</c>, though what it awaits is not the test's own session.
     /// </summary>
-    private static async Task RunBodyAsync(InMemoryTest test, E2ESession session, CancellationToken cancellationToken)
+    private static Task CutBodyAsync(Task running, E2ESession session, CancellationToken cancellationToken) =>
+        CutAsync(running, session.TimeoutSignal, session.TestTimeoutError, cancellationToken);
+
+    /// <summary>Awaits <paramref name="running"/> until it ends or <paramref name="cut"/> fires: then it is given up on, and a cancelled caller surfaces as cancellation, anything else as <paramref name="cutBy"/>.</summary>
+    private static async Task CutAsync(
+        Task running,
+        CancellationToken cut,
+        Func<Exception> cutBy,
+        CancellationToken caller
+    )
     {
-        var running = test.Body(session);
-        var cut = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        await using var registration = session.TimeoutSignal.Register(() => cut.TrySetResult()).ConfigureAwait(false);
-        if (
-            await Task.WhenAny(running, cut.Task).ConfigureAwait(false) == running
-            || cancellationToken.IsCancellationRequested
-        )
+        var gone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var registration = cut.Register(() => gone.TrySetResult()).ConfigureAwait(false);
+        if (await Task.WhenAny(running, gone.Task).ConfigureAwait(false) == running)
         {
             await running.ConfigureAwait(false);
             return;
         }
 
-        // What the body does after it was cut is nobody's to observe.
+        // What the work does after it was cut is nobody's to observe.
         _ = running.ContinueWith(static task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
-        throw session.TimeoutError();
+        caller.ThrowIfCancellationRequested();
+        throw cutBy();
     }
 
     private static int AgentCodeExit(string code) =>

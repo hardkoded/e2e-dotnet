@@ -248,7 +248,7 @@ public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyn
         ];
 
     // A worker fixture is set up inside the first test that names it and outlives it: what it launches is no test's to close.
-    private WorkerFixture Phone => _phone ??= new WorkerFixture("phone", async use =>
+    private FixtureDefinition Phone => _phone ??= new FixtureDefinition("phone", async use =>
         {
             var engine = new CoreFakeEngine(ConfirmScene, video: true);
             _workerFixtureEngine = engine;
@@ -257,7 +257,7 @@ public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyn
             await host.CloseAsync();
         });
 
-    private WorkerFixture? _phone;
+    private FixtureDefinition? _phone;
 
     private static string Config =>
         """{ "video": "on", "trace": "on", "actionTimeout": 300, "assertionTimeout": 200, "cleanupTimeout": 2000 }""";
