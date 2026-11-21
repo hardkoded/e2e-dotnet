@@ -252,7 +252,8 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
-                await CommitTypedAsync(Target(node, "fill", PlacementOf(node)), value).ConfigureAwait(false);
+                await CommitTypedAsync(Target(node, "fill", PlacementOf(node)), value, node.InputPurpose)
+                    .ConfigureAwait(false);
             },
             cancellationToken
         );
@@ -1062,7 +1063,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     // from the date is this run's data, not the flow's. It is recorded as a gap so replay hands over before it rather than typing a
     // value the app may not issue again. A replay commits through the replay host, so a value a replay types is the recording's own
     // data and stays: an app that kept the last run's value shows it on the first screen, and no model chose it.
-    private Task CommitTypedAsync(RecordedAction action, string value)
+    private Task CommitTypedAsync(RecordedAction action, string value, string? inputPurpose = null)
     {
         action.Value = value;
         if (
@@ -1070,7 +1071,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                 value,
                 _instruction,
                 _params,
-                new StepEvidence(_feed.ShownText(), _feed.PixelsShown)
+                new StepEvidence(_feed.ShownText(), _feed.PixelsShown, inputPurpose)
             ) is
             { } derived
         )

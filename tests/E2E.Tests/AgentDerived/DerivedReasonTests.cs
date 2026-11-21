@@ -145,6 +145,65 @@ public sealed class DerivedReasonTests
         Assert.Equal(DerivedReason.WholeNode, Reason("123", "enter the code", null, Shown("Your code is 123", "123")));
     }
 
+    private static StepEvidence Otp(params string[] shown) => new(shown, null, "one-time-code");
+
+    [Fact]
+    public void Names_the_token_rule_for_any_value_typed_into_a_one_time_code_field_one_digit_per_box_included()
+    {
+        string[] shown = ["Your code is 482913"];
+        const string goal = "type the code shown on the page into the code boxes";
+        // One digit per box: no screen shows a lone digit as a word of its own, so only the field's purpose tells the fill is this run's
+        // code.
+        foreach (var digit in "482913")
+        {
+            Assert.Null(Reason(digit.ToString(), goal, null, Shown(shown)));
+            Assert.Equal(DerivedReason.MintedToken, Reason(digit.ToString(), goal, null, Otp(shown)));
+        }
+
+        Assert.Equal(DerivedReason.MintedToken, Reason("482913", goal, null, Otp()));
+        // Any other purpose keeps the rules above.
+        Assert.Null(Reason("4", goal, null, new StepEvidence(shown, null, "username")));
+        Assert.Null(Reason("4", goal, null, new StepEvidence(shown, null, "none")));
+    }
+
+    [Fact]
+    public void Replays_a_whole_one_time_code_the_instruction_or_the_params_spell_out()
+    {
+        Assert.Null(Reason("482913", "enter the code 482913", null, Otp()));
+        Assert.Null(Reason("482913", "enter the code", new JsonObject { ["code"] = "482913" }, Otp()));
+    }
+
+    [Fact]
+    public void Never_replays_a_lone_digit_in_a_one_time_code_box_whatever_the_instruction_or_the_params_say()
+    {
+        // "6-digit" contains a 6, which is no spelling of the code: a code that starts with 6 must not replay its first box as last run's.
+        Assert.Equal(DerivedReason.MintedToken, Reason("6", "enter the 6-digit code shown on the page", null, Otp()));
+        // Accepted cost: a fixed code passed in the params and typed one digit per box runs live instead of replaying, since a lone digit
+        // cannot tell that code from one the app minted.
+        Assert.Equal(
+            DerivedReason.MintedToken,
+            Reason("4", "enter the code", new JsonObject { ["code"] = "482913" }, Otp())
+        );
+    }
+
+    [Fact]
+    public void Never_replays_a_chunk_of_a_longer_number_in_a_one_time_code_field()
+    {
+        // A code split three and three: each half sits inside a longer param or word, which spells neither the code nor the half.
+        Assert.Equal(
+            DerivedReason.MintedToken,
+            Reason("482", "enter the code", new JsonObject { ["phone"] = "4825551234" }, Otp())
+        );
+        Assert.Equal(
+            DerivedReason.MintedToken,
+            Reason("482", "enter the code", new JsonObject { ["code"] = "482913" }, Otp())
+        );
+        Assert.Equal(DerivedReason.MintedToken, Reason("482", "enter the code 482913", null, Otp()));
+        // A half the step spells out on its own still replays.
+        Assert.Null(Reason("482", "enter 482 then 913", null, Otp()));
+        Assert.Null(Reason("482", "enter the code", new JsonObject { ["first"] = "482" }, Otp()));
+    }
+
     [Fact]
     public void Never_treats_an_empty_value_as_derived()
     {
