@@ -612,7 +612,7 @@ internal static class ProviderUtils
         }
     }
 
-    private static Dictionary<string, string> ReadHeaders(HttpResponseMessage response)
+    internal static Dictionary<string, string> ReadHeaders(HttpResponseMessage response)
     {
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (
@@ -620,6 +620,18 @@ internal static class ProviderUtils
                 response.Content.Headers
             )
         )
+        {
+            headers[name.ToLowerInvariant()] = string.Join(", ", values);
+        }
+
+        return headers;
+    }
+
+    /// <summary>The headers of a response, lowercase names. .NET-only: the TypeSafe SDK hands over the headers apart from the response.</summary>
+    internal static Dictionary<string, string> ReadHeaders(System.Net.Http.Headers.HttpResponseHeaders responseHeaders)
+    {
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, values) in responseHeaders)
         {
             headers[name.ToLowerInvariant()] = string.Join(", ", values);
         }

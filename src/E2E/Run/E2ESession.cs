@@ -41,6 +41,7 @@ public sealed class E2ESession : IAsyncDisposable
     private TimeSpan _testTimeout;
     private AttemptTimeout? _attemptTimeout;
     private Func<AttemptTimeout>? _newAttemptTimeout;
+    private CancellationToken _openToken;
 
     // What the teardown threw (a required video that did not finalize, the engine session's close): upstream's secondaryErrors of phase cleanup.
     private readonly List<Exception> _cleanupErrors = [];
@@ -766,6 +767,7 @@ public sealed class E2ESession : IAsyncDisposable
                     _testTimeout = options.TestTimeout,
                     _attemptTimeout = attemptTimeout,
                     _newAttemptTimeout = NewAttemptTimeout,
+                    _openToken = cancellationToken,
                 };
                 if (options.OffersGuests)
                 {
@@ -1156,7 +1158,22 @@ public sealed class E2ESession : IAsyncDisposable
             }
         }
 
-        Complete(soft ?? abandoned);
+        // Upstream's standalone attempt fails as timed out when the deadline passed, whether or not its timer ran before close.
+        TestException? timedOut = null;
+        if (_hostedClose is not null && !_openToken.IsCancellationRequested && _attemptTimeout is { Expired: true })
+        {
+            timedOut = new TestException(
+                "TEST_TIMEOUT",
+                "session timed out after "
+                    + ((long)_attemptTimeout.Timeout.TotalMilliseconds).ToString(
+                        System.Globalization.CultureInfo.InvariantCulture
+                    )
+                    + " ms"
+            );
+            errors.Add(timedOut);
+        }
+
+        Complete(timedOut ?? soft ?? abandoned);
         try
         {
             await DisposeCoreAsync().ConfigureAwait(false);
