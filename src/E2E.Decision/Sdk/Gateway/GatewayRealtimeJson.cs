@@ -16,15 +16,36 @@ internal static class GatewayRealtimeJson
         AllowOutOfOrderMetadataProperties = true,
     };
 
-    /// <summary>The identity codec of <c>GatewayRealtimeModel.parseServerEvent</c> (<c>raw as RealtimeModelV4ServerEvent</c>).</summary>
-    public static RealtimeModelV4ServerEvent ToServerEvent(object? raw) =>
-        raw switch
+    /// <summary>
+    /// The identity codec of <c>GatewayRealtimeModel.parseServerEvent</c> (<c>raw as RealtimeModelV4ServerEvent</c>). Upstream's cast never
+    /// throws, so a frame whose type this port does not model passes through as a <c>custom</c> event that keeps the frame as <c>Raw</c>.
+    /// </summary>
+    public static RealtimeModelV4ServerEvent ToServerEvent(object? raw)
+    {
+        if (raw is RealtimeModelV4ServerEvent serverEvent)
         {
-            RealtimeModelV4ServerEvent serverEvent => serverEvent,
-            JsonNode node => node.Deserialize<RealtimeModelV4ServerEvent>(Options)!,
-            JsonElement element => element.Deserialize<RealtimeModelV4ServerEvent>(Options)!,
+            return serverEvent;
+        }
+
+        var node = raw switch
+        {
+            JsonNode jsonNode => jsonNode,
+            JsonElement element => JsonNode.Parse(element.GetRawText()),
             _ => throw new InvalidArgumentException("raw", "expected a realtime server event."),
         };
+        try
+        {
+            return node.Deserialize<RealtimeModelV4ServerEvent>(Options)!;
+        }
+        catch (Exception error) when (error is JsonException or NotSupportedException)
+        {
+            var rawType =
+                node is JsonObject frame && frame["type"] is JsonValue type && type.TryGetValue<string>(out var text)
+                    ? text
+                    : "";
+            return new RealtimeModelV4Custom(rawType) { Raw = node };
+        }
+    }
 }
 
 /// <summary>.NET-only: upstream's <c>removeUndefinedEntries</c> (<c>@ai-sdk/provider-utils</c>) over resolved headers.</summary>

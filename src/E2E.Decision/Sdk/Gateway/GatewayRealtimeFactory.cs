@@ -52,13 +52,15 @@ public sealed class GatewayRealtimeFactory : IRealtimeFactoryV4
         RealtimeFactoryV4GetTokenOptions options,
         CancellationToken cancellationToken
     ) =>
-        GetTokenAsync(
-            new GatewayRealtimeGetTokenOptions
-            {
-                Model = options.Model,
-                ExpiresAfterSeconds = options.ExpiresAfterSeconds,
-                SessionConfig = options.SessionConfig,
-            },
-            cancellationToken
-        );
+        options is GatewayRealtimeGetTokenOptions gatewayOptions
+            ? GetTokenAsync(gatewayOptions, cancellationToken)
+            : GetTokenAsync(
+                new GatewayRealtimeGetTokenOptions
+                {
+                    Model = options.Model,
+                    ExpiresAfterSeconds = options.ExpiresAfterSeconds,
+                    SessionConfig = options.SessionConfig,
+                },
+                cancellationToken
+            );
 }

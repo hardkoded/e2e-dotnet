@@ -206,7 +206,7 @@ public sealed class GatewayRealtimeModelLive : IRealtimeModelV4
         AssertConversationIntent(intent);
         foreach (var (key, isSet) in SettingsOf(config))
         {
-            if (isSet && !SupportedSessionSettings.Contains(key))
+            if (isSet && !s_supportedSessionSettings.Contains(key))
             {
                 throw new UnsupportedFunctionalityException("AI Gateway Live session setting: " + key);
             }
@@ -246,7 +246,7 @@ public sealed class GatewayRealtimeModelLive : IRealtimeModelV4
     object? IRealtimeModelV4.BuildSessionConfig(RealtimeModelV4SessionConfig config, string? intent) =>
         BuildSessionConfig(config, intent);
 
-    private static readonly HashSet<string> SupportedSessionSettings =
+    private static readonly HashSet<string> s_supportedSessionSettings =
     [
         "instructions",
         "voice",
