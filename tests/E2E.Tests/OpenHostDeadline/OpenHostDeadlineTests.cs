@@ -117,4 +117,21 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
         Assert.Contains("session timed out after 20 ms", failure.Message);
         Assert.Contains("· timed out ·", await File.ReadAllTextAsync(session.TracePath));
     }
+
+    /// <summary>.NET-only: upstream has no <c>it</c> for the caller's cancel (its <c>signal</c> option), which the port passes as the open token (#2002).</summary>
+    [Fact]
+    public async Task A_caller_cancel_stays_a_cancellation_and_is_not_reported_as_a_timeout_on_close()
+    {
+        var host = await OpenAsync(new HostFakeEngine());
+        using var caller = new CancellationTokenSource();
+        var session = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "caller cancel", Timeout = TimeSpan.FromMilliseconds(100) },
+            caller.Token
+        );
+        await caller.CancelAsync();
+        await Task.Delay(200);
+
+        var failures = await session.CloseAsync();
+        Assert.DoesNotContain(failures, failure => failure is E2EException { Code: "TEST_TIMEOUT" });
+    }
 }
