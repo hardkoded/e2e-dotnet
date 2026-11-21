@@ -100,7 +100,13 @@ internal sealed class VercelAiDecisionModel(IDecisionCaller model) : IDecisionMo
                 data.Reference = file.Reference is { ValueKind: JsonValueKind.Object } reference
                     ? reference
                         .EnumerateObject()
-                        .ToDictionary(property => property.Name, property => property.Value.GetString() ?? "")
+                        .ToDictionary(
+                            property => property.Name,
+                            property =>
+                                property.Value.ValueKind == JsonValueKind.String
+                                    ? property.Value.GetString()!
+                                    : property.Value.GetRawText()
+                        )
                     : null;
                 break;
             default:
@@ -154,7 +160,7 @@ internal sealed class VercelAiDecisionModel(IDecisionCaller model) : IDecisionMo
         : input.Text is { } text ? Vercel.AI.Operations.DecisionInput.From(text)
         : Vercel.AI.Operations.DecisionInput.FromJson(input.Json!.Value);
 
-    private static E2E.Decision.Sdk.DecisionModelResult FromVercel(Vercel.AI.Operations.DecisionModelResult result) =>
+    private E2E.Decision.Sdk.DecisionModelResult FromVercel(Vercel.AI.Operations.DecisionModelResult result) =>
         new()
         {
             Answers = result.Answers.ToDictionary(answer => answer.Key, answer => FromVercel(answer.Value)),
@@ -164,8 +170,8 @@ internal sealed class VercelAiDecisionModel(IDecisionCaller model) : IDecisionMo
                 : null,
             ProviderMetadata = result.ProviderMetadata,
             ResponseId = result.Response?.Id,
-            ResponseTimestamp = result.Response?.Timestamp is { } timestamp ? new DateTimeOffset(timestamp) : null,
-            ResponseModelId = result.Response?.ModelId,
+            ResponseTimestamp = result.Response?.Timestamp is { } timestamp ? ToOffset(timestamp) : null,
+            ResponseModelId = result.Response?.ModelId ?? model.ModelId,
             ResponseHeaders = result.Response?.Headers,
             ResponseBody = result.Response?.Body,
             Warnings = [.. result.Warnings.Select(Warning)],
@@ -184,14 +190,19 @@ internal sealed class VercelAiDecisionModel(IDecisionCaller model) : IDecisionMo
                 : null,
         };
 
-    // The port's warnings are text, as OpenAIDecisionModel writes them: "unsupported setting: <feature>".
+    // The port's warnings are text, as OpenAIDecisionModel writes them: "unsupported setting: <feature>: <details>".
     private static string Warning(OperationWarning warning) =>
-        warning.Message
-        ?? (
-            warning.Type == "unsupported"
-                ? "unsupported setting: "
-                    + warning.Feature
-                    + (warning.Details is null ? "" : " (" + warning.Details + ")")
-                : warning.Type
-        );
+        warning.Type switch
+        {
+            "unsupported" => "unsupported setting: " + warning.Feature + Suffix(warning.Details),
+            "compatibility" => "compatibility mode: " + warning.Feature + Suffix(warning.Details),
+            "deprecated" => "deprecated setting: " + warning.Setting + Suffix(warning.Message),
+            _ => warning.Message ?? warning.Type,
+        };
+
+    private static string Suffix(string? text) => text is null ? "" : ": " + text;
+
+    // Vercel.AI parses the response timestamp as a DateTime; an unspecified kind is UTC, not the machine's zone.
+    private static DateTimeOffset ToOffset(DateTime timestamp) =>
+        new(timestamp.Kind == DateTimeKind.Local ? timestamp : DateTime.SpecifyKind(timestamp, DateTimeKind.Utc));
 }

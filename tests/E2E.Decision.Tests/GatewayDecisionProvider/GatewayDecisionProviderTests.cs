@@ -156,4 +156,54 @@ public sealed class GatewayDecisionProviderTests
 
         Assert.Equal("typesafe-ai/jev", model.ModelId);
     }
+
+    [Fact]
+    public async Task Rejects_invalid_gateway_provider_options_before_any_request()
+    {
+        var server = new TestServer();
+        server.RespondJson(DecisionUrl, """{ "answers": {} }""");
+
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            Model(server)
+                .DoDecideAsync(
+                    new E2E.Decision.Sdk.DecisionModelCall
+                    {
+                        State = [new DecisionTextPart("x")],
+                        Questions = new Dictionary<string, E2E.Decision.Sdk.DecisionQuestion>
+                        {
+                            ["done"] = E2E.Decision.Sdk.DecisionQuestion.Boolean(null),
+                        },
+                        ProviderOptions = new Dictionary<string, JsonElement>
+                        {
+                            ["gateway"] = JsonDocument
+                                .Parse("""{ "models": [{ "model": "a/b", "when": { "confidenceBelow": 2 } }] }""")
+                                .RootElement,
+                        },
+                    },
+                    CancellationToken.None
+                )
+        );
+
+        Assert.Empty(server.Calls);
+    }
+
+    [Fact]
+    public async Task ExperimentalDecide_retries_a_retryable_GatewayError()
+    {
+        var (model, calls) = Decide.DecideTestHelpers.Setup();
+        model.FailOnce(new GatewayRateLimitError("Rate limited"));
+
+        var result = await ExperimentalDecide.RunAsync(
+            new DecideOptions
+            {
+                Model = model,
+                State = [new DecisionTextPart("text")],
+                Questions = Decide.DecideTestHelpers.QuestionMap,
+                MaxRetries = 1,
+            }
+        );
+
+        Assert.NotNull(result);
+        Assert.Equal(2, calls.Count);
+    }
 }

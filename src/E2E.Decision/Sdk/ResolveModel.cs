@@ -15,6 +15,9 @@ public static class ResolveModel
     /// </summary>
     public static IDecisionProvider? AiSdkDefaultProvider { get; set; }
 
+    // Upstream's one default `gateway`, made on first use so the key is read then.
+    private static readonly Lazy<GatewayDecisionProvider> DefaultGateway = new(() => new GatewayDecisionProvider());
+
     /// <summary>
     /// The AI SDK's <c>resolveDecisionModel</c> for a deprecated evaluation model: an <see cref="IDecisionModel"/> whose
     /// <c>DoDecideAsync</c> calls the model's <c>DoEvaluateAsync</c>.
@@ -32,7 +35,7 @@ public static class ResolveModel
     public static IDecisionModel ResolveDecisionModel(string modelId)
     {
         ArgumentNullException.ThrowIfNull(modelId);
-        var provider = AiSdkDefaultProvider ?? new GatewayDecisionProvider();
+        var provider = AiSdkDefaultProvider ?? DefaultGateway.Value;
         return provider.ResolveDecisionModel(modelId) ?? throw new NoSuchModelException(modelId, "decisionModel");
     }
 
