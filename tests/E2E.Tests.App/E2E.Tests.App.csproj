@@ -5,4 +5,8 @@
     <RootNamespace>E2E.Tests.App</RootNamespace>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- The file-lock and refresh workers (upstream's helpers/file-lock-worker.ts and helpers/refresh-worker.ts) run the library itself. -->
+    <ProjectReference Include="..\..\src\E2E\E2E.csproj" />
+  </ItemGroup>
 </Project>
