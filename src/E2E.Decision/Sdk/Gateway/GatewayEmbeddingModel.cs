@@ -146,7 +146,7 @@ public sealed class GatewayEmbeddingModel : IEmbeddingModelV4, IDisposable
             Usage = usage,
             ProviderMetadata = Zod.OptionalProviderMetadata(root, path),
             Response = new EmbeddingModelV4Response(response.ResponseHeaders, response.Value),
-            Warnings = GatewayWarningSchema.ReadOptionalArray(root, "warnings", path),
+            Warnings = GatewayWarningSchema.ParseOptionalArray(root, "warnings", path),
         };
     }
 }

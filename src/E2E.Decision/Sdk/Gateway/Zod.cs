@@ -11,7 +11,7 @@ namespace E2E.Decision.Sdk.Gateway;
 /// type throws an <see cref="InvalidResponseDataException"/>, which <see cref="ProviderUtils.ProcessSuccessfulResponse{T}"/> reports as
 /// "Failed to process successful response".
 /// </summary>
-internal static class Zod
+internal static partial class Zod
 {
     public static JsonElement Object(JsonElement value, string path) =>
         value.ValueKind == JsonValueKind.Object ? value : throw Invalid(path, "expected object");

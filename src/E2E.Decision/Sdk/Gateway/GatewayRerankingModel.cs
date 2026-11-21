@@ -141,7 +141,7 @@ public sealed class GatewayRerankingModel : IRerankingModelV4, IDisposable
             Ranking = ranking,
             ProviderMetadata = Zod.OptionalProviderMetadata(root, path),
             Response = new RerankingModelV4Response { Headers = response.ResponseHeaders, Body = response.Value },
-            Warnings = GatewayWarningSchema.ReadOptionalArray(root, "warnings", path),
+            Warnings = GatewayWarningSchema.ParseOptionalArray(root, "warnings", path),
         };
     }
 }

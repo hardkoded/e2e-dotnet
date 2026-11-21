@@ -60,6 +60,26 @@ public sealed class GatewayProvider : IDecisionProvider
         _baseUrl = (_settings.BaseUrl ?? DefaultBaseUrl).TrimEnd('/');
     }
 
+    /// <summary>
+    /// Creates a language model (upstream's <c>languageModel</c>, <c>createLanguageModel</c>). It is also what calling the upstream provider
+    /// as a function does: <c>gateway('anthropic/claude-sonnet-5')</c>.
+    /// </summary>
+    public GatewayLanguageModel LanguageModel(string modelId) =>
+        new(
+            modelId,
+            new GatewayChatConfig
+            {
+                Provider = "gateway",
+                BaseUrl = _baseUrl,
+                Headers = GetHeadersAsync,
+                O11yHeaders = GetO11yHeadersAsync,
+                HttpClient = _settings.HttpClient,
+            }
+        );
+
+    /// <summary>Creates a language model (upstream's <c>chat</c>, an alias of <c>languageModel</c>).</summary>
+    public GatewayLanguageModel Chat(string modelId) => LanguageModel(modelId);
+
     /// <summary>Creates a decision model (upstream's <c>decisionModel</c>).</summary>
     public GatewayDecisionModel DecisionModel(string modelId) =>
         new(
@@ -128,6 +148,9 @@ public sealed class GatewayProvider : IDecisionProvider
     /// <summary>Creates a model for reranking documents (upstream's <c>reranking</c>).</summary>
     public GatewayRerankingModel Reranking(string modelId) => RerankingModel(modelId);
 
+    /// <summary>Gateway-specific tools executed server-side (upstream's <c>tools</c>).</summary>
+    public GatewayToolsApi Tools { get; } = new();
+
     /// <summary>The default provider (upstream's <c>export const gateway = createGateway()</c>).</summary>
     public static GatewayProvider Gateway { get; } = new();
 
@@ -188,6 +211,23 @@ public sealed class GatewayProvider : IDecisionProvider
 
     /// <summary>Creates a decision model (upstream's <c>decision</c>).</summary>
     public GatewayDecisionModel Decision(string modelId) => DecisionModel(modelId);
+
+    /// <summary>Creates a model for extracting typed field values from shared state (upstream's <c>extractionModel</c>).</summary>
+    public GatewayExtractionModel ExtractionModel(string modelId) =>
+        new(
+            modelId,
+            new GatewayExtractionModelConfig
+            {
+                Provider = "gateway",
+                BaseUrl = _baseUrl,
+                Headers = GetHeadersAsync,
+                O11yHeaders = GetO11yHeadersAsync,
+                HttpClient = _settings.HttpClient,
+            }
+        );
+
+    /// <summary>Creates a model for extracting typed field values from shared state (upstream's <c>extraction</c>).</summary>
+    public GatewayExtractionModel Extraction(string modelId) => ExtractionModel(modelId);
 
     /// <summary>Deprecated: use <see cref="DecisionModel"/>.</summary>
     public GatewayDecisionModel EvaluationModel(string modelId) => DecisionModel(modelId);

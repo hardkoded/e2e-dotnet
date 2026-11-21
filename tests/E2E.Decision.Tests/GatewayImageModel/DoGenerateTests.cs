@@ -170,7 +170,7 @@ public sealed class DoGenerateTests
 
         var result = await model.DoGenerateAsync(Call());
 
-        Assert.Equal([new SharedV4OtherWarning("Setting not supported")], result.Warnings);
+        Assert.Equal([new SharedV4Warning { Type = "other", Message = "Setting not supported" }], result.Warnings);
     }
 
     [Fact]
@@ -186,7 +186,17 @@ public sealed class DoGenerateTests
 
         var result = await model.DoGenerateAsync(Call());
 
-        Assert.Equal([new SharedV4DeprecatedWarning("size", "Use `aspectRatio` instead.")], result.Warnings);
+        Assert.Equal(
+            [
+                new SharedV4Warning
+                {
+                    Type = "deprecated",
+                    Setting = "size",
+                    Message = "Use `aspectRatio` instead.",
+                },
+            ],
+            result.Warnings
+        );
     }
 
     [Fact]
@@ -204,10 +214,12 @@ public sealed class DoGenerateTests
 
         Assert.Equal(
             [
-                new SharedV4UnsupportedWarning(
-                    "size",
-                    "This model does not support the `size` option. Use `aspectRatio` instead."
-                ),
+                new SharedV4Warning
+                {
+                    Type = "unsupported",
+                    Feature = "size",
+                    Details = "This model does not support the `size` option. Use `aspectRatio` instead.",
+                },
             ],
             result.Warnings
         );
@@ -227,7 +239,14 @@ public sealed class DoGenerateTests
         var result = await model.DoGenerateAsync(Call(seed: 42));
 
         Assert.Equal(
-            [new SharedV4CompatibilityWarning("seed", "Seed support is approximate for this model.")],
+            [
+                new SharedV4Warning
+                {
+                    Type = "compatibility",
+                    Feature = "seed",
+                    Details = "Seed support is approximate for this model.",
+                },
+            ],
             result.Warnings
         );
     }
@@ -247,9 +266,14 @@ public sealed class DoGenerateTests
 
         Assert.Equal(
             [
-                new SharedV4UnsupportedWarning("size"),
-                new SharedV4CompatibilityWarning("seed", "Approximate seed support."),
-                new SharedV4OtherWarning("Rate limit approaching."),
+                new SharedV4Warning { Type = "unsupported", Feature = "size" },
+                new SharedV4Warning
+                {
+                    Type = "compatibility",
+                    Feature = "seed",
+                    Details = "Approximate seed support.",
+                },
+                new SharedV4Warning { Type = "other", Message = "Rate limit approaching." },
             ],
             result.Warnings
         );

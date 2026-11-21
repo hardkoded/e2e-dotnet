@@ -4,7 +4,6 @@
 
 using E2E.Decision.Sdk.Gateway;
 using Vercel.Oidc;
-using static E2E.Decision.Tests.GatewayDecisionModel.GatewayDecisionModelFixture;
 using Env = E2E.Decision.Sdk.Gateway.VercelEnvironment;
 
 namespace E2E.Decision.Tests.GatewayProvider;
@@ -54,30 +53,25 @@ internal static class GatewayProviderFixture
     }
 
     /// <summary>
-    /// The headers the provider's decision model sends: upstream resolves <c>config.headers</c> of the model the provider constructs,
-    /// the port reads them from the request the model makes.
+    /// The headers of the language model the provider creates: upstream resolves <c>config.headers</c> of the <c>GatewayLanguageModel</c>
+    /// constructor call, the port reads the config of the model (names in lowercase, as the request carries them).
     /// </summary>
     public static async Task<IReadOnlyDictionary<string, string>> ResolveHeadersAsync(GatewayProviderSettings settings)
     {
-        var baseUrl = settings.BaseUrl ?? BaseUrl;
-        var server = new TestServer();
-        server.RespondJson(
-            baseUrl + "/decision-model",
-            """{"answers":{"correct":{"type":"boolean","probability":0.97}}}"""
-        );
         var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
             new GatewayProviderSettings
             {
-                BaseUrl = baseUrl,
+                BaseUrl = settings.BaseUrl ?? BaseUrl,
                 ApiKey = settings.ApiKey,
                 Headers = settings.Headers,
                 TeamIdOrSlug = settings.TeamIdOrSlug,
-                HttpClient = server.Client,
             }
         );
-        using var model = provider.DecisionModel("test-model");
-        await model.DoDecideAsync(Call(), CancellationToken.None);
-        return server.Calls[0].RequestHeaders;
+        using var model = provider.LanguageModel("test-model");
+        var headers = await model.Config.Headers!(CancellationToken.None);
+        return headers
+            .Where(pair => pair.Value is not null)
+            .ToDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value!);
     }
 
     /// <summary>

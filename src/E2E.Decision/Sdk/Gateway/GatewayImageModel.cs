@@ -244,7 +244,7 @@ public sealed class GatewayImageModel : IImageModelV4, IDisposable
             );
         }
 
-        var warnings = GatewayWarningSchema.ReadOptionalArray(root, "warnings", path);
+        var warnings = GatewayWarningSchema.ParseOptionalArray(root, "warnings", path);
         var allText = images.All(image => image.Text is not null);
         return new ImageModelV4Result
         {

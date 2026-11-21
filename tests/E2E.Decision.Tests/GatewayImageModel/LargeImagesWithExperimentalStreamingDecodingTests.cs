@@ -195,7 +195,7 @@ public sealed class LargeImagesWithExperimentalStreamingDecodingTests
         var result = await model.DoGenerateAsync(CallOptions());
 
         Assert.Equal([Large], result.ImageBytes);
-        Assert.Equal([new SharedV4OtherWarning("careful")], result.Warnings);
+        Assert.Equal([new SharedV4Warning { Type = "other", Message = "careful" }], result.Warnings);
         AssertJsonEqual(
             Json("""{"gateway":{"images":[{}],"cost":"0.04"}}"""),
             System.Text.Json.JsonSerializer.SerializeToNode(result.ProviderMetadata)

@@ -121,7 +121,17 @@ public sealed class DoEmbedTests
 
         var result = await model.DoEmbedAsync(new EmbeddingModelV4CallOptions { Values = TestValues });
 
-        Assert.Equal([new SharedV4DeprecatedWarning("dimensions", "Use outputDimensions instead.")], result.Warnings);
+        Assert.Equal(
+            [
+                new SharedV4Warning
+                {
+                    Type = "deprecated",
+                    Setting = "dimensions",
+                    Message = "Use outputDimensions instead.",
+                },
+            ],
+            result.Warnings
+        );
     }
 
     [Fact]

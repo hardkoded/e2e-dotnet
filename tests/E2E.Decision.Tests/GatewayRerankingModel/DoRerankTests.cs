@@ -82,7 +82,17 @@ public sealed class DoRerankTests
 
         var result = await model.DoRerankAsync(Call());
 
-        Assert.Equal([new SharedV4UnsupportedWarning("topN", "This model ignores topN.")], result.Warnings);
+        Assert.Equal(
+            [
+                new SharedV4Warning
+                {
+                    Type = "unsupported",
+                    Feature = "topN",
+                    Details = "This model ignores topN.",
+                },
+            ],
+            result.Warnings
+        );
     }
 
     [Fact]
