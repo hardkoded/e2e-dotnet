@@ -76,6 +76,9 @@ internal static class ScrollPagesKit
         var observations = 0;
         var page = 0;
         var atSwipe = new List<int>();
+        // The observation that finds the rows drawn: the one after the first look at the thin page.
+        var drawnAt = -1;
+        var drawnPage = 0;
         var list = new DocumentElement { Role = "list", Name = "Ledger" };
         var clock = new DocumentElement
         {
@@ -141,8 +144,11 @@ internal static class ScrollPagesKit
                             After(TimeSpan.FromMilliseconds(400), () => Turn(page + 1));
                             break;
                         case Turning.DrawnLate:
+                            // Upstream draws on a 60ms timer that always fires before the 75ms settle poll set after it.
+                            // A .NET timer has no such order on a loaded runner, so the draw waits for the second look.
                             Turn(next, 1);
-                            After(TimeSpan.FromMilliseconds(60), () => Turn(next));
+                            drawnAt = observations + 2;
+                            drawnPage = next;
                             break;
                     }
                 }
@@ -151,6 +157,11 @@ internal static class ScrollPagesKit
         var engine = new ObservedDocumentEngine(world, gate, () =>
         {
             observations++;
+            if (observations == drawnAt)
+            {
+                Turn(drawnPage);
+            }
+
             clock.Text = ClockText(observations);
             counter.Text = observations.ToString(CultureInfo.InvariantCulture) + " unread";
         });
