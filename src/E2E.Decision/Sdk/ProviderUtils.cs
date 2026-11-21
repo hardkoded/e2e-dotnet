@@ -206,7 +206,20 @@ internal static class ProviderUtils
         {
             if (!response.IsSuccessStatusCode)
             {
-                var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                string text;
+                using (var readTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                {
+                    readTimeout.CancelAfter(ModelHttp.Timeout);
+                    try
+                    {
+                        text = await response.Content.ReadAsStringAsync(readTimeout.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        throw new TimeoutException("The error response body stalled.");
+                    }
+                }
+
                 var status = (int)response.StatusCode;
                 throw new ApiCallException(errorToMessage(status, text), status, ReadHeaders(response))
                 {

@@ -266,6 +266,7 @@ internal sealed class ChunkedContent(IReadOnlyList<string> chunks) : HttpContent
     private sealed class ChunkStream(List<byte[]> chunks) : Stream
     {
         private int _index;
+        private int _offset;
 
         public override bool CanRead => true;
 
@@ -290,9 +291,18 @@ internal sealed class ChunkedContent(IReadOnlyList<string> chunks) : HttpContent
                 return 0;
             }
 
-            var chunk = chunks[_index++];
-            chunk.CopyTo(buffer);
-            return chunk.Length;
+            // Keep the unread bytes of a chunk longer than the buffer for the next read.
+            var chunk = chunks[_index];
+            var count = Math.Min(buffer.Length, chunk.Length - _offset);
+            chunk.AsSpan(_offset, count).CopyTo(buffer);
+            _offset += count;
+            if (_offset == chunk.Length)
+            {
+                _index++;
+                _offset = 0;
+            }
+
+            return count;
         }
 
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>

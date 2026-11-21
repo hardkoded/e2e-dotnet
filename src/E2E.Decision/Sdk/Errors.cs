@@ -158,6 +158,10 @@ public sealed class DownloadException : Exception
 public sealed class UnsupportedFunctionalityException(string functionality, string? message = null)
     : Exception(message ?? "'" + functionality + "' functionality not supported.")
 {
+    /// <summary>Keeps the one-argument signature of earlier versions.</summary>
+    public UnsupportedFunctionalityException(string functionality)
+        : this(functionality, null) { }
+
     public string Functionality { get; } = functionality;
 }
 
