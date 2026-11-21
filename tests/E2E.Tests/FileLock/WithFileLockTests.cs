@@ -267,7 +267,16 @@ public sealed class WithFileLockTests : IDisposable
         finally
         {
             // Whatever failed above: tell every started worker to stop, then kill what is left and release every handle.
-            await File.WriteAllTextAsync(stop, "");
+            try
+            {
+                await File.WriteAllTextAsync(stop, "");
+            }
+            catch (IOException ex)
+            {
+                // Without the stop file the kill below still ends the workers.
+                System.Diagnostics.Trace.WriteLine("could not write the stop file: " + ex.Message);
+            }
+
             foreach (var child in children)
             {
                 try
