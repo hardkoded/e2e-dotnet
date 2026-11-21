@@ -59,4 +59,21 @@ public sealed class AttemptTimeoutTests
         Assert.Empty(moved);
         Assert.Equal(TimeSpan.FromMilliseconds(10), timeout.Timeout);
     }
+
+    /// <summary>.NET-only: <c>Expired</c> backs the hosted close's timeout verdict, which an unbounded timeout must never trigger (#2002).</summary>
+    [Fact]
+    public void Never_expires_when_the_timeout_is_infinite_or_zero()
+    {
+        Assert.False(
+            new AttemptTimeout(
+                new CancellationTokenSource(),
+                Timeout.InfiniteTimeSpan,
+                TimeProvider.System,
+                (_, _) => { }
+            ).Expired
+        );
+        Assert.False(
+            new AttemptTimeout(new CancellationTokenSource(), TimeSpan.Zero, TimeProvider.System, (_, _) => { }).Expired
+        );
+    }
 }
