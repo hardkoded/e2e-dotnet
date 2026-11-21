@@ -13,7 +13,7 @@ namespace E2E.Tests.LaunchInTestReport;
 /// Upstream: packages/e2e/tests/integration/launch-in-test-report.test.ts, describe('a launch() session opened inside a test, in the test's report'):
 /// a test that opens a second session with <c>Launch.LaunchAsync</c>. The session's steps are in the test's record, each under the session's name and
 /// in the order they began, its video is among the test's artifacts, and the attempt owns its end: a session the test left open, or left a step
-/// running on, is closed with it. The <c>it</c> that need a test timeout, a worker fixture, a hook, or a serial group are not here: the port has none.
+/// running on, is closed with it. The <c>it</c> that needs a serial group is not here: the port has none (see the follow-up issue).
 /// </summary>
 [Collection(E2E.Tests.SessionSecrecy.SharedSecretsCollection.Name)]
 public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyncLifetime
@@ -25,6 +25,12 @@ public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyn
     private readonly List<StepProgressEvent> _events = [];
     private readonly List<CoreFakeEngine> _engines = [];
     private CoreFakeEngine? _left;
+    private CoreFakeEngine? _workerFixtureEngine;
+    private CoreFakeEngine? _fromHook;
+    private Session? _hookSession;
+    private Session? _timedOut;
+    private string? _inTeardown;
+    private int _tries;
     private RunOutcome _outcome = null!;
     private FixtureProject _project = null!;
     private IDisposable? _listening;
@@ -76,7 +82,8 @@ public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyn
         Launched(Second(videoLinks, onStartAttempt));
 
     private IReadOnlyList<InMemoryTest> Suite() =>
-        [new InMemoryTest("drives a second session between its own steps", async session =>
+        [
+            new InMemoryTest("drives a second session between its own steps", async session =>
             {
                 await session.App.OpenAsync();
                 var host = await Open();
@@ -85,7 +92,8 @@ public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyn
                 await second.Screen.GetByRole("button", "Confirm").TapAsync();
                 await host.CloseAsync();
                 await session.Screen.GetByRole("button", "Send").TapAsync();
-            }), new InMemoryTest("opens two more sessions", async session =>
+            }),
+            new InMemoryTest("opens two more sessions", async session =>
             {
                 await session.App.OpenAsync();
                 var first = await Open();
@@ -96,62 +104,160 @@ public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyn
                 await a.App.OpenAsync("/a");
                 await first.CloseAsync();
                 await other.CloseAsync();
-            }), new InMemoryTest("uses the host opened at the top of the file", async session =>
+            }),
+            new InMemoryTest("uses the host opened at the top of the file", async session =>
             {
                 await session.App.OpenAsync();
                 var second = await _shared!.NewSessionAsync();
                 await second.App.OpenAsync("/shared");
                 await second.CloseAsync();
-            }), new InMemoryTest("uses it again", async session =>
+            }),
+            new InMemoryTest("uses it again", async session =>
             {
                 await session.App.OpenAsync();
                 var second = await _shared!.NewSessionAsync();
                 await second.App.OpenAsync("/shared-again");
                 await second.CloseAsync();
                 await _shared.CloseAsync();
-            }), new InMemoryTest("uses the session opened at the top of the file", async session =>
+            }),
+            new InMemoryTest("uses the session opened at the top of the file", async session =>
             {
                 await session.App.OpenAsync();
                 await _visiting!.App.OpenAsync("/visit");
-            }), new InMemoryTest("uses that session again", async session =>
+            }),
+            new InMemoryTest("uses that session again", async session =>
             {
                 await session.App.OpenAsync();
                 await _visiting!.App.OpenAsync("/visit-again");
                 await _visitingHost!.CloseAsync();
-            }), new InMemoryTest("never closes the host and session it opened", async session =>
+            }),
+            new InMemoryTest("passes while keeping videos of failures only", async session =>
+            {
+                await session.App.OpenAsync();
+                var host = await Open();
+                var second = await host.NewSessionAsync();
+                await second.App.OpenAsync("/");
+                await host.CloseAsync();
+            }) { Video = RecordingMode.RetainOnFailure },
+            new InMemoryTest("never closes the host and session it opened", async session =>
             {
                 await session.App.OpenAsync();
                 _left = Second(track: false);
                 var host = await Launched(_left);
                 var second = await host.NewSessionAsync();
                 await second.App.OpenAsync("/left-open");
-            }), new InMemoryTest("keeps the link of a session a hosted service recorded", async session =>
+            }),
+            new InMemoryTest("keeps the link of a session a hosted service recorded", async session =>
             {
                 await session.App.OpenAsync();
                 var host = await Open(videoLinks: ["https://videos.example.test/session-2"]);
                 var second = await host.NewSessionAsync();
                 await second.App.OpenAsync("/");
                 await host.CloseAsync();
-            }), new InMemoryTest("leaves a step of the second session running", async session =>
+            }),
+            new InMemoryTest("leaves a step of the second session running", async session =>
             {
                 await session.App.OpenAsync();
                 var host = await Open();
                 var second = await host.NewSessionAsync();
                 await second.App.OpenAsync("/");
                 _ = second.Screen.GetByRole("button", "Never there").WaitForAsync();
-            }), new InMemoryTest("never awaits the session it opens", async session =>
+            }),
+            new InMemoryTest("never awaits the session it opens", async session =>
             {
                 await session.App.OpenAsync();
                 var host = await Open(onStartAttempt: () => Task.Delay(300));
                 _ = host.NewSessionAsync();
-            }), new InMemoryTest("fails a locator on the second session", async session =>
+            }),
+            new InMemoryTest("fails a locator on the second session", async session =>
             {
                 await session.App.OpenAsync();
                 var host = await Launched(Second(), TimeSpan.FromMilliseconds(200));
                 var second = await host.NewSessionAsync();
                 await second.App.OpenAsync("/");
                 await second.Screen.GetByRole("button", "Send").TapAsync();
-            })];
+            }),
+            new InMemoryTest("uses the session a worker fixture opened", async session =>
+            {
+                await session.App.OpenAsync();
+                await ((Session)Phone.Value!).App.OpenAsync("/worker-first");
+            }) { WorkerFixtures = [Phone] },
+            new InMemoryTest("uses that fixture again", async session =>
+            {
+                await session.App.OpenAsync();
+                await ((Session)Phone.Value!).App.OpenAsync("/worker-second");
+            }) { WorkerFixtures = [Phone] },
+            new InMemoryTest("times out while a step of the second session waits", async session =>
+            {
+                await session.App.OpenAsync();
+                var host = await Open();
+                var second = await host.NewSessionAsync();
+                _timedOut = second;
+                await second.App.OpenAsync("/");
+                await second.Screen.GetByRole("button", "Never there").WaitForAsync();
+            })
+            {
+                Timeout = TimeSpan.FromSeconds(2),
+                Video = RecordingMode.RetainOnFailure,
+                // By teardown the session's step is cut and the session closed: nothing of it goes on driving the app.
+                AfterEach =
+                [
+                    async () =>
+                    {
+                        try
+                        {
+                            await _timedOut!.App.OpenAsync("/in-teardown");
+                            _inTeardown = "still open";
+                        }
+                        catch (E2EException cause)
+                        {
+                            _inTeardown = cause.Code;
+                        }
+                    },
+                ],
+            },
+            new InMemoryTest("uses the session its hook opened", async session =>
+            {
+                await session.App.OpenAsync();
+                await _hookSession!.App.OpenAsync("/from-the-hook");
+            })
+            {
+                BeforeEach =
+                [
+                    async () =>
+                    {
+                        _fromHook = Second(track: false);
+                        var host = await Launched(_fromHook);
+                        _hookSession = await host.NewSessionAsync();
+                    },
+                ],
+            },
+            new InMemoryTest("passes on its retry", async session =>
+            {
+                await session.App.OpenAsync();
+                var tries = Interlocked.Increment(ref _tries);
+                var host = await Open();
+                var second = await host.NewSessionAsync();
+                await second.App.OpenAsync("/try-" + tries);
+                await host.CloseAsync();
+                if (tries == 1)
+                {
+                    throw new InvalidOperationException("the first try fails");
+                }
+            }) { Retries = 1 },
+        ];
+
+    // A worker fixture is set up inside the first test that names it and outlives it: what it launches is no test's to close.
+    private WorkerFixture Phone => _phone ??= new WorkerFixture("phone", async use =>
+        {
+            var engine = new CoreFakeEngine(ConfirmScene, video: true);
+            _workerFixtureEngine = engine;
+            var host = await Launched(engine);
+            await use(await host.NewSessionAsync());
+            await host.CloseAsync();
+        });
+
+    private WorkerFixture? _phone;
 
     private static string Config =>
         """{ "video": "on", "trace": "on", "actionTimeout": 300, "assertionTimeout": 200, "cleanupTimeout": 2000 }""";
@@ -300,53 +406,26 @@ public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyn
     }
 
     [Fact]
-    public async Task Partial_Drops_the_sessions_video_and_its_file_by_the_rule_that_drops_the_tests_own()
+    public void Drops_the_sessions_video_and_its_file_by_the_rule_that_drops_the_tests_own()
     {
-        // Upstream gives the test the option `video: 'retain-on-failure'`; the port has no per-test option, so the run's config says it.
-        var project = RunProject.CreateProject();
-        try
-        {
-            var outcome = await RunProject.RunExistingAsync(
-                project,
-                new RunProjectOptions
-                {
-                    Tests = [new InMemoryTest("passes while keeping videos of failures only", async session =>
-                        {
-                            await session.App.OpenAsync();
-                            var host = await Open();
-                            var second = await host.NewSessionAsync();
-                            await second.App.OpenAsync("/");
-                            await host.CloseAsync();
-                        })],
-                    Engine = TestEngine(),
-                    Config = """{ "video": "retain-on-failure", "trace": "on", "cleanupTimeout": 2000 }""",
-                }
-            );
+        var attempt = AttemptOf("passes while keeping videos of failures only");
 
-            var attempt = RunProject.ResultByTitle(outcome, "passes while keeping videos of failures only").Attempts[0];
-            Assert.Equal(R.AttemptStatus.Passed, attempt.Status);
-            Assert.Contains(attempt.Steps, step => step.Actor == "launch-1");
-            Assert.DoesNotContain(attempt.Artifacts, artifact => artifact.Kind == R.ArtifactKind.Video);
-            // Every session video still on disk is one some attempt kept.
-            var kept = outcome
-                .Report.Run.Results.SelectMany(result => result.Attempts)
-                .SelectMany(each => each.Artifacts)
-                .Where(artifact => artifact.Actor is not null && artifact.Path is not null)
-                .Select(artifact => artifact.Path!)
-                .Order(StringComparer.Ordinal);
-            var onDisk = Directory
-                .EnumerateFiles(Path.Combine(project.Dir, ".e2e", "results"), "*", SearchOption.AllDirectories)
-                .Select(file =>
-                    Path.GetRelativePath(Path.Combine(project.Dir, ".e2e", "results"), file).Replace('\\', '/')
-                )
-                .Where(file => System.Text.RegularExpressions.Regex.IsMatch(file, @"/video/[^/]*launch-\d"))
-                .Order(StringComparer.Ordinal);
-            Assert.Equal(kept, onDisk);
-        }
-        finally
-        {
-            project.Cleanup();
-        }
+        Assert.Equal(R.AttemptStatus.Passed, attempt.Status);
+        Assert.Contains(attempt.Steps, step => step.Actor == "launch-1");
+        Assert.DoesNotContain(attempt.Artifacts, artifact => artifact.Kind == R.ArtifactKind.Video);
+        // Every session video still on disk is one some attempt kept.
+        var kept = _outcome
+            .Report.Run.Results.SelectMany(result => result.Attempts)
+            .SelectMany(each => each.Artifacts)
+            .Where(artifact => artifact.Actor is not null && artifact.Path is not null)
+            .Select(artifact => artifact.Path!)
+            .Order(StringComparer.Ordinal);
+        var onDisk = Directory
+            .EnumerateFiles(Results, "*", SearchOption.AllDirectories)
+            .Select(file => Path.GetRelativePath(Results, file).Replace('\\', '/'))
+            .Where(file => System.Text.RegularExpressions.Regex.IsMatch(file, @"/video/[^/]*launch-\d"))
+            .Order(StringComparer.Ordinal);
+        Assert.Equal(kept, onDisk);
     }
 
     [Fact]
@@ -443,50 +522,73 @@ public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyn
     }
 
     [Fact]
-    public async Task Records_each_attempts_own_session_when_the_test_retries()
+    public void Cuts_a_step_of_the_session_the_test_timed_out_under_at_once_and_keeps_the_video_of_the_failure()
     {
-        // Upstream gives the test the option `retries: 1`; the port has no per-test option, so the run's config says it.
-        var project = RunProject.CreateProject();
-        var tries = 0;
-        try
-        {
-            var outcome = await RunProject.RunExistingAsync(
-                project,
-                new RunProjectOptions
-                {
-                    Tests = [new InMemoryTest("passes on its retry", async session =>
-                        {
-                            await session.App.OpenAsync();
-                            var attemptNumber = Interlocked.Increment(ref tries);
-                            var host = await Open();
-                            var second = await host.NewSessionAsync();
-                            await second.App.OpenAsync("/try-" + attemptNumber);
-                            await host.CloseAsync();
-                            if (attemptNumber == 1)
-                            {
-                                throw new InvalidOperationException("the first try fails");
-                            }
-                        })],
-                    Engine = TestEngine(),
-                    Config = """{ "retries": 1, "video": "on", "trace": "on", "cleanupTimeout": 2000 }""",
-                }
-            );
+        var attempt = AttemptOf("times out while a step of the second session waits");
 
-            var attempts = RunProject.ResultByTitle(outcome, "passes on its retry").Attempts;
-            Assert.Equal([R.AttemptStatus.Failed, R.AttemptStatus.Passed], attempts.Select(attempt => attempt.Status));
-            Assert.Equal(
-                [
-                    ["/try-1"],
-                    ["/try-2"],
-                ],
-                attempts.Select(attempt =>
-                    attempt.Steps.Where(step => step.Actor == "launch-1").Select(step => step.Label).ToList()
-                )
-            );
-        }
-        finally
+        Assert.Equal(R.AttemptStatus.TimedOut, attempt.Status);
+        var cut = attempt.Steps.First(step => step.Api == "locator.waitFor");
+        Assert.Equal(("launch-1", R.StepStatus.Cancelled), (cut.Actor, cut.Status));
+        // Cut when the body timed out, well before the five seconds the session would have waited.
+        Assert.True(cut.DurationMs < 4_000, $"the step ran {cut.DurationMs} ms");
+        Assert.Single(SessionVideos("times out while a step of the second session waits"));
+        // And cut before teardown ran, not only when the attempt was over.
+        Assert.Equal("CANCELLED", _inTeardown);
+    }
+
+    [Fact]
+    public void Leaves_a_host_a_worker_fixture_launched_to_the_worker_and_records_its_steps_in_each_test_that_uses_it()
+    {
+        foreach (
+            var (title, label) in new[]
+            {
+                ("uses the session a worker fixture opened", "/worker-first"),
+                ("uses that fixture again", "/worker-second"),
+            }
+        )
         {
-            project.Cleanup();
+            var attempt = AttemptOf(title);
+            Assert.Equal(R.AttemptStatus.Passed, attempt.Status);
+            Assert.Equal(
+                [((string?)null, "/"), ("launch-1", label)],
+                attempt.Steps.Select(step => (step.Actor, step.Label))
+            );
+            Assert.Empty(SessionVideos(title));
         }
+
+        // One session served both tests, and ended when the worker did.
+        var stats = _workerFixtureEngine!.Stats();
+        Assert.Equal((1, 1, 1), (stats.AttemptsStarted, stats.AttemptsEnded, stats.Disposes));
+    }
+
+    [Fact]
+    public void Owns_a_host_a_hook_of_the_test_launched_and_closes_it_with_the_test()
+    {
+        var attempt = AttemptOf("uses the session its hook opened");
+
+        Assert.Equal(R.AttemptStatus.Passed, attempt.Status);
+        Assert.Equal(
+            [((string?)null, "/"), ("launch-1", "/from-the-hook")],
+            attempt.Steps.Select(step => (step.Actor, step.Label))
+        );
+        var stats = _fromHook!.Stats();
+        Assert.Equal((1, 1), (stats.AttemptsEnded, stats.Disposes));
+    }
+
+    [Fact]
+    public void Records_each_attempts_own_session_when_the_test_retries()
+    {
+        var attempts = AttemptsOf("passes on its retry");
+
+        Assert.Equal([R.AttemptStatus.Failed, R.AttemptStatus.Passed], attempts.Select(attempt => attempt.Status));
+        Assert.Equal(
+            [
+                ["/try-1"],
+                ["/try-2"],
+            ],
+            attempts.Select(attempt =>
+                attempt.Steps.Where(step => step.Actor == "launch-1").Select(step => step.Label).ToList()
+            )
+        );
     }
 }

@@ -12,7 +12,44 @@ namespace E2E;
 /// One test registered in memory: its title and its body. Upstream's <c>RegisteredTest</c> (<c>collect/registry.ts</c>), with the body
 /// taking the session the test's fixtures come from (.NET-only: a test has no <c>{ app, agent, screen }</c> object to destructure).
 /// </summary>
-internal sealed record InMemoryTest(string Title, Func<E2ESession, Task> Body);
+internal sealed record InMemoryTest(string Title, Func<E2ESession, Task> Body)
+{
+    /// <summary>The test's own <c>timeout</c> option (<c>TestOptions.timeout</c>), in place of the config's.</summary>
+    public TimeSpan? Timeout { get; init; }
+
+    /// <summary>The test's own <c>retries</c> option (<c>TestOptions.retries</c>), in place of the config's.</summary>
+    public int? Retries { get; init; }
+
+    /// <summary>The test's own <c>video</c> option (<c>TestOptions.video</c>), in place of the config's.</summary>
+    public RecordingMode? Video { get; init; }
+
+    /// <summary>The <c>beforeEach</c> hooks of the test's describe chain, outermost first. Each runs in the test's flow, after its session is up and before the body (.NET-only shape: a hook is a closure, as the body is).</summary>
+    public IReadOnlyList<Func<Task>> BeforeEach { get; init; } = [];
+
+    /// <summary>The <c>afterEach</c> hooks of the test's describe chain, innermost first. Each runs after the body, whether it passed or not, and before the session is closed.</summary>
+    public IReadOnlyList<Func<Task>> AfterEach { get; init; } = [];
+
+    /// <summary>The worker fixtures the test names (<c>RegisteredTest.names</c> of <c>scope: 'worker'</c> fixtures): set up inside the first test that names them.</summary>
+    public IReadOnlyList<WorkerFixture> WorkerFixtures { get; init; } = [];
+}
+
+/// <summary>
+/// A worker-scoped <c>test.extend()</c> fixture (<c>FixtureDefinition</c> with <c>scope: 'worker'</c>, <c>collect/registry.ts</c>), as a closure: the function sets
+/// up what it provides, hands it over with <c>use</c>, and awaits what <c>use</c> returns before it tears down. It is set up inside the first test that
+/// names it, outside the test's attempt, and torn down when the run ends. What it hands over is <see cref="Value"/> (.NET-only: a test has no fixtures
+/// object to destructure).
+/// </summary>
+internal sealed class WorkerFixture(string name, Func<Func<object?, Task>, Task> fn)
+{
+    /// <summary>The fixture's name.</summary>
+    public string Name { get; } = name;
+
+    /// <summary>The function that sets the fixture up and tears it down around its call to <c>use</c>.</summary>
+    public Func<Func<object?, Task>, Task> Fn { get; } = fn;
+
+    /// <summary>What the fixture handed to <c>use</c>, once it is set up.</summary>
+    public object? Value { get; internal set; }
+}
 
 /// <summary>
 /// Tests registered in memory instead of found in files: one virtual file name and the tests its module would have registered. Upstream's
@@ -133,6 +170,7 @@ internal static class Runner
         var exitCodes = new List<int>();
         var errors = new List<Exception>();
         var prepared = new PreparedEngines();
+        var workers = new WorkerFixturePool();
         try
         {
             foreach (var test in options.Tests.Tests)
@@ -142,12 +180,12 @@ internal static class Runner
                 Report? report = null;
                 var attempts = new List<E2E.Reports.ReportAttempt>();
                 Exception? error = null;
-                for (var attempt = 1; attempt <= config.Retries + 1; attempt++)
+                for (var attempt = 1; attempt <= (test.Retries ?? config.Retries) + 1; attempt++)
                 {
-                    var fixture = new InMemoryFixture(config, options, options.Tests.File, prepared);
+                    var fixture = new InMemoryFixture(config, options, options.Tests.File, prepared, test);
                     IReadOnlyList<Exception> cleanup;
                     (report, error, cleanup) = await fixture
-                        .RunAsync(test, attempt, cancellationToken)
+                        .RunAsync(test, attempt, workers, cancellationToken)
                         .ConfigureAwait(false);
 
                     // A session's report holds its own attempt only; the test's result holds them all, as upstream's does.
@@ -219,6 +257,12 @@ internal static class Runner
         }
         finally
         {
+            // The worker's fixtures end with the worker, after the last test and before what the run prepared: a failure is a cleanup failure of the run.
+            exitCodes.AddRange(
+                (await workers.TearDownAsync().ConfigureAwait(false)).Select(failure =>
+                    ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)
+                )
+            );
             sharing.Withdraw();
             // The engines the run prepared are finished on every exit path, as upstream's run does: a failure is a cleanup failure of the run.
             await prepared
@@ -278,10 +322,21 @@ internal static class Runner
     /// The fixture one in-memory test runs in (.NET-only: upstream's worker builds the test's fixtures from the resolved config; in the port a
     /// session is started by <see cref="E2EFixture"/>, whose settings this takes from the run's options).
     /// </summary>
-    private sealed class InMemoryFixture(E2EConfig config, RunOptions options, string file, PreparedEngines prepared)
-        : E2EFixture
+    private sealed class InMemoryFixture(
+        E2EConfig config,
+        RunOptions options,
+        string file,
+        PreparedEngines prepared,
+        InMemoryTest registered
+    ) : E2EFixture
     {
         protected override E2EConfig Config => config;
+
+        // The test's own options win over the config's, as upstream's per-test options do.
+        protected override TimeSpan TestTimeout => registered.Timeout ?? config.Timeout;
+
+        protected override ResolvedRecording Video =>
+            registered.Video is { } mode ? new ResolvedRecording(mode, RecordingSource.Test) : base.Video;
 
         internal override PreparedEngines Prepared => prepared;
 
@@ -358,11 +413,14 @@ internal static class Runner
         public async Task<(Report? Report, Exception? Error, IReadOnlyList<Exception> Cleanup)> RunAsync(
             InMemoryTest test,
             int attempt,
+            WorkerFixturePool workers,
             CancellationToken cancellationToken
         )
         {
             try
             {
+                // A worker fixture is set up inside the first test that names it, and is no part of the test: what it launches is no test's to close.
+                await workers.SetUpAsync(test.WorkerFixtures).ConfigureAwait(false);
                 await StartSessionAsync(test.Title, attempt, null, () => false, cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -379,7 +437,12 @@ internal static class Runner
             {
                 try
                 {
-                    await test.Body(session).ConfigureAwait(false);
+                    foreach (var hook in test.BeforeEach)
+                    {
+                        await hook().ConfigureAwait(false);
+                    }
+
+                    await RunBodyAsync(test, session, cancellationToken).ConfigureAwait(false);
                     await session.SettleAttemptAsync(cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception ex)
@@ -390,6 +453,24 @@ internal static class Runner
                     await session.CaptureFailureEvidenceAsync(ex).ConfigureAwait(false);
                 }
 
+                await session.QuiesceGuestsAsync().ConfigureAwait(false);
+
+                // Upstream's enter('afterEach'): the hooks run under a budget of their own, so a body its timeout cut short can still drive the session.
+                session.EnterTeardownBudget(cancellationToken);
+                foreach (var hook in test.AfterEach)
+                {
+                    try
+                    {
+                        await hook().ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                        when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                    {
+                        // A failing hook fails the test unless the body already did.
+                        error ??= ex;
+                    }
+                }
+
                 session.Complete(error, cancellationToken);
             }
             finally
@@ -398,6 +479,126 @@ internal static class Runner
             }
 
             return (session.Report(), error, cleanup);
+        }
+    }
+
+    /// <summary>
+    /// Runs the body against the test's own timeout (upstream's <c>cutBody</c> race, <c>run/execute.ts</c>): a body still running when it fires is given up on and fails
+    /// with <c>TEST_TIMEOUT</c>, though what it awaits is not the test's own session.
+    /// </summary>
+    private static async Task RunBodyAsync(InMemoryTest test, E2ESession session, CancellationToken cancellationToken)
+    {
+        var running = test.Body(session);
+        var cut = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var registration = session.TimeoutSignal.Register(() => cut.TrySetResult()).ConfigureAwait(false);
+        if (
+            await Task.WhenAny(running, cut.Task).ConfigureAwait(false) == running
+            || cancellationToken.IsCancellationRequested
+        )
+        {
+            await running.ConfigureAwait(false);
+            return;
+        }
+
+        // What the body does after it was cut is nobody's to observe.
+        _ = running.ContinueWith(static task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
+        throw session.TimeoutError();
+    }
+
+    /// <summary>
+    /// The worker-scoped fixtures of one run, one instance per definition (upstream's <c>WorkerFixturePool</c>, <c>run/fixture-pool.ts</c>): set up the
+    /// first time a test names one, outside the attempt (<c>outlivesTest</c>), and torn down in reverse order when the run ends.
+    /// </summary>
+    internal sealed class WorkerFixturePool
+    {
+        private readonly List<(WorkerFixture Fixture, TaskCompletionSource Release, Task Run)> _running = [];
+
+        /// <summary>Sets up the fixtures not yet set up. A failure of one is the failure of the test that named it, and the fixture is not torn down.</summary>
+        public async Task SetUpAsync(IReadOnlyList<WorkerFixture> fixtures)
+        {
+            foreach (var fixture in fixtures)
+            {
+                if (_running.Any(each => ReferenceEquals(each.Fixture, fixture)))
+                {
+                    continue;
+                }
+
+                var provided = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                var used = false;
+                ConfigurationException? misuse = null;
+                Task Use(object? value)
+                {
+                    if (used)
+                    {
+                        misuse = new ConfigurationException(
+                            "TEST_SETUP_FAILED",
+                            $"fixture \"{fixture.Name}\" called use() twice; a fixture hands one value per instance"
+                        );
+                        return Task.FromException(misuse);
+                    }
+
+                    used = true;
+                    fixture.Value = value;
+                    provided.TrySetResult();
+                    return release.Task;
+                }
+
+                // On the thread pool and with no attempt in its flow: a host the fixture launches belongs to the worker.
+                var run = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await fixture.Fn(Use).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        provided.TrySetException(ex);
+                        throw;
+                    }
+
+                    if (!used)
+                    {
+                        provided.TrySetException(
+                            new ConfigurationException(
+                                "TEST_SETUP_FAILED",
+                                $"fixture \"{fixture.Name}\" returned without calling use(); a fixture awaits use(value) to hand its value over"
+                            )
+                        );
+                    }
+
+                    if (misuse is not null)
+                    {
+                        throw misuse;
+                    }
+                });
+                // A fixture whose setup failed is never torn down, so nothing else would observe its failure.
+                _ = run.ContinueWith(static task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                await provided.Task.ConfigureAwait(false);
+                _running.Add((fixture, release, run));
+            }
+        }
+
+        /// <summary>Tears the fixtures down in reverse order of their setup and returns what failed.</summary>
+        public async Task<IReadOnlyList<Exception>> TearDownAsync()
+        {
+            var failures = new List<Exception>();
+            for (var index = _running.Count - 1; index >= 0; index--)
+            {
+                var (_, release, run) = _running[index];
+                release.TrySetResult();
+                try
+                {
+                    await run.ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(ex);
+                }
+            }
+
+            _running.Clear();
+            return failures;
         }
     }
 
