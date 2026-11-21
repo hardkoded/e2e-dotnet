@@ -877,6 +877,19 @@ public sealed class E2ESession : IAsyncDisposable
     /// </summary>
     public TestException? CloseSoftFailures() => Screen.SoftFailures.Close();
 
+    /// <summary>The signal the test's own timeout cancels.</summary>
+    internal CancellationToken TimeoutSignal => _timeout.Token;
+
+    /// <summary>The error a body the test's own timeout cut short fails with (upstream's <c>TestTimeoutError</c>).</summary>
+    internal TestException TestTimeoutError() => TimeoutFailure(_testTimeout, null);
+
+    /// <summary>
+    /// Stops what the body left in flight on the hosts and sessions it opened, however it ended: an opening under way is cancelled and a session with a
+    /// step still running is closed. A timeout cuts the test's own steps at once, and a session's must not go on driving the app through teardown.
+    /// Upstream's <c>guests.quiesce()</c> after the body (<c>run/execute.ts</c>).
+    /// </summary>
+    internal Task QuiesceGuestsAsync() => _guests?.QuiesceAsync() ?? Task.CompletedTask;
+
     /// <summary>
     /// Collects a failure the engine holds from a path no step awaited (a route or dialog handler), within the cleanup budget, and
     /// throws it as it was so its code is kept. An adapter calls it when the test body has settled, then again after the teardown, before
