@@ -18,6 +18,12 @@ internal sealed record PublishedAttempt
     /// attempt's own. A test's attempt offers it; a hosted one (<see cref="E2EHost"/>, <c>e2e mcp</c>) does not yet, so a session used there tells nobody.
     /// </summary>
     public IAttemptGuests? Guests { get; init; }
+
+    /// <summary>
+    /// Moves this attempt's timeout (upstream's <c>setTimeout</c>); false once the attempt ended or its timeout fired. Null where the attempt has
+    /// no timeout to move, as in a hosted session.
+    /// </summary>
+    public Func<TimeSpan, bool>? SetTimeout { get; init; }
 }
 
 /// <summary>

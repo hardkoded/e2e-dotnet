@@ -67,11 +67,11 @@ public abstract partial class E2ETest : E2EFixture
     /// </summary>
     public void SetTimeout(TimeSpan timeout)
     {
-        var session = CurrentSession
+        var attempt = Attempts.CurrentAttempt()
             ?? throw new InvalidOperationException(
                 "SetTimeout(timeout) must be called inside a test body or a [SetUp]; to set a test's timeout ahead of time, set the timeout in the configuration"
             );
-        E2E.Internal.TestTimeout.SetRunningTestTimeout(session, timeout, _bodyDone);
+        E2E.Internal.TestTimeout.SetRunningTestTimeout(attempt, timeout, _bodyDone);
     }
 
     /// <summary>Set once the test method returned: what runs after it (a derived [TearDown]) comes after the verdict is reached.</summary>

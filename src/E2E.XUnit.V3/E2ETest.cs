@@ -93,11 +93,11 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     /// </summary>
     public void SetTimeout(TimeSpan timeout)
     {
-        var session = CurrentSession
+        var attempt = Attempts.CurrentAttempt()
             ?? throw new InvalidOperationException(
                 "SetTimeout(timeout) must be called inside a test body or a set-up; to set a test's timeout ahead of time, set the timeout in the configuration"
             );
-        E2E.Internal.TestTimeout.SetRunningTestTimeout(session, timeout);
+        E2E.Internal.TestTimeout.SetRunningTestTimeout(attempt, timeout);
     }
 
     // A derived fixture that overrides this must not make the override async around the base call, or the slot is lost to the body.
