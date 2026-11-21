@@ -271,7 +271,7 @@ public sealed class WithFileLockTests : IDisposable
             {
                 await File.WriteAllTextAsync(stop, "");
             }
-            catch (IOException ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // Without the stop file the kill below still ends the workers.
                 System.Diagnostics.Trace.WriteLine("could not write the stop file: " + ex.Message);
