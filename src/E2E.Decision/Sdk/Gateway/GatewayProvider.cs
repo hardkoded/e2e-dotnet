@@ -9,6 +9,9 @@ namespace E2E.Decision.Sdk.Gateway;
 /// <summary>The AI SDK's <c>GatewayProviderSettings</c> (<c>gateway-provider.ts</c>) the decision models read.</summary>
 public sealed class GatewayProviderSettings
 {
+    /// <summary>Settings for downloading JSON Lines batch results (upstream's <c>batchResultDownloads</c>).</summary>
+    public GatewayBatchResultDownloads? BatchResultDownloads { get; init; }
+
     /// <summary>The base URL prefix for API calls. Defaults to <c>https://ai-gateway.vercel.sh/v4/ai</c>.</summary>
     public string? BaseUrl { get; init; }
 
@@ -32,6 +35,13 @@ public sealed class GatewayProviderSettings
 
     /// <summary>Upstream's <c>_internal.currentDate</c>, for testing purposes only.</summary>
     internal Func<DateTimeOffset>? CurrentDate { get; init; }
+}
+
+/// <summary>Upstream's <c>GatewayProviderSettings.batchResultDownloads</c>.</summary>
+public sealed class GatewayBatchResultDownloads
+{
+    /// <summary>Maximum UTF-8 bytes per row, excluding LF. Defaults to 64 MiB.</summary>
+    public int? MaxLineBytes { get; init; }
 }
 
 /// <summary>The token and method <see cref="GatewayProvider.GetGatewayAuthTokenAsync"/> gives.</summary>
@@ -94,6 +104,20 @@ public sealed class GatewayProvider : IDecisionProvider
             new GatewayDecisionModelConfig
             {
                 Provider = "gateway",
+                BaseUrl = _baseUrl,
+                Headers = GetHeadersAsync,
+                O11yHeaders = GetO11yHeadersAsync,
+                HttpClient = _settings.HttpClient,
+            }
+        );
+
+    /// <summary>Returns a batch service for processing batches with AI Gateway (upstream's <c>experimental_batch</c>).</summary>
+    public GatewayBatch ExperimentalBatch() =>
+        new(
+            new GatewayBatchConfig
+            {
+                Provider = "gateway",
+                MaxLineBytes = _settings.BatchResultDownloads?.MaxLineBytes,
                 BaseUrl = _baseUrl,
                 Headers = GetHeadersAsync,
                 O11yHeaders = GetO11yHeadersAsync,
