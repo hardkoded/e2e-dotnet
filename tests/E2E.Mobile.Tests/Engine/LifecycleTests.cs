@@ -545,6 +545,108 @@ public sealed class LifecycleTests
     }
 
     [Fact]
+    public async Task Unpins_the_build_installApp_pinned_once_uninstallApp_removes_it()
+    {
+        var h = Harness.Create(pinned: false, app: app => app with { AppPath = "./build/App.app" });
+        h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject
+        {
+            ["app"] = "./build/App.app",
+            ["appPath"] = "/project/build/App.app",
+            ["platform"] = "ios",
+            ["bundleId"] = "com.example.app",
+            ["identifiers"] = new JsonObject(),
+        });
+        h.Fake.Respond(DeviceMethods.AppsUninstall, _ => new JsonObject
+        {
+            ["app"] = "com.example.app",
+            ["wasInstalled"] = true,
+        });
+        var session = await h.Boot();
+        await session.InstallAppAsync();
+        Assert.Equal("com.example.app", session.PinnedApp);
+        Assert.True(await session.UninstallAppAsync());
+        JsonAssert.Args("""{"platform":"ios","app":"com.example.app"}""", h.Fake.LastArgs("apps.uninstall"));
+        Assert.Null(session.PinnedApp);
+        var refused = await Assert.ThrowsAsync<EngineException>(() => session.RestartAsync(CancellationToken.None));
+        Assert.Equal("UNSUPPORTED_CAPABILITY", refused.Code);
+        Assert.Contains("device.installApp()", refused.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("apps.open", h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Unpins_by_the_id_agent_device_removed_when_uninstallApp_is_given_a_display_name()
+    {
+        var h = Harness.Create(pinned: false, app: app => app with { AppPath = "./build/App.app" });
+        h.Fake.Respond(DeviceMethods.AppsInstall, _ => new JsonObject
+        {
+            ["app"] = "./build/App.app",
+            ["appPath"] = "/project/build/App.app",
+            ["platform"] = "ios",
+            ["bundleId"] = "com.example.app",
+            ["identifiers"] = new JsonObject(),
+        });
+        h.Fake.Respond(DeviceMethods.AppsUninstall, _ => new JsonObject
+        {
+            ["app"] = "Example",
+            ["appId"] = "com.example.app",
+            ["wasInstalled"] = true,
+        });
+        var session = await h.Boot();
+        await session.InstallAppAsync();
+        Assert.True(await session.UninstallAppAsync("Example"));
+        Assert.Null(session.PinnedApp);
+    }
+
+    [Fact]
+    public async Task Drops_a_handle_located_before_uninstallApp()
+    {
+        var h = Harness.Create();
+        var session = await Screens.OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
+        h.Fake.Respond(DeviceMethods.AppsUninstall, _ => new JsonObject
+        {
+            ["app"] = "Example",
+            ["appId"] = "com.apple.Preferences",
+            ["wasInstalled"] = true,
+        });
+        var about = await Screens.Observed(session, "About");
+        await session.UninstallAppAsync("Example");
+        var stale = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None)
+        );
+        Assert.Equal("NODE_STALE", stale.Code);
+    }
+
+    [Fact]
+    public async Task Drops_a_handle_when_the_session_knows_the_app_by_display_name_and_uninstallApp_gets_its_id()
+    {
+        var h = Harness.Create();
+        var session = await Screens.OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+        {
+            var snapshot = FakeDeviceClient.SettingsSnapshot();
+            snapshot.Remove("appBundleId");
+            snapshot["appName"] = "Example";
+            return snapshot;
+        });
+        h.Fake.Respond(DeviceMethods.AppsUninstall, _ => new JsonObject
+        {
+            ["app"] = "com.example.app",
+            ["appId"] = "com.example.app",
+            ["wasInstalled"] = true,
+        });
+        var about = await Screens.Observed(session, "About");
+        await session.UninstallAppAsync("com.example.app");
+        var stale = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None)
+        );
+        Assert.Equal("NODE_STALE", stale.Code);
+        await session.CloseAppAsync();
+        var closed = h.Fake.LastArgs("apps.close");
+        Assert.NotEqual("Example", closed?["app"]?.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Pins_the_package_an_Android_install_reports_and_refuses_the_build_path_as_an_app_id()
     {
         var h = Harness.Create(

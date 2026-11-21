@@ -14,7 +14,7 @@ namespace E2E.Mobile.Tests.RpcClient;
 /// </summary>
 public sealed class AgentDeviceRpcClientTests
 {
-    private sealed class FakeDaemon : HttpMessageHandler
+    private sealed class FakeDaemon(string? response = null) : HttpMessageHandler
     {
         public List<JsonObject> Requests { get; } = [];
 
@@ -27,7 +27,7 @@ public sealed class AgentDeviceRpcClientTests
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
-                    """{"jsonrpc":"2.0","id":1,"result":{"ok":true,"data":{}}}""",
+                    response ?? """{"jsonrpc":"2.0","id":1,"result":{"ok":true,"data":{}}}""",
                     Encoding.UTF8,
                     "application/json"
                 ),
@@ -62,6 +62,26 @@ public sealed class AgentDeviceRpcClientTests
         Assert.Empty(command["positionals"]!.AsArray());
         Assert.Equal("ios", command["flags"]!["platform"]!.GetValue<string>());
         Assert.Equal("iPhone 17 Pro", command["flags"]!["device"]!.GetValue<string>());
+    }
+
+    // .NET-only: the translator is the port's stand-in for agent-device's client, whose apps.list resolves to the list of app lines.
+    [Theory]
+    [InlineData("""{"apps":["Settings (com.apple.Preferences)"]}""")]
+    [InlineData("""["Settings (com.apple.Preferences)"]""")]
+    public async Task Resolves_apps_list_to_the_list_of_app_lines(string data)
+    {
+        var daemon = new FakeDaemon("""{"jsonrpc":"2.0","id":1,"result":{"ok":true,"data":""" + data + "}}");
+        using var http = new HttpClient(daemon);
+        var client = new AgentDeviceRpcClient(
+            "e2e-ios-0",
+            new JsonObject(),
+            _ => Task.FromResult(new DaemonEndpoint(new Uri("http://127.0.0.1:1/"), null)),
+            http
+        );
+
+        var result = await client.CallAsync(DeviceMethods.AppsList, new JsonObject(), CancellationToken.None);
+
+        Assert.Equal("Settings (com.apple.Preferences)", Assert.Single(result!.AsArray())!.GetValue<string>());
     }
 
     // .NET-only: the translator stands in for agent-device's client. Upstream documents these four calls through device.unstable_raw.client

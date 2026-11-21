@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json.Nodes;
 using E2E.Engine;
 using static E2E.Mobile.Tests.Screens;
 
@@ -79,6 +80,31 @@ public sealed class AScreenAgentDeviceCannotReadYetTests
         Assert.Single(await Locate());
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => throw NotRunning());
         var failure = await Assert.ThrowsAsync<EngineException>(Locate);
+        Assert.Equal("ENGINE_FAILURE", failure.Code);
+    }
+
+    [Fact]
+    public async Task Fails_a_locate_on_an_app_not_running_after_uninstallApp_right_after_a_launch()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.AppsUninstall, _ => new JsonObject
+        {
+            ["app"] = "com.example.app",
+            ["appId"] = "com.example.app",
+            ["wasInstalled"] = true,
+        });
+        await session.UninstallAppAsync("com.example.app");
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            throw new AgentDeviceError(
+                "COMMAND_FAILED",
+                "app 'com.example.app' is not running",
+                new Dictionary<string, object?> { ["runnerErrorCode"] = "APP_NOT_RUNNING" }
+            )
+        );
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            session.LocateAsync(About, TimeSpan.FromSeconds(5), CancellationToken.None)
+        );
         Assert.Equal("ENGINE_FAILURE", failure.Code);
     }
 

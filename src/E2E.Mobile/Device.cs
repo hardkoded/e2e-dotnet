@@ -389,6 +389,25 @@ public sealed class Device
         );
 
     /// <summary>
+    /// Removes an app, by bundle id or package, from the device; without one, the pinned app. Resolves to whether it was
+    /// installed, so removing an app id that is not there passes. Without <c>AppBundleId</c> on the target, removing the
+    /// build <see cref="InstallAppAsync"/> pinned unpins it: <c>app.open()</c> then needs another install.
+    /// </summary>
+    public Task<bool> UninstallAppAsync(string? app = null, CancellationToken cancellationToken = default) =>
+        RunAsync("device.uninstallApp", DeviceLinks.AppLabel(app ?? _session.PinnedApp ?? "app"), () =>
+            _session.UninstallAppAsync(app, cancellationToken)
+        );
+
+    /// <summary>
+    /// Whether an app, by bundle id or package, is on the device, system apps included (Android: launchable apps only);
+    /// without one, the pinned app.
+    /// </summary>
+    public Task<bool> IsAppInstalledAsync(string? app = null, CancellationToken cancellationToken = default) =>
+        RunAsync("device.isAppInstalled", DeviceLinks.AppLabel(app ?? _session.PinnedApp ?? "app"), () =>
+            _session.IsAppInstalledAsync(app, cancellationToken)
+        );
+
+    /// <summary>
     /// Brings an app to the foreground. <see cref="OpenAppOptions.Relaunch"/> restarts it fresh. Its launch arguments and
     /// permissions apply to this launch alone. The target's own apply to a relaunch of the pinned app, and to no
     /// foreground-only open.

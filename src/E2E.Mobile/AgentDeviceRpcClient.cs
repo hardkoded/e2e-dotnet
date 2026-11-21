@@ -159,6 +159,7 @@ public sealed class AgentDeviceRpcClient : IDeviceClient
         {
             DeviceMethods.DevicesList => (data as JsonObject)?["devices"] as JsonArray ?? [],
             DeviceMethods.SessionsList => (data as JsonObject)?["sessions"] as JsonArray ?? [],
+            DeviceMethods.AppsList => (data as JsonObject)?["apps"] as JsonArray ?? data as JsonArray ?? [],
             DeviceMethods.LeasesAllocate or DeviceMethods.LeasesHeartbeat => (data as JsonObject)?["lease"]
                 as JsonObject
                 ?? throw new AgentDeviceError("COMMAND_FAILED", "Invalid lease response from daemon"),
