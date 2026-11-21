@@ -90,6 +90,7 @@ public abstract class E2ETest : E2EFixture
 
             if (HasSession)
             {
+                HandOverAttempt();
                 return Task.CompletedTask;
             }
         }
