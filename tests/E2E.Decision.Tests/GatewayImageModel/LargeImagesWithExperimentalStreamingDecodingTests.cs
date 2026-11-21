@@ -234,4 +234,16 @@ public sealed class LargeImagesWithExperimentalStreamingDecodingTests
         // The error does not carry the image.
         Assert.True(error.Message.Length < 2000);
     }
+
+    // .NET-only: no upstream `it` covers whitespace in a string decoded like the regular path.
+    [Fact]
+    public async Task Should_decode_a_string_with_trailing_whitespace_like_the_regular_path_when_mixed_with_bytes()
+    {
+        var (_, model) = Respond("""{"images":""" + Images(LargeBase64, "YQ==\n") + "}");
+        using var _ = model;
+
+        var result = await model.DoGenerateAsync(CallOptions());
+
+        Assert.Equal([Large, [(byte)'a']], result.ImageBytes);
+    }
 }

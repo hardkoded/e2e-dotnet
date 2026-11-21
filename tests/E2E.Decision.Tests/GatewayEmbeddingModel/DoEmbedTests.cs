@@ -272,4 +272,26 @@ public sealed class DoEmbedTests
             System.Text.Json.JsonSerializer.SerializeToNode(result.ProviderMetadata)
         );
     }
+
+    // .NET-only: no upstream `it` covers a failing o11yHeaders resolver.
+    [Fact]
+    public async Task Should_convert_a_failure_of_the_o11y_headers_to_a_gateway_error()
+    {
+        var server = new TestServer();
+        PrepareJsonResponse(server);
+        using var model = new E2E.Decision.Sdk.Gateway.GatewayEmbeddingModel(
+            "openai/text-embedding-3-small",
+            new GatewayEmbeddingConfig
+            {
+                Provider = "gateway",
+                BaseUrl = "https://api.test.com",
+                HttpClient = server.Client,
+                O11yHeaders = _ => throw new InvalidOperationException("no o11y"),
+            }
+        );
+
+        await Assert.ThrowsAnyAsync<GatewayException>(() =>
+            model.DoEmbedAsync(new EmbeddingModelV4CallOptions { Values = TestValues })
+        );
+    }
 }

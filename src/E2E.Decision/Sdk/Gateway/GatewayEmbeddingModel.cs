@@ -101,7 +101,7 @@ public sealed class GatewayEmbeddingModel : IEmbeddingModelV4, IDisposable
                 .ConfigureAwait(false);
             return ProviderUtils.ProcessSuccessfulResponse(response, value => ReadResponse(value, response));
         }
-        catch (Exception error) when (error is ApiCallException or GatewayException)
+        catch (Exception error) when (error is not OperationCanceledException)
         {
             throw GatewayErrors.AsGatewayError(error, GatewayErrors.ParseAuthMethod(resolvedHeaders));
         }

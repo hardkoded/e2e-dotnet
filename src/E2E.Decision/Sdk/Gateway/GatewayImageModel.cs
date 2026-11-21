@@ -129,7 +129,7 @@ public sealed class GatewayImageModel : IImageModelV4, IDisposable
                 ReadResponse(value, response, streamingImageDecoding)
             );
         }
-        catch (Exception error) when (error is ApiCallException or GatewayException)
+        catch (Exception error) when (error is not OperationCanceledException)
         {
             throw GatewayErrors.AsGatewayError(error, GatewayErrors.ParseAuthMethod(resolvedHeaders));
         }
@@ -292,7 +292,7 @@ public sealed class GatewayImageModel : IImageModelV4, IDisposable
     // convertBase64ToUint8Array: base64url is accepted, and the padding is optional.
     private static byte[] DecodeBase64(string text)
     {
-        var base64 = text.Replace('-', '+').Replace('_', '/');
+        var base64 = new string(text.Where(c => !char.IsWhiteSpace(c)).ToArray()).Replace('-', '+').Replace('_', '/');
         return Convert.FromBase64String(base64.PadRight(base64.Length + (4 - base64.Length % 4) % 4, '='));
     }
 }
