@@ -309,7 +309,8 @@ public sealed class CreateOAuthFetchTests
                         }
                         catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException)
                         {
-                            // The test ended while this request was out.
+                            // The test ended while this request was out: drop its connection.
+                            response.Abort();
                         }
                     });
                 }
