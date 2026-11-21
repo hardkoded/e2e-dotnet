@@ -153,7 +153,7 @@ On an Android build with no shell command for the clipboard service (the Android
 
 This section is about the agent-device client, the default. `Client.CallAsync(method, options, ct)` takes the calls the engine itself makes, named as agent-device's client names them (the `DeviceMethods` constants: `apps.list`, `apps.install`, `command.home`, `settings.update`, and so on). Any other method throws `NotSupportedException`. For `settings.update` the `setting` is one of `permission`, `clear-app-state`, `reset-keychain`, `location`, `wifi`, `airplane`, `appearance`, `text-size`, `animations`, `faceid`, `touchid`, or `fingerprint`; another one throws `NotSupportedException` too. The TestMu client differs: it refuses every setting, `apps.install`, `apps.reinstall`, `interactions.hover`, `command.fold`, `command.appState`, `apps.uninstall`, and `command.hardwareButton`, with an `UNSUPPORTED_OPERATION` error, not `NotSupportedException`.
 
-Four operations with no `Device` method go through `UnstableRaw` (two settings, an uninstall, and the hardware buttons). A raw call is not a step, so nothing waits for the screen after it.
+Three operations with no `Device` method go through `UnstableRaw` (two settings and the hardware buttons). A raw call is not a step, so nothing waits for the screen after it.
 
 **Text size and animations.** Set the text size before `App.OpenAsync()`. A running app can keep the old size until it launches again, so call `App.RestartAsync()` after a change mid-test:
 
@@ -179,11 +179,17 @@ public async Task RestoreTextSize()
 }
 ```
 
-**Uninstall an app.** `apps.uninstall` takes the app id:
+**Uninstall an app.** `Device.UninstallAppAsync(app)` removes an app by bundle id or package, and `Device.IsAppInstalledAsync(app)` checks for one. Without an id, both use the pinned app, and with none pinned (no `BundleId`, build not installed yet) they fail with `APP_NOT_OPEN` (the engine's `INVALID_STATE`). Both resolve to a `bool`: `UninstallAppAsync` to whether the app was installed, so removing an id that is not there passes. `IsAppInstalledAsync` also matches the app's display name as the device lists it, counts system apps (Android: launchable apps only), and is refused on TestMu like `apps.list`:
 
 ```csharp
-await raw.Client.CallAsync(DeviceMethods.AppsUninstall, raw.Selection.ToArgs(("app", JsonValue.Create("com.example.app"))), CancellationToken.None);
+Assert.That(await Device.UninstallAppAsync(), Is.True);
+Assert.That(await Device.IsAppInstalledAsync("com.example.app"), Is.False);
+await Device.InstallAppAsync(); // a fresh install, for a first-launch flow
 ```
+
+- Removing the app on screen leaves the device on its home screen, and locators resolved before point at nothing. Install it again with `Device.InstallAppAsync()`, then `Device.OpenAppAsync(app)`, to keep testing it.
+- Removing the build `InstallAppAsync` pinned, on a target with no `BundleId`, unpins it: `App.OpenAsync()` then needs another install.
+- The device keeps the removal for the tests that run on it later. Reinstall the app before the test ends, in a `finally` block, or any later test on that device that opens it fails at `App.OpenAsync()`.
 
 `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app and installs the build with no data (it needs an app: `InstallAppOptions.App`, the engine's build, or the pinned app; and it is refused on TestMu), and `App.ClearStateAsync()` resets the app's data.
 

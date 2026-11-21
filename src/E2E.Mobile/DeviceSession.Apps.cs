@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -55,6 +56,12 @@ public sealed record OpenAppOptions
 
 public sealed partial class DeviceSession
 {
+    private static readonly Regex ListedApp = new(
+        @"^(.*) \(([^()]+)\)\z",
+        RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1)
+    );
+
     /// <summary>
     /// Opens an app in the session, remembering its identity for the path anchor. A link is refused before the device
     /// sees it: agent-device would open it as a URL, and <see cref="OpenLinkAsync(Uri, string?, CancellationToken)"/> is the path that carries the
@@ -383,6 +390,85 @@ public sealed partial class DeviceSession
 
         return installed;
     }
+
+    /// <summary>
+    /// Removes an app (default: the pinned one) from the session's device and resolves to whether it was installed; an app
+    /// named by id that is not there is no error (a missing display name is <c>APP_NOT_INSTALLED</c>). Removing an app drops
+    /// the nodes read from the session's screen, and removing the build <see cref="InstallAppAsync"/> pinned without an
+    /// <c>app.bundleId</c> unpins it, so <c>app.open()</c> asks for an install instead of launching an app that is gone.
+    /// </summary>
+    public async Task<bool> UninstallAppAsync(string? app = null, CancellationToken cancellationToken = default)
+    {
+        var target = AppArgument("uninstallApp", app);
+        var result = await CommandAsync(
+                $"uninstall {target}",
+                DeviceMethods.AppsUninstall,
+                Selection.ToArgs(("app", JsonValue.Create(target))),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        // agent-device resolves display names too: compare the id it removed, not only the string the caller passed.
+        var removed = Text(result?["appId"]) ?? target;
+
+        // The identity may be a display name no id comparison matches, so it always goes: the next snapshot fills it again.
+        _appIdentity = null;
+        _launching = false;
+        ScreenReplaced();
+        if (target == InstalledApp || removed == InstalledApp)
+        {
+            InstalledApp = null;
+        }
+
+        return result?["wasInstalled"] is JsonValue installed
+            && installed.TryGetValue<bool>(out var wasInstalled)
+            && wasInstalled;
+    }
+
+    /// <summary>
+    /// Whether an app (default: the pinned one) is on the session's device, system apps included. <paramref name="app"/> is
+    /// a bundle id or package, or the exact name agent-device lists the app under.
+    /// </summary>
+    public async Task<bool> IsAppInstalledAsync(string? app = null, CancellationToken cancellationToken = default)
+    {
+        var target = AppArgument("isAppInstalled", app);
+        var apps = await CommandAsync(
+                "list apps",
+                DeviceMethods.AppsList,
+                Selection.ToArgs(("appsFilter", JsonValue.Create("all"))),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        return apps is JsonArray entries && entries.Any(entry => ListsApp(Text(entry), target));
+    }
+
+    /// <summary>
+    /// Whether one line of agent-device's app list names <paramref name="app"/>. A line reads <c>Name (id)</c>, the bundle id
+    /// or package in the parentheses, or carries the id alone; either the id or the whole name matches.
+    /// </summary>
+    internal static bool ListsApp(string? entry, string app)
+    {
+        if (entry is null)
+        {
+            return false;
+        }
+
+        if (entry == app)
+        {
+            return true;
+        }
+
+        var named = ListedApp.Match(entry);
+        return named.Success && (named.Groups[2].Value == app || named.Groups[1].Value == app);
+    }
+
+    /// <summary>The app a <c>device</c> method names, else the pinned one; neither is <c>INVALID_STATE</c>.</summary>
+    private string AppArgument(string method, string? app) =>
+        app
+        ?? PinnedApp
+        ?? throw DeviceSupport.InvalidState(
+            $"{method} needs an app: pass a bundle id or package, pin one with the target's app.bundleId, or {UninstalledBuild}"
+        );
 
     /// <summary>
     /// Sends a foldable simulator's or emulator's hinge to a pose. agent-device confirms it before it answers: the

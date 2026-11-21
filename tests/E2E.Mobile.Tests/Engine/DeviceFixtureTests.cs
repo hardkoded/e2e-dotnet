@@ -179,6 +179,53 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
+    public async Task Uninstalls_and_looks_up_apps_by_id_or_listed_name_the_pinned_app_by_default()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.AppsUninstall, args => new JsonObject
+        {
+            ["app"] = args?["app"]?.DeepClone(),
+            ["wasInstalled"] = args?["app"]?.GetValue<string>() != "dev.gone",
+        });
+        h.Fake.Respond(DeviceMethods.AppsList, _ => new JsonArray(
+            "Settings (com.apple.Preferences)",
+            "e2e Benchmark (dev.e2e.benchmark)",
+            "dev.bare.package"
+        ));
+        var device = session.Device;
+        var before = h.Fake.Calls.Count;
+        Assert.True(await device.IsAppInstalledAsync("dev.e2e.benchmark"));
+        Assert.True(await device.IsAppInstalledAsync("e2e Benchmark"));
+        Assert.True(await device.IsAppInstalledAsync("dev.bare.package"));
+        Assert.False(await device.IsAppInstalledAsync("dev.e2e"));
+        Assert.True(await device.IsAppInstalledAsync());
+        Assert.True(await device.UninstallAppAsync("dev.e2e.benchmark"));
+        Assert.False(await device.UninstallAppAsync("dev.gone"));
+        Assert.True(await device.UninstallAppAsync());
+        JsonAssert.Calls(
+            h.Fake.Calls,
+            before,
+            ("apps.list", """{"platform":"ios","appsFilter":"all"}"""),
+            ("apps.list", """{"platform":"ios","appsFilter":"all"}"""),
+            ("apps.list", """{"platform":"ios","appsFilter":"all"}"""),
+            ("apps.list", """{"platform":"ios","appsFilter":"all"}"""),
+            ("apps.list", """{"platform":"ios","appsFilter":"all"}"""),
+            ("apps.uninstall", """{"platform":"ios","app":"dev.e2e.benchmark"}"""),
+            ("apps.uninstall", """{"platform":"ios","app":"dev.gone"}"""),
+            ("apps.uninstall", """{"platform":"ios","app":"Settings"}""")
+        );
+
+        var free = Harness.Create(pinned: false);
+        var freeSession = await OpenAttempt(free);
+        var uninstall = await Assert.ThrowsAsync<EngineException>(() => freeSession.Device.UninstallAppAsync());
+        Assert.Equal("INVALID_STATE", uninstall.Code);
+        var lookup = await Assert.ThrowsAsync<EngineException>(() => freeSession.Device.IsAppInstalledAsync());
+        Assert.Equal("INVALID_STATE", lookup.Code);
+        Assert.Equal(["devices.boot"], free.Fake.Methods());
+    }
+
+    [Fact]
     public async Task Issues_one_settings_or_system_command_per_method()
     {
         var h = Harness.Create();

@@ -127,6 +127,7 @@ Calls the port lacks are under [What e2e doesn't have yet](#what-e2e-doesnt-have
 | `device.launchApp({ delete: true })` | `App.ClearStateAsync()` |
 | `device.launchApp({ newInstance: false })` | `Device.OpenAppAsync(id)` without `Relaunch` |
 | `device.launchApp({ url })`, `device.openURL({ url })` | `Device.OpenLinkAsync(url)` |
+| `device.uninstallApp()` | `Device.UninstallAppAsync(id)`; without an id, the pinned app |
 | `device.terminateApp()` | `Device.CloseAppAsync()` |
 | `device.sendToHome()`, `device.pressBack()` | `Device.HomeAsync()`, `Device.BackAsync()` |
 | `device.setLocation(lat, lon)` | `Device.SetLocationAsync(new Coordinates(latitude, longitude))` |
@@ -155,7 +156,7 @@ Planned is on the roadmap, and Not yet has no date. Not planned is left out on p
 | `.setDatePickerDate()`, `.setColumnToValue()`, `.adjustSliderToPosition()` | An `Agent.ActAsync` goal, or a drag with `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` on a slider, the points taken from `.BoundingBoxAsync()` |
 | `.getAttributes()` | One call per field: `.TextContentAsync()`, `.InputValueAsync()`, `.IsEnabledAsync()`, `.IsVisibleAsync()`, `.IsCheckedAsync()`, `.BoundingBoxAsync()`, `.GetAttributeAsync("placeholder")` |
 | `permissions` for names and values beyond `PermissionState.Grant`, `Deny`, `Reset` | Tap the prompt's button, or `Device.AlertAsync(AlertAction.Accept)` |
-| `device.sendUserNotification()`, `device.uninstallApp()` | `Device.UnstableRaw.Client.CallAsync(...)`, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
+| `device.sendUserNotification()` | `Device.UnstableRaw.Client.CallAsync(...)`, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
 | `launchApp({ languageAndLocale })` | On iOS, `app.launchArguments` of `["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]`, see [Run the app in another language](/get-started/mobile/#run-the-app-in-another-language) |
 | Jest `globalSetup`, `globalTeardown` | Start dependencies before the run, or in a framework-level one-time setup |
 | `device.reverseTcpPort()` | Run `adb reverse` in a CI step |
