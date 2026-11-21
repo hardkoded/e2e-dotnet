@@ -558,8 +558,8 @@ point with the viewport size and where the point sat inside the node under
 it. A replay re-finds that node and taps the same place in its live box; a
 viewport of another size hands the step over (`viewport-changed`).
 
-The built-in agent presses Save, Submit, or another control that commits a
-change (save, submit, delete) once for each commit the step asks for. When the
+The built-in agent's prompt tells it to press Save, Submit, or another control that commits a
+change (save, submit, delete) once for each commit the step asks for. This is a model instruction, not a limit the tool enforces, so it lowers duplicate submissions without guaranteeing none. When the
 tap only closed the on-screen keyboard, it presses again at once. Otherwise it
 checks the screen before a second press, and presses again only when the screen
 shows the first press did not commit (a validation error that blocked the save

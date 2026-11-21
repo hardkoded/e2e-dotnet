@@ -46,7 +46,7 @@ Derive your test classes from `NextTest`.
 - **In CI**, it starts `next start`, which serves the build. `reuseExisting` doesn't apply there.
 - **The port** in `app.url` must be the port that `dev` and `start` both listen on. Next.js uses 3000. When one script sets `--port`, set the same port in the other.
 
-For the other `command` options, such as `log`, `env`, and port `0`, see [Point at your app](/get-started/web/#2-point-at-your-app).
+`command` also takes `env`, `log`, `startupTimeout`, and `shutdownTimeout`, and a `url` with port `0` takes a free port. See [`CommandConfig`](/api/E2E/CommandConfig/) and the [Config](/get-started/core-concepts/#config) section.
 
 ## Run in CI
 
@@ -57,7 +57,7 @@ npm run build
 dotnet test
 ```
 
-For a full workflow, take the [GitHub Actions](/integrations/github/) job and add the build step before the test step. To test each Vercel preview deployment instead, see [Vercel Previews](/integrations/vercel-previews/).
+For a full workflow, take the [GitHub Actions](/integrations/github/) job and, in the Next.js app's directory, set up Node.js and run `npm ci` before the build step. To test each Vercel preview deployment instead, see [Vercel Previews](/integrations/vercel-previews/).
 
 ## Fix Next.js problems
 
@@ -93,7 +93,7 @@ The agent doesn't see the route announcer, and the [replay cache](/features/cach
 
 E2E writes its run output under `.e2e/`: results, logs, traces, and the replay cache. A watcher that reads this folder can rebuild the app again and again during a run.
 
-- Keep the `.e2e/` entry that `e2e init` adds to `.gitignore`. Tools that scan the project for source files, such as Tailwind CSS, skip ignored files.
+- `e2e init` adds only some `.e2e` subpaths (`.e2e/results/`, `.e2e/cache/`, and a few more) to `.gitignore`. Add `.e2e/` itself when a watcher must skip the whole folder. Tools that scan the project for source files, such as Tailwind CSS, skip ignored files.
 - With webpack, the `next dev` default before Next.js 16, add `.e2e` to the paths the watcher ignores:
 
 ```ts title="next.config.ts"
