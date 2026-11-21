@@ -52,6 +52,36 @@ public sealed class DecisionUnsupportedQuestionTypeException(
     public string QuestionId { get; } = questionId;
 }
 
+/// <summary>The AI SDK's <c>Experimental_ExtractionUnsupportedFieldTypeError</c>: the extraction model does not support the type of a requested field.</summary>
+public sealed class ExtractionUnsupportedFieldTypeException(
+    string fieldId,
+    string fieldType,
+    string provider,
+    string modelId,
+    string? message = null
+)
+    : Exception(
+        message
+            ?? "Field \""
+                + fieldId
+                + "\" has type \""
+                + fieldType
+                + "\", which is not supported by provider \""
+                + provider
+                + "\" and model \""
+                + modelId
+                + "\"."
+    )
+{
+    public string FieldId { get; } = fieldId;
+
+    public string FieldType { get; } = fieldType;
+
+    public string Provider { get; } = provider;
+
+    public string ModelId { get; } = modelId;
+}
+
 /// <summary>
 /// The AI SDK's <c>APICallError</c>: a provider call that failed. <see cref="ExperimentalDecide.RunAsync"/> retries it when
 /// <see cref="IsRetryable"/>, waiting for the provider's <c>retry-after-ms</c> or <c>retry-after</c> header when it is reasonable.

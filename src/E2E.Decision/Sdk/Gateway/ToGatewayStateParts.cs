@@ -12,9 +12,13 @@ public static class ToGatewayStateParts
 {
     /// <summary>
     /// Upstream's <c>toGatewayStateParts</c>: the state as the Gateway takes it. Inline file bytes become base64, and file data that cannot be
-    /// sent (a URL or a provider reference) is rejected.
+    /// sent (a URL or a provider reference) is rejected. With <paramref name="allowReferences"/>, a provider reference is sent unchanged.
     /// </summary>
-    public static JsonArray Convert(IReadOnlyList<DecisionStatePart> state, string modelType)
+    public static JsonArray Convert(
+        IReadOnlyList<DecisionStatePart> state,
+        string modelType,
+        bool allowReferences = false
+    )
     {
         ArgumentNullException.ThrowIfNull(state);
         var parts = new JsonArray();
@@ -31,7 +35,8 @@ public static class ToGatewayStateParts
                     );
                     break;
                 case DecisionFilePart file:
-                    if (file.DataType != "data")
+                    var isReference = allowReferences && file.DataType == "reference";
+                    if (file.DataType != "data" && !isReference)
                     {
                         throw new UnsupportedFunctionalityException(
                             "Gateway " + modelType + " file input: " + file.DataType + " data"
@@ -44,7 +49,13 @@ public static class ToGatewayStateParts
                         converted["filename"] = file.Filename;
                     }
 
-                    converted["data"] = new JsonObject { ["type"] = "data", ["data"] = file.GetBase64() };
+                    converted["data"] = isReference
+                        ? new JsonObject
+                        {
+                            ["type"] = "reference",
+                            ["reference"] = JsonNode.Parse(file.Reference?.GetRawText() ?? "{}"),
+                        }
+                        : new JsonObject { ["type"] = "data", ["data"] = file.GetBase64() };
                     if (file.ProviderOptions is not null)
                     {
                         converted["providerOptions"] = JsonSerializer.SerializeToNode(file.ProviderOptions);

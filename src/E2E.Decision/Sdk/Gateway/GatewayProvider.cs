@@ -135,6 +135,23 @@ public sealed class GatewayProvider : IDecisionProvider
     /// <summary>Creates a decision model (upstream's <c>decision</c>).</summary>
     public GatewayDecisionModel Decision(string modelId) => DecisionModel(modelId);
 
+    /// <summary>Creates a model for extracting typed field values from shared state (upstream's <c>extractionModel</c>).</summary>
+    public GatewayExtractionModel ExtractionModel(string modelId) =>
+        new(
+            modelId,
+            new GatewayExtractionModelConfig
+            {
+                Provider = "gateway",
+                BaseUrl = _baseUrl,
+                Headers = GetHeadersAsync,
+                O11yHeaders = GetO11yHeadersAsync,
+                HttpClient = _settings.HttpClient,
+            }
+        );
+
+    /// <summary>Creates a model for extracting typed field values from shared state (upstream's <c>extraction</c>).</summary>
+    public GatewayExtractionModel Extraction(string modelId) => ExtractionModel(modelId);
+
     /// <summary>Deprecated: use <see cref="DecisionModel"/>.</summary>
     public GatewayDecisionModel EvaluationModel(string modelId) => DecisionModel(modelId);
 

@@ -133,7 +133,7 @@ public sealed class GatewayDecisionModel : IDecisionModel, IEvaluationModel, IDi
     }
 
     // getErrorMessage(data) ?? 'unknown error' over the parsed body, else the raw text.
-    private static string ErrorMessage(string text)
+    internal static string ErrorMessage(string text)
     {
         try
         {
