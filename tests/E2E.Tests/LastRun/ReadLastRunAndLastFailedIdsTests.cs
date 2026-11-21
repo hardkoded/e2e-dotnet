@@ -44,6 +44,7 @@ public sealed partial class ReadLastRunAndLastFailedIdsTests : IDisposable
                     Result(("id", "timed-out"), ("status", "timed-out")),
                     Result(("id", "interrupted"), ("status", "interrupted")),
                     Skipped("explicit", "explicit", "later"),
+                    Skipped("fixme", "fixme", "fixme: crashes on Android"),
                     Skipped("filtered", "filtered", "tag filter did not match"),
                     Skipped("setup-failed", "setup-failed", "setup for session \"user\" failed"),
                     Skipped("predecessor", "serial-predecessor-failed", "step 1 failed"),

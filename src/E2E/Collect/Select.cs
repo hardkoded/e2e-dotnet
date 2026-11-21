@@ -398,7 +398,10 @@ internal static class Selector
             switch (pair.Skip?.Cause)
             {
                 case "explicit":
-                    Count("skipped with test.skip", pair.Test);
+                    Count("skipped explicitly", pair.Test);
+                    break;
+                case "fixme":
+                    Count("marked fixme", pair.Test);
                     break;
                 case "platform-unavailable":
                     Count($"declare platforms other than {pair.Target.Platform}", pair.Test);

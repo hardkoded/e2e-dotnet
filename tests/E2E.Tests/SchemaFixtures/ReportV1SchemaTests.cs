@@ -284,12 +284,46 @@ public sealed class ReportV1SchemaTests
     }
 
     [Fact]
+    public void Takes_fixme_and_explicit_as_skip_causes_and_no_unknown_cause()
+    {
+        var report = Valid();
+        var result = Result(report, 1);
+        Assert.Equal("fixme", (string?)result["skip"]!["cause"]);
+        Assert.Equal("fixme", (string?)Attempt(report, 1)["skip"]!["cause"]);
+        var skip = Attempt(report, 1)["skip"]!.AsObject();
+        skip["cause"] = "explicit";
+        Assert.True(ReportSchema.IsValid(report));
+        skip["cause"] = "broken";
+        Assert.False(ReportSchema.IsValid(report));
+    }
+
+    [Fact]
+    public void Rejects_a_fixme_skip_that_names_a_filter_which_only_a_filtered_skip_does()
+    {
+        var report = ReportSchema.ReadJson("fixtures", "report-v1.invalid.json");
+        var skip = Run(report)["results"]!
+            .AsArray()
+            .Select(each => each!["skip"])
+            .First(each => each?["filter"] is not null)!
+            .AsObject();
+        Assert.Equal("fixme", (string?)skip["cause"]);
+        Assert.Equal("areas", (string?)skip["filter"]);
+        Assert.Contains(ReportSchema.Violations(report), each =>
+            each.Location.EndsWith("/skip/cause", StringComparison.Ordinal)
+        );
+        skip.Remove("filter");
+        Assert.DoesNotContain(ReportSchema.Violations(report), each =>
+            each.Location.EndsWith("/skip/cause", StringComparison.Ordinal)
+        );
+    }
+
+    [Fact]
     public void Keeps_a_skip_reason_on_a_skipped_or_failed_attempt_never_on_a_passed_one()
     {
         var report = Valid();
         var attempt = Attempt(report, result: 1);
         Assert.Equal("skipped", (string?)attempt["status"]);
-        Assert.Equal("explicit", (string?)attempt["skip"]!["cause"]);
+        Assert.Equal("fixme", (string?)attempt["skip"]!["cause"]);
 
         var skip = attempt["skip"]!;
         attempt.Remove("skip");

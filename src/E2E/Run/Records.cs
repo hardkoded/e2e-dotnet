@@ -28,8 +28,14 @@ internal sealed record SessionVideoLink(string Url, string MediaType, DateTimeOf
 /// <summary>Reads over a result's records (upstream's <c>run/records.ts</c>).</summary>
 internal static class Records
 {
+    /// <summary>The skip causes a test gives itself: <c>explicit</c> from a skip, <c>fixme</c> from <c>test.fixme</c>. Every other cause is the runner's (upstream's <c>SELF_SKIP_CAUSES</c>).</summary>
+    private static readonly string[] SelfSkipCauses = ["explicit", "fixme"];
+
+    /// <summary>Whether a skip cause is one a test gives itself rather than one the runner gives it (upstream's <c>skippedItself</c>).</summary>
+    private static bool SkippedItself(string? cause) => cause is not null && SelfSkipCauses.Contains(cause);
+
     /// <summary>
-    /// The failure a test's <c>Skip(...)</c> followed: the last attempt that failed before a skipped retry, or an error the skipped attempt
+    /// The failure a test's <c>Skip(...)</c> or <c>test.fixme(...)</c> followed: the last attempt that failed before a skipped retry, or an error the skipped attempt
     /// kept beside its skip. A soft failure before the skip fails its own attempt. Engine cleanup diagnostics after the skip are not one.
     /// Upstream's <c>failureBeforeSkip</c>, without its <c>groupOf</c> argument, which only a serial member reads: the port has no serial
     /// groups.
@@ -37,7 +43,7 @@ internal static class Records
     public static FailureBeforeSkip? FailureBeforeSkip(ReportResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        if (result.Status != ResultStatus.Skipped || result.Skip?.Cause != "explicit")
+        if (result.Status != ResultStatus.Skipped || !SkippedItself(result.Skip?.Cause))
         {
             return null;
         }

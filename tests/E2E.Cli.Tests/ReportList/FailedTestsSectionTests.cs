@@ -12,8 +12,10 @@ namespace E2E.Cli.Tests.ReportList;
 /// </summary>
 public sealed class FailedTestsSectionTests
 {
-    [Fact]
-    public void Lists_a_retry_that_skipped_with_the_failed_attempts_error_and_evidence()
+    [Theory]
+    [InlineData("explicit")]
+    [InlineData("fixme")]
+    public void Lists_a_retry_that_skipped_cause_with_the_failed_attempts_error_and_evidence(string cause)
     {
         var output = new Capture();
         var reporter = PlainReporter(output);
@@ -38,7 +40,8 @@ public sealed class FailedTestsSectionTests
                     file: "tests/a.e2e.ts",
                     title: ["first"],
                     attempts: [failed, skipped],
-                    skipReason: "feature disabled"
+                    skipReason: "feature disabled",
+                    cause: cause
                 )
             )
         );
