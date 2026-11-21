@@ -117,8 +117,8 @@ public sealed class DownloadException : Exception
 }
 
 /// <summary>The AI SDK's <c>UnsupportedFunctionalityError</c>: the provider cannot take an input, such as a file of an unsupported media type.</summary>
-public sealed class UnsupportedFunctionalityException(string functionality)
-    : Exception("'" + functionality + "' functionality not supported.")
+public sealed class UnsupportedFunctionalityException(string functionality, string? message = null)
+    : Exception(message ?? "'" + functionality + "' functionality not supported.")
 {
     public string Functionality { get; } = functionality;
 }
