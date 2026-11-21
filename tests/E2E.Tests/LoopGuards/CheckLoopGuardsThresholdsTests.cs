@@ -10,15 +10,22 @@ public sealed class CheckLoopGuardsThresholdsTests
     [Fact]
     public void Honors_caller_thresholds_over_the_defaults()
     {
-        var calls = new[] { ("tap", """{"target":"n1"}"""), ("tap", """{"target":"n1"}""") };
+        var calls = new[]
+        {
+            new GuardToolCall("tap", """{"target":"n1"}"""),
+            new GuardToolCall("tap", """{"target":"n1"}"""),
+        };
         var defaults = E2E.LoopGuards.DefaultLoopGuardThresholds;
 
-        Assert.Equal((false, null), E2E.LoopGuards.CheckLoopGuards(calls));
+        Assert.Equal(LoopGuardKind.Clear, E2E.LoopGuards.CheckLoopGuards(calls).Kind);
 
         var warned = E2E.LoopGuards.CheckLoopGuards(calls, defaults with { RepeatWarn = 2 });
-        Assert.False(warned.Stop);
+        Assert.Equal(LoopGuardKind.Warn, warned.Kind);
         Assert.NotNull(warned.Reason);
 
-        Assert.True(E2E.LoopGuards.CheckLoopGuards(calls, defaults with { RepeatWarn = 1, RepeatStop = 2 }).Stop);
+        Assert.Equal(
+            LoopGuardKind.Stop,
+            E2E.LoopGuards.CheckLoopGuards(calls, defaults with { RepeatWarn = 1, RepeatStop = 2 }).Kind
+        );
     }
 }

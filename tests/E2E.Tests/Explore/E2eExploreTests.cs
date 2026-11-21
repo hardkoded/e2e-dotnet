@@ -102,7 +102,9 @@ public sealed class E2eExploreTests
     )
     {
         var state = new E2E.ExploreState("goal", new ExploreBudgets(4, TimeSpan.FromMinutes(5)));
-        var tool = ExploreExecutor.WithFindingTool(new AgentOptions(), state).Tools![ExploreExecutor.FindingToolName];
+        var tool = global::E2E.ExploreExecutor.WithFindingTool(new AgentOptions(), state).Tools![
+            global::E2E.ExploreExecutor.FindingToolName
+        ];
         var input = (JsonObject)JsonNode.Parse(JsonSerializer.Serialize(ExploreModel.CounterFinding()))!;
 
         // The refusal is an I/O error of the screen or the file system, and the cancel arrives with it.
@@ -240,7 +242,10 @@ public sealed class E2eExploreTests
         );
 
         // The explorer's loop saw the finding tool beside the grammar.
-        Assert.Contains(ExploreExecutor.FindingToolName, model.LoopCalls.First().Tools.Select(tool => tool.Name));
+        Assert.Contains(
+            global::E2E.ExploreExecutor.FindingToolName,
+            model.LoopCalls.First().Tools.Select(tool => tool.Name)
+        );
 
         // The planner's prompts opened with the goal, the test's title.
         Assert.Contains(
@@ -662,7 +667,7 @@ public sealed class E2eExploreTests
         // The ux agent's model drove every step, the planner included, and its tool is in the explorer's vocabulary.
         Assert.Equal(0, other.CallCount);
         Assert.Contains("ping", seen[0]);
-        Assert.Contains(ExploreExecutor.FindingToolName, seen[0]);
+        Assert.Contains(global::E2E.ExploreExecutor.FindingToolName, seen[0]);
         Assert.Contains(
             "pong",
             model.LoopCalls.Last().Messages.Where(message => message.Role == "tool").Select(message => message.Content)

@@ -299,6 +299,13 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         var shrunkOnce = false;
         var noticedLowClock = false;
 
+        // The waits already warned in this step, by key: other notices in between do not make a wait warned again.
+        var noticedWaits = new HashSet<string>(StringComparer.Ordinal);
+
+        // Whether each look (by call id) showed a change, read when the result was new and kept past compaction.
+        var looks = new Dictionary<string, bool>(StringComparer.Ordinal);
+        IReadOnlyList<ModelMessage> unprepared = [];
+
         // Upstream's LoopRun.toolChoice: how the step asks for tool calls. 'required' unless the model refused a forced choice before;
         // it flips to auto when the model rejects one (FreeToolChoiceRetry) or the provider downgrades one (NoticeToolChoiceDowngrade).
         var toolChoice = IsFreeToolChoiceModel(model) ? ModelToolChoice.Auto : ModelToolChoice.Required;
@@ -311,6 +318,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             string? preparedStop = null;
             if (options.PrepareMessages is { } prepare)
             {
+                unprepared = [.. messages];
                 var prepared = prepare(messages, new PreparedTurn(call, previous));
                 var next = prepared.Messages.ToList();
                 messages.Clear();
@@ -362,13 +370,53 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             }
 
             // A repeat warns first. A stop leaves the model only complete_step, so it still writes its own verdict.
-            var (stop, repeat) =
-                preparedStop is not null ? (true, preparedStop)
-                : stopped ? (true, null)
-                : LoopGuards.CheckLoopGuards(LoopGuards.ExtractGuardCalls(messages));
-            if (repeat is not null && !string.Equals(repeat, noticed, StringComparison.Ordinal))
+            // The waiting tools are read per turn: a handler replaced after the tools were built may write, and loses the waiting room.
+            LoopGuardVerdict verdict;
+            if (preparedStop is not null)
             {
-                noticed = repeat;
+                verdict = new LoopGuardVerdict(LoopGuardKind.Stop, preparedStop);
+            }
+            else if (stopped)
+            {
+                verdict = new LoopGuardVerdict(LoopGuardKind.Stop);
+            }
+            else
+            {
+                // The calls are the ones the model reads, after an executor's own PrepareMessages; each look's result is read while it is
+                // the newest, before compaction can elide its lead line, and kept for the turns after.
+                var waiting = LoopGuards.WaitingToolNames(tools);
+                verdict = LoopGuards.CheckLoopGuards(
+                    LoopGuards.ExtractGuardCalls(
+                        messages,
+                        VerdictTool.Name,
+                        waiting,
+                        looks,
+                        options.PrepareMessages is null ? messages : unprepared
+                    ),
+                    waiting: waiting
+                );
+            }
+
+            var stop = verdict.Kind == LoopGuardKind.Stop;
+            var repeat = verdict.Reason;
+            var freshWarning =
+                verdict.Kind == LoopGuardKind.Warn
+                && (
+                    verdict.Key is null
+                        ? !string.Equals(repeat, noticed, StringComparison.Ordinal)
+                        : !noticedWaits.Contains(verdict.Key)
+                );
+            if (stop ? repeat is not null && !string.Equals(repeat, noticed, StringComparison.Ordinal) : freshWarning)
+            {
+                if (verdict.Key is null || stop)
+                {
+                    noticed = repeat;
+                }
+                else
+                {
+                    noticedWaits.Add(verdict.Key);
+                }
+
                 stopped = stop;
                 turns.Note(
                     (stop ? "the step was stopped before turn " : "loop guard warned before turn ")
@@ -380,10 +428,17 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     new ModelMessage
                     {
                         Role = "user",
-                        Content = stop
-                            ? "[SYSTEM] Loop guard: "
-                                + repeat
-                                + ". Repeating it further will not make progress. Call complete_step now with your best verdict: failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you."
+                        Content =
+                            stop
+                                ? "[SYSTEM] Loop guard: "
+                                    + repeat
+                                    + ". Repeating it further will not make progress. Call complete_step now with your best verdict: failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you."
+                            : verdict.Waiting
+                                // Repeated looks at a save or load still in progress are a wait the rules ask for, so the notice bounds
+                                // the wait instead of calling it a circle.
+                                ? "[SYSTEM NOTICE] "
+                                    + repeat
+                                    + ". Observe again only while the screen still shows the work in progress; once it is done, do what the step still asks for, then call complete_step with your verdict."
                             : "[SYSTEM NOTICE] You appear to be going in circles: "
                                 + repeat
                                 + ". Change approach, or call complete_step with your best verdict.",

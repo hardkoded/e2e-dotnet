@@ -79,12 +79,29 @@ internal sealed partial class ScreenPresenter
     private const string KeyboardClosedNote =
         "The on-screen keyboard closed with this action. On a touch screen a tap made while the keyboard is up can be spent on closing it: if the control you acted on shows no effect above, act on it again now that the keyboard is down.";
 
+    // Leads of an update that changed the listing or the tabs; the loop guard reads them.
+    private const string ChangedSubstantially = "The screen changed substantially since revision ";
+    private const string ChangesSince = "Screen changes since revision ";
+    private const string NothingListedChanged = "no listed node changed";
+    private const string TruncatedAssurance =
+        "The screen listing is truncated: nodes past the cut are not listed and none is reported removed; every listed node keeps the id you have.";
+    private const string TabOpened = "The app opened ";
+    private const string TabsClosed = "The other tab";
+    private const string TabShown = "The screen shows tab ";
+    private const string LocationChanged = "The location changed to ";
+    private const string CurrentScreen = "Current screen (";
+    private const string NoTree = "semantic capture unavailable";
+
     private ShownScreen? _shown;
     private ShownScreenshot? _screenshot;
     private string? _screenshotDigest;
 
     // True once the engine said it captures no screenshots at all.
     private bool _pixelsDenied;
+
+    // The tabs and location of the last screen sent, kept even when that screen had no tree; null until the first screen, so a presenter
+    // that was never opened reports no change on its first result.
+    private (ExecutorTabs? Tabs, string? Path)? _seen;
 
     /// <summary>The screen as the agent last received it, indexed for comparison.</summary>
     private sealed record ShownScreen(
@@ -93,7 +110,8 @@ internal sealed partial class ScreenPresenter
         Dictionary<string, string> ById,
         bool Truncated,
         bool Keyboard,
-        ExecutorTabs? Tabs
+        ExecutorTabs? Tabs,
+        string? Path
     );
 
     /// <summary>
@@ -133,6 +151,35 @@ internal sealed partial class ScreenPresenter
         };
     }
 
+    /// <summary>
+    /// True when a tool result's first line, which this class writes, reports a change to the listing or to the open tabs (upstream's
+    /// <c>reportsScreenChange</c>). Only that line is read: node text comes after it, so app content can never pass for a change. A truncated
+    /// listing with no line changed, a screen with no tree, and a change in pixels alone (an animated spinner) report no change here.
+    /// </summary>
+    public static bool ReportsScreenChange(string text)
+    {
+        var headline = text.Split('\n').FirstOrDefault(line => line.Trim() != "" && line.Trim() != "Observed.") ?? "";
+
+        // Match renderer-owned leads and endings because the location comes from the app.
+        if (
+            new[] { ChangedSubstantially, TabOpened, TabsClosed, TabShown, LocationChanged }.Any(lead =>
+                headline.StartsWith(lead, StringComparison.Ordinal)
+            )
+        )
+        {
+            return true;
+        }
+
+        // A whole screen after an update is the listing coming back once semantic capture recovers.
+        if (headline.StartsWith(CurrentScreen, StringComparison.Ordinal))
+        {
+            return !headline.EndsWith(", " + NoTree + "):", StringComparison.Ordinal);
+        }
+
+        return headline.StartsWith(ChangesSince, StringComparison.Ordinal)
+            && !headline.EndsWith("): " + NothingListedChanged + ". " + TruncatedAssurance, StringComparison.Ordinal);
+    }
+
     /// <summary>True once a screenshot went to the model in this step.</summary>
     public bool ShowingPixels => _screenshot is not null;
 
@@ -144,6 +191,7 @@ internal sealed partial class ScreenPresenter
     {
         ArgumentNullException.ThrowIfNull(observation);
         _shown = observation.TreeUnavailable ? null : Index(observation);
+        _seen = (observation.Tabs, observation.Path ?? _seen?.Path);
         return RenderFull(observation, _shown);
     }
 
@@ -158,17 +206,23 @@ internal sealed partial class ScreenPresenter
         var lead = options.Lead is null ? "" : options.Lead + "\n\n";
         if (observation.TreeUnavailable)
         {
-            return lead + Initial(observation);
+            // No tree to compare, but the tabs and the location still say what happened.
+            return lead + MovedSinceSeen(observation) + Initial(observation);
         }
 
         var previous = _shown;
         var next = Index(observation);
-        _shown = next;
         if (previous is null)
         {
-            return lead + RenderFull(observation, next);
+            var notes = MovedSinceSeen(observation);
+            _shown = next;
+            _seen = (next.Tabs, next.Path ?? _seen?.Path);
+            return lead + notes + RenderFull(observation, next);
         }
 
+        _shown = next;
+        var located = NewLocation(next.Path);
+        _seen = (next.Tabs, next.Path ?? _seen?.Path);
         var closed = !options.KeyboardNote || options.Lead is null ? "" : KeyboardNoteFor(previous, next);
         var tabs = TabNote(previous.Tabs, next.Tabs);
 
@@ -178,15 +232,23 @@ internal sealed partial class ScreenPresenter
             return lead + tabs.Note + " " + RenderFull(observation, next) + closed;
         }
 
-        // A tab opened is the action's effect, so an unchanged screen blames no control.
-        var expectChange = options.ExpectChange && tabs is null;
+        var diff = Diff(previous, next);
+        var changes = diff.Count;
+
+        // A new location with nothing listed changed (a save that only moved the URL) is said, not hidden.
+        var moved = changes == 0 && located;
+
+        // A tab opened or a new location is the action's effect, so an unchanged screen blames no control.
+        var expectChange = options.ExpectChange && tabs is null && !moved;
         if (tabs is not null)
         {
             lead = lead + tabs.Note + " ";
         }
 
-        var diff = Diff(previous, next);
-        var changes = diff.Count;
+        if (moved)
+        {
+            lead = lead + LocationChanged + (next.Path ?? "none") + ". ";
+        }
 
         // A truncated screen is never called unchanged: what it left out is unknown.
         if (changes == 0 && !observation.Truncated)
@@ -196,20 +258,15 @@ internal sealed partial class ScreenPresenter
 
         if (changes >= MaxDiffLines || changes > MaxDiffShare * next.Order.Count)
         {
-            return lead
-                + "The screen changed substantially since revision "
-                + previous.Revision
-                + ". "
-                + RenderFull(observation, next)
-                + closed;
+            return lead + ChangedSubstantially + previous.Revision + ". " + RenderFull(observation, next) + closed;
         }
 
         var assurance = observation.Truncated
-            ? "The screen listing is truncated: nodes past the cut are not listed and none is reported removed; every listed node keeps the id you have."
+            ? TruncatedAssurance
             : "Every node not listed as removed is still on screen under the id you have.";
         var head =
             lead
-            + "Screen changes since revision "
+            + ChangesSince
             + previous.Revision
             + " (now revision "
             + observation.Revision
@@ -334,7 +391,7 @@ internal sealed partial class ScreenPresenter
             .Where(entry => entry.Count > 0)
             .Select(entry => entry.Count.ToString(CultureInfo.InvariantCulture) + " " + entry.Kind);
         var joined = string.Join(", ", counts);
-        return joined.Length == 0 ? "no listed node changed" : joined;
+        return joined.Length == 0 ? NothingListedChanged : joined;
     }
 
     // One full screen, headed so a reader can find it later.
@@ -342,14 +399,18 @@ internal sealed partial class ScreenPresenter
     {
         if (observation.TreeUnavailable)
         {
-            return "Current screen (revision "
+            return CurrentScreen
+                + "revision "
                 + observation.Revision
                 + DescribeLocation(observation)
-                + ", semantic capture unavailable):\n"
+                + ", "
+                + NoTree
+                + "):\n"
                 + observation.Text;
         }
 
-        return "Current screen (revision "
+        return CurrentScreen
+            + "revision "
             + observation.Revision
             + DescribeLocation(observation)
             + ", "
@@ -390,10 +451,10 @@ internal sealed partial class ScreenPresenter
         {
             PixelEvidence.Unchanged => "The screen did not change within the wait after this action ("
                 + looked
-                + "); the ids you have stay valid. If a change was expected, the control had no visible effect here: look for another way rather than repeating it.",
+                + "); the ids you have stay valid. If a change was expected and the control commits something (a save, a submit), it may still have gone through: check before you commit again by any route. Otherwise, if a change was expected, the control had no visible effect here: look for another way rather than repeating it.",
             PixelEvidence.Unavailable => "No listed node changed within the wait after this action ("
                 + looked
-                + "); the ids you have stay valid. No screenshot can be taken in this step, so the listing is the only evidence: if a change was expected, look for another way rather than repeating it.",
+                + "); the ids you have stay valid. No screenshot can be taken in this step, so the listing is the only evidence. If a change was expected and the control commits something (a save, a submit), it may still have gone through: check before you commit again by any route. Otherwise, if a change was expected, look for another way rather than repeating it.",
             _ => "No listed node changed within the wait after this action ("
                 + looked
                 + "); the ids you have stay valid. The listing shows only what the tree describes: a drawn change needs a screenshot to see.",
@@ -406,7 +467,7 @@ internal sealed partial class ScreenPresenter
 
     private static string DescribeLocation(ExecutorObservation observation)
     {
-        var path = observation.Path is null ? "" : ", path " + observation.Path;
+        var path = observation.Path is null ? "" : ", path " + NewlineRun().Replace(observation.Path, " ");
         var tabs = observation.Tabs is null
             ? ""
             : ", tab "
@@ -415,6 +476,24 @@ internal sealed partial class ScreenPresenter
                 + observation.Tabs.Count.ToString(CultureInfo.InvariantCulture);
         return path + tabs;
     }
+
+    // What the tabs and location say changed since the last screen sent, for a screen with no tree to compare.
+    private string MovedSinceSeen(ExecutorObservation observation)
+    {
+        if (_seen is not { } seen)
+        {
+            return "";
+        }
+
+        var tabs = TabNote(seen.Tabs, observation.Tabs);
+        var moved = tabs is not { Moved: true } && NewLocation(observation.Path);
+        return (tabs is null ? "" : tabs.Note + " ")
+            + (moved ? LocationChanged + (observation.Path ?? "none") + ". " : "");
+    }
+
+    // True when the screen reports a location and it differs from the last one reported: an engine that leaves the location out of one
+    // capture has not navigated, and neither has it when the location comes back.
+    private bool NewLocation(string? path) => path is not null && _seen?.Path is { } known && path != known;
 
     /// <summary>What the model hears when the open tabs changed (upstream's <c>tabNote</c> result): the note, and whether the screen moved to another tab.</summary>
     private sealed record TabChange(string Note, bool Moved);
@@ -449,7 +528,7 @@ internal sealed partial class ScreenPresenter
                         + total
                         + ")";
             return new TabChange(
-                "The app opened "
+                TabOpened
                     + opened
                     + ". The screen still shows tab "
                     + after.Active.ToString(CultureInfo.InvariantCulture)
@@ -463,13 +542,13 @@ internal sealed partial class ScreenPresenter
         if (next is null)
         {
             return new TabChange(
-                "The other tab" + (before.Count > 2 ? "s" : "") + " closed; the screen shows the one tab still open.",
+                TabsClosed + (before.Count > 2 ? "s" : "") + " closed; the screen shows the one tab still open.",
                 true
             );
         }
 
         return new TabChange(
-            "The screen shows tab "
+            TabShown
                 + after.Active.ToString(CultureInfo.InvariantCulture)
                 + " of "
                 + after.Count.ToString(CultureInfo.InvariantCulture)
@@ -516,7 +595,8 @@ internal sealed partial class ScreenPresenter
             byId,
             observation.Truncated,
             order.Any(line => KeyboardLine().IsMatch(line)),
-            observation.Tabs
+            observation.Tabs,
+            observation.Path
         );
     }
 
@@ -559,6 +639,9 @@ internal sealed partial class ScreenPresenter
 
         return lines;
     }
+
+    [GeneratedRegex(@"[\r\n]+", RegexOptions.CultureInvariant)]
+    private static partial Regex NewlineRun();
 
     [GeneratedRegex(@"^\s*#(\S+)", RegexOptions.CultureInvariant)]
     private static partial Regex LeadingId();
