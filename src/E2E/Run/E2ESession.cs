@@ -1129,7 +1129,22 @@ public sealed class E2ESession : IAsyncDisposable
             }
         }
 
-        Complete(soft ?? abandoned);
+        // Upstream's standalone attempt fails as timed out when the deadline passed, whether or not its timer ran before close.
+        TestException? timedOut = null;
+        if (_hostedClose is not null && _timeout.IsCancellationRequested)
+        {
+            timedOut = new TestException(
+                "TEST_TIMEOUT",
+                "session timed out after "
+                    + ((long)(_attemptTimeout?.Timeout ?? _testTimeout).TotalMilliseconds).ToString(
+                        System.Globalization.CultureInfo.InvariantCulture
+                    )
+                    + " ms"
+            );
+            errors.Add(timedOut);
+        }
+
+        Complete(timedOut ?? soft ?? abandoned);
         try
         {
             await DisposeCoreAsync().ConfigureAwait(false);
