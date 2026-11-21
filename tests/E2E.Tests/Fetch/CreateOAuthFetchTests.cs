@@ -248,6 +248,11 @@ public sealed class CreateOAuthFetchTests
                     {
                         return;
                     }
+                    catch (InvalidOperationException) when (!listener.IsListening)
+                    {
+                        // The test stopped the listener between the check and the accept.
+                        return;
+                    }
 
                     _ = Task.Run(async () =>
                     {
@@ -317,6 +322,7 @@ public sealed class CreateOAuthFetchTests
             });
 
             var statuses = new List<Task<string>>();
+            var errors = new List<Task<string>>();
             for (var index = 0; index < 4; index++)
             {
                 var info = new System.Diagnostics.ProcessStartInfo(AppProgram.Executable)
@@ -340,7 +346,7 @@ public sealed class CreateOAuthFetchTests
 
                 var child = System.Diagnostics.Process.Start(info)!;
                 children.Add(child);
-                _ = child.StandardError.ReadToEndAsync();
+                errors.Add(child.StandardError.ReadToEndAsync());
                 statuses.Add(child.StandardOutput.ReadToEndAsync());
             }
 
@@ -348,6 +354,14 @@ public sealed class CreateOAuthFetchTests
             foreach (var child in children)
             {
                 await child.WaitForExitAsync(timeout.Token);
+            }
+
+            for (var index = 0; index < children.Count; index++)
+            {
+                Assert.True(
+                    children[index].ExitCode == 0,
+                    "worker " + index + " exited with " + children[index].ExitCode + ": " + await errors[index]
+                );
             }
 
             Assert.Equal(["200", "200", "200", "200"], await Task.WhenAll(statuses));
@@ -364,12 +378,24 @@ public sealed class CreateOAuthFetchTests
             // Killed when the test ends, even on a timeout, so a worker that hangs is not left running.
             foreach (var child in children)
             {
-                if (!child.HasExited)
+                try
                 {
-                    child.Kill(entireProcessTree: true);
+                    if (!child.HasExited)
+                    {
+                        child.Kill(entireProcessTree: true);
+                        // Its own bounded wait: the test's deadline may be spent, and the directory is deleted only once the worker is gone.
+                        child.WaitForExit(TimeSpan.FromSeconds(10));
+                    }
                 }
-
-                child.Dispose();
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+                {
+                    // Already gone, or not ours to stop: the next worker still gets its cleanup.
+                    System.Diagnostics.Trace.WriteLine("could not stop a refresh worker: " + ex.Message);
+                }
+                finally
+                {
+                    child.Dispose();
+                }
             }
 
             if (Directory.Exists(directory))

@@ -214,6 +214,7 @@ public sealed class WithFileLockTests : IDisposable
         // Every process boots before the start, then half the holds end as a crash that leaves the lock behind.
         var startAt = DateTimeOffset.UtcNow.AddSeconds(3).ToUnixTimeMilliseconds();
         var children = new List<Process>();
+        int[] exitCodes;
         try
         {
             for (var index = 0; index < 12; index++)
@@ -247,31 +248,44 @@ public sealed class WithFileLockTests : IDisposable
             }
 
             // Each crash is one more race between waiters to take the lock over.
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
             while (Crashes(log) < 300 && children.All(child => !child.HasExited || child.ExitCode == 0))
             {
+                Assert.True(DateTimeOffset.UtcNow < deadline, "the workers did not reach 300 crashes in time");
                 await Task.Delay(100);
             }
-        }
-        finally
-        {
-            await File.WriteAllTextAsync(stop, "");
-        }
 
-        try
-        {
+            await File.WriteAllTextAsync(stop, "");
             using var exitTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             foreach (var child in children)
             {
                 await child.WaitForExitAsync(exitTimeout.Token);
             }
+
+            exitCodes = [.. children.Select(child => child.ExitCode)];
         }
         finally
         {
+            // Whatever failed above: tell every started worker to stop, then kill what is left and release every handle.
+            await File.WriteAllTextAsync(stop, "");
             foreach (var child in children)
             {
-                if (!child.HasExited)
+                try
                 {
-                    child.Kill(entireProcessTree: true);
+                    if (!child.HasExited)
+                    {
+                        child.Kill(entireProcessTree: true);
+                        child.WaitForExit(TimeSpan.FromSeconds(10));
+                    }
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+                {
+                    // Already gone, or not ours to stop: the next worker still gets its cleanup.
+                    System.Diagnostics.Trace.WriteLine("could not stop a lock worker: " + ex.Message);
+                }
+                finally
+                {
+                    child.Dispose();
                 }
             }
         }
@@ -299,11 +313,7 @@ public sealed class WithFileLockTests : IDisposable
         }
 
         Assert.Empty(overlaps);
-        Assert.All(children, child => Assert.Equal(0, child.ExitCode));
-        foreach (var child in children)
-        {
-            child.Dispose();
-        }
+        Assert.All(exitCodes, code => Assert.Equal(0, code));
     }
 
     [Fact]
