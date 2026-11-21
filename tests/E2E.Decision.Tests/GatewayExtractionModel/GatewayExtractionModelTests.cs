@@ -20,7 +20,7 @@ public sealed class GatewayExtractionModelTests
     }
 
     [Fact]
-    public void Should_create_the_model_from_both_provider_factories()
+    public void Partial_Should_create_the_model_from_both_provider_factories()
     {
         var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
             new GatewayProviderSettings { BaseUrl = "https://api.test.com", ApiKey = "test-token" }
