@@ -74,6 +74,9 @@ public sealed class GatewayProvider : IDecisionProvider
             }
         );
 
+    /// <summary>Gateway-specific tools executed server-side (upstream's <c>tools</c>).</summary>
+    public GatewayToolsApi Tools { get; } = new();
+
     /// <summary>The default provider (upstream's <c>export const gateway = createGateway()</c>).</summary>
     public static GatewayProvider Gateway { get; } = new();
 
