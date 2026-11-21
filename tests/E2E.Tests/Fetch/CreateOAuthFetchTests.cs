@@ -385,7 +385,11 @@ public sealed class CreateOAuthFetchTests
                     {
                         child.Kill(entireProcessTree: true);
                         // Its own bounded wait: the test's deadline may be spent, and the directory is deleted only once the worker is gone.
-                        workersGone &= child.WaitForExit(TimeSpan.FromSeconds(10));
+                        if (!child.WaitForExit(TimeSpan.FromSeconds(10)))
+                        {
+                            workersGone = false;
+                            System.Diagnostics.Trace.WriteLine("a refresh worker did not exit after it was killed");
+                        }
                     }
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
@@ -403,7 +407,15 @@ public sealed class CreateOAuthFetchTests
             // A worker that could not be stopped may still hold a file in it: leave the directory rather than mask the test's own failure.
             if (workersGone && Directory.Exists(directory))
             {
-                Directory.Delete(directory, recursive: true);
+                try
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // A leftover temp directory must not replace the failure that got us here.
+                    System.Diagnostics.Trace.WriteLine("could not delete " + directory + ": " + ex.Message);
+                }
             }
         }
     }
