@@ -70,7 +70,7 @@ public abstract class E2ETest : E2EFixture
             ?? throw new InvalidOperationException(
                 "SetTimeout(timeout) must be called inside a test body or a [SetUp]; to set a test's timeout ahead of time, set the timeout in the configuration"
             );
-        session.SetTimeout(timeout, _bodyDone);
+        session.SetRunningTestTimeout(timeout, _bodyDone);
     }
 
     /// <summary>Set once the test method returned: what runs after it (a derived [TearDown]) comes after the verdict is reached.</summary>

@@ -18,7 +18,11 @@ public sealed class AttemptTimeoutTests
     {
         var test = new CancellationTokenSource();
         var moved = new List<Deadline>();
-        return (new AttemptTimeout(test, timeout, TimeProvider.System, moved.Add), test, moved);
+        return (
+            new AttemptTimeout(test, timeout, TimeProvider.System, (_, deadline) => moved.Add(deadline)),
+            test,
+            moved
+        );
     }
 
     [Fact]

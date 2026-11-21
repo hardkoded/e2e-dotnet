@@ -9,9 +9,9 @@ namespace E2E.Tests.OpenHostDeadline;
 /// <summary>
 /// Upstream's <c>describe('openHost: deadline')</c> (<c>tests/integration/open-host-deadline.test.ts</c>). Only the <c>it</c> tester-army/e2e#1921 adds is
 /// ported here; the others (hardkoded/e2e-dotnet#2002) are not yet. The <c>it</c> is <c>Partial_</c>: upstream calls the global <c>test.setTimeout</c>, which
-/// finds the session through <c>globalThis</c>; the port's <see cref="E2ESession.SetTimeout"/> is the session's own, which the fixtures call.
+/// finds the session through <c>globalThis</c>; the port's <see cref="E2ESession.SetRunningTestTimeout"/> is the session's own, which the fixtures call.
 /// </summary>
-public sealed class OpenHostDeadlineTests : IDisposable
+public sealed class OpenHostDeadlineTests : IAsyncLifetime
 {
     private const string Config =
         """{ "trace": "on", "targets": [{ "name": "kiosk", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }""";
@@ -21,15 +21,21 @@ public sealed class OpenHostDeadlineTests : IDisposable
     private readonly string _dir = Directory.CreateTempSubdirectory("e2e-open-host-deadline-").FullName;
     private readonly List<E2EHost> _hosts = [];
 
-    public void Dispose()
-    {
-        foreach (var host in _hosts)
-        {
-            host.CloseAsync().GetAwaiter().GetResult();
-        }
+    public Task InitializeAsync() => Task.CompletedTask;
 
-        Directory.Delete(_dir, recursive: true);
-        GC.SuppressFinalize(this);
+    public async Task DisposeAsync()
+    {
+        try
+        {
+            foreach (var host in _hosts)
+            {
+                await host.CloseAsync();
+            }
+        }
+        finally
+        {
+            Directory.Delete(_dir, recursive: true);
+        }
     }
 
     [Fact]
@@ -49,7 +55,7 @@ public sealed class OpenHostDeadlineTests : IDisposable
             new OpenSessionOptions { Name = "hosted setTimeout", Timeout = TimeSpan.FromSeconds(5) }
         );
 
-        var refused = Assert.Throws<TestException>(() => session.SetTimeout(TimeSpan.FromSeconds(60)));
+        var refused = Assert.Throws<TestException>(() => session.SetRunningTestTimeout(TimeSpan.FromSeconds(60)));
         Assert.Equal("INVALID_ARGUMENT", refused.Code);
         Assert.Contains("a hosted session runs none", refused.Message);
         Assert.Empty(await session.CloseAsync());

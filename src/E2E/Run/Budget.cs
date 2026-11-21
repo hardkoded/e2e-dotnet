@@ -121,7 +121,7 @@ internal sealed class AttemptTimeout(
     CancellationTokenSource test,
     TimeSpan timeout,
     TimeProvider clock,
-    Action<Deadline> onMoved
+    Action<TimeSpan, Deadline> onMoved
 )
 {
     private readonly DateTimeOffset _startedAt = clock.GetUtcNow();
@@ -147,6 +147,7 @@ internal sealed class AttemptTimeout(
     /// </summary>
     public bool Set(TimeSpan timeout)
     {
+        Deadline deadline;
         lock (_gate)
         {
             if (test.IsCancellationRequested)
@@ -155,8 +156,13 @@ internal sealed class AttemptTimeout(
             }
 
             _current = timeout;
-            var deadline = new Deadline(_startedAt + timeout);
-            onMoved(deadline);
+            deadline = new Deadline(_startedAt + timeout);
+            onMoved(timeout, deadline);
+        }
+
+        // Outside the gate: cancelling runs the signal's callbacks, which can read Timeout.
+        try
+        {
             var left = deadline.Remaining(clock.GetUtcNow());
             if (left == TimeSpan.Zero)
             {
@@ -166,8 +172,13 @@ internal sealed class AttemptTimeout(
             {
                 test.CancelAfter(left);
             }
-
-            return true;
         }
+        catch (ObjectDisposedException)
+        {
+            // The attempt ended and released its signal.
+            return false;
+        }
+
+        return !test.IsCancellationRequested || deadline.Expired(clock.GetUtcNow());
     }
 }

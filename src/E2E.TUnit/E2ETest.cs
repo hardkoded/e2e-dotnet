@@ -69,7 +69,7 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
             ?? throw new InvalidOperationException(
                 "SetTimeout(timeout) must be called inside a test body or a set-up; to set a test's timeout ahead of time, set the timeout in the configuration"
             );
-        session.SetTimeout(timeout);
+        session.SetRunningTestTimeout(timeout);
     }
 
     [Before(HookType.Test)]

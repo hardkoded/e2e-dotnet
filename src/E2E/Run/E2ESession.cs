@@ -31,6 +31,7 @@ public sealed class E2ESession : IAsyncDisposable
     private readonly TextWriter? _debugOutput;
     private readonly long _bodyStarted = System.Diagnostics.Stopwatch.GetTimestamp();
     private int _state;
+    private int _teardown;
     private int _disposed;
     private ExecuteVideo? _video;
     private SessionRecordings? _recordings;
@@ -266,16 +267,22 @@ public sealed class E2ESession : IAsyncDisposable
         // What test.setTimeout moves: the signal's timer and the deadline the screen and browser cap their steps with.
         Screen? timedScreen = null;
         Browser? timedBrowser = null;
-        var attemptTimeout = new AttemptTimeout(timeout, options.TestTimeout, TimeProvider.System, moved =>
+        var attemptTimeout = new AttemptTimeout(timeout, options.TestTimeout, TimeProvider.System, (moved, deadline) =>
         {
+            // An open, a restart, and a link open take the test's timeout, the new one included.
+            if (timedBrowser is not null)
+            {
+                timedBrowser.DefaultLifecycleTimeout = moved;
+            }
+
             if (timedScreen is not null)
             {
-                timedScreen.BudgetDeadline = moved;
+                timedScreen.BudgetDeadline = deadline;
             }
 
             if (timedBrowser is not null)
             {
-                timedBrowser.BudgetDeadline = moved;
+                timedBrowser.BudgetDeadline = deadline;
             }
         });
 
@@ -986,6 +993,7 @@ public sealed class E2ESession : IAsyncDisposable
     /// </summary>
     internal void EnterTeardownBudget(CancellationToken interrupt)
     {
+        Volatile.Write(ref _teardown, 1);
         _budget.Enter(interrupt);
         var deadline = Bounded(_scope.CleanupTimeout) ? new Deadline(_scope.CleanupTimeout, TimeProvider.System) : null;
         Screen.BudgetDeadline = deadline;
@@ -998,7 +1006,7 @@ public sealed class E2ESession : IAsyncDisposable
     /// A timeout that is not a positive whole number of milliseconds, or above 2147483647, a hosted session (it runs no test), a teardown, and
     /// code the test left running after its timeout fired or its attempt ended are test errors, <c>INVALID_ARGUMENT</c>.
     /// </summary>
-    internal void SetTimeout(TimeSpan timeout, bool late = false)
+    internal void SetRunningTestTimeout(TimeSpan timeout, bool late = false)
     {
         var milliseconds = timeout.TotalMilliseconds;
         if (timeout <= TimeSpan.Zero || timeout.Ticks % TimeSpan.TicksPerMillisecond != 0)
@@ -1029,7 +1037,7 @@ public sealed class E2ESession : IAsyncDisposable
             );
         }
 
-        if (late || _attemptTimeout is null)
+        if (late || _attemptTimeout is null || Volatile.Read(ref _teardown) != 0)
         {
             throw LateTimeoutError();
         }
