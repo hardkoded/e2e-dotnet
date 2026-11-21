@@ -46,8 +46,14 @@ internal sealed record BrowserAcquireOptions
     public bool ChromiumSandbox { get; init; }
 }
 
-/// <summary>The browser connection, as upstream <c>browser-connection.ts</c>: every attach goes through one bounded dial.</summary>
-internal static class BrowserConnection
+/// <summary>
+/// The browser connection, as upstream <c>browser-connection.ts</c>: every attach goes through one bounded dial, and an instance
+/// holds one launched browser, launching it on the first <see cref="AcquireAsync"/> and again when it crashed or disconnected.
+/// </summary>
+internal sealed class BrowserConnection(
+    IPlaywright playwright,
+    Func<IPlaywright, BrowserAcquireOptions, Task<IBrowser>>? launchLocal = null
+)
 {
     /// <summary>What a failed connection with handshake headers says, in place of an error that may echo them.</summary>
     internal const string CdpConnectionFailed =
@@ -55,6 +61,10 @@ internal static class BrowserConnection
 
     /// <summary>Every browser Playwright installs, in the order the CLI lists them (upstream <c>BROWSER_NAMES</c>). The engine launches each of them.</summary>
     public static readonly IReadOnlyList<string> BrowserNames = ["chromium", "firefox", "webkit"];
+
+    private readonly object _gate = new();
+    private Task<IBrowser>? _pending;
+    private bool _selectorsRegistered;
 
     /// <summary>Whether <paramref name="name"/> is a browser Playwright installs (upstream <c>isBrowserName</c>).</summary>
     public static bool IsBrowserName(string name)
@@ -89,7 +99,7 @@ internal static class BrowserConnection
     /// Launches the browser locally (upstream <c>launchLocal</c>). A sandbox that cannot start fails with Playwright's whole launch
     /// call log; the engine error names the option instead.
     /// </summary>
-    public static async Task<IBrowser> LaunchLocalAsync(IPlaywright playwright, BrowserAcquireOptions options)
+    internal static async Task<IBrowser> LaunchLocalAsync(IPlaywright playwright, BrowserAcquireOptions options)
     {
         var launch = new BrowserTypeLaunchOptions { Headless = !options.Headed };
         if (options.Name == BrowserName.Chromium)
@@ -113,6 +123,20 @@ internal static class BrowserConnection
                 "Chromium failed to launch because its sandbox cannot start on this host. Set WebEngineOptions.ChromiumSandbox to false to launch without the sandbox.",
                 retryable: false
             );
+        }
+    }
+
+    /// <summary>
+    /// Registers the engine's selector engines before any context exists, so every context the driver creates carries
+    /// them. Every locator and secure-field mask needs them (upstream <c>registerSelectorEngines</c>).
+    /// </summary>
+    internal static async Task RegisterSelectorEnginesAsync(IPlaywright playwright)
+    {
+        foreach (var (name, source) in SelectorEngines.All)
+        {
+            await playwright
+                .Selectors.RegisterAsync(name, new SelectorsRegisterOptions { Script = "(" + source + ")()" })
+                .ConfigureAwait(false);
         }
     }
 
@@ -175,5 +199,99 @@ internal static class BrowserConnection
             endpoint,
             new BrowserTypeConnectOptions { Timeout = (float)timeout.TotalMilliseconds }
         );
+    }
+
+    /// <summary>
+    /// Returns a connected browser, launching or relaunching as needed (upstream <c>acquire</c>). A caller that finds a launch in flight
+    /// waits for it, and goes through the acquire again if it failed or its browser is gone.
+    /// </summary>
+    public async Task<IBrowser> AcquireAsync(BrowserAcquireOptions options)
+    {
+        while (true)
+        {
+            Task<IBrowser>? cached;
+            Task<IBrowser>? launching = null;
+            lock (_gate)
+            {
+                cached = _pending;
+                if (cached is null)
+                {
+                    // Set before anything awaits: a dispose that arrives meanwhile closes the browser this launch produces,
+                    // and a second caller waits for it instead of launching another.
+                    launching = _pending = LaunchAsync(options);
+                }
+            }
+
+            if (launching is not null)
+            {
+                try
+                {
+                    return await launching.ConfigureAwait(false);
+                }
+                catch
+                {
+                    lock (_gate)
+                    {
+                        if (_pending == launching)
+                        {
+                            _pending = null;
+                        }
+                    }
+
+                    throw;
+                }
+            }
+
+            await ((Task)cached!).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            if (cached.IsCompletedSuccessfully && cached.Result.IsConnected)
+            {
+                return cached.Result;
+            }
+
+            lock (_gate)
+            {
+                if (_pending == cached)
+                {
+                    _pending = null;
+                }
+            }
+        }
+    }
+
+    /// <summary>Closes the connection, including a launch still in flight; idempotent and best-effort (upstream <c>dispose</c>).</summary>
+    public async Task DisposeAsync()
+    {
+        Task<IBrowser>? pending;
+        lock (_gate)
+        {
+            pending = _pending;
+            _pending = null;
+        }
+
+        if (pending is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await (await pending.ConfigureAwait(false)).CloseAsync().ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // Disposal still owns a failed or abandoned launch.
+        catch (Exception)
+#pragma warning restore CA1031
+        { }
+    }
+
+    private async Task<IBrowser> LaunchAsync(BrowserAcquireOptions options)
+    {
+        // Upstream registers its selector engines here, once per process; the port's driver belongs to one connection.
+        if (!_selectorsRegistered)
+        {
+            await RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
+            _selectorsRegistered = true;
+        }
+
+        return await (launchLocal ?? LaunchLocalAsync)(playwright, options).ConfigureAwait(false);
     }
 }
