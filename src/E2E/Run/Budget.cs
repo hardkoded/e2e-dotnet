@@ -147,7 +147,7 @@ internal sealed class AttemptTimeout(
     /// </summary>
     public bool Set(TimeSpan timeout)
     {
-        Deadline deadline;
+        var cancelNow = false;
         lock (_gate)
         {
             if (test.IsCancellationRequested)
@@ -156,29 +156,41 @@ internal sealed class AttemptTimeout(
             }
 
             _current = timeout;
-            deadline = new Deadline(_startedAt + timeout);
+            var deadline = new Deadline(_startedAt + timeout);
             onMoved(timeout, deadline);
+            try
+            {
+                // Armed under the gate, so the last change published is the last one armed.
+                var left = deadline.Remaining(clock.GetUtcNow());
+                if (left == TimeSpan.Zero)
+                {
+                    cancelNow = true;
+                }
+                else
+                {
+                    test.CancelAfter(left);
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // The attempt ended and released its signal.
+                return false;
+            }
         }
 
-        // Outside the gate: cancelling runs the signal's callbacks, which can read Timeout.
-        try
+        if (cancelNow)
         {
-            var left = deadline.Remaining(clock.GetUtcNow());
-            if (left == TimeSpan.Zero)
+            // Outside the gate: cancelling runs the signal's callbacks, which can read Timeout.
+            try
             {
                 test.Cancel();
             }
-            else
+            catch (ObjectDisposedException)
             {
-                test.CancelAfter(left);
+                return false;
             }
         }
-        catch (ObjectDisposedException)
-        {
-            // The attempt ended and released its signal.
-            return false;
-        }
 
-        return !test.IsCancellationRequested || deadline.Expired(clock.GetUtcNow());
+        return true;
     }
 }

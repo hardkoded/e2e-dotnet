@@ -29,6 +29,7 @@ public sealed class E2ESession : IAsyncDisposable
     private readonly long _bodyStarted = System.Diagnostics.Stopwatch.GetTimestamp();
     private int _state;
     private int _teardown;
+    private readonly object _timeoutGate = new();
     private int _disposed;
     private ExecuteVideo? _video;
     private SessionRecordings? _recordings;
@@ -990,7 +991,12 @@ public sealed class E2ESession : IAsyncDisposable
     /// </summary>
     internal void EnterTeardownBudget(CancellationToken interrupt)
     {
-        Volatile.Write(ref _teardown, 1);
+        // With the gate a timeout change holds, so a change either lands before the cleanup deadlines or is refused.
+        lock (_timeoutGate)
+        {
+            Volatile.Write(ref _teardown, 1);
+        }
+
         _budget.Enter(interrupt);
         var deadline = Bounded(_scope.CleanupTimeout) ? new Deadline(_scope.CleanupTimeout, TimeProvider.System) : null;
         Screen.BudgetDeadline = deadline;
@@ -1010,8 +1016,16 @@ public sealed class E2ESession : IAsyncDisposable
     /// Moves the attempt's timeout (upstream's <c>attempt.setTimeout</c>); false once the attempt ended or its timeout fired, and
     /// where the session has no test timeout to move.
     /// </summary>
-    internal bool TrySetTimeout(TimeSpan timeout) =>
-        Volatile.Read(ref _state) == 0 && _attemptTimeout is { } attemptTimeout && attemptTimeout.Set(timeout);
+    internal bool TrySetTimeout(TimeSpan timeout)
+    {
+        lock (_timeoutGate)
+        {
+            return !InTeardown
+                && Volatile.Read(ref _state) == 0
+                && _attemptTimeout is { } attemptTimeout
+                && attemptTimeout.Set(timeout);
+        }
+    }
 
     /// <summary>
     /// Makes this session an upstream hosted one: <paramref name="close"/> is the owner's close, which ends it once through <see cref="EndAsync"/>

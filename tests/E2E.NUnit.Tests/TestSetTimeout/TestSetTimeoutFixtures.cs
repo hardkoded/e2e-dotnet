@@ -34,6 +34,9 @@ public sealed class ShortTimeoutFixture : TestSetTimeoutFixtureBase
     {
         SetTimeout(TimeSpan.FromSeconds(60));
         await Task.Delay(TimeSpan.FromSeconds(12));
+
+        // Past the 10 s the test started with, an unextended timeout cuts this call.
+        await App.OpenAsync("/");
     }
 
     [Test]
@@ -41,6 +44,7 @@ public sealed class ShortTimeoutFixture : TestSetTimeoutFixtureBase
     {
         SetTimeout(TimeSpan.FromSeconds(60));
         await Task.Delay(TimeSpan.FromSeconds(12));
+        await App.OpenAsync("/");
         Assert.Ignore("fixme: not ready");
     }
 }
@@ -55,7 +59,11 @@ public sealed class RaisedFromBeforeEachFixture : TestSetTimeoutFixtureBase
     public void RaiseTheTimeout() => SetTimeout(TimeSpan.FromSeconds(60));
 
     [Test]
-    public async Task SetTimeout_outlasts_its_own_timeout() => await Task.Delay(TimeSpan.FromSeconds(12));
+    public async Task SetTimeout_outlasts_its_own_timeout()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(12));
+        await App.OpenAsync("/");
+    }
 }
 
 /// <summary>The tests upstream runs with a <c>timeout</c> of 30 000 ms: here 60 s.</summary>
