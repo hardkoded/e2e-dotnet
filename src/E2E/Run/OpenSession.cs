@@ -324,6 +324,7 @@ internal static class OpenSession
     private static readonly List<(string Name, string Value)> Secrets = [];
     private static readonly HashSet<(string Name, string Value)> Known = [];
     private static Redactor _redactor = Redactor.None;
+    private static int _errorRedactorInstalled;
 
     /// <summary>
     /// Shares the static values of <paramref name="secrets"/> with every session in the process from now on, and seeds the process ledger with
@@ -340,6 +341,12 @@ internal static class OpenSession
     /// <summary>Seeds the process ledger with the static values of <paramref name="secrets"/>, so an opening failure is redacted like any text. Upstream's <c>seedProcess</c>.</summary>
     internal static void SeedProcess(IEnumerable<Secret> secrets)
     {
+        // Makes the process ledger the redactor a serialized error falls back to. Upstream's <c>setErrorRedactor(processSecrets.redact)</c>.
+        if (Interlocked.Exchange(ref _errorRedactorInstalled, 1) == 0)
+        {
+            _ = ErrorRedaction.Install(Redact);
+        }
+
         lock (Gate)
         {
             foreach (var secret in secrets)

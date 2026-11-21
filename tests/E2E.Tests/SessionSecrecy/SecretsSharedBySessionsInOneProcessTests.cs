@@ -17,8 +17,7 @@ public sealed class SharedSecretsCollection
 
 /// <summary>
 /// The <c>describe('secrets shared by the sessions in one process')</c> of upstream's <c>session-secrecy.test.ts</c>. A session is an
-/// <see cref="AttemptScope"/>: its <c>Redactor</c> is upstream's <c>sessionLedger(...).redact</c>, <c>Learned()</c> its <c>entries()</c> and
-/// <c>carriedSecrets</c>, <c>Register</c> its <c>adoptSecrets</c>, and <c>ReleaseSessionLedger</c> its <c>releaseSessionLedger</c>. The other copy of the module is a second
+/// <see cref="AttemptScope"/>: its <c>Redactor</c> is upstream's <c>sessionLedger(...).redact</c>, <c>Entries()</c> its <c>entries()</c>, <c>Register</c> its <c>register</c>, and <c>ReleaseSessionLedger</c> its <c>releaseSessionLedger</c>. The other copy of the module is a second
 /// load of the assembly in its own <see cref="AssemblyLoadContext"/>. Not ported: 'rebuilds a ledger only when a value appears or disappears' compares upstream's private <c>compiled</c> field; the port
 /// checks the same rule through <c>Redactor</c> identity below.
 /// </summary>
@@ -90,12 +89,13 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
         {
             Assert.Equal("saw <secret:invite>", ledger.Redactor.Redact($"saw {value}"));
             // What a session holds stays its own: a saved state carries none of the host's values.
-            Assert.Empty(ledger.Learned());
+            Assert.Empty(ledger.Entries());
+            Assert.Empty(Secrecy.CarriedSecrets(ledger, new List<(string Name, string Value)>()));
             // A download of either session may hold the value, so it is rewritten.
             Assert.True(Secrecy.RedactsDownloads(ledger.Redactor));
         }
 
-        Assert.Equal("label <secret:invite>", global::E2E.OpenSession.Redact($"label {value}"));
+        Assert.Equal("label <secret:invite>", Secrecy.RedactForSession(null, new List<Secret>(), $"label {value}"));
         withdraw();
         Assert.Equal($"saw {value}", before.Redactor.Redact($"saw {value}"));
         Assert.Equal($"saw {value}", after.Redactor.Redact($"saw {value}"));
@@ -120,11 +120,11 @@ public sealed class SecretsSharedBySessionsInOneProcessTests : IDisposable
         var host = OpenHost();
         var learner = NewSession();
         var before = NewSession();
-        learner.Register("code", value);
+        Secrecy.AdoptSecrets(learner, [("code", value)]);
         var after = NewSession();
         Assert.Equal("<secret:code>", before.Redactor.Redact(value));
         Assert.Equal("<secret:code>", after.Redactor.Redact(value));
-        Assert.Empty(before.Learned());
+        Assert.Empty(before.Entries());
         learner.ReleaseSessionLedger();
         // A one-time code is fresh on every fill: it leaves with its session, which still redacts it in what is reported of it.
         Assert.Equal(value, before.Redactor.Redact(value));

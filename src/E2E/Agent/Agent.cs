@@ -2074,7 +2074,7 @@ internal sealed class AttemptScope : ISecretFillRuntime
                 return built.Redactor;
             }
 
-            // The values the sessions beside this one share are redacted without being held: Learned() carries none of them.
+            // The values the sessions beside this one share are redacted without being held: Entries() carries none of them.
             built = new Built(
                 Redactor.For(
                     _secrets
@@ -2434,11 +2434,10 @@ internal sealed class AttemptScope : ISecretFillRuntime
     }
 
     /// <summary>
-    /// Every value this attempt knows to redact, for a setup test to save beside its state so the session that restores it redacts them too.
-    /// Upstream's <c>carriedSecrets</c>, which leaves out the static config values because every upstream session registers those itself; the
-    /// port's session registers a config secret only when the test reads it, so it keeps them.
+    /// Every registered name and value, in registration order: what <see cref="Secrecy.CarriedSecrets(AttemptScope, IReadOnlyList{ValueTuple{string, string}})"/>
+    /// takes the static config values out of. Upstream's <c>SecretLedger.entries</c>.
     /// </summary>
-    public IReadOnlyList<(string Name, string Value)> Learned() =>
+    public IReadOnlyList<(string Name, string Value)> Entries() =>
         [.. _secrets.Select(secret => (secret.Name, secret.Value)).Concat(_registered).Distinct()];
 
     public void MarkVerified()
