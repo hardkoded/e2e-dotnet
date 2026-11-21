@@ -376,6 +376,7 @@ public sealed class CreateOAuthFetchTests
         finally
         {
             // Killed when the test ends, even on a timeout, so a worker that hangs is not left running.
+            var workersGone = true;
             foreach (var child in children)
             {
                 try
@@ -384,12 +385,13 @@ public sealed class CreateOAuthFetchTests
                     {
                         child.Kill(entireProcessTree: true);
                         // Its own bounded wait: the test's deadline may be spent, and the directory is deleted only once the worker is gone.
-                        child.WaitForExit(TimeSpan.FromSeconds(10));
+                        workersGone &= child.WaitForExit(TimeSpan.FromSeconds(10));
                     }
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
                 {
                     // Already gone, or not ours to stop: the next worker still gets its cleanup.
+                    workersGone = false;
                     System.Diagnostics.Trace.WriteLine("could not stop a refresh worker: " + ex.Message);
                 }
                 finally
@@ -398,7 +400,8 @@ public sealed class CreateOAuthFetchTests
                 }
             }
 
-            if (Directory.Exists(directory))
+            // A worker that could not be stopped may still hold a file in it: leave the directory rather than mask the test's own failure.
+            if (workersGone && Directory.Exists(directory))
             {
                 Directory.Delete(directory, recursive: true);
             }
