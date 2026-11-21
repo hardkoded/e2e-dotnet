@@ -49,6 +49,7 @@ public sealed class E2ESession : IAsyncDisposable
     private SessionEvents? _events;
     private AttemptGuestSessions? _guests;
     private IDisposable? _published;
+    private PublishedAttempt? _publishedAttempt;
     private int _bodyEnded;
 
     private E2ESession(
@@ -748,9 +749,12 @@ public sealed class E2ESession : IAsyncDisposable
                         }
                     );
                     session._guests = guests;
-                    session._published = Attempts.PublishAttempt(
-                        new PublishedAttempt { AttemptId = scope.AttemptId, Guests = guests.Offer }
-                    );
+                    session._publishedAttempt = new PublishedAttempt
+                    {
+                        AttemptId = scope.AttemptId,
+                        Guests = guests.Offer,
+                    };
+                    session._published = Attempts.PublishAttempt(session._publishedAttempt);
                 }
 
                 events?.Started();
@@ -773,6 +777,26 @@ public sealed class E2ESession : IAsyncDisposable
             timeout.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Names this session's attempt in the flow of the caller, for a later test of a serial group that shares the session: its setup does not start
+    /// a session, so nothing else reserves the slot a host the test body launches finds its attempt through. .NET-only (upstream keeps one slot per process).
+    /// Call it from a method that is not async, so the slot belongs to the flow of the test body that follows.
+    /// </summary>
+    internal void HandOverAttempt()
+    {
+        if (_publishedAttempt is null)
+        {
+            return;
+        }
+
+        // The new member's body ends on its own: what it leaves running on the guests it opened is abandoned at its first settle, as the first member's was.
+        Interlocked.Exchange(ref _bodyEnded, 0);
+        var previous = _published;
+        Attempts.Reserve();
+        _published = Attempts.PublishAttempt(_publishedAttempt);
+        previous?.Dispose();
     }
 
     /// <summary>
