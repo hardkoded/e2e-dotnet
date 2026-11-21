@@ -405,7 +405,7 @@ public static partial class EngineManifest
         // Declared kind lists are copied and checked, so the handle keeps the list the engine declared and nothing else.
         var actions = spec.Actions is null
             ? null
-            : DeclaredKinds(name, "actions", spec.Actions, EngineActionKinds.Locator);
+            : DeclaredKinds(name, "actions", spec.Actions, EngineActionKinds.KnownLocator);
         var pointerActions = spec.PointerActions is null
             ? null
             : DeclaredKinds(name, "pointerActions", spec.PointerActions, EngineActionKinds.Pointer);

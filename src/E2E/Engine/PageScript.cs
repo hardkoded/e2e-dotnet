@@ -506,6 +506,21 @@ internal static class PageScript
         }
         """;
 
+    // Removes focus from the node and answers whether it is still attached (upstream's blur dispatch in actions.ts). The prototype's blur
+    // is called on the node, so an override on the instance is bypassed; an override on the prototype still applies in the page world.
+    public const string Blur = """
+        (node) => {
+          const view = node.ownerDocument.defaultView;
+          if (!node.isConnected || view === null) return false;
+          if (node instanceof view.HTMLElement) view.HTMLElement.prototype.blur.call(node);
+          else if (node instanceof view.SVGElement) view.SVGElement.prototype.blur.call(node);
+          else if (typeof view.MathMLElement === "function" && node instanceof view.MathMLElement) {
+            view.MathMLElement.prototype.blur.call(node);
+          }
+          return true;
+        }
+        """;
+
     // Whether the focused element of this document, followed into shadow roots, takes keystrokes (upstream's requireEditableFocus): a text
     // field, a contenteditable host, or any other focusable element the app made focusable. The body, a button, a link, a select, a
     // frame, and a non-text input discard them.

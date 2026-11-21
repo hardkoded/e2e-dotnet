@@ -2552,6 +2552,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             await Page.Mouse.UpAsync().ConfigureAwait(false);
         }
 
+        /// <summary>A browser honors the SPI v1 actions and blur. Upstream's <c>actions: [...LOCATOR_ACTION_KINDS, 'blur']</c>.</summary>
+        public IReadOnlyCollection<string> ActionKinds { get; } = [.. EngineActionKinds.Locator, "blur"];
+
         /// <summary>A page takes every pointer action of the contract at a bare point too.</summary>
         public IReadOnlyCollection<string> PointerActionKinds => EngineActionKinds.Pointer;
 
@@ -4501,6 +4504,17 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     break;
                 case LocatorAction.Focus:
                     await element.FocusAsync().ConfigureAwait(false);
+                    break;
+                case LocatorAction.Blur:
+                    if (!await element.EvaluateAsync<bool>(PageScript.Blur).ConfigureAwait(false))
+                    {
+                        throw new EngineException(
+                            EngineErrorCodes.NodeStale,
+                            "element is detached",
+                            retryable: true
+                        );
+                    }
+
                     break;
                 case LocatorAction.ScrollIntoView:
                     await element

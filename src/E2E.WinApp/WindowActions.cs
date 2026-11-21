@@ -668,6 +668,7 @@ public sealed class WindowActions : IWindowActions
             LocatorAction.Press => "press",
             LocatorAction.Select => "selectOption",
             LocatorAction.SetInputFiles => "setInputFiles",
+            LocatorAction.Blur => "blur",
             LocatorAction.Check => "check",
             LocatorAction.Uncheck => "uncheck",
             LocatorAction.Clear => "clear",

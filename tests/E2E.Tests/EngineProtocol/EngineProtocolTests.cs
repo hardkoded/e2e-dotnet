@@ -65,6 +65,23 @@ public sealed class EngineProtocolTests
     [Fact]
     public void Partial_Describes_an_engine_with_a_manifest_the_published_schema_accepts_and_the_schema_names_every_method_and_kind()
     {
+        var schema = ReportSchema.ReadJson("engine-manifest-v1.schema.json");
+        Assert.Equal(
+            EngineActionKinds.KnownLocator,
+            schema["properties"]!["actions"]!["items"]!["enum"]!.AsArray().Select(kind => kind!.GetValue<string>())
+        );
+        Assert.Equal(
+            EngineActionKinds.Pointer,
+            schema["properties"]!["pointerActions"]!["items"]!["enum"]!.AsArray().Select(kind => kind!.GetValue<string>())
+        );
+        Assert.True(
+            Validate.IsValid(
+                JsonNode.Parse(
+                    """{ "name": "x", "version": "1", "spiVersion": 1, "methods": ["engine/observe", "engine/perform", "engine/performAt"], "actions": ["tap", "blur"], "pointerActions": ["tap"] }"""
+                )!
+            )
+        );
+
         foreach (
             var refused in new[]
             {

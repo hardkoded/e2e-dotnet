@@ -50,7 +50,7 @@ public abstract record PointerAction
 /// </summary>
 public static class EngineActionKinds
 {
-    /// <summary>Every kind of <see cref="LocatorAction"/>.</summary>
+    /// <summary>The locator action kinds of SPI v1. Newer kinds are listed in <see cref="KnownLocator"/>.</summary>
     public static IReadOnlyList<string> Locator { get; } =
     [
         "tap",
@@ -70,6 +70,12 @@ public static class EngineActionKinds
         "dragTo",
         "swipe",
     ];
+
+    /// <summary>
+    /// Every action kind this version understands: <see cref="Locator"/>, the kinds of SPI v1, and the newer ones listed after it. What a
+    /// manifest's <c>actions</c> is checked against. Upstream's <c>KNOWN_LOCATOR_ACTION_KINDS</c>.
+    /// </summary>
+    public static IReadOnlyList<string> KnownLocator { get; } = [.. Locator, "blur"];
 
     /// <summary>Every kind of <see cref="PointerAction"/>.</summary>
     public static IReadOnlyList<string> Pointer { get; } =
@@ -91,6 +97,7 @@ public static class EngineActionKinds
             LocatorAction.Check => "check",
             LocatorAction.Uncheck => "uncheck",
             LocatorAction.Focus => "focus",
+            LocatorAction.Blur => "blur",
             LocatorAction.Hover => "hover",
             LocatorAction.ScrollIntoView => "scrollIntoView",
             LocatorAction.Select => "selectOption",
