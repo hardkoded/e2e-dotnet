@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using System.Text;
 
 namespace E2E.Internal;
@@ -29,10 +28,18 @@ internal static class FileLock
         Func<Exception> busy,
         Func<Task<T>> work,
         CancellationToken cancellationToken = default,
-        TimeProvider? clock = null
+        TimeProvider? clock = null,
+        FileLockFileSystem? fileSystem = null
     )
     {
-        var release = await AcquireAsync(lockPath, wait, busy, cancellationToken, clock ?? TimeProvider.System)
+        var release = await AcquireAsync(
+                lockPath,
+                wait,
+                busy,
+                cancellationToken,
+                clock ?? TimeProvider.System,
+                fileSystem ?? FileLockFileSystem.Default
+            )
             .ConfigureAwait(false);
         try
         {
@@ -53,7 +60,8 @@ internal static class FileLock
         TimeSpan wait,
         Func<Exception> busy,
         CancellationToken cancellationToken,
-        TimeProvider clock
+        TimeProvider clock,
+        FileLockFileSystem files
     )
     {
         var token = LockToken();
@@ -61,14 +69,14 @@ internal static class FileLock
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (Claim(lockPath, token))
+            if (Claim(lockPath, token, files))
             {
                 var heartbeat = clock.CreateTimer(
                     _ =>
                     {
                         if (ReadLock(lockPath) == token)
                         {
-                            Touch(lockPath, clock);
+                            Touch(lockPath, clock, files);
                         }
                     },
                     null,
@@ -80,7 +88,7 @@ internal static class FileLock
                     heartbeat.Dispose();
                     if (ReadLock(lockPath) == token)
                     {
-                        Remove(lockPath);
+                        Remove(lockPath, files);
                     }
                 };
             }
@@ -90,7 +98,7 @@ internal static class FileLock
                 throw busy();
             }
 
-            if (Abandoned(lockPath, clock) && BreakAbandoned(lockPath, clock))
+            if (Abandoned(lockPath, clock, files) && BreakAbandoned(lockPath, clock, files))
             {
                 continue;
             }
@@ -100,7 +108,7 @@ internal static class FileLock
     }
 
     /// <summary>Creates <paramref name="lockPath"/> holding <paramref name="token"/>, false when it exists; a lock whose write failed is removed.</summary>
-    private static bool Claim(string lockPath, string token)
+    private static bool Claim(string lockPath, string token, FileLockFileSystem files)
     {
         var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
         if (!OperatingSystem.IsWindows())
@@ -131,12 +139,12 @@ internal static class FileLock
         try
         {
             // Writes the whole token: a cut-off one could name a pid that has exited.
-            stream.Write(Utf8.GetBytes(token));
+            files.WriteToken(stream, Utf8.GetBytes(token));
         }
         catch
         {
             stream.Dispose();
-            File.Delete(lockPath);
+            Remove(lockPath, files);
             throw;
         }
 
@@ -168,11 +176,11 @@ internal static class FileLock
     private static string LockToken() => HolderHost() + " " + Environment.ProcessId + " " + Guid.NewGuid();
 
     /// <summary>Marks the lock as held now; false when it was released meanwhile.</summary>
-    private static bool Touch(string lockPath, TimeProvider clock)
+    private static bool Touch(string lockPath, TimeProvider clock, FileLockFileSystem files)
     {
         try
         {
-            File.SetLastWriteTimeUtc(lockPath, clock.GetUtcNow().UtcDateTime);
+            files.SetLastWriteTimeUtc(lockPath, clock.GetUtcNow().UtcDateTime);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -207,7 +215,7 @@ internal static class FileLock
     /// bound covers what the pid cannot tell: a lock from another host, sandbox, or older e2e, a pid another program now has, and a
     /// holder suspended that long, which then loses its lock.
     /// </summary>
-    private static bool Abandoned(string lockPath, TimeProvider clock)
+    private static bool Abandoned(string lockPath, TimeProvider clock, FileLockFileSystem files)
     {
         var parts = (ReadLock(lockPath) ?? "").Split(' ');
         if (
@@ -216,7 +224,7 @@ internal static class FileLock
             && parts[1].Length > 0
             && parts[1].All(char.IsAsciiDigit)
             && int.TryParse(parts[1], out var pid)
-            && !Running(pid)
+            && !files.IsRunning(pid)
         )
         {
             return true;
@@ -224,35 +232,11 @@ internal static class FileLock
 
         try
         {
-            var modified = File.GetLastWriteTimeUtc(lockPath);
-            return File.Exists(lockPath) && clock.GetUtcNow() - new DateTimeOffset(modified, TimeSpan.Zero) > LockStale;
+            return files.LastWrite(lockPath) is { } modified && clock.GetUtcNow() - modified > LockStale;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return false;
-        }
-    }
-
-    /// <summary>True while <paramref name="pid"/> exists, whoever owns it.</summary>
-    private static bool Running(int pid)
-    {
-        try
-        {
-            using var process = Process.GetProcessById(pid);
-            return !process.HasExited;
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
-        catch (InvalidOperationException)
-        {
-            return false;
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
-            // The process exists but is not ours to inspect.
-            return true;
         }
     }
 
@@ -262,14 +246,14 @@ internal static class FileLock
     /// turn, which lasts microseconds, leaves that file for the next waiter to take over; two waiters doing so at the same moment can
     /// still both remove.
     /// </summary>
-    private static bool BreakAbandoned(string lockPath, TimeProvider clock)
+    private static bool BreakAbandoned(string lockPath, TimeProvider clock, FileLockFileSystem files)
     {
         var breaker = lockPath + ".break";
-        if (!Claim(breaker, LockToken()))
+        if (!Claim(breaker, LockToken(), files))
         {
-            if (Abandoned(breaker, clock))
+            if (Abandoned(breaker, clock, files))
             {
-                Remove(breaker);
+                Remove(breaker, files);
             }
 
             return false;
@@ -277,25 +261,25 @@ internal static class FileLock
 
         try
         {
-            if (Abandoned(lockPath, clock))
+            if (Abandoned(lockPath, clock, files))
             {
-                Remove(lockPath);
+                Remove(lockPath, files);
             }
 
             return true;
         }
         finally
         {
-            Remove(breaker);
+            Remove(breaker, files);
         }
     }
 
     /// <summary>Removes <paramref name="path"/>; a file another process holds open stays for the next waiter, and never replaces the work's own result.</summary>
-    private static bool Remove(string path)
+    private static bool Remove(string path, FileLockFileSystem files)
     {
         try
         {
-            File.Delete(path);
+            files.Delete(path);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

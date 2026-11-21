@@ -5,6 +5,7 @@
 using System.Net;
 using System.Text;
 using E2E.OAuth;
+using E2E.Tests.ManagedProcess;
 
 namespace E2E.Tests.Fetch;
 
@@ -207,6 +208,184 @@ public sealed class CreateOAuthFetchTests
                 Directory.Delete(directory, recursive: true);
             }
         }
+    }
+
+    [Fact]
+    public async Task Refreshes_an_expired_login_once_for_workers_in_separate_processes()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "e2e-oauth-fetch-" + Guid.NewGuid().ToString("N"));
+        var children = new List<System.Diagnostics.Process>();
+        try
+        {
+            var file = Path.Combine(directory, "oauth.json");
+            await new FileCredentialStore(file).SetAsync(
+                "test",
+                new OAuthCredentials
+                {
+                    Access = "at-0",
+                    Refresh = "rt-0",
+                    Expires = 1,
+                }
+            );
+            var gate = new object();
+            var live = (Access: "at-0", Refresh: "rt-0");
+            var issued = 0;
+            var tokenRequests = 0;
+            var port = AppProgram.FreePort();
+            using var listener = new HttpListener();
+            listener.Prefixes.Add("http://127.0.0.1:" + port + "/");
+            listener.Start();
+            var serving = Task.Run(async () =>
+            {
+                while (listener.IsListening)
+                {
+                    HttpListenerContext context;
+                    try
+                    {
+                        context = await listener.GetContextAsync();
+                    }
+                    catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException)
+                    {
+                        return;
+                    }
+
+                    _ = Task.Run(async () =>
+                    {
+                        var response = context.Response;
+                        try
+                        {
+                            if (context.Request.Url!.AbsolutePath != "/token")
+                            {
+                                bool fresh;
+                                lock (gate)
+                                {
+                                    fresh = context.Request.Headers["Authorization"] == "Bearer " + live.Access;
+                                }
+
+                                await Reply(response, fresh ? 200 : 401, "{}");
+                                return;
+                            }
+
+                            using var reader = new StreamReader(context.Request.InputStream);
+                            var presented = System.Web.HttpUtility.ParseQueryString(await reader.ReadToEndAsync())[
+                                "refresh_token"
+                            ];
+                            string? body = null;
+                            lock (gate)
+                            {
+                                tokenRequests++;
+                                if (presented != live.Refresh)
+                                {
+                                    body =
+                                        """{ "error": "invalid_grant", "error_description": "refresh_token_reused" }""";
+                                }
+                                else
+                                {
+                                    issued++;
+                                    live = ("at-" + issued, "rt-" + issued);
+                                }
+                            }
+
+                            if (body is not null)
+                            {
+                                await Reply(response, 400, body);
+                                return;
+                            }
+
+                            // Long enough for every worker to reach the token endpoint while the first refresh is still out.
+                            await Task.Delay(500);
+                            string issuedBody;
+                            lock (gate)
+                            {
+                                issuedBody =
+                                    "{ \"access_token\": \""
+                                    + live.Access
+                                    + "\", \"refresh_token\": \""
+                                    + live.Refresh
+                                    + "\", \"expires_in\": 3600 }";
+                            }
+
+                            await Reply(response, 200, issuedBody);
+                        }
+                        catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException)
+                        {
+                            // The test ended while this request was out.
+                        }
+                    });
+                }
+            });
+
+            var statuses = new List<Task<string>>();
+            for (var index = 0; index < 4; index++)
+            {
+                var info = new System.Diagnostics.ProcessStartInfo(AppProgram.Executable)
+                {
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                };
+                foreach (
+                    var arg in new[]
+                    {
+                        "refresh-worker",
+                        file,
+                        "http://127.0.0.1:" + port + "/token",
+                        "http://127.0.0.1:" + port + "/api",
+                    }
+                )
+                {
+                    info.ArgumentList.Add(arg);
+                }
+
+                var child = System.Diagnostics.Process.Start(info)!;
+                children.Add(child);
+                _ = child.StandardError.ReadToEndAsync();
+                statuses.Add(child.StandardOutput.ReadToEndAsync());
+            }
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            foreach (var child in children)
+            {
+                await child.WaitForExitAsync(timeout.Token);
+            }
+
+            Assert.Equal(["200", "200", "200", "200"], await Task.WhenAll(statuses));
+            lock (gate)
+            {
+                Assert.Equal(1, tokenRequests);
+            }
+
+            listener.Stop();
+            await serving;
+        }
+        finally
+        {
+            // Killed when the test ends, even on a timeout, so a worker that hangs is not left running.
+            foreach (var child in children)
+            {
+                if (!child.HasExited)
+                {
+                    child.Kill(entireProcessTree: true);
+                }
+
+                child.Dispose();
+            }
+
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    private static async Task Reply(HttpListenerResponse response, int status, string body)
+    {
+        var bytes = Encoding.UTF8.GetBytes(body);
+        response.StatusCode = status;
+        response.ContentType = "application/json";
+        response.ContentLength64 = bytes.Length;
+        await response.OutputStream.WriteAsync(bytes);
+        response.Close();
     }
 
     [Fact]
