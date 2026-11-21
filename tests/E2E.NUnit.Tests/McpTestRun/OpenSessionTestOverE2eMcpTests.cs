@@ -484,6 +484,41 @@ public sealed class OpenSessionTestOverE2eMcpTests
     }
 
     [Test]
+    public async Task Partial_Applies_test_setTimeout_to_the_test_it_runs_lowered_or_raised()
+    {
+        var lowered = await new NUnitSessionTestRunner().RunAsync(
+            typeof(SessionFixture).Assembly,
+            typeof(LoweredTimeoutSessionFixture).FullName
+                + "."
+                + nameof(LoweredTimeoutSessionFixture.Lowers_its_timeout),
+            CancellationToken.None
+        );
+
+        Assert.That(lowered, Is.Not.Null);
+        await using (lowered!)
+        {
+            Assert.That(lowered!.Failure, Is.TypeOf<TestException>());
+            Assert.That(((TestException)lowered.Failure!).Code, Is.EqualTo("TEST_TIMEOUT"));
+            Assert.That(lowered.Failure!.Message, Is.EqualTo("test timed out after 10000 ms in phase body"));
+
+            // Upstream's "1 step ran".
+            Assert.That(lowered.Session!.StepRecords, Has.Count.EqualTo(1));
+        }
+
+        var raised = await new NUnitSessionTestRunner().RunAsync(
+            typeof(SessionFixture).Assembly,
+            typeof(RaisedTimeoutSessionFixture).FullName + "." + nameof(RaisedTimeoutSessionFixture.Raises_its_timeout),
+            CancellationToken.None
+        );
+
+        Assert.That(raised, Is.Not.Null);
+        await using (raised!)
+        {
+            Assert.That(raised!.Failure, Is.Null);
+        }
+    }
+
+    [Test]
     public async Task Finds_no_session_for_a_name_that_selects_no_test()
     {
         var outcome = await new NUnitSessionTestRunner().RunAsync(
@@ -557,6 +592,57 @@ public sealed class TimedOutSessionFixture : E2ETest
         await App.OpenAsync("/");
         await Task.Delay(TimeSpan.FromSeconds(6));
         await App.OpenAsync("/about");
+    }
+}
+
+/// <summary>The "lowers its timeout" and "raises its timeout" tests of <c>sloppy.e2e.ts</c> (the port's clock starts before the engine launches, so the timeouts are longer than upstream's).</summary>
+[Explicit("Run by OpenSessionTestOverE2eMcpTests")]
+public sealed class LoweredTimeoutSessionFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null
+    );
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override TimeSpan TestTimeout => TimeSpan.FromSeconds(60);
+
+    [Test]
+    public async Task Lowers_its_timeout()
+    {
+        await App.OpenAsync("/");
+        SetTimeout(TimeSpan.FromSeconds(10));
+        await Task.Delay(TimeSpan.FromSeconds(12));
+        await App.OpenAsync("/about");
+    }
+}
+
+/// <summary>See <see cref="LoweredTimeoutSessionFixture"/>.</summary>
+[Explicit("Run by OpenSessionTestOverE2eMcpTests")]
+public sealed class RaisedTimeoutSessionFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null
+    );
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override TimeSpan TestTimeout => TimeSpan.FromSeconds(10);
+
+    [Test]
+    public async Task Raises_its_timeout()
+    {
+        SetTimeout(TimeSpan.FromSeconds(60));
+        await Task.Delay(TimeSpan.FromSeconds(11));
+        await App.OpenAsync("/");
     }
 }
 

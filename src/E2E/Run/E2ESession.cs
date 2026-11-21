@@ -17,6 +17,9 @@ namespace E2E;
 /// </summary>
 public sealed class E2ESession : IAsyncDisposable
 {
+    /// <summary>The largest timer a timeout can ask for, in milliseconds (upstream's <c>MAX_TIMER_MS</c>, <c>internal/time.ts</c>).</summary>
+    private const long MaxTimerMs = 2147483647;
+
     private readonly AttemptScope _scope;
     private readonly CancellationTokenSource _timeout;
     private readonly AttemptBudget _budget;
@@ -37,6 +40,7 @@ public sealed class E2ESession : IAsyncDisposable
     private FailureEvidence? _evidence;
     private Exception? _error;
     private TimeSpan _testTimeout;
+    private AttemptTimeout? _attemptTimeout;
 
     // What the teardown threw (a required video that did not finalize, the engine session's close): upstream's secondaryErrors of phase cleanup.
     private readonly List<Exception> _cleanupErrors = [];
@@ -259,11 +263,27 @@ public sealed class E2ESession : IAsyncDisposable
             budgetDeadline = new Deadline(options.TestTimeout, TimeProvider.System);
         }
 
+        // What test.setTimeout moves: the signal's timer and the deadline the screen and browser cap their steps with.
+        Screen? timedScreen = null;
+        Browser? timedBrowser = null;
+        var attemptTimeout = new AttemptTimeout(timeout, options.TestTimeout, TimeProvider.System, moved =>
+        {
+            if (timedScreen is not null)
+            {
+                timedScreen.BudgetDeadline = moved;
+            }
+
+            if (timedBrowser is not null)
+            {
+                timedBrowser.BudgetDeadline = moved;
+            }
+        });
+
         // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
         var budget = new AttemptBudget(timeout, options.CancelsOnClose?.Closed);
 
         // The reason the test's own timeout aborts with, one error every step it cuts shares (upstream's signal.reason).
-        var timedOut = new Lazy<TestException>(() => TimeoutFailure(options.TestTimeout, null));
+        var timedOut = new Lazy<TestException>(() => TimeoutFailure(attemptTimeout.Timeout, null));
 
         var debug = new DebugTrace(options.Debug);
         var projectRoot = Path.GetFullPath(
@@ -666,6 +686,8 @@ public sealed class E2ESession : IAsyncDisposable
             screen.PointerActionKinds = engine.PointerActionKinds;
             screen.BudgetDeadline = budgetDeadline;
             browser.BudgetDeadline = budgetDeadline;
+            timedScreen = screen;
+            timedBrowser = browser;
             screen.ProjectRoot = projectRoot;
             screen.RememberSecret = secret =>
                 scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
@@ -732,6 +754,7 @@ public sealed class E2ESession : IAsyncDisposable
                     _config = options.Config,
                     _events = events,
                     _testTimeout = options.TestTimeout,
+                    _attemptTimeout = attemptTimeout,
                 };
                 if (options.OffersGuests)
                 {
@@ -968,6 +991,64 @@ public sealed class E2ESession : IAsyncDisposable
         Screen.BudgetDeadline = deadline;
         Browser.BudgetDeadline = deadline;
     }
+
+    /// <summary>
+    /// Gives the running test a timeout of <paramref name="timeout"/>, counted from the start of its attempt (upstream's <c>setRunningTestTimeout</c>,
+    /// <c>test.setTimeout</c>). <paramref name="late"/> is set once the test body returned: what runs after it is teardown, on the cleanup timeout.
+    /// A timeout that is not a positive whole number of milliseconds, or above 2147483647, a hosted session (it runs no test), a teardown, and
+    /// code the test left running after its timeout fired or its attempt ended are test errors, <c>INVALID_ARGUMENT</c>.
+    /// </summary>
+    internal void SetTimeout(TimeSpan timeout, bool late = false)
+    {
+        var milliseconds = timeout.TotalMilliseconds;
+        if (timeout <= TimeSpan.Zero || timeout.Ticks % TimeSpan.TicksPerMillisecond != 0)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "SetTimeout() timeout must be a positive whole number of milliseconds, got "
+                    + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            );
+        }
+
+        if (milliseconds > MaxTimerMs)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "SetTimeout() timeout must be at most "
+                    + MaxTimerMs.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + " milliseconds, got "
+                    + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            );
+        }
+
+        if (_hostedClose is not null)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "SetTimeout() changes an e2e test's timeout, and a hosted session runs none: your test runner owns the test timeout, and a session's Timeout option sets the session deadline"
+            );
+        }
+
+        if (late || _attemptTimeout is null)
+        {
+            throw LateTimeoutError();
+        }
+
+        if (Volatile.Read(ref _state) != 0 || !_attemptTimeout.Set(timeout))
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "SetTimeout() cannot change the timeout from code left running after its test ended: await the work the test starts"
+            );
+        }
+    }
+
+    /// <summary>The error for a timeout change from teardown, which runs on the cleanup timeout (upstream's <c>lateTimeoutError</c>).</summary>
+    internal static TestException LateTimeoutError(string from = "an afterEach hook or a fixture teardown") =>
+        new(
+            "INVALID_ARGUMENT",
+            $"SetTimeout() cannot change the timeout from {from}: teardown runs on CleanupTimeout, not the test timeout"
+        );
 
     /// <summary>
     /// Makes this session an upstream hosted one: <paramref name="close"/> is the owner's close, which ends it once through <see cref="EndAsync"/>
@@ -1670,7 +1751,8 @@ public sealed class E2ESession : IAsyncDisposable
         return VerdictOf(error, StatusOf(error, cancellationToken));
     }
 
-    private TestException TimeoutFailure(Exception cause) => TimeoutFailure(_testTimeout, cause);
+    private TestException TimeoutFailure(Exception cause) =>
+        TimeoutFailure(_attemptTimeout?.Timeout ?? _testTimeout, cause);
 
     private static TestException TimeoutFailure(TimeSpan testTimeout, Exception? cause)
     {
