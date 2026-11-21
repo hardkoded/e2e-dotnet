@@ -13,7 +13,7 @@ namespace E2E.Tests.LaunchInTestReport;
 /// Upstream: packages/e2e/tests/integration/launch-in-test-report.test.ts, describe('a launch() session opened inside a test, in the test's report'):
 /// a test that opens a second session with <c>Launch.LaunchAsync</c>. The session's steps are in the test's record, each under the session's name and
 /// in the order they began, its video is among the test's artifacts, and the attempt owns its end: a session the test left open, or left a step
-/// running on, is closed with it. The <c>it</c> that needs a serial group is not here: the port has none (see the follow-up issue).
+/// running on, is closed with it. The <c>it</c> 'keeps the videos of two serial members' sessions apart' is not here: the port has no serial groups (issue #1989).
 /// </summary>
 [Collection(E2E.Tests.SessionSecrecy.SharedSecretsCollection.Name)]
 public sealed class ALaunchSessionOpenedInsideATestInTheTestsReportTests : IAsyncLifetime

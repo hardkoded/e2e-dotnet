@@ -34,24 +34,6 @@ internal sealed record InMemoryTest(string Title, Func<E2ESession, Task> Body)
 }
 
 /// <summary>
-/// A worker-scoped <c>test.extend()</c> fixture (<c>FixtureDefinition</c> with <c>scope: 'worker'</c>, <c>collect/registry.ts</c>), as a closure: the function sets
-/// up what it provides, hands it over with <c>use</c>, and awaits what <c>use</c> returns before it tears down. It is set up inside the first test that
-/// names it, outside the test's attempt, and torn down when the run ends. What it hands over is <see cref="Value"/> (.NET-only: a test has no fixtures
-/// object to destructure).
-/// </summary>
-internal sealed class WorkerFixture(string name, Func<Func<object?, Task>, Task> fn)
-{
-    /// <summary>The fixture's name.</summary>
-    public string Name { get; } = name;
-
-    /// <summary>The function that sets the fixture up and tears it down around its call to <c>use</c>.</summary>
-    public Func<Func<object?, Task>, Task> Fn { get; } = fn;
-
-    /// <summary>What the fixture handed to <c>use</c>, once it is set up.</summary>
-    public object? Value { get; internal set; }
-}
-
-/// <summary>
 /// Tests registered in memory instead of found in files: one virtual file name and the tests its module would have registered. Upstream's
 /// <c>InMemoryTests</c> (<c>run/runner.ts</c>). Bodies are closures, so the run is in-process, on one worker.
 /// </summary>
@@ -258,11 +240,13 @@ internal static class Runner
         finally
         {
             // The worker's fixtures end with the worker, after the last test and before what the run prepared: a failure is a cleanup failure of the run.
-            exitCodes.AddRange(
-                (await workers.TearDownAsync().ConfigureAwait(false)).Select(failure =>
-                    ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)
-                )
-            );
+            foreach (var failure in await workers.TearDownAsync(E2EDefaults.CleanupTimeout).ConfigureAwait(false))
+            {
+                Console.Error.WriteLine(
+                    $"e2e: worker fixture teardown failed: {Redactor.For(config.AllSecrets).Redact(failure.Message)}"
+                );
+                exitCodes.Add(ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category));
+            }
             sharing.Withdraw();
             // The engines the run prepared are finished on every exit path, as upstream's run does: a failure is a cleanup failure of the run.
             await prepared
@@ -453,7 +437,15 @@ internal static class Runner
                     await session.CaptureFailureEvidenceAsync(ex).ConfigureAwait(false);
                 }
 
-                await session.QuiesceGuestsAsync().ConfigureAwait(false);
+                try
+                {
+                    await session.QuiesceGuestsAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                    when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    error ??= ex;
+                }
 
                 // Upstream's enter('afterEach'): the hooks run under a budget of their own, so a body its timeout cut short can still drive the session.
                 session.EnterTeardownBudget(cancellationToken);
@@ -503,103 +495,6 @@ internal static class Runner
         // What the body does after it was cut is nobody's to observe.
         _ = running.ContinueWith(static task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
         throw session.TimeoutError();
-    }
-
-    /// <summary>
-    /// The worker-scoped fixtures of one run, one instance per definition (upstream's <c>WorkerFixturePool</c>, <c>run/fixture-pool.ts</c>): set up the
-    /// first time a test names one, outside the attempt (<c>outlivesTest</c>), and torn down in reverse order when the run ends.
-    /// </summary>
-    internal sealed class WorkerFixturePool
-    {
-        private readonly List<(WorkerFixture Fixture, TaskCompletionSource Release, Task Run)> _running = [];
-
-        /// <summary>Sets up the fixtures not yet set up. A failure of one is the failure of the test that named it, and the fixture is not torn down.</summary>
-        public async Task SetUpAsync(IReadOnlyList<WorkerFixture> fixtures)
-        {
-            foreach (var fixture in fixtures)
-            {
-                if (_running.Any(each => ReferenceEquals(each.Fixture, fixture)))
-                {
-                    continue;
-                }
-
-                var provided = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                var used = false;
-                ConfigurationException? misuse = null;
-                Task Use(object? value)
-                {
-                    if (used)
-                    {
-                        misuse = new ConfigurationException(
-                            "TEST_SETUP_FAILED",
-                            $"fixture \"{fixture.Name}\" called use() twice; a fixture hands one value per instance"
-                        );
-                        return Task.FromException(misuse);
-                    }
-
-                    used = true;
-                    fixture.Value = value;
-                    provided.TrySetResult();
-                    return release.Task;
-                }
-
-                // On the thread pool and with no attempt in its flow: a host the fixture launches belongs to the worker.
-                var run = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await fixture.Fn(Use).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        provided.TrySetException(ex);
-                        throw;
-                    }
-
-                    if (!used)
-                    {
-                        provided.TrySetException(
-                            new ConfigurationException(
-                                "TEST_SETUP_FAILED",
-                                $"fixture \"{fixture.Name}\" returned without calling use(); a fixture awaits use(value) to hand its value over"
-                            )
-                        );
-                    }
-
-                    if (misuse is not null)
-                    {
-                        throw misuse;
-                    }
-                });
-                // A fixture whose setup failed is never torn down, so nothing else would observe its failure.
-                _ = run.ContinueWith(static task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
-                await provided.Task.ConfigureAwait(false);
-                _running.Add((fixture, release, run));
-            }
-        }
-
-        /// <summary>Tears the fixtures down in reverse order of their setup and returns what failed.</summary>
-        public async Task<IReadOnlyList<Exception>> TearDownAsync()
-        {
-            var failures = new List<Exception>();
-            for (var index = _running.Count - 1; index >= 0; index--)
-            {
-                var (_, release, run) = _running[index];
-                release.TrySetResult();
-                try
-                {
-                    await run.ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    failures.Add(ex);
-                }
-            }
-
-            _running.Clear();
-            return failures;
-        }
     }
 
     private static int AgentCodeExit(string code) =>
