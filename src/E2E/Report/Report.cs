@@ -367,6 +367,9 @@ public enum SkipCause
 {
     /// <summary>The test called <c>Skip</c>.</summary>
     Explicit,
+
+    /// <summary>The test was marked fixme (upstream's <c>test.fixme</c>); the reason is <c>fixme</c> or <c>fixme: &lt;reason&gt;</c>.</summary>
+    Fixme,
     Filtered,
     PlatformUnavailable,
     CapabilityUnavailable,

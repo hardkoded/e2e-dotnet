@@ -213,7 +213,8 @@ internal static partial class ListReporterKit
         string agent = "default",
         int repeat = 0,
         int? line = null,
-        string? filter = null
+        string? filter = null,
+        string? cause = null
     ) =>
         new()
         {
@@ -228,7 +229,9 @@ internal static partial class ListReporterKit
                 ? null
                 : new Reports.SkipInfo
                 {
-                    Cause = filter is null ? Reports.SkipCause.Explicit : Reports.SkipCause.Filtered,
+                    Cause = filter is null
+                        ? (cause is null ? Reports.SkipCause.Explicit : Enum.Parse<Reports.SkipCause>(cause, true))
+                        : Reports.SkipCause.Filtered,
                     Reason = skipReason,
                     Filter = filter,
                 },
@@ -240,7 +243,7 @@ internal static partial class ListReporterKit
                 Status = status,
                 Skip = skipReason is null
                     ? null
-                    : new ReportSkip(filter is null ? "explicit" : "filtered", skipReason, filter),
+                    : new ReportSkip(filter is null ? cause ?? "explicit" : "filtered", skipReason, filter),
                 Source = line is { } declared
                     ? new SourceLocation(file, declared, 1)
                     : new SourceLocation("unknown", 0, 0),
