@@ -298,9 +298,10 @@ internal sealed class ActiveStep
 }
 
 /// <summary>Where the tools find the active step, and how a tool ends the turn early. Upstream's <c>StepSlot</c>.</summary>
-internal sealed class StepSlot(Action halt)
+internal sealed class StepSlot(Func<Task> halt)
 {
     private ActiveStep? _active;
+    private Task _halted = Task.CompletedTask;
 
     public ActiveStep? Active
     {
@@ -309,5 +310,8 @@ internal sealed class StepSlot(Action halt)
     }
 
     /// <summary>Called when a tool hit a runtime error: cancels the agent's turn.</summary>
-    public void Halt() => halt();
+    public void Halt() => Volatile.Write(ref _halted, halt());
+
+    /// <summary>Completes once the cancel that <see cref="Halt"/> sent has reached the agent.</summary>
+    public Task Halted => Volatile.Read(ref _halted);
 }

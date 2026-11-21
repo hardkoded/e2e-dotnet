@@ -213,22 +213,32 @@ internal sealed partial class AcpSession
         }
     }
 
-    /// <summary>Cancels the turn in flight, if any.</summary>
-    public void Cancel()
+    /// <summary>
+    /// Cancels the turn in flight, if any. The returned task completes once the cancel is written to the agent and never faults, so a step
+    /// that ends right after can await it and the agent has the cancel before the step's error surfaces, as upstream's does.
+    /// </summary>
+    public Task Cancel()
     {
         if (_sessionId is null || _connection is null || Volatile.Read(ref _closed) == 1)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        _ = _connection
-            .NotifyAsync("session/cancel", new JsonObject { ["sessionId"] = _sessionId }, CancellationToken.None)
-            .ContinueWith(
-                static task => _ = task.Exception,
-                CancellationToken.None,
-                TaskContinuationOptions.OnlyOnFaulted,
-                TaskScheduler.Default
-            );
+        return SendCancelAsync(_connection, _sessionId);
+    }
+
+    private static async Task SendCancelAsync(JsonRpcConnection connection, string sessionId)
+    {
+        try
+        {
+            await connection
+                .NotifyAsync("session/cancel", new JsonObject { ["sessionId"] = sessionId }, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // The agent is gone or the connection closed: there is no turn left to cancel.
+        }
     }
 
     /// <summary>

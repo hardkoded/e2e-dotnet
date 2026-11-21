@@ -147,7 +147,7 @@ public static class AcpExecutor
                 if (cancellationToken.IsCancellationRequested)
                 {
                     // The step ended: stop the agent's turn, which the next step waits for.
-                    session.Cancel();
+                    await session.Cancel().ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
                 }
 
@@ -175,12 +175,15 @@ public static class AcpExecutor
 
             if (active.Halted is { } halted)
             {
+                // The cancel reaches the agent before the step's error does.
+                await held.Slot.Halted.ConfigureAwait(false);
                 ExceptionDispatchInfo.Capture(halted).Throw();
             }
 
             cancellationToken.ThrowIfCancellationRequested();
             if (active.Denied is { } denied)
             {
+                await held.Slot.Halted.ConfigureAwait(false);
                 // The conversation holds what the tool read: the next step starts a fresh agent.
                 session.Close();
                 context.Attempt.Memory.Remove(_memoryKey);
@@ -255,7 +258,7 @@ public static class AcpExecutor
             var gate = new Lock();
             AcpSession? session = null;
             var closed = false;
-            var slot = new StepSlot(() => session?.Cancel());
+            var slot = new StepSlot(() => session?.Cancel() ?? Task.CompletedTask);
             var tools = StepTools.Create(slot, context);
             Held? held = null;
             void OwnTool(string title)
@@ -269,7 +272,7 @@ public static class AcpExecutor
                 }
 
                 active.Deny(title);
-                session?.Cancel();
+                slot.Halt();
             }
 
             void ForgetIfCurrent()
