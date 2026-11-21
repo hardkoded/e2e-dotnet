@@ -48,6 +48,10 @@ Derive your test classes from `NextTest`.
 
 `command` also takes `env`, `log`, `startupTimeout`, and `shutdownTimeout`, and a `url` with port `0` takes a free port. See [`CommandConfig`](/api/E2E/CommandConfig/) and the [Config](/get-started/core-concepts/#config) section.
 
+### Let the runner pick the port
+
+Use `http://127.0.0.1:0` (or `http://[::1]:0`, never `localhost:0`) as `app.url` and pass `{port}` to the server in `args` or `env`: `"args": ["run", "dev", "--", "--port", "{port}"]`. A port-0 `url` needs a `command`, and `reuseExisting` beside it is `INVALID_CONFIG`, so drop it from the local command. Next.js then identifies as `localhost` while the target opens `127.0.0.1`, so add the host to `allowedDevOrigins` (see [below](#the-page-renders-but-never-hydrates)).
+
 ## Run in CI
 
 Build the app before the tests. The CI service sets `CI`, so the config starts `next start`:
