@@ -19,6 +19,28 @@ internal sealed record ApiResponse(
     IReadOnlyDictionary<string, string> ResponseHeaders
 );
 
+/// <summary>A successful answer read as a stream: its body, status, and headers (lowercase names). Disposing it releases the HTTP response.</summary>
+internal sealed class ApiStreamResponse(
+    HttpResponseMessage response,
+    Stream body,
+    int statusCode,
+    IReadOnlyDictionary<string, string> responseHeaders
+) : IDisposable
+{
+    public Stream Body { get; } = body;
+
+    public int StatusCode { get; } = statusCode;
+
+    public IReadOnlyDictionary<string, string> ResponseHeaders { get; } = responseHeaders;
+
+    public void Dispose() => response.Dispose();
+}
+
+/// <summary>Upstream's <c>ParseResult</c> (<c>parse-json.ts</c>): the parsed value of one event, or the error that stopped it parsing.</summary>
+/// <param name="Value">The parsed JSON, when it parsed.</param>
+/// <param name="Error">The error, when it did not.</param>
+internal sealed record ParseResult(JsonElement? Value, Exception? Error);
+
 /// <summary>
 /// The AI SDK's <c>provider-utils</c> request helpers the decision models share (<c>postJsonToApi</c>, <c>postFormDataToApi</c>,
 /// <c>combineHeaders</c>): one POST, no retry (the decide call owns the retries), and the failure as an <see cref="ApiCallException"/>.
@@ -332,31 +354,13 @@ internal static class ProviderUtils
         CancellationToken cancellationToken
     )
     {
-        HttpResponseMessage response;
-        try
-        {
-            response = await http.SendAsync(message, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            throw new ApiCallException(
-                "Cannot connect to API: the request got no response within "
-                    + ((int)ModelHttp.Timeout.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    + " seconds.",
-                isRetryable: false,
-                innerException: new TimeoutException()
-            );
-        }
-        catch (HttpRequestException error)
-        {
-            // A request that got no answer, such as a refused or reset connection, may be sent again.
-            throw new ApiCallException(
-                "Cannot connect to API: " + error.Message,
-                isRetryable: true,
-                innerException: error
-            );
-        }
-
+        var response = await SendRequestAsync(
+                http,
+                message,
+                HttpCompletionOption.ResponseContentRead,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         using (response)
         {
             var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -385,6 +389,177 @@ internal static class ProviderUtils
         }
     }
 
+    private static async Task<HttpResponseMessage> SendRequestAsync(
+        HttpClient http,
+        HttpRequestMessage message,
+        HttpCompletionOption completionOption,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            return await http.SendAsync(message, completionOption, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ApiCallException(
+                "Cannot connect to API: the request got no response within "
+                    + ((int)ModelHttp.Timeout.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + " seconds.",
+                isRetryable: false,
+                innerException: new TimeoutException()
+            );
+        }
+        catch (HttpRequestException error)
+        {
+            // A request that got no answer, such as a refused or reset connection, may be sent again.
+            throw new ApiCallException(
+                "Cannot connect to API: " + error.Message,
+                isRetryable: true,
+                innerException: error
+            );
+        }
+    }
+
+    /// <summary>
+    /// Upstream's <c>postJsonToApi</c> with <c>createEventSourceResponseHandler</c>: one POST whose successful answer is read as a stream.
+    /// .NET-only split: C# has no response handler argument, so the streaming answer has its own method. The caller owns the answer and
+    /// disposes it, or hands it to <see cref="ParseJsonEventStreamAsync"/>, which does.
+    /// </summary>
+    public static async Task<ApiStreamResponse> PostJsonToApiStreamAsync(
+        HttpClient http,
+        string url,
+        IReadOnlyDictionary<string, string> headers,
+        string body,
+        Func<int, string, string> errorToMessage,
+        CancellationToken cancellationToken
+    )
+    {
+        using var content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+        using var message = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+        foreach (var (name, value) in headers)
+        {
+            if (!message.Headers.TryAddWithoutValidation(name, value))
+            {
+                // A content header, such as Content-Type.
+                content.Headers.Remove(name);
+                content.Headers.TryAddWithoutValidation(name, value);
+            }
+        }
+
+        var response = await SendRequestAsync(
+                http,
+                message,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        try
+        {
+            var responseHeaders = ReadHeaders(response);
+            var status = (int)response.StatusCode;
+            if (!response.IsSuccessStatusCode)
+            {
+                var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                throw new ApiCallException(errorToMessage(status, text), status, responseHeaders)
+                {
+                    ResponseBody = text,
+                };
+            }
+
+            var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            return new ApiStreamResponse(response, stream, status, responseHeaders);
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Upstream's <c>parseJsonEventStream</c> (<c>parse-json-event-stream.ts</c>): the data of each server-sent event as parsed JSON. The
+    /// <c>[DONE]</c> event some providers send is ignored; an event whose data is not JSON is a failed <see cref="ParseResult"/>. A failure
+    /// to read the body is an <see cref="ApiCallException"/> ("Failed to process successful response"), as upstream's
+    /// <c>wrapResponseBodyStream</c> makes it. Cancellation is not wrapped. The enumeration owns <paramref name="response"/> and releases it
+    /// when the stream ends, fails, or is disposed early.
+    /// </summary>
+    public static async IAsyncEnumerable<ParseResult> ParseJsonEventStreamAsync(
+        ApiStreamResponse response,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
+    {
+        using var owned = response;
+        using var reader = new StreamReader(response.Body, System.Text.Encoding.UTF8);
+        var data = new System.Text.StringBuilder();
+        var hasData = false;
+        while (true)
+        {
+            string? line;
+            try
+            {
+                line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception error) when (error is IOException or HttpRequestException)
+            {
+                throw new ApiCallException(
+                    "Failed to process successful response",
+                    response.StatusCode,
+                    response.ResponseHeaders,
+                    innerException: error
+                );
+            }
+
+            // A blank line, or the end of the stream, dispatches the event.
+            if (line is null || line.Length == 0)
+            {
+                if (hasData)
+                {
+                    var text = data.ToString();
+                    data.Clear();
+                    hasData = false;
+                    if (text != "[DONE]")
+                    {
+                        yield return ParseEventData(text);
+                    }
+                }
+
+                if (line is null)
+                {
+                    yield break;
+                }
+
+                continue;
+            }
+
+            // A comment, or a field other than data, carries no data.
+            if (line[0] == ':')
+            {
+                continue;
+            }
+
+            var colon = line.IndexOf(':', StringComparison.Ordinal);
+            if ((colon < 0 ? line : line[..colon]) != "data")
+            {
+                continue;
+            }
+
+            var value = colon < 0 ? string.Empty : line[(colon + 1)..];
+            if (value.StartsWith(' '))
+            {
+                value = value[1..];
+            }
+
+            if (hasData)
+            {
+                data.Append('\n');
+            }
+
+            data.Append(value);
+            hasData = true;
+        }
+    }
+
     /// <summary>
     /// Upstream's <c>postToApi</c> wrapper around a successful answer a handler could not process: anything but an <see cref="ApiCallException"/>
     /// the handler throws becomes one, with the status and headers of the answer.
@@ -408,6 +583,19 @@ internal static class ProviderUtils
             {
                 ResponseBody = response.RawValue,
             };
+        }
+    }
+
+    private static ParseResult ParseEventData(string text)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(text);
+            return new ParseResult(document.RootElement.Clone(), null);
+        }
+        catch (JsonException error)
+        {
+            return new ParseResult(null, new JsonParseException(text, error));
         }
     }
 

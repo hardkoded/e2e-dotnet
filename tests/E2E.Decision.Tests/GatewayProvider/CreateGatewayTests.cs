@@ -4,13 +4,12 @@
 
 using E2E.Decision.Sdk.Gateway;
 using Vercel.Oidc;
-using static E2E.Decision.Tests.GatewayDecisionModel.GatewayDecisionModelFixture;
 using static E2E.Decision.Tests.GatewayProvider.GatewayProviderFixture;
 using Env = E2E.Decision.Sdk.Gateway.VercelEnvironment;
 
 namespace E2E.Decision.Tests.GatewayProvider;
 
-/// <summary>Upstream's <c>describe('createGateway')</c> of <c>gateway-provider.test.ts</c> (the decision-model factories).</summary>
+/// <summary>Upstream's <c>describe('createGateway')</c> of <c>gateway-provider.test.ts</c> (the language model factory).</summary>
 [Collection("GatewayProviderEnvironment")]
 public sealed class CreateGatewayTests
 {
@@ -45,6 +44,21 @@ public sealed class CreateGatewayTests
     [Fact]
     public Task Should_create_provider_with_correct_configuration() => WithEnvironmentAsync(NoEnvironment, async () =>
         {
+            var options = new GatewayProviderSettings
+            {
+                BaseUrl = BaseUrl,
+                ApiKey = "test-api-key",
+                Headers = new Dictionary<string, string> { ["Custom-Header"] = "value" },
+            };
+            using (var model = new E2E.Decision.Sdk.Gateway.GatewayProvider(options).LanguageModel("test-model"))
+            {
+                Assert.Equal("test-model", model.ModelId);
+                Assert.Equal("gateway", model.Config.Provider);
+                Assert.Equal(BaseUrl, model.Config.BaseUrl);
+                Assert.NotNull(model.Config.Headers);
+                Assert.Null(model.Config.HttpClient); // fetch: undefined
+            }
+
             var headers = await ResolveHeadersAsync(
                 new GatewayProviderSettings
                 {
@@ -134,11 +148,16 @@ public sealed class CreateGatewayTests
     [Fact]
     public Task Should_not_include_undefined_o11y_headers() => WithEnvironmentAsync(NoEnvironment, async () =>
         {
-            var headers = await ResolveHeadersAsync(
-                new GatewayProviderSettings { BaseUrl = BaseUrl, ApiKey = "test-api-key" }
+            var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
+                new GatewayProviderSettings { BaseUrl = "https://api.example.com", ApiKey = "test-api-key" }
             );
+            using var model = provider.LanguageModel("test-model");
+            Assert.Equal("gateway", model.Config.Provider);
+            Assert.Equal("https://api.example.com", model.Config.BaseUrl);
 
-            Assert.DoesNotContain(headers.Keys, name => name.StartsWith("ai-o11y-", StringComparison.Ordinal));
+            // Test that the o11yHeaders function returns empty object
+            var o11yHeaders = await model.Config.O11yHeaders(CancellationToken.None);
+            Assert.Empty(o11yHeaders);
         });
 
     [Fact]
@@ -166,33 +185,31 @@ public sealed class CreateGatewayTests
             },
             async () =>
             {
-                // Upstream reads config.o11yHeaders of the GatewayLanguageModel; the port reads the headers of the decision model's request.
+                // Upstream reads config.o11yHeaders of the GatewayLanguageModel constructor call; the port reads the config of the model.
                 using var _ = VercelRequestContext.Use(
                     new Dictionary<string, string?> { ["x-vercel-id"] = "test-request-id" }
                 );
-                var server = new TestServer();
-                server.RespondJson(
-                    "https://api.example.com/decision-model",
-                    """{"answers":{"correct":{"type":"boolean","probability":0.97}}}"""
-                );
                 var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
-                    new GatewayProviderSettings
-                    {
-                        BaseUrl = "https://api.example.com",
-                        ApiKey = "test-api-key",
-                        HttpClient = server.Client,
-                    }
+                    new GatewayProviderSettings { BaseUrl = "https://api.example.com", ApiKey = "test-api-key" }
                 );
 
-                using var model = provider.DecisionModel("test-model");
-                await model.DoDecideAsync(Call(), CancellationToken.None);
+                using var model = provider.LanguageModel("test-model");
+                Assert.Equal("gateway", model.Config.Provider);
+                Assert.Equal("https://api.example.com", model.Config.BaseUrl);
 
-                var headers = server.Calls[0].RequestHeaders;
-                Assert.Equal("test-deployment", headers["ai-o11y-deployment-id"]);
-                Assert.Equal("test", headers["ai-o11y-environment"]);
-                Assert.Equal("iad1", headers["ai-o11y-region"]);
-                Assert.Equal("test-request-id", headers["ai-o11y-request-id"]);
-                Assert.Equal("prj_test123", headers["ai-o11y-project-id"]);
+                // Test that the o11yHeaders function returns the expected result
+                var o11yHeaders = await model.Config.O11yHeaders(CancellationToken.None);
+                Assert.Equal(
+                    new Dictionary<string, string?>
+                    {
+                        ["ai-o11y-deployment-id"] = "test-deployment",
+                        ["ai-o11y-environment"] = "test",
+                        ["ai-o11y-region"] = "iad1",
+                        ["ai-o11y-request-id"] = "test-request-id",
+                        ["ai-o11y-project-id"] = "prj_test123",
+                    },
+                    o11yHeaders.ToDictionary(pair => pair.Key, pair => pair.Value)
+                );
             }
         );
 }

@@ -7,7 +7,7 @@ using static E2E.Decision.Tests.GatewayProvider.GatewayProviderFixture;
 
 namespace E2E.Decision.Tests.GatewayProvider;
 
-/// <summary>Upstream's <c>describe('Error handling in metadata fetching')</c> of <c>gateway-provider.test.ts</c> (the metadata parts).</summary>
+/// <summary>Upstream's <c>describe('Error handling in metadata fetching')</c> of <c>gateway-provider.test.ts</c> (the metadata parts and the model creation tests).</summary>
 [Collection("GatewayProviderEnvironment")]
 public sealed class ErrorHandlingInMetadataFetchingTests
 {
@@ -56,6 +56,65 @@ public sealed class ErrorHandlingInMetadataFetchingTests
 
             Assert.Same(originalError, error); // Same instance
             Assert.Equal("Invalid token", error.Message);
+        });
+
+    // Upstream mocks GatewayLanguageModel and checks its constructor call; the port reads the model's config.
+    private static void AssertCreatedWith(E2E.Decision.Sdk.Gateway.GatewayLanguageModel model, string modelId)
+    {
+        Assert.NotNull(model);
+        Assert.Equal(modelId, model.ModelId);
+        Assert.Equal("gateway", model.Config.Provider);
+        Assert.Equal("https://api.example.com", model.Config.BaseUrl);
+        Assert.NotNull(model.Config.Headers);
+        Assert.Null(model.Config.HttpClient); // fetch: undefined
+        Assert.NotNull(model.Config.O11yHeaders);
+    }
+
+    [Fact]
+    public Task Should_handle_model_specification_errors() => WithEnvironmentAsync(NoEnvironment, () =>
+        {
+            // Upstream mocks a successful metadata fetch with a model; creating the model does not fetch it.
+            var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
+                new GatewayProviderSettings { BaseUrl = "https://api.example.com", ApiKey = "test-key" }
+            );
+
+            // Create a language model that should work
+            using var model = provider.LanguageModel("test-model");
+
+            // Verify the model was created with the correct parameters
+            AssertCreatedWith(model, "test-model");
+            return Task.CompletedTask;
+        });
+
+    [Fact]
+    public Task Should_create_language_model_for_any_modelId() => WithEnvironmentAsync(NoEnvironment, () =>
+        {
+            // Upstream mocks a successful metadata fetch with different models; creating the model does not fetch them.
+            var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
+                new GatewayProviderSettings { BaseUrl = "https://api.example.com", ApiKey = "test-key" }
+            );
+
+            // Create a language model for any model ID
+            using var model = provider.LanguageModel("any-model-id");
+
+            // The model should be created successfully
+            AssertCreatedWith(model, "any-model-id");
+            return Task.CompletedTask;
+        });
+
+    [Fact]
+    public Task Should_handle_non_existent_model_requests() => WithEnvironmentAsync(NoEnvironment, () =>
+        {
+            var provider = new E2E.Decision.Sdk.Gateway.GatewayProvider(
+                new GatewayProviderSettings { BaseUrl = "https://api.example.com", ApiKey = "test-key" }
+            );
+
+            // Create a language model for a non-existent model
+            using var model = provider.LanguageModel("non-existent-model");
+
+            // The model should be created successfully (validation happens at API call time)
+            AssertCreatedWith(model, "non-existent-model");
+            return Task.CompletedTask;
         });
 
     private sealed class ThrowingHandler(Exception error) : HttpMessageHandler
