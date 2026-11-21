@@ -9,6 +9,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Internal;
+using TypeSafeSdk = global::TypeSafe.AI.Sdk;
 
 namespace E2E.Decision.Sdk.TypeSafeAi;
 
@@ -180,8 +181,7 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
             warnings.Add("unsupported setting: reasoning");
         }
 
-        var assets = new JsonObject();
-        var images = new List<(string Name, byte[] Data, string MediaType, string FileName)>();
+        var assets = new Dictionary<string, TypeSafeSdk.Image>(StringComparer.Ordinal);
         var stateStrings = call.State.SelectMany(StateStrings).ToList();
         var placed = new List<DecisionStatePart>();
         var index = 0;
@@ -228,15 +228,12 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
             }
 
             var partName = "image-" + index.ToString(CultureInfo.InvariantCulture);
-            assets[reference] = new JsonObject { ["type"] = "image", ["part"] = partName };
-            images.Add(
-                (
-                    partName,
-                    file.GetBytes(),
-                    file.MediaType,
-                    file.Filename ?? partName + (file.MediaType == "image/png" ? ".png" : ".jpeg")
-                )
-            );
+            assets[reference] = new TypeSafeSdk.Image(file.GetBytes())
+            {
+                PartName = partName,
+                FileName = file.Filename ?? partName + (file.MediaType == "image/png" ? ".png" : ".jpeg"),
+                ContentType = file.MediaType,
+            };
             if (insertReference)
             {
                 placed.Add(new DecisionTextPart(reference));
@@ -254,13 +251,6 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
                 ["User-Agent"] = ModelHttp.RequestHeaders["User-Agent"],
             }
             : await _config.Headers(cancellationToken).ConfigureAwait(false);
-        var body = new JsonObject { ["model"] = ModelId, ["state"] = requestState };
-        if (hasImages)
-        {
-            body["assets"] = assets;
-        }
-
-        body["questions"] = Questions(call.Questions);
         var headers = ProviderUtils.CombineHeaders(
             modelHeaders,
             hasImages || call.Questions.Values.Any(question => question.Type == "box")
@@ -271,68 +261,78 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
                 : null,
             call.Headers.ToDictionary(pair => pair.Key, pair => (string?)pair.Value)
         );
-        var url = _config.BaseUrl.TrimEnd('/') + "/systemone";
-        ApiResponse response;
-        if (hasImages)
-        {
-            var form = new MultipartFormDataContent();
-            var request = new StringContent(body.ToJsonString(Compact), System.Text.Encoding.UTF8);
-            request.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-            form.Add(request, "request", "request.json");
-            foreach (var (name, data, mediaType, fileName) in images)
-            {
-                var content = new ByteArrayContent(data);
-                content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
-                form.Add(content, name, fileName);
-            }
 
-            response = await ProviderUtils
-                .PostFormDataToApiAsync(
-                    _http,
-                    url,
-                    headers,
-                    form,
-                    (_, text) => TypeSafeAiDecisionApi.ErrorMessage(text),
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-        }
-        else
+        // The SDK sends the bearer itself, so it takes the key out of the Authorization header.
+        var apiKey = BearerKey(headers);
+        headers.Remove("Authorization");
+        var request = new TypeSafeSdk.SystemOneRequest
         {
-            response = await ProviderUtils
-                .PostJsonToApiAsync(
-                    _http,
-                    url,
-                    headers,
-                    body.ToJsonString(Compact),
-                    (_, text) => TypeSafeAiDecisionApi.ErrorMessage(text),
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-        }
+            State = requestState,
+            Questions = SdkQuestions(call.Questions),
+            Model = ModelId,
+            Assets = hasImages ? assets : null,
+        };
+        var (result, responseHeaders, responseBody) = await SendAsync(apiKey, headers, request, cancellationToken)
+            .ConfigureAwait(false);
 
-        var parsed = ProviderUtils.ProcessSuccessfulResponse(response, TypeSafeAiDecisionApi.ReadResponse);
         var confidence = new JsonObject();
         var legend = new JsonObject();
         var answers = new Dictionary<string, DecisionAnswer>(StringComparer.Ordinal);
-        foreach (var (id, answer) in parsed.Answers)
+        foreach (var (id, answer) in result.Answers)
         {
-            answers[id] = answer.Answer;
-            if (answer.Type != "noul" && answer.Confidence is { } value)
+            switch (answer)
             {
-                confidence[id] = value;
-            }
+                case TypeSafeSdk.ChoiceAnswer choice:
+                    answers[id] = new DecisionAnswer
+                    {
+                        Type = "choice",
+                        Choice = choice.Choice,
+                        Probabilities = new Dictionary<string, double>(choice.Probabilities),
+                    };
+                    confidence[id] = choice.Confidence;
+                    break;
+                case TypeSafeSdk.ScoreAnswer score:
+                    answers[id] = new DecisionAnswer
+                    {
+                        Type = "score",
+                        Score = score.Score,
+                        Probabilities = new Dictionary<string, double>(score.Probabilities),
+                    };
+                    confidence[id] = score.Confidence;
+                    if (score.Legend.Count > 0)
+                    {
+                        var levels = new JsonObject();
+                        foreach (var (level, text) in score.Legend)
+                        {
+                            levels[level] = JsonNode.Parse(text.GetRawText());
+                        }
 
-            if (answer.Type == "score" && answer.Legend is { } scoreLegend)
-            {
-                legend[id] = JsonNode.Parse(scoreLegend.GetRawText());
+                        legend[id] = levels;
+                    }
+
+                    break;
+                case TypeSafeSdk.BoxAnswer box:
+                    answers[id] = new DecisionAnswer
+                    {
+                        Type = "box",
+                        Box = new DecisionBox(box.Box.Top, box.Box.Bottom, box.Box.Left, box.Box.Right),
+                    };
+                    if (box.Confidence is { } boxConfidence)
+                    {
+                        confidence[id] = boxConfidence;
+                    }
+
+                    break;
+                case TypeSafeSdk.NoulAnswer noul:
+                    answers[id] = new DecisionAnswer { Type = "boolean", Probability = noul.Noul };
+                    break;
             }
         }
 
         return new DecisionModelResult
         {
             Answers = answers,
-            Usage = new DecisionUsage(parsed.InputTokens, parsed.OutputTokens),
+            Usage = new DecisionUsage(result.Usage.InputTokens, result.Usage.OutputTokens),
             // The API rounds displayed probabilities and scores to two decimal places.
             Rounding = new DecisionRounding(2, 2),
             Warnings = warnings,
@@ -342,26 +342,227 @@ public sealed class DecisionTypeSafeAiModel : IDecisionModel, IEvaluationModel, 
                     ["typesafe"] = new JsonObject { ["confidence"] = confidence, ["legend"] = legend },
                 }
             ),
-            ResponseModelId = parsed.Model ?? ModelId,
-            ResponseHeaders = response.ResponseHeaders,
-            ResponseBody = response.Value,
+            ResponseModelId = string.IsNullOrEmpty(result.Model) ? ModelId : result.Model,
+            ResponseHeaders = responseHeaders,
+            ResponseBody = responseBody,
         };
     }
 
-    // The questions as TypeSafe takes them: a boolean question is a noul, and the rest are the AI SDK's shape.
-    private static JsonObject Questions(IReadOnlyDictionary<string, DecisionQuestion> questions)
+    // .NET-only: sends the request through the TypeSafe .NET SDK, and reads its failures as the ApiCallException the other providers throw.
+    private async Task<(
+        TypeSafeSdk.SystemOneResult Result,
+        IReadOnlyDictionary<string, string> Headers,
+        JsonElement Body
+    )> SendAsync(
+        string apiKey,
+        IReadOnlyDictionary<string, string> headers,
+        TypeSafeSdk.SystemOneRequest request,
+        CancellationToken cancellationToken
+    )
     {
-        var json = DecisionQuestionJson.ToJson(questions);
-        foreach (var (_, question) in json)
-        {
-            if (question is JsonObject { } entry && (string?)entry["type"] == "boolean")
+        var received = new ReceivedLogger();
+        using var client = new TypeSafeSdk.TypeSafeClient(
+            apiKey,
+            _http,
+            new TypeSafeSdk.TypeSafeClientOptions
             {
-                entry["type"] = "noul";
+                BaseUrl = SdkBaseUrl(_config.BaseUrl),
+                DefaultHeaders = new Dictionary<string, string>(headers, StringComparer.OrdinalIgnoreCase),
+                // One attempt: the caller decides whether a failed call is sent again, as with the other providers.
+                Retry = new TypeSafeSdk.RetryPolicy { MaxRetries = 0 },
+                TimeoutMs = (int)ModelHttp.Timeout.TotalMilliseconds,
+                Compression = false,
+                LogLevel = TypeSafeSdk.TypeSafeLogLevel.Info,
+                Logger = received,
+            }
+        );
+        TypeSafeSdk.TypeSafeResponse<TypeSafeSdk.SystemOneResult>? response = null;
+        try
+        {
+            response = await client.SystemOneWithResponseAsync(request, null, cancellationToken).ConfigureAwait(false);
+            var text = await response.Response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            using var document = JsonDocument.Parse(text);
+            return (response.Data, ProviderUtils.ReadHeaders(response.Response), document.RootElement.Clone());
+        }
+        catch (TypeSafeSdk.ApiUserAbortException)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+        catch (TypeSafeSdk.ApiTimeoutException error)
+        {
+            throw new ApiCallException(
+                "Cannot connect to API: the request got no response within "
+                    + ((int)ModelHttp.Timeout.TotalSeconds).ToString(CultureInfo.InvariantCulture)
+                    + " seconds.",
+                isRetryable: false,
+                innerException: error
+            );
+        }
+        catch (TypeSafeSdk.ApiConnectionException error)
+        {
+            throw new ApiCallException(
+                "Cannot connect to API: " + (error.InnerException?.Message ?? error.Message),
+                isRetryable: true,
+                innerException: error
+            );
+        }
+        catch (TypeSafeSdk.ApiException error)
+        {
+            var text = error.Body switch
+            {
+                JsonElement json => json.GetRawText(),
+                string raw => raw,
+                _ => string.Empty,
+            };
+            throw new ApiCallException(
+                TypeSafeAiDecisionApi.ErrorMessage(text),
+                error.Status,
+                ProviderUtils.ReadHeaders(error.Headers)
+            )
+            {
+                ResponseBody = text,
+            };
+        }
+        catch (Exception error)
+            when (error
+                    is TypeSafeSdk.TypeSafeException
+                        or JsonException
+                        or InvalidOperationException
+                        or KeyNotFoundException
+                        or FormatException
+            )
+        {
+            // Past the response, the answers broke the SDK's reading of them. Before it, the request broke the SDK's checks.
+            if (!received.Received)
+            {
+                throw new InvalidArgumentException("request", error.Message);
+            }
+
+            throw new ApiCallException(
+                "Failed to process successful response",
+                200,
+                isRetryable: false,
+                innerException: error
+            );
+        }
+        finally
+        {
+            response?.Response.Dispose();
+        }
+    }
+
+    // The SDK adds /v1 to its base URL; the provider's base URL already ends in it.
+    private static string SdkBaseUrl(string baseUrl)
+    {
+        var trimmed = baseUrl.TrimEnd('/');
+        return trimmed.EndsWith("/v1", StringComparison.OrdinalIgnoreCase) ? trimmed[..^3] : trimmed;
+    }
+
+    private static string BearerKey(IReadOnlyDictionary<string, string> headers)
+    {
+        if (!headers.TryGetValue("Authorization", out var authorization))
+        {
+            throw new LoadApiKeyException(
+                "TypeSafe API key is missing. Pass it using the 'apiKey' parameter or the "
+                    + ApiKeyEnvironmentVariable
+                    + " environment variable."
+            );
+        }
+
+        const string bearer = "Bearer ";
+        if (
+            !authorization.StartsWith(bearer, StringComparison.OrdinalIgnoreCase)
+            || authorization.Length == bearer.Length
+        )
+        {
+            throw new InvalidArgumentException(
+                "headers.Authorization",
+                "TypeSafe requests need a 'Bearer <key>' Authorization header."
+            );
+        }
+
+        return authorization[bearer.Length..].Trim();
+    }
+
+    // Tells whether the SDK got a response, which separates a request it refused from an answer it could not read.
+    private sealed class ReceivedLogger : TypeSafeSdk.ITypeSafeLogger
+    {
+        public bool Received { get; private set; }
+
+        public void Debug(string message, params object?[] args) { }
+
+        public void Info(string message, params object?[] args)
+        {
+            if (message.Contains(" <- ", StringComparison.Ordinal))
+            {
+                Received = true;
             }
         }
 
-        return json;
+        public void Warn(string message, params object?[] args) { }
+
+        public void Error(string message, params object?[] args) { }
     }
+
+    // The questions as the SDK takes them: a boolean question is a noul, and the rest keep their shape.
+    private static Dictionary<string, TypeSafeSdk.Question> SdkQuestions(
+        IReadOnlyDictionary<string, DecisionQuestion> questions
+    )
+    {
+        var result = new Dictionary<string, TypeSafeSdk.Question>(StringComparer.Ordinal);
+        foreach (var (id, question) in questions)
+        {
+            var instructions = SdkValue(question.Instructions);
+            var hasInstructions = question.Instructions is not null;
+            switch (question.Type)
+            {
+                case "boolean":
+                    var hasCriteria = question.TrueCriteria is not null || question.FalseCriteria is not null;
+                    result[id] = new TypeSafeSdk.NoulQuestion(
+                        instructions,
+                        !question.NullCriteria && hasCriteria
+                            ? new TypeSafeSdk.NoulCriteria(
+                                SdkValue(question.TrueCriteria),
+                                SdkValue(question.FalseCriteria),
+                                question.TrueCriteria is not null,
+                                question.FalseCriteria is not null
+                            )
+                            : null,
+                        hasInstructions,
+                        includeCriteria: question.NullCriteria || hasCriteria
+                    );
+                    break;
+                case "choice":
+                    var choices = new Dictionary<string, object?>(StringComparer.Ordinal);
+                    foreach (var choice in question.Choices ?? [])
+                    {
+                        choices[choice.Value] = SdkValue(choice.Description);
+                    }
+
+                    result[id] = new TypeSafeSdk.ChoiceQuestion(instructions, choices, hasInstructions);
+                    break;
+                case "score":
+                    result[id] = new TypeSafeSdk.ScoreQuestion(
+                        instructions,
+                        (question.Levels ?? []).Select(SdkValue).ToList(),
+                        hasInstructions
+                    );
+                    break;
+                case "box":
+                    result[id] = new TypeSafeSdk.BoxQuestion(instructions, hasInstructions);
+                    break;
+                default:
+                    throw new UnsupportedFunctionalityException("TypeSafe AI question type: " + question.Type);
+            }
+        }
+
+        return result;
+    }
+
+    private static object? SdkValue(DecisionInput? input) =>
+        input is null ? null
+        : input.Text is { } text ? text
+        : input.Json!.Value;
 
     private static void ValidateLimits(string id, DecisionQuestion question)
     {
