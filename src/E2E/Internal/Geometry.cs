@@ -109,7 +109,11 @@ internal static partial class Geometry
             ? value.Pixels
             : Math.Clamp(
                 Math.Floor(
-                    double.Parse(text.AsSpan(0, text.Length - 1), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture)
+                    double.Parse(
+                        text.AsSpan(0, text.Length - 1),
+                        NumberStyles.AllowDecimalPoint,
+                        CultureInfo.InvariantCulture
+                    )
                         / 100
                         * size
                         + 0.5

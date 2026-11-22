@@ -91,7 +91,9 @@ public sealed class PointerTests : E2ETest
         await Screen.TapAtAsync(new ScreenPoint("10%", "25%"));
         await Expect.That(Screen.GetByLabel("Pad state")).ToHaveTextAsync($"tapped at {OnPad(100, 200)}");
 
-        await Screen.SwipeAsync(new SwipePathOptions { From = new ScreenPoint("10%", "25%"), To = new ScreenPoint("30%", 200) });
+        await Screen.SwipeAsync(
+            new SwipePathOptions { From = new ScreenPoint("10%", "25%"), To = new ScreenPoint("30%", 200) }
+        );
         await Expect
             .That(Screen.GetByLabel("Pad state"))
             .ToHaveTextAsync($"swiped from {OnPad(100, 200)} to {OnPad(300, 200)}");

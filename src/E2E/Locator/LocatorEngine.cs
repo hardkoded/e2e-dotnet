@@ -848,7 +848,12 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         }
 
         var resolved = await InPixelsAsync([point, target], deadline, token).ConfigureAwait(false);
-        await DispatchAtAsync(resolved[0], action is PointerAction.SwipeTo swipe ? swipe with { Target = resolved[1] } : action, deadline, token)
+        await DispatchAtAsync(
+                resolved[0],
+                action is PointerAction.SwipeTo swipe ? swipe with { Target = resolved[1] } : action,
+                deadline,
+                token
+            )
             .ConfigureAwait(false);
     }
 

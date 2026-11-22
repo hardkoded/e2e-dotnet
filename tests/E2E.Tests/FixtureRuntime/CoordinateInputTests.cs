@@ -128,14 +128,13 @@ public sealed class CoordinateInputTests
             (StepKind.Screen, "screen.tapAt", "(50%, 25%)", StepStatus.Passed),
             (step.Kind, step.Api, step.Label, step.Status)
         );
-        Assert.Contains(
-            step.Events,
-            e => e.Kind == StepEventKind.Engine && e.Detail == "tap at (640, 180)"
-        );
+        Assert.Contains(step.Events, e => e.Kind == StepEventKind.Engine && e.Detail == "tap at (640, 180)");
         Assert.Equal([1], observes);
         await screen.DoubleTapAtAsync(new ScreenPoint("12.5%", 40));
         await screen.TapAtAsync(new ScreenPoint("100%", "100%"));
-        await screen.SwipeAsync(new SwipePathOptions { From = new ScreenPoint("50%", "90%"), To = new ScreenPoint("50%", 72) });
+        await screen.SwipeAsync(
+            new SwipePathOptions { From = new ScreenPoint("50%", "90%"), To = new ScreenPoint("50%", 72) }
+        );
         Assert.Equal(
             ["tap @ 640,180", "doubleTap @ 160,40", "tap @ 1279,719", "swipeTo @ 640,648 -> 640,72"],
             performedAt
