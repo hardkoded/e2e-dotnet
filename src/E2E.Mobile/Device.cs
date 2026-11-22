@@ -77,7 +77,7 @@ public sealed class RawDeviceSession
     /// <summary>The platform the target drives.</summary>
     public MobilePlatform Platform => _session.Options.Platform;
 
-    /// <summary>The raw driver session name: <c>e2e-&lt;target&gt;-&lt;worker slot&gt;</c>, or <c>&lt;session&gt;-&lt;worker slot&gt;</c> with the <c>Session</c> option.</summary>
+    /// <summary>The raw driver session name: <c>e2e-&lt;target&gt;-&lt;worker slot&gt;</c> (<c>e2e-&lt;target&gt;-&lt;hostId&gt;-&lt;worker slot&gt;</c> for a <c>Launch.LaunchAsync</c> host), or <c>&lt;session&gt;-&lt;worker slot&gt;</c> with the <c>Session</c> option.</summary>
     public string Session { get; }
 
     /// <summary>The device id: a simulator UDID or an Android serial.</summary>
@@ -521,11 +521,27 @@ public sealed class Device
     /// that no control in the captured accessibility tree covers, inside a scroll view when the screen has one, to avoid
     /// pressing a button or toggling a checkbox. A control the tree leaves out, such as pressable text, can still be hit.
     /// The simulator's "Speed up your typing" tip goes through its Continue button first. A screen with no clear point
-    /// above the keyboard, or a keyboard that outlives both drags, fails with <c>UNSUPPORTED_CAPABILITY</c>; the message
-    /// names the alternatives (the app's own Done or close control, or pressing Enter on the field).
+    /// above the keyboard, a keyboard reported up with no frame and no keyboard element on screen (so no point is known to be
+    /// above it), or a keyboard that outlives both drags, fails with <c>UNSUPPORTED_CAPABILITY</c>; the message names the
+    /// alternatives (the app's own Done or close control, or pressing Enter on the field).
     /// </summary>
     public Task DismissKeyboardAsync(CancellationToken cancellationToken = default) =>
         RunAsync("device.dismissKeyboard", "", () => _session.DismissKeyboardAsync(cancellationToken));
+
+    /// <summary>
+    /// Whether the soft keyboard is on screen, from a capture (taken again, within the action timeout, while the keyboard is
+    /// still moving): what agent-device reported for it (a visibility probe, a measured or derived keyboard frame, or proof
+    /// that there is none), else the keyboard or a key drawn on screen in the accessibility tree (the suggestion strip alone,
+    /// as with a hardware keyboard, is not one). Only agent-device's proof answers <c>false</c>. Fails when the capture cannot
+    /// answer: <c>ENGINE_FAILURE</c> while the keyboard is moving or the tree is still incomplete,
+    /// <c>UNSUPPORTED_CAPABILITY</c> when agent-device did not prove the keyboard absent and the tree lists none. It reads the
+    /// screen as it is now, so right after an action that opens or closes the keyboard, poll it with <c>Expect.Poll</c>. A
+    /// poll reads again after any error: an <c>ENGINE_FAILURE</c> clears once the keyboard settles, while an
+    /// <c>UNSUPPORTED_CAPABILITY</c> that lasts (a provider that cannot read the keyboard at all) makes the poll wait out its
+    /// whole timeout before it fails. Changes nothing on the device.
+    /// </summary>
+    public Task<bool> IsKeyboardShownAsync(CancellationToken cancellationToken = default) =>
+        RunAsync("device.isKeyboardShown", "", () => _session.KeyboardShownAsync(cancellationToken));
 
     /// <summary>
     /// Reads the clipboard. Fails with <c>UNSUPPORTED_CAPABILITY</c> on an Android build with no shell command for the

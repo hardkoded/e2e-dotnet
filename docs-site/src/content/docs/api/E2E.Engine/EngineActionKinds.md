@@ -40,7 +40,8 @@ public static IReadOnlyList<string> KnownLocator { get; }
 ```
 
 
-Every action kind this version understands: [Locator](/api/E2E.Engine/EngineActionKinds/#E2E_Engine_EngineActionKinds_Locator), the kinds of SPI v1, and the newer ones listed after it. What a manifest's `actions` is checked against. Upstream's `KNOWN_LOCATOR_ACTION_KINDS`.
+Every action kind this version understands: [Locator](#E2E_Engine_EngineActionKinds_Locator), the kinds of SPI v1, and the newer ones listed after it. What a
+manifest's `actions` is checked against. Upstream's `KNOWN_LOCATOR_ACTION_KINDS`.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
@@ -55,7 +56,7 @@ public static IReadOnlyList<string> Locator { get; }
 ```
 
 
-The locator action kinds of SPI v1. Newer kinds are listed in [KnownLocator](/api/E2E.Engine/EngineActionKinds/#E2E_Engine_EngineActionKinds_KnownLocator).
+The locator action kinds of SPI v1. Newer kinds are listed in [KnownLocator](#E2E_Engine_EngineActionKinds_KnownLocator).
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 

@@ -107,6 +107,8 @@ public sealed partial class CreateToolLoopExecutorTests
             "Read the screen before acting.\n\n"
                 + AgentTools.VerdictRules
                 + "\n- "
+                + global::E2E.ToolLoopExecutor.SameTurnVerdictRule
+                + "\n- "
                 + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule,
             model.Requests[0].System
         );
@@ -138,6 +140,8 @@ public sealed partial class CreateToolLoopExecutorTests
         Assert.Equal(
             "Read the screen before acting.\n\nProject context:\nPlans are tiers.\n\n"
                 + AgentTools.VerdictRules
+                + "\n- "
+                + global::E2E.ToolLoopExecutor.SameTurnVerdictRule
                 + "\n- "
                 + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule,
             model.Requests[0].System

@@ -183,6 +183,21 @@ which the port does not call per worker, so a session start carries it.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_Engine_EngineStartOptions_HostId_"></a>
+<a id="E2E_Engine_EngineStartOptions_HostId"></a>
+
+### HostId
+
+
+```csharp
+public string? HostId { get; init; }
+```
+
+
+The `launch()` host this worker belongs to; see [HostId](/api/E2E.Engine/IEngineHostIdentity/#E2E_Engine_IEngineHostIdentity_HostId). Upstream's `EngineInitInfo.hostId`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Engine_EngineStartOptions_LaunchArguments_"></a>
 <a id="E2E_Engine_EngineStartOptions_LaunchArguments"></a>
 

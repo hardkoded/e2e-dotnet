@@ -478,7 +478,8 @@ Off-screen state (a database row) can land after `ActAsync` returns; use
 
 A redacted text snapshot of the screen (roles, names, text, states), and
 your `context`. Never raw HTML, cookies, headers, environment values, or a
-`Secret`'s value; password fields are masked. Each model turn gets the whole
+`Secret`'s value; password fields are masked, unless a page
+script hides one from e2e. Each model turn gets the whole
 screen. A line lists a node's `testid`, a link's `href`, and the
 `placeholder` of a field with no name, so the model can tell twins apart. An
 `href` on the app's origin shows as its path, any other as the whole URL.
@@ -920,7 +921,12 @@ or when the step is nearly out of time, it offers only `complete_step`. A step w
 run out without a `complete_step` call fails with `STEP_NO_CONCLUSION` (a failed verdict,
 not a hard stop). The instructions tell the model, from the first turn, to reply
 with tool calls only; a reply without one is kept in the history, the model is
-told to act, and the turn counts. A tool that throws
+told to act, and the turn counts. A `complete_step` the model sends in the same turn as
+other calls waits for the calls before it, and is refused when one of them did not run,
+failed, or (for the last one) reported no change: the model reads their results and
+concludes again. Calls after it in the turn don't run. The instructions tell the model
+that a step which only lists actions may end in the turn of its last action, with no
+model call to read the result. A tool that throws
 is a failed call the model reads, except a hard stop of the step, which ends
 the loop. `ToolLoopHelpers.GuardAsync` gives a tool the same rule for work of its
 own. `PrepareMessages` runs between turns to shorten the history, or stops the

@@ -217,13 +217,17 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         DeviceWorker worker;
         try
         {
-            var binding = engine.Pool.Binding(info.TargetName, info.WorkerSlot, info.Env);
+            var binding = engine.Pool.Binding(
+                new SessionOwner(info.TargetName, info.HostId),
+                info.WorkerSlot,
+                info.Env
+            );
             await SettleBeforeStartAsync(
                     engine.InflightOf(info.TargetName, info.WorkerSlot, binding),
                     cancellationToken
                 )
                 .ConfigureAwait(false);
-            var session = engine.Pool.Session(info.TargetName, info.WorkerSlot);
+            var session = engine.Pool.Session(new SessionOwner(info.TargetName, info.HostId), info.WorkerSlot);
             var label = DeviceBindings.DeviceLabel(binding);
             var where = $"session {session}{(label is null ? "" : $" on {label}")}";
             worker = engine.WorkerOf(info.TargetName, info.WorkerSlot, binding);
@@ -1016,7 +1020,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         Rect? KeyboardFrame = null,
         long? RefsGeneration = null,
         bool? KeyboardProbeVisible = null,
-        IReadOnlyList<string>? Warnings = null
+        IReadOnlyList<string>? Warnings = null,
+        string? KeyboardReason = null
     )
     {
         public static RawSnapshot Empty { get; } = new([], false, null, null, false);
@@ -1066,7 +1071,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
                 data["keyboard"]?["visible"] is JsonValue probe && probe.TryGetValue<bool>(out var probed)
                     ? probed
                     : null,
-                data["warnings"] is JsonArray warnings ? [.. warnings.Select(Text).OfType<string>()] : null
+                data["warnings"] is JsonArray warnings ? [.. warnings.Select(Text).OfType<string>()] : null,
+                Text(data["keyboard"]?["reason"])
             );
         }
     }

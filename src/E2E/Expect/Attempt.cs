@@ -6,7 +6,7 @@ namespace E2E;
 
 /// <summary>
 /// The running attempt, published for code that has no session to hang off, such as <see cref="Launch"/>. Upstream's <c>PublishedAttempt</c>
-/// (<c>expect/attempt.ts</c>); the port keeps the part a host and its sessions read, since it has no <c>expect.poll</c> scope, soft-failure list, or budget to publish.
+/// (<c>expect/attempt.ts</c>); the port keeps the part a host and its sessions read, since it has no soft-failure list or budget to publish.
 /// </summary>
 internal sealed record PublishedAttempt
 {
@@ -24,6 +24,9 @@ internal sealed record PublishedAttempt
     /// no timeout to move, as in a hosted session.
     /// </summary>
     public Func<TimeSpan, bool>? SetTimeout { get; init; }
+
+    /// <summary>The polls the test body and its fixtures start; one still running when the body returns fails it. Upstream's <c>polls</c>. Null where the attempt has no body, as in a hosted session.</summary>
+    public PollScope? Polls { get; init; }
 
     /// <summary>The config's <c>toPass</c> defaults, which <see cref="ValueExpectation{T}.ToPassAsync(PassOptions?, CancellationToken)"/> falls back to (upstream's <c>toPass</c>).</summary>
     public PassOptions? ToPass { get; init; }

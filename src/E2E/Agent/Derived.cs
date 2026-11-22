@@ -21,7 +21,11 @@ namespace E2E;
 /// Whether the model received a screenshot in this step. Text drawn in pixels is not in <paramref name="Shown"/>, so a value that is
 /// not literal may have been read off the image and counts as derived.
 /// </param>
-/// <param name="InputPurpose">The purpose the engine reported for the field the value went into (<c>SemanticNode.InputPurpose</c>).</param>
+/// <param name="InputPurpose">
+/// The purpose of the field the value went into: the one the engine reported for it (<c>SemanticNode.InputPurpose</c>), or, for typing
+/// into the focused field, which names none, <c>one-time-code</c> once a screen of the step listed such a field
+/// (<see cref="ObservationFeed.OneTimeCodeShown"/>).
+/// </param>
 internal sealed record StepEvidence(
     IEnumerable<string>? Shown = null,
     bool? Pixels = null,
@@ -46,7 +50,7 @@ internal sealed record StepEvidence(
 /// whitespace-normalized), <c>MintedToken</c> (the value is data-shaped, one token with a digit, and some node showed it as a word of
 /// its own; the digit is a glyph test standing in for provenance, so "1" typed beside a "Row 1" label is flagged too and the executor
 /// runs that part live; also any value typed into a field the app marks as a one-time code: the app issues that code per run, and a code
-/// split over one box per digit puts a single digit in each fill, which no screen shows as a word of its own), and <c>Date</c> (a date or a clock time, which the model reckons from today).
+/// split over one box per digit puts a single digit in each fill, which no screen shows as a word of its own; typing into the focused field names no field, so in a step whose screens listed a one-time-code field its value is judged as if it went into one), and <c>Date</c> (a date or a clock time, which the model reckons from today).
 /// </para>
 /// <para>
 /// A bare word inside a sentence is none of these: "one" typed on a page that lists "Row one" is the model's own choice, and the

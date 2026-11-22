@@ -212,7 +212,7 @@ public static partial class SnapshotProjection
     ];
 
     /// <summary>One element-type spelling for <c>NavigationBar</c>, <c>XCUIElementTypeNavigationBar</c>, <c>navigation-bar</c>, and <c>android.widget.NavigationBar</c> alike.</summary>
-    internal static string NormalizeKind(string type)
+    private static string NormalizeKind(string type)
     {
         var simple = XcuiElementTypePrefix().Replace(type[(type.LastIndexOf('.') + 1)..], "");
         simple = WordBoundary().Replace(simple, "$1-$2");
@@ -428,7 +428,7 @@ public static partial class SnapshotProjection
     }
 
     /// <summary>Platform element types that are the soft keyboard or one of its keys, as agent-device names them.</summary>
-    internal static readonly HashSet<string> KeyboardKinds = ["keyboard", "key"];
+    private static readonly HashSet<string> KeyboardKinds = ["keyboard", "key"];
 
     /// <summary>
     /// Whether a raw node is the soft keyboard: the keyboard element or one of its keys (a capture can list keys with no
@@ -437,6 +437,49 @@ public static partial class SnapshotProjection
     /// </summary>
     private static bool IsKeyboardElement(RawNode node) =>
         KeyboardKinds.Contains(KindOf(node)) || node.Identifier == "SystemInputAssistantView";
+
+    /// <summary>
+    /// Whether the tree lists the soft keyboard drawn on screen: a keyboard or a key with a nonzero frame that overlaps the
+    /// screen. The suggestion strip alone is not one: with a hardware keyboard, XCTest lists the strip and no keys. A keyboard
+    /// left in the tree off screen after it was dismissed is not one either, and with no viewport and no window to bound the
+    /// screen nothing counts, since the tree's own extent would hold the keyboard it is asked about.
+    /// </summary>
+    public static bool KeyboardOnScreen(IReadOnlyList<RawNode> nodes, ViewportSize? viewport)
+    {
+        var screen = viewport ?? ScreenOf(nodes);
+        return screen is { } bounds
+            && OnScreenRects(DrawnKeyboardRects(nodes, node => KeyboardKinds.Contains(KindOf(node))), bounds).Count > 0;
+    }
+
+    /// <summary>
+    /// The top edge of the highest keyboard element drawn on <paramref name="viewport"/>, the suggestion strip included, so a
+    /// drag that starts above it starts on neither the keys nor the strip; null when there is none.
+    /// </summary>
+    public static double? KeyboardElementsTop(IReadOnlyList<RawNode> nodes, ViewportSize viewport)
+    {
+        var onScreen = OnScreenRects(DrawnKeyboardRects(nodes), viewport);
+        return onScreen.Count == 0 ? null : onScreen.Min(rect => rect.Y);
+    }
+
+    /// <summary>The rects that overlap a screen of this size.</summary>
+    private static List<Rect> OnScreenRects(IReadOnlyList<Rect> rects, ViewportSize screen) =>
+        [
+            .. rects.Where(rect =>
+                rect.X < screen.Width && rect.X + rect.Width > 0 && rect.Y < screen.Height && rect.Y + rect.Height > 0
+            ),
+        ];
+
+    /// <summary>The frames of the tree's drawn nodes (a nonzero frame, not hidden from the user) that <paramref name="include"/> picks, by default every keyboard element.</summary>
+    private static List<Rect> DrawnKeyboardRects(IReadOnlyList<RawNode> nodes, Func<RawNode, bool>? include = null)
+    {
+        include ??= IsKeyboardElement;
+        return
+        [
+            .. nodes
+                .Where(node => node.Rect is { Width: > 0, Height: > 0 } && node.VisibleToUser != false && include(node))
+                .Select(node => node.Rect!.Value),
+        ];
+    }
 
     /// <summary>
     /// The band the soft keyboard covers: the frame the capture's producer measured or derived, else the keyboard elements
@@ -464,12 +507,7 @@ public static partial class SnapshotProjection
             return null;
         }
 
-        var boards = nodes
-            .Where(node =>
-                node.Rect is { Width: > 0, Height: > 0 } && node.VisibleToUser != false && IsKeyboardElement(node)
-            )
-            .Select(node => node.Rect!.Value)
-            .ToList();
+        var boards = DrawnKeyboardRects(nodes);
         if (boards.Count == 0)
         {
             return null;
@@ -554,22 +592,7 @@ public static partial class SnapshotProjection
     /// </summary>
     public static ViewportSize? ViewportOf(IReadOnlyList<RawNode> raw)
     {
-        // The largest window, not the first: a system bar can be a window too, and a 63-pixel screen would
-        // keep every bar as "too tall to be a bar".
-        ViewportSize? screen = null;
-        foreach (var node in raw)
-        {
-            if (!ScreenKinds.Contains(KindOf(node)) || node.Rect is not { } rect || rect.Width <= 0 || rect.Height <= 0)
-            {
-                continue;
-            }
-
-            if (screen is not { } best || rect.Width * rect.Height > best.Width * best.Height)
-            {
-                screen = new ViewportSize(rect.Width, rect.Height);
-            }
-        }
-
+        var screen = ScreenOf(raw);
         if (screen is not null)
         {
             return screen;
@@ -587,6 +610,28 @@ public static partial class SnapshotProjection
         }
 
         return width > 0 && height > 0 ? new ViewportSize(width, height) : null;
+    }
+
+    /// <summary>The screen's logical size from the largest application or window node; null when the tree has none.</summary>
+    private static ViewportSize? ScreenOf(IReadOnlyList<RawNode> raw)
+    {
+        // The largest window, not the first: a system bar can be a window too, and a 63-pixel screen would
+        // keep every bar as "too tall to be a bar".
+        ViewportSize? screen = null;
+        foreach (var node in raw)
+        {
+            if (!ScreenKinds.Contains(KindOf(node)) || node.Rect is not { } rect || rect.Width <= 0 || rect.Height <= 0)
+            {
+                continue;
+            }
+
+            if (screen is not { } best || rect.Width * rect.Height > best.Width * best.Height)
+            {
+                screen = new ViewportSize(rect.Width, rect.Height);
+            }
+        }
+
+        return screen;
     }
 
     /// <summary>

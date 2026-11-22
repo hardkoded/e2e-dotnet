@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace E2E.Internal;
@@ -14,7 +15,21 @@ namespace E2E.Internal;
 internal static class AbandonedWork
 {
     private static readonly ConditionalWeakTable<Exception, object> Rejections = new();
+    private static readonly ConditionalWeakTable<Exception, StackTrace> Relocated = new();
     private static volatile bool _workLeftBehind;
+
+    /// <summary>Sets <paramref name="error"/>'s stack to the call site <paramref name="stack"/>, as the frames the report names its line from. Upstream's <c>relocateStack</c>; a .NET stack cannot be rewritten, so the serializer reads this.</summary>
+    public static void RelocateStack(Exception error, StackTrace? stack)
+    {
+        if (stack is not null)
+        {
+            Relocated.AddOrUpdate(error, stack);
+        }
+    }
+
+    /// <summary>The call site <see cref="RelocateStack"/> set for <paramref name="error"/>, or null.</summary>
+    public static StackTrace? RelocatedStack(Exception error) =>
+        Relocated.TryGetValue(error, out var stack) ? stack : null;
 
     /// <summary>
     /// Whether the process stopped waiting for work that may still hold it open: a reporter that was given up on. Upstream's <c>leftWorkBehind</c>;

@@ -23,6 +23,8 @@ An engine with upstream's optional `dispose` hook (declared in `engine/index.ts`
 where the engine releases what its workers hold, or keeps the run-owned part of it when [ReuseSignal](/api/E2E.Engine/EngineDisposeContext/#E2E_Engine_EngineDisposeContext_ReuseSignal) is live.
 .NET-only name: upstream's engine has the member in the same contract as `prepare` and `finish`.
 
+**Derived:** [WebEngine](/api/E2E.Engine/WebEngine/)
+
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IPreparableEngine.cs)
 
 ## Methods

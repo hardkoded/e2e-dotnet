@@ -125,7 +125,8 @@ internal sealed class Harness
         string? artifactsDir = null,
         TimeSpan? actionTimeout = null,
         CancellationToken cancellationToken = default,
-        string? attemptId = null
+        string? attemptId = null,
+        string? hostId = null
     ) =>
         Engine.StartAsync(
             new MobileStartInfo
@@ -133,6 +134,7 @@ internal sealed class Harness
                 RunId = "run-1",
                 AttemptId = attemptId ?? Guid.NewGuid().ToString("n"),
                 TargetName = targetName,
+                HostId = hostId,
                 WorkerSlot = workerSlot,
                 ProjectRoot = ProjectRoot,
                 Env = env ?? new Dictionary<string, string?>(),
@@ -147,12 +149,14 @@ internal sealed class Harness
         int slots = 1,
         string targetName = "ios",
         Action<string>? log = null,
-        IReadOnlyDictionary<string, string?>? env = null
+        IReadOnlyDictionary<string, string?>? env = null,
+        string? hostId = null
     ) =>
         new()
         {
             RunId = "run-1",
             TargetName = targetName,
+            HostId = hostId,
             ProjectRoot = ProjectRoot,
             Slots = slots,
             Env = env ?? new Dictionary<string, string?>(),
@@ -160,11 +164,16 @@ internal sealed class Harness
             Log = log ?? (_ => { }),
         };
 
-    public static MobileFinishInfo FinishInfo(Action<string>? log = null, string targetName = "ios") =>
+    public static MobileFinishInfo FinishInfo(
+        Action<string>? log = null,
+        string targetName = "ios",
+        string? hostId = null
+    ) =>
         new()
         {
             RunId = "run-1",
             TargetName = targetName,
+            HostId = hostId,
             Env = new Dictionary<string, string?>(),
             Log = log ?? (_ => { }),
             CleanupTimeout = TimeSpan.FromSeconds(5),

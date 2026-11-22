@@ -71,6 +71,9 @@ public sealed record MobileStartInfo
 
     public int WorkerSlot { get; init; }
 
+    /// <summary>The <c>launch()</c> host this worker belongs to; see <see cref="IEngineHostIdentity.HostId"/>.</summary>
+    public string? HostId { get; init; }
+
     public string ProjectRoot { get; init; } = Directory.GetCurrentDirectory();
 
     /// <summary>The environment the worker reads its binding from, never the process environment.</summary>
@@ -377,6 +380,7 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
                 {
                     RunId = info.RunId,
                     TargetName = info.TargetName,
+                    HostId = info.HostId,
                     ProjectRoot = info.ProjectRoot ?? Directory.GetCurrentDirectory(),
                     Slots = info.Slots,
                     Env = info.Env,
@@ -410,6 +414,7 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
             {
                 RunId = info.RunId,
                 TargetName = info.TargetName,
+                HostId = info.HostId,
                 Env = info.Env,
                 Log = info.Log,
                 CleanupTimeout = info.CleanupTimeout,
@@ -431,6 +436,7 @@ public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine,
                 new MobileStartInfo
                 {
                     TargetName = Options.TargetName,
+                    HostId = options.HostId,
                     AttemptId = options.AttemptId ?? Guid.NewGuid().ToString("n"),
                     ProjectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory(),
                     Env = options.Env ?? new Dictionary<string, string?>(),

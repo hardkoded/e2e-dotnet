@@ -15,7 +15,7 @@ Namespace: [E2E.Engine](/api/E2E.Engine/)
 
 
 ```csharp
-public sealed record EngineFinishInfo : IEquatable<EngineFinishInfo>
+public sealed record EngineFinishInfo : IEngineHostIdentity, IEquatable<EngineFinishInfo>
 ```
 
 
@@ -24,7 +24,7 @@ gone, with the cleanup budget of one hook. Upstream's `EngineFinishInfo`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-**Implements:** [IEquatable&lt;EngineFinishInfo&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
+**Implements:** [IEngineHostIdentity](/api/E2E.Engine/IEngineHostIdentity/), [IEquatable&lt;EngineFinishInfo&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
@@ -62,6 +62,22 @@ public required IReadOnlyDictionary<string, string?> Env { get; init; }
 The run's environment, the same prepare saw.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+
+<a id="E2E_Engine_EngineFinishInfo_HostId_"></a>
+<a id="E2E_Engine_EngineFinishInfo_HostId"></a>
+
+### HostId
+
+
+```csharp
+public string? HostId { get; init; }
+```
+
+
+Set when a `launch()` host holds the target: a token no other host has. Hosts name their targets alike, so an engine that names
+what it holds after the target (a device session) adds this to keep hosts apart. Upstream's `hostId`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_Engine_EngineFinishInfo_Log_"></a>
 <a id="E2E_Engine_EngineFinishInfo_Log"></a>

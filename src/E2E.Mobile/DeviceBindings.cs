@@ -84,16 +84,18 @@ public static class DeviceBindings
 
     /// <summary>
     /// The environment variable a target's bindings travel to the workers in: the name made environment-safe for
-    /// reading, plus a digest of the exact name so <c>ios-a</c> and <c>ios.a</c> never share a key.
+    /// reading, plus a digest of the exact name so <c>ios-a</c> and <c>ios.a</c> never share a key. A <c>launch()</c> host's <paramref name="hostId"/> joins the digest: a host opened inside a test inherits the run's environment, where the run's own bindings for a target of the same name already sit.
     /// </summary>
-    public static string Variable(string targetName)
+    public static string Variable(string targetName, string? hostId = null)
     {
         var readable = new string(
             targetName
                 .Select(character => char.IsAsciiLetterOrDigit(character) ? char.ToUpperInvariant(character) : '_')
                 .ToArray()
         );
-        var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(targetName)))[..8];
+        var digest = Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(hostId is null ? targetName : $"{targetName}\0{hostId}"))
+        )[..8];
         return $"E2E_AGENT_DEVICE_POOL_{readable}_{digest}";
     }
 

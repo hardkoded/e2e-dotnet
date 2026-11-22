@@ -271,13 +271,16 @@ public sealed class E2ESession : IAsyncDisposable
         var projectRoot = Path.GetFullPath(
             string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot
         );
+        // The attempt's id is minted here, before the engine starts, so the start options and every call's context name the one id.
+        var attemptId = Guid.CreateVersion7().ToString();
         var attemptDir = Path.Combine([
             Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
-            .. ArtifactPaths.AttemptSegments(
-                options.RerunDir,
-                AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle),
-                options.Attempt - 1
-            ),
+            .. options.ArtifactSegments?.Invoke(attemptId)
+                ?? ArtifactPaths.AttemptSegments(
+                    options.RerunDir,
+                    AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle),
+                    options.Attempt - 1
+                ),
         ]);
 
         var timeout = NewTimeoutSource(options.Clock, cancellationToken);
@@ -330,9 +333,6 @@ public sealed class E2ESession : IAsyncDisposable
         var debug = new DebugTrace(options.Debug);
         IEngineSession engine;
 
-        // The attempt's id is minted here, before the engine starts, so the start options and every call's context name the one id.
-        var attemptId = Guid.CreateVersion7().ToString();
-
         // An attempt that keeps a trace takes the screen each action leaves; one that does not asks the engine for none.
         var screens = new SessionScreens(
             RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1) is not null
@@ -361,6 +361,7 @@ public sealed class E2ESession : IAsyncDisposable
                             {
                                 BaseUrl = baseUrl,
                                 TargetName = options.TargetName,
+                                HostId = options.HostId,
                                 Headed = options.Headed,
                                 RunId = AttemptReport.RunId,
                                 AttemptId = attemptId,
@@ -810,6 +811,7 @@ public sealed class E2ESession : IAsyncDisposable
                         Guests = guests.Offer,
                         SetTimeout = session.SetTimeoutOf(attemptTimeout),
                         ToPass = options.Config?.ToPass,
+                        Polls = new PollScope("the test body"),
                     };
                     session._published = Attempts.PublishAttempt(session._publishedAttempt);
                 }
@@ -871,6 +873,8 @@ public sealed class E2ESession : IAsyncDisposable
             }
         }
 
+        // Each member's body owns the polls it starts.
+        _publishedAttempt = _publishedAttempt with { Polls = new PollScope("the test body") };
         _published = Attempts.PublishAttempt(_publishedAttempt);
         previous?.Dispose();
     }
@@ -1000,7 +1004,14 @@ public sealed class E2ESession : IAsyncDisposable
         // The first call is the body's end: what it left running on the sessions it opened fails the test, and is cut before teardown starts.
         if (_guests is { } guests && Interlocked.Exchange(ref _bodyEnded, 1) == 0)
         {
+            // A poll is cancelled alone; left alone, its timeout would fail whatever ran then. Steps come first in the errors, polls last.
+            var pollsNotAwaited = _publishedAttempt?.Polls?.Close();
             var abandoned = await guests.AbandonRunningAsync().ConfigureAwait(false);
+            if (pollsNotAwaited is not null)
+            {
+                abandoned = [.. abandoned, pollsNotAwaited];
+            }
+
             if (abandoned.Count > 0)
             {
                 // The attempt's own settle still runs; the first of the errors is the test's, and the settle's own failure is secondary.
@@ -2336,6 +2347,15 @@ public sealed class E2ESessionOptions
     /// attempt writes over the evidence of the report it reruns. Null for any other run.
     /// </summary>
     internal string? RerunDir { get; init; }
+
+    /// <summary>The <c>launch()</c> host this session belongs to, handed to the engine; see <see cref="IEngineHostIdentity.HostId"/>.</summary>
+    internal string? HostId { get; init; }
+
+    /// <summary>
+    /// The folders, under <see cref="ResultsDirectory"/>, the attempt's artifacts go in, given the attempt's id. Null names them after the test, as a
+    /// run does. Upstream's <c>identity</c> of <c>openWorker</c>, whose <c>segments</c> a <c>launch()</c> host names after its token.
+    /// </summary>
+    internal Func<string, IReadOnlyList<string>>? ArtifactSegments { get; init; }
 
     /// <summary>Where the stored screenshots of the test file a call was made from live. Null keeps them in <c>&lt;test file&gt;-snapshots</c>.</summary>
     internal Func<string?, string?>? SnapshotDirectoryOf { get; init; }

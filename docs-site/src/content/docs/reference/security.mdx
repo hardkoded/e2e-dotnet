@@ -10,6 +10,7 @@ This page ports the parts of upstream's `docs/reference/security.mdx` (tester-ar
 Text a model, a report, or a log would carry is redacted: a configured secret's value shows as its `<secret:name>` marker. Redaction matches strings, so these pass through:
 
 - a value a secret provider returns, in titles and in an `e2e explore --changed-since` brief: both are redacted before any provider runs, so the provider's value is not yet known,
+- on the web engine, a password field that a page script hides from e2e, for example by replacing `Element.prototype.matches`. e2e reads it as a plain field: the observed screen and `InputValueAsync` show its value, and a failed `ToHaveValueAsync` prints it. `GetAttributeAsync` and `ToHaveAttributeAsync` do the same when the HTML `value` attribute holds it. A configured secret's value is still `<secret:name>`. Screenshots still mask the field, unless it is in a closed shadow root and the page also replaces `querySelectorAll`,
 - a screenshot, including one sent to the model: it masks secure fields only, after a secret fill too,
 - video: it masks nothing and is labeled `redaction: "incomplete"`,
 - in an `e2e explore --changed-since` brief, a run of fewer than 8 characters of a value, such as a short last line of a multiline key that git prints on a line of its own.

@@ -380,6 +380,134 @@ public sealed class LifecycleTests
         Assert.DoesNotContain("devices.boot", held.Fake.Methods());
     }
 
+    private static JsonArray Booted(params JsonObject[] extra) =>
+        [
+            .. extra.Length > 0
+                ? extra
+                :
+                [
+                    new JsonObject
+                    {
+                        ["platform"] = "ios",
+                        ["id"] = "B",
+                        ["name"] = "B",
+                        ["booted"] = true,
+                    },
+                ],
+        ];
+
+    [Fact]
+    public async Task Names_a_launch_hosts_session_after_its_host_id_so_it_leaves_the_device_a_worker_of_the_same_target_holds_and_keeps_the_one_it_holds_itself()
+    {
+        var h = Harness.Create();
+        h.Fake.Respond(DeviceMethods.DevicesList, _ => new JsonArray(
+            Claimed("A", "e2e-ios-0", "/project"),
+            Claimed("B", "e2e-ios-abc123-0", "/project")
+        ));
+        var info = h.PrepareInfo(1, targetName: "ios", hostId: "abc123");
+        var prepared = await h.Engine.PrepareAsync(info, CancellationToken.None);
+        Assert.Equal(1, prepared.Workers);
+        var boots = h.Fake.Calls.Where(call => call.Method == "devices.boot").ToList();
+        JsonAssert.Args("""{"platform":"ios","udid":"B"}""", Assert.Single(boots).Args);
+
+        // The worker's init resumes the session prepare warmed, not the target's plain one.
+        await h.Boot("ios", 0, Harness.WorkerEnv(prepared), hostId: "abc123");
+        Assert.Equal(["e2e-ios-abc123-0"], h.Sessions.Distinct());
+
+        // The `session` option names the session whole, as it documents.
+        var optioned = Harness.Create(options => options with { Session = "mine" });
+        optioned.Fake.Respond(DeviceMethods.DevicesList, _ => Booted());
+        await optioned.Engine.PrepareAsync(
+            optioned.PrepareInfo(1, targetName: "ios", hostId: "abc123"),
+            CancellationToken.None
+        );
+        Assert.Equal(["mine-0"], optioned.Sessions.Distinct());
+    }
+
+    [Fact]
+    public async Task Hands_a_launch_hosts_bindings_to_its_worker_under_a_variable_of_its_own_so_a_host_inside_a_run_never_reads_the_runs()
+    {
+        var h = Harness.Create();
+        h.Fake.Respond(DeviceMethods.DevicesList, _ => Booted());
+        var handed = (
+            await h.Engine.PrepareAsync(h.PrepareInfo(1, targetName: "ios", hostId: "abc123"), CancellationToken.None)
+        ).Env;
+
+        // The run's own worker holds device A under the target's plain variable, in the environment the host inherits.
+        var run = Harness.Create();
+        run.Fake.Respond(DeviceMethods.DevicesList, _ => Booted(
+                new JsonObject
+                {
+                    ["platform"] = "ios",
+                    ["id"] = "A",
+                    ["name"] = "A",
+                    ["booted"] = true,
+                }
+            ));
+        var inherited = (
+            await run.Engine.PrepareAsync(run.PrepareInfo(1, targetName: "ios"), CancellationToken.None)
+        ).Env;
+        Assert.NotEqual(handed.Keys, inherited.Keys);
+
+        // A worker in another process has no bindings in memory: it reads the host's variable, not the run's.
+        var worker = Harness.Create();
+        var env = inherited.Concat(handed).ToDictionary(pair => pair.Key, pair => (string?)pair.Value);
+        await worker.Boot("ios", 0, env, hostId: "abc123");
+        JsonAssert.Args("""{"platform":"ios","udid":"B"}""", worker.Fake.LastArgs("devices.boot"));
+    }
+
+    [Fact]
+    public async Task Fails_a_launch_hosts_finish_when_its_session_will_not_close_since_no_later_host_shares_the_name_to_take_the_device_back()
+    {
+        Harness Refusing(
+            Func<MobileOptions, MobileOptions>? configure = null,
+            string code = "COMMAND_FAILED",
+            string message = "daemon refused"
+        )
+        {
+            var h = Harness.Create(configure);
+            h.Fake.Respond(DeviceMethods.DevicesList, _ => Booted());
+            h.Fake.Respond(DeviceMethods.SessionsClose, _ => throw new AgentDeviceError(code, message));
+            return h;
+        }
+
+        var host = Refusing();
+        await host.Engine.PrepareAsync(
+            host.PrepareInfo(1, targetName: "ios", hostId: "abc123"),
+            CancellationToken.None
+        );
+        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+            host.Engine.FinishAsync(Harness.FinishInfo(targetName: "ios", hostId: "abc123"), CancellationToken.None)
+        );
+        Assert.Equal(EngineErrorCodes.EngineFailure, failure.Code);
+        Assert.Matches(
+            @"session ""e2e-ios-abc123-0"" \(daemon refused\) did not close, so its device stays held",
+            failure.Message
+        );
+
+        // A session its worker already closed is closed.
+        var gone = Refusing(code: "SESSION_NOT_FOUND", message: "no such session");
+        await gone.Engine.PrepareAsync(
+            gone.PrepareInfo(1, targetName: "ios", hostId: "abc123"),
+            CancellationToken.None
+        );
+        await gone.Engine.FinishAsync(Harness.FinishInfo(targetName: "ios", hostId: "abc123"), CancellationToken.None);
+
+        // A run's worker and a `session` option keep their names, so the next one takes the device back.
+        var worker = Refusing();
+        await worker.Engine.PrepareAsync(worker.PrepareInfo(1, targetName: "ios"), CancellationToken.None);
+        await worker.Engine.FinishAsync(Harness.FinishInfo(targetName: "ios"), CancellationToken.None);
+        var optioned = Refusing(options => options with { Session = "mine" });
+        await optioned.Engine.PrepareAsync(
+            optioned.PrepareInfo(1, targetName: "ios", hostId: "abc123"),
+            CancellationToken.None
+        );
+        await optioned.Engine.FinishAsync(
+            Harness.FinishInfo(targetName: "ios", hostId: "abc123"),
+            CancellationToken.None
+        );
+    }
+
     [Fact]
     public async Task Drives_a_discovered_Android_emulator_by_its_serial_and_reads_a_configured_serial_UDID_or_name_as_agent_device_does()
     {

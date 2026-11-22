@@ -251,8 +251,30 @@ internal static class ReadSemantics
           };
           // WAI-ARIA presentational-role conflict resolution: `presentation` or `none` is ignored on a
           // focusable element or one with a global ARIA attribute, and the tag's role stands.
-          const hasPresentationConflict = (el) =>
-            isFocusable(el) || hasGlobalAriaAttribute(el, NAME_PROHIBITED_TAG_ROLES[el.tagName.toLowerCase()] ?? null);
+          const hasPresentationConflict = (el, role) => isFocusable(el) || hasGlobalAriaAttribute(el, role);
+          // The parent tags a required child inherits a presentational role from, as Playwright's getByRole reads it. Playwright's
+          // dt, dd, and div entries are left out on purpose: this reader gives those tags no role.
+          const PRESENTATION_INHERITANCE_PARENTS = new Map([
+            ["li", ["ol", "ul"]],
+            ["thead", ["table"]],
+            ["tbody", ["table"]],
+            ["tfoot", ["table"]],
+            ["tr", ["thead", "tbody", "tfoot", "table"]],
+            ["td", ["tr"]],
+            ["th", ["tr"]],
+          ]);
+          // WAI-ARIA presentational role inheritance: a row, cell, or list item has no role of its own once its table or list is
+          // `presentation` or `none`.
+          const inheritedPresentationRole = (el) => {
+            for (let current = el; ; ) {
+              const parent = current.parentElement;
+              const parents = PRESENTATION_INHERITANCE_PARENTS.get(current.tagName.toLowerCase());
+              if (parent === null || parents === undefined || parents.indexOf(parent.tagName.toLowerCase()) === -1) return null;
+              const role = explicitRole(parent);
+              if ((role === "presentation" || role === "none") && !hasPresentationConflict(parent, role)) return role;
+              current = parent;
+            }
+          };
           // Smallest side, in CSS pixels, an empty box must have to be worth reporting.
           const MIN_BOX_SIDE = 12;
           // True when a computed style paints something a person can see.
@@ -285,14 +307,7 @@ internal static class ReadSemantics
             if (rect.width < MIN_BOX_SIDE || rect.height < MIN_BOX_SIDE) return false;
             return hasPaint(style);
           });
-          const roleOf = (el) => {
-            const explicit = explicitRole(el);
-            if (explicit !== null && !((explicit === "presentation" || explicit === "none") && hasPresentationConflict(el))) {
-              // The vocabulary spells ARIA's `img` as `image`.
-              return explicit === "img" ? "image" : explicit;
-            }
-            // Ahead of the tag: an editor's host is the control, whatever landmark or structure its tag would otherwise be.
-            if (isEditingHost(el)) return "textbox";
+          const tagRole = (el) => {
             // Read by name whatever the namespace, as upstream lowercases tagName: an element a page adds in another namespace is still a button.
             const tag = el.tagName.toUpperCase();
             switch (tag) {
@@ -368,6 +383,18 @@ internal static class ReadSemantics
             if (el.getAttribute("aria-live")) return "status";
             // Last: an element with no role of its own that is an empty painted rectangle is a `box`, so the walk and a re-read agree.
             return isVisibleEmptyBox(el) ? "box" : null;
+          };
+          const roleOf = (el) => {
+            const explicit = explicitRole(el);
+            const tagName = el.tagName.toLowerCase();
+            if (explicit !== null && !((explicit === "presentation" || explicit === "none") && hasPresentationConflict(el, NAME_PROHIBITED_TAG_ROLES[tagName] ?? null))) {
+              // The vocabulary spells ARIA's `img` as `image`.
+              return explicit === "img" ? "image" : explicit;
+            }
+            // Ahead of the tag: an editor's host is the control, whatever landmark or structure its tag would otherwise be.
+            if (isEditingHost(el)) return "textbox";
+            const role = tagRole(el);
+            return role === null ? null : inheritedPresentationRole(el) ?? role;
           };
           // The accessible name, by upstream's accname rules. A walk's
           // inReference is set inside an aria-labelledby traversal, where a
