@@ -413,7 +413,13 @@ public sealed class SoftValueExpectation<T>
         {
             await _expect.ToPassAsync(options, cancellationToken).ConfigureAwait(false);
         }
-        catch (TestException ex) when (ex.Code == "ASSERTION_FAILED" && _failures.Keep(ex)) { }
+        catch (TestException ex) when (ex.Code == "ASSERTION_FAILED")
+        {
+            if (!_failures.Keep(ex))
+            {
+                throw;
+            }
+        }
     }
 
     private void Keep(Action matcher)
