@@ -811,6 +811,7 @@ public sealed class E2ESession : IAsyncDisposable
                         Guests = guests.Offer,
                         SetTimeout = session.SetTimeoutOf(attemptTimeout),
                         ToPass = options.Config?.ToPass,
+                        Polls = new PollScope("the test body"),
                     };
                     session._published = Attempts.PublishAttempt(session._publishedAttempt);
                 }
@@ -872,6 +873,8 @@ public sealed class E2ESession : IAsyncDisposable
             }
         }
 
+        // Each member's body owns the polls it starts.
+        _publishedAttempt = _publishedAttempt with { Polls = new PollScope("the test body") };
         _published = Attempts.PublishAttempt(_publishedAttempt);
         previous?.Dispose();
     }
@@ -1001,7 +1004,14 @@ public sealed class E2ESession : IAsyncDisposable
         // The first call is the body's end: what it left running on the sessions it opened fails the test, and is cut before teardown starts.
         if (_guests is { } guests && Interlocked.Exchange(ref _bodyEnded, 1) == 0)
         {
+            // A poll is cancelled alone; left alone, its timeout would fail whatever ran then. Steps come first in the errors, polls last.
+            var pollsNotAwaited = _publishedAttempt?.Polls?.Close();
             var abandoned = await guests.AbandonRunningAsync().ConfigureAwait(false);
+            if (pollsNotAwaited is not null)
+            {
+                abandoned = [.. abandoned, pollsNotAwaited];
+            }
+
             if (abandoned.Count > 0)
             {
                 // The attempt's own settle still runs; the first of the errors is the test's, and the settle's own failure is secondary.
