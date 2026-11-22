@@ -267,7 +267,7 @@ public sealed class E2ESession : IAsyncDisposable
             ? ExecuteVideo.PlanGiven(options, given)
             : ExecuteVideo.Plan(options);
 
-        var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var timeout = NewTimeoutSource(options.Clock, cancellationToken);
         Deadline? budgetDeadline = null;
         if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
         {
@@ -1474,6 +1474,31 @@ public sealed class E2ESession : IAsyncDisposable
     }
 
     // The session's own agent settings are the default agent. Agents names the others.
+    /// <summary>.NET-only: the test's signal. With the system clock it links to the caller's token; with an injected clock (<see cref="E2ESessionOptions.Clock"/>) its timer reads that clock too, and the caller's token cancels it.</summary>
+    private static CancellationTokenSource NewTimeoutSource(TimeProvider clock, CancellationToken cancellationToken)
+    {
+        if (clock == TimeProvider.System)
+        {
+            return CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        }
+
+        var source = new CancellationTokenSource(Timeout.InfiniteTimeSpan, clock);
+        if (cancellationToken.CanBeCanceled)
+        {
+            // Only a test seam reaches here, so the registration lives as long as the caller's token.
+            cancellationToken.Register(() =>
+            {
+                try
+                {
+                    source.Cancel();
+                }
+                catch (ObjectDisposedException) { }
+            });
+        }
+
+        return source;
+    }
+
     private static Dictionary<string, ResolvedAgent> ResolveAgents(E2ESessionOptions options)
     {
         var agents = new Dictionary<string, ResolvedAgent>(StringComparer.Ordinal)
