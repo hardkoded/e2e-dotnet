@@ -495,9 +495,10 @@ await Screen.GetByLabel("Password").FillAsync(admin.Password);
 await Screen.GetByRole("button", "Sign in").ClickAsync();
 ```
 
-A password field's value never reaches the model, and a text, value, or
-attribute expectation on it fails with `POLICY_DENIED`: assert the outcome,
-not the value.
+A password field's value never reaches the model, unless a page script hides
+the field from e2e (see "Redaction" in the security reference). A text, value,
+or attribute expectation on a secure field fails with `POLICY_DENIED`: assert
+the outcome, not the value.
 
 A secret from `Secrets.Get(name)` is a generic one: the agent fills it into
 any editable field, a rich-text editor included. A `Credentials.User` password
