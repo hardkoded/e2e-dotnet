@@ -5,6 +5,7 @@
 using System.Reflection;
 using System.Security;
 using System.Text.RegularExpressions;
+using E2E.Internal;
 using NUnit.Common;
 using NUnit.Framework.Api;
 using NUnit.Framework.Interfaces;
@@ -206,11 +207,31 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
 
     /// <summary>
     /// The reason the test <paramref name="name"/> is marked as expected to fail, or null. The mark is the NUnit property <see cref="ExpectedFailureProperty"/>:
-    /// <c>[Property("E2E.Fail", "reason")]</c> on the test, or <c>TestContext.CurrentContext.Test.Properties.Set</c> in its body (upstream's <c>fail</c> option
+    /// <c>[Property("E2E.Fail", "reason")]</c> on the test or its fixture, or <c>TestContext.CurrentContext.Test.Properties.Set</c> in its body (upstream's <c>fail</c> option
     /// and <c>test.fail</c>). NUnit has no expected-failure outcome, so this reads the mark only; the run's own verdict is not inverted.
     /// </summary>
     private static string? ExpectedFailure(ITestResult root, string name) =>
-        FindResult(root, name)?.Test.Properties.Get(ExpectedFailureProperty)?.ToString();
+        FindResult(root, name)?.Test is { } test ? ExpectedFailureOf(test) : null;
+
+    /// <summary>
+    /// The reason <paramref name="test"/> is expected to fail: the property <see cref="ExpectedFailureProperty"/> on the test or on any fixture around it
+    /// (upstream's <c>describe.fail</c> and the <c>fail</c> option on <c>describe</c>). Any layer that marks marks the test, the innermost reason wins,
+    /// and a layer with no property does not unmark (upstream's <c>resolveOptions</c> merge, via <c>ResolveExpectedFailure</c>).
+    /// </summary>
+    internal static string? ExpectedFailureOf(ITest test)
+    {
+        var layers = new List<string?>();
+        for (var layer = test; layer is not null; layer = layer.Parent)
+        {
+            // A fixture nested in another keeps the marks of both, outer first (NUnit adds the declaring class's attributes before its own).
+            layers.AddRange(
+                layer.Properties[ExpectedFailureProperty].Cast<object?>().Select(mark => mark?.ToString()).Reverse()
+            );
+        }
+
+        layers.Reverse();
+        return ExpectedFailureMarks.ResolveExpectedFailure(layers);
+    }
 
     /// <summary>The NUnit property a test sets to be marked as expected to fail (see <see cref="ExpectedFailure"/>).</summary>
     public const string ExpectedFailureProperty = "E2E.Fail";

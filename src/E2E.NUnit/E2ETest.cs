@@ -114,6 +114,15 @@ public abstract partial class E2ETest : E2EFixture
         if (IsSerial)
         {
             RejectInstancePerTest();
+            if (NUnitSessionTestRunner.ExpectedFailureOf(TestExecutionContext.CurrentContext.CurrentTest) is not null)
+            {
+                // Upstream refuses fail on, inside, or around a serial group at collection (COLLECTION_ERROR); here it is the test's own error.
+                throw new TestException(
+                    "INVALID_ARGUMENT",
+                    "describe option \"fail\" cannot be set on or inside a serial group, which runs as one unit; a serial group cannot sit inside a group marked fail"
+                );
+            }
+
             if (_serialFailure is not null)
             {
                 Assert.Ignore("a previous test of the serial group failed");
@@ -217,7 +226,7 @@ public abstract partial class E2ETest : E2EFixture
         // A test marked as expected to fail (the NUnit property E2E.Fail) has its verdict settled with the attempt.
         if (
             !skipped
-            && current.Test.Properties.Get(NUnitSessionTestRunner.ExpectedFailureProperty)?.ToString() is { } mark
+            && NUnitSessionTestRunner.ExpectedFailureOf(TestExecutionContext.CurrentContext.CurrentTest) is { } mark
         )
         {
             session.ExpectedFailure = mark;

@@ -23,6 +23,10 @@ internal static class ExpectedFailureResults
     // The fixtures of one upstream test share a run, as the files of its project do.
     private static Type RunOf(Type fixture) =>
         fixture == typeof(ExpectedFailureTimeoutFixture) ? typeof(ExpectedFailureFixture)
+        : fixture == typeof(DescribeFailFixture)
+        || fixture == typeof(KnownGapsFixture)
+        || fixture == typeof(OutsideTheGroupFixture)
+            ? typeof(DescribeFailFixture)
         : fixture == typeof(MarkedLateFixture) ? typeof(MarkedEarlyFixture)
         : fixture == typeof(ExpectedFailureSetupFixture) || fixture == typeof(ExpectedFailureSerialFixture)
             ? typeof(ExpectedFailureSerialFixture)
@@ -236,4 +240,33 @@ public sealed class ExpectedFailureSerialFixture : ExpectedFailureFixtureBase
 {
     [Test]
     public void Step_1() => Fail(true, "a member may not fail on purpose");
+}
+
+/// <summary><c>describe.fail('legacy', ...)</c> of upstream's group test: the property on the fixture marks every test in it, with the default reason.</summary>
+[Explicit("Run by TestFailTests")]
+[Property(NUnitSessionTestRunner.ExpectedFailureProperty, "")]
+public sealed class DescribeFailFixture : ExpectedFailureFixtureBase
+{
+    [Test]
+    public void Still_broken() => Assert.That(1, Is.EqualTo(2));
+
+    [Test]
+    public void Fixed_since() { }
+}
+
+/// <summary><c>describe('known gaps', { fail: 'old checkout' }, ...)</c> of upstream's group test.</summary>
+[Explicit("Run by TestFailTests")]
+[Property(NUnitSessionTestRunner.ExpectedFailureProperty, "old checkout")]
+public sealed class KnownGapsFixture : ExpectedFailureFixtureBase
+{
+    [Test]
+    public void Card_form() => throw new InvalidOperationException("the gap");
+}
+
+/// <summary>The test outside any group in upstream's group test.</summary>
+[Explicit("Run by TestFailTests")]
+public sealed class OutsideTheGroupFixture : ExpectedFailureFixtureBase
+{
+    [Test]
+    public void Outside_the_group() { }
 }
