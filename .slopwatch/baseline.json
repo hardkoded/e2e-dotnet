@@ -4143,6 +4143,15 @@
       "codeSnippet": "catch (ObjectDisposedException)\n            {\n                // The session was released already.\n            }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-21T19:19:03.6420172+00:00"
+    },
+    {
+      "hash": "a9cd2038bbe0e783",
+      "ruleId": "SW003",
+      "filePath": "src/E2E.NUnit/E2ETest.cs",
+      "lineNumber": 200,
+      "codeSnippet": "catch (OperationCanceledException)\n            {\n                // The run was cancelled: the test's own result stands.\n            }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-22T17:30:00.0000000+00:00"
     }
   ]
 }

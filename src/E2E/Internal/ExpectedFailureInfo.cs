@@ -27,6 +27,32 @@ internal static class ExpectedFailureMarks
     internal static string ExpectedFailureReason(string? reason) =>
         string.IsNullOrWhiteSpace(reason) ? DefaultReason : reason;
 
+    /// <summary>The reason a <c>fail</c> layer gives, or null when it marks nothing (upstream's <c>expectedFailureOption</c>); a blank reason marks with the default one.</summary>
+    internal static string? ExpectedFailureOption(string? fail) => fail is null ? null : ExpectedFailureReason(fail);
+
+    /// <summary>
+    /// The reason a test is expected to fail from its layers, outermost group first and the test last (upstream's <c>fail</c> merge in <c>resolveOptions</c>,
+    /// <c>collect/select.ts</c>): any layer that marks marks the test, the innermost reason wins, and a mark with no reason (a blank string) keeps an outer layer's.
+    /// A layer that gives no <c>fail</c> does not unmark.
+    /// </summary>
+    internal static string? ResolveExpectedFailure(IEnumerable<string?> layers)
+    {
+        string? fail = null;
+        foreach (var layer in layers)
+        {
+            if (layer is not null && !string.IsNullOrWhiteSpace(layer))
+            {
+                fail = layer;
+            }
+            else if (ExpectedFailureOption(layer) is not null && fail is null)
+            {
+                fail = DefaultReason;
+            }
+        }
+
+        return ExpectedFailureOption(fail);
+    }
+
     /// <summary>
     /// Marks the running test expected to fail when <paramref name="condition"/> holds (upstream's <c>markRunningTestExpectedToFail</c>).
     /// Unlike a skip it does not throw: the body runs on. Outside a body there is no running test. A setup test, a serial group member, and
@@ -43,7 +69,7 @@ internal static class ExpectedFailureMarks
         if (session is null)
         {
             throw new InvalidOperationException(
-                "Fail(condition, reason) marks the running test and must be called inside a test body; to mark at collection, put [Property(\"E2E.Fail\", reason)] on the test"
+                "Fail(condition, reason) marks the running test and must be called inside a test body; to mark at collection, put [Property(\"E2E.Fail\", reason)] on the test or its fixture"
             );
         }
 

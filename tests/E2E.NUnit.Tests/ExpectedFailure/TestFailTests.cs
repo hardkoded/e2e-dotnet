@@ -141,6 +141,41 @@ public sealed class TestFailTests
     }
 
     [Test]
+    public void Marks_every_test_in_a_describe_fail_group_each_judged_on_its_own()
+    {
+        Assert.That(
+            NestedRun.Run(nameof(DescribeFailFixture.Still_broken)).ResultState.Status,
+            Is.EqualTo(TestStatus.Passed)
+        );
+        Assert.That(
+            NestedRun.Run(nameof(DescribeFailFixture.Fixed_since)).ResultState.Status,
+            Is.EqualTo(TestStatus.Failed)
+        );
+        Assert.That(
+            NestedRun.Run(nameof(KnownGapsFixture.Card_form)).ResultState.Status,
+            Is.EqualTo(TestStatus.Passed)
+        );
+        Assert.That(
+            NestedRun.Run(nameof(OutsideTheGroupFixture.Outside_the_group)).ResultState.Status,
+            Is.EqualTo(TestStatus.Passed)
+        );
+
+        var report = ExpectedFailureReport.Read(typeof(DescribeFailFixture));
+        var broken = ExpectedFailureReport.ByTitle(report, nameof(DescribeFailFixture.Still_broken));
+        Assert.That((string?)broken["status"], Is.EqualTo("passed"));
+        Assert.That((string?)broken["expectedFailure"]!["reason"], Is.EqualTo("expected to fail"));
+        var fixedSince = ExpectedFailureReport.ByTitle(report, nameof(DescribeFailFixture.Fixed_since));
+        Assert.That((string?)fixedSince["status"], Is.EqualTo("failed"));
+        Assert.That((string?)fixedSince["attempts"]![0]!["error"]!["code"], Is.EqualTo("UNEXPECTED_PASS"));
+        var card = ExpectedFailureReport.ByTitle(report, nameof(KnownGapsFixture.Card_form));
+        Assert.That((string?)card["status"], Is.EqualTo("passed"));
+        Assert.That((string?)card["expectedFailure"]!["reason"], Is.EqualTo("old checkout"));
+        var outside = ExpectedFailureReport.ByTitle(report, nameof(OutsideTheGroupFixture.Outside_the_group));
+        Assert.That((string?)outside["status"], Is.EqualTo("passed"));
+        Assert.That(outside["expectedFailure"], Is.Null);
+    }
+
+    [Test]
     public void Takes_a_mark_from_a_beforeEach_hook_and_refuses_one_from_an_afterEach_hook()
     {
         Assert.That(
