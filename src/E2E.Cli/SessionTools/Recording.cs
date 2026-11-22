@@ -8,7 +8,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Engine;
 
-namespace E2E.Cli.Mcp;
+namespace E2E.Cli.SessionTools;
 
 /// <summary>A recording that stopped: its files in order, and how long it ran (upstream's <c>FinishedRecording</c>).</summary>
 internal sealed record FinishedRecording(
@@ -21,7 +21,7 @@ internal sealed record FinishedRecording(
 );
 
 /// <summary>
-/// Video recordings of a live session (upstream's <c>mcp/recording.ts</c>). A session does not record by itself: the coding agent starts
+/// Video recordings of a live session (upstream's <c>session-tools/recording.ts</c>). A session does not record by itself: the coding agent starts
 /// one when the part worth watching begins and stops it when that part is over, as many times as it likes. Each recording is the engine's
 /// video of the attempt between the two calls, moved out of the attempt directory into <c>.e2e/videos/&lt;session&gt;/</c> as soon as it
 /// stops, so the next one never overwrites it and closing the session never takes it along. Recordings are not masked.

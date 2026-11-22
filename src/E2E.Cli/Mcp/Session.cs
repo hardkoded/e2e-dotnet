@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
+using E2E.Cli.SessionTools;
 using E2E.Engine;
 using E2E.Internal;
 using E2E.Mobile;
