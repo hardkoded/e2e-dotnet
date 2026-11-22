@@ -447,6 +447,7 @@ showing (see the mobile reference).
   `ToHaveScreenshotAsync`). `Expect.That(Browser)` takes none. `Expect.That(value, message)` is synchronous.
 - `Expect.Soft(locator)` and `Expect.Soft(screen)` record a failure and let the test go on; the
   test fails at its end with every failure listed.
+- An `Expect.Poll` the test body did not await is cancelled when the body returns, and the test fails with `STEP_NOT_AWAITED` at the line of the call, whether or not it would have passed. `await` every matcher.
 - `Expect.Poll(read)` retries any value: `ToBeAsync`, `ToSatisfyAsync`, and,
   in `E2E.NUnit`, `ToMatchAsync` with any NUnit constraint. A read that
   throws, or a matcher that refuses the value's type (`Is.GreaterThan` on a
@@ -494,9 +495,10 @@ await Screen.GetByLabel("Password").FillAsync(admin.Password);
 await Screen.GetByRole("button", "Sign in").ClickAsync();
 ```
 
-A password field's value never reaches the model, and a text, value, or
-attribute expectation on it fails with `POLICY_DENIED`: assert the outcome,
-not the value.
+A password field's value never reaches the model, unless a page script hides
+the field from e2e (see "Redaction" in the security reference). A text, value,
+or attribute expectation on a secure field fails with `POLICY_DENIED`: assert
+the outcome, not the value.
 
 A secret from `Secrets.Get(name)` is a generic one: the agent fills it into
 any editable field, a rich-text editor included. A `Credentials.User` password

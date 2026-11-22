@@ -478,7 +478,8 @@ Off-screen state (a database row) can land after `ActAsync` returns; use
 
 A redacted text snapshot of the screen (roles, names, text, states), and
 your `context`. Never raw HTML, cookies, headers, environment values, or a
-`Secret`'s value; password fields are masked. Each model turn gets the whole
+`Secret`'s value; password fields are masked, unless a page
+script hides one from e2e. Each model turn gets the whole
 screen. A line lists a node's `testid`, a link's `href`, and the
 `placeholder` of a field with no name, so the model can tell twins apart. An
 `href` on the app's origin shows as its path, any other as the whole URL.

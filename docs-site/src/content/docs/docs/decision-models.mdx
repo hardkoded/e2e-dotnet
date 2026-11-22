@@ -51,7 +51,7 @@ Every operation that acts on an element asks for its target, even when only one 
 
 When the decision model picks `type`, the text model writes the value from the goal, the params, the field's label, and the page text. The executor types exactly that string. With no value in the goal, it types nothing and the decision model picks again. For `upload`, the text model lists the project-relative paths the goal or params name, and the runner authorizes each one. Model output never becomes a selector, a URL, or a key.
 
-Password fields never reach the text model. Only `typeSecret` fills a secret, from its declared handle.
+Password fields never reach the text model, unless a page script hides one from e2e. Then the text model sees its value, and `type` can fill it ([where redaction stops](/reference/security#redaction)). Only `typeSecret` fills a configured secret, from its declared handle.
 
 The text model also answers `WaitForAsync` and `ExtractAsync`. Instead of `TextModel`, you can set `Model` on the agent entry. With neither, the executor never offers `type`, `upload`, `tap_at`, or `type_at`.
 

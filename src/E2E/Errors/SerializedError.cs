@@ -236,7 +236,8 @@ internal static class ErrorSerializer
     {
         for (var current = cause; current is not null; current = current.InnerException)
         {
-            if (Source.Locate(new StackTrace(current, fNeedFileInfo: true), projectRoot) is { } found)
+            var stack = AbandonedWork.RelocatedStack(current) ?? new StackTrace(current, fNeedFileInfo: true);
+            if (Source.Locate(stack, projectRoot) is { } found)
             {
                 return found;
             }
