@@ -280,7 +280,7 @@ public class Screen
     /// <summary>
     /// Pauses the test. Call it on the screen, since a pause affects the whole test; a frame's screen refuses. In a run that holds (a pause waits
     /// for someone to resume it), the test clock stops meanwhile. Without a hold, as in a program or an MCP session, it returns right away.
-    /// Upstream's <c>screen.pause</c>.
+    /// With one, a call inside another step or an <c>expect.poll</c> read is refused too. Upstream's <c>screen.pause</c>.
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> when called on a frame's screen, or where the attempt cannot hold a pause.</exception>
     public Task PauseAsync()

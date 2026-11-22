@@ -382,7 +382,10 @@ them.
 `Screen.PauseAsync()` pauses the test at that line. Call it on the screen with
 `await`: a frame's screen throws `INVALID_ARGUMENT`. Where nothing can resume a
 test (a program on `Launch`, an `OpenHost`, or an MCP session), it returns right
-away. Time spent paused does not count toward the test's timeout.
+away. Time spent paused does not count toward the test's timeout. In a run that holds, a call inside
+another step (an `OnAction` hook, a project tool) or an `Expect.Poll` read is refused, and a pause the
+test did not await fails it with `STEP_NOT_AWAITED` naming the code that returned first (`the test body`,
+`the beforeEach hook`, `the afterEach hook`, `the hosted session`).
 
 `Screen.ScrollUntilVisibleAsync(locator, new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })`
 scrolls the viewport (`ScrollDirection.Down`, `Momentum.Slow` by default) until the

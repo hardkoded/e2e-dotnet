@@ -380,7 +380,7 @@ public Task PauseAsync()
 
 Pauses the test. Call it on the screen, since a pause affects the whole test; a frame's screen refuses. In a run that holds (a pause waits
 for someone to resume it), the test clock stops meanwhile. Without a hold, as in a program or an MCP session, it returns right away.
-Upstream's `screen.pause`.
+With one, a call inside another step or an `expect.poll` read is refused too. Upstream's `screen.pause`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 

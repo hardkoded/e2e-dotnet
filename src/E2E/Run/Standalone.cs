@@ -403,6 +403,7 @@ internal sealed class StandaloneHost
 
             return errors;
         });
+        session.Scope.Steps.Owner = "the hosted session";
         attempt = new StandaloneAttempt(session, () => ending.Value);
         if (hosted)
         {
