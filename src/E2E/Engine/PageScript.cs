@@ -210,19 +210,6 @@ internal static class PageScript
             }
             return found;
           };
-          // Upstream's slotOf: assignedSlot, else the tracked closed root's own slots.
-          const slotOf = (el) => {
-            if (el.assignedSlot !== null) return el.assignedSlot;
-            const host = el.parentElement;
-            const shadow = host === null ? undefined : closedRoots?.get(host);
-            if (shadow === undefined) return null;
-            for (const slot of Array.from(shadow.querySelectorAll("slot"))) {
-              if (slot.assignedElements().indexOf(el) !== -1) return slot;
-            }
-            return null;
-          };
-          // Upstream's flatParentOf: an element's parent in the flat tree.
-          const flatParentOf = memoized((el) => slotOf(el) ?? parentOrHostOf(el));
           const isInFlatTree = (el, container) => {
             for (let current = el; current !== null; current = flatParentOf(current)) {
               if (current === container) return true;
@@ -276,7 +263,7 @@ internal static class PageScript
             if (el.tagName === "IFRAME" && (ariaHidden(el) || hidden(el))) return 0;
             let n = 0;
             const style = getComputedStyle(el);
-            const isHidden = !!parentHidden || hidden(el, style);
+            const isHidden = !!parentHidden || hidden(el, style) || hiddenAbove(el);
             // Upstream returns at a hidden select, so its options are neither listed nor counted.
             if (isHidden && el.tagName === "SELECT") return 0;
             const childrenHidden = !!parentHidden || hidesSubtree(el, style);
@@ -298,6 +285,8 @@ internal static class PageScript
                 return n + offered;
               }
             }
+            // The element keeps its box, and nothing under it renders (skipsContents), so nothing under it is counted.
+            if (skipsContents(el, style)) return n;
             for (const child of el.children) n += tally(child, visible, childrenHidden);
             const shadow = shadowOf(el);
             if (shadow) for (const child of shadow.children) n += tally(child, visible, childrenHidden);
@@ -312,7 +301,7 @@ internal static class PageScript
             const place = modal === undefined ? "inside" : modal.placeOf(el);
             if (place === "outside") return;
             const style = getComputedStyle(el);
-            const isHidden = !!parentHidden || hidden(el, style);
+            const isHidden = !!parentHidden || hidden(el, style) || hiddenAbove(el);
             const childrenHidden = !!parentHidden || hidesSubtree(el, style);
             const role = roleOf(el);
             const isFrame = el.tagName === "IFRAME";
@@ -383,6 +372,8 @@ internal static class PageScript
           // light children and the shadow tree holds only their slots, so
           // nothing is listed twice.
           const walkChildren = (el, into, parentHidden) => {
+            // The element keeps its box, and nothing under it renders (skipsContents), so the walk stops at it.
+            if (skipsContents(el, styleOf(el))) return;
             for (const child of el.children) walk(child, into, parentHidden);
             const shadow = shadowOf(el);
             if (shadow) for (const child of shadow.children) walk(child, into, parentHidden);
