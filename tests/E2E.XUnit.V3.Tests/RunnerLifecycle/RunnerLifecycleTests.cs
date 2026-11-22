@@ -9,7 +9,7 @@ namespace E2E.XUnit.V3.Tests.RunnerLifecycle;
 
 /// <summary>
 /// The fixme <c>it</c> of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out the registered form
-/// <c>test.fixme(title, fn)</c> (the port has no registration API) and the setup test that may not skip, and reads each result from the fixture's
+/// <c>test.fixme(title, fn)</c> (the port has no registration API), the consumer's <c>setup-failed</c> skip, and the error code <c>INVALID_ARGUMENT</c> of the setup case (the host keeps the exception's message, not its code, so the report says <c>TEST_FAILED</c>), and reads each result from the fixture's
 /// <c>report.json</c>.
 /// </summary>
 public sealed class RunnerLifecycleTests : IDisposable
@@ -36,6 +36,14 @@ public sealed class RunnerLifecycleTests : IDisposable
         Assert.Equal("passed", (string?)ByTitle(report, nameof(FixmeFixture.Condition_false_runs_on))["status"]);
         AssertSkip(ByTitle(report, nameof(FixmeFixture.Bare))["skip"]!, "fixme");
         AssertSkip(ByTitle(report, nameof(FixmeFixture.Blank_reason))["skip"]!, "fixme");
+    }
+
+    [Fact]
+    public async Task Partial_Rejects_test_fixme_in_a_setup_test()
+    {
+        var (results, _) = await NestedSessionRun.RunAsync(typeof(FixmeInSetupFixture));
+        Assert.Equal("Fail", results[nameof(FixmeInSetupFixture.SignIn)].Result);
+        Assert.Contains("Fixme() cannot skip a setup test", results[nameof(FixmeInSetupFixture.SignIn)].Message);
     }
 
     private static void AssertSkip(JsonNode skip, string reason)

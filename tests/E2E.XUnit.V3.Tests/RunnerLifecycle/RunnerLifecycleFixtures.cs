@@ -71,3 +71,26 @@ public sealed class FixmeFixture : E2ETest
     [Fact(Explicit = true)]
     public void Blank_reason() => Fixme(reason: "   ");
 }
+
+/// <summary><c>test.setup('sign in', ...)</c>: a setup test may not skip, so its <c>Fixme</c> is a test error.</summary>
+public sealed class FixmeInSetupFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null
+    );
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override string? ResultsDirectory => RunnerLifecycleResults.Of(GetType());
+
+    [E2ESetup("sign in", Saves = ["admin"], Explicit = true)]
+    public async Task SignIn()
+    {
+        Fixme(true, "a setup may not skip");
+        await SaveSessionAsync("admin");
+    }
+}
