@@ -89,7 +89,8 @@ public TimeSpan? Timeout { get; init; }
 ```
 
 
-Deadline for the matcher to hold. The default is 5 seconds. Zero sets no deadline: the poll runs until the cancellation token it is
-given ends, so it needs a token that can end (`INVALID_CONFIG` otherwise). A negative value is `INVALID_CONFIG`.
+Deadline for the matcher to hold. Inside a test or a hosted session the default is the config's `assertionTimeout`, elsewhere 5 seconds,
+and the deadline of the session or test the poll runs in caps it. Zero sets no deadline of its own: the poll runs until that deadline or the cancellation token it is
+given ends, so it needs one that can end (`INVALID_CONFIG` otherwise). A negative value is `INVALID_CONFIG`.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)

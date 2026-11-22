@@ -11,8 +11,9 @@ namespace E2E;
 public sealed class PollOptions
 {
     /// <summary>
-    /// Deadline for the matcher to hold. The default is 5 seconds. Zero sets no deadline: the poll runs until the cancellation token it is
-    /// given ends, so it needs a token that can end (<c>INVALID_CONFIG</c> otherwise). A negative value is <c>INVALID_CONFIG</c>.
+    /// Deadline for the matcher to hold. Inside a test or a hosted session the default is the config's <c>assertionTimeout</c>, elsewhere 5 seconds,
+    /// and the deadline of the session or test the poll runs in caps it. Zero sets no deadline of its own: the poll runs until that deadline or the cancellation token it is
+    /// given ends, so it needs one that can end (<c>INVALID_CONFIG</c> otherwise). A negative value is <c>INVALID_CONFIG</c>.
     /// </summary>
     public TimeSpan? Timeout { get; init; }
 
@@ -123,7 +124,7 @@ public sealed class PollExpectation<T>
                 {
                     Api = "expect.poll",
                     Label = "expect.poll(...)." + (_negated ? "not." : "") + matcher + "(...)",
-                    Timeout = _options.Timeout ?? DefaultTimeout,
+                    Timeout = _options.Timeout ?? Attempts.CurrentAttempt()?.AssertionTimeout ?? DefaultTimeout,
                     Intervals = Intervals(_options),
                     Message = _options.Message,
                     NoSample = "no read completed",

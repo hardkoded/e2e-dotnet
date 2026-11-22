@@ -45,6 +45,27 @@ internal sealed class AttemptBudget : IDisposable
         }
     }
 
+    /// <summary>
+    /// The running phase's deadline (upstream's <c>AttemptBudget.deadline</c>): the test's in the body, a hook's cleanup budget in a teardown. Null
+    /// where the phase has none. The session keeps it equal to the one its screen and browser cap their steps with.
+    /// </summary>
+    public Deadline? Deadline { get; set; }
+
+    /// <summary>What the running phase's signal aborts with when the test's own timeout fired (upstream's <c>signal.reason</c>); null when it did not. Set by the session.</summary>
+    public Func<Exception?>? Reason { get; set; }
+
+    /// <summary>The error a wait that the phase's signal cancelled fails with: the closed session's, the timeout's, or null for a bare cancellation.</summary>
+    public Exception? AbortReason()
+    {
+        bool closing;
+        lock (_gate)
+        {
+            closing = _cancelledByOwner;
+        }
+
+        return closing && _closed is not null ? _closed() : Reason?.Invoke();
+    }
+
     /// <summary>The signal the running phase's operations are cancelled with.</summary>
     public CancellationToken Token
     {
