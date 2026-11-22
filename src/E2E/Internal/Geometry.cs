@@ -2,12 +2,14 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 
 namespace E2E.Internal;
 
 /// <summary>Point and box arithmetic, as upstream's <c>internal/geometry.ts</c>.</summary>
-internal static class Geometry
+internal static partial class Geometry
 {
     /// <summary>
     /// Upstream's <c>overlapShare</c>: how much two boxes are the same box, the area they share over the area either covers. 0 for
@@ -70,6 +72,51 @@ internal static class Geometry
             Math.Clamp(Math.Floor(point.Y + 0.5), 0, Math.Max(0, viewport.Height - 1))
         );
     }
+
+    /// <summary>Upstream's <c>isPercentage</c>: whether a coordinate is a percentage of the viewport from <c>'0%'</c> through <c>'100%'</c>.</summary>
+    public static bool IsPercentage(ScreenCoordinate value) =>
+        value.Percentage is { } text
+        && PercentagePattern().IsMatch(text)
+        && double.Parse(text.AsSpan(0, text.Length - 1), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture)
+            <= 100;
+
+    /// <summary>Upstream's <c>isPixelPoint</c>: whether both coordinates of a point are CSS pixels, so it resolves without reading the viewport.</summary>
+    public static bool IsPixelPoint(ScreenPoint point)
+    {
+        ArgumentNullException.ThrowIfNull(point);
+        return point.X.Percentage is null && point.Y.Percentage is null;
+    }
+
+    /// <summary>
+    /// Upstream's <c>resolveScreenPoint</c>: resolves a point a test names to CSS pixels. A percentage is that share of the viewport's
+    /// width (x) or height (y), rounded to a whole pixel and kept on the last one, so <c>'100%'</c> stays inside the viewport. Pixels
+    /// pass through.
+    /// </summary>
+    public static Point ResolveScreenPoint(ScreenPoint point, TraceViewport viewport)
+    {
+        ArgumentNullException.ThrowIfNull(point);
+        ArgumentNullException.ThrowIfNull(viewport);
+        return new Point(ResolveCoordinate(point.X, viewport.Width), ResolveCoordinate(point.Y, viewport.Height));
+    }
+
+    /// <summary>Digits with an optional fraction, then <c>%</c>: no sign, exponent, or space.</summary>
+    [GeneratedRegex(@"\A[0-9]+(?:\.[0-9]+)?%\z", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex PercentagePattern();
+
+    /// <summary>One coordinate of <see cref="ResolveScreenPoint"/> along a viewport side of <paramref name="size"/> CSS pixels. JavaScript's <c>Math.round</c> rounds halves up.</summary>
+    private static double ResolveCoordinate(ScreenCoordinate value, int size) =>
+        value.Percentage is not { } text
+            ? value.Pixels
+            : Math.Clamp(
+                Math.Floor(
+                    double.Parse(text.AsSpan(0, text.Length - 1), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture)
+                        / 100
+                        * size
+                        + 0.5
+                ),
+                0,
+                Math.Max(0, size - 1)
+            );
 
     /// <summary>
     /// Upstream's <c>VIEWPORT_LIMITS</c>: the sides a resized viewport may have, in CSS pixels. Narrower than any phone layout is no layout;

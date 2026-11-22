@@ -55,13 +55,13 @@ xUnit v3 shows it only when the test assembly has `[assembly: CaptureConsole]`.
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Screen_DoubleTapAtAsync_"></a>
-<a id="E2E_Screen_DoubleTapAtAsync_E2E_Engine_Point_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+<a id="E2E_Screen_DoubleTapAtAsync_E2E_ScreenPoint_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
-### DoubleTapAtAsync(Point, ActionOptions?, CancellationToken)
+### DoubleTapAtAsync(ScreenPoint, ActionOptions?, CancellationToken)
 
 
 ```csharp
-public Task DoubleTapAtAsync(Point point, ActionOptions? options = null, CancellationToken cancellationToken = default)
+public Task DoubleTapAtAsync(ScreenPoint point, ActionOptions? options = null, CancellationToken cancellationToken = default)
 ```
 
 
@@ -73,7 +73,7 @@ at the point, as `DoubleTapAsync` does on a node; their timing on iOS is in the 
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `point` | [Point](/api/E2E.Engine/Point/) |  |
+| `point` | [ScreenPoint](/api/E2E/ScreenPoint/) |  |
 | `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
@@ -478,13 +478,13 @@ to declare the `swipeTo` pointer action. Upstream's `screen.swipe({ from, to })`
 | [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` for a point that is not finite or is negative, or a duration that is not a whole number of milliseconds from 16 through 10000. |
 
 <a id="E2E_Screen_TapAtAsync_"></a>
-<a id="E2E_Screen_TapAtAsync_E2E_Engine_Point_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+<a id="E2E_Screen_TapAtAsync_E2E_ScreenPoint_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
-### TapAtAsync(Point, ActionOptions?, CancellationToken)
+### TapAtAsync(ScreenPoint, ActionOptions?, CancellationToken)
 
 
 ```csharp
-public Task TapAtAsync(Point point, ActionOptions? options = null, CancellationToken cancellationToken = default)
+public Task TapAtAsync(ScreenPoint point, ActionOptions? options = null, CancellationToken cancellationToken = default)
 ```
 
 
@@ -495,7 +495,7 @@ action. Upstream's `screen.tapAt`.
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `point` | [Point](/api/E2E.Engine/Point/) |  |
+| `point` | [ScreenPoint](/api/E2E/ScreenPoint/) |  |
 | `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 

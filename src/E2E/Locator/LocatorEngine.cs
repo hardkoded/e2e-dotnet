@@ -825,12 +825,52 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         }
     }
 
-    /// <summary>Performs one pointer action at a viewport point, with no node behind it. Upstream's <c>performAt</c>.</summary>
-    internal async Task PerformAtAsync(Point point, PointerAction action, TimeSpan? timeout, CancellationToken token)
+    /// <summary>
+    /// Performs one pointer action at a viewport point, with no node behind it. Upstream's <c>performAt</c>. The point, and the
+    /// <paramref name="target"/> of a swipe (which stands in for the <see cref="PointerAction.SwipeTo"/> action's own), may be percentages of the viewport:
+    /// they cost one screen read inside the action's timeout.
+    /// </summary>
+    internal async Task PerformAtAsync(
+        ScreenPoint point,
+        PointerAction action,
+        TimeSpan? timeout,
+        CancellationToken token,
+        ScreenPoint? target = null
+    )
     {
         CheckPointerAction(action);
-        await DispatchAtAsync(point, action, DeadlineFor(timeout), token).ConfigureAwait(false);
+        var deadline = DeadlineFor(timeout);
+        if (target is null)
+        {
+            var at = (await InPixelsAsync([point], deadline, token).ConfigureAwait(false))[0];
+            await DispatchAtAsync(at, action, deadline, token).ConfigureAwait(false);
+            return;
+        }
+
+        var resolved = await InPixelsAsync([point, target], deadline, token).ConfigureAwait(false);
+        await DispatchAtAsync(resolved[0], action is PointerAction.SwipeTo swipe ? swipe with { Target = resolved[1] } : action, deadline, token)
+            .ConfigureAwait(false);
     }
+
+    /// <summary>The points in CSS pixels, with one viewport read if any of them is a percentage. Upstream's <c>inPixels</c>.</summary>
+    private async Task<Point[]> InPixelsAsync(ScreenPoint[] points, Deadline deadline, CancellationToken token)
+    {
+        if (points.All(Geometry.IsPixelPoint))
+        {
+            return [.. points.Select(point => new Point(point.X.Pixels, point.Y.Pixels))];
+        }
+
+        var viewport = await ViewportAsync(deadline, token).ConfigureAwait(false);
+        return [.. points.Select(point => Geometry.ResolveScreenPoint(point, viewport))];
+    }
+
+    /// <summary>The viewport size, read from one screen observation. Upstream's <c>viewport</c>.</summary>
+    private async Task<TraceViewport> ViewportAsync(Deadline deadline, CancellationToken token) =>
+        (await ObserveAsync(OperationWithin(deadline).Timeout!.Value, token).ConfigureAwait(false)).Viewport
+        ?? throw new TestException(
+            "ACTION_FAILED",
+            "the engine did not report the viewport size, so a percentage point cannot be resolved"
+        );
 
     /// <summary>
     /// Performs one pointer action at an offset from the origin of exactly one match (<see cref="SemanticNode.Origin"/>, else its box's top-left corner): the node is scrolled into view when the engine

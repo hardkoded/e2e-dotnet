@@ -49,13 +49,13 @@ How long the gesture takes: whole milliseconds from 16 through 10000. Without on
 
 
 ```csharp
-public required Point From { get; init; }
+public required ScreenPoint From { get; init; }
 ```
 
 
 Where the finger goes down.
 
-**Value:** [Point](/api/E2E.Engine/Point/)
+**Value:** [ScreenPoint](/api/E2E/ScreenPoint/)
 
 <a id="E2E_SwipePathOptions_To_"></a>
 <a id="E2E_SwipePathOptions_To"></a>
@@ -64,10 +64,10 @@ Where the finger goes down.
 
 
 ```csharp
-public required Point To { get; init; }
+public required ScreenPoint To { get; init; }
 ```
 
 
 Where it lifts.
 
-**Value:** [Point](/api/E2E.Engine/Point/)
+**Value:** [ScreenPoint](/api/E2E/ScreenPoint/)

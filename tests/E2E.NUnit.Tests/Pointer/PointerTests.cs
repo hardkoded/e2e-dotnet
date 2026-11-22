@@ -9,7 +9,7 @@ using static E2E.NUnit.Tests.Helpers;
 namespace E2E.NUnit.Tests.Pointer;
 
 /// <summary>
-/// The tests of upstream's <c>apps/testbed/tests/pointer.e2e.ts</c> that sit outside a <c>describe</c>: a tap and a double tap at a viewport point, a tap at a
+/// The tests of upstream's <c>apps/testbed/tests/pointer.e2e.ts</c> that sit outside a <c>describe</c>: a tap and a double tap at a viewport point (in pixels or percentages), a tap at a
 /// position of a node, and a swipe along a path, against the playground's <c>/pointer</c> pad and <c>/board</c>.
 /// </summary>
 public sealed class PointerTests : E2ETest
@@ -77,6 +77,24 @@ public sealed class PointerTests : E2ETest
         );
 
         await Expect.That(Screen.GetByLabel("Pad state")).ToHaveTextAsync("swiped from 10,20 to 250,20");
+    }
+
+    [Test]
+    public async Task Screen_tapAt_and_screen_swipe_take_percentages_of_the_viewport()
+    {
+        await Browser.SetViewportAsync(1000, 800);
+        await App.OpenAsync("/pointer");
+        var box = await BoxOf(Screen.GetByRole("image", "Pointer pad"));
+        string OnPad(double x, double y) =>
+            $"{Math.Round(x - box.X, MidpointRounding.AwayFromZero)},{Math.Round(y - box.Y, MidpointRounding.AwayFromZero)}";
+
+        await Screen.TapAtAsync(new ScreenPoint("10%", "25%"));
+        await Expect.That(Screen.GetByLabel("Pad state")).ToHaveTextAsync($"tapped at {OnPad(100, 200)}");
+
+        await Screen.SwipeAsync(new SwipePathOptions { From = new ScreenPoint("10%", "25%"), To = new ScreenPoint("30%", 200) });
+        await Expect
+            .That(Screen.GetByLabel("Pad state"))
+            .ToHaveTextAsync($"swiped from {OnPad(100, 200)} to {OnPad(300, 200)}");
     }
 
     [Test]
