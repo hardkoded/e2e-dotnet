@@ -87,16 +87,26 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
     [Fact]
     public async Task Cuts_a_core_operation_the_engine_never_finishes_at_the_session_deadline()
     {
-        var engine = new HostFakeEngine { OnPerform = (_, _) => new TaskCompletionSource().Task };
+        var performing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var engine = new HostFakeEngine
+        {
+            OnPerform = (_, _) =>
+            {
+                performing.TrySetResult();
+                return new TaskCompletionSource().Task;
+            },
+        };
         var host = await OpenAsync(engine);
         var session = await host.OpenSessionAsync(
             new OpenSessionOptions { Name = "hung engine", Timeout = TimeSpan.FromMilliseconds(100) }
         );
         var started = DateTimeOffset.UtcNow;
+        // The wait is bounded here too, so a regression of the cut fails this test instead of hanging the run.
         var error = await Assert.ThrowsAsync<TestException>(() =>
-            session.Screen.GetByRole("button", "Submit").ClickAsync()
+            session.Screen.GetByRole("button", "Submit").ClickAsync().WaitAsync(TimeSpan.FromSeconds(30))
         );
         Assert.Equal("TEST_TIMEOUT", error.Code);
+        Assert.True(performing.Task.IsCompletedSuccessfully, "the deadline must cut a call the engine started");
         Assert.True(DateTimeOffset.UtcNow - started < TimeSpan.FromSeconds(5));
         var failures = await session.CloseAsync();
         Assert.Contains(failures, failure =>
