@@ -447,6 +447,7 @@ showing (see the mobile reference).
   `ToHaveScreenshotAsync`). `Expect.That(Browser)` takes none. `Expect.That(value, message)` is synchronous.
 - `Expect.Soft(locator)` and `Expect.Soft(screen)` record a failure and let the test go on; the
   test fails at its end with every failure listed.
+- An `Expect.Poll` the test body did not await is cancelled when the body returns, and the test fails with `STEP_NOT_AWAITED` at the line of the call, whether or not it would have passed. `await` every matcher.
 - `Expect.Poll(read)` retries any value: `ToBeAsync`, `ToSatisfyAsync`, and,
   in `E2E.NUnit`, `ToMatchAsync` with any NUnit constraint. A read that
   throws, or a matcher that refuses the value's type (`Is.GreaterThan` on a

@@ -85,7 +85,29 @@ internal static class ExpectRetry
     /// Runs <paramref name="read"/> until <paramref name="evaluate"/> accepts its result or the deadline passes (upstream's <c>retry</c>; named apart from the test-retry class in <c>Run</c>).
     /// Each try gets a token that ends when the try fails or is cut at the deadline, so steps it left running stop.
     /// </summary>
-    internal static async Task<object?> RetryAsync(
+    internal static Task<object?> RetryAsync(
+        Func<CancellationToken, Task<object?>> read,
+        Func<Sample, Outcome> evaluate,
+        RetryOptions options,
+        CancellationToken cancellationToken
+    )
+    {
+        // Tracked in the phase that started it, so one the phase did not await ends with the phase (upstream's `scope.track`).
+        var scope = PollScopes.CurrentPollScope() ?? Attempts.CurrentAttempt()?.Polls;
+        if (scope is null)
+        {
+            return RunAsync(read, evaluate, options, cancellationToken);
+        }
+
+        var stack = new System.Diagnostics.StackTrace(1, fNeedFileInfo: true);
+        return scope.Track(options.Label, stack, async scopeToken =>
+        {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, scopeToken);
+            return await RunAsync(read, evaluate, options, linked.Token).ConfigureAwait(false);
+        });
+    }
+
+    private static async Task<object?> RunAsync(
         Func<CancellationToken, Task<object?>> read,
         Func<Sample, Outcome> evaluate,
         RetryOptions options,
