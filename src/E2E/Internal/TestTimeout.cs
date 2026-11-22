@@ -15,9 +15,9 @@ internal static class TestTimeout
     /// cleanup timeout. A timeout that is not a positive whole number of milliseconds, or above 2147483647, a hosted session (it runs no test), a
     /// teardown, and code the test left running after its timeout fired or its attempt ended are test errors, <c>INVALID_ARGUMENT</c>.
     /// </summary>
-    internal static void SetRunningTestTimeout(E2ESession session, TimeSpan timeout, bool late = false)
+    internal static void SetRunningTestTimeout(PublishedAttempt attempt, TimeSpan timeout, bool late = false)
     {
-        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(attempt);
         var milliseconds = timeout.TotalMilliseconds;
         if (timeout <= TimeSpan.Zero || timeout.Ticks % TimeSpan.TicksPerMillisecond != 0)
         {
@@ -39,7 +39,7 @@ internal static class TestTimeout
             );
         }
 
-        if (session.IsHosted)
+        if (attempt.SetTimeout is not { } set)
         {
             throw new TestException(
                 "INVALID_ARGUMENT",
@@ -47,12 +47,12 @@ internal static class TestTimeout
             );
         }
 
-        if (late || session.InTeardown)
+        if (late)
         {
             throw LateTimeoutError();
         }
 
-        if (!session.TrySetTimeout(timeout))
+        if (!set(timeout))
         {
             throw new TestException(
                 "INVALID_ARGUMENT",

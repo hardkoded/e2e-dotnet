@@ -40,6 +40,7 @@ public sealed class E2ESession : IAsyncDisposable
     private Exception? _error;
     private TimeSpan _testTimeout;
     private AttemptTimeout? _attemptTimeout;
+    private Func<AttemptTimeout>? _newAttemptTimeout;
     private CancellationToken _openToken;
 
     // What the teardown threw (a required video that did not finalize, the engine session's close): upstream's secondaryErrors of phase cleanup.
@@ -268,7 +269,7 @@ public sealed class E2ESession : IAsyncDisposable
         // What test.setTimeout moves: the signal's timer and the deadline the screen and browser cap their steps with.
         Screen? timedScreen = null;
         Browser? timedBrowser = null;
-        var attemptTimeout = new AttemptTimeout(timeout, options.TestTimeout, TimeProvider.System, (moved, deadline) =>
+        Action<TimeSpan, Deadline> onMoved = (moved, deadline) =>
         {
             // An open, a restart, and a link open take the test's timeout, the new one included.
             if (timedBrowser is not null)
@@ -285,7 +286,9 @@ public sealed class E2ESession : IAsyncDisposable
             {
                 timedBrowser.BudgetDeadline = deadline;
             }
-        });
+        };
+        AttemptTimeout NewAttemptTimeout() => new(timeout, options.TestTimeout, TimeProvider.System, onMoved);
+        var attemptTimeout = NewAttemptTimeout();
 
         // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
         var budget = new AttemptBudget(timeout, options.CancelsOnClose?.Closed);
@@ -763,6 +766,7 @@ public sealed class E2ESession : IAsyncDisposable
                     _events = events,
                     _testTimeout = options.TestTimeout,
                     _attemptTimeout = attemptTimeout,
+                    _newAttemptTimeout = NewAttemptTimeout,
                     _openToken = cancellationToken,
                 };
                 if (options.OffersGuests)
@@ -784,6 +788,7 @@ public sealed class E2ESession : IAsyncDisposable
                     {
                         AttemptId = scope.AttemptId,
                         Guests = guests.Offer,
+                        SetTimeout = session.SetTimeoutOf(attemptTimeout),
                     };
                     session._published = Attempts.PublishAttempt(session._publishedAttempt);
                 }
@@ -826,6 +831,25 @@ public sealed class E2ESession : IAsyncDisposable
         Interlocked.Exchange(ref _bodyEnded, 0);
         var previous = _published;
         Attempts.Reserve();
+
+        // Each member of a serial group is an attempt of its own, with its own timeout counted from its start (upstream creates an AttemptTimeout per attempt).
+        // The previous member's attempt ends with it: what it left running cannot move the new member's timeout.
+        if (_newAttemptTimeout is { } create)
+        {
+            lock (_timeoutGate)
+            {
+                var attemptTimeout = create();
+                _attemptTimeout?.End();
+                _attemptTimeout = attemptTimeout;
+                if (_testTimeout > TimeSpan.Zero && _testTimeout != Timeout.InfiniteTimeSpan)
+                {
+                    attemptTimeout.Set(_testTimeout);
+                }
+
+                _publishedAttempt = _publishedAttempt with { SetTimeout = SetTimeoutOf(attemptTimeout) };
+            }
+        }
+
         _published = Attempts.PublishAttempt(_publishedAttempt);
         previous?.Dispose();
     }
@@ -1056,19 +1080,22 @@ public sealed class E2ESession : IAsyncDisposable
     internal bool InTeardown => Volatile.Read(ref _teardown) != 0;
 
     /// <summary>
-    /// Moves the attempt's timeout (upstream's <c>attempt.setTimeout</c>); false once the attempt ended or its timeout fired, and
+    /// The attempt's <c>setTimeout</c> (upstream's <c>attempt.setTimeout</c>), bound to <paramref name="bound"/>; false once the attempt ended or its timeout fired, and
     /// where the session has no test timeout to move.
     /// </summary>
-    internal bool TrySetTimeout(TimeSpan timeout)
-    {
-        lock (_timeoutGate)
+    internal Func<TimeSpan, bool> SetTimeoutOf(AttemptTimeout bound) =>
+        timeout =>
         {
-            return !InTeardown
-                && Volatile.Read(ref _state) == 0
-                && _attemptTimeout is { } attemptTimeout
-                && attemptTimeout.Set(timeout);
-        }
-    }
+            if (InTeardown)
+            {
+                throw Internal.TestTimeout.LateTimeoutError();
+            }
+
+            lock (_timeoutGate)
+            {
+                return Volatile.Read(ref _state) == 0 && ReferenceEquals(_attemptTimeout, bound) && bound.Set(timeout);
+            }
+        };
 
     /// <summary>
     /// Makes this session an upstream hosted one: <paramref name="close"/> is the owner's close, which ends it once through <see cref="EndAsync"/>
