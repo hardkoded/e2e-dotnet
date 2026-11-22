@@ -316,7 +316,11 @@ taps a viewport point with no locator, `Screen.DoubleTapAtAsync(new Point(x, y))
 double-taps one (the web engine sends a primary-button double click), and `Screen.SwipeAsync(new SwipePathOptions
 { From = ..., To = ..., Duration = ... })` drags between two viewport points
 (`Duration` is a whole number of milliseconds from 16 through 10000). A point must
-be finite and not negative. Only an engine that declares pointer actions takes a
+be finite and not negative. Viewport points also take percentages from `"0%"` through
+`"100%"`, rounded to the nearest pixel: `new ScreenPoint("50%", "50%")`, or one of each,
+`new ScreenPoint("50%", 120)`; a percentage reads the screen once for its size, and a
+string that is not a percentage is `INVALID_ARGUMENT`. `TapAsync(new TapOptions { Position = ... })`
+stays in pixels, so does the agent. Prefer a locator; a point moves with the layout. Only an engine that declares pointer actions takes a
 point: the web engine does, and so does a device; the others fail with
 `UNSUPPORTED_CAPABILITY`. The agent has no `long_press`, `right_click`, `hover`, or
 `drag` tool yet.

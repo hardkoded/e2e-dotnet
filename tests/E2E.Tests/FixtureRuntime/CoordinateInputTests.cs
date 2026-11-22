@@ -11,7 +11,7 @@ namespace E2E.Tests.FixtureRuntime;
 /// Upstream's <c>fixture-runtime.test.ts</c>, "coordinate input", over a screen whose engine declares the <c>tap</c> and
 /// <c>scrollIntoView</c> actions and the <c>tap</c>, <c>doubleTap</c>, and <c>swipeTo</c> pointer actions. Not ported: the unknown option of "rejects a
 /// point off the plane and an unknown option before any engine call" (options are typed), the points of other shapes (a missing or
-/// string coordinate; a <see cref="Point"/> is two numbers), and, of "screen.swipe({ from, to })...", the options that name both a
+/// boolean coordinate; a <see cref="ScreenPoint"/> is two coordinates), and, of "screen.swipe({ from, to })...", the options that name both a
 /// direction and a path or lack one (a call takes one of the two option classes). A duration is a <see cref="TimeSpan"/>, so the
 /// duration cases that need a fraction of a millisecond are checked with it.
 /// </summary>
@@ -22,7 +22,8 @@ public sealed class CoordinateInputTests
         List<string> Performed,
         List<string> PerformedAt,
         List<int> Locates,
-        List<TimeSpan?> PointTimeouts
+        List<TimeSpan?> PointTimeouts,
+        List<int> Observes
     );
 
     private static string Format(double value) => value.ToString(CultureInfo.InvariantCulture);
@@ -46,11 +47,23 @@ public sealed class CoordinateInputTests
         var performedAt = new List<string>();
         var locates = new List<int>();
         var pointTimeouts = new List<TimeSpan?>();
+        var observes = new List<int>();
         var screen = new Screen(
             new global::E2E.LocatorEngine(
                 new global::E2E.LocatorEngineOptions
                 {
-                    Observe = _ => Task.FromResult(new Observation { Route = "/", Roots = [node] }),
+                    Observe = _ =>
+                    {
+                        observes.Add(1);
+                        return Task.FromResult(
+                            new Observation
+                            {
+                                Route = "/",
+                                Roots = [node],
+                                Viewport = new TraceViewport(1280, 720),
+                            }
+                        );
+                    },
                     Perform = (_, action, _, _) =>
                     {
                         performed.Add(EngineActionKinds.Of(action));
@@ -82,18 +95,19 @@ public sealed class CoordinateInputTests
             PointerActionKinds = pointer ? ["tap", "doubleTap", "swipeTo"] : [],
             Steps = new StepRecorder("attempt"),
         };
-        return new Pointer(screen, performed, performedAt, locates, pointTimeouts);
+        return new Pointer(screen, performed, performedAt, locates, pointTimeouts, observes);
     }
 
     [Fact]
     public async Task Screen_tapAt_dispatches_a_pointer_tap_at_the_viewport_point_with_no_locate_and_records_the_step()
     {
-        var (screen, _, performedAt, locates, _) = PointerScreen();
+        var (screen, _, performedAt, locates, _, observes) = PointerScreen();
 
         await screen.TapAtAsync(new Point(12.5, 40));
 
         Assert.Equal(["tap @ 12.5,40"], performedAt);
         Assert.Empty(locates);
+        Assert.Empty(observes);
         var step = screen.Steps!.All()[^1];
         Assert.Equal(
             (StepKind.Screen, "screen.tapAt", "(12.5, 40)", StepStatus.Passed),
@@ -102,9 +116,52 @@ public sealed class CoordinateInputTests
     }
 
     [Fact]
+    public async Task Resolves_percentages_against_one_viewport_read_and_labels_the_step_as_written()
+    {
+        // The fake engine's viewport is 1280 by 720 (tests/helpers/snapshot.ts upstream).
+        var (screen, _, performedAt, _, _, observes) = PointerScreen();
+
+        await screen.TapAtAsync(new ScreenPoint("50%", "25%"));
+
+        var step = screen.Steps!.All()[^1];
+        Assert.Equal(
+            (StepKind.Screen, "screen.tapAt", "(50%, 25%)", StepStatus.Passed),
+            (step.Kind, step.Api, step.Label, step.Status)
+        );
+        Assert.Contains(step.Events, e => e.Kind == StepEventKind.Engine && e.Detail == "tap at (640, 180)");
+        Assert.Equal([1], observes);
+        await screen.DoubleTapAtAsync(new ScreenPoint("12.5%", 40));
+        await screen.TapAtAsync(new ScreenPoint("100%", "100%"));
+        await screen.SwipeAsync(
+            new SwipePathOptions { From = new ScreenPoint("50%", "90%"), To = new ScreenPoint("50%", 72) }
+        );
+        Assert.Equal(
+            ["tap @ 640,180", "doubleTap @ 160,40", "tap @ 1279,719", "swipeTo @ 640,648 -> 640,72"],
+            performedAt
+        );
+        Assert.Equal([1, 1, 1, 1], observes);
+    }
+
+    [Fact]
+    public async Task Refuses_a_malformed_or_out_of_range_percentage_before_reading_the_screen()
+    {
+        var (screen, _, performedAt, _, _, observes) = PointerScreen();
+
+        foreach (var x in new[] { "50", "120%", "-5%", "1e2%" })
+        {
+            var error = await Assert.ThrowsAsync<TestException>(() => screen.TapAtAsync(new ScreenPoint(x, 1)));
+            Assert.Equal("INVALID_ARGUMENT", error.Code);
+            Assert.Equal($"tapAt takes a percentage from '0%' through '100%', got \"{x}\"", error.Message);
+        }
+
+        Assert.Empty(observes);
+        Assert.Empty(performedAt);
+    }
+
+    [Fact]
     public async Task Screen_doubleTapAt_dispatches_a_bare_double_tap_and_records_the_step()
     {
-        var (screen, _, performedAt, locates, pointTimeouts) = PointerScreen(timeout: TimeSpan.FromSeconds(5));
+        var (screen, _, performedAt, locates, pointTimeouts, _) = PointerScreen(timeout: TimeSpan.FromSeconds(5));
 
         await screen.DoubleTapAtAsync(new Point(12.5, 40), new ActionOptions { Timeout = TimeSpan.FromSeconds(1) });
 
@@ -122,10 +179,10 @@ public sealed class CoordinateInputTests
     [Fact]
     public async Task Partial_rejects_a_point_off_the_plane_before_any_engine_call()
     {
-        var (screen, _, performedAt, _, _) = PointerScreen();
+        var (screen, _, performedAt, _, _, _) = PointerScreen();
 
         foreach (
-            var (method, call) in new (string, Func<Point, Task>)[]
+            var (method, call) in new (string, Func<ScreenPoint, Task>)[]
             {
                 ("tapAt", point => screen.TapAtAsync(point)),
                 ("doubleTapAt", point => screen.DoubleTapAtAsync(point)),
@@ -136,8 +193,12 @@ public sealed class CoordinateInputTests
             {
                 var error = await Assert.ThrowsAsync<TestException>(() => call(point));
                 Assert.Equal("INVALID_ARGUMENT", error.Code);
-                Assert.Equal($"{method} requires a point {{ x, y }} of finite numbers", error.Message);
+                Assert.Equal($"{method} requires a point {{ x, y }} of finite numbers or percentages", error.Message);
             }
+
+            var text = await Assert.ThrowsAsync<TestException>(() => call(new ScreenPoint("1", 2)));
+            Assert.Equal("INVALID_ARGUMENT", text.Code);
+            Assert.Equal($"{method} takes a percentage from '0%' through '100%', got \"1\"", text.Message);
 
             var negative = await Assert.ThrowsAsync<TestException>(() => call(new Point(-1, 0)));
             Assert.Equal("INVALID_ARGUMENT", negative.Code);
@@ -157,7 +218,7 @@ public sealed class CoordinateInputTests
     [Fact]
     public void NET_only_a_position_on_a_tap_family_verb_other_than_tap_is_refused_not_dropped()
     {
-        var (screen, _, performedAt, _, _) = PointerScreen();
+        var (screen, _, performedAt, _, _, _) = PointerScreen();
         var options = new TapOptions { Position = new Point(1, 1) };
 
         var error = Assert.IsType<TestException>(
@@ -172,7 +233,7 @@ public sealed class CoordinateInputTests
     [Fact]
     public async Task Fails_UNSUPPORTED_CAPABILITY_without_a_pointer_tap_before_the_locator_is_resolved()
     {
-        var (screen, _, _, locates, _) = PointerScreen(pointer: false);
+        var (screen, _, _, locates, _, observes) = PointerScreen(pointer: false);
         const string tapAt =
             "the \"tap\" action at a point is not available on this target: its engine declares no pointer actions";
 
@@ -186,6 +247,8 @@ public sealed class CoordinateInputTests
         );
 
         Assert.Equal((EngineErrorCodes.UnsupportedCapability, tapAt), (tapped.Code, tapped.Message));
+        await Assert.ThrowsAsync<EngineException>(() => screen.TapAtAsync(new ScreenPoint("50%", "50%")));
+        Assert.Empty(observes);
         Assert.Equal(EngineErrorCodes.UnsupportedCapability, doubleTapped.Code);
         Assert.Contains("the \"doubleTap\" action at a point", doubleTapped.Message, StringComparison.Ordinal);
         Assert.Equal((EngineErrorCodes.UnsupportedCapability, tapAt), (positioned.Code, positioned.Message));
@@ -201,7 +264,7 @@ public sealed class CoordinateInputTests
     [InlineData("has no box")]
     public async Task Waits_for_a_node_that_is_x_and_fails_LOCATOR_NOT_FOUND_at_the_deadline(string state)
     {
-        var (screen, _, performedAt, _, _) = PointerScreen(rect: state != "has no box", hidden: state == "hidden");
+        var (screen, _, performedAt, _, _, _) = PointerScreen(rect: state != "has no box", hidden: state == "hidden");
 
         var error = await Assert.ThrowsAsync<TestException>(() =>
             screen
@@ -218,7 +281,7 @@ public sealed class CoordinateInputTests
     [Fact]
     public async Task Taps_the_point_of_the_box_the_position_names_once_the_node_is_scrolled_into_view()
     {
-        var (screen, performed, performedAt, _, _) = PointerScreen();
+        var (screen, performed, performedAt, _, _, _) = PointerScreen();
 
         await screen.GetByLabel("Pad").TapAsync(new TapOptions { Position = new Point(5, 5) });
 
@@ -229,10 +292,11 @@ public sealed class CoordinateInputTests
     [Fact]
     public async Task Screen_swipe_from_to_dispatches_a_pointer_swipe_along_the_path_a_direction_still_needs_the_swipe_action()
     {
-        var (screen, _, performedAt, _, _) = PointerScreen();
+        var (screen, _, performedAt, _, _, observes) = PointerScreen();
 
         await screen.SwipeAsync(new SwipePathOptions { From = new Point(10, 20), To = new Point(10, 300) });
         Assert.Equal(["swipeTo @ 10,20 -> 10,300"], performedAt);
+        Assert.Empty(observes);
         var step = screen.Steps!.All()[^1];
         Assert.Equal(
             (StepKind.Screen, "screen.swipe", "(10, 20) → (10, 300)", StepStatus.Passed),
@@ -284,7 +348,7 @@ public sealed class CoordinateInputTests
             screen.SwipeAsync(new SwipePathOptions { From = new Point(1, 1), To = new Point(double.NaN, 1) })
         );
         Assert.Equal("INVALID_ARGUMENT", path.Code);
-        Assert.Equal("swipe to requires a point { x, y } of finite numbers", path.Message);
+        Assert.Equal("swipe to requires a point { x, y } of finite numbers or percentages", path.Message);
 
         var direction = await Assert.ThrowsAsync<EngineException>(() =>
             screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Up })
