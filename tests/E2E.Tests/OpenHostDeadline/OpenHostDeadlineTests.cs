@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Tests.OpenSession;
+using Microsoft.Extensions.Time.Testing;
 
 namespace E2E.Tests.OpenHostDeadline;
 
@@ -11,7 +12,7 @@ namespace E2E.Tests.OpenHostDeadline;
 /// lacks are ported here. Not ported (hardkoded/e2e-dotnet#2002, #2041): the polls (<c>bounds polls by config assertionTimeout</c>, <c>caps an explicitly long poll</c>,
 /// <c>cancels an in-flight poll on %s</c>, <c>records abandoned polls</c>: the port's <c>Expect.Poll</c> takes no ambient session deadline), the contributed
 /// fixture calls (no <c>extend</c>), and the signals (<c>OpenSessionOptions</c> and <c>OpenHostOptions</c> have no <c>signal</c>).
-/// The <c>Partial_</c> <c>it</c>s: <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> cannot hold the timer callback pending (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
+/// The <c>Partial_</c> <c>it</c>s: <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> uses a 60 s timeout, not upstream's 20 ms (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
 /// <see cref="E2E.Internal.TestTimeout.SetRunningTestTimeout"/> takes the session.
 /// </summary>
 public sealed class OpenHostDeadlineTests : IAsyncLifetime
@@ -141,19 +142,29 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
     [Fact]
     public async Task Partial_Times_out_a_session_closed_past_its_deadline_before_the_deadline_timer_ran()
     {
-        var host = await OpenAsync(new HostFakeEngine());
-        var session = await host.OpenSessionAsync(
-            new OpenSessionOptions { Name = "closed past deadline", Timeout = TimeSpan.FromMilliseconds(20) }
+        // Partial: the session timeout is 60 s, not upstream's 20 ms, so the session's real timer stays pending while the fake clock passes the deadline.
+        // The session reads a fake clock, so the deadline passes while the session's own timer (60 s of real time) stays pending, as upstream's busy loop holds it.
+        var clock = new FakeTimeProvider();
+        File.WriteAllText(Path.Combine(_dir, E2EConfig.FileName), Config);
+        var host = await E2EHost.OpenAsync(
+            new OpenHostOptions
+            {
+                Cwd = _dir,
+                Env = NoEnv,
+                EngineFactory = _ => new HostFakeEngine(),
+                Clock = clock,
+            }
         );
-        // Partial: the busy wait blocks this thread only, so the deadline timer can run on another thread first; the port has no way to hold it pending.
-        // The close reports the timeout from the elapsed deadline either way.
-        var busyUntil = DateTimeOffset.UtcNow.AddMilliseconds(60);
-        while (DateTimeOffset.UtcNow < busyUntil) { }
+        _hosts.Add(host);
+        var session = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "closed past deadline", Timeout = TimeSpan.FromSeconds(60) }
+        );
+        clock.Advance(TimeSpan.FromSeconds(61));
 
         var failures = await session.CloseAsync();
         var failure = Assert.IsAssignableFrom<E2EException>(Assert.Single(failures));
         Assert.Equal("TEST_TIMEOUT", failure.Code);
-        Assert.Contains("session timed out after 20 ms", failure.Message);
+        Assert.Contains("session timed out after 60000 ms", failure.Message);
         Assert.Contains("· timed out ·", await File.ReadAllTextAsync(session.TracePath));
     }
 

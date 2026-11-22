@@ -272,7 +272,7 @@ public sealed class E2ESession : IAsyncDisposable
         if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
         {
             timeout.CancelAfter(options.TestTimeout);
-            budgetDeadline = new Deadline(options.TestTimeout, TimeProvider.System);
+            budgetDeadline = new Deadline(options.TestTimeout, options.Clock);
         }
 
         // What test.setTimeout moves: the signal's timer and the deadline the screen and browser cap their steps with.
@@ -296,7 +296,7 @@ public sealed class E2ESession : IAsyncDisposable
                 timedBrowser.BudgetDeadline = deadline;
             }
         };
-        AttemptTimeout NewAttemptTimeout() => new(timeout, options.TestTimeout, TimeProvider.System, onMoved);
+        AttemptTimeout NewAttemptTimeout() => new(timeout, options.TestTimeout, options.Clock, onMoved);
         var attemptTimeout = NewAttemptTimeout();
 
         // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
@@ -2236,6 +2236,9 @@ public sealed class E2ESessionOptions
     internal string? TestMethod { get; init; }
 
     public TimeSpan TestTimeout { get; init; } = E2EDefaults.TestTimeout;
+
+    /// <summary>.NET-only: the clock the test's deadline reads (see <see cref="OpenHostOptions.Clock"/>).</summary>
+    internal TimeProvider Clock { get; init; } = TimeProvider.System;
 
     public TimeSpan ActionTimeout { get; init; } = E2EDefaults.ActionTimeout;
 
