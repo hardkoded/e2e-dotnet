@@ -198,7 +198,7 @@ public sealed class WebEngineOptions
 
     /// <summary>
     /// Initial viewport of every attempt's page; default 1280 by 720. <see langword="null"/>
-    /// emulates no size: the page fills the browser window, whatever size it has.
+    /// emulates no size: the page fills the browser window, whatever size it has. A side below 1 is <c>INVALID_CONFIG</c>.
     /// </summary>
     public WebViewport? Viewport { get; init; } = WebViewport.Default;
 
@@ -274,7 +274,7 @@ public sealed class WebEngineOptions
     /// <summary>
     /// The browser the engine launches: Chromium (the default), Firefox, or WebKit. .NET-only split of upstream's
     /// <c>browser</c> option, which is a name or a provider: the name is here and the provider is <see cref="Browser"/>.
-    /// <see cref="Connect"/> and a provider attach over CDP, so they need Chromium.
+    /// <see cref="Connect"/> and a provider attach over CDP, so they need Chromium. A value the enum does not define is <c>INVALID_CONFIG</c>.
     /// </summary>
     public BrowserName BrowserName { get; init; } = BrowserName.Chromium;
 
@@ -959,6 +959,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
 
     private static void Validate(WebEngineOptions options)
     {
+        ResolveBrowser(options.BrowserName);
         if (options.Browser is { } browser)
         {
             ValidateProvider(browser, options.Connect);
@@ -986,9 +987,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             );
         }
 
-        if (options.Viewport is { } viewport && (viewport.Width <= 0 || viewport.Height <= 0))
+        if (options.Viewport is { } viewport)
         {
-            throw new EngineException("INVALID_CONFIG", "viewport width and height must be positive.");
+            ValidatePixelSize("web({ Viewport })", viewport);
         }
 
         foreach (var (name, value) in options.Headers ?? new Dictionary<string, string>())
@@ -1124,15 +1125,42 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         }
     }
 
-    /// <summary><c>web({ Screencast })</c>: a whole-pixel frame size of at least 1 and a 0-100 JPEG quality, each optional.</summary>
-    private static void ValidateScreencast(WebScreencastOptions? screencast)
+    /// <summary>
+    /// <c>web({ Browser })</c> (upstream <c>resolveBrowser</c>): a name the engine launches passes, and anything else is refused,
+    /// since <c>browserType</c> reads any other value as Chromium. A provider is checked by <see cref="ValidateProvider"/>.
+    /// </summary>
+    private static void ResolveBrowser(BrowserName browser)
     {
-        if (screencast?.Size is { } size && (size.Width < 1 || size.Height < 1))
+        if (!Enum.IsDefined(browser))
         {
             throw new EngineException(
                 "INVALID_CONFIG",
-                "web({ Screencast: { Size } }) must be { Width, Height } in whole pixels, each at least 1"
+                "web({ Browser }) must be one of "
+                    + string.Join(", ", BrowserConnection.BrowserNames)
+                    + ", or a browser provider, got "
+                    + ((int)browser).ToString(System.Globalization.CultureInfo.InvariantCulture)
             );
+        }
+    }
+
+    /// <summary>A <c>{ Width, Height }</c> size in whole pixels, each at least 1 (upstream <c>validatePixelSize</c>); <paramref name="option"/> names it in the message.</summary>
+    private static void ValidatePixelSize(string option, WebViewport size)
+    {
+        if (size.Width < 1 || size.Height < 1)
+        {
+            throw new EngineException(
+                "INVALID_CONFIG",
+                option + " must be { Width, Height } in whole pixels, each at least 1"
+            );
+        }
+    }
+
+    /// <summary><c>web({ Screencast })</c>: a whole-pixel frame size of at least 1 and a 0-100 JPEG quality, each optional.</summary>
+    private static void ValidateScreencast(WebScreencastOptions? screencast)
+    {
+        if (screencast?.Size is { } size)
+        {
+            ValidatePixelSize("web({ Screencast: { Size } })", size);
         }
 
         if (screencast?.Quality is < 0 or > 100)
