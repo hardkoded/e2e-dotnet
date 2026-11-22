@@ -12,7 +12,7 @@ namespace E2E.Tests.OpenHostDeadline;
 /// lacks are ported here. Not ported (hardkoded/e2e-dotnet#2002, #2041): the polls (<c>bounds polls by config assertionTimeout</c>, <c>caps an explicitly long poll</c>,
 /// <c>cancels an in-flight poll on %s</c>, <c>records abandoned polls</c>: the port's <c>Expect.Poll</c> takes no ambient session deadline), the contributed
 /// fixture calls (no <c>extend</c>), and the signals (<c>OpenSessionOptions</c> and <c>OpenHostOptions</c> have no <c>signal</c>).
-/// The <c>Partial_</c> <c>it</c>s: <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
+/// The <c>Partial_</c> <c>it</c>s: <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> uses a 60 s timeout, not upstream's 20 ms (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
 /// <see cref="E2E.Internal.TestTimeout.SetRunningTestTimeout"/> takes the session.
 /// </summary>
 public sealed class OpenHostDeadlineTests : IAsyncLifetime
@@ -140,8 +140,9 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Times_out_a_session_closed_past_its_deadline_before_the_deadline_timer_ran()
+    public async Task Partial_Times_out_a_session_closed_past_its_deadline_before_the_deadline_timer_ran()
     {
+        // Partial: the session timeout is 60 s, not upstream's 20 ms, so the session's real timer stays pending while the fake clock passes the deadline.
         // The session reads a fake clock, so the deadline passes while the session's own timer (60 s of real time) stays pending, as upstream's busy loop holds it.
         var clock = new FakeTimeProvider();
         File.WriteAllText(Path.Combine(_dir, E2EConfig.FileName), Config);
