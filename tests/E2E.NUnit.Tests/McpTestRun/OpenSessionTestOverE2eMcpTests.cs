@@ -296,6 +296,7 @@ public sealed class OpenSessionTestOverE2eMcpTests
             Assert.That(left, Is.Not.Null);
             Assert.That(left!.Failure, Is.Null);
             SloppySessionFixture.LeftRelease.SetResult();
+            await SloppySessionFixture.LeftThrowing.Task.WaitAsync(TimeSpan.FromSeconds(30));
             await Task.Delay(300);
             await using (left.Session)
             {
@@ -560,6 +561,8 @@ public sealed class SessionFixture : E2ETest
     public async Task Fails_on_the_browser_page()
     {
         await App.OpenAsync("/browser");
+        // The element is there before the short wait for its text starts, so a slow runner fails on the text and not on finding it.
+        await Expect.That(Screen.GetByLabel("Loads")).ToBeVisibleAsync();
         await Expect
             .That(Screen.GetByLabel("Loads"))
             .ToHaveTextAsync("the count", timeout: TimeSpan.FromMilliseconds(200));
@@ -713,6 +716,9 @@ public sealed class SloppySessionFixture : E2ETest
     /// </summary>
     public static readonly TaskCompletionSource LeftRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    /// <summary>Set by the promise "leaves a promise behind" left, just before it throws, so the test waits for it and not for a timer.</summary>
+    public static readonly TaskCompletionSource LeftThrowing = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     /// <summary>Released by the test once the session of "leaves a promise for after the close" has closed.</summary>
     public static readonly TaskCompletionSource EarlyRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -723,6 +729,7 @@ public sealed class SloppySessionFixture : E2ETest
         _ = Task.Run(async () =>
         {
             await LeftRelease.Task;
+            LeftThrowing.SetResult();
             throw new InvalidOperationException("late failure");
         });
     }
