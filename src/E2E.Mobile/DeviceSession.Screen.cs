@@ -48,6 +48,13 @@ public sealed partial class DeviceSession
     /// </summary>
     private const double KeyboardDragRatio = 0.03;
 
+    /// <summary>
+    /// Waits between captures while the keyboard reads as moving (<see cref="KeyboardUnknown.Settling"/>): an iPhone keyboard
+    /// slides in or out in about a third of a second, longer on a loaded simulator, and a reading taken mid-slide can say
+    /// neither way. Upstream's <c>KEYBOARD_SETTLE_BACKOFF_MS</c>.
+    /// </summary>
+    private static readonly int[] KeyboardSettleBackoffMilliseconds = [0, 250, 500, 1_000];
+
     /// <summary>What a test does instead when the engine cannot send the keyboard away.</summary>
     private const string KeyboardAlternatives =
         "Tap the app's own Done or close control, or press Enter on the field when submitting is what you want.";
@@ -671,28 +678,28 @@ public sealed partial class DeviceSession
     // --- the keyboard ---
 
     /// <summary>
-    /// Whether a capture shows the soft keyboard: the band its producer measured when it measured one, else a keyboard
-    /// or key element in the tree, the probe Maestro's <c>hideKeyboard</c> uses. A capture that says nothing either way
-    /// counts as no keyboard: a drag on a guess costs more than a keyboard a later tap refuses against by name.
+    /// Whether a capture shows the soft keyboard, by <see cref="Keyboard.KeyboardShownIn"/>: a capture that cannot answer
+    /// counts as no keyboard here, since a drag on a guess costs more than a keyboard a later tap refuses against by name.
     /// </summary>
     private static bool KeyboardShowing(RawSnapshot raw) =>
-        MeasuredKeyboard(raw)
-        ?? raw.Nodes.Any(node =>
-            SnapshotProjection.KeyboardKinds.Contains(SnapshotProjection.NormalizeKind(node.Type ?? ""))
-        );
+        Keyboard.KeyboardShownIn(raw, IsTruncated(raw)).Shown == true;
 
-    /// <summary>The top edge of the soft keyboard: the band the capture's producer measured, else the highest keyboard or key element, else the bottom of the screen.</summary>
-    private static double KeyboardTop(RawSnapshot raw, ViewportSize viewport) =>
-        raw.KeyboardKind is "visible" or "derived" && raw.KeyboardFrame is { } frame
-            ? frame.Y
-            : raw
-                .Nodes.Where(node =>
-                    node.Rect is not null
-                    && SnapshotProjection.KeyboardKinds.Contains(SnapshotProjection.NormalizeKind(node.Type ?? ""))
-                )
-                .Select(node => node.Rect!.Value.Y)
-                .Append(viewport.Height)
-                .Min();
+    /// <summary>
+    /// The top edge of the soft keyboard: the higher of the band the capture's producer measured and the highest keyboard
+    /// element drawn on screen (a key, the keyboard, or the suggestion strip above it, which a frame derived from the keys
+    /// leaves out). Null when the capture says the keyboard is up but bounds it nowhere, as a visibility probe alone does: the
+    /// keyboard could reach anywhere, so no point is known to be above it.
+    /// </summary>
+    private static double? KeyboardTop(RawSnapshot raw, ViewportSize viewport)
+    {
+        var elements = SnapshotProjection.KeyboardElementsTop(raw.Nodes, raw.Viewport ?? viewport);
+        double? frame = raw.KeyboardKind is "visible" or "derived" && raw.KeyboardFrame is { } band ? band.Y : null;
+        var tops = new[] { frame, elements }.OfType<double>().ToList();
+        return tops.Count == 0 ? null : Math.Min(viewport.Height, tops.Min());
+    }
+
+    /// <summary>Whether the capture is a partial screen (cut, or a sparse tree the app is still publishing). Upstream's <c>isTruncated</c>.</summary>
+    private static bool IsTruncated(RawSnapshot raw) => raw.Truncated || raw.Sparse;
 
     /// <summary>Whether the capture's producer measured the soft keyboard on screen: null when it did not look or could not.</summary>
     private static bool? MeasuredKeyboard(RawSnapshot raw) =>
@@ -702,6 +709,59 @@ public sealed partial class DeviceSession
             "absent" => false,
             _ => null,
         };
+
+    /// <summary>
+    /// Whether the soft keyboard is on screen, from a capture taken again while the tree is sparse or the keyboard is still
+    /// moving (see <see cref="KeyboardReadingAsync"/>): see <see cref="Keyboard.KeyboardShownIn"/>. A capture that cannot
+    /// answer fails, with the reason, instead of guessing. Changes nothing on the device. Upstream's <c>keyboardShown</c>.
+    /// </summary>
+    public Task<bool> KeyboardShownAsync(CancellationToken cancellationToken) =>
+        KeyboardShownAsync(cancellationToken, InputBudget("device.isKeyboardShown", cancellationToken));
+
+    internal async Task<bool> KeyboardShownAsync(CancellationToken cancellationToken, InputBudget input)
+    {
+        var (_, answer) = await KeyboardReadingAsync(input, cancellationToken).ConfigureAwait(false);
+        return answer.Shown
+            ?? throw new EngineException(answer.Unknown!.Code, answer.Unknown.Message, retryable: false);
+    }
+
+    /// <summary>
+    /// A capture and what <see cref="Keyboard.KeyboardShownIn"/> reads in it, captured again while the keyboard reads as
+    /// moving, as long as the budget allows. The last reading is answered, settled or not.
+    /// </summary>
+    private async Task<(RawSnapshot Raw, KeyboardAnswer Answer)> KeyboardReadingAsync(
+        InputBudget input,
+        CancellationToken cancellationToken
+    )
+    {
+        (RawSnapshot Raw, KeyboardAnswer Answer)? reading = null;
+        var captured = TimeSpan.Zero;
+        foreach (var backoff in KeyboardSettleBackoffMilliseconds)
+        {
+            var wait = TimeSpan.FromMilliseconds(backoff);
+            if (reading is not null)
+            {
+                // Another look must fit its wait and a capture as long as the last one, or it would time the call out.
+                if (input.Remaining <= wait + captured)
+                {
+                    return reading.Value;
+                }
+
+                await _engine.Delay(wait, cancellationToken).ConfigureAwait(false);
+            }
+
+            var startedAt = _engine.Clock.GetTimestamp();
+            var raw = await SnapshotAsync(false, input, cancellationToken).ConfigureAwait(false);
+            captured = _engine.Clock.GetElapsedTime(startedAt);
+            reading = (raw, Keyboard.KeyboardShownIn(raw, IsTruncated(raw)));
+            if (reading.Value.Answer.Unknown is not { Settling: true })
+            {
+                return reading.Value;
+            }
+        }
+
+        return reading!.Value;
+    }
 
     /// <summary>
     /// Hides the soft keyboard, so a control it covered can be reached. agent-device presses the keyboard's own
@@ -762,22 +822,29 @@ public sealed partial class DeviceSession
     /// </summary>
     private async Task DismissKeyboardByGestureAsync(InputBudget input, CancellationToken cancellationToken)
     {
-        var raw = await DismissKeyboardTipAsync(
-                await SnapshotAsync(false, input, cancellationToken).ConfigureAwait(false),
-                input,
-                cancellationToken
-            )
-            .ConfigureAwait(false);
-        if (!KeyboardShowing(raw))
+        var reading = await KeyboardReadingAsync(input, cancellationToken).ConfigureAwait(false);
+        if (await DismissKeyboardTipAsync(reading.Raw, input, cancellationToken).ConfigureAwait(false))
+        {
+            reading = await KeyboardReadingAsync(input, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (reading.Answer.Shown != true)
         {
             return;
         }
 
         foreach (var horizontal in new[] { true, false })
         {
+            var raw = reading.Raw;
             var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => "keyboard", raw.Viewport);
             var viewport = await ViewportForAsync(projected, input, cancellationToken).ConfigureAwait(false);
-            var from = Keyboard.KeyboardDragStart(projected, viewport, KeyboardTop(raw, viewport))
+            var top = KeyboardTop(raw, viewport)
+                ?? throw new EngineException(
+                    EngineErrorCodes.UnsupportedCapability,
+                    $"keyboard dismissal failed: agent-device reports the keyboard up without a frame or any keyboard element on screen, so a drag could start on the keyboard. {KeyboardAlternatives}",
+                    retryable: false
+                );
+            var from = Keyboard.KeyboardDragStart(projected, viewport, top)
                 ?? throw new EngineException(
                     EngineErrorCodes.UnsupportedCapability,
                     $"keyboard dismissal failed: the keyboard has no dismiss key, and every point above it (in a scroll view, when the screen has one) is on a control, so a drag would press one. {KeyboardAlternatives}",
@@ -802,8 +869,8 @@ public sealed partial class DeviceSession
                     cancellationToken
                 )
                 .ConfigureAwait(false);
-            raw = await SnapshotAsync(false, input, cancellationToken).ConfigureAwait(false);
-            if (!KeyboardShowing(raw))
+            reading = await KeyboardReadingAsync(input, cancellationToken).ConfigureAwait(false);
+            if (reading.Answer.Shown != true)
             {
                 return;
             }
@@ -818,10 +885,9 @@ public sealed partial class DeviceSession
 
     /// <summary>
     /// The simulator shows a "Speed up your typing" tip over the keyboard the first time it appears. Its Continue
-    /// button is the only way past it, and Maestro's <c>hideKeyboard</c> presses it too. Answers the capture after the
-    /// press, or the one given when no tip is showing.
+    /// button is the only way past it, and Maestro's <c>hideKeyboard</c> presses it too. Answers whether it pressed.
     /// </summary>
-    private async Task<RawSnapshot> DismissKeyboardTipAsync(
+    private async Task<bool> DismissKeyboardTipAsync(
         RawSnapshot raw,
         InputBudget input,
         CancellationToken cancellationToken
@@ -832,7 +898,7 @@ public sealed partial class DeviceSession
         );
         if (tip?.Rect is not { } tipRect)
         {
-            return raw;
+            return false;
         }
 
         var button = raw.Nodes.FirstOrDefault(node =>
@@ -840,7 +906,7 @@ public sealed partial class DeviceSession
         );
         if (button?.Rect is not { } buttonRect)
         {
-            return raw;
+            return false;
         }
 
         var centre = new Point(buttonRect.X + (buttonRect.Width / 2), buttonRect.Y + (buttonRect.Height / 2));
@@ -854,7 +920,7 @@ public sealed partial class DeviceSession
                 cancellationToken
             )
             .ConfigureAwait(false);
-        return await SnapshotAsync(false, input, cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     internal static JsonObject PointNode(Point point) => new() { ["x"] = point.X, ["y"] = point.Y };

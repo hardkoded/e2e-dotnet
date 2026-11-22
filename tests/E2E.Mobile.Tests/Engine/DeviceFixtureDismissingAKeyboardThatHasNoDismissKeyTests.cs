@@ -517,6 +517,169 @@ public sealed class DeviceFixtureDismissingAKeyboardThatHasNoDismissKeyTests
         JsonAssert.PressesCarryASignal(h.Fake);
     }
 
+    // A pad of controls covers the centre down to the strip, so the only point clear of controls and above
+    // the strip is above the pad. Under the strip's top but over the keys' top would be on the strip.
+    private static readonly RawNode Pad = N(
+        "@e5",
+        index: 4,
+        parentIndex: 1,
+        depth: 2,
+        type: "other",
+        label: "Pad",
+        rect: new Rect(0, 200, 390, 250)
+    );
+
+    private static readonly RawNode Strip = N(
+        "@e6",
+        index: 5,
+        parentIndex: 0,
+        depth: 1,
+        type: "other",
+        identifier: "SystemInputAssistantView",
+        rect: new Rect(0, 460, 390, 44)
+    );
+
+    // A strip holding only text is no control, so nothing but the keyboard's top keeps the drag off it.
+    private static readonly RawNode StripWords = N(
+        "@e7",
+        index: 6,
+        parentIndex: 5,
+        depth: 2,
+        type: "StaticText",
+        label: "Hello",
+        rect: new Rect(0, 460, 130, 44)
+    );
+
+    [Fact]
+    public async Task Starts_the_drag_above_the_suggestion_strip_over_the_keys_or_over_a_frame_derived_from_them()
+    {
+        var keys = N("@e8", index: 7, parentIndex: 0, depth: 1, type: "Keyboard", rect: new Rect(0, 504, 390, 216));
+        var derived = new JsonObject
+        {
+            ["kind"] = "derived",
+            ["derivation"] = "docked-tree",
+            ["frame"] = new JsonObject
+            {
+                ["x"] = 0,
+                ["y"] = 504,
+                ["width"] = 390,
+                ["height"] = 216,
+            },
+        };
+        (string Name, RawNode[] Nodes, JsonNode? Keyboard)[] layouts =
+        [
+            ("keys in the tree", [Strip, StripWords, keys], null),
+            ("a frame from the keys", [Strip, StripWords], derived),
+        ];
+        foreach (var layout in layouts)
+        {
+            var (h, session) = await Ready();
+            var up = FakeDeviceClient.SnapshotOf(
+                [.. FormNodes, Pad, .. layout.Nodes],
+                layout.Keyboard is null
+                    ? [("viewport", Viewport844())]
+                    : [("viewport", Viewport844()), ("keyboard", layout.Keyboard)]
+            );
+            Captures(h, () => up.DeepClone().AsObject(), KeyboardGone);
+            await session.Device.DismissKeyboardAsync();
+            var from = h.Fake.LastArgs("interactions.swipe")!["from"]!;
+            Assert.True(from["y"]!.GetValue<double>() < 200, layout.Name);
+        }
+    }
+
+    [Fact]
+    public async Task Does_not_take_the_suggestion_strip_alone_for_the_soft_keyboard()
+    {
+        // With a hardware keyboard, XCTest lists the strip and no keys.
+        var (h, session) = await Ready();
+        Captures(h, () =>
+            FakeDeviceClient.SnapshotOf([.. FormNodes, Pad, Strip, StripWords], ("viewport", Viewport844()))
+        );
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.Device.IsKeyboardShownAsync());
+        Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
+        await session.Device.DismissKeyboardAsync();
+        Assert.Empty(Swipes(h));
+    }
+
+    [Fact]
+    public async Task Keeps_each_look_at_the_keyboard_inside_the_budget_when_captures_are_slow()
+    {
+        var (h, session) = await Ready();
+        JsonObject Moving() =>
+            FakeDeviceClient.SnapshotOf(
+                FormNodes,
+                ("keyboard", new JsonObject { ["kind"] = "tree-rejected", ["derivation"] = "docked-tree" })
+            );
+        void Slow(TimeSpan duration, params Func<JsonObject>[] snapshots)
+        {
+            var taken = 0;
+            h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+            {
+                h.Clock.Spend(duration);
+                return snapshots[Math.Min(taken++, snapshots.Length - 1)]();
+            });
+        }
+
+        // After the drag the keyboard slides out: a rejected frame and no key, while each capture takes 800 ms of the 5 s budget.
+        Slow(TimeSpan.FromMilliseconds(800), () => KeyboardUp(), Moving);
+        await session.Device.DismissKeyboardAsync();
+        Assert.Single(Swipes(h));
+
+        // A read that never settles fails as still moving, not as a timeout.
+        Slow(TimeSpan.FromMilliseconds(1_000), Moving);
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.Device.IsKeyboardShownAsync());
+        Assert.Equal("ENGINE_FAILURE", failure.Code);
+        Assert.Contains("Read it again", failure.Message);
+    }
+
+    [Fact]
+    public async Task Refuses_to_drag_a_keyboard_that_is_up_but_has_no_bounds_rather_than_guess_where_it_is()
+    {
+        var (h, session) = await Ready();
+
+        // A probe that says visible, with no frame and no keyboard element in the tree: the bottom of the
+        // screen is no bound, and the centre of this landscape screen may be on the keyboard.
+        RawNode[] landscape =
+        [
+            N("@e1", index: 0, depth: 0, type: "application", label: "Order", rect: new Rect(0, 0, 844, 390)),
+            N("@e2", index: 1, parentIndex: 0, depth: 1, type: "scroll-view", rect: new Rect(0, 60, 844, 330)),
+            N(
+                "@e3",
+                index: 2,
+                parentIndex: 1,
+                depth: 2,
+                type: "text-field",
+                label: "Notes",
+                rect: new Rect(20, 80, 804, 44)
+            ),
+        ];
+        Captures(h, () =>
+            FakeDeviceClient.SnapshotOf(
+                landscape,
+                ("viewport", new JsonObject { ["width"] = 844, ["height"] = 390 }),
+                ("keyboard", new JsonObject { ["kind"] = "visibility-only", ["visible"] = true })
+            )
+        );
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.Device.DismissKeyboardAsync());
+        Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
+        Assert.Contains("without a frame or any keyboard element on screen", failure.Message);
+        Assert.Empty(Swipes(h));
+    }
+
+    [Fact]
+    public async Task Waits_for_a_keyboard_still_sliding_in_before_it_decides_there_is_nothing_to_drag()
+    {
+        var (h, session) = await Ready();
+        JsonObject Moving() =>
+            FakeDeviceClient.SnapshotOf(
+                FormNodes,
+                ("keyboard", new JsonObject { ["kind"] = "tree-rejected", ["derivation"] = "docked-tree" })
+            );
+        Captures(h, Moving, () => KeyboardUp(), KeyboardGone);
+        await session.Device.DismissKeyboardAsync();
+        Assert.Single(Swipes(h));
+    }
+
     [Fact]
     public async Task Leaves_any_other_refusal_to_the_caller()
     {
