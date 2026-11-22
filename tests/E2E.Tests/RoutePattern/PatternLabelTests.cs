@@ -23,4 +23,26 @@ public sealed class PatternLabelTests
             E2E.Internal.Routes.PatternLabel(new Regex(@"api\/\w+$", RegexOptions.IgnoreCase))
         );
     }
+
+    [Fact]
+    public void Names_a_string_a_regexp_and_a_method_narrowed_pattern()
+    {
+        Assert.Equal("\"**/api/orders\"", E2E.Internal.Routes.PatternLabel("**/api/orders"));
+        Assert.Equal(
+            "POST \"**/api/orders\"",
+            E2E.Internal.Routes.PatternLabel(new RouteMatcher { Method = "post", Url = "**/api/orders" })
+        );
+        Assert.Equal(
+            "POST /orders$/",
+            E2E.Internal.Routes.PatternLabel(new RouteMatcher { Method = "POST", UrlRegex = new Regex("orders$") })
+        );
+    }
+
+    [Fact]
+    public void Never_throws_on_a_value_without_a_usable_label()
+    {
+        Assert.Equal("POST undefined", E2E.Internal.Routes.PatternLabel(new RouteMatcher { Method = "POST" }));
+        Assert.Equal("an object", E2E.Internal.Routes.PatternLabel(new RouteMatcher()));
+        Assert.Equal("an object", E2E.Internal.Routes.PatternLabel(new Uri("https://x.test/")));
+    }
 }

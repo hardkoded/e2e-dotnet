@@ -3454,7 +3454,7 @@
     {
       "hash": "af963990b5eb823c",
       "ruleId": "SW003",
-      "filePath": "tests/E2E.Tests/Routes/BrowserRouteDecisionsTests.cs",
+      "filePath": "tests/E2E.Tests/Routes/BrowserRouteAndWaitForResponseDecisionsTests.cs",
       "lineNumber": 892,
       "codeSnippet": "catch (Exception)\n        {\n            // Checked by the test.\n        }",
       "message": "Empty catch block swallows exceptions without handling",
@@ -3463,7 +3463,7 @@
     {
       "hash": "377f9bac1bbc960c",
       "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/Routes/BrowserRouteDecisionsTests.cs",
+      "filePath": "tests/E2E.Tests/Routes/BrowserRouteAndWaitForResponseDecisionsTests.cs",
       "lineNumber": 165,
       "codeSnippet": "Task.Delay(1500)",
       "message": "Test uses Task.Delay(1500) which may indicate a timing-dependent test",
@@ -3472,7 +3472,7 @@
     {
       "hash": "889242f9dc7cbcde",
       "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/Routes/BrowserRouteDecisionsTests.cs",
+      "filePath": "tests/E2E.Tests/Routes/BrowserRouteAndWaitForResponseDecisionsTests.cs",
       "lineNumber": 200,
       "codeSnippet": "Task.Delay(1500)",
       "message": "Test uses Task.Delay(1500) which may indicate a timing-dependent test",
