@@ -353,6 +353,14 @@ public abstract class E2EFixture
             )
             .ConfigureAwait(false);
         var workerEnv = prepared is null ? null : PreparedEngines.MergeWorkerEnv(RunEnvironment, prepared.Env);
+
+        // An engine this fixture built lives for this one attempt, so its browser closes with the attempt instead of waiting for the run to end.
+        // Only the target's declared engine is shared by every test of the run (upstream's one connection per worker).
+        if (engine is WebEngine perTest && !ReferenceEquals(engine, DeclaredTarget.Engine))
+        {
+            perTest.DisposeOwned = false;
+        }
+
         _session = await E2ESession
             .LaunchAsync(
                 new E2ESessionOptions
