@@ -920,7 +920,12 @@ or when the step is nearly out of time, it offers only `complete_step`. A step w
 run out without a `complete_step` call fails with `STEP_NO_CONCLUSION` (a failed verdict,
 not a hard stop). The instructions tell the model, from the first turn, to reply
 with tool calls only; a reply without one is kept in the history, the model is
-told to act, and the turn counts. A tool that throws
+told to act, and the turn counts. A `complete_step` the model sends in the same turn as
+other calls waits for the calls before it, and is refused when one of them did not run,
+failed, or (for the last one) reported no change: the model reads their results and
+concludes again. Calls after it in the turn don't run. The instructions tell the model
+that a step which only lists actions may end in the turn of its last action, with no
+model call to read the result. A tool that throws
 is a failed call the model reads, except a hard stop of the step, which ends
 the loop. `ToolLoopHelpers.GuardAsync` gives a tool the same rule for work of its
 own. `PrepareMessages` runs between turns to shorten the history, or stops the

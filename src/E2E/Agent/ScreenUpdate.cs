@@ -80,6 +80,12 @@ internal sealed partial class ScreenPresenter
         "The on-screen keyboard closed with this action. On a touch screen a tap made while the keyboard is up can be spent on closing it: if the control you acted on shows no effect above, act on it again now that the keyboard is down.";
 
     // Leads of an update that changed the listing or the tabs; the loop guard reads them.
+    // Upstream's SCREEN_DID_NOT_CHANGE and NO_LISTED_NODE_CHANGED: how each update that reports an action as having no visible effect opens
+    // its paragraph; ReportsNoEffect looks for them there and nowhere else.
+    private const string ScreenDidNotChange = "The screen did not change within the wait after this action";
+
+    private const string NoListedNodeChanged = "No listed node changed within the wait after this action";
+
     private const string ChangedSubstantially = "The screen changed substantially since revision ";
     private const string ChangesSince = "Screen changes since revision ";
     private const string NothingListedChanged = "no listed node changed";
@@ -420,6 +426,19 @@ internal sealed partial class ScreenPresenter
     }
 
     /// <summary>
+    /// Whether an action's result reports that the action had no visible effect (upstream's <c>reportsNoEffect</c>): the screen, or at least
+    /// its listing, stayed as it was though a change was expected. A screen update with a moved screenshot, or after an action that expected
+    /// no change, never says so. Only a paragraph that opens with the report counts, so app text quoted in a listing of changes, which sits
+    /// on lines inside one paragraph, never reads as one.
+    /// </summary>
+    public static bool ReportsNoEffect(string text) =>
+        text.Split("\n\n")
+            .Any(paragraph =>
+                paragraph.StartsWith(ScreenDidNotChange + " (", StringComparison.Ordinal)
+                || paragraph.StartsWith(NoListedNodeChanged + " (", StringComparison.Ordinal)
+            );
+
+    /// <summary>
     /// An update with no listed line changed (upstream's <c>renderUnchanged</c>). A screenshot that moved while the listing stood still is
     /// said so, whatever was expected: the effect is drawn, and blaming the control would send the model looking for another way to do what
     /// it just did. For the same reason the control is blamed only when an identical screenshot backs the tree: the tree alone cannot tell a
@@ -449,13 +468,16 @@ internal sealed partial class ScreenPresenter
 
         return pixels switch
         {
-            PixelEvidence.Unchanged => "The screen did not change within the wait after this action ("
+            PixelEvidence.Unchanged => ScreenDidNotChange
+                + " ("
                 + looked
                 + "); the ids you have stay valid. If a change was expected and the control commits something (a save, a submit), it may still have gone through: check before you commit again by any route. Otherwise, if a change was expected, the control had no visible effect here: look for another way rather than repeating it.",
-            PixelEvidence.Unavailable => "No listed node changed within the wait after this action ("
+            PixelEvidence.Unavailable => NoListedNodeChanged
+                + " ("
                 + looked
                 + "); the ids you have stay valid. No screenshot can be taken in this step, so the listing is the only evidence. If a change was expected and the control commits something (a save, a submit), it may still have gone through: check before you commit again by any route. Otherwise, if a change was expected, look for another way rather than repeating it.",
-            _ => "No listed node changed within the wait after this action ("
+            _ => NoListedNodeChanged
+                + " ("
                 + looked
                 + "); the ids you have stay valid. The listing shows only what the tree describes: a drawn change needs a screenshot to see.",
         };
