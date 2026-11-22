@@ -20,7 +20,7 @@ public sealed class RunnerLifecycleTests : IDisposable
     public async Task Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_from_a_body()
     {
         // Choosing the directory before the nested process starts is what hands it to that process.
-        RunnerLifecycleResults.Clear();
+        RunnerLifecycleResults.Prepare();
         var (results, _) = await NestedSessionRun.RunAsync(typeof(FixmeFixture));
         Assert.Equal("Skip", results[nameof(FixmeFixture.Conditional)].Result);
         Assert.Equal("Pass", results[nameof(FixmeFixture.Condition_false_runs_on)].Result);
@@ -41,6 +41,7 @@ public sealed class RunnerLifecycleTests : IDisposable
     [Fact]
     public async Task Partial_Rejects_test_fixme_in_a_setup_test()
     {
+        RunnerLifecycleResults.Prepare();
         var (results, _) = await NestedSessionRun.RunAsync(typeof(FixmeInSetupFixture));
         Assert.Equal("Fail", results[nameof(FixmeInSetupFixture.SignIn)].Result);
         Assert.Contains("Fixme() cannot skip a setup test", results[nameof(FixmeInSetupFixture.SignIn)].Message);

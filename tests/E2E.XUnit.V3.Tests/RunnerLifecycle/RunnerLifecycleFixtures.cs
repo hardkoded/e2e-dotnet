@@ -30,6 +30,9 @@ internal static class RunnerLifecycleResults
 
     public static string ReportOf(Type fixture) => Path.Combine(Path.GetDirectoryName(Of(fixture))!, "report.json");
 
+    /// <summary>Chooses the directory, which hands it to a nested process started afterwards. Tests of the class run in parallel, so no test clears it.</summary>
+    public static void Prepare() => _ = Root;
+
     public static void Clear()
     {
         if (Directory.Exists(Root))

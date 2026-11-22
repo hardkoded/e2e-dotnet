@@ -14,14 +14,14 @@ namespace E2E.TUnit.Tests.RunnerLifecycle;
 /// </summary>
 public sealed class RunnerLifecycleTests
 {
-    [After(Test)]
-    public void RemoveResults() => RunnerLifecycleResults.Clear();
+    [After(Class)]
+    public static void RemoveResults() => RunnerLifecycleResults.Clear();
 
     [Test]
     public async Task Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_from_a_body()
     {
         // Choosing the directory before the nested process starts is what hands it to that process.
-        RunnerLifecycleResults.Clear();
+        RunnerLifecycleResults.Prepare();
         var (results, _) = await NestedSessionRun.RunAsync(typeof(FixmeFixture));
         await Assert.That(results[nameof(FixmeFixture.Conditional)].Result).IsEqualTo("Skipped");
         await Assert.That(results[nameof(FixmeFixture.Condition_false_runs_on)].Result).IsEqualTo("Passed");
@@ -43,6 +43,7 @@ public sealed class RunnerLifecycleTests
     [Test]
     public async Task Partial_Rejects_test_fixme_in_a_setup_test()
     {
+        RunnerLifecycleResults.Prepare();
         var (results, _) = await NestedSessionRun.RunAsync(typeof(FixmeInSetupFixture));
         var setup = results[nameof(FixmeInSetupFixture.SignIn)];
         await Assert.That(setup.Result).IsEqualTo("Failed");
