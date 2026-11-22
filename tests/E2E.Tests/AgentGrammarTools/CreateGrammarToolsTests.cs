@@ -89,7 +89,11 @@ public sealed partial class CreateGrammarToolsTests
         Assert.Equal("complete_step", offered[^1]);
         Assert.StartsWith(DefaultAgent.BaseRules, model.Requests[0].System, StringComparison.Ordinal);
         Assert.EndsWith(
-            AgentTools.VerdictRules + "\n- " + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule,
+            AgentTools.VerdictRules
+                + "\n- "
+                + global::E2E.ToolLoopExecutor.SameTurnVerdictRule
+                + "\n- "
+                + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule,
             model.Requests[0].System,
             StringComparison.Ordinal
         );
