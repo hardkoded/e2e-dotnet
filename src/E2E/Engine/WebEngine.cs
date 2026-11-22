@@ -593,7 +593,8 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             }
 
             // Upstream's surface owns one connection for the whole worker. A leased or persistent attempt's browser belongs to its lease, so only those keep a driver of their own.
-            var shared = lease is null && connect is not { ReconnectEndpoint: not null };
+            // A worker-scope lease shares the connection too (upstream's `connection.acquire` with a connector); an attempt-scope lease or a run of its own does not outlive its attempt.
+            var shared = connect is not { ReconnectEndpoint: not null } && (lease is null || lease.SharesConnection);
             BrowserConnection? connection = null;
             IPlaywright playwright;
             if (shared)
@@ -669,18 +670,31 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                                             .ConfigureAwait(false);
 
                                         // As upstream, a connect that never answers is bounded by the browser launch budget.
-                                        return await ConnectCdp(
-                                                playwright,
-                                                target,
-                                                E2EDefaults.LaunchTimeout,
-                                                cancellationToken
-                                            )
-                                            .ConfigureAwait(false);
+                                        var attached =
+                                            lease?.Protocol == BrowserProtocol.Playwright
+                                                ? await ConnectPlaywright(
+                                                        playwright,
+                                                        target.Endpoint,
+                                                        E2EDefaults.LaunchTimeout,
+                                                        cancellationToken
+                                                    )
+                                                    .ConfigureAwait(false)
+                                                : await ConnectCdp(
+                                                        playwright,
+                                                        target,
+                                                        E2EDefaults.LaunchTimeout,
+                                                        cancellationToken
+                                                    )
+                                                    .ConfigureAwait(false);
+                                        return attached;
                                     },
                             }
                         )
                         .WaitAsync(cancellationToken)
                         .ConfigureAwait(false);
+
+                    // A cached browser skips the connector, so the lease learns of the attach here: it must hear when the browser drops.
+                    lease?.Attached();
                 }
                 else
                 {

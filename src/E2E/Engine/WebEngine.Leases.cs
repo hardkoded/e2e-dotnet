@@ -311,6 +311,12 @@ public sealed partial class WebEngine : IAsyncDisposable, IDisposableEngine
 
         public WebConnectOptions? Connect { get; private set; }
 
+        /// <summary>Whether the attempt's browser belongs to the worker's shared connection: Worker scope, on the worker's own lease rather than a run of the attempt's own.</summary>
+        public bool SharesConnection => standalone is null && leases.Scope == BrowserProviderScope.Worker;
+
+        /// <summary>Records that the attempt rides the worker's browser, so <see cref="CloseAsync"/> tells the lease whether it dropped.</summary>
+        public void Attached() => _attached = true;
+
         /// <summary>What the endpoint <see cref="Connect"/> last resolved speaks.</summary>
         public BrowserProtocol Protocol => _protocol;
 
