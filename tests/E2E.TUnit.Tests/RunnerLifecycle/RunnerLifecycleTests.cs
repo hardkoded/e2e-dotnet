@@ -8,8 +8,8 @@ using E2E.TUnit.Tests.EngineContract;
 namespace E2E.TUnit.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out the registered form
-/// <c>test.fixme(title, fn)</c> (the port has no registration API), the consumer's <c>setup-failed</c> skip, and reads each result from the fixture's
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out that the registered form
+/// <c>[Fixme]</c> (upstream's <c>test.fixme(title, fn)</c>) has no attempt (it starts its session before it skips), the consumer's <c>setup-failed</c> skip, and reads each result from the fixture's
 /// <c>report.json</c>.
 /// </summary>
 public sealed class RunnerLifecycleTests
@@ -18,15 +18,19 @@ public sealed class RunnerLifecycleTests
     public static void RemoveResults() => RunnerLifecycleResults.Clear();
 
     [Test]
-    public async Task Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_from_a_body()
+    public async Task Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body()
     {
         // Choosing the directory before the nested process starts is what hands it to that process.
         RunnerLifecycleResults.Prepare();
         var (results, _) = await NestedSessionRun.RunAsync(typeof(FixmeFixture));
+        await Assert.That(results[nameof(FixmeFixture.Registered)].Result).IsEqualTo("Skipped");
         await Assert.That(results[nameof(FixmeFixture.Conditional)].Result).IsEqualTo("Skipped");
         await Assert.That(results[nameof(FixmeFixture.Condition_false_runs_on)].Result).IsEqualTo("Passed");
 
         var report = JsonNode.Parse(File.ReadAllText(RunnerLifecycleResults.ReportOf(typeof(FixmeFixture))))!;
+        var registered = ByTitle(report, nameof(FixmeFixture.Registered));
+        await Assert.That((string?)registered["status"]).IsEqualTo("skipped");
+        await AssertSkip(registered["skip"]!, "fixme");
         var conditional = ByTitle(report, nameof(FixmeFixture.Conditional));
         await Assert.That((string?)conditional["status"]).IsEqualTo("skipped");
         await AssertSkip(conditional["skip"]!, "fixme: flaky on webkit");

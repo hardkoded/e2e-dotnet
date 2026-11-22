@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Reflection;
 using Xunit;
 using Xunit.Sdk;
 using Xunit.v3;
@@ -132,13 +133,43 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
             current.CancellationToken,
             (test.TestCase as IXunitTestCase)?.TestMethod?.Method
         );
-        return new ValueTask(RegisterRunningAsync(started, test.UniqueID));
+        var fixme = (test.TestCase as IXunitTestCase)?.TestMethod?.Method.GetCustomAttribute<FixmeAttribute>(true);
+        return new ValueTask(RegisterRunningAsync(started, test.UniqueID, fixme));
     }
 
-    private async Task RegisterRunningAsync(Task started, string uniqueId)
+    private async Task RegisterRunningAsync(Task started, string uniqueId, FixmeAttribute? fixme)
     {
         await started.ConfigureAwait(false);
         Running[uniqueId] = this;
+
+        // A test registered with [Fixme] skips once its session has started, as a Fixme() from a set-up does: the report tells the cause fixme.
+        if (fixme is not null)
+        {
+            try
+            {
+                Fixme(true, fixme.Reason);
+            }
+            catch (InvalidOperationException)
+            {
+                // xUnit does not dispose a test class whose InitializeAsync threw, so the session is completed here, and the report tells the skip.
+                if (TakeSession() is { } session)
+                {
+                    try
+                    {
+                        session.Complete(
+                            new SkipException(E2E.Internal.Skip.FixmeReason(fixme.Reason)),
+                            Xunit.TestContext.Current.CancellationToken
+                        );
+                    }
+                    finally
+                    {
+                        await session.DisposeAsync().ConfigureAwait(false);
+                    }
+                }
+
+                throw;
+            }
+        }
     }
 
     // The test body has ended and the class is not disposed yet: a failed body is looked at now, ahead of the teardown.

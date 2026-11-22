@@ -135,14 +135,25 @@ public abstract partial class E2ETest : E2EFixture
             }
         }
 
-        return StartSessionAsync(
+        var method = TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo;
+        var started = StartSessionAsync(
             CacheTitle(current.Test),
             AttemptOf(current),
             RecordSoftFailure,
             HasFailed,
             current.CancellationToken,
-            TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo
+            method
         );
+        return method?.GetCustomAttribute<FixmeAttribute>(true) is { } fixme
+            ? FixmeAfterAsync(started, fixme)
+            : started;
+    }
+
+    // A test registered with [Fixme] skips once its session has started, as a Fixme() from a [SetUp] does: the report tells the cause fixme.
+    private async Task FixmeAfterAsync(Task started, FixmeAttribute fixme)
+    {
+        await started.ConfigureAwait(false);
+        Fixme(true, fixme.Reason);
     }
 
     [TearDown]

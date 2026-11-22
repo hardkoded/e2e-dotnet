@@ -155,7 +155,7 @@ internal sealed class HostRun : IDisposable
         ArgumentNullException.ThrowIfNull(discovered);
         ArgumentNullException.ThrowIfNull(excluded);
         var files = discovered
-            .Where(test => test.SkipReason is null && !excluded.ContainsKey(test.Key))
+            .Where(test => (test.SkipReason is null || test.Fixme) && !excluded.ContainsKey(test.Key))
             .GroupBy(test => FileOf(test), StringComparer.Ordinal)
             .Select(group => (File: group.Key, Target: target, Tests: group.Count()))
             .ToList();

@@ -37,7 +37,7 @@ internal static class Skip
         if (session is null)
         {
             throw new InvalidOperationException(
-                "Fixme(condition, reason) skips the running test and must be called inside a test body; to mark a test fixme at collection, skip it with the host's own attribute"
+                "Fixme(condition, reason) skips the running test and must be called inside a test body; to mark a test fixme at collection, register it with the host's [Fixme] attribute"
             );
         }
 

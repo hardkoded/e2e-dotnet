@@ -11,11 +11,12 @@ internal enum TestKind
     Setup,
 }
 
-/// <summary>How a test was declared (upstream's <c>TestMode</c>, <c>collect/registry.ts</c>): plainly, skipped, or <c>.only</c>.</summary>
+/// <summary>How a test was declared (upstream's <c>TestMode</c>, <c>collect/registry.ts</c>): plainly, skipped, skipped as <c>fixme</c>, or <c>.only</c>.</summary>
 internal enum TestMode
 {
     Normal,
     Skip,
+    Fixme,
     Only,
 }
 

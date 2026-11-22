@@ -151,7 +151,11 @@ internal static class RunSelection
                         method.Name,
                         [.. typeTags, .. CategoriesOf(method)],
                         // A skip with a condition (a derived SkipAttribute) is decided when the test runs, so it is not an outright skip.
-                        OutrightSkip(method) ?? OutrightSkip(type)
+                        method.GetCustomAttribute<FixmeAttribute>(true)
+                            is { } fixme
+                            ? E2E.Internal.Skip.FixmeReason(fixme.Reason)
+                            : OutrightSkip(method) ?? OutrightSkip(type),
+                        method.IsDefined(typeof(FixmeAttribute), true)
                     )
                 );
             }

@@ -45,6 +45,10 @@ public sealed class FixmeFixture : E2ETest
     protected override string? ResultsDirectory => RunnerLifecycleResults.Of(GetType());
 
     [Test]
+    [Fixme]
+    public void Registered() => throw new InvalidOperationException("a [Fixme] body must never run");
+
+    [Test]
     public async Task Conditional()
     {
         await App.OpenAsync("/");

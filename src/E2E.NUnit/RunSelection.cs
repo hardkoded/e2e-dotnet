@@ -165,10 +165,14 @@ internal static class RunSelection
                             .. typeTags,
                             .. method.GetCustomAttributes<CategoryAttribute>(true).Select(category => category.Name),
                         ],
-                        (
-                            method.GetCustomAttribute<IgnoreAttribute>(true)
-                            ?? type.GetCustomAttribute<IgnoreAttribute>(true)
-                        )?.Reason
+                        method.GetCustomAttribute<FixmeAttribute>(true) is { } fixme
+                            ? E2E.Internal.Skip.FixmeReason(fixme.Reason)
+                            : (
+                                method.GetCustomAttribute<IgnoreAttribute>(true)
+                                ?? type.GetCustomAttribute<IgnoreAttribute>(true)
+                            )?.Reason,
+                        method.IsDefined(typeof(FixmeAttribute), true),
+                        type.IsDefined(typeof(SerialAttribute), true)
                     )
                 );
             }
