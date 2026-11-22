@@ -67,17 +67,82 @@ internal static class ReadSemantics
             const text = (value || "").replace(/\s+/g, " ").trim();
             return text.length > limit ? text.slice(0, limit) : text;
           };
-          // Content a closed details folds away: anything under it outside its
-          // summary. Every closed ancestor is asked, nested details included.
-          const inClosedDetails = (el) => {
-            for (let details = el.parentElement?.closest("details"); details; details = details.parentElement?.closest("details")) {
-              if (!details.open) {
-                const summary = details.querySelector(":scope > summary");
-                if (!summary || !summary.contains(el)) return true;
-              }
-            }
-            return false;
+          // Upstream's BOXES_THAT_SKIP_NOTHING: display values on which content-visibility: hidden skips nothing (checked against
+          // checkVisibility() in Chromium).
+          const BOXES_THAT_SKIP_NOTHING = new Set(["contents", "inline", "inline list-item", "table", "inline-table", "table-row", "table-row-group", "table-header-group", "table-footer-group", "ruby", "ruby-text"]);
+          // Upstream's isHtml: an HTML element; an SVG slot or a foreign summary does nothing.
+          const isHtml = (node) => node.namespaceURI === "http://www.w3.org/1999/xhtml";
+          // Upstream's skipsContents: whether an element with this style renders nothing under it. In SVG only an outermost svg, one whose
+          // parent is not SVG or is a foreignObject, has a box for content-visibility to act on, and as a replaced element it skips whatever
+          // its display. An HTML button or fieldset also makes a box of its own short of display: contents.
+          const skipsContents = (el, style) => {
+            if (style?.getPropertyValue("content-visibility") !== "hidden") return false;
+            const svg = "http://www.w3.org/2000/svg";
+            if (el.namespaceURI === svg) return el.localName === "svg" && (el.parentElement?.namespaceURI !== svg || el.parentElement.localName === "foreignObject");
+            if (!BOXES_THAT_SKIP_NOTHING.has(style.display)) return true;
+            return (el.localName === "button" || el.localName === "fieldset") && el.namespaceURI === "http://www.w3.org/1999/xhtml" && style.display !== "contents";
           };
+          // Upstream's closedSlots: a tracked closed root's HTML slots, read once per root in a read: by name, the first slot of each name in
+          // tree order, as named assignment picks it; in a root that assigns by hand, by each element a slot holds. A named lookup never lists
+          // what a slot holds, so a locator's read of one match costs one pass over the root's slots.
+          const closedSlots = new Map();
+          // Upstream's slotOf: assignedSlot, which a closed root hides from the outside, else the tracked closed root's slot for the element.
+          const slotOf = (el) => {
+            if (el.assignedSlot !== null) return el.assignedSlot;
+            const host = el.parentElement;
+            const shadow = host === null ? undefined : closedRoots?.get(host);
+            if (shadow === undefined) return null;
+            const manual = shadow.slotAssignment === "manual";
+            let slots = closedSlots.get(shadow);
+            if (slots === undefined) {
+              slots = new Map();
+              for (const slot of Array.from(shadow.querySelectorAll("slot"))) {
+                if (!isHtml(slot)) continue;
+                if (manual) {
+                  for (const assigned of slot.assignedElements()) slots.set(assigned, slot);
+                  continue;
+                }
+                const name = slot.getAttributeNS(null, "name") ?? "";
+                if (!slots.has(name)) slots.set(name, slot);
+              }
+              closedSlots.set(shadow, slots);
+            }
+            return slots.get(manual ? el : (el.getAttributeNS(null, "slot") ?? "")) ?? null;
+          };
+          // Upstream's flatParentOf: an element's parent in the flat tree: its slot, the tree parent, or the host at a shadow root.
+          const flatParentOf = memoized((el) => slotOf(el) ?? parentOrHostOf(el));
+          // Upstream's firstSummaryOf: a details element's summary, its first HTML summary child.
+          const firstSummaryOf = memoized((details) => {
+            // One read of the children, not a step per sibling, so a wide details costs one pass for the whole read.
+            for (const child of details.children) {
+              if (child.localName === "summary" && isHtml(child)) return child;
+            }
+            return null;
+          });
+          // Upstream's foldsBody: whether a details element hides its body: its ::details-content skips its contents (skipsContents), so page
+          // CSS can show a closed body. Without that pseudo element, the open attribute decides.
+          const foldsBody = memoized((details) => {
+            const style = details.ownerDocument.defaultView?.getComputedStyle(details, "::details-content");
+            const skip = style?.getPropertyValue("content-visibility") ?? "";
+            return skip === "" ? !details.hasAttribute("open") : skipsContents(details, style);
+          });
+          // Upstream's isInClosedDetails: content a closed details folds away: anything under it in the flat tree, slotted and shadow content
+          // included, outside its summary. Every details on the way up is asked. Known by name, not instanceof, so one adopted from another
+          // frame still counts.
+          const isInClosedDetails = memoized((el) => {
+            const parent = flatParentOf(el);
+            if (parent === null) return false;
+            if (parent.localName === "details" && isHtml(parent) && foldsBody(parent) && firstSummaryOf(parent) !== el) return true;
+            return isInClosedDetails(parent);
+          });
+          // Whether an element hides its subtree for the walk: display: none, which no descendant can undo, or content it skips.
+          // Port only: the ancestors of one element, read up the flat tree and kept once per element.
+          const hiddenAbove = memoized((el) => {
+            const parent = flatParentOf(el);
+            if (parent === null) return false;
+            const style = styleOf(parent);
+            return style.display === "none" || skipsContents(parent, style) || hiddenAbove(parent);
+          });
           // A text node that lays out to a box a person can see.
           const visibleText = (node) => {
             const range = document.createRange();
@@ -103,7 +168,7 @@ internal static class ReadSemantics
               }
               return true;
             }
-            return style.display === "none" || style.visibility !== "visible" || inClosedDetails(el);
+            return style.display === "none" || style.visibility !== "visible" || isInClosedDetails(el);
           };
           const ariaHidden = (el) => (el.getAttribute("aria-hidden") || "").toLowerCase() === "true";
           // What stops the element and everything under it from rendering:
@@ -113,7 +178,7 @@ internal static class ReadSemantics
           // visible and paint again; nor is aria-hidden, which only the
           // accessibility tree drops. A closed details body is in it too: no
           // descendant can undo the fold.
-          const hidesSubtree = (el, style) => style.display === "none" || style.contentVisibility === "hidden" || inClosedDetails(el);
+          const hidesSubtree = (el, style) => style.display === "none" || skipsContents(el, style) || isInClosedDetails(el);
           // Port only: upstream has no paragraph role, so it needs no test for content inside a host.
           const inEditingHost = (el) => {
             if (el.parentElement?.closest("[contenteditable]") == null) return false;
@@ -234,7 +299,7 @@ internal static class ReadSemantics
           const isVisibleEmptyBox = memoized((el) => {
             const style = styleOf(el);
             if (style === undefined) return false;
-            if (el.children.length > 0) return false;
+            if (el.childElementCount > 0) return false;
             const explicit = (el.getAttribute("role") ?? "").trim();
             if (explicit !== "") return false;
             if (directTextOf(el) !== "") return false;
@@ -243,7 +308,8 @@ internal static class ReadSemantics
             return hasPaint(style);
           });
           const tagRole = (el) => {
-            const tag = el.tagName;
+            // Read by name whatever the namespace, as upstream lowercases tagName: an element a page adds in another namespace is still a button.
+            const tag = el.tagName.toUpperCase();
             switch (tag) {
               case "A": return el.hasAttribute("href") ? "link" : null;
               case "BUTTON": return "button";
@@ -255,7 +321,7 @@ internal static class ReadSemantics
                   : "image";
               // An inline icon is a picture whether or not anything names it, as
               // Playwright reads it; Chrome ignores an unnamed one.
-              case "svg": return "image";
+              case "SVG": return "image";
               case "NAV": return "navigation";
               case "MAIN": return "main";
               case "ASIDE": return "complementary";
@@ -396,10 +462,10 @@ internal static class ReadSemantics
             if (!style) styles.set(el, style = getComputedStyle(el));
             return style;
           };
-          // Text owned directly by an element, excluding descendant elements. An element with content-visibility: hidden renders none of
-          // it, as its innerText reads empty, so it owns none.
+          // Text owned directly by an element, excluding descendant elements. An element that skips its contents (skipsContents) renders none
+          // of it, as its innerText reads empty, so it owns none.
           const directTextOf = memoized((el) => {
-            if (styleOf(el)?.getPropertyValue("content-visibility") === "hidden") return "";
+            if (skipsContents(el, styleOf(el))) return "";
             let out = "";
             for (const child of Array.from(el.childNodes)) {
               if (child.nodeType === 3) out += child.nodeValue ?? "";
@@ -855,7 +921,7 @@ internal static class ReadSemantics
     /// </summary>
     public const string HiddenMode = """
           const shownInTree = (el) => {
-            for (let parent = parentOrHostOf(el); parent !== null; parent = parentOrHostOf(parent)) {
+            for (let parent = flatParentOf(el); parent !== null; parent = flatParentOf(parent)) {
               if (hidesSubtree(parent, getComputedStyle(parent))) return false;
             }
             if (hidden(el)) return false;
@@ -870,8 +936,8 @@ internal static class ReadSemantics
           const isDrawnByLabel = (el, style) => {
             if (!(el instanceof HTMLInputElement) || (el.type !== "checkbox" && el.type !== "radio")) return false;
             if (style.visibility !== "visible") return false;
-            // A slotted element is skipped with the slot it renders in (upstream's isSkippedContent reads assignedSlot first).
-            for (let parent = el.assignedSlot ?? parentOrHostOf(el); parent !== null; parent = parent.assignedSlot ?? parentOrHostOf(parent)) {
+            // A slotted element is skipped with the slot it renders in (upstream's isSkippedContent steps with flatParentOf).
+            for (let parent = flatParentOf(el); parent !== null; parent = flatParentOf(parent)) {
               if (hidesSubtree(parent, getComputedStyle(parent))) return false;
             }
             const INTERACTIVE = 'a,button,input,select,textarea,summary,[contenteditable],[role="button"],[role="link"]';
@@ -972,7 +1038,7 @@ internal static class ReadSemantics
           // walk carries down.
           const nodeOf = (el, testIdAttribute) => {
             let isHidden = false;
-            for (let parent = parentOrHostOf(el); parent !== null; parent = parentOrHostOf(parent)) {
+            for (let parent = flatParentOf(el); parent !== null; parent = flatParentOf(parent)) {
               if (hidesSubtree(parent, getComputedStyle(parent))) isHidden = true;
             }
             return fieldsOf(el, roleOf(el), {

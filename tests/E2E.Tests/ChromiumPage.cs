@@ -43,6 +43,31 @@ public sealed class ChromiumPage : IAsyncLifetime
         await Page.GotoAsync("about:blank");
     }
 
+    /// <summary>
+    /// A page of its own in the same browser, with the closed-root record, as the engine's context opens one. A test that defines custom
+    /// elements needs one, since a registry outlives <c>SetContentAsync</c> on the class page.
+    /// </summary>
+    public async Task<IPage> NewPageAsync()
+    {
+        var page = await _browser!.NewPageAsync(
+            new BrowserNewPageOptions
+            {
+                ViewportSize = new ViewportSize { Width = 1280, Height = 720 },
+            }
+        );
+        try
+        {
+            await page.AddInitScriptAsync(PageScript.RecordClosedShadowRoots);
+            await page.GotoAsync("about:blank");
+            return page;
+        }
+        catch
+        {
+            await page.CloseAsync();
+            throw;
+        }
+    }
+
     public async Task DisposeAsync()
     {
         if (_browser is not null)
@@ -57,10 +82,10 @@ public sealed class ChromiumPage : IAsyncLifetime
     /// The port's reader over the page: every node it lists, in document order. <paramref name="budget"/> is the
     /// most nodes the walk counts, as upstream's capture takes it.
     /// </summary>
-    public async Task<IReadOnlyList<ReadNode>> CaptureAsync(int budget = ObservationLimits.Nodes)
+    public async Task<IReadOnlyList<ReadNode>> CaptureAsync(int budget = ObservationLimits.Nodes, IPage? on = null)
     {
         // The next free ref carries over, as the engine's does, so a ref never names two elements.
-        var observed = await Page.EvaluateAsync<JsonElement>(
+        var observed = await (on ?? Page).EvaluateAsync<JsonElement>(
             PageScript.Collect,
             new
             {

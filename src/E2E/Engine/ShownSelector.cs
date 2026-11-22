@@ -25,9 +25,14 @@ internal static class ShownSelector
     /// </summary>
     public static readonly string ShownSelectorEngineSource = $$"""
         () => {
+          // A reader of its own for each query, as upstream calls the reader once per read: its memo caches hold computed styles and
+          // the flat tree, which would go stale between two queries of an engine that lives as long as the document.
+          const readerOf = () => {
         {{ReadSemantics.Prelude}}
         {{ReadSemantics.HiddenMode}}
-          const queryAll = (root) => (root.nodeType === 1 && shownInTree(root) ? [root] : []);
+            return shownInTree;
+          };
+          const queryAll = (root) => (root.nodeType === 1 && readerOf()(root) ? [root] : []);
           return { queryAll, query: (root) => queryAll(root)[0] ?? null };
         }
         """;

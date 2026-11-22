@@ -10,9 +10,8 @@ namespace E2E.Tests.OpenHostDeadline;
 /// <summary>
 /// Upstream's <c>describe('openHost: deadline')</c> (<c>tests/integration/open-host-deadline.test.ts</c>). The <c>it</c>s that need no feature the port
 /// lacks are ported here. Not ported (hardkoded/e2e-dotnet#2002, #2041, #2099): <c>records abandoned polls and steps without unhandled rejections or reads after close</c> (hardkoded/e2e-dotnet#2138: the port has no
-/// <c>PollScope</c> in a hosted session, which ends a poll its phase did not await, and no contributed fixture to hang), the contributed
-/// fixture calls (no <c>extend</c>). The signals of <c>cancels an in-flight poll on %s</c> are the open tokens of <c>OpenAsync</c> and <c>OpenSessionAsync</c> (C# has no <c>signal</c> option).
-/// The <c>Partial_</c> <c>it</c>s: <c>bounds polls by config assertionTimeout</c> does not read the operation a session's <c>App.OpenAsync</c> gives the engine (the port's engine takes no operation timeout: hardkoded/e2e-dotnet#2142); <c>records a cancelled fixture as interrupted</c> cancels a core operation, as the port has no <c>extend</c> for a <c>gadget</c> fixture; <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> uses a 60 s timeout, not upstream's 20 ms (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
+/// <c>PollScope</c> in a hosted session, which ends a poll its phase did not await). The signals of <c>cancels an in-flight poll on %s</c> are the open tokens of <c>OpenAsync</c> and <c>OpenSessionAsync</c> (C# has no <c>signal</c> option).
+/// The <c>Partial_</c> <c>it</c>s: <c>bounds polls by config assertionTimeout</c> does not read the operation a session's <c>App.OpenAsync</c> gives the engine (the port's engine takes no operation timeout: hardkoded/e2e-dotnet#2142); the two contributed-fixture <c>it</c>s (<c>caps contributed fixture calls...</c>, <c>keeps the session deadline when a contributed operation disables its own timeout</c>) reach the fixture through the fake engine's <c>Gadget</c> instead of <c>session.fixtures.gadget</c>, since a hosted session's <c>Fixtures</c> is the <c>TestContext</c> and the port's operations declare no timeout of their own (so <c>timeout: false</c> has nothing to disable); <c>records a cancelled fixture as interrupted</c> cancels a core operation, as the port has no <c>extend</c> for a <c>gadget</c> fixture; <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> uses a 60 s timeout, not upstream's 20 ms (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
 /// <see cref="E2E.Internal.TestTimeout.SetRunningTestTimeout"/> takes the session.
 /// </summary>
 public sealed class OpenHostDeadlineTests : IAsyncLifetime
@@ -216,6 +215,48 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
         Assert.Equal("INVALID_ARGUMENT", refused.Code);
         Assert.Contains("a hosted session runs none", refused.Message);
         Assert.Empty(await session.CloseAsync());
+    }
+
+    [Fact]
+    public async Task Partial_Caps_contributed_fixture_calls_at_the_session_deadline_and_refuses_dispatch_after_expiry()
+    {
+        var engine = new HostFakeEngine();
+        var host = await OpenAsync(engine);
+        var session = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "contributed deadline", Timeout = TimeSpan.FromMilliseconds(10) }
+        );
+        var gadget = engine.Gadget!;
+
+        var slow = await Assert.ThrowsAsync<TestException>(() =>
+            gadget.SlowAsync().WaitAsync(TimeSpan.FromSeconds(30))
+        );
+        Assert.Equal("TEST_TIMEOUT", slow.Code);
+        var late = await Assert.ThrowsAsync<TestException>(() => gadget.PokeAsync("too late"));
+        Assert.Equal("TEST_TIMEOUT", late.Code);
+        Assert.Equal(["slow"], engine.FixtureCalls);
+        Assert.Contains(session.Steps(), step =>
+            step.Api == "gadget.slow"
+            && step.Status == E2E.Reports.StepStatus.Failed
+            && step.Error?.Code == "TEST_TIMEOUT"
+        );
+        await session.CloseAsync();
+        Assert.Contains("timed out", await File.ReadAllTextAsync(session.TracePath));
+    }
+
+    [Fact]
+    public async Task Partial_Keeps_the_session_deadline_when_a_contributed_operation_disables_its_own_timeout()
+    {
+        var engine = new HostFakeEngine();
+        var host = await OpenAsync(engine);
+        var session = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "disabled operation timeout", Timeout = TimeSpan.FromMilliseconds(15) }
+        );
+
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            engine.Gadget!.HangAsync().WaitAsync(TimeSpan.FromSeconds(30))
+        );
+        Assert.Equal("TEST_TIMEOUT", error.Code);
+        Assert.Contains(await session.CloseAsync(), failure => failure is E2EException { Code: "TEST_TIMEOUT" });
     }
 
     [Fact]
