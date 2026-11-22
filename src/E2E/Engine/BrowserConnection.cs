@@ -276,16 +276,36 @@ internal sealed class BrowserConnection(
             return;
         }
 
+        if (!pending.IsCompleted)
+        {
+            // A launch still in flight may wait on a provider that answers only after this dispose returns: close what it produces
+            // when it lands, instead of holding the dispose (and the lease release after it) on it.
+            _ = pending.ContinueWith(
+                static done => CloseQuietlyAsync(done.Result),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnRanToCompletion,
+                TaskScheduler.Default
+            );
+            return;
+        }
+
+        if (pending.IsCompletedSuccessfully)
+        {
+            await CloseQuietlyAsync(pending.Result).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task CloseQuietlyAsync(IBrowser browser)
+    {
         try
         {
-            await (await pending.ConfigureAwait(false)).CloseAsync().ConfigureAwait(false);
+            await browser.CloseAsync().ConfigureAwait(false);
         }
-#pragma warning disable CA1031 // Disposal still owns a failed or abandoned launch.
+#pragma warning disable CA1031 // Disposal is best-effort: a browser that is already gone is as closed as the close would leave it.
         catch (Exception)
 #pragma warning restore CA1031
         {
-            // Nothing is left to close: a launch that failed never produced a browser.
-            pending = null;
+            // Nothing is left to close.
         }
     }
 
