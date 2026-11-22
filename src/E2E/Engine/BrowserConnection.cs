@@ -306,6 +306,7 @@ internal sealed class BrowserConnection(
 #pragma warning restore CA1031
         {
             // Nothing is left to close.
+            return;
         }
     }
 
