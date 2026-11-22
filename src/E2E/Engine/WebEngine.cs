@@ -589,7 +589,19 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 );
             }
 
-            var playwright = await CreatePlaywright().ConfigureAwait(false);
+            // Upstream's surface owns one connection for the whole worker. A leased or persistent attempt's browser belongs to its lease, so only those keep a driver of their own.
+            var shared = lease is null && connect is not { ReconnectEndpoint: not null };
+            BrowserConnection? connection = null;
+            IPlaywright playwright;
+            if (shared)
+            {
+                (playwright, connection) = await SharedConnectionAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                playwright = await CreatePlaywright().ConfigureAwait(false);
+            }
+
             var seams = new SessionSeams(Clock, ConnectCdp, RegisterCdpSelectors, FetchRoute, CapturePage, ReadFrame);
             if (connect is { ReconnectEndpoint: { } reconnect } persistent)
             {
@@ -616,8 +628,8 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             WebSession? session = null;
             try
             {
-                // A local launch registers them in its connection's acquire.
-                if (connect is not null)
+                // The connection's acquire registers them for a shared browser.
+                if (connect is not null && !shared)
                 {
                     await BrowserConnection.RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
                 }
@@ -635,9 +647,41 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                         )
                         .ConfigureAwait(false)
                     : null;
-                if (connect is not null)
+                if (shared)
                 {
-                    var target = await ResolveEndpointAsync(connect, cancellationToken).ConfigureAwait(false);
+                    // The engine owns the browser and the driver; the connection relaunches or reattaches one that dropped.
+                    browser = await connection!
+                        .AcquireAsync(
+                            new BrowserAcquireOptions
+                            {
+                                Name = _options.BrowserName,
+                                Headed = !(_headless && !options.Headed),
+                                ChromiumSandbox = _options.ChromiumSandbox
+                                    ?? BrowserConnection.DefaultChromiumSandbox(),
+                                Connect = connect is null
+                                    ? null
+                                    : async () =>
+                                    {
+                                        var target = await ResolveEndpointAsync(connect, cancellationToken)
+                                            .ConfigureAwait(false);
+
+                                        // As upstream, a connect that never answers is bounded by the browser launch budget.
+                                        return await ConnectCdp(
+                                                playwright,
+                                                target,
+                                                E2EDefaults.LaunchTimeout,
+                                                cancellationToken
+                                            )
+                                            .ConfigureAwait(false);
+                                    },
+                            }
+                        )
+                        .WaitAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    var target = await ResolveEndpointAsync(connect!, cancellationToken).ConfigureAwait(false);
 
                     // As upstream, a connect that never answers is bounded by the browser launch budget.
                     browser =
@@ -651,21 +695,6 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                                 .ConfigureAwait(false)
                             : await ConnectCdp(playwright, target, E2EDefaults.LaunchTimeout, cancellationToken)
                                 .ConfigureAwait(false);
-                }
-                else
-                {
-                    // The session owns the connection's browser and driver, and closes both when it ends.
-                    browser = await new BrowserConnection(playwright, LaunchLocal)
-                        .AcquireAsync(
-                            new BrowserAcquireOptions
-                            {
-                                Name = _options.BrowserName,
-                                Headed = !(_headless && !options.Headed),
-                                ChromiumSandbox = _options.ChromiumSandbox
-                                    ?? BrowserConnection.DefaultChromiumSandbox(),
-                            }
-                        )
-                        .ConfigureAwait(false);
                 }
 
                 session = new WebSession(
@@ -681,6 +710,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     lease: lease
                 )
                 {
+                    OwnsBrowser = !shared,
                     Video = VideoSetupOf(options, lease),
                     ArtifactsDir = options.ArtifactsDir,
                     Site = SiteOf(app),
@@ -696,6 +726,12 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 if (session is not null)
                 {
                     await session.DisposeAsync().AsTask().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                    throw;
+                }
+
+                // The engine's connection keeps its browser and driver for the next attempt.
+                if (shared)
+                {
                     throw;
                 }
 
@@ -4171,13 +4207,21 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             {
                 try
                 {
-                    await CloseDroppedAsync(() => _browser.CloseAsync()).ConfigureAwait(false);
+                    // A browser the engine's connection shares outlives the attempt: the engine's dispose closes it.
+                    if (OwnsBrowser)
+                    {
+                        await CloseDroppedAsync(() => _browser.CloseAsync()).ConfigureAwait(false);
+                    }
                 }
                 finally
                 {
                     try
                     {
-                        _playwright.Dispose();
+                        if (OwnsBrowser)
+                        {
+                            _playwright.Dispose();
+                        }
+
                         _lifetime.Dispose();
 
                         // A leased browser is released after its connection closes, whether or not the close succeeded.
@@ -4194,6 +4238,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 }
             }
         }
+
+        /// <summary>Whether this session closes its browser and stops its driver when it ends. False for a session on the engine's shared <see cref="BrowserConnection"/>.</summary>
+        internal bool OwnsBrowser { get; init; } = true;
 
         /// <summary>Runs once, when this session is disposed: the engine uses it to end the attempt it held (upstream's <c>endAttempt</c>). .NET-only: upstream's engine tracks its attempt itself.</summary>
         internal Action? Retired { get; set; }

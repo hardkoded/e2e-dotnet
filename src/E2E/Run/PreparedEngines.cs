@@ -50,7 +50,7 @@ internal sealed record FinishScope
 /// </summary>
 internal sealed class PreparedEngines
 {
-    private readonly List<(IPreparableEngine Engine, string TargetName)> _targets = [];
+    private readonly List<(IEngine Engine, string TargetName)> _targets = [];
 
     private readonly Dictionary<IEngine, Lazy<Task<EnginePrepareResult?>>> _prepared = new(
         ReferenceEqualityComparer.Instance
@@ -80,6 +80,18 @@ internal sealed class PreparedEngines
         ArgumentNullException.ThrowIfNull(scope);
         if (engine is not IPreparableEngine preparable)
         {
+            // An engine with only a dispose hook has nothing to prepare, but its worker shutdown is still owed at the end of the run.
+            if (engine is IDisposableEngine)
+            {
+                lock (_targets)
+                {
+                    if (!_targets.Any(target => ReferenceEquals(target.Engine, engine)))
+                    {
+                        _targets.Add((engine, targetName));
+                    }
+                }
+            }
+
             return Task.FromResult<EnginePrepareResult?>(null);
         }
 
@@ -210,7 +222,7 @@ internal sealed class PreparedEngines
     public async Task FinishAsync(FinishScope scope)
     {
         ArgumentNullException.ThrowIfNull(scope);
-        (IPreparableEngine Engine, string TargetName)[] targets;
+        (IEngine Engine, string TargetName)[] targets;
         lock (_targets)
         {
             targets = [.. _targets];
@@ -262,12 +274,7 @@ internal sealed class PreparedEngines
         return env;
     }
 
-    private static async Task FinishOneAsync(
-        IPreparableEngine engine,
-        string targetName,
-        FinishScope scope,
-        Stopwatch clock
-    )
+    private static async Task FinishOneAsync(IEngine engine, string targetName, FinishScope scope, Stopwatch clock)
     {
         var label = $"finishing engine {engine.Platform} for target \"{targetName}\"";
         var bounded = scope.CleanupTimeout > TimeSpan.Zero && scope.CleanupTimeout != Timeout.InfiniteTimeSpan;
@@ -285,12 +292,17 @@ internal sealed class PreparedEngines
             await DisposeOneAsync(disposable, targetName, scope, disposeBudget).ConfigureAwait(false);
         }
 
+        if (engine is not IPreparableEngine preparable)
+        {
+            return;
+        }
+
         var remaining = Left();
         using var budget = new CancellationTokenSource(remaining);
         Task? finishing = null;
         try
         {
-            finishing = engine.FinishAsync(
+            finishing = preparable.FinishAsync(
                 new EngineFinishInfo
                 {
                     RunId = scope.RunId,

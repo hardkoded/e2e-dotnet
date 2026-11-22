@@ -334,7 +334,7 @@ public async Task SettleAttemptAsync(TimeSpan timeout, CancellationToken cancell
 
 Runs after each attempt, within the cleanup timeout, and tears down what `StartAsync` set up. It takes no token and no budget: the harness waits for it up to the cleanup timeout and then abandons it with an `ENVIRONMENT_UNAVAILABLE` cleanup error, so a hook that cannot finish in time should bound itself. A failure marks cleanup failed; the test keeps its status.
 
-Upstream's `EngineDisposeContext` is in the port with `ReuseSignal` in place of `reuseSignal`: a live (not canceled) `CancellationToken` permits the engine to leave its run-owned resources for a replacement worker, until the token is canceled or the dispose settles. `IDisposableEngine` is the optional `dispose` hook; the mobile engine implements it. The scheduler that grants a signal to a worker is not in the port, so the run grants none.
+Upstream's `EngineDisposeContext` is in the port with `ReuseSignal` in place of `reuseSignal`: a live (not canceled) `CancellationToken` permits the engine to leave its run-owned resources for a replacement worker, until the token is canceled or the dispose settles. `IDisposableEngine` is the optional `dispose` hook; the mobile engine implements it, and so does `WebEngine`: it owns one Playwright driver and one `BrowserConnection` for all its attempts, so a session closes only its own context, and the dispose closes the shared browser and stops the driver. A `WebEngine` can start again after a dispose. Attempts on a leased browser or a persistent `ReconnectEndpoint` keep their own browser and driver. The scheduler that grants a signal to a worker is not in the port, so the run grants none.
 
 ### ValidateApp
 

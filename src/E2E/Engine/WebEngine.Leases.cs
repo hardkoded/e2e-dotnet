@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections;
+using Microsoft.Playwright;
 
 namespace E2E.Engine;
 
@@ -12,9 +13,11 @@ namespace E2E.Engine;
 /// workers, and released on every exit path. The port has no runner, so an engine started without them leases for the one
 /// attempt it starts, as upstream's standalone run does.
 /// </summary>
-public sealed partial class WebEngine : IAsyncDisposable
+public sealed partial class WebEngine : IAsyncDisposable, IDisposableEngine
 {
     private readonly LeasedBrowsers? _leases;
+    private readonly object _sharedGate = new();
+    private Task<(IPlaywright Playwright, BrowserConnection Connection)>? _shared;
 
     /// <summary>
     /// Leases one browser per worker slot the run will use from the provider, once per run and target, before any worker
@@ -51,16 +54,85 @@ public sealed partial class WebEngine : IAsyncDisposable
         _leases?.Init(info);
     }
 
-    /// <summary>Worker shutdown: releases the replacement lease the worker acquired for itself, within the cleanup timeout. What prepare leased is the runner's to release.</summary>
+    /// <summary>
+    /// Worker shutdown (upstream's <c>dispose</c>): closes the browser the engine's connection holds and stops its driver, then releases the
+    /// replacement lease the worker acquired for itself, within the cleanup timeout. What prepare leased is the runner's to release. The engine can start
+    /// again afterwards.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if (_leases is null)
+        using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
+        await DisposeWorkerAsync(budget.Token).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    Task IDisposableEngine.DisposeAsync(EngineDisposeContext context, CancellationToken cancellationToken) =>
+        DisposeWorkerAsync(cancellationToken);
+
+    /// <summary>
+    /// The driver and the connection every attempt of this engine shares (upstream's surface owns one <c>BrowserConnection</c> for the worker). Started on the
+    /// first attempt that needs a browser. A start that failed is not kept, so the next attempt starts it again; a caller that cancels stops waiting and the
+    /// start goes on for the next one.
+    /// </summary>
+    private Task<(IPlaywright Playwright, BrowserConnection Connection)> SharedConnectionAsync(
+        CancellationToken cancellationToken
+    )
+    {
+        Task<(IPlaywright, BrowserConnection)> starting;
+        lock (_sharedGate)
         {
-            return;
+            if (_shared is null || _shared.IsFaulted || _shared.IsCanceled)
+            {
+                _shared = StartSharedAsync();
+            }
+
+            starting = _shared;
         }
 
-        using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
-        await _leases.DisposeAsync(budget.Token).ConfigureAwait(false);
+        return starting.WaitAsync(cancellationToken);
+    }
+
+    private async Task<(IPlaywright Playwright, BrowserConnection Connection)> StartSharedAsync()
+    {
+        var playwright = await CreatePlaywright().ConfigureAwait(false);
+        return (playwright, new BrowserConnection(playwright, LaunchLocal));
+    }
+
+    private async Task DisposeWorkerAsync(CancellationToken cancellationToken)
+    {
+        Task<(IPlaywright Playwright, BrowserConnection Connection)>? shared;
+        lock (_sharedGate)
+        {
+            shared = _shared;
+            _shared = null;
+        }
+
+        try
+        {
+            if (shared is not null)
+            {
+                await ((Task)shared).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                if (shared.IsCompletedSuccessfully)
+                {
+                    var (playwright, connection) = shared.Result;
+                    try
+                    {
+                        await connection.DisposeAsync().ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        playwright.Dispose();
+                    }
+                }
+            }
+        }
+        finally
+        {
+            if (_leases is not null)
+            {
+                await _leases.DisposeAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
 
     /// <summary>
