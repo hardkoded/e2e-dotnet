@@ -315,6 +315,7 @@ internal static class HostTestFilters
             ProjectRoot = config.ProjectRoot,
             ConfigPath = config.ConfigPath,
             Ci = config.Ci,
+            ToPass = config.ToPass,
             Targets = targets,
             Filters = ResolvedConfig.ResolveTestFilters(filters),
             ConfigDigest = ResolvedConfig.ComputeConfigDigest(config, agents),

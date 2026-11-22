@@ -263,6 +263,36 @@ public sealed class ControlsTests
         });
 
     [Fact]
+    public Task Retries_a_block_until_Publish_is_enabled_and_matches_the_enabled_query() =>
+        RunAsync(async screen =>
+        {
+            await screen.GetByRole("button", "Prepare").TapAsync();
+
+            await Expect
+                .That(async () =>
+                {
+                    await Expect
+                        .That(screen.GetByRole("button", "Publish"))
+                        .ToBeEnabledAsync(timeout: TimeSpan.FromMilliseconds(25));
+                    await Expect
+                        .That(screen.GetByRole("button", new RoleOptions { Name = "Publish", Disabled = false }))
+                        .ToHaveCountAsync(1, TimeSpan.FromMilliseconds(25));
+                })
+                .ToPassAsync(
+                    new PassOptions
+                    {
+                        Timeout = TimeSpan.FromMilliseconds(3000),
+                        Intervals =
+                        [
+                            TimeSpan.FromMilliseconds(25),
+                            TimeSpan.FromMilliseconds(50),
+                            TimeSpan.FromMilliseconds(100),
+                        ],
+                    }
+                );
+        });
+
+    [Fact]
     public Task Check_and_uncheck_move_checked_state_and_one_radio_checks_at_a_time() =>
         RunAsync(async screen =>
         {

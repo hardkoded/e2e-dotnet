@@ -34,6 +34,62 @@ public sealed class ValueExpectation<T>
     /// <summary>Inverts the matcher.</summary>
     public ValueExpectation<T> Not => new(_actual, !_negated, _message);
 
+    /// <summary>
+    /// Retries the block passed to <c>Expect.That</c> (an <see cref="Action"/>, a <c>Func&lt;Task&gt;</c>, or a
+    /// <c>Func&lt;CancellationToken, Task&gt;</c>) until it runs without throwing or the deadline passes. Negated, it passes on the first try that
+    /// throws and fails when the block keeps passing. Anything else is <c>INVALID_ARGUMENT</c>. The timeout and the pauses default to the
+    /// <c>toPass</c> config key. A try that is still running when it fails or is cut at the deadline gets its token cancelled.
+    /// </summary>
+    public async Task ToPassAsync(PassOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var label = "expect(...)." + (_negated ? "not." : "") + "toPass()";
+        Func<CancellationToken, Task> block = _actual switch
+        {
+            Func<CancellationToken, Task> withToken => withToken,
+            Func<Task> plain => _ => plain(),
+            Action sync => _ =>
+            {
+                sync();
+                return Task.CompletedTask;
+            },
+            _ => throw new TestException("INVALID_ARGUMENT", label + " requires a function"),
+        };
+
+        options ??= new PassOptions();
+        ExpectRetry.CheckOptions(label, options.Timeout);
+        ExpectRetry.CheckIntervals(label + " intervals", options.Intervals);
+        var defaults = Attempts.CurrentAttempt()?.ToPass;
+        await ExpectRetry
+            .RetryAsync(
+                async token =>
+                {
+                    await block(token).ConfigureAwait(false);
+                    return null;
+                },
+                sample =>
+                {
+                    if (sample.Error is { } error)
+                    {
+                        return _negated ? ExpectRetry.Outcome.Pass() : ExpectRetry.Outcome.Fail(error.Message, error);
+                    }
+
+                    return _negated ? ExpectRetry.Outcome.Fail("the block passed") : ExpectRetry.Outcome.Pass();
+                },
+                new RetryOptions
+                {
+                    Api = label,
+                    Label = label,
+                    Timeout = options.Timeout ?? defaults?.Timeout ?? TimeSpan.Zero,
+                    Intervals = options.Intervals ?? defaults?.Intervals ?? ExpectRetry.DefaultIntervals,
+                    Message = _message,
+                    NoSample = "no try completed",
+                    Clock = options.Clock,
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+    }
+
     /// <summary>Compares with JavaScript's <c>Object.is</c>: a number equals itself (<c>NaN</c> included), <c>0</c> is not <c>-0</c>, and an object must be the same instance.</summary>
     public void ToBe(T expected) =>
         Check(

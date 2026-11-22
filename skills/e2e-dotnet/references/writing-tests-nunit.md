@@ -133,6 +133,7 @@ public sealed class Dashboard : E2ETest
   as `Expect.Soft(locator)` does. Topic `writing-tests` lists the matchers.
 - `Expect.Poll(read)` retries a value. `E2E.NUnit` adds `ToMatchAsync` with
   any NUnit constraint: `await Expect.Poll(() => ReadCountAsync()).ToMatchAsync(Is.GreaterThan(3));`.
+  `Expect.That(block).ToPassAsync()` retries a block of assertions until it stops throwing.
   `ToBeAsync` and `ToSatisfyAsync(predicate)` work too.
 
 ## A complete example

@@ -147,6 +147,8 @@ public sealed class ConfigTests
         Assert.Equal(TimeSpan.FromSeconds(60), config.LaunchTimeout);
         Assert.Equal(TimeSpan.FromSeconds(30), config.ActionTimeout);
         Assert.Equal(TimeSpan.FromSeconds(5), config.AssertionTimeout);
+        Assert.Equal(TimeSpan.Zero, config.ToPass.Timeout);
+        Assert.Equal([100, 250, 500, 1000], config.ToPass.Intervals!.Select(pause => (int)pause.TotalMilliseconds));
         Assert.Equal(TimeSpan.FromSeconds(30), config.CleanupTimeout);
         Assert.Equal(0, config.Retries);
         Assert.Null(config.Agent.CreateModel());

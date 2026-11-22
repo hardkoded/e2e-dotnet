@@ -18,7 +18,52 @@ sidebar:
 - `Expect.Soft(locator)` and `Expect.Soft(screen)` record each failure and let the test go on. On NUnit the failures land on the test result, as inside `Assert.EnterMultipleScope`, and the test fails when it ends with every failure listed. On xUnit v3 they stay on the session, and the test fails when it is disposed, with every failure in one message.
 - `Expect.Soft(Browser)` keeps the failures of `ToHaveURLAsync`, `ToHaveTitleAsync`, and `ToHaveClassAsync` the same way.
 - `Expect.Soft(screen, value, message)` keeps the failure of a value check the same way (see [Value checks](#value-checks)).
-- `Expect.Poll(read)` retries a value. `ToBeAsync` and `ToSatisfyAsync(predicate)` work on both adapters. `E2E.NUnit` also adds `ToMatchAsync` with any NUnit constraint: `await Expect.Poll(() => ReadCountAsync()).ToMatchAsync(Is.GreaterThan(3));`. A read that throws, or a matcher that refuses the value's type, is one failing sample, not the end of the poll. A `Timeout` of `TimeSpan.Zero` sets no deadline: the poll runs until the cancellation token you pass ends.
+- `Expect.Poll(read)` retries a value. `ToBeAsync` and `ToSatisfyAsync(predicate)` work on both adapters. `E2E.NUnit` also adds `ToMatchAsync` with any NUnit constraint: `await Expect.Poll(() => ReadCountAsync()).ToMatchAsync(Is.GreaterThan(3));`. A read that throws, or a matcher that refuses the value's type, is one failing sample, not the end of the poll. A `Timeout` of `TimeSpan.Zero` sets no deadline: the poll runs until the cancellation token you pass ends. `PollOptions.Intervals` lists the pauses between reads, 100, 250, 500, then 1000 ms by default, and the last pause repeats. `PollOptions.Interval` is deprecated: pass `Intervals` with one pause. It warns once on stderr, and passing both is `INVALID_CONFIG`.
+
+
+## Retrying a block
+
+`Expect.That(block).ToPassAsync(options)` retries a block until it stops throwing. Use it when several assertions must pass in the same try. For a single changing value, use `Expect.Poll(read)`. The block is an `Action`, a `Func<Task>`, or a `Func<CancellationToken, Task>`. The optional message opens the timeout error.
+
+```csharp
+await Expect
+    .That(
+        async () =>
+        {
+            var response = await http.GetAsync("/api/orders/42");
+            Expect.That((int)response.StatusCode).ToBe(200);
+            await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("Ready", timeout: TimeSpan.FromMilliseconds(200));
+        },
+        "the order is ready"
+    )
+    .ToPassAsync(new PassOptions { Timeout = TimeSpan.FromSeconds(5) });
+```
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `Timeout` | `TimeSpan?` | `toPass.timeout` of the config, else `TimeSpan.Zero` |
+| `Intervals` | `IReadOnlyList<TimeSpan>?` | `toPass.intervals` of the config, else 100, 250, 500, then 1000 ms |
+
+- `Timeout` is the deadline, from zero through `2147483647` ms. At zero there is no timeout of its own: the block is retried until the cancellation token you pass ends, so outside a test a positive `Timeout` (or a token that can end) is required, or the call fails with `INVALID_CONFIG`.
+- `Intervals` are the pauses between tries, each a positive whole number of milliseconds. The last pause repeats.
+- A try fails when the block throws. The next try comes after the next pause. A `SkipException` ends the retry and propagates.
+- `Not.ToPassAsync()` passes on the first try that throws, and fails at the deadline when every try passed (`last: the block passed`).
+- `Expect.Soft(screen, block).ToPassAsync()` keeps a timeout as a soft failure, and the test goes on.
+- Inside the block, give a locator matcher a short `timeout`, so more tries fit before the deadline. Use `Expect`, not `Expect.Soft`, since a soft failure never fails a try.
+- Each try gets a token that ends when the try fails or is cut at the deadline, so pass it on to steps and nested polls.
+- Await every `ToPassAsync` call.
+
+At the deadline it throws `ASSERTION_FAILED` that names the call, then the message when given, then the last error, which is also the inner exception:
+
+```text
+expect(...).toPass() timed out after 5000 ms
+the order is ready
+last: expected 202 to be 200
+```
+
+The last line is `last: no try completed` when no try finished. A value that is not a block is `INVALID_ARGUMENT`. A negative or too long `Timeout`, an empty or invalid `Intervals`, or no positive timeout outside a test is `INVALID_CONFIG`, before the first try.
+
+Set defaults for every call with the `toPass` config key: `"toPass": { "timeout": 10000, "intervals": [100, 250, 500] }`. A call's own options win. Not ported: the phase deadline of a test or hook, the last error recorded under `secondaryErrors`, and the hook-deadline defaults in `beforeAll` and `afterAll`. The port has no runner phases, so the caller's cancellation token bounds a block with no timeout.
 
 ## Value checks
 

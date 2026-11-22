@@ -16,8 +16,15 @@ public sealed class PollOptions
     /// </summary>
     public TimeSpan? Timeout { get; init; }
 
-    /// <summary>Pause between reads. The default is 100 milliseconds. Zero or a negative value is <c>INVALID_CONFIG</c>.</summary>
+    /// <summary>Pause between reads. Zero or a negative value is <c>INVALID_CONFIG</c>, and so is passing it with <see cref="Intervals"/>.</summary>
+    [Obsolete("Pass Intervals with one pause.")]
     public TimeSpan? Interval { get; init; }
+
+    /// <summary>
+    /// Pauses between reads. The default is 100, 250, 500 and 1000 milliseconds, and the last pause repeats. Each is a positive whole number of
+    /// milliseconds, and the list is not empty (<c>INVALID_CONFIG</c> otherwise).
+    /// </summary>
+    public IReadOnlyList<TimeSpan>? Intervals { get; init; }
 
     /// <summary>Extra line in the timeout error.</summary>
     public string? Message { get; init; }
@@ -34,7 +41,10 @@ public sealed class PollOptions
 public sealed class PollExpectation<T>
 {
     internal static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
-    internal static readonly TimeSpan DefaultInterval = TimeSpan.FromMilliseconds(100);
+    private static int s_warnedInterval;
+
+    /// <summary>Lets the next use of the deprecated <c>Interval</c> warn again (a test fixture; upstream's warning flag is a process symbol).</summary>
+    internal static void ResetIntervalWarning() => Interlocked.Exchange(ref s_warnedInterval, 0);
 
     private readonly Func<CancellationToken, Task<T>> _read;
     private readonly PollOptions _options;
@@ -85,131 +95,50 @@ public sealed class PollExpectation<T>
         CancellationToken cancellationToken
     )
     {
-        var timeout = _options.Timeout ?? DefaultTimeout;
-        var interval = _options.Interval ?? DefaultInterval;
-        var clock = _options.Clock;
-        var started = clock.GetUtcNow();
-        var deadline = PollDeadline(timeout, started, cancellationToken);
-        string? last = null;
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var remaining = deadline - clock.GetUtcNow();
-            if (remaining <= TimeSpan.Zero)
-            {
-                break;
-            }
+        await ExpectRetry
+            .RetryAsync(
+                async token => await _read(token).ConfigureAwait(false),
+                sample =>
+                {
+                    if (sample.Error is { } error)
+                    {
+                        return ExpectRetry.Outcome.Fail(error.Message);
+                    }
 
-            T value;
-            try
-            {
-                value = await PollScopes
-                    .PollReadAsync(() => _read(cancellationToken))
-                    .WaitAsync(remaining > Time.Unbounded ? Time.Unbounded : remaining, clock, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (TimeoutException)
-            {
-                // The read outlived the deadline; its outcome is dropped.
-                break;
-            }
-            catch (Exception ex)
-            {
-                last = ex.Message;
-                await PauseAsync(deadline, interval, clock, cancellationToken).ConfigureAwait(false);
-                continue;
-            }
+                    var value = (T)sample.Value!;
+                    bool holds;
+                    try
+                    {
+                        holds = check(value);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        // The matcher refused this value's type, as a sample that does not hold yet.
+                        return ExpectRetry.Outcome.Fail(ex.Message);
+                    }
 
-            bool holds;
-            try
-            {
-                holds = check(value);
-            }
-            catch (ArgumentException ex)
-            {
-                // The matcher refused this value's type, as a sample that does not hold yet.
-                last = ex.Message;
-                await PauseAsync(deadline, interval, clock, cancellationToken).ConfigureAwait(false);
-                continue;
-            }
-
-            if (holds != _negated)
-            {
-                return;
-            }
-
-            last = describe(value);
-            await PauseAsync(deadline, interval, clock, cancellationToken).ConfigureAwait(false);
-        }
-
-        var lines = new List<string>
-        {
-            "expect.poll(...)."
-                + (_negated ? "not." : "")
-                + matcher
-                + "(...) timed out after "
-                + ((long)timeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture)
-                + " ms",
-        };
-        if (_options.Message is not null)
-        {
-            lines.Add(_options.Message);
-        }
-
-        lines.Add("last: " + (last ?? "no read completed"));
-        throw new TestException("ASSERTION_FAILED", ErrorRedaction.Redact(string.Join('\n', lines)));
+                    return holds != _negated ? ExpectRetry.Outcome.Pass() : ExpectRetry.Outcome.Fail(describe(value));
+                },
+                new RetryOptions
+                {
+                    Api = "expect.poll",
+                    Label = "expect.poll(...)." + (_negated ? "not." : "") + matcher + "(...)",
+                    Timeout = _options.Timeout ?? DefaultTimeout,
+                    Intervals = Intervals(_options),
+                    Message = _options.Message,
+                    NoSample = "no read completed",
+                    Clock = _options.Clock,
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// The poll's own deadline. A <c>Timeout</c> of zero sets none, as upstream's <c>timeout: 0</c> waits for the phase's, and the port's
-    /// phase is the caller's <paramref name="cancellationToken"/>: it needs one that can end, or nothing would bound the poll
-    /// (upstream's <c>INVALID_CONFIG</c> outside a test).
-    /// </summary>
-    private static DateTimeOffset PollDeadline(
-        TimeSpan timeout,
-        DateTimeOffset started,
-        CancellationToken cancellationToken
-    )
+    private static IReadOnlyList<TimeSpan> Intervals(PollOptions options)
     {
-        if (timeout != TimeSpan.Zero)
-        {
-            return started + timeout;
-        }
-
-        if (!cancellationToken.CanBeCanceled)
-        {
-            throw new ConfigurationException(
-                "INVALID_CONFIG",
-                "expect.poll timeout 0 waits for the test deadline, so it needs a cancellation token that ends with the test; pass a positive timeout or the test's token"
-            );
-        }
-
-        return Time.Never;
-    }
-
-    private static Task PauseAsync(
-        DateTimeOffset deadline,
-        TimeSpan interval,
-        TimeProvider clock,
-        CancellationToken cancellationToken
-    )
-    {
-        var remaining = deadline - clock.GetUtcNow();
-        if (remaining <= TimeSpan.Zero)
-        {
-            return Task.CompletedTask;
-        }
-
-        // Rounded up to a whole millisecond: a delay under one completes at once, and the loop would spin to the deadline.
-        return Task.Delay(
-            remaining < interval ? TimeSpan.FromMilliseconds(Math.Ceiling(remaining.TotalMilliseconds)) : interval,
-            clock,
-            cancellationToken
-        );
+#pragma warning disable CS0618 // The deprecated alias of Intervals.
+        return options.Intervals ?? (options.Interval is { } interval ? [interval] : ExpectRetry.DefaultIntervals);
+#pragma warning restore CS0618
     }
 
     private static string Format(T value)
@@ -226,23 +155,36 @@ public sealed class PollExpectation<T>
     /// <summary>A malformed option would poll forever; it is refused before the first read (upstream's <c>checkOptions</c>).</summary>
     internal static void CheckOptions(PollOptions options)
     {
-        if (options.Timeout is { } timeout && timeout < TimeSpan.Zero)
+        ExpectRetry.CheckOptions("expect.poll", options.Timeout);
+#pragma warning disable CS0618 // The deprecated alias of Intervals.
+        if (options.Interval is { } interval)
         {
-            throw new ConfigurationException(
-                "INVALID_CONFIG",
-                "expect.poll timeout must be a finite number of milliseconds, 0 or more; got " + Milliseconds(timeout)
-            );
-        }
+            if (options.Intervals is not null)
+            {
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    "expect.poll cannot take both interval and intervals"
+                );
+            }
 
-        if (options.Interval is { } interval && interval <= TimeSpan.Zero)
-        {
-            throw new ConfigurationException(
-                "INVALID_CONFIG",
-                "expect.poll interval must be a finite number of milliseconds above 0; got " + Milliseconds(interval)
-            );
+            if (interval <= TimeSpan.Zero)
+            {
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    "expect.poll interval must be a finite number of milliseconds above 0; got "
+                        + interval.TotalMilliseconds.ToString(CultureInfo.InvariantCulture)
+                );
+            }
+
+            if (Interlocked.Exchange(ref s_warnedInterval, 1) == 0)
+            {
+                Console.Error.WriteLine(
+                    "e2e: [warning] expect.poll interval is deprecated. Pass Intervals with one pause."
+                );
+            }
         }
+#pragma warning restore CS0618
+
+        ExpectRetry.CheckIntervals("expect.poll intervals", options.Intervals);
     }
-
-    private static string Milliseconds(TimeSpan value) =>
-        value == Timeout.InfiniteTimeSpan ? "Infinity" : value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
 }

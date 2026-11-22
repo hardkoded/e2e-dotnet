@@ -254,6 +254,75 @@ failure. `E2ETest` records each one as an NUnit assertion failure.
 
 **Returns:** [SoftLocatorExpect](/api/E2E/SoftLocatorExpect/)
 
+<a id="E2E_Expect_Soft_E2E_Screen_System_Action_System_String_"></a>
+
+### Soft(Screen, Action, string?)
+
+
+```csharp
+public static SoftValueExpectation<Action> Soft(Screen screen, Action block, string? message = null)
+```
+
+
+A block to retry with `ToPassAsync`, which keeps a timeout on
+&lt;code class="paramref"&gt;screen&lt;/code&gt;'s session instead of throwing it: upstream's `expect.soft(fn)`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `screen` | [Screen](/api/E2E/Screen/) |  |
+| `block` | [Action](https://learn.microsoft.com/dotnet/api/system.action) |  |
+| `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** `SoftValueExpectation&lt;Action&gt;`
+
+<a id="E2E_Expect_Soft_E2E_Screen_System_Func_System_Threading_CancellationToken_System_Threading_Tasks_Task__System_String_"></a>
+
+### `Soft(Screen, Func<CancellationToken, Task>, string?)`
+
+
+```csharp
+public static SoftValueExpectation<Func<CancellationToken, Task>> Soft(Screen screen, Func<CancellationToken, Task> block, string? message = null)
+```
+
+
+A block to retry with `ToPassAsync`, which keeps a timeout on
+&lt;code class="paramref"&gt;screen&lt;/code&gt;'s session instead of throwing it: upstream's `expect.soft(fn)`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `screen` | [Screen](/api/E2E/Screen/) |  |
+| `block` | [Func&lt;CancellationToken, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
+| `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** `SoftValueExpectation&lt;Func&lt;CancellationToken, Task&gt;&gt;`
+
+<a id="E2E_Expect_Soft_E2E_Screen_System_Func_System_Threading_Tasks_Task__System_String_"></a>
+
+### `Soft(Screen, Func<Task>, string?)`
+
+
+```csharp
+public static SoftValueExpectation<Func<Task>> Soft(Screen screen, Func<Task> block, string? message = null)
+```
+
+
+A block to retry with `ToPassAsync`, which keeps a timeout on
+&lt;code class="paramref"&gt;screen&lt;/code&gt;'s session instead of throwing it: upstream's `expect.soft(fn)`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `screen` | [Screen](/api/E2E/Screen/) |  |
+| `block` | [Func&lt;Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-1) |  |
+| `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** `SoftValueExpectation&lt;Func&lt;Task&gt;&gt;`
+
 <a id="E2E_Expect_Soft_E2E_Screen_System_String_"></a>
 
 ### Soft(Screen, string?)
@@ -430,6 +499,72 @@ Compares the whole screen against a stored screenshot with `ToHaveScreenshotAsyn
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [ScreenExpect](/api/E2E/ScreenExpect/)
+
+<a id="E2E_Expect_That_System_Action_System_String_"></a>
+
+### That(Action, string?)
+
+
+```csharp
+public static ValueExpectation<Action> That(Action block, string? message = null)
+```
+
+
+A block to retry with `ToPassAsync`: upstream's `expect(fn)`.
+&lt;code class="paramref"&gt;message&lt;/code&gt; opens every failure of the check.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `block` | [Action](https://learn.microsoft.com/dotnet/api/system.action) |  |
+| `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** `ValueExpectation&lt;Action&gt;`
+
+<a id="E2E_Expect_That_System_Func_System_Threading_CancellationToken_System_Threading_Tasks_Task__System_String_"></a>
+
+### `That(Func<CancellationToken, Task>, string?)`
+
+
+```csharp
+public static ValueExpectation<Func<CancellationToken, Task>> That(Func<CancellationToken, Task> block, string? message = null)
+```
+
+
+A block to retry with `ToPassAsync`: upstream's `expect(fn)`.
+&lt;code class="paramref"&gt;message&lt;/code&gt; opens every failure of the check.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `block` | [Func&lt;CancellationToken, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
+| `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** `ValueExpectation&lt;Func&lt;CancellationToken, Task&gt;&gt;`
+
+<a id="E2E_Expect_That_System_Func_System_Threading_Tasks_Task__System_String_"></a>
+
+### `That(Func<Task>, string?)`
+
+
+```csharp
+public static ValueExpectation<Func<Task>> That(Func<Task> block, string? message = null)
+```
+
+
+A block to retry with `ToPassAsync`: upstream's `expect(fn)`.
+&lt;code class="paramref"&gt;message&lt;/code&gt; opens every failure of the check.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `block` | [Func&lt;Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-1) |  |
+| `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** `ValueExpectation&lt;Func&lt;Task&gt;&gt;`
 
 <a id="E2E_Expect_That__1___0_System_String_"></a>
 

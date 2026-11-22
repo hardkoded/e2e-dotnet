@@ -10,10 +10,11 @@ namespace E2E.NUnit.Tests.ExpectPoll;
 /// </summary>
 public sealed class ExpectPollTests
 {
-    private static PollOptions Every(int milliseconds) => new() { Interval = TimeSpan.FromMilliseconds(milliseconds) };
+    private static PollOptions Every(int milliseconds) =>
+        new() { Intervals = [TimeSpan.FromMilliseconds(milliseconds)] };
 
     private static PollOptions Within(int timeout, int interval) =>
-        new() { Timeout = TimeSpan.FromMilliseconds(timeout), Interval = TimeSpan.FromMilliseconds(interval) };
+        new() { Timeout = TimeSpan.FromMilliseconds(timeout), Intervals = [TimeSpan.FromMilliseconds(interval)] };
 
     [Test]
     public async Task Runs_every_value_matcher_as_an_NUnit_constraint()

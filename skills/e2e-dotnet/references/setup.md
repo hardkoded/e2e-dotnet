@@ -165,6 +165,7 @@ unknown key fails with `INVALID_CONFIG`.
 | `launchTimeout` | `60000` | Engine start, ms. |
 | `actionTimeout` | `30000` | Each locator action and engine operation, ms. |
 | `assertionTimeout` | `5000` | `Expect` polling window, ms. |
+| `toPass` | `{ "timeout": 0, "intervals": [100, 250, 500, 1000] }` | Defaults of `Expect.That(block).ToPassAsync()`. `timeout` is 0 through `2147483647` ms (0 leaves only the cancellation token to bound it). `intervals` is a non-empty list of positive integers in ms, and the last repeats. A bad value or an unknown key is `INVALID_CONFIG`. |
 | `cleanupTimeout` | `30000` | Engine cleanup, ms: the engine's shutdown after each attempt, and the release of a hosted device when `e2e explore` or `e2e mcp` ends its session. |
 | `testAssembly` | none | Path to the built NUnit test assembly, relative to the config. `open_session {test}` runs one test from it (see the `mcp` topic). |
 | `failOnSkippedFailure` | `false` | A boolean. Checked and carried (`E2EConfig.FailOnSkippedFailure`), but not used: the port has no runner to derive an exit code from skipped tests. Any other value is `INVALID_CONFIG`. |

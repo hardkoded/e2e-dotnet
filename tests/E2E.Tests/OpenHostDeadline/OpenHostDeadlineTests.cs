@@ -9,7 +9,7 @@ namespace E2E.Tests.OpenHostDeadline;
 
 /// <summary>
 /// Upstream's <c>describe('openHost: deadline')</c> (<c>tests/integration/open-host-deadline.test.ts</c>). The <c>it</c>s that need no feature the port
-/// lacks are ported here. Not ported (hardkoded/e2e-dotnet#2002, #2041): the polls (<c>bounds polls by config assertionTimeout</c>, <c>caps an explicitly long poll</c>,
+/// lacks are ported here. Not ported (hardkoded/e2e-dotnet#2002, #2041): <c>applies the project toPass timeout in a hosted session</c> (a hosted session publishes no attempt, so <c>ToPassAsync</c> cannot read the config's <c>toPass</c> there), the polls (<c>bounds polls by config assertionTimeout</c>, <c>caps an explicitly long poll</c>,
 /// <c>cancels an in-flight poll on %s</c>, <c>records abandoned polls</c>: the port's <c>Expect.Poll</c> takes no ambient session deadline), the contributed
 /// fixture calls (no <c>extend</c>), and the signals (<c>OpenSessionOptions</c> and <c>OpenHostOptions</c> have no <c>signal</c>).
 /// The <c>Partial_</c> <c>it</c>s: <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> uses a 60 s timeout, not upstream's 20 ms (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's

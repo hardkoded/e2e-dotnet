@@ -798,6 +798,7 @@ public sealed class E2ESession : IAsyncDisposable
                         AttemptId = scope.AttemptId,
                         Guests = guests.Offer,
                         SetTimeout = session.SetTimeoutOf(attemptTimeout),
+                        ToPass = options.Config?.ToPass,
                     };
                     session._published = Attempts.PublishAttempt(session._publishedAttempt);
                 }

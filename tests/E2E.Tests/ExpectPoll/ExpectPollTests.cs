@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
+
 namespace E2E.Tests.ExpectPoll;
 
 /// <summary>
@@ -65,7 +67,7 @@ public sealed class ExpectPollTests
         var options = new PollOptions
         {
             Timeout = TimeSpan.FromMilliseconds(60),
-            Interval = TimeSpan.FromMilliseconds(10),
+            Intervals = [TimeSpan.FromMilliseconds(10)],
             Clock = _time,
             Message = "the batch never finished",
         };
@@ -156,13 +158,11 @@ public sealed class ExpectPollTests
     }
 
     [Fact]
-    public void Refuses_a_timeout_or_interval_that_could_never_expire_before_the_first_read()
+    public void Refuses_a_timeout_that_could_never_expire_before_the_first_read()
     {
         Invalid(new PollOptions { Timeout = Timeout.InfiniteTimeSpan }, "timeout", "Infinity");
         Invalid(new PollOptions { Timeout = TimeSpan.FromMilliseconds(-2) }, "timeout", "-2");
-        Invalid(new PollOptions { Interval = TimeSpan.Zero }, "interval", "0");
-        Invalid(new PollOptions { Interval = TimeSpan.FromMilliseconds(-5) }, "interval", "-5");
-        Expect.Poll(() => 1, new PollOptions { Timeout = TimeSpan.Zero, Interval = TimeSpan.FromMilliseconds(1) });
+        Expect.Poll(() => 1, new PollOptions { Timeout = TimeSpan.Zero, Intervals = [TimeSpan.FromMilliseconds(1)] });
     }
 
     // Partial: the port has no attempt, and a poll's phase is the caller's cancellation token, so a token that cannot end stands for outside a test.
@@ -177,14 +177,155 @@ public sealed class ExpectPollTests
         Assert.Contains("needs a cancellation token that ends with the test", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Uses_each_interval_in_order_and_repeats_the_last_interval()
+    {
+        var reads = new List<int>();
+        await _time.RunAsync(
+            Expect
+                .Poll(() => Reads(reads), new PollOptions { Intervals = [Ms(10), Ms(20), Ms(40)], Clock = _time })
+                .ToBeAsync(5)
+        );
+        Assert.Equal([0, 10, 30, 70, 110], reads);
+    }
+
+    [Fact]
+    public async Task Uses_the_default_pauses_in_order_and_repeats_the_last_pause()
+    {
+        var reads = new List<int>();
+        await _time.RunAsync(Expect.Poll(() => Reads(reads), new PollOptions { Clock = _time }).ToBeAsync(6));
+        Assert.Equal([0, 100, 350, 850, 1850, 2850], reads);
+    }
+
+    [Fact]
+    public async Task Ignores_a_synchronous_read_that_returns_after_the_deadline()
+    {
+        var message = await FailsWith(() =>
+            Expect
+                .Poll(
+                    () =>
+                    {
+                        _time.Advance(Ms(60));
+                        return true;
+                    },
+                    new PollOptions { Timeout = Ms(10), Clock = _time }
+                )
+                .ToBeAsync(true)
+        );
+        Assert.EndsWith("timed out after 10 ms\nlast: no read completed", message, StringComparison.Ordinal);
+    }
+
+#pragma warning disable CS0618 // The deprecated Interval option is what these tests cover.
+    [Fact]
+    public async Task Uses_the_deprecated_interval_for_each_pause_and_warns_once_across_two_polls()
+    {
+        PollExpectation<int>.ResetIntervalWarning();
+        var previous = Console.Error;
+        using var stderr = new StringWriter();
+        Console.SetError(stderr);
+        try
+        {
+            for (var round = 0; round < 2; round++)
+            {
+                var reads = new List<int>();
+                var start = (int)_time.Elapsed.TotalMilliseconds;
+                await _time.RunAsync(
+                    Expect.Poll(() => Reads(reads), new PollOptions { Interval = Ms(50), Clock = _time }).ToBeAsync(3)
+                );
+                Assert.Equal([start, start + 50, start + 100], reads);
+            }
+        }
+        finally
+        {
+            Console.SetError(previous);
+        }
+
+        Assert.Equal(
+            "e2e: [warning] expect.poll interval is deprecated. Pass Intervals with one pause." + Environment.NewLine,
+            stderr.ToString()
+        );
+    }
+
+    [Fact]
+    public void Refuses_interval_and_intervals_together_before_reading()
+    {
+        var reads = 0;
+        var options = new PollOptions
+        {
+            Timeout = Ms(100),
+            Interval = Ms(10),
+            Intervals = [Ms(20)],
+        };
+        var error = Assert.Throws<ConfigurationException>(() =>
+            Expect.Poll(
+                () =>
+                {
+                    reads++;
+                    return 1;
+                },
+                options
+            )
+        );
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Equal("expect.poll cannot take both interval and intervals", error.Message);
+        Assert.Equal(0, reads);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Refuses_an_invalid_deprecated_interval(int milliseconds)
+    {
+        Invalid(
+            new PollOptions { Interval = Ms(milliseconds) },
+            "interval",
+            milliseconds.ToString(CultureInfo.InvariantCulture)
+        );
+    }
+#pragma warning restore CS0618
+
+    [Theory]
+    [InlineData]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(10, -2)]
+    public void Refuses_invalid_intervals_before_reading(params int[] milliseconds)
+    {
+        var options = new PollOptions { Intervals = [.. milliseconds.Select(Ms)] };
+        var error = Assert.Throws<ConfigurationException>(() => Expect.Poll(() => 1, options));
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Contains("expect.poll intervals", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Refuses_a_fractional_pause_in_intervals()
+    {
+        var error = Assert.Throws<ConfigurationException>(() =>
+            Expect.Poll(() => true, new PollOptions { Intervals = [TimeSpan.FromMilliseconds(0.5)] })
+        );
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Equal(
+            "expect.poll intervals[0] must be a positive safe integer of milliseconds, got 0.5",
+            error.Message
+        );
+    }
+
+    private int Reads(List<int> reads)
+    {
+        reads.Add((int)_time.Elapsed.TotalMilliseconds);
+        return reads.Count;
+    }
+
+    private static TimeSpan Ms(int milliseconds) => TimeSpan.FromMilliseconds(milliseconds);
+
     private PollOptions Every(int milliseconds) =>
-        new() { Interval = TimeSpan.FromMilliseconds(milliseconds), Clock = _time };
+        new() { Intervals = [TimeSpan.FromMilliseconds(milliseconds)], Clock = _time };
 
     private PollOptions Options(int timeout, int interval) =>
         new()
         {
             Timeout = TimeSpan.FromMilliseconds(timeout),
-            Interval = TimeSpan.FromMilliseconds(interval),
+            Intervals = [TimeSpan.FromMilliseconds(interval)],
             Clock = _time,
         };
 

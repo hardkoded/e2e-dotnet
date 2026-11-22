@@ -167,7 +167,7 @@ Members of `E2ETest` in both frameworks:
 - `Agent`: `ActAsync`, `AssertAsync`, `WaitForAsync`, `ExtractAsync<T>`
   (topic `agent`).
 - `Screen`: the locators below.
-- `Expect`: `Expect.That(locator, message?)`, `Expect.That(Browser)`, `Expect.Soft(locator)`, `Expect.Soft(screen)`, `Expect.Poll(read)`.
+- `Expect`: `Expect.That(locator, message?)`, `Expect.That(Browser)`, `Expect.Soft(locator)`, `Expect.Soft(screen)`, `Expect.Poll(read)`, `Expect.That(block).ToPassAsync()`.
 - `Browser`: URL, title, cookies, viewport, raw keyboard and mouse, and
   responses (below).
 - `Secrets.Get(name)`: a `Secret` from the config. `Credentials.User(name)`:
@@ -445,15 +445,23 @@ showing (see the mobile reference).
   in `E2E.NUnit`, `ToMatchAsync` with any NUnit constraint. A read that
   throws, or a matcher that refuses the value's type (`Is.GreaterThan` on a
   string), is one failing sample, not the end of the poll. At the deadline
-  the last one is reported.
+  the last one is reported. `PollOptions.Intervals` lists the pauses between reads (100, 250,
+  500, then 1000 ms, the last repeating); `Interval` is deprecated, and both together is `INVALID_CONFIG`.
+- `await Expect.That(block, message?).ToPassAsync(new PassOptions { Timeout, Intervals })` retries
+  a block (an `Action`, `Func<Task>`, or `Func<CancellationToken, Task>`) until it stops throwing,
+  for several assertions that must pass in the same try. Use hard `Expect` calls with a short
+  `timeout` inside it. `Not.ToPassAsync()` passes on the first throw. `Expect.Soft(screen, block).ToPassAsync()`
+  keeps a timeout as a soft failure. Defaults come from the `toPass` config key. With no `Timeout` the
+  call needs a cancellation token that can end (`INVALID_CONFIG` otherwise). At the deadline it throws
+  `ASSERTION_FAILED` with the last error as the inner exception. Await every call.
 - A `Timeout` of `TimeSpan.Zero` on a locator action, `WaitForAsync`, an `Expect`
   matcher, `ToHaveScreenshotAsync`, `Screen.TreeAsync`, `Screen.DebugAsync`,
   `Browser.GotoAsync`, `WaitForResponseAsync`, `WaitForDownloadAsync`, or
   `WaitForDownloadsAsync` sets no deadline of its own: the test timeout still bounds it.
   `Expect.Poll` with a zero `Timeout` polls until the cancellation token you pass ends,
   and without a token that can end it fails with `INVALID_CONFIG`. A negative `Timeout`
-  is `INVALID_ARGUMENT` (`INVALID_CONFIG` from `Expect.Poll`, as is a zero or negative
-  `Interval`). `Agent` calls take a positive `Timeout` only: zero or less is
+  is `INVALID_ARGUMENT` (`INVALID_CONFIG` from `Expect.Poll` and `ToPassAsync`, as is a bad
+  `Intervals` list). `Agent` calls take a positive `Timeout` only: zero or less is
   `INVALID_ARGUMENT`.
 - For plain values, `Expect.That(value, "what it checks")` runs the value matchers at once, with no
   retry: `ToBe`, `ToEqual`, `ToMatchObject`, `ToBeTruthy`, `ToBeFalsy`, `ToBeNull`, `ToBeUndefined`,

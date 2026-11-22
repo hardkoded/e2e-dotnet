@@ -13,7 +13,7 @@ public sealed class PollMessageTests
     private static readonly PollOptions Short = new()
     {
         Timeout = TimeSpan.FromMilliseconds(300),
-        Interval = TimeSpan.FromMilliseconds(20),
+        Intervals = [TimeSpan.FromMilliseconds(20)],
     };
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class PollMessageTests
         var options = new PollOptions
         {
             Timeout = Short.Timeout,
-            Interval = Short.Interval,
+            Intervals = Short.Intervals,
             Message = "while reading " + RedactionSite.Token,
         };
 

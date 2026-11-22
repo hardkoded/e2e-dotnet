@@ -24,6 +24,9 @@ internal sealed record PublishedAttempt
     /// no timeout to move, as in a hosted session.
     /// </summary>
     public Func<TimeSpan, bool>? SetTimeout { get; init; }
+
+    /// <summary>The config's <c>toPass</c> defaults, which <see cref="ValueExpectation{T}.ToPassAsync(PassOptions?, CancellationToken)"/> falls back to (upstream's <c>toPass</c>).</summary>
+    public PassOptions? ToPass { get; init; }
 }
 
 /// <summary>
