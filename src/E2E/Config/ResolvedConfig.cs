@@ -41,6 +41,10 @@ internal sealed record ResolvedConfig
 
     public bool Ci { get; init; }
 
+    /// <summary>The <c>toPass</c> defaults (upstream's <c>toPass</c>, <c>config/resolve.ts</c>).</summary>
+    public PassOptions ToPass { get; init; } =
+        new() { Timeout = TimeSpan.Zero, Intervals = ExpectRetry.DefaultIntervals };
+
     public required IReadOnlyList<ResolvedTarget> Targets { get; init; }
 
     /// <summary>The test filters, in order; empty when unset. A run with <c>--changed-since</c> applies them.</summary>
@@ -387,6 +391,7 @@ internal sealed record ResolvedConfig
             ProjectRoot = config.ProjectRoot,
             ConfigPath = config.ConfigPath,
             Ci = config.Ci,
+            ToPass = config.ToPass,
             Targets = targets,
             ConfigDigest = ComputeConfigDigest(config),
             AllSecrets = [.. config.AllSecrets.Select(secret => (secret.Name, secret.Value))],

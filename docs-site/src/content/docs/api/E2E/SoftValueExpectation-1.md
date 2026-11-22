@@ -446,3 +446,25 @@ matches, and `null` (the default) after a kept failure, as it does when negated.
 | `schema` | `StandardSchemaV1&lt;TOutput&gt;` |  |
 
 **Returns:** `TOutput`
+
+<a id="E2E_SoftValueExpectation_1_ToPassAsync_"></a>
+<a id="E2E_SoftValueExpectation_1_ToPassAsync_E2E_PassOptions_System_Threading_CancellationToken_"></a>
+
+### ToPassAsync(PassOptions?, CancellationToken)
+
+
+```csharp
+public Task ToPassAsync(PassOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [PassOptions](/api/E2E/PassOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)

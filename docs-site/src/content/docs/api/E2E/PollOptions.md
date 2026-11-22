@@ -34,13 +34,34 @@ How `Poll&lt;T&gt;` re-reads a value.
 
 
 ```csharp
+[Obsolete("Pass Intervals with one pause.")]
 public TimeSpan? Interval { get; init; }
 ```
 
 
-Pause between reads. The default is 100 milliseconds. Zero or a negative value is `INVALID_CONFIG`.
+Pause between reads. Zero or a negative value is `INVALID_CONFIG`, and so is passing it with [Intervals](#E2E_PollOptions_Intervals).
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
+
+:::caution[Obsolete]
+This API is obsolete.
+:::
+
+<a id="E2E_PollOptions_Intervals_"></a>
+<a id="E2E_PollOptions_Intervals"></a>
+
+### Intervals
+
+
+```csharp
+public IReadOnlyList<TimeSpan>? Intervals { get; init; }
+```
+
+
+Pauses between reads. The default is 100, 250, 500 and 1000 milliseconds, and the last pause repeats. Each is a positive whole number of
+milliseconds, and the list is not empty (`INVALID_CONFIG` otherwise).
+
+**Value:** [IReadOnlyList&lt;TimeSpan&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 <a id="E2E_PollOptions_Message_"></a>
 <a id="E2E_PollOptions_Message"></a>

@@ -375,6 +375,21 @@ Whole-test timeout. Upstream `timeout`, 120 s by default.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
+<a id="E2E_E2EConfig_ToPass_"></a>
+<a id="E2E_E2EConfig_ToPass"></a>
+
+### ToPass
+
+
+```csharp
+public PassOptions ToPass { get; }
+```
+
+
+Upstream `toPass`: the default timeout (zero, so only the test's deadline applies) and pauses of `ToPassAsync`.
+
+**Value:** [PassOptions](/api/E2E/PassOptions/)
+
 ## Methods
 
 <a id="E2E_E2EConfig_Default_"></a>

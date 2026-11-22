@@ -56,6 +56,7 @@ public sealed class E2EConfig
         "launchTimeout",
         "actionTimeout",
         "assertionTimeout",
+        "toPass",
         "cleanupTimeout",
         "retries",
         "failOnSkippedFailure",
@@ -198,6 +199,10 @@ public sealed class E2EConfig
     public TimeSpan ActionTimeout { get; private init; } = E2EDefaults.ActionTimeout;
 
     public TimeSpan AssertionTimeout { get; private init; } = E2EDefaults.AssertionTimeout;
+
+    /// <summary>Upstream <c>toPass</c>: the default timeout (zero, so only the test's deadline applies) and pauses of <see cref="ValueExpectation{T}.ToPassAsync(PassOptions?, CancellationToken)"/>.</summary>
+    public PassOptions ToPass { get; private init; } =
+        new() { Timeout = TimeSpan.Zero, Intervals = ExpectRetry.DefaultIntervals };
 
     /// <summary>Engine shutdown timeout. Upstream <c>cleanupTimeout</c>, 30 s by default.</summary>
     public TimeSpan CleanupTimeout { get; private init; } = E2EDefaults.CleanupTimeout;
@@ -668,6 +673,7 @@ public sealed class E2EConfig
                 LaunchTimeout = Milliseconds(root, "launchTimeout", E2EDefaults.LaunchTimeout),
                 ActionTimeout = Milliseconds(root, "actionTimeout", E2EDefaults.ActionTimeout),
                 AssertionTimeout = Milliseconds(root, "assertionTimeout", E2EDefaults.AssertionTimeout),
+                ToPass = ReadToPass(Property(root, "toPass")),
                 CleanupTimeout = Milliseconds(root, "cleanupTimeout", E2EDefaults.CleanupTimeout),
                 FailOnSkippedFailure = ReadFailOnSkippedFailure(Property(root, "failOnSkippedFailure")),
                 MaxDuration = Command.PositiveMs(Property(root, "maxDuration"), "maxDuration"),
@@ -1891,6 +1897,64 @@ public sealed class E2EConfig
         }
 
         return property.GetString();
+    }
+
+    /// <summary>Upstream's <c>resolvePassOptions</c>: <c>timeout</c> 0 or a positive safe integer, <c>intervals</c> a non-empty list of them.</summary>
+    private static PassOptions ReadToPass(JsonElement? value)
+    {
+        if (value is not { } raw)
+        {
+            return new PassOptions { Timeout = TimeSpan.Zero, Intervals = ExpectRetry.DefaultIntervals };
+        }
+
+        if (raw.ValueKind != JsonValueKind.Object)
+        {
+            throw Invalid("toPass must be an object, got " + Command.DescribeValue(raw));
+        }
+
+        foreach (var member in raw.EnumerateObject())
+        {
+            if (member.Name is not ("timeout" or "intervals"))
+            {
+                throw Invalid(
+                    "toPass has unknown key \""
+                        + member.Name
+                        + "\""
+                        + Suggestions.DidYouMean(member.Name, ["timeout", "intervals"])
+                );
+            }
+        }
+
+        var timeout =
+            Property(raw, "timeout") is { ValueKind: JsonValueKind.Number } zero
+            && zero.TryGetDouble(out var z)
+            && z == 0
+                ? TimeSpan.Zero
+                : Command.PositiveMs(Property(raw, "timeout"), "toPass.timeout");
+        IReadOnlyList<TimeSpan> intervals = ExpectRetry.DefaultIntervals;
+        if (Property(raw, "intervals") is { } list)
+        {
+            if (list.ValueKind != JsonValueKind.Array || list.GetArrayLength() == 0)
+            {
+                throw Invalid("toPass.intervals must be a non-empty array of milliseconds");
+            }
+
+            var index = 0;
+            var pauses = new List<TimeSpan>();
+            foreach (var entry in list.EnumerateArray())
+            {
+                pauses.Add(
+                    Command.PositiveMs(
+                        entry,
+                        "toPass.intervals[" + index++.ToString(CultureInfo.InvariantCulture) + "]"
+                    ) ?? TimeSpan.Zero
+                );
+            }
+
+            intervals = pauses;
+        }
+
+        return new PassOptions { Timeout = timeout ?? TimeSpan.Zero, Intervals = intervals };
     }
 
     private static TimeSpan Milliseconds(JsonElement root, string name, TimeSpan fallback)

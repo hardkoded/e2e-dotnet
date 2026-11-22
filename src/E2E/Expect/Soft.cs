@@ -406,6 +406,16 @@ public sealed class SoftValueExpectation<T>
         return output;
     }
 
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public async Task ToPassAsync(PassOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _expect.ToPassAsync(options, cancellationToken).ConfigureAwait(false);
+        }
+        catch (TestException ex) when (ex.Code == "ASSERTION_FAILED" && _failures.Keep(ex)) { }
+    }
+
     private void Keep(Action matcher)
     {
         try

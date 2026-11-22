@@ -459,3 +459,28 @@ failure lists every issue, one line each, by its path. A negated check returns `
 | Type | Condition |
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` when &lt;code class="paramref"&gt;schema&lt;/code&gt; is `null`. |
+
+<a id="E2E_ValueExpectation_1_ToPassAsync_"></a>
+<a id="E2E_ValueExpectation_1_ToPassAsync_E2E_PassOptions_System_Threading_CancellationToken_"></a>
+
+### ToPassAsync(PassOptions?, CancellationToken)
+
+
+```csharp
+public Task ToPassAsync(PassOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Retries the block passed to `Expect.That` (an [Action](https://learn.microsoft.com/dotnet/api/system.action), a `Func<Task>`, or a
+`Func<CancellationToken, Task>`) until it runs without throwing or the deadline passes. Negated, it passes on the first try that
+throws and fails when the block keeps passing. Anything else is `INVALID_ARGUMENT`. The timeout and the pauses default to the
+`toPass` config key. A try that is still running when it fails or is cut at the deadline gets its token cancelled.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [PassOptions](/api/E2E/PassOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)

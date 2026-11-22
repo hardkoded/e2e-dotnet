@@ -27,6 +27,23 @@ public static class Expect
     public static ValueExpectation<T> That<T>(T actual, string? message = null) => new(actual, negated: false, message);
 
     /// <summary>
+    /// A block to retry with <see cref="ValueExpectation{T}.ToPassAsync(PassOptions?, CancellationToken)"/>: upstream's <c>expect(fn)</c>.
+    /// <paramref name="message"/> opens every failure of the check.
+    /// </summary>
+    public static ValueExpectation<Func<Task>> That(Func<Task> block, string? message = null) =>
+        new(block, negated: false, message);
+
+    /// <inheritdoc cref="That(Func{Task}, string?)"/>
+    public static ValueExpectation<Func<CancellationToken, Task>> That(
+        Func<CancellationToken, Task> block,
+        string? message = null
+    ) => new(block, negated: false, message);
+
+    /// <inheritdoc cref="That(Func{Task}, string?)"/>
+    public static ValueExpectation<Action> That(Action block, string? message = null) =>
+        new(block, negated: false, message);
+
+    /// <summary>
     /// The value matchers, but a failure is kept on <paramref name="screen"/>'s session instead of thrown, as <see cref="Soft(Locator, string?)"/>
     /// keeps one. Upstream's <c>expect.soft(value)</c> finds the running attempt on its own; a .NET call has no ambient attempt, so it names the session
     /// through its screen.
@@ -39,6 +56,24 @@ public static class Expect
             screen.SoftFailures
         );
     }
+
+    /// <summary>
+    /// A block to retry with <see cref="SoftValueExpectation{T}.ToPassAsync(PassOptions?, CancellationToken)"/>, which keeps a timeout on
+    /// <paramref name="screen"/>'s session instead of throwing it: upstream's <c>expect.soft(fn)</c>.
+    /// </summary>
+    public static SoftValueExpectation<Func<Task>> Soft(Screen screen, Func<Task> block, string? message = null) =>
+        Soft<Func<Task>>(screen, block, message);
+
+    /// <inheritdoc cref="Soft(Screen, Func{Task}, string?)"/>
+    public static SoftValueExpectation<Func<CancellationToken, Task>> Soft(
+        Screen screen,
+        Func<CancellationToken, Task> block,
+        string? message = null
+    ) => Soft<Func<CancellationToken, Task>>(screen, block, message);
+
+    /// <inheritdoc cref="Soft(Screen, Func{Task}, string?)"/>
+    public static SoftValueExpectation<Action> Soft(Screen screen, Action block, string? message = null) =>
+        Soft<Action>(screen, block, message);
 
     /// <summary>Matches any instance of <paramref name="sample"/> (any number type for a number type), inside <c>ToEqual</c> and the other structural matchers. <c>typeof(object)</c> also matches <c>null</c>, as upstream's <c>expect.any(Object)</c> does.</summary>
     public static AsymmetricMatcher Any(Type sample)

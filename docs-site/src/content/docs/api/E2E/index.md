@@ -134,6 +134,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [OpenedStep](/api/E2E/OpenedStep/) | A step as opened: title and charter bounded to the report's ceilings, which is what the step runs with. |
 | [OpenHostOptions](/api/E2E/OpenHostOptions/) | What OpenAsync is given. Upstream's OpenHostOptions (run/open-session.ts). |
 | [OpenSessionOptions](/api/E2E/OpenSessionOptions/) | What OpenSessionAsync is given. Upstream's OpenSessionOptions (run/open-session.ts). |
+| [PassOptions](/api/E2E/PassOptions/) | How ToPassAsync retries a block. Upstream's PassOptions. |
 | [PointDragResult](/api/E2E/PointDragResult/) | Upstream's PointDragResult: what one DragAtAsync did, for the executor to relay to its model. |
 | [PointHit](/api/E2E/PointHit/) | Upstream's PointHit: what one HitTestAsync found, for the executor to act on or relay. |
 | [PointTapResult](/api/E2E/PointTapResult/) | Upstream's PointTapResult: what one point action (TapAtAsync, HoverAtAsync) did, for the executor to relay to its model. |

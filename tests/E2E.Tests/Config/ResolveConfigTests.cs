@@ -278,6 +278,74 @@ public sealed class ResolveConfigTests
     }
 
     [Fact]
+    public void Defaults_each_toPass_option_independently()
+    {
+        static string Resolve(string toPass)
+        {
+            var config = E2EConfig.Parse("{ \"toPass\": " + toPass + " }", Root, Env()).ToPass;
+            return (int)config.Timeout!.Value.TotalMilliseconds
+                + " "
+                + string.Join(',', config.Intervals!.Select(pause => (int)pause.TotalMilliseconds));
+        }
+
+        Assert.Equal("0 100,250,500,1000", Resolve("{}"));
+        Assert.Equal("200 100,250,500,1000", Resolve("""{ "timeout": 200 }"""));
+        Assert.Equal("0 5,10", Resolve("""{ "intervals": [5, 10] }"""));
+        Assert.Equal("0 20", Resolve("""{ "timeout": 0, "intervals": [20] }"""));
+        Assert.Equal("2147483647 100,250,500,1000", Resolve("""{ "timeout": 2147483647 }"""));
+    }
+
+    [Theory]
+    [InlineData("null", "toPass must be an object, got null")]
+    [InlineData("[]", "toPass must be an object, got an array")]
+    [InlineData("\"200\"", "toPass must be an object, got \"200\"")]
+    [InlineData("""{ "tiemout": 200 }""", "toPass has unknown key \"tiemout\"; did you mean \"timeout\"?")]
+    [InlineData("""{ "timeout": -1 }""", "toPass.timeout must be a positive safe integer of milliseconds, got -1")]
+    [InlineData("""{ "timeout": 0.5 }""", "toPass.timeout must be a positive safe integer of milliseconds, got 0.5")]
+    [InlineData(
+        """{ "timeout": "200ms" }""",
+        "toPass.timeout must be a positive safe integer of milliseconds, got \"200ms\""
+    )]
+    [InlineData(
+        """{ "timeout": 2147483648 }""",
+        "toPass.timeout must be at most 2147483647 milliseconds, got 2147483648"
+    )]
+    [InlineData("""{ "intervals": 10 }""", "toPass.intervals must be a non-empty array of milliseconds")]
+    [InlineData("""{ "intervals": [] }""", "toPass.intervals must be a non-empty array of milliseconds")]
+    [InlineData(
+        """{ "intervals": [0] }""",
+        "toPass.intervals[0] must be a positive safe integer of milliseconds, got 0"
+    )]
+    [InlineData(
+        """{ "intervals": [10, -1] }""",
+        "toPass.intervals[1] must be a positive safe integer of milliseconds, got -1"
+    )]
+    [InlineData(
+        """{ "intervals": [10, "20"] }""",
+        "toPass.intervals[1] must be a positive safe integer of milliseconds, got \"20\""
+    )]
+    [InlineData(
+        """{ "intervals": [null] }""",
+        "toPass.intervals[0] must be a positive safe integer of milliseconds, got null"
+    )]
+    [InlineData(
+        """{ "intervals": [10, 20.5] }""",
+        "toPass.intervals[1] must be a positive safe integer of milliseconds, got 20.5"
+    )]
+    [InlineData(
+        """{ "intervals": [9007199254740992] }""",
+        "toPass.intervals[0] must be a positive safe integer of milliseconds, got 9007199254740992"
+    )]
+    public void Refuses_invalid_toPass_config(string value, string message)
+    {
+        var error = Assert.Throws<ConfigurationException>(() =>
+            E2EConfig.Parse("{ \"toPass\": " + value + " }", Root, Env())
+        );
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Contains(message, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Rejects_config_timeouts_a_timer_cannot_wait_for()
     {
         foreach (var key in new[] { "timeout", "launchTimeout", "actionTimeout", "assertionTimeout", "cleanupTimeout" })

@@ -17,7 +17,11 @@ public sealed class InsideAnAttemptTests
     {
         using var cancel = new CancellationTokenSource();
         var reads = 0;
-        var options = new PollOptions { Timeout = TimeSpan.FromSeconds(15), Interval = TimeSpan.FromMilliseconds(5) };
+        var options = new PollOptions
+        {
+            Timeout = TimeSpan.FromSeconds(15),
+            Intervals = [TimeSpan.FromMilliseconds(5)],
+        };
         var poll = Expect
             .Poll(
                 () =>
@@ -43,7 +47,7 @@ public sealed class InsideAnAttemptTests
     public async Task Partial_Polls_with_timeout_0_past_the_assertion_timeout_until_the_attempt_deadline()
     {
         using var cancel = new CancellationTokenSource();
-        var options = new PollOptions { Timeout = TimeSpan.Zero, Interval = TimeSpan.FromMilliseconds(10) };
+        var options = new PollOptions { Timeout = TimeSpan.Zero, Intervals = [TimeSpan.FromMilliseconds(10)] };
         cancel.CancelAfter(TimeSpan.FromMilliseconds(150));
         var started = DateTimeOffset.UtcNow;
 
