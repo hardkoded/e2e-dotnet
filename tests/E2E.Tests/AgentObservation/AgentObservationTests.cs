@@ -9,15 +9,18 @@ using E2E.Tests.AgentActPixelTools;
 namespace E2E.Tests.AgentObservation;
 
 /// <summary>
-/// The <c>it</c> outside any <c>describe</c> of upstream's <c>agent-observation.test.ts</c> that tester-army/e2e#1568 added. The port's feed
+/// The <c>it</c>s outside any <c>describe</c> of upstream's <c>agent-observation.test.ts</c>; tester-army/e2e#1568 added the first, #1997 the second. The port's feed
 /// takes pixels with a screenshot of its own after the look, where upstream's engine answers a look with them, so "the capture asks for no
 /// pixels" reads as the screenshot never taken. Not ported: the projection of a raw observation that carries pixels the step did not ask for.
 /// </summary>
 public sealed class AgentObservationTests
 {
-    private static async Task<(ObservationFeed Feed, PixelsEngine Engine)> FeedAsync(bool pixelsAllowed)
+    private static async Task<(ObservationFeed Feed, PixelsEngine Engine)> FeedAsync(
+        bool pixelsAllowed,
+        DocumentWorld? world = null
+    )
     {
-        var engine = new PixelsEngine(new DocumentEngine(CounterPage.World()));
+        var engine = new PixelsEngine(new DocumentEngine(world ?? CounterPage.World()));
         var session = await engine.StartAsync(
             new EngineStartOptions { BaseUrl = "https://billing.test" },
             CancellationToken.None
@@ -56,5 +59,36 @@ public sealed class AgentObservationTests
         (engine.TreeUnavailable, engine.IgnoresPixelFallback) = (true, true);
         var denied = await Assert.ThrowsAsync<TestException>(() => feed.ObserveAsync(null, CancellationToken.None));
         Assert.Equal("POLICY_DENIED", denied.Code);
+    }
+
+    [Fact]
+    public async Task Flags_a_step_whose_screens_listed_a_one_time_code_field_and_keeps_the_flag_for_the_rest_of_the_step()
+    {
+        var box = new DocumentElement
+        {
+            Role = "textbox",
+            Name = "Digit 1",
+            InputPurpose = "one-time-code",
+        };
+        DocumentPage? screen = null;
+        var world = new DocumentWorld().Map("/", page =>
+        {
+            screen = page;
+            page.Roots.Add(box);
+        });
+        var (withCode, _) = await FeedAsync(pixelsAllowed: false, world);
+        await withCode.ObserveAsync(null, CancellationToken.None);
+        Assert.True(withCode.OneTimeCodeShown);
+
+        // A later screen without the field leaves the step flagged: the code may be typed after the boxes are gone.
+        screen!.Roots.Remove(box);
+        screen.Roots.Add(new DocumentElement { Role = "textbox", Name = "Digit 1" });
+        await withCode.ObserveAsync(null, CancellationToken.None);
+        Assert.True(withCode.OneTimeCodeShown);
+
+        var plain = new DocumentWorld().Map("/", page => page.Textbox("Digit 1"));
+        var (without, _) = await FeedAsync(pixelsAllowed: false, plain);
+        await without.ObserveAsync(null, CancellationToken.None);
+        Assert.False(without.OneTimeCodeShown);
     }
 }

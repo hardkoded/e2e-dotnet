@@ -63,6 +63,15 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     // (Derived): one per node, the oldest dropped first past this many (upstream's MAX_SHOWN_TEXTS).
     private const int MaxShownTexts = 4_096;
 
+    // Whether any screen in this step listed a field marked as taking a one-time code (upstream's `oneTimeCodeSeen`).
+    private bool _oneTimeCodeSeen;
+
+    /// <summary>
+    /// True once a screen in this step listed a field marked as taking a one-time code (<c>autocomplete="one-time-code"</c>). Focused typing
+    /// names no field, so a value it types in such a step may be that code (upstream's <c>oneTimeCodeShown</c>).
+    /// </summary>
+    public bool OneTimeCodeShown => _oneTimeCodeSeen;
+
     // What the step's screens have shown, one string per node, oldest first (upstream's `shown`).
     private readonly HashSet<string> _shown = new(StringComparer.Ordinal);
     private readonly Queue<string> _shownOrder = new();
@@ -87,6 +96,12 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     {
         foreach (var node in observation.Nodes.Values)
         {
+            // Checked before the skip below: the field that takes the code is itself an input.
+            if (node.InputPurpose == "one-time-code")
+            {
+                _oneTimeCodeSeen = true;
+            }
+
             if (EchoesInput(node) || node.Children.Any(EchoesInput))
             {
                 continue;
