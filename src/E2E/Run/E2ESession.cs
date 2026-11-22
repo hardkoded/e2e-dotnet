@@ -286,24 +286,9 @@ public sealed class E2ESession : IAsyncDisposable
 
         var timeout = NewTimeoutSource(options.Clock, cancellationToken);
         Deadline? budgetDeadline = null;
-        if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
-        {
-            try
-            {
-                // The deadline first: the timer then fires at or after it, so a wait the timer cut finds the deadline expired (upstream's timer fires after its deadline).
-                budgetDeadline = new Deadline(options.TestTimeout, options.Clock);
-                timeout.CancelAfter(options.TestTimeout);
-            }
-            catch
-            {
-                // An out-of-range timeout throws before the session owns the source.
-                timeout.Dispose();
-                throw;
-            }
-        }
 
         // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
-        var budget = new AttemptBudget(timeout, options.CancelsOnClose?.Closed) { Deadline = budgetDeadline };
+        var budget = new AttemptBudget(timeout, options.CancelsOnClose?.Closed);
 
         // What test.setTimeout moves: the signal's timer and the deadline the screen and browser cap their steps with.
         Screen? timedScreen = null;
@@ -329,6 +314,23 @@ public sealed class E2ESession : IAsyncDisposable
         };
         AttemptTimeout NewAttemptTimeout() => new(timeout, options.TestTimeout, options.Clock, onMoved);
         var attemptTimeout = NewAttemptTimeout();
+
+        // The attempt's timeout starts before the timer is armed, so it has elapsed whenever the timer has fired (a close reads it).
+        if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
+        {
+            try
+            {
+                timeout.CancelAfter(options.TestTimeout);
+                budgetDeadline = new Deadline(options.TestTimeout, options.Clock);
+                budget.Deadline = budgetDeadline;
+            }
+            catch
+            {
+                // An out-of-range timeout throws before the session owns the source.
+                timeout.Dispose();
+                throw;
+            }
+        }
 
         // The reason the test's own timeout aborts with, one error every step it cuts shares (upstream's signal.reason).
         var timedOut = new Lazy<TestException>(() =>
@@ -1182,6 +1184,9 @@ public sealed class E2ESession : IAsyncDisposable
         var errors = new List<Exception>();
         TestException? soft = null;
         TestException? abandoned = null;
+
+        // Read before the close cancels the test's own signal. .NET timers can fire a few milliseconds ahead of the clock the attempt's timeout reads, so the timer having fired is the deadline having passed.
+        var timerFired = _timeout.IsCancellationRequested && !_openToken.IsCancellationRequested;
         try
         {
             soft = CloseSoftFailures();
@@ -1230,12 +1235,16 @@ public sealed class E2ESession : IAsyncDisposable
 
         // Upstream's standalone attempt fails as timed out when the deadline passed, whether or not its timer ran before close.
         TestException? timedOut = null;
-        if (_hostedClose is not null && !_openToken.IsCancellationRequested && _attemptTimeout is { Expired: true })
+        if (
+            _hostedClose is not null
+            && !_openToken.IsCancellationRequested
+            && (timerFired || _attemptTimeout is { Expired: true })
+        )
         {
             timedOut = new TestException(
                 "TEST_TIMEOUT",
                 "session timed out after "
-                    + ((long)_attemptTimeout.Timeout.TotalMilliseconds).ToString(
+                    + ((long)(_attemptTimeout?.Timeout ?? _testTimeout).TotalMilliseconds).ToString(
                         System.Globalization.CultureInfo.InvariantCulture
                     )
                     + " ms"
@@ -1246,7 +1255,14 @@ public sealed class E2ESession : IAsyncDisposable
         // A poll the timeout cut tells its last failed assertion beside the timeout.
         errors.AddRange(SecondaryErrorsSnapshot());
 
-        Complete(timedOut ?? soft ?? abandoned);
+        // A hosted session's cancel (upstream's <c>signal</c>) that cut a step ends the attempt as interrupted: upstream's <c>classifyAttemptStatus(failure, timedOut, interrupted)</c>.
+        Exception? interrupted =
+            _hostedClose is not null
+            && _openToken.IsCancellationRequested
+            && StepRecords.Any(step => step.Status == StepStatus.Cancelled)
+                ? new OperationCanceledException("the session was cancelled while its test ran", _openToken)
+                : null;
+        Complete(timedOut ?? soft ?? abandoned ?? interrupted, _hostedClose is not null ? _openToken : default);
         try
         {
             await DisposeCoreAsync().ConfigureAwait(false);

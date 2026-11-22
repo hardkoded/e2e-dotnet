@@ -102,7 +102,7 @@ await session.App.OpenAsync("/checkout");
 - `ConfigPath` is a config file path relative to `Cwd`. `Config` is an `E2EConfig` value, whose `ProjectRoot` is the project root. Upstream's `config` takes either; C# has no union, so there are two members, and passing both is `INVALID_CONFIG`. Omit both to find the config from `Cwd`.
 - `Target` is required when the config declares several targets.
 - `Env` is the environment the config, engines, and providers read.
-- The token cancels host provisioning, a pending session open, or live fixture calls.
+- The token cancels host provisioning, a pending session open, or live fixture calls. A session whose operation it cut ends as `interrupted`, not passed: its trace says so, and a `retain-on-failure` video is kept.
 - `Headed` runs a browser engine headed.
 - `OnNotice` receives progress outside a step, such as provisioning or an app process. It must not throw.
 - `EngineFactory` is .NET-only. `e2e.config.json` cannot hold a live engine, so a device, Windows, or test engine comes from here. A factory builds a fresh engine for each host.
