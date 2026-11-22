@@ -430,7 +430,9 @@ showing (see the mobile reference).
   update variable. After a secret fill the comparison still runs: the image
   masks secure fields only, so a secret the app shows anywhere else is in it. When the engine
   cannot prove every secure field on screen was masked, the call fails with
-  `POLICY_DENIED` and keeps no screenshot.
+  `POLICY_DENIED` and keeps no screenshot. An engine that withheld the screenshot for that reason
+  (iOS and Android with a secure field that has no bounds) fails it at once, not after the timeout.
+  `App.ScreenshotAsync` fails the same way.
 - `Expect.That(Browser).ToHaveURLAsync("/about")` (a string, or a `Regex`; `ignoreCase`)
   and `ToHaveTitleAsync("About page")` poll the URL and the title, `.Not`
   inverts them, and `Expect.Soft(Browser)` keeps their failures.

@@ -208,6 +208,22 @@ public sealed class ToHaveScreenshotTests
     }
 
     [Fact]
+    public async Task Fails_at_once_with_POLICY_DENIED_when_the_engine_withholds_a_screenshot_it_could_not_mask()
+    {
+        var withheld = new ScreenEngine
+        {
+            WithSecureField = true,
+            MaskedRegions = 0,
+            Current = () => EngineScreenshot.Withheld(0),
+        };
+        using var project = new ScreenProject(withheld);
+        var error = await project.RunAsync("home", "home", Home);
+        Assert.Equal("POLICY_DENIED", error?.Code);
+        Assert.Equal(1, withheld.Captures);
+        Assert.False(Directory.Exists(project.Snapshots("home")));
+    }
+
+    [Fact]
     public async Task Writes_a_missing_screenshot_and_passes_under_update()
     {
         using var project = new ScreenProject(new ScreenEngine());

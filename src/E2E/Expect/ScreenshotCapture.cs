@@ -101,7 +101,11 @@ internal static partial class ScreenshotAssertion
                             )
                             .ConfigureAwait(false);
                     }
-                    catch (TestException ex) when (ex.Code == "LOCATOR_NOT_FOUND") { }
+                    catch (TestException ex) when (ex.Code == "LOCATOR_NOT_FOUND")
+                    {
+                        // The node left before the scroll; the read below finds out.
+                        _scrolled = true;
+                    }
 
                     _scrolled = true;
                     node = await screen
@@ -126,6 +130,7 @@ internal static partial class ScreenshotAssertion
             var shot = await ReadAsync(store.Capture, cancellationToken).ConfigureAwait(false);
 
             // Upstream's pixelsProvenMasked: the engine masked at least as many regions as the tree lists secure nodes, or the image is not kept.
+            // A screenshot the engine withheld reports the regions it masked beside the missing pixels, so it fails here at once.
             if (
                 shot.MaskedRegionCount is not { } masked
                 || masked < LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure)
@@ -135,6 +140,12 @@ internal static partial class ScreenshotAssertion
                     "POLICY_DENIED",
                     api + " could not prove every secure field on screen was masked, so the screenshot is not kept"
                 );
+            }
+
+            // Withheld on a screen with nothing to mask: no screenshot, so the poll takes another.
+            if (shot.IsWithheld)
+            {
+                return new Capture(null, "the engine returned no screenshot");
             }
 
             var raw = ImageOps.DecodePng(shot.Png);
