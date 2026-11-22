@@ -367,6 +367,29 @@ Creates a lazy visible-text query. It answers with the innermost match, such as 
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
+<a id="E2E_Screen_PauseAsync_"></a>
+<a id="E2E_Screen_PauseAsync"></a>
+
+### PauseAsync()
+
+
+```csharp
+public Task PauseAsync()
+```
+
+
+Pauses the test. Call it on the screen, since a pause affects the whole test; a frame's screen refuses. In a run that holds (a pause waits
+for someone to resume it), the test clock stops meanwhile. Without a hold, as in a program or an MCP session, it returns right away.
+Upstream's `screen.pause`.
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` when called on a frame's screen, or where the attempt cannot hold a pause. |
+
 <a id="E2E_Screen_ScrollUntilVisibleAsync_"></a>
 <a id="E2E_Screen_ScrollUntilVisibleAsync_E2E_Locator_E2E_ScrollUntilVisibleOptions_System_Threading_CancellationToken_"></a>
 
