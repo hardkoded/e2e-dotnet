@@ -267,6 +267,19 @@ public sealed class E2ESession : IAsyncDisposable
             ? ExecuteVideo.PlanGiven(options, given)
             : ExecuteVideo.Plan(options);
 
+        // Resolved before the timeout source exists, so a bad path throws with nothing to dispose.
+        var projectRoot = Path.GetFullPath(
+            string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot
+        );
+        var attemptDir = Path.Combine([
+            Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
+            .. ArtifactPaths.AttemptSegments(
+                options.RerunDir,
+                AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle),
+                options.Attempt - 1
+            ),
+        ]);
+
         var timeout = NewTimeoutSource(options.Clock, cancellationToken);
         Deadline? budgetDeadline = null;
         if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
@@ -306,17 +319,6 @@ public sealed class E2ESession : IAsyncDisposable
         var timedOut = new Lazy<TestException>(() => TimeoutFailure(attemptTimeout.Timeout, null));
 
         var debug = new DebugTrace(options.Debug);
-        var projectRoot = Path.GetFullPath(
-            string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot
-        );
-        var attemptDir = Path.Combine([
-            Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
-            .. ArtifactPaths.AttemptSegments(
-                options.RerunDir,
-                AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle),
-                options.Attempt - 1
-            ),
-        ]);
         IEngineSession engine;
 
         // The attempt's id is minted here, before the engine starts, so the start options and every call's context name the one id.
