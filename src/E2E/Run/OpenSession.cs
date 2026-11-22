@@ -44,7 +44,7 @@ public sealed record OpenHostOptions
     /// </summary>
     public Func<TargetConfig, IEngine>? EngineFactory { get; init; }
 
-    /// <summary>.NET-only: the clock every session's deadline reads, so a test can let a deadline pass without its timer running. Upstream reads <c>Date.now</c>.</summary>
+    /// <summary>.NET-only: the clock every session's deadline reads, so a test can let a deadline pass without its timer running. Upstream reads <c>Date.now</c>. It governs only the attempt timeout's expiry check: the screen and browser step budgets keep the system clock, so a test that moves it runs no steps.</summary>
     internal TimeProvider Clock { get; init; } = TimeProvider.System;
 }
 
