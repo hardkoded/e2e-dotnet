@@ -24,23 +24,27 @@ public sealed class SerialSetTimeoutTests
                 runner.Load(typeof(SerialSetTimeoutFixture).Assembly, new Dictionary<string, object>());
                 var run = runner.Run(
                     TestListener.NULL,
-                    TestFilter.FromXml(
-                        $"<filter><class>{typeof(SerialSetTimeoutFixture).FullName}</class></filter>"
-                    )
+                    TestFilter.FromXml($"<filter><class>{typeof(SerialSetTimeoutFixture).FullName}</class></filter>")
                 );
                 return Leaves(run).ToDictionary(result => result.Test.MethodName!);
             })
             .GetAwaiter()
             .GetResult();
 
-        foreach (var name in new[]
+        foreach (
+            var name in new[]
+            {
+                nameof(SerialSetTimeoutFixture.A_keeps_its_attempt_for_a_later_member),
+                nameof(SerialSetTimeoutFixture.B_is_not_moved_by_the_callback_the_first_member_left),
+                nameof(SerialSetTimeoutFixture.C_counts_its_set_timeout_from_its_own_start),
+            }
+        )
         {
-            nameof(SerialSetTimeoutFixture.A_keeps_its_attempt_for_a_later_member),
-            nameof(SerialSetTimeoutFixture.B_is_not_moved_by_the_callback_the_first_member_left),
-            nameof(SerialSetTimeoutFixture.C_counts_its_set_timeout_from_its_own_start),
-        })
-        {
-            Assert.That(results[name].ResultState.Status, Is.EqualTo(TestStatus.Passed), name + ": " + results[name].Message);
+            Assert.That(
+                results[name].ResultState.Status,
+                Is.EqualTo(TestStatus.Passed),
+                name + ": " + results[name].Message
+            );
         }
     }
 
