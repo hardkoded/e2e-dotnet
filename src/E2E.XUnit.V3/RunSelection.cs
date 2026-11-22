@@ -20,7 +20,7 @@ internal static class RunSelection
     internal const string CategoryTrait = "TestCategory";
 
     // The contract of xUnit v3 for an exception that skips a test: its message starts with this, and the rest is the reason.
-    private const string DynamicSkipToken = "$XunitDynamicSkip$";
+    internal const string DynamicSkipToken = "$XunitDynamicSkip$";
 
     private static IReadOnlyDictionary<string, string> _excluded = new Dictionary<string, string>(
         StringComparer.Ordinal

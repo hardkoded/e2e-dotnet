@@ -77,6 +77,29 @@ resetting unmanaged resources asynchronously.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask) — A task that represents the asynchronous dispose operation.
 
+<a id="E2E_XUnit_V3_E2ETest_Fixme_"></a>
+<a id="E2E_XUnit_V3_E2ETest_Fixme_System_Boolean_System_String_"></a>
+
+### Fixme(bool, string?)
+
+
+```csharp
+public void Fixme(bool condition = true, string? reason = null)
+```
+
+
+Skips the running test as fixme when &lt;code class="paramref"&gt;condition&lt;/code&gt; holds (upstream's `test.fixme(condition, reason)`). The skip reports
+the cause `fixme` and the reason `fixme`, or `fixme: <reason>` for a reason that is not blank. Like a dynamic skip
+it ends the test method at once. A call from a setup test is a test error, `INVALID_ARGUMENT`; a call outside a test throws
+[InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) where upstream has `COLLECTION_ERROR`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `condition` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
+| `reason` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
 <a id="E2E_XUnit_V3_E2ETest_InitializeAsync_"></a>
 <a id="E2E_XUnit_V3_E2ETest_InitializeAsync"></a>
 
