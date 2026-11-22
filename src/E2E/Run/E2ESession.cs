@@ -1215,9 +1215,7 @@ public sealed class E2ESession : IAsyncDisposable
 
         // Upstream's standalone attempt `verdict()`: with no other failure, a hosted session's first step that did not pass is the verdict.
         var stepFailure =
-            _hostedClose is not null && (timedOut ?? soft ?? abandoned ?? interrupted) is null
-                ? FirstFailedStepError()
-                : null;
+            _hostedClose is not null && (timedOut ?? soft ?? abandoned ?? interrupted) is null ? Verdict() : null;
         Complete(
             timedOut ?? soft ?? abandoned ?? interrupted ?? stepFailure,
             _hostedClose is not null ? _openToken : default
@@ -1882,7 +1880,7 @@ public sealed class E2ESession : IAsyncDisposable
     }
 
     /// <summary>The error of the first step that did not pass, as the exception the attempt's verdict is read from; null when every step passed.</summary>
-    private Exception? FirstFailedStepError()
+    private Exception? Verdict()
     {
         if (StepRecords.FirstOrDefault(step => step.Status != StepStatus.Passed) is not { } step)
         {
