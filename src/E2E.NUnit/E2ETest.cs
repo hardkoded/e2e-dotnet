@@ -59,6 +59,20 @@ public abstract partial class E2ETest : E2EFixture
         ExpectedFailureMarks.MarkRunningTestExpectedToFail(CurrentSession, condition, reason, IsSerial, _bodyDone);
 
     /// <summary>
+    /// Skips the running test as fixme when <paramref name="condition"/> holds (upstream's <c>test.fixme(condition, reason)</c>). The skip reports
+    /// the cause <c>fixme</c> and the reason <c>fixme</c>, or <c>fixme: &lt;reason&gt;</c> for a reason that is not blank. Like <c>Assert.Ignore</c>
+    /// it ends the test method at once. A call from a setup test is a test error, <c>INVALID_ARGUMENT</c>; a call outside a test throws
+    /// <see cref="InvalidOperationException"/> where upstream has <c>COLLECTION_ERROR</c>.
+    /// </summary>
+    public void Fixme(bool condition = true, string? reason = null)
+    {
+        if (E2E.Internal.Skip.FixmeRunningTest(CurrentSession, condition, reason) is { } skipReason)
+        {
+            Assert.Ignore(skipReason);
+        }
+    }
+
+    /// <summary>
     /// Changes the running test's timeout from its body or a <c>[SetUp]</c>, counted from the start of the attempt like the configured
     /// <c>timeout</c>, which it replaces for this attempt (upstream's <c>test.setTimeout(timeout)</c>). A timeout shorter than the time already
     /// spent times the test out at once. A timeout that is not a positive whole number of milliseconds, or above 2147483647, a call from a teardown (after the test method returned), and one
