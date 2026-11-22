@@ -440,13 +440,15 @@ internal sealed class StepRecorder
             _cutsOnClose.TryGetValue(record.Id, out closed);
         }
 
-        if (!_cancellation.CanBeCanceled && closed is null)
+        // The recorder's own cancellation, or the signal its session gives it (upstream's `this.signal`, which `execute` races the work against).
+        var cancellation = _cancellation.CanBeCanceled ? _cancellation : _signal?.Invoke() ?? default;
+        if (!cancellation.CanBeCanceled && closed is null)
         {
             return await work.ConfigureAwait(false);
         }
 
         var cut = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var registration = _cancellation.Register(() => cut.TrySetResult());
+        using var registration = cancellation.Register(() => cut.TrySetResult());
         var first = await Task.WhenAny(work, cut.Task, closed?.Task ?? cut.Task).ConfigureAwait(false);
         if (first == work)
         {
