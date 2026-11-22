@@ -233,7 +233,8 @@ Members of `E2ETest` in both frameworks:
   page hides (a closed drawer) before the exactly-one rule. Visibility is
   what renders, as `ToBeVisibleAsync` reads it: `display: none`, a
   `visibility` other than `visible`, and content under
-  `content-visibility: hidden` or a closed `details` are hidden, through shadow
+  `content-visibility: hidden` or a closed `details` body (all but its first
+  `summary`) are hidden, through shadow
   roots and slots too, unless the page's CSS still shows them (a closed
   `details` body through `::details-content`, `content-visibility: hidden` on an
   element whose box skips nothing). A child that

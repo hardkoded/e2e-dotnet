@@ -59,14 +59,14 @@ Drops nodes the platform reports as hidden before the exactly-one rule,
 so a visible node with a hidden twin still resolves. On the web, hidden is
 what renders: `display: none`, a `visibility` other than
 `visible`, and content under `content-visibility: hidden` or a
-closed `details`, shadow and slotted content included; a child that sets
+closed `details` body (all but its first `summary`), shadow and slotted content included; a child that sets
 `visibility: visible` under a hidden parent is visible, and an
 `aria-hidden` node that paints is visible. A closed `details` body
 the page's CSS shows through `::details-content` is not hidden, and neither
 is content under `content-visibility: hidden` set on an element whose box
 skips nothing (`display: contents`, an inline element, a table, a table row,
-ruby). An inline `svg`, `button`, or `fieldset` makes a box of its
-own, so content under one still reads hidden.
+ruby). An outermost inline `svg` (not one nested in another),
+`button`, or `fieldset` makes a box of its own, so content under one still reads hidden.
 Everything inside a hidden `iframe` is hidden, cross-origin frames included.
 Role queries never match hidden or `aria-hidden` nodes, whatever this says.
 

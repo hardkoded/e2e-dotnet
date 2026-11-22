@@ -55,9 +55,17 @@ public sealed class ChromiumPage : IAsyncLifetime
                 ViewportSize = new ViewportSize { Width = 1280, Height = 720 },
             }
         );
-        await page.AddInitScriptAsync(PageScript.RecordClosedShadowRoots);
-        await page.GotoAsync("about:blank");
-        return page;
+        try
+        {
+            await page.AddInitScriptAsync(PageScript.RecordClosedShadowRoots);
+            await page.GotoAsync("about:blank");
+            return page;
+        }
+        catch
+        {
+            await page.CloseAsync();
+            throw;
+        }
     }
 
     public async Task DisposeAsync()
