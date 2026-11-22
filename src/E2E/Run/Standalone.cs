@@ -16,6 +16,9 @@ internal sealed record StandaloneHostOptions
 
     public required string ProjectRoot { get; init; }
 
+    /// <summary>Set by a <c>launch()</c> host, for its engine; see <see cref="IEngineHostIdentity.HostId"/>.</summary>
+    public string? HostId { get; init; }
+
     /// <summary>The run's environment: where an engine's prepare reads a token from, and what the worker reads. Null is the process environment.</summary>
     public IReadOnlyDictionary<string, string?>? Env { get; init; }
 
@@ -279,6 +282,7 @@ internal sealed class StandaloneHost
                 new PrepareScope
                 {
                     RunId = _runId,
+                    HostId = _options.HostId,
                     ProjectRoot = _options.ProjectRoot,
                     Env = _env,
                     Notice = Notice,
@@ -459,6 +463,7 @@ internal sealed class StandaloneHost
                     new FinishScope
                     {
                         RunId = _runId,
+                        HostId = _options.HostId,
                         Env = _env,
                         CleanupTimeout = _options.CleanupTimeout,
                         Notice = Notice,

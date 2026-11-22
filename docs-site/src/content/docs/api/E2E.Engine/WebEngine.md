@@ -15,7 +15,7 @@ Namespace: [E2E.Engine](/api/E2E.Engine/)
 
 
 ```csharp
-public sealed class WebEngine : IEngine<WebFixtures>, IDoctorEngine, IEngine, IAsyncDisposable
+public sealed class WebEngine : IEngine<WebFixtures>, IDoctorEngine, IAsyncDisposable, IDisposableEngine, IEngine
 ```
 
 
@@ -26,7 +26,7 @@ same node actions the document engine does. Install browsers once with
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-**Implements:** `IEngine&lt;WebFixtures&gt;`, [IDoctorEngine](/api/E2E.Engine/IDoctorEngine/), [IEngine](/api/E2E.Engine/IEngine/), [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
+**Implements:** `IEngine&lt;WebFixtures&gt;`, [IDoctorEngine](/api/E2E.Engine/IDoctorEngine/), [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable), [IDisposableEngine](/api/E2E.Engine/IDisposableEngine/), [IEngine](/api/E2E.Engine/IEngine/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs)
 
@@ -170,7 +170,9 @@ public ValueTask DisposeAsync()
 ```
 
 
-Worker shutdown: releases the replacement lease the worker acquired for itself, within the cleanup timeout. What prepare leased is the runner's to release.
+Worker shutdown (upstream's `dispose`): closes the browser the engine's connection holds and stops its driver, then releases the
+replacement lease the worker acquired for itself, within the cleanup timeout. What prepare leased is the runner's to release. The engine can start
+again afterwards.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
 

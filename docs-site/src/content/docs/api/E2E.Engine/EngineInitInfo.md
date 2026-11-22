@@ -15,7 +15,7 @@ Namespace: [E2E.Engine](/api/E2E.Engine/)
 
 
 ```csharp
-public sealed record EngineInitInfo : IEquatable<EngineInitInfo>
+public sealed record EngineInitInfo : IEngineHostIdentity, IEquatable<EngineInitInfo>
 ```
 
 
@@ -23,7 +23,7 @@ What a worker's init is given, once per worker, before its first attempt. Upstre
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-**Implements:** [IEquatable&lt;EngineInitInfo&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
+**Implements:** [IEngineHostIdentity](/api/E2E.Engine/IEngineHostIdentity/), [IEquatable&lt;EngineInitInfo&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
@@ -58,6 +58,22 @@ public bool Headed { get; init; }
 Whether the run asked for a visible surface (`--headed`). Upstream's `headed`.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+<a id="E2E_Engine_EngineInitInfo_HostId_"></a>
+<a id="E2E_Engine_EngineInitInfo_HostId"></a>
+
+### HostId
+
+
+```csharp
+public string? HostId { get; init; }
+```
+
+
+Set when a `launch()` host holds the target: a token no other host has. Hosts name their targets alike, so an engine that names
+what it holds after the target (a device session) adds this to keep hosts apart. Upstream's `hostId`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_Engine_EngineInitInfo_Log_"></a>
 <a id="E2E_Engine_EngineInitInfo_Log"></a>

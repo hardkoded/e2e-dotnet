@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Security.Cryptography;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -238,6 +239,7 @@ public sealed class Host : IAsyncDisposable
     private readonly TimeSpan? _timeout;
     private readonly LaunchApp? _app;
     private readonly bool _headed;
+    private readonly string _hostId;
     private readonly Func<
         StandaloneAttempt,
         StateIdentity,
@@ -267,9 +269,11 @@ public sealed class Host : IAsyncDisposable
         LaunchApp? app,
         bool headed,
         Action withdrawSecrets,
+        string hostId,
         Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, ISessionGuest, Session>? newSession = null
     )
     {
+        _hostId = hostId;
         _withdrawSecrets = withdrawSecrets;
         _newSession = newSession
             ?? (
@@ -507,6 +511,10 @@ public sealed class Host : IAsyncDisposable
             ActionTimeout = _timeout ?? E2EDefaults.ActionTimeout,
             AssertionTimeout = _timeout ?? E2EDefaults.AssertionTimeout,
             Headed = _headed,
+            HostId = _hostId,
+            // Named after the token, never the target, whose name is the platform an engine reports, and a platform can be a secret's value.
+            ArtifactSegments = attemptId =>
+                ["core", .. ArtifactPaths.AttemptSegments(null, $"host-{_hostId}-{attemptId}", 0)],
             CancelsOnClose = new CancelsOnClose(
                 () => new EngineException(EngineErrorCodes.Cancelled, "the session is closed"),
                 call => new EngineException(
@@ -691,12 +699,16 @@ public static class Launch
                         withdrawSecrets = Secrecy.ShareStaticSecrets(
                             secrets.Select(pair => E2E.Secret.Create(pair.Key, pair.Value))
                         );
+                        // Hosts name their targets alike, so the engine gets a token per host to keep what it holds apart: a device session.
+                        // Random, so hosts in other processes or copies of this library differ too.
+                        var hostId = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(12));
                         var worker = await Standalone
                             .OpenWorkerAsync(
                                 new StandaloneHostOptions
                                 {
                                     Engine = engine,
                                     TargetName = target,
+                                    HostId = hostId,
                                     ProjectRoot = projectRoot,
                                     Env = options.Env,
                                     CancellationToken = Time.Link(cancellationToken, seat?.Signal ?? default),
@@ -720,6 +732,7 @@ public static class Launch
                             app,
                             options.Headed,
                             withdrawSecrets,
+                            hostId,
                             newSession
                         );
                     }

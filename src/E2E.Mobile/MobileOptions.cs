@@ -122,7 +122,8 @@ public sealed record MobileOptions
 
     /// <summary>
     /// agent-device session name, before the worker slot: slot <c>n</c> drives its device under
-    /// <c>&lt;session&gt;-&lt;n&gt;</c>, <c>e2e-&lt;target name&gt;-&lt;n&gt;</c> by default.
+    /// <c>&lt;session&gt;-&lt;n&gt;</c>, <c>e2e-&lt;target name&gt;-&lt;n&gt;</c> by default. Without this option a <c>Launch.LaunchAsync</c> host
+    /// drives <c>e2e-&lt;target name&gt;-&lt;host token&gt;-&lt;n&gt;</c>, a session of its own.
     /// </summary>
     public string? Session { get; init; }
 

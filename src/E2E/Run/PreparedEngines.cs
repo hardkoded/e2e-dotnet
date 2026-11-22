@@ -13,6 +13,9 @@ internal sealed record PrepareScope
 {
     public required string RunId { get; init; }
 
+    /// <summary>The <c>launch()</c> host preparing its target; see <see cref="IEngineHostIdentity.HostId"/>.</summary>
+    public string? HostId { get; init; }
+
     /// <summary>The config's directory, where an engine resolves a relative option.</summary>
     public required string ProjectRoot { get; init; }
 
@@ -30,6 +33,8 @@ internal sealed record PrepareScope
 internal sealed record FinishScope
 {
     public required string RunId { get; init; }
+
+    public string? HostId { get; init; }
 
     public required IReadOnlyDictionary<string, string?> Env { get; init; }
 
@@ -208,6 +213,7 @@ internal sealed class PreparedEngines
                 {
                     RunId = scope.RunId,
                     TargetName = targetName,
+                    HostId = scope.HostId,
                     ProjectRoot = scope.ProjectRoot,
                     Slots = slots,
                     Env = scope.Env,
@@ -313,6 +319,7 @@ internal sealed class PreparedEngines
                 {
                     RunId = scope.RunId,
                     TargetName = targetName,
+                    HostId = scope.HostId,
                     Env = scope.Env,
                     CleanupTimeout = bounded ? remaining : scope.CleanupTimeout,
                     Log = line => scope.Notice(targetName, line),

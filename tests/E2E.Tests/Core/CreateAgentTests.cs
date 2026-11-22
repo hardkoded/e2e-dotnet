@@ -164,6 +164,38 @@ public sealed class CreateAgentTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Replays_a_recording_another_host_made_since_a_hosts_token_is_not_part_of_the_key()
+    {
+        var (brain, calls) = Scripted();
+        var cacheDir = Path.Combine(_dir, "cache");
+        foreach (var round in new[] { 1, 2 })
+        {
+            var opened = await HostOf(new DocumentEngine(Shop()));
+            var session = await opened.NewSessionAsync();
+            await session.App.OpenAsync("/");
+            var agent = CoreAgents.CreateAgent(
+                session,
+                new CreateAgentOptions
+                {
+                    Executor = brain,
+                    Cache = new AgentCacheOptions { Dir = cacheDir },
+                }
+            );
+            var result = await agent.ActAsync(
+                "checkout with the coupon",
+                new CachingActOptions { CacheKey = "checkout" }
+            );
+            await session.Screen.GetByRole("status", "Paid").WaitForAsync();
+            Assert.Equal(round == 1 ? "missed" : "self-finalized", result.Cache?.Mode);
+            await opened.CloseAsync();
+        }
+
+        Assert.Equal(1, calls());
+        var entry = Assert.Single(Recordings(cacheDir));
+        Assert.Matches("\"targetId\":\\s*\"", File.ReadAllText(entry));
+    }
+
+    [Fact]
     public async Task Keeps_a_confirmed_recording_when_the_host_closes_the_session_and_after_a_failure_the_program_caught()
     {
         var (brain, _) = Scripted();
