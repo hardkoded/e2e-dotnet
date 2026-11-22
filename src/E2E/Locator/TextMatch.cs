@@ -126,8 +126,14 @@ public class TextMatchOptions
     /// so a visible node with a hidden twin still resolves. On the web, hidden is
     /// what renders: <c>display: none</c>, a <c>visibility</c> other than
     /// <c>visible</c>, and content under <c>content-visibility: hidden</c> or a
-    /// closed <c>details</c>; a child that sets <c>visibility: visible</c> under a
-    /// hidden parent is visible, and an <c>aria-hidden</c> node that paints is visible.
+    /// closed <c>details</c> body (all but its first <c>summary</c>), shadow and slotted content included; a child that sets
+    /// <c>visibility: visible</c> under a hidden parent is visible, and an
+    /// <c>aria-hidden</c> node that paints is visible. A closed <c>details</c> body
+    /// the page's CSS shows through <c>::details-content</c> is not hidden, and neither
+    /// is content under <c>content-visibility: hidden</c> set on an element whose box
+    /// skips nothing (<c>display: contents</c>, an inline element, a table, a table row,
+    /// ruby). An outermost inline <c>svg</c> (not one nested in another),
+    /// <c>button</c>, or <c>fieldset</c> makes a box of its own, so content under one still reads hidden.
     /// Everything inside a hidden <c>iframe</c> is hidden, cross-origin frames included.
     /// Role queries never match hidden or <c>aria-hidden</c> nodes, whatever this says.
     /// </summary>
