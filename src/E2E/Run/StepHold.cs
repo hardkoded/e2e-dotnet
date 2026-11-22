@@ -61,6 +61,7 @@ internal sealed record AttemptHoldsOptions
 /// </summary>
 internal sealed class AttemptHolds(AttemptHoldsOptions options)
 {
+    private readonly Lock _gate = new();
     private int _pending;
 
     /// <summary>The hold a <see cref="StepRecorder"/> takes; see <see cref="RecorderHold"/> (upstream's <c>hold</c>).</summary>
@@ -69,27 +70,35 @@ internal sealed class AttemptHolds(AttemptHoldsOptions options)
         using var cancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, options.Signal);
         cancel.Token.ThrowIfCancellationRequested();
 
-        // Already past the deadline, the body times out now, not after a prompt.
-        if (Volatile.Read(ref _pending) == 0 && !options.Timeout.Stop())
+        // Already past the deadline, the body times out now, not after a prompt. Checked and counted under one lock with the release below, so a
+        // hold that starts as another ends sees the clock the release leaves.
+        lock (_gate)
         {
-            return;
+            if (_pending == 0 && !options.Timeout.Stop())
+            {
+                return;
+            }
+
+            _pending++;
         }
 
-        Interlocked.Increment(ref _pending);
         try
         {
             await options.Ask(step, cancel.Token).ConfigureAwait(false);
         }
         finally
         {
-            if (Interlocked.Decrement(ref _pending) > 0)
+            lock (_gate)
             {
-                options.Timeout.Refill();
-            }
-            else
-            {
-                options.Timeout.Start();
-                options.OnResume();
+                if (--_pending > 0)
+                {
+                    options.Timeout.Refill();
+                }
+                else
+                {
+                    options.Timeout.Start();
+                    options.OnResume();
+                }
             }
         }
     }

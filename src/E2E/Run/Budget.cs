@@ -185,18 +185,36 @@ internal sealed class AttemptTimeout(
                 return false;
             }
 
+            var wasTimed = IsTimed(_current);
             var delta = timeout - _current;
             _current = timeout;
             if (_stopped)
             {
                 _stoppedLeft =
-                    _stoppedLeft is { } left ? TimeSpan.FromTicks(Math.Max(0, (left + delta).Ticks))
-                    : IsTimed(timeout) ? TimeSpan.FromTicks(Math.Max(0, (timeout - (_stoppedAt - _startedAt)).Ticks))
-                    : null;
+                    !IsTimed(timeout) ? null
+                    : _stoppedLeft is { } left && wasTimed ? TimeSpan.FromTicks(Math.Max(0, (left + delta).Ticks))
+                    : TimeSpan.FromTicks(Math.Max(0, (timeout - (_stoppedAt - _startedAt)).Ticks));
                 return true;
             }
 
-            _endsAt = _endsAt is { } ends && IsTimed(timeout) ? ends + delta : _startedAt + timeout;
+            if (!IsTimed(timeout))
+            {
+                // No timeout any more: nothing times the test out, and no deadline caps its steps.
+                _endsAt = null;
+                onMoved(timeout, new Deadline(DateTimeOffset.MaxValue));
+                try
+                {
+                    test.CancelAfter(System.Threading.Timeout.InfiniteTimeSpan);
+                }
+                catch (ObjectDisposedException)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            _endsAt = _endsAt is { } ends && wasTimed ? ends + delta : _startedAt + timeout;
             var deadline = new Deadline(_endsAt.Value);
             onMoved(timeout, deadline);
             try
