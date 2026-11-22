@@ -284,8 +284,17 @@ public sealed class E2ESession : IAsyncDisposable
         Deadline? budgetDeadline = null;
         if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
         {
-            timeout.CancelAfter(options.TestTimeout);
-            budgetDeadline = new Deadline(options.TestTimeout, options.Clock);
+            try
+            {
+                timeout.CancelAfter(options.TestTimeout);
+                budgetDeadline = new Deadline(options.TestTimeout, options.Clock);
+            }
+            catch
+            {
+                // An out-of-range timeout throws before the session owns the source.
+                timeout.Dispose();
+                throw;
+            }
         }
 
         // What test.setTimeout moves: the signal's timer and the deadline the screen and browser cap their steps with.
