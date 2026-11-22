@@ -122,6 +122,44 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Records_a_blocked_agent_verdict_as_non_passing_and_retains_failure_only_video()
+    {
+        File.WriteAllText(Path.Combine(_dir, E2EConfig.FileName), Config);
+        var config = E2EConfig
+            .Parse(
+                """{ "video": "retain-on-failure", "cache": { "mode": "off" }, "targets": [{ "name": "kiosk", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }""",
+                _dir
+            )
+            .WithExecutor(
+                new E2E.Tests.AgentAct.TestExecutor("blocked-host-executor", (_, _) =>
+                    Task.FromResult(
+                        E2E.Tests.AgentAct.ExecutorKit.Blocked("cannot automate this surface", "AUTOMATION_UNSUPPORTED")
+                    )
+                )
+            );
+        var host = await E2EHost.OpenAsync(
+            new OpenHostOptions
+            {
+                Cwd = _dir,
+                Config = config,
+                Env = NoEnv,
+                EngineFactory = _ => new HostFakeEngine { Video = true },
+            }
+        );
+        _hosts.Add(host);
+        var session = await host.OpenSessionAsync(new OpenSessionOptions { Name = "blocked automation" });
+
+        var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("unsupported operation"));
+        Assert.Equal("AUTOMATION_UNSUPPORTED", error.Code);
+        Assert.Equal(E2E.Reports.StepStatus.Blocked, session.Steps()[^1].Status);
+        await session.CloseAsync();
+        Assert.True(File.Exists(Path.Combine(session.ArtifactsDir, "video", "fake.webm")));
+        var trace = await File.ReadAllTextAsync(session.TracePath);
+        Assert.Contains("AUTOMATION_UNSUPPORTED", trace);
+        Assert.DoesNotContain("passed", trace.Split('\n')[0]);
+    }
+
+    [Fact]
     public async Task Partial_Refuses_a_session_timeout_that_is_not_positive_and_finite()
     {
         var engine = new HostFakeEngine();

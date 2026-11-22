@@ -23,6 +23,9 @@ internal sealed class HostFakeEngine : IEngine
     /// <summary>Runs when a session is disposed (upstream's <c>onEndAttempt</c>): a throw is a cleanup failure.</summary>
     public Func<Task>? OnDispose { get; init; }
 
+    /// <summary>Upstream's <c>createFakeEngine({ video: true })</c>: the engine records video, one <c>video/fake.webm</c> for each attempt.</summary>
+    public bool Video { get; init; }
+
     public int Starts => Volatile.Read(ref _starts);
 
     public int Disposes => Volatile.Read(ref _disposes);
@@ -34,7 +37,8 @@ internal sealed class HostFakeEngine : IEngine
 
     public string Version => "1";
 
-    public EngineCapabilities Capabilities => EngineCapabilities.Observation | EngineCapabilities.Actions;
+    public EngineCapabilities Capabilities =>
+        EngineCapabilities.Observation | EngineCapabilities.Actions | (Video ? EngineCapabilities.Video : 0);
 
     public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
@@ -77,6 +81,18 @@ internal sealed class HostFakeEngine : IEngine
             Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
             File.WriteAllBytes(absolute, [0x89, 0x50, 0x4E, 0x47]);
             return Task.FromResult("screenshots/fake.png");
+        }
+
+        public Task StartVideoAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken)
+        {
+            var absolute = Path.Combine(artifactsDir!, "video", "fake.webm");
+            Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+            File.WriteAllBytes(absolute, [0x1A, 0x45, 0xDF, 0xA3]);
+            return Task.FromResult<IReadOnlyList<VideoSegment>>([
+                new VideoFile { Path = "video/fake.webm", StartedAt = "2026-09-28T10:00:00.000Z" },
+            ]);
         }
 
         public async ValueTask DisposeAsync()

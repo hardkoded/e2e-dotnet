@@ -1205,7 +1205,12 @@ public sealed class E2ESession : IAsyncDisposable
             errors.Add(timedOut);
         }
 
-        Complete(timedOut ?? soft ?? abandoned);
+        // Upstream's standalone attempt `verdict()`: with no other failure, the first step that did not pass is the verdict.
+        var stepFailure = (timedOut ?? soft ?? abandoned) is null ? FirstFailedStepError() : null;
+        Complete(
+            timedOut ?? soft ?? abandoned ?? stepFailure,
+            stepFailure is OperationCanceledException ? new CancellationToken(true) : default
+        );
         try
         {
             await DisposeCoreAsync().ConfigureAwait(false);
@@ -1863,6 +1868,25 @@ public sealed class E2ESession : IAsyncDisposable
 
         // The session's own test timeout cancels the calls the test awaits: that is a timeout, not a failure.
         return _timeout.IsCancellationRequested ? AttemptStatus.TimedOut : AttemptStatus.Failed;
+    }
+
+    /// <summary>The error of the first step that did not pass, as the exception the attempt's verdict is read from; null when every step passed.</summary>
+    private Exception? FirstFailedStepError()
+    {
+        if (StepRecords.FirstOrDefault(step => step.Status != StepStatus.Passed) is not { } step)
+        {
+            return null;
+        }
+
+        var code = step.Error?.Code ?? "TEST_FAILED";
+        var message = step.Error?.Message ?? "step " + step.Api + " did not pass";
+        return step.Status switch
+        {
+            StepStatus.Blocked => new AgentException(code, message, blocked: true),
+            StepStatus.TimedOut => new TestException("TEST_TIMEOUT", message),
+            StepStatus.Cancelled => new OperationCanceledException(message),
+            _ => new TestException(code, message),
+        };
     }
 
     /// <summary>

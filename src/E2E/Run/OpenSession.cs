@@ -281,6 +281,7 @@ public sealed class E2EHost : IAsyncDisposable
             AppIdentity = identity,
             Model = agent.CreateModel(),
             Judge = agent.CreateJudge(),
+            AgentExecutor = agent.Executor,
             AgentSystem = agent.System,
             AgentContext = agent.Context,
             JudgmentTimeout = agent.JudgmentTimeout,
