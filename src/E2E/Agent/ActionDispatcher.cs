@@ -374,7 +374,12 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                         token
                     )
                     .ConfigureAwait(false);
-                await CommitTypedAsync(new RecordedAction { Kind = "typeText", Replace = replace }, value)
+                // `typeText` names no field: in a step whose screens listed a one-time-code field, its value may be that code.
+                await CommitTypedAsync(
+                        new RecordedAction { Kind = "typeText", Replace = replace },
+                        value,
+                        _feed.OneTimeCodeShown ? "one-time-code" : null
+                    )
                     .ConfigureAwait(false);
             },
             cancellationToken
