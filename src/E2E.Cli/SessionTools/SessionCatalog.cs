@@ -9,7 +9,7 @@ using System.Text.Json.Nodes;
 using E2E.Engine;
 using E2E.Internal;
 
-namespace E2E.Cli.Mcp;
+namespace E2E.Cli.SessionTools;
 
 /// <summary>A catalog tool that refused or failed. The message is the whole text the agent reads, code first.</summary>
 internal sealed class ToolFailedException(string message) : Exception(message);
@@ -1027,7 +1027,7 @@ internal sealed class SessionCatalog
 
     /// <summary>
     /// Saves the engine's masked screenshot, the one <c>app.ScreenshotAsync</c> keeps, to <paramref name="file"/> resolved against the project root,
-    /// and returns the absolute path (upstream's <c>saveScreenshot</c> in <c>mcp/catalog.ts</c>). As with <c>upload</c>, a path outside the project or
+    /// and returns the absolute path (upstream's <c>saveScreenshot</c> in <c>session-tools/catalog.ts</c>). As with <c>upload</c>, a path outside the project or
     /// under a hidden directory is <c>POLICY_DENIED</c>.
     /// </summary>
     private static async Task<string> SaveScreenshotAsync(
@@ -1214,7 +1214,7 @@ internal sealed class SessionCatalog
         return string.Join(' ', parts);
     }
 
-    internal static string Quote(string text) => JsonSerializer.Serialize(text, E2E.Cli.Mcp.Tools.Json);
+    internal static string Quote(string text) => JsonSerializer.Serialize(text, E2E.Cli.SessionTools.Tools.Json);
 
     private sealed record ScreenshotOutput(byte[] Png, string Text);
 }

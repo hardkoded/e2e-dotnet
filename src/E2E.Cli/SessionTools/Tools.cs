@@ -10,7 +10,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using ModelContextProtocol.Protocol;
 
-namespace E2E.Cli.Mcp;
+namespace E2E.Cli.SessionTools;
 
 /// <summary>What the server registers: the contract and the body of one of its fixed tools.</summary>
 internal sealed class McpToolSpec
