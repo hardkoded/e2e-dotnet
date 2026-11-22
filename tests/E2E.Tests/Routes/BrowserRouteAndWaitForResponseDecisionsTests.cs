@@ -307,215 +307,6 @@ public sealed class BrowserRouteAndWaitForResponseDecisionsTests
         });
 
     [Fact]
-    public Task Matches_one_method_and_lets_another_reach_the_network() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "post", Url = "**/api/orders" }, route =>
-                route.FulfillAsync(new RouteFulfillResponse { Status = 201, Json = new { ok = true } })
-            );
-            var posted = await routes.FetchStatusAndBodyAsync(routes.Site.Origin + "/api/orders", "POST", "payload");
-            Assert.Equal((201, "{\"ok\":true}"), posted);
-            Assert.Equal("network:/api/orders", await routes.FetchTextAsync(routes.Site.Origin + "/api/orders"));
-            Assert.Equal(1, routes.Site.HitsOf("/api/orders"));
-        });
-
-    [Fact]
-    public Task Matches_a_method_narrowed_RegExp_url() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync(
-                new RouteMatcher { Method = "POST", UrlRegex = new Regex(@"/api/orders\z") },
-                route => route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
-            );
-            Assert.Equal("post", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
-            Assert.Equal("network:/api/orders", await routes.FetchTextAsync(routes.Site.Origin + "/api/orders"));
-        });
-
-    [Fact]
-    public Task Matches_a_lowercase_custom_method() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "PATCH", Url = "**/api/orders" }, route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "patched" })
-            );
-            Assert.Equal("patched", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "patch"));
-        });
-
-    [Fact]
-    public Task A_method_narrowed_route_steps_aside_for_an_older_route() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync("**/api/orders", route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "any method" })
-            );
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/orders" }, route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
-            );
-            Assert.Equal("any method", await routes.FetchTextAsync(routes.Site.Origin + "/api/orders"));
-            Assert.Equal("post", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
-        });
-
-    [Fact]
-    public Task A_method_narrowed_route_steps_aside_for_an_older_method_narrowed_route() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "GET", Url = "**/api/orders" }, route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "get" })
-            );
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/orders" }, route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
-            );
-            Assert.Equal("get", await routes.FetchTextAsync(routes.Site.Origin + "/api/orders"));
-            Assert.Equal("post", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
-            Assert.Equal(
-                "network:/api/orders",
-                await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "DELETE")
-            );
-        });
-
-    [Fact]
-    public Task A_method_fallback_reaches_an_older_route_that_continues() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync("**/echo", route => route.ContinueAsync());
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/echo" }, route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
-            );
-            var echo = await routes.FetchEchoAsync(routes.Site.Origin + "/echo");
-            Assert.Equal("GET", echo.Method);
-            Assert.Equal("open-sesame", echo.Headers["x-gate"]);
-        });
-
-    [Fact]
-    public Task A_method_fallback_reaches_an_older_route_that_aborts() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync("**/api/quote", route => route.AbortAsync());
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/quote" }, route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
-            );
-            Assert.Equal("failed", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
-            Assert.Null(routes.Site.HitsOf("/api/quote"));
-        });
-
-    [Fact]
-    public Task A_method_mismatch_lets_the_configured_headers_reach_the_network() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/echo" }, route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
-            );
-            var echo = await routes.FetchEchoAsync(routes.Site.Origin + "/echo");
-            Assert.Equal("GET", echo.Method);
-            Assert.Equal("open-sesame", echo.Headers["x-gate"]);
-        });
-
-    [Fact]
-    public Task Keeps_a_method_narrowed_route_across_a_restart() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/orders" }, route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
-            );
-            await routes.RestartAsync();
-            Assert.Equal("post", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
-        });
-
-    [Fact]
-    public Task Unroutes_a_method_narrowed_route_without_touching_a_URL_only_one() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync("**/api/orders", route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "any method" })
-            );
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/orders" }, route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
-            );
-            await routes.Browser.UnrouteAsync(new RouteMatcher { Method = "post", Url = "**/api/orders" });
-            Assert.Equal("any method", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
-        });
-
-    [Fact]
-    public Task Unrouting_a_URL_only_leaves_a_method_narrowed_route() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/orders" }, route =>
-                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
-            );
-            await routes.Browser.UnrouteAsync("**/api/orders");
-            Assert.Equal("post", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
-        });
-
-    [Fact]
-    public Task Waits_for_a_response_of_one_method_ignoring_another() =>
-        WithRoutesAsync(async routes =>
-        {
-            var pending = routes.Browser.WaitForResponseAsync(new RouteMatcher { Method = "POST", Url = "**/echo" });
-            await routes.FetchTextAsync(routes.Site.Origin + "/echo");
-            await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/other", "POST", "other");
-            var posted = routes.FetchMethodTextAsync(routes.Site.Origin + "/echo", "POST", "payload");
-            var response = await pending;
-            Assert.Equal(routes.Site.Origin + "/echo", response.Url);
-            var echo = (await response.JsonAsync<Echo>())!;
-            Assert.Equal(("/echo", "POST", "payload"), (echo.Path, echo.Method, echo.Body));
-            await posted;
-        });
-
-    [Fact]
-    public Task Partial_Labels_a_method_narrowed_pattern_with_its_method_and_URL() =>
-        WithRoutesAsync(async routes =>
-        {
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "post", Url = "**/api/orders" }, route =>
-                route.ContinueAsync()
-            );
-            await routes.Browser.RouteAsync(
-                new RouteMatcher { Method = "POST", UrlRegex = new Regex("orders$") },
-                route => route.ContinueAsync()
-            );
-            Assert.Equal(
-                "POST \"**/api/orders\"",
-                E2E.Internal.Routes.PatternLabel(new RouteMatcher { Method = "post", Url = "**/api/orders" })
-            );
-            Assert.Equal(
-                "POST /orders$/",
-                E2E.Internal.Routes.PatternLabel(new RouteMatcher { Method = "POST", UrlRegex = new Regex("orders$") })
-            );
-        });
-
-    public static TheoryData<string> MethodMembers =>
-        new() { "browser.route", "browser.unroute", "browser.waitForResponse" };
-
-    [Theory]
-    [MemberData(nameof(MethodMembers))]
-    public Task Rejects_invalid_method_narrowed_patterns(string api) =>
-        WithRoutesAsync(async routes =>
-        {
-            Task Call(RouteMatcher pattern) =>
-                api switch
-                {
-                    "browser.route" => routes.Browser.RouteAsync(pattern, _ => Task.CompletedTask),
-                    "browser.unroute" => routes.Browser.UnrouteAsync(pattern),
-                    _ => routes.Browser.WaitForResponseAsync(pattern),
-                };
-
-            (RouteMatcher Pattern, string Message)[] cases =
-            [
-                (new RouteMatcher(), "must be a string, RegExp, or { method, url }; got an object"),
-                (new RouteMatcher { Method = "POST" }, "requires url"),
-                (new RouteMatcher { Url = "**/api/orders" }, "requires method"),
-                (new RouteMatcher { Method = "", Url = "**/api/orders" }, "got \"\""),
-                (new RouteMatcher { Method = "PO ST", Url = "**/api/orders" }, "got \"PO ST\""),
-            ];
-            foreach (var (pattern, message) in cases)
-            {
-                var error = await Assert.ThrowsAsync<TestException>(() => Call(pattern));
-                Assert.Equal("INVALID_ARGUMENT", error.Code);
-                Assert.Contains(api + " pattern", error.Message, StringComparison.Ordinal);
-                Assert.Contains(message, error.Message, StringComparison.Ordinal);
-            }
-        });
-
-    [Fact]
     public Task Continue_goes_to_the_network_past_an_earlier_route() =>
         WithRoutesAsync(async routes =>
         {
@@ -1110,6 +901,215 @@ public sealed class BrowserRouteAndWaitForResponseDecisionsTests
             // Checked by the test.
         }
     }
+
+    [Fact]
+    public Task Matches_one_method_and_lets_another_reach_the_network() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "post", Url = "**/api/orders" }, route =>
+                route.FulfillAsync(new RouteFulfillResponse { Status = 201, Json = new { ok = true } })
+            );
+            var posted = await routes.FetchStatusAndBodyAsync(routes.Site.Origin + "/api/orders", "POST", "payload");
+            Assert.Equal((201, "{\"ok\":true}"), posted);
+            Assert.Equal("network:/api/orders", await routes.FetchTextAsync(routes.Site.Origin + "/api/orders"));
+            Assert.Equal(1, routes.Site.HitsOf("/api/orders"));
+        });
+
+    [Fact]
+    public Task Matches_a_method_narrowed_RegExp_url() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync(
+                new RouteMatcher { Method = "POST", UrlRegex = new Regex(@"/api/orders\z") },
+                route => route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
+            );
+            Assert.Equal("post", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
+            Assert.Equal("network:/api/orders", await routes.FetchTextAsync(routes.Site.Origin + "/api/orders"));
+        });
+
+    [Fact]
+    public Task Matches_a_lowercase_custom_method() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "PATCH", Url = "**/api/orders" }, route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "patched" })
+            );
+            Assert.Equal("patched", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "patch"));
+        });
+
+    [Fact]
+    public Task A_method_narrowed_route_steps_aside_for_an_older_route() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync("**/api/orders", route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "any method" })
+            );
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/orders" }, route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
+            );
+            Assert.Equal("any method", await routes.FetchTextAsync(routes.Site.Origin + "/api/orders"));
+            Assert.Equal("post", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
+        });
+
+    [Fact]
+    public Task A_method_narrowed_route_steps_aside_for_an_older_method_narrowed_route() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "GET", Url = "**/api/orders" }, route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "get" })
+            );
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/orders" }, route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
+            );
+            Assert.Equal("get", await routes.FetchTextAsync(routes.Site.Origin + "/api/orders"));
+            Assert.Equal("post", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
+            Assert.Equal(
+                "network:/api/orders",
+                await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "DELETE")
+            );
+        });
+
+    [Fact]
+    public Task A_method_fallback_reaches_an_older_route_that_continues() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync("**/echo", route => route.ContinueAsync());
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/echo" }, route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
+            );
+            var echo = await routes.FetchEchoAsync(routes.Site.Origin + "/echo");
+            Assert.Equal("GET", echo.Method);
+            Assert.Equal("open-sesame", echo.Headers["x-gate"]);
+        });
+
+    [Fact]
+    public Task A_method_fallback_reaches_an_older_route_that_aborts() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync("**/api/quote", route => route.AbortAsync());
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/quote" }, route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
+            );
+            Assert.Equal("failed", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
+            Assert.Null(routes.Site.HitsOf("/api/quote"));
+        });
+
+    [Fact]
+    public Task A_method_mismatch_lets_the_configured_headers_reach_the_network() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/echo" }, route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
+            );
+            var echo = await routes.FetchEchoAsync(routes.Site.Origin + "/echo");
+            Assert.Equal("GET", echo.Method);
+            Assert.Equal("open-sesame", echo.Headers["x-gate"]);
+        });
+
+    [Fact]
+    public Task Keeps_a_method_narrowed_route_across_a_restart() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/orders" }, route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
+            );
+            await routes.RestartAsync();
+            Assert.Equal("post", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
+        });
+
+    [Fact]
+    public Task Unroutes_a_method_narrowed_route_without_touching_a_URL_only_one() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync("**/api/orders", route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "any method" })
+            );
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/orders" }, route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
+            );
+            await routes.Browser.UnrouteAsync(new RouteMatcher { Method = "post", Url = "**/api/orders" });
+            Assert.Equal("any method", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
+        });
+
+    [Fact]
+    public Task Unrouting_a_URL_only_leaves_a_method_narrowed_route() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/orders" }, route =>
+                route.FulfillAsync(new RouteFulfillResponse { Body = "post" })
+            );
+            await routes.Browser.UnrouteAsync("**/api/orders");
+            Assert.Equal("post", await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST"));
+        });
+
+    [Fact]
+    public Task Waits_for_a_response_of_one_method_ignoring_another() =>
+        WithRoutesAsync(async routes =>
+        {
+            var pending = routes.Browser.WaitForResponseAsync(new RouteMatcher { Method = "POST", Url = "**/echo" });
+            await routes.FetchTextAsync(routes.Site.Origin + "/echo");
+            await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/other", "POST", "other");
+            var posted = routes.FetchMethodTextAsync(routes.Site.Origin + "/echo", "POST", "payload");
+            var response = await pending;
+            Assert.Equal(routes.Site.Origin + "/echo", response.Url);
+            var echo = (await response.JsonAsync<Echo>())!;
+            Assert.Equal(("/echo", "POST", "payload"), (echo.Path, echo.Method, echo.Body));
+            await posted;
+        });
+
+    [Fact]
+    public Task Partial_Labels_a_method_narrowed_pattern_with_its_method_and_URL() =>
+        WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync(new RouteMatcher { Method = "post", Url = "**/api/orders" }, route =>
+                route.ContinueAsync()
+            );
+            await routes.Browser.RouteAsync(
+                new RouteMatcher { Method = "POST", UrlRegex = new Regex("orders$") },
+                route => route.ContinueAsync()
+            );
+            Assert.Equal(
+                "POST \"**/api/orders\"",
+                E2E.Internal.Routes.PatternLabel(new RouteMatcher { Method = "post", Url = "**/api/orders" })
+            );
+            Assert.Equal(
+                "POST /orders$/",
+                E2E.Internal.Routes.PatternLabel(new RouteMatcher { Method = "POST", UrlRegex = new Regex("orders$") })
+            );
+        });
+
+    public static TheoryData<string> MethodMembers =>
+        new() { "browser.route", "browser.unroute", "browser.waitForResponse" };
+
+    [Theory]
+    [MemberData(nameof(MethodMembers))]
+    public Task Rejects_invalid_method_narrowed_patterns(string api) =>
+        WithRoutesAsync(async routes =>
+        {
+            Task Call(RouteMatcher pattern) =>
+                api switch
+                {
+                    "browser.route" => routes.Browser.RouteAsync(pattern, _ => Task.CompletedTask),
+                    "browser.unroute" => routes.Browser.UnrouteAsync(pattern),
+                    _ => routes.Browser.WaitForResponseAsync(pattern),
+                };
+
+            (RouteMatcher Pattern, string Message)[] cases =
+            [
+                (new RouteMatcher(), "must be a string, RegExp, or { method, url }; got an object"),
+                (new RouteMatcher { Method = "POST" }, "requires url"),
+                (new RouteMatcher { Url = "**/api/orders" }, "requires method"),
+                (new RouteMatcher { Method = "", Url = "**/api/orders" }, "got \"\""),
+                (new RouteMatcher { Method = "PO ST", Url = "**/api/orders" }, "got \"PO ST\""),
+            ];
+            foreach (var (pattern, message) in cases)
+            {
+                var error = await Assert.ThrowsAsync<TestException>(() => Call(pattern));
+                Assert.Equal("INVALID_ARGUMENT", error.Code);
+                Assert.Contains(api + " pattern", error.Message, StringComparison.Ordinal);
+                Assert.Contains(message, error.Message, StringComparison.Ordinal);
+            }
+        });
 
     private sealed record RouteSession(
         CountingSite Site,
