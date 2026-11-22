@@ -101,7 +101,11 @@ internal static partial class ScreenshotAssertion
                             )
                             .ConfigureAwait(false);
                     }
-                    catch (TestException ex) when (ex.Code == "LOCATOR_NOT_FOUND") { }
+                    catch (TestException ex) when (ex.Code == "LOCATOR_NOT_FOUND")
+                    {
+                        // The node left before the scroll; the read below finds out.
+                        _scrolled = true;
+                    }
 
                     _scrolled = true;
                     node = await screen
