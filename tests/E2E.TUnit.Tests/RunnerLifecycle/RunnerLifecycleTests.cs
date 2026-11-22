@@ -8,7 +8,7 @@ using E2E.TUnit.Tests.EngineContract;
 namespace E2E.TUnit.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c> of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out the registered form
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out the registered form
 /// <c>test.fixme(title, fn)</c> (the port has no registration API), the consumer's <c>setup-failed</c> skip, and reads each result from the fixture's
 /// <c>report.json</c>.
 /// </summary>
@@ -52,6 +52,21 @@ public sealed class RunnerLifecycleTests
         var report = JsonNode.Parse(File.ReadAllText(RunnerLifecycleResults.ReportOf(typeof(FixmeInSetupFixture))))!;
         var error = ByTitle(report, nameof(FixmeInSetupFixture.SignIn))["attempts"]![0]!["error"]!;
         await Assert.That((string?)error["code"]).IsEqualTo("INVALID_ARGUMENT");
+    }
+
+    [Test]
+    public async Task Keeps_the_fixme_cause_beside_a_failure_that_outranks_the_skip()
+    {
+        RunnerLifecycleResults.Prepare();
+        var (results, _) = await NestedSessionRun.RunAsync(typeof(FixmeBesideFailureFixture));
+        await Assert.That(results[nameof(FixmeBesideFailureFixture.Beside_a_failure)].Result).IsEqualTo("Failed");
+        var member = ByTitle(
+            JsonNode.Parse(File.ReadAllText(RunnerLifecycleResults.ReportOf(typeof(FixmeBesideFailureFixture))))!,
+            nameof(FixmeBesideFailureFixture.Beside_a_failure)
+        );
+        await Assert.That((string?)member["status"]).IsEqualTo("failed");
+        await AssertSkip(member["attempts"]![0]!["skip"]!, "fixme: not ready");
+        await Assert.That((string?)member["attempts"]![0]!["status"]).IsEqualTo("failed");
     }
 
     private static async Task AssertSkip(JsonNode skip, string reason)

@@ -97,3 +97,32 @@ public sealed class FixmeInSetupFixture : E2ETest
         await SaveSessionAsync("admin");
     }
 }
+
+/// <summary>
+/// The fixme-beside-a-failure <c>it</c>: a soft failure is kept before the test marks itself fixme. Upstream's <c>afterEach</c> throw has no xUnit
+/// counterpart the base can see: it reads the verdict of the test and the session, not a throw from a derived <c>DisposeAsync</c>.
+/// </summary>
+public sealed class FixmeBesideFailureFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null
+    );
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override string? ResultsDirectory => RunnerLifecycleResults.Of(GetType());
+
+    [Fact(Explicit = true)]
+    public async Task Beside_a_failure()
+    {
+        await App.OpenAsync("/browser");
+        await Expect
+            .Soft(Screen.GetByLabel("Loads"))
+            .ToHaveTextAsync("the count", timeout: TimeSpan.FromMilliseconds(200));
+        Fixme(reason: "not ready");
+    }
+}
