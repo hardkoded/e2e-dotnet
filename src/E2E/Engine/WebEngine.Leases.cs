@@ -124,9 +124,9 @@ public sealed partial class WebEngine : IAsyncDisposable, IDisposableEngine
 
         try
         {
-            await ((Task)shared).WaitAsync(cancellationToken).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            await shared.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // The budget is spent: stop the driver when a start still in flight lands, and let the caller go on to release its leases.
             _ = shared.ContinueWith(
@@ -137,6 +137,12 @@ public sealed partial class WebEngine : IAsyncDisposable, IDisposableEngine
             );
             throw;
         }
+        catch (Exception)
+#pragma warning disable CA1031 // A start that failed produced no driver, so there is nothing to close.
+        {
+            return;
+        }
+#pragma warning restore CA1031
 
         if (shared.IsCompletedSuccessfully)
         {

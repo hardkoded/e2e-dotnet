@@ -93,4 +93,43 @@ public sealed class EngineBrowserConnectionTests
         // No host owns this engine's dispose, so the attempt closes what it started, as a start did before the engine owned the connection.
         Assert.Equal(1, disposed);
     }
+
+    [Fact]
+    public async Task Stops_the_driver_that_lands_after_the_disposal_budget_ran_out()
+    {
+        var disposed = 0;
+        var landing = new TaskCompletionSource<IPlaywright>();
+        var engine = new WebEngine(new WebEngineOptions())
+        {
+            DisposeOwned = true,
+            CreatePlaywright = () => landing.Task,
+            EnsureBrowser = (_, _, _) => Task.CompletedTask,
+            LaunchLocal = (_, _) => throw new InvalidOperationException("no browser here"),
+        };
+        var starting = engine.StartAsync(new EngineStartOptions(), CancellationToken.None);
+        using var spent = new CancellationTokenSource();
+        await spent.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            ((IDisposableEngine)engine).DisposeAsync(
+                new EngineDisposeContext { CleanupTimeout = TimeSpan.Zero },
+                spent.Token
+            )
+        );
+
+        var (playwright, fake) = Fake<IPlaywright>.New();
+        fake.Members["Dispose"] = _ =>
+        {
+            Interlocked.Increment(ref disposed);
+            return null;
+        };
+        var (selectors, selectorsFake) = Fake<ISelectors>.New();
+        selectorsFake.Members["RegisterAsync"] = _ => Task.CompletedTask;
+        fake.Members["get_Selectors"] = _ => selectors;
+        landing.SetResult(playwright);
+
+        // The start that was waiting for the driver fails on its launch; the driver it received is stopped by the dispose that gave up.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => starting);
+        Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref disposed) == 1, TimeSpan.FromSeconds(5)));
+    }
 }
