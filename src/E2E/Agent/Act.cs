@@ -178,11 +178,48 @@ public sealed partial class Agent
             ?? DefaultAgent.CreateBuiltInAgent(new BuiltInAgentOptions { System = agent.System, Tools = agent.Tools });
         var instruction = spec.Instruction;
         var maxCalls = Budget(spec.MaxModelCalls, agent.MaxModelCalls, "MaxModelCalls");
-        var budget = new StepAccounting(Budget(spec.MaxSteps, agent.MaxSteps, "MaxSteps"), maxCalls, api);
         var timeout = ResolveTimeout(
             spec.Timeout,
             spec.Kind == ExecutorStepKind.Act ? _scope.StepTimeout : agent.JudgmentTimeout
         );
+
+        // What every turn resends, which the observation is cut around: the context, the prior-step ledger, and the instruction.
+        var ledger = E2E.Ledger.SerializeLedger(
+            E2E.Ledger.ProjectPriorSteps(_scope.Steps.Completed()),
+            E2E.Ledger.MaxLedgerBytes
+        );
+        var stepIndex = _scope.NextStepIndex();
+        // An assert changes no state, so its secrets are named to the executor but never fillable.
+        var declared = spec.Kind == ExecutorStepKind.Act ? ActParams.SecretsIn(spec.Params) : [];
+        if (spec.Kind == ExecutorStepKind.Act)
+        {
+            _scope.Remember(spec.Params);
+        }
+        var (budget, feed, bindings) = StepExecution.CreateStepExecution(
+            _scope,
+            new StepExecutionOptions(
+                new StepAccountingOptions(Budget(spec.MaxSteps, agent.MaxSteps, "MaxSteps"), maxCalls, api),
+                new ObservationFeedOptions(
+                    agent.MaxObservationBytes,
+                    agent.MaxInputTokens,
+                    0,
+                    agent.Context is null ? 0 : ModelAdapter.TokenUpperBound(agent.Context),
+                    ledger.Bytes,
+                    // An assertion that asked for the tree alone never shows pixels (upstream's `spec.vision !== false`).
+                    PixelsAllowed: spec.Vision != VisionMode.Off
+                ),
+                new ActionDispatcherOptions(
+                    () => declared,
+                    instruction,
+                    spec.Params is null ? null : ActParams.Projected(spec.Params),
+                    spec.OnAction,
+                    spec.OnBeforeAction,
+                    ReadOnly: spec.Kind == ExecutorStepKind.Assert
+                )
+            )
+        );
+        var dispatcher = bindings.Actions;
+        _feed = feed;
 
         // The caller's token and the attempt's end the step as a cancel. The step's own token also ends on any hard stop, so a timeout
         // and a cancel are told apart by what the budget recorded.
@@ -192,44 +229,6 @@ public sealed partial class Agent
         using var expiry = clock.Token.Register(() => budget.Fatalize(budget.TimedOut()));
         var token = stop.Token;
 
-        // What every turn resends, which the observation is cut around: the context, the prior-step ledger, and the instruction.
-        var ledger = E2E.Ledger.SerializeLedger(
-            E2E.Ledger.ProjectPriorSteps(_scope.Steps.Completed()),
-            E2E.Ledger.MaxLedgerBytes
-        );
-        var feed = new ObservationFeed(_scope.Session, TimeProvider.System)
-        {
-            Scope = _scope,
-            Accounting = budget,
-            Options = new ObservationFeedOptions(
-                agent.MaxObservationBytes,
-                agent.MaxInputTokens,
-                ModelAdapter.TokenUpperBound(instruction),
-                agent.Context is null ? 0 : ModelAdapter.TokenUpperBound(agent.Context),
-                ledger.Bytes,
-                // An assertion that asked for the tree alone never shows pixels (upstream's `spec.vision !== false`).
-                PixelsAllowed: spec.Vision != VisionMode.Off
-            ),
-        };
-        _feed = feed;
-        var stepIndex = _scope.NextStepIndex();
-        // An assert changes no state, so its secrets are named to the executor but never fillable.
-        var declared = spec.Kind == ExecutorStepKind.Act ? ActParams.SecretsIn(spec.Params) : [];
-        if (spec.Kind == ExecutorStepKind.Act)
-        {
-            _scope.Remember(spec.Params);
-        }
-        var dispatcher = new ActionDispatcher(
-            _scope,
-            feed,
-            budget,
-            () => declared,
-            spec.OnAction,
-            instruction,
-            spec.Params is null ? null : ActParams.Projected(spec.Params),
-            spec.OnBeforeAction,
-            readOnly: spec.Kind == ExecutorStepKind.Assert
-        );
         budget.Attach(
             _scope,
             timeout,

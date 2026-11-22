@@ -5,6 +5,7 @@
 using System.Text;
 using System.Text.Json;
 using E2E.Cli.Mcp;
+using E2E.Cli.SessionTools;
 using ModelContextProtocol.Protocol;
 
 namespace E2E.Cli.Tests.McpTools;
