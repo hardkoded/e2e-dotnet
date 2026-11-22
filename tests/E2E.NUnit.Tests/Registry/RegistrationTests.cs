@@ -37,6 +37,10 @@ public sealed class RegistrationTests
             Does.Contain("INVALID_ARGUMENT").And.Contain("cannot be set on or inside a serial group")
         );
 
+        var inside = NestedRun.Run(nameof(MarkedMemberSerialFixture.Marked_member_of_a_serial_group));
+        Assert.That(inside.ResultState.Status, Is.EqualTo(TestStatus.Failed));
+        Assert.That(inside.Message, Does.Contain("INVALID_ARGUMENT"));
+
         var around = NestedRun.Run(
             nameof(MarkedOuterFixture.SerialInside.Member_of_a_serial_group_inside_a_marked_group)
         );
@@ -77,6 +81,16 @@ public sealed class MarkedSerialFixture : ExpectedFailureFixtureBase
 {
     [Test]
     public void Marked_member() { }
+}
+
+/// <summary>A marked test inside a serial group: refused.</summary>
+[Explicit("Run by RegistrationTests")]
+[Serial]
+public sealed class MarkedMemberSerialFixture : ExpectedFailureFixtureBase
+{
+    [Test]
+    [Property(NUnitSessionTestRunner.ExpectedFailureProperty, "gap")]
+    public void Marked_member_of_a_serial_group() { }
 }
 
 /// <summary>A group marked fail with an outer reason, around groups that mark again, mark blank, or give nothing, and around a serial group.</summary>

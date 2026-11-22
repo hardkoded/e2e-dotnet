@@ -209,6 +209,15 @@ public abstract partial class E2ETest : E2EFixture
             }
         }
 
+        // A test marked as expected to fail (the NUnit property E2E.Fail) has its verdict settled with the attempt.
+        if (
+            !skipped
+            && NUnitSessionTestRunner.ExpectedFailureOf(TestExecutionContext.CurrentContext.CurrentTest) is { } mark
+        )
+        {
+            session.ExpectedFailure = mark;
+        }
+
         // A host that asked for this test (e2e mcp's open_session {test}) keeps the session open: it completes and disposes it at close.
         if (
             EngineInUse is { } engine
@@ -221,15 +230,6 @@ public abstract partial class E2ETest : E2EFixture
         )
         {
             return;
-        }
-
-        // A test marked as expected to fail (the NUnit property E2E.Fail) has its verdict settled with the attempt.
-        if (
-            !skipped
-            && NUnitSessionTestRunner.ExpectedFailureOf(TestExecutionContext.CurrentContext.CurrentTest) is { } mark
-        )
-        {
-            session.ExpectedFailure = mark;
         }
 
         try
