@@ -34,9 +34,11 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>, IPreparableEng
         bool links = false,
         bool video = false,
         IReadOnlyList<string>? videoLinks = null,
-        bool fills = false
+        bool fills = false,
+        string platform = "fake"
     )
     {
+        Platform = platform;
         _fills = fills;
         VideoLinks = videoLinks ?? [];
         Scene = scene
@@ -68,14 +70,51 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>, IPreparableEng
     public (int Inits, int AttemptsStarted, int AttemptsEnded, int Disposes) Stats() =>
         (Volatile.Read(ref _inits), Starts, Disposes, Volatile.Read(ref _finishes));
 
+    private readonly List<(string? TargetName, string? HostId)> _initInfos = [];
+    private readonly List<string?> _hostIds = [];
+
+    /// <summary>The target and host id each session's start was given, in order. Upstream's <c>inits</c>.</summary>
+    public IReadOnlyList<(string? TargetName, string? HostId)> InitInfos
+    {
+        get
+        {
+            lock (_initInfos)
+            {
+                return [.. _initInfos];
+            }
+        }
+    }
+
+    /// <summary>The host id of each prepare, start, and finish the engine saw, in order.</summary>
+    public IReadOnlyList<string?> HostIds
+    {
+        get
+        {
+            lock (_hostIds)
+            {
+                return [.. _hostIds];
+            }
+        }
+    }
+
+    private void SawHost(string? hostId)
+    {
+        lock (_hostIds)
+        {
+            _hostIds.Add(hostId);
+        }
+    }
+
     public Task<EnginePrepareResult> PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken)
     {
+        SawHost(info.HostId);
         Interlocked.Increment(ref _inits);
         return Task.FromResult(new EnginePrepareResult());
     }
 
     public Task FinishAsync(EngineFinishInfo info, CancellationToken cancellationToken)
     {
+        SawHost(info.HostId);
         Interlocked.Increment(ref _finishes);
         return Task.CompletedTask;
     }
@@ -153,7 +192,7 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>, IPreparableEng
 
     public string Name => "fake";
 
-    public string Platform => "fake";
+    public string Platform { get; }
 
     public string Version => "1";
 
@@ -166,6 +205,12 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>, IPreparableEng
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
         Interlocked.Increment(ref _starts);
+        lock (_initInfos)
+        {
+            _initInfos.Add((options.TargetName, options.HostId));
+        }
+
+        SawHost(options.HostId);
         if (OnStartAttempt is { } onStart)
         {
             await onStart().ConfigureAwait(false);

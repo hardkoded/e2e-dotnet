@@ -176,9 +176,10 @@ public sealed class DeviceProviderTests
         Assert.Equal(["lease-0", "lease-1"], cloud.Released.Select(lease => lease.Id));
         Assert.Equal(["toy-cloud: released 2 device(s)"], finished);
 
-        // Nothing left: a second finish releases nothing.
+        // Nothing left: a second finish releases nothing, and no released lease's daemon is handed out again.
         await h.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);
         Assert.Equal(2, cloud.Released.Count);
+        Assert.Null(h.Engine.Pool.Binding(new SessionOwner("ios"), 0, new Dictionary<string, string?>()));
     }
 
     [Fact]

@@ -77,7 +77,7 @@ public sealed class RawDeviceSession
     /// <summary>The platform the target drives.</summary>
     public MobilePlatform Platform => _session.Options.Platform;
 
-    /// <summary>The raw driver session name: <c>e2e-&lt;target&gt;-&lt;worker slot&gt;</c>, or <c>&lt;session&gt;-&lt;worker slot&gt;</c> with the <c>Session</c> option.</summary>
+    /// <summary>The raw driver session name: <c>e2e-&lt;target&gt;-&lt;worker slot&gt;</c> (<c>e2e-&lt;target&gt;-&lt;hostId&gt;-&lt;worker slot&gt;</c> for a <c>Launch.LaunchAsync</c> host), or <c>&lt;session&gt;-&lt;worker slot&gt;</c> with the <c>Session</c> option.</summary>
     public string Session { get; }
 
     /// <summary>The device id: a simulator UDID or an Android serial.</summary>

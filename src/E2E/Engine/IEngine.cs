@@ -141,6 +141,9 @@ public sealed class EngineStartOptions
     /// <summary>The target's name, for the errors an engine raises about its <c>app</c>. Upstream's <c>EngineInitContext.targetName</c>.</summary>
     public string? TargetName { get; init; }
 
+    /// <summary>The <c>launch()</c> host this worker belongs to; see <see cref="IEngineHostIdentity.HostId"/>. Upstream's <c>EngineInitInfo.hostId</c>.</summary>
+    public string? HostId { get; init; }
+
     /// <summary>
     /// Whether the run asked for a visible surface (<c>--headed</c>). .NET-only place: upstream hands it to <c>init</c> (<see cref="EngineInitInfo.Headed"/>),
     /// which the port does not call per worker, so a session start carries it.
@@ -705,8 +708,11 @@ public sealed record EngineScreenshot(byte[] Png, double Scale, int? MaskedRegio
 /// The facts handed to an engine's prepare (<see cref="IPreparableEngine.PrepareAsync"/>), once per run and target in the runner
 /// process, before any worker exists. Upstream's <c>EnginePrepareInfo</c>.
 /// </summary>
-public sealed record EnginePrepareInfo
+public sealed record EnginePrepareInfo : IEngineHostIdentity
 {
+    /// <inheritdoc/>
+    public string? HostId { get; init; }
+
     /// <summary>The run id.</summary>
     public required string RunId { get; init; }
 
@@ -765,8 +771,11 @@ public sealed record EnginePrepareResult
 /// The facts handed to an engine's finish (<see cref="IPreparableEngine.FinishAsync"/>), once per run and target after the last worker is
 /// gone, with the cleanup budget of one hook. Upstream's <c>EngineFinishInfo</c>.
 /// </summary>
-public sealed record EngineFinishInfo
+public sealed record EngineFinishInfo : IEngineHostIdentity
 {
+    /// <inheritdoc/>
+    public string? HostId { get; init; }
+
     /// <summary>The run id.</summary>
     public required string RunId { get; init; }
 
@@ -885,8 +894,11 @@ public enum EngineDoctorStatus
 public sealed record EngineDoctorCheck(string Id, EngineDoctorStatus Status, string? Message = null);
 
 /// <summary>What a worker's init is given, once per worker, before its first attempt. Upstream's <c>EngineInitInfo</c>.</summary>
-public sealed record EngineInitInfo
+public sealed record EngineInitInfo : IEngineHostIdentity
 {
+    /// <inheritdoc/>
+    public string? HostId { get; init; }
+
     public required string RunId { get; init; }
 
     public required string TargetName { get; init; }
@@ -901,4 +913,14 @@ public sealed record EngineInitInfo
     public bool Headed { get; init; }
 
     public required Action<string> Log { get; init; }
+}
+
+/// <summary>Who holds a target, for the lifecycle hooks: prepare, init, finish. Upstream's <c>EngineHostIdentity</c> (<c>engine/contract.ts</c>).</summary>
+public interface IEngineHostIdentity
+{
+    /// <summary>
+    /// Set when a <c>launch()</c> host holds the target: a token no other host has. Hosts name their targets alike, so an engine that names
+    /// what it holds after the target (a device session) adds this to keep hosts apart. Upstream's <c>hostId</c>.
+    /// </summary>
+    string? HostId { get; }
 }

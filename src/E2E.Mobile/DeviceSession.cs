@@ -217,13 +217,17 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         DeviceWorker worker;
         try
         {
-            var binding = engine.Pool.Binding(info.TargetName, info.WorkerSlot, info.Env);
+            var binding = engine.Pool.Binding(
+                new SessionOwner(info.TargetName, info.HostId),
+                info.WorkerSlot,
+                info.Env
+            );
             await SettleBeforeStartAsync(
                     engine.InflightOf(info.TargetName, info.WorkerSlot, binding),
                     cancellationToken
                 )
                 .ConfigureAwait(false);
-            var session = engine.Pool.Session(info.TargetName, info.WorkerSlot);
+            var session = engine.Pool.Session(new SessionOwner(info.TargetName, info.HostId), info.WorkerSlot);
             var label = DeviceBindings.DeviceLabel(binding);
             var where = $"session {session}{(label is null ? "" : $" on {label}")}";
             worker = engine.WorkerOf(info.TargetName, info.WorkerSlot, binding);

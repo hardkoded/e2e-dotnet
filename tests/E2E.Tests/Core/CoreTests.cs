@@ -4,6 +4,7 @@
 
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Tests.AgentAct;
 
@@ -188,6 +189,62 @@ public sealed class CoreTests : IAsyncLifetime
 
     // Partial: C# types an engine and an app, so a non-engine and an app key the config does not take cannot be passed. Checked: a missing engine,
     // and a relative ArtifactsDir resolving from Cwd.
+    // Partial: upstream's last part opens two hosts in two worker threads, each with its own copy of the module. A .NET process loads one copy of the library, so
+    // that part has no counterpart.
+    [Fact]
+    public async Task Partial_Hands_the_engine_of_each_host_a_token_of_its_own_and_leaves_the_target_named_as_the_program_wrote_it()
+    {
+        var fakes = new[] { new CoreFakeEngine(), new CoreFakeEngine(), new CoreFakeEngine() };
+        var opened = await Task.WhenAll(fakes.Take(2).Select(fake => HostOf(fake)));
+        opened = [.. opened, await HostOf(fakes[2])];
+        foreach (var host in opened)
+        {
+            await (await host.NewSessionAsync()).CloseAsync();
+        }
+
+        var ids = fakes.Select(fake => fake.InitInfos[0].HostId).ToList();
+        Assert.Equal(3, ids.Distinct().Count());
+        foreach (var id in ids)
+        {
+            Assert.Matches("^[0-9a-f]{24}$", id);
+        }
+
+        Assert.Equal(["fake", "fake", "fake"], fakes.Select(fake => fake.InitInfos[0].TargetName));
+
+        // Prepare, init, and finish of one host see one token.
+        var hooks = new CoreFakeEngine();
+        var single = await HostOf(hooks);
+        await (await single.NewSessionAsync()).CloseAsync();
+        await single.CloseAsync();
+        var seen = hooks.HostIds;
+        Assert.Equal(3, seen.Count);
+        Assert.Matches("^[0-9a-f]{24}$", seen[0]);
+        Assert.Single(seen.Distinct());
+    }
+
+    [Fact]
+    public async Task Names_a_hosts_artifact_folders_after_its_token_so_a_platform_that_is_a_secrets_value_never_reaches_a_path()
+    {
+        var secret = "private-label";
+        var artifactsDir = Path.Combine(_dir, "kept");
+        var opened = await HostOf(
+            new CoreFakeEngine(platform: secret),
+            new LaunchOptions
+            {
+                Secrets = new Dictionary<string, string> { ["LABEL"] = secret },
+                ArtifactsDir = artifactsDir,
+            }
+        );
+        await (await opened.NewSessionAsync()).CloseAsync();
+        await opened.CloseAsync();
+        var entries = Directory
+            .EnumerateFileSystemEntries(artifactsDir, "*", SearchOption.AllDirectories)
+            .Select(entry => Path.GetRelativePath(artifactsDir, entry))
+            .ToList();
+        Assert.Contains(entries, entry => Regex.IsMatch(entry, @"(^|[\\/])core[\\/]host-[0-9a-f]{24}-[^\\/]+$"));
+        Assert.DoesNotContain(entries, entry => entry.Contains(secret, StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task Partial_Refuses_what_is_not_an_engine_and_a_relative_artifactsDir_resolves_from_cwd()
     {

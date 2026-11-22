@@ -52,7 +52,7 @@ public sealed partial class MobileEngine
 
         IReadOnlyList<string?> devices = Options.Devices is { } pool ? [.. pool] : [Options.Device];
         var targetApp = info.App.AppPath is null ? info.App.BundleId : null;
-        var client = _createClient(Pool.Session(info.TargetName, 0), null);
+        var client = _createClient(Pool.Session(new SessionOwner(info.TargetName), 0), null);
         var checks = new List<EngineDoctorCheck>(BuildCheck(info));
         var reported = new HashSet<string>(StringComparer.Ordinal);
         foreach (var name in devices)

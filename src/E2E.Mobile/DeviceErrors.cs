@@ -166,6 +166,11 @@ public static partial class DeviceErrors
     /// <summary>A failure's message in agent-device's normalized form.</summary>
     public static string Message(Exception cause) => AgentDeviceErrors.Normalize(cause).Message;
 
+    /// <summary>Whether agent-device refused a command because its session does not exist: closed already, or never opened. Upstream's <c>isNoSession</c>.</summary>
+    public static bool IsNoSession(Exception cause) =>
+        AgentDeviceErrors.Normalize(cause).Code == "SESSION_NOT_FOUND"
+        || Details(cause).GetValueOrDefault("reason") is NoSessionReason;
+
     /// <summary>
     /// Translates an unexpected agent-device error at the contract boundary. <paramref name="where"/> names
     /// the session and device the command ran under, for the messages whose recovery is per device.
@@ -184,7 +189,7 @@ public static partial class DeviceErrors
 
         var normalized = AgentDeviceErrors.Normalize(cause);
         var text = $"{operation} failed: {WithHint(cause, normalized.Message)}";
-        if (normalized.Code == "SESSION_NOT_FOUND" || Details(cause).GetValueOrDefault("reason") is NoSessionReason)
+        if (IsNoSession(cause))
         {
             return new EngineException(EngineErrorCodes.InvalidState, text, retryable: false, cause);
         }

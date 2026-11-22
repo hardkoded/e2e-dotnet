@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json.Nodes;
@@ -16,6 +17,9 @@ public sealed record MobilePrepareInfo
     public required string RunId { get; init; }
 
     public required string TargetName { get; init; }
+
+    /// <summary>The <c>launch()</c> host preparing the target; see <see cref="IEngineHostIdentity.HostId"/>.</summary>
+    public string? HostId { get; init; }
 
     public required string ProjectRoot { get; init; }
 
@@ -45,6 +49,9 @@ public sealed record MobileFinishInfo
 
     public required string TargetName { get; init; }
 
+    /// <summary>The <c>launch()</c> host finishing the target; see <see cref="IEngineHostIdentity.HostId"/>.</summary>
+    public string? HostId { get; init; }
+
     public required IReadOnlyDictionary<string, string?> Env { get; init; }
 
     public required Action<string> Log { get; init; }
@@ -52,6 +59,9 @@ public sealed record MobileFinishInfo
     /// <summary>How long finish may take before it gives up on a close, which it does without failing.</summary>
     public TimeSpan CleanupTimeout { get; init; } = E2EDefaults.CleanupTimeout;
 }
+
+/// <summary>A session warm opened, under the name finish reports it by. Upstream's <c>WarmedSession</c> (<c>pool.ts</c>).</summary>
+internal sealed record WarmedSession(string Session, IDeviceClient Client);
 
 /// <summary>
 /// Where a pool's devices come from. <see cref="BindAsync"/> runs once per run and target in prepare;
@@ -70,6 +80,9 @@ internal interface IDeviceSource
 
     Task FinishAsync(MobileFinishInfo info, CancellationToken cancellationToken) => Task.CompletedTask;
 }
+
+/// <summary>What names a slot's session: the target, and the <c>launch()</c> host holding it, if one does. Upstream's <c>SessionOwner</c> (<c>pool.ts</c>).</summary>
+public readonly record struct SessionOwner(string TargetName, string? HostId = null);
 
 /// <summary>The fields agent-device commands select a device by: the platform, then one of a name, a simulator UDID, or an Android serial.</summary>
 public sealed record DeviceSelection(
@@ -109,7 +122,7 @@ public sealed partial class DevicePool
     private readonly Dictionary<string, int> _finishes = [];
 
     /// <summary>The clients warm opened sessions with, per target, held for finish to close whatever warm got to.</summary>
-    private readonly Dictionary<string, List<IDeviceClient>> _warmed = [];
+    private readonly Dictionary<string, List<WarmedSession>> _warmed = [];
 
     private readonly DeviceClientFactory _createClient;
 
@@ -129,23 +142,31 @@ public sealed partial class DevicePool
     /// <summary>The provider that leased the target's devices, whose service may record them. Null for a device the pool did not lease.</summary>
     internal IDeviceProvider? Recorder => _source is LeasedDevices leased ? leased.Recorder : null;
 
-    /// <summary>The agent-device session a worker slot drives its device under: the session option or <c>e2e-&lt;target&gt;</c>, then <c>-&lt;slot&gt;</c>.</summary>
-    public string Session(string targetName, int slot) => $"{_options.Session ?? $"e2e-{targetName}"}-{slot}";
+    /// <summary>
+    /// The agent-device session a worker slot drives its device under: the session option or <c>e2e-&lt;target&gt;</c>, then <c>-&lt;slot&gt;</c>. A
+    /// <c>launch()</c> host's id follows the target, since every unnamed host's target is named alike.
+    /// </summary>
+    public string Session(SessionOwner owner, int slot)
+    {
+        var host = owner.HostId is null ? "" : $"-{owner.HostId}";
+        return $"{_options.Session ?? $"e2e-{owner.TargetName}{host}"}-{slot}";
+    }
 
     /// <summary>
     /// What a worker slot drives, for a worker's start: what this process's prepare bound for the target, else what
     /// prepare left in the environment, else the source's fallback for a run without prepare. With none, the choice
     /// stays with the local daemon. A slot beyond the pool is a broken invariant.
     /// </summary>
-    public SlotBinding? Binding(string targetName, int slot, IReadOnlyDictionary<string, string?> env)
+    public SlotBinding? Binding(SessionOwner owner, int slot, IReadOnlyDictionary<string, string?> env)
     {
+        var (targetName, hostId) = owner;
         IReadOnlyList<SlotBinding>? bindings;
         lock (_bound)
         {
             bindings = _bound.GetValueOrDefault(targetName);
         }
 
-        bindings ??= DeviceBindings.Decode(env.GetValueOrDefault(DeviceBindings.Variable(targetName)))
+        bindings ??= DeviceBindings.Decode(env.GetValueOrDefault(DeviceBindings.Variable(targetName, hostId)))
             ?? _source.Fallback;
         if (bindings is null)
         {
@@ -218,7 +239,7 @@ public sealed partial class DevicePool
             Workers = bindings.Count,
             Env = new Dictionary<string, string>
             {
-                [DeviceBindings.Variable(info.TargetName)] = DeviceBindings.Encode(bindings),
+                [DeviceBindings.Variable(info.TargetName, info.HostId)] = DeviceBindings.Encode(bindings),
             },
         };
     }
@@ -238,19 +259,66 @@ public sealed partial class DevicePool
             _bound.Remove(info.TargetName);
         }
 
-        List<IDeviceClient> clients;
+        List<WarmedSession> sessions;
         lock (_warmed)
         {
             _warmed.Remove(info.TargetName, out var held);
-            clients = held ?? [];
+            sessions = held ?? [];
+        }
+
+        // A session whose close does not finish in time stays on the list, with that as its reason.
+        var open = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
+        foreach (var warmed in sessions)
+        {
+            open[warmed.Session] = "the close did not finish in time";
         }
 
         var closing = CleanupBudget.WithinAsync(
-            token => Task.WhenAll(clients.Select(client => CloseQuietlyAsync(client, token))),
+            token => Task.WhenAll(sessions.Select(warmed => CloseTrackedAsync(warmed, open, token))),
             info.CleanupTimeout,
             cancellationToken
         );
         await Task.WhenAll(closing, _source.FinishAsync(info, cancellationToken)).ConfigureAwait(false);
+        if (info.HostId is null || _options.Session is not null || open.IsEmpty)
+        {
+            return;
+        }
+
+        var heldSessions = string.Join(
+            ", ",
+            open.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => $"\"{pair.Key}\" ({pair.Value})")
+        );
+        throw new EngineException(
+            EngineErrorCodes.EngineFailure,
+            $"agent-device session {heldSessions} did not close, so its device stays held; close it with `agent-device close --session <name>`",
+            retryable: false
+        );
+    }
+
+    private static async Task CloseTrackedAsync(
+        WarmedSession warmed,
+        ConcurrentDictionary<string, string> open,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            await warmed.Client.CallAsync(DeviceMethods.SessionsClose, null, cancellationToken).ConfigureAwait(false);
+            open.TryRemove(warmed.Session, out _);
+        }
+        catch (Exception cause)
+            when (cause is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            // A session that is gone was closed by its worker first.
+            if (DeviceErrors.IsNoSession(cause))
+            {
+                open.TryRemove(warmed.Session, out _);
+            }
+            else
+            {
+                open[warmed.Session] = DeviceErrors.Message(cause);
+            }
+        }
     }
 
     private bool Overtaken(string targetName, int finishes)
@@ -264,16 +332,16 @@ public sealed partial class DevicePool
     /// <summary>Closes the sessions warm opened for the target, within the cleanup budget; a close that fails leaves nothing more to do.</summary>
     private async Task CloseWarmedAsync(string targetName)
     {
-        List<IDeviceClient> clients;
+        List<WarmedSession> sessions;
         lock (_warmed)
         {
             _warmed.Remove(targetName, out var held);
-            clients = held ?? [];
+            sessions = held ?? [];
         }
 
         await CleanupBudget
             .WithinAsync(
-                token => Task.WhenAll(clients.Select(client => CloseQuietlyAsync(client, token))),
+                token => Task.WhenAll(sessions.Select(warmed => CloseQuietlyAsync(warmed.Client, token))),
                 E2EDefaults.CleanupTimeout,
                 CancellationToken.None
             )
@@ -312,7 +380,7 @@ public sealed partial class DevicePool
 
         return options.Device is { } device
             ? new ConfiguredDevices([NamedDevice(device)])
-            : new BootedDevices(options.Platform, createClient, (targetName, slot) => Session(targetName, slot));
+            : new BootedDevices(options.Platform, createClient, Session);
     }
 
     /// <summary>A device name from the options (upstream's <c>namedDevice</c>); a blank one would select no device, and the daemon would refuse several booted ones as ambiguous.</summary>
@@ -348,10 +416,10 @@ public sealed partial class DevicePool
             var binding = bindings[slot];
             var label = DeviceBindings.DeviceLabel(binding) ?? $"a booted {_options.Platform.WireName()} device";
             var where = DeviceSelectionFor(_options.Platform, binding);
-            var session = Session(info.TargetName, slot);
+            var session = Session(new SessionOwner(info.TargetName, info.HostId), slot);
             var at = $"session {session} on {label}";
             var client = _createClient(session, binding);
-            Retain(info.TargetName, client);
+            Retain(info.TargetName, new WarmedSession(session, client));
             info.Log($"booting {label} ({slot + 1} of {bindings.Count})");
             var took = new List<string>();
             try
@@ -477,7 +545,7 @@ public sealed partial class DevicePool
     }
 
     /// <summary>Holds a warm-up client for finish, before its first command: a boot that fails still opened the session.</summary>
-    private void Retain(string targetName, IDeviceClient client)
+    private void Retain(string targetName, WarmedSession warmed)
     {
         lock (_warmed)
         {
@@ -486,7 +554,7 @@ public sealed partial class DevicePool
                 _warmed[targetName] = clients = [];
             }
 
-            clients.Add(client);
+            clients.Add(warmed);
         }
     }
 
@@ -556,7 +624,7 @@ internal sealed record BootedDevice(string Id, string Name, string? ClaimedBy = 
 internal sealed class BootedDevices(
     MobilePlatform platform,
     DeviceClientFactory createClient,
-    Func<string, int, string> session
+    Func<SessionOwner, int, string> session
 ) : IDeviceSource
 {
     public int? Size => null;
@@ -565,8 +633,12 @@ internal sealed class BootedDevices(
 
     public async Task<IReadOnlyList<SlotBinding>> BindAsync(MobilePrepareInfo info, CancellationToken cancellationToken)
     {
-        var booted = await InventoryAsync(info.TargetName, cancellationToken).ConfigureAwait(false);
-        var own = Enumerable.Range(0, info.Slots).Select(slot => session(info.TargetName, slot)).ToHashSet();
+        var booted = await InventoryAsync(new SessionOwner(info.TargetName, info.HostId), cancellationToken)
+            .ConfigureAwait(false);
+        var own = Enumerable
+            .Range(0, info.Slots)
+            .Select(slot => session(new SessionOwner(info.TargetName, info.HostId), slot))
+            .ToHashSet();
         var held = booted.Where(device => device.ClaimedBy is not null && !own.Contains(device.ClaimedBy)).ToList();
         var chosen = booted.Where(device => !held.Contains(device)).Take(info.Slots).ToList();
         var heldBy = string.Join(", ", held.Select(device => $"{device.Name} by session \"{device.ClaimedBy}\""));
@@ -595,9 +667,9 @@ internal sealed class BootedDevices(
     }
 
     /// <summary>Every booted device of the platform, by stable id and name, with the session holding it, in agent-device's inventory order.</summary>
-    private async Task<List<BootedDevice>> InventoryAsync(string targetName, CancellationToken cancellationToken)
+    private async Task<List<BootedDevice>> InventoryAsync(SessionOwner owner, CancellationToken cancellationToken)
     {
-        var client = createClient(session(targetName, 0), null);
+        var client = createClient(session(owner, 0), null);
         var inventory = await DeviceErrors
             .RunCommandAsync(
                 "devices",
