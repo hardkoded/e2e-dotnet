@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using E2E.Engine;
 
 namespace E2E.Tests.SdkTypes;
 
@@ -169,5 +171,33 @@ public sealed class SdkTypesTests
             typeof(ExecutorReadResult).GetProperty(nameof(ExecutorReadResult.Style))!.PropertyType
         );
         Assert.Null(typeof(ExecutorTarget).GetMethod("op_Implicit"));
+    }
+
+    // The lines the blur commit adds (tester-army/e2e#1919): "void (blurTarget.blur satisfies (options?: ActionOptions) => Promise<void>)",
+    // "@ts-expect-error blur accepts action options, not a selector", and a LocatorActionKind outside KNOWN_LOCATOR_ACTION_KINDS is a
+    // compile error. Upstream checks them with the type checker; here they are reflection checks of the public API.
+    [Fact]
+    public void Partial_blur_takes_action_options_and_every_locator_action_kind_is_known()
+    {
+        var blur = typeof(Locator).GetMethod(nameof(Locator.BlurAsync))!;
+        Assert.Equal(typeof(Task), blur.ReturnType);
+        Assert.Equal(
+            [typeof(ActionOptions), typeof(CancellationToken)],
+            blur.GetParameters().Select(parameter => parameter.ParameterType)
+        );
+        Assert.Null(
+            typeof(Locator).GetMethod(
+                nameof(Locator.BlurAsync),
+                [typeof(string), typeof(ActionOptions), typeof(CancellationToken)]
+            )
+        );
+
+        var kinds = typeof(LocatorAction)
+            .GetNestedTypes(BindingFlags.Public)
+            .Where(type => type.IsSubclassOf(typeof(LocatorAction)))
+            .Select(type => EngineActionKinds.Of((LocatorAction)RuntimeHelpers.GetUninitializedObject(type)))
+            .ToList();
+        Assert.NotEmpty(kinds);
+        Assert.Empty(kinds.Except(EngineActionKinds.KnownLocator));
     }
 }
