@@ -112,10 +112,11 @@ internal sealed class AttemptBudget : IDisposable
 }
 
 /// <summary>
-/// The test timeout one attempt runs on, and what <c>test.setTimeout</c> does to it (upstream's <c>AttemptTimeout</c>, <c>run/budget.ts</c>). The
-/// port enforces the timeout with the test's cancellation source, which upstream's race does with a timer; <see cref="Set"/> moves both the
-/// source's timer and the deadline that caps the session's steps. Upstream's <c>stop</c>, <c>refill</c>, <c>start</c>, and <c>race</c> serve
-/// <c>e2e run --step</c> and the runner's own race, which the port does not have.
+/// The test timeout one attempt runs on, and what <c>test.setTimeout</c> and a step hold do to it (upstream's <c>AttemptTimeout</c>, <c>run/budget.ts</c>).
+/// The port enforces the timeout with the test's cancellation source, which upstream's race does with a timer; <see cref="Set"/> moves both the
+/// source's timer and the deadline that caps the session's steps, and <see cref="Stop"/>, <see cref="Refill"/>, and <see cref="Start"/> stop that
+/// timer while a step or <c>screen.pause()</c> is held, so the time a person spends looking at the app is never charged to the test. Upstream's
+/// <c>race</c> is the test's cancellation source here.
 /// </summary>
 internal sealed class AttemptTimeout(
     CancellationTokenSource test,
@@ -125,9 +126,15 @@ internal sealed class AttemptTimeout(
 )
 {
     private readonly DateTimeOffset _startedAt = clock.GetUtcNow();
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private TimeSpan _current = timeout;
+    private DateTimeOffset? _endsAt = IsTimed(timeout) ? clock.GetUtcNow() + timeout : null;
     private bool _ended;
+
+    // True while the clock is stopped; what was left then is _stoppedLeft (null when the attempt has no timeout).
+    private bool _stopped;
+    private DateTimeOffset _stoppedAt;
+    private TimeSpan? _stoppedLeft;
 
     /// <summary>Ends this attempt's timeout: a later <see cref="Set"/> changes nothing (upstream's <c>ended</c>), as a serial member's does once the next one starts.</summary>
     public void End()
@@ -150,7 +157,7 @@ internal sealed class AttemptTimeout(
         }
     }
 
-    /// <summary>Whether the timeout in force has elapsed since the attempt started, whether or not the test's timer ran yet.</summary>
+    /// <summary>Whether the timeout in force has elapsed since the attempt started, whether or not the test's timer ran yet. A stopped clock has not.</summary>
     public bool Expired
     {
         get
@@ -158,17 +165,15 @@ internal sealed class AttemptTimeout(
             lock (_gate)
             {
                 // A timeout that is zero or infinite never elapses, as the session's own timer is not armed for it.
-                return _current > TimeSpan.Zero
-                    && _current != System.Threading.Timeout.InfiniteTimeSpan
-                    && clock.GetUtcNow() - _startedAt >= _current;
+                return !_stopped && _endsAt is { } ends && clock.GetUtcNow() >= ends;
             }
         }
     }
 
     /// <summary>
     /// Gives the attempt a timeout of <paramref name="timeout"/>, counted from its start like the one it replaces: the deadline moves with it, and one
-    /// moved into the past cancels the test's signal at once. False, changing nothing, once the timeout fired: work the test left running
-    /// cannot move it any more.
+    /// moved into the past cancels the test's signal at once. While the clock is stopped, what it hands back moves instead. False, changing nothing,
+    /// once the timeout fired: work the test left running cannot move it any more.
     /// </summary>
     public bool Set(TimeSpan timeout)
     {
@@ -180,8 +185,19 @@ internal sealed class AttemptTimeout(
                 return false;
             }
 
+            var delta = timeout - _current;
             _current = timeout;
-            var deadline = new Deadline(_startedAt + timeout);
+            if (_stopped)
+            {
+                _stoppedLeft =
+                    _stoppedLeft is { } left ? TimeSpan.FromTicks(Math.Max(0, (left + delta).Ticks))
+                    : IsTimed(timeout) ? TimeSpan.FromTicks(Math.Max(0, (timeout - (_stoppedAt - _startedAt)).Ticks))
+                    : null;
+                return true;
+            }
+
+            _endsAt = _endsAt is { } ends && IsTimed(timeout) ? ends + delta : _startedAt + timeout;
+            var deadline = new Deadline(_endsAt.Value);
             onMoved(timeout, deadline);
             try
             {
@@ -218,4 +234,116 @@ internal sealed class AttemptTimeout(
 
         return true;
     }
+
+    /// <summary>
+    /// Stops the clock and keeps what is left. False when nothing is left, or the test's signal fired already: the test times out now instead,
+    /// and the clock keeps running (upstream's <c>stop</c>).
+    /// </summary>
+    public bool Stop()
+    {
+        var cancelNow = false;
+        lock (_gate)
+        {
+            if (_stopped)
+            {
+                return true;
+            }
+
+            if (test.IsCancellationRequested)
+            {
+                return false;
+            }
+
+            var now = clock.GetUtcNow();
+            TimeSpan? left = _endsAt is { } ends ? new Deadline(ends).Remaining(now) : null;
+            if (left == TimeSpan.Zero)
+            {
+                cancelNow = true;
+            }
+            else
+            {
+                try
+                {
+                    test.CancelAfter(System.Threading.Timeout.InfiniteTimeSpan);
+                }
+                catch (ObjectDisposedException)
+                {
+                    return false;
+                }
+
+                _stopped = true;
+                _stoppedAt = now;
+                _stoppedLeft = left;
+                return true;
+            }
+        }
+
+        if (cancelNow)
+        {
+            try
+            {
+                test.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // The attempt ended and released its signal.
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Gives the running phase what was left when the clock stopped; the clock stays stopped (upstream's <c>refill</c>).</summary>
+    public void Refill()
+    {
+        lock (_gate)
+        {
+            if (_stopped && _stoppedLeft is { } left)
+            {
+                _endsAt = clock.GetUtcNow() + left;
+                onMoved(_current, new Deadline(_endsAt.Value));
+            }
+        }
+    }
+
+    /// <summary>Runs the clock again from what was left when it stopped (upstream's <c>start</c>).</summary>
+    public void Start()
+    {
+        lock (_gate)
+        {
+            if (!_stopped)
+            {
+                return;
+            }
+
+            _stopped = false;
+            if (_stoppedLeft is not { } left)
+            {
+                return;
+            }
+
+            var now = clock.GetUtcNow();
+            _endsAt = now + left;
+            var deadline = new Deadline(_endsAt.Value);
+            onMoved(_current, deadline);
+            try
+            {
+                if (left == TimeSpan.Zero)
+                {
+                    test.Cancel();
+                }
+                else
+                {
+                    test.CancelAfter(left);
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // The attempt ended and released its signal.
+            }
+        }
+    }
+
+    private static bool IsTimed(TimeSpan timeout) =>
+        timeout > TimeSpan.Zero && timeout != System.Threading.Timeout.InfiniteTimeSpan;
 }

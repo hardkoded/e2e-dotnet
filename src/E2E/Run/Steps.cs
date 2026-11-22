@@ -471,6 +471,47 @@ internal sealed record StepRecorderOptions
     /// report and may take millions of steps. Step indexes go on counting. Null keeps every step. Upstream's <c>retainSteps</c>.
     /// </summary>
     public int? RetainSteps { get; init; }
+
+    /// <summary>Set to wait at held steps and pauses. Without it, a pause returns right away. Upstream's <c>hold</c>.</summary>
+    public RecorderHold? Hold { get; init; }
+}
+
+/// <summary>Options for holding an attempt at steps and pauses (upstream's <c>RecorderHold</c>, <c>run/steps.ts</c>).</summary>
+/// <param name="Ask">
+/// Waits at each <c>screen.pause()</c> call, and before each step when <paramref name="Steps"/> is set. If the task completes, the attempt
+/// continues; if it faults, the attempt fails. The token is cancelled if the wait is abandoned.
+/// </param>
+/// <param name="Steps">
+/// Set to wait at <paramref name="Ask"/> before each top-level step in a holdable phase (<c>e2e run --step</c>). The step isn't recorded until
+/// <paramref name="Ask"/> completes. Otherwise, only <c>screen.pause()</c> waits at it.
+/// </param>
+internal sealed record RecorderHold(Func<StepHoldRequest, CancellationToken, Task> Ask, bool Steps);
+
+/// <summary>The kind of wait a <see cref="StepHoldRequest"/> is: upstream's <c>'step' | 'pause'</c>.</summary>
+internal enum StepHoldKind
+{
+    /// <summary>A step is held before it runs.</summary>
+    Step,
+
+    /// <summary>The test has reached <c>screen.pause()</c>.</summary>
+    Pause,
+}
+
+/// <summary>A step or pause about to wait at <see cref="RecorderHold"/>: what the person stepping through the test is shown (upstream's <c>StepHoldRequest</c>).</summary>
+internal sealed record StepHoldRequest
+{
+    /// <summary>The kind of wait.</summary>
+    public required StepHoldKind Kind { get; init; }
+
+    /// <summary>Expected position in the trace, from 1. A pause uses 0.</summary>
+    public required int Number { get; init; }
+
+    public required string Api { get; init; }
+
+    /// <summary>Already redacted.</summary>
+    public required string Label { get; init; }
+
+    public SourceLocation? Source { get; init; }
 }
 
 /// <summary>A step's events, safe to append to while another thread reads: a read sees the events as of that moment.</summary>

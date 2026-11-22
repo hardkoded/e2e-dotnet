@@ -379,6 +379,11 @@ it to the test's output. Use them to write a locator. Both read once without
 waiting, and take an `ActionOptions` with a `Timeout`. A locator does not have
 them.
 
+`Screen.PauseAsync()` pauses the test at that line. Call it on the screen with
+`await`: a frame's screen throws `INVALID_ARGUMENT`. Where nothing can resume a
+test (a program on `Launch`, an `OpenHost`, or an MCP session), it returns right
+away. Time spent paused does not count toward the test's timeout.
+
 `Screen.ScrollUntilVisibleAsync(locator, new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })`
 scrolls the viewport (`ScrollDirection.Down`, `Momentum.Slow` by default) until the
 locator resolves visibly, else `LOCATOR_NOT_FOUND`. On a locator

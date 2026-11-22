@@ -9,8 +9,7 @@ namespace E2E.Tests.StepHold;
 /// <summary>
 /// <c>describe('AttemptTimeout')</c> of upstream's <c>tests/unit/step-hold.test.ts</c> (tester-army/e2e#1921). Each <c>it</c> is <c>Partial_</c>: upstream
 /// races a promise against the timeout (<c>race</c>), where the port enforces the timeout with the test's cancellation source, so these check that
-/// source and the deadline the session's steps are capped with. The <c>describe('AttemptHolds')</c> <c>it</c>s of that file need
-/// <c>e2e run --step</c>, which the port does not have (hardkoded/e2e-dotnet#2002).
+/// source and the deadline the session's steps are capped with. The <c>describe('AttemptHolds')</c> <c>it</c>s of that file are in <see cref="AttemptHoldsTests"/>.
 /// </summary>
 public sealed class AttemptTimeoutTests
 {

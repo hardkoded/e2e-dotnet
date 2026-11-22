@@ -43,6 +43,18 @@ internal sealed class StepRecorder
     // Steps opened so far, the next step's index: _steps may have dropped its oldest.
     private int _opened;
 
+    // The hold steps and pauses wait at; null when the attempt holds nothing.
+    private readonly RecorderHold? _hold;
+
+    // Whether a top-level step started now waits at the hold; see Holdable.
+    private bool _holdable;
+
+    // Step calls waiting at their hold, in call order.
+    private readonly HashSet<HeldCall> _held = [];
+
+    // Pauses waiting at the hold, ordered by when they were called.
+    private readonly HashSet<HeldPause> _pauses = [];
+
     // IDs of steps whose bodies are still executing.
     private readonly HashSet<string> _running = [];
 
@@ -99,6 +111,17 @@ internal sealed class StepRecorder
         _aiTrace = options.AiTrace;
         _redactThrown = options.RedactThrown;
         _retainSteps = options.RetainSteps;
+        _hold = options.Hold;
+    }
+
+    /// <summary>
+    /// Whether a top-level step started now waits at the hold: in <c>BeforeEach</c> and the body, never in launch or teardown. A pause fails outside
+    /// these parts of the attempt, and after the body ends. Upstream's <c>holdable</c>.
+    /// </summary>
+    public bool Holdable
+    {
+        get => Volatile.Read(ref _holdable);
+        set => Volatile.Write(ref _holdable, value);
     }
 
     /// <summary>
@@ -261,6 +284,43 @@ internal sealed class StepRecorder
         var label = RedactText(rawLabel);
         // Every step pays the capture, since the failing one is not known until it fails, and a report that names the line is worth it.
         var stack = new StackTrace(1, fNeedFileInfo: true);
+
+        // A step inside another (an OnAction hook's) is part of what holds it, so only a top-level step waits.
+        if (_hold is { Steps: true } hold && Holdable && Current() is null)
+        {
+            return RunHeld(hold, new HeldCall(kind, api, label, stack, options, new CancellationTokenSource()), body);
+        }
+
+        return Start(kind, api, label, stack, body, options);
+    }
+
+    /// <summary>Records the step as started now and runs its body (upstream's <c>start</c>).</summary>
+    private Task<T> Start<T>(
+        StepKind kind,
+        string api,
+        string label,
+        StackTrace stack,
+        Func<Task<T>> body,
+        StepRunOptions options
+    )
+    {
+        var record = Open(kind, api, label, stack, options);
+        var task = ExecuteAsync(record, body, options);
+        lock (_gate)
+        {
+            // A step that settled already has nothing to observe.
+            if (_running.Contains(record.Id))
+            {
+                _pending[record.Id] = task;
+            }
+        }
+
+        return task;
+    }
+
+    /// <summary>Mints a step's record as started now and tells reporters (upstream's <c>open</c>).</summary>
+    private StepRecord Open(StepKind kind, string api, string label, StackTrace stack, StepRunOptions options)
+    {
         var source = _projectRoot is null ? null : Source.Locate(stack, _projectRoot);
         var phase = Phase ?? StepHooks.PhaseOf(stack);
         StepRecord record;
@@ -296,17 +356,146 @@ internal sealed class StepRecorder
                 Label = label,
             }
         );
-        var task = ExecuteAsync(record, body, options);
-        lock (_gate)
+        return record;
+    }
+
+    /// <summary>
+    /// Pauses the attempt at <c>screen.pause()</c> until the hold's <c>Ask</c> completes. Without a hold, as in a program or an MCP session, it
+    /// returns right away. With one, the call fails outside a holdable part of the attempt or inside another step: the timers there keep running
+    /// during a pause. Upstream's <c>pause</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> for a pause the attempt cannot hold.</exception>
+    public async Task PauseAsync()
+    {
+        if (_hold is not { } hold)
         {
-            // A step that settled already has nothing to observe.
-            if (_running.Contains(record.Id))
-            {
-                _pending[record.Id] = task;
-            }
+            return;
         }
 
-        return task;
+        const string Api = "screen.pause";
+        var stack = new StackTrace(1, fNeedFileInfo: true);
+        var source = _projectRoot is null ? null : Source.Locate(stack, _projectRoot);
+        var request = new StepHoldRequest
+        {
+            Kind = StepHoldKind.Pause,
+            Number = 0,
+            Api = Api,
+            Label = "",
+            Source = source,
+        };
+        var pause = new HeldPause(Api, new CancellationTokenSource());
+        var added = false;
+        try
+        {
+            // Teardown's separate timer would count time spent paused. Code the test didn't await would pause a test that has ended.
+            if (!Holdable)
+            {
+                throw new TestException(
+                    "INVALID_ARGUMENT",
+                    TextRules.WithHint(
+                        $"{Api}() was called after the test body ended (in an AfterEach hook, a fixture teardown, or code the test did not await)",
+                        "call it in fixture setup, a BeforeEach hook, or the test body, and await it"
+                    )
+                );
+            }
+
+            // Another step has a separate timer that counts the pause.
+            if (Current() is not null)
+            {
+                throw new TestException(
+                    "INVALID_ARGUMENT",
+                    TextRules.WithHint(
+                        $"{Api}() was called inside another step (an OnAction hook or a project tool)",
+                        "call it between steps in fixture setup, a BeforeEach hook, or the test body"
+                    )
+                );
+            }
+
+            lock (_gate)
+            {
+                _pauses.Add(pause);
+                added = true;
+            }
+
+            pause.Promise = hold.Ask(request, pause.Cancel.Token);
+            await pause.Promise.ConfigureAwait(false);
+        }
+        catch (Exception cause) when (pause.Cancel.IsCancellationRequested)
+        {
+            // Only AbandonRunning cancels a pause and records its failure.
+            AbandonedWork.MarkRejection(cause);
+            throw;
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                // A pause AbandonRunning took cancelled its source: that one is not disposed here.
+                if (!added || _pauses.Remove(pause))
+                {
+                    pause.Cancel.Dispose();
+                }
+            }
+        }
+    }
+
+    // Waits at the hold, then starts the step as if it were called now: its index, start, and verification boundary are those of its release, so
+    // steps called together in one Task.WhenAll keep their call order. The prompt uses the position the step would get if the pending holds
+    // started in order with no other steps recorded between them.
+    private Task<T> RunHeld<T>(RecorderHold hold, HeldCall call, Func<Task<T>> body)
+    {
+        var source = _projectRoot is null ? null : Source.Locate(call.Stack, _projectRoot);
+        int number;
+        lock (_gate)
+        {
+            _held.Add(call);
+            number = _steps.Count + _held.Count;
+        }
+
+        var promise = Held();
+        call.Promise = promise;
+        return promise;
+
+        async Task<T> Held()
+        {
+            try
+            {
+                await hold.Ask(
+                        new StepHoldRequest
+                        {
+                            Kind = StepHoldKind.Step,
+                            Number = number,
+                            Api = call.Api,
+                            Label = call.Label,
+                            Source = source,
+                        },
+                        call.Cancel.Token
+                    )
+                    .ConfigureAwait(false);
+
+                // Released in the same turn the body abandoned it: it must not run.
+                call.Cancel.Token.ThrowIfCancellationRequested();
+            }
+            catch (Exception cause) when (call.Cancel.IsCancellationRequested)
+            {
+                // Only AbandonRunning cancels a call: its failure is recorded, so whatever wrapped the call must not reach the runner as a stray.
+                AbandonedWork.MarkRejection(cause);
+                throw;
+            }
+            finally
+            {
+                lock (_gate)
+                {
+                    // A call AbandonRunning took cancelled its source: that one is not disposed here.
+                    if (_held.Remove(call))
+                    {
+                        call.Cancel.Dispose();
+                    }
+                }
+            }
+
+            return await Start(call.Kind, call.Api, call.Label, call.Stack, body, call.Options).ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc cref="RunAsync{T}(StepKind, string, string, Func{Task{T}}, StepRunOptions?)"/>
@@ -468,18 +657,67 @@ internal sealed class StepRecorder
     /// </summary>
     public TestException? AbandonRunning()
     {
+        // A step still held never ran: it is recorded here, at its call, so it fails like one the body left running, and its hold is let go.
+        HeldCall[] heldCalls;
+        HeldPause[] pauses;
+        lock (_gate)
+        {
+            heldCalls = [.. _held];
+            _held.Clear();
+            pauses = [.. _pauses];
+            _pauses.Clear();
+        }
+
+        var held = new List<StepRecord>();
+        foreach (var call in heldCalls)
+        {
+            call.Cancel.Cancel();
+            var opened = Open(call.Kind, call.Api, call.Label, call.Stack, call.Options);
+            lock (_gate)
+            {
+                _pending[opened.Id] = call.Promise;
+            }
+
+            held.Add(opened);
+        }
+
+        // A pause doesn't record a step, so it's cancelled here.
+        foreach (var pause in pauses)
+        {
+            pause.Cancel.Cancel();
+            lock (_gate)
+            {
+                _abandonedTasks.Add(pause.Promise);
+            }
+
+            Observe(pause.Promise);
+        }
+
         List<StepRecord> running;
         lock (_gate)
         {
             running = [.. _steps.Where(step => _running.Contains(step.Id) && !_abandoned.Contains(step.Id))];
         }
 
+        var count = running.Count + pauses.Length;
         TestException? first = null;
+        if (pauses.Length > 0)
+        {
+            var extra = count > 1 ? " and " + (count - 1).ToString(CultureInfo.InvariantCulture) + " more" : "";
+            first = new TestException(
+                "STEP_NOT_AWAITED",
+                TextRules.WithHint(
+                    $"the test body returned before {pauses[0].Api}(){extra} finished",
+                    "put `await` in front of screen.pause()"
+                )
+            );
+        }
+
         foreach (var step in running)
         {
             var more =
-                first is null && running.Count > 1
-                    ? " and " + (running.Count - 1).ToString(CultureInfo.InvariantCulture) + " more"
+                first is null && count > 1
+                    ? " and " + (count - 1).ToString(CultureInfo.InvariantCulture) + " more"
                     : "";
             var error = new TestException(
                 "STEP_NOT_AWAITED",
@@ -511,6 +749,18 @@ internal sealed class StepRecorder
             }
 
             PublishEnd(step);
+        }
+
+        // No body runs for a held step, so nothing else ends what it started.
+        lock (_gate)
+        {
+            foreach (var record in held)
+            {
+                _running.Remove(record.Id);
+                _abandoned.Remove(record.Id);
+                _pending.Remove(record.Id);
+                _cutsOnClose.Remove(record.Id);
+            }
         }
 
         return first;
@@ -1027,4 +1277,39 @@ internal sealed class StepRecorder
             seen = Volatile.Read(ref target);
         } while (value > seen && Interlocked.CompareExchange(ref target, value, seen) != seen);
     }
+}
+
+/// <summary>A step call waiting at its hold, kept so a body that returns without awaiting it still fails as <c>STEP_NOT_AWAITED</c> (upstream's <c>HeldCall</c>).</summary>
+internal sealed class HeldCall(
+    StepKind kind,
+    string api,
+    string label,
+    StackTrace stack,
+    StepRunOptions options,
+    CancellationTokenSource cancel
+)
+{
+    public StepKind Kind { get; } = kind;
+
+    public string Api { get; } = api;
+
+    public string Label { get; } = label;
+
+    public StackTrace Stack { get; } = stack;
+
+    public StepRunOptions Options { get; } = options;
+
+    public CancellationTokenSource Cancel { get; } = cancel;
+
+    public Task Promise { get; set; } = Task.CompletedTask;
+}
+
+/// <summary>A pause waiting at the hold. If the body returns without awaiting it, the test fails with <c>STEP_NOT_AWAITED</c> (upstream's <c>HeldPause</c>).</summary>
+internal sealed class HeldPause(string api, CancellationTokenSource cancel)
+{
+    public string Api { get; } = api;
+
+    public CancellationTokenSource Cancel { get; } = cancel;
+
+    public Task Promise { get; set; } = Task.CompletedTask;
 }
