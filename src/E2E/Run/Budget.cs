@@ -298,14 +298,7 @@ internal sealed class AttemptTimeout(
 
         if (cancelNow)
         {
-            try
-            {
-                test.Cancel();
-            }
-            catch (ObjectDisposedException)
-            {
-                // The attempt ended and released its signal.
-            }
+            _ = TryCancel();
         }
 
         return false;
@@ -344,21 +337,34 @@ internal sealed class AttemptTimeout(
             _endsAt = now + left;
             var deadline = new Deadline(_endsAt.Value);
             onMoved(_current, deadline);
-            try
-            {
-                if (left == TimeSpan.Zero)
-                {
-                    test.Cancel();
-                }
-                else
-                {
-                    test.CancelAfter(left);
-                }
-            }
-            catch (ObjectDisposedException)
-            {
-                // The attempt ended and released its signal.
-            }
+            _ = left == TimeSpan.Zero ? TryCancel() : TryCancelAfter(left);
+        }
+    }
+
+    // False once the attempt ended and released its signal.
+    private bool TryCancel()
+    {
+        try
+        {
+            test.Cancel();
+            return true;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+    }
+
+    private bool TryCancelAfter(TimeSpan left)
+    {
+        try
+        {
+            test.CancelAfter(left);
+            return true;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
         }
     }
 
