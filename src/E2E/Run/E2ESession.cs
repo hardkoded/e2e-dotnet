@@ -1893,9 +1893,9 @@ public sealed class E2ESession : IAsyncDisposable
         var message = step.Error?.Message ?? "step " + step.Api + " did not pass";
         return step.Status switch
         {
-            StepStatus.Blocked => new AgentException(code, message, blocked: true),
-            StepStatus.TimedOut => new TestException("TEST_TIMEOUT", message),
-            _ => new TestException(code, message),
+            StepStatus.Blocked => new AgentException(code, message, blocked: true) { Details = step.Error?.Details },
+            StepStatus.TimedOut => new TestException("TEST_TIMEOUT", message) { Details = step.Error?.Details },
+            _ => new TestException(code, message) { Details = step.Error?.Details },
         };
     }
 
