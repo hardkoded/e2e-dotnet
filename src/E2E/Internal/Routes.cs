@@ -12,7 +12,11 @@ namespace E2E.Internal;
 /// <summary>A validated route pattern: one URL pattern (a glob string or a <see cref="Regex"/>), optionally narrowed to one HTTP method.</summary>
 /// <param name="Method">Uppercased HTTP method, or <c>null</c> when every method matches.</param>
 /// <param name="Url">The glob string or <see cref="Regex"/>.</param>
-internal sealed record NormalizedRoutePattern(string? Method, object Url);
+internal sealed record NormalizedRoutePattern(string? Method, object Url)
+{
+    /// <summary>The URL test, compiled once so a request does not rebuild the glob.</summary>
+    public Regex UrlTest { get; } = Url as Regex ?? Routes.CompilePattern((string)Url);
+}
 
 internal static partial class Routes
 {
@@ -215,8 +219,7 @@ internal static partial class Routes
     }
 
     /// <summary>Matches a URL against the URL half of a validated route pattern, a glob string (compiled by <see cref="CompilePattern"/>) or a <see cref="Regex"/>.</summary>
-    public static bool UrlMatches(NormalizedRoutePattern pattern, string url) =>
-        pattern.Url is Regex regex ? regex.IsMatch(url) : CompilePattern((string)pattern.Url).IsMatch(url);
+    public static bool UrlMatches(NormalizedRoutePattern pattern, string url) => pattern.UrlTest.IsMatch(url);
 
     /// <summary>Matches a request method against the method half of a validated route pattern.</summary>
     public static bool MethodMatches(NormalizedRoutePattern pattern, string method) =>
