@@ -105,6 +105,33 @@ public sealed class StepRecorderAbandonRunningTests
     }
 
     [Fact]
+    public async Task Names_the_code_that_started_the_step_not_the_code_that_runs_when_it_is_found()
+    {
+        var (steps, _) = StepKit.Recorder();
+        var left = new Gate();
+        static string NotAwaited(string owner, string call) =>
+            $"{owner} returned before {call} finished; put `await` in front of every step call";
+        steps.Owner = "the beforeEach hook";
+        var inHook = steps.RunAsync(StepKind.App, "app.open", "/", () => left.Task);
+        steps.Owner = "the fixture \"account\" setup";
+        var inFixture = steps.RunAsync(StepKind.App, "app.reload", "", () => left.Task);
+        steps.Owner = "the test body";
+        await steps.RunAsync(StepKind.App, "app.back", "", () => Task.CompletedTask);
+
+        Assert.Equal(NotAwaited("the beforeEach hook", "app.open \"/\" and 1 more"), steps.AbandonRunning()?.Message);
+        Assert.Equal(
+            [
+                NotAwaited("the beforeEach hook", "app.open \"/\" and 1 more"),
+                NotAwaited("the fixture \"account\" setup", "app.reload"),
+                null,
+            ],
+            steps.All().Select(step => step.Error?.Message)
+        );
+        left.Open();
+        await Task.WhenAll(inHook, inFixture);
+    }
+
+    [Fact]
     public async Task Names_the_first_step_and_counts_the_rest()
     {
         var (steps, _) = StepKit.Recorder();

@@ -142,7 +142,16 @@ public sealed class E2ESession : IAsyncDisposable
     internal StepPhase? Phase
     {
         get => _scope.Steps.Phase;
-        set => _scope.Steps.Phase = value;
+        set
+        {
+            _scope.Steps.Phase = value;
+            _scope.Steps.Owner = value switch
+            {
+                StepPhase.BeforeEach => "the beforeEach hook",
+                StepPhase.AfterEach => "the afterEach hook",
+                _ => "the test body",
+            };
+        }
     }
 
     /// <summary>What the app logged this attempt, each line under the step it happened in.</summary>
