@@ -126,8 +126,9 @@ internal static class AttemptReport
             Id = scope.AttemptId,
             StartedAt = scope.StartedAt,
             ExpectedFailure = expectedFailure,
+            // A failure outranks the skip; the reason stays beside it (upstream's execute.ts keeps the runtime skip on a failed attempt).
             Skip =
-                status == AttemptStatus.Skipped
+                status == AttemptStatus.Skipped || (failed && skipReason is not null)
                     ? new ReportSkip(
                         skipCause,
                         TextRules.TruncateUtf8(

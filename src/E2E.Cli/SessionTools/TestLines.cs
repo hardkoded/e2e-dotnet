@@ -7,7 +7,7 @@ using System.Text.Json;
 using E2E.Engine;
 using E2E.Internal;
 
-namespace E2E.Cli.Mcp;
+namespace E2E.Cli.SessionTools;
 
 /// <summary>One credential as a test line names it: the name <c>Credentials.User</c> takes, its username, and its password secret's name (upstream's <c>TestLineFills.credentials</c>).</summary>
 internal sealed record TestLineCredential(string Name, string Username, string Password);
@@ -53,7 +53,7 @@ internal sealed class TestLineOptions
 /// label, placeholder, text, test id) against the live screen, as <c>locate</c> tries one: a locator that matches the target
 /// and nothing else is printed, one that matches its twins too is narrowed (to the nodes that render, under a container, or
 /// by position, in that order), and otherwise the result says why there is no line. The session keeps the lines in order, and
-/// <c>test_lines</c> returns them as a draft test body. Upstream's <c>mcp/test-lines.ts</c>.
+/// <c>test_lines</c> returns them as a draft test body. Upstream's <c>session-tools/test-lines.ts</c>.
 /// </summary>
 internal sealed class SessionTestLines(TestLineOptions options)
 {

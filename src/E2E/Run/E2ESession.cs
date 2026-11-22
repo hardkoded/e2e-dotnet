@@ -142,7 +142,16 @@ public sealed class E2ESession : IAsyncDisposable
     internal StepPhase? Phase
     {
         get => _scope.Steps.Phase;
-        set => _scope.Steps.Phase = value;
+        set
+        {
+            _scope.Steps.Phase = value;
+            _scope.Steps.Owner = value switch
+            {
+                StepPhase.BeforeEach => "the beforeEach hook",
+                StepPhase.AfterEach => "the afterEach hook",
+                _ => "the test body",
+            };
+        }
     }
 
     /// <summary>What the app logged this attempt, each line under the step it happened in.</summary>
@@ -263,7 +272,7 @@ public sealed class E2ESession : IAsyncDisposable
         if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
         {
             timeout.CancelAfter(options.TestTimeout);
-            budgetDeadline = new Deadline(options.TestTimeout, TimeProvider.System);
+            budgetDeadline = new Deadline(options.TestTimeout, options.Clock);
         }
 
         // What test.setTimeout moves: the signal's timer and the deadline the screen and browser cap their steps with.
@@ -287,7 +296,7 @@ public sealed class E2ESession : IAsyncDisposable
                 timedBrowser.BudgetDeadline = deadline;
             }
         };
-        AttemptTimeout NewAttemptTimeout() => new(timeout, options.TestTimeout, TimeProvider.System, onMoved);
+        AttemptTimeout NewAttemptTimeout() => new(timeout, options.TestTimeout, options.Clock, onMoved);
         var attemptTimeout = NewAttemptTimeout();
 
         // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
@@ -2227,6 +2236,9 @@ public sealed class E2ESessionOptions
     internal string? TestMethod { get; init; }
 
     public TimeSpan TestTimeout { get; init; } = E2EDefaults.TestTimeout;
+
+    /// <summary>.NET-only: the clock the test's deadline reads (see <see cref="OpenHostOptions.Clock"/>).</summary>
+    internal TimeProvider Clock { get; init; } = TimeProvider.System;
 
     public TimeSpan ActionTimeout { get; init; } = E2EDefaults.ActionTimeout;
 

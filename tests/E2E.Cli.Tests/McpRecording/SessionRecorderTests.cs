@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cli.Mcp;
+using E2E.Cli.SessionTools;
 using E2E.Engine;
 
 namespace E2E.Cli.Tests.McpRecording;

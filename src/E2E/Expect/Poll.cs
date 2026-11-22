@@ -103,7 +103,8 @@ public sealed class PollExpectation<T>
             T value;
             try
             {
-                value = await _read(cancellationToken)
+                value = await PollScopes
+                    .PollReadAsync(() => _read(cancellationToken))
                     .WaitAsync(remaining > Time.Unbounded ? Time.Unbounded : remaining, clock, cancellationToken)
                     .ConfigureAwait(false);
             }

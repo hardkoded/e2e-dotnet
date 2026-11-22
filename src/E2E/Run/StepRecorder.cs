@@ -49,8 +49,13 @@ internal sealed class StepRecorder
     // Whether a top-level step started now waits at the hold; see Holdable.
     private bool _holdable;
 
+    private string _owner = "the test body";
+
     // Step calls waiting at their hold, in call order.
     private readonly HashSet<HeldCall> _held = [];
+
+    // The owner each running step was started by, as the error for one left running names it.
+    private readonly Dictionary<string, string> _owners = [];
 
     // Pauses waiting at the hold, ordered by when they were called.
     private readonly HashSet<HeldPause> _pauses = [];
@@ -122,6 +127,16 @@ internal sealed class StepRecorder
     {
         get => Volatile.Read(ref _holdable);
         set => Volatile.Write(ref _holdable, value);
+    }
+
+    /// <summary>
+    /// The code that starts steps from now on, as the error for one it leaves running names it: it completes "... returned before", as in
+    /// <c>the beforeEach hook</c>. Upstream's <c>owner</c>.
+    /// </summary>
+    public string Owner
+    {
+        get => Volatile.Read(ref _owner);
+        set => Volatile.Write(ref _owner, value);
     }
 
     /// <summary>
@@ -285,8 +300,8 @@ internal sealed class StepRecorder
         // Every step pays the capture, since the failing one is not known until it fails, and a report that names the line is worth it.
         var stack = new StackTrace(1, fNeedFileInfo: true);
 
-        // A step inside another (an OnAction hook's) is part of what holds it, so only a top-level step waits.
-        if (_hold is { Steps: true } hold && Holdable && Current() is null)
+        // A step inside another (an OnAction hook's) or inside an expect.poll read is part of what holds it, so only a top-level step waits.
+        if (_hold is { Steps: true } hold && Holdable && Current() is null && !PollScopes.InsidePollRead())
         {
             return RunHeld(hold, new HeldCall(kind, api, label, stack, options, new CancellationTokenSource()), body);
         }
@@ -342,6 +357,7 @@ internal sealed class StepRecorder
             }
 
             _running.Add(record.Id);
+            _owners[record.Id] = Owner;
             _cutsOnClose[record.Id] = new TaskCompletionSource<Exception>(
                 TaskCreationOptions.RunContinuationsAsynchronously
             );
@@ -363,8 +379,8 @@ internal sealed class StepRecorder
 
     /// <summary>
     /// Pauses the attempt at <c>screen.pause()</c> until the hold's <c>Ask</c> completes. Without a hold, as in a program or an MCP session, it
-    /// returns right away. With one, the call fails outside a holdable part of the attempt or inside another step: the timers there keep running
-    /// during a pause. Upstream's <c>pause</c>.
+    /// returns right away. With one, the call fails outside a holdable part of the attempt or inside another step or an expect.poll read: the timers
+    /// there keep running during a pause. Upstream's <c>pause</c>.
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> for a pause the attempt cannot hold.</exception>
     public async Task PauseAsync()
@@ -385,7 +401,7 @@ internal sealed class StepRecorder
             Label = "",
             Source = source,
         };
-        var pause = new HeldPause(Api, new CancellationTokenSource());
+        var pause = new HeldPause(Api, Owner, new CancellationTokenSource());
         var added = false;
         try
         {
@@ -401,13 +417,13 @@ internal sealed class StepRecorder
                 );
             }
 
-            // Another step has a separate timer that counts the pause.
-            if (Current() is not null)
+            // Another step or an expect.poll read has a separate timer that counts the pause.
+            if (Current() is not null || PollScopes.InsidePollRead())
             {
                 throw new TestException(
                     "INVALID_ARGUMENT",
                     TextRules.WithHint(
-                        $"{Api}() was called inside another step (an OnAction hook or a project tool)",
+                        $"{Api}() was called inside another step (an OnAction hook or a project tool), an expect.poll read, or a toPass block",
                         "call it between steps in fixture setup, a BeforeEach hook, or the test body"
                     )
                 );
@@ -607,6 +623,7 @@ internal sealed class StepRecorder
             lock (_gate)
             {
                 _running.Remove(record.Id);
+                _owners.Remove(record.Id);
                 _pending.Remove(record.Id);
                 _named.Remove(record.Id);
                 _cutsOnClose.Remove(record.Id);
@@ -716,7 +733,7 @@ internal sealed class StepRecorder
             first = new TestException(
                 "STEP_NOT_AWAITED",
                 TextRules.WithHint(
-                    $"the test body returned before {pauses[0].Api}(){extra} finished",
+                    $"{pauses[0].Owner} returned before {pauses[0].Api}(){extra} finished",
                     "put `await` in front of screen.pause()"
                 )
             );
@@ -728,10 +745,16 @@ internal sealed class StepRecorder
                 first is null && count > 1
                     ? " and " + (count - 1).ToString(CultureInfo.InvariantCulture) + " more"
                     : "";
+            string owner;
+            lock (_gate)
+            {
+                owner = _owners.GetValueOrDefault(step.Id) ?? Owner;
+            }
+
             var error = new TestException(
                 "STEP_NOT_AWAITED",
                 TextRules.WithHint(
-                    "the test body returned before " + CallName(step) + more + " finished",
+                    owner + " returned before " + CallName(step) + more + " finished",
                     "put `await` in front of every step call"
                 )
             );
@@ -766,6 +789,7 @@ internal sealed class StepRecorder
             foreach (var record in held)
             {
                 _running.Remove(record.Id);
+                _owners.Remove(record.Id);
                 _abandoned.Remove(record.Id);
                 _pending.Remove(record.Id);
                 _cutsOnClose.Remove(record.Id);
@@ -1314,9 +1338,12 @@ internal sealed class HeldCall(
 }
 
 /// <summary>A pause waiting at the hold. If the body returns without awaiting it, the test fails with <c>STEP_NOT_AWAITED</c> (upstream's <c>HeldPause</c>).</summary>
-internal sealed class HeldPause(string api, CancellationTokenSource cancel)
+internal sealed class HeldPause(string api, string owner, CancellationTokenSource cancel)
 {
     public string Api { get; } = api;
+
+    /// <summary>The <see cref="StepRecorder.Owner"/> the pause was started by.</summary>
+    public string Owner { get; } = owner;
 
     public CancellationTokenSource Cancel { get; } = cancel;
 
