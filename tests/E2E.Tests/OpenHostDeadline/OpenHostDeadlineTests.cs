@@ -8,7 +8,7 @@ namespace E2E.Tests.OpenHostDeadline;
 
 /// <summary>
 /// Upstream's <c>describe('openHost: deadline')</c> (<c>tests/integration/open-host-deadline.test.ts</c>). The <c>it</c>s that need no feature the port
-/// lacks are ported here. Not ported (hardkoded/e2e-dotnet#2002): the polls (<c>cuts a core operation the engine never finishes</c>: the port's session awaits an engine call that ignores its token; <c>bounds polls by config assertionTimeout</c>, <c>caps an explicitly long poll</c>,
+/// lacks are ported here. Not ported (hardkoded/e2e-dotnet#2002, #2041): the polls (<c>bounds polls by config assertionTimeout</c>, <c>caps an explicitly long poll</c>,
 /// <c>cancels an in-flight poll on %s</c>, <c>records abandoned polls</c>: the port's <c>Expect.Poll</c> takes no ambient session deadline), the contributed
 /// fixture calls (no <c>extend</c>), and the signals (<c>OpenSessionOptions</c> and <c>OpenHostOptions</c> have no <c>signal</c>).
 /// The <c>Partial_</c> <c>it</c>s: <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> cannot hold the timer callback pending (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
@@ -82,6 +82,42 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
         Assert.Equal("INVALID_ARGUMENT", refused.Code);
         Assert.Contains("a hosted session runs none", refused.Message);
         Assert.Empty(await session.CloseAsync());
+    }
+
+    [Fact]
+    public async Task Cuts_a_core_operation_the_engine_never_finishes_at_the_session_deadline()
+    {
+        var performing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var engine = new HostFakeEngine
+        {
+            OnPerform = (_, _) =>
+            {
+                performing.TrySetResult();
+                return new TaskCompletionSource().Task;
+            },
+        };
+        var host = await OpenAsync(engine);
+        var session = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "hung engine", Timeout = TimeSpan.FromMilliseconds(100) }
+        );
+        var started = DateTimeOffset.UtcNow;
+        // The wait is bounded here too, so a regression of the cut fails this test instead of hanging the run.
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            session.Screen.GetByRole("button", "Submit").ClickAsync().WaitAsync(TimeSpan.FromSeconds(30))
+        );
+        Assert.Equal("TEST_TIMEOUT", error.Code);
+        Assert.True(performing.Task.IsCompletedSuccessfully, "the deadline must cut a call the engine started");
+        Assert.True(DateTimeOffset.UtcNow - started < TimeSpan.FromSeconds(5));
+        var failures = await session.CloseAsync();
+        Assert.Contains(failures, failure =>
+            failure is E2EException { Code: "TEST_TIMEOUT" }
+            && failure.Message.Contains("session timed out after 100 ms")
+        );
+        Assert.Contains("timed out", await File.ReadAllTextAsync(session.TracePath));
+        var next = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "after a hung engine", Timeout = TimeSpan.FromSeconds(5) }
+        );
+        Assert.Empty(await next.CloseAsync());
     }
 
     [Fact]

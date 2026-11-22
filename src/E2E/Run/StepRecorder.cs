@@ -304,8 +304,10 @@ internal sealed class StepRecorder
         StepRunOptions options
     )
     {
+        // The signal is read once, before the step registers for close: a session that closes after that has its named error win in CutAsync.
+        var signal = _signal?.Invoke() ?? default;
         var record = Open(kind, api, label, stack, options);
-        var task = ExecuteAsync(record, body, options);
+        var task = ExecuteAsync(record, body, options, signal);
         lock (_gate)
         {
             // A step that settled already has nothing to observe.
@@ -512,7 +514,12 @@ internal sealed class StepRecorder
             options
         );
 
-    private async Task<T> ExecuteAsync<T>(StepRecord record, Func<Task<T>> body, StepRunOptions options)
+    private async Task<T> ExecuteAsync<T>(
+        StepRecord record,
+        Func<Task<T>> body,
+        StepRunOptions options,
+        CancellationToken signal
+    )
     {
         var started = Stopwatch.GetTimestamp();
         try
@@ -525,7 +532,7 @@ internal sealed class StepRecorder
                     AiTraceScopes.WithAiTraceStep(record.Api, record.Label, body)
                 )
                 : body();
-            var result = await CutAsync(work, record).ConfigureAwait(false);
+            var result = await CutAsync(work, record, signal).ConfigureAwait(false);
             if (IsAbandoned(record))
             {
                 return result;
@@ -621,7 +628,7 @@ internal sealed class StepRecorder
     }
 
     // Waits for the step's work, or cuts it when the recorder's cancellation fires: the step fails and its body is abandoned.
-    private async Task<T> CutAsync<T>(Task<T> work, StepRecord record)
+    private async Task<T> CutAsync<T>(Task<T> work, StepRecord record, CancellationToken signal)
     {
         TaskCompletionSource<Exception>? closed;
         lock (_gate)
@@ -629,13 +636,15 @@ internal sealed class StepRecorder
             _cutsOnClose.TryGetValue(record.Id, out closed);
         }
 
-        if (!_cancellation.CanBeCanceled && closed is null)
+        // Either the recorder's own cancellation or the signal its session gives it cuts the step (upstream's `this.signal`, which `execute` races the work against).
+        if (!_cancellation.CanBeCanceled && !signal.CanBeCanceled && closed is null)
         {
             return await work.ConfigureAwait(false);
         }
 
         var cut = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var registration = _cancellation.Register(() => cut.TrySetResult());
+        using var own = _cancellation.Register(() => cut.TrySetResult());
+        using var session = signal.Register(() => cut.TrySetResult());
         var first = await Task.WhenAny(work, cut.Task, closed?.Task ?? cut.Task).ConfigureAwait(false);
         if (first == work)
         {
