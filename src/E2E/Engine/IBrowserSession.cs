@@ -46,13 +46,13 @@ public interface IBrowserSession : IEngineSession
     Task<JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Waits up to <paramref name="timeout"/> for a response whose URL <paramref name="matches"/>
+    /// Waits up to <paramref name="timeout"/> for a response whose URL and request method <paramref name="matches"/>
     /// accepts. The timeout bounds the match only: the body read starts once the
     /// response is known and goes on in <see cref="BrowserResponse.Body"/>. A session
     /// that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     Task<BrowserResponse> WaitForResponseAsync(
-        Func<string, bool> matches,
+        Func<string, string, bool> matches,
         TimeSpan timeout,
         CancellationToken cancellationToken
     ) =>

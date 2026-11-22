@@ -301,9 +301,13 @@ public class Screen
     /// action. Upstream's <c>screen.tapAt</c>.
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> for a point that is not finite or is negative.</exception>
-    public Task TapAtAsync(Point point, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    public Task TapAtAsync(
+        ScreenPoint point,
+        ActionOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
-        var at = RequirePoint(point, "tapAt");
+        var at = RequireScreenPoint(point, "tapAt");
         return RunStepAsync(StepKind.Screen, "screen.tapAt", DescribePoint(at), () =>
             Engine.PerformAtAsync(at, new PointerAction.Tap(), options?.Timeout, Token(cancellationToken))
         );
@@ -316,12 +320,12 @@ public class Screen
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> for a point that is not finite or is negative.</exception>
     public Task DoubleTapAtAsync(
-        Point point,
+        ScreenPoint point,
         ActionOptions? options = null,
         CancellationToken cancellationToken = default
     )
     {
-        var at = RequirePoint(point, "doubleTapAt");
+        var at = RequireScreenPoint(point, "doubleTapAt");
         return RunStepAsync(StepKind.Screen, "screen.doubleTapAt", DescribePoint(at), () =>
             Engine.PerformAtAsync(at, new PointerAction.DoubleTap(), options?.Timeout, Token(cancellationToken))
         );
@@ -370,11 +374,17 @@ public class Screen
     public Task SwipeAsync(SwipePathOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var from = RequirePoint(options.From, "swipe from");
-        var to = RequirePoint(options.To, "swipe to");
+        var from = RequireScreenPoint(options.From, "swipe from");
+        var to = RequireScreenPoint(options.To, "swipe to");
         var duration = ValidateSwipeDuration(options.Duration);
         return RunStepAsync(StepKind.Screen, "screen.swipe", DescribePoint(from) + " → " + DescribePoint(to), () =>
-            Engine.PerformAtAsync(from, new PointerAction.SwipeTo(to, duration), null, Token(cancellationToken))
+            Engine.PerformAtAsync(
+                from,
+                new PointerAction.SwipeTo(default, duration),
+                null,
+                Token(cancellationToken),
+                to
+            )
         );
     }
 
@@ -391,9 +401,44 @@ public class Screen
             : point;
     }
 
-    /// <summary>A point as the report shows it. Upstream's <c>describePoint</c>.</summary>
-    internal static string DescribePoint(Point point) =>
-        string.Create(System.Globalization.CultureInfo.InvariantCulture, $"({point.X}, {point.Y})");
+    /// <summary>
+    /// Validates a viewport point a test names: non-negative pixels or <c>'0%'</c> through <c>'100%'</c> per coordinate. Upstream's
+    /// <c>requireScreenPoint</c>.
+    /// </summary>
+    internal static ScreenPoint RequireScreenPoint(ScreenPoint? point, string what)
+    {
+        ArgumentNullException.ThrowIfNull(point);
+        return new ScreenPoint(RequireCoordinate(point.X, what), RequireCoordinate(point.Y, what));
+    }
+
+    /// <summary>One coordinate of <see cref="RequireScreenPoint"/>. Upstream's <c>requireCoordinate</c>.</summary>
+    private static ScreenCoordinate RequireCoordinate(ScreenCoordinate value, string what)
+    {
+        if (value.Percentage is { } text)
+        {
+            return Geometry.IsPercentage(value)
+                ? value
+                : throw new TestException(
+                    "INVALID_ARGUMENT",
+                    $"{what} takes a percentage from '0%' through '100%', got {JsonQuote.Of(text)}"
+                );
+        }
+
+        if (!double.IsFinite(value.Pixels))
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"{what} requires a point {{ x, y }} of finite numbers or percentages"
+            );
+        }
+
+        return value.Pixels < 0
+            ? throw new TestException("INVALID_ARGUMENT", $"{what} requires a point {{ x, y }} of non-negative numbers")
+            : value;
+    }
+
+    /// <summary>A point as the report shows it, as written. Upstream's <c>describePoint</c>.</summary>
+    internal static string DescribePoint(ScreenPoint point) => $"({point.X}, {point.Y})";
 
     /// <summary>The shared swipe duration bound: whole milliseconds from 16 through 10000, none named leaving the gesture to the engine's default.</summary>
     internal static TimeSpan? ValidateSwipeDuration(TimeSpan? duration)
@@ -1602,14 +1647,72 @@ public class TapOptions : ClickOptions
     public Point? Position { get; init; }
 }
 
+/// <summary>
+/// Upstream's <c>ScreenCoordinate</c>: CSS pixels, or a percentage of the viewport's width (x) or height (y), <c>'0%'</c> through
+/// <c>'100%'</c>. A <see cref="double"/> converts to pixels and a <see cref="string"/> such as <c>"50%"</c> to a percentage, which is checked
+/// when the call runs, as upstream does.
+/// </summary>
+public readonly struct ScreenCoordinate : IEquatable<ScreenCoordinate>
+{
+    private ScreenCoordinate(double pixels, string? percentage)
+    {
+        Pixels = pixels;
+        Percentage = percentage;
+    }
+
+    internal double Pixels { get; }
+
+    internal string? Percentage { get; }
+
+    /// <summary>CSS pixels.</summary>
+    public static implicit operator ScreenCoordinate(double pixels) => new(pixels, null);
+
+    /// <summary>A percentage of the viewport, <c>"50%"</c>.</summary>
+    public static implicit operator ScreenCoordinate(string percentage)
+    {
+        ArgumentNullException.ThrowIfNull(percentage);
+        return new(0, percentage);
+    }
+
+    /// <inheritdoc />
+    public static bool operator ==(ScreenCoordinate left, ScreenCoordinate right) => left.Equals(right);
+
+    /// <inheritdoc />
+    public static bool operator !=(ScreenCoordinate left, ScreenCoordinate right) => !left.Equals(right);
+
+    /// <inheritdoc />
+    public bool Equals(ScreenCoordinate other) =>
+        Pixels.Equals(other.Pixels) && string.Equals(Percentage, other.Percentage, StringComparison.Ordinal);
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj) => obj is ScreenCoordinate other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode() => HashCode.Combine(Pixels, Percentage);
+
+    /// <summary>The coordinate as written: <c>12.5</c> or <c>50%</c>.</summary>
+    public override string ToString() =>
+        Percentage ?? Pixels.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}
+
+/// <summary>
+/// Upstream's <c>ScreenPoint</c>: a viewport point in pixels, percentages, or both, <c>new ScreenPoint("50%", 120)</c>. A <see cref="Point"/>
+/// converts to one.
+/// </summary>
+public sealed record ScreenPoint(ScreenCoordinate X, ScreenCoordinate Y)
+{
+    /// <summary>A point in CSS pixels.</summary>
+    public static implicit operator ScreenPoint(Point point) => new(point.X, point.Y);
+}
+
 /// <summary>Options for <see cref="Screen.SwipeAsync(SwipePathOptions, CancellationToken)"/>: a swipe along a path between two viewport points. Upstream's <c>SwipePathOptions</c>.</summary>
 public sealed class SwipePathOptions
 {
     /// <summary>Where the finger goes down.</summary>
-    public required Point From { get; init; }
+    public required ScreenPoint From { get; init; }
 
     /// <summary>Where it lifts.</summary>
-    public required Point To { get; init; }
+    public required ScreenPoint To { get; init; }
 
     /// <summary>How long the gesture takes: whole milliseconds from 16 through 10000. Without one the engine's default.</summary>
     public TimeSpan? Duration { get; init; }

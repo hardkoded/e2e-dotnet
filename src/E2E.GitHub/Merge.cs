@@ -209,6 +209,7 @@ internal static class Merge
                         : current.Run.Status,
                 ExitCode = carriedFailure && current.Run.ExitCode == 0 ? 1 : current.Run.ExitCode,
                 StartedAt = lastRun.Run.StartedAt,
+                DurationMs = RunDuration(lastRun.Run) + RunDuration(current.Run),
                 Results = results,
                 Errors = [.. current.Run.Errors, .. carriedErrors],
                 Summary = Summarize(results, current.Run.Summary),
@@ -217,4 +218,8 @@ internal static class Merge
             },
         };
     }
+
+    /// <summary>Reads the duration of a pass. Wall time is used for older reports (upstream's <c>runDuration</c>).</summary>
+    private static long RunDuration(Reports.ReportRun run) =>
+        run.DurationMs ?? (long)(((run.FinishedAt ?? run.StartedAt) - run.StartedAt).TotalMilliseconds);
 }

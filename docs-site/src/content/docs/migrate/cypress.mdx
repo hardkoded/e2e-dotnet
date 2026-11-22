@@ -112,6 +112,7 @@ For xUnit v3, use `E2E.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealMod
 | `have.text`, `contain`, `have.value`, `have.attr`, `have.length`, `not.exist` | `ToHaveTextAsync`, `ToContainTextAsync`, `ToHaveValueAsync`, `ToHaveAttributeAsync`, `ToHaveCountAsync(n)`, `ToHaveCountAsync(0)` |
 | `cy.url().should('include', p)`, `cy.title()` | `Expect.That(Browser).ToHaveURLAsync(new Regex("p"))`, `Expect.That(Browser).ToHaveTitleAsync(t)` |
 | `cy.intercept('/api/users', body)` | `Browser.RouteAsync("**/api/users", route => route.FulfillAsync(new RouteFulfillResponse { Json = body }))`, a glob on the full URL |
+| `cy.intercept('POST', '/api/users', body)` | `Browser.RouteAsync(new RouteMatcher { Method = "POST", Url = "**/api/users" }, route => route.FulfillAsync(new RouteFulfillResponse { Json = body }))` |
 | `cy.on('window:confirm')`, `cy.on('window:alert')` | `await Browser.OnDialogAsync(DialogHandler.Accept)` before the action, `DialogHandler.Dismiss` to cancel |
 | `cy.session` | `[E2ESetup]` and `[E2ESession]` |
 | `cy.task`, `cy.exec`, `cy.request`, `cy.fixture` | .NET code: `HttpClient`, `File`, your database client, a file read such as `File.ReadAllTextAsync` |
@@ -130,7 +131,7 @@ Planned gaps are on the roadmap, and Not yet gaps have no date. Not planned gaps
 | `.invoke()`, `.its()`, `.then($el => ...)`, `.should($el => ...)` | `GetAttributeAsync()`, `TextContentAsync()`, `InputValueAsync()`, else `Browser.EvaluateAsync<T>` |
 | `have.class`, `have.css`, `have.prop`, `be.empty` | `Expect.That(Browser).ToHaveClassAsync(locator, new Regex("..."))`, `Expect.That(locator).ToHaveTextAsync("")`; else read the value with `Browser.EvaluateAsync<T>` |
 | `.trigger()`, `cy.scrollTo()`, `.blur()` | `HoverAsync()`, `DragToAsync()`, `ScrollIntoViewAsync()`, `PressAsync("Tab")`; else `Browser.EvaluateAsync<T>` |
-| `cy.intercept('POST', url)` and other method or header matchers | Check `route.Request.Method` in the handler, else call `route.FallbackAsync()` |
+| `cy.intercept({ headers })` and other header matchers | Check `route.Request.Headers` in the handler, else call `route.FallbackAsync()` |
 | `cy.wait('@alias')`, `.its('request.body')`, `@alias.all` | Start `Browser.WaitForResponseAsync(pattern)` before the action; read the request in a `Browser.RouteAsync` handler |
 | `Cypress.on('uncaught:exception')` | An app error doesn't fail a test. To fail on one, collect `window.onerror` in `Browser.AddInitScriptAsync`, then assert the list is empty with `Browser.EvaluateAsync<T>` |
 | `--browser chrome`, `edge`, `electron`, `before:browser:launch` | `BrowserName.Chromium`, or attach to your own Chrome with `WebEngineOptions.Connect` |

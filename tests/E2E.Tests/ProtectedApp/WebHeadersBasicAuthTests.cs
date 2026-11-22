@@ -99,7 +99,7 @@ public sealed class WebHeadersBasicAuthTests
         var routed = 0;
         // Registered after the header route, so it runs first, as a browser route handler does.
         await ((IBrowserSession)session).RouteAsync(
-            global::E2E.Internal.Routes.Matcher("**/headers"),
+            global::E2E.Internal.Routes.CompilePattern("**/headers").IsMatch,
             route =>
             {
                 routed++;

@@ -40,6 +40,9 @@ internal sealed record ReportRun(
 
     public DateTimeOffset? FinishedAt { get; init; }
 
+    /// <summary>Elapsed run time in milliseconds, excluding intervals when all running workers were held. Null in older reports (upstream's <c>durationMs</c>).</summary>
+    public long? DurationMs { get; init; }
+
     /// <summary>The project the run belongs to: upstream's <c>project</c>.</summary>
     public ReportProject Project { get; init; } = ReportProject.Unknown;
 

@@ -39,8 +39,12 @@ public sealed class ReportV1SchemaTests
     }
 
     [Fact]
-    public void Rejects_the_invalid_fixture() =>
-        Assert.False(ReportSchema.IsValid(ReportSchema.ReadJson("fixtures", "report-v1.invalid.json")));
+    public void Rejects_the_invalid_fixture()
+    {
+        var violations = ReportSchema.Violations(ReportSchema.ReadJson("fixtures", "report-v1.invalid.json"));
+        Assert.NotEmpty(violations);
+        Assert.Contains(violations, each => each.Location == "/run/durationMs" && each.Keyword == "minimum");
+    }
 
     [Fact]
     public void Accepts_optional_runner_cut_retry_decisions_and_rejects_other_types()

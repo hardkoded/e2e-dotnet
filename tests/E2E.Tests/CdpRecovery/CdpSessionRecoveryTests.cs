@@ -61,7 +61,7 @@ public sealed class CdpSessionRecoveryTests
             await other.Locator("h1").EvaluateAsync("node => { node.textContent = 'Wrong tab'; }");
 
             await ((IBrowserSession)session).RouteAsync(
-                global::E2E.Internal.Routes.Matcher("**/kept-route"),
+                global::E2E.Internal.Routes.CompilePattern("**/kept-route").IsMatch,
                 route => route.FulfillAsync(new RouteFulfillResponse { Status = 200, Body = "route kept" }),
                 None
             );

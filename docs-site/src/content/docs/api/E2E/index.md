@@ -161,6 +161,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [RoleOptions](/api/E2E/RoleOptions/) | Role query options. A null state is not checked. |
 | [Screen](/api/E2E/Screen/) | Semantic queries against the current screen. An action or a single-node assertion fails when the query matches more than one node. Narrow it with Filter(TextMatch), First(), Last(), or Nth(int). |
 | [ScreenExpect](/api/E2E/ScreenExpect/) | Matchers on the whole screen: ToHaveScreenshotAsync. |
+| [ScreenPoint](/api/E2E/ScreenPoint/) | Upstream's ScreenPoint: a viewport point in pixels, percentages, or both, new ScreenPoint("50%", 120). A Point converts to one. |
 | [ScreenshotOptions](/api/E2E/ScreenshotOptions/) | Options of ToHaveScreenshotAsync. |
 | [ScriptedModel](/api/E2E/ScriptedModel/) | Returns whatever the callback decides for each request. Records every request. A callback that serves both the act loop and the judge may answer a judgment (a request with a Schema) with Done: passed reads as holds, a failed without the code ASSERTION_INCONCLUSIVE as fails, and a blocked or inconclusive one as inconclusive. Judgment answers it directly. A tool call that names its node by role and name (or testId) reaches the agent as a target id, the one the screens in the request list for it. |
 | [ScrollUntilVisibleOptions](/api/E2E/ScrollUntilVisibleOptions/) | Options for Screen.ScrollUntilVisibleAsync and Locator.ScrollUntilVisibleAsync. |
@@ -217,6 +218,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 
 | Type | Summary |
 | --- | --- |
+| [ScreenCoordinate](/api/E2E/ScreenCoordinate/) | Upstream's ScreenCoordinate: CSS pixels, or a percentage of the viewport's width (x) or height (y), '0%' through '100%'. A double converts to pixels and a string such as "50%" to a percentage, which is checked when the call runs, as upstream does. |
 | [StepVerdict](/api/E2E/StepVerdict/) | Upstream's StepVerdict: how an executor ended the step. Failed means the app did not behave as the step required. Blocked means the environment, the credentials, or the executor's own budget prevented a verdict about the app, and it always carries a blockable code. |
 | [ToolLoopResult](/api/E2E/ToolLoopResult/) | What a tool call answered: the text the model reads, whether the call failed, which the loop counts toward its failure streak, and the screenshot that goes with the text, when there is one (upstream's tool result with a file part). The loop hands the image to the model in a user turn right after the turn's tool results, since a tool message carries text only on every provider the port sends to. |
 

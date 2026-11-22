@@ -305,6 +305,14 @@ public sealed class Device
         );
 
     /// <summary>
+    /// Reads the screen size in the coordinate space of screen taps. Each call takes a fresh snapshot, but a snapshot without bounds
+    /// (a landscape tree, say) returns the size this session already learned, or the logical size a screenshot reports.
+    /// <c>ENGINE_FAILURE</c> only when no size can be determined.
+    /// </summary>
+    public Task<ViewportSize> ViewportAsync(CancellationToken cancellationToken = default) =>
+        RunAsync("device.viewport", "", () => _session.ViewportAsync(cancellationToken));
+
+    /// <summary>
     /// Puts a foldable simulator or emulator in a hinge pose. On the iPhone Duo it resolves once agent-device reads the
     /// angle back from CoreDevice at that pose, typically 10 to 16 seconds later. <see cref="FoldPose.Closed"/> lights
     /// the outer display, <see cref="FoldPose.HalfOpen"/> (a 130 degree book there) and <see cref="FoldPose.Open"/>

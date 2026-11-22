@@ -39,7 +39,7 @@ public sealed class Browser
     private TimeSpan? _lifecycleTimeout;
     private readonly Func<CancellationToken> _token;
     private readonly Action _verified;
-    private readonly List<(object Pattern, Func<IBrowserRoute, Task> Handler)> _routes = [];
+    private readonly List<(NormalizedRoutePattern Pattern, Func<IBrowserRoute, Task> Handler)> _routes = [];
 
     internal Browser(
         IEngineSession session,
@@ -318,12 +318,7 @@ public sealed class Browser
     )
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        return WaitForResponseCoreAsync(
-            pattern,
-            () => Routes.CompilePattern(pattern).IsMatch,
-            timeout,
-            cancellationToken
-        );
+        return WaitForResponseCoreAsync(pattern, timeout, cancellationToken);
     }
 
     /// <summary>Waits for a response whose URL matches <paramref name="pattern"/>. The timeout bounds the match only, and defaults to the action timeout; zero waits for the test timeout.</summary>
@@ -334,7 +329,22 @@ public sealed class Browser
     )
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        return WaitForResponseCoreAsync(pattern, () => pattern.IsMatch, timeout, cancellationToken);
+        return WaitForResponseCoreAsync(pattern, timeout, cancellationToken);
+    }
+
+    /// <summary>
+    /// Waits for a response to a request of one HTTP method whose URL matches. The method is case-insensitive, and the URL keeps the glob
+    /// or <see cref="Regex"/> grammar of the plain overloads. The timeout bounds the match only, and defaults to the action timeout; zero
+    /// waits for the test timeout.
+    /// </summary>
+    public Task<WebResponse> WaitForResponseAsync(
+        RouteMatcher pattern,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return WaitForResponseCoreAsync(pattern, timeout, cancellationToken);
     }
 
     /// <summary>
@@ -360,6 +370,21 @@ public sealed class Browser
         return RouteCoreAsync(pattern, handler, cancellationToken);
     }
 
+    /// <summary>
+    /// Adds a network route narrowed to one HTTP method. The method is case-insensitive and matches exactly that method: <c>GET</c> does
+    /// not answer <c>HEAD</c>. A request of another method steps aside for the routes registered before this one, and then for the
+    /// network, as if the URL had not matched. See <see cref="RouteAsync(string, Func{WebRoute, Task}, CancellationToken)"/>.
+    /// </summary>
+    public Task RouteAsync(
+        RouteMatcher pattern,
+        Func<WebRoute, Task> handler,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return RouteCoreAsync(pattern, handler, cancellationToken);
+    }
+
     /// <summary>Removes every route added with the same glob.</summary>
     public Task UnrouteAsync(string pattern, CancellationToken cancellationToken = default)
     {
@@ -369,6 +394,16 @@ public sealed class Browser
 
     /// <summary>Removes every route added with a regex of the same source and options.</summary>
     public Task UnrouteAsync(Regex pattern, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return UnrouteCoreAsync(pattern, cancellationToken);
+    }
+
+    /// <summary>
+    /// Removes every route added with the same method (case-insensitive) and the same glob, or the same regex source and options. It does
+    /// not URL-match registered routes, so a plain URL pattern leaves a method-narrowed route in place.
+    /// </summary>
+    public Task UnrouteAsync(RouteMatcher pattern, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pattern);
         return UnrouteCoreAsync(pattern, cancellationToken);
@@ -748,15 +783,19 @@ public sealed class Browser
 
     private Task<WebResponse> WaitForResponseCoreAsync(
         object pattern,
-        Func<Func<string, bool>> matcher,
         TimeSpan? timeout,
         CancellationToken cancellationToken
     ) => RunStepAsync(StepKind.Resource, "browser.waitForResponse", Routes.PatternLabel(pattern), async () =>
         {
+            var wirePattern = Routes.ToRoutePattern("browser.waitForResponse", pattern);
             var session = Require("waitForResponse");
             var budget = StepBudget(timeout, "browser.waitForResponse");
             var response = await session
-                .WaitForResponseAsync(matcher(), budget, Token(cancellationToken))
+                .WaitForResponseAsync(
+                    (url, method) => Routes.UrlMatches(wirePattern, url) && Routes.MethodMatches(wirePattern, method),
+                    budget,
+                    Token(cancellationToken)
+                )
                 .ConfigureAwait(false);
             return new WebResponse(response, _actionTimeout, _token);
         });
@@ -771,9 +810,18 @@ public sealed class Browser
 
     private async Task RouteStepAsync(object pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken)
     {
+        var wirePattern = Routes.ToRoutePattern("browser.route", pattern);
         var session = Require("route");
         async Task Decide(IBrowserRoute engineRoute)
         {
+            // A route narrowed to another method steps aside for the routes registered before it, exactly as if its URL
+            // had not matched: the request still reaches an older route, or the network.
+            if (!Routes.MethodMatches(wirePattern, engineRoute.Request.Method))
+            {
+                await engineRoute.FallbackAsync().ConfigureAwait(false);
+                return;
+            }
+
             var route = new WebRoute(
                 engineRoute,
                 url => Routes.Resolve(_baseUrl, url),
@@ -791,19 +839,27 @@ public sealed class Browser
             }
         }
 
-        await session.RouteAsync(Routes.Matcher(pattern), Decide, Token(cancellationToken)).ConfigureAwait(false);
-        _routes.Add((pattern, Decide));
+        await session
+            .RouteAsync(url => Routes.UrlMatches(wirePattern, url), Decide, Token(cancellationToken))
+            .ConfigureAwait(false);
+        _routes.Add((wirePattern, Decide));
     }
 
     private Task UnrouteCoreAsync(object pattern, CancellationToken cancellationToken) =>
         RunStepAsync(StepKind.Resource, "browser.unroute", Routes.PatternLabel(pattern), () =>
-            RemoveRoutesAsync("unroute", stored => Routes.PatternsEqual(stored.Pattern, pattern), cancellationToken)
-        );
+        {
+            var wirePattern = Routes.ToRoutePattern("browser.unroute", pattern);
+            return RemoveRoutesAsync(
+                "unroute",
+                stored => Routes.PatternsEqual(stored.Pattern, wirePattern),
+                cancellationToken
+            );
+        });
 
     /// <summary>Unregisters the stored routes <paramref name="match"/> selects, newest first.</summary>
     private async Task RemoveRoutesAsync(
         string operation,
-        Func<(object Pattern, Func<IBrowserRoute, Task> Handler), bool> match,
+        Func<(NormalizedRoutePattern Pattern, Func<IBrowserRoute, Task> Handler), bool> match,
         CancellationToken cancellationToken
     )
     {
@@ -912,6 +968,24 @@ public sealed class WebRoute
 
         Decided = true;
     }
+}
+
+/// <summary>
+/// A URL pattern narrowed to one HTTP method, for <see cref="Browser.RouteAsync(RouteMatcher, Func{WebRoute, Task}, CancellationToken)"/>,
+/// <see cref="Browser.UnrouteAsync(RouteMatcher, CancellationToken)"/> and
+/// <see cref="Browser.WaitForResponseAsync(RouteMatcher, TimeSpan?, CancellationToken)"/>. Set <see cref="Method"/> and exactly one of
+/// <see cref="Url"/> and <see cref="UrlRegex"/>; a missing or invalid part fails with <c>INVALID_ARGUMENT</c>.
+/// </summary>
+public sealed record RouteMatcher
+{
+    /// <summary>The HTTP method to match, case-insensitive: <c>"POST"</c> and <c>"post"</c> are the same.</summary>
+    public string? Method { get; init; }
+
+    /// <summary>The URL pattern, a string using the same glob grammar as a plain route pattern. <see cref="UrlRegex"/> is the regex form.</summary>
+    public string? Url { get; init; }
+
+    /// <summary>The URL pattern as a <see cref="Regex"/>. <c>RouteAsync</c> and <c>WaitForResponseAsync</c> match requests against it; <c>UnrouteAsync</c> compares it structurally.</summary>
+    public Regex? UrlRegex { get; init; }
 }
 
 /// <summary>A response <see cref="Browser.WaitForResponseAsync(string, TimeSpan?, CancellationToken)"/> matched.</summary>

@@ -806,6 +806,7 @@ internal static partial class ReportWire
             ("exitCode", run.ExitCode ?? 0),
             ("startedAt", Timestamp(run.StartedAt ?? DateTimeOffset.UnixEpoch)),
             ("finishedAt", run.FinishedAt is { } finished ? Timestamp(finished) : null),
+            ("durationMs", run.DurationMs),
             (
                 "project",
                 new JsonObject { ["id"] = Clip(run.Project.Id, 256), ["configDigest"] = run.Project.ConfigDigest }

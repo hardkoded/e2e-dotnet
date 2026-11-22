@@ -316,7 +316,11 @@ taps a viewport point with no locator, `Screen.DoubleTapAtAsync(new Point(x, y))
 double-taps one (the web engine sends a primary-button double click), and `Screen.SwipeAsync(new SwipePathOptions
 { From = ..., To = ..., Duration = ... })` drags between two viewport points
 (`Duration` is a whole number of milliseconds from 16 through 10000). A point must
-be finite and not negative. Only an engine that declares pointer actions takes a
+be finite and not negative. Viewport points also take percentages from `"0%"` through
+`"100%"`, rounded to the nearest pixel: `new ScreenPoint("50%", "50%")`, or one of each,
+`new ScreenPoint("50%", 120)`; a percentage reads the screen once for its size, and a
+string that is not a percentage is `INVALID_ARGUMENT`. `TapAsync(new TapOptions { Position = ... })`
+stays in pixels, so does the agent. Prefer a locator; a point moves with the layout. Only an engine that declares pointer actions takes a
 point: the web engine does, and so does a device; the others fail with
 `UNSUPPORTED_CAPABILITY`. The agent has no `long_press`, `right_click`, `hover`, or
 `drag` tool yet.
@@ -668,7 +672,9 @@ misses.
   read. Start it before the step that sends the request, and await it after.
   This includes the first `GotoAsync` or `App.OpenAsync`.
 - `RouteAsync(pattern, handler)`, `UnrouteAsync(pattern)`: intercept
-  requests, newest route first. `route.Request` has `Url`, `Method`,
+  requests, newest route first; `pattern` is a URL pattern or a
+  `new RouteMatcher { Method, Url | UrlRegex }` for one method.
+  `route.Request` has `Url`, `Method`,
   `Headers`, `PostData`. `route.FetchAsync()` reads upstream without deciding
   the route and returns `Url`, `Status`, `Headers`, `BodyAsync()`, `TextAsync()`,
   `JsonAsync<T>()`; redirects are not followed. Hand binary bodies on with
@@ -690,7 +696,15 @@ misses.
 - A `RouteAsync`, `UnrouteAsync`, or `WaitForResponseAsync` pattern is a
   glob string or a `Regex` matched against the full URL (`*` stays within
   one path segment, `**` crosses `/`, `?` is one character, `\` escapes the
-  next one).
+  next one), or a `RouteMatcher` to match one HTTP method too,
+  case-insensitively (`Method = "POST"` with `Url` as the glob or `UrlRegex`
+  as the `Regex`). A method matches exactly that method: `GET` does not
+  answer `HEAD`. A route narrowed to another method steps aside for the
+  routes registered before it, then the network. `UnrouteAsync` removes
+  routes registered with the same pattern, method included, rather than
+  URL-matching them. A `RouteMatcher` with a missing or invalid part
+  (no `Method`, no `Url`, a `Method` that is not an HTTP method, both `Url`
+  and `UrlRegex`) is `INVALID_ARGUMENT`.
 - `CookiesAsync()`, `SetCookiesAsync([...])`: a target is an http(s) URL,
   relative to the base URL, or a domain. `SetCookiesAsync` refuses a cookie
   URL that is not http(s), `about:blank` included, with `POLICY_DENIED`.

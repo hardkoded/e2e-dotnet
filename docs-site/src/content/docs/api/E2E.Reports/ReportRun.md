@@ -59,6 +59,20 @@ The change the test filters judged, or why none ran. Null when the run has no fi
 
 **Value:** [ReportChanges](/api/E2E.Reports/ReportChanges/)
 
+<a id="E2E_Reports_ReportRun_DurationMs_"></a>
+<a id="E2E_Reports_ReportRun_DurationMs"></a>
+
+### DurationMs
+
+Elapsed run time in milliseconds, excluding intervals when all running workers were held. May be absent in older reports.
+
+```csharp
+public long? DurationMs { get; init; }
+```
+
+
+**Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
+
 <a id="E2E_Reports_ReportRun_Environment_"></a>
 <a id="E2E_Reports_ReportRun_Environment"></a>
 
