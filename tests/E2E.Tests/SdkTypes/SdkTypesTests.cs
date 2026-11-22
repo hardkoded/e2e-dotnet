@@ -179,9 +179,7 @@ public sealed class SdkTypesTests
     [Fact]
     public void Partial_blur_takes_action_options_and_every_locator_action_kind_is_known()
     {
-        var blur = Assert.Single(
-            typeof(Locator).GetMethods().Where(method => method.Name == nameof(Locator.BlurAsync))
-        );
+        var blur = Assert.Single(typeof(Locator).GetMethods(), method => method.Name == nameof(Locator.BlurAsync));
         Assert.Equal(typeof(Task), blur.ReturnType);
         Assert.Equal(
             [typeof(ActionOptions), typeof(CancellationToken)],
