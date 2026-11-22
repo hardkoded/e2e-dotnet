@@ -66,9 +66,9 @@ public abstract partial class E2ETest : E2EFixture
     /// </summary>
     public void Fixme(bool condition = true, string? reason = null)
     {
-        if (E2E.Internal.Skip.FixmeRunningTest(CurrentSession, condition, reason) is { } skipReason)
+        if (E2E.Internal.Skip.FixmeRunningTest(CurrentSession, condition, reason) is { } skip)
         {
-            Assert.Ignore(skipReason);
+            Assert.Ignore(skip.Reason);
         }
     }
 

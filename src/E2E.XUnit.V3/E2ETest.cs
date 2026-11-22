@@ -91,9 +91,9 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     /// </summary>
     public void Fixme(bool condition = true, string? reason = null)
     {
-        if (E2E.Internal.Skip.FixmeRunningTest(CurrentSession, condition, reason) is { } skipReason)
+        if (E2E.Internal.Skip.FixmeRunningTest(CurrentSession, condition, reason) is { } skip)
         {
-            throw new InvalidOperationException(RunSelection.DynamicSkipToken + skipReason);
+            throw new InvalidOperationException(RunSelection.DynamicSkipToken + skip.Reason);
         }
     }
 

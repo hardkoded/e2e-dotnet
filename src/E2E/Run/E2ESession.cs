@@ -1209,10 +1209,10 @@ public sealed class E2ESession : IAsyncDisposable
     internal string? ExpectedFailure { get; set; }
 
     /// <summary>
-    /// The skip reason of a test that skipped itself with <c>Fixme</c>; null when it did not. Its skip reports the cause <c>fixme</c> and not
-    /// <c>explicit</c> (upstream's <c>RuntimeSkip.cause</c>), with this reason as the host's own skip message may carry a prefix.
+    /// The runtime skip of a test that skipped itself with <c>Fixme</c>; null when it did not. Its skip reports the cause <c>fixme</c> and not
+    /// <c>explicit</c> (upstream's <c>RuntimeSkip.cause</c>), with its reason as the host's own skip message may carry a prefix.
     /// </summary>
-    internal string? FixmeReason { get; set; }
+    internal RuntimeSkip? RuntimeSkip { get; set; }
 
     /// <summary>Whether this is a setup test: the one that declares the sessions others restore.</summary>
     internal bool IsSetup => _sessions is { Staging: not null };
@@ -1655,8 +1655,8 @@ public sealed class E2ESession : IAsyncDisposable
                 _cleanupErrors,
                 _expectedFailure,
                 _hookErrors,
-                FixmeReason is null ? "explicit" : "fixme",
-                FixmeReason
+                Skip.RuntimeSkipCause(RuntimeSkip?.Cause),
+                RuntimeSkip?.Reason
             );
             if (_hostedClose is not null)
             {
