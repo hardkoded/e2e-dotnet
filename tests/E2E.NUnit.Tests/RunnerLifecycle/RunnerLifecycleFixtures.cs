@@ -29,7 +29,7 @@ internal static class RunnerLifecycleResults
 }
 
 /// <summary>The runtime <c>test.fixme</c> tests of upstream's <c>runner-lifecycle.test.ts</c>, as an NUnit body would write them.</summary>
-[Explicit("Run by ReportsTestFixmeTestsSkippedTests")]
+[Explicit("Run by RunnerLifecycleTests")]
 public sealed class FixmeFixture : E2ETest
 {
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
@@ -63,7 +63,7 @@ public sealed class FixmeFixture : E2ETest
 }
 
 /// <summary><c>describe('hooked')</c>: a <c>[SetUp]</c> marks the test fixme, as upstream's <c>beforeEach</c> does.</summary>
-[Explicit("Run by ReportsTestFixmeTestsSkippedTests")]
+[Explicit("Run by RunnerLifecycleTests")]
 public sealed class FixmeFromHookFixture : E2ETest
 {
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(

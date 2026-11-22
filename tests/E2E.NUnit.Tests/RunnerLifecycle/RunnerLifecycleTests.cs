@@ -13,7 +13,7 @@ namespace E2E.NUnit.Tests.RunnerLifecycle;
 /// <c>test.fixme(title, fn)</c> (the port has no registration API; a host attribute skips a test as <c>explicit</c>), the setup test that may not skip
 /// (a setup test needs a session consumer and the run's exit code), and reads each result from the fixture's <c>report.json</c>.
 /// </summary>
-public sealed class ReportsTestFixmeTestsSkippedTests
+public sealed class RunnerLifecycleTests
 {
     [OneTimeSetUp]
     public void ClearResults() => RunnerLifecycleResults.Clear();
