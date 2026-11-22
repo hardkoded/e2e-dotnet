@@ -84,6 +84,20 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     }
 
     /// <summary>
+    /// Skips the running test as fixme when <paramref name="condition"/> holds (upstream's <c>test.fixme(condition, reason)</c>). The skip reports
+    /// the cause <c>fixme</c> and the reason <c>fixme</c>, or <c>fixme: &lt;reason&gt;</c> for a reason that is not blank. Like <c>Assert.Skip</c>
+    /// it ends the test method at once. A call from a setup test fails it with the message "Fixme() cannot skip a setup test" (the report code is <c>TEST_FAILED</c>: the host keeps only the message); a call outside a test throws
+    /// <see cref="InvalidOperationException"/> where upstream has <c>COLLECTION_ERROR</c>.
+    /// </summary>
+    public void Fixme(bool condition = true, string? reason = null)
+    {
+        if (E2E.Internal.Skip.FixmeRunningTest(CurrentSession, condition, reason) is { } skipReason)
+        {
+            throw new InvalidOperationException(RunSelection.DynamicSkipToken + skipReason);
+        }
+    }
+
+    /// <summary>
     /// Changes the running test's timeout from its body or a set-up, counted from the start of the attempt like the configured
     /// <c>timeout</c>, which it replaces for this attempt (upstream's <c>test.setTimeout(timeout)</c>). A timeout shorter than the time already
     /// spent times the test out at once. A timeout that is not a positive whole number of milliseconds, or above 2147483647, and a call from code
