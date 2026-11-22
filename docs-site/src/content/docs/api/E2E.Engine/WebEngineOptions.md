@@ -76,7 +76,7 @@ public BrowserName BrowserName { get; init; }
 
 The browser the engine launches: Chromium (the default), Firefox, or WebKit. .NET-only split of upstream's
 `browser` option, which is a name or a provider: the name is here and the provider is [Browser](#E2E_Engine_WebEngineOptions_Browser).
-[Connect](#E2E_Engine_WebEngineOptions_Connect) and a provider attach over CDP, so they need Chromium.
+[Connect](#E2E_Engine_WebEngineOptions_Connect) and a provider attach over CDP, so they need Chromium. A value the enum does not define is `INVALID_CONFIG`.
 
 **Value:** [BrowserName](/api/E2E.Engine/BrowserName/)
 
@@ -307,6 +307,6 @@ public WebViewport? Viewport { get; init; }
 
 
 Initial viewport of every attempt's page; default 1280 by 720. &lt;a href="https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/null"&gt;null&lt;/a&gt;
-emulates no size: the page fills the browser window, whatever size it has.
+emulates no size: the page fills the browser window, whatever size it has. A side below 1 is `INVALID_CONFIG`.
 
 **Value:** [WebViewport](/api/E2E.Engine/WebViewport/)
