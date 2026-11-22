@@ -89,7 +89,7 @@ internal sealed class SessionCatalog
         string projectRoot,
         string attemptDir,
         Uri? appBase = null,
-        SessionRecorder? recorder = null,
+        IRecordingControls? recorder = null,
         string? testRan = null,
         TestLineFills? fills = null,
         IReadOnlyCollection<string>? actionKinds = null,
@@ -477,7 +477,7 @@ internal sealed class SessionCatalog
         // When the engine records video, start_recording and stop_recording follow locate, as upstream's catalog lists them.
         if (recorder is not null && capabilities.HasFlag(EngineCapabilities.Video))
         {
-            tools.AddRange(recorder.Tools());
+            tools.AddRange(Recording.RecordingTools(recorder));
         }
 
         Add("test_lines", lines.Tool());

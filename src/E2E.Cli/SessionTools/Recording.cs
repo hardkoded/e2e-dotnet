@@ -20,6 +20,16 @@ internal sealed record FinishedRecording(
     bool Tainted
 );
 
+/// <summary>The recording operations the session tools call (upstream's <c>RecordingControls</c>).</summary>
+internal interface IRecordingControls
+{
+    /// <summary>Starts a recording; a recording already running is reported, not restarted.</summary>
+    Task<string> StartAsync(string? name, CancellationToken cancellationToken = default);
+
+    /// <summary>Stops the running recording; null when nothing records.</summary>
+    Task<FinishedRecording?> StopAsync(CancellationToken cancellationToken = default);
+}
+
 /// <summary>
 /// Video recordings of a live session (upstream's <c>session-tools/recording.ts</c>). A session does not record by itself: the coding agent starts
 /// one when the part worth watching begins and stops it when that part is over, as many times as it likes. Each recording is the engine's
@@ -33,7 +43,7 @@ internal sealed partial class SessionRecorder(
     string outDir,
     TimeSpan timeout,
     Func<bool> tainted
-) : IDisposable
+) : IRecordingControls, IDisposable
 {
     private readonly SemaphoreSlim _queue = new(1, 1);
     private ActiveRecording? _active;
@@ -151,78 +161,6 @@ internal sealed partial class SessionRecorder(
         return string.Join('\n', lines);
     }
 
-    /// <summary>The session's <c>start_recording</c> and <c>stop_recording</c> tools (upstream's <c>recordingTools</c>).</summary>
-    public IReadOnlyList<KeyValuePair<string, CatalogTool>> Tools() =>
-        [
-            new(
-                "start_recording",
-                new CatalogTool
-                {
-                    Description =
-                        "Start recording a video of the app, for a person to watch: a demo for a pull request, or evidence of a bug. Everything on screen until stop_recording is in it, unmasked. One recording at a time; start and stop as many as you need.",
-                    InputSchema = JsonSerializer.SerializeToElement(
-                        new JsonObject
-                        {
-                            ["type"] = "object",
-                            ["properties"] = new JsonObject
-                            {
-                                ["name"] = new JsonObject
-                                {
-                                    ["type"] = "string",
-                                    ["pattern"] = "^[A-Za-z0-9][A-Za-z0-9_-]*$",
-                                    ["maxLength"] = 64,
-                                    ["description"] = "Short name for the file, e.g. \"checkout-flow\"",
-                                },
-                            },
-                            ["additionalProperties"] = false,
-                        }
-                    ),
-                    Execute = async (args, token) =>
-                    {
-                        var name =
-                            args.ValueKind == JsonValueKind.Object
-                            && args.TryGetProperty("name", out var given)
-                            && given.ValueKind == JsonValueKind.String
-                                ? given.GetString()
-                                : null;
-                        if (name is not null && (name.Length > 64 || !ValidName().IsMatch(name)))
-                        {
-                            // The argument check ignores a schema's pattern, so the name is checked here, worded as the call's own argument errors are.
-                            throw new ConfigurationException(
-                                "INVALID_ARGUMENT",
-                                "call start_recording: name: letters, digits, \"-\", and \"_\" only, starting with a letter or digit, up to 64; tools {tool: \"start_recording\"} shows its arguments"
-                            );
-                        }
-
-                        return await StartAsync(name, token).ConfigureAwait(false);
-                    },
-                }
-            ),
-            new(
-                "stop_recording",
-                new CatalogTool
-                {
-                    Description =
-                        "Stop the running recording and save it: returns the absolute path of each video file, ready to attach to a pull request.",
-                    InputSchema = JsonSerializer.SerializeToElement(
-                        new
-                        {
-                            type = "object",
-                            properties = new { },
-                            additionalProperties = false,
-                        }
-                    ),
-                    Execute = async (_, token) =>
-                    {
-                        var recording = await StopAsync(token).ConfigureAwait(false);
-                        return recording is null
-                            ? "Nothing is recording; start_recording starts a recording."
-                            : Describe(recording);
-                    },
-                }
-            ),
-        ];
-
     private static string Describe(int index, string? name) =>
         $"Recording {index.ToString(CultureInfo.InvariantCulture)}" + (name is null ? "" : $" \"{name}\"");
 
@@ -298,9 +236,6 @@ internal sealed partial class SessionRecorder(
         return destination;
     }
 
-    [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9_-]*\z")]
-    private static partial Regex ValidName();
-
     /// <summary>A recording the engine is capturing. <see cref="Segments"/> is set once the engine stopped it: what it wrote, still to be moved.</summary>
     private sealed record ActiveRecording(int Index, string? Name, DateTimeOffset StartedAt)
     {
@@ -308,4 +243,83 @@ internal sealed partial class SessionRecorder(
 
         public DateTimeOffset StoppedAt { get; set; }
     }
+}
+
+/// <summary>Owner of the session's recording tools, as upstream's <c>recording.ts</c> owns <c>recordingTools</c>.</summary>
+internal static partial class Recording
+{
+    /// <summary>The session's <c>start_recording</c> and <c>stop_recording</c> tools (upstream's <c>recordingTools</c>).</summary>
+    public static IReadOnlyList<KeyValuePair<string, CatalogTool>> RecordingTools(IRecordingControls recorder) =>
+        [
+            new(
+                "start_recording",
+                new CatalogTool
+                {
+                    Description =
+                        "Start recording a video of the app, for a person to watch: a demo for a pull request, or evidence of a bug. Everything on screen until stop_recording is in it, unmasked. One recording at a time; start and stop as many as you need.",
+                    InputSchema = JsonSerializer.SerializeToElement(
+                        new JsonObject
+                        {
+                            ["type"] = "object",
+                            ["properties"] = new JsonObject
+                            {
+                                ["name"] = new JsonObject
+                                {
+                                    ["type"] = "string",
+                                    ["pattern"] = "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+                                    ["maxLength"] = 64,
+                                    ["description"] = "Short name for the file, e.g. \"checkout-flow\"",
+                                },
+                            },
+                            ["additionalProperties"] = false,
+                        }
+                    ),
+                    Execute = async (args, token) =>
+                    {
+                        var name =
+                            args.ValueKind == JsonValueKind.Object
+                            && args.TryGetProperty("name", out var given)
+                            && given.ValueKind == JsonValueKind.String
+                                ? given.GetString()
+                                : null;
+                        if (name is not null && (name.Length > 64 || !ValidName().IsMatch(name)))
+                        {
+                            // The argument check ignores a schema's pattern, so the name is checked here, worded as the call's own argument errors are.
+                            throw new ConfigurationException(
+                                "INVALID_ARGUMENT",
+                                "call start_recording: name: letters, digits, \"-\", and \"_\" only, starting with a letter or digit, up to 64; tools {tool: \"start_recording\"} shows its arguments"
+                            );
+                        }
+
+                        return await recorder.StartAsync(name, token).ConfigureAwait(false);
+                    },
+                }
+            ),
+            new(
+                "stop_recording",
+                new CatalogTool
+                {
+                    Description =
+                        "Stop the running recording and save it: returns the absolute path of each video file, ready to attach to a pull request.",
+                    InputSchema = JsonSerializer.SerializeToElement(
+                        new
+                        {
+                            type = "object",
+                            properties = new { },
+                            additionalProperties = false,
+                        }
+                    ),
+                    Execute = async (_, token) =>
+                    {
+                        var recording = await recorder.StopAsync(token).ConfigureAwait(false);
+                        return recording is null
+                            ? "Nothing is recording; start_recording starts a recording."
+                            : SessionRecorder.Describe(recording);
+                    },
+                }
+            ),
+        ];
+
+    [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9_-]*\z")]
+    private static partial Regex ValidName();
 }
