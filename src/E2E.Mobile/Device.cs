@@ -305,8 +305,9 @@ public sealed class Device
         );
 
     /// <summary>
-    /// Reads the screen size in the coordinate space of screen taps, fresh on each call. <c>ENGINE_FAILURE</c> when the device's
-    /// screen size cannot be determined.
+    /// Reads the screen size in the coordinate space of screen taps. Each call takes a fresh snapshot, but a snapshot without bounds
+    /// (a landscape tree, say) returns the size this session already learned, or the logical size a screenshot reports.
+    /// <c>ENGINE_FAILURE</c> only when no size can be determined.
     /// </summary>
     public Task<ViewportSize> ViewportAsync(CancellationToken cancellationToken = default) =>
         RunAsync("device.viewport", "", () => _session.ViewportAsync(cancellationToken));

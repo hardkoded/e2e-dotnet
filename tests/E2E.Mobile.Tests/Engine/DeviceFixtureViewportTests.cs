@@ -21,7 +21,8 @@ public sealed class DeviceFixtureViewportTests
     [Theory]
     [InlineData(MobilePlatform.Ios)]
     [InlineData(MobilePlatform.Android)]
-    public async Task Reads_the_platform_viewport_as_a_recorded_resource_without_capturing_pixels(
+    // Partial: upstream also asserts `declared.viewport` is `{ kind: 'resource' }`; the harness here has no recorder to read the declared step kind back.
+    public async Task Partial_Reads_the_platform_viewport_as_a_recorded_resource_without_capturing_pixels(
         MobilePlatform platform
     )
     {
@@ -95,6 +96,63 @@ public sealed class DeviceFixtureViewportTests
         var failure = await Assert.ThrowsAsync<EngineException>(() => session.Device.ViewportAsync());
         Assert.Equal("ENGINE_FAILURE", failure.Code);
         Assert.Contains("viewport is unknown", failure.Message);
+    }
+
+    // Partial: upstream also changes the operation's timeout between two calls and expects the second call to read the new budget.
+    // Here the budget is the session's ActionTimeout, fixed when the attempt starts, so only the shared-budget half is checked.
+    [Fact]
+    public async Task Partial_Shares_one_action_budget_between_snapshot_and_screenshot()
+    {
+        var h = Harness.Create(pinned: false);
+        var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(100));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+        {
+            h.Clock.Advance(TimeSpan.FromMilliseconds(60));
+            return new JsonObject { ["nodes"] = new JsonArray() };
+        });
+        h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, async (_, token) =>
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(400), h.Clock, token);
+            return new JsonObject { ["logicalWidth"] = 390, ["logicalHeight"] = 844 };
+        });
+
+        var read = session.Device.ViewportAsync();
+        for (var i = 0; i < 100 && !read.IsCompleted; i++)
+        {
+            h.Clock.Advance(TimeSpan.FromMilliseconds(20));
+            await Task.Delay(10);
+        }
+
+        var timedOut = await Assert.ThrowsAsync<EngineException>(() => read);
+        Assert.Equal("OPERATION_TIMEOUT", timedOut.Code);
+        Assert.Contains("device.viewport", timedOut.Message);
+    }
+
+    [Fact]
+    public async Task Cancels_a_pending_read_and_follows_the_same_fixture_into_a_fresh_teardown_signal()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var started = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
+        {
+            started.TrySetResult();
+            await release.Task;
+            return FakeDeviceClient.SettingsSnapshot();
+        });
+        using var first = new CancellationTokenSource();
+        var cancelled = session.Device.ViewportAsync(first.Token);
+        await started.Task;
+        await first.CancelAsync();
+        Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => cancelled)).Code);
+        release.SetResult();
+        var before = h.Fake.Calls.Count;
+        await Assert.ThrowsAnyAsync<Exception>(() => session.Device.ViewportAsync(first.Token));
+        Assert.Equal(before, h.Fake.Calls.Count);
+
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
+        Assert.Equal(new ViewportSize(390, 844), await session.Device.ViewportAsync(CancellationToken.None));
     }
 
     [Fact]
