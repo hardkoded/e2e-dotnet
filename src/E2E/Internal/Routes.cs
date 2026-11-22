@@ -9,6 +9,15 @@ using System.Text.RegularExpressions;
 
 namespace E2E.Internal;
 
+/// <summary>A validated route pattern: one URL pattern (a glob string or a <see cref="Regex"/>), optionally narrowed to one HTTP method.</summary>
+/// <param name="Method">Uppercased HTTP method, or <c>null</c> when every method matches.</param>
+/// <param name="Url">The glob string or <see cref="Regex"/>.</param>
+internal sealed record NormalizedRoutePattern(string? Method, object Url)
+{
+    /// <summary>The URL test, compiled once so a request does not rebuild the glob.</summary>
+    public Regex UrlTest { get; } = Url as Regex ?? Routes.CompilePattern((string)Url);
+}
+
 internal static partial class Routes
 {
     public static string PathOf(string url)
@@ -142,13 +151,84 @@ internal static partial class Routes
         return new Regex(source.Append('$').ToString(), RegexOptions.CultureInvariant);
     }
 
-    /// <summary>The URL test for a route pattern, a glob string (<see cref="CompilePattern"/>, compiled once) or a <see cref="Regex"/>.</summary>
-    public static Func<string, bool> Matcher(object pattern) =>
-        pattern is Regex regex ? regex.IsMatch : CompilePattern((string)pattern).IsMatch;
+    /// <summary>
+    /// Validates a route pattern (upstream's <c>toRoutePattern</c>): a glob string or <see cref="Regex"/>, or a
+    /// <see cref="RouteMatcher"/> where <c>Method</c> is one HTTP method and the URL keeps the glob/regex grammar.
+    /// The method is normalized to uppercase. <paramref name="api"/> names the calling member in errors.
+    /// </summary>
+    public static NormalizedRoutePattern ToRoutePattern(string api, object pattern)
+    {
+        if (pattern is string or Regex)
+        {
+            return new NormalizedRoutePattern(null, pattern);
+        }
 
-    /// <summary>Structural equality for route patterns, used by unroute: the same glob, or the same regex source and options.</summary>
-    public static bool PatternsEqual(object a, object b) =>
-        (a, b) switch
+        if (pattern is not RouteMatcher matcher)
+        {
+            throw new TestException("INVALID_ARGUMENT", api + " pattern must be a string, RegExp, or { method, url }");
+        }
+
+        if (matcher.Method is null && matcher.Url is null && matcher.UrlRegex is null)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                api + " pattern must be a string, RegExp, or { method, url }; got an object"
+            );
+        }
+
+        if (matcher.Method is null)
+        {
+            throw new TestException("INVALID_ARGUMENT", api + " pattern requires method");
+        }
+
+        if (!HttpMethodPattern().IsMatch(matcher.Method))
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                api
+                    + " pattern method must be an HTTP method such as \"POST\"; got "
+                    + JsonSerializer.Serialize(matcher.Method, QuoteOptions)
+            );
+        }
+
+        if (
+            matcher.Method.Contains('*', StringComparison.Ordinal)
+            || matcher.Method.Contains('|', StringComparison.Ordinal)
+        )
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                api + " pattern method is one HTTP method; use a plain URL pattern to match every method"
+            );
+        }
+
+        if (matcher.Url is null && matcher.UrlRegex is null)
+        {
+            throw new TestException("INVALID_ARGUMENT", api + " pattern requires url");
+        }
+
+        if (matcher.Url is not null && matcher.UrlRegex is not null)
+        {
+            throw new TestException("INVALID_ARGUMENT", api + " pattern url must be a string or RegExp, not both");
+        }
+
+        return new NormalizedRoutePattern(
+            matcher.Method.ToUpperInvariant(),
+            matcher.UrlRegex is not null ? matcher.UrlRegex : matcher.Url!
+        );
+    }
+
+    /// <summary>Matches a URL against the URL half of a validated route pattern, a glob string (compiled by <see cref="CompilePattern"/>) or a <see cref="Regex"/>.</summary>
+    public static bool UrlMatches(NormalizedRoutePattern pattern, string url) => pattern.UrlTest.IsMatch(url);
+
+    /// <summary>Matches a request method against the method half of a validated route pattern.</summary>
+    public static bool MethodMatches(NormalizedRoutePattern pattern, string method) =>
+        pattern.Method is null || string.Equals(pattern.Method, method, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Structural equality for route patterns, used by unroute: the same method, and the same glob or the same regex source and options.</summary>
+    public static bool PatternsEqual(NormalizedRoutePattern a, NormalizedRoutePattern b) =>
+        a.Method == b.Method
+        && (a.Url, b.Url) switch
         {
             (string x, string y) => string.Equals(x, y, StringComparison.Ordinal),
             (Regex x, Regex y) => string.Equals(x.ToString(), y.ToString(), StringComparison.Ordinal)
@@ -157,26 +237,41 @@ internal static partial class Routes
         };
 
     /// <summary>
-    /// A URL pattern as steps and errors name it, upstream's <c>patternLabel</c>: a glob string quoted (<c>JSON.stringify</c>), a regex as
-    /// <c>/source/flags</c> (<c>String(RegExp)</c>).
+    /// A route or URL pattern as steps and errors name it, upstream's <c>patternLabel</c>: a glob string quoted (<c>JSON.stringify</c>), a regex as
+    /// <c>/source/flags</c> (<c>String(RegExp)</c>), a method-narrowed pattern as <c>POST</c> plus its URL pattern. It runs before the call
+    /// validates its arguments, so an invalid shape renders as a description and never throws.
     /// </summary>
     public static string PatternLabel(object pattern) =>
         pattern switch
         {
             string glob => JsonSerializer.Serialize(glob, QuoteOptions),
-            Regex regex => "/"
-                + regex
-                + "/"
-                + (regex.Options.HasFlag(RegexOptions.IgnoreCase) ? "i" : "")
-                + (regex.Options.HasFlag(RegexOptions.Multiline) ? "m" : "")
-                + (regex.Options.HasFlag(RegexOptions.Singleline) ? "s" : ""),
-            _ => throw new ArgumentException("A URL pattern is a string or a Regex.", nameof(pattern)),
+            Regex regex => RegexLabel(regex),
+            RouteMatcher { Method: { } method } matcher => method.ToUpperInvariant()
+                + " "
+                + (
+                    matcher.UrlRegex is not null ? RegexLabel(matcher.UrlRegex)
+                    : matcher.Url is not null ? JsonSerializer.Serialize(matcher.Url, QuoteOptions)
+                    : "undefined"
+                ),
+            _ => "an object",
         };
+
+    private static string RegexLabel(Regex regex) =>
+        "/"
+        + regex
+        + "/"
+        + (regex.Options.HasFlag(RegexOptions.IgnoreCase) ? "i" : "")
+        + (regex.Options.HasFlag(RegexOptions.Multiline) ? "m" : "")
+        + (regex.Options.HasFlag(RegexOptions.Singleline) ? "s" : "");
 
     private static readonly JsonSerializerOptions QuoteOptions = new()
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
+
+    /// <summary>An HTTP method token: RFC 9110's <c>method = token</c>, extension methods included.</summary>
+    [GeneratedRegex(@"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+\z")]
+    private static partial Regex HttpMethodPattern();
 
     [GeneratedRegex("^[A-Za-z][A-Za-z0-9+.-]*:")]
     private static partial Regex SchemePattern();

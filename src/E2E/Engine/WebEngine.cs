@@ -3288,7 +3288,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         }
 
         public Task<BrowserResponse> WaitForResponseAsync(
-            Func<string, bool> matches,
+            Func<string, string, bool> matches,
             TimeSpan timeout,
             CancellationToken cancellationToken
         ) => GuardAsync("waitForResponse", cancellationToken, async () =>
@@ -3302,7 +3302,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     response = await (
                         _page is { IsClosed: false }
                             ? Page.WaitForResponseAsync(
-                                candidate => matches(candidate.Url),
+                                candidate => matches(candidate.Url, candidate.Request.Method),
                                 new PageWaitForResponseOptions { Timeout = (float)timeout.TotalMilliseconds }
                             )
                             : WaitForContextResponseAsync(matches, timeout, cancellationToken)
@@ -3332,7 +3332,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
 
         /// <summary>Waits for a response on any page of the context. It listens from the call on, so no page has to exist yet.</summary>
         private Task<IResponse> WaitForContextResponseAsync(
-            Func<string, bool> matches,
+            Func<string, string, bool> matches,
             TimeSpan timeout,
             CancellationToken cancellationToken
         )
@@ -3341,7 +3341,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             var found = new TaskCompletionSource<IResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
             EventHandler<IResponse> listener = (_, candidate) =>
             {
-                if (matches(candidate.Url))
+                if (matches(candidate.Url, candidate.Request.Method))
                 {
                     found.TrySetResult(candidate);
                 }

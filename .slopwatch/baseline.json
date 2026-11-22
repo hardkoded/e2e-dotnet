@@ -3452,33 +3452,6 @@
       "baselinedAt": "2026-11-18T15:41:48.2150684+00:00"
     },
     {
-      "hash": "af963990b5eb823c",
-      "ruleId": "SW003",
-      "filePath": "tests/E2E.Tests/Routes/BrowserRouteDecisionsTests.cs",
-      "lineNumber": 892,
-      "codeSnippet": "catch (Exception)\n        {\n            // Checked by the test.\n        }",
-      "message": "Empty catch block swallows exceptions without handling",
-      "baselinedAt": "2026-11-18T15:41:48.2150713+00:00"
-    },
-    {
-      "hash": "377f9bac1bbc960c",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/Routes/BrowserRouteDecisionsTests.cs",
-      "lineNumber": 165,
-      "codeSnippet": "Task.Delay(1500)",
-      "message": "Test uses Task.Delay(1500) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-18T15:41:48.2150744+00:00"
-    },
-    {
-      "hash": "889242f9dc7cbcde",
-      "ruleId": "SW004",
-      "filePath": "tests/E2E.Tests/Routes/BrowserRouteDecisionsTests.cs",
-      "lineNumber": 200,
-      "codeSnippet": "Task.Delay(1500)",
-      "message": "Test uses Task.Delay(1500) which may indicate a timing-dependent test",
-      "baselinedAt": "2026-11-18T15:41:48.2150779+00:00"
-    },
-    {
       "hash": "5bf1d398ddeb59cb",
       "ruleId": "SW004",
       "filePath": "tests/E2E.Tests/RunApps/RunAppsTests.cs",
@@ -4152,6 +4125,33 @@
       "codeSnippet": "catch (OperationCanceledException)\n            {\n                // The run was cancelled: the test's own result stands.\n            }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-22T17:30:00.0000000+00:00"
+    },
+    {
+      "hash": "aa92f0bccac579ef",
+      "ruleId": "SW003",
+      "filePath": "tests/E2E.Tests/Routes/BrowserRouteAndWaitForResponseDecisionsTests.cs",
+      "lineNumber": 899,
+      "codeSnippet": "catch (Exception)\n        {\n            // Checked by the test.\n        }",
+      "message": "Empty catch block swallows exceptions without handling",
+      "baselinedAt": "2026-11-22T19:04:41.98488+00:00"
+    },
+    {
+      "hash": "3ec9927d10bc7e48",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Routes/BrowserRouteAndWaitForResponseDecisionsTests.cs",
+      "lineNumber": 165,
+      "codeSnippet": "Task.Delay(1500)",
+      "message": "Test uses Task.Delay(1500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-22T19:04:41.9848882+00:00"
+    },
+    {
+      "hash": "06620fd4a1f5ae6a",
+      "ruleId": "SW004",
+      "filePath": "tests/E2E.Tests/Routes/BrowserRouteAndWaitForResponseDecisionsTests.cs",
+      "lineNumber": 200,
+      "codeSnippet": "Task.Delay(1500)",
+      "message": "Test uses Task.Delay(1500) which may indicate a timing-dependent test",
+      "baselinedAt": "2026-11-22T19:04:41.9848951+00:00"
     }
   ]
 }
