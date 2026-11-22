@@ -68,15 +68,15 @@ public sealed class SerialSetTimeoutFixture : E2ETest
 
     protected override string? BaseUrl => E2E.Playground.Testbed.Url;
 
-    // Each member has 10 s from its own start; the three members run for more than that together.
-    protected override TimeSpan TestTimeout => TimeSpan.FromSeconds(10);
+    // Each member has 15 s from its own start; the three members run for more than that together.
+    protected override TimeSpan TestTimeout => TimeSpan.FromSeconds(15);
 
     [Test]
     public async Task A_keeps_its_attempt_for_a_later_member()
     {
         s_firstAttempt = E2E.Attempts.CurrentAttempt();
         Assert.That(s_firstAttempt, Is.Not.Null);
-        await Task.Delay(TimeSpan.FromSeconds(6));
+        await Task.Delay(TimeSpan.FromSeconds(8));
     }
 
     [Test, DependsOnTest(nameof(A_keeps_its_attempt_for_a_later_member))]
@@ -87,14 +87,14 @@ public sealed class SerialSetTimeoutFixture : E2ETest
             E2E.Internal.TestTimeout.SetRunningTestTimeout(s_firstAttempt!, TimeSpan.FromMilliseconds(100))
         );
         Assert.That(stale!.Message, Does.Contain("code left running after its test ended"));
-        await Task.Delay(TimeSpan.FromSeconds(6));
+        await Task.Delay(TimeSpan.FromSeconds(8));
     }
 
     [Test, DependsOnTest(nameof(B_is_not_moved_by_the_callback_the_first_member_left))]
     public async Task C_counts_its_set_timeout_from_its_own_start()
     {
-        // 18 s into the group, 10 s from this member's start is still ahead.
-        SetTimeout(TimeSpan.FromSeconds(10));
-        await Task.Delay(TimeSpan.FromSeconds(6));
+        // 16 s into the group, a 15 s timeout from this member's start is still ahead.
+        SetTimeout(TimeSpan.FromSeconds(15));
+        await Task.Delay(TimeSpan.FromSeconds(8));
     }
 }
