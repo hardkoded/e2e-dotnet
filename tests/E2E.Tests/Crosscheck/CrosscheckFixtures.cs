@@ -214,6 +214,17 @@ public static class CrosscheckFixtures
             """
         ),
         new(
+            "layout tables and lists",
+            """
+            <table role="presentation"><tbody><tr><td>Billing address</td><td><button>Edit</button></td></tr></tbody></table>
+            <table role="none"><tr><th>Shipping</th><td>Free</td></tr></table>
+            <table role="presentation"><tr role="row"><td>Explicit row</td></tr></table>
+            <ul role="none"><li>Home</li><li><a href="/docs">Docs</a></li></ul>
+            <ol role="presentation"><li>Step</li><li role="listitem">Explicit item</li></ol>
+            <ul role="presentation"><li><ul><li>Nested real item</li></ul></li></ul>
+            """
+        ),
+        new(
             "names",
             """
             <span id="l1">Billing</span><span id="l2">address</span>
