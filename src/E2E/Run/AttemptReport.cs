@@ -83,7 +83,9 @@ internal static class AttemptReport
         FailureEvidence? evidence = null,
         IReadOnlyList<Exception>? cleanupErrors = null,
         ExpectedFailureInfo? expectedFailure = null,
-        IReadOnlyList<Exception>? hookErrors = null
+        IReadOnlyList<Exception>? hookErrors = null,
+        string skipCause = "explicit",
+        string? skipReason = null
     )
     {
         var steps = scope.Steps.All();
@@ -127,9 +129,11 @@ internal static class AttemptReport
             Skip =
                 status == AttemptStatus.Skipped
                     ? new ReportSkip(
-                        "explicit",
+                        skipCause,
                         TextRules.TruncateUtf8(
-                            TextRules.SanitizeRecordedText(scope.Redactor.Redact(serialized?.Message ?? "skipped")),
+                            TextRules.SanitizeRecordedText(
+                                scope.Redactor.Redact(skipReason ?? serialized?.Message ?? "skipped")
+                            ),
                             TextRules.MaxSkipReasonBytes
                         )
                     )

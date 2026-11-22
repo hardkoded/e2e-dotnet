@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json.Nodes;
 using E2E.NUnit.Tests.SkipAfterFailure;
 using NUnit.Framework.Interfaces;
 
@@ -14,12 +15,18 @@ namespace E2E.NUnit.Tests.TestSetTimeout;
 /// <c>afterAll</c> hooks (<c>describe('raised from beforeAll')</c>, <c>'lowered from beforeAll'</c>, <c>'from afterAll'</c>: the port has no suite hooks
 /// that <c>E2E</c> times, NUnit owns <c>[OneTimeSetUp]</c>), the run's <c>report.json</c> (the results are NUnit's, read from each result), and the
 /// duration bound of the lowered tests (they check the message). The second <c>it</c> (a <c>beforeAll</c> on the attempt's budget and the worker fixture
-/// teardown) and the third (a worker's watchdog) need those hooks and the worker process, which the port does not have. The fourth is <c>Partial_</c>: NUnit's
-/// <c>Assert.Ignore</c> stands for <c>test.fixme</c>, so it checks the skip and its time, not the <c>fixme</c> cause. The fifth is <c>Partial_</c>: the port throws
+/// teardown) and the third (a worker's watchdog) need those hooks and the worker process, which the port does not have. The fourth ports <c>test.fixme</c> as <c>Fixme</c>
+/// and reads the skip and its cause from the run's <c>report.json</c>; NUnit's <c>Skipped</c> stands for upstream's exit code 0. The fifth is <c>Partial_</c>: the port throws
 /// <see cref="InvalidOperationException"/> where upstream collects a <c>COLLECTION_ERROR</c>.
 /// </summary>
 public sealed class TestSetTimeoutTests
 {
+    [OneTimeSetUp]
+    public void ClearResults() => TestSetTimeoutResults.Clear();
+
+    [OneTimeTearDown]
+    public void RemoveResults() => TestSetTimeoutResults.Clear();
+
     [Test]
     public void Partial_Replaces_the_running_attempts_timeout_from_a_body_or_beforeEach_hook_and_refuses_afterEach_and_bad_values()
     {
@@ -56,13 +63,33 @@ public sealed class TestSetTimeoutTests
     }
 
     [Test]
-    public void Partial_Skips_a_test_as_fixme_when_it_reaches_test_fixme_after_the_timeout_it_raised()
+    public void Skips_a_test_as_fixme_when_it_reaches_test_fixme_after_the_timeout_it_raised()
     {
         var result = NestedRun.Run(nameof(ShortTimeoutFixture.SetTimeout_fixme_past_the_first_timeout));
+
+        // NUnit's Skipped stands for upstream's exit code 0: the run did not fail.
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Skipped), result.Message);
 
+        var report = JsonNode.Parse(File.ReadAllText(TestSetTimeoutResults.ReportOf(typeof(ShortTimeoutFixture))))!;
+        E2E.Tests.ReportSchema.AssertValidReport(report);
+        var test = report["run"]!["results"]!
+            .AsArray()
+            .Single(found =>
+                ((string?)found!["titlePath"]!.AsArray().Last())!.EndsWith(
+                    "." + nameof(ShortTimeoutFixture.SetTimeout_fixme_past_the_first_timeout),
+                    StringComparison.Ordinal
+                )
+            )!;
+        Assert.That((string?)test["status"], Is.EqualTo("skipped"));
+        Assert.That((string?)test["skip"]!["cause"], Is.EqualTo("fixme"));
+        Assert.That((string?)test["skip"]!["reason"], Is.EqualTo("fixme: not ready"));
+        var attempt = test["attempts"]![0]!;
+        Assert.That((string?)attempt["status"], Is.EqualTo("skipped"));
+        Assert.That((string?)attempt["skip"]!["cause"], Is.EqualTo("fixme"));
+        Assert.That((string?)attempt["skip"]!["reason"], Is.EqualTo("fixme: not ready"));
+
         // The skip came after the 10 s the test started with.
-        Assert.That(result.Duration, Is.GreaterThanOrEqualTo(12));
+        Assert.That((long)attempt["durationMs"]!, Is.GreaterThanOrEqualTo(12_000));
     }
 
     [Test]
