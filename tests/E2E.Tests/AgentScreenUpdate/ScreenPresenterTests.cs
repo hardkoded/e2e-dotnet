@@ -216,6 +216,35 @@ public sealed class ScreenPresenterTests
     }
 
     [Fact]
+    public void Reads_no_effect_off_the_report_of_an_unchanged_screen_never_off_app_text_in_a_listing_of_changes()
+    {
+        var presenter = new ScreenPresenter();
+        presenter.Initial(Screen("b1", Home));
+        Assert.True(
+            ScreenPresenter.ReportsNoEffect(
+                presenter.Update(
+                    Screen("b2", Home),
+                    new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true }
+                )
+            )
+        );
+
+        // Nothing was expected to change, so nothing is blamed.
+        Assert.False(ScreenPresenter.ReportsNoEffect(presenter.Update(Screen("b3", Home))));
+
+        // A status the tap revealed quotes the report's own words; the tap still changed the screen.
+        var quoted = presenter.Update(
+            Screen(
+                "b4",
+                [.. Home, " #n7 status \"No listed node changed within the wait after this action (as the docs say)\""]
+            ),
+            new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true }
+        );
+        Assert.Contains("added #n7 status", quoted, StringComparison.Ordinal);
+        Assert.False(ScreenPresenter.ReportsNoEffect(quoted));
+    }
+
+    [Fact]
     public void Keeps_the_listing_as_the_only_evidence_and_says_to_try_another_way_when_the_engine_captures_no_screenshot()
     {
         // An engine that captures none says so once asked; from then on the listing is all there is.

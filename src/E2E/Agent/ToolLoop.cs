@@ -212,6 +212,22 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
     internal const string ToolCallsOnlyRule =
         "Reply with tool calls only. A reply without a tool call does nothing and spends a turn; the step ends only through complete_step.";
 
+    // Upstream's SAME_TURN_VERDICT_RULE: part of every step's instructions: how to end a step that only asks for actions without spending a
+    // turn reading the last result. That turn can take longer than short-lived feedback lasts, such as a toast the test checks right after
+    // the step.
+    internal const string SameTurnVerdictRule =
+        "A step that only lists actions to perform (type this, select that, press the button) ends in the turn of its final action: send that action and then complete_step with status \"passed\" in one reply. "
+        + "complete_step is not an action, so it may follow the submit or tap that ends a turn. This is the one case where you conclude before seeing the last result: write the summary from what you did, since the test checks the outcome itself, and short-lived feedback such as a toast is gone by the next turn. "
+        + "The runner takes that verdict only after the calls before it in the turn have run, and refuses it, with their results to read, when one of them failed or the last of them changed nothing. Calls after complete_step in a turn do not run. "
+        + "A step that names an outcome to reach or to see (sign in, find, confirm, check that) is not such a step: read the result and conclude on the next turn.";
+
+    // Upstream's SAME_TURN_VERDICT_HINT: added to the verdict tool's description, so the model meets the same-turn verdict where it picks the tool too.
+    private const string SameTurnVerdictHint =
+        " On a step that only lists actions, send it in the same turn as the final action, after it; the runner checks those actions before it takes the verdict.";
+
+    // Upstream's NO_EFFECT: why a verdict is refused after an action whose screen did not change though it should have.
+    private const string NoEffect = "had no visible effect";
+
     // Upstream's TEXT_REPLY_NOTICE: sent when a turn came back as text without a tool call.
     private const string TextReplyNotice =
         "[SYSTEM] Your last reply had no tool call, so nothing happened. Continue with a tool call, or call complete_step with your verdict.";
@@ -283,7 +299,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             new ToolLoopHelpers(() => concluded || hardStop is not null, error => hardStop ??= error)
         );
         var verdictTool = context.Step.Kind == ExecutorStepKind.Assert ? AssertVerdict : ActVerdict;
-        var definitions = tools.Select(tool => tool.Definition).Append(verdictTool.Tool).ToList();
+        var definitions = tools.Select(tool => tool.Definition).Append(SameTurnConclusion(verdictTool.Tool)).ToList();
         var system = SystemFor(context);
         var messages = options.BuildMessages is { } build
             ? [.. await build(context).ConfigureAwait(false)]
@@ -657,19 +673,46 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             );
             previous = response.ToolCalls.Select(toolCall => toolCall.Name).ToList();
             var screenshots = new List<(string Tool, ExecutorPixels Pixels)>();
+
+            // Upstream's ranCalls: the calls of this turn sent before the current one, in the model's order, each with why a verdict sent
+            // after it is refused (null when nothing is wrong).
+            var sent = new List<(string Name, string? Problem)>();
+            var verdictSent = false;
             foreach (var toolCall in response.ToolCalls)
             {
+                var isVerdict = string.Equals(toolCall.Name, VerdictTool.Name, StringComparison.Ordinal);
                 var outcome = ToolOutcome.Fail(
                     toolCall.Name
                         + " did not run: only complete_step is available now. Call complete_step with your verdict."
                 );
-                if (!forced || string.Equals(toolCall.Name, VerdictTool.Name, StringComparison.Ordinal))
+                string? problem = DidNotRun;
+                if (verdictSent)
+                {
+                    // Upstream's inTurnOrder: a call the model sent after a complete_step in the same turn does not run at all.
+                    outcome = ToolOutcome.Ok(
+                        toolCall.Name
+                            + " did not run: complete_step came before it in this turn, and nothing after a verdict runs."
+                    );
+                }
+                else if (isVerdict && SameTurnConclusion(sent) is { } refusal)
+                {
+                    outcome = new ToolOutcome { Content = refusal, Succeeded = false };
+                    verdictSent = true;
+                }
+                else if (!forced || isVerdict)
                 {
                     await traced
                         .ExecuteToolAsync(async () =>
                             outcome = await RunToolAsync(toolCall, tools, verdictTool, token).ConfigureAwait(false)
                         )
                         .ConfigureAwait(false);
+                    verdictSent |= isVerdict;
+                    problem = isVerdict ? null : CallProblem(toolCall.Name, outcome);
+                }
+
+                if (!isVerdict)
+                {
+                    sent.Add((toolCall.Name, problem));
                 }
 
                 turns.AddResult(turn, toolCall.Name, outcome.Content);
@@ -754,6 +797,71 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         );
     }
 
+    // Upstream's problem of a call the loop never dispatched, which a verdict sent after it in the turn is refused for.
+    private const string DidNotRun = "did not run";
+
+    // Upstream's sameTurnConclusion: the conclusion tool made to come last in its turn. An action batched with the verdict runs before it
+    // (the loop runs a turn's calls in the model's order), and the step ends without a turn spent reading that action's result. The
+    // verdict is refused when one of those calls did not run or failed, or when the last of them had no visible effect; the model reads
+    // their results and concludes again.
+    private static string? SameTurnConclusion(IReadOnlyList<(string Name, string? Problem)> earlier)
+    {
+        for (var index = 0; index < earlier.Count; index++)
+        {
+            var (name, problem) = earlier[index];
+            if (problem is null)
+            {
+                continue;
+            }
+
+            // An earlier action can change nothing the tree lists and still land, such as typing into a password field, whose value the
+            // tree masks; only the final action's lack of effect refuses.
+            if (string.Equals(problem, NoEffect, StringComparison.Ordinal) && index < earlier.Count - 1)
+            {
+                continue;
+            }
+
+            return "Rejected: "
+                + name
+                + " "
+                + problem
+                + " in this turn, so the verdict sent with it was not taken. Read its result above, then act again or call complete_step.";
+        }
+
+        return null;
+    }
+
+    // Upstream's callProblem: why a verdict sent after this call in the same turn is refused, read off the result the model would read:
+    // `failed` for a failure the loop guards count as one, `had no visible effect` for an action whose screen did not change though it
+    // should have. A call the loop refused before it dispatched (a schema refusal, a tool the step does not offer) did not run.
+    private static string? CallProblem(string name, ToolOutcome outcome)
+    {
+        if (outcome.ErrorText && IsRefusedBeforeDispatch(outcome.Content))
+        {
+            return DidNotRun;
+        }
+
+        if (outcome.ErrorText || !outcome.Succeeded || LoopGuards.IsFailedResult(name, outcome.Content))
+        {
+            return "failed";
+        }
+
+        return ScreenPresenter.ReportsNoEffect(outcome.Content) ? NoEffect : null;
+    }
+
+    // The AI SDK refuses these before it calls the tool: input its schema rejects, and a tool the step does not offer.
+    private static bool IsRefusedBeforeDispatch(string content) =>
+        content.StartsWith("failed: Invalid input for tool ", StringComparison.Ordinal)
+        || content.StartsWith("failed: Model tried to call unavailable tool ", StringComparison.Ordinal);
+
+    private static ModelTool SameTurnConclusion(ModelTool tool) =>
+        new()
+        {
+            Name = tool.Name,
+            Description = tool.Description + SameTurnVerdictHint,
+            Parameters = tool.Parameters,
+        };
+
     // Upstream's LoopRun.freeToolChoiceRetry: a model that refuses a forced tool choice (an HTTP 400 naming tool_choice), or answers a
     // forced turn in prose, is asked again with auto on the same turn budget. The instructions already hold the tool-calls-only rule, so
     // nothing else in the request changes. The model is remembered, so later steps start in auto.
@@ -818,7 +926,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             parts.Add("Project context:\n" + context.AgentContext);
         }
 
-        parts.Add(AgentTools.VerdictRules + "\n- " + ToolCallsOnlyRule);
+        parts.Add(AgentTools.VerdictRules + "\n- " + SameTurnVerdictRule + "\n- " + ToolCallsOnlyRule);
         return string.Join("\n\n", parts);
     }
 
