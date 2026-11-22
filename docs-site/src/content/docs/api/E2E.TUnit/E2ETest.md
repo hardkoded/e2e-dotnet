@@ -150,7 +150,7 @@ public void Fixme(bool condition = true, string? reason = null)
 
 Skips the running test as fixme when &lt;code class="paramref"&gt;condition&lt;/code&gt; holds (upstream's `test.fixme(condition, reason)`). The skip reports
 the cause `fixme` and the reason `fixme`, or `fixme: <reason>` for a reason that is not blank. Like `Skip.Test`
-it ends the test method at once. A call from a setup test fails it with the message "Fixme() cannot skip a setup test" (the report code is `TEST_FAILED`: the host keeps only the message); a call outside a test throws
+it ends the test method at once. A call from a setup test fails it with the message "Fixme() cannot skip a setup test" (the report code is `INVALID_ARGUMENT`); a call outside a test throws
 [InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) where upstream has `COLLECTION_ERROR`.
 
 **Parameters**
