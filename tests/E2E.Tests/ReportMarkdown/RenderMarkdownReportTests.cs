@@ -582,18 +582,12 @@ public sealed class RenderMarkdownReportTests
     }
 
     [Fact]
-    public void Rounds_a_duration_to_whole_seconds_before_splitting_off_the_minutes_and_formats_tokens_and_cost_as_the_terminal_does()
+    public void Rounds_the_recorded_duration_to_whole_seconds_before_showing_minutes_Tokens_and_cost_match_tokens_and_cost_as_the_terminal_does()
     {
-        string At(string finishedAt) =>
-            Render(
-                Page(
-                    results: [Passing],
-                    finishedAt: DateTimeOffset.Parse(finishedAt, System.Globalization.CultureInfo.InvariantCulture)
-                )
-            );
-        Assert.Contains("· 2m 0s ·", At("2026-01-01T00:01:59.500Z"));
-        Assert.Contains("· 1m 29s ·", At("2026-01-01T00:01:29.400Z"));
-        Assert.Contains("· 59.9s ·", At("2026-01-01T00:00:59.940Z"));
+        string At(long durationMs) => Render(Page(results: [Passing], durationMs: durationMs));
+        Assert.Contains("· 2m 0s ·", At(119_500));
+        Assert.Contains("· 1m 29s ·", At(89_400));
+        Assert.Contains("· 59.9s ·", At(59_940));
 
         string Usage(long modelTokens, double estimatedCostUsd) =>
             Render(

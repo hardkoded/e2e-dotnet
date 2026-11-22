@@ -37,6 +37,9 @@ public sealed record ReportRun
 
     public DateTimeOffset? FinishedAt { get; init; }
 
+    /// <summary>Elapsed run time in milliseconds, excluding intervals when all running workers were held. May be absent in older reports.</summary>
+    public long? DurationMs { get; init; }
+
     public ReportProject Project { get; init; } = new();
 
     public ReportEnvironment Environment { get; init; } = new();

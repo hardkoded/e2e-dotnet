@@ -178,8 +178,10 @@ Every test process that starts a session writes `report.json` to the output
 directory, `.e2e` by default (the parent of the results directory). It holds
 every result of the process in a versioned schema, `schema/report-v1.schema.json`
 (packed in the `E2E` package, and the same schema upstream ships). The file is
-written again, atomically, after each attempt, so `run.finishedAt` and
-`run.status` are those of the attempts so far. Two test processes that share an
+written again, atomically, after each attempt, so `run.finishedAt`,
+`run.durationMs`, and `run.status` are those of the attempts so far. `run.durationMs`
+is the run's elapsed time without the time every running worker was held; the
+port holds no steps, so it equals `finishedAt` minus `startedAt`. Two test processes that share an
 output directory (the parent of the results directory) overwrite one another's file.
 
 ```bash

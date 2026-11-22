@@ -29,6 +29,7 @@ internal static class MarkdownKit
         IReadOnlyList<ReportFilter>? filters = null,
         ReportChanges? changes = null,
         DateTimeOffset? finishedAt = null,
+        long? durationMs = null,
         ReportUsage? usage = null,
         ReportExplore? explore = null
     ) =>
@@ -39,6 +40,7 @@ internal static class MarkdownKit
                 ExitCode = status == ReportRunStatus.Passed ? 0 : 1,
                 StartedAt = ReportBuilders.ReportAt,
                 FinishedAt = finishedAt ?? FinishedAt,
+                DurationMs = durationMs,
                 Errors = errors ?? [],
                 Filters = filters ?? [],
                 Changes = changes,

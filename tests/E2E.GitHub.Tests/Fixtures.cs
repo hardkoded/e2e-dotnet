@@ -92,7 +92,9 @@ internal static class Fixtures
         IReadOnlyList<ReportError>? errors = null,
         ReportCarried? carried = null,
         IReadOnlyList<ReportFilter>? filters = null,
-        ReportChanges? changes = null
+        ReportChanges? changes = null,
+        long? durationMs = 8_400,
+        DateTimeOffset? finishedAt = null
     ) =>
         new()
         {
@@ -103,7 +105,8 @@ internal static class Fixtures
                 Status = status,
                 ExitCode = status == ReportRunStatus.Passed ? 0 : 1,
                 StartedAt = new DateTimeOffset(2026, 7, 24, 12, 0, 0, TimeSpan.Zero),
-                FinishedAt = new DateTimeOffset(2026, 7, 24, 12, 0, 8, 400, TimeSpan.Zero),
+                FinishedAt = finishedAt ?? new DateTimeOffset(2026, 7, 24, 12, 0, 8, 400, TimeSpan.Zero),
+                DurationMs = durationMs,
                 Project = new ReportProject { Id = projectId },
                 Targets =
                 [
