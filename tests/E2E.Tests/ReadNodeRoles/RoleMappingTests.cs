@@ -255,6 +255,86 @@ public sealed class RoleMappingTests
     }
 
     [Fact]
+    public async Task Drops_the_roles_of_rows_cells_and_list_items_under_a_presentational_table_or_list_as_getByRole_does()
+    {
+        using var site = await TinySite.StartAsync(
+            Page(
+                """
+                <table role="presentation"><tbody data-testid="body"><tr data-testid="row"><td data-testid="cell">Billing</td><th data-testid="header">Head</th></tr></tbody></table>
+                <table role="none"><tr data-testid="bare-row"><td data-testid="bare-cell">Free</td></tr></table>
+                <table role="presentation"><thead data-testid="head"><tr data-testid="head-row"><th>Item</th><th>Price</th></tr></thead><tfoot data-testid="foot"><tr data-testid="foot-row"><td>Total</td><td>9</td></tr></tfoot></table>
+                <table><tbody role="presentation" data-testid="plain-body"><tr data-testid="plain-row"><td data-testid="plain-cell">Plain</td></tr></tbody></table>
+                <table role="presentation"><tr role="row" data-testid="explicit-row"><td data-testid="under-explicit-row">Explicit</td></tr></table>
+                <table role="presentation" aria-label="Named"><tr data-testid="named-row"><td>Named</td></tr></table>
+                <table role="presentation" aria-live="polite"><tr data-testid="conflict-row"><td data-testid="conflict-cell">Live</td></tr></table>
+                <table role="none" tabindex="0"><tr data-testid="focusable-row"><td>Focusable</td></tr></table>
+                <ul role="none"><li data-testid="item">Home</li><li role="listitem" data-testid="explicit-item">Docs</li></ul>
+                <ol role="presentation"><li data-testid="step">Step<ul><li data-testid="nested">Nested</li></ul></li></ol>
+                <div role="presentation"><li data-testid="stray">Stray</li></div>
+                <table role="presentation"><tr data-testid="lone-row"><th data-testid="lone-header">Only</th></tr></table>
+                <table role="none" aria-label="Labelled"><tr data-testid="labelled-row"><td data-testid="labelled-cell">Labelled</td></tr></table>
+                """
+            )
+        );
+        var nodes = ByTestId(await CaptureAsync(site.Url));
+        AssertRoles(
+            nodes,
+            new Dictionary<string, string?>
+            {
+                ["body"] = "presentation",
+                ["row"] = "presentation",
+                ["cell"] = "presentation",
+                ["header"] = "presentation",
+                ["bare-row"] = "none",
+                ["bare-cell"] = "none",
+                ["head"] = "presentation",
+                ["head-row"] = "presentation",
+                ["foot"] = "presentation",
+                ["foot-row"] = "presentation",
+                ["plain-body"] = "presentation",
+                ["plain-row"] = "presentation",
+                ["plain-cell"] = "presentation",
+                ["explicit-row"] = "row",
+                ["under-explicit-row"] = "presentation",
+                ["named-row"] = "presentation",
+                ["conflict-row"] = "row",
+                ["conflict-cell"] = "cell",
+                ["focusable-row"] = "row",
+                ["item"] = "none",
+                ["explicit-item"] = "listitem",
+                ["step"] = "presentation",
+                ["nested"] = "listitem",
+                ["stray"] = "listitem",
+                ["lone-row"] = "presentation",
+                ["lone-header"] = null,
+                ["labelled-row"] = "row",
+                ["labelled-cell"] = "cell",
+            }
+        );
+
+        var session = await WebSemanticsTests.StartSessionAsync(site.Url);
+        await WebSemanticsTests.RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            Assert.Equal([null, null, null], await TestIdsAsync(session.Screen.GetByRole("rowgroup")));
+            Assert.Equal(
+                ["explicit-row", "conflict-row", "focusable-row", "labelled-row"],
+                await TestIdsAsync(session.Screen.GetByRole("row"))
+            );
+            Assert.Equal(
+                ["conflict-cell", null, "labelled-cell"],
+                await TestIdsAsync(session.Screen.GetByRole("cell"))
+            );
+            Assert.Empty(await TestIdsAsync(session.Screen.GetByRole("columnheader")));
+            Assert.Empty(await TestIdsAsync(session.Screen.GetByRole("rowheader")));
+            Assert.Equal(
+                ["explicit-item", "nested", "stray"],
+                await TestIdsAsync(session.Screen.GetByRole("listitem"))
+            );
+        });
+    }
+
+    [Fact]
     public async Task Applies_a_presentational_role_inside_an_editing_host_where_only_the_host_is_focusable()
     {
         using var site = await TinySite.StartAsync(
