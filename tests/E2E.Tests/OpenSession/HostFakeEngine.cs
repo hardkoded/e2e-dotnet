@@ -16,12 +16,29 @@ internal sealed class HostFakeEngine : IEngine
 {
     private int _starts;
     private int _disposes;
+    private readonly List<string> _calls = [];
 
     /// <summary>Runs inside every action; a wait on the token cancels with the session.</summary>
     public Func<LocatorAction, CancellationToken, Task>? OnPerform { get; init; }
 
     /// <summary>Runs when a session is disposed (upstream's <c>onEndAttempt</c>): a throw is a cleanup failure.</summary>
     public Func<Task>? OnDispose { get; init; }
+
+    /// <summary>The calls the contributed <c>gadget</c> fixture ran (upstream's <c>fixtureCalls</c>): <c>slow</c> and <c>poke:&lt;what&gt;</c>.</summary>
+    public IReadOnlyList<string> FixtureCalls
+    {
+        get
+        {
+            lock (_calls)
+            {
+                return [.. _calls];
+            }
+        }
+    }
+
+    /// <summary>The contributed <c>gadget</c> fixture of the last session started (upstream's <c>session.fixtures.gadget</c>).</summary>
+    public Gadget? Gadget { get; private set; }
+
 
     public int Starts => Volatile.Read(ref _starts);
 
@@ -43,8 +60,17 @@ internal sealed class HostFakeEngine : IEngine
         return Task.FromResult<IEngineSession>(new Session(this, options.ArtifactsDir));
     }
 
-    private sealed class Session(HostFakeEngine owner, string? artifactsDir) : IEngineSession
+    private sealed class Session(HostFakeEngine owner, string? artifactsDir) : IEngineSession, IEngineFixtureHost
     {
+        void IEngineFixtureHost.CreateFixtures(EngineFixtureContext context) =>
+            owner.Gadget = new Gadget(context, call =>
+            {
+                lock (owner._calls)
+                {
+                    owner._calls.Add(call);
+                }
+            });
+
         public string Route => "/";
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
@@ -88,4 +114,33 @@ internal sealed class HostFakeEngine : IEngine
             }
         }
     }
+}
+
+/// <summary>
+/// The contributed fixture of upstream's fake engine (<c>fixtures: true</c>): <c>poke</c>, <c>slow</c>, and <c>hang</c>, each a recorded
+/// <c>resource</c> step of the session through the <see cref="EngineFixtureContext"/> the engine's session was given, as <c>Device</c> records its.
+/// </summary>
+internal sealed class Gadget(EngineFixtureContext context, Action<string> record)
+{
+    public Task<string> PokeAsync(string what) =>
+        context.RunOperationAsync(StepKind.Resource, "gadget.poke", "", () =>
+        {
+            record("poke:" + what);
+            return Task.FromResult("poked " + what);
+        });
+
+    public Task<string> SlowAsync(TimeSpan? delay = null) =>
+        context.RunOperationAsync(StepKind.Resource, "gadget.slow", "", async () =>
+        {
+            record("slow");
+            await Task.Delay(delay ?? TimeSpan.FromMilliseconds(50)).ConfigureAwait(false);
+            return "done";
+        });
+
+    public Task HangAsync() =>
+        context.RunOperationAsync(StepKind.Resource, "gadget.hang", "", async () =>
+        {
+            await new TaskCompletionSource().Task.ConfigureAwait(false);
+            return true;
+        });
 }
