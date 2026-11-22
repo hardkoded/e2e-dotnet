@@ -11,8 +11,8 @@ namespace E2E.Tests.OpenHostDeadline;
 /// Upstream's <c>describe('openHost: deadline')</c> (<c>tests/integration/open-host-deadline.test.ts</c>). The <c>it</c>s that need no feature the port
 /// lacks are ported here. Not ported (hardkoded/e2e-dotnet#2002, #2041): <c>applies the project toPass timeout in a hosted session</c> (a hosted session publishes no attempt, so <c>ToPassAsync</c> cannot read the config's <c>toPass</c> there), the polls (<c>bounds polls by config assertionTimeout</c>, <c>caps an explicitly long poll</c>,
 /// <c>cancels an in-flight poll on %s</c>, <c>records abandoned polls</c>: the port's <c>Expect.Poll</c> takes no ambient session deadline), the contributed
-/// fixture calls (no <c>extend</c>), and the signals (<c>OpenSessionOptions</c> and <c>OpenHostOptions</c> have no <c>signal</c>).
-/// The <c>Partial_</c> <c>it</c>s: <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> uses a 60 s timeout, not upstream's 20 ms (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
+/// fixture calls (no <c>extend</c>). The signals of <c>cancels an in-flight poll on %s</c> are the open tokens of <c>OpenAsync</c> and <c>OpenSessionAsync</c> (C# has no <c>signal</c> option); that <c>it</c> is not ported for the poll.
+/// The <c>Partial_</c> <c>it</c>s: <c>records a cancelled fixture as interrupted</c> cancels a core operation, as the port has no <c>extend</c> for a <c>gadget</c> fixture; <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> uses a 60 s timeout, not upstream's 20 ms (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
 /// <see cref="E2E.Internal.TestTimeout.SetRunningTestTimeout"/> takes the session.
 /// </summary>
 public sealed class OpenHostDeadlineTests : IAsyncLifetime
@@ -42,9 +42,9 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
         }
     }
 
-    private async Task<E2EHost> OpenAsync(HostFakeEngine engine)
+    private async Task<E2EHost> OpenAsync(HostFakeEngine engine, string config = Config)
     {
-        File.WriteAllText(Path.Combine(_dir, E2EConfig.FileName), Config);
+        File.WriteAllText(Path.Combine(_dir, E2EConfig.FileName), config);
         var host = await E2EHost.OpenAsync(
             new OpenHostOptions
             {
@@ -121,10 +121,49 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
         Assert.Empty(await next.CloseAsync());
     }
 
+    /// <summary>
+    /// Partial: upstream cancels a contributed fixture (<c>gadget.hang</c>) with <c>OpenSessionOptions.signal</c>; the port has no <c>extend</c>, so a core
+    /// operation the engine never finishes is cancelled with the open token, which is the port's signal (#2041).
+    /// </summary>
+    [Fact]
+    public async Task Partial_Records_a_cancelled_fixture_as_interrupted_and_retains_failure_only_video()
+    {
+        const string video =
+            """{ "trace": "on", "video": "retain-on-failure", "targets": [{ "name": "kiosk", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }""";
+        var performing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var engine = new HostFakeEngine
+        {
+            Video = true,
+            OnPerform = (_, token) =>
+            {
+                performing.TrySetResult();
+                return Task.Delay(Timeout.Infinite, token);
+            },
+        };
+        var host = await OpenAsync(engine, video);
+        using var controller = new CancellationTokenSource();
+        var session = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "cancelled operation" },
+            controller.Token
+        );
+        var pending = session.Screen.GetByRole("button", "Submit").ClickAsync();
+        await performing.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        await controller.CancelAsync();
+        // The call fails as CANCELLED or surfaces the cancellation itself, depending on which the cut reaches first; never as a timeout.
+        var error = await Assert.ThrowsAnyAsync<Exception>(() => pending.WaitAsync(TimeSpan.FromSeconds(30)));
+        Assert.True(error is OperationCanceledException or E2EException { Code: "CANCELLED" }, error.ToString());
+        Assert.Equal(E2E.Reports.StepStatus.Cancelled, session.Steps()[^1].Status);
+        await session.CloseAsync();
+        Assert.True(File.Exists(Path.Combine(session.ArtifactsDir, "video", "fake.webm")));
+        var trace = await File.ReadAllTextAsync(session.TracePath);
+        Assert.Contains("interrupted", trace);
+        Assert.Contains("CANCELLED", trace);
+        Assert.DoesNotContain("passed", trace.Split('\n')[0]);
+    }
+
     [Fact]
     public async Task Records_a_blocked_agent_verdict_as_non_passing_and_retains_failure_only_video()
     {
-        File.WriteAllText(Path.Combine(_dir, E2EConfig.FileName), Config);
         var config = E2EConfig
             .Parse(
                 """{ "video": "retain-on-failure", "cache": { "mode": "off" }, "targets": [{ "name": "kiosk", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }""",

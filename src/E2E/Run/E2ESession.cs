@@ -1205,11 +1205,22 @@ public sealed class E2ESession : IAsyncDisposable
             errors.Add(timedOut);
         }
 
-        // Upstream's standalone attempt `verdict()`: with no other failure, the first step that did not pass is the verdict.
-        var stepFailure = (timedOut ?? soft ?? abandoned) is null ? FirstFailedStepError() : null;
+        // A hosted session's cancel (upstream's <c>signal</c>) that cut a step ends the attempt as interrupted: upstream's <c>classifyAttemptStatus(failure, timedOut, interrupted)</c>.
+        Exception? interrupted =
+            _hostedClose is not null
+            && _openToken.IsCancellationRequested
+            && StepRecords.Any(step => step.Status == StepStatus.Cancelled)
+                ? new OperationCanceledException("the session was cancelled while its test ran", _openToken)
+                : null;
+
+        // Upstream's standalone attempt `verdict()`: with no other failure, a hosted session's first step that did not pass is the verdict.
+        var stepFailure =
+            _hostedClose is not null && (timedOut ?? soft ?? abandoned ?? interrupted) is null
+                ? FirstFailedStepError()
+                : null;
         Complete(
-            timedOut ?? soft ?? abandoned ?? stepFailure,
-            stepFailure is OperationCanceledException ? new CancellationToken(true) : default
+            timedOut ?? soft ?? abandoned ?? interrupted ?? stepFailure,
+            _hostedClose is not null ? _openToken : default
         );
         try
         {
@@ -1884,7 +1895,6 @@ public sealed class E2ESession : IAsyncDisposable
         {
             StepStatus.Blocked => new AgentException(code, message, blocked: true),
             StepStatus.TimedOut => new TestException("TEST_TIMEOUT", message),
-            StepStatus.Cancelled => new OperationCanceledException(message),
             _ => new TestException(code, message),
         };
     }

@@ -52,7 +52,9 @@ or infinite is `INVALID_CONFIG`), `Agent`, and `OnStep`, which gets each
 The token you pass to `OpenAsync` cancels provisioning, initialization, and every
 session's operations; `CloseAsync` still releases. The token you pass to
 `OpenSessionAsync` cancels that opening. A cancel stays an
-`OperationCanceledException`. Any other opening failure is a fresh exception with
+`OperationCanceledException`. A session whose operation that cancel cut ends as
+`interrupted`, not passed: its trace says so, and a `retain-on-failure` video is kept.
+Any other opening failure is a fresh exception with
 only its code, category, and message, redacted of the config's secrets.
 
 ## Closing: the failures it returns
