@@ -8,7 +8,7 @@ using E2E.XUnit.V3.Tests.EngineContract;
 namespace E2E.XUnit.V3.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c> of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out the registered form
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out the registered form
 /// <c>test.fixme(title, fn)</c> (the port has no registration API), the consumer's <c>setup-failed</c> skip, and the error code <c>INVALID_ARGUMENT</c> of the setup case (the host keeps the exception's message, not its code, so the report says <c>TEST_FAILED</c>), and reads each result from the fixture's
 /// <c>report.json</c>.
 /// </summary>
@@ -45,6 +45,21 @@ public sealed class RunnerLifecycleTests : IDisposable
         var (results, _) = await NestedSessionRun.RunAsync(typeof(FixmeInSetupFixture));
         Assert.Equal("Fail", results[nameof(FixmeInSetupFixture.SignIn)].Result);
         Assert.Contains("Fixme() cannot skip a setup test", results[nameof(FixmeInSetupFixture.SignIn)].Message);
+    }
+
+    [Fact]
+    public async Task Keeps_the_fixme_cause_beside_a_failure_that_outranks_the_skip()
+    {
+        RunnerLifecycleResults.Prepare();
+        var (results, _) = await NestedSessionRun.RunAsync(typeof(FixmeBesideFailureFixture));
+        Assert.Equal("Fail", results[nameof(FixmeBesideFailureFixture.Beside_a_failure)].Result);
+        var member = ByTitle(
+            JsonNode.Parse(File.ReadAllText(RunnerLifecycleResults.ReportOf(typeof(FixmeBesideFailureFixture))))!,
+            nameof(FixmeBesideFailureFixture.Beside_a_failure)
+        );
+        Assert.Equal("failed", (string?)member["status"]);
+        AssertSkip(member["attempts"]![0]!["skip"]!, "fixme: not ready");
+        Assert.Equal("failed", (string?)member["attempts"]![0]!["status"]);
     }
 
     private static void AssertSkip(JsonNode skip, string reason)
