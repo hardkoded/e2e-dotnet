@@ -719,6 +719,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     Site = SiteOf(app),
                 };
                 session.TraceTo(options);
+
+                // Set before the context starts, so a failed start closes the connection of an engine no host disposes.
+                session.ReleaseShared = () => DisposeOwned ? Task.CompletedTask : CloseSharedAsync();
                 await session.NewContextAsync().ConfigureAwait(false);
 
                 return session;
@@ -3851,7 +3854,18 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             var options = ContextOptions(_options, _viewport, _credentials);
             options.StorageState = storageState;
             var context = await _browser.NewContextAsync(options).ConfigureAwait(false);
-            await ConfigureAsync(context).ConfigureAwait(false);
+            try
+            {
+                await ConfigureAsync(context).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Nothing owns the context yet, and a shared browser outlives this attempt.
+                await CloseDroppedAsync(() => context.CloseAsync())
+                    .ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                throw;
+            }
+
             _context = context;
         }
 

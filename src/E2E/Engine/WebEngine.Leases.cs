@@ -66,8 +66,12 @@ public sealed partial class WebEngine : IAsyncDisposable, IDisposableEngine
     }
 
     /// <inheritdoc />
-    Task IDisposableEngine.DisposeAsync(EngineDisposeContext context, CancellationToken cancellationToken) =>
-        DisposeWorkerAsync(cancellationToken);
+    Task IDisposableEngine.DisposeAsync(EngineDisposeContext context, CancellationToken cancellationToken)
+    {
+        // The host is done with this engine: an attempt a caller starts on it later closes what it starts, until a host prepares it again.
+        DisposeOwned = false;
+        return DisposeWorkerAsync(cancellationToken);
+    }
 
     /// <summary>
     /// The driver and the connection every attempt of this engine shares (upstream's surface owns one <c>BrowserConnection</c> for the worker). Started on the
@@ -104,7 +108,7 @@ public sealed partial class WebEngine : IAsyncDisposable, IDisposableEngine
     /// </summary>
     internal bool DisposeOwned { get; set; }
 
-    private async Task CloseSharedAsync()
+    private async Task CloseSharedAsync(CancellationToken cancellationToken = default)
     {
         Task<(IPlaywright Playwright, BrowserConnection Connection)>? shared;
         lock (_sharedGate)
@@ -118,7 +122,22 @@ public sealed partial class WebEngine : IAsyncDisposable, IDisposableEngine
             return;
         }
 
-        await ((Task)shared).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        try
+        {
+            await ((Task)shared).WaitAsync(cancellationToken).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        }
+        catch (OperationCanceledException)
+        {
+            // The budget is spent: stop the driver when a start still in flight lands, and let the caller go on to release its leases.
+            _ = shared.ContinueWith(
+                static done => done.Result.Playwright.Dispose(),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnRanToCompletion,
+                TaskScheduler.Default
+            );
+            throw;
+        }
+
         if (shared.IsCompletedSuccessfully)
         {
             var (playwright, connection) = shared.Result;
@@ -137,7 +156,7 @@ public sealed partial class WebEngine : IAsyncDisposable, IDisposableEngine
     {
         try
         {
-            await CloseSharedAsync().ConfigureAwait(false);
+            await CloseSharedAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
