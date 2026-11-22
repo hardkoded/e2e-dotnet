@@ -172,6 +172,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `driver.background(seconds)` | `Device.HomeAsync()`, `await Task.Delay(TimeSpan.FromSeconds(seconds))` for a positive `seconds`, then `Device.OpenAppAsync(id)` |
 | `driver.url('myapp://x')`, `mobile: deepLink` | `Device.OpenLinkAsync("myapp://x")` |
 | `driver.back()`, `driver.hideKeyboard()`, `pressKeyCode` for Home | `App.BackAsync()`, `Device.DismissKeyboardAsync()`, `Device.HomeAsync()` |
+| `driver.isKeyboardShown()` | `Device.IsKeyboardShownAsync()`. It reads the screen as it is now: after an action that opens or closes the keyboard, poll it with `Expect.Poll` |
 | `driver.getPageSource()` | `Screen.TreeAsync()`, or `Screen.DebugAsync()` to print it |
 | `driver.takeScreenshot()` | `App.ScreenshotAsync("label")`, secure fields masked |
 | `startRecordingScreen()`, `stopRecordingScreen()` | `App.StartRecordingAsync()`, `App.StopRecordingAsync()`, or `E2E_VIDEO=on dotnet test` |
@@ -270,7 +271,7 @@ Planned rows are on the roadmap, and Not yet rows have no date. Not planned rows
 | Appium | Use today |
 | --- | --- |
 | `.getAttribute()` for a label, id, or class, `.isSelected()`, `.getTagName()` | `ToHaveAccessibleNameAsync` for a label, `ToBeSelectedAsync` for the selected state. No read for an id, class, or tag name |
-| `pressKeyCode(code)`, `driver.keys('Backspace')`, `isKeyboardShown()` | `.PressAsync()` takes `Enter`, `Space`, or one character. Use `.ClearAsync()` and `.FillAsync()` |
+| `pressKeyCode(code)`, `driver.keys('Backspace')` | `.PressAsync()` takes `Enter`, `Space`, or one character. Use `.ClearAsync()` and `.FillAsync()` |
 | `driver.getWindowRect()`, `getWindowSize()`, `mobile: deviceInfo` | Swipe by direction, or read `.BoundingBoxAsync()` of a full-screen element |
 | `UiScrollable` `scrollToEnd()`, `scrollToBeginning()` | Loop `locator.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })` until `AllTextContentsAsync()` stops changing; `Up` for the beginning |
 | `mobile: selectPickerWheelValue`, date and time pickers, slider values | Swipe the wheel and read `.InputValueAsync()`, or use an `Agent.ActAsync` goal |

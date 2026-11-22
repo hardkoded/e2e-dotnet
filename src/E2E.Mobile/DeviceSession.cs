@@ -1003,7 +1003,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         Rect? KeyboardFrame = null,
         long? RefsGeneration = null,
         bool? KeyboardProbeVisible = null,
-        IReadOnlyList<string>? Warnings = null
+        IReadOnlyList<string>? Warnings = null,
+        string? KeyboardReason = null
     )
     {
         public static RawSnapshot Empty { get; } = new([], false, null, null, false);
@@ -1053,7 +1054,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
                 data["keyboard"]?["visible"] is JsonValue probe && probe.TryGetValue<bool>(out var probed)
                     ? probed
                     : null,
-                data["warnings"] is JsonArray warnings ? [.. warnings.Select(Text).OfType<string>()] : null
+                data["warnings"] is JsonArray warnings ? [.. warnings.Select(Text).OfType<string>()] : null,
+                Text(data["keyboard"]?["reason"])
             );
         }
     }
