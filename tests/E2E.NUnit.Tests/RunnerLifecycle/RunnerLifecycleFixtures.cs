@@ -84,3 +84,74 @@ public sealed class FixmeFromHookFixture : E2ETest
     [Test]
     public void Member() => throw new InvalidOperationException("unreachable after a fixme in a [SetUp]");
 }
+
+/// <summary>The fixme-beside-a-failure <c>it</c>: a <c>[TearDown]</c> throws after the test marked itself fixme.</summary>
+[Explicit("Run by RunnerLifecycleTests")]
+public sealed class FixmeBesideFailureFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null
+    );
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override string? ResultsDirectory => RunnerLifecycleResults.Of(GetType());
+
+    [TearDown]
+    public void Broken() => throw new InvalidOperationException("teardown broke");
+
+    [Test]
+    public void Beside_a_failure() => Fixme(reason: "not ready");
+}
+
+/// <summary><c>describe('wizard', { serial: true })</c>: the first member marks itself fixme, the second runs.</summary>
+[Explicit("Run by RunnerLifecycleTests")]
+[Serial]
+public sealed class FixmeSerialFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null
+    );
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override string? ResultsDirectory => RunnerLifecycleResults.Of(GetType());
+
+    [Test]
+    public void A_step_1_is_not_ready() => Fixme(reason: "crashes on step 1");
+
+    [Test]
+    public void B_step_2_runs() { }
+}
+
+/// <summary>A setup test that marks itself fixme: a setup may not skip.</summary>
+[Explicit("Run by RunnerLifecycleTests")]
+public sealed class FixmeSetupFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null
+    );
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override string? ResultsDirectory => RunnerLifecycleResults.Of(GetType());
+
+    [E2ESetup("mark a setup fixme", Saves = ["fixme-setup"])]
+    public void Setup_marked_fixme() => Fixme(true, "a setup may not skip");
+
+    [Test]
+    [E2ESession("fixme-setup")]
+    public void Consumes_the_fixme_setup_session() { }
+}
