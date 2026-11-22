@@ -154,6 +154,30 @@ public sealed class CoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Runs_past_screen_pause_right_away_in_a_program()
+    {
+        var fake = new CoreFakeEngine(
+            scene:
+            [
+                new SemanticNode
+                {
+                    Ref = "price",
+                    Role = "text",
+                    Name = "Price",
+                    Text = "39,000",
+                    TestId = "sale-price",
+                },
+            ]
+        );
+        var opened = await HostOf(fake, new LaunchOptions { App = FakeApp });
+        var session = await opened.NewSessionAsync();
+        await session.App.OpenAsync("/");
+        await session.Screen.PauseAsync();
+        Assert.Equal("39,000", await session.Screen.GetByTestId("sale-price").TextContentAsync());
+        await session.CloseAsync();
+    }
+
+    [Fact]
     public async Task Refuses_a_second_host_on_the_engine_instance_another_host_owns()
     {
         var fake = new CoreFakeEngine();

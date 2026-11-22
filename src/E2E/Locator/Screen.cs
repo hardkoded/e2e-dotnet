@@ -278,6 +278,25 @@ public class Screen
         Console.WriteLine(await ReadTreeAsync("screen.debug", options, cancellationToken).ConfigureAwait(false));
 
     /// <summary>
+    /// Pauses the test. Call it on the screen, since a pause affects the whole test; a frame's screen refuses. In a run that holds (a pause waits
+    /// for someone to resume it), the test clock stops meanwhile. Without a hold, as in a program or an MCP session, it returns right away.
+    /// Upstream's <c>screen.pause</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> when called on a frame's screen, or where the attempt cannot hold a pause.</exception>
+    public Task PauseAsync()
+    {
+        if (IsScoped)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "you can't call PauseAsync() on a frame, since a pause stops the whole test; call PauseAsync() on the screen"
+            );
+        }
+
+        return Steps is null ? Task.CompletedTask : Steps.PauseAsync();
+    }
+
+    /// <summary>
     /// Taps a viewport point, in CSS pixels or the device's points, with no node behind it. The engine has to declare the <c>tap</c> pointer
     /// action. Upstream's <c>screen.tapAt</c>.
     /// </summary>

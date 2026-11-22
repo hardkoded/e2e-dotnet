@@ -21,6 +21,30 @@ public abstract class TestSetTimeoutFixtureBase : E2ETest
     protected override E2EConfig Config => FixtureConfig;
 
     protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override string? ResultsDirectory => TestSetTimeoutResults.Of(GetType());
+}
+
+/// <summary>Where each fixture's attempts and <c>report.json</c> go, so a test reads the report of the run it started.</summary>
+internal static class TestSetTimeoutResults
+{
+    private static readonly string Root = Path.Combine(
+        Path.GetTempPath(),
+        "e2e-test-set-timeout-" + Guid.NewGuid().ToString("N")
+    );
+
+    /// <summary>The <c>results</c> directory of the run of <paramref name="fixture"/>; <c>report.json</c> is its sibling.</summary>
+    public static string Of(Type fixture) => Path.Combine(Root, fixture.Name, "results");
+
+    public static string ReportOf(Type fixture) => Path.Combine(Path.GetDirectoryName(Of(fixture))!, "report.json");
+
+    public static void Clear()
+    {
+        if (Directory.Exists(Root))
+        {
+            Directory.Delete(Root, recursive: true);
+        }
+    }
 }
 
 /// <summary>The tests upstream runs with a <c>timeout</c> of 300 ms: here 10 s, past which each body sleeps 12 s.</summary>
@@ -45,7 +69,7 @@ public sealed class ShortTimeoutFixture : TestSetTimeoutFixtureBase
         SetTimeout(TimeSpan.FromSeconds(60));
         await Task.Delay(TimeSpan.FromSeconds(12));
         await App.OpenAsync("/");
-        Assert.Ignore("fixme: not ready");
+        Fixme(reason: "not ready");
     }
 }
 

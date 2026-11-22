@@ -266,7 +266,7 @@ internal sealed class StandaloneHost
     internal async Task PrepareAsync()
     {
         // A prepare that outlives the process holds a hosted resource nothing else will give back.
-        if (_options.Engine is IPreparableEngine)
+        if (_options.Engine is IPreparableEngine or IDisposableEngine)
         {
             AppDomain.CurrentDomain.ProcessExit += _exit;
         }

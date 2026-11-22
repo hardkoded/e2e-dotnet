@@ -31,7 +31,7 @@ The cause of a skip.
 
 
 ```csharp
-CapabilityUnavailable = 3
+CapabilityUnavailable = 4
 ```
 
 
@@ -57,7 +57,7 @@ The test called `Skip`.
 
 
 ```csharp
-FailureLimit = 8
+FailureLimit = 9
 ```
 
 
@@ -69,9 +69,23 @@ FailureLimit = 8
 
 
 ```csharp
-Filtered = 1
+Filtered = 2
 ```
 
+
+**Value:** [SkipCause](./)
+
+<a id="E2E_Reports_SkipCause_Fixme"></a>
+
+### Fixme
+
+
+```csharp
+Fixme = 1
+```
+
+
+The test was marked fixme (upstream's `test.fixme`); the reason is `fixme` or `fixme: <reason>`.
 
 **Value:** [SkipCause](./)
 
@@ -81,7 +95,7 @@ Filtered = 1
 
 
 ```csharp
-HookFailed = 6
+HookFailed = 7
 ```
 
 
@@ -93,7 +107,7 @@ HookFailed = 6
 
 
 ```csharp
-InfrastructureUnavailable = 7
+InfrastructureUnavailable = 8
 ```
 
 
@@ -105,7 +119,7 @@ InfrastructureUnavailable = 7
 
 
 ```csharp
-PlatformUnavailable = 2
+PlatformUnavailable = 3
 ```
 
 
@@ -117,7 +131,7 @@ PlatformUnavailable = 2
 
 
 ```csharp
-SerialPredecessorFailed = 5
+SerialPredecessorFailed = 6
 ```
 
 
@@ -129,7 +143,7 @@ SerialPredecessorFailed = 5
 
 
 ```csharp
-SetupFailed = 4
+SetupFailed = 5
 ```
 
 
@@ -141,7 +155,7 @@ SetupFailed = 4
 
 
 ```csharp
-TimeLimit = 9
+TimeLimit = 10
 ```
 
 

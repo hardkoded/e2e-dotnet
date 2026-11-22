@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections;
+using Microsoft.Playwright;
 
 namespace E2E.Engine;
 
@@ -12,9 +13,11 @@ namespace E2E.Engine;
 /// workers, and released on every exit path. The port has no runner, so an engine started without them leases for the one
 /// attempt it starts, as upstream's standalone run does.
 /// </summary>
-public sealed partial class WebEngine : IAsyncDisposable
+public sealed partial class WebEngine : IAsyncDisposable, IDisposableEngine
 {
     private readonly LeasedBrowsers? _leases;
+    private readonly object _sharedGate = new();
+    private Task<(IPlaywright Playwright, BrowserConnection Connection)>? _shared;
 
     /// <summary>
     /// Leases one browser per worker slot the run will use from the provider, once per run and target, before any worker
@@ -51,16 +54,123 @@ public sealed partial class WebEngine : IAsyncDisposable
         _leases?.Init(info);
     }
 
-    /// <summary>Worker shutdown: releases the replacement lease the worker acquired for itself, within the cleanup timeout. What prepare leased is the runner's to release.</summary>
+    /// <summary>
+    /// Worker shutdown (upstream's <c>dispose</c>): closes the browser the engine's connection holds and stops its driver, then releases the
+    /// replacement lease the worker acquired for itself, within the cleanup timeout. What prepare leased is the runner's to release. The engine can start
+    /// again afterwards.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if (_leases is null)
+        using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
+        await DisposeWorkerAsync(budget.Token).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    Task IDisposableEngine.DisposeAsync(EngineDisposeContext context, CancellationToken cancellationToken)
+    {
+        // The host is done with this engine: an attempt a caller starts on it later closes what it starts, until a host prepares it again.
+        DisposeOwned = false;
+        return DisposeWorkerAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The driver and the connection every attempt of this engine shares (upstream's surface owns one <c>BrowserConnection</c> for the worker). Started on the
+    /// first attempt that needs a browser. A start that failed is not kept, so the next attempt starts it again; a caller that cancels stops waiting and the
+    /// start goes on for the next one.
+    /// </summary>
+    private Task<(IPlaywright Playwright, BrowserConnection Connection)> SharedConnectionAsync(
+        CancellationToken cancellationToken
+    )
+    {
+        Task<(IPlaywright, BrowserConnection)> starting;
+        lock (_sharedGate)
+        {
+            if (_shared is null || _shared.IsFaulted || _shared.IsCanceled)
+            {
+                _shared = StartSharedAsync();
+            }
+
+            starting = _shared;
+        }
+
+        return starting.WaitAsync(cancellationToken);
+    }
+
+    private async Task<(IPlaywright Playwright, BrowserConnection Connection)> StartSharedAsync()
+    {
+        var playwright = await CreatePlaywright().ConfigureAwait(false);
+        return (playwright, new BrowserConnection(playwright, LaunchLocal));
+    }
+
+    /// <summary>
+    /// Whether a host (<c>PreparedEngines</c>) owns this engine's dispose. .NET-only: upstream's runner always calls <c>dispose</c>, but an engine that a caller
+    /// starts on its own (<c>new WebEngine().StartAsync</c>) has no one to call it, so it closes the shared browser and driver when its attempt ends.
+    /// </summary>
+    internal bool DisposeOwned { get; set; }
+
+    private async Task CloseSharedAsync(CancellationToken cancellationToken = default)
+    {
+        Task<(IPlaywright Playwright, BrowserConnection Connection)>? shared;
+        lock (_sharedGate)
+        {
+            shared = _shared;
+            _shared = null;
+        }
+
+        if (shared is null)
         {
             return;
         }
 
-        using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
-        await _leases.DisposeAsync(budget.Token).ConfigureAwait(false);
+        try
+        {
+            await shared.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The budget is spent: stop the driver when a start still in flight lands, and let the caller go on to release its leases.
+            _ = shared.ContinueWith(
+                static done => done.Result.Playwright.Dispose(),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnRanToCompletion,
+                TaskScheduler.Default
+            );
+            throw;
+        }
+        catch (Exception)
+#pragma warning disable CA1031 // A start that failed produced no driver, so there is nothing to close.
+        {
+            return;
+        }
+#pragma warning restore CA1031
+
+        if (shared.IsCompletedSuccessfully)
+        {
+            var (playwright, connection) = shared.Result;
+            try
+            {
+                await connection.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                playwright.Dispose();
+            }
+        }
+    }
+
+    private async Task DisposeWorkerAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await CloseSharedAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (_leases is not null)
+            {
+                await _leases.DisposeAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
 
     /// <summary>

@@ -33,7 +33,7 @@ public sealed record CdpTarget
     public static implicit operator CdpTarget(string endpoint) => new() { Endpoint = endpoint };
 }
 
-/// <summary>What <see cref="BrowserConnection.LaunchLocalAsync"/> launches (upstream <c>BrowserAcquireOptions</c>, without its attach seam, which the engine owns).</summary>
+/// <summary>What <see cref="BrowserConnection.AcquireAsync"/> launches or attaches to (upstream <c>BrowserAcquireOptions</c>).</summary>
 internal sealed record BrowserAcquireOptions
 {
     /// <summary>Which browser to launch.</summary>
@@ -44,6 +44,9 @@ internal sealed record BrowserAcquireOptions
 
     /// <summary>Whether a Chromium launch keeps its OS sandbox on; other browsers ignore it.</summary>
     public bool ChromiumSandbox { get; init; }
+
+    /// <summary>Attaches to a remote browser in place of a local launch; it runs again on a relaunch (upstream <c>connect</c>).</summary>
+    public Func<Task<IBrowser>>? Connect { get; init; }
 }
 
 /// <summary>
@@ -295,6 +298,8 @@ internal sealed class BrowserConnection(
             _selectorsRegistered = true;
         }
 
-        return await (launchLocal ?? LaunchLocalAsync)(playwright, options).ConfigureAwait(false);
+        return options.Connect is { } connect
+            ? await connect().ConfigureAwait(false)
+            : await (launchLocal ?? LaunchLocalAsync)(playwright, options).ConfigureAwait(false);
     }
 }
