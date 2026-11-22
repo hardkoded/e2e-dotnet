@@ -20,12 +20,6 @@ internal sealed record FinishedRecording(
     bool Tainted
 );
 
-/// <summary>
-/// Video recordings of a live session (upstream's <c>session-tools/recording.ts</c>). A session does not record by itself: the coding agent starts
-/// one when the part worth watching begins and stops it when that part is over, as many times as it likes. Each recording is the engine's
-/// video of the attempt between the two calls, moved out of the attempt directory into <c>.e2e/videos/&lt;session&gt;/</c> as soon as it
-/// stops, so the next one never overwrites it and closing the session never takes it along. Recordings are not masked.
-/// </summary>
 /// <summary>The recording operations the session tools call (upstream's <c>RecordingControls</c>).</summary>
 internal interface IRecordingControls
 {
@@ -36,6 +30,12 @@ internal interface IRecordingControls
     Task<FinishedRecording?> StopAsync(CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Video recordings of a live session (upstream's <c>session-tools/recording.ts</c>). A session does not record by itself: the coding agent starts
+/// one when the part worth watching begins and stops it when that part is over, as many times as it likes. Each recording is the engine's
+/// video of the attempt between the two calls, moved out of the attempt directory into <c>.e2e/videos/&lt;session&gt;/</c> as soon as it
+/// stops, so the next one never overwrites it and closing the session never takes it along. Recordings are not masked.
+/// </summary>
 internal sealed partial class SessionRecorder(
     Func<CancellationToken, Task> startVideo,
     Func<CancellationToken, Task<IReadOnlyList<VideoSegment>>> stopVideo,
@@ -245,7 +245,7 @@ internal sealed partial class SessionRecorder(
     }
 }
 
-/// <summary>The session's recording tools (upstream's <c>recordingTools</c>).</summary>
+/// <summary>Owner of the session's recording tools, as upstream's <c>recording.ts</c> owns <c>recordingTools</c>.</summary>
 internal static partial class Recording
 {
     /// <summary>The session's <c>start_recording</c> and <c>stop_recording</c> tools (upstream's <c>recordingTools</c>).</summary>
