@@ -43,6 +43,9 @@ public sealed record OpenHostOptions
     /// test engine, comes from here, and a factory builds a fresh engine for each host.
     /// </summary>
     public Func<TargetConfig, IEngine>? EngineFactory { get; init; }
+
+    /// <summary>.NET-only: the clock every session's deadline reads, so a test can let a deadline pass without its timer running. Upstream reads <c>Date.now</c>.</summary>
+    internal TimeProvider Clock { get; init; } = TimeProvider.System;
 }
 
 /// <summary>What <see cref="E2EHost.OpenSessionAsync"/> is given. Upstream's <c>OpenSessionOptions</c> (<c>run/open-session.ts</c>).</summary>
@@ -81,6 +84,7 @@ public sealed class E2EHost : IAsyncDisposable
     private readonly IEngine _engine;
     private readonly IAppProcesses _apps;
     private readonly Action _release;
+    private readonly TimeProvider _clock;
     private readonly Lazy<Task<IReadOnlyList<Exception>>> _closing;
 
     private E2EHost(
@@ -90,9 +94,11 @@ public sealed class E2EHost : IAsyncDisposable
         TargetConfig target,
         IEngine engine,
         IAppProcesses apps,
-        Action release
+        Action release,
+        TimeProvider clock
     )
     {
+        _clock = clock;
         _host = host;
         _config = config;
         _declared = declared;
@@ -161,7 +167,7 @@ public sealed class E2EHost : IAsyncDisposable
                     }
                 )
                 .ConfigureAwait(false);
-            return new E2EHost(host, config, declared, target, engine, apps, release);
+            return new E2EHost(host, config, declared, target, engine, apps, release, options.Clock);
         }
         catch
         {
@@ -304,6 +310,7 @@ public sealed class E2EHost : IAsyncDisposable
             Trace = _target.Trace,
             Video = _target.Video,
             TestTimeout = timeout,
+            Clock = _clock,
             LaunchTimeout = _config.LaunchTimeout,
             CleanupTimeout = _config.CleanupTimeout,
             ActionTimeout = _config.ActionTimeout,
