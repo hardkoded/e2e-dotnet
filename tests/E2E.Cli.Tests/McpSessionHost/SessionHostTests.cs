@@ -617,7 +617,8 @@ public sealed class SessionHostTests : IAsyncLifetime
         var opening = device.OpenAsync(new Mcp.OpenSessionOptions(), request.Token);
         await launching.Task.WaitAsync(Patience);
         await request.CancelAsync();
-        var cancelled = await Assert.ThrowsAsync<E2EException>(() => opening);
+        // The step is cut on the cancel, as upstream's execute cuts it with a TestError('CANCELLED'): a TestException, which is an E2EException.
+        var cancelled = await Assert.ThrowsAnyAsync<E2EException>(() => opening);
         Assert.Equal("CANCELLED", cancelled.Code);
         Assert.False(device.IsOpen);
         Assert.Equal(1, fake.Disposes);
