@@ -694,7 +694,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                             + " did not run: complete_step came before it in this turn, and nothing after a verdict runs."
                     );
                 }
-                else if (isVerdict && RefusedVerdict(sent) is { } refusal)
+                else if (isVerdict && SameTurnConclusion(sent) is { } refusal)
                 {
                     outcome = new ToolOutcome { Content = refusal, Succeeded = false };
                     verdictSent = true;
@@ -804,7 +804,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
     // (the loop runs a turn's calls in the model's order), and the step ends without a turn spent reading that action's result. The
     // verdict is refused when one of those calls did not run or failed, or when the last of them had no visible effect; the model reads
     // their results and concludes again.
-    private static string? RefusedVerdict(IReadOnlyList<(string Name, string? Problem)> earlier)
+    private static string? SameTurnConclusion(IReadOnlyList<(string Name, string? Problem)> earlier)
     {
         for (var index = 0; index < earlier.Count; index++)
         {
@@ -841,7 +841,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             return DidNotRun;
         }
 
-        if (outcome.ErrorText || LoopGuards.IsFailedResult(name, outcome.Content))
+        if (outcome.ErrorText || !outcome.Succeeded || LoopGuards.IsFailedResult(name, outcome.Content))
         {
             return "failed";
         }

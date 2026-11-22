@@ -44,7 +44,7 @@ public sealed class AfterAProjectToolThatIsNotAPromiseTests
     [Theory]
     [InlineData("a failure it returns at once")]
     [InlineData("a tool that throws")]
-    public async Task Refuses_the_verdict_after(string kind)
+    public async Task Partial_Refuses_the_verdict_after(string kind)
     {
         var model = new ScriptedModel(request =>
             request.Messages.Any(message => message.Role == "tool")
