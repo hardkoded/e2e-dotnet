@@ -1482,21 +1482,27 @@ public sealed class E2ESession : IAsyncDisposable
             return CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         }
 
-        var source = new CancellationTokenSource(Timeout.InfiniteTimeSpan, clock);
-        if (cancellationToken.CanBeCanceled)
-        {
-            // Only a test seam reaches here, so the registration lives as long as the caller's token.
-            cancellationToken.Register(() =>
-            {
-                try
-                {
-                    source.Cancel();
-                }
-                catch (ObjectDisposedException) { }
-            });
-        }
+        return new ClockedTimeoutSource(clock, cancellationToken);
+    }
 
-        return source;
+    /// <summary>.NET-only: a signal whose timer reads an injected clock and that the caller's token cancels; disposing it releases that registration, as a linked source does.</summary>
+    private sealed class ClockedTimeoutSource : CancellationTokenSource
+    {
+        private readonly CancellationTokenRegistration _caller;
+
+        public ClockedTimeoutSource(TimeProvider clock, CancellationToken cancellationToken)
+            : base(Timeout.InfiniteTimeSpan, clock) =>
+            _caller = cancellationToken.Register(static state => ((CancellationTokenSource)state!).Cancel(), this);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _caller.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
     }
 
     private static Dictionary<string, ResolvedAgent> ResolveAgents(E2ESessionOptions options)

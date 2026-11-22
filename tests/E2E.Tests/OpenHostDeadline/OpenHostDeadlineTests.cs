@@ -158,7 +158,8 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
         var session = await host.OpenSessionAsync(
             new OpenSessionOptions { Name = "closed past deadline", Timeout = TimeSpan.FromMilliseconds(20) }
         );
-        clock.Advance(TimeSpan.FromMilliseconds(21));
+        // AdjustTime moves the clock without running the timer that is due, which is the state upstream's busy loop leaves.
+        clock.AdjustTime(clock.GetUtcNow() + TimeSpan.FromMilliseconds(21));
 
         var failures = await session.CloseAsync();
         var failure = Assert.IsAssignableFrom<E2EException>(Assert.Single(failures));
