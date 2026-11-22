@@ -103,10 +103,10 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests : IDisposabl
             );
 
             h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => PinOnly());
-            var leak = await Assert.ThrowsAsync<EngineException>(() =>
+            var leak = await Assert.ThrowsAsync<ConfigurationException>(() =>
                 next.ScreenshotArtifactAsync("leak", CancellationToken.None)
             );
-            Assert.Equal("ENGINE_FAILURE", leak.Code);
+            Assert.Equal("POLICY_DENIED", leak.Code);
             Assert.False(File.Exists(Path.Combine(_artifactsDir, "screenshots", "002-leak.png")));
             Assert.Equal(files.Count, files.Distinct().Count());
             foreach (var file in files)

@@ -315,6 +315,7 @@ public sealed class ObservationTests
                     TimeSpan.FromSeconds(30),
                     CancellationToken.None
                 );
+                // No usable image was taken, so none was withheld, and the matcher waits for the next one.
                 Assert.Null(observation.Pixels);
                 Assert.Single(observation.Roots[0].Children);
                 var withheld = await Assert.ThrowsAsync<EngineException>(() =>
@@ -323,6 +324,29 @@ public sealed class ObservationTests
                 Assert.Equal("ENGINE_FAILURE", withheld.Code);
             }
 
+            // A secure field without bounds is unmaskable whatever the device would capture, so no screenshot is taken.
+            h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ =>
+                throw new AgentDeviceError("COMMAND_FAILED", "screenshot failed")
+            );
+            h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+                FakeDeviceClient.NodesOnly([
+                    N("e1", index: 0, depth: 0, type: "application", label: "Bank", rect: R(0, 0, 390, 844)),
+                    N("e2", index: 1, parentIndex: 0, depth: 1, type: "SecureTextField", label: "PIN"),
+                ])
+            );
+            var screenshots = h.Fake.Methods().Count(method => method == "capture.screenshot");
+            var unbounded = await session.ObserveAsync(
+                new ObserveOptions { Pixels = true },
+                TimeSpan.FromSeconds(30),
+                CancellationToken.None
+            );
+            Assert.True(unbounded.Pixels!.IsWithheld);
+            Assert.Equal(0, unbounded.Pixels.MaskedRegionCount);
+            var denied = await Assert.ThrowsAsync<ConfigurationException>(() =>
+                session.ScreenshotArtifactAsync("password", TimeSpan.FromSeconds(30), CancellationToken.None)
+            );
+            Assert.Equal("POLICY_DENIED", denied.Code);
+            Assert.Equal(screenshots, h.Fake.Methods().Count(method => method == "capture.screenshot"));
             Assert.False(Directory.Exists(Path.Combine(artifactsDir.FullName, "screenshots")));
         }
         finally
@@ -394,7 +418,7 @@ public sealed class ObservationTests
         Assert.Equal([0, 0, 0], At(androidPixels, 100, 290 / 2));
         Assert.Equal([255, 255, 255], At(androidPixels, 100, 240 / 2));
 
-        // A secure node without bounds cannot be masked: the tree ships, the image does not.
+        // A secure node without bounds cannot be masked: the tree ships, the image does not, and no region counts as masked.
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
             FakeDeviceClient.NodesOnly([N("e1", type: "SecureTextField", label: "PIN", value: "1234")])
         );
@@ -403,7 +427,9 @@ public sealed class ObservationTests
             timeout,
             CancellationToken.None
         );
-        Assert.Null(unmaskable.Pixels);
+        // The port holds the withheld screenshot as an empty one that reports its count (upstream: no pixels, maskedRegionCount 0).
+        Assert.True(unmaskable.Pixels!.IsWithheld);
+        Assert.Equal(0, unmaskable.Pixels.MaskedRegionCount);
         Assert.Single(unmaskable.Roots[0].Children);
         // A snapshot without geometry keeps the viewport the session last learned.
         Assert.Equal(new TraceViewport(390, 844), unmaskable.Viewport);
@@ -417,6 +443,7 @@ public sealed class ObservationTests
             timeout,
             CancellationToken.None
         );
+        // No screenshot was taken, so none was withheld.
         Assert.Null(treeOnly.Pixels);
         Assert.NotEmpty(treeOnly.Roots[0].Children);
     }

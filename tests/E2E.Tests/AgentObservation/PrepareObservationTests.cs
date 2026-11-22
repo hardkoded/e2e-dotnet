@@ -320,6 +320,27 @@ public sealed class PrepareObservationTests
         );
     }
 
+    [Fact]
+    public void Passes_on_pixels_the_engine_withheld_for_masking_and_keeps_the_tree()
+    {
+        var observation = WithASecureNode();
+        var withheld = global::E2E.AgentObservation.PixelsForModel(observation, EngineScreenshot.Withheld(0));
+
+        Assert.Null(withheld.Pixels);
+        Assert.Equal(VisionDegradation.MaskingUnproven, withheld.Withheld);
+        Assert.Contains(
+            "textbox \"Password\"",
+            SnapshotText.Render(observation, Redactor.None),
+            StringComparison.Ordinal
+        );
+        // Withheld on a screen with nothing left to mask is no screenshot, not a masking failure.
+        var untaken = global::E2E.AgentObservation.PixelsForModel(
+            new Observation { Route = "/", Roots = [new SemanticNode { Ref = "root" }] },
+            EngineScreenshot.Withheld(0)
+        );
+        Assert.Equal(VisionDegradation.UnsupportedCapability, untaken.Withheld);
+    }
+
     private static Observation WithASecureNode() =>
         new()
         {

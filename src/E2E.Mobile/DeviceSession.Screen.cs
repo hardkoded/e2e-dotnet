@@ -940,7 +940,13 @@ public sealed partial class DeviceSession
         CancellationToken cancellationToken
     )
     {
-        var projected = Project(await SnapshotOrEmptyAsync(false, budget, cancellationToken).ConfigureAwait(false));
+        var secure = SecureBounds(
+            Project(await SnapshotOrEmptyAsync(false, budget, cancellationToken).ConfigureAwait(false))
+        )
+            ?? throw new ConfigurationException(
+                "POLICY_DENIED",
+                "a secure field on screen has no bounds to mask, so the screenshot is withheld"
+            );
         var data = await CaptureScreenshotAsync(
                 async (shot, file) =>
                     await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false),
@@ -950,10 +956,10 @@ public sealed partial class DeviceSession
             )
             .ConfigureAwait(false);
         var viewport = _knownViewport;
-        var (masked, regions) = RedactSecure(data, projected, viewport)
+        var (masked, regions) = RedactSecure(data, secure, viewport)
             ?? throw new EngineException(
                 EngineErrorCodes.EngineFailure,
-                "a secure field on screen could not be masked; screenshot withheld",
+                "the screenshot could not be read to mask the secure fields on screen; screenshot withheld",
                 retryable: false
             );
         var scale =
@@ -965,7 +971,8 @@ public sealed partial class DeviceSession
 
     /// <summary>
     /// The viewport's pixels for an observation (upstream's <c>capturePixels</c>). Best effort: a screenshot that cannot be taken, or whose
-    /// secure fields cannot be proven covered, costs the observation its image, not the step, unless the operation's budget ran out.
+    /// secure fields cannot be proven covered, costs the observation its image, not the step, unless the operation's budget ran out. A screen
+    /// with a secure field that has no bounds to mask takes none and reports no regions masked, so the harness knows the pixels were withheld.
     /// </summary>
     private async Task<EngineScreenshot?> CapturePixelsAsync(
         ProjectedSnapshot projected,
@@ -975,6 +982,11 @@ public sealed partial class DeviceSession
         CancellationToken cancellationToken
     )
     {
+        if (SecureBounds(projected) is not { } secure)
+        {
+            return EngineScreenshot.Withheld(0);
+        }
+
         byte[] data;
         try
         {
@@ -997,7 +1009,7 @@ public sealed partial class DeviceSession
         }
 
         if (
-            RedactSecure(data, projected, viewport) is not { } redacted
+            RedactSecure(data, secure, viewport) is not { } redacted
             || DeviceSupport.ReadPngSize(redacted.Data) is not { } size
         )
         {
@@ -1012,18 +1024,41 @@ public sealed partial class DeviceSession
     }
 
     /// <summary>
-    /// Paints every secure node's bounds black on a screenshot of the same screen. Returns the masked bytes, or null
-    /// when a secure node has no bounds or the image format cannot be edited: the caller then withholds the image
-    /// rather than ship one it could not prove redacted. Bounds are in logical points. The image may be at device
-    /// scale, so they are scaled by the image-to-viewport ratio. Also returns how many regions it painted.
+    /// The bounds of every secure node on the screen, in logical points, or null when one has none: no screenshot of that screen can be
+    /// masked (upstream's <c>secureBounds</c>).
+    /// </summary>
+    private static List<BoundingBox>? SecureBounds(ProjectedSnapshot projected)
+    {
+        var bounds = new List<BoundingBox>();
+        foreach (var entry in projected.Index)
+        {
+            if (!entry.Node.States.Secure)
+            {
+                continue;
+            }
+
+            if (entry.Node.Rect is not { } rect)
+            {
+                return null;
+            }
+
+            bounds.Add(rect);
+        }
+
+        return bounds;
+    }
+
+    /// <summary>
+    /// Paints the secure bounds black on a screenshot of the same screen. Returns the masked bytes and how many regions it painted, or null
+    /// when the image cannot be read or edited: the caller then withholds the image rather than ship one it could not prove redacted.
+    /// Bounds are in logical points. The image may be at device scale, so they are scaled by the image-to-viewport ratio.
     /// </summary>
     private static (byte[] Data, int Masked)? RedactSecure(
         byte[] data,
-        ProjectedSnapshot projected,
+        IReadOnlyList<BoundingBox> secure,
         ViewportSize? viewport
     )
     {
-        var secure = projected.Index.Where(entry => entry.Node.States.Secure).ToList();
         if (secure.Count == 0)
         {
             return (data, 0);
@@ -1035,16 +1070,9 @@ public sealed partial class DeviceSession
         }
 
         var scale = viewport is { Width: > 0 } known ? size.Width / known.Width : 1;
-        var rects = new List<Rect>();
-        foreach (var entry in secure)
-        {
-            if (entry.Node.Rect is not { } rect)
-            {
-                return null;
-            }
-
-            rects.Add(new Rect(rect.X * scale, rect.Y * scale, rect.Width * scale, rect.Height * scale));
-        }
+        var rects = secure
+            .Select(rect => new Rect(rect.X * scale, rect.Y * scale, rect.Width * scale, rect.Height * scale))
+            .ToList();
 
         try
         {
