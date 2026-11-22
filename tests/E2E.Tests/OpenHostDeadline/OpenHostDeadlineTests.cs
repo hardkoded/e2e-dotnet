@@ -94,13 +94,17 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
         );
         var gadget = engine.Gadget!;
 
-        var slow = await Assert.ThrowsAsync<TestException>(() => gadget.SlowAsync().WaitAsync(TimeSpan.FromSeconds(30)));
+        var slow = await Assert.ThrowsAsync<TestException>(() =>
+            gadget.SlowAsync().WaitAsync(TimeSpan.FromSeconds(30))
+        );
         Assert.Equal("TEST_TIMEOUT", slow.Code);
         var late = await Assert.ThrowsAsync<TestException>(() => gadget.PokeAsync("too late"));
         Assert.Equal("TEST_TIMEOUT", late.Code);
         Assert.Equal(["slow"], engine.FixtureCalls);
         Assert.Contains(session.Steps(), step =>
-            step.Api == "gadget.slow" && step.Status == E2E.Reports.StepStatus.Failed && step.Error?.Code == "TEST_TIMEOUT"
+            step.Api == "gadget.slow"
+            && step.Status == E2E.Reports.StepStatus.Failed
+            && step.Error?.Code == "TEST_TIMEOUT"
         );
         await session.CloseAsync();
         Assert.Contains("timed out", await File.ReadAllTextAsync(session.TracePath));

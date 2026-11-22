@@ -39,7 +39,6 @@ internal sealed class HostFakeEngine : IEngine
     /// <summary>The contributed <c>gadget</c> fixture of the last session started (upstream's <c>session.fixtures.gadget</c>).</summary>
     public Gadget? Gadget { get; private set; }
 
-
     public int Starts => Volatile.Read(ref _starts);
 
     public int Disposes => Volatile.Read(ref _disposes);
@@ -122,8 +121,7 @@ internal sealed class HostFakeEngine : IEngine
 /// </summary>
 internal sealed class Gadget(EngineFixtureContext context, Action<string> record)
 {
-    public Task<string> PokeAsync(string what) =>
-        context.RunOperationAsync(StepKind.Resource, "gadget.poke", "", () =>
+    public Task<string> PokeAsync(string what) => context.RunOperationAsync(StepKind.Resource, "gadget.poke", "", () =>
         {
             record("poke:" + what);
             return Task.FromResult("poked " + what);
@@ -137,8 +135,7 @@ internal sealed class Gadget(EngineFixtureContext context, Action<string> record
             return "done";
         });
 
-    public Task HangAsync() =>
-        context.RunOperationAsync(StepKind.Resource, "gadget.hang", "", async () =>
+    public Task HangAsync() => context.RunOperationAsync(StepKind.Resource, "gadget.hang", "", async () =>
         {
             await new TaskCompletionSource().Task.ConfigureAwait(false);
             return true;
