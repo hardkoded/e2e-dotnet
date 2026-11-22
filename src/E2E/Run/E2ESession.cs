@@ -1195,7 +1195,14 @@ public sealed class E2ESession : IAsyncDisposable
             errors.Add(timedOut);
         }
 
-        Complete(timedOut ?? soft ?? abandoned);
+        // A hosted session's cancel (upstream's <c>signal</c>) that cut a step ends the attempt as interrupted: upstream's <c>classifyAttemptStatus(failure, timedOut, interrupted)</c>.
+        Exception? interrupted =
+            _hostedClose is not null
+            && _openToken.IsCancellationRequested
+            && StepRecords.Any(step => step.Status == StepStatus.Cancelled)
+                ? new OperationCanceledException("the session was cancelled while its test ran", _openToken)
+                : null;
+        Complete(timedOut ?? soft ?? abandoned ?? interrupted, _hostedClose is not null ? _openToken : default);
         try
         {
             await DisposeCoreAsync().ConfigureAwait(false);
