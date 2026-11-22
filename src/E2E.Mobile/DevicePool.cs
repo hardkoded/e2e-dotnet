@@ -290,7 +290,7 @@ public sealed partial class DevicePool
         );
         throw new EngineException(
             EngineErrorCodes.EngineFailure,
-            $"agent-device session {heldSessions} did not close, so its device stays held; close it with `agent-device close --session <name>`",
+            $"agent-device session {heldSessions} did not close, so its device stays held; close it with `npx agent-device close --session \"SESSION\"`, using the name above",
             retryable: false
         );
     }
