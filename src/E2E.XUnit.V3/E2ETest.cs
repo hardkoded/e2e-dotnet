@@ -86,7 +86,7 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     /// <summary>
     /// Skips the running test as fixme when <paramref name="condition"/> holds (upstream's <c>test.fixme(condition, reason)</c>). The skip reports
     /// the cause <c>fixme</c> and the reason <c>fixme</c>, or <c>fixme: &lt;reason&gt;</c> for a reason that is not blank. Like <c>Assert.Skip</c>
-    /// it ends the test method at once. A call from a setup test is a test error, <c>INVALID_ARGUMENT</c>; a call outside a test throws
+    /// it ends the test method at once. A call from a setup test fails it with the message "Fixme() cannot skip a setup test" (the report code is <c>TEST_FAILED</c>: the host keeps only the message); a call outside a test throws
     /// <see cref="InvalidOperationException"/> where upstream has <c>COLLECTION_ERROR</c>.
     /// </summary>
     public void Fixme(bool condition = true, string? reason = null)
