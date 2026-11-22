@@ -517,6 +517,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             if (session is WebSession web)
             {
                 web.Retired = ReleaseAttempt;
+
+                // Nobody owns the dispose of an engine a caller started on its own, so its attempt closes what the connection holds.
+                web.ReleaseShared = () => DisposeOwned ? Task.CompletedTask : CloseSharedAsync();
             }
 
             return session;
@@ -732,6 +735,11 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 // The engine's connection keeps its browser and driver for the next attempt.
                 if (shared)
                 {
+                    if (!DisposeOwned)
+                    {
+                        await CloseSharedAsync().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                    }
+
                     throw;
                 }
 
@@ -4232,12 +4240,25 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     }
                     finally
                     {
-                        // The engine may start its next attempt only once this one has closed everything it owned.
-                        Retired?.Invoke();
+                        try
+                        {
+                            if (ReleaseShared is { } release)
+                            {
+                                await release().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                            }
+                        }
+                        finally
+                        {
+                            // The engine may start its next attempt only once this one has closed everything it owned.
+                            Retired?.Invoke();
+                        }
                     }
                 }
             }
         }
+
+        /// <summary>Runs once, after this session closed its own resources: lets an engine nobody disposes close its shared connection. .NET-only.</summary>
+        internal Func<Task>? ReleaseShared { get; set; }
 
         /// <summary>Whether this session closes its browser and stops its driver when it ends. False for a session on the engine's shared <see cref="BrowserConnection"/>.</summary>
         internal bool OwnsBrowser { get; init; } = true;

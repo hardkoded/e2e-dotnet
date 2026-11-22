@@ -18,6 +18,7 @@ public sealed class EngineBrowserConnectionTests
         var disposed = 0;
         var engine = new WebEngine(new WebEngineOptions())
         {
+            DisposeOwned = true,
             CreatePlaywright = () =>
             {
                 Interlocked.Increment(ref created);
@@ -43,7 +44,7 @@ public sealed class EngineBrowserConnectionTests
             );
         }
 
-        // A failed start leaves the driver with the engine, not closed per attempt.
+        // A host owns the dispose, so a failed start leaves the driver with the engine.
         Assert.Equal(1, created);
         Assert.Equal(0, disposed);
 
@@ -60,5 +61,36 @@ public sealed class EngineBrowserConnectionTests
         Assert.Equal(2, created);
         await engine.DisposeAsync();
         Assert.Equal(2, disposed);
+    }
+
+    [Fact]
+    public async Task Stops_the_driver_when_the_start_of_an_engine_nobody_disposes_fails()
+    {
+        var disposed = 0;
+        var engine = new WebEngine(new WebEngineOptions())
+        {
+            CreatePlaywright = () =>
+            {
+                var (playwright, fake) = Fake<IPlaywright>.New();
+                fake.Members["Dispose"] = _ =>
+                {
+                    Interlocked.Increment(ref disposed);
+                    return null;
+                };
+                var (selectors, selectorsFake) = Fake<ISelectors>.New();
+                selectorsFake.Members["RegisterAsync"] = _ => Task.CompletedTask;
+                fake.Members["get_Selectors"] = _ => selectors;
+                return Task.FromResult(playwright);
+            },
+            EnsureBrowser = (_, _, _) => Task.CompletedTask,
+            LaunchLocal = (_, _) => throw new InvalidOperationException("no browser here"),
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            engine.StartAsync(new EngineStartOptions(), CancellationToken.None)
+        );
+
+        // No host owns this engine's dispose, so the attempt closes what it started, as a start did before the engine owned the connection.
+        Assert.Equal(1, disposed);
     }
 }

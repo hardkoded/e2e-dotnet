@@ -78,6 +78,12 @@ internal sealed class PreparedEngines
     {
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(scope);
+        if (engine is WebEngine web)
+        {
+            // The run disposes it at the end, so its attempts share one browser until then.
+            web.DisposeOwned = true;
+        }
+
         if (engine is not IPreparableEngine preparable)
         {
             // An engine with only a dispose hook has nothing to prepare, but its worker shutdown is still owed at the end of the run.

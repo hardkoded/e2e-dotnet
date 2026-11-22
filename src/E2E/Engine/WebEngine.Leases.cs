@@ -98,7 +98,13 @@ public sealed partial class WebEngine : IAsyncDisposable, IDisposableEngine
         return (playwright, new BrowserConnection(playwright, LaunchLocal));
     }
 
-    private async Task DisposeWorkerAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Whether a host (<c>PreparedEngines</c>) owns this engine's dispose. .NET-only: upstream's runner always calls <c>dispose</c>, but an engine that a caller
+    /// starts on its own (<c>new WebEngine().StartAsync</c>) has no one to call it, so it closes the shared browser and driver when its attempt ends.
+    /// </summary>
+    internal bool DisposeOwned { get; set; }
+
+    private async Task CloseSharedAsync()
     {
         Task<(IPlaywright Playwright, BrowserConnection Connection)>? shared;
         lock (_sharedGate)
@@ -107,24 +113,31 @@ public sealed partial class WebEngine : IAsyncDisposable, IDisposableEngine
             _shared = null;
         }
 
+        if (shared is null)
+        {
+            return;
+        }
+
+        await ((Task)shared).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        if (shared.IsCompletedSuccessfully)
+        {
+            var (playwright, connection) = shared.Result;
+            try
+            {
+                await connection.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                playwright.Dispose();
+            }
+        }
+    }
+
+    private async Task DisposeWorkerAsync(CancellationToken cancellationToken)
+    {
         try
         {
-            if (shared is not null)
-            {
-                await ((Task)shared).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
-                if (shared.IsCompletedSuccessfully)
-                {
-                    var (playwright, connection) = shared.Result;
-                    try
-                    {
-                        await connection.DisposeAsync().ConfigureAwait(false);
-                    }
-                    finally
-                    {
-                        playwright.Dispose();
-                    }
-                }
-            }
+            await CloseSharedAsync().ConfigureAwait(false);
         }
         finally
         {
