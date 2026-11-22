@@ -263,7 +263,7 @@ Members of `E2ETest` in both frameworks:
 `Secret`), `PressSequentiallyAsync`, `PressAsync`, `CheckAsync`,
 `UncheckAsync`, `ClearAsync`, `SelectOptionAsync` (a value or label, or a `SelectOption` with one of
 `Label`, `Value`, or `Index`),
-`FocusAsync`, `SetInputFilesAsync`, and `ScrollIntoViewAsync`. Each waits up to
+`FocusAsync`, `BlurAsync` (web only: `UNSUPPORTED_CAPABILITY` on a device), `SetInputFilesAsync`, and `ScrollIntoViewAsync`. Each waits up to
 the action timeout for exactly one enabled, visible match. `UncheckAsync` on a
 checked native radio fails with `ACTION_FAILED`; a `role="radio"` is clicked,
 and fails only if it stays checked.

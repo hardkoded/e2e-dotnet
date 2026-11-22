@@ -70,6 +70,7 @@ Public types in the `E2E.Engine` namespace.
 | [KeyGrammar](/api/E2E.Engine/KeyGrammar/) | .NET-only holder name (C# has no free functions): upstream's KEY_MODIFIERS, KEY_NAMES and parseKey in engine/contract.ts. The key grammar of press, shared by every engine so a test's key names are portable: zero or more modifiers and one key, joined by +. A modifier is Shift, Control, Alt, Meta, or ControlOrMeta. A named key is one of KeyNames. Any single printable character is typed as itself. The harness refuses a key outside it with INVALID_ARGUMENT (Keys.RequireKey); an engine without a grammar-valid key refuses it with UNSUPPORTED_CAPABILITY. It never reinterprets the spelling. |
 | [KeyModifiers](/api/E2E.Engine/KeyModifiers/) | The names of KeyModifier, which a recorded action and an MCP argument spell. Upstream's KEY_MODIFIERS and isKeyModifier. |
 | [LocatorAction](/api/E2E.Engine/LocatorAction/) | A deterministic action PerformAsync carries out on one node. |
+| [LocatorAction.Blur](/api/E2E.Engine/LocatorAction.Blur/) | Removes focus from the node if it is focused. Web only: a device engine does not declare it. |
 | [LocatorAction.Check](/api/E2E.Engine/LocatorAction.Check/) |  |
 | [LocatorAction.Clear](/api/E2E.Engine/LocatorAction.Clear/) |  |
 | [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/) | A double tap. Modifiers are held for both clicks, as for LocatorAction.Tap. |

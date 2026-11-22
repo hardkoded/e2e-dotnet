@@ -194,6 +194,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             LocatorAction.Uncheck => "uncheck",
             LocatorAction.Clear => "clear",
             LocatorAction.Focus => "focus",
+            LocatorAction.Blur => "blur",
             LocatorAction.ScrollIntoView => "scrollIntoView",
             LocatorAction.Swipe => "swipe",
             LocatorAction.SecondaryTap => "secondaryTap",

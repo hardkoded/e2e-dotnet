@@ -1128,6 +1128,12 @@ public sealed class Locator
         return ActAsync(new LocatorAction.Focus(), options, cancellationToken);
     }
 
+    /// <summary>Removes focus from the matched node if it is focused.</summary>
+    public Task BlurAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        return ActAsync(new LocatorAction.Blur(), options, cancellationToken);
+    }
+
     public Task ScrollIntoViewAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
         return ActAsync(new LocatorAction.ScrollIntoView(), options, cancellationToken);

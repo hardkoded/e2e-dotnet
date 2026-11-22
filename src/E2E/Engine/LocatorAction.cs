@@ -55,6 +55,9 @@ public abstract record LocatorAction
 
     public sealed record Focus : LocatorAction;
 
+    /// <summary>Removes focus from the node if it is focused. Web only: a device engine does not declare it.</summary>
+    public sealed record Blur : LocatorAction;
+
     /// <summary>Scrolls the node's nearest scrollable container until the node is in the viewport.</summary>
     public sealed record ScrollIntoView : LocatorAction;
 

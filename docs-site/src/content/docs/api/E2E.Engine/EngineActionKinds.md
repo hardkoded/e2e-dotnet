@@ -29,6 +29,21 @@ The action kinds of the engine contract, by upstream's names, in contract order:
 
 ## Properties
 
+<a id="E2E_Engine_EngineActionKinds_KnownLocator_"></a>
+<a id="E2E_Engine_EngineActionKinds_KnownLocator"></a>
+
+### KnownLocator
+
+
+```csharp
+public static IReadOnlyList<string> KnownLocator { get; }
+```
+
+
+Every action kind this version understands: [Locator](/api/E2E.Engine/EngineActionKinds/#E2E_Engine_EngineActionKinds_Locator), the kinds of SPI v1, and the newer ones listed after it. What a manifest's `actions` is checked against. Upstream's `KNOWN_LOCATOR_ACTION_KINDS`.
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
 <a id="E2E_Engine_EngineActionKinds_Locator_"></a>
 <a id="E2E_Engine_EngineActionKinds_Locator"></a>
 
@@ -40,7 +55,7 @@ public static IReadOnlyList<string> Locator { get; }
 ```
 
 
-Every kind of [LocatorAction](/api/E2E.Engine/LocatorAction/).
+The locator action kinds of SPI v1. Newer kinds are listed in [KnownLocator](/api/E2E.Engine/EngineActionKinds/#E2E_Engine_EngineActionKinds_KnownLocator).
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
