@@ -296,10 +296,10 @@ public sealed class OpenSessionTestOverE2eMcpTests
             Assert.That(left, Is.Not.Null);
             Assert.That(left!.Failure, Is.Null);
             SloppySessionFixture.LeftRelease.SetResult();
-            await SloppySessionFixture.LeftThrowing.Task.WaitAsync(TimeSpan.FromSeconds(30));
-            await Task.Delay(300);
             await using (left.Session)
             {
+                await SloppySessionFixture.LeftThrowing.Task.WaitAsync(TimeSpan.FromSeconds(30));
+                await Task.Delay(300);
                 var closed = left.Run!.End();
                 Assert.That(
                     closed.Select(cause => (cause as TestException)?.Code + ": " + cause.Message),
