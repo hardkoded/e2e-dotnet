@@ -1199,7 +1199,7 @@ public sealed class E2ESession : IAsyncDisposable
             }
         }
 
-        if (abandoned is not null || _cancelsOnClose is not null || _hostedClose is not null)
+        if (abandoned is not null || _cancelsOnClose is not null)
         {
             // The work the test left running stops with the session, as upstream's close cancels the operations it still holds.
             try
@@ -1210,6 +1210,12 @@ public sealed class E2ESession : IAsyncDisposable
             {
                 // The session was released already.
             }
+        }
+
+        if (_hostedClose is not null && abandoned is null && _cancelsOnClose is null)
+        {
+            // A hosted close cancels the operations it still holds, a poll among them (upstream's close). CancelCurrentAsync tolerates a released session.
+            await _budget.CancelCurrentAsync().ConfigureAwait(false);
         }
 
         // Upstream's standalone attempt fails as timed out when the deadline passed, whether or not its timer ran before close.

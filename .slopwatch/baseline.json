@@ -4109,10 +4109,10 @@
       "baselinedAt": "2026-11-18T15:41:48.2152513+00:00"
     },
     {
-      "hash": "bf055892893f0717",
+      "hash": "e5c9483681fd53f1",
       "ruleId": "SW003",
       "filePath": "src/E2E/Run/E2ESession.cs",
-      "lineNumber": 1128,
+      "lineNumber": 1209,
       "codeSnippet": "catch (ObjectDisposedException)\n            {\n                // The session was released already.\n            }",
       "message": "Empty catch block swallows exceptions without handling",
       "baselinedAt": "2026-11-21T19:19:03.6420172+00:00"
