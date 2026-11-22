@@ -160,7 +160,7 @@ rather than reading (`jq`, CI tools; topic `debugging`), a trace page,
 video when `video` is on. The report holds every result of the test process,
 passing ones included, whatever the `trace` mode, and is written again after each
 attempt, so a run that stops early leaves the attempts so far. Its `run.status`
-and `run.finishedAt` are those of the attempts so far until the last one ends.
+`run.finishedAt`, and `run.durationMs` are those of the attempts so far until the last one ends.
 Processes that share an output directory overwrite one another's report.
 Use the test runner's own reporters. On VSTest (NUnit and xUnit v3 by default):
 `dotnet test --logger "trx;LogFileName=e2e.trx"` or

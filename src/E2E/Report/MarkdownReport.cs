@@ -783,7 +783,7 @@ public static class MarkdownReport
     {
         // A run with no finish time (interrupted) reads as instant, where upstream's date arithmetic would print NaN.
         var duration = FormatDuration(
-            run.FinishedAt is { } finished ? (finished - run.StartedAt).TotalMilliseconds : 0
+            run.DurationMs ?? (run.FinishedAt is { } finished ? (finished - run.StartedAt).TotalMilliseconds : 0)
         );
         var shown = targets.Take(MaxFooterTargets).Select(target => Cell(target.Id, MaxIdChars)).ToList();
         if (targets.Count > shown.Count)

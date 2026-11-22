@@ -61,6 +61,9 @@ internal sealed record BuildReportOptions
 
     /// <summary>When the run finished; the time of the build when null (upstream's <c>timestamp()</c>).</summary>
     public DateTimeOffset? FinishedAt { get; init; }
+
+    /// <summary>Time in completed hold intervals. Overlapping time is counted once (upstream's <c>heldMs</c>).</summary>
+    public long HeldMs { get; init; }
 }
 
 /// <summary>
@@ -371,6 +374,8 @@ internal static class BuildReport
             )
             .ToList();
         var summary = ComputeSummary(options.Results);
+        var finishedAt = options.FinishedAt ?? DateTimeOffset.UtcNow;
+        var durationMs = Math.Max(0, (long)(finishedAt - options.StartedAt).TotalMilliseconds - options.HeldMs);
         return new Report1Document(
             new ReportRun(options.RunId, ModelHttp.PackageVersion(), targets, results, options.Explore)
             {
@@ -383,7 +388,8 @@ internal static class BuildReport
                         ConfigDigest = config.ConfigDigest,
                     }
                     : ReportProject.Unknown,
-                FinishedAt = options.FinishedAt ?? DateTimeOffset.UtcNow,
+                FinishedAt = finishedAt,
+                DurationMs = durationMs,
                 Environment = new ReportEnvironment(
                     options.Ci,
                     false,

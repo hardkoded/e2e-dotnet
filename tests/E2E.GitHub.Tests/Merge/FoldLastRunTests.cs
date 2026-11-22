@@ -49,7 +49,8 @@ public sealed class FoldLastRunTests
                 ResultStatus.Skipped,
                 skip: new SkipInfo { Cause = SkipCause.Explicit, Reason = "later" }
             ),
-        ]
+        ],
+        durationMs: 2_000
     );
 
     private static readonly Report Rerun = ReportOf(
@@ -60,7 +61,8 @@ public sealed class FoldLastRunTests
             Result("still broken", ResultStatus.Failed, attempts: [FailedAttempt]),
             Result("never wanted", ResultStatus.Skipped, selected: false, skip: LeftOut),
             Result("new since", ResultStatus.Passed, attempts: [Attempt()]),
-        ]
+        ],
+        durationMs: 1_000
     );
 
     private static Dictionary<string, ReportResult> ByTitle(Report document)
@@ -131,10 +133,21 @@ public sealed class FoldLastRunTests
             folded.Run.Summary
         );
 
-        // The rerun decides the outcome; the start is the run before's, so the duration spans both.
         Assert.Equal(ReportRunStatus.Failed, folded.Run.Status);
         Assert.Equal(FirstPass.Run.StartedAt, folded.Run.StartedAt);
         Assert.Equal(Rerun.Run.FinishedAt, folded.Run.FinishedAt);
+        Assert.Contains("· 3.0s ·", Page(folded));
+    }
+
+    [Fact]
+    public void Adds_the_wall_time_of_an_older_saved_run_to_the_rerun_duration()
+    {
+        var saved = ReportOf(
+            ReportRunStatus.Failed,
+            durationMs: null,
+            finishedAt: new DateTimeOffset(2026, 7, 24, 12, 0, 7, TimeSpan.Zero)
+        );
+        Assert.Contains("· 8.0s ·", Page(Folding.FoldLastRun(Rerun, saved)));
     }
 
     [Fact]
