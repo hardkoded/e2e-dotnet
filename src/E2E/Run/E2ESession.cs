@@ -267,12 +267,34 @@ public sealed class E2ESession : IAsyncDisposable
             ? ExecuteVideo.PlanGiven(options, given)
             : ExecuteVideo.Plan(options);
 
-        var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        // Resolved before the timeout source exists, so a bad path throws with nothing to dispose.
+        var projectRoot = Path.GetFullPath(
+            string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot
+        );
+        var attemptDir = Path.Combine([
+            Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
+            .. ArtifactPaths.AttemptSegments(
+                options.RerunDir,
+                AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle),
+                options.Attempt - 1
+            ),
+        ]);
+
+        var timeout = NewTimeoutSource(options.Clock, cancellationToken);
         Deadline? budgetDeadline = null;
         if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
         {
-            timeout.CancelAfter(options.TestTimeout);
-            budgetDeadline = new Deadline(options.TestTimeout, options.Clock);
+            try
+            {
+                timeout.CancelAfter(options.TestTimeout);
+                budgetDeadline = new Deadline(options.TestTimeout, options.Clock);
+            }
+            catch
+            {
+                // An out-of-range timeout throws before the session owns the source.
+                timeout.Dispose();
+                throw;
+            }
         }
 
         // What test.setTimeout moves: the signal's timer and the deadline the screen and browser cap their steps with.
@@ -306,17 +328,6 @@ public sealed class E2ESession : IAsyncDisposable
         var timedOut = new Lazy<TestException>(() => TimeoutFailure(attemptTimeout.Timeout, null));
 
         var debug = new DebugTrace(options.Debug);
-        var projectRoot = Path.GetFullPath(
-            string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot
-        );
-        var attemptDir = Path.Combine([
-            Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
-            .. ArtifactPaths.AttemptSegments(
-                options.RerunDir,
-                AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle),
-                options.Attempt - 1
-            ),
-        ]);
         IEngineSession engine;
 
         // The attempt's id is minted here, before the engine starts, so the start options and every call's context name the one id.
@@ -1475,6 +1486,37 @@ public sealed class E2ESession : IAsyncDisposable
     }
 
     // The session's own agent settings are the default agent. Agents names the others.
+    /// <summary>.NET-only: the test's signal. With the system clock it links to the caller's token; with an injected clock (<see cref="E2ESessionOptions.Clock"/>) its timer reads that clock too, and the caller's token cancels it.</summary>
+    private static CancellationTokenSource NewTimeoutSource(TimeProvider clock, CancellationToken cancellationToken)
+    {
+        if (clock == TimeProvider.System)
+        {
+            return CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        }
+
+        return new ClockedTimeoutSource(clock, cancellationToken);
+    }
+
+    /// <summary>.NET-only: a signal whose timer reads an injected clock and that the caller's token cancels; disposing it releases that registration, as a linked source does.</summary>
+    private sealed class ClockedTimeoutSource : CancellationTokenSource
+    {
+        private readonly CancellationTokenRegistration _caller;
+
+        public ClockedTimeoutSource(TimeProvider clock, CancellationToken cancellationToken)
+            : base(Timeout.InfiniteTimeSpan, clock) =>
+            _caller = cancellationToken.Register(static state => ((CancellationTokenSource)state!).Cancel(), this);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _caller.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+    }
+
     private static Dictionary<string, ResolvedAgent> ResolveAgents(E2ESessionOptions options)
     {
         var agents = new Dictionary<string, ResolvedAgent>(StringComparer.Ordinal)

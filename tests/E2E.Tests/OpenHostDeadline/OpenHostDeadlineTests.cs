@@ -140,10 +140,9 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Partial_Times_out_a_session_closed_past_its_deadline_before_the_deadline_timer_ran()
+    public async Task Times_out_a_session_closed_past_its_deadline_before_the_deadline_timer_ran()
     {
-        // Partial: the session timeout is 60 s, not upstream's 20 ms, so the session's real timer stays pending while the fake clock passes the deadline.
-        // The session reads a fake clock, so the deadline passes while the session's own timer (60 s of real time) stays pending, as upstream's busy loop holds it.
+        // The session's timer and deadline read a fake clock, so the 20 ms deadline passes while its timer has not fired, as upstream's busy loop holds it.
         var clock = new FakeTimeProvider();
         File.WriteAllText(Path.Combine(_dir, E2EConfig.FileName), Config);
         var host = await E2EHost.OpenAsync(
@@ -157,14 +156,15 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
         );
         _hosts.Add(host);
         var session = await host.OpenSessionAsync(
-            new OpenSessionOptions { Name = "closed past deadline", Timeout = TimeSpan.FromSeconds(60) }
+            new OpenSessionOptions { Name = "closed past deadline", Timeout = TimeSpan.FromMilliseconds(20) }
         );
-        clock.Advance(TimeSpan.FromSeconds(61));
+        // AdjustTime moves the clock without running the timer that is due, which is the state upstream's busy loop leaves.
+        clock.AdjustTime(clock.GetUtcNow() + TimeSpan.FromMilliseconds(21));
 
         var failures = await session.CloseAsync();
         var failure = Assert.IsAssignableFrom<E2EException>(Assert.Single(failures));
         Assert.Equal("TEST_TIMEOUT", failure.Code);
-        Assert.Contains("session timed out after 60000 ms", failure.Message);
+        Assert.Contains("session timed out after 20 ms", failure.Message);
         Assert.Contains("· timed out ·", await File.ReadAllTextAsync(session.TracePath));
     }
 
