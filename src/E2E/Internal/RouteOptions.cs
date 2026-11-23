@@ -60,7 +60,7 @@ internal static partial class RouteOptions
         var file = response.Path is null
             ? null
             : resolvePath(RequireString("route.fulfill", "path", response.Path, nonempty: true));
-        if (file is not null && !File.Exists(file))
+        if (file is not null && (WebSupport.StatPath(file, out var isFile) is not null || !isFile))
         {
             throw Invalid("route.fulfill path is not a readable file: " + file);
         }

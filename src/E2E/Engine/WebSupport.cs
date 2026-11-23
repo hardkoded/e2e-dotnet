@@ -38,6 +38,25 @@ internal static class WebSupport
         };
     }
 
+    /// <summary>
+    /// Stats a caller-supplied path (upstream's <c>statPath</c>). Returns the failure when the path is missing or a directory on it
+    /// may not be searched (<c>EACCES</c>), and null when it exists; <paramref name="isFile"/> says whether it names a regular file.
+    /// </summary>
+    public static Exception? StatPath(string file, out bool isFile)
+    {
+        isFile = false;
+        try
+        {
+            isFile = !File.GetAttributes(file).HasFlag(FileAttributes.Directory);
+            return null;
+        }
+        catch (Exception cause)
+            when (cause is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return cause;
+        }
+    }
+
     /// <summary>Constrains a caller-supplied artifact label to a safe filename (upstream's <c>sanitizeFilename</c>).</summary>
     public static string SanitizeFilename(string name)
     {

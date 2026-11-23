@@ -1332,6 +1332,12 @@ On the web it also takes a button that opens a file chooser. An empty list of pa
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` on the web for a path that does not exist or sits under a directory the runner cannot search, before anything is clicked. |
+
 <a id="E2E_Locator_SwipeAsync_"></a>
 <a id="E2E_Locator_SwipeAsync_E2E_SwipeOptions_System_Threading_CancellationToken_"></a>
 
