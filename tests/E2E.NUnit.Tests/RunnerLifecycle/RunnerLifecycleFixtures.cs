@@ -156,7 +156,7 @@ public sealed class IgnoreBesideFailureSerialFixture : E2ETest
     public void Broken() => throw new InvalidOperationException("teardown broke");
 
     [Test]
-    public void Ignored_beside_a_failure() => Assert.Ignore("not ready");
+    public void Serial_member_skips_then_fails() => Assert.Ignore("not ready");
 }
 
 /// <summary><c>describe('wizard', { serial: true })</c>: the first member marks itself fixme, the second runs.</summary>
