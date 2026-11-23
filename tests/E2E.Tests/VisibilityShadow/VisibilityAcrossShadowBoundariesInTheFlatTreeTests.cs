@@ -297,16 +297,6 @@ public sealed class VisibilityAcrossShadowBoundariesInTheFlatTreeTests(ChromiumP
         "#cv-fieldset-contents",
         false
     )]
-    public async Task Case(string description, string selector, bool hidden)
-    {
-        _ = description;
-        var page = await SetUpAsync();
-        Assert.Equal((hidden, hidden), await HiddenOfAsync(page, selector));
-    }
-
-    // Partial: Microsoft.Playwright 1.64 bundles a Chromium that reads content under content-visibility: hidden on a nested svg as hidden, so
-    // its isHidden disagrees with upstream's playwright-core 1.65.1. Only the reader's half is checked until the package moves (see the PR report).
-    [Theory]
     [InlineData(
         "a link in an svg nested in another, with content-visibility: hidden on the inner one",
         "#cv-inner-svg-link",
@@ -317,12 +307,11 @@ public sealed class VisibilityAcrossShadowBoundariesInTheFlatTreeTests(ChromiumP
         "#cv-inner-block-svg-link",
         false
     )]
-    public async Task Partial_Case(string description, string selector, bool hidden)
+    public async Task Case(string description, string selector, bool hidden)
     {
         _ = description;
         var page = await SetUpAsync();
-        var read = await chromium.ReadAsync(page.Locator(selector));
-        Assert.Equal(hidden, read!.Hidden);
+        Assert.Equal((hidden, hidden), await HiddenOfAsync(page, selector));
     }
 
     [Fact]
