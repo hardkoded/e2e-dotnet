@@ -1262,7 +1262,14 @@ public sealed class E2ESession : IAsyncDisposable
             && StepRecords.Any(step => step.Status == StepStatus.Cancelled)
                 ? new OperationCanceledException("the session was cancelled while its test ran", _openToken)
                 : null;
-        Complete(timedOut ?? soft ?? abandoned ?? interrupted, _hostedClose is not null ? _openToken : default);
+
+        // Upstream's standalone attempt `verdict()`: with no other failure, a hosted session's first step that did not pass is the verdict.
+        var stepFailure =
+            _hostedClose is not null && (timedOut ?? soft ?? abandoned ?? interrupted) is null ? Verdict() : null;
+        Complete(
+            timedOut ?? soft ?? abandoned ?? interrupted ?? stepFailure,
+            _hostedClose is not null ? _openToken : default
+        );
         try
         {
             await DisposeCoreAsync().ConfigureAwait(false);
@@ -1921,6 +1928,24 @@ public sealed class E2ESession : IAsyncDisposable
 
         // The session's own test timeout cancels the calls the test awaits: that is a timeout, not a failure.
         return _timeout.IsCancellationRequested ? AttemptStatus.TimedOut : AttemptStatus.Failed;
+    }
+
+    /// <summary>The error of the first step that did not pass, as the exception the attempt's verdict is read from; null when every step passed.</summary>
+    private Exception? Verdict()
+    {
+        if (StepRecords.FirstOrDefault(step => step.Status != StepStatus.Passed) is not { } step)
+        {
+            return null;
+        }
+
+        var code = step.Error?.Code ?? "TEST_FAILED";
+        var message = step.Error?.Message ?? "step " + step.Api + " did not pass";
+        return step.Status switch
+        {
+            StepStatus.Blocked => new AgentException(code, message, blocked: true) { Details = step.Error?.Details },
+            StepStatus.TimedOut => new TestException("TEST_TIMEOUT", message) { Details = step.Error?.Details },
+            _ => new TestException(code, message) { Details = step.Error?.Details },
+        };
     }
 
     /// <summary>

@@ -68,6 +68,8 @@ failures as an `AggregateException`, always, even for one. After a session whose
 the host refuses another (`WORKER_PROTOCOL`): what it left may be unclean. A soft
 failure or an un-awaited step does not do that. `host.CloseAsync()` and `DisposeAsync` do the same for the host.
 
+A hosted session has no test body to fail, so its steps decide the verdict: with no timeout, soft failure, or un-awaited step, the first step that did not pass (failed, `blocked`, timed out, or cancelled) makes the attempt non-passing. That verdict drives the trace and the `video` mode: under `retain-on-failure` a session whose agent step ended `blocked` keeps its video. The host reads `agents.default`'s executor from a config you build with `E2EConfig.WithExecutor`, as the runner does.
+
 ## Steps and the report
 
 `session.Steps()` returns the timeline as `E2E.Reports.ReportStep`, the typed

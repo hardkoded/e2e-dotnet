@@ -230,6 +230,8 @@ Soft expectation failures are collected for the session's whole lifetime. Check 
 
 #### Artifacts
 
+A hosted session has no test body, so its steps decide the verdict. With no timeout, soft failure, or un-awaited step, the first step that did not pass (failed, `blocked`, timed out, or cancelled) makes the attempt non-passing: the trace's first line does not read `passed`, and `video: "retain-on-failure"` keeps the session's video. The session runs the executor of `agents.default` when the config you pass has one (`E2EConfig.WithExecutor`).
+
 At close, e2e writes `trace.md` to the test's directory (`<results>/<test>`, beside the attempt's directory) through the same redacted formatting reports use. A hosted session writes its trace, not `report.json`. For your runner's reporting, use `OnStep`, `Steps()`, `Report()`, and `CloseAsync()`'s failures. Your runner's test-body failures are not passed to e2e.
 
 Differences from upstream: the attempt's directory is `<results>/<test>/attempt-1` and `trace.md` sits beside it, in `<results>/<test>`; read `TracePath` for its location. Upstream's directory is `results/host/<segment>`. Two sessions with one name share it; `RUNNER_BUSY` is not raised, since the port has no suite runner. See [Compatibility](/compatibility/#hosted-sessions).
