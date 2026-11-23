@@ -21,9 +21,21 @@ public static class IsolatedHost
         try
         {
             var copy = context.LoadFromAssemblyPath(typeof(IsolatedHost).Assembly.Location);
+            var launch = context
+                .LoadFromAssemblyName(typeof(Launch).Assembly.GetName())
+                .GetType(typeof(Launch).FullName!)!;
+            if (
+                launch == typeof(Launch)
+                || launch.Assembly == typeof(Launch).Assembly
+                || AssemblyLoadContext.GetLoadContext(launch.Assembly) != context
+            )
+            {
+                throw new InvalidOperationException("The copy of the library was not loaded into its own context.");
+            }
+
             var run = copy.GetType(typeof(IsolatedHost).FullName!)!
                 .GetMethod(nameof(RunAsync), BindingFlags.Public | BindingFlags.Static)!;
-            return await (Task<string?>)run.Invoke(null, [cwd])!;
+            return await (Task<string?>)run.Invoke(null, BindingFlags.DoNotWrapExceptions, null, [cwd], null)!;
         }
         finally
         {
@@ -35,7 +47,7 @@ public static class IsolatedHost
     public static async Task<string?> RunAsync(string cwd)
     {
         var engine = new CoreFakeEngine();
-        var opened = await Launch.LaunchAsync(
+        await using var opened = await Launch.LaunchAsync(
             (IEngine)engine,
             new LaunchOptions { Cwd = cwd, Env = new Dictionary<string, string?>() }
         );

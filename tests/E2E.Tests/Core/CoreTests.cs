@@ -218,8 +218,17 @@ public sealed class CoreTests : IAsyncLifetime
         Assert.Single(seen.Distinct());
 
         // Hosts from two copies of the library share the process and load their own copy of the module.
-        var copyIds = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => IsolatedHost.HostIdFromOwnCopyAsync(_dir)));
+        var copyIds = await Task.WhenAll(
+            Enumerable
+                .Range(0, 2)
+                .Select(async index =>
+                    await IsolatedHost.HostIdFromOwnCopyAsync(
+                        Directory.CreateDirectory(Path.Combine(_dir, $"copy-{index}")).FullName
+                    )
+                )
+        );
         Assert.Matches(@"\A[0-9a-f]{24}\z", copyIds[0]);
+        Assert.Matches(@"\A[0-9a-f]{24}\z", copyIds[1]);
         Assert.NotEqual(copyIds[0], copyIds[1]);
     }
 
