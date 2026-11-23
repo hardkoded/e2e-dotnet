@@ -1122,7 +1122,7 @@ public sealed class SnapshotProjectionTests
         Assert.Equal("textbox", password.Node.Role);
         Assert.Equal("Password", password.Node.Name);
         Assert.Equal("password", password.Node.InputPurpose);
-        Assert.Equal(S(("secure", true)), password.States);
+        Assert.Equal(S(("secure", true), ("readonly", false)), password.States);
         Assert.Equal("com.example:id/password", password.Node.TestId);
         Assert.Null(password.Node.Value);
 
@@ -1130,7 +1130,7 @@ public sealed class SnapshotProjectionTests
         Assert.Equal("pin-view", pin.Kind);
         Assert.Equal("textbox", pin.Node.Role);
         Assert.Equal("password", pin.Node.InputPurpose);
-        Assert.Equal(S(("secure", true)), pin.States);
+        Assert.Equal(S(("secure", true), ("readonly", false)), pin.States);
         Assert.Null(pin.Node.Value);
         Assert.Equal("text", note.Node.Role);
     }
