@@ -97,13 +97,15 @@ internal static partial class MarkdownText
     /// <summary>A duration the way a page tells it: milliseconds under a second, seconds under a minute, then minutes.</summary>
     public static string FormatDuration(double ms)
     {
-        if (ms < 1_000)
+        var rounded = Math.Round(ms, MidpointRounding.AwayFromZero);
+        if (rounded < 1_000)
         {
-            return Math.Round(ms, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture) + "ms";
+            return rounded.ToString("0", CultureInfo.InvariantCulture) + "ms";
         }
 
-        return ms < 60_000
-            ? (ms / 1_000).ToString("0.0", CultureInfo.InvariantCulture) + "s"
+        var tenths = Math.Round(ms / 100, MidpointRounding.AwayFromZero);
+        return tenths < 600
+            ? (tenths / 10).ToString("0.0", CultureInfo.InvariantCulture) + "s"
             : ReportFormat.FormatMinutes(ms);
     }
 

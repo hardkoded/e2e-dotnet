@@ -283,7 +283,7 @@ internal static partial class CacheCommand
         {
             ("directory", contents.Directory),
             ("entries", contents.Entries.Count.ToString(CultureInfo.InvariantCulture)),
-            ("size", FormatBytes(bytes)),
+            ("size", FormatBytes.Format(bytes)),
         };
         if (contents.Unreadable.Count > 0)
         {
@@ -395,19 +395,6 @@ internal static partial class CacheCommand
         return hours < 24
             ? hours.ToString(CultureInfo.InvariantCulture) + "h"
             : (hours / 24).ToString(CultureInfo.InvariantCulture) + "d";
-    }
-
-    private static string FormatBytes(long bytes)
-    {
-        if (bytes < 1024)
-        {
-            return bytes.ToString(CultureInfo.InvariantCulture) + " B";
-        }
-
-        var kib = bytes / 1024.0;
-        return kib < 1024
-            ? kib.ToString("F1", CultureInfo.InvariantCulture) + " KiB"
-            : (kib / 1024).ToString("F1", CultureInfo.InvariantCulture) + " MiB";
     }
 
     private static CacheArgs Parse(IEnumerable<string> args)
