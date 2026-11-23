@@ -133,7 +133,12 @@ internal static partial class ScreenshotAssertion
             // A screenshot the engine withheld reports the regions it masked beside the missing pixels, so it fails here at once.
             if (
                 shot.MaskedRegionCount is not { } masked
-                || masked < LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure)
+                || !Secrecy.PixelsProvenMasked(
+                    new ObservationRedaction(
+                        LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure),
+                        masked
+                    )
+                )
             )
             {
                 throw new ConfigurationException(

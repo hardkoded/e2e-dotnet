@@ -338,6 +338,13 @@ public static class EngineSessions
 
             _revision++;
             _root = root;
+
+            // Pixels stay only when their masked regions cover every secure node. Pixels or a count the engine answered a pixels request with,
+            // short of that proof, are marked instead, so no reader of the observation checks it again. An unavailable tree above has no secure
+            // node to count, so its fallback pixels rest on the engine's own proof.
+            var captured =
+                options?.Pixels == true && (snapshot.Pixels is not null || snapshot.MaskedRegionCount is not null);
+            var proven = Secrecy.PixelsProvenMasked(redaction);
             var observation = new SessionObservation
             {
                 Kind = "semantic",
@@ -351,7 +358,8 @@ public static class EngineSessions
                 Tree = StampRevision(snapshot.Root, minted),
                 Truncated = snapshot.Truncated,
                 KeyboardVisible = snapshot.KeyboardVisible,
-                Pixels = snapshot.Pixels,
+                Pixels = snapshot.Pixels is null || !proven ? null : snapshot.Pixels,
+                PixelsWithheld = captured && !proven ? PixelsWithheld.MaskingUnproven : null,
             };
             Screens.Push(snapshot);
             return observation;
