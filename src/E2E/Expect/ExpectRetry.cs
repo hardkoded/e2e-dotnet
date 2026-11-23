@@ -174,9 +174,10 @@ internal static class ExpectRetry
 
             lines.Add("last: " + (last ?? options.NoSample));
             var text = ErrorRedaction.Redact(string.Join('\n', lines));
-            return cause is null
-                ? new TestException("ASSERTION_FAILED", text)
-                : new TestException("ASSERTION_FAILED", text, cause);
+            // Upstream redacts the kept cause when serializeError walks it; the port has no report boundary, so it is redacted here.
+            return ErrorRedaction.Cause(cause, ErrorRedaction.Redact) is { } redactedCause
+                ? new TestException("ASSERTION_FAILED", text, redactedCause)
+                : new TestException("ASSERTION_FAILED", text);
         }
 
         try
