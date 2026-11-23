@@ -17,6 +17,7 @@ internal sealed class HostFakeEngine : IEngine
     private int _starts;
     private int _disposes;
     private readonly List<string> _calls = [];
+    private readonly List<RecordedOperation> _operations = [];
 
     /// <summary>Runs inside every action; a wait on the token cancels with the session.</summary>
     public Func<LocatorAction, CancellationToken, Task>? OnPerform { get; init; }
@@ -32,6 +33,21 @@ internal sealed class HostFakeEngine : IEngine
             lock (_calls)
             {
                 return [.. _calls];
+            }
+        }
+    }
+
+    /// <summary>
+    /// The operation each engine call carried (upstream's <c>operations</c>, recorded by <c>record(method, operation)</c>). The port records the
+    /// calls that take an <see cref="OperationContext"/> on this engine's session: <c>open</c>.
+    /// </summary>
+    public IReadOnlyList<RecordedOperation> Operations
+    {
+        get
+        {
+            lock (_operations)
+            {
+                return [.. _operations];
             }
         }
     }
@@ -79,6 +95,24 @@ internal sealed class HostFakeEngine : IEngine
         public string Route => "/";
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task OpenAsync(string url, OperationContext context, CancellationToken cancellationToken)
+        {
+            lock (owner._operations)
+            {
+                owner._operations.Add(
+                    new RecordedOperation(
+                        "open",
+                        context.RunId,
+                        context.AttemptId,
+                        context.Timeout,
+                        cancellationToken.IsCancellationRequested
+                    )
+                );
+            }
+
+            return Task.CompletedTask;
+        }
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
             Task.FromResult(
@@ -133,6 +167,15 @@ internal sealed class HostFakeEngine : IEngine
         }
     }
 }
+
+/// <summary>Upstream's <c>RecordedOperation</c>: what one engine call was given (<c>timeoutMs</c> is <see cref="Timeout"/>, <c>abortedAtCall</c> is <see cref="AbortedAtCall"/>).</summary>
+internal sealed record RecordedOperation(
+    string Method,
+    string RunId,
+    string AttemptId,
+    TimeSpan? Timeout,
+    bool AbortedAtCall
+);
 
 /// <summary>
 /// The contributed fixture of upstream's fake engine (<c>fixtures: true</c>): <c>poke</c>, <c>slow</c>, and <c>hang</c>, each a recorded
