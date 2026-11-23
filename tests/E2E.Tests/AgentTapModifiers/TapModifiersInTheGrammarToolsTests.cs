@@ -127,8 +127,20 @@ public sealed class TapModifiersInTheGrammarToolsTests
         );
         Assert.Empty(engine!.Clicks);
         Assert.Equal(5, results.Count);
-        Assert.All(results, result =>
-            Assert.Matches("^(tap|right_click) #e\\d+ failed: INVALID_ARGUMENT: .*modifier", result)
+        Assert.All(
+            results,
+            (result, index) =>
+            {
+                // A list that is not one never reaches the action: the schema refuses it, as upstream's safeParse does.
+                if (index == 3)
+                {
+                    Assert.StartsWith("failed: Invalid input for tool tap: ", result, StringComparison.Ordinal);
+                    Assert.Contains("\"code\":\"invalid_type\"", result, StringComparison.Ordinal);
+                    return;
+                }
+
+                Assert.Matches("^(tap|right_click) #e\\d+ failed: INVALID_ARGUMENT: .*modifier", result);
+            }
         );
     }
 
