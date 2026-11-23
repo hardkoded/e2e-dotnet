@@ -187,10 +187,8 @@ public sealed class CoreTests : IAsyncLifetime
         Assert.Equal("WORKER_PROTOCOL", (await Assert.ThrowsAsync<EngineException>(() => HostOf(fake))).Code);
     }
 
-    // Partial: upstream's last part opens two hosts in two worker threads, each with its own copy of the module. A .NET process loads one copy of the library, so
-    // that part has no counterpart.
     [Fact]
-    public async Task Partial_Hands_the_engine_of_each_host_a_token_of_its_own_and_leaves_the_target_named_as_the_program_wrote_it()
+    public async Task Hands_the_engine_of_each_host_a_token_of_its_own_and_leaves_the_target_named_as_the_program_wrote_it()
     {
         var fakes = new[] { new CoreFakeEngine(), new CoreFakeEngine(), new CoreFakeEngine() };
         var opened = await Task.WhenAll(fakes.Take(2).Select(fake => HostOf(fake)));
@@ -218,6 +216,11 @@ public sealed class CoreTests : IAsyncLifetime
         Assert.Equal(3, seen.Count);
         Assert.Matches(@"\A[0-9a-f]{24}\z", seen[0]);
         Assert.Single(seen.Distinct());
+
+        // Hosts from two copies of the library share the process and load their own copy of the module.
+        var copyIds = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => IsolatedHost.HostIdFromOwnCopyAsync(_dir)));
+        Assert.Matches(@"\A[0-9a-f]{24}\z", copyIds[0]);
+        Assert.NotEqual(copyIds[0], copyIds[1]);
     }
 
     [Fact]
