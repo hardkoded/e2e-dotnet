@@ -312,10 +312,11 @@ internal static class ReportFile
 
             // A session of the run has passed its own already: that one knows the agents built in code, so it stays.
             state.Config ??= config;
-            state.Changes = selection.Changes;
-            state.Filters = selection.Filters;
-            state.Previous = selection.Previous;
-            state.Collected = selection.Collected;
+            // A selection that judged nothing (a [Fixme] test an [Explicit] fixture runs alone) keeps what the run's own selection already put there.
+            state.Changes = selection.Changes ?? state.Changes;
+            state.Filters = selection.Filters.Count == 0 ? state.Filters : selection.Filters;
+            state.Previous = selection.Previous ?? state.Previous;
+            state.Collected = selection.Collected ?? state.Collected;
             await WriteStateAsync(state, resultsRoot, cancellationToken).ConfigureAwait(false);
         }
         finally

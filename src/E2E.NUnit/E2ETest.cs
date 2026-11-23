@@ -150,7 +150,12 @@ public abstract partial class E2ETest : E2EFixture
         }
 
         var method = TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo;
-        var started = StartSessionAsync(
+        if (method?.GetCustomAttribute<FixmeAttribute>(true) is { } fixme)
+        {
+            return SkipFixmeWithoutSessionAsync(method, fixme);
+        }
+
+        return StartSessionAsync(
             CacheTitle(current.Test),
             AttemptOf(current),
             RecordSoftFailure,
@@ -158,16 +163,21 @@ public abstract partial class E2ETest : E2EFixture
             current.CancellationToken,
             method
         );
-        return method?.GetCustomAttribute<FixmeAttribute>(true) is { } fixme
-            ? FixmeAfterAsync(started, fixme)
-            : started;
     }
 
-    // A test registered with [Fixme] skips once its session has started, as a Fixme() from a [SetUp] does: the report tells the cause fixme.
-    private async Task FixmeAfterAsync(Task started, FixmeAttribute fixme)
+    // A test registered with [Fixme] that the run fixture did not collect (an [Explicit] fixture runs alone) is reported here, and skips before its session starts.
+    private async Task SkipFixmeWithoutSessionAsync(MethodInfo method, FixmeAttribute fixme)
     {
-        await started.ConfigureAwait(false);
-        Fixme(true, fixme.Reason);
+        var token = global::NUnit.Framework.TestContext.CurrentContext.CancellationToken;
+        var discovered = RunSelection
+            .Discover([GetType()], GetType().Assembly, includeExplicit: true)
+            .FirstOrDefault(test => test.Fixme && test.Title == method.Name);
+        if (discovered is not null)
+        {
+            await HostTestFilters.ReportFixmeAsync(Config, discovered, ResultsDirectory, token).ConfigureAwait(false);
+        }
+
+        Assert.Ignore(E2E.Internal.Skip.FixmeReason(fixme.Reason));
     }
 
     [TearDown]

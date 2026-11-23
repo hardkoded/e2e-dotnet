@@ -97,6 +97,23 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
         LooksBeforeTeardownExecutor.Forget(context);
         RunSelection.SkipIfLeftOut(GetType(), details.MethodName);
         RunSelection.SkipIfSetupRan(GetType(), details.MethodName);
+
+        // A test registered with [Fixme] that the run fixture did not collect (an [Explicit] fixture runs alone) is reported here, and skips before its session starts.
+        if (TestMethodOf(details)?.GetCustomAttribute<FixmeAttribute>(true) is { } fixme)
+        {
+            var discovered = RunSelection
+                .Discover([GetType()], GetType().Assembly, includeExplicit: true)
+                .FirstOrDefault(test => test.Fixme && test.Title == details.MethodName);
+            if (discovered is not null)
+            {
+                await HostTestFilters
+                    .ReportFixmeAsync(Config, discovered, ResultsDirectory, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            Skip.Test(E2E.Internal.Skip.FixmeReason(fixme.Reason));
+        }
+
         var started = StartSessionAsync(
             CacheTitle(context),
             context.Execution.CurrentRetryAttempt + 1,
@@ -110,27 +127,6 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
         // the async-local values a hook asks it to.
         context.AddAsyncLocalValues();
         await started.ConfigureAwait(false);
-
-        // A test registered with [Fixme] skips once its session has started, as a Fixme() from a hook does: the report tells the cause fixme.
-        if (TestMethodOf(details)?.GetCustomAttribute<FixmeAttribute>(true) is { } fixme)
-        {
-            var skip = E2E.Internal.Skip.FixmeRunningTest(CurrentSession, true, fixme.Reason)!;
-
-            // The session is completed here: the outcome TUnit hands the After hook does not tell a skip from a hook that failed.
-            if (TakeSession() is { } session)
-            {
-                try
-                {
-                    session.Complete(new SkipException(skip.Reason), cancellationToken);
-                }
-                finally
-                {
-                    await session.DisposeAsync().ConfigureAwait(false);
-                }
-            }
-
-            Skip.Test(skip.Reason);
-        }
     }
 
     /// <summary>

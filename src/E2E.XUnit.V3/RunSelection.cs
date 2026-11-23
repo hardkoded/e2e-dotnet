@@ -80,6 +80,9 @@ internal static class RunSelection
         }
     }
 
+    /// <summary>Ends the test as skipped, with <paramref name="reason"/>, before its session starts.</summary>
+    public static void SkipWith(string reason) => throw new InvalidOperationException(DynamicSkipToken + reason);
+
     /// <summary>Ends a setup test as skipped when it already ran for a test that restores its session (see <c>SetupDependencies</c>).</summary>
     public static void SkipIfSetupRan(Type fixture, string? method)
     {
@@ -98,7 +101,11 @@ internal static class RunSelection
         Discover(LoadableTypes(assembly), assembly);
 
     /// <summary>The tests of <paramref name="types"/>, whose assembly's traits they carry.</summary>
-    internal static IReadOnlyList<DiscoveredTest> Discover(IEnumerable<Type> types, Assembly assembly)
+    internal static IReadOnlyList<DiscoveredTest> Discover(
+        IEnumerable<Type> types,
+        Assembly assembly,
+        bool includeExplicit = false
+    )
     {
         var found = new List<DiscoveredTest>();
         foreach (
@@ -113,10 +120,8 @@ internal static class RunSelection
                     .OrderBy(method => method.MetadataToken)
             )
             {
-                if (
-                    method.GetCustomAttributes(true).OfType<IFactAttribute>().FirstOrDefault()
-                    is not { Explicit: not true } fact
-                )
+                var fact = method.GetCustomAttributes(true).OfType<IFactAttribute>().FirstOrDefault();
+                if (fact is null || (!includeExplicit && fact.Explicit == true))
                 {
                     continue;
                 }

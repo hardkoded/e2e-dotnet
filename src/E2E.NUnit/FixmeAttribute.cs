@@ -7,7 +7,7 @@ namespace E2E.NUnit;
 /// <summary>
 /// Registers the test as fixme (upstream's <c>test.fixme(title, fn)</c>, the registration form). The test is skipped with the cause
 /// <c>fixme</c> and the reason <c>fixme</c>, or <c>fixme: &lt;reason&gt;</c> for a reason that is not blank, and it is reported as
-/// such, not as an explicit skip. It starts its session and skips before its body, as <c>Fixme()</c> does from a set-up. A <c>NO_TESTS</c>
+/// such, not as an explicit skip. It starts no session: the host reports it from collection, skipped and selected with <c>attempts: []</c> (a filter that also excludes it reports it unselected, with the cause <c>filtered</c>). A <c>NO_TESTS</c>
 /// message counts it as <c>marked fixme</c>. Method-level only, a .NET-only shape: the port has no collection registry, so the host's own
 /// discovery finds the attribute.
 /// </summary>

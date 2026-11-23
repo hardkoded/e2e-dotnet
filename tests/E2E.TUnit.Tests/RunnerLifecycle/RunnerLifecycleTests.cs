@@ -8,8 +8,7 @@ using E2E.TUnit.Tests.EngineContract;
 namespace E2E.TUnit.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out that the registered form
-/// <c>[Fixme]</c> (upstream's <c>test.fixme(title, fn)</c>) has no attempt (it starts its session before it skips), the consumer's <c>setup-failed</c> skip, and reads each result from the fixture's
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out the consumer's <c>setup-failed</c> skip, and reads each result from the fixture's
 /// <c>report.json</c>.
 /// </summary>
 public sealed class RunnerLifecycleTests
@@ -31,6 +30,7 @@ public sealed class RunnerLifecycleTests
         var registered = ByTitle(report, nameof(FixmeFixture.Registered));
         await Assert.That((string?)registered["status"]).IsEqualTo("skipped");
         await AssertSkip(registered["skip"]!, "fixme");
+        await Assert.That(registered["attempts"]!.AsArray().Count).IsEqualTo(0);
         var conditional = ByTitle(report, nameof(FixmeFixture.Conditional));
         await Assert.That((string?)conditional["status"]).IsEqualTo("skipped");
         await AssertSkip(conditional["skip"]!, "fixme: flaky on webkit");

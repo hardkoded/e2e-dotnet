@@ -139,7 +139,11 @@ internal static class RunSelection
         Discover(LoadableTypes(assembly).Where(type => !IsExplicit(type)), assembly);
 
     /// <summary>The tests of <paramref name="types"/>, whose assembly's categories they carry.</summary>
-    internal static IReadOnlyList<DiscoveredTest> Discover(IEnumerable<Type> types, Assembly assembly)
+    internal static IReadOnlyList<DiscoveredTest> Discover(
+        IEnumerable<Type> types,
+        Assembly assembly,
+        bool includeExplicit = false
+    )
     {
         var found = new List<DiscoveredTest>();
         foreach (
@@ -152,7 +156,7 @@ internal static class RunSelection
             foreach (
                 var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance)
                     .Where(IsTest)
-                    .Where(method => !IsExplicit(method))
+                    .Where(method => includeExplicit || !IsExplicit(method))
                     .OrderBy(method => method.MetadataToken)
             )
             {
