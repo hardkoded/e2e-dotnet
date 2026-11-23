@@ -48,7 +48,9 @@ public sealed class InsideAnAttemptTests
         try
         {
             var error = await Assert.ThrowsAsync<TestException>(() =>
-                Expect.Poll(() => "running", new PollOptions { Intervals = [TimeSpan.FromMilliseconds(10)] }).ToBeAsync("done")
+                Expect
+                    .Poll(() => "running", new PollOptions { Intervals = [TimeSpan.FromMilliseconds(10)] })
+                    .ToBeAsync("done")
             );
             Assert.Contains("timed out after 80 ms", error.Message, StringComparison.Ordinal);
         }
