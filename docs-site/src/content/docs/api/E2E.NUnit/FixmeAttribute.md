@@ -22,7 +22,7 @@ public sealed class FixmeAttribute : Attribute
 
 Registers the test as fixme (upstream's `test.fixme(title, fn)`, the registration form). The test is skipped with the cause
 `fixme` and the reason `fixme`, or `fixme: <reason>` for a reason that is not blank, and it is reported as
-such, not as an explicit skip. It starts no session: the host reports it from collection, skipped and selected with `attempts: []`. A `NO_TESTS`
+such, not as an explicit skip. It starts no session: the host reports it from collection, skipped and selected with `attempts: []` (a filter that also excludes it reports it unselected, with the cause `filtered`). A `NO_TESTS`
 message counts it as `marked fixme`. Method-level only, a .NET-only shape: the port has no collection registry, so the host's own
 discovery finds the attribute.
 
@@ -45,7 +45,7 @@ public FixmeAttribute(string? reason = null)
 
 Registers the test as fixme (upstream's `test.fixme(title, fn)`, the registration form). The test is skipped with the cause
 `fixme` and the reason `fixme`, or `fixme: <reason>` for a reason that is not blank, and it is reported as
-such, not as an explicit skip. It starts no session: the host reports it from collection, skipped and selected with `attempts: []`. A `NO_TESTS`
+such, not as an explicit skip. It starts no session: the host reports it from collection, skipped and selected with `attempts: []` (a filter that also excludes it reports it unselected, with the cause `filtered`). A `NO_TESTS`
 message counts it as `marked fixme`. Method-level only, a .NET-only shape: the port has no collection registry, so the host's own
 discovery finds the attribute.
 

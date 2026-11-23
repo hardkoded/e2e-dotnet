@@ -101,7 +101,11 @@ internal static class RunSelection
         Discover(LoadableTypes(assembly), assembly);
 
     /// <summary>The tests of <paramref name="types"/>, whose assembly's traits they carry.</summary>
-    internal static IReadOnlyList<DiscoveredTest> Discover(IEnumerable<Type> types, Assembly assembly)
+    internal static IReadOnlyList<DiscoveredTest> Discover(
+        IEnumerable<Type> types,
+        Assembly assembly,
+        bool includeExplicit = false
+    )
     {
         var found = new List<DiscoveredTest>();
         foreach (
@@ -116,10 +120,8 @@ internal static class RunSelection
                     .OrderBy(method => method.MetadataToken)
             )
             {
-                if (
-                    method.GetCustomAttributes(true).OfType<IFactAttribute>().FirstOrDefault()
-                    is not { Explicit: not true } fact
-                )
+                var fact = method.GetCustomAttributes(true).OfType<IFactAttribute>().FirstOrDefault();
+                if (fact is null || (!includeExplicit && fact.Explicit == true))
                 {
                     continue;
                 }

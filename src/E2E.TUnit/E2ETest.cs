@@ -102,7 +102,7 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
         if (TestMethodOf(details)?.GetCustomAttribute<FixmeAttribute>(true) is { } fixme)
         {
             var discovered = RunSelection
-                .Discover([GetType()], GetType().Assembly)
+                .Discover([GetType()], GetType().Assembly, includeExplicit: true)
                 .FirstOrDefault(test => test.Fixme && test.Title == details.MethodName);
             if (discovered is not null)
             {

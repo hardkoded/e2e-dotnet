@@ -170,7 +170,7 @@ public abstract partial class E2ETest : E2EFixture
     {
         var token = global::NUnit.Framework.TestContext.CurrentContext.CancellationToken;
         var discovered = RunSelection
-            .Discover([GetType()], GetType().Assembly)
+            .Discover([GetType()], GetType().Assembly, includeExplicit: true)
             .FirstOrDefault(test => test.Fixme && test.Title == method.Name);
         if (discovered is not null)
         {
