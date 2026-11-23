@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using E2E.Internal;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -172,7 +173,8 @@ internal static class RunSelection
                                 ?? type.GetCustomAttribute<IgnoreAttribute>(true)
                             )?.Reason,
                         method.IsDefined(typeof(FixmeAttribute), true),
-                        type.IsDefined(typeof(SerialAttribute), true)
+                        type.IsDefined(typeof(SerialAttribute), true),
+                        FailErrorOf(type, method)
                     )
                 );
             }
@@ -180,6 +182,48 @@ internal static class RunSelection
 
         return found;
     }
+
+    /// <summary>
+    /// Why the <c>E2E.Fail</c> marks of a test are refused at collection, or null (upstream's registry checks, <c>collect/registry.ts</c>): a value that is not a
+    /// reason string, a mark on or inside a <c>[Serial]</c> fixture (the fixture, or a test in it), and a <c>[Serial]</c> fixture inside a marked one.
+    /// </summary>
+    internal static string? FailErrorOf(Type fixture, MethodInfo method)
+    {
+        var own = MarksOf(fixture).Select(mark => (mark, "describe options")).ToList();
+        own.AddRange(MarksOf(method).Select(mark => (mark, "test options")));
+        foreach (var (mark, label) in own)
+        {
+            if (ExpectedFailureMarks.FailOptionError(mark, label) is { } error)
+            {
+                return error;
+            }
+        }
+
+        var outer = new List<object?>();
+        for (var around = fixture.DeclaringType; around is not null; around = around.DeclaringType)
+        {
+            outer.AddRange(MarksOf(around));
+        }
+
+        foreach (var mark in outer)
+        {
+            if (ExpectedFailureMarks.FailOptionError(mark, "describe options") is { } error)
+            {
+                return error;
+            }
+        }
+
+        return fixture.IsDefined(typeof(SerialAttribute), true)
+            ? ExpectedFailureMarks.SerialFailError(own.Count > 0, outer.Count > 0)
+            : null;
+    }
+
+    private static IEnumerable<object?> MarksOf(MemberInfo member) =>
+        member
+            .GetCustomAttributes<PropertyAttribute>(true)
+            .SelectMany(attribute =>
+                attribute.Properties[NUnitSessionTestRunner.ExpectedFailureProperty].Cast<object?>()
+            );
 
     // A type that fails to load (a missing optional dependency) is not a test the run could start.
     private static IEnumerable<Type> LoadableTypes(Assembly assembly)

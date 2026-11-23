@@ -20,6 +20,7 @@ namespace E2E;
 /// <param name="SkipReason">Why the test is skipped outright (<c>[Ignore]</c>, or the reason <c>fixme</c> of a test marked <c>[Fixme]</c>); null when it is not.</param>
 /// <param name="Fixme">Whether the test is registered fixme with the host's <c>[Fixme]</c> (upstream's <c>test.fixme(title, fn)</c>); it runs far enough to report the cause <c>fixme</c>.</param>
 /// <param name="Serial">Whether the test is a member of a serial group; a fixme test in one is a collection error.</param>
+/// <param name="FailError">Why the test's <c>fail</c> marks are refused at collection (a bad value, or a mark on, inside, or around a serial group); null when they are fine.</param>
 internal sealed record DiscoveredTest(
     string Key,
     string Namespace,
@@ -28,7 +29,8 @@ internal sealed record DiscoveredTest(
     IReadOnlyList<string> Tags,
     string? SkipReason = null,
     bool Fixme = false,
-    bool Serial = false
+    bool Serial = false,
+    string? FailError = null
 );
 
 /// <summary>
@@ -372,6 +374,12 @@ internal static class HostTestFilters
                     "COLLECTION_ERROR",
                     "[Fixme] cannot be used inside a serial group, which skips as one unit; set skip on the serial describe instead"
                 );
+            }
+
+            // Upstream's registry refuses a bad fail option, and fail on, inside, or around a serial group, at collection.
+            if (test.FailError is not null)
+            {
+                throw new ConfigurationException("COLLECTION_ERROR", test.FailError);
             }
 
             // The id a session reports for the test: its class and method (.NET-only: the report names a test by what the framework runs).
