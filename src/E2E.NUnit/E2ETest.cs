@@ -457,10 +457,9 @@ public abstract partial class E2ETest : E2EFixture
             return;
         }
 
-        var skip = TestExecutionContext
-            .CurrentContext.CurrentResult.AssertionResults.FirstOrDefault(assertion =>
-                assertion.Status == AssertionStatus.Inconclusive
-            );
+        var skip = TestExecutionContext.CurrentContext.CurrentResult.AssertionResults.FirstOrDefault(assertion =>
+            assertion.Status == AssertionStatus.Inconclusive
+        );
         if (skip is not null)
         {
             session.RuntimeSkip = RuntimeSkip.Create(skip.Message, "explicit");
