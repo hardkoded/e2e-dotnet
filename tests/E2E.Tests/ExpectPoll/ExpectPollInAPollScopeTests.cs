@@ -160,7 +160,11 @@ public sealed class ExpectPollInAPollScopeTests
         Assert.Same(body, lineage.Run(PollScopes.CurrentPollScope));
         body.Close();
         var teardown = new PollScope("the fixture \"workspace\" teardown");
-        PollScopes.RunInPollScope(teardown, () => { lineage.HandOver(); return 0; });
+        PollScopes.RunInPollScope(teardown, () =>
+        {
+            lineage.HandOver();
+            return 0;
+        });
         var poll = lineage.Run(() => Expect.Poll(() => "running", Every(5, 5000)).ToBeAsync("done"));
         Assert.StartsWith("the fixture \"workspace\" teardown returned before", teardown.Close()?.Message);
         await RejectionOf(poll);
