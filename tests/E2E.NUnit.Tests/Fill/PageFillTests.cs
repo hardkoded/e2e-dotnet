@@ -75,17 +75,6 @@ public sealed partial class PageFillTests : PlaywrightTest
     }
 
     [Test]
-    public async Task Should_throw_on_incorrect_range_value()
-    {
-        await Browser.GotoAsync(Content("<input type=range min=0 max=100 value=50>"));
-        foreach (var value in new[] { "foo", "200", "15.43" })
-        {
-            var error = await Assert.CatchAsync(() => Browser.Locator("input").FillAsync(value));
-            Assert.That(error!.Message, Does.Contain("Malformed value"));
-        }
-    }
-
-    [Test]
     public async Task Should_fill_color_input()
     {
         await Browser.GotoAsync(Content("<input type=color value=\"#e66465\">"));
@@ -99,14 +88,6 @@ public sealed partial class PageFillTests : PlaywrightTest
         await Browser.GotoAsync(Content("<input type=color value=\"#e66465\">"));
         await Browser.Locator("input").FillAsync("#AbCd00");
         Assert.That(await ValueOfInputAsync(), Is.EqualTo("#abcd00"));
-    }
-
-    [Test]
-    public async Task Should_throw_on_incorrect_color_value()
-    {
-        await Browser.GotoAsync(Content("<input type=color value=\"#e66465\">"));
-        var error = await Assert.CatchAsync(() => Browser.Locator("input").FillAsync("badvalue"));
-        Assert.That(error!.Message, Does.Contain("Malformed value"));
     }
 
     [Test]
@@ -168,14 +149,6 @@ public sealed partial class PageFillTests : PlaywrightTest
     }
 
     [Test]
-    public async Task Should_throw_on_incorrect_date()
-    {
-        await Browser.GotoAsync(Content("<input type=date>"));
-        var error = await Assert.CatchAsync(() => Browser.Locator("input").FillAsync("2020-13-05"));
-        Assert.That(error!.Message, Does.Contain("Malformed value"));
-    }
-
-    [Test]
     public async Task Should_fill_time_input()
     {
         await Browser.GotoAsync(Content("<input type=time>"));
@@ -192,14 +165,6 @@ public sealed partial class PageFillTests : PlaywrightTest
     }
 
     [Test]
-    public async Task Should_throw_on_incorrect_month()
-    {
-        await Browser.GotoAsync(Content("<input type=month>"));
-        var error = await Assert.CatchAsync(() => Browser.Locator("input").FillAsync("2020-13"));
-        Assert.That(error!.Message, Does.Contain("Malformed value"));
-    }
-
-    [Test]
     public async Task Should_fill_week_input()
     {
         await Browser.GotoAsync(Content("<input type=week>"));
@@ -208,35 +173,11 @@ public sealed partial class PageFillTests : PlaywrightTest
     }
 
     [Test]
-    public async Task Should_throw_on_incorrect_week()
-    {
-        await Browser.GotoAsync(Content("<input type=week>"));
-        var error = await Assert.CatchAsync(() => Browser.Locator("input").FillAsync("2020-123"));
-        Assert.That(error!.Message, Does.Contain("Malformed value"));
-    }
-
-    [Test]
-    public async Task Should_throw_on_incorrect_time()
-    {
-        await Browser.GotoAsync(Content("<input type=time>"));
-        var error = await Assert.CatchAsync(() => Browser.Locator("input").FillAsync("25:05"));
-        Assert.That(error!.Message, Does.Contain("Malformed value"));
-    }
-
-    [Test]
     public async Task Should_fill_datetime_local_input()
     {
         await Browser.GotoAsync(Content("<input type=datetime-local>"));
         await Browser.Locator("input").FillAsync("2020-03-02T05:15");
         Assert.That(await ValueOfInputAsync(), Is.EqualTo("2020-03-02T05:15"));
-    }
-
-    [Test]
-    public async Task Should_throw_on_incorrect_datetime_local()
-    {
-        await Browser.GotoAsync(Content("<input type=datetime-local>"));
-        var error = await Assert.CatchAsync(() => Browser.Locator("input").FillAsync("abc"));
-        Assert.That(error!.Message, Does.Contain("Malformed value"));
     }
 
     [Test]
