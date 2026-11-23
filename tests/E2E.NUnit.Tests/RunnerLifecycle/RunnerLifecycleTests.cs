@@ -108,6 +108,34 @@ public sealed class RunnerLifecycleTests
         );
     }
 
+    // .NET-only: an unfiltered run never collects, so the serial-group rejection of registry.test is made when the member starts.
+    [Test]
+    public void Rejects_a_Fixme_member_of_a_serial_group_after_a_passing_member_on_an_unfiltered_run()
+    {
+        var results = Task.Run(() =>
+            {
+                var runner = new NUnitTestAssemblyRunner(new DefaultTestAssemblyBuilder());
+                runner.Load(typeof(FixmeAfterPassingSerialMemberFixture).Assembly, new Dictionary<string, object>());
+                var run = runner.Run(
+                    TestListener.NULL,
+                    TestFilter.FromXml(
+                        $"<filter><class>{typeof(FixmeAfterPassingSerialMemberFixture).FullName}</class></filter>"
+                    )
+                );
+                return Leaves(run).ToDictionary(result => result.Test.MethodName!);
+            })
+            .GetAwaiter()
+            .GetResult();
+
+        var member = results[nameof(FixmeAfterPassingSerialMemberFixture.B_registered_fixme)];
+        Assert.That(member.ResultState.Status, Is.EqualTo(TestStatus.Failed), member.Message);
+        Assert.That(
+            member.Message,
+            Does.Contain("COLLECTION_ERROR").And.Contain("[Fixme] cannot be used inside a serial group")
+        );
+        Assert.That(member.Message, Does.Not.Contain("must never run"));
+    }
+
     [Test]
     public void Rejects_Fixme_in_a_setup_test_because_its_sessions_are_owed_to_consumers()
     {
