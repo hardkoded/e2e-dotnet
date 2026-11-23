@@ -9,7 +9,7 @@ namespace E2E.Tests.ExpectPoll;
 /// <summary>
 /// Upstream's <c>describe('expect.poll in a poll scope')</c>. Not ported: the four tests of the runner's <c>realmSlot</c> (a runner from
 /// before the marker, a standalone read with no runner scope, an older expect copy, and <c>AttemptBudget</c>'s signal), which exercise a
-/// process-wide slot and a budget the port does not have, and the <c>pollLineage</c> one, since the port has no fixture lineage.
+/// process-wide slot and a budget the port does not have.
 /// </summary>
 public sealed class ExpectPollInAPollScopeTests
 {
@@ -150,6 +150,20 @@ public sealed class ExpectPollInAPollScopeTests
         });
         Assert.Equal(0, reads);
         Assert.Null(next.Close());
+    }
+
+    [Fact]
+    public async Task Hands_a_lineage_over_to_the_scope_current_when_it_is_handed_over()
+    {
+        var body = new PollScope("the test body");
+        var lineage = PollScopes.RunInPollScope(body, () => PollScopes.PollLineage());
+        Assert.Same(body, lineage.Run(PollScopes.CurrentPollScope));
+        body.Close();
+        var teardown = new PollScope("the fixture \"workspace\" teardown");
+        PollScopes.RunInPollScope(teardown, () => { lineage.HandOver(); return 0; });
+        var poll = lineage.Run(() => Expect.Poll(() => "running", Every(5, 5000)).ToBeAsync("done"));
+        Assert.StartsWith("the fixture \"workspace\" teardown returned before", teardown.Close()?.Message);
+        await RejectionOf(poll);
     }
 
     [Fact]
