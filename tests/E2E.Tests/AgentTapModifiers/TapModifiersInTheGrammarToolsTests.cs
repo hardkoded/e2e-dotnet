@@ -108,7 +108,7 @@ public sealed class TapModifiersInTheGrammarToolsTests
             );
         }
 
-        // A modifier that is unknown, in another case, repeated, or not a list is refused before the engine is touched.
+        // A modifier that is unknown, in another case, repeated, or not a list is refused before the engine is touched (a repeat by the action, the rest by the schema).
         var (results, engine) = await ActAsync(
             declared: true,
             Call("tap", "Save", "shift"),
@@ -129,11 +129,15 @@ public sealed class TapModifiersInTheGrammarToolsTests
         Assert.Equal(5, results.Count);
         Assert.All(results, (result, index) =>
         {
-            // A list that is not one never reaches the action: the schema refuses it, as upstream's safeParse does.
-            if (index == 3)
+            // An unknown or lower-case modifier and a list that is not one never reach the action: the schema refuses them, as upstream's safeParse does.
+            if (index != 2)
             {
-                Assert.StartsWith("failed: Invalid input for tool tap: ", result, StringComparison.Ordinal);
-                Assert.Contains("\"code\":\"invalid_type\"", result, StringComparison.Ordinal);
+                Assert.StartsWith("failed: Invalid input for tool ", result, StringComparison.Ordinal);
+                Assert.Contains(
+                    index == 3 ? "\"code\":\"invalid_type\"" : "\"code\":\"invalid_value\"",
+                    result,
+                    StringComparison.Ordinal
+                );
                 return;
             }
 

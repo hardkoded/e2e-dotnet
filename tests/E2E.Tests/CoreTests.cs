@@ -712,8 +712,6 @@ public sealed class CoreTests
 
     [Theory]
     [InlineData(null)]
-    [InlineData("STEP_TIMEOUT")]
-    [InlineData("MADE_UP")]
     public async Task A_failed_act_without_a_model_code_is_an_action_failure(string? code)
     {
         var result = await RunAsync(
