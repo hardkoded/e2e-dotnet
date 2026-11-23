@@ -168,11 +168,14 @@ internal sealed class DebugTrace(bool enabled)
         return text.ToString();
     }
 
-    /// <summary>A duration the way the tables show it: whole milliseconds, or seconds from 10 s up.</summary>
-    public static string FormatMs(double value) =>
-        value >= 10_000
+    /// <summary>A duration the way the tables show it: whole milliseconds, or seconds from 10 s up. Rounds first, so 9999.6 ms reads <c>10.0s</c>.</summary>
+    public static string FormatMs(double value)
+    {
+        var rounded = Math.Round(value, MidpointRounding.AwayFromZero);
+        return rounded >= 10_000
             ? (value / 1000).ToString("0.0", CultureInfo.InvariantCulture) + "s"
-            : Math.Round(value, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture) + "ms";
+            : rounded.ToString("0", CultureInfo.InvariantCulture) + "ms";
+    }
 
     private sealed class Entry
     {
