@@ -76,7 +76,7 @@ public abstract class E2ERunFixture
             IReadOnlyDictionary<string, string> excluded = new Dictionary<string, string>(StringComparer.Ordinal);
             var changedSince = HostTestFilters.ResolveChangedSince(ChangedSince);
             var lastFailed = HostTestFilters.ResolveLastFailed(LastFailed);
-            if (changedSince is not null || lastFailed || discovered.Any(test => test.Fixme))
+            if (changedSince is not null || lastFailed || discovered.Any(test => test.Fixme && !test.Serial))
             {
                 var running = RunSelection.CurrentWorkItem();
                 var selection = await HostTestFilters
@@ -84,7 +84,10 @@ public abstract class E2ERunFixture
                         config,
                         Filters,
                         changedSince,
-                        discovered,
+                        // A [Fixme] in a serial group is refused by its own test (COLLECTION_ERROR), so an unfiltered run does not fail whole on it.
+                        changedSince is null && !lastFailed
+                            ? [.. discovered.Where(test => !(test.Fixme && test.Serial))]
+                            : discovered,
                         line => global::NUnit.Framework.TestContext.Progress.WriteLine(line),
                         global::NUnit.Framework.TestContext.CurrentContext.CancellationToken,
                         lastFailed,

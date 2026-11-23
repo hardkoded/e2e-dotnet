@@ -8,7 +8,7 @@ using E2E.TUnit.Tests.EngineContract;
 namespace E2E.TUnit.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. The test leaves out the consumer's <c>setup-failed</c> skip, and reads each result from the fixture's
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out the consumer's <c>setup-failed</c> skip, and reads each result from the fixture's
 /// <c>report.json</c>.
 /// </summary>
 public sealed class RunnerLifecycleTests
@@ -17,7 +17,7 @@ public sealed class RunnerLifecycleTests
     public static void RemoveResults() => RunnerLifecycleResults.Clear();
 
     [Test]
-    public async Task Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body()
+    public async Task Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body()
     {
         // Choosing the directory before the nested process starts is what hands it to that process.
         RunnerLifecycleResults.Prepare();
