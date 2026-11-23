@@ -29,6 +29,7 @@ public sealed class WebPlatformIntegrationTests
     [InlineData("toHaveURL ignoreCase folds the comparison")]
     [InlineData("string and RegExp URL patterns match what they name")]
     [InlineData("toHaveRole compares the role the tree reads")]
+    [InlineData("toBeEditable reads readonly, aria-readonly, and the disabled state")]
     [InlineData("routes are attempt-scoped: registered before the first page, kept across restart and clearState")]
     [InlineData("clicks hold the modifiers they name")]
     [InlineData(
@@ -305,6 +306,28 @@ public sealed class WebPlatformIntegrationTests
             StringComparison.Ordinal
         );
         Assert.DoesNotContain("marker-7c1f", error.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Fails_toBeEditable_on_a_read_only_textarea_naming_why()
+    {
+        var error = Assert.IsType<TestException>(await RunAsync(Scenarios["toBeEditable fails on a read-only field"]));
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Contains("expected: editable\nobserved: read-only", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Fails_a_negated_toBeEditable_on_a_button_naming_its_role()
+    {
+        var error = Assert.IsType<TestException>(
+            await RunAsync(Scenarios["toBeEditable fails on a button, negated too"])
+        );
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Contains(
+            "expected: not editable\nobserved: role \"button\", no read-only state",
+            error.Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -780,6 +803,48 @@ public sealed class WebPlatformIntegrationTests
             await Expect
                 .That(session.Screen.GetByLabel("Secret"))
                 .ToHaveRoleAsync("searchbox", TimeSpan.FromMilliseconds(300));
+        },
+        ["toBeEditable reads readonly, aria-readonly, and the disabled state"] = async session =>
+        {
+            await session.App.OpenAsync("/editable-matcher");
+            var screen = session.Screen;
+            await Expect.That(screen.GetByLabel("Name")).ToBeEditableAsync();
+            await Expect.That(screen.GetByLabel("Size")).ToBeEditableAsync();
+            // A native select reads readonly and ignores aria-readonly.
+            await Expect.That(screen.GetByLabel("Size locked")).Not.ToBeEditableAsync();
+            await Expect.That(screen.GetByLabel("Size aria")).ToBeEditableAsync();
+            await Expect.That(screen.GetByTestId("editor")).ToBeEditableAsync();
+            await Expect.That(screen.GetByLabel("Notes")).Not.ToBeEditableAsync();
+            await Expect.That(screen.GetByLabel("Total")).ToBeEditableAsync(editable: false);
+            // A fieldset disables the control inside it, though the control has no attribute.
+            await Expect.That(screen.GetByLabel("Locked")).Not.ToBeEditableAsync();
+            await Expect.That(screen.GetByLabel("Secret")).Not.ToBeEditableAsync();
+            // Playwright parity: a native tag ignores aria-readonly, an ARIA role ignores
+            // readonly and folds case, an element inside an editing host is editable.
+            await Expect.That(screen.GetByLabel("Aria on input")).ToBeEditableAsync();
+            await Expect.That(screen.GetByLabel("Upper case")).Not.ToBeEditableAsync();
+            await Expect.That(screen.GetByTestId("editor-line")).ToBeEditableAsync();
+            await Expect.That(screen.GetByLabel("Pick")).Not.ToBeEditableAsync();
+            await Expect.That(screen.GetByLabel("Attribute on div")).ToBeEditableAsync();
+            // An editing host with an aria-readonly role reads that attribute first.
+            await Expect.That(screen.GetByLabel("Locked editor")).Not.ToBeEditableAsync();
+            // An editing host with no ARIA role ignores aria-readonly; a grid cell reads it.
+            await Expect.That(screen.GetByTestId("plain-host")).ToBeEditableAsync();
+            await Expect.That(screen.GetByTestId("grid-cell")).Not.ToBeEditableAsync();
+        },
+        ["toBeEditable fails on a read-only field"] = async session =>
+        {
+            await session.App.OpenAsync("/editable-matcher");
+            await Expect
+                .That(session.Screen.GetByLabel("Notes"))
+                .ToBeEditableAsync(timeout: TimeSpan.FromMilliseconds(500));
+        },
+        ["toBeEditable fails on a button, negated too"] = async session =>
+        {
+            await session.App.OpenAsync("/editable-matcher");
+            await Expect
+                .That(session.Screen.GetByRole("button", "Save"))
+                .Not.ToBeEditableAsync(timeout: TimeSpan.FromMilliseconds(300));
         },
         ["secure fields refuse value reads"] = async session =>
         {

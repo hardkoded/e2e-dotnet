@@ -128,7 +128,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     }
 
     // Upstream's echoesInput: a node whose name or text is what was put into it, not what the screen says.
-    private static bool EchoesInput(SemanticNode node) => Roles.IsEditable(node) || node.Value is not null;
+    private static bool EchoesInput(SemanticNode node) => Roles.TakesText(node) || node.Value is not null;
 
     /// <summary>The step's observation and pixel record for the report (upstream's <c>reportDetails</c>).</summary>
     public StepAgentDetails ReportDetails() =>

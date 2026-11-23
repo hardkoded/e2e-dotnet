@@ -1117,7 +1117,7 @@ public sealed class SnapshotProjectionTests
         Assert.Equal("textbox", email.Node.Role);
         Assert.Equal("Email", email.Node.Name);
         Assert.Equal("oskar@example.com", email.Node.Value);
-        Assert.Empty(email.States);
+        Assert.Equal(S(("readonly", false)), email.States);
         Assert.Null(email.Node.InputPurpose);
         Assert.Equal("textbox", password.Node.Role);
         Assert.Equal("Password", password.Node.Name);
@@ -1133,6 +1133,57 @@ public sealed class SnapshotProjectionTests
         Assert.Equal(S(("secure", true)), pin.States);
         Assert.Null(pin.Node.Value);
         Assert.Equal("text", note.Node.Role);
+    }
+
+    [Fact]
+    public void Reports_a_text_field_read_only_only_where_the_platform_says_whether_it_takes_text()
+    {
+        var projected = Project(
+            N("e1", type: "android.widget.EditText", label: "Name", editable: true),
+            N("e2", type: "android.widget.EditText", label: "Order id", editable: false),
+            N("e3", type: "TextField", label: "City"),
+            N("e4", type: "android.widget.Spinner", label: "Country", editable: false),
+            N("e5", type: "android.widget.TextView", label: "Hint", editable: false),
+            N("e6", type: "android.widget.Spinner", label: "Search city", editable: true),
+            // agent-device 0.21.40 fills in `editable: true` for every iOS text field
+            // and text view from the element type, so the flag says nothing there.
+            N("e7", type: "TextView", label: "Terms", editable: true),
+            N("e8", type: "TextField", label: "Street", editable: true),
+            N("e9", type: "android.widget.EditText", label: "Zip")
+        );
+        var nodes = projected.Index.Select(entry => entry.Node).ToList();
+        var (name, orderId, city, country, hint, searchCity, terms, street, zip) = (
+            nodes[0],
+            nodes[1],
+            nodes[2],
+            nodes[3],
+            nodes[4],
+            nodes[5],
+            nodes[6],
+            nodes[7],
+            nodes[8]
+        );
+        Assert.Equal("textbox", name.Role);
+        Assert.Equal(false, name.States.Readonly);
+        Assert.Equal("textbox", orderId.Role);
+        Assert.Equal(true, orderId.States.Readonly);
+        // No flag: unknown, so no state, rather than an editable guess.
+        Assert.Equal("textbox", city.Role);
+        Assert.Null(city.States.Readonly);
+        // A picker takes no typed text, yet is not read-only.
+        Assert.Null(country.States.Readonly);
+        Assert.Null(hint.States.Readonly);
+        // A combobox the platform says takes text is editable.
+        Assert.Equal("combobox", searchCity.Role);
+        Assert.Equal(false, searchCity.States.Readonly);
+        // An iOS flag is a guess from the element type: no state, so a read-only text view does not pass as editable.
+        Assert.Equal("textbox", terms.Role);
+        Assert.Null(terms.States.Readonly);
+        Assert.Equal("textbox", street.Role);
+        Assert.Null(street.States.Readonly);
+        // An Android field with no flag is unknown too, not read-only.
+        Assert.Equal("textbox", zip.Role);
+        Assert.Null(zip.States.Readonly);
     }
 
     [Fact]

@@ -1206,6 +1206,7 @@ internal sealed class SessionCatalog
         State(node.States.Selected, "selected");
         State(node.States.Pressed, "pressed");
         State(node.States.Focused, "focused");
+        State(node.States.Readonly == true, "readonly");
         if (states.Count > 0)
         {
             parts.Add("[" + string.Join(", ", states) + "]");

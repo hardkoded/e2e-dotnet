@@ -205,6 +205,7 @@ internal static class ReferenceScene
                 Role = "textbox",
                 Name = "Notes",
                 Value = "line1\n\nline2  ",
+                Readonly = false,
             },
             new ScriptedNode
             {

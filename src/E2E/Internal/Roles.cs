@@ -30,8 +30,8 @@ internal static class Roles
         StringComparer.Ordinal
     );
 
-    /// <summary>True for a node of an editable role.</summary>
-    public static bool IsEditable(SemanticNode node) => EditableRoles.Contains(node.Role ?? "");
+    /// <summary>True for a node of a role that takes typed text.</summary>
+    public static bool TakesText(SemanticNode node) => EditableRoles.Contains(node.Role ?? "");
 
     /// <summary>
     /// True for a node of a role that carries a value, so a value the platform did not report reads as empty. Any other node has no value
