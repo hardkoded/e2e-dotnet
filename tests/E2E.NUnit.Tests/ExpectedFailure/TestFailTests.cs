@@ -254,6 +254,7 @@ public sealed class TestFailTests
             new ExpectedFailureSerialFixture().Fail(true, "not here")
         );
         Assert.That(outside?.Message, Does.Contain("must be called inside a test body"));
+        Assert.That(outside?.Message, Does.Contain("[DescribeFail]").And.Contain("on the test or its fixture"));
 
         var setup = NestedRun.Run("sign in");
         Assert.That(setup.ResultState.Status, Is.EqualTo(TestStatus.Failed));

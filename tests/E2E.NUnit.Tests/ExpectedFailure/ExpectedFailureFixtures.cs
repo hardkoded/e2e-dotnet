@@ -242,9 +242,9 @@ public sealed class ExpectedFailureSerialFixture : ExpectedFailureFixtureBase
     public void Step_1() => Fail(true, "a member may not fail on purpose");
 }
 
-/// <summary><c>describe.fail('legacy', ...)</c> of upstream's group test: the property on the fixture marks every test in it, with the default reason.</summary>
+/// <summary><c>describe.fail('legacy', ...)</c> of upstream's group test: `[DescribeFail]` on the fixture marks every test in it, with the default reason.</summary>
 [Explicit("Run by TestFailTests")]
-[Property(NUnitSessionTestRunner.ExpectedFailureProperty, "")]
+[DescribeFail]
 public sealed class DescribeFailFixture : ExpectedFailureFixtureBase
 {
     [Test]

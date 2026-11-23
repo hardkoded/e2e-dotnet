@@ -128,13 +128,13 @@ public abstract partial class E2ETest : E2EFixture
             }
 
             RejectInstancePerTest();
-            if (NUnitSessionTestRunner.ExpectedFailureOf(TestExecutionContext.CurrentContext.CurrentTest) is not null)
+            if (
+                TestExecutionContext.CurrentContext.CurrentTest.Method is { } member
+                && RunSelection.FailErrorOf(GetType(), member.MethodInfo) is { } failError
+            )
             {
-                // Upstream refuses fail on, inside, or around a serial group at collection (COLLECTION_ERROR); here it is the test's own error.
-                throw new TestException(
-                    "INVALID_ARGUMENT",
-                    "describe option \"fail\" cannot be set on or inside a serial group, which runs as one unit; a serial group cannot sit inside a group marked fail"
-                );
+                // Upstream refuses fail on, inside, or around a serial group at collection (COLLECTION_ERROR); an unfiltered run does not collect, so it is refused here.
+                throw new TestException("COLLECTION_ERROR", failError);
             }
 
             if (_serialFailure is not null)
