@@ -249,7 +249,9 @@ public sealed class SemanticFallbackHandoffTests
             Observe = (_, _, _) =>
             {
                 captures += 1;
-                if (captures <= 2)
+                // Partial: the port's replay takes no look of its own after the cache probe settles (upstream's third look), so the screen
+                // loses its tree at the probe's second look, which the executor's first observe then reuses.
+                if (captures <= 1)
                 {
                     return Task.FromResult(
                         FallbackFixtures.TreeAt("https://fixture.test/start", null, null, FallbackFixtures.Save)

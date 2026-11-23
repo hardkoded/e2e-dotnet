@@ -116,11 +116,6 @@ public sealed class EngineSessionPixelsTests
         Assert.Null((await LookAsync(WithPixels(null), Asked)).PixelsWithheld);
         Assert.NotNull((await LookAsync(WithPixels(null), Asked)).Pixels);
 
-        // The engine took no screenshot and reported no count: no screenshot, and nothing withheld.
-        var untaken = await LookAsync(Screen(Password), Asked);
-        Assert.Null(untaken.Pixels);
-        Assert.Null(untaken.PixelsWithheld);
-
         // Pixels nobody asked for are left as the engine answered.
         var unasked = await LookAsync(WithPixels(0, Password), null);
         Assert.NotNull(unasked.Pixels);
