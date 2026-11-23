@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -1169,6 +1170,8 @@ public sealed class Locator
 
     /// <inheritdoc cref="SetInputFilesAsync(string, ActionOptions, CancellationToken)"/>
     /// <exception cref="ArgumentException"><paramref name="paths"/> has a blank entry (upstream's <c>INVALID_ARGUMENT</c>).</exception>
+    /// <remarks>An empty collection expression binds here, not to the payload overload.</remarks>
+    [OverloadResolutionPriority(1)]
     public Task SetInputFilesAsync(
         IEnumerable<string> paths,
         ActionOptions? options = null,
@@ -1182,9 +1185,72 @@ public sealed class Locator
             throw new ArgumentException("setInputFiles paths must be non-empty strings", nameof(paths));
         }
 
+        if (
+            list.Count == 0
+            && !_screen.Engine.Supports("setInputFiles")
+            && _screen.Engine.Supports("setInputFilePayloads")
+        )
+        {
+            return ActAsync(new LocatorAction.SetInputFilePayloads([]), options, cancellationToken);
+        }
+
         var root = _screen.ProjectRoot;
         var resolved = list.Select(entry => root is null ? entry : Path.GetFullPath(entry, root)).ToList();
         return ActAsync(new LocatorAction.SetInputFiles(resolved), options, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sets the files of exactly one file input, or of a control that opens a file chooser, from memory: <paramref name="file"/> supplies its
+    /// bytes. The combined size must be less than 50 MiB; pass a path for larger files. Web only: an engine that does not declare
+    /// <c>setInputFilePayloads</c> fails with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> for a blank name or a null MIME type or buffer, or payloads totaling 50 MiB or more.</exception>
+    public Task SetInputFilesAsync(
+        FilePayload file,
+        ActionOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        return SetInputFilesAsync([file], options, cancellationToken);
+    }
+
+    /// <inheritdoc cref="SetInputFilesAsync(FilePayload, ActionOptions, CancellationToken)"/>
+    /// <remarks>An empty list clears the input, as the paths overload does. Paths and payloads cannot be mixed: the types keep them apart.</remarks>
+    public Task SetInputFilesAsync(
+        IEnumerable<FilePayload> files,
+        ActionOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        var list = files.ToList();
+        if (list.Count == 0)
+        {
+            return ActAsync(new LocatorAction.SetInputFilePayloads([]), options, cancellationToken);
+        }
+
+        foreach (var file in list)
+        {
+            if (file is null || string.IsNullOrWhiteSpace(file.Name) || file.MimeType is null || file.Buffer is null)
+            {
+                throw new TestException(
+                    "INVALID_ARGUMENT",
+                    "setInputFiles payloads require a non-empty name, a mimeType string, and a Buffer"
+                );
+            }
+        }
+
+        if (list.Sum(file => (long)file.Buffer.Length) >= 50 * 1024 * 1024)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "Cannot set buffer larger than 50Mb, please write it to a file and pass its path instead."
+            );
+        }
+
+        var snapshots = list.Select(file => file with { Buffer = (byte[])file.Buffer.Clone() }).ToList();
+        return ActAsync(new LocatorAction.SetInputFilePayloads(snapshots), options, cancellationToken);
     }
 
     public Task FocusAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)

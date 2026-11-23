@@ -9,8 +9,7 @@ namespace E2E.NUnit.Tests.SetInputFiles;
 
 /// <summary>
 /// <c>test.describe('page set input files')</c> of upstream's <c>apps/testbed/tests/set-input-files.e2e.ts</c> (Playwright's
-/// <c>page-set-input-files.spec.ts</c>). Not ported, as upstream: should set from memory (<c>SetInputFilesAsync</c> takes file paths, not
-/// <c>{ name, mimeType, buffer }</c> payloads); input event.composed should be true and cross shadow dom boundary (sets such a payload).
+/// <c>page-set-input-files.spec.ts</c>). Every <c>it</c> of the describe is ported.
 /// </summary>
 public sealed class PageSetInputFilesTests : PlaywrightTest
 {
@@ -82,6 +81,164 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
             (await Browser.EvaluateAsync<string>("document.body.textContent"))!,
             Json
         )!;
+
+    [Test]
+    public async Task Should_set_from_memory()
+    {
+        await Browser.GotoAsync(Content("<input type=file>"));
+        await Browser
+            .Locator("input")
+            .SetInputFilesAsync(new FilePayload("test.txt", "text/plain", "this is a test"u8.ToArray()));
+        Assert.That(
+            await Browser.EvaluateAsync<int>("() => document.querySelector('input').files.length"),
+            Is.EqualTo(1)
+        );
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"),
+            Is.EqualTo("test.txt")
+        );
+    }
+
+    [Test]
+    public async Task Input_event_composed_should_be_true_and_cross_shadow_dom_boundary()
+    {
+        await Browser.GotoAsync(
+            Content(
+                """
+                <body><script>
+                  const div = document.createElement('div');
+                  const shadowRoot = div.attachShadow({ mode: 'open' });
+                  shadowRoot.innerHTML = '<input type=file>';
+                  document.body.appendChild(div);
+                  window.firedEvents = [];
+                  window.firedBodyEvents = [];
+                  for (const event of ['input', 'change']) {
+                    document.body.addEventListener(event, e => window.firedBodyEvents.push(e.type + ':' + e.composed));
+                    shadowRoot.querySelector('input').addEventListener(event, e => window.firedEvents.push(e.type + ':' + e.composed));
+                  }
+                </script></body>
+                """
+            )
+        );
+        await Browser
+            .Locator("input")
+            .SetInputFilesAsync(new FilePayload("test.txt", "text/plain", "this is a test"u8.ToArray()));
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>("() => window.firedEvents"),
+            Is.EqualTo(new[] { "input:true", "change:false" })
+        );
+        Assert.That(
+            await Browser.EvaluateAsync<string[]>("() => window.firedBodyEvents"),
+            Is.EqualTo(new[] { "input:true" })
+        );
+    }
+
+    [Test]
+    public async Task Rejects_an_oversized_payload_without_closing_the_engine_connection()
+    {
+        await Browser.GotoAsync(Content("<input type=file>"));
+        var error = await Failure(() =>
+            Browser
+                .Locator("input")
+                .SetInputFilesAsync(
+                    new FilePayload("large.bin", "application/octet-stream", new byte[50 * 1024 * 1024])
+                )
+        );
+        Assert.That(error, Is.InstanceOf<E2EException>());
+        Assert.That(((E2EException)error!).Code, Is.EqualTo("INVALID_ARGUMENT"));
+        Assert.That(
+            error!.Message,
+            Is.EqualTo("Cannot set buffer larger than 50Mb, please write it to a file and pass its path instead.")
+        );
+        await Browser
+            .Locator("input")
+            .SetInputFilesAsync(new FilePayload("small.txt", "text/plain", "still connected"u8.ToArray()));
+        Assert.That(await Browser.EvaluateAsync<string>(ReadFirstFile("input")), Is.EqualTo("still connected"));
+    }
+
+    [Test]
+    public async Task Uploads_an_in_memory_file_through_the_public_locator_API()
+    {
+        await Browser.GotoAsync("/input/fileupload.html");
+        await Browser
+            .Locator("input[type=file]")
+            .SetInputFilesAsync(
+                new FilePayload("résumé.txt", "text/plain", System.Text.Encoding.UTF8.GetBytes("In-memory résumé"))
+            );
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].name"),
+            Is.EqualTo("résumé.txt")
+        );
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').files[0].type"),
+            Is.EqualTo("text/plain")
+        );
+        Assert.That(await Browser.EvaluateAsync<string>(ReadFirstFile("input")), Is.EqualTo("In-memory résumé"));
+    }
+
+    [Test]
+    public async Task Blurs_a_focused_field_then_uploads_and_clears_an_in_memory_file()
+    {
+        await Browser.GotoAsync(Content("""<input id="field"><input type="file">"""));
+        var field = Browser.Locator("#field");
+        await field.FocusAsync();
+        await Expect.That(field).ToBeFocusedAsync();
+        await field.BlurAsync();
+        await Expect.That(field).Not.ToBeFocusedAsync();
+
+        var input = Browser.Locator("input[type=file]");
+        await input.SetInputFilesAsync(new FilePayload("notes.txt", "text/plain", "notes"u8.ToArray()));
+        Assert.That(await Browser.EvaluateAsync<string>(ReadFirstFile("input[type=file]")), Is.EqualTo("notes"));
+        await input.SetInputFilesAsync([]);
+        Assert.That(
+            await Browser.EvaluateAsync<int>("() => document.querySelector('input[type=file]').files.length"),
+            Is.EqualTo(0)
+        );
+    }
+
+    [Test]
+    public async Task Uploads_in_memory_binary_files_and_clears_them()
+    {
+        await Browser.GotoAsync("/input/fileupload-multi.html");
+        await Browser
+            .Locator("input[type=file]")
+            .SetInputFilesAsync([
+                new FilePayload("binary.bin", "application/octet-stream", [0, 128, 255]),
+                new FilePayload("empty.txt", "text/plain", []),
+            ]);
+        var files = await Browser.EvaluateAsync<JsonElement>(
+            """
+            async () => Promise.all([...document.querySelector('input').files].map(async file => ({
+              name: file.name, mimeType: file.type, bytes: [...new Uint8Array(await file.arrayBuffer())],
+            })))
+            """
+        );
+        Assert.That(
+            files.GetRawText(),
+            Is.EqualTo(
+                """[{"name":"binary.bin","mimeType":"application/octet-stream","bytes":[0,128,255]},{"name":"empty.txt","mimeType":"text/plain","bytes":[]}]"""
+            )
+        );
+        await Browser.Locator("input[type=file]").SetInputFilesAsync([]);
+        Assert.That(
+            await Browser.EvaluateAsync<int>("() => document.querySelector('input').files.length"),
+            Is.EqualTo(0)
+        );
+    }
+
+    [Test]
+    public async Task Uploads_an_in_memory_file_through_a_chooser_button()
+    {
+        await Browser.GotoAsync(
+            Content(
+                """<button onclick="document.querySelector('input').click()">Choose file</button><input type="file" hidden>"""
+            )
+        );
+        await Browser
+            .Locator("button")
+            .SetInputFilesAsync(new FilePayload("receipt.txt", "text/plain", "receipt"u8.ToArray()));
+        Assert.That(await Browser.EvaluateAsync<string>(ReadFirstFile("input")), Is.EqualTo("receipt"));
+    }
 
     [Test]
     public async Task Should_upload_the_file()

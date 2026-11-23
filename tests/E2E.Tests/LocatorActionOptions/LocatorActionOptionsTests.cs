@@ -143,6 +143,191 @@ public sealed class LocatorActionOptionsTests
         Assert.Equal(StepStatus.Passed, step.Status);
     }
 
+    [Fact]
+    public async Task Rejects_payload_size_at_or_above_50_MiB_before_lookup_dispatch_or_recording()
+    {
+        var (screen, received) = BoxScreen();
+        const int limit = 50 * 1024 * 1024;
+        var buffer = new byte[limit + 1];
+        var file = new FilePayload("large.bin", "application/octet-stream", buffer);
+        var oversized = new (string Case, Func<Task> Call)[]
+        {
+            ("one file at the limit", () =>
+                screen.GetByLabel("Agree").SetInputFilesAsync(file with { Buffer = buffer[..limit] })
+            ),
+            ("one file over the limit", () => screen.GetByLabel("Agree").SetInputFilesAsync(file)),
+            ("two files that add up to the limit", () =>
+                screen
+                    .GetByLabel("Agree")
+                    .SetInputFilesAsync([
+                        file with
+                        {
+                            Buffer = buffer[..(limit / 2)],
+                        },
+                        file with
+                        {
+                            Buffer = buffer[(limit / 2)..limit],
+                        },
+                    ])
+            ),
+        };
+
+        foreach (var (_, call) in oversized)
+        {
+            var error = await Assert.ThrowsAsync<TestException>(call);
+            Assert.Equal("INVALID_ARGUMENT", error.Code);
+            Assert.Equal(
+                "Cannot set buffer larger than 50Mb, please write it to a file and pass its path instead.",
+                error.Message
+            );
+        }
+
+        Assert.Empty(received);
+        Assert.Empty(screen.Steps!.All());
+    }
+
+    [Fact]
+    public async Task Accepts_payload_size_just_below_50_MiB()
+    {
+        var (screen, received) = BoxScreen();
+
+        await screen
+            .GetByLabel("Agree")
+            .SetInputFilesAsync(
+                new FilePayload("large.bin", "application/octet-stream", new byte[(50 * 1024 * 1024) - 1])
+            );
+
+        var action = Assert.IsType<LocatorAction.SetInputFilePayloads>(Assert.Single(received));
+        Assert.Equal((50 * 1024 * 1024) - 1, Assert.Single(action.Files).Buffer.Length);
+    }
+
+    // Not portable, because the C# types refuse it at compile time: "rejects mixed file paths and buffers in either order".
+
+    [Fact]
+    public async Task Snapshots_single_files_and_arrays_as_bytes_without_putting_contents_in_steps()
+    {
+        var (screen, received) = BoxScreen();
+        var file = new FilePayload("receipt.bin", "application/octet-stream", [0, 128, 255]);
+
+        var pending = screen.GetByLabel("Agree").SetInputFilesAsync(file);
+        file.Buffer[0] = 99;
+        await pending;
+        file.Buffer[0] = 0;
+        await screen.GetByLabel("Agree").SetInputFilesAsync([file, file with { Name = "empty.bin", Buffer = [] }]);
+
+        var first = Assert.IsType<LocatorAction.SetInputFilePayloads>(received[0]);
+        var second = Assert.IsType<LocatorAction.SetInputFilePayloads>(received[1]);
+        Assert.Equal(2, received.Count);
+        Assert.Equal<byte>([0, 128, 255], Assert.Single(first.Files).Buffer);
+        Assert.Equal("receipt.bin", first.Files[0].Name);
+        Assert.Equal("application/octet-stream", first.Files[0].MimeType);
+        Assert.Equal<byte>([0, 128, 255], second.Files[0].Buffer);
+        Assert.Equal("empty.bin", second.Files[1].Name);
+        Assert.Empty(second.Files[1].Buffer);
+        file.Buffer[0] = 99;
+        Assert.Equal<byte>([0, 128, 255], first.Files[0].Buffer);
+        Assert.DoesNotContain("AID/", System.Text.Json.JsonSerializer.Serialize(screen.Steps!.All()));
+    }
+
+    [Fact]
+    public async Task Uploads_then_clears_on_a_payload_only_engine()
+    {
+        var (screen, received) = BoxScreen();
+        screen.ActionKinds = ["setInputFilePayloads"];
+        var input = screen.GetByLabel("Agree");
+
+        await input.SetInputFilesAsync(new FilePayload("a.txt", "text/plain", "a"u8.ToArray()));
+        var error = await Assert.ThrowsAsync<EngineException>(() => input.SetInputFilesAsync("a.txt"));
+        Assert.Equal(EngineErrorCodes.UnsupportedCapability, error.Code);
+        Assert.Single(received);
+        await input.SetInputFilesAsync([]);
+
+        Assert.Equal(2, received.Count);
+        Assert.Empty(Assert.IsType<LocatorAction.SetInputFilePayloads>(received[1]).Files);
+    }
+
+    [Theory]
+    [InlineData("setInputFiles")]
+    [InlineData(
+        "tap",
+        "doubleTap",
+        "secondaryTap",
+        "longPress",
+        "fill",
+        "clear",
+        "press",
+        "check",
+        "uncheck",
+        "focus",
+        "hover",
+        "scrollIntoView",
+        "selectOption",
+        "setInputFiles",
+        "dragTo",
+        "swipe"
+    )]
+    public async Task Rejects_payload_uploads_when_the_engine_declares_no_payload_action(params string[] actions)
+    {
+        var (screen, received) = BoxScreen();
+        screen.ActionKinds = actions;
+
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            screen.GetByLabel("Agree").SetInputFilesAsync(new FilePayload("a.txt", "text/plain", "data"u8.ToArray()))
+        );
+
+        Assert.Equal(EngineErrorCodes.UnsupportedCapability, error.Code);
+        Assert.Equal(
+            "in-memory files for setInputFiles are not available on this target; update its engine or pass a file path",
+            error.Message
+        );
+        Assert.Empty(received);
+        await screen.GetByLabel("Agree").SetInputFilesAsync("a.txt");
+        Assert.Single(Assert.IsType<LocatorAction.SetInputFiles>(Assert.Single(received)).Paths);
+    }
+
+    [Fact]
+    public async Task Does_not_suggest_file_paths_when_the_engine_supports_no_uploads()
+    {
+        var (screen, received) = BoxScreen();
+        screen.ActionKinds = ["tap"];
+
+        var payload = await Assert.ThrowsAsync<EngineException>(() =>
+            screen.GetByLabel("Agree").SetInputFilesAsync(new FilePayload("a.txt", "text/plain", "data"u8.ToArray()))
+        );
+        var clear = await Assert.ThrowsAsync<EngineException>(() => screen.GetByLabel("Agree").SetInputFilesAsync([]));
+
+        Assert.Equal(EngineErrorCodes.UnsupportedCapability, payload.Code);
+        Assert.Equal(
+            "in-memory files for setInputFiles are not available on this target; update its engine",
+            payload.Message
+        );
+        Assert.Equal(EngineErrorCodes.UnsupportedCapability, clear.Code);
+        Assert.Equal(
+            "the \"setInputFiles\" action is not available on this target: its engine declares tap",
+            clear.Message
+        );
+        Assert.Empty(received);
+    }
+
+    // Not portable, because the C# types refuse them at compile time: "refuses invalid file payload %j before lookup or recording" for
+    // null, 42, {}, a sparse array, a missing mimeType, a Uint8Array or a string buffer, a path mixed with a payload, and an unknown key.
+    // The cases the types leave open are below.
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public async Task Partial_refuses_invalid_file_payload_before_lookup_or_recording(string name)
+    {
+        var (screen, received) = BoxScreen();
+
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            screen.GetByLabel("Agree").SetInputFilesAsync(new FilePayload(name, "text/plain", []))
+        );
+
+        Assert.Equal("INVALID_ARGUMENT", error.Code);
+        Assert.Empty(received);
+        Assert.Empty(screen.Steps!.All());
+    }
+
     // Not portable, because the C# types refuse them at compile time: a number among the paths.
     [Theory]
     [InlineData("")]

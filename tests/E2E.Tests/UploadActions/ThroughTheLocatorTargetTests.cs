@@ -27,6 +27,30 @@ public sealed class ThroughTheLocatorTargetTests
         );
     }
 
+    [Theory]
+    [InlineData("input")]
+    [InlineData("label")]
+    [InlineData("chooser")]
+    public async Task Preserves_in_memory_file_metadata_and_binary_contents_through_a(string kind)
+    {
+        await RunWithScreenAsync(MetadataPage(kind), async session =>
+        {
+            var target = kind switch
+            {
+                "input" => session.Screen.GetByLabel("Avatar"),
+                "label" => session.Screen.GetByTestId("pick"),
+                _ => session.Screen.GetByRole("button", "Choose"),
+            };
+            await target.SetInputFilesAsync(Payloads);
+            Assert.Equal(PayloadsExpected, await session.Browser.EvaluateAsync<string>(PayloadsHeld));
+            await target.SetInputFilesAsync([]);
+            Assert.Equal(
+                0,
+                await session.Browser.EvaluateAsync<int>("() => document.querySelector('#avatar').files.length")
+            );
+        });
+    }
+
     [Fact]
     public async Task Sets_the_input_a_label_names_without_clicking_the_label()
     {

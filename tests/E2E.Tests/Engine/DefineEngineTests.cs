@@ -160,6 +160,29 @@ public sealed class DefineEngineTests
         Assert.Contains("tapModifiers without perform", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Keeps_the_SPI_v1_list_stable_and_accepts_an_explicitly_declared_upload_action()
+    {
+        // Not portable, because the C# types refuse them at compile time: "reports malformed action lists as INVALID_CONFIG" for {}, 42, and a string.
+        var legacy = EngineManifest.DefineEngine(
+            Toy() with
+            {
+                Actions = EngineActionKinds.Locator,
+                Perform = (_, _, _) => Task.CompletedTask,
+            }
+        );
+        Assert.DoesNotContain("setInputFilePayloads", legacy.Actions ?? []);
+
+        var enabled = EngineManifest.DefineEngine(
+            Toy() with
+            {
+                Actions = ["setInputFilePayloads"],
+                Perform = (_, _, _) => Task.CompletedTask,
+            }
+        );
+        Assert.Equal(["setInputFilePayloads"], enabled.Actions);
+    }
+
     /// <summary>
     /// Partial: upstream also refuses a string and a number in the list, which a typed <c>IReadOnlyList&lt;string&gt;</c> cannot hold; the
     /// unknown kind, the repeated kind, and the empty list are checked.

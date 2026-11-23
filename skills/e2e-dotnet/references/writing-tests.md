@@ -329,9 +329,14 @@ point: the web engine does, and so does a device; the others fail with
 `UNSUPPORTED_CAPABILITY`. The agent has no `long_press`, `right_click`, `hover`, or
 `drag` tool yet.
 
-`SetInputFilesAsync(path)` (or a list of paths) sets the files of exactly one
+`SetInputFilesAsync(path)` (or a list of paths, or one or a list of
+`new FilePayload(name, mimeType, buffer)` with the bytes in memory) sets the files of exactly one
 file input, or of a control that opens a file chooser, such as a button over a
-hidden input. A locator refuses a hidden node, so target the button or label
+hidden input. Paths and payloads cannot be mixed, as the types keep them apart. The
+combined payload size must be less than 50 MiB, or it is `INVALID_ARGUMENT`
+(`Cannot set buffer larger than 50Mb, please write it to a file and pass its path instead.`); a blank
+`Name` is `INVALID_ARGUMENT` too. An engine that does not declare `setInputFilePayloads` refuses payloads
+with `UNSUPPORTED_CAPABILITY`. A locator refuses a hidden node, so target the button or label
 over a hidden input, not the input. Paths resolve from the project root; an
 empty list clears the input and fires `input` and `change`, and a blank
 entry is an `ArgumentException` (upstream's `INVALID_ARGUMENT`). A file input,

@@ -172,6 +172,8 @@ public sealed class PerformTests
         LocatorAction[] refused =
         [
             new LocatorAction.Select("x"),
+            new LocatorAction.SetInputFiles(["/tmp/x"]),
+            new LocatorAction.SetInputFilePayloads([new FilePayload("x", "text/plain", "x"u8.ToArray())]),
             new LocatorAction.ScrollIntoView(),
             // Named keys other than Enter and Space, and every modifier, have no soft-keyboard equivalent.
             new LocatorAction.Press("Escape"),

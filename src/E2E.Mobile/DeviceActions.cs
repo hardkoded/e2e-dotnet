@@ -850,6 +850,7 @@ public sealed class DeviceActions : IDeviceActions
             LocatorAction.Press => "press",
             LocatorAction.Select => "selectOption",
             LocatorAction.SetInputFiles => "setInputFiles",
+            LocatorAction.SetInputFilePayloads => "setInputFilePayloads",
             LocatorAction.Blur => "blur",
             LocatorAction.Check => "check",
             LocatorAction.Uncheck => "uncheck",

@@ -26,6 +26,32 @@ internal static class UploadPage
         }
         """;
 
+    /// <summary>The in-memory files the metadata test sets: one binary, one empty (upstream's <c>files</c>).</summary>
+    public static IReadOnlyList<FilePayload> Payloads { get; } =
+    [new("résumé.bin", "application/octet-stream", [0, 128, 255]), new("empty.txt", "text/plain", [])];
+
+    /// <summary>What the page holds after <see cref="Payloads"/> are set: each file's name, type, and bytes.</summary>
+    public const string PayloadsHeld = """
+        async () => JSON.stringify(await Promise.all(Array.from(document.querySelector('#avatar').files ?? [], async (picked) => ({
+            name: picked.name, mimeType: picked.type, bytes: Array.from(new Uint8Array(await picked.arrayBuffer())),
+        }))))
+        """;
+
+    /// <summary>What <see cref="PayloadsHeld"/> reports for <see cref="Payloads"/>.</summary>
+    public const string PayloadsExpected =
+        """[{"name":"résumé.bin","mimeType":"application/octet-stream","bytes":[0,128,255]},{"name":"empty.txt","mimeType":"text/plain","bytes":[]}]""";
+
+    /// <summary>The pages of the in-memory metadata test: a file input, a label for a hidden one, and a button that opens its chooser.</summary>
+    public static string MetadataPage(string kind) =>
+        kind switch
+        {
+            "input" => """<input id="avatar" type="file" multiple aria-label="Avatar">""",
+            "label" =>
+                """<label id="pick" for="avatar"><span data-testid="pick">Choose</span></label><input id="avatar" type="file" multiple hidden>""",
+            _ =>
+                """<button id="pick" onclick="document.getElementById('avatar').click()">Choose</button><input id="avatar" type="file" multiple hidden>""",
+        };
+
     private static string Create()
     {
         var directory = Directory.CreateTempSubdirectory("e2e-upload-");

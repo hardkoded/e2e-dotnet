@@ -98,6 +98,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExploreProgress.StepFinished](/api/E2E/ExploreProgress.StepFinished/) |  |
 | [ExploreProgress.StepStarted](/api/E2E/ExploreProgress.StepStarted/) |  |
 | [ExtractOptions](/api/E2E/ExtractOptions/) | agent.extract: one extraction and one repair round. The type argument of ExtractAsync&lt;T&gt; is the schema. |
+| [FilePayload](/api/E2E/FilePayload/) | An in-memory file to attach without writing it to disk (upstream's FilePayload). |
 | [FileStepCache](/api/E2E/FileStepCache/) | JSON files in a directory, one per cache key. An entry over the byte cap is ignored on read and not written. |
 | [FrameScreen](/api/E2E/FrameScreen/) | The screen scope FrameLocator(string) returns. Every Screen query answers from inside the frame, and the web-only escape hatches follow it in: Locator(string) for a CSS or XPath selector on a control with no accessible name, and FrameLocator(string) for a frame nested inside this one. Upstream's FrameScreen. |
 | [GoogleModel](/api/E2E/GoogleModel/) | Google Gemini API (Generative Language) client. Tool schemas go as parametersJsonSchema, so the agent's JSON Schemas need no conversion. Thought signatures Gemini attaches to a function call are sent back with it. |
