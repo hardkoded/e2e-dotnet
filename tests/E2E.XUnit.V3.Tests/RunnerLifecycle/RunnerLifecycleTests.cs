@@ -8,8 +8,7 @@ using E2E.XUnit.V3.Tests.EngineContract;
 namespace E2E.XUnit.V3.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. It is <c>Partial_</c>: it leaves out that the registered form
-/// <c>[Fixme]</c> (upstream's <c>test.fixme(title, fn)</c>) has no attempt (it starts its session before it skips), the consumer's <c>setup-failed</c> skip, and the error code <c>INVALID_ARGUMENT</c> of the setup case (the host keeps the exception's message, not its code, so the report says <c>TEST_FAILED</c>), and reads each result from the fixture's
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. The test leaves out the consumer's <c>setup-failed</c> skip, and the error code <c>INVALID_ARGUMENT</c> of the setup case (the host keeps the exception's message, not its code, so the report says <c>TEST_FAILED</c>), and reads each result from the fixture's
 /// <c>report.json</c>.
 /// </summary>
 public sealed class RunnerLifecycleTests : IDisposable
@@ -17,7 +16,7 @@ public sealed class RunnerLifecycleTests : IDisposable
     public void Dispose() => RunnerLifecycleResults.Clear();
 
     [Fact]
-    public async Task Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body()
+    public async Task Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body()
     {
         // Choosing the directory before the nested process starts is what hands it to that process.
         RunnerLifecycleResults.Prepare();
@@ -30,6 +29,7 @@ public sealed class RunnerLifecycleTests : IDisposable
         var registered = ByTitle(report, nameof(FixmeFixture.Registered));
         Assert.Equal("skipped", (string?)registered["status"]);
         AssertSkip(registered["skip"]!, "fixme");
+        Assert.Empty(registered["attempts"]!.AsArray());
         var conditional = ByTitle(report, nameof(FixmeFixture.Conditional));
         Assert.Equal("skipped", (string?)conditional["status"]);
         AssertSkip(conditional["skip"]!, "fixme: flaky on webkit");

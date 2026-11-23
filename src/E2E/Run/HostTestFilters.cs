@@ -177,7 +177,8 @@ internal static class HostTestFilters
 
         var excluded = new Dictionary<string, string>(StringComparer.Ordinal);
         var results = new List<ReportResult>();
-        foreach (var pair in filtered.Selection.Pairs.Where(pair => pair.Skip is { Cause: "filtered" }))
+        // A [Fixme] test is reported from collection too (upstream's nonRunResult: skipped, selected, no attempt), so no session starts for it.
+        foreach (var pair in filtered.Selection.Pairs.Where(pair => pair.Skip is { Cause: "filtered" or "fixme" }))
         {
             if (excluded.TryAdd(keys[pair.Test.Id], pair.Skip!.Reason))
             {
@@ -236,7 +237,7 @@ internal static class HostTestFilters
         return call;
     }
 
-    // A test left out ran no attempt, so the reason sits on the result, and the summary does not count the test as selected.
+    // A test left out ran no attempt, so the reason sits on the result, and the summary does not count a filtered test as selected (a fixme one is, as upstream's nonRunResult has it).
     private static ReportResult LeftOutResult(CollectedTest test, ResolvedTarget target, SkipInfo skip) =>
         new()
         {
@@ -249,7 +250,7 @@ internal static class HostTestFilters
             TargetId = target.Name,
             Platform = target.Platform,
             Tags = test.Tags,
-            Selected = false,
+            Selected = skip.Cause == "fixme",
             Status = ResultStatus.Skipped,
             Skip = new ReportSkip(skip.Cause, skip.Reason, skip.Filter),
         };

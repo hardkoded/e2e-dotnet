@@ -78,7 +78,7 @@ public class E2ERunFixture : IAsyncLifetime
             IReadOnlyDictionary<string, string> excluded = new Dictionary<string, string>(StringComparer.Ordinal);
             var changedSince = HostTestFilters.ResolveChangedSince(ChangedSince);
             var lastFailed = HostTestFilters.ResolveLastFailed(LastFailed);
-            if (changedSince is not null || lastFailed)
+            if (changedSince is not null || lastFailed || discovered.Any(test => test.Fixme))
             {
                 var selection = await HostTestFilters
                     .ExcludeAsync(

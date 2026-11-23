@@ -12,7 +12,7 @@ using NUnit.Framework.Internal;
 namespace E2E.NUnit.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. <c>Partial_Reports_test_fixme...</c> reads each result from
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. <c>Reports_test_fixme...</c> reads each result from
 /// the fixture's <c>report.json</c>, and leaves out that the registered form <c>[Fixme]</c> (upstream's <c>test.fixme(title, fn)</c>) has no attempt: it starts its session before it skips.
 /// <c>Partial_Counts_a_serial_member...</c> leaves out the per-member cause and the executed count (a serial group reports as one result, #1241, #2078).
 /// </summary>
@@ -25,7 +25,7 @@ public sealed class RunnerLifecycleTests
     public void RemoveResults() => RunnerLifecycleResults.Clear();
 
     [Test]
-    public void Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body_or_hook()
+    public void Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body_or_hook()
     {
         string[] tests =
         [
@@ -47,6 +47,7 @@ public sealed class RunnerLifecycleTests
         var registered = ByTitle(report, nameof(FixmeFixture.Registered));
         Assert.That((string?)registered["status"], Is.EqualTo("skipped"));
         AssertSkip(registered["skip"]!, "fixme");
+        Assert.That(registered["attempts"]!.AsArray(), Is.Empty);
         var conditional = ByTitle(report, nameof(FixmeFixture.Conditional));
         Assert.That((string?)conditional["status"], Is.EqualTo("skipped"));
         AssertSkip(conditional["skip"]!, "fixme: flaky on webkit");
