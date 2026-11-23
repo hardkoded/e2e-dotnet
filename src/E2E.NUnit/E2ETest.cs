@@ -174,7 +174,7 @@ public abstract partial class E2ETest : E2EFixture
             .FirstOrDefault(test => test.Fixme && test.Title == method.Name);
         if (discovered is not null)
         {
-            await HostTestFilters.ReportFixmeAsync(Config, discovered, token).ConfigureAwait(false);
+            await HostTestFilters.ReportFixmeAsync(Config, discovered, ResultsDirectory, token).ConfigureAwait(false);
         }
 
         Assert.Ignore(E2E.Internal.Skip.FixmeReason(fixme.Reason));

@@ -223,13 +223,14 @@ internal static class HostTestFilters
     public static async Task ReportFixmeAsync(
         E2EConfig config,
         DiscoveredTest test,
+        string? resultsRoot,
         CancellationToken cancellationToken
     )
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(test);
         var selection = await ExcludeAsync(config, [], null, [test], _ => { }, cancellationToken).ConfigureAwait(false);
-        await WriteReportAsync(config, selection, cancellationToken).ConfigureAwait(false);
+        await WriteReportAsync(config, selection, cancellationToken, resultsRoot).ConfigureAwait(false);
     }
 
     // One filter's call as the `filter` setup step: started as it begins, finished with how long it took and, for a call that did not answer, how it ended.
@@ -263,7 +264,11 @@ internal static class HostTestFilters
             Id = AttemptReport.ResultId(test.Id[..test.Id.LastIndexOf("::", StringComparison.Ordinal)], test.Title),
             TestId = test.Id,
             File = test.File,
-            TitlePath = test.TitlePath,
+            // A fixme result is the one a session would have reported, so its title is the test's full name, as a session's is.
+            TitlePath =
+                skip.Cause == "fixme"
+                    ? [test.Id[..test.Id.LastIndexOf("::", StringComparison.Ordinal)] + "." + test.Title]
+                    : test.TitlePath,
             DeclarationIndex = test.DeclarationIndex,
             TargetId = target.Name,
             Platform = target.Platform,
@@ -280,7 +285,8 @@ internal static class HostTestFilters
     public static async Task WriteReportAsync(
         E2EConfig config,
         HostSelection selection,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? resultsRoot = null
     )
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -303,7 +309,7 @@ internal static class HostTestFilters
                     selection,
                     target,
                     config.ProjectRoot,
-                    OutputLayout.Of(config.Output).Results,
+                    resultsRoot ?? OutputLayout.Of(config.Output).Results,
                     Resolve(config, []),
                     cancellationToken
                 )

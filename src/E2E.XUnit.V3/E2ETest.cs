@@ -147,7 +147,7 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
             .FirstOrDefault(test => test.Fixme && test.Title == method.Name);
         if (discovered is not null)
         {
-            await HostTestFilters.ReportFixmeAsync(Config, discovered, cancellationToken).ConfigureAwait(false);
+            await HostTestFilters.ReportFixmeAsync(Config, discovered, ResultsDirectory, cancellationToken).ConfigureAwait(false);
         }
 
         RunSelection.SkipWith(E2E.Internal.Skip.FixmeReason(fixme.Reason));
