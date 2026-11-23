@@ -49,6 +49,22 @@ public sealed class NormalizeBaseUrlTests
     }
 
     [Fact]
+    public void Treats_root_terminated_localhost_names_as_loopback_not_remote_HTTP()
+    {
+        foreach (var host in new[] { "localhost.", "app.localhost." })
+        {
+            Assert.True(E2E.Internal.Urls.IsLoopbackHost(host));
+            Assert.Equal($"http://{host}:3000", Normalize($"{host}:3000").Origin);
+            Assert.Equal($"http://{host}:3000", Normalize($"http://{host}:3000").Origin);
+        }
+
+        Assert.True(E2E.Internal.Urls.IsImplicitTestHost("api.test."));
+        Assert.False(E2E.Internal.Urls.IsLoopbackHost("example.org."));
+        Rejects("http://example.org.:3000", "loopback");
+        Assert.False(E2E.Internal.Urls.IsLoopbackHost("localhost.."));
+    }
+
+    [Fact]
     public void Rejects_non_http_s_schemes()
     {
         Rejects("file:///tmp/app", "");
