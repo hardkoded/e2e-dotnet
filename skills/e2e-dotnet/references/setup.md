@@ -48,6 +48,15 @@ config only. Init leaves an existing config alone, refreshes the skill and MCP
 entries on a re-run, and never writes through a symlink. A subscription
 gateway needs its sign-in before the first run (`e2e login <provider>`).
 
+In a new config with the web engine, init reads the `package.json` nearest above the test project. With `next` in `dependencies` or
+`devDependencies` and a `dev` script, the web target gets `app.url`
+`http://localhost:<port>` (the `--port`, `-p`, or `PORT=` of the `next` command in
+`dev`, else 3000, always `localhost`) and `app.command` `{ "executable": <manager>, "args": ["run", "dev"],
+"reuseExisting": true }`, with the manager read from the lockfile. It prints the command and URL it wrote.
+Without a `dev` script, or with a port it cannot read as a fixed number, the target keeps the default URL
+and init warns. The JSON config cannot read `CI`, so the target runs `dev` in CI too; serve `next start`
+there with a code config (the Next.js guide shows one).
+
 Init also creates the test project: a `.csproj` named after the directory with
 the packages of the test framework and of e2e at the tool's version, and an
 `ExampleTests.cs`. `--framework xunit` picks xUnit v3 and `--framework tunit` picks TUnit (NUnit is the default). The closing line says

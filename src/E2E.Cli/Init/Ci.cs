@@ -466,6 +466,56 @@ internal static partial class Ci
         }
     }
 
+    /// <summary>
+    /// .NET-only: the <c>dependencies</c>, <c>devDependencies</c>, and <c>scripts</c> of the <c>package.json</c> in
+    /// <paramref name="appDir"/> (upstream's <c>readPackageManifest</c>); null when it cannot be read.
+    /// </summary>
+    internal static FrameworkManifest? ReadFrameworkManifest(string appDir)
+    {
+        try
+        {
+            var document = JsonNode.Parse(
+                System.IO.File.ReadAllText(Path.Combine(appDir, "package.json")),
+                documentOptions: new JsonDocumentOptions
+                {
+                    CommentHandling = JsonCommentHandling.Skip,
+                    AllowTrailingCommas = true,
+                }
+            );
+            if (document is not JsonObject root)
+            {
+                return null;
+            }
+
+            return new FrameworkManifest(
+                Strings(root["dependencies"]),
+                Strings(root["devDependencies"]),
+                Strings(root["scripts"])
+            );
+        }
+        catch (Exception cause)
+            when (cause is JsonException or IOException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        static Dictionary<string, string>? Strings(JsonNode? node) =>
+            node is JsonObject map
+                ? map.Where(entry => entry.Value is JsonValue value && value.TryGetValue<string>(out _))
+                    .ToDictionary(entry => entry.Key, entry => entry.Value!.GetValue<string>())
+                : null;
+    }
+
+    /// <summary>The command that runs the package.json script <paramref name="name"/> with the given manager (upstream's <c>runScriptCommand</c> in <c>internal/package-manager.ts</c>).</summary>
+    internal static string RunScriptCommand(string manager, string name) =>
+        manager switch
+        {
+            "pnpm" => "pnpm " + name,
+            "yarn" => "yarn " + name,
+            "bun" => "bun run " + name,
+            _ => "npm run " + name,
+        };
+
     /// <summary>.NET-only: whether an npm lockfile is committed in <paramref name="appDir"/> or a folder above it, up to <paramref name="repositoryRoot"/>, which <c>npm ci</c> needs.</summary>
     internal static bool HasNpmLockfile(string appDir, string repositoryRoot)
     {

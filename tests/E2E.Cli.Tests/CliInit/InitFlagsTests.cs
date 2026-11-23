@@ -60,7 +60,7 @@ public sealed class InitFlagsTests : CliInitTestBase
     public void Lists_every_example_and_framework_in_the_usage()
     {
         Assert.All(Examples.All, example => Assert.Contains(example.Id, InitFlags.Usage, StringComparison.Ordinal));
-        Assert.All(Frameworks.All, framework =>
+        Assert.All(TestFrameworks.All, framework =>
             Assert.Contains(framework.Id, InitFlags.Usage, StringComparison.Ordinal)
         );
     }
