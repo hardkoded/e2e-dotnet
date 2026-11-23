@@ -859,7 +859,8 @@ public sealed class BrowserRouteAndWaitForResponseDecisionsTests
                         {
                             await session.Engine.RestartAsync(CancellationToken.None);
                             await session.App.OpenAsync("/");
-                        }
+                        },
+                        session.Steps
                     )
                 );
             });
@@ -1061,21 +1062,22 @@ public sealed class BrowserRouteAndWaitForResponseDecisionsTests
     public Task Partial_Labels_a_method_narrowed_pattern_with_its_method_and_URL() =>
         WithRoutesAsync(async routes =>
         {
-            await routes.Browser.RouteAsync(new RouteMatcher { Method = "post", Url = "**/api/orders" }, route =>
-                route.ContinueAsync()
-            );
-            await routes.Browser.RouteAsync(
-                new RouteMatcher { Method = "POST", UrlRegex = new Regex("orders$") },
-                route => route.ContinueAsync()
-            );
-            Assert.Equal(
-                "POST \"**/api/orders\"",
-                E2E.Internal.Routes.PatternLabel(new RouteMatcher { Method = "post", Url = "**/api/orders" })
-            );
-            Assert.Equal(
-                "POST /orders$/",
-                E2E.Internal.Routes.PatternLabel(new RouteMatcher { Method = "POST", UrlRegex = new Regex("orders$") })
-            );
+            var lower = new RouteMatcher { Method = "post", Url = "**/api/orders" };
+            var regex = new RouteMatcher { Method = "POST", UrlRegex = new Regex("orders$") };
+            await routes.Browser.RouteAsync(lower, route => route.ContinueAsync());
+            await routes.Browser.RouteAsync(regex, route => route.ContinueAsync());
+            var pending = routes.Browser.WaitForResponseAsync(lower);
+            await routes.FetchMethodTextAsync(routes.Site.Origin + "/api/orders", "POST", "x");
+            await pending;
+            await routes.Browser.UnrouteAsync(regex);
+            string LabelOf(string api, int index) =>
+                routes.Steps().Where(step => step.Api == api).ElementAt(index).Label;
+            Assert.Equal("POST \"**/api/orders\"", LabelOf("browser.route", 0));
+            Assert.Equal("POST /orders$/", LabelOf("browser.route", 1));
+            Assert.Equal("POST \"**/api/orders\"", LabelOf("browser.waitForResponse", 0));
+            Assert.Equal("POST /orders$/", LabelOf("browser.unroute", 0));
+            Assert.Equal("POST \"**/api/orders\"", E2E.Internal.Routes.PatternLabel(lower));
+            Assert.Equal("POST /orders$/", E2E.Internal.Routes.PatternLabel(regex));
         });
 
     public static TheoryData<string> MethodMembers =>
@@ -1119,7 +1121,8 @@ public sealed class BrowserRouteAndWaitForResponseDecisionsTests
         string ProjectRoot,
         IPage Page,
         List<string> Attached,
-        Func<Task> RestartAsync
+        Func<Task> RestartAsync,
+        Func<IReadOnlyList<E2E.Reports.ReportStep>> Steps
     )
     {
         /// <summary>How many handlers listen for the page's <c>download</c> event.</summary>
