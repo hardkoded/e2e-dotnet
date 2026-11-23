@@ -926,7 +926,9 @@ other calls waits for the calls before it, and is refused when one of them did n
 failed, or (for the last one) reported no change: the model reads their results and
 concludes again. Calls after it in the turn don't run. The instructions tell the model
 that a step which only lists actions may end in the turn of its last action, with no
-model call to read the result. A tool that throws
+model call to read the result. A tool can answer an async sequence of
+results with `ToolLoopTool.FromOutputs` (upstream's async iterable): the last result is what the
+model reads, and a verdict in the same turn waits for the sequence to end. A tool that throws
 is a failed call the model reads, except a hard stop of the step, which ends
 the loop. `ToolLoopHelpers.GuardAsync` gives a tool the same rule for work of its
 own. `PrepareMessages` runs between turns to shorten the history, or stops the
