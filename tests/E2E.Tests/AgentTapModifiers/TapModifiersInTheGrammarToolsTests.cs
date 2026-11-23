@@ -108,7 +108,7 @@ public sealed class TapModifiersInTheGrammarToolsTests
             );
         }
 
-        // A modifier that is unknown, in another case, repeated, or not a list is refused before the engine is touched.
+        // A modifier that is unknown, in another case, repeated, or not a list is refused before the engine is touched (a repeat by the action, the rest by the schema).
         var (results, engine) = await ActAsync(
             declared: true,
             Call("tap", "Save", "shift"),
@@ -127,9 +127,22 @@ public sealed class TapModifiersInTheGrammarToolsTests
         );
         Assert.Empty(engine!.Clicks);
         Assert.Equal(5, results.Count);
-        Assert.All(results, result =>
-            Assert.Matches("^(tap|right_click) #e\\d+ failed: INVALID_ARGUMENT: .*modifier", result)
-        );
+        Assert.All(results, (result, index) =>
+        {
+            // An unknown or lower-case modifier and a list that is not one never reach the action: the schema refuses them, as upstream's safeParse does.
+            if (index != 2)
+            {
+                Assert.StartsWith("failed: Invalid input for tool ", result, StringComparison.Ordinal);
+                Assert.Contains(
+                    index == 3 ? "\"code\":\"invalid_type\"" : "\"code\":\"invalid_value\"",
+                    result,
+                    StringComparison.Ordinal
+                );
+                return;
+            }
+
+            Assert.Matches("^(tap|right_click) #e\\d+ failed: INVALID_ARGUMENT: .*modifier", result);
+        });
     }
 
     /// <summary>Partial: upstream parses each tool's zod schema, so it covers right_click too; the port runs the tools through the loop, and the document engine offers no right_click, so only tap and double_tap are run.</summary>

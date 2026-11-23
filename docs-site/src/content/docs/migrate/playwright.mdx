@@ -157,6 +157,7 @@ Every row works today. For an API that is not here, check [What e2e doesn't have
 | `PressSequentiallyAsync(text, new() { Delay })` | `PressSequentiallyAsync(text, new PressSequentiallyOptions { Delay })`; focuses the field, then types through the platform keyboard, one call for the whole text or one per code point with a `Delay`; the call shares one `Timeout` and fails with `ACTION_FAILED` when a pause reaches it; a `Secret` has no overload, so it goes through `FillAsync` |
 | `PressAsync(key)` | the same; modifiers join with `+` |
 | `ClearAsync()`, `FocusAsync()`, `BlurAsync()`, `HoverAsync()`, `SetInputFilesAsync()`, `DragToAsync()` | the same verbs, each with `Timeout` as the only option (`ActionOptions`): no `Force`, `Trial`, `Position`, `Modifiers`, or `SourcePosition`. `SetInputFilesAsync([])` clears the input |
+| `SetInputFilesAsync(new FilePayload { Name, MimeType, Buffer })` | `SetInputFilesAsync(new FilePayload(name, mimeType, buffer))`. Web only. Pass one payload or a list of them, not mixed with paths. The combined size must be under 50 MiB |
 | `CheckAsync()`, `UncheckAsync()` | the same, except when the state updates late or the click removes the control, see [What differs on purpose](#what-differs-on-purpose). `UncheckAsync()` on a checked native radio is `ACTION_FAILED` (`NOT_ACTIONABLE`); a `role=radio` is clicked, as in Playwright |
 | `SelectOptionAsync("pro")` | `SelectOptionAsync("Pro")` selects the option whose value or label is the string |
 | `ScrollIntoViewIfNeededAsync()` | `ScrollIntoViewAsync()` |
@@ -178,11 +179,11 @@ Every row works today. For an API that is not here, check [What e2e doesn't have
 
 | Playwright .NET | e2e |
 | --- | --- |
-| `ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeFocusedAsync`, `ToHaveValueAsync`, `ToHaveAttributeAsync`, `ToHaveCountAsync`, `ToHaveAccessibleNameAsync`, `ToHaveRoleAsync` | the same |
+| `ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeFocusedAsync`, `ToHaveValueAsync`, `ToHaveAttributeAsync`, `ToHaveCountAsync`, `ToHaveAccessibleNameAsync`, `ToHaveRoleAsync`, `ToBeEditableAsync` | the same |
 | `ToBeCheckedAsync()` | the same on a checkable node; on any other node `.Not.ToBeCheckedAsync()` passes, see [What differs on purpose](#what-differs-on-purpose) |
 | `ToHaveTextAsync()`, `ToContainTextAsync()` | compare the rendered text, see [What differs on purpose](#what-differs-on-purpose) |
 | `ToHaveTextAsync(new[] { "a", "b" })` on several matches | the same: `ToHaveTextAsync` needs the count to match |
-| `ToBeCheckedAsync(new() { Checked = false })`, `ToBeEnabledAsync(new() { Enabled })`, `ToBeVisibleAsync(new() { Visible })` | `ToBeCheckedAsync(false)`; the others use `.Not` |
+| `ToBeCheckedAsync(new() { Checked = false })`, `ToBeEnabledAsync(new() { Enabled })`, `ToBeEditableAsync(new() { Editable })`, `ToBeVisibleAsync(new() { Visible })` | `ToBeCheckedAsync(false)`, `ToBeEditableAsync(false)`; the others use `.Not` |
 | `IgnoreCase` on `ToHaveTextAsync`, `ToContainTextAsync` | `ignoreCase:` on the same matchers |
 | `ToHaveAttributeAsync("aria-selected", "true")`, `"aria-expanded"` | `ToBeSelectedAsync()`, `ToBeExpandedAsync()` |
 | a positive matcher on several matches | `LOCATOR_AMBIGUOUS` at once, see [What differs on purpose](#what-differs-on-purpose) |
@@ -309,9 +310,9 @@ Planned is on the roadmap. Not yet has no date. Not planned is left out on purpo
 | --- | --- |
 | `Locator.Locator("css")`, `Locator.And(other)` | One `Browser.Locator` selector, such as `"css >> css"`, or a `Screen` query inside the scope: `cell.GetByRole("textbox")` for `cell.Locator("input")` |
 | `EvaluateAsync(fn)`, `EvaluateAllAsync(fn)` on a locator, `DispatchEventAsync()`, `BlurAsync()`, `SelectTextAsync()`, `ToHaveCSSAsync()`, `ToHaveIdAsync()`, `ToHaveJSPropertyAsync()`, `ToContainClassAsync()`, `ToHaveValuesAsync()` | `Browser.EvaluateAsync<T>(expression, selector)` with a CSS selector in the argument and a value assert; `Expect.That(Browser).ToHaveClassAsync(locator, cls)` |
-| `SetInputFilesAsync(new FilePayload { ... })`, `SelectOptionAsync(new[] { "a", "b" })`, `ClickAsync(new() { ClickCount })`, `HoverAsync(new() { Position })` | A temp file path; `SetInputFilesAsync([])` to clear the input; `Browser.EvaluateAsync` for a multi-select; `Browser.Mouse` with `BoundingBoxAsync()` |
+| `SelectOptionAsync(new[] { "a", "b" })`, `ClickAsync(new() { ClickCount })`, `HoverAsync(new() { Position })` | `Browser.EvaluateAsync` for a multi-select; `Browser.Mouse` with `BoundingBoxAsync()` |
 | `Expect(async () => { ... }).ToPassAsync()` with custom intervals | `PassOptions.Intervals`, a list of `TimeSpan` pauses whose last entry repeats. `PollOptions.Intervals` does the same for `Expect.Poll` |
-| `ToBeEmptyAsync()`, `ToBeEditableAsync()`, `IsEditableAsync()`, `ToBeInViewportAsync()`, `ToHaveAccessibleDescriptionAsync()`, `ToBeCheckedAsync(new() { Indeterminate })`, `UseInnerText` | `ToHaveValueAsync("")` on a form control, `ToHaveTextAsync("")` on other elements; `ToBeEnabledAsync()`; `Expect.Poll` over `BoundingBoxAsync()`; a `GetByRole` query |
+| `ToBeEmptyAsync()`, `IsEditableAsync()`, `ToBeInViewportAsync()`, `ToHaveAccessibleDescriptionAsync()`, `ToBeCheckedAsync(new() { Indeterminate })`, `UseInnerText` | `ToHaveValueAsync("")` on a form control, `ToHaveTextAsync("")` on other elements; `ToBeEditableAsync()` for `IsEditableAsync()`; `Expect.Poll` over `BoundingBoxAsync()`; a `GetByRole` query |
 | `Locator.ScreenshotAsync()`, `ToHaveScreenshotAsync(new() { FullPage, Clip, Animations, Caret, Scale, StylePath })` | The viewport or one locator in `ToHaveScreenshotAsync`; `App.ScreenshotAsync(label)` captures the viewport |
 | `Expect(locator, new() { Message })` | `Expect.That(locator, "message")`; the message opens the failure. `Timeout` on each call |
 | A custom matcher | An async helper that calls `Expect.That` |

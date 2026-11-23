@@ -104,11 +104,14 @@ internal interface ISessionGuest
 internal static class SessionGuests
 {
     /// <summary>
-    /// What the test running now offers the caller, when the caller is part of it. Upstream also offers nothing to a body past its timeout and to a worker
-    /// fixture's setup, which no test ends (<c>outlivesTest()</c> and <c>PollScope.over</c>): the port has neither a poll scope nor a worker fixture, so
-    /// there is no such work to tell apart yet.
+    /// What the test running now offers the caller, when the caller is part of it. A body past its timeout goes on running while the next test does,
+    /// and a worker fixture is set up inside the first test that names it and lives on after it: what either opens or steps is no test's to end, so it
+    /// is offered nothing (<c>outlivesTest()</c> and <c>PollScope.over</c>).
     /// </summary>
-    public static IAttemptGuests? CurrentGuests() => Attempts.CurrentAttempt()?.Guests;
+    public static IAttemptGuests? CurrentGuests() =>
+        PollScopes.CurrentPollScope()?.Over == true || PollScopes.OutlivesTest()
+            ? null
+            : Attempts.CurrentAttempt()?.Guests;
 
     /// <summary>
     /// The guest of a session being opened now. Opened by a running test, it is that test's for good: named now, recorded on video if the test keeps

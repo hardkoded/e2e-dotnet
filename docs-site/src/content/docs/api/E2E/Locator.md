@@ -1216,6 +1216,68 @@ Selects the option whose value or label is &lt;code class="paramref"&gt;value&lt
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Locator_SetInputFilesAsync_"></a>
+<a id="E2E_Locator_SetInputFilesAsync_E2E_FilePayload_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### SetInputFilesAsync(FilePayload, ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task SetInputFilesAsync(FilePayload file, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Sets the files of exactly one file input, or of a control that opens a file chooser, from memory: &lt;code class="paramref"&gt;file&lt;/code&gt; supplies its
+bytes. The combined size must be less than 50 MiB; pass a path for larger files. Web only: an engine that does not declare
+`setInputFilePayloads` fails with `UNSUPPORTED_CAPABILITY`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `file` | [FilePayload](/api/E2E/FilePayload/) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` for a blank name or a null MIME type or buffer, or payloads totaling 50 MiB or more. |
+
+<a id="E2E_Locator_SetInputFilesAsync_System_Collections_Generic_IEnumerable_E2E_FilePayload__E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### `SetInputFilesAsync(IEnumerable<FilePayload>, ActionOptions?, CancellationToken)`
+
+
+```csharp
+public Task SetInputFilesAsync(IEnumerable<FilePayload> files, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Sets the files of exactly one file input, or of a control that opens a file chooser, from memory: &lt;code class="paramref"&gt;file&lt;/code&gt; supplies its
+bytes. The combined size must be less than 50 MiB; pass a path for larger files. Web only: an engine that does not declare
+`setInputFilePayloads` fails with `UNSUPPORTED_CAPABILITY`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `files` | [IEnumerable&lt;FilePayload&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` for a blank name or a null MIME type or buffer, or payloads totaling 50 MiB or more. |
+
+An empty list clears the input, as the paths overload does. Paths and payloads cannot be mixed: the types keep them apart.
+
 <a id="E2E_Locator_SetInputFilesAsync_System_Collections_Generic_IEnumerable_System_String__E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
 ### `SetInputFilesAsync(IEnumerable<string>, ActionOptions?, CancellationToken)`
@@ -1244,6 +1306,8 @@ On the web it also takes a button that opens a file chooser. An empty list of pa
 | Type | Condition |
 | --- | --- |
 | [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) | &lt;code class="paramref"&gt;paths&lt;/code&gt; has a blank entry (upstream's `INVALID_ARGUMENT`). |
+
+An empty collection expression binds here, not to the payload overload.
 
 <a id="E2E_Locator_SetInputFilesAsync_System_String_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 

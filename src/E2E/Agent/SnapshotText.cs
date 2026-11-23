@@ -163,6 +163,11 @@ internal static class SnapshotText
             builder.Append(" [focused]");
         }
 
+        if (node.States.Readonly == true)
+        {
+            builder.Append(" [readonly]");
+        }
+
         return builder.ToString();
     }
 

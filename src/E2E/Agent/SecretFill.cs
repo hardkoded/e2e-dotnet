@@ -68,7 +68,7 @@ internal static class SecretFill
             throw Denied("the target field is disabled");
         }
 
-        if (!Roles.IsEditable(node))
+        if (!Roles.TakesText(node))
         {
             host.RecordPolicy("secret.sink", PolicyDecision.Denied, "POLICY_DENIED");
             throw Denied(

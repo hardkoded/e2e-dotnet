@@ -113,6 +113,31 @@ Waits for disabled state.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_LocatorExpect_ToBeEditableAsync_"></a>
+<a id="E2E_LocatorExpect_ToBeEditableAsync_System_Boolean_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### ToBeEditableAsync(bool, TimeSpan?, CancellationToken)
+
+
+```csharp
+public Task ToBeEditableAsync(bool editable = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Waits for an enabled control that is not read-only; &lt;code class="paramref"&gt;editable&lt;/code&gt; false waits for a disabled or read-only one.
+Only a node the engine reports a read-only state for is read (on the web, an input, textarea, select, editing host, or a role
+that takes &lt;code&gt;aria-readonly&lt;/code&gt;); any other node fails either way.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `editable` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_LocatorExpect_ToBeEnabledAsync_"></a>
 <a id="E2E_LocatorExpect_ToBeEnabledAsync_System_Boolean_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 

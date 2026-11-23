@@ -48,6 +48,14 @@ public sealed class SoftLocatorExpect
         CancellationToken cancellationToken = default
     ) => KeepAsync(_expect.ToBeEnabledAsync(enabled, timeout, cancellationToken));
 
+    /// <inheritdoc cref="LocatorExpect.ToBeEditableAsync"/>
+    public Task ToBeEditableAsync(
+        bool editable = true,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    ) => KeepAsync(_expect.ToBeEditableAsync(editable, timeout, cancellationToken));
+
+    /// <inheritdoc cref="LocatorExpect.ToBeDisabledAsync"/>
     public Task ToBeDisabledAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
         KeepAsync(_expect.ToBeDisabledAsync(timeout, cancellationToken));
 

@@ -83,6 +83,7 @@ Public types in the `E2E.Engine` namespace.
 | [LocatorAction.ScrollIntoView](/api/E2E.Engine/LocatorAction.ScrollIntoView/) | Scrolls the node's nearest scrollable container until the node is in the viewport. |
 | [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. Modifiers are held for the click, as for LocatorAction.Tap. |
 | [LocatorAction.Select](/api/E2E.Engine/LocatorAction.Select/) | Selects one option: the one whose value or label is Text, or the one Option names by its label, its value, or its index. Exactly one of the two is set. |
+| [LocatorAction.SetInputFilePayloads](/api/E2E.Engine/LocatorAction.SetInputFilePayloads/) | Sets the files of a file input, or of a control that opens a file chooser, from memory. An empty Files clears the input. Upstream's setInputFilePayloads; only an engine that declares that kind receives it. |
 | [LocatorAction.SetInputFiles](/api/E2E.Engine/LocatorAction.SetInputFiles/) | Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input. Paths are absolute: the locator resolves them from the project root. |
 | [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/) | Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is SwipeAsync. |
 | [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) | A tap. Modifiers are held for the click, and only an engine that declares TapModifiers receives them. |

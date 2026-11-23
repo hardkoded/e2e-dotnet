@@ -30,6 +30,7 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
         await Expect.That(screen.GetByText("Never rendered")).ToBeHiddenAsync();
         await Expect.That(screen.GetByRole("button", "Submit")).ToBeEnabledAsync();
         await Expect.That(screen.GetByRole("button", "Disabled action")).ToBeDisabledAsync();
+        await Expect.That(screen.GetByLabel("Notes")).ToBeEditableAsync();
         await Expect.That(screen.GetByRole("switch", "Dark mode")).ToBeCheckedAsync();
         await Expect.That(screen.GetByRole("tab", "All")).ToBeSelectedAsync();
         await screen.GetByRole("button", "Menu").TapAsync();

@@ -341,6 +341,12 @@ public static partial class SnapshotProjection
                 reported["expanded"] = isExpanded;
             }
 
+            var readOnly = ReadOnlyState(role, source.Editable, android);
+            if (readOnly is { } isReadOnly)
+            {
+                reported["readonly"] = isReadOnly;
+            }
+
             var identifier = NonEmpty(source.Identifier);
             IReadOnlyList<int> kids = children.TryGetValue(position, out var below) ? below : [];
             var blank = editable && !secure && string.IsNullOrEmpty(value) && NonEmpty(source.Placeholder) is null;
@@ -399,6 +405,7 @@ public static partial class SnapshotProjection
                     Focused = reported.ContainsKey("focused"),
                     Hidden = reported.ContainsKey("hidden"),
                     Secure = secure,
+                    Readonly = readOnly,
                     Checked = checkedState == true,
                     CheckedReported = checkedState is not null,
                     Expanded = expanded == true,
@@ -920,6 +927,28 @@ public static partial class SnapshotProjection
     /// <c>TextView.isTextEditable()</c>, so a <c>Button</c> reporting it is a text view configured for
     /// input, and typed text and secrets have to reach it.
     /// </summary>
+    /// <summary>
+    /// A text field's read-only state, where the platform says whether it takes text: Android's <c>TextView.isTextEditable()</c>. iOS has
+    /// no such fact: agent-device fills in <c>editable: true</c> for every text field and text view from its element type, so an iOS node
+    /// carries no state rather than call a read-only text view editable. agent-device leaves the flag out where it does not know, and so
+    /// does the node. A combobox is editable only when the platform says it takes text; a picker that takes none is not read-only, so it
+    /// gets no state (upstream's <c>readOnlyState</c>).
+    /// </summary>
+    private static bool? ReadOnlyState(string? role, bool? editable, bool android)
+    {
+        if (!android || editable is not { } takesText)
+        {
+            return null;
+        }
+
+        return role switch
+        {
+            "combobox" => takesText ? false : null,
+            "textbox" or "searchbox" => !takesText,
+            _ => null,
+        };
+    }
+
     private static string? EditableRole(string? role, bool? editable)
     {
         if (editable != true)

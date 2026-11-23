@@ -11,7 +11,7 @@ namespace E2E.Tests.OpenHostDeadline;
 /// Upstream's <c>describe('openHost: deadline')</c> (<c>tests/integration/open-host-deadline.test.ts</c>). The <c>it</c>s that need no feature the port
 /// lacks are ported here. Not ported (hardkoded/e2e-dotnet#2002, #2041, #2099): <c>records abandoned polls and steps without unhandled rejections or reads after close</c> (hardkoded/e2e-dotnet#2138: the port has no
 /// <c>PollScope</c> in a hosted session, which ends a poll its phase did not await). The signals of <c>cancels an in-flight poll on %s</c> are the open tokens of <c>OpenAsync</c> and <c>OpenSessionAsync</c> (C# has no <c>signal</c> option).
-/// The <c>Partial_</c> <c>it</c>s: <c>bounds polls by config assertionTimeout</c> does not read the operation a session's <c>App.OpenAsync</c> gives the engine (the port's engine takes no operation timeout: hardkoded/e2e-dotnet#2142); the two contributed-fixture <c>it</c>s (<c>caps contributed fixture calls...</c>, <c>keeps the session deadline when a contributed operation disables its own timeout</c>) reach the fixture through the fake engine's <c>Gadget</c> instead of <c>session.fixtures.gadget</c>, since a hosted session's <c>Fixtures</c> is the <c>TestContext</c> and the port's operations declare no timeout of their own (so <c>timeout: false</c> has nothing to disable); <c>records a cancelled fixture as interrupted</c> cancels a core operation, as the port has no <c>extend</c> for a <c>gadget</c> fixture; <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> uses a 60 s timeout, not upstream's 20 ms (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
+/// The <c>Partial_</c> <c>it</c>s: the two contributed-fixture <c>it</c>s (<c>caps contributed fixture calls...</c>, <c>keeps the session deadline when a contributed operation disables its own timeout</c>) reach the fixture through the fake engine's <c>Gadget</c> instead of <c>session.fixtures.gadget</c>, since a hosted session's <c>Fixtures</c> is the <c>TestContext</c> and the port's operations declare no timeout of their own (so <c>timeout: false</c> has nothing to disable); <c>records a cancelled fixture as interrupted</c> cancels a core operation, as the port has no <c>extend</c> for a <c>gadget</c> fixture; <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> uses a 60 s timeout, not upstream's 20 ms (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
 /// <see cref="E2E.Internal.TestTimeout.SetRunningTestTimeout"/> takes the session.
 /// </summary>
 public sealed class OpenHostDeadlineTests : IAsyncLifetime
@@ -70,7 +70,7 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
         new() { Intervals = [TimeSpan.FromMilliseconds(ms)], Timeout = timeout };
 
     [Fact]
-    public async Task Partial_Bounds_polls_by_config_assertionTimeout_and_refreshes_the_deadline_for_the_next_session()
+    public async Task Bounds_polls_by_config_assertionTimeout_and_refreshes_the_deadline_for_the_next_session()
     {
         var engine = new HostFakeEngine();
         var host = await OpenAsync(engine, ConfigWith("\"assertionTimeout\": 40"));
@@ -88,8 +88,9 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
         var reads = 0;
         await Expect.Poll(() => ++reads, Every(5, TimeSpan.FromMilliseconds(500))).ToSatisfyAsync(value => value > 2);
         await second.App.OpenAsync();
-        Assert.Equal(host.RunId, engine.Started?.RunId);
-        Assert.Equal(second.AttemptId, engine.Started?.AttemptId);
+        var operation = engine.Operations.FirstOrDefault(entry => entry.AttemptId == second.AttemptId);
+        Assert.True(operation?.Timeout > TimeSpan.FromMilliseconds(200));
+        Assert.Equal(host.RunId, operation?.RunId);
         Assert.Empty(await second.CloseAsync());
     }
 

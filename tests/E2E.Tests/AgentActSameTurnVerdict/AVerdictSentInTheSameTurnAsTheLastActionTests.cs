@@ -137,15 +137,13 @@ public sealed class AVerdictSentInTheSameTurnAsTheLastActionTests
         Assert.Equal(2, ActStep(attempt.Steps).Metrics!.ModelCalls);
     }
 
-    // Partial port of upstream's 'is refused when the SDK turned the action away before it ran', which sends `target: 42`: the port's tool
-    // schemas refuse an unrecognized key but do not type-check a field, so the call that is turned away is one with an extra key.
     [Fact]
-    public async Task Partial_Is_refused_when_the_SDK_turned_the_action_away_before_it_ran()
+    public async Task Is_refused_when_the_SDK_turned_the_action_away_before_it_ran()
     {
         var model = new ScriptedModel(request =>
             request.Messages.Any(message => message.Role == "tool")
                 ? Batch(ModelResponses.Tap("button", "Increment"), Passed)
-                : Batch(ModelResponses.Call("tap", new { target = "n1", unknown = 42 }), Passed)
+                : Batch(ModelResponses.Call("tap", new { target = 42 }), Passed)
         );
         var attempt = await RunAsync(
             async ctx =>

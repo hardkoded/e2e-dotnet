@@ -692,7 +692,7 @@ public static class AgentTools
     /// <summary>
     /// Upstream's <c>schemaTool</c>: the schema of a grammar tool and of the verdict tool is closed, so a field it does not declare fails validation and the call never runs.
     /// Returns the refusal the model reads in the call's place (the AI SDK's <c>Invalid input for tool</c> error over a zod <c>unrecognized_keys</c>
-    /// issue), or null when the call declares nothing but what the tool does. Only undeclared fields are checked: the tools read their own values.
+    /// issue), or null when the call declares nothing but what the tool does and every declared field has its declared type, one of its enum, and a value, length or size within its declared range (a required field may not be missing).
     /// </summary>
     internal static string? SchemaTool(ModelTool definition, ModelToolCall call)
     {
@@ -741,19 +741,35 @@ public static class AgentTools
             return null;
         }
 
+        var issues = new List<Dictionary<string, object>>();
+        var required =
+            definition.Parameters.TryGetProperty("required", out var requiredNames)
+            && requiredNames.ValueKind == JsonValueKind.Array
+                ? requiredNames.EnumerateArray().Select(name => name.GetString()).ToHashSet()
+                : [];
+        foreach (var field in declared.EnumerateObject())
+        {
+            if (!call.Arguments.TryGetProperty(field.Name, out var value))
+            {
+                if (required.Contains(field.Name) && ExpectedType(field.Value) is { } missing)
+                {
+                    issues.Add(InvalidType(missing, "undefined", [field.Name]));
+                }
+
+                continue;
+            }
+
+            CheckValue(field.Value, value, [field.Name], issues);
+        }
+
         var keys = call
             .Arguments.EnumerateObject()
             .Select(property => property.Name)
             .Where(name => !declared.TryGetProperty(name, out _))
             .ToList();
-        if (keys.Count == 0)
+        if (keys.Count > 0)
         {
-            return null;
-        }
-
-        var issue = JsonSerializer.Serialize(
-            new object[]
-            {
+            issues.Add(
                 new Dictionary<string, object>
                 {
                     ["code"] = "unrecognized_keys",
@@ -764,16 +780,180 @@ public static class AgentTools
                         + (keys.Count > 1 ? "s" : "")
                         + ": "
                         + string.Join(", ", keys.Select(key => "\"" + key + "\"")),
-                },
-            }
-        );
+                }
+            );
+        }
+
+        if (issues.Count == 0)
+        {
+            return null;
+        }
+
         return "failed: Invalid input for tool "
             + definition.Name
             + ": Type validation failed: Value: "
             + call.Arguments.GetRawText()
             + ".\nError message: "
-            + issue;
+            + JsonSerializer.Serialize(issues);
     }
+
+    private static string? ExpectedType(JsonElement schema) =>
+        schema.ValueKind == JsonValueKind.Object
+        && schema.TryGetProperty("type", out var type)
+        && type.ValueKind == JsonValueKind.String
+            ? type.GetString()
+            : null;
+
+    private static bool MatchesType(string expected, JsonElement value) =>
+        expected switch
+        {
+            "string" => value.ValueKind == JsonValueKind.String,
+            "boolean" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
+            "number" => value.ValueKind == JsonValueKind.Number,
+            "integer" => value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out _),
+            "array" => value.ValueKind == JsonValueKind.Array,
+            "object" => value.ValueKind == JsonValueKind.Object,
+            _ => true,
+        };
+
+    private static string ReceivedType(JsonElement value) =>
+        value.ValueKind switch
+        {
+            JsonValueKind.Null or JsonValueKind.Undefined => "null",
+            JsonValueKind.Array => "array",
+            JsonValueKind.String => "string",
+            JsonValueKind.Number => "number",
+            JsonValueKind.Object => "object",
+            _ => "boolean",
+        };
+
+    // Upstream's zod checks one field the way its schema declares it: the type first, then the enum, the range of a number, the length of a
+    // string and the size of an array (and each element of it). A field of a type the schema does not name is not checked.
+    private static void CheckValue(
+        JsonElement schema,
+        JsonElement value,
+        object[] path,
+        List<Dictionary<string, object>> issues
+    )
+    {
+        if (ExpectedType(schema) is not { } expected)
+        {
+            return;
+        }
+
+        if (schema.TryGetProperty("enum", out var values) && values.ValueKind == JsonValueKind.Array)
+        {
+            var options = values.EnumerateArray().ToList();
+            if (!options.Any(option => JsonElement.DeepEquals(option, value)))
+            {
+                var texts = options.Select(option => option.GetRawText()).ToList();
+                issues.Add(
+                    new Dictionary<string, object>
+                    {
+                        ["code"] = "invalid_value",
+                        ["values"] = options
+                            .Select(option => (object)JsonSerializer.Deserialize<object>(option.GetRawText())!)
+                            .ToList(),
+                        ["path"] = path,
+                        ["message"] =
+                            texts.Count == 1
+                                ? "Invalid input: expected " + texts[0]
+                                : "Invalid option: expected one of " + string.Join("|", texts),
+                    }
+                );
+                return;
+            }
+        }
+
+        if (!MatchesType(expected, value))
+        {
+            issues.Add(InvalidType(expected, ReceivedType(value), path));
+            return;
+        }
+
+        switch (expected)
+        {
+            case "number" or "integer":
+                CheckBound(schema, "minimum", value.GetDouble(), path, issues, "number", "number", null);
+                CheckBound(schema, "maximum", value.GetDouble(), path, issues, "number", "number", null);
+                break;
+            case "string":
+                var length = value.GetString()!.EnumerateRunes().Count();
+                CheckBound(schema, "minLength", length, path, issues, "string", "string", "characters");
+                CheckBound(schema, "maxLength", length, path, issues, "string", "string", "characters");
+                break;
+            case "array":
+                var size = value.GetArrayLength();
+                CheckBound(schema, "minItems", size, path, issues, "array", "array", "items");
+                CheckBound(schema, "maxItems", size, path, issues, "array", "array", "items");
+                if (schema.TryGetProperty("items", out var items))
+                {
+                    var index = 0;
+                    foreach (var element in value.EnumerateArray())
+                    {
+                        CheckValue(items, element, [.. path, index++], issues);
+                    }
+                }
+
+                break;
+        }
+    }
+
+    private static void CheckBound(
+        JsonElement schema,
+        string keyword,
+        double actual,
+        object[] path,
+        List<Dictionary<string, object>> issues,
+        string origin,
+        string noun,
+        string? unit
+    )
+    {
+        if (!schema.TryGetProperty(keyword, out var limit) || limit.ValueKind != JsonValueKind.Number)
+        {
+            return;
+        }
+
+        var tooSmall = keyword.StartsWith("min", StringComparison.Ordinal);
+        if (tooSmall ? actual >= limit.GetDouble() : actual <= limit.GetDouble())
+        {
+            return;
+        }
+
+        var text = limit.GetRawText();
+        var issue = new Dictionary<string, object>
+        {
+            ["origin"] = origin,
+            ["code"] = tooSmall ? "too_small" : "too_big",
+            [tooSmall ? "minimum" : "maximum"] = JsonSerializer.Deserialize<object>(text)!,
+        };
+        if (unit is null)
+        {
+            issue["inclusive"] = true;
+        }
+
+        issue["path"] = path;
+        issue["message"] =
+            (tooSmall ? "Too small" : "Too big")
+            + ": expected "
+            + noun
+            + (unit is null ? " to be " : " to have ")
+            + (tooSmall ? ">=" : "<=")
+            + text
+            + (unit is null ? "" : " " + unit);
+        issues.Add(issue);
+    }
+
+    private static Dictionary<string, object> InvalidType(string expected, string received, object[] path) =>
+        new()
+        {
+            ["expected"] = expected == "integer" ? "int" : expected,
+            ["code"] = "invalid_type",
+            ["path"] = path,
+            ["message"] =
+                "Invalid input: expected " + (expected == "integer" ? "int" : expected) + ", received " + received,
+        };
 
     /// <summary>
     /// The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability,

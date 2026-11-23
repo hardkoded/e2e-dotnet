@@ -108,6 +108,27 @@ public Task ToBeDisabledAsync(TimeSpan? timeout = null, CancellationToken cancel
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_SoftLocatorExpect_ToBeEditableAsync_"></a>
+<a id="E2E_SoftLocatorExpect_ToBeEditableAsync_System_Boolean_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### ToBeEditableAsync(bool, TimeSpan?, CancellationToken)
+
+
+```csharp
+public Task ToBeEditableAsync(bool editable = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `editable` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_SoftLocatorExpect_ToBeEnabledAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToBeEnabledAsync_System_Boolean_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 

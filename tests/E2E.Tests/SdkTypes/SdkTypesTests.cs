@@ -173,6 +173,29 @@ public sealed class SdkTypesTests
         Assert.Null(typeof(ExecutorTarget).GetMethod("op_Implicit"));
     }
 
+    // The lines the toBeEditable commit adds (tester-army/e2e#1962): "toBeEditable takes Playwright's editable flag and a timeout" (also
+    // negated, returning Promise<void>), "@ts-expect-error the flag is a boolean" and "@ts-expect-error toBeEditable has no enabled flag".
+    // Upstream checks them with the type checker; here they are reflection checks of the public API.
+    [Fact]
+    public void Partial_toBeEditable_takes_the_editable_flag_and_a_timeout_and_no_enabled_flag()
+    {
+        foreach (var type in new[] { typeof(LocatorExpect), typeof(SoftLocatorExpect) })
+        {
+            var method = Assert.Single(type.GetMethods(), method => method.Name == "ToBeEditableAsync");
+            Assert.Equal(typeof(Task), method.ReturnType);
+            Assert.Equal(
+                [typeof(bool), typeof(TimeSpan?), typeof(CancellationToken)],
+                method.GetParameters().Select(parameter => parameter.ParameterType)
+            );
+            Assert.Equal(
+                ["editable", "timeout", "cancellationToken"],
+                method.GetParameters().Select(parameter => parameter.Name)
+            );
+        }
+
+        Assert.NotNull(typeof(LocatorExpect).GetProperty(nameof(LocatorExpect.Not)));
+    }
+
     // The lines the blur commit adds (tester-army/e2e#1919): "void (blurTarget.blur satisfies (options?: ActionOptions) => Promise<void>)",
     // "@ts-expect-error blur accepts action options, not a selector", and a LocatorActionKind outside KNOWN_LOCATOR_ACTION_KINDS is a
     // compile error. Upstream checks them with the type checker; here they are reflection checks of the public API.

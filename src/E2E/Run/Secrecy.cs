@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.CompilerServices;
+using E2E.Engine;
 using E2E.Internal;
 using SharedSecrets = System.Tuple<System.Collections.Generic.Dictionary<(string Name, string Value), int[]>, int[]>;
 
@@ -17,6 +18,13 @@ internal static class Secrecy
     private const int Hosts = 1;
 
     private static readonly ConditionalWeakTable<object, StaticLedger> StaticLedgers = new();
+
+    /// <summary>
+    /// Whether pixels leave an engine session: the engine masked at least as many regions as the secure nodes it observed. Pixels that are
+    /// not leave no session, whoever asked for them. Upstream's <c>pixelsProvenMasked</c>.
+    /// </summary>
+    public static bool PixelsProvenMasked(ObservationRedaction redaction) =>
+        redaction.MaskedRegionCount >= redaction.SecureNodeCount;
 
     /// <summary>
     /// A ledger of the static values of <paramref name="secrets"/> alone, built once per list. What text produced before any session

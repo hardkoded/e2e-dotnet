@@ -308,6 +308,29 @@ public sealed class LocatorExpect
         return StateAsync("toBeDisabled", node => node.States.Disabled, true, "disabled", timeout, cancellationToken);
     }
 
+    /// <summary>
+    /// Waits for an enabled control that is not read-only; <paramref name="editable"/> false waits for a disabled or read-only one.
+    /// Only a node the engine reports a read-only state for is read (on the web, an input, textarea, select, editing host, or a role
+    /// that takes <c>aria-readonly</c>); any other node fails either way.
+    /// </summary>
+    public Task ToBeEditableAsync(
+        bool editable = true,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return PollSingleAsync(
+            "toBeEditable",
+            editable ? "editable" : "read-only or disabled",
+            timeout,
+            node =>
+                EditState(node) is not { } state
+                    ? new Verdict(null, ObservedNoReadOnlyState(node))
+                    : new Verdict(state == "editable" == editable, state),
+            cancellationToken
+        );
+    }
+
     /// <summary>Waits for checked state. <paramref name="isChecked"/> false waits for unchecked state.</summary>
     public Task ToBeCheckedAsync(
         bool isChecked = true,
@@ -836,6 +859,25 @@ public sealed class LocatorExpect
         return next == patterns.Count;
     }
 
+    /// <summary>
+    /// What <c>ToBeEditableAsync</c> reads: null for a node the engine reports no read-only state for, which the matcher cannot judge;
+    /// else disabled first, as Playwright reads it, then read-only.
+    /// </summary>
+    private static string? EditState(SemanticNode node)
+    {
+        if (node.States.Readonly is not { } readOnly)
+        {
+            return null;
+        }
+
+        return node.States.Disabled ? "disabled"
+            : readOnly ? "read-only"
+            : "editable";
+    }
+
+    private static string ObservedNoReadOnlyState(SemanticNode node) =>
+        (node.Role is null ? "no role" : "role " + Quote(node.Role)) + ", no read-only state";
+
     private static string ObservedStates(SemanticNode node)
     {
         var states = node.States;
@@ -854,6 +896,7 @@ public sealed class LocatorExpect
         Add(states.Focused, "focused");
         Add(states.Hidden, "hidden");
         Add(states.Secure, "secure");
+        Add(states.Readonly == true, "readonly");
         Add(states.Selected, "selected");
         Add(states.Pressed, "pressed");
         return active.Count == 0 ? "default states" : "states: " + string.Join(", ", active);

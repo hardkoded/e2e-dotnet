@@ -99,4 +99,60 @@ public sealed class CreateEngineSessionPixelsOnlyObservationTests
         Assert.Same(pixels, observation.Pixels);
         Assert.Equal(new ObservationRedaction(0, 0), observation.Redaction);
     }
+
+    [Fact]
+    public async Task Keeps_pixels_only_when_the_masked_regions_cover_every_secure_node_and_marks_a_screenshot_it_cannot_keep_as_withheld()
+    {
+        var pixels = new ObservationPixels(new byte[8], "image/png", 4, 2, 1);
+        var pin = new EngineNode(
+            new NodeRef("pin", ""),
+            Role: "textbox",
+            Name: "PIN",
+            States: new EngineNodeStates(Secure: true)
+        );
+        var label = new EngineNode(new NodeRef("label", ""), Role: "text", Name: "Sign in");
+        var raw = Snapshot.Of([pin, label]);
+        var session = EngineSessions.CreateEngineSession(
+            new EngineSessionOptions
+            {
+                Engine = EngineManifest.DefineEngine(
+                    new EngineSpec
+                    {
+                        Name = "toy",
+                        Version = "1.0.0",
+                        SpiVersion = 1,
+                        Observe = (_, _) => Task.FromResult(raw),
+                    }
+                ),
+                TargetName = "toy",
+            }
+        );
+
+        async Task<(ObservationPixels? Pixels, PixelsWithheld? Withheld)> Look(EngineSnapshot next)
+        {
+            raw = next;
+            var observation = await session.ObserveAsync(Snapshot.Operation, new ObserveOptions { Pixels = true });
+            Assert.Equal("semantic", observation.Kind);
+            return (observation.Pixels, observation.PixelsWithheld);
+        }
+
+        Assert.Equal((pixels, null), await Look(Snapshot.Of([pin, label], pixels: pixels, maskedRegionCount: 1)));
+
+        // Sent without proof, or withheld by the engine: either way the session keeps no image.
+        Assert.Equal((null, PixelsWithheld.MaskingUnproven), await Look(Snapshot.Of([pin, label], pixels: pixels)));
+        Assert.Equal(
+            (null, PixelsWithheld.MaskingUnproven),
+            await Look(Snapshot.Of([pin, label], maskedRegionCount: 0))
+        );
+
+        // No screenshot taken, or one withheld on a screen with nothing to mask, withholds nothing.
+        Assert.Equal((null, null), await Look(Snapshot.Of([pin, label])));
+        Assert.Equal((null, null), await Look(Snapshot.Of([label], maskedRegionCount: 0)));
+
+        // A count no pixels request asked for withholds nothing either.
+        raw = Snapshot.Of([pin, label], maskedRegionCount: 0);
+        var unasked = await session.ObserveAsync(Snapshot.Operation);
+        Assert.Equal("semantic", unasked.Kind);
+        Assert.Null(unasked.PixelsWithheld);
+    }
 }
