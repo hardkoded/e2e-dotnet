@@ -310,7 +310,23 @@ public sealed class Device
     /// <c>ENGINE_FAILURE</c> only when no size can be determined.
     /// </summary>
     public Task<ViewportSize> ViewportAsync(CancellationToken cancellationToken = default) =>
-        RunAsync("device.viewport", "", () => _session.ViewportAsync(cancellationToken));
+        RunAsync("device.viewport", "", async () =>
+        {
+            // Upstream's `context.operation()`: the budget and signal in force for this call.
+            var operation = _session.FixtureContextOrNull?.Operation();
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                operation?.Signal ?? CancellationToken.None
+            );
+            if (linked.Token.IsCancellationRequested)
+            {
+                throw DeviceSupport.Cancelled("device.viewport cancelled");
+            }
+
+            return await _session
+                .ViewportAsync(operation?.Timeout ?? _session.ActionTimeout, linked.Token)
+                .ConfigureAwait(false);
+        });
 
     /// <summary>
     /// Puts a foldable simulator or emulator in a hinge pose. On the iPhone Duo it resolves once agent-device reads the

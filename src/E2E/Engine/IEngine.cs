@@ -90,8 +90,20 @@ public enum EngineCapabilities
 public sealed class EngineFixtureContext
 {
     private readonly Screen _screen;
+    private readonly Func<OperationContext>? _operation;
 
-    internal EngineFixtureContext(Screen screen) => _screen = screen;
+    internal EngineFixtureContext(Screen screen, Func<OperationContext>? operation = null)
+    {
+        _screen = screen;
+        _operation = operation;
+    }
+
+    /// <summary>
+    /// The operation context of one fixture call, read fresh on each call so a fixture follows the harness from the test body into its
+    /// teardown: its <see cref="OperationContext.Timeout"/> and <see cref="OperationContext.Signal"/> are the ones in force now. Upstream's
+    /// <c>operation()</c>. A context built without one (a bare fixture) is <see cref="OperationContext.Test"/>.
+    /// </summary>
+    public OperationContext Operation() => _operation?.Invoke() ?? OperationContext.Test;
 
     /// <summary>The attempt's screen, which a scope such as a frame's is made of.</summary>
     internal Screen Root => _screen;
