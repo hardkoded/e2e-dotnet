@@ -1158,6 +1158,7 @@ public sealed class Locator
     /// Sets the files of exactly one file input, or of a control that opens a file chooser; <paramref name="path"/> resolves from the project root.
     /// On the web it also takes a button that opens a file chooser. An empty list of paths clears the input and fires <c>input</c> and <c>change</c>. A button that opens none fails with <c>ACTION_FAILED</c>, caused by the engine's <c>NOT_ACTIONABLE</c>.
     /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> on the web for a path that does not exist or sits under a directory the runner cannot search, before anything is clicked.</exception>
     public Task SetInputFilesAsync(
         string path,
         ActionOptions? options = null,

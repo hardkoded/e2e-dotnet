@@ -339,7 +339,9 @@ combined payload size must be less than 50 MiB, or it is `INVALID_ARGUMENT`
 with `UNSUPPORTED_CAPABILITY`. A locator refuses a hidden node, so target the button or label
 over a hidden input, not the input. Paths resolve from the project root; an
 empty list clears the input and fires `input` and `change`, and a blank
-entry is an `ArgumentException` (upstream's `INVALID_ARGUMENT`). A file input,
+entry is an `ArgumentException` (upstream's `INVALID_ARGUMENT`). On the web, a path that
+does not exist, or sits under a directory the runner cannot search, is `INVALID_ARGUMENT`
+before anything is clicked (the check is reachability, not read permission). A file input,
 or a node inside a `<label>` for one, takes the files directly with no click.
 Anything else is clicked with the file chooser already awaited, and the chooser
 takes the files. A control that opens no chooser fails with `ACTION_FAILED`

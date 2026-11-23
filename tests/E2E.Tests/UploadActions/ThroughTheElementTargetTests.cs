@@ -95,6 +95,72 @@ public sealed class ThroughTheElementTargetTests
         );
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Fails_a_path_that_does_not_exist_as_INVALID_ARGUMENT_before_it_touches_a_file_input_or_a_button_over_a_hidden_input(
+        bool button
+    )
+    {
+        await RunAsync(
+            (
+                button
+                    ? """<button id="pick" type="button" onclick="document.getElementById('avatar').click()">Choose avatar</button><input id="avatar" type="file" hidden>"""
+                    : """<input id="avatar" type="file" aria-label="Avatar">"""
+            ) + CountClicks,
+            async session =>
+            {
+                var target = await FindByNameAsync(session, button ? "Choose avatar" : "Avatar");
+                foreach (var missing in MissingPaths())
+                {
+                    var error = await Assert.ThrowsAsync<TestException>(() =>
+                        session.PerformAsync(
+                            target,
+                            new LocatorAction.SetInputFiles([AvatarFile, missing]),
+                            CancellationToken.None
+                        )
+                    );
+                    Assert.Equal("INVALID_ARGUMENT", error.Code);
+                    Assert.Equal(MissingPathMessage + StatFailure(missing), error.Message);
+                    Assert.Contains(missing, error.Message, StringComparison.Ordinal);
+                }
+
+                Assert.Equal("|0", await EvaluateAsync<string>(session, State));
+            }
+        );
+    }
+
+    [Fact]
+    public async Task Fails_a_path_under_a_directory_it_may_not_search_as_INVALID_ARGUMENT()
+    {
+        // Permission bits do not stop a Windows or root process, so only a non-root POSIX runner sees the denial.
+        if (!TryLockDirectory("locked-element", out var locked, out var hidden))
+        {
+            return;
+        }
+
+        try
+        {
+            await RunAsync($"""<input id="avatar" type="file" aria-label="Avatar">{CountClicks}""", async session =>
+            {
+                var error = await Assert.ThrowsAsync<TestException>(async () =>
+                    await session.PerformAsync(
+                        await FindByNameAsync(session, "Avatar"),
+                        new LocatorAction.SetInputFiles([hidden]),
+                        CancellationToken.None
+                    )
+                );
+                Assert.Equal("INVALID_ARGUMENT", error.Code);
+                Assert.Equal(MissingPathMessage + StatFailure(hidden), error.Message);
+                Assert.Equal("|0", await EvaluateAsync<string>(session, State));
+            });
+        }
+        finally
+        {
+            UnlockDirectory(locked);
+        }
+    }
+
     [Fact]
     public async Task Fails_when_the_button_opens_no_file_chooser()
     {

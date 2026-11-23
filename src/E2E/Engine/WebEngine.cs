@@ -5597,15 +5597,31 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         /// hidden input (upstream's <c>uploadFiles</c>, <c>actions.ts</c>). A file input, or a node inside a <c>&lt;label&gt;</c> for
         /// one, takes the files directly, as Playwright retargets a label to its control. Anything else is clicked with the chooser
         /// already awaited, and fails <c>NOT_ACTIONABLE</c> if no chooser opens. Every step shares the operation's deadline, and a
-        /// cancelled operation sets no files, even when its chooser opens after the cancel.
+        /// cancelled operation sets no files, even when its chooser opens after the cancel. A path that does not exist or sits
+        /// under a directory the runner cannot search fails <c>INVALID_ARGUMENT</c> before anything is clicked.
         /// </summary>
-        private Task UploadFilesAsync(IElementHandle element, IReadOnlyList<string> paths, OperationBudget budget) =>
-            UploadAsync(
+        private Task UploadFilesAsync(IElementHandle element, IReadOnlyList<string> paths, OperationBudget budget)
+        {
+            foreach (var file in paths)
+            {
+                if (WebSupport.StatPath(file, out _) is { } failure)
+                {
+                    throw new TestException(
+                        "INVALID_ARGUMENT",
+                        "setInputFiles path does not exist or is under a directory the runner cannot search: "
+                            + failure.Message,
+                        failure
+                    );
+                }
+            }
+
+            return UploadAsync(
                 element,
                 budget,
                 options => element.SetInputFilesAsync(paths, options),
                 (chooser, options) => chooser.SetFilesAsync(paths, options)
             );
+        }
 
         /// <summary>
         /// <see cref="UploadFilesAsync(IElementHandle, IReadOnlyList{string}, OperationBudget)"/> for in-memory files: upstream's one <c>uploadFiles</c>

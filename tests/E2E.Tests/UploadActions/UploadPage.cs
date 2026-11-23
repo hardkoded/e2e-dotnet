@@ -52,6 +52,64 @@ internal static class UploadPage
                 """<button id="pick" onclick="document.getElementById('avatar').click()">Choose</button><input id="avatar" type="file" multiple hidden>""",
         };
 
+    /// <summary>The message every missing-path failure starts with (upstream's <c>setInputFiles path does not exist ...</c>).</summary>
+    public const string MissingPathMessage =
+        "setInputFiles path does not exist or is under a directory the runner cannot search: ";
+
+    /// <summary>The paths the missing-path tests hand over: one that does not exist, and one under a file.</summary>
+    public static string[] MissingPaths() =>
+        [
+            Path.Combine(Path.GetDirectoryName(AvatarFile)!, "missing.png"),
+            Path.Combine(AvatarFile, "inside-a-file.png"),
+        ];
+
+    /// <summary>The runtime's own message for a path that cannot be stat'ed, which the engine reports as is (upstream's <c>statFailure</c>).</summary>
+    public static string StatFailure(string target)
+    {
+        try
+        {
+            System.IO.File.GetAttributes(target);
+        }
+        catch (Exception cause)
+        {
+            return cause.Message;
+        }
+
+        throw new InvalidOperationException(target + " exists");
+    }
+
+    /// <summary>Makes a directory the runner cannot search, holding a file; false where permission bits do not apply (Windows, or root).</summary>
+    public static bool TryLockDirectory(string name, out string locked, out string hidden)
+    {
+        locked = Path.Combine(Path.GetDirectoryName(AvatarFile)!, name);
+        hidden = Path.Combine(locked, "avatar.png");
+        if (OperatingSystem.IsWindows() || Environment.UserName == "root")
+        {
+            return false;
+        }
+
+        Directory.CreateDirectory(locked);
+        System.IO.File.WriteAllText(hidden, "png");
+        if (!OperatingSystem.IsWindows())
+        {
+            System.IO.File.SetUnixFileMode(locked, UnixFileMode.None);
+        }
+
+        return true;
+    }
+
+    /// <summary>Lets the runner search <paramref name="locked"/> again, so the fixture can be cleaned up.</summary>
+    public static void UnlockDirectory(string locked)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            System.IO.File.SetUnixFileMode(
+                locked,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+            );
+        }
+    }
+
     private static string Create()
     {
         var directory = Directory.CreateTempSubdirectory("e2e-upload-");
