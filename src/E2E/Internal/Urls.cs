@@ -131,15 +131,18 @@ public static partial class Urls
         Describe(new UriBuilder(url.Href) { Port = port }.Uri);
 
     /// <summary>True for loopback hosts where plain HTTP is allowed.</summary>
-    public static bool IsLoopbackHost(string hostname) =>
-        hostname == "localhost"
-        || hostname.EndsWith(".localhost", StringComparison.Ordinal)
-        || hostname is "::1" or "[::1]"
-        || IsLoopbackV4(hostname);
+    public static bool IsLoopbackHost(string hostname)
+    {
+        var host = WithoutRootDot(hostname);
+        return host == "localhost"
+            || host.EndsWith(".localhost", StringComparison.Ordinal)
+            || host is "::1" or "[::1]"
+            || IsLoopbackV4(host);
+    }
 
     /// <summary>True when environment may default to <c>test</c> (loopback, <c>.localhost</c>, and <c>.test</c> hosts).</summary>
     public static bool IsImplicitTestHost(string hostname) =>
-        IsLoopbackHost(hostname) || hostname.EndsWith(".test", StringComparison.Ordinal);
+        IsLoopbackHost(hostname) || WithoutRootDot(hostname).EndsWith(".test", StringComparison.Ordinal);
 
     /// <summary>
     /// The registrable-domain approximation (upstream's <c>siteOf</c>): the last two labels of a host, or the last three when the last
@@ -232,6 +235,11 @@ public static partial class Urls
     /// only, so a port-0 URL must name the address the command binds rather than a name that may resolve to either.
     /// </summary>
     private static bool IsLoopbackAddress(string hostname) => hostname == "[::1]" || IsLoopbackV4(hostname);
+
+    // A final DNS root dot does not change a hostname's reserved-domain status.
+    // Keep the URL itself unchanged so origin serialization remains WHATWG-based.
+    private static string WithoutRootDot(string hostname) =>
+        hostname.EndsWith(".", StringComparison.Ordinal) ? hostname.Substring(0, hostname.Length - 1) : hostname;
 
     private static bool IsLoopbackV4(string hostname) => LoopbackV4().IsMatch(hostname);
 
