@@ -9,11 +9,9 @@ namespace E2E.Tests.AgentObservation;
 
 /// <summary>
 /// <c>describe('prepareObservation')</c> of <c>agent-observation.test.ts</c>, over <c>AgentObservation.PrepareObservation</c>. Partial (the test name carries
-/// <c>Partial_</c>): "keeps unavailable semantics separate from an empty tree and requires permitted masked evidence" (the port counts the secure nodes
-/// from the tree, where upstream's engine reports <c>secureNodeCount</c>; the pixel observation has empty <c>Nodes</c> and <c>Tree</c>, where upstream's has neither property); "redacts every string field a node carries" (the port's nodes have no <c>selector</c>,
-/// <c>framePath</c>, or unknown extra field). The nested <c>describe.each</c> (18 cases) is <c>CollapsedSecretCutTests</c>. The pixel tests
-/// Grants_pixels_that_cover_every_secure_node_sized_for_the_model and Withholds_pixels_the_engine_cannot_count_the_masks_of_or_cannot_capture
-/// are .NET-only: upstream proves a granted or uncounted capture through its runner.
+/// <c>Partial_</c>): "keeps unavailable semantics separate from an empty tree and requires permitted evidence" (the pixel observation has empty <c>Nodes</c> and
+/// <c>Tree</c>, where upstream's has neither property); "redacts every string field a node carries" (the port's nodes have no <c>selector</c>,
+/// <c>framePath</c>, or unknown extra field). The nested <c>describe.each</c> (18 cases) is <c>CollapsedSecretCutTests</c>.
 /// </summary>
 public sealed class PrepareObservationTests
 {
@@ -41,94 +39,33 @@ public sealed class PrepareObservationTests
             }
         );
 
-    /// <summary>
-    /// Partial: the pixel observation has empty <c>Nodes</c> and <c>Tree</c>, where upstream's has neither property (<c>not.toHaveProperty</c>). The pixel observation reports
-    /// <c>secureNodeCount: 1</c> with <c>maskedRegionCount: 0</c> from the engine, as upstream's does.
-    /// </summary>
+    /// <summary>Partial: the pixel observation has empty <c>Nodes</c> and <c>Tree</c>, where upstream's has neither property (<c>not.toHaveProperty</c>).</summary>
     [Fact]
-    public void Partial_keeps_unavailable_semantics_separate_from_an_empty_tree_and_requires_permitted_masked_evidence()
+    public void Partial_keeps_unavailable_semantics_separate_from_an_empty_tree_and_requires_permitted_evidence()
     {
-        Observation Unavailable(int masked) =>
-            new()
-            {
-                Route = "/",
-                Roots = [],
-                TreeUnavailable = true,
-                SecureNodeCount = 1,
-                Pixels = Shot(maskedRegionCount: masked),
-            };
-        var unproven = Assert.Throws<TestException>(() => Prepare(Unavailable(0), pixelsAllowed: true));
-        Assert.Contains("proven-masked screenshot", unproven.Message, StringComparison.Ordinal);
-        var prepared = Prepare(Unavailable(1), pixelsAllowed: true);
+        // The session admits an unavailable tree only as the bare root, so it holds no secure node to mask.
+        var unavailable = new Observation
+        {
+            Route = "/",
+            Roots = [],
+            TreeUnavailable = true,
+            Pixels = Shot(maskedRegionCount: 0),
+        };
+        var prepared = Prepare(unavailable, pixelsAllowed: true);
         Assert.Equal(PreparedKind.Pixels, prepared.Kind);
         Assert.Contains("semantic capture unavailable", prepared.Text, StringComparison.Ordinal);
         Assert.Contains("previous node ids are no longer valid", prepared.Text, StringComparison.Ordinal);
         Assert.Contains("never infer absence", prepared.Text, StringComparison.Ordinal);
         Assert.Empty(prepared.Nodes);
         Assert.Empty(prepared.Tree);
-        Assert.NotNull(prepared.Pixels);
         Assert.Contains(
             "permitted",
-            Assert.Throws<TestException>(() => Prepare(Unavailable(1))).Message,
+            Assert.Throws<TestException>(() => Prepare(unavailable)).Message,
             StringComparison.Ordinal
         );
         var empty = Prepare(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "root" }] });
         Assert.Equal(PreparedKind.Semantic, empty.Kind);
         Assert.DoesNotContain("unavailable", empty.Text, StringComparison.Ordinal);
-    }
-
-    /// <summary>.NET-only: the port counts secure nodes from the tree when an engine reports none, and never lets a reported count weaken that proof.</summary>
-    [Fact]
-    public void Counts_secure_nodes_from_the_tree_when_the_engine_reports_none()
-    {
-        var secure = new SemanticNode
-        {
-            Ref = "n1",
-            Role = "textbox",
-            States = new NodeStates { Secure = true },
-        };
-        Assert.Null(
-            global::E2E
-                .AgentObservation.PixelsForModel(
-                    new Observation { Route = "/", Roots = [secure] },
-                    Shot(maskedRegionCount: 0)
-                )
-                .Pixels
-        );
-        Assert.NotNull(
-            global::E2E
-                .AgentObservation.PixelsForModel(
-                    new Observation { Route = "/", Roots = [secure] },
-                    Shot(maskedRegionCount: 1)
-                )
-                .Pixels
-        );
-        Assert.Null(
-            global::E2E
-                .AgentObservation.PixelsForModel(
-                    new Observation
-                    {
-                        Route = "/",
-                        Roots = [secure],
-                        SecureNodeCount = 0,
-                    },
-                    Shot(maskedRegionCount: 0)
-                )
-                .Pixels
-        );
-        Assert.NotNull(
-            global::E2E
-                .AgentObservation.PixelsForModel(
-                    new Observation
-                    {
-                        Route = "/",
-                        Roots = [],
-                        TreeUnavailable = true,
-                    },
-                    Shot(maskedRegionCount: 0)
-                )
-                .Pixels
-        );
     }
 
     [Fact]
@@ -281,89 +218,52 @@ public sealed class PrepareObservationTests
     }
 
     [Fact]
-    public void Withholds_pixels_whose_masking_the_engine_cannot_prove_and_keeps_the_tree()
+    public void Tells_the_model_how_many_regions_the_engine_masked_in_the_pixels_it_passes_on()
     {
-        // One secure node, zero masked regions: the image is not provably redacted.
-        var observation = WithASecureNode();
-        var outcome = global::E2E.AgentObservation.PixelsForModel(observation, Shot(maskedRegionCount: 0));
-
-        Assert.Null(outcome.Pixels);
-        Assert.Equal(VisionDegradation.MaskingUnproven, outcome.Withheld);
-        Assert.Contains(
-            "textbox \"Password\"",
-            SnapshotText.Render(observation, Redactor.None),
-            StringComparison.Ordinal
+        var semantic = Prepare(
+            new Observation
+            {
+                Route = "/",
+                Roots = [new SemanticNode { Ref = "root" }],
+                Pixels = Shot(maskedRegionCount: 2),
+            },
+            pixelsAllowed: true
         );
+        Assert.Equal(2, global::E2E.AgentObservation.PixelsForModel(semantic).Pixels!.MaskedRegionCount);
+        var unavailable = Prepare(
+            new Observation
+            {
+                Route = "/",
+                Roots = [],
+                TreeUnavailable = true,
+                Pixels = Shot(maskedRegionCount: 3),
+            },
+            pixelsAllowed: true
+        );
+        Assert.Equal(3, global::E2E.AgentObservation.PixelsForModel(unavailable).Pixels!.MaskedRegionCount);
     }
 
     [Fact]
-    public void Grants_pixels_that_cover_every_secure_node_sized_for_the_model()
+    public void Passes_on_pixels_the_session_withheld_for_masking_and_keeps_the_tree()
     {
-        var outcome = global::E2E.AgentObservation.PixelsForModel(WithASecureNode(), Shot(maskedRegionCount: 1));
-
-        Assert.Null(outcome.Withheld);
-        Assert.Equal(1, outcome.Pixels!.MaskedRegionCount);
-        Assert.Equal((4, 2), Pixels.ReadPngSize(outcome.Pixels.Png));
-    }
-
-    [Fact]
-    public void Withholds_pixels_the_engine_cannot_count_the_masks_of_or_cannot_capture()
-    {
-        var observation = WithASecureNode();
-        Assert.Equal(
-            VisionDegradation.MaskingUnproven,
-            global::E2E.AgentObservation.PixelsForModel(observation, Shot(maskedRegionCount: null)).Withheld
-        );
-        Assert.Equal(
-            VisionDegradation.UnsupportedCapability,
-            global::E2E.AgentObservation.PixelsForModel(observation, null).Withheld
-        );
-    }
-
-    [Fact]
-    public void Passes_on_pixels_the_engine_withheld_for_masking_and_keeps_the_tree()
-    {
-        var observation = WithASecureNode();
-        var withheld = global::E2E.AgentObservation.PixelsForModel(observation, EngineScreenshot.Withheld(0));
-
-        Assert.Null(withheld.Pixels);
-        Assert.Equal(VisionDegradation.MaskingUnproven, withheld.Withheld);
-        Assert.Contains(
-            "textbox \"Password\"",
-            SnapshotText.Render(observation, Redactor.None),
-            StringComparison.Ordinal
-        );
-        // Withheld on a screen with nothing left to mask is no screenshot, not a masking failure.
-        var untaken = global::E2E.AgentObservation.PixelsForModel(
-            new Observation { Route = "/", Roots = [new SemanticNode { Ref = "root" }] },
-            EngineScreenshot.Withheld(0)
-        );
-        Assert.Equal(VisionDegradation.UnsupportedCapability, untaken.Withheld);
-    }
-
-    private static Observation WithASecureNode() =>
-        new()
+        var withheld = new Observation
         {
             Route = "/",
-            Roots =
-            [
-                new SemanticNode
-                {
-                    Ref = "n1",
-                    Children =
-                    [
-                        new SemanticNode
-                        {
-                            Ref = "n2",
-                            Role = "textbox",
-                            Name = "Password",
-                            InputPurpose = "password",
-                            States = new NodeStates { Secure = true },
-                        },
-                    ],
-                },
-            ],
+            Roots = [new SemanticNode { Ref = "root" }],
+            PixelsWithheld = PixelsWithheld.MaskingUnproven,
         };
+        var prepared = Prepare(withheld);
+        Assert.Equal(PreparedKind.Semantic, prepared.Kind);
+        Assert.Null(prepared.Pixels);
+        Assert.Equal(VisionDegradation.MaskingUnproven, prepared.PixelsWithheld);
+        Assert.Equal("#root text", prepared.Text);
+        Assert.Equal(VisionDegradation.MaskingUnproven, global::E2E.AgentObservation.PixelsForModel(prepared).Withheld);
+        var untaken = Prepare(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "root" }] });
+        Assert.Equal(
+            VisionDegradation.UnsupportedCapability,
+            global::E2E.AgentObservation.PixelsForModel(untaken).Withheld
+        );
+    }
 
     private static EngineScreenshot Shot(int? maskedRegionCount) =>
         new(E2E.Tests.Agent.ScreenshotEngine.Png(), 1, maskedRegionCount);

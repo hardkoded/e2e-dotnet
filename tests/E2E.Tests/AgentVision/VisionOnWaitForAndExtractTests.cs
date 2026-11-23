@@ -231,6 +231,18 @@ public sealed class VisionOnWaitForAndExtractTests
             public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
                 inner.ObserveAsync(cancellationToken);
 
+            public async Task<Observation> ObserveAsync(
+                ObserveOptions? options,
+                TimeSpan timeout,
+                CancellationToken cancellationToken
+            )
+            {
+                var observation = await inner.ObserveAsync(cancellationToken).ConfigureAwait(false);
+                return options?.Pixels == true
+                    ? observation.WithPixels(new EngineScreenshot(ScreenshotEngine.Png(), 1, 0), null)
+                    : observation;
+            }
+
             public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
                 inner.PerformAsync(node, action, cancellationToken);
 

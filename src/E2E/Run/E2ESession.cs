@@ -756,7 +756,13 @@ public sealed class E2ESession : IAsyncDisposable
                 Ci = options.Ci ?? E2EConfig.IsCi(),
                 ScrollsIntoView = (options.Engine.Capabilities & EngineCapabilities.Scroll) != 0,
                 DirectoryOf = options.SnapshotDirectoryOf ?? (static file => file is null ? null : file + "-snapshots"),
-                Capture = (budget, token) => engine.ScreenshotAsync(budget, OperationContext.Test, token),
+                Observe = (budget, token) =>
+                    engine.ObserveAsync(
+                        new ObserveOptions { Pixels = true, Comparable = true },
+                        budget,
+                        OperationContext.Test,
+                        token
+                    ),
             };
             var context = new TestContext
             {

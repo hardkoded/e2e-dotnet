@@ -14,7 +14,20 @@ public sealed partial class WindowSession
     /// the same coordinate space, so the model sees the layer that is open. A session before <c>app.open()</c> has no screen to
     /// read, and the step says so.
     /// </summary>
-    public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+    public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => ObserveAsync(null, cancellationToken);
+
+    /// <summary>
+    /// <see cref="ObserveAsync(CancellationToken)"/> with <paramref name="options"/>: with <see cref="ObserveOptions.Pixels"/> the main window's
+    /// screenshot is taken with the tree, every secure field painted over. A secure field with no box cannot be covered, so the observation
+    /// carries no image and reports no region masked (<see cref="Observation.MaskedRegionCount"/>), and the session withholds it.
+    /// </summary>
+    public Task<Observation> ObserveAsync(
+        ObserveOptions? options,
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    ) => ObserveAsync(options, cancellationToken);
+
+    private async Task<Observation> ObserveAsync(ObserveOptions? options, CancellationToken cancellationToken)
     {
         var app = _app ?? throw WinAppSupport.InvalidState("no app window is open; call app.open()");
         var windows = await CommandAsync(
@@ -82,9 +95,25 @@ public sealed partial class WindowSession
 
         Remember(bindings);
         Route = WinAppSupport.ScreenLocation(app.Name, main.Title) ?? "";
+        EngineScreenshot? pixels = null;
+        int? maskedRegionCount = null;
+        if (options?.Pixels == true)
+        {
+            if (HasUnmaskableSecureField())
+            {
+                maskedRegionCount = 0;
+            }
+            else
+            {
+                pixels = await WindowActions.CaptureMaskedAsync(this, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
         return new Observation
         {
             Route = Route,
+            Pixels = pixels,
+            MaskedRegionCount = maskedRegionCount,
             Roots = [UiaProjection.ScreenRoot(roots, viewport)],
             Viewport =
                 viewport.Width >= 0.5 && viewport.Height >= 0.5

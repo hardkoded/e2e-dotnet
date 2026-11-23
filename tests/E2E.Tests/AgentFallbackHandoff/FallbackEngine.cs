@@ -76,14 +76,23 @@ internal sealed class FallbackEngine : IEngine
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
             ObserveAsync(null, TimeSpan.FromSeconds(5), cancellationToken);
 
-        public Task<Observation> ObserveAsync(
+        public async Task<Observation> ObserveAsync(
             ObserveOptions? options,
             TimeSpan timeout,
             CancellationToken cancellationToken
-        ) =>
-            engine.Observe is { } observe
-                ? observe(options, timeout, cancellationToken)
-                : Task.FromResult(FallbackFixtures.TreeOf(FallbackFixtures.Save));
+        )
+        {
+            var observation = engine.Observe is { } observe
+                ? await observe(options, timeout, cancellationToken).ConfigureAwait(false)
+                : FallbackFixtures.TreeOf(FallbackFixtures.Save);
+
+            // An engine that takes pixels answers a look that asks for them with its screenshot, unless the test's own look says otherwise.
+            return
+                options?.Pixels == true
+                && observation is { TreeUnavailable: false, Pixels: null, MaskedRegionCount: null }
+                ? observation.WithPixels(FallbackFixtures.Screenshot(1), null)
+                : observation;
+        }
 
         public bool CanLocate => engine.Locate is not null;
 

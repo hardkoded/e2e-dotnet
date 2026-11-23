@@ -726,8 +726,8 @@ public sealed partial class Agent
             : throw new TestException("INVALID_ARGUMENT", "vision must be Off, On, or Only");
     }
 
-    // The look a judgment asks for when vision allows pixels: the pixel fallback (upstream's `pixelFallback: true`).
-    private static readonly ObserveOptions JudgmentFallbackLook = new() { PixelFallback = true };
+    // The look a judgment asks for when vision allows pixels: the pixels and the pixel fallback (upstream's `pixels: pixelTier, pixelFallback: true`).
+    private static readonly ObserveOptions JudgmentLook = new() { Pixels = true, PixelFallback = true };
 
     /// <summary>
     /// Captures one fresh look. A capture the engine cannot make and masking the engine cannot prove
@@ -759,7 +759,7 @@ public sealed partial class Agent
                     () =>
                         vision == VisionMode.Off
                             ? _scope.ObserveAsync(OperationContext.Agent, token)
-                            : _scope.ObserveAsync(JudgmentFallbackLook, OperationContext.Agent, token),
+                            : _scope.ObserveAsync(JudgmentLook, OperationContext.Agent, token),
                     guard,
                     token
                 )
@@ -821,10 +821,7 @@ public sealed partial class Agent
             return new Look(tree, null, tree, shape);
         }
 
-        var outcome = AgentObservation.PixelsForModel(
-            observation,
-            await _scope.CaptureAsync(token).ConfigureAwait(false)
-        );
+        var outcome = AgentObservation.PixelsForModel(observation);
         if (outcome.Pixels is not { } pixels)
         {
             LoseVision(api, vision, outcome.Withheld!.Value);

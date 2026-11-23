@@ -28,6 +28,13 @@ internal sealed class PixelsEngine(IEngine inner) : IEngine
     /// <summary>The number of screenshots the engine takes before it captures no more, as an engine that loses its pixels does. Unlimited by default.</summary>
     public int ShotsBeforeLoss { get; set; } = int.MaxValue;
 
+    /// <summary>The engine loses its pixels from now on, as upstream's fake engine does after the model's first turn.</summary>
+    public void LosePixels()
+    {
+        ShotsBeforeLoss = Shots;
+        Changed();
+    }
+
     /// <summary>The options of every look the engine answered, in order: what the runtime asked each one for.</summary>
     public List<ObserveOptions?> Looks { get; } = [];
 
@@ -43,8 +50,19 @@ internal sealed class PixelsEngine(IEngine inner) : IEngine
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
         new Session(this, await inner.StartAsync(options, cancellationToken).ConfigureAwait(false));
 
+    // The image the screen shows now: it changes after an action, so a look that asks for pixels settles on the same one until then.
+    private EngineScreenshot? _current;
+
+    /// <summary>The screen changed, as an action does: the next capture is a fresh image.</summary>
+    private void Changed() => Volatile.Write(ref _current, null);
+
     private EngineScreenshot Capture()
     {
+        if (Volatile.Read(ref _current) is { } shown)
+        {
+            return shown;
+        }
+
         if (Shots >= ShotsBeforeLoss)
         {
             throw new EngineException(
@@ -64,7 +82,9 @@ internal sealed class PixelsEngine(IEngine inner) : IEngine
             data[at + 3] = 255;
         }
 
-        return new EngineScreenshot(ImageOps.EncodePng(new RgbaImage(1280, 720, data)), 1, 0);
+        var fresh = new EngineScreenshot(ImageOps.EncodePng(new RgbaImage(1280, 720, data)), 1, 0);
+        Volatile.Write(ref _current, fresh);
+        return fresh;
     }
 
     private sealed class Session(PixelsEngine engine, IEngineSession session) : IEngineSession
@@ -99,17 +119,40 @@ internal sealed class PixelsEngine(IEngine inner) : IEngine
                 };
             }
 
-            return await session.ObserveAsync(options, timeout, cancellationToken).ConfigureAwait(false);
+            var observation = await session.ObserveAsync(options, timeout, cancellationToken).ConfigureAwait(false);
+            if (options?.Pixels != true)
+            {
+                return observation;
+            }
+
+            try
+            {
+                return observation.WithPixels(engine.Capture(), null);
+            }
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.UnsupportedCapability)
+            {
+                // An engine that captures no more pixels answers the look without any.
+                return observation;
+            }
         }
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
-            session.PerformAsync(node, action, cancellationToken);
+        public async Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
+        {
+            engine.Changed();
+            await session.PerformAsync(node, action, cancellationToken).ConfigureAwait(false);
+        }
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) =>
-            session.PressAsync(key, cancellationToken);
+        public async Task PressAsync(string key, CancellationToken cancellationToken)
+        {
+            engine.Changed();
+            await session.PressAsync(key, cancellationToken).ConfigureAwait(false);
+        }
 
-        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
-            session.SwipeAsync(direction, cancellationToken);
+        public async Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken)
+        {
+            engine.Changed();
+            await session.SwipeAsync(direction, cancellationToken).ConfigureAwait(false);
+        }
 
         public Task BackAsync(CancellationToken cancellationToken) => session.BackAsync(cancellationToken);
 

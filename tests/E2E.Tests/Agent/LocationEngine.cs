@@ -43,9 +43,16 @@ internal sealed class LocationEngine(IEngine inner, string? before, string? afte
         public Task OpenAsync(string url, CancellationToken cancellationToken) =>
             inner.OpenAsync(url, cancellationToken);
 
-        public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            ObserveAsync(null, TimeSpan.Zero, cancellationToken);
+
+        public async Task<Observation> ObserveAsync(
+            ObserveOptions? options,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        )
         {
-            var seen = await inner.ObserveAsync(cancellationToken).ConfigureAwait(false);
+            var seen = await inner.ObserveAsync(options, timeout, cancellationToken).ConfigureAwait(false);
             return new Observation
             {
                 Route = Route,
@@ -56,6 +63,7 @@ internal sealed class LocationEngine(IEngine inner, string? before, string? afte
                 ScrollPosition = seen.ScrollPosition,
                 Viewport = seen.Viewport,
                 Pixels = seen.Pixels,
+                MaskedRegionCount = seen.MaskedRegionCount,
                 TreeUnavailable = seen.TreeUnavailable,
                 SecureNodeCount = seen.SecureNodeCount,
             };

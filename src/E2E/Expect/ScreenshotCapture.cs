@@ -126,20 +126,10 @@ internal static partial class ScreenshotAssertion
                 box = node.Rect;
             }
 
-            var observation = await ReadAsync(screen.ObserveAsync, cancellationToken).ConfigureAwait(false);
-            var shot = await ReadAsync(store.Capture, cancellationToken).ConfigureAwait(false);
+            var observation = await ReadAsync(store.Observe, cancellationToken).ConfigureAwait(false);
 
-            // Upstream's pixelsProvenMasked: the engine masked at least as many regions as the tree lists secure nodes, or the image is not kept.
-            // A screenshot the engine withheld reports the regions it masked beside the missing pixels, so it fails here at once.
-            if (
-                shot.MaskedRegionCount is not { } masked
-                || !Secrecy.PixelsProvenMasked(
-                    new ObservationRedaction(
-                        LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure),
-                        masked
-                    )
-                )
-            )
+            // Upstream's `pixelsWithheld` check: the session kept no image because it could not prove every secure field on screen masked.
+            if (observation.PixelsWithheld is not null)
             {
                 throw new ConfigurationException(
                     "POLICY_DENIED",
@@ -147,8 +137,8 @@ internal static partial class ScreenshotAssertion
                 );
             }
 
-            // Withheld on a screen with nothing to mask: no screenshot, so the poll takes another.
-            if (shot.IsWithheld)
+            // No screenshot, with nothing withheld: the poll takes another.
+            if (observation.Pixels is not { } shot)
             {
                 return new Capture(null, "the engine returned no screenshot");
             }

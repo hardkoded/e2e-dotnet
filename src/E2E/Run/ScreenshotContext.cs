@@ -43,7 +43,8 @@ internal sealed class ScreenshotContext
     /// <summary>Directory of the stored screenshots of the test file a call was made from.</summary>
     public Func<string?, string?> DirectoryOf { get; init; } = static file => file is null ? null : file + "-snapshots";
 
-    public required Func<TimeSpan, CancellationToken, Task<EngineScreenshot>> Capture { get; init; }
+    /// <summary>One look at the screen with its pixels, taken in a state fit for comparing (upstream's <c>observe(operation, { pixels: true, comparable: true })</c>), within the budget it is given.</summary>
+    public required Func<TimeSpan, CancellationToken, Task<Observation>> Observe { get; init; }
 
     public bool HasWritten(string file) => WrittenFiles.ContainsKey(file);
 

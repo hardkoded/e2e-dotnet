@@ -124,7 +124,10 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
         ObserveOptions? options,
         TimeSpan timeout,
         CancellationToken cancellationToken
-    ) => Guard("observation", cancellationToken, () => _engine.ObserveAsync(options, timeout, cancellationToken));
+    ) =>
+        Guard("observation", cancellationToken, async () =>
+            DecidePixels(await _engine.ObserveAsync(options, timeout, cancellationToken).ConfigureAwait(false), options)
+        );
 
     public Task<Observation> ObserveAsync(
         ObserveOptions? options,
@@ -132,9 +135,42 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
         OperationContext context,
         CancellationToken cancellationToken
     ) =>
-        Guard("observation", cancellationToken, () =>
-            _engine.ObserveAsync(options, timeout, Stamp(context), cancellationToken)
+        Guard("observation", cancellationToken, async () =>
+            DecidePixels(
+                await _engine.ObserveAsync(options, timeout, Stamp(context), cancellationToken).ConfigureAwait(false),
+                options
+            )
         );
+
+    /// <summary>
+    /// What upstream's <c>observe</c> decides about the pixels of a capture, once, so no reader of the observation checks it again. Pixels
+    /// stay only when their masked regions cover every secure node (<see cref="Secrecy.PixelsProvenMasked"/>); pixels or a count the engine
+    /// answered a pixels request with, short of that proof, are marked <see cref="PixelsWithheld.MaskingUnproven"/> instead, and the tree still
+    /// goes out. A screen with no tree has no secure node to count, so
+    /// its fallback pixels rest on the engine's own proof. The secure nodes are the larger of the engine's count and the tree's (.NET-only:
+    /// upstream counts the tree), so a reported count never weakens the proof.
+    /// </summary>
+    private static Observation DecidePixels(Observation observation, ObserveOptions? options)
+    {
+        var shot = observation.Pixels;
+        if (
+            options?.Pixels != true
+            || observation.TreeUnavailable
+            || (shot is null && observation.MaskedRegionCount is null)
+        )
+        {
+            return observation;
+        }
+
+        var secure = Math.Max(
+            observation.SecureNodeCount ?? 0,
+            LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure)
+        );
+        var masked = shot?.MaskedRegionCount ?? observation.MaskedRegionCount ?? 0;
+        return Secrecy.PixelsProvenMasked(new ObservationRedaction(secure, masked))
+            ? observation
+            : observation.WithPixels(null, PixelsWithheld.MaskingUnproven);
+    }
 
     public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
         Guard("actions", cancellationToken, () =>

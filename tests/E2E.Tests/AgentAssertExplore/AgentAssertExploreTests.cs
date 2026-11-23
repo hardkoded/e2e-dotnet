@@ -405,10 +405,16 @@ public sealed class AgentAssertExploreTests
     )
     {
         var results = new List<string>();
+        PixelsEngine? seen = null;
         var model = new ScriptedModel(request =>
         {
             if (request.Messages.All(message => message.Role != "tool"))
             {
+                if (look == "later")
+                {
+                    seen!.LosePixels();
+                }
+
                 return ModelResponses.Call("observe", new { });
             }
 
@@ -419,7 +425,11 @@ public sealed class AgentAssertExploreTests
         var run = await AssertAsync(
             new AssertOptions { Explore = true, Vision = VisionMode.Only },
             model,
-            setup: engine => engine.ShotsBeforeLoss = look == "opening" ? 0 : 1
+            setup: engine =>
+            {
+                seen = engine;
+                engine.ShotsBeforeLoss = look == "opening" ? 0 : int.MaxValue;
+            }
         );
 
         Assert.Equal(code, CodeOf(run));

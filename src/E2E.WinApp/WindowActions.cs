@@ -226,6 +226,18 @@ public sealed class WindowActions : IWindowActions
             throw WinAppSupport.Failure("screenshot withheld: a secure field on the screen has no box to cover");
         }
 
+        return await CaptureMaskedAsync(session, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The main window with every secure field the last observation reported painted over. The caller has observed and checked that none
+    /// lacks a box.
+    /// </summary>
+    internal static async Task<EngineScreenshot> CaptureMaskedAsync(
+        WindowSession session,
+        CancellationToken cancellationToken
+    )
+    {
         var window = session.MainWindow;
         var windows = await session.WindowsAsync(cancellationToken).ConfigureAwait(false);
         var main = windows.FirstOrDefault(info => info.Handle == window)

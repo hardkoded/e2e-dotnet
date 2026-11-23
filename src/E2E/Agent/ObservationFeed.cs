@@ -162,6 +162,25 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// </summary>
     public Task<Observation> ObserveAsync(SettleMode mode, CancellationToken token) => ObserveAsync(mode, null, token);
 
+    // Upstream's `opening`: the cache probe's look before any action, which the executor's first observe reuses while it is still the newest.
+    private Observation? _opening;
+
+    /// <summary>
+    /// Upstream's <c>probe</c>: <see cref="ObserveAsync(SettleMode, CancellationToken)"/> for the cache's look at the screen. Before the step's
+    /// first action it becomes the opening look, which the executor's first <see cref="ObserveAsync(ExecutorObserveOptions?, CancellationToken)"/>
+    /// reuses when it asks for no pixels the look did not take, so the engine is not asked again.
+    /// </summary>
+    public async Task<Observation> ProbeAsync(SettleMode mode, CancellationToken token)
+    {
+        var observation = await ObserveAsync(mode, token).ConfigureAwait(false);
+        if (Accounting?.ActionsUsed() is null or 0)
+        {
+            _opening = observation;
+        }
+
+        return observation;
+    }
+
     /// <summary>
     /// <see cref="ObserveAsync(SettleMode, CancellationToken)"/> as one recorded <c>observation</c> event of the running step, which
     /// <paramref name="name"/> tells apart when the look is not the step's own (<c>relocate</c>, <c>page</c>), and which books the
@@ -219,7 +238,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 
     // The engine's look, shown to the attempt's trace when the feed belongs to an attempt.
     // A settled look takes several; a truncated one among them marks the step even when the last one is whole.
-    private async Task<Observation> SeeAsync(CancellationToken token)
+    private async Task<Observation> SeeAsync(bool pixels, CancellationToken token)
     {
         // Retried at the engine while it reports a race, the step's clock checked each time it fails (upstream's retryingObserve).
         Observation observation;
@@ -230,7 +249,9 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
                     () =>
                         Scope is { } scope
                             ? scope.ObserveAsync(
-                                PixelsAllowed ? PixelFallbackLook : SemanticOnlyLook,
+                                pixels ? new ObserveOptions { PixelFallback = PixelsAllowed, Pixels = true }
+                                    : PixelsAllowed ? PixelFallbackLook
+                                    : SemanticOnlyLook,
                                 OperationContext.Agent,
                                 token
                             )
@@ -305,7 +326,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         Observation observation;
         if (mode == SettleMode.Raw)
         {
-            observation = await SeeAsync(token).ConfigureAwait(false);
+            observation = await SeeAsync(pixels, token).ConfigureAwait(false);
         }
         else
         {
@@ -313,7 +334,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             _pending = null;
             observation = await AgentObservation
                 .SettleAsync(
-                    SeeAsync,
+                    capture => SeeAsync(pixels, capture),
                     AgentObservation.SettleShape,
                     new SettleOptions<Observation>
                     {
@@ -372,6 +393,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             Bytes = System.Text.Encoding.UTF8.GetByteCount(UnavailableTreeMarker),
             KeyboardVisible = observation.KeyboardVisible,
             Viewport = observation.Viewport,
+            Pixels = observation.Pixels,
         };
     }
 
@@ -417,27 +439,33 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     {
         var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
         var wantsPixels = options?.Pixels == true && PixelsAllowed;
-        var observation = await ObserveAsync(SettleMode.HeldStill, null, wantsPixels, null, token)
-            .ConfigureAwait(false);
+        var opening = _opening;
+        _opening = null;
+        var reusable =
+            opening is not null
+            && ReferenceEquals(opening, _latestLook)
+            && Accounting?.ActionsUsed() is null or 0
+            && (!wantsPixels || opening.Pixels is not null);
+        var observation = reusable
+            ? opening!
+            : await ObserveAsync(SettleMode.HeldStill, null, wantsPixels, null, token).ConfigureAwait(false);
 
-        var view = View(PreparedOf(observation), scope, options);
+        var prepared = PreparedOf(observation);
+        var view = View(prepared, scope, options);
         if (!wantsPixels && !observation.TreeUnavailable)
         {
             return view;
         }
 
-        // A screen with no tree carries its pixels with it; any other look is photographed now.
-        var captured = observation.TreeUnavailable
-            ? observation.Pixels
-            : await scope.CaptureAsync(token).ConfigureAwait(false);
-        var outcome = AgentObservation.PixelsForModel(observation, captured);
+        // Upstream's pixelsFor: the session decided the look's pixels, so the feed only sizes them for the model, or says why not.
+        var outcome = AgentObservation.PixelsForModel(prepared);
         if (outcome.Pixels is not { } pixels)
         {
             if (observation.TreeUnavailable)
             {
                 throw new TestException(
                     "UNSUPPORTED_CAPABILITY",
-                    "semantic capture is unavailable and no permitted, proven-masked screenshot can replace it"
+                    "semantic capture is unavailable and no permitted screenshot can replace it"
                 );
             }
 
