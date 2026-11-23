@@ -33,6 +33,31 @@ public sealed class ThroughTheElementTargetTests
         });
     }
 
+    [Theory]
+    [InlineData("input")]
+    [InlineData("label")]
+    [InlineData("chooser")]
+    public async Task Partial_Preserves_in_memory_file_metadata_and_binary_contents_through_a(string kind)
+    {
+        await RunAsync(MetadataPage(kind), async session =>
+        {
+            var target = kind switch
+            {
+                "input" => await FindByNameAsync(session, "Avatar"),
+                "label" => await FindByTestIdAsync(session, "pick"),
+                _ => await FindByNameAsync(session, "Choose"),
+            };
+            await session.PerformAsync(
+                target,
+                new LocatorAction.SetInputFilePayloads(Payloads),
+                CancellationToken.None
+            );
+            Assert.Equal(PayloadsExpected, await EvaluateAsync<string>(session, PayloadsHeld));
+            await session.PerformAsync(target, new LocatorAction.SetInputFilePayloads([]), CancellationToken.None);
+            Assert.Equal(0, await EvaluateAsync<int>(session, "() => document.querySelector('#avatar').files.length"));
+        });
+    }
+
     [Fact]
     public async Task Sets_the_input_a_label_names_without_clicking_the_label()
     {

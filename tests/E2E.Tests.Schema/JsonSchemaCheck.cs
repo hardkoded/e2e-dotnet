@@ -37,4 +37,21 @@ public sealed class JsonSchemaCheck
                 new EvaluationOptions { OutputFormat = OutputFormat.List, RequireFormatValidation = true }
             )
             .IsValid;
+
+    /// <summary>The failures of the value, each as its instance path and the keyword that refused it (Ajv's <c>instancePath</c> and <c>keyword</c>).</summary>
+    public IReadOnlyList<(string InstancePath, string Keyword)> Errors(JsonNode? value)
+    {
+        var result = _schema.Evaluate(
+            System.Text.Json.JsonSerializer.SerializeToElement(value),
+            new EvaluationOptions { OutputFormat = OutputFormat.List, RequireFormatValidation = true }
+        );
+        return
+        [
+            .. (result.Details ?? []).SelectMany(detail =>
+                (detail.Errors ?? new Dictionary<string, string>()).Keys.Select(keyword =>
+                    (detail.InstanceLocation.ToString(), keyword)
+                )
+            ),
+        ];
+    }
 }

@@ -189,7 +189,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             LocatorAction.Fill => "fill",
             LocatorAction.Press => "press",
             LocatorAction.Select => "selectOption",
-            LocatorAction.SetInputFiles => "setInputFiles",
+            LocatorAction.SetInputFiles or LocatorAction.SetInputFilePayloads => "setInputFiles",
             LocatorAction.Check => "check",
             LocatorAction.Uncheck => "uncheck",
             LocatorAction.Clear => "clear",
@@ -343,6 +343,15 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         var kind = EngineActionKinds.Of(action);
         if (ActionKinds is { } declared && !declared.Contains(kind))
         {
+            if (action is LocatorAction.SetInputFilePayloads)
+            {
+                throw new EngineException(
+                    EngineErrorCodes.UnsupportedCapability,
+                    "in-memory files for setInputFiles are not available on this target; update its engine"
+                        + (declared.Contains("setInputFiles") ? " or pass a file path" : string.Empty)
+                );
+            }
+
             throw new EngineException(
                 EngineErrorCodes.UnsupportedCapability,
                 $"the \"{kind}\" action is not available on this target: its engine declares {(declared.Count == 0 ? "no actions" : string.Join(", ", declared))}"
@@ -354,6 +363,9 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             Keys.RequireKey(press.Key);
         }
     }
+
+    /// <summary>Reports whether the target engine declares this locator action kind (upstream's <c>supports</c>). An engine that declares none is taken to do them all.</summary>
+    internal bool Supports(string kind) => ActionKinds is not { } declared || declared.Contains(kind);
 
     /// <summary>Refuses a pointer action the engine did not declare: <c>UNSUPPORTED_CAPABILITY</c>. Upstream's <c>checkPointerAction</c>.</summary>
     internal void CheckPointerAction(PointerAction action)

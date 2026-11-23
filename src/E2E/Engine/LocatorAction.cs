@@ -47,6 +47,12 @@ public abstract record LocatorAction
     /// </summary>
     public sealed record SetInputFiles(IReadOnlyList<string> Paths) : LocatorAction;
 
+    /// <summary>
+    /// Sets the files of a file input, or of a control that opens a file chooser, from memory. An empty <paramref name="Files"/> clears the
+    /// input. Upstream's <c>setInputFilePayloads</c>; only an engine that declares that kind receives it.
+    /// </summary>
+    public sealed record SetInputFilePayloads(IReadOnlyList<FilePayload> Files) : LocatorAction;
+
     public sealed record Check : LocatorAction;
 
     public sealed record Uncheck : LocatorAction;

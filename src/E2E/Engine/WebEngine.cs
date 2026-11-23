@@ -2641,8 +2641,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             await Page.Mouse.UpAsync().ConfigureAwait(false);
         }
 
-        /// <summary>A browser honors the SPI v1 actions and blur. Upstream's <c>actions: [...LOCATOR_ACTION_KINDS, 'blur']</c>.</summary>
-        public IReadOnlyCollection<string> ActionKinds { get; } = [.. EngineActionKinds.Locator, "blur"];
+        /// <summary>A browser honors the SPI v1 actions plus blur and in-memory uploads. Upstream's <c>actions: [...LOCATOR_ACTION_KINDS, 'blur', 'setInputFilePayloads']</c>.</summary>
+        public IReadOnlyCollection<string> ActionKinds { get; } =
+        [.. EngineActionKinds.Locator, "blur", "setInputFilePayloads"];
 
         /// <summary>A page takes every pointer action of the contract at a bare point too.</summary>
         public IReadOnlyCollection<string> PointerActionKinds => EngineActionKinds.Pointer;
@@ -4615,6 +4616,9 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                 case LocatorAction.SetInputFiles files:
                     await UploadFilesAsync(element, files.Paths, budget).ConfigureAwait(false);
                     break;
+                case LocatorAction.SetInputFilePayloads payloads:
+                    await UploadFilesAsync(element, payloads.Files, budget).ConfigureAwait(false);
+                    break;
                 case LocatorAction.Check:
                     await SetCheckedAsync(element, true, budget).ConfigureAwait(false);
                     break;
@@ -5595,16 +5599,47 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         /// already awaited, and fails <c>NOT_ACTIONABLE</c> if no chooser opens. Every step shares the operation's deadline, and a
         /// cancelled operation sets no files, even when its chooser opens after the cancel.
         /// </summary>
-        private async Task UploadFilesAsync(IElementHandle element, IReadOnlyList<string> paths, OperationBudget budget)
+        private Task UploadFilesAsync(IElementHandle element, IReadOnlyList<string> paths, OperationBudget budget) =>
+            UploadAsync(
+                element,
+                budget,
+                options => element.SetInputFilesAsync(paths, options),
+                (chooser, options) => chooser.SetFilesAsync(paths, options)
+            );
+
+        /// <summary>
+        /// <see cref="UploadFilesAsync(IElementHandle, IReadOnlyList{string}, OperationBudget)"/> for in-memory files: upstream's one <c>uploadFiles</c>
+        /// takes <c>string[] | payload[]</c>, and C# needs an overload for each.
+        /// </summary>
+        private Task UploadFilesAsync(IElementHandle element, IReadOnlyList<FilePayload> files, OperationBudget budget)
+        {
+            var payloads = files
+                .Select(file => new Microsoft.Playwright.FilePayload
+                {
+                    Name = file.Name,
+                    MimeType = file.MimeType,
+                    Buffer = file.Buffer,
+                })
+                .ToList();
+            return UploadAsync(
+                element,
+                budget,
+                options => element.SetInputFilesAsync(payloads, options),
+                (chooser, options) => chooser.SetFilesAsync(payloads, options)
+            );
+        }
+
+        private async Task UploadAsync(
+            IElementHandle element,
+            OperationBudget budget,
+            Func<ElementHandleSetInputFilesOptions, Task> setOnInput,
+            Func<IFileChooser, FileChooserSetFilesOptions, Task> setOnChooser
+        )
         {
             if (await element.EvaluateAsync<bool>(PageScript.IsFileInput).ConfigureAwait(false))
             {
                 budget.ThrowIfExpired();
-                await element
-                    .SetInputFilesAsync(
-                        paths,
-                        new ElementHandleSetInputFilesOptions { Timeout = budget.PlaywrightTimeout }
-                    )
+                await setOnInput(new ElementHandleSetInputFilesOptions { Timeout = budget.PlaywrightTimeout })
                     .ConfigureAwait(false);
                 return;
             }
@@ -5637,8 +5672,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
             }
 
             budget.ThrowIfExpired();
-            await chooser
-                .SetFilesAsync(paths, new FileChooserSetFilesOptions { Timeout = budget.PlaywrightTimeout })
+            await setOnChooser(chooser, new FileChooserSetFilesOptions { Timeout = budget.PlaywrightTimeout })
                 .ConfigureAwait(false);
         }
 

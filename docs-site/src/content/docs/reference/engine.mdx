@@ -399,6 +399,7 @@ When a semantic read fails, an engine may return masked pixels in place of the t
 | `scrollIntoView` | `ScrollIntoView` | yes | - |
 | `selectOption` | `Select(Text, Option)` | yes | - |
 | `setInputFiles` | `SetInputFiles(Paths)`, absolute; empty clears the input | yes | - |
+| `setInputFilePayloads` | `SetInputFilePayloads(Files)`: `FilePayload`s with `Name`, `MimeType`, and `Buffer`. An empty `Files` clears the input. The runner uses it to clear when the engine declares this kind without `setInputFiles`. | yes | - |
 | `dragTo` | `DragTo(Target)`: a node; `PointerAction.DragTo(Target)`: a `Point` | yes | yes |
 | `swipe` | `Swipe(Direction, Momentum?)` | yes | yes |
 | `swipeTo` | - | - | `SwipeTo(Target, Duration?)` |
