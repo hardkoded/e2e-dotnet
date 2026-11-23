@@ -833,7 +833,10 @@ public sealed class E2ESession : IAsyncDisposable
                         AssertionTimeout = options.AssertionTimeout,
                         RecordSecondaryError = session.RecordSecondaryError,
                         Budget = budget,
-                        Polls = options.OffersGuests ? new PollScope("the test body") : null,
+                        Polls =
+                            options.OffersGuests ? new PollScope("the test body")
+                            : options.PublishesAttempt ? new PollScope("the hosted session")
+                            : null,
                     };
                     session._published = Attempts.PublishAttempt(session._publishedAttempt);
                 }
@@ -1212,7 +1215,15 @@ public sealed class E2ESession : IAsyncDisposable
             errors.Add(cause);
         }
 
-        foreach (var failure in new Exception?[] { soft, abandoned })
+        // A poll the hosted session left running fails it at the line of the call and is cancelled. A test body's polls ended with the body (SettleAttemptAsync).
+        var abandonedPoll = _hostedClose is not null ? _publishedAttempt?.Polls?.Close() : null;
+        if (abandoned is null)
+        {
+            abandoned = abandonedPoll;
+            abandonedPoll = null;
+        }
+
+        foreach (var failure in new Exception?[] { soft, abandoned, abandonedPoll })
         {
             if (failure is not null)
             {

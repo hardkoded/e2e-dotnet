@@ -28,7 +28,12 @@ internal sealed class FixtureDefinition(string name, Func<Func<object?, Task>, T
 /// </summary>
 internal sealed class WorkerFixturePool
 {
-    private readonly List<(FixtureDefinition Fixture, TaskCompletionSource Release, Task Run)> _running = [];
+    private readonly List<(
+        FixtureDefinition Fixture,
+        TaskCompletionSource Release,
+        Task Run,
+        PollLineage Polls
+    )> _running = [];
 
     /// <summary>Sets up the fixtures not yet set up. A failure of one is the failure of the test that named it, and the fixture is not torn down.</summary>
     public async Task AcquireAsync(IReadOnlyList<FixtureDefinition> fixtures, CancellationToken cancellationToken)
@@ -43,6 +48,8 @@ internal sealed class WorkerFixturePool
             var provided = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var used = false;
+            // The function's polls are its user's until use returns, then its teardown's.
+            var polls = PollScopes.PollLineage(outlivesTest: true);
             ConfigurationException? misuse = null;
             Task Use(object? value)
             {
@@ -66,7 +73,7 @@ internal sealed class WorkerFixturePool
             {
                 try
                 {
-                    await fixture.Fn(Use).ConfigureAwait(false);
+                    await polls.Run(() => fixture.Fn(Use)).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -92,7 +99,7 @@ internal sealed class WorkerFixturePool
             // A fixture whose setup failed is never torn down, so nothing else would observe its failure.
             _ = run.ContinueWith(static task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
             // Kept from now on: a run cancelled while the setup is pending still releases it, and a late use() is handed over to the teardown.
-            var entry = (fixture, release, run);
+            var entry = (fixture, release, run, polls);
             _running.Add(entry);
             try
             {
@@ -113,7 +120,9 @@ internal sealed class WorkerFixturePool
         var failures = new List<Exception>();
         for (var index = _running.Count - 1; index >= 0; index--)
         {
-            var (_, release, run) = _running[index];
+            var (_, release, run, polls) = _running[index];
+            // The rest of the function after use is its teardown's.
+            polls.HandOver();
             release.TrySetResult();
             try
             {

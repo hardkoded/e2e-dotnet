@@ -162,32 +162,37 @@ internal sealed class PollScope(string owner)
 
 /// <summary>
 /// The marker of an <c>expect.poll</c> read, upstream's <c>pollRead</c> and <c>insidePollRead</c> (<c>expect/poll-scope.ts</c>), and the scope a
-/// poll started in this flow belongs to (<c>runInPollScope</c>, <c>currentPollScope</c>). The marker flows
+/// poll started in this flow belongs to (<c>runInPollScope</c>, <c>currentPollScope</c>), with the lineage of work that spans two phases
+/// (<c>pollLineage</c>, <c>outlivesTest</c>). The marker flows
 /// with the async call of the read, so every step the read calls sees it. <c>toPass</c>, the other block the marker covers, has no counterpart yet.
 /// </summary>
 internal static class PollScopes
 {
     private static readonly AsyncLocal<bool> Reading = new();
-    private static readonly AsyncLocal<PollScope?> Scope = new();
+    private static readonly AsyncLocal<PollOwner?> Owner = new();
 
     /// <summary>The scope a poll started here belongs to, or null outside any phase (upstream's <c>currentPollScope</c>).</summary>
-    public static PollScope? CurrentPollScope() => Scope.Value;
+    public static PollScope? CurrentPollScope() => Owner.Value?.Scope;
+
+    /// <summary>
+    /// Whether this async flow is work that outlives the test it started in, such as a worker fixture set up by the first test that names it
+    /// (upstream's <c>outlivesTest</c>).
+    /// </summary>
+    public static bool OutlivesTest() => Owner.Value?.Outlives == true;
 
     /// <summary>Runs <paramref name="run"/> with <paramref name="scope"/> owning every poll it starts, however long that work outlives the phase (upstream's <c>runInPollScope</c>).</summary>
     public static T RunInPollScope<T>(PollScope scope, Func<T> run)
     {
         ArgumentNullException.ThrowIfNull(run);
-        var before = Scope.Value;
-        Scope.Value = scope;
-        try
-        {
-            return run();
-        }
-        finally
-        {
-            Scope.Value = before;
-        }
+        return Enter(new PollOwner { Scope = scope }, run);
     }
+
+    /// <summary>
+    /// A lineage for work that spans two phases, a fixture: its setup runs in the body's phase, and the rest of its function after <c>use</c> is its
+    /// teardown's. <paramref name="outlivesTest"/> marks a worker fixture's, which no test owns (upstream's <c>pollLineage</c>).
+    /// </summary>
+    public static PollLineage PollLineage(bool outlivesTest = false) =>
+        new(new PollOwner { Scope = CurrentPollScope(), Outlives = outlivesTest });
 
     /// <summary>Runs one <c>expect.poll</c> read, marked so <see cref="InsidePollRead"/> sees it in every step the read calls (upstream's <c>pollRead</c>).</summary>
     public static async Task<T> PollReadAsync<T>(Func<Task<T>> run)
@@ -208,4 +213,41 @@ internal static class PollScopes
 
     /// <summary>Whether this async flow is inside an <c>expect.poll</c> read (upstream's <c>insidePollRead</c>).</summary>
     public static bool InsidePollRead() => Reading.Value;
+
+    internal static T Enter<T>(PollOwner owner, Func<T> run)
+    {
+        var before = Owner.Value;
+        Owner.Value = owner;
+        try
+        {
+            return run();
+        }
+        finally
+        {
+            Owner.Value = before;
+        }
+    }
+}
+
+/// <summary>Which scope the polls of one async lineage go to; a fixture's lineage moves to its teardown's scope. Upstream's <c>PollOwner</c>.</summary>
+internal sealed class PollOwner
+{
+    public PollScope? Scope { get; set; }
+
+    /// <summary>Set for work that outlives the test it started in, a worker fixture: what it opens is its own to end.</summary>
+    public bool Outlives { get; init; }
+}
+
+/// <summary>One lineage of async work whose polls go to the scope current where it started, until <see cref="HandOver"/>. Upstream's <c>PollLineage</c>.</summary>
+internal sealed class PollLineage(PollOwner owner)
+{
+    /// <summary>Runs <paramref name="run"/> in the lineage.</summary>
+    public T Run<T>(Func<T> run)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+        return PollScopes.Enter(owner, run);
+    }
+
+    /// <summary>Sends the lineage's polls from now on to the scope current at this call.</summary>
+    public void HandOver() => owner.Scope = PollScopes.CurrentPollScope();
 }
