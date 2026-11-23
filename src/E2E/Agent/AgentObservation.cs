@@ -317,7 +317,10 @@ internal static partial class AgentObservation
             observation.SecureNodeCount ?? 0,
             LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure)
         );
-        if (screenshot.MaskedRegionCount is not { } masked || masked < secure)
+        if (
+            screenshot.MaskedRegionCount is not { } masked
+            || !Secrecy.PixelsProvenMasked(new ObservationRedaction(secure, masked))
+        )
         {
             return new PixelsOutcome(null, VisionDegradation.MaskingUnproven);
         }

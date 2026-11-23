@@ -20,6 +20,13 @@ public sealed record EngineCleanupContext(CancellationToken Signal, TimeSpan Tim
 /// </summary>
 public sealed record ObservationPixels(byte[] Data, string MediaType, int Width, int Height, double Scale);
 
+/// <summary>Upstream's <c>PixelsWithheld</c> (<c>engine/surface.ts</c>): why pixels a caller asked for are not part of an observation.</summary>
+public enum PixelsWithheld
+{
+    /// <summary>The masked regions are fewer than the secure nodes, so the image cannot be proven redacted (upstream's <c>MASKING_UNPROVEN</c>).</summary>
+    MaskingUnproven,
+}
+
 /// <summary>Upstream's <c>SemanticNode.states</c>: the flags of a node the harness reads.</summary>
 public sealed record EngineNodeStates(bool? Secure = null, bool? Hidden = null);
 
@@ -77,7 +84,12 @@ public sealed record EngineSnapshot(EngineNode Root, ViewportSize Viewport)
     /// <summary>The screen's pixels, when the engine took them.</summary>
     public ObservationPixels? Pixels { get; init; }
 
-    /// <summary>How many regions the engine masked over the secure nodes it saw.</summary>
+    /// <summary>
+    /// How many regions the engine masked over the secure nodes it saw; the harness checks it covers every secure node. An engine asked for
+    /// pixels (<see cref="ObserveOptions.Pixels"/>) that cannot mask every secure node on screen omits <see cref="Pixels"/> and still
+    /// reports the regions it could mask, fewer than the secure nodes, so the session marks the observation
+    /// <see cref="PixelsWithheld.MaskingUnproven"/> instead of a missing screenshot.
+    /// </summary>
     public int? MaskedRegionCount { get; init; }
 }
 
@@ -120,9 +132,15 @@ public sealed record SessionObservation
     /// <summary>Whether an on-screen keyboard is showing, when the engine measured it.</summary>
     public bool? KeyboardVisible { get; init; }
 
-    /// <summary>The screen's pixels, when the capture has them.</summary>
+    /// <summary>The screenshot, only when its masked regions cover every secure node.</summary>
     public ObservationPixels? Pixels { get; init; }
+
+    /// <summary>
+    /// Why pixels the engine answered with are not here: its masked regions (<see cref="ObservationRedaction.MaskedRegionCount"/>) are fewer than the
+    /// secure nodes, whether the engine sent the pixels or withheld them itself. Null when nothing was withheld.
+    /// </summary>
+    public PixelsWithheld? PixelsWithheld { get; init; }
 }
 
-/// <summary>Upstream's <c>Observation.redaction</c>: the counts a capture's pixels are judged by.</summary>
+/// <summary>Upstream's <c>Observation.redaction</c>: the counts the session judges a capture's pixels by; fewer masked regions than secure nodes withholds the pixels and keeps the tree.</summary>
 public sealed record ObservationRedaction(int SecureNodeCount, int MaskedRegionCount);
