@@ -98,34 +98,54 @@ public sealed class DeviceFixtureViewportTests
         Assert.Contains("viewport is unknown", failure.Message);
     }
 
-    // Partial: upstream also changes the operation's timeout between two calls and expects the second call to read the new budget.
-    // Here the budget is the session's ActionTimeout, fixed when the attempt starts, so only the shared-budget half is checked.
+    private static Device Fixture(DeviceSession session, Func<OperationContext> operation)
+    {
+        var screen = new Screen(
+            session.ObserveAsync,
+            session.PerformAsync,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(5),
+            locate: session.LocateAsync
+        );
+        ((IEngineFixtureHost)session).CreateFixtures(new EngineFixtureContext(screen, operation));
+        return session.Device;
+    }
+
     [Fact]
-    public async Task Partial_Shares_one_action_budget_between_snapshot_and_screenshot()
+    public async Task Shares_one_action_budget_between_snapshot_and_screenshot_reading_the_current_budget_per_call()
     {
         var h = Harness.Create(pinned: false);
-        var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(100));
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+        h.Clock.ManualTimers = true;
+        var session = await OpenAttempt(h);
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, token) =>
         {
-            h.Clock.Advance(TimeSpan.FromMilliseconds(60));
+            await Task.Delay(TimeSpan.FromMilliseconds(60), h.Clock, token);
             return new JsonObject { ["nodes"] = new JsonArray() };
         });
         h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, async (_, token) =>
         {
-            await Task.Delay(TimeSpan.FromMilliseconds(400), h.Clock, token);
+            await Task.Delay(TimeSpan.FromMilliseconds(60), h.Clock, token);
             return new JsonObject { ["logicalWidth"] = 390, ["logicalHeight"] = 844 };
         });
+        var timeout = TimeSpan.FromMilliseconds(100);
+        var device = Fixture(session, () => OperationContext.Test with { Timeout = timeout });
 
-        var read = session.Device.ViewportAsync();
-        for (var i = 0; i < 100 && !read.IsCompleted; i++)
-        {
-            h.Clock.Advance(TimeSpan.FromMilliseconds(20));
-            await Task.Delay(10);
-        }
-
-        var timedOut = await Assert.ThrowsAsync<EngineException>(() => read);
+        var first = device.ViewportAsync();
+        await h.Clock.SpendUntil(first, TimeSpan.FromMilliseconds(10));
+        // The fixture step maps the engine error onto the runner taxonomy; the engine's own error is its cause.
+        var timedOut = Assert.IsType<EngineException>(
+            (await Assert.ThrowsAsync<TestException>(() => first)).InnerException
+        );
         Assert.Equal("OPERATION_TIMEOUT", timedOut.Code);
         Assert.Contains("device.viewport", timedOut.Message);
+        h.Clock.Spend(TimeSpan.FromMilliseconds(20));
+
+        timeout = TimeSpan.FromMilliseconds(200);
+        var next = device.ViewportAsync();
+        await h.Clock.SpendUntil(next, TimeSpan.FromMilliseconds(10));
+        Assert.Equal(new ViewportSize(390, 844), await next);
     }
 
     [Fact]
@@ -133,6 +153,7 @@ public sealed class DeviceFixtureViewportTests
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
+        var controller = new CancellationTokenSource();
         var started = new TaskCompletionSource();
         var release = new TaskCompletionSource();
         h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
@@ -141,18 +162,27 @@ public sealed class DeviceFixtureViewportTests
             await release.Task;
             return FakeDeviceClient.SettingsSnapshot();
         });
-        using var first = new CancellationTokenSource();
-        var cancelled = session.Device.ViewportAsync(first.Token);
+        var device = Fixture(session, () =>
+            OperationContext.Test with
+            {
+                Timeout = TimeSpan.FromSeconds(5),
+                Signal = controller.Token,
+            }
+        );
+        var cancelled = device.ViewportAsync();
         await started.Task;
-        await first.CancelAsync();
+        await controller.CancelAsync();
         Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => cancelled)).Code);
         release.SetResult();
         var before = h.Fake.Calls.Count;
-        await Assert.ThrowsAnyAsync<Exception>(() => session.Device.ViewportAsync(first.Token));
+        Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => device.ViewportAsync())).Code);
         Assert.Equal(before, h.Fake.Calls.Count);
 
+        controller.Dispose();
+        controller = new CancellationTokenSource();
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
-        Assert.Equal(new ViewportSize(390, 844), await session.Device.ViewportAsync(CancellationToken.None));
+        Assert.Equal(new ViewportSize(390, 844), await device.ViewportAsync());
+        controller.Dispose();
     }
 
     [Fact]

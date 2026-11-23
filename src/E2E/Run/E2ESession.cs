@@ -717,7 +717,13 @@ public sealed class E2ESession : IAsyncDisposable
             var screen = new Screen(locatorEngine, scope.MarkVerified, softFailures, (direction, momentum, token) =>
                 engine.SwipeAsync(direction, momentum, OperationContext.Test, token)
             );
-            var fixtureContext = new EngineFixtureContext(screen);
+            var fixtureContext = new EngineFixtureContext(screen, () =>
+                OperationContext.Test with
+                {
+                    Timeout = options.ActionTimeout,
+                    Signal = budget.Token,
+                }
+            );
             browser.Context = fixtureContext;
             (engine as IEngineFixtureHost)?.CreateFixtures(fixtureContext);
             screen.Steps = scope.Steps;
