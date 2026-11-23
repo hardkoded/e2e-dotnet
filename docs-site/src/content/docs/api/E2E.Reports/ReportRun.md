@@ -64,12 +64,13 @@ The change the test filters judged, or why none ran. Null when the run has no fi
 
 ### DurationMs
 
-Elapsed run time in milliseconds, excluding intervals when all running workers were held. May be absent in older reports.
 
 ```csharp
 public long? DurationMs { get; init; }
 ```
 
+
+Elapsed run time in milliseconds, excluding intervals when all running workers were held. May be absent in older reports.
 
 **Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
 

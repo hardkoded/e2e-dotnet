@@ -749,17 +749,17 @@ The wait takes the first tab the app opens after it starts. A trigger that throw
 **Returns:** [Task&lt;IAttemptTab&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Engine_IBrowserSession_WaitForResponseAsync_"></a>
-<a id="E2E_Engine_IBrowserSession_WaitForResponseAsync_System_Func_System_String_System_Boolean__System_TimeSpan_System_Threading_CancellationToken_"></a>
+<a id="E2E_Engine_IBrowserSession_WaitForResponseAsync_System_Func_System_String_System_String_System_Boolean__System_TimeSpan_System_Threading_CancellationToken_"></a>
 
-### `WaitForResponseAsync(Func<string, bool>, TimeSpan, CancellationToken)`
+### `WaitForResponseAsync(Func<string, string, bool>, TimeSpan, CancellationToken)`
 
 
 ```csharp
-Task<BrowserResponse> WaitForResponseAsync(Func<string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken)
+Task<BrowserResponse> WaitForResponseAsync(Func<string, string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken)
 ```
 
 
-Waits up to &lt;code class="paramref"&gt;timeout&lt;/code&gt; for a response whose URL &lt;code class="paramref"&gt;matches&lt;/code&gt;
+Waits up to &lt;code class="paramref"&gt;timeout&lt;/code&gt; for a response whose URL and request method &lt;code class="paramref"&gt;matches&lt;/code&gt;
 accepts. The timeout bounds the match only: the body read starts once the
 response is known and goes on in [Body](/api/E2E.Engine/BrowserResponse/#E2E_Engine_BrowserResponse_Body). A session
 that does not override it fails with `UNSUPPORTED_CAPABILITY`.
@@ -768,7 +768,7 @@ that does not override it fails with `UNSUPPORTED_CAPABILITY`.
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `matches` | [Func&lt;string, bool&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
+| `matches` | [Func&lt;string, string, bool&gt;](https://learn.microsoft.com/dotnet/api/system.func-3) |  |
 | `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
