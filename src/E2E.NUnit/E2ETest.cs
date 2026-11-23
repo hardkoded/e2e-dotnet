@@ -452,12 +452,15 @@ public abstract partial class E2ETest : E2EFixture
     // NUnit's host skip message is not carried to the session, but a result with several outcomes lists the skip as an inconclusive assertion result.
     private static void KeepSkipBesideFailure(E2ESession session)
     {
-        if (session.RuntimeSkip is not null)
+        var result = TestExecutionContext.CurrentContext.CurrentResult;
+
+        // A skip that decides the test keeps the host's own message.
+        if (session.RuntimeSkip is not null || result.ResultState.Status != TestStatus.Failed)
         {
             return;
         }
 
-        var skip = TestExecutionContext.CurrentContext.CurrentResult.AssertionResults.FirstOrDefault(assertion =>
+        var skip = result.AssertionResults.FirstOrDefault(assertion =>
             assertion.Status == AssertionStatus.Inconclusive
         );
         if (skip is not null)
