@@ -235,6 +235,21 @@ public sealed class Observation
     public EngineScreenshot? Pixels { get; init; }
 
     /// <summary>
+    /// How many regions the engine masked when it took pixels and withheld them itself, or answered a pixels request with a count and no image
+    /// (upstream's <c>maskedRegionCount</c> of an <c>EngineSnapshot</c> without <c>pixels</c>), such as a screen with a secure field it could not
+    /// bound. The session reads it against the secure nodes and marks <see cref="PixelsWithheld"/>. Null when the image came with its own count
+    /// (<see cref="EngineScreenshot.MaskedRegionCount"/>), or none was taken.
+    /// </summary>
+    public int? MaskedRegionCount { get; init; }
+
+    /// <summary>
+    /// Why pixels the engine answered a pixels request with are not in <see cref="Pixels"/> (upstream's <c>pixelsWithheld</c>): the session
+    /// decides it once, when its masked regions are fewer than the secure nodes. Null when nothing was withheld, and for a screen with no
+    /// tree, whose pixels rest on the engine's own proof.
+    /// </summary>
+    public PixelsWithheld? PixelsWithheld { get; init; }
+
+    /// <summary>
     /// The engine read no semantic tree, and <see cref="Pixels"/> are the only evidence of the screen (upstream's <c>kind: 'pixels'</c>
     /// observation, which an engine answers when <see cref="ObserveOptions.PixelFallback"/> allows it). <see cref="Roots"/> is empty then,
     /// the node refs of earlier observations name nothing, and a step that saw such a screen records no replay.
@@ -247,6 +262,29 @@ public sealed class Observation
     /// tree to count, so the engine reports it. Null when the engine does not: the secure nodes of <see cref="Roots"/> are counted instead.
     /// </summary>
     public int? SecureNodeCount { get; init; }
+
+    /// <summary>
+    /// This observation with the session's decision about its pixels (<see cref="Pixels"/> and <see cref="PixelsWithheld"/>), every other field
+    /// as it is. .NET-only: upstream builds the decided observation as a new object literal in <c>observe</c>.
+    /// </summary>
+    internal Observation WithPixels(EngineScreenshot? pixels, PixelsWithheld? withheld) =>
+        new()
+        {
+            Route = Route,
+            Location = Location,
+            Tabs = Tabs,
+            Roots = Roots,
+            Truncated = Truncated,
+            KeyboardVisible = KeyboardVisible,
+            ScrollPosition = ScrollPosition,
+            Viewport = Viewport,
+            Revision = Revision,
+            Pixels = pixels,
+            MaskedRegionCount = MaskedRegionCount,
+            PixelsWithheld = withheld,
+            TreeUnavailable = TreeUnavailable,
+            SecureNodeCount = SecureNodeCount,
+        };
 }
 
 /// <summary>What an observation takes besides the tree. Upstream's <c>EngineObserveOptions</c>.</summary>

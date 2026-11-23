@@ -1040,7 +1040,7 @@ public sealed partial class DeviceSession
     /// secure fields cannot be proven covered, costs the observation its image, not the step, unless the operation's budget ran out. A screen
     /// with a secure field that has no bounds to mask takes none and reports no regions masked, so the harness knows the pixels were withheld.
     /// </summary>
-    private async Task<EngineScreenshot?> CapturePixelsAsync(
+    private async Task<(EngineScreenshot? Pixels, int? MaskedRegionCount)> CapturePixelsAsync(
         ProjectedSnapshot projected,
         ViewportSize viewport,
         bool comparable,
@@ -1050,7 +1050,8 @@ public sealed partial class DeviceSession
     {
         if (SecureBounds(projected) is not { } secure)
         {
-            return EngineScreenshot.Withheld(0);
+            // A secure field with no bounds cannot be masked: no image, and no region counts as masked (upstream's `{ masked: 0 }`).
+            return (null, 0);
         }
 
         byte[] data;
@@ -1071,7 +1072,7 @@ public sealed partial class DeviceSession
         }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
-            return null;
+            return (null, null);
         }
 
         if (
@@ -1079,13 +1080,12 @@ public sealed partial class DeviceSession
             || DeviceSupport.ReadPngSize(redacted.Data) is not { } size
         )
         {
-            return null;
+            return (null, null);
         }
 
-        return new EngineScreenshot(
-            redacted.Data,
-            viewport.Width > 0 ? size.Width / viewport.Width : 1,
-            redacted.Masked
+        return (
+            new EngineScreenshot(redacted.Data, viewport.Width > 0 ? size.Width / viewport.Width : 1, redacted.Masked),
+            null
         );
     }
 

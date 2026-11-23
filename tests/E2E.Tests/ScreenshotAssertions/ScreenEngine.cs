@@ -22,7 +22,13 @@ internal sealed class ScreenEngine : IEngine
     public static readonly (byte R, byte G, byte B) Red = (255, 0, 0);
 
     /// <summary>The screen of the next capture.</summary>
-    public Func<EngineScreenshot> Current { get; set; } = () => Shot(White, Blue);
+    public Func<EngineScreenshot?> Current { get; set; } = () => Shot(White, Blue);
+
+    /// <summary>Every look that asked for pixels, as it asked (upstream's <c>asked</c>).</summary>
+    public List<ObserveOptions> Asked { get; } = [];
+
+    /// <summary>Answers a pixels request with the regions it masked and no image, as an engine does that withheld a screenshot it could not mask.</summary>
+    public int? WithheldMaskedRegions { get; set; }
 
     /// <summary>Runs before every capture; a wait that ignores cancellation, or a throw.</summary>
     public Func<Task>? BeforeCapture { get; set; }
@@ -88,7 +94,14 @@ internal sealed class ScreenEngine : IEngine
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            ObserveAsync(null, TimeSpan.Zero, cancellationToken);
+
+        public async Task<Observation> ObserveAsync(
+            ObserveOptions? options,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        )
         {
             List<SemanticNode> children =
             [
@@ -122,21 +135,49 @@ internal sealed class ScreenEngine : IEngine
                 );
             }
 
-            return Task.FromResult(
-                new Observation
+            EngineScreenshot? pixels = null;
+            int? maskedRegionCount = null;
+            if (options?.Pixels == true)
+            {
+                engine.Asked.Add(options);
+                engine.Captures++;
+                if (engine.BeforeCapture is { } before)
                 {
-                    Route = "/",
-                    Roots =
-                    [
-                        new SemanticNode
-                        {
-                            Ref = "root",
-                            Role = "document",
-                            Children = children,
-                        },
-                    ],
+                    await before().ConfigureAwait(false);
                 }
-            );
+
+                if (engine.WithheldMaskedRegions is { } withheld)
+                {
+                    maskedRegionCount = withheld;
+                }
+                else
+                {
+                    pixels = engine.Current() is { } shot
+                        ? shot with
+                        {
+                            MaskedRegionCount = engine.ReportsMaskedRegions
+                                ? engine.MaskedRegions ?? (engine.WithSecureField ? 1 : 0)
+                                : null,
+                        }
+                        : null;
+                }
+            }
+
+            return new Observation
+            {
+                Route = "/",
+                Pixels = pixels,
+                MaskedRegionCount = maskedRegionCount,
+                Roots =
+                [
+                    new SemanticNode
+                    {
+                        Ref = "root",
+                        Role = "document",
+                        Children = children,
+                    },
+                ],
+            };
         }
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
@@ -152,7 +193,7 @@ internal sealed class ScreenEngine : IEngine
                 await before().ConfigureAwait(false);
             }
 
-            var shot = engine.Current();
+            var shot = engine.Current() ?? throw new InvalidOperationException("this engine takes no screenshot");
             return shot with
             {
                 MaskedRegionCount = engine.ReportsMaskedRegions

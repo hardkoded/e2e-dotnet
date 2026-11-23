@@ -42,7 +42,7 @@ public sealed partial class Agent
         public bool TraceEligible => feed.TraceEligible;
 
         public async Task<PreparedObservation> ObserveAsync(SettleMode mode) =>
-            feed.PreparedOf(await feed.ObserveAsync(mode, token).ConfigureAwait(false));
+            feed.PreparedOf(await feed.ProbeAsync(mode, token).ConfigureAwait(false));
 
         public bool TryReserve() => budget.TryReserve();
 

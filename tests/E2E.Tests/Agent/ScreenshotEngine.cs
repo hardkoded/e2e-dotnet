@@ -60,6 +60,18 @@ internal class ScreenshotEngine(DocumentWorld world, Func<int, byte[]>? shot = n
             return observation;
         }
 
+        public async Task<Observation> ObserveAsync(
+            ObserveOptions? options,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        )
+        {
+            var observation = await ObserveAsync(cancellationToken).ConfigureAwait(false);
+            return options?.Pixels == true && engine._shot is not null
+                ? observation.WithPixels(await ScreenshotAsync(cancellationToken).ConfigureAwait(false), null)
+                : observation;
+        }
+
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
             inner.PerformAsync(node, action, cancellationToken);
 

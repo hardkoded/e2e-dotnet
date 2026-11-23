@@ -103,7 +103,8 @@ internal sealed class ScreenProject : IDisposable
                     Title = title,
                     ResultsDirectory = ResultsOf(title),
                     DirectoryOf = _ => Snapshots(file),
-                    Capture = (budget, token) => session.ScreenshotAsync(budget, token),
+                    Observe = (budget, token) =>
+                        session.ObserveAsync(new ObserveOptions { Pixels = true, Comparable = true }, budget, token),
                 },
             }
         );

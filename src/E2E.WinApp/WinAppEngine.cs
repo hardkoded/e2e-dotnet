@@ -85,7 +85,7 @@ public sealed class WinAppEngine : IEngine
     public string Version => EngineVersion;
 
     /// <summary>
-    /// No <see cref="EngineCapabilities.Location"/>: core resolves locators over <see cref="WindowSession.ObserveAsync"/>. No history: a
+    /// No <see cref="EngineCapabilities.Location"/>: core resolves locators over <see cref="WindowSession.ObserveAsync(CancellationToken)"/>. No history: a
     /// desktop app has no back stack the engine can see. No video. No tap modifiers: a pattern invoke holds no keys.
     /// </summary>
     public EngineCapabilities Capabilities =>

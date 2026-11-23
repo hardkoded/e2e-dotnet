@@ -127,7 +127,7 @@ internal sealed record PreparedObservation
 
     public bool? KeyboardVisible { get; init; }
 
-    /// <summary>The screenshot sized for the model, when it is permitted and its masking is proven.</summary>
+    /// <summary>The screenshot the session kept, its masked regions covering every secure node (<see cref="AgentObservation.PixelsForModel(PreparedObservation)"/> sizes it for the model); null when there is none or it is withheld.</summary>
     public EngineScreenshot? Pixels { get; init; }
 
     /// <summary>Why pixels the observation carried are not part of it (upstream's <c>pixelsWithheld</c>).</summary>
@@ -300,42 +300,52 @@ internal static partial class AgentObservation
     }
 
     /// <summary>
-    /// Whether requested pixels become model input, decided once per observation for every call that asks. A capture the engine
-    /// could not make is denied first; then the proof of masking: every secure node the engine reports (<see cref="Observation.SecureNodeCount"/>, else the tree lists) must be covered by a masked region, or
-    /// the engine masked less than it saw and the image cannot be proven redacted. The tree still goes out. The image is
-    /// sized for the model here, once, not per capture.
+    /// Clears captured pixels for model input, or passes on why they are withheld (upstream's <c>clearPixels</c>). The session keeps pixels on
+    /// an observation only once their masked regions cover every secure node, and marks the rest
+    /// <see cref="PixelsWithheld.MaskingUnproven"/>, so the semantic tree still goes out without them.
     /// </summary>
-    public static PixelsOutcome PixelsForModel(Observation observation, EngineScreenshot? screenshot)
+    private static PixelsOutcome ClearPixels(Observation observation) =>
+        observation.PixelsWithheld is { } withheld
+            ? new PixelsOutcome(null, VisionOf(withheld))
+            : new PixelsOutcome(observation.Pixels, null);
+
+    private static VisionDegradation VisionOf(PixelsWithheld withheld) =>
+        withheld switch
+        {
+            PixelsWithheld.MaskingUnproven => VisionDegradation.MaskingUnproven,
+            _ => throw new ArgumentOutOfRangeException(nameof(withheld), withheld, null),
+        };
+
+    /// <summary>
+    /// Whether requested pixels become model input, decided once per observation for every tier that asks (upstream's <c>pixelsForModel</c>):
+    /// the capture's own reasons, then the pixels themselves. The image is sized for the model here, once, not per capture.
+    /// </summary>
+    public static PixelsOutcome PixelsForModel(PreparedObservation observation)
     {
-        if (screenshot is null)
-        {
-            return new PixelsOutcome(null, VisionDegradation.UnsupportedCapability);
-        }
+        ArgumentNullException.ThrowIfNull(observation);
+        return observation.Pixels is null
+            ? new PixelsOutcome(null, observation.PixelsWithheld ?? VisionDegradation.UnsupportedCapability)
+            : new PixelsOutcome(Pixels.SizeForModel(observation.Pixels), null);
+    }
 
-        // The larger of the engine's count and the tree's, so a reported count never weakens the proof (.NET-only; upstream trusts the engine's count, and a missing count is zero).
-        var secure = Math.Max(
-            observation.SecureNodeCount ?? 0,
-            LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure)
-        );
-        if (
-            screenshot.MaskedRegionCount is not { } masked
-            || !Secrecy.PixelsProvenMasked(new ObservationRedaction(secure, masked))
-        )
-        {
-            return new PixelsOutcome(null, VisionDegradation.MaskingUnproven);
-        }
-
-        // Withheld with nothing left to mask: no screenshot was kept, and none is owed.
-        return screenshot.IsWithheld
-            ? new PixelsOutcome(null, VisionDegradation.UnsupportedCapability)
-            : new PixelsOutcome(Pixels.SizeForModel(screenshot), null);
+    /// <summary>
+    /// <see cref="PixelsForModel(PreparedObservation)"/> for a look that is read without being prepared (.NET-only: the judgment reads the
+    /// raw look, which carries the same session-decided pixels).
+    /// </summary>
+    public static PixelsOutcome PixelsForModel(Observation observation)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        var cleared = ClearPixels(observation);
+        return cleared.Pixels is null
+            ? new PixelsOutcome(null, cleared.Withheld ?? VisionDegradation.UnsupportedCapability)
+            : new PixelsOutcome(Pixels.SizeForModel(cleared.Pixels), null);
     }
 
     /// <summary>
     /// Turns one raw engine observation into redacted model input (upstream's <c>prepareObservation</c>). The text is the screen
     /// as the model reads it, cut at <see cref="PrepareObservationOptions.MaxBytes"/>; the node index and the tree hold every
     /// node with every string field redacted (<see cref="RedactNode"/>). A screen with no tree is answered with pixels alone, and
-    /// only when they are permitted and proven masked (<see cref="PixelsForModel"/>). Pixels the masking of which cannot be
+    /// only when they are permitted and proven masked (<see cref="PixelsForModel(PreparedObservation)"/>). Pixels the masking of which cannot be
     /// proven are withheld from a semantic observation, and its tree still goes out.
     /// </summary>
     public static PreparedObservation PrepareObservation(Observation observation, PrepareObservationOptions options)
@@ -344,16 +354,14 @@ internal static partial class AgentObservation
         ArgumentNullException.ThrowIfNull(options);
         var location = observation.Location is null ? null : options.Redactor.Redact(observation.Location);
         var path = PathOf(observation, options.Redactor);
-        var pixels = observation.Pixels is null
-            ? new PixelsOutcome(null, null)
-            : PixelsForModel(observation, observation.Pixels);
+        var pixels = ClearPixels(observation);
         if (observation.TreeUnavailable)
         {
             if (!options.PixelsAllowed || pixels.Pixels is null)
             {
                 throw new TestException(
                     "UNSUPPORTED_CAPABILITY",
-                    "semantic capture is unavailable and no permitted, proven-masked screenshot can replace it"
+                    "semantic capture is unavailable and no permitted screenshot can replace it"
                 );
             }
 

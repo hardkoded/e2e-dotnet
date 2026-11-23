@@ -526,15 +526,16 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             raw.AppBundleId ?? raw.AppName ?? _appIdentity,
             SnapshotProjection.ScreenTitle(projected)
         ) ?? "";
-        var pixels =
+        var (pixels, maskedRegionCount) =
             options?.Pixels == true
                 ? await CapturePixelsAsync(projected, viewport, options.Comparable, budget, cancellationToken)
                     .ConfigureAwait(false)
-                : null;
+                : (null, null);
         return new Observation
         {
             Route = Route,
             Pixels = pixels,
+            MaskedRegionCount = maskedRegionCount,
             Roots = [SnapshotProjection.ScreenRoot(projected.Roots, viewport)],
             Viewport = new TraceViewport((int)Math.Round(viewport.Width), (int)Math.Round(viewport.Height)),
             Truncated = raw.Truncated || raw.Sparse,

@@ -297,7 +297,7 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
             Suffix = "-fake",
             Title = "ambiguous",
             ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-ambiguous-results"),
-            Capture = (_, _) => throw new InvalidOperationException("the locator is ambiguous, so nothing is captured"),
+            Observe = (_, _) => throw new InvalidOperationException("the locator is ambiguous, so nothing is captured"),
         };
         var screenshot = await Assert.ThrowsAsync<TestException>(() =>
             Expect

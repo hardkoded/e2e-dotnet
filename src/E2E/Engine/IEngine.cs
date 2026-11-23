@@ -711,22 +711,10 @@ public interface IEngineSession : IAsyncDisposable
 }
 
 /// <summary>A captured viewport: PNG bytes, and how many image pixels one viewport (CSS) pixel takes.</summary>
-/// <param name="Png">The image, with every secure field covered. Empty for a withheld screenshot (<see cref="EngineScreenshot.Withheld(int)"/>).</param>
+/// <param name="Png">The image, with every secure field covered.</param>
 /// <param name="Scale">Image pixels per viewport (CSS) pixel.</param>
 /// <param name="MaskedRegionCount">How many regions the engine covered, so a caller can prove the image is at least as redacted as the tree. Null when the engine cannot say.</param>
-public sealed record EngineScreenshot(byte[] Png, double Scale, int? MaskedRegionCount = null)
-{
-    /// <summary>
-    /// A screenshot the engine took and withheld because it could not mask every secure node on the screen (upstream's snapshot that
-    /// carries <c>maskedRegionCount</c> without <c>pixels</c>). It holds no image and reports the regions the engine could mask, fewer than
-    /// the screen's secure nodes, so <c>toHaveScreenshot</c> fails with <c>POLICY_DENIED</c> and the agent reads <c>MASKING_UNPROVEN</c>,
-    /// not a missing screenshot. Held as an empty <see cref="Png"/> (.NET-only: upstream's optional <c>pixels</c>).
-    /// </summary>
-    public static EngineScreenshot Withheld(int maskedRegionCount) => new([], 1, maskedRegionCount);
-
-    /// <summary>Whether the engine withheld the image (see <see cref="Withheld(int)"/>): it reports the regions it masked and holds no pixels.</summary>
-    public bool IsWithheld => Png.Length == 0 && MaskedRegionCount is not null;
-}
+public sealed record EngineScreenshot(byte[] Png, double Scale, int? MaskedRegionCount = null);
 
 /// <summary>
 /// The facts handed to an engine's prepare (<see cref="IPreparableEngine.PrepareAsync"/>), once per run and target in the runner

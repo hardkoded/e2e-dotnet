@@ -450,7 +450,8 @@ showing (see the mobile reference).
   masks secure fields only, so a secret the app shows anywhere else is in it. When the engine
   cannot prove every secure field on screen was masked, the call fails with
   `POLICY_DENIED` and keeps no screenshot. An engine that withheld the screenshot for that reason
-  (iOS and Android with a secure field that has no bounds) fails it at once, not after the timeout.
+  (iOS and Android with a secure field that has no bounds) fails it at once, not after the timeout. An engine that took no
+  screenshot at all keeps the poll waiting, and the call fails as an assertion (`the engine returned no screenshot`).
   `App.ScreenshotAsync` fails the same way.
 - `Expect.That(Browser).ToHaveURLAsync("/about")` (a string, or a `Regex`; `ignoreCase`)
   and `ToHaveTitleAsync("About page")` poll the URL and the title, `.Not`

@@ -24,7 +24,7 @@ public sealed class SemanticFallbackHandoffTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task Partial_Requests_pixels_after_a_semantic_cache_probe(bool pixels)
+    public async Task Requests_pixels_after_a_semantic_cache_probe(bool pixels)
     {
         var captures = new List<bool>();
         var engine = new FallbackEngine
@@ -48,9 +48,7 @@ public sealed class SemanticFallbackHandoffTests
             );
             Assert.Contains("Save", observation.Text, StringComparison.Ordinal);
             Assert.False(observation.TreeUnavailable);
-            // Partial: the port takes the screenshot of a pixels look through the engine's screenshot, not as an observe with pixels, so the
-            // engine sees no pixels option (upstream's captures are [false, false, true, true]). The screenshot itself is checked below.
-            Assert.All(captures, Assert.False);
+            Assert.Equal(pixels ? new[] { false, false, true, true } : new[] { false, false }, captures);
             if (pixels)
             {
                 Assert.Equal(FallbackFixtures.Shot(1), observation.Pixels!.Data);
@@ -251,7 +249,9 @@ public sealed class SemanticFallbackHandoffTests
             Observe = (_, _, _) =>
             {
                 captures += 1;
-                if (captures <= 2)
+                // Partial: the port's replay takes no look of its own after the cache probe settles (upstream's third look), so the screen
+                // loses its tree at the probe's second look, which the executor's first observe then reuses.
+                if (captures <= 1)
                 {
                     return Task.FromResult(
                         FallbackFixtures.TreeAt("https://fixture.test/start", null, null, FallbackFixtures.Save)

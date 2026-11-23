@@ -15,8 +15,7 @@ namespace E2E.Tests.ScreenshotAssertions;
 /// upstream's. Not ported: "reports the mismatch
 /// it saw when a later capture comes back without pixels" (an engine returns a PNG or fails), "refuses a screen
 /// scoped to a frame" (the port has no <c>browser.frameLocator</c>), and the unknown-option case of the
-/// invalid-argument table (the type forbids it). The first test is renamed because the port has no
-/// <c>comparable</c> observe option and no step to attach images to.
+/// invalid-argument table (the type forbids it). The first test is renamed because the port has no step to attach images to.
 /// </summary>
 public sealed class ToHaveScreenshotTests
 {
@@ -54,6 +53,8 @@ public sealed class ToHaveScreenshotTests
         );
         Assert.True(File.Exists(stored));
         Assert.True(engine.Captures > 0);
+        Assert.NotEmpty(engine.Asked);
+        Assert.All(engine.Asked, asked => Assert.True(asked.Comparable));
 
         Assert.Null(await project.RunAsync("home", "home", Home));
 
@@ -185,7 +186,9 @@ public sealed class ToHaveScreenshotTests
             Assert.False(Directory.Exists(project.Snapshots("home")));
         }
 
-        using (var silent = new ScreenProject(new ScreenEngine { ReportsMaskedRegions = false }))
+        using (
+            var silent = new ScreenProject(new ScreenEngine { WithSecureField = true, ReportsMaskedRegions = false })
+        )
         {
             Assert.Equal("POLICY_DENIED", (await silent.RunAsync("home", "home", Home))?.Code);
             Assert.False(Directory.Exists(silent.Snapshots("home")));
@@ -210,17 +213,23 @@ public sealed class ToHaveScreenshotTests
     [Fact]
     public async Task Fails_at_once_with_POLICY_DENIED_when_the_engine_withholds_a_screenshot_it_could_not_mask()
     {
-        var withheld = new ScreenEngine
-        {
-            WithSecureField = true,
-            MaskedRegions = 0,
-            Current = () => EngineScreenshot.Withheld(0),
-        };
+        var withheld = new ScreenEngine { WithSecureField = true, WithheldMaskedRegions = 0 };
         using var project = new ScreenProject(withheld);
         var error = await project.RunAsync("home", "home", Home);
         Assert.Equal("POLICY_DENIED", error?.Code);
         Assert.Equal(1, withheld.Captures);
         Assert.False(Directory.Exists(project.Snapshots("home")));
+    }
+
+    [Fact]
+    public async Task Keeps_waiting_for_a_screenshot_the_engine_did_not_take_on_a_screen_with_a_secure_field()
+    {
+        var engine = new ScreenEngine { WithSecureField = true, Current = () => null };
+        using var project = new ScreenProject(engine);
+        var error = await project.RunAsync("home", "home", Home);
+        Assert.Equal("ASSERTION_FAILED", error?.Code);
+        Assert.Contains("the engine returned no screenshot", error!.Message, StringComparison.Ordinal);
+        Assert.True(engine.Captures > 1);
     }
 
     [Fact]

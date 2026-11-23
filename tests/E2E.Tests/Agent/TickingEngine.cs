@@ -38,9 +38,16 @@ internal sealed class TickingEngine(IEngine inner) : IEngine
             return inner.OpenAsync(url, cancellationToken);
         }
 
-        public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            ObserveAsync(null, TimeSpan.Zero, cancellationToken);
+
+        public async Task<Observation> ObserveAsync(
+            ObserveOptions? options,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        )
         {
-            var seen = await inner.ObserveAsync(cancellationToken).ConfigureAwait(false);
+            var seen = await inner.ObserveAsync(options, timeout, cancellationToken).ConfigureAwait(false);
             var ticks = (long)(_clock.Elapsed / Tick);
             return new Observation
             {
@@ -52,6 +59,7 @@ internal sealed class TickingEngine(IEngine inner) : IEngine
                 ScrollPosition = seen.ScrollPosition,
                 Viewport = seen.Viewport,
                 Pixels = seen.Pixels,
+                MaskedRegionCount = seen.MaskedRegionCount,
                 TreeUnavailable = seen.TreeUnavailable,
                 SecureNodeCount = seen.SecureNodeCount,
             };
