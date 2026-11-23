@@ -125,55 +125,38 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
             ?? throw new InvalidOperationException("The E2E session starts inside a running xUnit test.");
         RunSelection.SkipIfLeftOut(GetType(), test.TestCase.TestMethodName);
         RunSelection.SkipIfSetupRan(GetType(), test.TestCase.TestMethodName);
-        var started = StartSessionAsync(
-            CacheTitle(test),
-            1,
-            null,
-            HasFailed,
-            current.CancellationToken,
-            (test.TestCase as IXunitTestCase)?.TestMethod?.Method
-        );
-        var fixme = (test.TestCase as IXunitTestCase)?.TestMethod?.Method.GetCustomAttribute<FixmeAttribute>(true);
-        return new ValueTask(RegisterRunningAsync(started, test.UniqueID, fixme));
+        var method = (test.TestCase as IXunitTestCase)?.TestMethod?.Method;
+        if (method?.GetCustomAttribute<FixmeAttribute>(true) is { } fixme)
+        {
+            return new ValueTask(SkipFixmeWithoutSessionAsync(method, fixme, current.CancellationToken));
+        }
+
+        var started = StartSessionAsync(CacheTitle(test), 1, null, HasFailed, current.CancellationToken, method);
+        return new ValueTask(RegisterRunningAsync(started, test.UniqueID));
     }
 
-    private async Task RegisterRunningAsync(Task started, string uniqueId, FixmeAttribute? fixme)
+    // A test registered with [Fixme] that the run fixture did not collect (an [Explicit] fixture runs alone) is reported here, and skips before its session starts.
+    private async Task SkipFixmeWithoutSessionAsync(
+        MethodInfo method,
+        FixmeAttribute fixme,
+        CancellationToken cancellationToken
+    )
+    {
+        var discovered = RunSelection
+            .Discover([GetType()], GetType().Assembly)
+            .FirstOrDefault(test => test.Fixme && test.Title == method.Name);
+        if (discovered is not null)
+        {
+            await HostTestFilters.ReportFixmeAsync(Config, discovered, cancellationToken).ConfigureAwait(false);
+        }
+
+        RunSelection.SkipWith(E2E.Internal.Skip.FixmeReason(fixme.Reason));
+    }
+
+    private async Task RegisterRunningAsync(Task started, string uniqueId)
     {
         await started.ConfigureAwait(false);
         Running[uniqueId] = this;
-
-        // A test registered with [Fixme] skips once its session has started, as a Fixme() from a set-up does: the report tells the cause fixme.
-        if (fixme is not null)
-        {
-            try
-            {
-                Fixme(true, fixme.Reason);
-            }
-            catch (Exception ex)
-            {
-                // xUnit does not dispose a test class whose InitializeAsync threw, so the session is completed here, and the report tells the skip.
-                Running.TryRemove(uniqueId, out _);
-                if (TakeSession() is { } session)
-                {
-                    try
-                    {
-                        // A refused fixme (a setup test) stays the test error it is; a skip completes as one.
-                        session.Complete(
-                            ex is InvalidOperationException
-                                ? new SkipException(E2E.Internal.Skip.FixmeReason(fixme.Reason))
-                                : ex,
-                            Xunit.TestContext.Current.CancellationToken
-                        );
-                    }
-                    finally
-                    {
-                        await session.DisposeAsync().ConfigureAwait(false);
-                    }
-                }
-
-                throw;
-            }
-        }
     }
 
     // The test body has ended and the class is not disposed yet: a failed body is looked at now, ahead of the teardown.

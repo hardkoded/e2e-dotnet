@@ -80,6 +80,9 @@ internal static class RunSelection
         }
     }
 
+    /// <summary>Ends the test as skipped, with <paramref name="reason"/>, before its session starts.</summary>
+    public static void SkipWith(string reason) => throw new InvalidOperationException(DynamicSkipToken + reason);
+
     /// <summary>Ends a setup test as skipped when it already ran for a test that restores its session (see <c>SetupDependencies</c>).</summary>
     public static void SkipIfSetupRan(Type fixture, string? method)
     {

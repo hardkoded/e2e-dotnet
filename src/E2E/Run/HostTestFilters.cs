@@ -216,6 +216,18 @@ internal static class HostTestFilters
         );
     }
 
+    /// <summary>
+    /// Reports one <c>[Fixme]</c> test the run fixture did not collect (an <c>[Explicit]</c> fixture runs alone, so discovery skips it), as skipped and
+    /// selected with no attempt, so the host skips it before its session starts (.NET-only: upstream reports every fixme test from collection).
+    /// </summary>
+    public static async Task ReportFixmeAsync(E2EConfig config, DiscoveredTest test, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(test);
+        var selection = await ExcludeAsync(config, [], null, [test], _ => { }, cancellationToken).ConfigureAwait(false);
+        await WriteReportAsync(config, selection, cancellationToken).ConfigureAwait(false);
+    }
+
     // One filter's call as the `filter` setup step: started as it begins, finished with how long it took and, for a call that did not answer, how it ended.
     private static async Task<FilterCall> FilterStepAsync(string name, Func<Task<FilterCall>> work)
     {
