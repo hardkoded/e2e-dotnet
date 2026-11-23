@@ -212,6 +212,13 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
             "too_big",
             $"Too big: expected string to have <={AgentTools.MaxScrollToText} characters"
         );
+        // z.enum answers invalid_value for a value of any type, not invalid_type.
+        ExpectRefused(
+            scrollTo,
+            """{ "text": "Row 4322", "direction": 1 }""",
+            "invalid_value",
+            "Invalid option: expected one of \"up\"|\"down\"|\"left\"|\"right\""
+        );
         ExpectRefused(
             scrollTo,
             """{ "text": "Row 4322", "direction": "sideways" }""",

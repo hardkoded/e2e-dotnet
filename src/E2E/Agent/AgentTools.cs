@@ -841,12 +841,6 @@ public static class AgentTools
             return;
         }
 
-        if (!MatchesType(expected, value))
-        {
-            issues.Add(InvalidType(expected, ReceivedType(value), path));
-            return;
-        }
-
         if (schema.TryGetProperty("enum", out var values) && values.ValueKind == JsonValueKind.Array)
         {
             var options = values.EnumerateArray().ToList();
@@ -867,7 +861,14 @@ public static class AgentTools
                                 : "Invalid option: expected one of " + string.Join("|", texts),
                     }
                 );
+                return;
             }
+        }
+
+        if (!MatchesType(expected, value))
+        {
+            issues.Add(InvalidType(expected, ReceivedType(value), path));
+            return;
         }
 
         switch (expected)
