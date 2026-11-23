@@ -187,6 +187,7 @@ public abstract partial class E2ETest : E2EFixture
 
         var skipped = FailSkippedAfterSoftFailure();
         var current = global::NUnit.Framework.TestContext.CurrentContext;
+        KeepSkipBesideFailure(session);
 
         // A derived [TearDown] that threw ran before this one: NUnit keeps its failure in the result, which the report tells as an afterEach secondary error.
         if (HookFailureOf(current.Result) is { } hookFailure)
@@ -445,6 +446,25 @@ public abstract partial class E2ETest : E2EFixture
         }
 
         return true;
+    }
+
+    // A failure outranks a skip, and the report keeps the skip beside it, as for Fixme (upstream's execute.ts keeps the runtime skip on a failed attempt).
+    // NUnit's host skip message is not carried to the session, but a result with several outcomes lists the skip as an inconclusive assertion result.
+    private static void KeepSkipBesideFailure(E2ESession session)
+    {
+        if (session.RuntimeSkip is not null)
+        {
+            return;
+        }
+
+        var skip = TestExecutionContext
+            .CurrentContext.CurrentResult.AssertionResults.FirstOrDefault(assertion =>
+                assertion.Status == AssertionStatus.Inconclusive
+            );
+        if (skip is not null)
+        {
+            session.RuntimeSkip = RuntimeSkip.Create(skip.Message, "explicit");
+        }
     }
 
     // NUnit counts both [Retry] and [Repeat] in CurrentRepeatCount. Only a retry is a later attempt.
