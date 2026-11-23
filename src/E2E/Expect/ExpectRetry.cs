@@ -174,9 +174,10 @@ internal static class ExpectRetry
 
             lines.Add("last: " + (last ?? options.NoSample));
             var text = ErrorRedaction.Redact(string.Join('\n', lines));
-            return cause is null
-                ? new TestException("ASSERTION_FAILED", text)
-                : new TestException("ASSERTION_FAILED", text, cause);
+            // Upstream redacts the kept cause when serializeError walks it; the port has no report boundary, so it is redacted here.
+            return ErrorRedaction.Cause(cause, ErrorRedaction.Redact) is { } redactedCause
+                ? new TestException("ASSERTION_FAILED", text, redactedCause)
+                : new TestException("ASSERTION_FAILED", text);
         }
 
         try
@@ -185,84 +186,109 @@ internal static class ExpectRetry
             TimeSpan? interval = null;
             while (true)
             {
-                token.ThrowIfCancellationRequested();
-                var remaining = Current() - clock.GetUtcNow();
-                if (remaining <= TimeSpan.Zero)
+                while (true)
                 {
-                    break;
-                }
-
-                Sample sample;
-                using (var attempt = CancellationTokenSource.CreateLinkedTokenSource(token))
-                {
-                    var tryStarted = clock.GetUtcNow();
-                    try
+                    token.ThrowIfCancellationRequested();
+                    var deadline = Current();
+                    var remaining = deadline - clock.GetUtcNow();
+                    if (remaining <= TimeSpan.Zero)
                     {
-                        // The block's own TimeoutException is a failed try; only the wait below ends the retry at the deadline (upstream's READ_HUNG).
-                        sample = await PollScopes
-                            .PollReadAsync(() => TryAsync(read, attempt.Token, token))
-                            .WaitAsync(remaining > Time.Unbounded ? Time.Unbounded : remaining, clock, token)
-                            .ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException) when (token.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (TimeoutException)
-                    {
-                        // The try outlived the deadline; its outcome is dropped and what it was running is cancelled.
-                        await attempt.CancelAsync().ConfigureAwait(false);
                         break;
                     }
 
-                    if (sample.Error is not null)
+                    Sample sample;
+                    using (var attempt = CancellationTokenSource.CreateLinkedTokenSource(token))
                     {
-                        await attempt.CancelAsync().ConfigureAwait(false);
-                    }
-
-                    // A try counts only if it settles within the time that remained when it started.
-                    if (clock.GetUtcNow() - tryStarted > remaining)
-                    {
-                        if (sample.Error is { } late)
+                        var tryStarted = clock.GetUtcNow();
+                        try
                         {
-                            (last, cause) = (late.Message, late);
+                            // The block's own TimeoutException is a failed try; only the wait below ends the retry at the deadline (upstream's READ_HUNG).
+                            sample = await PollScopes
+                                .PollReadAsync(() => TryAsync(read, attempt.Token, token))
+                                .WaitAsync(remaining > Time.Unbounded ? Time.Unbounded : remaining, clock, token)
+                                .ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (token.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+                        catch (TimeoutException)
+                        {
+                            // The try outlived the deadline; its outcome is dropped and what it was running is cancelled.
+                            await attempt.CancelAsync().ConfigureAwait(false);
+
+                            // A deadline that moved while the try ran is not the one that cut it (upstream's `deadline !== result.cut`).
+                            if (Current() != deadline)
+                            {
+                                continue;
+                            }
+
+                            break;
                         }
 
+                        if (sample.Error is not null)
+                        {
+                            await attempt.CancelAsync().ConfigureAwait(false);
+                        }
+
+                        // A try counts only if it settles within the time that remained when it started.
+                        if (clock.GetUtcNow() - tryStarted > remaining)
+                        {
+                            if (sample.Error is { } late)
+                            {
+                                (last, cause) = (late.Message, late);
+                            }
+
+                            if (Current() != deadline)
+                            {
+                                continue;
+                            }
+
+                            break;
+                        }
+                    }
+
+                    var outcome = evaluate(sample);
+                    if (outcome.Passed)
+                    {
+                        return outcome.Value;
+                    }
+
+                    (last, cause) = (outcome.Last, outcome.Cause);
+                    if (index < options.Intervals.Count)
+                    {
+                        interval = options.Intervals[index++];
+                    }
+
+                    var pause = interval ?? TimeSpan.Zero;
+                    var pausedAt = Current();
+                    var left = pausedAt - clock.GetUtcNow();
+                    if (left > TimeSpan.Zero)
+                    {
+                        await Pause(left < pause ? left : pause, clock, token).ConfigureAwait(false);
+                    }
+
+                    if (pause >= left && Current() == pausedAt)
+                    {
+                        // The next pause would cross the deadline, so the retry ends without another read. A deadline that moved during the pause goes on.
                         break;
                     }
                 }
 
-                var outcome = evaluate(sample);
-                if (outcome.Passed)
+                token.ThrowIfCancellationRequested();
+                var endedDeadline = Current();
+                (endedAt, endedAtOwn) = (clock.GetUtcNow(), EndsAtOwn());
+                if (endedAtOwn is false)
                 {
-                    return outcome.Value;
+                    // The phase's own timeout takes precedence if it fires within the grace. A deadline that moved within it goes on.
+                    await Pause(PhaseTimeoutGrace, clock, token).ConfigureAwait(false);
+                    if (Current() != endedDeadline)
+                    {
+                        continue;
+                    }
                 }
 
-                (last, cause) = (outcome.Last, outcome.Cause);
-                if (index < options.Intervals.Count)
-                {
-                    interval = options.Intervals[index++];
-                }
-
-                var pause = interval ?? TimeSpan.Zero;
-                var left = Current() - clock.GetUtcNow();
-                if (left > TimeSpan.Zero)
-                {
-                    await Pause(left < pause ? left : pause, clock, token).ConfigureAwait(false);
-                }
-
-                if (pause >= left)
-                {
-                    // The next pause would cross the deadline, so the retry ends without another read.
-                    break;
-                }
-            }
-
-            (endedAt, endedAtOwn) = (clock.GetUtcNow(), EndsAtOwn());
-            if (endedAtOwn is false)
-            {
-                // The phase's own timeout takes precedence if it fires within the grace.
-                await Pause(PhaseTimeoutGrace, clock, token).ConfigureAwait(false);
+                break;
             }
         }
         catch (OperationCanceledException)

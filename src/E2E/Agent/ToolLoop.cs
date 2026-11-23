@@ -114,7 +114,37 @@ public sealed class ToolLoopExecutorOptions
 public sealed record ToolLoopTool(
     ModelTool Definition,
     Func<ModelToolCall, CancellationToken, Task<ToolLoopResult>> ExecuteAsync
-);
+)
+{
+    /// <summary>
+    /// A tool whose call answers an async sequence, as upstream's tool may return an async iterable: the earlier outputs are preliminary
+    /// and the last one is the output the model reads. Upstream's <c>relayOutputs</c> reads the iterable to its end before the call
+    /// settles, so a verdict sent in the same turn waits for it; a sequence that throws is a failed call, and one whose last output is
+    /// a failure refuses that verdict the way a failed result does.
+    /// </summary>
+    /// <param name="definition">The name, the description, and the input schema the model sees.</param>
+    /// <param name="executeOutputs">Runs the call and yields its outputs.</param>
+    public static ToolLoopTool FromOutputs(
+        ModelTool definition,
+        Func<ModelToolCall, CancellationToken, IAsyncEnumerable<ToolLoopResult>> executeOutputs
+    ) => new(definition, (call, token) => RelayOutputsAsync(call.Name, executeOutputs(call, token), token));
+
+    // Upstream's relayOutputs: reads every value of the tool's outputs; the last one is what the model reads.
+    private static async Task<ToolLoopResult> RelayOutputsAsync(
+        string name,
+        IAsyncEnumerable<ToolLoopResult> source,
+        CancellationToken token
+    )
+    {
+        ToolLoopResult? last = null;
+        await foreach (var value in source.WithCancellation(token).ConfigureAwait(false))
+        {
+            last = value;
+        }
+
+        return last ?? throw new InvalidOperationException(name + " produced no output");
+    }
+}
 
 /// <summary>
 /// What a tool call answered: the text the model reads, whether the call failed, which the loop counts toward its failure streak, and the

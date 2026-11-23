@@ -10,9 +10,9 @@ namespace E2E.NUnit.Tests.Registry;
 
 /// <summary>
 /// <c>describe('registration')</c> of upstream's <c>tests/unit/registry.test.ts</c>, for the <c>describe.fail</c> and <c>fail</c> option tests of
-/// tester-army/e2e#1925. The port has no collector: a group is a fixture, marked with <c>[Property("E2E.Fail", reason)]</c>. Each test is <c>Partial_</c>
-/// for what that leaves out: <c>describe.fail(title, fn)</c> and its registration checks (a non-boolean, non-string <c>fail</c> is not expressible in a
-/// property), and the <c>COLLECTION_ERROR</c> (the port refuses the serial case as the test's own <c>INVALID_ARGUMENT</c> when it runs).
+/// tester-army/e2e#1925. The port has no collector: a group is a fixture, marked with <c>[DescribeFail]</c> (<c>describe.fail(title, fn)</c>) or
+/// <c>[Property("E2E.Fail", reason)]</c> (the <c>fail</c> option), and the host's discovery runs the registry's checks. Each test is <c>Partial_</c>
+/// for what that leaves out, named on the test.
 /// </summary>
 /// <remarks><c>Partial_registers_test_fixme...</c> leaves out the call of <c>test.fixme(title, fn)</c> outside a collection, which has no counterpart: an attribute needs no call.</remarks>
 public sealed class RegistrationTests
@@ -36,7 +36,7 @@ public sealed class RegistrationTests
             typeof(RegistrationTests).Assembly
         );
         var error = Assert.Throws<ConfigurationException>(() => HostTestFilters.Collect(serial, [], [], out _))!;
-        Assert.That(error.Code, Is.EqualTo("COLLECTION_ERROR"));
+        Assert.That(error!.Code, Is.EqualTo("COLLECTION_ERROR"));
         Assert.That(
             error.Message,
             Is.EqualTo(
@@ -45,6 +45,10 @@ public sealed class RegistrationTests
         );
     }
 
+    /// <remarks>
+    /// Partial: <c>describe.fail</c> with tags and keys a spread would drop, and <c>describe.fail</c> given a <c>fail</c> option, have no counterpart: the attribute
+    /// takes no option, and a property holds no unknown keys.
+    /// </remarks>
     [Test]
     public void Partial_marks_a_group_by_describe_fail_or_the_fail_option_and_checks_both()
     {
@@ -54,27 +58,72 @@ public sealed class RegistrationTests
         Assert.That(NUnitSessionTestRunner.ExpectedFailureOf(option), Is.EqualTo("old checkout"));
         var outside = TestOf(typeof(OutsideTheGroupFixture), nameof(OutsideTheGroupFixture.Outside_the_group));
         Assert.That(NUnitSessionTestRunner.ExpectedFailureOf(outside), Is.Null);
+
+        // A fail that is not true, false, or a reason string is a collection error, as upstream's validateFailOption.
+        var bad = E2E.NUnit.RunSelection.Discover([typeof(BadFailValueFixture)], typeof(RegistrationTests).Assembly);
+        var error = Assert.Throws<ConfigurationException>(() => HostTestFilters.Collect(bad, [], [], out _));
+        Assert.That(error!.Code, Is.EqualTo("COLLECTION_ERROR"));
+        Assert.That(
+            error!.Message,
+            Is.EqualTo("describe options: fail must be true, false, or a reason string, got 1")
+        );
     }
 
+    /// <remarks>
+    /// Partial: <c>describe.fail</c> nested inside a serial group, and a group with <c>fail: false</c> around one, have no counterpart: a nested class is
+    /// not a member of its enclosing fixture's serial group, and a property cannot say <c>false</c>. An unmarked group around a serial one stands for the second.
+    /// </remarks>
     [Test]
     public void Partial_refuses_fail_on_inside_or_around_a_serial_group()
     {
+        const string serialRule =
+            "describe option \"fail\" cannot be set on or inside a serial group, which runs as one unit";
+        foreach (
+            var fixture in new[]
+            {
+                typeof(MarkedSerialFixture),
+                typeof(MarkedMemberSerialFixture),
+                typeof(DescribeFailSerialFixture),
+            }
+        )
+        {
+            var found = E2E.NUnit.RunSelection.Discover([fixture], typeof(RegistrationTests).Assembly);
+            var refused = Assert.Throws<ConfigurationException>(() => HostTestFilters.Collect(found, [], [], out _));
+            Assert.That(refused!.Code, Is.EqualTo("COLLECTION_ERROR"));
+            Assert.That(refused!.Message, Is.EqualTo(serialRule));
+        }
+
+        var around = E2E.NUnit.RunSelection.Discover(
+            [typeof(MarkedOuterFixture.SerialInside)],
+            typeof(RegistrationTests).Assembly
+        );
+        var aroundError = Assert.Throws<ConfigurationException>(() => HostTestFilters.Collect(around, [], [], out _));
+        Assert.That(aroundError!.Code, Is.EqualTo("COLLECTION_ERROR"));
+        Assert.That(
+            aroundError.Message,
+            Is.EqualTo("a serial group cannot sit inside a group marked fail; its members cannot be expected to fail")
+        );
+
+        var unmarked = E2E.NUnit.RunSelection.Discover(
+            [typeof(UnmarkedOuterFixture.SerialInside)],
+            typeof(RegistrationTests).Assembly
+        );
+        Assert.That(HostTestFilters.Collect(unmarked, [], [], out _).Tests, Has.Count.EqualTo(1));
+
+        // An unfiltered run does not collect: the member refuses itself with the same error.
         var onSerial = NestedRun.Run(nameof(MarkedSerialFixture.Marked_member));
         Assert.That(onSerial.ResultState.Status, Is.EqualTo(TestStatus.Failed));
-        Assert.That(
-            onSerial.Message,
-            Does.Contain("INVALID_ARGUMENT").And.Contain("cannot be set on or inside a serial group")
-        );
+        Assert.That(onSerial.Message, Does.Contain("COLLECTION_ERROR").And.Contain(serialRule));
 
         var inside = NestedRun.Run(nameof(MarkedMemberSerialFixture.Marked_member_of_a_serial_group));
         Assert.That(inside.ResultState.Status, Is.EqualTo(TestStatus.Failed));
-        Assert.That(inside.Message, Does.Contain("INVALID_ARGUMENT"));
+        Assert.That(inside.Message, Does.Contain("COLLECTION_ERROR"));
 
-        var around = NestedRun.Run(
+        var aroundRun = NestedRun.Run(
             nameof(MarkedOuterFixture.SerialInside.Member_of_a_serial_group_inside_a_marked_group)
         );
-        Assert.That(around.ResultState.Status, Is.EqualTo(TestStatus.Failed));
-        Assert.That(around.Message, Does.Contain("INVALID_ARGUMENT"));
+        Assert.That(aroundRun.ResultState.Status, Is.EqualTo(TestStatus.Failed));
+        Assert.That(aroundRun.Message, Does.Contain("COLLECTION_ERROR"));
     }
 
     [Test]
@@ -156,5 +205,37 @@ public sealed class MarkedOuterFixture : ExpectedFailureFixtureBase
     {
         [Test]
         public void Member_of_a_serial_group_inside_a_marked_group() { }
+    }
+}
+
+/// <summary><c>describe.fail</c> on a serial group: refused.</summary>
+[Explicit("Run by RegistrationTests")]
+[Serial]
+[DescribeFail]
+public sealed class DescribeFailSerialFixture : ExpectedFailureFixtureBase
+{
+    [Test]
+    public void Member_of_a_describe_fail_serial_group() { }
+}
+
+/// <summary>A group whose <c>fail</c> is a number (upstream's <c>{ fail: 1 }</c>).</summary>
+[Explicit("Discovered by RegistrationTests, never run")]
+[Property(NUnitSessionTestRunner.ExpectedFailureProperty, 1)]
+public sealed class BadFailValueFixture : ExpectedFailureFixtureBase
+{
+    [Test]
+    public void Bad_fail_value() { }
+}
+
+/// <summary>A group with no mark around a serial group: nothing to refuse.</summary>
+[Explicit("Discovered by RegistrationTests, never run")]
+public sealed class UnmarkedOuterFixture : ExpectedFailureFixtureBase
+{
+    [Explicit("Discovered by RegistrationTests, never run")]
+    [Serial]
+    public sealed class SerialInside : ExpectedFailureFixtureBase
+    {
+        [Test]
+        public void Member_of_a_serial_group_inside_an_unmarked_group() { }
     }
 }

@@ -5,9 +5,7 @@
 namespace E2E.Tests.ExpectPoll;
 
 /// <summary>
-/// Ported from the <c>expect(fn).toPass()</c> describe of upstream's <c>expect-poll.test.ts</c>. Not ported, because the port has no attempt budget,
-/// phase deadline, or poll scope: "reports the attempt deadline when there is no timeout on the block", "waits at the phase deadline for the
-/// runner to cancel", "keeps the toPass timeout when the phase deadline moves during a pause". Not ported, because C# types the options: "refuses a
+/// Ported from the <c>expect(fn).toPass()</c> describe of upstream's <c>expect-poll.test.ts</c>. Not ported, because C# types the options: "refuses a
 /// non-plain toPass options object", "names intervals when toPass receives interval", "quotes a string in the interval list". "stops a nested poll at
 /// the block deadline outside a test" and "cancels a negated check when the attempt aborts during a try" are partial: the port has no ambient signal,
 /// so the block hands its token to the nested poll, and the caller's token stands for the attempt.
@@ -110,6 +108,47 @@ public sealed class ExpectFnToPassTests
             error.Message,
             StringComparison.Ordinal
         );
+    }
+
+    [Fact]
+    public async Task Reports_the_attempt_deadline_when_there_is_no_timeout_on_the_block()
+    {
+        using var live = new LiveAttempt(Ms(20), Ms(150));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.That(() => Expect.That(false).ToBe(true)).ToPassAsync()
+        );
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Matches(
+            @"^expect\(\.\.\.\)\.toPass\(\) stopped at the attempt deadline after 1\d\d ms\n",
+            error.Message
+        );
+        Assert.Matches(@"last: expected false to be true\z", error.Message);
+    }
+
+    [Fact]
+    public async Task Waits_at_the_phase_deadline_for_the_runner_to_cancel()
+    {
+        using var live = new LiveAttempt(Ms(20), Ms(150));
+        _ = Task.Delay(Ms(165)).ContinueWith(_ => live.Cancel(), TaskScheduler.Default);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Expect.That(() => throw new InvalidOperationException("not ready")).ToPassAsync()
+        );
+    }
+
+    [Fact]
+    public async Task Keeps_the_toPass_timeout_when_the_phase_deadline_moves_during_a_pause()
+    {
+        using var live = new LiveAttempt(Ms(5000), Ms(80));
+        var started = DateTimeOffset.UtcNow;
+        _ = Task.Delay(Ms(40)).ContinueWith(_ => live.ShiftDeadline(Ms(1000)), TaskScheduler.Default);
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Expect
+                .That(() => Expect.That(false).ToBe(true))
+                .ToPassAsync(new PassOptions { Timeout = Ms(200), Intervals = [Ms(500)] })
+        );
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Matches(@"^expect\(\.\.\.\)\.toPass\(\) timed out after 200 ms\n", error.Message);
+        Assert.InRange(DateTimeOffset.UtcNow - started, Ms(195), Ms(400));
     }
 
     [Fact]

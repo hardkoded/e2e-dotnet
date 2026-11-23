@@ -159,6 +159,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ResolvedCredential](/api/E2E/ResolvedCredential/) | One config.credentials entry, resolved (upstream's ResolvedCredential, config/resolve.ts): an account whose password is the secret {name}.password. |
 | [ResolvedRecording](/api/E2E/ResolvedRecording/) | One effective mode and where it came from. Upstream ResolvedRecording. |
 | [RoleOptions](/api/E2E/RoleOptions/) | Role query options. A null state is not checked. |
+| [RouteMatcher](/api/E2E/RouteMatcher/) | A URL pattern narrowed to one HTTP method, for RouteAsync, UnrouteAsync and WaitForResponseAsync. Set Method and exactly one of Url and UrlRegex; a missing or invalid part fails with INVALID_ARGUMENT. |
 | [Screen](/api/E2E/Screen/) | Semantic queries against the current screen. An action or a single-node assertion fails when the query matches more than one node. Narrow it with Filter(TextMatch), First(), Last(), or Nth(int). |
 | [ScreenExpect](/api/E2E/ScreenExpect/) | Matchers on the whole screen: ToHaveScreenshotAsync. |
 | [ScreenPoint](/api/E2E/ScreenPoint/) | Upstream's ScreenPoint: a viewport point in pixels, percentages, or both, new ScreenPoint("50%", 120). A Point converts to one. |

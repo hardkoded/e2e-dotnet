@@ -479,6 +479,30 @@ Reloads the current document.
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Browser_RouteAsync_"></a>
+<a id="E2E_Browser_RouteAsync_E2E_RouteMatcher_System_Func_E2E_WebRoute_System_Threading_Tasks_Task__System_Threading_CancellationToken_"></a>
+
+### `RouteAsync(RouteMatcher, Func<WebRoute, Task>, CancellationToken)`
+
+
+```csharp
+public Task RouteAsync(RouteMatcher pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken = default)
+```
+
+
+Adds a network route narrowed to one HTTP method. The method is case-insensitive and matches exactly that method: `GET` does
+not answer `HEAD`. A request of another method steps aside for the routes registered before this one, and then for the
+network, as if the URL had not matched. See `RouteAsync`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `pattern` | [RouteMatcher](/api/E2E/RouteMatcher/) |  |
+| `handler` | [Func&lt;WebRoute, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Browser_RouteAsync_System_String_System_Func_E2E_WebRoute_System_Threading_Tasks_Task__System_Threading_CancellationToken_"></a>
 
 ### `RouteAsync(string, Func<WebRoute, Task>, CancellationToken)`
@@ -635,6 +659,28 @@ Removes every route added through this browser. The configured headers stay.
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Browser_UnrouteAsync_"></a>
+<a id="E2E_Browser_UnrouteAsync_E2E_RouteMatcher_System_Threading_CancellationToken_"></a>
+
+### UnrouteAsync(RouteMatcher, CancellationToken)
+
+
+```csharp
+public Task UnrouteAsync(RouteMatcher pattern, CancellationToken cancellationToken = default)
+```
+
+
+Removes every route added with the same method (case-insensitive) and the same glob, or the same regex source and options. It does
+not URL-match registered routes, so a plain URL pattern leaves a method-narrowed route in place.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `pattern` | [RouteMatcher](/api/E2E/RouteMatcher/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Browser_UnrouteAsync_System_String_System_Threading_CancellationToken_"></a>
 
 ### UnrouteAsync(string, CancellationToken)
@@ -783,6 +829,30 @@ error, and no tab within the timeout fails with `ACTION_FAILED`, naming the page
 **Returns:** [Task&lt;BrowserTab&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Browser_WaitForResponseAsync_"></a>
+<a id="E2E_Browser_WaitForResponseAsync_E2E_RouteMatcher_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### WaitForResponseAsync(RouteMatcher, TimeSpan?, CancellationToken)
+
+
+```csharp
+public Task<WebResponse> WaitForResponseAsync(RouteMatcher pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Waits for a response to a request of one HTTP method whose URL matches. The method is case-insensitive, and the URL keeps the glob
+or [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex) grammar of the plain overloads. The timeout bounds the match only, and defaults to the action timeout; zero
+waits for the test timeout.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `pattern` | [RouteMatcher](/api/E2E/RouteMatcher/) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;WebResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Browser_WaitForResponseAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
 ### WaitForResponseAsync(string, TimeSpan?, CancellationToken)

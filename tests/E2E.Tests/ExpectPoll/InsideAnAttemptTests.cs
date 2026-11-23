@@ -5,10 +5,9 @@
 namespace E2E.Tests.ExpectPoll;
 
 /// <summary>
-/// The port has no attempt budget, so a poll stops on the <see cref="CancellationToken"/> its caller passes, and it throws
-/// <see cref="OperationCanceledException"/> in place of an error with the code CANCELLED. So the upstream its "defaults the
-/// timeout to the attempt assertionTimeout until the attempt ends", "caps the poll at the attempt deadline", and "refuses a
-/// second live attempt in the same process" are not ported.
+/// Ported from the <c>inside an attempt</c> describe of upstream's <c>expect-poll.test.ts</c>. A cancelled phase throws
+/// <see cref="OperationCanceledException"/> in place of an error with the code CANCELLED. Not ported: "refuses a second live attempt in the same
+/// process", because the port names the attempt through the async flow of the test, so attempts side by side are allowed.
 /// </summary>
 public sealed class InsideAnAttemptTests
 {
@@ -42,7 +41,62 @@ public sealed class InsideAnAttemptTests
         Assert.Equal(readsAtCancel, reads);
     }
 
-    // Partial: the port's attempt deadline is its cancellation token, which ends the poll as a cancel, not as "stopped at the attempt deadline".
+    [Fact]
+    public async Task Defaults_the_timeout_to_the_attempt_assertionTimeout_until_the_attempt_ends()
+    {
+        var live = new LiveAttempt(TimeSpan.FromMilliseconds(80), TimeSpan.FromSeconds(10));
+        try
+        {
+            var error = await Assert.ThrowsAsync<TestException>(() =>
+                Expect
+                    .Poll(() => "running", new PollOptions { Intervals = [TimeSpan.FromMilliseconds(10)] })
+                    .ToBeAsync("done")
+            );
+            Assert.Contains("timed out after 80 ms", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            live.Dispose();
+        }
+
+        Assert.Null(Attempts.CurrentAttempt());
+    }
+
+    [Fact]
+    public async Task Caps_the_poll_at_the_attempt_deadline()
+    {
+        using var live = new LiveAttempt(TimeSpan.FromSeconds(5), TimeSpan.FromMilliseconds(80));
+        var started = DateTimeOffset.UtcNow;
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Expect
+                .Poll(
+                    () => "running",
+                    new PollOptions { Timeout = TimeSpan.FromSeconds(15), Intervals = [TimeSpan.FromMilliseconds(10)] }
+                )
+                .ToBeAsync("done")
+        );
+        Assert.Matches(@"stopped at the attempt deadline after \d+ ms", error.Message);
+        Assert.Contains("last: received \"running\", expected \"done\"", error.Message, StringComparison.Ordinal);
+        Assert.True(DateTimeOffset.UtcNow - started < TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public async Task Polls_with_timeout_0_past_the_assertion_timeout_until_the_attempt_deadline()
+    {
+        using var live = new LiveAttempt(TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(150));
+        var started = DateTimeOffset.UtcNow;
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Expect
+                .Poll(
+                    () => "running",
+                    new PollOptions { Timeout = TimeSpan.Zero, Intervals = [TimeSpan.FromMilliseconds(10)] }
+                )
+                .ToBeAsync("done")
+        );
+        Assert.Matches(@"stopped at the attempt deadline after \d+ ms", error.Message);
+        Assert.True(DateTimeOffset.UtcNow - started >= TimeSpan.FromMilliseconds(140));
+    }
+
     [Fact]
     public async Task Partial_Polls_with_timeout_0_past_the_assertion_timeout_until_the_attempt_deadline()
     {

@@ -31,6 +31,28 @@ internal static class ExpectedFailureMarks
     internal static string? ExpectedFailureOption(string? fail) => fail is null ? null : ExpectedFailureReason(fail);
 
     /// <summary>
+    /// What is wrong with a <c>fail</c> layer, or null (upstream's <c>validateFailOption</c>, <c>collect/registry.ts</c>): <c>fail</c> is true, false, or a reason string.
+    /// A .NET property holds any value, so a number or another object is refused as upstream refuses a non-boolean, non-string <c>fail</c>.
+    /// </summary>
+    /// <param name="fail">The value of the layer's <c>fail</c>.</param>
+    /// <param name="label">What the layer is, <c>describe options</c> or <c>test options</c>.</param>
+    internal static string? FailOptionError(object? fail, string label) =>
+        fail is null or bool or string
+            ? null
+            : $"{label}: fail must be true, false, or a reason string, got {Convert.ToString(fail, System.Globalization.CultureInfo.InvariantCulture)}";
+
+    /// <summary>
+    /// The collection error for a mark in or around a serial group, or null (upstream's <c>validateDescribeOptions</c>, <c>collect/registry.ts</c>): fail cannot
+    /// be set on or inside a serial group, which runs as one unit, and a serial group cannot sit inside a group marked fail.
+    /// </summary>
+    /// <param name="onOrInside">Whether the serial group itself, or a test inside it, sets <c>fail</c>.</param>
+    /// <param name="around">Whether a group around the serial group marks fail.</param>
+    internal static string? SerialFailError(bool onOrInside, bool around) =>
+        onOrInside ? "describe option \"fail\" cannot be set on or inside a serial group, which runs as one unit"
+        : around ? "a serial group cannot sit inside a group marked fail; its members cannot be expected to fail"
+        : null;
+
+    /// <summary>
     /// The reason a test is expected to fail from its layers, outermost group first and the test last (upstream's <c>fail</c> merge in <c>resolveOptions</c>,
     /// <c>collect/select.ts</c>): any layer that marks marks the test, the innermost reason wins, and a mark with no reason (a blank string) keeps an outer layer's.
     /// A layer that gives no <c>fail</c> does not unmark.
@@ -69,7 +91,7 @@ internal static class ExpectedFailureMarks
         if (session is null)
         {
             throw new InvalidOperationException(
-                "Fail(condition, reason) marks the running test and must be called inside a test body; to mark at collection, put [Property(\"E2E.Fail\", reason)] on the test or its fixture"
+                "Fail(condition, reason) marks the running test and must be called inside a test body; to mark at collection, put [Property(\"E2E.Fail\", reason)] on the test or its fixture, or [DescribeFail] on the fixture"
             );
         }
 
