@@ -185,8 +185,11 @@ internal static class ExpectRetry
             TimeSpan? interval = null;
             while (true)
             {
+            while (true)
+            {
                 token.ThrowIfCancellationRequested();
-                var remaining = Current() - clock.GetUtcNow();
+                var deadline = Current();
+                var remaining = deadline - clock.GetUtcNow();
                 if (remaining <= TimeSpan.Zero)
                 {
                     break;
@@ -212,6 +215,13 @@ internal static class ExpectRetry
                     {
                         // The try outlived the deadline; its outcome is dropped and what it was running is cancelled.
                         await attempt.CancelAsync().ConfigureAwait(false);
+
+                        // A deadline that moved while the try ran is not the one that cut it (upstream's `deadline !== result.cut`).
+                        if (Current() != deadline)
+                        {
+                            continue;
+                        }
+
                         break;
                     }
 
@@ -226,6 +236,11 @@ internal static class ExpectRetry
                         if (sample.Error is { } late)
                         {
                             (last, cause) = (late.Message, late);
+                        }
+
+                        if (Current() != deadline)
+                        {
+                            continue;
                         }
 
                         break;
@@ -245,24 +260,34 @@ internal static class ExpectRetry
                 }
 
                 var pause = interval ?? TimeSpan.Zero;
-                var left = Current() - clock.GetUtcNow();
+                var pausedAt = Current();
+                var left = pausedAt - clock.GetUtcNow();
                 if (left > TimeSpan.Zero)
                 {
                     await Pause(left < pause ? left : pause, clock, token).ConfigureAwait(false);
                 }
 
-                if (pause >= left)
+                if (pause >= left && Current() == pausedAt)
                 {
-                    // The next pause would cross the deadline, so the retry ends without another read.
+                    // The next pause would cross the deadline, so the retry ends without another read. A deadline that moved during the pause goes on.
                     break;
                 }
             }
 
+            token.ThrowIfCancellationRequested();
+            var endedDeadline = Current();
             (endedAt, endedAtOwn) = (clock.GetUtcNow(), EndsAtOwn());
             if (endedAtOwn is false)
             {
-                // The phase's own timeout takes precedence if it fires within the grace.
+                // The phase's own timeout takes precedence if it fires within the grace. A deadline that moved within it goes on.
                 await Pause(PhaseTimeoutGrace, clock, token).ConfigureAwait(false);
+                if (Current() != endedDeadline)
+                {
+                    continue;
+                }
+            }
+
+            break;
             }
         }
         catch (OperationCanceledException)
