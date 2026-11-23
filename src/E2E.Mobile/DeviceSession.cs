@@ -493,9 +493,13 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// Reads the screen size in the coordinate space of screen taps under one <c>device.viewport</c> budget shared by the snapshot and the
     /// viewport probe (upstream's <c>AgentDeviceSurface.viewport</c>). It binds no generation, so refs of an earlier observation stay valid.
     /// </summary>
-    public async Task<ViewportSize> ViewportAsync(CancellationToken cancellationToken)
+    public Task<ViewportSize> ViewportAsync(CancellationToken cancellationToken) =>
+        ViewportAsync(ActionTimeout, cancellationToken);
+
+    /// <summary><see cref="ViewportAsync(CancellationToken)"/> under the operation budget <paramref name="timeout"/> (upstream's <c>viewport(operation, budget)</c>).</summary>
+    public async Task<ViewportSize> ViewportAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
-        var budget = InputBudget("device.viewport", cancellationToken);
+        var budget = InputBudget("device.viewport", timeout, cancellationToken);
         var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, budget, cancellationToken)
             .ConfigureAwait(false);
         var projected = Project(raw);
