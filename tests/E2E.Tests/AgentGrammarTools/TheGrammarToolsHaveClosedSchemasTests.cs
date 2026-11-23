@@ -99,6 +99,21 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Null(AgentTools.SchemaTool(tool, Call(tool.Name, Input(accepted))));
     }
 
+    /// <summary>The input fails the schema and SchemaTool refuses it, before the call runs, with the issue code and message zod reports.</summary>
+    private static void ExpectRefused(ModelTool tool, string input, string code, string message)
+    {
+        Assert.False(SchemaOf(tool).IsValid(Input(input)), tool.Name + " refuses " + input);
+        var refusal = AgentTools.SchemaTool(tool, Call(tool.Name, Input(input)));
+        Assert.NotNull(refusal);
+        var issues = JsonNode
+            .Parse(
+                refusal[(refusal.IndexOf("Error message: ", StringComparison.Ordinal) + "Error message: ".Length)..]
+            )!
+            .AsArray();
+        Assert.Equal([code], issues.Select(issue => (string?)issue!["code"]));
+        Assert.Equal(message, (string?)issues[0]!["message"]);
+    }
+
     /// <summary>Tools whose schema declares no fields. A padded call is read as {}; every other tool stays closed.</summary>
     private static readonly HashSet<string> NoInput = new(
         ["observe", "back", "dismiss_keyboard", "screenshot"],
@@ -191,6 +206,18 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.True(full.IsValid(Input("""{ "text": "Row 4322", "direction": "down", "target": "n6" }""")));
         Assert.True(full.IsValid(Input("""{ "text": "Row 4322" }""")));
         Assert.False(full.IsValid(Input($$"""{ "text": "{{new string('x', AgentTools.MaxScrollToText + 1)}}" }""")));
+        ExpectRefused(
+            scrollTo,
+            $$"""{ "text": "{{new string('x', AgentTools.MaxScrollToText + 1)}}" }""",
+            "too_big",
+            $"Too big: expected string to have <={AgentTools.MaxScrollToText} characters"
+        );
+        ExpectRefused(
+            scrollTo,
+            """{ "text": "Row 4322", "direction": "sideways" }""",
+            "invalid_value",
+            "Invalid option: expected one of \"up\"|\"down\"|\"left\"|\"right\""
+        );
         Assert.False(full.IsValid(Input("""{ "text": "Row 4322", "list": "n6" }""")));
         ExpectClosed(scrollTo, """{ "text": "Row 4322" }""");
 
@@ -246,6 +273,21 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.False(resize.IsValid(Input("""{ "width": 390.5, "height": 844 }""")));
         Assert.False(resize.IsValid(Input("""{ "width": 100, "height": 844 }""")));
         Assert.False(resize.IsValid(Input("""{ "width": 390, "height": 5000 }""")));
+        var tool = AgentTools
+            .GrammarToolDefinitions(EngineCapabilities.Resize)
+            .Single(tool => tool.Name == "resize_viewport");
+        ExpectRefused(
+            tool,
+            """{ "width": 100, "height": 844 }""",
+            "too_small",
+            $"Too small: expected number to be >={E2E.Internal.Geometry.ViewportLimits.Min}"
+        );
+        ExpectRefused(
+            tool,
+            """{ "width": 390, "height": 5000 }""",
+            "too_big",
+            $"Too big: expected number to be <={E2E.Internal.Geometry.ViewportLimits.Max}"
+        );
         Assert.False(resize.IsValid(Input("""{ "width": 390 }""")));
     }
 
@@ -257,6 +299,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         ExpectClosed(switchTab, """{ "tab": 2 }""");
         var schema = SchemaOf(switchTab);
         Assert.False(schema.IsValid(Input("""{ "tab": 0 }""")));
+        ExpectRefused(switchTab, """{ "tab": 0 }""", "too_small", "Too small: expected number to be >=1");
         Assert.False(schema.IsValid(Input("""{ "tab": 1.5 }""")));
     }
 
@@ -268,6 +311,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         ExpectClosed(closeTab, """{ "tab": 2 }""");
         var schema = SchemaOf(closeTab);
         Assert.False(schema.IsValid(Input("""{ "tab": 0 }""")));
+        ExpectRefused(closeTab, """{ "tab": 0 }""", "too_small", "Too small: expected number to be >=1");
         Assert.False(schema.IsValid(Input("""{ "tab": 1.5 }""")));
     }
 
@@ -652,7 +696,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
             {
                 0 => ModelResponses.Done("blocked", "could not tell"),
                 1 => ModelResponses.Done("blocked", "the total is wrong", "ASSERTION_FAILED"),
-                2 => ModelResponses.Done("blocked", "too slow", "STEP_TIMEOUT"),
+                2 => ModelResponses.Done("blocked", "too slow", "ACTION_FAILED"),
                 _ => ModelResponses.Done("blocked", "no login", "AUTH_CREDENTIAL_UNAVAILABLE"),
             }
         );
