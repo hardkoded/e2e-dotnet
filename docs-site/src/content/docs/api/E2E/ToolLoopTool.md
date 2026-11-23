@@ -84,3 +84,32 @@ public Func<ModelToolCall, CancellationToken, Task<ToolLoopResult>> ExecuteAsync
 Runs the call and answers what the model reads.
 
 **Value:** [Func&lt;ModelToolCall, CancellationToken, Task&lt;ToolLoopResult&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
+
+## Methods
+
+<a id="E2E_ToolLoopTool_FromOutputs_"></a>
+<a id="E2E_ToolLoopTool_FromOutputs_E2E_ModelTool_System_Func_E2E_ModelToolCall_System_Threading_CancellationToken_System_Collections_Generic_IAsyncEnumerable_E2E_ToolLoopResult___"></a>
+
+### `FromOutputs(ModelTool, Func<ModelToolCall, CancellationToken, IAsyncEnumerable<ToolLoopResult>>)`
+
+
+```csharp
+public static ToolLoopTool FromOutputs(ModelTool definition, Func<ModelToolCall, CancellationToken, IAsyncEnumerable<ToolLoopResult>> executeOutputs)
+```
+
+
+A tool whose call answers an async sequence, as upstream's tool may return an async iterable: the earlier outputs are preliminary
+and the last one is the output the model reads. Upstream's `relayOutputs` reads the iterable to its end before the call
+settles, so a verdict sent in the same turn waits for it; a sequence that throws is a failed call, and one whose last output is
+a failure refuses that verdict the way a failed result does.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `definition` | [ModelTool](/api/E2E/ModelTool/) | The name, the description, and the input schema the model sees. |
+| `executeOutputs` | [Func&lt;ModelToolCall, CancellationToken, IAsyncEnumerable&lt;ToolLoopResult&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3) | Runs the call and yields its outputs. |
+
+**Returns**
+
+[ToolLoopTool](/api/E2E/ToolLoopTool/)
