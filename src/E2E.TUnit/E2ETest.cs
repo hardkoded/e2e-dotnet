@@ -106,7 +106,9 @@ public abstract class E2ETest : E2EFixture, ITestEndEventReceiver, ITestRegister
                 .FirstOrDefault(test => test.Fixme && test.Title == details.MethodName);
             if (discovered is not null)
             {
-                await HostTestFilters.ReportFixmeAsync(Config, discovered, ResultsDirectory, cancellationToken).ConfigureAwait(false);
+                await HostTestFilters
+                    .ReportFixmeAsync(Config, discovered, ResultsDirectory, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             Skip.Test(E2E.Internal.Skip.FixmeReason(fixme.Reason));
