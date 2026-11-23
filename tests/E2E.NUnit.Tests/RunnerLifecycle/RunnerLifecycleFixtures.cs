@@ -158,6 +158,7 @@ public sealed class FixmeAfterPassingSerialMemberFixture : E2ETest
 
     [Test]
     [Fixme]
+    [DependsOnTest(nameof(A_passes))]
     public void B_registered_fixme() => throw new InvalidOperationException("a [Fixme] body must never run");
 }
 

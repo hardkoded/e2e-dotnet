@@ -127,6 +127,13 @@ public sealed class RunnerLifecycleTests
             .GetAwaiter()
             .GetResult();
 
+        // The group's session is the first member's: it must have started and passed for the second to find a session to hand over.
+        var first = results[nameof(FixmeAfterPassingSerialMemberFixture.A_passes)];
+        Assert.That(first.ResultState.Status, Is.EqualTo(TestStatus.Passed), first.Message);
+        Assert.That(
+            first.EndTime,
+            Is.LessThanOrEqualTo(results[nameof(FixmeAfterPassingSerialMemberFixture.B_registered_fixme)].StartTime)
+        );
         var member = results[nameof(FixmeAfterPassingSerialMemberFixture.B_registered_fixme)];
         Assert.That(member.ResultState.Status, Is.EqualTo(TestStatus.Failed), member.Message);
         Assert.That(
