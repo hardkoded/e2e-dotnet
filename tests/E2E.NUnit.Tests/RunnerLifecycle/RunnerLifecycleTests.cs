@@ -80,6 +80,20 @@ public sealed class RunnerLifecycleTests
     }
 
     [Test]
+    public void Keeps_the_explicit_cause_beside_a_failure_that_outranks_an_Assert_Ignore_skip()
+    {
+        var verdict = NestedRun.Run(nameof(IgnoreBesideFailureFixture.Ignored_beside_a_failure));
+        Assert.That(verdict.ResultState.Status, Is.EqualTo(TestStatus.Failed), verdict.Message);
+        var member = ByTitle(
+            Read(typeof(IgnoreBesideFailureFixture)),
+            nameof(IgnoreBesideFailureFixture.Ignored_beside_a_failure)
+        );
+        Assert.That((string?)member["status"], Is.EqualTo("failed"));
+        Assert.That((string?)member["attempts"]![0]!["skip"]!["cause"], Is.EqualTo("explicit"));
+        Assert.That((string?)member["attempts"]![0]!["skip"]!["reason"], Is.EqualTo("not ready"));
+    }
+
+    [Test]
     public void Partial_Counts_a_serial_member_that_marks_itself_fixme_as_executed_with_the_cause_fixme()
     {
         var results = Task.Run(() =>

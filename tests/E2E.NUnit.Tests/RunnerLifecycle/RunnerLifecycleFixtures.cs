@@ -112,6 +112,29 @@ public sealed class FixmeBesideFailureFixture : E2ETest
     public void Beside_a_failure() => Fixme(reason: "not ready");
 }
 
+/// <summary>An <c>Assert.Ignore</c> skip beside a failure: a <c>[TearDown]</c> throws after the test skipped itself.</summary>
+[Explicit("Run by RunnerLifecycleTests")]
+public sealed class IgnoreBesideFailureFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null
+    );
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override string? ResultsDirectory => RunnerLifecycleResults.Of(GetType());
+
+    [TearDown]
+    public void Broken() => throw new InvalidOperationException("teardown broke");
+
+    [Test]
+    public void Ignored_beside_a_failure() => Assert.Ignore("not ready");
+}
+
 /// <summary><c>describe('wizard', { serial: true })</c>: the first member marks itself fixme, the second runs.</summary>
 [Explicit("Run by RunnerLifecycleTests")]
 [Serial]
