@@ -18,8 +18,10 @@ public sealed class SelectTests
 
     private static Collection Collected(params DiscoveredTest[] tests) => HostTestFilters.Collect(tests, [], [], out _);
 
+    // Partial: the skipped group is a test whose reason is given as the host's discovery resolves it (a class [Ignore] is a SkipReason),
+    // so the precedence of a group's skip over a fixme member is checked in NUnit's own discovery, not here.
     [Fact]
-    public void Gives_a_test_fixme_registration_the_cause_fixme_and_a_skip_option_reading_fixme_the_cause_explicit()
+    public void Partial_Gives_a_test_fixme_registration_the_cause_fixme_and_a_skip_option_reading_fixme_the_cause_explicit()
     {
         var col = Collected(
             Found("runs"),

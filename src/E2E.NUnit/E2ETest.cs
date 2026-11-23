@@ -113,6 +113,20 @@ public abstract partial class E2ETest : E2EFixture
         RejectParallelChildren(current.Test.MethodName);
         if (IsSerial)
         {
+            // Upstream refuses a skip inside a serial group at collection (COLLECTION_ERROR); an unfiltered run does not collect, so it is refused here, ahead of the session handover.
+            if (
+                TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo.IsDefined(
+                    typeof(FixmeAttribute),
+                    true
+                ) == true
+            )
+            {
+                throw new TestException(
+                    "COLLECTION_ERROR",
+                    "[Fixme] cannot be used inside a serial group, which skips as one unit; set skip on the serial describe instead"
+                );
+            }
+
             RejectInstancePerTest();
             if (NUnitSessionTestRunner.ExpectedFailureOf(TestExecutionContext.CurrentContext.CurrentTest) is not null)
             {

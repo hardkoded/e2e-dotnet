@@ -149,15 +149,19 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
             {
                 Fixme(true, fixme.Reason);
             }
-            catch (InvalidOperationException)
+            catch (Exception ex)
             {
                 // xUnit does not dispose a test class whose InitializeAsync threw, so the session is completed here, and the report tells the skip.
+                Running.TryRemove(uniqueId, out _);
                 if (TakeSession() is { } session)
                 {
                     try
                     {
+                        // A refused fixme (a setup test) stays the test error it is; a skip completes as one.
                         session.Complete(
-                            new SkipException(E2E.Internal.Skip.FixmeReason(fixme.Reason)),
+                            ex is InvalidOperationException
+                                ? new SkipException(E2E.Internal.Skip.FixmeReason(fixme.Reason))
+                                : ex,
                             Xunit.TestContext.Current.CancellationToken
                         );
                     }
