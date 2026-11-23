@@ -85,7 +85,8 @@ internal static class AttemptReport
         ExpectedFailureInfo? expectedFailure = null,
         IReadOnlyList<Exception>? hookErrors = null,
         string skipCause = "explicit",
-        string? skipReason = null
+        string? skipReason = null,
+        IReadOnlyList<Exception>? secondaryErrors = null
     )
     {
         var steps = scope.Steps.All();
@@ -154,6 +155,10 @@ internal static class AttemptReport
             Cleanup = cleanupErrors is { Count: > 0 } ? AttemptCleanup.Failed : AttemptCleanup.Complete,
             SecondaryErrors =
             [
+                // The last failed assertion of a poll the test's timeout cut, told beside the timeout (upstream's recordSecondaryError).
+                .. (secondaryErrors ?? []).Select(cause =>
+                    ReportError.Of(ErrorSerializer.Serialize(cause, scope.ProjectRoot, scope.Redactor.Redact), "body")
+                ),
                 // A hook that failed beside the body's error is told in its own phase (upstream's afterEach secondary errors).
                 .. (hookErrors ?? []).Select(cause =>
                     ReportError.Of(

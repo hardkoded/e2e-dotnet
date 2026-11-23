@@ -46,6 +46,7 @@ public sealed class E2ESession : IAsyncDisposable
     // What the teardown threw (a required video that did not finalize, the engine session's close): upstream's secondaryErrors of phase cleanup.
     private readonly List<Exception> _cleanupErrors = [];
     private readonly List<Exception> _hookErrors = [];
+    private readonly List<Exception> _secondaryErrors = [];
     private long _bodyMs;
     private ExpectedFailureInfo? _expectedFailure;
     private AttemptStatus _status = AttemptStatus.Failed;
@@ -285,26 +286,16 @@ public sealed class E2ESession : IAsyncDisposable
 
         var timeout = NewTimeoutSource(options.Clock, cancellationToken);
         Deadline? budgetDeadline = null;
-        if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
-        {
-            try
-            {
-                timeout.CancelAfter(options.TestTimeout);
-                budgetDeadline = new Deadline(options.TestTimeout, options.Clock);
-            }
-            catch
-            {
-                // An out-of-range timeout throws before the session owns the source.
-                timeout.Dispose();
-                throw;
-            }
-        }
+
+        // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
+        var budget = new AttemptBudget(timeout, options.CancelsOnClose?.Closed);
 
         // What test.setTimeout moves: the signal's timer and the deadline the screen and browser cap their steps with.
         Screen? timedScreen = null;
         Browser? timedBrowser = null;
         Action<TimeSpan, Deadline> onMoved = (moved, deadline) =>
         {
+            budget.Deadline = deadline;
             // An open, a restart, and a link open take the test's timeout, the new one included.
             if (timedBrowser is not null)
             {
@@ -324,11 +315,32 @@ public sealed class E2ESession : IAsyncDisposable
         AttemptTimeout NewAttemptTimeout() => new(timeout, options.TestTimeout, options.Clock, onMoved);
         var attemptTimeout = NewAttemptTimeout();
 
-        // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
-        var budget = new AttemptBudget(timeout, options.CancelsOnClose?.Closed);
+        // The attempt's timeout starts before the timer is armed, so it has elapsed whenever the timer has fired (a close reads it).
+        if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
+        {
+            try
+            {
+                timeout.CancelAfter(options.TestTimeout);
+                budgetDeadline = new Deadline(options.TestTimeout, options.Clock);
+                budget.Deadline = budgetDeadline;
+            }
+            catch
+            {
+                // An out-of-range timeout throws before the session owns the source.
+                timeout.Dispose();
+                throw;
+            }
+        }
 
         // The reason the test's own timeout aborts with, one error every step it cuts shares (upstream's signal.reason).
-        var timedOut = new Lazy<TestException>(() => TimeoutFailure(attemptTimeout.Timeout, null));
+        var timedOut = new Lazy<TestException>(() =>
+            TimeoutFailure(attemptTimeout.Timeout, null, options.PublishesAttempt)
+        );
+
+        Func<TestException?> reason = () =>
+            budget.TestSignalIsOwn && timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested
+                ? timedOut.Value
+                : null;
 
         var debug = new DebugTrace(options.Debug);
         IEngineSession engine;
@@ -621,15 +633,11 @@ public sealed class E2ESession : IAsyncDisposable
                 ReplayTimeout = options.ReplayTimeout,
                 StepTimeout = options.StepTimeout,
                 Token = () => budget.Token,
-                Reason = () =>
-                    budget.TestSignalIsOwn
-                    && timeout.IsCancellationRequested
-                    && !cancellationToken.IsCancellationRequested
-                        ? timedOut.Value
-                        : null,
+                Reason = reason,
                 TestFailed = () => softFailures.Any || testFailed(),
             };
             created = scope;
+            budget.Reason = reason;
             // Seeded with the static values of the run's config, as upstream's sessionLedger is; what it carries into a saved state leaves them out.
             Secrecy.SessionLedger(scope, options.Config?.AllSecrets ?? []);
             Secrecy.AdoptSecrets(scope, ledger);
@@ -790,28 +798,36 @@ public sealed class E2ESession : IAsyncDisposable
                     _newAttemptTimeout = NewAttemptTimeout,
                     _openToken = cancellationToken,
                 };
-                if (options.OffersGuests)
+                if (options.OffersGuests || options.PublishesAttempt)
                 {
                     // The hosts and sessions the test opens beside its own: their steps are recorded with its own, and the attempt ends them.
-                    var guests = new AttemptGuestSessions(
-                        scope.Steps,
-                        () => scope.Artifacts?.Sink,
-                        new AttemptGuestOptions
-                        {
-                            Keep = recording?.Keep,
-                            CleanupTimeout = Bounded(options.CleanupTimeout)
-                                ? options.CleanupTimeout
-                                : Timeout.InfiniteTimeSpan,
-                        }
-                    );
-                    session._guests = guests;
+                    AttemptGuestSessions? guests = null;
+                    if (options.OffersGuests)
+                    {
+                        guests = new AttemptGuestSessions(
+                            scope.Steps,
+                            () => scope.Artifacts?.Sink,
+                            new AttemptGuestOptions
+                            {
+                                Keep = recording?.Keep,
+                                CleanupTimeout = Bounded(options.CleanupTimeout)
+                                    ? options.CleanupTimeout
+                                    : Timeout.InfiniteTimeSpan,
+                            }
+                        );
+                        session._guests = guests;
+                    }
+
                     session._publishedAttempt = new PublishedAttempt
                     {
                         AttemptId = scope.AttemptId,
-                        Guests = guests.Offer,
-                        SetTimeout = session.SetTimeoutOf(attemptTimeout),
+                        Guests = guests?.Offer,
+                        SetTimeout = options.OffersGuests ? session.SetTimeoutOf(attemptTimeout) : null,
                         ToPass = options.Config?.ToPass,
-                        Polls = new PollScope("the test body"),
+                        AssertionTimeout = options.AssertionTimeout,
+                        RecordSecondaryError = session.RecordSecondaryError,
+                        Budget = budget,
+                        Polls = options.OffersGuests ? new PollScope("the test body") : null,
                     };
                     session._published = Attempts.PublishAttempt(session._publishedAttempt);
                 }
@@ -985,7 +1001,7 @@ public sealed class E2ESession : IAsyncDisposable
     internal CancellationToken TimeoutSignal => _timeout.Token;
 
     /// <summary>The error a body the test's own timeout cut short fails with (upstream's <c>TestTimeoutError</c>).</summary>
-    internal TestException TestTimeoutError() => TimeoutFailure(_testTimeout, null);
+    internal TestException TestTimeoutError() => TimeoutFailure(_testTimeout, null, IsHosted);
 
     /// <summary>
     /// Stops what the body left in flight on the hosts and sessions it opened, however it ended: an opening under way is cancelled and a session with a
@@ -1083,6 +1099,23 @@ public sealed class E2ESession : IAsyncDisposable
     /// <summary>Records a hook that failed after the body (a failed <c>[TearDown]</c>), which the report tells as an <c>afterEach</c> secondary error beside the body's error.</summary>
     internal void RecordHookFailure(Exception failure) => _hookErrors.Add(failure);
 
+    private List<Exception> SecondaryErrorsSnapshot()
+    {
+        lock (_secondaryErrors)
+        {
+            return [.. _secondaryErrors];
+        }
+    }
+
+    /// <summary>Records the last failed assertion of a poll its phase timeout cut, which the report tells as a <c>body</c> secondary error beside the timeout (upstream's <c>recordSecondaryError</c>).</summary>
+    internal void RecordSecondaryError(Exception failure)
+    {
+        lock (_secondaryErrors)
+        {
+            _secondaryErrors.Add(failure);
+        }
+    }
+
     /// <summary>
     /// Enters the teardown's budget, as upstream's <c>enter('afterEach')</c> does before each teardown: the session's operations run under a
     /// signal that follows <paramref name="interrupt"/> (the run's cancel), not the test timeout, so a body its timeout cut short can still drive
@@ -1098,6 +1131,7 @@ public sealed class E2ESession : IAsyncDisposable
 
         _budget.Enter(interrupt);
         var deadline = Bounded(_scope.CleanupTimeout) ? new Deadline(_scope.CleanupTimeout, TimeProvider.System) : null;
+        _budget.Deadline = deadline;
         Screen.BudgetDeadline = deadline;
         Browser.BudgetDeadline = deadline;
     }
@@ -1150,6 +1184,9 @@ public sealed class E2ESession : IAsyncDisposable
         var errors = new List<Exception>();
         TestException? soft = null;
         TestException? abandoned = null;
+
+        // Read before the close cancels the test's own signal. .NET timers can fire a few milliseconds ahead of the clock the attempt's timeout reads, so the timer having fired is the deadline having passed.
+        var timerFired = _timeout.IsCancellationRequested && !_openToken.IsCancellationRequested;
         try
         {
             soft = CloseSoftFailures();
@@ -1190,20 +1227,33 @@ public sealed class E2ESession : IAsyncDisposable
             }
         }
 
+        if (_hostedClose is not null && abandoned is null && _cancelsOnClose is null)
+        {
+            // A hosted close cancels the operations it still holds, a poll among them (upstream's close). CancelCurrentAsync tolerates a released session.
+            await _budget.CancelCurrentAsync().ConfigureAwait(false);
+        }
+
         // Upstream's standalone attempt fails as timed out when the deadline passed, whether or not its timer ran before close.
         TestException? timedOut = null;
-        if (_hostedClose is not null && !_openToken.IsCancellationRequested && _attemptTimeout is { Expired: true })
+        if (
+            _hostedClose is not null
+            && !_openToken.IsCancellationRequested
+            && (timerFired || _attemptTimeout is { Expired: true })
+        )
         {
             timedOut = new TestException(
                 "TEST_TIMEOUT",
                 "session timed out after "
-                    + ((long)_attemptTimeout.Timeout.TotalMilliseconds).ToString(
+                    + ((long)(_attemptTimeout?.Timeout ?? _testTimeout).TotalMilliseconds).ToString(
                         System.Globalization.CultureInfo.InvariantCulture
                     )
                     + " ms"
             );
             errors.Add(timedOut);
         }
+
+        // A poll the timeout cut tells its last failed assertion beside the timeout.
+        errors.AddRange(SecondaryErrorsSnapshot());
 
         // A hosted session's cancel (upstream's <c>signal</c>) that cut a step ends the attempt as interrupted: upstream's <c>classifyAttemptStatus(failure, timedOut, interrupted)</c>.
         Exception? interrupted =
@@ -1716,7 +1766,8 @@ public sealed class E2ESession : IAsyncDisposable
                 _expectedFailure,
                 _hookErrors,
                 Skip.RuntimeSkipCause(RuntimeSkip?.Cause),
-                RuntimeSkip?.Reason
+                RuntimeSkip?.Reason,
+                SecondaryErrorsSnapshot()
             );
             if (_hostedClose is not null)
             {
@@ -1893,14 +1944,15 @@ public sealed class E2ESession : IAsyncDisposable
     }
 
     private TestException TimeoutFailure(Exception cause) =>
-        TimeoutFailure(_attemptTimeout?.Timeout ?? _testTimeout, cause);
+        TimeoutFailure(_attemptTimeout?.Timeout ?? _testTimeout, cause, IsHosted);
 
-    private static TestException TimeoutFailure(TimeSpan testTimeout, Exception? cause)
+    private static TestException TimeoutFailure(TimeSpan testTimeout, Exception? cause, bool hosted)
     {
-        var message =
-            "test timed out after "
-            + ((long)testTimeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture)
-            + " ms in phase body";
+        // A hosted session runs no test: its timeout reads "session timed out" (upstream's standalone attempt), a test's "in phase body".
+        var ms = ((long)testTimeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var message = hosted
+            ? "session timed out after " + ms + " ms"
+            : "test timed out after " + ms + " ms in phase body";
         return cause is null
             ? new TestException("TEST_TIMEOUT", message)
             : new TestException("TEST_TIMEOUT", message, cause);
@@ -2168,6 +2220,12 @@ public sealed class E2ESessionOptions
     /// the attempt <c>execute.ts</c> publishes.
     /// </summary>
     internal bool OffersGuests { get; init; }
+
+    /// <summary>
+    /// Whether the session publishes its attempt (<see cref="Attempts.PublishAttempt"/>) without offering guests, so an <c>expect.poll</c> in its flow reads
+    /// the attempt's <c>assertionTimeout</c>, <c>toPass</c> defaults, and budget. A hosted session does (upstream's <c>openSession</c> publishes while it is open).
+    /// </summary>
+    internal bool PublishesAttempt { get; init; }
 
     /// <summary>How many finished steps the session keeps, for a program whose session has no report. Upstream's <c>retainSteps</c> of <c>StandaloneSessionOptions</c>.</summary>
     internal int? RetainSteps { get; init; }

@@ -9,9 +9,9 @@ namespace E2E.Tests.OpenHostDeadline;
 
 /// <summary>
 /// Upstream's <c>describe('openHost: deadline')</c> (<c>tests/integration/open-host-deadline.test.ts</c>). The <c>it</c>s that need no feature the port
-/// lacks are ported here. Not ported (hardkoded/e2e-dotnet#2002, #2041): <c>applies the project toPass timeout in a hosted session</c> (a hosted session publishes no attempt, so <c>ToPassAsync</c> cannot read the config's <c>toPass</c> there), the polls (<c>bounds polls by config assertionTimeout</c>, <c>caps an explicitly long poll</c>,
-/// <c>cancels an in-flight poll on %s</c>, <c>records abandoned polls</c>: the port's <c>Expect.Poll</c> takes no ambient session deadline). The signals of <c>cancels an in-flight poll on %s</c> are the open tokens of <c>OpenAsync</c> and <c>OpenSessionAsync</c> (C# has no <c>signal</c> option); that <c>it</c> is not ported for the poll.
-/// The <c>Partial_</c> <c>it</c>s: the two contributed-fixture <c>it</c>s (<c>caps contributed fixture calls...</c>, <c>keeps the session deadline when a contributed operation disables its own timeout</c>) reach the fixture through the fake engine's <c>Gadget</c> instead of <c>session.fixtures.gadget</c>, since a hosted session's <c>Fixtures</c> is the <c>TestContext</c> and the port's operations declare no timeout of their own (so <c>timeout: false</c> has nothing to disable); <c>records a cancelled fixture as interrupted</c> cancels a core operation, as the port has no <c>extend</c> for a <c>gadget</c> fixture; <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> uses a 60 s timeout, not upstream's 20 ms (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
+/// lacks are ported here. Not ported (hardkoded/e2e-dotnet#2002, #2041, #2099): <c>records abandoned polls and steps without unhandled rejections or reads after close</c> (hardkoded/e2e-dotnet#2138: the port has no
+/// <c>PollScope</c> in a hosted session, which ends a poll its phase did not await). The signals of <c>cancels an in-flight poll on %s</c> are the open tokens of <c>OpenAsync</c> and <c>OpenSessionAsync</c> (C# has no <c>signal</c> option).
+/// The <c>Partial_</c> <c>it</c>s: <c>bounds polls by config assertionTimeout</c> does not read the operation a session's <c>App.OpenAsync</c> gives the engine (the port's engine takes no operation timeout: hardkoded/e2e-dotnet#2142); the two contributed-fixture <c>it</c>s (<c>caps contributed fixture calls...</c>, <c>keeps the session deadline when a contributed operation disables its own timeout</c>) reach the fixture through the fake engine's <c>Gadget</c> instead of <c>session.fixtures.gadget</c>, since a hosted session's <c>Fixtures</c> is the <c>TestContext</c> and the port's operations declare no timeout of their own (so <c>timeout: false</c> has nothing to disable); <c>records a cancelled fixture as interrupted</c> cancels a core operation, as the port has no <c>extend</c> for a <c>gadget</c> fixture; <c>refuses a session timeout</c> lacks the NaN and infinite cases (a <see cref="TimeSpan"/> has neither), <c>times out a session closed past its deadline</c> uses a 60 s timeout, not upstream's 20 ms (see its comment), and the <c>setTimeout</c> one: upstream calls the global <c>test.setTimeout</c>, which finds the session through <c>globalThis</c>, where the port's
 /// <see cref="E2E.Internal.TestTimeout.SetRunningTestTimeout"/> takes the session.
 /// </summary>
 public sealed class OpenHostDeadlineTests : IAsyncLifetime
@@ -41,19 +41,152 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
         }
     }
 
-    private async Task<E2EHost> OpenAsync(HostFakeEngine engine, string config = Config)
+    private async Task<E2EHost> OpenAsync(
+        HostFakeEngine engine,
+        string? config = null,
+        CancellationToken cancellationToken = default
+    )
     {
-        File.WriteAllText(Path.Combine(_dir, E2EConfig.FileName), config);
+        File.WriteAllText(Path.Combine(_dir, E2EConfig.FileName), config ?? Config);
         var host = await E2EHost.OpenAsync(
             new OpenHostOptions
             {
                 Cwd = _dir,
                 Env = NoEnv,
                 EngineFactory = _ => engine,
-            }
+            },
+            cancellationToken
         );
         _hosts.Add(host);
         return host;
+    }
+
+    private static string ConfigWith(string keys) =>
+        """{ "trace": "on", """
+        + keys
+        + """, "targets": [{ "name": "kiosk", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }""";
+
+    private static PollOptions Every(int ms, TimeSpan? timeout = null) =>
+        new() { Intervals = [TimeSpan.FromMilliseconds(ms)], Timeout = timeout };
+
+    [Fact]
+    public async Task Partial_Bounds_polls_by_config_assertionTimeout_and_refreshes_the_deadline_for_the_next_session()
+    {
+        var engine = new HostFakeEngine();
+        var host = await OpenAsync(engine, ConfigWith("\"assertionTimeout\": 40"));
+        var first = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "short poll", Timeout = TimeSpan.FromMilliseconds(200) }
+        );
+        var error = await Assert.ThrowsAsync<TestException>(() => Expect.Poll(() => false, Every(5)).ToBeAsync(true));
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Contains("timed out after 40 ms", error.Message);
+        Assert.Empty(await first.CloseAsync());
+
+        var second = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "fresh deadline", Timeout = TimeSpan.FromSeconds(5) }
+        );
+        var reads = 0;
+        await Expect.Poll(() => ++reads, Every(5, TimeSpan.FromMilliseconds(500))).ToSatisfyAsync(value => value > 2);
+        await second.App.OpenAsync();
+        Assert.Equal(host.RunId, engine.Started?.RunId);
+        Assert.Equal(second.AttemptId, engine.Started?.AttemptId);
+        Assert.Empty(await second.CloseAsync());
+    }
+
+    [Fact]
+    public async Task Partial_Applies_the_project_toPass_timeout_in_a_hosted_session()
+    {
+        var host = await OpenAsync(new HostFakeEngine(), ConfigWith("\"toPass\": { \"timeout\": 40 }"));
+        var session = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "configured toPass", Timeout = TimeSpan.FromSeconds(5) }
+        );
+        var error = await Assert.ThrowsAsync<TestException>(() => Expect.That(() => { }).Not.ToPassAsync());
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Equal("expect(...).not.toPass() timed out after 40 ms\nlast: the block passed", error.Message);
+        Assert.Empty(await session.CloseAsync());
+    }
+
+    [Fact]
+    public async Task Caps_an_explicitly_long_poll_at_the_session_deadline()
+    {
+        var host = await OpenAsync(new HostFakeEngine());
+        var session = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "session deadline", Timeout = TimeSpan.FromMilliseconds(100) }
+        );
+        var timeout = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.Poll(() => "running", Every(5, TimeSpan.FromSeconds(30))).ToBeAsync("done")
+        );
+        Assert.Equal("TEST_TIMEOUT", timeout.Code);
+        Assert.Equal("session timed out after 100 ms", timeout.Message);
+
+        var failures = await session.CloseAsync();
+        Assert.Equal(2, failures.Count);
+        Assert.Equal("TEST_TIMEOUT", Assert.IsAssignableFrom<E2EException>(failures[0]).Code);
+        var secondary = Assert.IsAssignableFrom<E2EException>(failures[1]);
+        Assert.Equal("ASSERTION_FAILED", secondary.Code);
+        Assert.Matches(
+            @"\Aexpect\.poll\(\.\.\.\)\.toBe\(\.\.\.\) stopped at the attempt deadline after \d+ ms\nlast: received ""running"", expected ""done""\z",
+            secondary.Message
+        );
+        var recorded = Assert.Single(session.Report()!.Run.Results[0].Attempts[0].SecondaryErrors);
+        Assert.Equal(secondary.Message, recorded.Message);
+        Assert.Equal(E2E.Reports.ErrorPhase.Body, recorded.Phase);
+        Assert.Contains("· timed out ·", await File.ReadAllTextAsync(session.TracePath));
+
+        var next = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "after timeout", Timeout = TimeSpan.FromSeconds(5) }
+        );
+        await Expect.Poll(() => true, null).ToBeAsync(true);
+        Assert.Empty(await next.CloseAsync());
+    }
+
+    [Theory]
+    [InlineData("session signal")]
+    [InlineData("host signal")]
+    [InlineData("session close")]
+    [InlineData("host close")]
+    public async Task Cancels_an_in_flight_poll_on_(string cancellation)
+    {
+        using var controller = new CancellationTokenSource();
+        var engine = new HostFakeEngine();
+        var host = await OpenAsync(
+            engine,
+            cancellationToken: cancellation == "host signal" ? controller.Token : default
+        );
+        var session = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = cancellation, Timeout = TimeSpan.FromSeconds(30) },
+            cancellation == "session signal" ? controller.Token : default
+        );
+        var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var poll = Expect
+            .Poll(
+                _ =>
+                {
+                    reading.TrySetResult();
+                    return new TaskCompletionSource<bool>().Task;
+                },
+                new PollOptions { Timeout = TimeSpan.FromSeconds(30) }
+            )
+            .ToBeAsync(true);
+        await reading.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        if (cancellation.EndsWith("signal", StringComparison.Ordinal))
+        {
+            await controller.CancelAsync();
+        }
+        else if (cancellation == "host close")
+        {
+            await host.CloseAsync();
+        }
+        else
+        {
+            await session.CloseAsync();
+        }
+
+        // Upstream maps a rejection to "cancelled" and a pass to "passed"; the poll here must reject, and not as a timeout.
+        var error = await Assert.ThrowsAnyAsync<Exception>(() => poll.WaitAsync(TimeSpan.FromSeconds(30)));
+        Assert.IsNotType<TestException>(error);
+        await session.CloseAsync();
+        Assert.Equal(1, engine.Disposes);
     }
 
     [Fact]

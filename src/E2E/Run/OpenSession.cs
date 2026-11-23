@@ -188,6 +188,14 @@ public sealed class E2EHost : IAsyncDisposable
     public Task<E2ESession> OpenSessionAsync(OpenSessionOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
+
+        // Upstream's hosted session publishes its attempt while it is open. The slot is reserved here, in the caller's flow (this method is not async),
+        // unless the caller runs inside a test's attempt, which keeps its own.
+        if (Attempts.CurrentAttempt() is null)
+        {
+            Attempts.Reserve();
+        }
+
         return OpeningRedaction.RedactOpening(async () =>
         {
             if (string.IsNullOrWhiteSpace(options.Name))
@@ -310,6 +318,7 @@ public sealed class E2EHost : IAsyncDisposable
             Trace = _target.Trace,
             Video = _target.Video,
             TestTimeout = timeout,
+            PublishesAttempt = true,
             Clock = _clock,
             LaunchTimeout = _config.LaunchTimeout,
             CleanupTimeout = _config.CleanupTimeout,
