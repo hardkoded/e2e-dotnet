@@ -94,7 +94,7 @@ public sealed class OpenHostDeadlineTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Partial_Applies_the_project_toPass_timeout_in_a_hosted_session()
+    public async Task Applies_the_project_toPass_timeout_in_a_hosted_session()
     {
         var host = await OpenAsync(new HostFakeEngine(), ConfigWith("\"toPass\": { \"timeout\": 40 }"));
         var session = await host.OpenSessionAsync(
