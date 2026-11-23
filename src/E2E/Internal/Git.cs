@@ -18,9 +18,11 @@ internal static partial class Git
     private static readonly TimeSpan Budget = TimeSpan.FromSeconds(1);
 
     /// <summary>A full SHA-1 or SHA-256 object name (upstream's <c>COMMIT_HASH</c>).</summary>
+    // Full Git SHA-1 and SHA-256 object IDs are exactly 40 and 64 digits;
+    // intermediate lengths are neither full format and must not certify provenance.
     public static Regex CommitHash { get; } = CommitHashPattern();
 
-    [GeneratedRegex(@"\A[a-f0-9]{40,64}\z")]
+    [GeneratedRegex(@"\A(?:[a-f0-9]{40}|[a-f0-9]{64})\z")]
     private static partial Regex CommitHashPattern();
 
     /// <summary>
