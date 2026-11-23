@@ -14,8 +14,37 @@ namespace E2E.NUnit.Tests.Registry;
 /// for what that leaves out: <c>describe.fail(title, fn)</c> and its registration checks (a non-boolean, non-string <c>fail</c> is not expressible in a
 /// property), and the <c>COLLECTION_ERROR</c> (the port refuses the serial case as the test's own <c>INVALID_ARGUMENT</c> when it runs).
 /// </summary>
+/// <remarks><c>Partial_registers_test_fixme...</c> leaves out the call of <c>test.fixme(title, fn)</c> outside a collection, which has no counterpart: an attribute needs no call.</remarks>
 public sealed class RegistrationTests
 {
+    [Test]
+    public void Partial_registers_test_fixme_title_fn_as_fixme_with_the_reason_fixme_and_rejects_it_in_a_serial_group()
+    {
+        var found = E2E.NUnit.RunSelection.Discover(
+            [typeof(FixmeRegistrationFixture)],
+            typeof(RegistrationTests).Assembly
+        );
+        var registered = found.Single();
+        Assert.That(registered.Title, Is.EqualTo(nameof(FixmeRegistrationFixture.Not_yet)));
+        Assert.That(registered.Fixme, Is.True);
+        Assert.That(registered.SkipReason, Is.EqualTo("fixme"));
+        var collection = HostTestFilters.Collect(found, [], [], out _);
+        Assert.That(collection.Tests.Single().Mode, Is.EqualTo(TestMode.Fixme));
+
+        var serial = E2E.NUnit.RunSelection.Discover(
+            [typeof(FixmeInSerialGroupFixture)],
+            typeof(RegistrationTests).Assembly
+        );
+        var error = Assert.Throws<ConfigurationException>(() => HostTestFilters.Collect(serial, [], [], out _))!;
+        Assert.That(error.Code, Is.EqualTo("COLLECTION_ERROR"));
+        Assert.That(
+            error.Message,
+            Is.EqualTo(
+                "[Fixme] cannot be used inside a serial group, which skips as one unit; set skip on the serial describe instead"
+            )
+        );
+    }
+
     [Test]
     public void Partial_marks_a_group_by_describe_fail_or_the_fail_option_and_checks_both()
     {

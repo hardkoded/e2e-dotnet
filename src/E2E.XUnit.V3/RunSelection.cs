@@ -128,12 +128,16 @@ internal static class RunSelection
                         TypeNameOf(type),
                         method.Name,
                         [.. typeTags, .. CategoriesOf(method)],
-                        // A skip with a condition (SkipUnless, SkipWhen) is decided when the test runs, so it is not an outright skip.
-                        string.IsNullOrEmpty(fact.Skip)
-                        || fact.SkipUnless is not null
-                        || fact.SkipWhen is not null
-                            ? null
-                            : fact.Skip
+                            // A skip with a condition (SkipUnless, SkipWhen) is decided when the test runs, so it is not an outright skip.
+                            method.GetCustomAttribute<FixmeAttribute>(true)
+                                is { } fixme
+                                ? E2E.Internal.Skip.FixmeReason(fixme.Reason)
+                            : string.IsNullOrEmpty(fact.Skip)
+                            || fact.SkipUnless is not null
+                            || fact.SkipWhen is not null
+                                ? null
+                            : fact.Skip,
+                        method.IsDefined(typeof(FixmeAttribute), true)
                     )
                 );
             }

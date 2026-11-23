@@ -113,6 +113,20 @@ public abstract partial class E2ETest : E2EFixture
         RejectParallelChildren(current.Test.MethodName);
         if (IsSerial)
         {
+            // Upstream refuses a skip inside a serial group at collection (COLLECTION_ERROR); an unfiltered run does not collect, so it is refused here, ahead of the session handover.
+            if (
+                TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo.IsDefined(
+                    typeof(FixmeAttribute),
+                    true
+                ) == true
+            )
+            {
+                throw new TestException(
+                    "COLLECTION_ERROR",
+                    "[Fixme] cannot be used inside a serial group, which skips as one unit; set skip on the serial describe instead"
+                );
+            }
+
             RejectInstancePerTest();
             if (NUnitSessionTestRunner.ExpectedFailureOf(TestExecutionContext.CurrentContext.CurrentTest) is not null)
             {
@@ -135,14 +149,25 @@ public abstract partial class E2ETest : E2EFixture
             }
         }
 
-        return StartSessionAsync(
+        var method = TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo;
+        var started = StartSessionAsync(
             CacheTitle(current.Test),
             AttemptOf(current),
             RecordSoftFailure,
             HasFailed,
             current.CancellationToken,
-            TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo
+            method
         );
+        return method?.GetCustomAttribute<FixmeAttribute>(true) is { } fixme
+            ? FixmeAfterAsync(started, fixme)
+            : started;
+    }
+
+    // A test registered with [Fixme] skips once its session has started, as a Fixme() from a [SetUp] does: the report tells the cause fixme.
+    private async Task FixmeAfterAsync(Task started, FixmeAttribute fixme)
+    {
+        await started.ConfigureAwait(false);
+        Fixme(true, fixme.Reason);
     }
 
     [TearDown]

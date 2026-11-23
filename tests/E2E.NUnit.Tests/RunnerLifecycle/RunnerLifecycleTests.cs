@@ -12,8 +12,8 @@ using NUnit.Framework.Internal;
 namespace E2E.NUnit.Tests.RunnerLifecycle;
 
 /// <summary>
-/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. <c>Partial_Reports_test_fixme...</c> leaves out the registered form
-/// <c>test.fixme(title, fn)</c> (the port has no registration API; hardkoded/e2e-dotnet#2078) and reads each result from the fixture's <c>report.json</c>.
+/// The fixme <c>it</c>s of upstream's <c>tests/integration/runner-lifecycle.test.ts</c>. <c>Partial_Reports_test_fixme...</c> reads each result from
+/// the fixture's <c>report.json</c>, and leaves out that the registered form <c>[Fixme]</c> (upstream's <c>test.fixme(title, fn)</c>) has no attempt: it starts its session before it skips.
 /// <c>Partial_Counts_a_serial_member...</c> leaves out the per-member cause and the executed count (a serial group reports as one result, #1241, #2078).
 /// </summary>
 public sealed class RunnerLifecycleTests
@@ -25,10 +25,11 @@ public sealed class RunnerLifecycleTests
     public void RemoveResults() => RunnerLifecycleResults.Clear();
 
     [Test]
-    public void Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_from_a_body_or_hook()
+    public void Partial_Reports_test_fixme_tests_skipped_with_the_reason_fixme_registered_or_from_a_body_or_hook()
     {
         string[] tests =
         [
+            nameof(FixmeFixture.Registered),
             nameof(FixmeFixture.Conditional),
             nameof(FixmeFixture.Condition_false_runs_on),
             nameof(FixmeFixture.Bare),
@@ -43,6 +44,9 @@ public sealed class RunnerLifecycleTests
         Assert.That(hooked.ResultState.Status, Is.EqualTo(TestStatus.Skipped), hooked.Message);
 
         var report = Read(typeof(FixmeFixture));
+        var registered = ByTitle(report, nameof(FixmeFixture.Registered));
+        Assert.That((string?)registered["status"], Is.EqualTo("skipped"));
+        AssertSkip(registered["skip"]!, "fixme");
         var conditional = ByTitle(report, nameof(FixmeFixture.Conditional));
         Assert.That((string?)conditional["status"], Is.EqualTo("skipped"));
         AssertSkip(conditional["skip"]!, "fixme: flaky on webkit");
@@ -102,6 +106,41 @@ public sealed class RunnerLifecycleTests
             Is.EqualTo(TestStatus.Passed),
             results[nameof(FixmeSerialFixture.B_step_2_runs)].Message
         );
+    }
+
+    // .NET-only: an unfiltered run never collects, so the serial-group rejection of registry.test is made when the member starts.
+    [Test]
+    public void Rejects_a_Fixme_member_of_a_serial_group_after_a_passing_member_on_an_unfiltered_run()
+    {
+        var results = Task.Run(() =>
+            {
+                var runner = new NUnitTestAssemblyRunner(new DefaultTestAssemblyBuilder());
+                runner.Load(typeof(FixmeAfterPassingSerialMemberFixture).Assembly, new Dictionary<string, object>());
+                var run = runner.Run(
+                    TestListener.NULL,
+                    TestFilter.FromXml(
+                        $"<filter><class>{typeof(FixmeAfterPassingSerialMemberFixture).FullName}</class></filter>"
+                    )
+                );
+                return Leaves(run).ToDictionary(result => result.Test.MethodName!);
+            })
+            .GetAwaiter()
+            .GetResult();
+
+        // The group's session is the first member's: it must have started and passed for the second to find a session to hand over.
+        var first = results[nameof(FixmeAfterPassingSerialMemberFixture.A_passes)];
+        Assert.That(first.ResultState.Status, Is.EqualTo(TestStatus.Passed), first.Message);
+        Assert.That(
+            first.EndTime,
+            Is.LessThanOrEqualTo(results[nameof(FixmeAfterPassingSerialMemberFixture.B_registered_fixme)].StartTime)
+        );
+        var member = results[nameof(FixmeAfterPassingSerialMemberFixture.B_registered_fixme)];
+        Assert.That(member.ResultState.Status, Is.EqualTo(TestStatus.Failed), member.Message);
+        Assert.That(
+            member.Message,
+            Does.Contain("COLLECTION_ERROR").And.Contain("[Fixme] cannot be used inside a serial group")
+        );
+        Assert.That(member.Message, Does.Not.Contain("must never run"));
     }
 
     [Test]

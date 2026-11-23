@@ -17,14 +17,18 @@ namespace E2E;
 /// <param name="TypeName">The simple name of the test class.</param>
 /// <param name="Title">The test's title.</param>
 /// <param name="Tags">The categories or traits of the test, its class, and its enclosing classes.</param>
-/// <param name="SkipReason">Why the test is skipped outright (<c>[Ignore]</c>); null when it is not.</param>
+/// <param name="SkipReason">Why the test is skipped outright (<c>[Ignore]</c>, or the reason <c>fixme</c> of a test marked <c>[Fixme]</c>); null when it is not.</param>
+/// <param name="Fixme">Whether the test is registered fixme with the host's <c>[Fixme]</c> (upstream's <c>test.fixme(title, fn)</c>); it runs far enough to report the cause <c>fixme</c>.</param>
+/// <param name="Serial">Whether the test is a member of a serial group; a fixme test in one is a collection error.</param>
 internal sealed record DiscoveredTest(
     string Key,
     string Namespace,
     string TypeName,
     string Title,
     IReadOnlyList<string> Tags,
-    string? SkipReason = null
+    string? SkipReason = null,
+    bool Fixme = false,
+    bool Serial = false
 );
 
 /// <summary>
@@ -361,6 +365,15 @@ internal static class HostTestFilters
             // Each title is checked where it registers, as upstream's registry checks a test() title (the port's registration is discovery).
             _ = RegisteredTitle(test.Title, secrets);
 
+            // Upstream's registerOne refuses a skip inside a serial group, so a file collects the same on every platform.
+            if (test.Fixme && test.Serial)
+            {
+                throw new ConfigurationException(
+                    "COLLECTION_ERROR",
+                    "[Fixme] cannot be used inside a serial group, which skips as one unit; set skip on the serial describe instead"
+                );
+            }
+
             // The id a session reports for the test: its class and method (.NET-only: the report names a test by what the framework runs).
             var id = Ids.TestId(
                 test.Namespace.Length == 0 ? test.TypeName : test.Namespace + "." + test.TypeName,
@@ -377,6 +390,7 @@ internal static class HostTestFilters
                     Tags = [.. test.Tags.Distinct(StringComparer.Ordinal)],
                     File = file,
                     Id = id,
+                    Mode = test.Fixme ? TestMode.Fixme : TestMode.Normal,
                     Options = new ResolvedTestOptions(
                         null,
                         [],

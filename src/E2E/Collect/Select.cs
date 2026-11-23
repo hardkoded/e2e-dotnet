@@ -649,7 +649,11 @@ internal static class Selector
 
         if (options.SkipReason is not null)
         {
-            return pair with { Disposition = Disposition.Skip, Skip = new SkipInfo("explicit", options.SkipReason) };
+            return pair with
+            {
+                Disposition = Disposition.Skip,
+                Skip = new SkipInfo(test.Mode == TestMode.Fixme ? "fixme" : "explicit", options.SkipReason),
+            };
         }
 
         return test.Kind == TestKind.Setup ? Filtered("setup test not required by selection") : pair;

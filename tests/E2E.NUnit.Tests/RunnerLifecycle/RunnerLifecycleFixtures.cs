@@ -45,6 +45,10 @@ public sealed class FixmeFixture : E2ETest
     protected override string? ResultsDirectory => RunnerLifecycleResults.Of(GetType());
 
     [Test]
+    [Fixme]
+    public void Registered() => throw new InvalidOperationException("a [Fixme] body must never run");
+
+    [Test]
     public async Task Conditional()
     {
         await App.OpenAsync("/");
@@ -130,6 +134,32 @@ public sealed class FixmeSerialFixture : E2ETest
 
     [Test]
     public void B_step_2_runs() { }
+}
+
+/// <summary>A serial group whose first member passes and whose second is registered with <c>[Fixme]</c>: refused on an unfiltered run too.</summary>
+[Explicit("Run by RunnerLifecycleTests")]
+[Serial]
+public sealed class FixmeAfterPassingSerialMemberFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null
+    );
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    protected override string? ResultsDirectory => RunnerLifecycleResults.Of(GetType());
+
+    [Test]
+    public void A_passes() { }
+
+    [Test]
+    [Fixme]
+    [DependsOnTest(nameof(A_passes))]
+    public void B_registered_fixme() => throw new InvalidOperationException("a [Fixme] body must never run");
 }
 
 /// <summary>A setup test that marks itself fixme: a setup may not skip.</summary>
