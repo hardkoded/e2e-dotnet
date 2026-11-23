@@ -220,7 +220,11 @@ internal static class HostTestFilters
     /// Reports one <c>[Fixme]</c> test the run fixture did not collect (an <c>[Explicit]</c> fixture runs alone, so discovery skips it), as skipped and
     /// selected with no attempt, so the host skips it before its session starts (.NET-only: upstream reports every fixme test from collection).
     /// </summary>
-    public static async Task ReportFixmeAsync(E2EConfig config, DiscoveredTest test, CancellationToken cancellationToken)
+    public static async Task ReportFixmeAsync(
+        E2EConfig config,
+        DiscoveredTest test,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(test);
