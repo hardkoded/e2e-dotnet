@@ -21,7 +21,8 @@ public static class IsolatedHost
         try
         {
             var copy = context.LoadFromAssemblyPath(typeof(IsolatedHost).Assembly.Location);
-            var run = copy.GetType(typeof(IsolatedHost).FullName!)!.GetMethod(nameof(RunAsync), BindingFlags.Public | BindingFlags.Static)!;
+            var run = copy.GetType(typeof(IsolatedHost).FullName!)!
+                .GetMethod(nameof(RunAsync), BindingFlags.Public | BindingFlags.Static)!;
             return await (Task<string?>)run.Invoke(null, [cwd])!;
         }
         finally
