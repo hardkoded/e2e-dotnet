@@ -329,6 +329,11 @@ public abstract partial class E2ETest : E2EFixture
 
         FailSkippedAfterSoftFailure();
         var current = global::NUnit.Framework.TestContext.CurrentContext;
+        if (CurrentSession is { } session)
+        {
+            KeepSkipBesideFailure(session);
+        }
+
         Exception? late = null;
         try
         {

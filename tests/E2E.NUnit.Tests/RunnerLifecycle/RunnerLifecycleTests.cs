@@ -93,6 +93,17 @@ public sealed class RunnerLifecycleTests
         Assert.That((string?)member["attempts"]![0]!["skip"]!["reason"], Is.EqualTo("not ready"));
     }
 
+    // .NET-only: the serial-group counterpart of the test above; upstream has no Assert.Ignore.
+    [Test]
+    public void Keeps_the_explicit_cause_beside_a_failure_of_a_serial_member_that_skips_with_Assert_Ignore()
+    {
+        var verdict = NestedRun.Run(nameof(IgnoreBesideFailureSerialFixture.Ignored_beside_a_failure));
+        Assert.That(verdict.ResultState.Status, Is.EqualTo(TestStatus.Failed), verdict.Message);
+        var report = Read(typeof(IgnoreBesideFailureSerialFixture));
+        var member = ByTitle(report, nameof(IgnoreBesideFailureSerialFixture.Ignored_beside_a_failure));
+        Assert.That((string?)member["attempts"]![0]!["skip"]!["cause"], Is.EqualTo("explicit"));
+    }
+
     [Test]
     public void Partial_Counts_a_serial_member_that_marks_itself_fixme_as_executed_with_the_cause_fixme()
     {
