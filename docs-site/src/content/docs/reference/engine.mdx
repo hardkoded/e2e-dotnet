@@ -641,7 +641,7 @@ One node of an observation tree. `Ref` is valid only for the observation it came
 | `Placeholder` | The field's placeholder. |
 | `InputPurpose` | What a field takes, deciding which secrets may fill it: `username`, `password`, `one-time-code`, `generic-secret`, or `none`. |
 | `Level` | Heading level of a heading node. |
-| `States` | `NodeStates`: `Checked`, `Disabled`, `Expanded`, `Focused`, `Hidden`, `Secure`, `Selected`, `Pressed`, and the .NET-only `CheckedReported`, `ExpandedAbsent`, `Mixed`, `EmptyBox`. `Secure` marks a field whose value is never observed. |
+| `States` | `NodeStates`: `Checked`, `Disabled`, `Expanded`, `Focused`, `Hidden`, `Secure`, `Readonly`, `Selected`, `Pressed`, and the .NET-only `CheckedReported`, `ExpandedAbsent`, `Mixed`, `EmptyBox`. `Secure` marks a field whose value is never observed. `Readonly` is a nullable `bool?`, present only on a node that has a read-only state, as Playwright's `getReadonly` decides on the web (an input, textarea, or select by its `readonly` attribute, an element whose ARIA role takes `aria-readonly` by that attribute, any other editing host `false`), and only where the platform knows, as Android does: null means the node has no read-only state to read, not false. |
 | `Attributes` | Platform attributes by name, what `GetAttributeAsync` reads. A secure field never reports its value. |
 | `Rect` | The node's `BoundingBox` in the top-level viewport's CSS pixels, including nodes inside nested documents. |
 | `Origin` | The `Point` an offset into the node is measured from, when it is not `Rect`'s top-left corner. |

@@ -5930,6 +5930,7 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
                     Hidden = dto.Hidden,
                     Pressed = dto.Pressed,
                     Secure = dto.Secure,
+                    Readonly = dto.Readonly,
                     Selected = dto.Selected,
                 },
                 Attributes = dto.Attributes ?? new Dictionary<string, string>(StringComparer.Ordinal),
@@ -6308,6 +6309,8 @@ public sealed partial class WebEngine : IEngine, IEngine<WebFixtures>
         public bool Hidden { get; set; }
 
         public bool Secure { get; set; }
+
+        public bool? Readonly { get; set; }
 
         public bool Frame { get; set; }
 

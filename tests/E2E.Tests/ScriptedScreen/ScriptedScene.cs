@@ -107,6 +107,7 @@ internal sealed class ScriptedScene : IDisposable
                 Focused = node.Focused,
                 Hidden = node.Hidden,
                 Secure = node.Secure,
+                Readonly = node.Readonly,
                 Selected = node.Selected,
                 Pressed = node.Pressed,
             },

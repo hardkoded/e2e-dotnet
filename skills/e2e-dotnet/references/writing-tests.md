@@ -416,13 +416,21 @@ node under the soft keyboard is hidden, so the scroll goes on (topic `mobile`, "
 `Expect.That(locator)` polls until the assertion timeout, reading at 0, 20, and
 50 ms, then every 100 ms from the start:
 `ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToBeAttachedAsync`,
-`ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeCheckedAsync`,
+`ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeEditableAsync`, `ToBeCheckedAsync`,
 `ToContainTextAsync`, `ToHaveTextAsync`, `ToHaveValueAsync`,
 `ToHaveCountAsync`, `ToHaveAttributeAsync`, and more. `.Not` inverts a
 matcher. On a device, a node whose centre the soft keyboard covers is hidden for
 `ToBeVisibleAsync` and `ToBeHiddenAsync`, except the keyboard's own keys,
 suggestion bar, and dock, the focused field, and a container with a child still
 showing (see the mobile reference).
+- `ToBeEditableAsync()` waits for an enabled control that is not read-only;
+  `ToBeEditableAsync(false)` waits for a disabled or read-only one. It reads the node's
+  `readonly` state, which the web engine reports by Playwright's `getReadonly` rules: an
+  `input`, `textarea`, or `select` by its `readonly` attribute alone, an element whose ARIA
+  role takes `aria-readonly` by that attribute (any case), any other editing host and
+  anything inside one never. A disabled node is not editable. Any other node, such as a
+  button, has no read-only state and fails the matcher, negated too. On a device only
+  Android reports it, for text fields and comboboxes; an iOS field fails the matcher.
 
 - `Expect.That(Screen).ToHaveScreenshotAsync("home.png")` compares the whole
   screen, and `Expect.That(locator).ToHaveScreenshotAsync()` one element's box,

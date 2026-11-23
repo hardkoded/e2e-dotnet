@@ -54,6 +54,14 @@ public sealed class NodeStates
 
     public bool Secure { get; init; }
 
+    /// <summary>
+    /// The node's read-only state, present only where the platform has one: on the web as Playwright's <c>getReadonly</c> decides
+    /// (an input, textarea, or select by its <c>readonly</c> attribute, an element whose ARIA role takes <c>aria-readonly</c> by that
+    /// attribute, any other editing host false), on Android a text field or combobox. Null means the node has no read-only state to read,
+    /// not false. <c>ToBeEditableAsync</c> reads it.
+    /// </summary>
+    public bool? Readonly { get; init; }
+
     public bool Selected { get; init; }
 
     public bool Pressed { get; init; }

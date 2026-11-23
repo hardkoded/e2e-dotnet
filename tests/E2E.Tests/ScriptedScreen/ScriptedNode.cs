@@ -44,6 +44,8 @@ internal sealed class ScriptedNode
 
     public bool Secure { get; init; }
 
+    public bool? Readonly { get; init; }
+
     public bool Selected { get; init; }
 
     public bool Pressed { get; set; }

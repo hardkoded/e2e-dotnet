@@ -384,7 +384,7 @@ internal static class ReadSemantics
             // Last: an element with no role of its own that is an empty painted rectangle is a `box`, so the walk and a re-read agree.
             return isVisibleEmptyBox(el) ? "box" : null;
           };
-          const roleOf = (el) => {
+          const computeRole = (el, editorHostIsTextbox) => {
             const explicit = explicitRole(el);
             const tagName = el.tagName.toLowerCase();
             if (explicit !== null && !((explicit === "presentation" || explicit === "none") && hasPresentationConflict(el, NAME_PROHIBITED_TAG_ROLES[tagName] ?? null))) {
@@ -392,10 +392,13 @@ internal static class ReadSemantics
               return explicit === "img" ? "image" : explicit;
             }
             // Ahead of the tag: an editor's host is the control, whatever landmark or structure its tag would otherwise be.
-            if (isEditingHost(el)) return "textbox";
+            if (editorHostIsTextbox && isEditingHost(el)) return "textbox";
             const role = tagRole(el);
             return role === null ? null : inheritedPresentationRole(el) ?? role;
           };
+          const roleOf = (el) => computeRole(el, true);
+          // The ARIA role Playwright's getAriaRole reads: the tag's role, without the editor-host textbox. A plain <div contenteditable> has none.
+          const ariaRoleOf = (el) => computeRole(el, false);
           // The accessible name, by upstream's accname rules. A walk's
           // inReference is set inside an aria-labelledby traversal, where a
           // nested reference is not followed (2B); hiddenAllowed when that
@@ -780,6 +783,22 @@ internal static class ReadSemantics
           // (outside its first legend), and a disabled optgroup. aria-disabled
           // on the element counts for any role; inherited, it reaches only the
           // roles the state applies to.
+          // The roles that take aria-readonly, as Playwright's getReadonly lists them.
+          const ARIA_READONLY_ROLES = ["checkbox", "combobox", "grid", "gridcell", "listbox", "radiogroup", "slider", "spinbutton", "textbox",
+            "columnheader", "rowheader", "searchbox", "switch", "treegrid"];
+          // Whether the element is read-only, as Playwright's getReadonly reads it: an input, textarea, or select by its own readonly attribute
+          // alone; an aria-readonly role by that attribute, case folded (an editing host by its ARIA role, not the textbox it reads as); an
+          // editing host (or any element inside one) otherwise never. Null for anything else, which has no read-only state.
+          const readOnlyOf = (el, role) => {
+            const tag = el.tagName.toLowerCase();
+            if (tag === "input" || tag === "textarea" || tag === "select") return el.hasAttribute("readonly");
+            const ariaRole = isEditingHost(el) ? ariaRoleOf(el) : role;
+            if (ariaRole !== null && ARIA_READONLY_ROLES.indexOf(ariaRole) !== -1) {
+              return (el.getAttribute("aria-readonly") || "").toLowerCase() === "true";
+            }
+            if (el instanceof HTMLElement && el.isContentEditable) return false;
+            return null;
+          };
           const disabledOf = (el, role) => {
             if (el.matches(":disabled")) return true;
             if (el.getAttribute("aria-disabled") === "true") return true;
@@ -1026,6 +1045,7 @@ internal static class ReadSemantics
               focused: el === focused,
               hidden: isHidden,
               secure,
+              readonly: readOnlyOf(el, role),
               frame: isFrame,
               attributes: attributesOf(el, secure, testIdAttribute),
               // Upstream's node read keeps the whole href; the tree's attributes reduce it to origin and path.
