@@ -173,7 +173,7 @@ internal static class InitFlags
         string? framework = null;
         if (values.TryGetValue("framework", out var frameworkName))
         {
-            framework = Frameworks.All.FirstOrDefault(preset => preset.Id == frameworkName)?.Id;
+            framework = TestFrameworks.All.FirstOrDefault(preset => preset.Id == frameworkName)?.Id;
             if (framework is null)
             {
                 return (
@@ -181,7 +181,7 @@ internal static class InitFlags
                     "error: option '--framework' argument '"
                         + frameworkName
                         + "' is invalid. Allowed choices are "
-                        + string.Join(", ", Frameworks.All.Select(preset => preset.Id))
+                        + string.Join(", ", TestFrameworks.All.Select(preset => preset.Id))
                         + "."
                 );
             }

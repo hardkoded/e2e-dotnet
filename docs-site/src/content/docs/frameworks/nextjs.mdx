@@ -3,13 +3,21 @@ title: Next.js
 description: Add E2E to a Next.js app, test it on `next dev` locally and on a production build in CI.
 ---
 
-This ports upstream's Next.js page (`docs/frameworks/nextjs.mdx`, with its `docs/examples/nextjs/e2e.config.ts`). The port has no `e2e init` for a Next.js app, no `SetupPrompt` card, and no `with-next` starter, so the page starts from a [web suite](/get-started/web/) and leaves out "Start a new app". The config is C# code, because `e2e.config.json` can't read `CI`.
+This ports upstream's Next.js page (`docs/frameworks/nextjs.mdx`, with its `docs/examples/nextjs/e2e.config.ts`). `e2e init` writes the Next.js target (below), but the port has no `SetupPrompt` card, and no `with-next` starter, so the page starts from a [web suite](/get-started/web/) and leaves out "Start a new app". The config is C# code, because `e2e.config.json` can't read `CI`.
 
 This page adds E2E to an existing Next.js app. The runner starts `next dev` on your machine and `next start` in CI, and the web engine tests the app in Chromium.
 
 ## Start the app from the config
 
-Set `app.command` so the first test starts your app and waits until `app.url` answers. A fixture base class builds the config in code, with `E2EConfig.IsCi()` choosing the command. It reads `CI` as E2E does: unset, `""`, `0`, and `false` mean a local run.
+`e2e init` finds `next` in the `package.json` above the test project and, in a new config, writes a web target that starts the app, then prints what it wrote:
+
+```text title="Output"
+Found Next.js: the web target starts npm run dev on http://localhost:3000
+```
+
+The target runs the `dev` script with your package manager and `reuseExisting: true`, on the port of your `dev` script (`--port`, `-p`, or `PORT=` on the `next` command, else 3000). Because `e2e.config.json` can't read `CI`, it runs `dev` in CI too; upstream's `init` writes the `start` command for CI when `build` and `start` scripts serve the same port, which the code config below does.
+
+Set `app.command` yourself so the first test starts your app and waits until `app.url` answers. A fixture base class builds the config in code, with `E2EConfig.IsCi()` choosing the command. It reads `CI` as E2E does: unset, `""`, `0`, and `false` mean a local run.
 
 ```csharp title="NextTest.cs"
 using E2E.NUnit;

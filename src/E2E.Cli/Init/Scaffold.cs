@@ -23,12 +23,19 @@ internal sealed record ScaffoldTest(string Name, string Content);
 /// <param name="Config">The config file's text.</param>
 /// <param name="Tests">The example test files.</param>
 /// <param name="NeedsAppUrl">Whether the example drives a URL the user's app must answer.</param>
+/// <param name="StartsApp">Whether the config starts the app, which a fresh CI machine needs.</param>
 internal sealed record ScaffoldResult(
     IReadOnlyList<KeyValuePair<string, string>> Dependencies,
     string Config,
     IReadOnlyList<ScaffoldTest> Tests,
-    bool NeedsAppUrl
+    bool NeedsAppUrl,
+    bool StartsApp
 );
+
+/// <summary>A detected app the web target starts with the project's package manager (upstream's <c>ScaffoldApp</c>).</summary>
+/// <param name="App">The app init found.</param>
+/// <param name="Manager">The package manager: <c>npm</c>, <c>pnpm</c>, <c>yarn</c>, or <c>bun</c>.</param>
+internal sealed record ScaffoldApp(FrameworkApp App, string Manager);
 
 /// <summary>
 /// Upstream's <c>cli/init/scaffold.ts</c>. It writes <c>e2e.config.json</c> where upstream writes <c>e2e.config.ts</c>, a C#
@@ -60,6 +67,35 @@ internal static class Scaffold
         agent["system"] = "You are a thorough QA agent. Verify every outcome.";
         return new JsonObject { ["default"] = agent };
     }
+
+    /// <summary>An <c>app.command</c> that runs a package.json script with the project's package manager (upstream's <c>scriptCommand</c>).</summary>
+    private static JsonObject ScriptCommand(string manager, string script, bool reuse)
+    {
+        var command = new JsonObject { ["executable"] = manager, ["args"] = new JsonArray("run", script) };
+        if (reuse)
+        {
+            command["reuseExisting"] = true;
+        }
+
+        return command;
+    }
+
+    /// <summary>
+    /// The web target for a detected app (upstream's <c>appTarget</c>): its URL, and the command that starts it. The runner
+    /// starts the dev server or reuses one already on the port. Upstream serves the production build in CI with a
+    /// <c>CI</c> switch the JSON config cannot express, so the dev server runs there too.
+    /// </summary>
+    private static JsonObject AppTarget(ScaffoldApp scaffoldApp) =>
+        new()
+        {
+            ["name"] = "web",
+            ["platform"] = "web",
+            ["app"] = new JsonObject
+            {
+                ["url"] = scaffoldApp.App.Url,
+                ["command"] = ScriptCommand(scaffoldApp.Manager, scaffoldApp.App.Dev, true),
+            },
+        };
 
     /// <summary>The example of a config with no engine, which keeps the default web target: a request to the app, without a browser.</summary>
     private static string NoEngineExample(FrameworkPreset framework, string rootNamespace) =>
@@ -113,11 +149,12 @@ internal static class Scaffold
         IReadOnlyList<string> engineIds,
         ScaffoldModel? model,
         FrameworkPreset? framework = null,
-        string rootNamespace = "E2E.Tests"
+        string rootNamespace = "E2E.Tests",
+        ScaffoldApp? app = null
     )
     {
         ArgumentNullException.ThrowIfNull(engineIds);
-        framework ??= Frameworks.Get(Frameworks.DefaultFrameworkId);
+        framework ??= TestFrameworks.Get(TestFrameworks.DefaultFrameworkId);
         var engines = engineIds.Select(Engines.GetEnginePreset).ToList();
         if (engines.Count > 1)
         {
@@ -127,8 +164,13 @@ internal static class Scaffold
         var config = new JsonObject();
         if (engines.Count == 1)
         {
-            config["targets"] = new JsonArray(engines[0].Target());
+            config["targets"] = new JsonArray(
+                engines[0].Id == "web" && app is not null ? AppTarget(app) : engines[0].Target()
+            );
         }
+
+        // Only the web target reads the detected app.
+        var webApp = engines.Any(engine => engine.Id == "web") ? app : null;
 
         if (model is not null)
         {
@@ -153,9 +195,10 @@ internal static class Scaffold
             dependencies,
             config.ToJsonString(Indented) + "\n",
             [new ScaffoldTest("ExampleTests", content)],
-            // An engine-less config's example requests APP_URL too.
+            // An engine-less config's example requests APP_URL too; a detected app's target has its own URL.
             engines.Count == 0
-                || engines.Any(engine => engine.NeedsAppUrl)
+                || engines.Any(engine => engine.NeedsAppUrl && !(engine.Id == "web" && webApp is not null)),
+            webApp is not null
         );
     }
 }

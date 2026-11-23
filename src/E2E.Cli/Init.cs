@@ -124,6 +124,9 @@ internal static partial class Init
 {
     private const string GatewayDefault = "vercel";
 
+    /// <summary>Where the docs are published (upstream's <c>DOCS_URL</c>).</summary>
+    private const string DocsUrl = "https://www.hardkoded.com/e2e-dotnet";
+
     private static readonly string[] GitignoreEntries =
     [
         "bin/",
@@ -297,11 +300,11 @@ internal static partial class Init
         var cwd = root;
 
         // A new project is made for the framework the flag names, else NUnit; an existing one keeps the framework it uses.
-        var requested = options.Framework is null ? null : Frameworks.Get(options.Framework);
+        var requested = options.Framework is null ? null : TestFrameworks.Get(options.Framework);
         PackageProject pkg;
         try
         {
-            pkg = Package.ReadPackage(cwd, requested ?? Frameworks.Get(Frameworks.DefaultFrameworkId));
+            pkg = Package.ReadPackage(cwd, requested ?? TestFrameworks.Get(TestFrameworks.DefaultFrameworkId));
         }
         catch (InvalidOperationException cause)
         {
@@ -309,7 +312,7 @@ internal static partial class Init
             return Done(InitResult.InvalidProject, 2);
         }
 
-        var detected = Frameworks.Detect(Package.DeclaredDependencies(pkg));
+        var detected = TestFrameworks.Detect(Package.DeclaredDependencies(pkg));
         if (requested is not null && detected is not null && requested.Id != detected.Id)
         {
             log.Error(
@@ -318,7 +321,7 @@ internal static partial class Init
             return Done(InitResult.InvalidProject, 2);
         }
 
-        var framework = requested ?? detected ?? Frameworks.Get(Frameworks.DefaultFrameworkId);
+        var framework = requested ?? detected ?? TestFrameworks.Get(TestFrameworks.DefaultFrameworkId);
         var bundledSkill = (options.ReadSkillFiles ?? Skill.ReadFiles)();
         if (bundledSkill.Count == 0)
         {
@@ -558,7 +561,33 @@ internal static partial class Init
         }
 
         var projectName = pkg.FileName is null ? ProjectNameOf(cwd) : Path.GetFileNameWithoutExtension(pkg.FileName);
-        var scaffold = Scaffold.CreateScaffold(engines, model, framework, RootNamespaceOf(projectName));
+        var repositoryRoot = Ci.FindRepositoryRoot(cwd, root);
+
+        // A new config's web target starts an app init recognizes, such as Next.js, with the project's own scripts.
+        ScaffoldApp? app = null;
+        if (
+            !existingConfig
+            && engines.Contains("web")
+            && Ci.FindAppDir(cwd, repositoryRoot) is { } appFolder
+            && Ci.ReadFrameworkManifest(appFolder) is { } manifest
+        )
+        {
+            var manager = Ci.DetectManager(appFolder, repositoryRoot).Manager;
+            switch (Frameworks.DetectFramework(manifest))
+            {
+                case FrameworkApp found:
+                    log.Info(DescribeApp(found, manager));
+                    app = new ScaffoldApp(found, manager);
+                    break;
+                case UnsupportedFramework unsupported:
+                    log.Warn(
+                        $"Found {unsupported.Framework}, but {unsupported.Reason}; set app.url and app.command in {E2EConfig.FileName}, see {DocsUrl}{unsupported.Docs}"
+                    );
+                    break;
+            }
+        }
+
+        var scaffold = Scaffold.CreateScaffold(engines, model, framework, RootNamespaceOf(projectName), app);
 
         // A config with an example test of its own keeps it; a re-run adds no second one.
         var tests =
@@ -584,8 +613,6 @@ internal static partial class Init
                     + string.Join(", ", additions.Select(addition => addition.Key + "@" + addition.Value))
             );
         }
-
-        var repositoryRoot = Ci.FindRepositoryRoot(cwd, root);
 
         // A new config's engines are the ones just chosen; an existing config's are the ones its project references.
         var engineInstalled = existingConfig
@@ -838,6 +865,7 @@ internal static partial class Init
                 model,
                 existingConfig ? File.ReadAllText(Path.Combine(cwd, E2EConfig.FileName)) : null,
                 [.. engines.Select(id => Engines.GetEnginePreset(id).Target())],
+                scaffold.StartsApp,
                 declared,
                 junit,
                 log
@@ -891,6 +919,10 @@ internal static partial class Init
         return Done(InitResult.Scaffolded, 0);
     }
 
+    /// <summary>The line init prints for a detected app (upstream's <c>describeApp</c>): the framework, the command the target runs, and its URL.</summary>
+    private static string DescribeApp(FrameworkApp app, string manager) =>
+        $"Found {app.Framework}: the web target starts {Ci.RunScriptCommand(manager, app.Dev)} on {app.Url}";
+
     /// <summary>
     /// Plans the pipeline's jobs from the config's targets and writes it, then says what the user still has to do for it to
     /// pass (upstream's <c>writePipeline</c> and <c>planWorkflow</c>). A config that does not read falls back to its project: with
@@ -907,6 +939,7 @@ internal static partial class Init
         ScaffoldModel? model,
         string? existingConfigText,
         IReadOnlyList<JsonObject> newTargets,
+        bool newStartsApp,
         IReadOnlyList<string> declared,
         bool junit,
         InitLog log
@@ -1078,7 +1111,9 @@ internal static partial class Init
             );
         }
 
-        if (jobs.Web is not null && !(config is not null && Ci.ConfigStartsApp(config)))
+        // A new config starts only an app init detected; otherwise it has no app.command.
+        var startsApp = existingConfigText is null ? newStartsApp : config is not null && Ci.ConfigStartsApp(config);
+        if (jobs.Web is not null && !startsApp)
         {
             log.Warn(
                 "Nothing starts the app in CI: set app.command in " + E2EConfig.FileName + " so the runner starts it"

@@ -20,6 +20,28 @@ namespace E2E.Cli.Tests.CliInit;
 public sealed class InitializingStandaloneProjectsTests : CliInitTestBase
 {
     [Fact]
+    // Partial: the config is JSON, so the dev script starts for every CI value, and the production start script has no counterpart.
+    public async Task Partial_Loads_the_Next_js_scaffold_and_starts_the_dev_script()
+    {
+        await File.WriteAllTextAsync(
+            Path_("package.json"),
+            """{ "scripts": { "dev": "next dev -p 3100", "build": "next build", "start": "next start -p 3100" }, "dependencies": { "next": "16.4.6" } }"""
+        );
+        File.WriteAllText(Path_("pnpm-lock.yaml"), "");
+        Assert.Equal(0, (await RunInitAsync(yes: true)).ExitCode);
+
+        foreach (var ci in new[] { "", "1" })
+        {
+            var config = E2EConfig.Load(Path_("e2e.config.json"), name => name == "CI" ? ci : null);
+            var app = config.Targets[0].App;
+            Assert.Equal("http://localhost:3100", app.Url?.TrimEnd((char)47));
+            Assert.Equal("pnpm", app.Command?.Executable);
+            Assert.Equal(["run", "dev"], app.Command?.Args);
+            Assert.True(app.Command?.ReuseExisting);
+        }
+    }
+
+    [Fact]
     // Partial: the port has no npm and no npm cache. The installed e2e tool is stood in for by a shim on the PATH, as upstream links a .bin shim, and the server starts without network access.
     public async Task Partial_Starts_the_installed_MCP_server_from_the_generated_Codex_config_with_an_empty_npm_cache_offline()
     {

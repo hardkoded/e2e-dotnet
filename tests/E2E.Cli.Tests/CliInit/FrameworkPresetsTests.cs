@@ -40,7 +40,7 @@ public sealed class FrameworkPresetsTests
                 reference => (string)reference.Attribute("Include")!,
                 reference => (string)reference.Attribute("Version")!
             );
-        Assert.All(Frameworks.Get(id).Dependencies, dependency =>
+        Assert.All(TestFrameworks.Get(id).Dependencies, dependency =>
             Assert.Equal(pinned[dependency.Key], dependency.Value)
         );
     }
@@ -48,13 +48,13 @@ public sealed class FrameworkPresetsTests
     [Fact]
     public void Detect_the_framework_from_the_packages_a_project_names()
     {
-        Assert.Equal("nunit", Frameworks.Detect(["Microsoft.NET.Test.Sdk", "NUnit3TestAdapter"])?.Id);
-        Assert.Equal("xunit", Frameworks.Detect(["xunit.v3.mtp-off"])?.Id);
-        Assert.Null(Frameworks.Detect(["Microsoft.NET.Test.Sdk", "E2E"]));
-        Assert.Equal("xunit", Frameworks.Detect(["E2E", "E2E.XUnit.V3"])?.Id);
-        Assert.Equal("nunit", Frameworks.Detect(["E2E.Mobile.NUnit"])?.Id);
-        Assert.Equal("tunit", Frameworks.Detect(["TUnit"])?.Id);
-        Assert.Equal("tunit", Frameworks.Detect(["E2E", "E2E.TUnit"])?.Id);
-        Assert.Equal("tunit", Frameworks.Detect(["E2E.Mobile.TUnit"])?.Id);
+        Assert.Equal("nunit", TestFrameworks.Detect(["Microsoft.NET.Test.Sdk", "NUnit3TestAdapter"])?.Id);
+        Assert.Equal("xunit", TestFrameworks.Detect(["xunit.v3.mtp-off"])?.Id);
+        Assert.Null(TestFrameworks.Detect(["Microsoft.NET.Test.Sdk", "E2E"]));
+        Assert.Equal("xunit", TestFrameworks.Detect(["E2E", "E2E.XUnit.V3"])?.Id);
+        Assert.Equal("nunit", TestFrameworks.Detect(["E2E.Mobile.NUnit"])?.Id);
+        Assert.Equal("tunit", TestFrameworks.Detect(["TUnit"])?.Id);
+        Assert.Equal("tunit", TestFrameworks.Detect(["E2E", "E2E.TUnit"])?.Id);
+        Assert.Equal("tunit", TestFrameworks.Detect(["E2E.Mobile.TUnit"])?.Id);
     }
 }
